@@ -25,20 +25,11 @@ import {
   companyMemberships,
 } from "@paperclipai/db";
 import { buildIssuePrefixCandidate, deriveIssuePrefixBase } from "@paperclipai/shared";
+import { isUniqueViolation } from "../errors.js";
+
+const COMPANY_PREFIX_CONSTRAINTS = ["companies_issue_prefix_idx", "issue_prefixes_pkey"];
 
 export function companyService(db: Db) {
-  function isIssuePrefixConflict(error: unknown) {
-    const constraint = typeof error === "object" && error !== null && "constraint" in error
-      ? (error as { constraint?: string }).constraint
-      : typeof error === "object" && error !== null && "constraint_name" in error
-        ? (error as { constraint_name?: string }).constraint_name
-        : undefined;
-    return typeof error === "object"
-      && error !== null
-      && "code" in error
-      && (error as { code?: string }).code === "23505"
-      && (constraint === "companies_issue_prefix_idx" || constraint === "issue_prefixes_pkey");
-  }
 
   async function createCompanyWithUniquePrefix(data: typeof companies.$inferInsert) {
     const base = deriveIssuePrefixBase(data.name);
@@ -62,7 +53,7 @@ export function companyService(db: Db) {
         });
         return company;
       } catch (error) {
-        if (!isIssuePrefixConflict(error)) throw error;
+        if (!isUniqueViolation(error, COMPANY_PREFIX_CONSTRAINTS)) throw error;
       }
       attempt += 1;
     }

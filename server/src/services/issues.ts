@@ -438,6 +438,12 @@ export function issueService(db: Db) {
             throw notFound("Company not found");
           }
           prefixCounter = { prefix: company.issuePrefix, counter: company.issueCounter };
+          // Backfill the registry for pre-migration companies that don't have a row yet.
+          // onConflictDoNothing handles the race where another concurrent request already
+          // inserted the row — in that case, the registry counter may lag behind the
+          // companies.issueCounter, but subsequent requests will use the registry path
+          // (incrementPrefixCounter) and converge. The companies.issueCounter sync below
+          // keeps the legacy column in sync for this transaction.
           await tx
             .insert(issuePrefixes)
             .values({

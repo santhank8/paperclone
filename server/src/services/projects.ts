@@ -11,7 +11,7 @@ import {
   type ProjectGoalRef,
   type ProjectWorkspace,
 } from "@paperclipai/shared";
-import { conflict } from "../errors.js";
+import { conflict, isUniqueViolation } from "../errors.js";
 
 type ProjectRow = typeof projects.$inferSelect;
 type ProjectWorkspaceRow = typeof projectWorkspaces.$inferSelect;
@@ -139,23 +139,7 @@ async function syncGoalLinks(dbOrTx: any, projectId: string, companyId: string, 
   }
 }
 
-function readConstraintName(error: unknown): string | undefined {
-  if (typeof error !== "object" || error === null) return undefined;
-  if ("constraint" in error && typeof (error as { constraint?: unknown }).constraint === "string") {
-    return (error as { constraint: string }).constraint;
-  }
-  if ("constraint_name" in error && typeof (error as { constraint_name?: unknown }).constraint_name === "string") {
-    return (error as { constraint_name: string }).constraint_name;
-  }
-  return undefined;
-}
-
-function isIssuePrefixConflict(error: unknown): boolean {
-  if (typeof error !== "object" || error === null || !("code" in error)) return false;
-  if ((error as { code?: string }).code !== "23505") return false;
-  const constraint = readConstraintName(error);
-  return constraint === "issue_prefixes_pkey" || constraint === "issue_prefixes_owner_id_idx";
-}
+const PROJECT_PREFIX_CONSTRAINTS = ["issue_prefixes_pkey", "issue_prefixes_owner_id_idx"];
 
 async function resequenceProjectIssues(
   tx: any,
@@ -372,7 +356,7 @@ export function projectService(db: Db) {
           const [enriched] = withGoals ? await attachWorkspaces(db, [withGoals]) : [];
           return enriched!;
         } catch (error) {
-          if (!isIssuePrefixConflict(error)) throw error;
+          if (!isUniqueViolation(error, PROJECT_PREFIX_CONSTRAINTS)) throw error;
           if (explicitPrefix) {
             throw conflict(`Issue prefix '${candidatePrefix}' is already in use.`);
           }
@@ -463,7 +447,7 @@ export function projectService(db: Db) {
           return updated;
         });
       } catch (error) {
-        if (isIssuePrefixConflict(error) && requestedIssuePrefix) {
+        if (isUniqueViolation(error, PROJECT_PREFIX_CONSTRAINTS) && requestedIssuePrefix) {
           throw conflict(`Issue prefix '${requestedIssuePrefix}' is already in use.`);
         }
         throw error;
