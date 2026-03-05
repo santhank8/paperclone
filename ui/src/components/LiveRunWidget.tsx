@@ -7,7 +7,7 @@ import { getUIAdapter } from "../adapters";
 import type { TranscriptEntry } from "../adapters";
 import { queryKeys } from "../lib/queryKeys";
 import { cn, relativeTime, formatDateTime } from "../lib/utils";
-import { ExternalLink, Square } from "lucide-react";
+import { ExternalLink, Square, MessageSquare, Layers } from "lucide-react";
 import { Identity } from "./Identity";
 import { StatusBadge } from "./StatusBadge";
 
@@ -184,6 +184,7 @@ export function LiveRunWidget({ issueId, companyId }: LiveRunWidgetProps) {
   const queryClient = useQueryClient();
   const [feed, setFeed] = useState<FeedItem[]>([]);
   const [cancellingRunIds, setCancellingRunIds] = useState(new Set<string>());
+  const [assistantOnly, setAssistantOnly] = useState(false);
   const seenKeysRef = useRef(new Set<string>());
   const pendingByRunRef = useRef(new Map<string, string>());
   const pendingLogRowsByRunRef = useRef(new Map<string, string>());
@@ -469,7 +470,9 @@ export function LiveRunWidget({ issueId, companyId }: LiveRunWidgetProps) {
 
   if (runs.length === 0 && feed.length === 0) return null;
 
-  const recent = feed.slice(-25);
+  const recent = assistantOnly
+    ? feed.filter((i) => i.tone === "assistant").slice(-25)
+    : feed.slice(-25);
 
   return (
     <div className="rounded-lg border border-cyan-500/30 bg-background/80 overflow-hidden shadow-[0_0_12px_rgba(6,182,212,0.08)]">
@@ -495,6 +498,23 @@ export function LiveRunWidget({ issueId, companyId }: LiveRunWidgetProps) {
               <StatusBadge status={run.status} />
               <div className="ml-auto flex items-center gap-2">
                 <button
+                  onClick={() => setAssistantOnly((v) => !v)}
+                  className={cn(
+                    "inline-flex items-center gap-1 text-[10px] rounded px-1.5 py-0.5 border transition-colors",
+                    assistantOnly
+                      ? "border-emerald-500/50 bg-emerald-500/10 text-emerald-600 dark:text-emerald-300"
+                      : "border-border/50 text-muted-foreground hover:text-foreground hover:border-border",
+                  )}
+                  title={assistantOnly ? "Show all output" : "Show assistant messages only"}
+                >
+                  {assistantOnly ? (
+                    <MessageSquare className="h-3 w-3" />
+                  ) : (
+                    <Layers className="h-3 w-3" />
+                  )}
+                  {assistantOnly ? "assistant" : "all"}
+                </button>
+                <button
                   onClick={() => handleCancelRun(run.id)}
                   disabled={cancellingRunIds.has(run.id)}
                   className="inline-flex items-center gap-1 text-[10px] text-red-600 hover:text-red-500 dark:text-red-400 dark:hover:text-red-300 disabled:opacity-50"
@@ -514,12 +534,29 @@ export function LiveRunWidget({ issueId, companyId }: LiveRunWidgetProps) {
           </div>
         ))
       ) : (
-        <div className="flex items-center px-3 py-2 border-b border-border/50">
+        <div className="flex items-center justify-between px-3 py-2 border-b border-border/50">
           <span className="text-xs font-medium text-muted-foreground">Recent run updates</span>
+          <button
+            onClick={() => setAssistantOnly((v) => !v)}
+            className={cn(
+              "inline-flex items-center gap-1 text-[10px] rounded px-1.5 py-0.5 border transition-colors",
+              assistantOnly
+                ? "border-emerald-500/50 bg-emerald-500/10 text-emerald-600 dark:text-emerald-300"
+                : "border-border/50 text-muted-foreground hover:text-foreground hover:border-border",
+            )}
+            title={assistantOnly ? "Show all output" : "Show assistant messages only"}
+          >
+            {assistantOnly ? (
+              <MessageSquare className="h-3 w-3" />
+            ) : (
+              <Layers className="h-3 w-3" />
+            )}
+            {assistantOnly ? "assistant" : "all"}
+          </button>
         </div>
       )}
 
-      <div ref={bodyRef} className="max-h-[220px] overflow-y-auto p-2 font-mono text-[11px] space-y-1">
+      <div ref={bodyRef} className="max-h-[220px] overflow-y-auto p-2 font-mono text-[11px] space-y-1 relative">
         {recent.length === 0 && (
           <div className="text-xs text-muted-foreground">Waiting for run output...</div>
         )}
