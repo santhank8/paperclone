@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, useRef } from "react";
 import { useParams, useNavigate, useLocation, Navigate } from "@/lib/router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { PROJECT_COLORS, isUuidLike } from "@paperclipai/shared";
+import { PROJECT_COLORS, PROJECT_STATUSES, isUuidLike } from "@paperclipai/shared";
 import { projectsApi } from "../api/projects";
 import { issuesApi } from "../api/issues";
 import { agentsApi } from "../api/agents";
@@ -14,9 +14,11 @@ import { queryKeys } from "../lib/queryKeys";
 import { ProjectProperties } from "../components/ProjectProperties";
 import { InlineEditor } from "../components/InlineEditor";
 import { StatusBadge } from "../components/StatusBadge";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Button } from "@/components/ui/button";
 import { IssuesList } from "../components/IssuesList";
 import { PageSkeleton } from "../components/PageSkeleton";
-import { projectRouteRef } from "../lib/utils";
+import { cn, projectRouteRef } from "../lib/utils";
 
 /* ── Top-level tab types ── */
 
@@ -59,7 +61,26 @@ function OverviewContent({
         <div>
           <span className="text-muted-foreground">Status</span>
           <div className="mt-1">
-            <StatusBadge status={project.status} />
+            <Popover>
+              <PopoverTrigger asChild>
+                <button className="cursor-pointer hover:opacity-80 transition-opacity">
+                  <StatusBadge status={project.status} />
+                </button>
+              </PopoverTrigger>
+              <PopoverContent className="w-40 p-1" align="start">
+                {PROJECT_STATUSES.map((opt) => (
+                  <Button
+                    key={opt}
+                    variant="ghost"
+                    size="sm"
+                    className={cn("w-full justify-start text-xs", opt === project.status && "bg-accent")}
+                    onClick={() => onUpdate({ status: opt })}
+                  >
+                    {opt.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}
+                  </Button>
+                ))}
+              </PopoverContent>
+            </Popover>
           </div>
         </div>
         {project.targetDate && (
