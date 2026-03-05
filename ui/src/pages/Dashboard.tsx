@@ -30,6 +30,13 @@ function getRecentIssues(issues: Issue[]): Issue[] {
     .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
 }
 
+function getCostBillingLabel(billingType: "api" | "subscription" | "mixed" | "unknown"): string {
+  if (billingType === "api") return "API billed";
+  if (billingType === "subscription") return "Estimated usage (subscription)";
+  if (billingType === "mixed") return "Mixed billing (API + subscription)";
+  return "Billing source unknown";
+}
+
 export function Dashboard() {
   const { selectedCompanyId, companies } = useCompany();
   const { openOnboarding } = useDialog();
@@ -183,6 +190,11 @@ export function Dashboard() {
   }
 
   const hasNoAgents = agents !== undefined && agents.length === 0;
+  const budgetSummary =
+    data && data.costs.monthBudgetCents > 0
+      ? `${data.costs.monthUtilizationPercent}% of ${formatCents(data.costs.monthBudgetCents)} budget`
+      : "Unlimited budget";
+  const billingSummary = data ? getCostBillingLabel(data.costs.billingType) : "Billing source unknown";
 
   return (
     <div className="space-y-6">
@@ -242,9 +254,8 @@ export function Dashboard() {
               to="/costs"
               description={
                 <span>
-                  {data.costs.monthBudgetCents > 0
-                    ? `${data.costs.monthUtilizationPercent}% of ${formatCents(data.costs.monthBudgetCents)} budget`
-                    : "Unlimited budget"}
+                  {budgetSummary}{" "}
+                  <span className="text-muted-foreground">· {billingSummary}</span>
                 </span>
               }
             />

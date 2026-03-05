@@ -1,6 +1,6 @@
 import { and, eq, gte, sql } from "drizzle-orm";
 import type { Db } from "@paperclipai/db";
-import { agents, approvals, companies, costEvents, issues } from "@paperclipai/db";
+import { agents, approvals, companies, costEvents, heartbeatRuns, issues } from "@paperclipai/db";
 import { notFound } from "../errors.js";
 
 export function dashboardService(db: Db) {
@@ -92,6 +92,37 @@ export function dashboardService(db: Db) {
           ? (monthSpendCents / company.budgetMonthlyCents) * 100
           : 0;
 
+      const billingRows = await db
+        .select({
+          billingType: sql<string>`coalesce(${heartbeatRuns.usageJson} ->> 'billingType', 'unknown')`,
+          count: sql<number>`count(*)`,
+        })
+        .from(heartbeatRuns)
+        .where(
+          and(
+            eq(heartbeatRuns.companyId, companyId),
+            gte(heartbeatRuns.finishedAt, monthStart),
+          ),
+        )
+        .groupBy(sql`coalesce(${heartbeatRuns.usageJson} ->> 'billingType', 'unknown')`);
+
+      let apiRuns = 0;
+      let subscriptionRuns = 0;
+      for (const row of billingRows) {
+        const count = Number(row.count);
+        if (row.billingType === "api") apiRuns += count;
+        if (row.billingType === "subscription") subscriptionRuns += count;
+      }
+
+      const billingType =
+        apiRuns > 0 && subscriptionRuns > 0
+          ? "mixed"
+          : apiRuns > 0
+            ? "api"
+            : subscriptionRuns > 0
+              ? "subscription"
+              : "unknown";
+
       return {
         companyId,
         agents: {
@@ -105,6 +136,7 @@ export function dashboardService(db: Db) {
           monthSpendCents,
           monthBudgetCents: company.budgetMonthlyCents,
           monthUtilizationPercent: Number(utilization.toFixed(2)),
+          billingType,
         },
         pendingApprovals,
         staleTasks,
