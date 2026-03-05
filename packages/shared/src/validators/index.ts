@@ -118,6 +118,27 @@ export {
 } from "./asset.js";
 
 export {
+  createChatChannelSchema,
+  updateChatConversationSchema,
+  openChatDmSchema,
+  createChatMessageSchema,
+  toggleChatReactionSchema,
+  updateChatReadStateSchema,
+  chatSearchQuerySchema,
+  listChatConversationsQuerySchema,
+  listChatMessagesQuerySchema,
+  type CreateChatChannel,
+  type UpdateChatConversation,
+  type OpenChatDm,
+  type CreateChatMessage,
+  type ToggleChatReaction,
+  type UpdateChatReadState,
+  type ChatSearchQuery,
+  type ListChatConversationsQuery,
+  type ListChatMessagesQuery,
+} from "./chat.js";
+
+export {
   createCompanyInviteSchema,
   acceptInviteSchema,
   listJoinRequestsQuerySchema,

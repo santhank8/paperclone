@@ -169,6 +169,20 @@
       "when": 1772139727599,
       "tag": "0023_fair_lethal_legion",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1772665851000,
+      "tag": "0024_chat_happy_hogan",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1772685600000,
+      "tag": "0025_guaranteed_chat_delivery",
+      "breakpoints": true
     }
   ]
 }

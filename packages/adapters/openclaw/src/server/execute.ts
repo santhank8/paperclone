@@ -45,6 +45,10 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     issueId: nonEmpty(context.issueId),
     wakeReason: nonEmpty(context.wakeReason),
     wakeCommentId: nonEmpty(context.wakeCommentId) ?? nonEmpty(context.commentId),
+    chatConversationId: nonEmpty(context.chatConversationId) ?? nonEmpty(context.conversationId),
+    chatMessageId: nonEmpty(context.chatMessageId) ?? nonEmpty(context.messageId),
+    chatThreadRootId: nonEmpty(context.chatThreadRootId) ?? nonEmpty(context.threadRootMessageId),
+    chatKind: nonEmpty(context.chatKind) ?? nonEmpty(context.kind),
     approvalId: nonEmpty(context.approvalId),
     approvalStatus: nonEmpty(context.approvalStatus),
     issueIds: Array.isArray(context.issueIds)

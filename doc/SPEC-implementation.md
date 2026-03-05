@@ -18,7 +18,7 @@ Paperclip V1 must provide a full control-plane loop for autonomous agents:
 1. A human board creates a company and defines goals.
 2. The board creates and manages agents in an org tree.
 3. Agents receive and execute tasks via heartbeat invocations.
-4. All work is tracked through tasks/comments with audit visibility.
+4. All work is tracked through tasks/comments plus chat with audit visibility.
 5. Token/cost usage is reported and budget limits can stop work.
 6. The board can intervene anywhere (pause agents/tasks, override decisions).
 
@@ -35,7 +35,7 @@ These decisions close open questions from `SPEC.md` for V1.
 | Board | Single human board operator per deployment |
 | Org graph | Strict tree (`reports_to` nullable root); no multi-manager reporting |
 | Visibility | Full visibility to board and all agents in same company |
-| Communication | Tasks + comments only (no separate chat system) |
+| Communication | Tasks/comments plus public channels and DMs chat system |
 | Task ownership | Single assignee; atomic checkout required for `in_progress` transition |
 | Recovery | No automatic reassignment; stale work is surfaced, not silently fixed |
 | Agent adapters | Built-in `process` and `http` adapters |
@@ -62,6 +62,7 @@ V1 implementation extends this baseline into a company-centric, governance-aware
 - Goal hierarchy linked to company mission
 - Agent lifecycle with org structure and adapter configuration
 - Task lifecycle with parent/child hierarchy and comments
+- Company chat system (public channels + DMs, threads, reactions, read states, search)
 - Atomic task checkout and explicit task status transitions
 - Board approvals for hires and CEO strategy proposal
 - Heartbeat invocation, status tracking, and cancellation
@@ -383,6 +384,7 @@ Side effects:
   - read org/task/company context for own company
   - read/write own assigned tasks and comments
   - create tasks/comments for delegation
+  - read/write chat messages in visible conversations (all channels + own DMs)
   - report heartbeat status
   - report cost events
 - Agent cannot:
@@ -428,6 +430,20 @@ All endpoints are under `/api` and return JSON.
 
 - `GET /companies/:companyId/agents`
 - `POST /companies/:companyId/agents`
+
+## 10.4 Chat
+
+- `GET /companies/:companyId/chat/conversations`
+- `POST /companies/:companyId/chat/channels`
+- `PATCH /chat/conversations/:conversationId`
+- `POST /companies/:companyId/chat/dms`
+- `GET /chat/conversations/:conversationId/messages`
+- `POST /chat/conversations/:conversationId/messages`
+- `DELETE /chat/messages/:messageId`
+- `POST /chat/messages/:messageId/reactions`
+- `DELETE /chat/messages/:messageId/reactions/:emoji`
+- `POST /chat/conversations/:conversationId/read`
+- `GET /companies/:companyId/chat/search`
 - `GET /agents/:agentId`
 - `PATCH /agents/:agentId`
 - `POST /agents/:agentId/pause`
@@ -436,7 +452,7 @@ All endpoints are under `/api` and return JSON.
 - `POST /agents/:agentId/keys` (create API key)
 - `POST /agents/:agentId/heartbeat/invoke`
 
-## 10.4 Tasks (Issues)
+## 10.5 Tasks (Issues)
 
 - `GET /companies/:companyId/issues`
 - `POST /companies/:companyId/issues`
@@ -451,7 +467,7 @@ All endpoints are under `/api` and return JSON.
 - `GET /attachments/:attachmentId/content`
 - `DELETE /attachments/:attachmentId`
 
-### 10.4.1 Atomic Checkout Contract
+### 10.5.1 Atomic Checkout Contract
 
 `POST /issues/:issueId/checkout` request:
 
@@ -468,21 +484,21 @@ Server behavior:
 2. if updated row count is 0, return `409` with current owner/status
 3. successful checkout sets `assignee_agent_id`, `status = in_progress`, and `started_at`
 
-## 10.5 Projects
+## 10.6 Projects
 
 - `GET /companies/:companyId/projects`
 - `POST /companies/:companyId/projects`
 - `GET /projects/:projectId`
 - `PATCH /projects/:projectId`
 
-## 10.6 Approvals
+## 10.7 Approvals
 
 - `GET /companies/:companyId/approvals?status=pending`
 - `POST /companies/:companyId/approvals`
 - `POST /approvals/:approvalId/approve`
 - `POST /approvals/:approvalId/reject`
 
-## 10.7 Cost and Budgets
+## 10.8 Cost and Budgets
 
 - `POST /companies/:companyId/cost-events`
 - `GET /companies/:companyId/costs/summary`
@@ -491,7 +507,7 @@ Server behavior:
 - `PATCH /companies/:companyId/budgets`
 - `PATCH /agents/:agentId/budgets`
 
-## 10.8 Activity and Dashboard
+## 10.9 Activity and Dashboard
 
 - `GET /companies/:companyId/activity`
 - `GET /companies/:companyId/dashboard`
@@ -504,7 +520,7 @@ Dashboard payload must include:
 - pending approvals count
 - stale task count
 
-## 10.9 Error Semantics
+## 10.10 Error Semantics
 
 - `400` validation error
 - `401` unauthenticated
@@ -795,7 +811,7 @@ V1 is complete only when all criteria are true:
 1. A board user can create multiple companies and switch between them.
 2. A company can run at least one active heartbeat-enabled agent.
 3. Task checkout is conflict-safe with `409` on concurrent claims.
-4. Agents can update tasks/comments and report costs with API keys only.
+4. Agents can update tasks/comments, participate in chat, and report costs with API keys only.
 5. Board can approve/reject hire and CEO strategy requests in UI.
 6. Budget hard limit auto-pauses an agent and prevents new invocations.
 7. Dashboard shows accurate counts/spend from live DB data.

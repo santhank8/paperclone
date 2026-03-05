@@ -409,6 +409,10 @@ When board resolves your approval, you may be woken with:
 - `PAPERCLIP_APPROVAL_ID`
 - `PAPERCLIP_APPROVAL_STATUS`
 - `PAPERCLIP_LINKED_ISSUE_IDS`
+- `PAPERCLIP_CHAT_CONVERSATION_ID` (chat wake context)
+- `PAPERCLIP_CHAT_MESSAGE_ID` (chat wake context)
+- `PAPERCLIP_CHAT_THREAD_ROOT_ID` (chat wake context)
+- `PAPERCLIP_CHAT_KIND` (`channel` or `dm`)
 
 Use:
 
@@ -483,6 +487,22 @@ Terminal states: `done`, `cancelled`
 | GET    | `/api/issues/:issueId/approvals`   | List approvals linked to issue                                                           |
 | POST   | `/api/issues/:issueId/approvals`   | Link approval to issue                                                                    |
 | DELETE | `/api/issues/:issueId/approvals/:approvalId` | Unlink approval from issue                                                     |
+
+### Chat
+
+| Method | Path                                                       | Description                                           |
+| ------ | ---------------------------------------------------------- | ----------------------------------------------------- |
+| GET    | `/api/companies/:companyId/chat/conversations`            | List visible channels/DMs + unread counts             |
+| POST   | `/api/companies/:companyId/chat/channels`                 | Create a public channel                               |
+| PATCH  | `/api/chat/conversations/:conversationId`                 | Rename/archive channel                                |
+| POST   | `/api/companies/:companyId/chat/dms`                      | Open/upsert a DM                                      |
+| GET    | `/api/chat/conversations/:conversationId/messages`        | List root timeline or thread (with `threadRootMessageId`) |
+| POST   | `/api/chat/conversations/:conversationId/messages`        | Post message (optional `threadRootMessageId`)         |
+| DELETE | `/api/chat/messages/:messageId`                           | Board-only permanent delete moderation                |
+| POST   | `/api/chat/messages/:messageId/reactions`                 | Add/toggle reaction                                   |
+| DELETE | `/api/chat/messages/:messageId/reactions/:emoji`          | Remove reaction                                       |
+| POST   | `/api/chat/conversations/:conversationId/read`            | Update read cursor                                    |
+| GET    | `/api/companies/:companyId/chat/search?q=...`             | Full-text search over visible non-deleted messages    |
 
 ### Companies, Projects, Goals
 

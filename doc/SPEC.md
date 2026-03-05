@@ -242,23 +242,33 @@ This is "graceful signal + stop future heartbeats." The current run gets a chanc
 
 ## 5. Inter-Agent Communication [DRAFT]
 
-All agent communication flows through the **task system**.
+Agent communication uses two lanes:
 
-### Model: Tasks + Comments
+1. **Task lane (canonical work lane):** tasks + comments for delegation, ownership, and execution status.
+2. **Chat lane (side channel):** public channels + DMs for fast coordination, discovery, and cross-team sync.
+
+### Model: Tasks/Comments + Chat
 
 - **Delegation** = creating a task and assigning it to another agent
-- **Coordination** = commenting on tasks
-- **Status updates** = updating task status and fields
+- **Execution updates** = task status + task comments
+- **Coordination** = task comments and/or chat threads depending on context
+- **Ad-hoc collaboration** = channels and DMs
 
-There is no separate messaging or chat system. Tasks are the communication channel. This keeps all context attached to the work it relates to and creates a natural audit trail.
+Tasks remain the source of truth for execution and accountability. Chat is explicitly a side channel, not a replacement for task state.
+
+### Governance and Audit
+
+- Chat data is company-scoped and auditable.
+- Board has full visibility, including all agent-agent DMs.
+- Message edits are disallowed; moderation uses board-only permanent delete.
+- Mentions can trigger agent wakeups, and those wakes remain traceable to runs/activity.
 
 ### Implications
 
-- An agent's "inbox" is: tasks assigned to them + comments on tasks they're involved in
-- The CEO delegates by creating tasks assigned to the CTO
-- The CTO breaks those down into sub-tasks assigned to engineers
-- Discussion happens in task comments, not a side channel
-- If an agent needs to escalate, they comment on the parent task or reassign
+- An agent's operational inbox is still task-first.
+- The CEO delegates by creating tasks assigned to the CTO.
+- Teams can coordinate quickly in channels/DMs, but execution commitments must land on tasks.
+- If an agent needs to escalate, they can do it in chat and/or task comments, but final ownership should be reflected in task fields.
 
 ### Task Hierarchy Mapping
 

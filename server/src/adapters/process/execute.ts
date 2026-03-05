@@ -10,14 +10,27 @@ import {
 } from "../utils.js";
 
 export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExecutionResult> {
-  const { runId, agent, config, onLog, onMeta } = ctx;
+  const { runId, agent, config, context, onLog, onMeta } = ctx;
   const command = asString(config.command, "");
   if (!command) throw new Error("Process adapter missing command");
 
   const args = asStringArray(config.args);
   const cwd = asString(config.cwd, process.cwd());
   const envConfig = parseObject(config.env);
+  const parsedContext = parseObject(context);
   const env: Record<string, string> = { ...buildPaperclipEnv(agent) };
+  env.PAPERCLIP_RUN_ID = runId;
+  const chatConversationId = asString(parsedContext.chatConversationId, "").trim()
+    || asString(parsedContext.conversationId, "").trim();
+  const chatMessageId = asString(parsedContext.chatMessageId, "").trim()
+    || asString(parsedContext.messageId, "").trim();
+  const chatThreadRootId = asString(parsedContext.chatThreadRootId, "").trim()
+    || asString(parsedContext.threadRootMessageId, "").trim();
+  const chatKind = asString(parsedContext.chatKind, "").trim() || asString(parsedContext.kind, "").trim();
+  if (chatConversationId) env.PAPERCLIP_CHAT_CONVERSATION_ID = chatConversationId;
+  if (chatMessageId) env.PAPERCLIP_CHAT_MESSAGE_ID = chatMessageId;
+  if (chatThreadRootId) env.PAPERCLIP_CHAT_THREAD_ROOT_ID = chatThreadRootId;
+  if (chatKind) env.PAPERCLIP_CHAT_KIND = chatKind;
   for (const [k, v] of Object.entries(envConfig)) {
     if (typeof v === "string") env[k] = v;
   }

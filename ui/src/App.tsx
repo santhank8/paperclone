@@ -24,6 +24,7 @@ import { Inbox } from "./pages/Inbox";
 import { CompanySettings } from "./pages/CompanySettings";
 import { DesignGuide } from "./pages/DesignGuide";
 import { OrgChart } from "./pages/OrgChart";
+import { Chat } from "./pages/Chat";
 import { AuthPage } from "./pages/Auth";
 import { BoardClaimPage } from "./pages/BoardClaim";
 import { InviteLandingPage } from "./pages/InviteLanding";
@@ -127,6 +128,7 @@ function boardRoutes() {
       <Route path="inbox" element={<Navigate to="/inbox/new" replace />} />
       <Route path="inbox/new" element={<Inbox />} />
       <Route path="inbox/all" element={<Inbox />} />
+      <Route path="chat" element={<Chat />} />
       <Route path="design-guide" element={<DesignGuide />} />
     </>
   );
@@ -213,6 +215,7 @@ export function App() {
           <Route path="companies" element={<UnprefixedBoardRedirect />} />
           <Route path="issues" element={<UnprefixedBoardRedirect />} />
           <Route path="issues/:issueId" element={<UnprefixedBoardRedirect />} />
+          <Route path="chat" element={<UnprefixedBoardRedirect />} />
           <Route path="agents" element={<UnprefixedBoardRedirect />} />
           <Route path="agents/:agentId" element={<UnprefixedBoardRedirect />} />
           <Route path="agents/:agentId/:tab" element={<UnprefixedBoardRedirect />} />

@@ -9,6 +9,7 @@ import {
   SquarePen,
   Network,
   Settings,
+  MessageSquareText,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { SidebarSection } from "./SidebarSection";
@@ -20,6 +21,7 @@ import { useCompany } from "../context/CompanyContext";
 import { sidebarBadgesApi } from "../api/sidebarBadges";
 import { heartbeatsApi } from "../api/heartbeats";
 import { queryKeys } from "../lib/queryKeys";
+import { chatApi } from "../api/chat";
 import { Button } from "@/components/ui/button";
 
 export function Sidebar() {
@@ -37,6 +39,12 @@ export function Sidebar() {
     refetchInterval: 10_000,
   });
   const liveRunCount = liveRuns?.length ?? 0;
+  const { data: chatConversations = [] } = useQuery({
+    queryKey: queryKeys.chat.conversations(selectedCompanyId!),
+    queryFn: () => chatApi.listConversations(selectedCompanyId!),
+    enabled: !!selectedCompanyId,
+  });
+  const chatUnread = chatConversations.reduce((sum, conversation) => sum + (conversation.unreadCount ?? 0), 0);
 
   function openSearch() {
     document.dispatchEvent(new KeyboardEvent("keydown", { key: "k", metaKey: true }));
@@ -87,6 +95,7 @@ export function Sidebar() {
         </div>
 
         <SidebarSection label="Work">
+          <SidebarNavItem to="/chat" label="Chat" icon={MessageSquareText} badge={chatUnread} />
           <SidebarNavItem to="/issues" label="Issues" icon={CircleDot} />
           <SidebarNavItem to="/goals" label="Goals" icon={Target} />
         </SidebarSection>

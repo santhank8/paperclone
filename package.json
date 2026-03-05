@@ -32,5 +32,12 @@
   "engines": {
     "node": ">=20"
   },
-  "packageManager": "pnpm@9.15.4"
+  "packageManager": "pnpm@9.15.4",
+  "workspaces": [
+    "packages/*",
+    "packages/adapters/*",
+    "server",
+    "ui",
+    "cli"
+  ]
 }

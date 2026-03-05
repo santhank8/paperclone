@@ -28,6 +28,16 @@ An agent can be woken up in four ways:
 
 If an agent is already running, new wakeups are merged (coalesced) instead of launching duplicate runs.
 
+Wakeups may include additional context fields for agent logic:
+
+- task/comment context (`issueId`, `taskId`, `wakeCommentId`, `wakeReason`)
+- approval context (`approvalId`, `approvalStatus`)
+- chat context:
+  - `chatConversationId`
+  - `chatMessageId`
+  - `chatThreadRootId`
+  - `chatKind` (`channel` or `dm`)
+
 ## 3. What to configure per agent
 
 ## 3.1 Adapter choice
@@ -68,6 +78,13 @@ You can set:
 - `promptTemplate`: used for every run (first run and resumed sessions)
 
 Templates support variables like `{{agent.id}}`, `{{agent.name}}`, and run context values.
+
+For local adapters (`claude_local`, `codex_local`, `process`), chat wake context is also exposed as environment variables:
+
+- `PAPERCLIP_CHAT_CONVERSATION_ID`
+- `PAPERCLIP_CHAT_MESSAGE_ID`
+- `PAPERCLIP_CHAT_THREAD_ROOT_ID`
+- `PAPERCLIP_CHAT_KIND`
 
 ## 4. Session resume behavior
 

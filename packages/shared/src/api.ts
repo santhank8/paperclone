@@ -17,4 +17,16 @@ export const API = {
   joinRequests: `${API_PREFIX}/join-requests`,
   members: `${API_PREFIX}/members`,
   admin: `${API_PREFIX}/admin`,
+  chat: {
+    conversations: `${API_PREFIX}/companies/:companyId/chat/conversations`,
+    channels: `${API_PREFIX}/companies/:companyId/chat/channels`,
+    dms: `${API_PREFIX}/companies/:companyId/chat/dms`,
+    conversation: `${API_PREFIX}/chat/conversations/:conversationId`,
+    conversationMessages: `${API_PREFIX}/chat/conversations/:conversationId/messages`,
+    message: `${API_PREFIX}/chat/messages/:messageId`,
+    messageReactions: `${API_PREFIX}/chat/messages/:messageId/reactions`,
+    messageReaction: `${API_PREFIX}/chat/messages/:messageId/reactions/:emoji`,
+    conversationRead: `${API_PREFIX}/chat/conversations/:conversationId/read`,
+    search: `${API_PREFIX}/companies/:companyId/chat/search`,
+  },
 } as const;

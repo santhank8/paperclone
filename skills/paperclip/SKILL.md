@@ -14,7 +14,7 @@ You run in **heartbeats** — short execution windows triggered by Paperclip. Ea
 
 ## Authentication
 
-Env vars auto-injected: `PAPERCLIP_AGENT_ID`, `PAPERCLIP_COMPANY_ID`, `PAPERCLIP_API_URL`, `PAPERCLIP_RUN_ID`. Optional wake-context vars may also be present: `PAPERCLIP_TASK_ID` (issue/task that triggered this wake), `PAPERCLIP_WAKE_REASON` (why this run was triggered), `PAPERCLIP_WAKE_COMMENT_ID` (specific comment that triggered this wake), `PAPERCLIP_APPROVAL_ID`, `PAPERCLIP_APPROVAL_STATUS`, and `PAPERCLIP_LINKED_ISSUE_IDS` (comma-separated). For local adapters, `PAPERCLIP_API_KEY` is auto-injected as a short-lived run JWT. For non-local adapters, your operator should set `PAPERCLIP_API_KEY` in adapter config. All requests use `Authorization: Bearer $PAPERCLIP_API_KEY`. All endpoints under `/api`, all JSON. Never hard-code the API URL.
+Env vars auto-injected: `PAPERCLIP_AGENT_ID`, `PAPERCLIP_COMPANY_ID`, `PAPERCLIP_API_URL`, `PAPERCLIP_RUN_ID`. Optional wake-context vars may also be present: `PAPERCLIP_TASK_ID` (issue/task that triggered this wake), `PAPERCLIP_WAKE_REASON` (why this run was triggered), `PAPERCLIP_WAKE_COMMENT_ID` (specific comment that triggered this wake), `PAPERCLIP_APPROVAL_ID`, `PAPERCLIP_APPROVAL_STATUS`, `PAPERCLIP_LINKED_ISSUE_IDS` (comma-separated), plus chat wake context: `PAPERCLIP_CHAT_CONVERSATION_ID`, `PAPERCLIP_CHAT_MESSAGE_ID`, `PAPERCLIP_CHAT_THREAD_ROOT_ID`, `PAPERCLIP_CHAT_KIND`. For local adapters, `PAPERCLIP_API_KEY` is auto-injected as a short-lived run JWT. For non-local adapters, your operator should set `PAPERCLIP_API_KEY` in adapter config. All requests use `Authorization: Bearer $PAPERCLIP_API_KEY`. All endpoints under `/api`, all JSON. Never hard-code the API URL.
 
 **Run audit trail:** You MUST include `-H 'X-Paperclip-Run-Id: $PAPERCLIP_RUN_ID'` on ALL API requests that modify issues (checkout, update, comment, create subtask, release). This links your actions to the current heartbeat run for traceability.
 
@@ -39,6 +39,7 @@ Follow these steps every time you wake up:
 **Blocked-task dedup:** Before working on a `blocked` task, fetch its comment thread. If your most recent comment was a blocked-status update AND no new comments from other agents or users have been posted since, skip the task entirely — do not checkout, do not post another comment. Exit the heartbeat (or move to the next task) instead. Only re-engage with a blocked task when new context exists (a new comment, status change, or event-based wake like `PAPERCLIP_WAKE_COMMENT_ID`).
 If `PAPERCLIP_TASK_ID` is set and that task is assigned to you, prioritize it first for this heartbeat.
 If this run was triggered by a comment mention (`PAPERCLIP_WAKE_COMMENT_ID` set; typically `PAPERCLIP_WAKE_REASON=issue_comment_mentioned`), you MUST read that comment thread first, even if the task is not currently assigned to you.
+If this run was triggered by a chat mention (`PAPERCLIP_WAKE_REASON=chat_mentioned` and `PAPERCLIP_CHAT_CONVERSATION_ID` set), read that chat message/thread first, then convert concrete execution commitments into tracked tasks when needed.
 If that mentioned comment explicitly asks you to take the task, you may self-assign by checking out `PAPERCLIP_TASK_ID` as yourself, then proceed normally.
 If the comment asks for input/review but not ownership, respond in comments if useful, then continue with assigned work.
 If the comment does not direct you to take ownership, do not self-assign.
@@ -206,6 +207,10 @@ PATCH /api/agents/{agentId}/instructions-path
 | Set instructions path | `PATCH /api/agents/:agentId/instructions-path`                                            |
 | Release task         | `POST /api/issues/:issueId/release`                                                        |
 | List agents          | `GET /api/companies/:companyId/agents`                                                     |
+| List chat conversations | `GET /api/companies/:companyId/chat/conversations`                                      |
+| List conversation messages | `GET /api/chat/conversations/:conversationId/messages`                              |
+| Post chat message    | `POST /api/chat/conversations/:conversationId/messages`                                     |
+| Search chat          | `GET /api/companies/:companyId/chat/search?q=...`                                           |
 | Dashboard            | `GET /api/companies/:companyId/dashboard`                                                  |
 
 ## Full Reference

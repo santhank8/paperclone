@@ -22,6 +22,11 @@ import {
   invites,
   principalPermissionGrants,
   companyMemberships,
+  chatConversations,
+  chatConversationParticipants,
+  chatMessages,
+  chatMessageReactions,
+  chatReadStates,
 } from "@paperclipai/db";
 
 export function companyService(db: Db) {
@@ -50,13 +55,13 @@ export function companyService(db: Db) {
       && constraint === "companies_issue_prefix_idx";
   }
 
-  async function createCompanyWithUniquePrefix(data: typeof companies.$inferInsert) {
+  async function createCompanyWithUniquePrefix(dbOrTx: any, data: typeof companies.$inferInsert) {
     const base = deriveIssuePrefixBase(data.name);
     let suffix = 1;
     while (suffix < 10000) {
       const candidate = `${base}${suffixForAttempt(suffix)}`;
       try {
-        const rows = await db
+        const rows = await dbOrTx
           .insert(companies)
           .values({ ...data, issuePrefix: candidate })
           .returning();
@@ -79,7 +84,17 @@ export function companyService(db: Db) {
         .where(eq(companies.id, id))
         .then((rows) => rows[0] ?? null),
 
-    create: async (data: typeof companies.$inferInsert) => createCompanyWithUniquePrefix(data),
+    create: async (data: typeof companies.$inferInsert) =>
+      db.transaction(async (tx) => {
+        const company = await createCompanyWithUniquePrefix(tx, data);
+        await tx.insert(chatConversations).values({
+          companyId: company.id,
+          kind: "channel",
+          name: "general",
+          slug: "general",
+        });
+        return company;
+      }),
 
     update: (id: string, data: Partial<typeof companies.$inferInsert>) =>
       db
@@ -106,6 +121,11 @@ export function companyService(db: Db) {
         await tx.delete(agentWakeupRequests).where(eq(agentWakeupRequests.companyId, id));
         await tx.delete(agentApiKeys).where(eq(agentApiKeys.companyId, id));
         await tx.delete(agentRuntimeState).where(eq(agentRuntimeState.companyId, id));
+        await tx.delete(chatMessageReactions).where(eq(chatMessageReactions.companyId, id));
+        await tx.delete(chatReadStates).where(eq(chatReadStates.companyId, id));
+        await tx.delete(chatConversationParticipants).where(eq(chatConversationParticipants.companyId, id));
+        await tx.delete(chatMessages).where(eq(chatMessages.companyId, id));
+        await tx.delete(chatConversations).where(eq(chatConversations.companyId, id));
         await tx.delete(issueComments).where(eq(issueComments.companyId, id));
         await tx.delete(costEvents).where(eq(costEvents.companyId, id));
         await tx.delete(approvalComments).where(eq(approvalComments.companyId, id));

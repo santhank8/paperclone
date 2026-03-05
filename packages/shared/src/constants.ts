@@ -189,8 +189,22 @@ export const LIVE_EVENT_TYPES = [
   "heartbeat.run.log",
   "agent.status",
   "activity.logged",
+  "chat.conversation.created",
+  "chat.conversation.updated",
+  "chat.message.created",
+  "chat.message.deleted",
+  "chat.reaction.updated",
+  "chat.read.updated",
+  "chat.delivery.updated",
+  "chat.mentioned",
 ] as const;
 export type LiveEventType = (typeof LIVE_EVENT_TYPES)[number];
+
+export const CHAT_CONVERSATION_KINDS = ["channel", "dm"] as const;
+export type ChatConversationKind = (typeof CHAT_CONVERSATION_KINDS)[number];
+
+export const CHAT_DELIVERY_STATUSES = ["pending", "replied", "retrying", "timed_out", "failed"] as const;
+export type ChatDeliveryStatus = (typeof CHAT_DELIVERY_STATUSES)[number];
 
 export const PRINCIPAL_TYPES = ["user", "agent"] as const;
 export type PrincipalType = (typeof PRINCIPAL_TYPES)[number];

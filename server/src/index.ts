@@ -22,7 +22,12 @@ import { createApp } from "./app.js";
 import { loadConfig } from "./config.js";
 import { logger } from "./middleware/logger.js";
 import { setupLiveEventsWebSocketServer } from "./realtime/live-events-ws.js";
-import { heartbeatService } from "./services/index.js";
+import {
+  chatDeliveryService,
+  heartbeatService,
+  logActivity,
+  publishLiveEvent,
+} from "./services/index.js";
 import { createStorageServiceFromConfig } from "./storage/index.js";
 import { printStartupBanner } from "./startup-banner.js";
 import { getBoardClaimWarningUrl, initializeBoardClaimChallenge } from "./board-claim.js";
@@ -451,6 +456,7 @@ setupLiveEventsWebSocketServer(server, db as any, {
 
 if (config.heartbeatSchedulerEnabled) {
   const heartbeat = heartbeatService(db as any);
+  const chatDeliveries = chatDeliveryService(db as any);
 
   // Reap orphaned runs at startup (no threshold -- runningProcesses is empty)
   void heartbeat.reapOrphanedRuns().catch((err) => {
@@ -474,6 +480,53 @@ if (config.heartbeatSchedulerEnabled) {
       .reapOrphanedRuns({ staleThresholdMs: 5 * 60 * 1000 })
       .catch((err) => {
         logger.error({ err }, "periodic reap of orphaned heartbeat runs failed");
+      });
+
+    void chatDeliveries
+      .processDueExpectations({
+        now: new Date(),
+        wakeup: heartbeat.wakeup,
+      })
+      .then(async (transitions) => {
+        for (const transition of transitions) {
+          const expectation = transition.expectation;
+          publishLiveEvent({
+            companyId: expectation.companyId,
+            type: "chat.delivery.updated",
+            payload: {
+              conversationId: expectation.conversationId,
+              sourceMessageId: expectation.sourceMessageId,
+              targetAgentId: expectation.targetAgentId,
+              status: expectation.status,
+              attemptCount: expectation.attemptCount,
+              timeoutAt: expectation.timeoutAt.toISOString(),
+              lastError: expectation.lastError,
+              resolvedByMessageId: expectation.resolvedByMessageId,
+            },
+          });
+
+          if (expectation.status !== "timed_out" && expectation.status !== "failed") continue;
+          await logActivity(db as any, {
+            companyId: expectation.companyId,
+            actorType: "system",
+            actorId: "chat_delivery_monitor",
+            action: "chat.delivery_failed",
+            entityType: "chat_message",
+            entityId: expectation.sourceMessageId,
+            details: {
+              conversationId: expectation.conversationId,
+              sourceMessageId: expectation.sourceMessageId,
+              targetAgentId: expectation.targetAgentId,
+              status: expectation.status,
+              previousStatus: transition.previousStatus,
+              attemptCount: expectation.attemptCount,
+              reason: expectation.lastError,
+            },
+          });
+        }
+      })
+      .catch((err) => {
+        logger.error({ err }, "chat delivery monitor tick failed");
       });
   }, config.heartbeatSchedulerIntervalMs);
 }

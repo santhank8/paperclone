@@ -916,6 +916,24 @@ Empty states should use a muted illustration (simple line art, not cartoons) and
 
 ---
 
+## 19.1 Chat Page Behavior
+
+Chat (`/chat`) uses a three-pane layout:
+
+- **Left pane:** channel/DM list with unread counts, channel/DM creation actions, and full-text message search.
+- **Center pane:** selected conversation timeline (root messages), markdown composer, reaction toggles, and board moderation delete controls.
+- **Right pane:** thread view for a selected root message (root + replies) with its own reply composer.
+
+Interaction rules:
+
+- Default channel `#general` is always present and non-archivable.
+- Board-agent DM conversations are auto-created so every active agent appears as a clickable DM by default.
+- Messages are immutable (no edit); board delete is permanent hard-delete moderation.
+- Mark read on conversation open, bottom reach, and successful send.
+- Search results must show snippet + conversation + timestamp and jump to the relevant conversation/thread.
+
+---
+
 ## 20. Component Library
 
 Build on top of shadcn/ui components with these customizations:
@@ -942,6 +960,7 @@ All routes are company-scoped after company selection (company context stored in
 /                           → redirects to /dashboard
 /dashboard                  → company dashboard
 /inbox                      → inbox / attention items
+/chat                       → channels + DMs + threads
 /my-issues                  → board operator's issues
 /issues                     → issue list
 /issues/:issueId            → issue detail

@@ -1,6 +1,6 @@
 import { useEffect, useRef, type ReactNode } from "react";
 import { useQueryClient, type QueryClient } from "@tanstack/react-query";
-import type { Agent, Issue, LiveEvent } from "@paperclipai/shared";
+import type { Agent, ChatMessage, Issue, LiveEvent } from "@paperclipai/shared";
 import { useCompany } from "./CompanyContext";
 import type { ToastInput } from "./ToastContext";
 import { useToast } from "./ToastContext";
@@ -17,6 +17,16 @@ function readString(value: unknown): string | null {
 function readRecord(value: unknown): Record<string, unknown> | null {
   if (typeof value !== "object" || value === null || Array.isArray(value)) return null;
   return value as Record<string, unknown>;
+}
+
+function readStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((item): item is string => typeof item === "string" && item.length > 0);
+}
+
+function readNumber(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  return null;
 }
 
 function shortId(value: string) {
@@ -294,6 +304,31 @@ function buildRunStatusToast(
   };
 }
 
+function buildChatMentionToast(
+  payload: Record<string, unknown>,
+  nameOf: (id: string) => string | null,
+): ToastInput | null {
+  const conversationId = readString(payload.conversationId);
+  const messageId = readString(payload.messageId);
+  const mentionedAgentId = readString(payload.agentId);
+  if (!conversationId || !messageId || !mentionedAgentId) return null;
+  const byAgentId = readString(payload.byAgentId);
+  const byUserId = readString(payload.byUserId);
+  const mentionedAgentName = nameOf(mentionedAgentId) ?? `Agent ${shortId(mentionedAgentId)}`;
+  const actorLabel = byAgentId
+    ? nameOf(byAgentId) ?? `Agent ${shortId(byAgentId)}`
+    : byUserId
+      ? "Board"
+      : "Someone";
+  return {
+    title: `${mentionedAgentName} was mentioned`,
+    body: `${actorLabel} mentioned ${mentionedAgentName} in chat`,
+    tone: "info",
+    action: { label: "Open chat", href: "/chat" },
+    dedupeKey: `chat-mentioned:${conversationId}:${messageId}:${mentionedAgentId}`,
+  };
+}
+
 function invalidateHeartbeatQueries(
   queryClient: ReturnType<typeof useQueryClient>,
   companyId: string,
@@ -379,6 +414,67 @@ function invalidateActivityQueries(
   }
 }
 
+function invalidateChatQueries(
+  queryClient: ReturnType<typeof useQueryClient>,
+  companyId: string,
+  eventType: LiveEvent["type"],
+  payload: Record<string, unknown>,
+) {
+  queryClient.invalidateQueries({ queryKey: queryKeys.chat.conversations(companyId) });
+  const conversationId = readString(payload.conversationId);
+  if (!conversationId) return;
+  if (eventType === "chat.message.deleted") {
+    const deletedIds = new Set<string>([
+      ...readStringArray(payload.deletedMessageIds),
+      ...(readString(payload.messageId) ? [readString(payload.messageId)!] : []),
+    ]);
+    if (deletedIds.size > 0) {
+      queryClient.setQueriesData<ChatMessage[]>(
+        { queryKey: ["chat", "messages", conversationId] },
+        (existing) => {
+          if (!existing || existing.length === 0) return existing;
+          return existing.filter((message) => !deletedIds.has(message.id));
+        },
+      );
+    }
+  }
+  if (eventType === "chat.delivery.updated") {
+    const sourceMessageId = readString(payload.sourceMessageId);
+    const targetAgentId = readString(payload.targetAgentId);
+    const status = readString(payload.status);
+    const timeoutAtRaw = readString(payload.timeoutAt);
+    const attemptCount = readNumber(payload.attemptCount);
+    if (sourceMessageId && targetAgentId && status && timeoutAtRaw && attemptCount !== null) {
+      queryClient.setQueriesData<ChatMessage[]>(
+        { queryKey: ["chat", "messages", conversationId] },
+        (existing) => {
+          if (!existing || existing.length === 0) return existing;
+          return existing.map((message) => {
+            if (message.id !== sourceMessageId) return message;
+            const timeoutAt = new Date(timeoutAtRaw);
+            return {
+              ...message,
+              delivery: {
+                status: status as NonNullable<ChatMessage["delivery"]>["status"],
+                targetAgentId,
+                attemptCount,
+                timeoutAt,
+                lastError: readString(payload.lastError),
+                resolvedByMessageId: readString(payload.resolvedByMessageId),
+              },
+            };
+          });
+        },
+      );
+    }
+  }
+  queryClient.invalidateQueries({ queryKey: ["chat", "messages", conversationId] });
+  const threadRootMessageId = readString(payload.threadRootMessageId);
+  if (threadRootMessageId) {
+    queryClient.invalidateQueries({ queryKey: queryKeys.chat.messages(conversationId, threadRootMessageId) });
+  }
+}
+
 interface ToastGate {
   cooldownHits: Map<string, number[]>;
   suppressUntil: number;
@@ -458,6 +554,24 @@ function handleLiveEvent(
     const action = readString(payload.action);
     const toast = buildActivityToast(queryClient, expectedCompanyId, payload);
     if (toast) gatedPushToast(gate, pushToast, `activity:${action ?? "unknown"}`, toast);
+    return;
+  }
+
+  if (
+    event.type === "chat.conversation.created" ||
+    event.type === "chat.conversation.updated" ||
+    event.type === "chat.message.created" ||
+    event.type === "chat.message.deleted" ||
+    event.type === "chat.reaction.updated" ||
+    event.type === "chat.read.updated" ||
+    event.type === "chat.delivery.updated" ||
+    event.type === "chat.mentioned"
+  ) {
+    invalidateChatQueries(queryClient, expectedCompanyId, event.type, payload);
+    if (event.type === "chat.mentioned") {
+      const toast = buildChatMentionToast(payload, nameOf);
+      if (toast) gatedPushToast(gate, pushToast, "chat-mentioned", toast);
+    }
   }
 }
 

@@ -51,6 +51,33 @@ function firstNonEmptyLine(text: string): string {
   );
 }
 
+function asNonEmpty(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function buildChatWakeDirective(input: {
+  wakeReason: string | null;
+  chatConversationId: string | null;
+  chatMessageId: string | null;
+  chatThreadRootId: string | null;
+  chatKind: string | null;
+}) {
+  const isChatWake = input.wakeReason === "chat_message" || input.wakeReason === "chat_mentioned";
+  if (!isChatWake || !input.chatConversationId) return null;
+  const threadRootId = input.chatThreadRootId ?? input.chatMessageId ?? "";
+  const kind = input.chatKind ?? "channel";
+  return [
+    "PAPERCLIP CHAT OVERRIDE (highest priority):",
+    `This run was chat-triggered (${input.wakeReason}) for ${kind} conversation ${input.chatConversationId}.`,
+    "Before doing anything else, you MUST post at least one chat reply in that same conversation using PAPERCLIP_API_URL and PAPERCLIP_API_KEY.",
+    `Use POST /api/chat/conversations/${input.chatConversationId}/messages with JSON body {\"body\":\"<reply>\",\"threadRootMessageId\":\"${threadRootId}\"}.`,
+    "If blocked, post a short status/error reply instead of exiting silently.",
+    "These chat-reply requirements override any assignment-only workflow instructions.",
+  ].join("\n");
+}
+
 function hasNonEmptyEnvValue(env: Record<string, string>, key: string): boolean {
   const raw = env[key];
   return typeof raw === "string" && raw.trim().length > 0;
@@ -109,7 +136,15 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
 
   const promptTemplate = asString(
     config.promptTemplate,
-    "You are agent {{agent.id}} ({{agent.name}}). Continue your Paperclip work.",
+    `You are agent {{agent.id}} ({{agent.name}}) running in Paperclip.
+
+If this run was triggered by chat (wake reason chat_message or chat_mentioned) and chat context IDs are present:
+1. Read chat context for conversation {{context.chatConversationId}} and thread {{context.chatThreadRootId}}.
+2. Post a concise reply in the same conversation before exiting.
+3. If blocked or uncertain, still post a short status message explaining what you need.
+
+Never silently exit a chat-triggered run without posting a chat reply.
+Continue your Paperclip work.`,
   );
   const command = asString(config.command, "codex");
   const model = asString(config.model, "");
@@ -149,10 +184,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     (typeof context.taskId === "string" && context.taskId.trim().length > 0 && context.taskId.trim()) ||
     (typeof context.issueId === "string" && context.issueId.trim().length > 0 && context.issueId.trim()) ||
     null;
-  const wakeReason =
-    typeof context.wakeReason === "string" && context.wakeReason.trim().length > 0
-      ? context.wakeReason.trim()
-      : null;
+  const wakeReason = asNonEmpty(context.wakeReason);
   const wakeCommentId =
     (typeof context.wakeCommentId === "string" && context.wakeCommentId.trim().length > 0 && context.wakeCommentId.trim()) ||
     (typeof context.commentId === "string" && context.commentId.trim().length > 0 && context.commentId.trim()) ||
@@ -168,6 +200,10 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
   const linkedIssueIds = Array.isArray(context.issueIds)
     ? context.issueIds.filter((value): value is string => typeof value === "string" && value.trim().length > 0)
     : [];
+  const chatConversationId = asNonEmpty(context.chatConversationId) ?? asNonEmpty(context.conversationId);
+  const chatMessageId = asNonEmpty(context.chatMessageId) ?? asNonEmpty(context.messageId);
+  const chatThreadRootId = asNonEmpty(context.chatThreadRootId) ?? asNonEmpty(context.threadRootMessageId);
+  const chatKind = asNonEmpty(context.chatKind) ?? asNonEmpty(context.kind);
   if (wakeTaskId) {
     env.PAPERCLIP_TASK_ID = wakeTaskId;
   }
@@ -185,6 +221,18 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
   }
   if (linkedIssueIds.length > 0) {
     env.PAPERCLIP_LINKED_ISSUE_IDS = linkedIssueIds.join(",");
+  }
+  if (chatConversationId) {
+    env.PAPERCLIP_CHAT_CONVERSATION_ID = chatConversationId;
+  }
+  if (chatMessageId) {
+    env.PAPERCLIP_CHAT_MESSAGE_ID = chatMessageId;
+  }
+  if (chatThreadRootId) {
+    env.PAPERCLIP_CHAT_THREAD_ROOT_ID = chatThreadRootId;
+  }
+  if (chatKind) {
+    env.PAPERCLIP_CHAT_KIND = chatKind;
   }
   if (effectiveWorkspaceCwd) {
     env.PAPERCLIP_WORKSPACE_CWD = effectiveWorkspaceCwd;
@@ -278,7 +326,20 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     run: { id: runId, source: "on_demand" },
     context,
   });
-  const prompt = `${instructionsPrefix}${renderedPrompt}`;
+  const chatWakeDirective = buildChatWakeDirective({
+    wakeReason,
+    chatConversationId,
+    chatMessageId,
+    chatThreadRootId,
+    chatKind,
+  });
+  const prompt = [
+    chatWakeDirective,
+    instructionsPrefix || null,
+    renderedPrompt,
+  ]
+    .filter((value): value is string => typeof value === "string" && value.trim().length > 0)
+    .join("\n\n");
 
   const buildArgs = (resumeSessionId: string | null) => {
     const args = ["exec", "--json"];

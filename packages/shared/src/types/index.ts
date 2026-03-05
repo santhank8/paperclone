@@ -44,6 +44,16 @@ export type {
 export type { LiveEvent } from "./live.js";
 export type { DashboardSummary } from "./dashboard.js";
 export type { ActivityEvent } from "./activity.js";
+export type {
+  ChatConversation,
+  ChatConversationParticipant,
+  ChatDeliveryExpectation,
+  ChatMessageDelivery,
+  ChatMessage,
+  ChatReactionAggregate,
+  ChatReadState,
+  ChatSearchResult,
+} from "./chat.js";
 export type { SidebarBadges } from "./sidebar-badges.js";
 export type {
   CompanyMembership,

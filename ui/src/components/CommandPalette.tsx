@@ -27,6 +27,7 @@ import {
   History,
   SquarePen,
   Plus,
+  MessageSquareText,
 } from "lucide-react";
 import { Identity } from "./Identity";
 import { agentUrl, projectUrl } from "../lib/utils";
@@ -143,6 +144,10 @@ export function CommandPalette() {
           <CommandItem onSelect={() => go("/issues")}>
             <CircleDot className="mr-2 h-4 w-4" />
             Issues
+          </CommandItem>
+          <CommandItem onSelect={() => go("/chat")}>
+            <MessageSquareText className="mr-2 h-4 w-4" />
+            Chat
           </CommandItem>
           <CommandItem onSelect={() => go("/projects")}>
             <Hexagon className="mr-2 h-4 w-4" />
