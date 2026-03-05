@@ -25,7 +25,7 @@ Core fields:
 - cwd (string, optional): absolute working directory; process runs with this as both cwd and --workspace.
 - command (string, optional): CLI command, default \`agent\`.
 - model (string, optional): e.g. gpt-5.2, sonnet-4.5 (see Cursor Parameters docs).
-- promptTemplate (string): prompt template for each run; rendered then passed as \`-p "<prompt>"\`.
+- promptTemplate (string): prompt template for each run; rendered then passed as \`-p "<prompt>"\`. Very long prompts may hit OS ARG_MAX; the adapter logs a warning above ~500KB.
 - outputFormat (string, optional): \`stream-json\` (recommended), \`json\`, or \`text\`.
 - instructionsFilePath (string, optional): path to instructions file (e.g. AGENTS.md) injected into context.
 - timeoutSec (number, optional): run timeout in seconds; 0 = no timeout.

@@ -20,6 +20,8 @@ import {
 import { parseCursorJsonl, isCursorUnknownSessionError } from "./parse.js";
 
 const __moduleDir = path.dirname(fileURLToPath(import.meta.url));
+/** Prompt is passed as CLI arg (-p); very long prompts may hit OS ARG_MAX. Warn above this size. */
+const PROMPT_ARG_MAX_WARN_BYTES = 500 * 1024;
 const PAPERCLIP_SKILLS_CANDIDATES = [
   path.resolve(__moduleDir, "../../skills"), // published: <pkg>/dist/server/ -> <pkg>/skills/
   path.resolve(__moduleDir, "../../../../../skills"), // dev: src/server/ -> repo root/skills/
@@ -43,28 +45,35 @@ async function ensureCursorSkillsInjected(onLog: AdapterExecutionContext["onLog"
   const skillsDir = await resolvePaperclipSkillsDir();
   if (!skillsDir) return;
 
-  const skillsHome = path.join(cursorHomeDir(), "skills");
-  await fs.mkdir(skillsHome, { recursive: true });
-  const entries = await fs.readdir(skillsDir, { withFileTypes: true });
-  for (const entry of entries) {
-    if (!entry.isDirectory()) continue;
-    const source = path.join(skillsDir, entry.name);
-    const target = path.join(skillsHome, entry.name);
-    const existing = await fs.lstat(target).catch(() => null);
-    if (existing) continue;
+  try {
+    const skillsHome = path.join(cursorHomeDir(), "skills");
+    await fs.mkdir(skillsHome, { recursive: true });
+    const entries = await fs.readdir(skillsDir, { withFileTypes: true });
+    for (const entry of entries) {
+      if (!entry.isDirectory()) continue;
+      const source = path.join(skillsDir, entry.name);
+      const target = path.join(skillsHome, entry.name);
+      const existing = await fs.lstat(target).catch(() => null);
+      if (existing) continue;
 
-    try {
-      await fs.symlink(source, target);
-      await onLog(
-        "stderr",
-        `[paperclip] Injected Cursor skill "${entry.name}" into ${skillsHome}\n`,
-      );
-    } catch (err) {
-      await onLog(
-        "stderr",
-        `[paperclip] Failed to inject Cursor skill "${entry.name}": ${err instanceof Error ? err.message : String(err)}\n`,
-      );
+      try {
+        await fs.symlink(source, target);
+        await onLog(
+          "stderr",
+          `[paperclip] Injected Cursor skill "${entry.name}" into ${skillsHome}\n`,
+        );
+      } catch (err) {
+        await onLog(
+          "stderr",
+          `[paperclip] Failed to inject Cursor skill "${entry.name}": ${err instanceof Error ? err.message : String(err)}\n`,
+        );
+      }
     }
+  } catch (err) {
+    await onLog(
+      "stderr",
+      `[paperclip] Skills injection skipped: ${err instanceof Error ? err.message : String(err)}\n`,
+    );
   }
 }
 
@@ -145,6 +154,13 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
       context,
     });
 
+  if (renderedPrompt.length > PROMPT_ARG_MAX_WARN_BYTES) {
+    await onLog(
+      "stderr",
+      `[paperclip] Warning: prompt is ${renderedPrompt.length} bytes; very long prompts passed as CLI args may hit OS ARG_MAX and fail.\n`,
+    );
+  }
+
   const buildArgs = (resumeSessionId: string | null) => {
     const args = ["-p", renderedPrompt, "--output-format", outputFormat, "--workspace", cwd];
     if (model) args.push("--model", model);
@@ -170,10 +186,11 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
       });
     }
 
+    const effectiveTimeoutSec = timeoutSec;
     const proc = await runChildProcess(runId, command, args, {
       cwd,
       env,
-      timeoutSec: timeoutSec > 0 ? timeoutSec : 3600,
+      timeoutSec: effectiveTimeoutSec,
       graceSec,
       onLog,
     });
@@ -181,6 +198,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     return {
       proc,
       parsed: parseCursorJsonl(proc.stdout),
+      effectiveTimeoutSec,
     };
   };
 
@@ -188,6 +206,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     attempt: {
       proc: { exitCode: number | null; signal: string | null; timedOut: boolean; stdout: string; stderr: string };
       parsed: ReturnType<typeof parseCursorJsonl>;
+      effectiveTimeoutSec: number;
     },
     clearSessionOnMissing = false,
   ): AdapterExecutionResult => {
@@ -196,7 +215,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
         exitCode: attempt.proc.exitCode,
         signal: attempt.proc.signal,
         timedOut: true,
-        errorMessage: `Timed out after ${timeoutSec}s`,
+        errorMessage: `Timed out after ${attempt.effectiveTimeoutSec}s`,
         clearSession: clearSessionOnMissing,
       };
     }
