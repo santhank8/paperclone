@@ -635,6 +635,7 @@ export function OnboardingWizard() {
                           onClick={() => {
                             if (opt.comingSoon) return;
                             const nextType = opt.value as AdapterType;
+                            if (nextType === adapterType) return;
                             setAdapterType(nextType);
                             if (nextType === "codex_local") {
                               setModel(DEFAULT_CODEX_LOCAL_MODEL);
