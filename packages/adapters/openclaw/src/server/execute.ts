@@ -1,144 +1,202 @@
 import type { AdapterExecutionContext, AdapterExecutionResult } from "@paperclipai/adapter-utils";
-import { asNumber, asString, parseObject } from "@paperclipai/adapter-utils/server-utils";
-import { parseOpenClawResponse } from "./parse.js";
+import {
+  asString,
+  asNumber,
+  asStringArray,
+  parseObject,
+  parseJson,
+  buildPaperclipEnv,
+  redactEnvForLogs,
+  ensureAbsoluteDirectory,
+  ensureCommandResolvable,
+  ensurePathInEnv,
+  renderTemplate,
+  runChildProcess,
+} from "@paperclipai/adapter-utils/server-utils";
 
 function nonEmpty(value: unknown): string | null {
   return typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
 }
 
 export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExecutionResult> {
-  const { config, runId, agent, context, onLog, onMeta } = ctx;
-  const url = asString(config.url, "").trim();
-  if (!url) {
-    return {
-      exitCode: 1,
-      signal: null,
-      timedOut: false,
-      errorMessage: "OpenClaw adapter missing url",
-      errorCode: "openclaw_url_missing",
-    };
+  const { runId, agent, runtime, config, context, onLog, onMeta, authToken } = ctx;
+
+  // ── Config ──────────────────────────────────────────────────────────
+  const command = asString(config.command, "openclaw");
+  const agentId = asString(config.agentId, "main");
+  const model = asString(config.model, "");
+  const configuredCwd = asString(config.cwd, "");
+  const timeoutSec = asNumber(config.timeoutSec, 600);
+  const graceSec = asNumber(config.graceSec, 20);
+  const thinking = asString(config.thinking, "");
+  const extraArgs = asStringArray(config.extraArgs);
+
+  // ── Workspace resolution ────────────────────────────────────────────
+  const workspaceContext = parseObject(context.paperclipWorkspace);
+  const workspaceCwd = asString(workspaceContext.cwd, "");
+  const cwd = workspaceCwd || configuredCwd || process.cwd();
+  await ensureAbsoluteDirectory(cwd, { createIfMissing: true });
+
+  // ── Session persistence ─────────────────────────────────────────────
+  const runtimeSessionParams = parseObject(runtime?.sessionParams ?? {});
+  const runtimeSessionId = asString(runtimeSessionParams.sessionId, runtime?.sessionId ?? "");
+  const sessionId = runtimeSessionId || `paperclip-${agentId}-${runId}`;
+
+  // ── Environment variables (Paperclip context) ───────────────────────
+  const envConfig = parseObject(config.env);
+  const env: Record<string, string> = { ...buildPaperclipEnv(agent) };
+  env.PAPERCLIP_RUN_ID = runId;
+
+  const wakeTaskId =
+    nonEmpty(context.taskId) ?? nonEmpty(context.issueId);
+  const wakeReason = nonEmpty(context.wakeReason);
+  const wakeCommentId = nonEmpty(context.wakeCommentId) ?? nonEmpty(context.commentId);
+  const approvalId = nonEmpty(context.approvalId);
+  const approvalStatus = nonEmpty(context.approvalStatus);
+
+  if (wakeTaskId) env.PAPERCLIP_TASK_ID = wakeTaskId;
+  if (wakeReason) env.PAPERCLIP_WAKE_REASON = wakeReason;
+  if (wakeCommentId) env.PAPERCLIP_WAKE_COMMENT_ID = wakeCommentId;
+  if (approvalId) env.PAPERCLIP_APPROVAL_ID = approvalId;
+  if (approvalStatus) env.PAPERCLIP_APPROVAL_STATUS = approvalStatus;
+
+  // User-provided env overrides
+  for (const [key, value] of Object.entries(envConfig)) {
+    if (typeof value === "string") env[key] = value;
   }
 
-  const method = asString(config.method, "POST").trim().toUpperCase() || "POST";
-  const timeoutSec = Math.max(1, asNumber(config.timeoutSec, 30));
-  const headersConfig = parseObject(config.headers) as Record<string, unknown>;
-  const payloadTemplate = parseObject(config.payloadTemplate);
-  const webhookAuthHeader = nonEmpty(config.webhookAuthHeader);
-
-  const headers: Record<string, string> = {
-    "content-type": "application/json",
-  };
-  for (const [key, value] of Object.entries(headersConfig)) {
-    if (typeof value === "string" && value.trim().length > 0) {
-      headers[key] = value;
-    }
-  }
-  if (webhookAuthHeader && !headers.authorization && !headers.Authorization) {
-    headers.authorization = webhookAuthHeader;
+  if (!envConfig.PAPERCLIP_API_KEY && authToken) {
+    env.PAPERCLIP_API_KEY = authToken;
   }
 
-  const wakePayload = {
-    runId,
+  // ── Build prompt ────────────────────────────────────────────────────
+  const promptTemplate = asString(
+    config.promptTemplate,
+    "You are agent {{agent.name}} ({{agent.id}}). Continue your Paperclip work.",
+  );
+  const prompt = renderTemplate(promptTemplate, {
     agentId: agent.id,
     companyId: agent.companyId,
-    taskId: nonEmpty(context.taskId) ?? nonEmpty(context.issueId),
-    issueId: nonEmpty(context.issueId),
-    wakeReason: nonEmpty(context.wakeReason),
-    wakeCommentId: nonEmpty(context.wakeCommentId) ?? nonEmpty(context.commentId),
-    approvalId: nonEmpty(context.approvalId),
-    approvalStatus: nonEmpty(context.approvalStatus),
-    issueIds: Array.isArray(context.issueIds)
-      ? context.issueIds.filter((value): value is string => typeof value === "string" && value.trim().length > 0)
-      : [],
-  };
+    runId,
+    company: { id: agent.companyId },
+    agent,
+    run: { id: runId },
+    context,
+  });
 
-  const body = {
-    ...payloadTemplate,
-    paperclip: {
-      ...wakePayload,
-      context,
-    },
-  };
+  // ── Build CLI args ──────────────────────────────────────────────────
+  const args: string[] = [
+    "agent",
+    "--agent", agentId,
+    "--session-id", sessionId,
+    "--message", prompt,
+    "--json",
+    "--timeout", String(timeoutSec),
+  ];
 
+  if (thinking) args.push("--thinking", thinking);
+  if (extraArgs.length > 0) args.push(...extraArgs);
+
+  // ── Metadata ────────────────────────────────────────────────────────
   if (onMeta) {
     await onMeta({
       adapterType: "openclaw",
-      command: "webhook",
-      commandArgs: [method, url],
+      command,
+      cwd,
+      commandArgs: args,
+      env: redactEnvForLogs(env),
+      prompt,
       context,
     });
   }
 
-  await onLog("stdout", `[openclaw] invoking ${method} ${url}\n`);
+  await onLog("stdout", `[openclaw] spawning: ${command} agent --agent ${agentId} --session-id ${sessionId}\n`);
+  await onLog("stdout", `[openclaw] cwd: ${cwd}\n`);
+  await onLog("stdout", `[openclaw] wake reason: ${wakeReason ?? "manual"}, task: ${wakeTaskId ?? "none"}\n`);
 
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), timeoutSec * 1000);
+  // ── Execute ─────────────────────────────────────────────────────────
+  const runtimeEnv = ensurePathInEnv({ ...process.env, ...env });
+  await ensureCommandResolvable(command, cwd, runtimeEnv);
 
-  try {
-    const response = await fetch(url, {
-      method,
-      headers,
-      body: JSON.stringify(body),
-      signal: controller.signal,
-    });
+  const proc = await runChildProcess(runId, command, args, {
+    cwd,
+    env,
+    timeoutSec,
+    graceSec,
+    onLog,
+  });
 
-    const responseText = await response.text();
-    if (responseText.trim().length > 0) {
-      await onLog("stdout", `[openclaw] response (${response.status}) ${responseText.slice(0, 2000)}\n`);
-    } else {
-      await onLog("stdout", `[openclaw] response (${response.status}) <empty>\n`);
-    }
-
-    if (!response.ok) {
-      return {
-        exitCode: 1,
-        signal: null,
-        timedOut: false,
-        errorMessage: `OpenClaw webhook failed with status ${response.status}`,
-        errorCode: "openclaw_http_error",
-        resultJson: {
-          status: response.status,
-          statusText: response.statusText,
-          response: parseOpenClawResponse(responseText) ?? responseText,
-        },
-      };
-    }
-
+  // ── Parse result ────────────────────────────────────────────────────
+  if (proc.timedOut) {
     return {
-      exitCode: 0,
-      signal: null,
-      timedOut: false,
-      provider: "openclaw",
-      model: null,
-      summary: `OpenClaw webhook ${method} ${url}`,
-      resultJson: {
-        status: response.status,
-        statusText: response.statusText,
-        response: parseOpenClawResponse(responseText) ?? responseText,
-      },
+      exitCode: proc.exitCode,
+      signal: proc.signal,
+      timedOut: true,
+      errorMessage: `OpenClaw agent timed out after ${timeoutSec}s`,
+      errorCode: "timeout",
     };
-  } catch (err) {
-    if (err instanceof Error && err.name === "AbortError") {
-      await onLog("stderr", `[openclaw] request timed out after ${timeoutSec}s\n`);
-      return {
-        exitCode: null,
-        signal: null,
-        timedOut: true,
-        errorMessage: `Timed out after ${timeoutSec}s`,
-        errorCode: "timeout",
-      };
-    }
-
-    const message = err instanceof Error ? err.message : String(err);
-    await onLog("stderr", `[openclaw] request failed: ${message}\n`);
-    return {
-      exitCode: 1,
-      signal: null,
-      timedOut: false,
-      errorMessage: message,
-      errorCode: "openclaw_request_failed",
-    };
-  } finally {
-    clearTimeout(timeout);
   }
+
+  const parsed = parseJson(proc.stdout);
+  if (!parsed) {
+    const stderrLine = proc.stderr.split(/\r?\n/).map(l => l.trim()).find(Boolean) ?? "";
+    return {
+      exitCode: proc.exitCode,
+      signal: proc.signal,
+      timedOut: false,
+      errorMessage: stderrLine
+        ? `OpenClaw exited with code ${proc.exitCode ?? -1}: ${stderrLine}`
+        : `OpenClaw exited with code ${proc.exitCode ?? -1}`,
+      errorCode: "openclaw_parse_error",
+      resultJson: { stdout: proc.stdout, stderr: proc.stderr },
+    };
+  }
+
+  // ── Extract usage from OpenClaw JSON ────────────────────────────────
+  const meta = parseObject(parsed.result ? parseObject((parsed as any).result).meta : {});
+  const agentMeta = parseObject((meta as any).agentMeta ?? meta);
+  const usageObj = parseObject((agentMeta as any).usage ?? {});
+  const usage = {
+    inputTokens: asNumber(usageObj.input, 0) + asNumber(usageObj.cacheRead, 0),
+    cachedInputTokens: asNumber(usageObj.cacheRead, 0),
+    outputTokens: asNumber(usageObj.output, 0),
+  };
+
+  const resultModel = asString((agentMeta as any).model, model);
+  const costUsd = asNumber((agentMeta as any).costUsd, 0);
+
+  // Extract text from payloads
+  const payloads = Array.isArray((parsed as any).result?.payloads)
+    ? (parsed as any).result.payloads
+    : [];
+  const summaryText = payloads
+    .map((p: any) => typeof p?.text === "string" ? p.text : "")
+    .filter(Boolean)
+    .join("\n")
+    .slice(0, 500);
+
+  // ── Session persistence ─────────────────────────────────────────────
+  const resolvedSessionParams = {
+    sessionId,
+    cwd,
+    agentId,
+  };
+
+  return {
+    exitCode: proc.exitCode,
+    signal: proc.signal,
+    timedOut: false,
+    errorMessage: (proc.exitCode ?? 0) === 0 ? null : `OpenClaw exited with code ${proc.exitCode}`,
+    errorCode: null,
+    usage,
+    sessionId,
+    sessionParams: resolvedSessionParams,
+    sessionDisplayId: sessionId,
+    provider: asString((agentMeta as any).provider, "anthropic"),
+    model: resultModel,
+    billingType: "subscription",
+    costUsd,
+    resultJson: parsed,
+    summary: summaryText || asString(parsed.summary, ""),
+  };
 }

@@ -18,33 +18,82 @@ export function OpenClawConfigFields({
 }: AdapterConfigFieldsProps) {
   return (
     <>
-      <Field label="Webhook URL" hint={help.webhookUrl}>
+      <Field label="OpenClaw Agent ID" hint="The agent id in OpenClaw (e.g. main, forge, spark)">
         <DraftInput
           value={
             isCreate
-              ? values!.url
-              : eff("adapterConfig", "url", String(config.url ?? ""))
+              ? (values as any)!.agentId ?? "main"
+              : eff("adapterConfig", "agentId", String(config.agentId ?? "main"))
           }
           onCommit={(v) =>
             isCreate
-              ? set!({ url: v })
-              : mark("adapterConfig", "url", v || undefined)
+              ? set!({ agentId: v } as any)
+              : mark("adapterConfig", "agentId", v || undefined)
           }
           immediate
           className={inputClass}
-          placeholder="https://..."
+          placeholder="main"
+        />
+      </Field>
+      <Field label="Working Directory" hint="Workspace path for the agent">
+        <DraftInput
+          value={
+            isCreate
+              ? values!.cwd ?? ""
+              : eff("adapterConfig", "cwd", String(config.cwd ?? ""))
+          }
+          onCommit={(v) =>
+            isCreate
+              ? set!({ cwd: v })
+              : mark("adapterConfig", "cwd", v || undefined)
+          }
+          immediate
+          className={inputClass}
+          placeholder="~/workspaces/agent-name"
+        />
+      </Field>
+      <Field label="Model (optional)" hint="Override model for this agent">
+        <DraftInput
+          value={
+            isCreate
+              ? values!.model ?? ""
+              : eff("adapterConfig", "model", String(config.model ?? ""))
+          }
+          onCommit={(v) =>
+            isCreate
+              ? set!({ model: v })
+              : mark("adapterConfig", "model", v || undefined)
+          }
+          immediate
+          className={inputClass}
+          placeholder="anthropic/claude-sonnet-4-20250514"
+        />
+      </Field>
+      <Field label="Thinking Level" hint="off, minimal, low, medium, high">
+        <DraftInput
+          value={
+            isCreate
+              ? (values as any)!.thinking ?? ""
+              : eff("adapterConfig", "thinking", String(config.thinking ?? ""))
+          }
+          onCommit={(v) =>
+            isCreate
+              ? set!({ thinking: v } as any)
+              : mark("adapterConfig", "thinking", v || undefined)
+          }
+          immediate
+          className={inputClass}
+          placeholder="off"
         />
       </Field>
       {!isCreate && (
-        <Field label="Webhook auth header (optional)">
+        <Field label="Command" hint="Path to openclaw binary (default: openclaw)">
           <DraftInput
-            value={
-              eff("adapterConfig", "webhookAuthHeader", String(config.webhookAuthHeader ?? ""))
-            }
-            onCommit={(v) => mark("adapterConfig", "webhookAuthHeader", v || undefined)}
+            value={eff("adapterConfig", "command", String(config.command ?? "openclaw"))}
+            onCommit={(v) => mark("adapterConfig", "command", v || undefined)}
             immediate
             className={inputClass}
-            placeholder="Bearer <token>"
+            placeholder="openclaw"
           />
         </Field>
       )}
