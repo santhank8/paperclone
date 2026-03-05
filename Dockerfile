@@ -15,32 +15,28 @@ COPY packages/db/package.json packages/db/
 COPY packages/adapter-utils/package.json packages/adapter-utils/
 COPY packages/adapters/claude-local/package.json packages/adapters/claude-local/
 COPY packages/adapters/codex-local/package.json packages/adapters/codex-local/
+COPY packages/adapters/openclaw/package.json packages/adapters/openclaw/
 RUN pnpm install --frozen-lockfile
-
-FROM base AS build
-WORKDIR /app
-COPY --from=deps /app /app
-COPY . .
-RUN pnpm --filter @paperclip/ui build
-RUN pnpm --filter @paperclip/server build
 
 FROM base AS production
 WORKDIR /app
-COPY --from=build /app /app
+COPY --from=deps /app /app
+COPY . .
 RUN npm install --global --omit=dev @anthropic-ai/claude-code@latest @openai/codex@latest
 
-ENV NODE_ENV=production \
+ENV NODE_ENV=development \
   HOME=/paperclip \
   HOST=0.0.0.0 \
   PORT=3100 \
   SERVE_UI=true \
+  PAPERCLIP_UI_DEV_MIDDLEWARE=true \
   PAPERCLIP_HOME=/paperclip \
   PAPERCLIP_INSTANCE_ID=default \
   PAPERCLIP_CONFIG=/paperclip/instances/default/config.json \
-  PAPERCLIP_DEPLOYMENT_MODE=local_trusted \
+  PAPERCLIP_DEPLOYMENT_MODE=authenticated \
   PAPERCLIP_DEPLOYMENT_EXPOSURE=private
 
 VOLUME ["/paperclip"]
 EXPOSE 3100
 
-CMD ["node", "--import", "./server/node_modules/tsx/dist/loader.mjs", "server/dist/index.js"]
+CMD ["pnpm", "--filter", "@paperclipai/server", "dev"]
