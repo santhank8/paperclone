@@ -70,6 +70,32 @@ function sanitizeForFilename(value: string): string {
   return sanitized.length > 0 ? sanitized : `${Date.now()}`;
 }
 
+const SENSITIVE_ARG_FLAG_RE = /^(?:--?(?:api[-_]?key|token|secret|password)|-k)$/i;
+
+function redactCommandArgsForMeta(args: string[], promptLength: number): string[] {
+  let redactNext = false;
+  return args.map((value, idx) => {
+    if (idx === args.length - 1) return `<prompt ${promptLength} chars>`;
+
+    if (redactNext) {
+      redactNext = false;
+      return "<redacted>";
+    }
+
+    const eqMatch = value.match(/^(-{1,2}[A-Za-z0-9][A-Za-z0-9_-]*)=(.*)$/);
+    if (eqMatch && SENSITIVE_ARG_FLAG_RE.test(eqMatch[1])) {
+      return `${eqMatch[1]}=<redacted>`;
+    }
+
+    if (SENSITIVE_ARG_FLAG_RE.test(value)) {
+      redactNext = true;
+      return value;
+    }
+
+    return value;
+  });
+}
+
 export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExecutionResult> {
   const { runId, agent, runtime, config, context, onLog, onMeta, authToken } = ctx;
 
@@ -254,7 +280,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
       adapterType: "pi_local",
       command,
       cwd,
-      commandArgs: args.map((value, idx) => (idx === args.length - 1 ? `<prompt ${prompt.length} chars>` : value)),
+      commandArgs: redactCommandArgsForMeta(args, prompt.length),
       env: redactEnvForLogs(env),
       prompt,
       context,

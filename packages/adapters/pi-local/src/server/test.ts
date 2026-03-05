@@ -102,6 +102,8 @@ export async function testEnvironment(
     });
   }
 
+  const effectiveProbeEnv =
+    Object.keys(probeEnv).length > 0 ? probeEnv : runtimeEnv;
   const anyApiKeySet =
     [
       "OPENAI_API_KEY",
@@ -117,7 +119,7 @@ export async function testEnvironment(
       "MINIMAX_API_KEY",
       "OPENCODE_API_KEY",
       "KIMI_API_KEY",
-    ].some((key) => isNonEmpty(env[key]) || isNonEmpty(process.env[key]));
+    ].some((key) => isNonEmpty(effectiveProbeEnv[key]));
 
   if (anyApiKeySet) {
     checks.push({
