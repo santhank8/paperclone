@@ -14,11 +14,10 @@ import { queryKeys } from "../lib/queryKeys";
 import { ProjectProperties } from "../components/ProjectProperties";
 import { InlineEditor } from "../components/InlineEditor";
 import { StatusBadge } from "../components/StatusBadge";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Button } from "@/components/ui/button";
+import { PickerButton } from "../components/PickerButton";
 import { IssuesList } from "../components/IssuesList";
 import { PageSkeleton } from "../components/PageSkeleton";
-import { cn, projectRouteRef } from "../lib/utils";
+import { projectRouteRef } from "../lib/utils";
 
 /* ── Top-level tab types ── */
 
@@ -61,26 +60,13 @@ function OverviewContent({
         <div>
           <span className="text-muted-foreground">Status</span>
           <div className="mt-1">
-            <Popover>
-              <PopoverTrigger asChild>
-                <button className="cursor-pointer hover:opacity-80 transition-opacity">
-                  <StatusBadge status={project.status} />
-                </button>
-              </PopoverTrigger>
-              <PopoverContent className="w-40 p-1" align="start">
-                {PROJECT_STATUSES.map((opt) => (
-                  <Button
-                    key={opt}
-                    variant="ghost"
-                    size="sm"
-                    className={cn("w-full justify-start text-xs", opt === project.status && "bg-accent")}
-                    onClick={() => onUpdate({ status: opt })}
-                  >
-                    {opt.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}
-                  </Button>
-                ))}
-              </PopoverContent>
-            </Popover>
+            <PickerButton
+              current={project.status}
+              options={PROJECT_STATUSES}
+              onChange={(status) => onUpdate({ status })}
+            >
+              <StatusBadge status={project.status} />
+            </PickerButton>
           </div>
         </div>
         {project.targetDate && (

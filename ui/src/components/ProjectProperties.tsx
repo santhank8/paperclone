@@ -4,7 +4,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Project } from "@paperclipai/shared";
 import { PROJECT_STATUSES } from "@paperclipai/shared";
 import { StatusBadge } from "./StatusBadge";
-import { cn, formatDate } from "../lib/utils";
+import { PickerButton } from "./PickerButton";
+import { formatDate } from "../lib/utils";
 import { goalsApi } from "../api/goals";
 import { projectsApi } from "../api/projects";
 import { useCompany } from "../context/CompanyContext";
@@ -29,49 +30,6 @@ function PropertyRow({ label, children }: { label: string; children: React.React
       <span className="text-xs text-muted-foreground shrink-0 w-20">{label}</span>
       <div className="flex items-center gap-1.5 min-w-0">{children}</div>
     </div>
-  );
-}
-
-function label(s: string): string {
-  return s.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-}
-
-function PickerButton({
-  current,
-  options,
-  onChange,
-  children,
-}: {
-  current: string;
-  options: readonly string[];
-  onChange: (value: string) => void;
-  children: React.ReactNode;
-}) {
-  const [open, setOpen] = useState(false);
-  return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <button className="cursor-pointer hover:opacity-80 transition-opacity">
-          {children}
-        </button>
-      </PopoverTrigger>
-      <PopoverContent className="w-40 p-1" align="end">
-        {options.map((opt) => (
-          <Button
-            key={opt}
-            variant="ghost"
-            size="sm"
-            className={cn("w-full justify-start text-xs", opt === current && "bg-accent")}
-            onClick={() => {
-              onChange(opt);
-              setOpen(false);
-            }}
-          >
-            {label(opt)}
-          </Button>
-        ))}
-      </PopoverContent>
-    </Popover>
   );
 }
 
