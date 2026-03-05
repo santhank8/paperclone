@@ -118,6 +118,15 @@ export function issueRoutes(db: Db, storage: StorageService) {
     return null;
   }
 
+  function forceAssignmentEnabled(req: Request) {
+    const raw = req.query.force;
+    if (typeof raw === "string") return raw.toLowerCase() === "true";
+    if (Array.isArray(raw)) {
+      return raw.some((value) => typeof value === "string" && value.toLowerCase() === "true");
+    }
+    return false;
+  }
+
   async function assertAgentRunCheckoutOwnership(
     req: Request,
     res: Response,
@@ -364,11 +373,12 @@ export function issueRoutes(db: Db, storage: StorageService) {
     }
 
     const actor = getActorInfo(req);
+    const forceAssignment = forceAssignmentEnabled(req);
     const issue = await svc.create(companyId, {
       ...req.body,
       createdByAgentId: actor.agentId,
       createdByUserId: actor.actorType === "user" ? actor.actorId : null,
-    });
+    }, { forceAssignment });
 
     await logActivity(db, {
       companyId,
@@ -432,8 +442,9 @@ export function issueRoutes(db: Db, storage: StorageService) {
       updateFields.hiddenAt = hiddenAtRaw ? new Date(hiddenAtRaw) : null;
     }
     let issue;
+    const forceAssignment = forceAssignmentEnabled(req);
     try {
-      issue = await svc.update(id, updateFields);
+      issue = await svc.update(id, updateFields, { forceAssignment });
     } catch (err) {
       if (err instanceof HttpError && err.status === 422) {
         logger.warn(

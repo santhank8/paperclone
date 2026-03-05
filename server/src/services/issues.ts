@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, isNull, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, ne, or, sql } from "drizzle-orm";
 import type { Db } from "@paperclipai/db";
 import {
   agents,
@@ -20,6 +20,16 @@ import { conflict, notFound, unprocessable } from "../errors.js";
 
 const ALL_ISSUE_STATUSES = ["backlog", "todo", "in_progress", "in_review", "blocked", "done", "cancelled"];
 const ACTIVE_ISSUE_STATUSES_FOR_DEDUPE = ["backlog", "todo", "in_progress", "in_review", "blocked"] as const;
+const WIP_CAP_OPEN_STATUSES = ["todo", "in_progress"] as const;
+const FOUNDING_ENGINEER_WIP_CAP = Math.max(
+  1,
+  Number(process.env.PAPERCLIP_FOUNDING_ENGINEER_WIP_CAP) || 3,
+);
+const FOUNDING_ENGINEER_NAME_KEY = (
+  process.env.PAPERCLIP_FOUNDING_ENGINEER_NAME_KEY ?? "founding engineer"
+)
+  .trim()
+  .toLowerCase();
 const ASSIGNMENT_TEMPLATE_RULES = [
   { label: "Goal", pattern: /(^|\n)\s*(?:#{1,6}\s*goal\b|goal\s*:)/i },
   { label: "Owner", pattern: /(^|\n)\s*(?:#{1,6}\s*owner\b|owner\s*:)/i },
@@ -92,6 +102,10 @@ function normalizeIssueTitle(value: string): string {
   return value.trim().replace(/\s+/g, " ").toLowerCase();
 }
 
+function normalizeNameKey(value: string | null | undefined): string {
+  return (value ?? "").trim().toLowerCase();
+}
+
 function missingAssignmentTemplateFields(description: string | null | undefined): string[] {
   const text = (description ?? "").trim();
   return ASSIGNMENT_TEMPLATE_RULES
@@ -101,6 +115,8 @@ function missingAssignmentTemplateFields(description: string | null | undefined)
 
 type IssueMutationOptions = {
   skipAssignmentTemplateValidation?: boolean;
+  skipAssigneeWipCapValidation?: boolean;
+  forceAssignment?: boolean;
 };
 
 async function labelMapForIssues(dbOrTx: any, issueIds: string[]): Promise<Map<string, IssueLabelRow[]>> {
@@ -242,6 +258,50 @@ export function issueService(db: Db) {
     if (!membership) {
       throw notFound("Assignee user not found");
     }
+  }
+
+  async function assertAssigneeWipCap(input: {
+    companyId: string;
+    assigneeAgentId: string | null | undefined;
+    excludeIssueId?: string;
+    options?: IssueMutationOptions;
+  }) {
+    if (!input.assigneeAgentId) return;
+    if (input.options?.skipAssigneeWipCapValidation || input.options?.forceAssignment) return;
+
+    const assignee = await db
+      .select({ name: agents.name })
+      .from(agents)
+      .where(and(eq(agents.companyId, input.companyId), eq(agents.id, input.assigneeAgentId)))
+      .then((rows) => rows[0] ?? null);
+    if (!assignee) return;
+    if (normalizeNameKey(assignee.name) !== FOUNDING_ENGINEER_NAME_KEY) return;
+
+    const conditions: any[] = [
+      eq(issues.companyId, input.companyId),
+      eq(issues.assigneeAgentId, input.assigneeAgentId),
+      isNull(issues.hiddenAt),
+      inArray(issues.status, [...WIP_CAP_OPEN_STATUSES]),
+    ];
+    if (input.excludeIssueId) {
+      conditions.push(ne(issues.id, input.excludeIssueId));
+    }
+
+    const [{ count }] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(issues)
+      .where(and(...conditions));
+    const openCount = Number(count ?? 0);
+    if (openCount < FOUNDING_ENGINEER_WIP_CAP) return;
+
+    throw conflict(
+      `Founding Engineer WIP cap reached (${FOUNDING_ENGINEER_WIP_CAP} open todo/in_progress tasks). Retry with force=true to override.`,
+      {
+        assigneeAgentId: input.assigneeAgentId,
+        openCount,
+        cap: FOUNDING_ENGINEER_WIP_CAP,
+      },
+    );
   }
 
   async function assertValidLabelIds(companyId: string, labelIds: string[], dbOrTx: any = db) {
@@ -481,6 +541,11 @@ export function issueService(db: Db) {
       if (data.assigneeUserId) {
         await assertAssignableUser(companyId, data.assigneeUserId);
       }
+      await assertAssigneeWipCap({
+        companyId,
+        assigneeAgentId: data.assigneeAgentId,
+        options,
+      });
       if (data.status === "in_progress" && !data.assigneeAgentId && !data.assigneeUserId) {
         throw unprocessable("in_progress issues require an assignee");
       }
@@ -580,6 +645,12 @@ export function issueService(db: Db) {
       if (issueData.assigneeUserId) {
         await assertAssignableUser(existing.companyId, issueData.assigneeUserId);
       }
+      await assertAssigneeWipCap({
+        companyId: existing.companyId,
+        assigneeAgentId: nextAssigneeAgentId,
+        excludeIssueId: id,
+        options,
+      });
       assertAssignmentTemplateIfAssigned(
         {
           description: nextDescription,
@@ -673,6 +744,11 @@ export function issueService(db: Db) {
         .then((rows) => rows[0] ?? null);
       if (!issueCompany) throw notFound("Issue not found");
       await assertAssignableAgent(issueCompany.companyId, agentId);
+      await assertAssigneeWipCap({
+        companyId: issueCompany.companyId,
+        assigneeAgentId: agentId,
+        excludeIssueId: id,
+      });
       if (!issueCompany.assigneeAgentId && !issueCompany.assigneeUserId) {
         assertAssignmentTemplateIfAssigned({
           description: issueCompany.description,

@@ -45,6 +45,9 @@ POST /api/companies/{companyId}/issues
 }
 ```
 
+Optional query parameter:
+- `force=true` — bypasses assignment guardrails such as WIP caps.
+
 ## Update Issue
 
 ```
@@ -56,9 +59,21 @@ Headers: X-Paperclip-Run-Id: {runId}
 }
 ```
 
+Optional query parameter:
+- `force=true` — bypasses assignment guardrails such as WIP caps.
+
 The optional `comment` field adds a comment in the same call.
 
 Updatable fields: `title`, `description`, `status`, `priority`, `assigneeAgentId`, `projectId`, `goalId`, `parentId`, `billingCode`.
+
+## Assignment Guardrail
+
+Paperclip enforces a WIP cap for the `Founding Engineer` assignee:
+- Blocks new assignments when that agent already has `3` open `todo`/`in_progress` issues.
+- Override intentionally by sending `?force=true` on create/update requests.
+- Configure via env:
+  - `PAPERCLIP_FOUNDING_ENGINEER_WIP_CAP` (default `3`)
+  - `PAPERCLIP_FOUNDING_ENGINEER_NAME_KEY` (default `founding engineer`)
 
 ## Checkout (Claim Task)
 

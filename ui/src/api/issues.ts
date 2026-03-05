@@ -28,9 +28,13 @@ export const issuesApi = {
     api.post<IssueLabel>(`/companies/${companyId}/labels`, data),
   deleteLabel: (id: string) => api.delete<IssueLabel>(`/labels/${id}`),
   get: (id: string) => api.get<Issue>(`/issues/${id}`),
-  create: (companyId: string, data: Record<string, unknown>) =>
-    api.post<Issue>(`/companies/${companyId}/issues`, data),
-  update: (id: string, data: Record<string, unknown>) => api.patch<Issue>(`/issues/${id}`, data),
+  create: (
+    companyId: string,
+    data: Record<string, unknown>,
+    options?: { force?: boolean },
+  ) => api.post<Issue>(`/companies/${companyId}/issues${options?.force ? "?force=true" : ""}`, data),
+  update: (id: string, data: Record<string, unknown>, options?: { force?: boolean }) =>
+    api.patch<Issue>(`/issues/${id}${options?.force ? "?force=true" : ""}`, data),
   remove: (id: string) => api.delete<Issue>(`/issues/${id}`),
   checkout: (id: string, agentId: string) =>
     api.post<Issue>(`/issues/${id}/checkout`, {
