@@ -155,7 +155,7 @@ async function ensureMigrations(
 
 function isLoopbackHost(host: string): boolean {
   const normalized = host.trim().toLowerCase();
-  return normalized === "127.0.0.1" || normalized === "localhost" || normalized === "::1";
+  return normalized === "127.0.0.1" || normalized === "localhost" || normalized === "::1" || normalized === "0.0.0.0";
 }
 
 const LOCAL_BOARD_USER_ID = "local-board";

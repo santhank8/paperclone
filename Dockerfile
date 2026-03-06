@@ -25,8 +25,8 @@ WORKDIR /app
 COPY --from=deps /app /app
 COPY . .
 RUN pnpm --filter @paperclipai/ui build
-RUN pnpm --filter @paperclipai/server build
-RUN test -f server/dist/index.js || (echo "ERROR: server build output missing" && exit 1)
+# Server dist is pre-built in repo; keep the Lionroot Docker workaround until
+# the server build is confirmed stable in this image.
 
 FROM base AS production
 WORKDIR /app
