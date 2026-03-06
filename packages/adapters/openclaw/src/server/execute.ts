@@ -112,7 +112,7 @@ export async function execute(
   // ---- extract config ----
   const gatewayUrl = asString(config.gatewayUrl, "ws://127.0.0.1:5555").trim();
   const agentId = asString(config.agentId, "").trim();
-  const authToken = asString(config.authToken, "").trim() || ctx.authToken || "";
+  const authToken = asString(config.authToken, "").trim();
   const timeoutSec = Math.max(1, asNumber(config.timeoutSec, 120));
   const model = asString(config.model, "unknown");
 

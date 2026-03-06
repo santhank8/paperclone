@@ -53,6 +53,7 @@ export function OpenClawConfigFields({
       </Field>
       <Field label="Auth Token (optional)" hint="Bearer token for authenticating with the gateway.">
         <DraftInput
+          type="password"
           value={
             isCreate
               ? (values as any).authToken ?? ""

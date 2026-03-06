@@ -27,10 +27,10 @@ export function parseOpenClawAgentResult(payload: Record<string, unknown>): {
       : null;
 
   const error = isOpenClawError(payload)
-    ? (typeof payload.summary === "string" && payload.summary.length > 0
-        ? payload.summary
-        : typeof payload.error === "string" && payload.error.length > 0
-          ? payload.error
+    ? (typeof payload.error === "string" && payload.error.length > 0
+        ? payload.error
+        : typeof payload.summary === "string" && payload.summary.length > 0
+          ? payload.summary
           : `Agent run failed with status: ${status}`)
     : null;
 
