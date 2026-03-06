@@ -69,7 +69,7 @@ export function OpenClawConfigFields({
   const commitGatewayAuthHeader = (rawValue: string) => {
     const nextValue = rawValue.trim();
     if (isCreate) {
-      set!({ gatewayAuthToken: nextValue || undefined });
+      set!({ gatewayAuthToken: nextValue || "" });
     } else {
       const nextHeaders: Record<string, unknown> = { ...effectiveHeaders };
       if (nextValue) {
@@ -119,11 +119,14 @@ export function OpenClawConfigFields({
             ? String(values?.webhookAuthHeader ?? "")
             : eff("adapterConfig", "webhookAuthHeader", String(config.webhookAuthHeader ?? ""))
         }
-        onCommit={(v) =>
-          isCreate
-            ? set!({ webhookAuthHeader: v.trim() || undefined })
-            : mark("adapterConfig", "webhookAuthHeader", v || undefined)
-        }
+        onCommit={(v) => {
+          const trimmed = v.trim();
+          if (isCreate) {
+            set!({ webhookAuthHeader: trimmed || "" });
+          } else {
+            mark("adapterConfig", "webhookAuthHeader", trimmed || undefined);
+          }
+        }}
         placeholder="Bearer <token>"
       />
 
