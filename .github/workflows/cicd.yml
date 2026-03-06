@@ -23,7 +23,7 @@ permissions:
 
 env:
   AWS_REGION: eu-west-1
-  ECR_REPOSITORY: paperclip
+  ECR_REPOSITORY: ahead-studios/paperclip
 
 jobs:
   push-image:
