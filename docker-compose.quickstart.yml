@@ -1,5 +1,6 @@
 services:
   paperclip:
+    image: paperclip-local
     build:
       context: .
       dockerfile: Dockerfile

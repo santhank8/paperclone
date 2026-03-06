@@ -1,25 +1,39 @@
 services:
   db:
     image: postgres:17-alpine
+    restart: always
     environment:
       POSTGRES_USER: paperclip
-      POSTGRES_PASSWORD: paperclip
+      POSTGRES_PASSWORD: paperclip_password
       POSTGRES_DB: paperclip
-    ports:
-      - "5432:5432"
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - paperclip_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U paperclip"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
-  server:
+  paperclip:
     build: .
+    image: paperclip-local
+    restart: always
     ports:
       - "3100:3100"
     environment:
-      DATABASE_URL: postgres://paperclip:paperclip@db:5432/paperclip
-      PORT: "3100"
+      DATABASE_URL: postgres://paperclip:paperclip_password@db:5432/paperclip
+      BETTER_AUTH_SECRET: paperclip_auth_secret_change_me
+      PAPERCLIP_DEPLOYMENT_MODE: authenticated
+      PAPERCLIP_DEPLOYMENT_EXPOSURE: private
       SERVE_UI: "true"
+      HOST: "0.0.0.0"
+      PORT: "3100"
     depends_on:
-      - db
+      db:
+        condition: service_healthy
+    volumes:
+      - paperclip_app_data:/paperclip
 
 volumes:
-  pgdata:
+  paperclip_db_data:
+  paperclip_app_data:

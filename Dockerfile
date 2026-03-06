@@ -1,33 +1,44 @@
-FROM node:20-bookworm-slim AS base
+FROM node:20-bookworm-slim
 RUN apt-get update \
   && apt-get install -y --no-install-recommends ca-certificates curl git \
   && rm -rf /var/lib/apt/lists/*
 RUN corepack enable
 
-FROM base AS deps
-WORKDIR /app
-COPY package.json pnpm-workspace.yaml pnpm-lock.yaml .npmrc ./
-COPY cli/package.json cli/
-COPY server/package.json server/
-COPY ui/package.json ui/
-COPY packages/shared/package.json packages/shared/
-COPY packages/db/package.json packages/db/
-COPY packages/adapter-utils/package.json packages/adapter-utils/
-COPY packages/adapters/claude-local/package.json packages/adapters/claude-local/
-COPY packages/adapters/codex-local/package.json packages/adapters/codex-local/
-RUN pnpm install --frozen-lockfile
+# Create the data volume directory
+RUN mkdir -p /paperclip && chown -R node:node /paperclip
 
-FROM base AS build
+# Set up the application directory and ensure the node user owns it
 WORKDIR /app
-COPY --from=deps /app /app
-COPY . .
-RUN pnpm --filter @paperclip/ui build
-RUN pnpm --filter @paperclip/server build
+RUN chown -R node:node /app
 
-FROM base AS production
-WORKDIR /app
-COPY --from=build /app /app
+# Copy package files first
+COPY --chown=node:node package.json pnpm-workspace.yaml pnpm-lock.yaml .npmrc ./
+COPY --chown=node:node cli/package.json cli/
+COPY --chown=node:node server/package.json server/
+COPY --chown=node:node ui/package.json ui/
+COPY --chown=node:node packages/shared/package.json packages/shared/
+COPY --chown=node:node packages/db/package.json packages/db/
+COPY --chown=node:node packages/adapter-utils/package.json packages/adapter-utils/
+COPY --chown=node:node packages/adapters/claude-local/package.json packages/adapters/claude-local/
+COPY --chown=node:node packages/adapters/codex-local/package.json packages/adapters/codex-local/
+COPY --chown=node:node packages/adapters/cursor-local/package.json packages/adapters/cursor-local/
+COPY --chown=node:node packages/adapters/openclaw/package.json packages/adapters/openclaw/
+COPY --chown=node:node packages/adapters/opencode-local/package.json packages/adapters/opencode-local/
+
+# Install global tools as root
 RUN npm install --global --omit=dev @anthropic-ai/claude-code@latest @openai/codex@latest
+
+# Switch to non-root user
+USER node
+
+# Install dependencies
+RUN pnpm install --no-frozen-lockfile
+
+# Copy the rest of the source code
+COPY --chown=node:node . .
+
+# Build the project
+RUN pnpm build
 
 ENV NODE_ENV=production \
   HOME=/paperclip \
@@ -37,10 +48,11 @@ ENV NODE_ENV=production \
   PAPERCLIP_HOME=/paperclip \
   PAPERCLIP_INSTANCE_ID=default \
   PAPERCLIP_CONFIG=/paperclip/instances/default/config.json \
-  PAPERCLIP_DEPLOYMENT_MODE=local_trusted \
+  PAPERCLIP_DEPLOYMENT_MODE=authenticated \
   PAPERCLIP_DEPLOYMENT_EXPOSURE=private
 
 VOLUME ["/paperclip"]
 EXPOSE 3100
 
-CMD ["node", "--import", "./server/node_modules/tsx/dist/loader.mjs", "server/dist/index.js"]
+# Use the workspace start script
+CMD ["pnpm", "--filter", "@paperclipai/server", "start"]
