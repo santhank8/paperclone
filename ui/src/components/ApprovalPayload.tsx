@@ -87,7 +87,7 @@ function EvalReviewPayload({ payload }: { payload: Record<string, unknown> }) {
         <div className="flex items-center gap-2">
           <span className="text-muted-foreground w-20 sm:w-24 shrink-0 text-xs">Judge</span>
           <span className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">
-            {judge.provider}/{judge.model}
+            {judge.provider ?? "unknown"}/{judge.model ?? "unknown"}
           </span>
         </div>
       )}

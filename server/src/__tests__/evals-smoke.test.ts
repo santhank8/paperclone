@@ -258,7 +258,7 @@ describe("smoke: specialized strategy end-to-end", () => {
 });
 
 describe("smoke: sampling integration", () => {
-  it("respects every-N gating through full pipeline", async () => {
+  it("runs correctly regardless of runSeq when called directly", async () => {
     mockOpenAIResponse(
       makeBatchedOpenAIResponse({ toxicity: 0.01 }),
     );
