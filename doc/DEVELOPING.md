@@ -217,6 +217,7 @@ Use these docs to run a company continuously with repeatable quality:
 - `doc/OPERATING-PLAYBOOK.md`
 - `doc/AGENT-ROLE-TEMPLATES.md`
 - `doc/MODEL-ROUTING-PROFILES.md`
+- `doc/NUG-SOP-CHECKLIST.md`
 
 Bulk-apply model routing and provider key env refs to process agents:
 
