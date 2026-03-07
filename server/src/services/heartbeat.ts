@@ -2216,6 +2216,24 @@ export function heartbeatService(db: Db) {
         const elapsedMs = now.getTime() - baseline;
         if (elapsedMs < policy.intervalSec * 1000) continue;
 
+        // Skip timer wakes for agents that already have running or queued runs.
+        // Timer wakes just check for new work — redundant when the agent is busy.
+        // On-demand wakes (assignments, comments) bypass this and use enqueueWakeup's
+        // coalescing logic directly.
+        const [{ activeCount }] = await db
+          .select({ activeCount: sql<number>`count(*)` })
+          .from(heartbeatRuns)
+          .where(
+            and(
+              eq(heartbeatRuns.agentId, agent.id),
+              inArray(heartbeatRuns.status, ["queued", "running"]),
+            ),
+          );
+        if (Number(activeCount) > 0) {
+          skipped += 1;
+          continue;
+        }
+
         const run = await enqueueWakeup(agent.id, {
           source: "timer",
           triggerDetail: "system",
