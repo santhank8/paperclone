@@ -19,5 +19,7 @@ describe("unmatched API routes", () => {
 
     expect(res.status).toBe(404);
     expect(res.status).not.toBe(500);
+    expect(res.headers["content-type"]).toMatch(/application\/json/);
+    expect(res.body).toMatchObject({ error: "Not found", path: "/api/issues" });
   });
 });
