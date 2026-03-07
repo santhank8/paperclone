@@ -133,7 +133,19 @@ export async function createApp(
     if (uiDist) {
       app.use(express.static(uiDist));
       app.get(/.*/, (_req, res) => {
-        res.sendFile(path.join(uiDist, "index.html"));
+        const indexPath = path.join(uiDist, "index.html");
+        res.sendFile(indexPath, (err) => {
+          if (err) {
+            // Fallback: read and send index.html directly when sendFile fails
+            // (e.g. certain SPA catch-all routes trigger sendFile errors)
+            try {
+              const html = fs.readFileSync(indexPath, "utf-8");
+              res.status(200).set({ "Content-Type": "text/html" }).end(html);
+            } catch {
+              res.status(500).end();
+            }
+          }
+        });
       });
     } else {
       console.warn("[paperclip] UI dist not found; running in API-only mode");
