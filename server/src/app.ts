@@ -121,6 +121,9 @@ export async function createApp(
     }),
   );
   app.use("/api", api);
+  app.use("/api", (req, res) => {
+    res.status(404).json({ error: "Not found", path: req.originalUrl });
+  });
 
   const __dirname = path.dirname(fileURLToPath(import.meta.url));
   if (opts.uiMode === "static") {
