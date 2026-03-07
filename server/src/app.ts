@@ -131,9 +131,9 @@ export async function createApp(
     ];
     const uiDist = candidates.find((p) => fs.existsSync(path.join(p, "index.html")));
     if (uiDist) {
-      app.use(express.static(uiDist));
+      app.use(express.static(uiDist, { dotfiles: "allow" }));
       app.get(/.*/, (_req, res) => {
-        res.sendFile(path.join(uiDist, "index.html"));
+        res.sendFile(path.join(uiDist, "index.html"), { dotfiles: "allow" });
       });
     } else {
       console.warn("[paperclip] UI dist not found; running in API-only mode");
