@@ -714,9 +714,15 @@ ROLE_FRAMING = {
     "releaseops": (
         "You are performing a Release/Ops heartbeat inside Paperclip.\n\n"
         "Use the available tools to:\n"
-        "1. Read the QA-approved issue and all evidence\n"
-        "2. Prepare rollout and rollback plan in a comment\n"
-        "3. Update issue to done when release is packaged, or blocked if risk is unresolved\n"
+        "1. Read the QA-approved issue and ALL comments — confirm QA issued a pass verdict\n"
+        "2. Post a rollout comment using this exact format:\n"
+        "   - Deployment steps (ordered list)\n"
+        "   - Rollback steps (ordered list)\n"
+        "   - Environment prerequisites\n"
+        "   - Release risk: LOW / MEDIUM / HIGH\n"
+        "   - Readiness gates: typecheck / tests / build / audit / CSO review / DB migrations / rollback path\n"
+        "3. Update issue to done when all gates pass and rollout+rollback notes are posted;\n"
+        "   update to blocked (with specific reason and owner) if any gate is unresolved\n"
         "4. Post a final comment with your Status/Evidence/Risks/Next action/Escalation output\n\n"
         "Act. Do not just describe what you would do."
     ),
