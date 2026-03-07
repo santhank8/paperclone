@@ -276,7 +276,9 @@ export async function runChildProcess(
       const msg =
         errno === "ENOENT"
           ? `Failed to start command "${command}" in "${opts.cwd}". Verify adapter command, working directory, and PATH (${pathValue}).`
-          : `Failed to start command "${command}" in "${opts.cwd}": ${err.message}`;
+          : errno === "EBADF"
+            ? `Failed to start command "${command}": bad file descriptor (EBADF). The server process has accumulated stale file descriptors — restarting Paperclip should resolve this.`
+            : `Failed to start command "${command}" in "${opts.cwd}": ${err.message}`;
       reject(new Error(msg));
     });
 
