@@ -1,4 +1,4 @@
-FROM node:20-bookworm-slim AS base
+FROM node:lts-trixie-slim AS base
 RUN apt-get update \
   && apt-get install -y --no-install-recommends \
     ca-certificates curl git gh \
@@ -36,8 +36,8 @@ COPY packages/adapter-utils/package.json packages/adapter-utils/
 COPY packages/adapters/claude-local/package.json packages/adapters/claude-local/
 COPY packages/adapters/codex-local/package.json packages/adapters/codex-local/
 COPY packages/adapters/cursor-local/package.json packages/adapters/cursor-local/
-COPY packages/adapters/opencode-local/package.json packages/adapters/opencode-local/
 COPY packages/adapters/openclaw/package.json packages/adapters/openclaw/
+COPY packages/adapters/opencode-local/package.json packages/adapters/opencode-local/
 RUN pnpm install --frozen-lockfile
 
 FROM base AS build
@@ -47,6 +47,7 @@ COPY . .
 ENV NODE_OPTIONS="--max-old-space-size=4096"
 RUN pnpm --filter @paperclipai/ui build
 RUN pnpm --filter @paperclipai/server build
+RUN test -f server/dist/index.js || (echo "ERROR: server build output missing" && exit 1)
 
 FROM base AS production
 WORKDIR /app
