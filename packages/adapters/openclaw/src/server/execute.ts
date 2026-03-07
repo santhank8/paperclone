@@ -39,6 +39,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
   // they do not support SSE streaming. Automatically fall back to webhook transport
   // so users don't need to set `transport: "webhook"` manually when using these URLs.
   if (transport === "sse" && isHookEndpoint(url)) {
+    await ctx.onLog("stdout", "[openclaw] hook endpoint detected; using webhook transport (fire-and-forget)\n");
     return executeWebhook(ctx, url);
   }
 
