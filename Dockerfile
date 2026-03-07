@@ -37,6 +37,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends gosu && rm -rf 
   && useradd -m -d /paperclip -s /bin/bash paperclip
 
 # 2. Install global CLI tools (cached unless version changes)
+ENV PNPM_HOME=/usr/local/share/pnpm
+ENV PATH=$PNPM_HOME:$PATH
 RUN pnpm add -g @anthropic-ai/claude-code@2.1.71 @openai/codex@0.111.0
 
 ENV NODE_ENV=production \
