@@ -6,6 +6,9 @@ import { OpenClawConfigFields } from "./config-fields";
 export const openClawUIAdapter: UIAdapterModule = {
   type: "openclaw",
   label: "OpenClaw",
+  capabilities: {
+    model: true,
+  },
   parseStdoutLine: parseOpenClawStdoutLine,
   ConfigFields: OpenClawConfigFields,
   buildAdapterConfig: buildOpenClawConfig,

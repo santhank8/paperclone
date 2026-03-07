@@ -57,6 +57,8 @@ export const adapterLabels: Record<string, string> = {
   cursor: "Cursor (local)",
   process: "Process",
   http: "HTTP",
+  acp: "ACP Compatible (local)",
+  kiro_cli: "Kiro CLI (local)",
 };
 
 export const roleLabels: Record<string, string> = {

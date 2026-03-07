@@ -187,6 +187,33 @@ export interface CLIAdapterModule {
 }
 
 // ---------------------------------------------------------------------------
+// Adapter UI capabilities — drives which config fields the form shows
+// ---------------------------------------------------------------------------
+
+export interface AdapterCapabilities {
+  /** Shows Command field in Permissions section */
+  command?: boolean;
+  /** Shows Model dropdown */
+  model?: boolean;
+  /** Shows Thinking Effort dropdown */
+  thinkingEffort?: boolean;
+  /** Shows Working Directory field */
+  cwd?: boolean;
+  /** Shows Prompt Template editor */
+  promptTemplate?: boolean;
+  /** Shows Bootstrap Prompt (first run) editor */
+  bootstrapPrompt?: boolean;
+  /** Shows Extra Args field */
+  extraArgs?: boolean;
+  /** Shows Environment Variables editor */
+  envVars?: boolean;
+  /** Shows Timeout field */
+  timeout?: boolean;
+  /** Shows Interrupt Grace Period field */
+  gracePeriod?: boolean;
+}
+
+// ---------------------------------------------------------------------------
 // UI config form values (moved from ui/src/components/AgentConfigForm.tsx)
 // ---------------------------------------------------------------------------
 
@@ -208,6 +235,7 @@ export interface CreateConfigValues {
   envBindings: Record<string, unknown>;
   url: string;
   bootstrapPrompt: string;
+  timeoutSec: string;
   maxTurnsPerRun: number;
   heartbeatEnabled: boolean;
   intervalSec: number;

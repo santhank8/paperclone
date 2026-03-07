@@ -19,5 +19,6 @@ export type {
   TranscriptEntry,
   StdoutLineParser,
   CLIAdapterModule,
+  AdapterCapabilities,
   CreateConfigValues,
 } from "./types.js";

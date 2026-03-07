@@ -6,9 +6,11 @@ import { openCodeLocalUIAdapter } from "./opencode-local";
 import { openClawUIAdapter } from "./openclaw";
 import { processUIAdapter } from "./process";
 import { httpUIAdapter } from "./http";
+import { acpUIAdapter } from "./acp";
+import { kiroCliUIAdapter } from "./kiro-cli";
 
 const adaptersByType = new Map<string, UIAdapterModule>(
-  [claudeLocalUIAdapter, codexLocalUIAdapter, openCodeLocalUIAdapter, cursorLocalUIAdapter, openClawUIAdapter, processUIAdapter, httpUIAdapter].map((a) => [a.type, a]),
+  [claudeLocalUIAdapter, codexLocalUIAdapter, openCodeLocalUIAdapter, cursorLocalUIAdapter, openClawUIAdapter, processUIAdapter, httpUIAdapter, acpUIAdapter, kiroCliUIAdapter].map((a) => [a.type, a]),
 );
 
 export function getUIAdapter(type: string): UIAdapterModule {

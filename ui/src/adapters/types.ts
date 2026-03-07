@@ -1,8 +1,8 @@
 import type { ComponentType } from "react";
-import type { CreateConfigValues } from "@paperclipai/adapter-utils";
+import type { CreateConfigValues, AdapterCapabilities } from "@paperclipai/adapter-utils";
 
 // Re-export shared types so local consumers don't need to change imports
-export type { TranscriptEntry, StdoutLineParser, CreateConfigValues } from "@paperclipai/adapter-utils";
+export type { TranscriptEntry, StdoutLineParser, CreateConfigValues, AdapterCapabilities } from "@paperclipai/adapter-utils";
 
 export interface AdapterConfigFieldsProps {
   mode: "create" | "edit";
@@ -25,6 +25,7 @@ export interface AdapterConfigFieldsProps {
 export interface UIAdapterModule {
   type: string;
   label: string;
+  capabilities: AdapterCapabilities;
   parseStdoutLine: (line: string, ts: string) => import("@paperclipai/adapter-utils").TranscriptEntry[];
   ConfigFields: ComponentType<AdapterConfigFieldsProps>;
   buildAdapterConfig: (values: CreateConfigValues) => Record<string, unknown>;
