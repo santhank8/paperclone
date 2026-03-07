@@ -1103,6 +1103,22 @@ export function heartbeatService(db: Db) {
         .orderBy(asc(agentWakeupRequests.requestedAt))
         .limit(1)
         .then((rows) => rows[0] ?? null);
+    } else {
+      existingDeferred = await database
+        .select()
+        .from(agentWakeupRequests)
+        .where(
+          and(
+            eq(agentWakeupRequests.companyId, agent.companyId),
+            eq(agentWakeupRequests.agentId, agentId),
+            eq(agentWakeupRequests.status, AGENT_CAPACITY_DEFERRED_STATUS),
+            sql`${agentWakeupRequests.payload} ->> 'issueId' is null`,
+            sql`${agentWakeupRequests.payload} ->> 'taskKey' is null`,
+          ),
+        )
+        .orderBy(asc(agentWakeupRequests.requestedAt))
+        .limit(1)
+        .then((rows) => rows[0] ?? null);
     }
 
     if (existingDeferred) {
@@ -1152,6 +1168,7 @@ export function heartbeatService(db: Db) {
   ) {
     const promotedRuns: Array<typeof heartbeatRuns.$inferSelect> = [];
     const agentNameKey = normalizeAgentNameKey(agent.name);
+    const deferredBatchLimit = Math.max(policy.maxConcurrentRuns * 4, 25);
 
     while (true) {
       const activeCount = await countActiveRunsForAgent(agent.id);
@@ -1170,7 +1187,8 @@ export function heartbeatService(db: Db) {
             ]),
           ),
         )
-        .orderBy(asc(agentWakeupRequests.requestedAt), asc(agentWakeupRequests.createdAt));
+        .orderBy(asc(agentWakeupRequests.requestedAt), asc(agentWakeupRequests.createdAt))
+        .limit(deferredBatchLimit);
 
       if (deferredRequests.length === 0) break;
 
@@ -1178,6 +1196,10 @@ export function heartbeatService(db: Db) {
 
       for (const deferred of deferredRequests) {
         const outcome = await db.transaction(async (tx): Promise<DeferredPromotionOutcome> => {
+          await tx.execute(
+            sql`select id from agent_wakeup_requests where id = ${deferred.id} for update`,
+          );
+
           const latestDeferred = await tx
             .select()
             .from(agentWakeupRequests)
