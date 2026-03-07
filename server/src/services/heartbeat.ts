@@ -25,8 +25,8 @@ import {
   isGitRepository,
   gitRepoRoot,
   ensureGitWorktree,
-  agentSlug,
   worktreeBranch,
+  worktreeDir,
   isPaperclipWorktree,
 } from "@paperclipai/adapter-utils/git-worktree";
 import { secretService } from "./secrets.js";
@@ -1125,9 +1125,7 @@ export function heartbeatService(db: Db) {
           const repoRoot = await gitRepoRoot(baseCwd);
           const issueId = readNonEmptyString(context.issueId);
           const branch = worktreeBranch(agent.name, issueId);
-          const slug = agentSlug(agent.name);
-          const suffix = issueId ? issueId.replace(/[^a-zA-Z0-9-]/g, "-").slice(0, 20) : "general";
-          const wtPath = path.join(path.dirname(repoRoot), ".paperclip-worktrees", `${slug}-${suffix}`);
+          const wtPath = worktreeDir(repoRoot, agent.name, issueId);
           const wt = await ensureGitWorktree({
             repoCwd: repoRoot,
             branchName: branch,

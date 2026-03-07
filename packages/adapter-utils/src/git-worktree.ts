@@ -88,6 +88,11 @@ export async function ensureGitWorktree(opts: WorktreeOptions): Promise<Worktree
   // Ensure parent directory exists
   await fs.mkdir(path.dirname(absWorktree), { recursive: true });
 
+  // Prune stale worktree bookkeeping before adding. If a previous worktree
+  // directory was deleted without `git worktree remove`, the branch is still
+  // recorded as checked-out and `worktree add` will fail.
+  await pruneGitWorktrees(repoCwd);
+
   try {
     if (branchExists) {
       // Branch exists but no worktree — attach worktree to existing branch
@@ -171,13 +176,24 @@ export function agentSlug(agentName: string): string {
 }
 
 /**
- * Build the standard worktree path for a Paperclip agent run.
+ * Sanitize a task/issue ID into a suffix safe for branch names and paths.
+ * Returns `"general"` when no ID is provided.
  */
-export function worktreePath(repoCwd: string, agentName: string, runId: string): string {
+export function taskSuffix(taskId: string | null | undefined): string {
+  if (!taskId || taskId.trim().length === 0) return "general";
+  return taskId.replace(/[^a-zA-Z0-9-]/g, "-").slice(0, 20);
+}
+
+/**
+ * Build the standard worktree directory path for a Paperclip agent run.
+ *
+ * The worktree is placed next to the repo root under `.paperclip-worktrees/`.
+ */
+export function worktreeDir(repoCwd: string, agentName: string, taskId: string | null): string {
   const slug = agentSlug(agentName);
-  const shortRun = runId.slice(0, 8);
+  const suffix = taskSuffix(taskId);
   const normalizedRoot = path.resolve(repoCwd);
-  return path.join(path.dirname(normalizedRoot), `.paperclip-worktrees`, `${slug}-${shortRun}`);
+  return path.join(path.dirname(normalizedRoot), `.paperclip-worktrees`, `${slug}-${suffix}`);
 }
 
 /**
@@ -185,6 +201,13 @@ export function worktreePath(repoCwd: string, agentName: string, runId: string):
  */
 export function worktreeBranch(agentName: string, taskId: string | null): string {
   const slug = agentSlug(agentName);
-  const suffix = taskId ? taskId.replace(/[^a-zA-Z0-9-]/g, "-").slice(0, 20) : "general";
+  const suffix = taskSuffix(taskId);
   return `paperclip/${slug}/${suffix}`;
+}
+
+/**
+ * Check whether a directory path looks like a Paperclip-managed worktree.
+ */
+export function isPaperclipWorktree(dir: string): boolean {
+  return path.resolve(dir).includes(`${path.sep}.paperclip-worktrees${path.sep}`);
 }
