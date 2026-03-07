@@ -4,6 +4,7 @@ import type {
   AdapterEnvironmentTestResult,
 } from "@paperclipai/adapter-utils";
 import { asString, parseObject } from "@paperclipai/adapter-utils/server-utils";
+import { isHookEndpoint, isWakeCompatibilityEndpoint } from "./execute-common.js";
 
 function summarizeStatus(checks: AdapterEnvironmentCheck[]): AdapterEnvironmentTestResult["status"] {
   if (checks.some((check) => check.level === "error")) return "fail";
@@ -29,20 +30,7 @@ function normalizeHostname(value: string | null | undefined): string | null {
   return trimmed.toLowerCase();
 }
 
-function isWakePath(pathname: string): boolean {
-  const value = pathname.trim().toLowerCase();
-  return value === "/hooks/wake" || value.endsWith("/hooks/wake");
-}
 
-function isHooksPath(pathname: string): boolean {
-  const value = pathname.trim().toLowerCase();
-  return (
-    value === "/hooks" ||
-    value.startsWith("/hooks/") ||
-    value.endsWith("/hooks") ||
-    value.includes("/hooks/")
-  );
-}
 
 function normalizeTransport(value: unknown): "sse" | "webhook" | null {
   const normalized = asString(value, "sse").trim().toLowerCase();
@@ -173,7 +161,7 @@ export async function testEnvironment(
       });
     }
 
-    if (streamTransport === "sse" && (isWakePath(url.pathname) || isHooksPath(url.pathname))) {
+    if (streamTransport === "sse" && (isWakeCompatibilityEndpoint(url.toString()) || isHookEndpoint(url.toString()))) {
       checks.push({
         code: "openclaw_wake_endpoint_incompatible",
         level: "error",
