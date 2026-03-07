@@ -18,6 +18,7 @@ export const defaultCreateValues: CreateConfigValues = {
   envBindings: {},
   url: "",
   bootstrapPrompt: "",
+  timeoutSec: "",
   maxTurnsPerRun: 80,
   heartbeatEnabled: false,
   intervalSec: 300,

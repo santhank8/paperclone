@@ -11,6 +11,15 @@ function appendTranscriptEntry(entries: TranscriptEntry[], entry: TranscriptEntr
       return;
     }
   }
+  // Merge adjacent assistant chunks (e.g. ACP agent_message_chunk streaming)
+  if (entry.kind === "assistant") {
+    const last = entries[entries.length - 1];
+    if (last && last.kind === "assistant") {
+      last.text += entry.text;
+      last.ts = entry.ts;
+      return;
+    }
+  }
   entries.push(entry);
 }
 

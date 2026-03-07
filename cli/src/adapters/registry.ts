@@ -6,6 +6,7 @@ import { printOpenCodeStreamEvent } from "@paperclipai/adapter-opencode-local/cl
 import { printOpenClawStreamEvent } from "@paperclipai/adapter-openclaw/cli";
 import { processCLIAdapter } from "./process/index.js";
 import { httpCLIAdapter } from "./http/index.js";
+import { acpCLIAdapter } from "./acp/index.js";
 
 const claudeLocalCLIAdapter: CLIAdapterModule = {
   type: "claude_local",
@@ -33,7 +34,7 @@ const openclawCLIAdapter: CLIAdapterModule = {
 };
 
 const adaptersByType = new Map<string, CLIAdapterModule>(
-  [claudeLocalCLIAdapter, codexLocalCLIAdapter, openCodeLocalCLIAdapter, cursorLocalCLIAdapter, openclawCLIAdapter, processCLIAdapter, httpCLIAdapter].map((a) => [a.type, a]),
+  [claudeLocalCLIAdapter, codexLocalCLIAdapter, openCodeLocalCLIAdapter, cursorLocalCLIAdapter, openclawCLIAdapter, processCLIAdapter, httpCLIAdapter, acpCLIAdapter].map((a) => [a.type, a]),
 );
 
 export function getCLIAdapter(type: string): CLIAdapterModule {

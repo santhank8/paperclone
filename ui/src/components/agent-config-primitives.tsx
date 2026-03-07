@@ -57,6 +57,7 @@ export const adapterLabels: Record<string, string> = {
   cursor: "Cursor (local)",
   process: "Process",
   http: "HTTP",
+  acp: "ACP Compatible (local)",
 };
 
 export const roleLabels: Record<string, string> = {
