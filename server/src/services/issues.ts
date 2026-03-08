@@ -18,6 +18,7 @@ import {
 } from "@paperclipai/db";
 import { extractProjectMentionIds } from "@paperclipai/shared";
 import { conflict, notFound, unprocessable } from "../errors.js";
+import { computeExecutionLockExpiresAt } from "./execution-locks.js";
 
 const ALL_ISSUE_STATUSES = ["backlog", "todo", "in_progress", "in_review", "blocked", "done", "cancelled"];
 
@@ -397,6 +398,7 @@ export function issueService(db: Db) {
         checkoutRunId: input.actorRunId,
         executionRunId: input.actorRunId,
         executionLockedAt: now,
+        executionLockExpiresAt: computeExecutionLockExpiresAt(now),
         updatedAt: now,
       })
       .where(
@@ -792,6 +794,8 @@ export function issueService(db: Db) {
           assigneeUserId: null,
           checkoutRunId,
           executionRunId: checkoutRunId,
+          executionLockedAt: checkoutRunId ? now : null,
+          executionLockExpiresAt: checkoutRunId ? computeExecutionLockExpiresAt(now) : null,
           status: "in_progress",
           startedAt: now,
           updatedAt: now,
@@ -833,12 +837,15 @@ export function issueService(db: Db) {
         (current.executionRunId == null || current.executionRunId === checkoutRunId) &&
         checkoutRunId
       ) {
+        const adoptionTime = new Date();
         const adopted = await db
           .update(issues)
           .set({
             checkoutRunId,
             executionRunId: checkoutRunId,
-            updatedAt: new Date(),
+            executionLockedAt: adoptionTime,
+            executionLockExpiresAt: computeExecutionLockExpiresAt(adoptionTime),
+            updatedAt: adoptionTime,
           })
           .where(
             and(
