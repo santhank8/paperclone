@@ -1,6 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import { and, asc, desc, eq, gt, inArray, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gt, gte, inArray, sql } from "drizzle-orm";
 import type { Db } from "@paperclipai/db";
 import {
   agents,
@@ -848,9 +848,43 @@ export function heartbeatService(db: Db) {
     return claimed;
   }
 
+  /**
+   * Returns true if the agent should be automatically retried for the given
+   * task rather than going straight to error status.
+   *
+   * Conditions:
+   * - taskKey must be set (i.e. the run was scoped to a specific issue)
+   * - fewer than MAX_AUTO_RETRIES failed runs for this agent+task in the last 24h
+   *
+   * This gives transient failures (process_lost, adapter crash, timeout) a few
+   * chances to self-heal before requiring human intervention.
+   */
+  async function shouldAutoRetry(agentId: string, taskKey: string | null): Promise<boolean> {
+    if (!taskKey) return false;
+
+    const MAX_AUTO_RETRIES = 2; // 3 total attempts (original + 2 retries) before escalating to error
+    const windowStart = new Date(Date.now() - 24 * 60 * 60 * 1000);
+
+    const recentFailures = await db
+      .select({ id: heartbeatRuns.id })
+      .from(heartbeatRuns)
+      .where(
+        and(
+          eq(heartbeatRuns.agentId, agentId),
+          eq(heartbeatRuns.status, "failed"),
+          sql`${heartbeatRuns.contextSnapshot} ->> 'taskKey' = ${taskKey}`,
+          gte(heartbeatRuns.finishedAt, windowStart),
+        ),
+      )
+      .limit(MAX_AUTO_RETRIES + 1);
+
+    return recentFailures.length <= MAX_AUTO_RETRIES;
+  }
+
   async function finalizeAgentStatus(
     agentId: string,
     outcome: "succeeded" | "failed" | "cancelled" | "timed_out",
+    taskKey?: string | null,
   ) {
     const existing = await getAgent(agentId);
     if (!existing) return;
@@ -860,12 +894,19 @@ export function heartbeatService(db: Db) {
     }
 
     const runningCount = await countRunningRunsForAgent(agentId);
+    const willRetry =
+      runningCount === 0 &&
+      (outcome === "failed" || outcome === "timed_out") &&
+      (await shouldAutoRetry(agentId, taskKey ?? null));
+
     const nextStatus =
       runningCount > 0
         ? "running"
         : outcome === "succeeded" || outcome === "cancelled"
           ? "idle"
-          : "error";
+          : willRetry
+            ? "idle"
+            : "error";
 
     const updated = await db
       .update(agents)
@@ -890,6 +931,18 @@ export function heartbeatService(db: Db) {
             : null,
           outcome,
         },
+      });
+    }
+
+    if (willRetry) {
+      logger.info({ agentId, taskKey }, "auto-retrying agent after failure");
+      await enqueueWakeup(agentId, {
+        source: "automation",
+        reason: "auto_retry_after_failure",
+        triggerDetail: "system",
+        payload: taskKey ? { issueId: taskKey } : null,
+      }).catch((err) => {
+        logger.warn({ err, agentId, taskKey }, "auto-retry wakeup enqueue failed");
       });
     }
   }
@@ -934,7 +987,7 @@ export function heartbeatService(db: Db) {
         });
         await releaseIssueExecutionAndPromote(updatedRun);
       }
-      await finalizeAgentStatus(run.agentId, "failed");
+      await finalizeAgentStatus(run.agentId, "failed", runTaskKey(run));
       await startNextQueuedRunForAgent(run.agentId);
       runningProcesses.delete(run.id);
       reaped.push(run.id);
@@ -1392,7 +1445,7 @@ export function heartbeatService(db: Db) {
           }
         }
       }
-      await finalizeAgentStatus(agent.id, outcome);
+      await finalizeAgentStatus(agent.id, outcome, taskKey);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown adapter failure";
       logger.error({ err, runId }, "heartbeat execution failed");
@@ -1453,7 +1506,7 @@ export function heartbeatService(db: Db) {
         }
       }
 
-      await finalizeAgentStatus(agent.id, "failed");
+      await finalizeAgentStatus(agent.id, "failed", taskKey);
     } finally {
       await startNextQueuedRunForAgent(agent.id);
     }
@@ -2273,7 +2326,7 @@ export function heartbeatService(db: Db) {
       }
 
       runningProcesses.delete(run.id);
-      await finalizeAgentStatus(run.agentId, "cancelled");
+      await finalizeAgentStatus(run.agentId, "cancelled", runTaskKey(run));
       await startNextQueuedRunForAgent(run.agentId);
       return cancelled;
     },
