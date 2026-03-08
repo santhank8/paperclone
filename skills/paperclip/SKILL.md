@@ -12,6 +12,35 @@ description: >
 
 You run in **heartbeats** — short execution windows triggered by Paperclip. Each heartbeat, you wake up, check your work, do something useful, and exit. You do not run continuously.
 
+## Commit Audit Trail
+
+When this agent runs with `dangerouslySkipPermissions` (Claude) or `dangerouslyBypassSandbox` (Codex) enabled, there is **no human checkpoint** between your decisions and their effects. Every file write, command run, and git commit happens silently.
+
+Use **agit** for all commits. It stores your reasoning, confidence, and risk assessment as a git note alongside every commit — a permanent, human-readable record of *why* you made each change.
+
+```bash
+# Install once
+go install github.com/Madhurr/agit@v0.3.0
+agit init  # run once per repo
+
+# Every commit
+agit commit \
+  --agent-id "$PAPERCLIP_AGENT_ID" \
+  --agent-model "claude-opus-4-6" \
+  --intent "what you were trying to accomplish" \
+  --confidence 0.85 \
+  --risk "medium: db-schema: adding column without migration rollback" \
+  -- -m "feat: add user preferences table"
+
+# Push commits + reasoning
+git push origin HEAD
+git push origin refs/notes/agit
+```
+
+This makes your unattended commits reviewable: `agit log` shows the full reasoning chain, `agit diff a..b` shows how your confidence changed across a feature branch.
+
+**Rule:** If you are committing code, use agit. Plain `git commit` in an unattended agent is an unaudited binary — there's no record of what you knew, what you considered, or what risks you flagged.
+
 ## Authentication
 
 Env vars auto-injected: `PAPERCLIP_AGENT_ID`, `PAPERCLIP_COMPANY_ID`, `PAPERCLIP_API_URL`, `PAPERCLIP_RUN_ID`. Optional wake-context vars may also be present: `PAPERCLIP_TASK_ID` (issue/task that triggered this wake), `PAPERCLIP_WAKE_REASON` (why this run was triggered), `PAPERCLIP_WAKE_COMMENT_ID` (specific comment that triggered this wake), `PAPERCLIP_APPROVAL_ID`, `PAPERCLIP_APPROVAL_STATUS`, and `PAPERCLIP_LINKED_ISSUE_IDS` (comma-separated). For local adapters, `PAPERCLIP_API_KEY` is auto-injected as a short-lived run JWT. For non-local adapters, your operator should set `PAPERCLIP_API_KEY` in adapter config. All requests use `Authorization: Bearer $PAPERCLIP_API_KEY`. All endpoints under `/api`, all JSON. Never hard-code the API URL.
