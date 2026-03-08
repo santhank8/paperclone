@@ -344,15 +344,18 @@ POST /api/companies/{id}/cost-events
 | Day | Phase | Focus |
 |-----|-------|-------|
 | 1 | Setup | Install Paperclip, create org |
+| **1.5** | **Dependencies** | **Add blocking tasks feature** |
 | 2 | Agents | Create agent org chart |
 | 3 | Webhook | Test Paperclip ↔ OpenClaw |
-| 4 | **Channel Routing** | **Implement multi-channel** |
+| 4 | Channel Routing | Implement multi-channel |
 | 5 | Skills | Add Paperclip skill to agents |
 | 6 | Migration | Migrate tasks from ClawDeck |
 | 7 | Scheduling | Configure heartbeats |
 | 8 | Governance | Set up approvals |
 | 9 | Monitoring | Dashboard + alerts |
 | 10 | Cleanup | Archive old system |
+
+**⚠️ Phase 1.5 is a BLOCKER** - Current system relies on task dependencies (`blockedBy` in `active-tasks.json`). Paperclip must support this before migration.
 
 ---
 
@@ -374,6 +377,7 @@ POST /api/companies/{id}/cost-events
 - `COMPARISON.md` - Architecture diagrams
 - `QUICKSTART.md` - 5-minute test guide
 - `CONSOLIDATION-SUMMARY.md` - Visual summary
+- `DEPENDENCIES.md` - **Blocking tasks feature design**
 
 ---
 
@@ -383,5 +387,6 @@ POST /api/companies/{id}/cost-events
 |------|--------|
 | 2026-03-08 | Initial PRD created |
 | 2026-03-08 | Added branching strategy |
-| 2026-03-08 | **Added multi-channel architecture** |
-| 2026-03-08 | **Added Phase 4: Channel Routing** |
+| 2026-03-08 | Added multi-channel architecture |
+| 2026-03-08 | Added Phase 4: Channel Routing |
+| 2026-03-08 | **Added Phase 1.5: Dependencies (BLOCKER)** |
