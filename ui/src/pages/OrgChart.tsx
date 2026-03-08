@@ -420,6 +420,10 @@ export function OrgChart() {
 
       if (!overId || overId === draggedId) return;
 
+      // Don't re-parent to the current parent (no-op)
+      const currentParent = agentMap.get(draggedId)?.reportsTo;
+      if (currentParent === overId) return;
+
       // Don't allow dropping onto self or descendants
       if (orgTree && isDescendant(orgTree, draggedId, overId)) return;
 
