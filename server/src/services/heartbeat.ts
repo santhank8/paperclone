@@ -853,12 +853,13 @@ export function heartbeatService(db: Db) {
     if (!taskKey) return false;
     const MAX_AUTO_RETRIES = 2; // 3 total attempts before escalating to error
 
+    // Count both failed and timed_out runs
     const recentFailures = await db
       .select({ id: heartbeatRuns.id })
       .from(heartbeatRuns)
       .where(and(
         eq(heartbeatRuns.agentId, agentId),
-        eq(heartbeatRuns.status, "failed"),
+        inArray(heartbeatRuns.status, ["failed", "timed_out"]),
         sql`${heartbeatRuns.contextSnapshot} ->> 'taskKey' = ${taskKey}`,
         gte(heartbeatRuns.finishedAt, new Date(Date.now() - 24 * 60 * 60 * 1000)),
       ))
