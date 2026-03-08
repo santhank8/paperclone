@@ -31,7 +31,7 @@ interface CreatedAgentKey {
 }
 
 interface SkillsInstallSummary {
-  tool: "codex" | "claude";
+  tool: "codex" | "claude" | "opencode";
   target: string;
   linked: string[];
   skipped: string[];
@@ -56,6 +56,23 @@ function claudeSkillsHome(): string {
   return path.join(base, "skills");
 }
 
+function openCodeSkillsHome(): string {
+  const fromEnv = process.env.OPENCODE_CONFIG_DIR?.trim();
+  const base = fromEnv && fromEnv.length > 0 ? fromEnv : path.join(os.homedir(), ".config", "opencode");
+  return path.join(base, "skills");
+}
+
+export function getLocalCliSkillTargets(): Array<{
+  tool: SkillsInstallSummary["tool"];
+  target: string;
+}> {
+  return [
+    { tool: "codex", target: codexSkillsHome() },
+    { tool: "claude", target: claudeSkillsHome() },
+    { tool: "opencode", target: openCodeSkillsHome() },
+  ];
+}
+
 async function resolvePaperclipSkillsDir(): Promise<string | null> {
   for (const candidate of PAPERCLIP_SKILLS_CANDIDATES) {
     const isDir = await fs.stat(candidate).then((s) => s.isDirectory()).catch(() => false);
@@ -67,7 +84,7 @@ async function resolvePaperclipSkillsDir(): Promise<string | null> {
 async function installSkillsForTarget(
   sourceSkillsDir: string,
   targetSkillsDir: string,
-  tool: "codex" | "claude",
+  tool: SkillsInstallSummary["tool"],
 ): Promise<SkillsInstallSummary> {
   const summary: SkillsInstallSummary = {
     tool,
@@ -181,14 +198,14 @@ export function registerAgentCommands(program: Command): void {
     agent
       .command("local-cli")
       .description(
-        "Create an agent API key, install local Paperclip skills for Codex/Claude, and print shell exports",
+        "Create an agent API key, install local Paperclip skills for Codex/Claude/OpenCode, and print shell exports",
       )
       .argument("<agentRef>", "Agent ID or shortname/url-key")
       .requiredOption("-C, --company-id <id>", "Company ID")
       .option("--key-name <name>", "API key label", "local-cli")
       .option(
         "--no-install-skills",
-        "Skip installing Paperclip skills into ~/.codex/skills and ~/.claude/skills",
+        "Skip installing Paperclip skills into ~/.codex/skills, ~/.claude/skills, and ~/.config/opencode/skills",
       )
       .action(async (agentRef: string, opts: AgentLocalCliOptions) => {
         try {
@@ -217,10 +234,9 @@ export function registerAgentCommands(program: Command): void {
               );
             }
 
-            installSummaries.push(
-              await installSkillsForTarget(skillsDir, codexSkillsHome(), "codex"),
-              await installSkillsForTarget(skillsDir, claudeSkillsHome(), "claude"),
-            );
+            for (const target of getLocalCliSkillTargets()) {
+              installSummaries.push(await installSkillsForTarget(skillsDir, target.target, target.tool));
+            }
           }
 
           const exportsText = buildAgentEnvExports({
@@ -266,7 +282,7 @@ export function registerAgentCommands(program: Command): void {
             }
           }
           console.log("");
-          console.log("# Run this in your shell before launching codex/claude:");
+          console.log("# Run this in your shell before launching codex/claude/opencode:");
           console.log(exportsText);
         } catch (err) {
           handleCommandError(err);
