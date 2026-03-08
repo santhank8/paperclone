@@ -22,6 +22,8 @@ import {
 import detectPort from "detect-port";
 import { createApp } from "./app.js";
 import { loadConfig } from "./config.js";
+import { EmbeddedPostgres } from "./embedded-postgres.js";
+import { prepareEmbeddedPostgresDataDir } from "./embedded-postgres-dir.js";
 import { logger } from "./middleware/logger.js";
 import { setupLiveEventsWebSocketServer } from "./realtime/live-events-ws.js";
 import { heartbeatService } from "./services/index.js";
@@ -45,16 +47,6 @@ type EmbeddedPostgresInstance = {
   start(): Promise<void>;
   stop(): Promise<void>;
 };
-
-type EmbeddedPostgresCtor = new (opts: {
-  databaseDir: string;
-  user: string;
-  password: string;
-  port: number;
-  persistent: boolean;
-  onLog?: (message: unknown) => void;
-  onError?: (message: unknown) => void;
-}) => EmbeddedPostgresInstance;
 
 const config = loadConfig();
 if (process.env.PAPERCLIP_SECRETS_PROVIDER === undefined) {
@@ -234,17 +226,6 @@ if (config.databaseUrl) {
   activeDatabaseConnectionString = config.databaseUrl;
   startupDbInfo = { mode: "external-postgres", connectionString: config.databaseUrl };
 } else {
-  const moduleName = "embedded-postgres";
-  let EmbeddedPostgres: EmbeddedPostgresCtor;
-  try {
-    const mod = await import(moduleName);
-    EmbeddedPostgres = mod.default as EmbeddedPostgresCtor;
-  } catch {
-    throw new Error(
-      "Embedded PostgreSQL mode requires dependency `embedded-postgres`. Reinstall dependencies (without omitting required packages), or set DATABASE_URL for external Postgres.",
-    );
-  }
-
   const dataDir = resolve(config.embeddedPostgresDataDir);
   const configuredPort = config.embeddedPostgresPort;
   let port = configuredPort;
@@ -282,9 +263,12 @@ if (config.databaseUrl) {
     logger.warn("Database mode is postgres but no connection string was set; falling back to embedded PostgreSQL");
   }
 
-  const clusterVersionFile = resolve(dataDir, "PG_VERSION");
-  const clusterAlreadyInitialized = existsSync(clusterVersionFile);
-  const postmasterPidFile = resolve(dataDir, "postmaster.pid");
+  const {
+    clusterVersionFile,
+    clusterAlreadyInitialized,
+    postmasterPidFile,
+    removedEmptyDataDir,
+  } = prepareEmbeddedPostgresDataDir(dataDir);
   const isPidRunning = (pid: number): boolean => {
     try {
       process.kill(pid, 0);
@@ -328,6 +312,9 @@ if (config.databaseUrl) {
     });
 
     if (!clusterAlreadyInitialized) {
+      if (removedEmptyDataDir) {
+        logger.warn(`Removed empty embedded PostgreSQL data directory before init: ${dataDir}`);
+      }
       try {
         await embeddedPostgres.initialise();
       } catch (err) {
