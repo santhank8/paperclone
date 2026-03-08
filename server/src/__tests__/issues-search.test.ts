@@ -1,5 +1,5 @@
-import { beforeAll, beforeEach, describe, expect, test } from "vitest";
-import { sql, eq } from "drizzle-orm";
+import { afterEach, beforeAll, beforeEach, describe, expect, test } from "vitest";
+import { eq } from "drizzle-orm";
 import { createDb } from "@paperclipai/db";
 import { companies, agents, goals, issues } from "@paperclipai/db";
 import { issueService } from "../services/issues.js";
@@ -26,7 +26,7 @@ describe("Issue Search", () => {
       .insert(companies)
       .values({
         name: "Test Company Search",
-        code: `TSTSRCH-${Date.now()}`,
+        code: `TSTSRCH-${crypto.randomUUID()}`,
       })
       .returning();
     companyId = company.id;
@@ -99,6 +99,12 @@ describe("Issue Search", () => {
         createdByAgentId: agentId,
       },
     ]);
+  });
+
+  afterEach(async () => {
+    if (companyId) {
+      await db.delete(companies).where(eq(companies.id, companyId));
+    }
   });
 
   test("search should be case-insensitive", async () => {
