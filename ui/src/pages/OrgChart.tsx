@@ -376,6 +376,9 @@ export function OrgChart() {
   const [activeDragId, setActiveDragId] = useState<string | null>(null);
   const [overDropId, setOverDropId] = useState<string | null>(null);
 
+  // Timed error toast state
+  const [dragError, setDragError] = useState<string | null>(null);
+
   // Mutation for updating agent reportsTo
   const updateReportsTo = useMutation({
     mutationFn: async ({ agentId, reportsTo }: { agentId: string; reportsTo: string | null }) => {
@@ -384,6 +387,10 @@ export function OrgChart() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.org(selectedCompanyId!) });
       queryClient.invalidateQueries({ queryKey: queryKeys.agents.list(selectedCompanyId!) });
+    },
+    onError: (error: Error) => {
+      setDragError(error.message ?? "Unknown error");
+      setTimeout(() => setDragError(null), 4000);
     },
   });
 
@@ -568,9 +575,10 @@ export function OrgChart() {
             Updating org structure…
           </div>
         )}
-        {updateReportsTo.isError && (
-          <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-10 bg-red-500 text-white rounded-md px-4 py-2 text-sm font-medium shadow-lg">
-            Failed to update: {(updateReportsTo.error as Error)?.message ?? "Unknown error"}
+        {dragError && (
+          <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-10 bg-red-500 text-white rounded-md px-4 py-2 text-sm font-medium shadow-lg flex items-center gap-2">
+            <span>Failed to update: {dragError}</span>
+            <button onClick={() => setDragError(null)} className="ml-1 hover:text-white/70 text-white font-bold">✕</button>
           </div>
         )}
 
