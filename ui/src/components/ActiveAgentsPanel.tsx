@@ -414,7 +414,7 @@ function AgentRunCard({
   isActive: boolean;
 }) {
   const bodyRef = useRef<HTMLDivElement>(null);
-  const recent = feed.slice(-20);
+  const recent = feed.filter((item) => item.tone === "assistant").slice(-20);
 
   useEffect(() => {
     const body = bodyRef.current;
