@@ -184,7 +184,7 @@ export async function ensureCommandResolvable(command: string, cwd: string, env:
   const delimiter = process.platform === "win32" ? ";" : ":";
   const dirs = pathValue.split(delimiter).filter(Boolean);
   const windowsExt = process.platform === "win32"
-    ? (env.PATHEXT ?? ".EXE;.CMD;.BAT;.COM").split(";")
+    ? (env.PATHEXT ?? ".EXE;.CMD;.BAT;.COM;.PS1").split(";")
     : [""];
 
   for (const dir of dirs) {
@@ -223,7 +223,7 @@ export async function runChildProcess(
     const child = spawn(command, args, {
       cwd: opts.cwd,
       env: mergedEnv,
-      shell: false,
+      shell: process.platform === "win32",
       stdio: [opts.stdin != null ? "pipe" : "ignore", "pipe", "pipe"],
     }) as ChildProcessWithEvents;
 
