@@ -11,6 +11,13 @@ import {
   sessionCodec as codexSessionCodec,
 } from "@paperclipai/adapter-codex-local/server";
 import { agentConfigurationDoc as codexAgentConfigurationDoc, models as codexModels } from "@paperclipai/adapter-codex-local";
+
+import {
+  run as runOllama,
+  sessionCodec as ollamaSessionCodec,
+  testEnvironment as testOllamaEnvironment,
+} from "@paperclipai/adapter-ollama-local/server";
+import { type as ollamaType, label as ollamaLabel, agentConfigurationDoc as ollamaAgentConfigurationDoc, models as ollamaModels } from "@paperclipai/adapter-ollama-local";
 import {
   execute as cursorExecute,
   testEnvironment as cursorTestEnvironment,
@@ -69,6 +76,17 @@ const codexLocalAdapter: ServerAdapterModule = {
   agentConfigurationDoc: codexAgentConfigurationDoc,
 };
 
+
+const ollamaLocalAdapter: ServerAdapterModule = {
+  type: "ollama_local",
+  execute: runOllama,
+  testEnvironment: testOllamaEnvironment,
+  sessionCodec: ollamaSessionCodec,
+  models: ollamaModels,
+  supportsLocalAgentJwt: true,
+  agentConfigurationDoc: ollamaAgentConfigurationDoc,
+};
+
 const cursorLocalAdapter: ServerAdapterModule = {
   type: "cursor",
   execute: cursorExecute,
@@ -115,6 +133,7 @@ const adaptersByType = new Map<string, ServerAdapterModule>(
   [
     claudeLocalAdapter,
     codexLocalAdapter,
+    ollamaLocalAdapter,
     openCodeLocalAdapter,
     piLocalAdapter,
     cursorLocalAdapter,

@@ -345,17 +345,13 @@ export function agentService(db: Db) {
         await ensureManager(companyId, data.reportsTo);
       }
 
-      const existingAgents = await db
-        .select({ id: agents.id, name: agents.name, status: agents.status })
-        .from(agents)
-        .where(eq(agents.companyId, companyId));
-      const uniqueName = deduplicateAgentName(data.name, existingAgents);
+      await assertCompanyShortnameAvailable(companyId, data.name);
 
       const role = data.role ?? "general";
       const normalizedPermissions = normalizeAgentPermissions(data.permissions, role);
       const created = await db
         .insert(agents)
-        .values({ ...data, name: uniqueName, companyId, role, permissions: normalizedPermissions })
+        .values({ ...data, companyId, role, permissions: normalizedPermissions })
         .returning()
         .then((rows) => rows[0]);
 
