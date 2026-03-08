@@ -1011,6 +1011,15 @@ export function issueService(db: Db) {
         .returning()
         .then((rows) => rows[0] ?? null),
 
+    countIssuesUsingLabel: async (id: string) => {
+      const result = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(issueLabels)
+        .where(eq(issueLabels.labelId, id))
+        .then((rows) => rows[0]?.count ?? 0);
+      return Number(result);
+    },
+
     listComments: (issueId: string) =>
       db
         .select()

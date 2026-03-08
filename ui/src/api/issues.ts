@@ -30,7 +30,7 @@ export const issuesApi = {
   listLabels: (companyId: string) => api.get<IssueLabel[]>(`/companies/${companyId}/labels`),
   createLabel: (companyId: string, data: { name: string; color: string }) =>
     api.post<IssueLabel>(`/companies/${companyId}/labels`, data),
-  deleteLabel: (id: string) => api.delete<IssueLabel>(`/labels/${id}`),
+  deleteLabel: (companyId: string, id: string) => api.delete<void>(`/companies/${companyId}/labels/${id}`),
   get: (id: string) => api.get<Issue>(`/issues/${id}`),
   markRead: (id: string) => api.post<{ id: string; lastReadAt: Date }>(`/issues/${id}/read`, {}),
   create: (companyId: string, data: Record<string, unknown>) =>
