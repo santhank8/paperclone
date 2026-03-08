@@ -69,7 +69,7 @@ export function Companies() {
   });
 
   useEffect(() => {
-    setBreadcrumbs([{ label: "Companies" }]);
+    setBreadcrumbs([{ label: "Systems" }]);
   }, [setBreadcrumbs]);
 
   function startEdit(companyId: string, currentName: string) {
@@ -92,12 +92,12 @@ export function Companies() {
       <div className="flex items-center justify-end">
         <Button size="sm" onClick={() => openOnboarding()}>
           <Plus className="h-3.5 w-3.5 mr-1.5" />
-          New Company
+          New System
         </Button>
       </div>
 
       <div className="h-6">
-        {loading && <p className="text-sm text-muted-foreground">Loading companies...</p>}
+        {loading && <p className="text-sm text-muted-foreground">Loading systems...</p>}
         {error && <p className="text-sm text-destructive">{error.message}</p>}
       </div>
 
