@@ -211,11 +211,12 @@ function OrgCard({ node, agent, isCeo, isDragging, isDropTarget, isInvalidDrop, 
               : "border-border hover:shadow-md hover:border-foreground/20"
       }`}
       style={{
+      style={{
         left: node.x,
         top: node.y,
         width: CARD_W,
         minHeight: CARD_H,
-        cursor: isCeo ? "default" : "grab",
+        cursor: "default",
       }}
     >
       {/* Drag handle — top-left absolute overlay */}
