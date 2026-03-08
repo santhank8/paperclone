@@ -133,3 +133,12 @@ export {
   type UpdateMemberPermissions,
   type UpdateUserCompanyAccess,
 } from "./access.js";
+
+export {
+  WEBHOOK_EVENT_TYPES,
+  createWebhookSchema,
+  updateWebhookSchema,
+  type WebhookEventType,
+  type CreateWebhook,
+  type UpdateWebhook,
+} from "./webhook.js";

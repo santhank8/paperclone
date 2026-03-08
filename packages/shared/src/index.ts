@@ -229,6 +229,12 @@ export {
   type CompanyPortabilityExport,
   type CompanyPortabilityPreview,
   type CompanyPortabilityImport,
+  WEBHOOK_EVENT_TYPES,
+  createWebhookSchema,
+  updateWebhookSchema,
+  type WebhookEventType,
+  type CreateWebhook,
+  type UpdateWebhook,
 } from "./validators/index.js";
 
 export { API_PREFIX, API } from "./api.js";

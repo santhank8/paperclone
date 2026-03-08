@@ -10,6 +10,7 @@ import {
 import { forbidden } from "../errors.js";
 import { validate } from "../middleware/validate.js";
 import { accessService, companyPortabilityService, companyService, logActivity } from "../services/index.js";
+import { ensureWebhookSubscription } from "../services/webhook-dispatcher.js";
 import { assertBoard, assertCompanyAccess, getActorInfo } from "./authz.js";
 
 export function companyRoutes(db: Db) {
@@ -122,6 +123,7 @@ export function companyRoutes(db: Db) {
       entityId: company.id,
       details: { name: company.name },
     });
+    ensureWebhookSubscription(db, company.id);
     res.status(201).json(company);
   });
 
