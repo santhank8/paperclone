@@ -32,12 +32,12 @@ interface CommentReassignment {
 interface CommentThreadProps {
   comments: CommentWithRunMeta[];
   linkedRuns?: LinkedRunItem[];
-  onAdd: (body: string, reopen?: boolean, reassignment?: CommentReassignment) => Promise<void>;
+  onAdd: (body: string, reopen?: boolean, reassignment?: CommentReassignment) => Promise<string>;
   issueStatus?: string;
   agentMap?: Map<string, Agent>;
   imageUploadHandler?: (file: File) => Promise<string>;
   /** Callback to attach an image file to the parent issue (not inline in a comment). */
-  onAttachImage?: (file: File) => Promise<void>;
+  onAttachImage?: (file: File, commentId?: string) => Promise<void>;
   draftKey?: string;
   liveRunSlot?: React.ReactNode;
   enableReassign?: boolean;
@@ -232,6 +232,7 @@ export function CommentThread({
   const [reopen, setReopen] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [attaching, setAttaching] = useState(false);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [reassignTarget, setReassignTarget] = useState(currentAssigneeValue);
   const [highlightCommentId, setHighlightCommentId] = useState<string | null>(null);
   const editorRef = useRef<MarkdownEditorRef>(null);
@@ -323,7 +324,20 @@ export function CommentThread({
 
     setSubmitting(true);
     try {
-      await onAdd(trimmed, isClosed && reopen ? true : undefined, reassignment ?? undefined);
+      // Submit comment and get comment ID
+      const commentId = await onAdd(trimmed, isClosed && reopen ? true : undefined, reassignment ?? undefined);
+      
+      // If there's a pending file, upload it with the comment ID
+      if (pendingFile && onAttachImage && commentId) {
+        setAttaching(true);
+        try {
+          await onAttachImage(pendingFile, commentId);
+        } finally {
+          setAttaching(false);
+        }
+        setPendingFile(null);
+      }
+      
       setBody("");
       if (draftKey) clearDraft(draftKey);
       setReopen(false);
@@ -335,14 +349,10 @@ export function CommentThread({
 
   async function handleAttachFile(evt: ChangeEvent<HTMLInputElement>) {
     const file = evt.target.files?.[0];
-    if (!file || !onAttachImage) return;
-    setAttaching(true);
-    try {
-      await onAttachImage(file);
-    } finally {
-      setAttaching(false);
-      if (attachInputRef.current) attachInputRef.current.value = "";
-    }
+    if (!file) return;
+    // Store file for later upload after comment is submitted
+    setPendingFile(file);
+    if (attachInputRef.current) attachInputRef.current.value = "";
   }
 
   const canSubmit = !submitting && !!body.trim();
