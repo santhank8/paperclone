@@ -395,6 +395,34 @@ export function issueService(db: Db) {
       if (data.status === "in_progress" && !data.assigneeAgentId && !data.assigneeUserId) {
         throw unprocessable("in_progress issues require an assignee");
       }
+
+      // Idempotency: if a key is provided and an open issue with that key
+      // already exists in this company, return the existing issue instead of
+      // creating a duplicate.
+      const OPEN_STATUSES = ["backlog", "todo", "in_progress", "in_review", "blocked"];
+      const idempotencyKey = typeof issueData.idempotencyKey === "string" && issueData.idempotencyKey.trim().length > 0
+        ? issueData.idempotencyKey.trim()
+        : null;
+
+      if (idempotencyKey) {
+        const existing = await db
+          .select()
+          .from(issues)
+          .where(
+            and(
+              eq(issues.companyId, companyId),
+              eq(issues.idempotencyKey, idempotencyKey),
+              inArray(issues.status, OPEN_STATUSES),
+            ),
+          )
+          .then((rows) => rows[0] ?? null);
+
+        if (existing) {
+          const [enriched] = await withIssueLabels(db, [existing]);
+          return Object.assign(enriched, { _deduplicated: true as const });
+        }
+      }
+
       return db.transaction(async (tx) => {
         const [company] = await tx
           .update(companies)
@@ -405,7 +433,13 @@ export function issueService(db: Db) {
         const issueNumber = company.issueCounter;
         const identifier = `${company.issuePrefix}-${issueNumber}`;
 
-        const values = { ...issueData, companyId, issueNumber, identifier } as typeof issues.$inferInsert;
+        const values = {
+          ...issueData,
+          companyId,
+          issueNumber,
+          identifier,
+          idempotencyKey,
+        } as typeof issues.$inferInsert;
         if (values.status === "in_progress" && !values.startedAt) {
           values.startedAt = new Date();
         }

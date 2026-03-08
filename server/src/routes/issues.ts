@@ -367,6 +367,12 @@ export function issueRoutes(db: Db, storage: StorageService) {
       createdByUserId: actor.actorType === "user" ? actor.actorId : null,
     });
 
+    // Idempotency dedup: return existing issue without side-effects
+    if ("_deduplicated" in issue && issue._deduplicated) {
+      res.status(200).json(issue);
+      return;
+    }
+
     await logActivity(db, {
       companyId,
       actorType: actor.actorType,

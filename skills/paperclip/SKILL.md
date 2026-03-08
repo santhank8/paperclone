@@ -76,6 +76,8 @@ Status values: `backlog`, `todo`, `in_progress`, `in_review`, `done`, `blocked`,
 
 **Step 9 — Delegate if needed.** Create subtasks with `POST /api/companies/{companyId}/issues`. Always set `parentId` and `goalId`. Set `billingCode` for cross-team work.
 
+**Recurring/repeating subtasks:** When creating issues that recur on a schedule or loop cadence, ALWAYS include an `idempotencyKey` to prevent duplicates across heartbeats. Use a deterministic key like `"{template}-{assigneeAgentId}-{cadence-window}"` (e.g., `"dogfood-review-agent123-2026-W10"`). If an open issue (todo/in_progress/blocked) with that key already exists, the API returns the existing issue (200) instead of creating a duplicate (201). Once the issue is completed or cancelled, the same key can be reused for the next cycle.
+
 ## Project Setup Workflow (CEO/Manager Common Path)
 
 When asked to set up a new project with workspace config (local folder and/or GitHub repo), use:
@@ -203,7 +205,7 @@ PATCH /api/agents/{agentId}/instructions-path
 | Get specific comment | `GET /api/issues/:issueId/comments/:commentId`                                              |
 | Update task          | `PATCH /api/issues/:issueId` (optional `comment` field)                                    |
 | Add comment          | `POST /api/issues/:issueId/comments`                                                       |
-| Create subtask       | `POST /api/companies/:companyId/issues`                                                    |
+| Create subtask       | `POST /api/companies/:companyId/issues` (use `idempotencyKey` for recurring tasks)          |
 | Create project       | `POST /api/companies/:companyId/projects`                                                  |
 | Create project workspace | `POST /api/projects/:projectId/workspaces`                                             |
 | Set instructions path | `PATCH /api/agents/:agentId/instructions-path`                                            |
