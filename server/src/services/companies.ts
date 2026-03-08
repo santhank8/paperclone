@@ -283,6 +283,7 @@ export function companyService(db: Db) {
         await tx.delete(companyLogos).where(eq(companyLogos.companyId, id));
         await tx.delete(assets).where(eq(assets.companyId, id));
         await tx.delete(projectGoals).where(eq(projectGoals.companyId, id));
+        await tx.update(projects).set({ goalId: null }).where(eq(projects.companyId, id));
         await tx.delete(goals).where(eq(goals.companyId, id));
         await tx.delete(projectWorkspaces).where(eq(projectWorkspaces.companyId, id));
         await tx.delete(projects).where(eq(projects.companyId, id));
