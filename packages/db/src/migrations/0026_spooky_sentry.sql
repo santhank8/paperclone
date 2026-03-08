@@ -1,0 +1,1 @@
+ALTER TABLE "issues" ADD COLUMN "execution_lock_expires_at" timestamp with time zone;

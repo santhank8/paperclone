@@ -491,6 +491,12 @@ if (config.heartbeatSchedulerEnabled) {
   void heartbeat.reapOrphanedRuns().catch((err) => {
     logger.error({ err }, "startup reap of orphaned heartbeat runs failed");
   });
+  void heartbeat.refreshActiveExecutionLockTtls().catch((err) => {
+    logger.error({ err }, "startup refresh of execution lock ttl failed");
+  });
+  void heartbeat.releaseExpiredExecutionLocks().catch((err) => {
+    logger.error({ err }, "startup release of expired execution locks failed");
+  });
 
   setInterval(() => {
     void heartbeat
@@ -509,6 +515,26 @@ if (config.heartbeatSchedulerEnabled) {
       .reapOrphanedRuns({ staleThresholdMs: 5 * 60 * 1000 })
       .catch((err) => {
         logger.error({ err }, "periodic reap of orphaned heartbeat runs failed");
+      });
+    void heartbeat
+      .refreshActiveExecutionLockTtls()
+      .then((result) => {
+        if (result.refreshed > 0) {
+          logger.info({ ...result }, "refreshed active execution lock ttls");
+        }
+      })
+      .catch((err) => {
+        logger.error({ err }, "periodic refresh of execution lock ttl failed");
+      });
+    void heartbeat
+      .releaseExpiredExecutionLocks()
+      .then((result) => {
+        if (result.released > 0) {
+          logger.warn({ ...result }, "released expired execution locks");
+        }
+      })
+      .catch((err) => {
+        logger.error({ err }, "periodic release of expired execution locks failed");
       });
   }, config.heartbeatSchedulerIntervalMs);
 }

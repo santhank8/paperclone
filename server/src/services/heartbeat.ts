@@ -1,6 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import { and, asc, desc, eq, gt, inArray, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gt, inArray, isNull, lte, or, sql } from "drizzle-orm";
 import type { Db } from "@paperclipai/db";
 import {
   agents,
@@ -23,6 +23,7 @@ import { createLocalAgentJwt } from "../agent-auth-jwt.js";
 import { parseObject, asBoolean, asNumber, appendWithCap, MAX_EXCERPT_BYTES } from "../adapters/utils.js";
 import { secretService } from "./secrets.js";
 import { resolveDefaultAgentWorkspaceDir } from "../home-paths.js";
+import { computeExecutionLockExpiresAt, getExecutionLockTtlMs } from "./execution-locks.js";
 
 const MAX_LIVE_LOG_CHUNK_BYTES = 8 * 1024;
 const HEARTBEAT_MAX_CONCURRENT_RUNS_DEFAULT = 1;
@@ -30,6 +31,7 @@ const HEARTBEAT_MAX_CONCURRENT_RUNS_MAX = 10;
 const DEFERRED_WAKE_CONTEXT_KEY = "_paperclipWakeContext";
 const startLocksByAgent = new Map<string, Promise<void>>();
 const REPO_ONLY_CWD_SENTINEL = "/__paperclip_repo_only__";
+const executionLockTtlMs = getExecutionLockTtlMs();
 
 function appendExcerpt(prev: string, chunk: string) {
   return appendWithCap(prev, chunk, MAX_EXCERPT_BYTES);
@@ -1464,7 +1466,9 @@ export function heartbeatService(db: Db) {
     }
   }
 
-  async function releaseIssueExecutionAndPromote(run: typeof heartbeatRuns.$inferSelect) {
+  async function releaseIssueExecutionAndPromote(
+    run: Pick<typeof heartbeatRuns.$inferSelect, "id" | "companyId">,
+  ) {
     const promotedRun = await db.transaction(async (tx) => {
       await tx.execute(
         sql`select id from issues where company_id = ${run.companyId} and execution_run_id = ${run.id} for update`,
@@ -1487,6 +1491,7 @@ export function heartbeatService(db: Db) {
           executionRunId: null,
           executionAgentNameKey: null,
           executionLockedAt: null,
+          executionLockExpiresAt: null,
           updatedAt: new Date(),
         })
         .where(eq(issues.id, issue.id));
@@ -1591,6 +1596,7 @@ export function heartbeatService(db: Db) {
             executionRunId: newRun.id,
             executionAgentNameKey: normalizeAgentNameKey(deferredAgent.name),
             executionLockedAt: now,
+            executionLockExpiresAt: computeExecutionLockExpiresAt(now, executionLockTtlMs),
             updatedAt: now,
           })
           .where(eq(issues.id, issue.id));
@@ -1614,6 +1620,112 @@ export function heartbeatService(db: Db) {
     });
 
     await startNextQueuedRunForAgent(promotedRun.agentId);
+  }
+
+  async function refreshActiveExecutionLockTtls(now = new Date()) {
+    const refreshHorizon = new Date(now.getTime() + Math.floor(executionLockTtlMs / 3));
+    const nextExpiry = computeExecutionLockExpiresAt(now, executionLockTtlMs);
+    const activeRunIds = await db
+      .select({ id: heartbeatRuns.id })
+      .from(heartbeatRuns)
+      .where(inArray(heartbeatRuns.status, ["queued", "running"]));
+    if (activeRunIds.length === 0) return { refreshed: 0 };
+
+    const refreshedIssues = await db
+      .update(issues)
+      .set({
+        executionLockExpiresAt: nextExpiry,
+      })
+      .where(
+        and(
+          inArray(
+            issues.executionRunId,
+            activeRunIds.map((row) => row.id),
+          ),
+          or(
+            isNull(issues.executionLockExpiresAt),
+            lte(issues.executionLockExpiresAt, refreshHorizon),
+          ),
+        ),
+      )
+      .returning({ id: issues.id });
+
+    return { refreshed: refreshedIssues.length };
+  }
+
+  async function releaseExpiredExecutionLocks(now = new Date()) {
+    const expiredIssues = await db
+      .select({
+        id: issues.id,
+        identifier: issues.identifier,
+        companyId: issues.companyId,
+        executionRunId: issues.executionRunId,
+        executionLockExpiresAt: issues.executionLockExpiresAt,
+      })
+      .from(issues)
+      .where(
+        and(
+          isNull(issues.hiddenAt),
+          inArray(issues.status, ["todo", "in_progress", "blocked"]),
+          sql`${issues.executionRunId} is not null`,
+          lte(issues.executionLockExpiresAt, now),
+        ),
+      );
+
+    if (expiredIssues.length === 0) return { released: 0, failedRuns: 0 };
+
+    let failedRuns = 0;
+    for (const issue of expiredIssues) {
+      const runId = issue.executionRunId;
+      if (!runId) continue;
+      const run = await getRun(runId);
+      if (run && (run.status === "queued" || run.status === "running")) {
+        if (run.status === "running") {
+          const running = runningProcesses.get(run.id);
+          if (running) {
+            running.child.kill("SIGTERM");
+            runningProcesses.delete(run.id);
+          }
+        }
+        await setRunStatus(run.id, "failed", {
+          error: "Execution lock TTL expired",
+          errorCode: "execution_lock_expired",
+          finishedAt: now,
+        });
+        await setWakeupStatus(run.wakeupRequestId, "failed", {
+          finishedAt: now,
+          error: "Execution lock TTL expired",
+        });
+        const updatedRun = await getRun(run.id);
+        if (updatedRun) {
+          await appendRunEvent(updatedRun, 1, {
+            eventType: "lifecycle",
+            stream: "system",
+            level: "error",
+            message: "Execution lock TTL expired",
+          });
+          await finalizeAgentStatus(updatedRun.agentId, "failed");
+          await startNextQueuedRunForAgent(updatedRun.agentId);
+        }
+        failedRuns += 1;
+      }
+
+      await releaseIssueExecutionAndPromote({
+        id: runId,
+        companyId: issue.companyId,
+      });
+      logger.warn(
+        {
+          issueId: issue.id,
+          issueIdentifier: issue.identifier,
+          executionRunId: runId,
+          executionLockExpiresAt: issue.executionLockExpiresAt,
+        },
+        "released expired execution lock",
+      );
+    }
+
+    return { released: expiredIssues.length, failedRuns };
   }
 
   async function enqueueWakeup(agentId: string, opts: WakeupOptions = {}) {
@@ -1733,6 +1845,7 @@ export function heartbeatService(db: Db) {
               executionRunId: null,
               executionAgentNameKey: null,
               executionLockedAt: null,
+              executionLockExpiresAt: null,
               updatedAt: new Date(),
             })
             .where(eq(issues.id, issue.id));
@@ -1758,6 +1871,7 @@ export function heartbeatService(db: Db) {
 
           if (legacyRun) {
             activeExecutionRun = legacyRun;
+            const now = new Date();
             const legacyAgent = await tx
               .select({ name: agents.name })
               .from(agents)
@@ -1768,8 +1882,9 @@ export function heartbeatService(db: Db) {
               .set({
                 executionRunId: legacyRun.id,
                 executionAgentNameKey: normalizeAgentNameKey(legacyAgent?.name),
-                executionLockedAt: new Date(),
-                updatedAt: new Date(),
+                executionLockedAt: now,
+                executionLockExpiresAt: computeExecutionLockExpiresAt(now, executionLockTtlMs),
+                updatedAt: now,
               })
               .where(eq(issues.id, issue.id));
           }
@@ -1928,13 +2043,15 @@ export function heartbeatService(db: Db) {
           })
           .where(eq(agentWakeupRequests.id, wakeupRequest.id));
 
+        const now = new Date();
         await tx
           .update(issues)
           .set({
             executionRunId: newRun.id,
             executionAgentNameKey: agentNameKey,
-            executionLockedAt: new Date(),
-            updatedAt: new Date(),
+            executionLockedAt: now,
+            executionLockExpiresAt: computeExecutionLockExpiresAt(now, executionLockTtlMs),
+            updatedAt: now,
           })
           .where(eq(issues.id, issue.id));
 
@@ -2204,6 +2321,8 @@ export function heartbeatService(db: Db) {
     wakeup: enqueueWakeup,
 
     reapOrphanedRuns,
+    refreshActiveExecutionLockTtls,
+    releaseExpiredExecutionLocks,
 
     tickTimers: async (now = new Date()) => {
       const allAgents = await db.select().from(agents);

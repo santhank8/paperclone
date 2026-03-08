@@ -132,7 +132,28 @@ export function issueRoutes(db: Db, storage: StorageService) {
     }
     const runId = requireAgentRunId(req, res);
     if (!runId) return false;
-    const ownership = await svc.assertCheckoutOwner(issue.id, actorAgentId, runId);
+    let ownership: Awaited<ReturnType<typeof svc.assertCheckoutOwner>>;
+    try {
+      ownership = await svc.assertCheckoutOwner(issue.id, actorAgentId, runId);
+    } catch (err) {
+      if (
+        err instanceof HttpError &&
+        err.status === 409 &&
+        err.message === "Issue run ownership conflict"
+      ) {
+        const checkoutRunId =
+          err.details && typeof err.details === "object"
+            ? (err.details as Record<string, unknown>).checkoutRunId
+            : null;
+        if (typeof checkoutRunId === "string" && checkoutRunId.length > 0) {
+          res.status(403).json({ error: `Issue is checked out by run ${checkoutRunId}` });
+          return false;
+        }
+        res.status(403).json({ error: "Issue run ownership conflict" });
+        return false;
+      }
+      throw err;
+    }
     if (ownership.adoptedFromRunId) {
       const actor = getActorInfo(req);
       await logActivity(db, {
@@ -223,6 +244,12 @@ export function issueRoutes(db: Db, storage: StorageService) {
       return;
     }
 
+    const limitParam = req.query.limit as string | undefined;
+    const parsedLimit = limitParam ? Number.parseInt(limitParam, 10) : undefined;
+    const limit = typeof parsedLimit === "number" && Number.isFinite(parsedLimit)
+      ? Math.max(1, Math.min(1000, parsedLimit))
+      : undefined;
+
     const result = await svc.list(companyId, {
       status: req.query.status as string | undefined,
       assigneeAgentId: req.query.assigneeAgentId as string | undefined,
@@ -230,7 +257,10 @@ export function issueRoutes(db: Db, storage: StorageService) {
       touchedByUserId,
       unreadForUserId,
       projectId: req.query.projectId as string | undefined,
+      goalId: req.query.goalId as string | undefined,
+      priority: req.query.priority as string | undefined,
       labelId: req.query.labelId as string | undefined,
+      limit,
       q: req.query.q as string | undefined,
     });
     res.json(result);
