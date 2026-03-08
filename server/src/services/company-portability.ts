@@ -16,6 +16,7 @@ import type {
 } from "@paperclipai/shared";
 import { normalizeAgentUrlKey, portabilityManifestSchema } from "@paperclipai/shared";
 import { notFound, unprocessable } from "../errors.js";
+import { loadBuiltInTemplateBundle } from "../templates/registry.js";
 import { accessService } from "./access.js";
 import { agentService } from "./agents.js";
 import { companyService } from "./companies.js";
@@ -53,6 +54,10 @@ type AgentLike = {
   id: string;
   name: string;
   adapterConfig: Record<string, unknown>;
+};
+
+type CompanyPortabilityServiceOptions = {
+  templatesRoot?: string;
 };
 
 const RUNTIME_DEFAULT_RULES: Array<{ path: string[]; value: unknown }> = [
@@ -478,7 +483,7 @@ async function readAgentInstructions(agent: AgentLike): Promise<{ body: string; 
   };
 }
 
-export function companyPortabilityService(db: Db) {
+export function companyPortabilityService(db: Db, opts?: CompanyPortabilityServiceOptions) {
   const companies = companyService(db);
   const agents = agentService(db);
   const access = accessService(db);
@@ -489,6 +494,17 @@ export function companyPortabilityService(db: Db) {
         manifest: portabilityManifestSchema.parse(source.manifest),
         files: source.files,
         warnings: [],
+      };
+    }
+
+    if (source.type === "builtin") {
+      const bundle = await loadBuiltInTemplateBundle(source.templateId, {
+        templatesRoot: opts?.templatesRoot,
+      });
+      return {
+        manifest: portabilityManifestSchema.parse(bundle.manifest),
+        files: bundle.files,
+        warnings: bundle.warnings,
       };
     }
 

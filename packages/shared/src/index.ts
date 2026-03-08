@@ -116,6 +116,8 @@ export type {
   CompanyPortabilityManifest,
   CompanyPortabilityExportResult,
   CompanyPortabilitySource,
+  CompanyTemplateCatalogEntry,
+  CompanyTemplateDetail,
   CompanyPortabilityImportTarget,
   CompanyPortabilityAgentSelection,
   CompanyPortabilityCollisionStrategy,

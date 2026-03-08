@@ -64,6 +64,10 @@ export const portabilitySourceSchema = z.discriminatedUnion("type", [
     files: z.record(z.string()),
   }),
   z.object({
+    type: z.literal("builtin"),
+    templateId: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
+  }),
+  z.object({
     type: z.literal("url"),
     url: z.string().url(),
   }),

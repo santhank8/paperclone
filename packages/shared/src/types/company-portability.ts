@@ -61,6 +61,10 @@ export type CompanyPortabilitySource =
       files: Record<string, string>;
     }
   | {
+      type: "builtin";
+      templateId: string;
+    }
+  | {
       type: "url";
       url: string;
     }
@@ -135,4 +139,21 @@ export interface CompanyPortabilityImportResult {
 
 export interface CompanyPortabilityExportRequest {
   include?: Partial<CompanyPortabilityInclude>;
+}
+
+export interface CompanyTemplateCatalogEntry {
+  id: string;
+  name: string;
+  description: string;
+  category: string | null;
+  tags: string[];
+  recommended: boolean;
+  icon: string | null;
+  agentCount: number;
+  includes: CompanyPortabilityInclude;
+  companyName: string | null;
+}
+
+export interface CompanyTemplateDetail extends CompanyTemplateCatalogEntry {
+  manifest: CompanyPortabilityManifest;
 }
