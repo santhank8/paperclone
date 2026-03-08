@@ -635,7 +635,20 @@ export function agentRoutes(db: Db) {
 
   router.post("/companies/:companyId/agent-hires", validate(createAgentHireSchema), async (req, res) => {
     const companyId = req.params.companyId as string;
-    await assertCanCreateAgentsForCompany(req, companyId);
+    const actorAgent = await assertCanCreateAgentsForCompany(req, companyId);
+
+    // Non-CEO agents can only hire into their own subtree
+    if (actorAgent && actorAgent.role !== "ceo") {
+      const reportsTo = req.body.reportsTo ?? null;
+      if (!reportsTo) {
+        throw forbidden("Non-CEO agents must specify a reportsTo target within their org chart");
+      }
+      const inSubtree = await svc.isInSubtree(actorAgent.id, reportsTo);
+      if (!inSubtree) {
+        throw forbidden("Cannot hire outside your org chart subtree");
+      }
+    }
+
     const sourceIssueIds = parseSourceIssueIds(req.body);
     const { sourceIssueId: _sourceIssueId, sourceIssueIds: _sourceIssueIds, ...hireInput } = req.body;
     const requestedAdapterConfig = applyCreateDefaultsByAdapterType(

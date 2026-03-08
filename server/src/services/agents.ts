@@ -589,6 +589,21 @@ export function agentService(db: Db) {
       return chain;
     },
 
+    isInSubtree: async (ancestorId: string, candidateId: string): Promise<boolean> => {
+      if (ancestorId === candidateId) return true;
+      let currentId: string | null = candidateId;
+      const visited = new Set<string>();
+      while (currentId && !visited.has(currentId)) {
+        visited.add(currentId);
+        const node = await getById(currentId);
+        if (!node) return false;
+        const parentId = node.reportsTo ?? null;
+        if (parentId === ancestorId) return true;
+        currentId = parentId;
+      }
+      return false;
+    },
+
     runningForAgent: (agentId: string) =>
       db
         .select()
