@@ -1,4 +1,4 @@
-import { createHmac, randomBytes } from "node:crypto";
+import { hashToken, legacyHashToken } from "../hash.js";
 import type { IncomingMessage, Server as HttpServer } from "node:http";
 import { createRequire } from "node:module";
 import type { Duplex } from "node:stream";
@@ -50,13 +50,6 @@ interface IncomingMessageWithContext extends IncomingMessage {
   paperclipUpgradeContext?: UpgradeContext;
 }
 
-function hashToken(token: string) {
-  const secret = process.env.PAPERCLIP_AGENT_JWT_SECRET;
-  if (!secret) {
-    throw new Error("PAPERCLIP_AGENT_JWT_SECRET must be configured to secure API keys.");
-  }
-  return createHmac("sha256", secret).update(token).digest("hex");
-}
 
 function rejectUpgrade(socket: Duplex, statusLine: string, message: string) {
   const safe = message.replace(/[\r\n]+/g, " ").trim();
@@ -157,11 +150,24 @@ async function authorizeUpgrade(
   }
 
   const tokenHash = hashToken(token);
-  const key = await db
+  let key = await db
     .select()
     .from(agentApiKeys)
     .where(and(eq(agentApiKeys.keyHash, tokenHash), isNull(agentApiKeys.revokedAt)))
     .then((rows) => rows[0] ?? null);
+
+  if (!key) {
+    const legacyTokenHash = legacyHashToken(token);
+    key = await db
+      .select()
+      .from(agentApiKeys)
+      .where(and(eq(agentApiKeys.keyHash, legacyTokenHash), isNull(agentApiKeys.revokedAt)))
+      .then((rows) => rows[0] ?? null);
+
+    if (key) {
+      await db.update(agentApiKeys).set({ keyHash: tokenHash }).where(eq(agentApiKeys.id, key.id));
+    }
+  }
 
   if (!key || key.companyId !== companyId) {
     return null;

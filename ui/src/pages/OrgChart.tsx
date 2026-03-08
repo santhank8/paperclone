@@ -1,3 +1,4 @@
+import { roleLabels } from "../components/agent-config-primitives";
 import { useEffect, useRef, useState, useMemo, useCallback } from "react";
 import { useNavigate } from "@/lib/router";
 import { useQuery } from "@tanstack/react-query";
@@ -421,11 +422,6 @@ export function OrgChart() {
   );
 }
 
-const roleLabels: Record<string, string> = {
-  ceo: "CEO", cto: "CTO", cmo: "CMO", cfo: "CFO",
-  engineer: "Engineer", designer: "Designer", pm: "PM",
-  qa: "QA", devops: "DevOps", researcher: "Researcher", general: "General",
-};
 
 function roleLabel(role: string): string {
   return roleLabels[role] ?? role;

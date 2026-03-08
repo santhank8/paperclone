@@ -1,7 +1,7 @@
-import os from "node:os";
-import { promises as fsp } from "node:fs";
 import { Router, type Request, type Response } from "express";
 import multer from "multer";
+import os from "node:os";
+import { promises as fsp, createReadStream } from "node:fs";
 import type { Db } from "@paperclipai/db";
 import { createAssetImageMetadataSchema } from "@paperclipai/shared";
 import type { StorageService } from "../storage/types.js";
@@ -20,7 +20,7 @@ const ALLOWED_IMAGE_CONTENT_TYPES = new Set([
 export function assetRoutes(db: Db, storage: StorageService) {
   const router = Router();
   const svc = assetService(db);
-    const upload = multer({
+  const upload = multer({
     storage: multer.diskStorage({
       destination: os.tmpdir(),
     }),
@@ -54,7 +54,7 @@ export function assetRoutes(db: Db, storage: StorageService) {
       throw err;
     }
 
-    const file = (req as Request & { file?: { mimetype: string; path: string; originalname: string; size: number } }).file;
+    const file = (req as Request & { file?: { mimetype: string; path: string; size: number; originalname: string } }).file;
     if (!file) {
       res.status(400).json({ error: "Missing file field 'file'" });
       return;
@@ -81,15 +81,19 @@ export function assetRoutes(db: Db, storage: StorageService) {
 
     const namespaceSuffix = parsedMeta.data.namespace ?? "general";
     const actor = getActorInfo(req);
-    const fileBuffer = await fsp.readFile(file.path);
-    const stored = await storage.putFile({
-      companyId,
-      namespace: `assets/${namespaceSuffix}`,
-      originalFilename: file.originalname || null,
-      contentType,
-      body: fileBuffer,
-    });
-    await fsp.unlink(file.path).catch(() => {});
+    let stored;
+    try {
+      stored = await storage.putFile({
+        companyId,
+        namespace: `assets/${namespaceSuffix}`,
+        originalFilename: file.originalname || null,
+        contentType,
+        body: createReadStream(file.path),
+        byteSize: file.size,
+      });
+    } finally {
+      await fsp.unlink(file.path).catch(() => {});
+    }
 
     const asset = await svc.create(companyId, {
       provider: stored.provider,

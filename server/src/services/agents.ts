@@ -1,4 +1,5 @@
-import { createHmac, randomBytes } from "node:crypto";
+import { randomBytes } from "node:crypto";
+import { hashToken } from "../hash.js";
 import { and, desc, eq, inArray, ne } from "drizzle-orm";
 import type { Db } from "@paperclipai/db";
 import {
@@ -16,13 +17,6 @@ import { conflict, notFound, unprocessable } from "../errors.js";
 import { normalizeAgentPermissions } from "./agent-permissions.js";
 import { REDACTED_EVENT_VALUE, sanitizeRecord } from "../redaction.js";
 
-function hashToken(token: string) {
-  const secret = process.env.PAPERCLIP_AGENT_JWT_SECRET;
-  if (!secret) {
-    throw new Error("PAPERCLIP_AGENT_JWT_SECRET must be configured to secure API keys.");
-  }
-  return createHmac("sha256", secret).update(token).digest("hex");
-}
 
 function createToken() {
   return `pcp_${randomBytes(24).toString("hex")}`;

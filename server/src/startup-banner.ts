@@ -130,7 +130,6 @@ export function printStartupBanner(opts: StartupBannerOptions): void {
     ? `enabled ${color(`(${opts.heartbeatSchedulerIntervalMs}ms)`, "dim")}`
     : color("disabled", "yellow");
   const isExposedLocalTrusted = opts.deploymentMode === "local_trusted" && opts.host !== "localhost" && opts.host !== "127.0.0.1" && opts.host !== "::1";
-
   const deployWarning = isExposedLocalTrusted
     ? color("\n⚠️ WARNING: local_trusted mode on exposed host (" + opts.host + ")! Anyone can access it as admin. Use authenticated mode for production. ⚠️", "yellow")
     : null;

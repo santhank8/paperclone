@@ -1,3 +1,4 @@
+import { redactEnvForLogs } from "@paperclipai/adapter-utils/server-utils";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { and, asc, desc, eq, gt, inArray, sql } from "drizzle-orm";
@@ -1245,12 +1246,16 @@ export function heartbeatService(db: Db) {
         mergedConfig,
       );
       const onAdapterMeta = async (meta: AdapterInvocationMeta) => {
+        const safeMeta = { ...meta };
+        if (safeMeta.env) {
+          safeMeta.env = redactEnvForLogs(safeMeta.env);
+        }
         await appendRunEvent(currentRun, seq++, {
           eventType: "adapter.invoke",
           stream: "system",
           level: "info",
           message: "adapter invocation",
-          payload: meta as unknown as Record<string, unknown>,
+          payload: safeMeta as unknown as Record<string, unknown>,
         });
       };
 

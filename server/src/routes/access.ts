@@ -1,6 +1,5 @@
-import { createHmac } from "node:crypto";
+import { hashToken, legacyHashToken } from "../hash.js";
 import {
-  createHash,
   generateKeyPairSync,
   randomBytes,
   timingSafeEqual
@@ -10,7 +9,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { Router } from "express";
 import type { Request } from "express";
-import { and, eq, isNull, desc } from "drizzle-orm";
+import { and, eq, isNull, desc, or } from "drizzle-orm";
 import type { Db } from "@paperclipai/db";
 import {
   agentApiKeys,
@@ -51,13 +50,6 @@ import {
   inspectBoardClaimChallenge
 } from "../board-claim.js";
 
-function hashToken(token: string) {
-  const secret = process.env.PAPERCLIP_AGENT_JWT_SECRET;
-  if (!secret) {
-    throw new Error("PAPERCLIP_AGENT_JWT_SECRET must be configured to secure API keys.");
-  }
-  return createHmac("sha256", secret).update(token).digest("hex");
-}
 
 const INVITE_TOKEN_PREFIX = "pcp_invite_";
 const INVITE_TOKEN_ALPHABET = "abcdefghijklmnopqrstuvwxyz0123456789";
@@ -1726,7 +1718,7 @@ export function accessRoutes(
     const invite = await db
       .select()
       .from(invites)
-      .where(eq(invites.tokenHash, hashToken(token)))
+      .where(or(eq(invites.tokenHash, hashToken(token)), eq(invites.tokenHash, legacyHashToken(token))))
       .then((rows) => rows[0] ?? null);
     if (
       !invite ||
@@ -1746,7 +1738,7 @@ export function accessRoutes(
     const invite = await db
       .select()
       .from(invites)
-      .where(eq(invites.tokenHash, hashToken(token)))
+      .where(or(eq(invites.tokenHash, hashToken(token)), eq(invites.tokenHash, legacyHashToken(token))))
       .then((rows) => rows[0] ?? null);
     if (!invite || invite.revokedAt || inviteExpired(invite)) {
       throw notFound("Invite not found");
@@ -1761,7 +1753,7 @@ export function accessRoutes(
     const invite = await db
       .select()
       .from(invites)
-      .where(eq(invites.tokenHash, hashToken(token)))
+      .where(or(eq(invites.tokenHash, hashToken(token)), eq(invites.tokenHash, legacyHashToken(token))))
       .then((rows) => rows[0] ?? null);
     if (!invite || invite.revokedAt || inviteExpired(invite)) {
       throw notFound("Invite not found");
@@ -1778,7 +1770,7 @@ export function accessRoutes(
     const invite = await db
       .select()
       .from(invites)
-      .where(eq(invites.tokenHash, hashToken(token)))
+      .where(or(eq(invites.tokenHash, hashToken(token)), eq(invites.tokenHash, legacyHashToken(token))))
       .then((rows) => rows[0] ?? null);
     if (!invite || invite.revokedAt || inviteExpired(invite)) {
       throw notFound("Invite not found");
@@ -1824,7 +1816,7 @@ export function accessRoutes(
       const invite = await db
         .select()
         .from(invites)
-        .where(eq(invites.tokenHash, hashToken(token)))
+        .where(or(eq(invites.tokenHash, hashToken(token)), eq(invites.tokenHash, legacyHashToken(token))))
         .then((rows) => rows[0] ?? null);
       if (!invite || invite.revokedAt || inviteExpired(invite)) {
         throw notFound("Invite not found");

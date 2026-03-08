@@ -1,3 +1,4 @@
+import { PassThrough } from "node:stream";
 import { createHash, randomUUID } from "node:crypto";
 import path from "node:path";
 import type { StorageService, StorageProvider, PutFileInput, PutFileResult } from "./types.js";
@@ -79,10 +80,10 @@ function assertPutFileInput(input: PutFileInput): void {
   if (!input.contentType || input.contentType.trim().length === 0) {
     throw unprocessable("contentType is required");
   }
-  if (!(input.body instanceof Buffer)) {
-    throw unprocessable("body must be a Buffer");
+  if (!(input.body instanceof Buffer) && !(input.body as any).pipe) {
+    throw unprocessable("body must be a Buffer or Readable stream");
   }
-  if (input.body.length <= 0) {
+  if (Buffer.isBuffer(input.body) && input.body.length <= 0) {
     throw unprocessable("File is empty");
   }
 }
@@ -94,11 +95,34 @@ export function createStorageService(provider: StorageProvider): StorageService 
     async putFile(input: PutFileInput): Promise<PutFileResult> {
       assertPutFileInput(input);
       const objectKey = buildObjectKey(input.companyId, input.namespace, input.originalFilename);
-      const byteSize = (input.body as Buffer).length;
+      let byteSize = input.byteSize;
+      let sha256 = "";
+      let bodyToUpload = input.body;
+
+      if (Buffer.isBuffer(input.body)) {
+        byteSize = input.body.length;
+        sha256 = hashBuffer(input.body);
+      } else {
+        if (byteSize === undefined) throw unprocessable("byteSize is required when uploading a stream");
+
+        const hash = createHash('sha256');
+        const pass = new PassThrough();
+
+        input.body.on('data', (chunk) => {
+          hash.update(chunk);
+        });
+
+        input.body.on('end', () => {
+          sha256 = hash.digest('hex');
+        });
+
+        bodyToUpload = input.body.pipe(pass);
+      }
+
       const contentType = input.contentType.trim().toLowerCase();
       await provider.putObject({
         objectKey,
-        body: input.body as Buffer,
+        body: bodyToUpload as any,
         contentType,
         contentLength: byteSize,
       });
@@ -108,7 +132,7 @@ export function createStorageService(provider: StorageProvider): StorageService 
         objectKey,
         contentType,
         byteSize,
-        sha256: hashBuffer(input.body as Buffer),
+        sha256,
         originalFilename: input.originalFilename,
       };
     },
