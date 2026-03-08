@@ -54,6 +54,8 @@ describe("dashboard service", () => {
       expect(result.costs.monthBudgetCents).toBe(0);
       expect(result.costs.monthUtilizationPercent).toBeNull();
       expect(result.costs.budgetConfigured).toBe(false);
+      expect(result.computedAt).toBeDefined();
+      expect(new Date(result.computedAt).getTime()).toBeGreaterThan(Date.now() - 5000);
     });
 
     it("should return calculated utilization and budgetConfigured=true when budget is set", async () => {
@@ -87,6 +89,7 @@ describe("dashboard service", () => {
       expect(result.costs.monthBudgetCents).toBe(10000);
       expect(result.costs.monthUtilizationPercent).toBe(25);
       expect(result.costs.budgetConfigured).toBe(true);
+      expect(result.computedAt).toBeDefined();
     });
 
     it("should return 0% utilization when budget is set but no spend", async () => {
@@ -112,6 +115,7 @@ describe("dashboard service", () => {
       expect(result.costs.monthBudgetCents).toBe(10000);
       expect(result.costs.monthUtilizationPercent).toBe(0);
       expect(result.costs.budgetConfigured).toBe(true);
+      expect(result.computedAt).toBeDefined();
     });
   });
 });

@@ -1,5 +1,6 @@
 export interface DashboardSummary {
   companyId: string;
+  computedAt: string;
   agents: {
     active: number;
     running: number;

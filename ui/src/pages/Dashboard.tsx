@@ -209,6 +209,11 @@ export function Dashboard() {
 
       {data && (
         <>
+          <div className="flex justify-end mb-2">
+            <span className="text-xs text-muted-foreground">
+              Last updated: {timeAgo(new Date(data.computedAt))}
+            </span>
+          </div>
           <div className="grid grid-cols-2 xl:grid-cols-4 gap-1 sm:gap-2">
             <MetricCard
               icon={Bot}

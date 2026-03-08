@@ -94,6 +94,7 @@ export function dashboardService(db: Db) {
 
       return {
         companyId,
+        computedAt: new Date().toISOString(),
         agents: {
           active: agentCounts.active,
           running: agentCounts.running,
