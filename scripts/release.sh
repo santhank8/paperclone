@@ -151,7 +151,7 @@ console.log(names.join('\n'));
 
   # Remove temporary build artifacts
   rm -rf "$REPO_ROOT/server/ui-dist"
-  for pkg_dir in server packages/adapters/claude-local packages/adapters/codex-local; do
+  for pkg_dir in server packages/adapters/claude-local packages/adapters/codex-local packages/adapters/opencode-local; do
     rm -rf "$REPO_ROOT/$pkg_dir/skills"
   done
 
@@ -286,7 +286,7 @@ pnpm --filter @paperclipai/server build
 bash "$REPO_ROOT/scripts/prepare-server-ui-dist.sh"
 
 # Bundle skills into packages that need them (adapters + server)
-for pkg_dir in server packages/adapters/claude-local packages/adapters/codex-local; do
+for pkg_dir in server packages/adapters/claude-local packages/adapters/codex-local packages/adapters/opencode-local; do
   rm -rf "$REPO_ROOT/$pkg_dir/skills"
   cp -r "$REPO_ROOT/skills" "$REPO_ROOT/$pkg_dir/skills"
 done
@@ -361,7 +361,7 @@ fi
 
 # Remove temporary build artifacts before committing (these are only needed during publish)
 rm -rf "$REPO_ROOT/server/ui-dist"
-for pkg_dir in server packages/adapters/claude-local packages/adapters/codex-local; do
+for pkg_dir in server packages/adapters/claude-local packages/adapters/codex-local packages/adapters/opencode-local; do
   rm -rf "$REPO_ROOT/$pkg_dir/skills"
 done
 
