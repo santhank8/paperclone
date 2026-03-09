@@ -428,7 +428,8 @@ function AgentRunCard({
 }) {
   const bodyRef = useRef<HTMLDivElement>(null);
   const recent = feed.slice(-20);
-  const elapsed = useElapsedTime(run.createdAt, isActive && recent.length === 0);
+  const isRunning = run.status === "running";
+  const elapsed = useElapsedTime(run.startedAt ?? run.createdAt, isActive && recent.length === 0);
 
   useEffect(() => {
     const body = bodyRef.current;
@@ -489,7 +490,7 @@ function AgentRunCard({
       {/* Feed body */}
       <div ref={bodyRef} className="flex-1 max-h-[140px] overflow-y-auto p-2 font-mono text-[11px] space-y-1">
         {isActive && recent.length === 0 && (
-          <div className="text-xs text-muted-foreground">Running ({elapsed})...</div>
+          <div className="text-xs text-muted-foreground">{isRunning ? `Running (${elapsed})` : `Queued (${elapsed})`}...</div>
         )}
         {!isActive && recent.length === 0 && (
           <div className="text-xs text-muted-foreground">
