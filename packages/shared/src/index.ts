@@ -30,7 +30,11 @@ export {
   INVITE_JOIN_TYPES,
   JOIN_REQUEST_TYPES,
   JOIN_REQUEST_STATUSES,
+  NOTIFICATION_CHANNEL_TYPES,
+  NOTIFICATION_EVENT_TYPES,
   PERMISSION_KEYS,
+  type NotificationChannelType,
+  type NotificationEventType,
   type CompanyStatus,
   type DeploymentMode,
   type DeploymentExposure,
@@ -118,6 +122,8 @@ export type {
   CompanyPortabilityImportRequest,
   CompanyPortabilityImportResult,
   CompanyPortabilityExportRequest,
+  NotificationChannel,
+  NotificationEvent,
   EnvBinding,
   AgentEnvConfig,
   CompanySecret,
@@ -229,6 +235,12 @@ export {
   type CompanyPortabilityExport,
   type CompanyPortabilityPreview,
   type CompanyPortabilityImport,
+  createNotificationChannelSchema,
+  updateNotificationChannelSchema,
+  testNotificationChannelConfigSchema,
+  type CreateNotificationChannel,
+  type UpdateNotificationChannel,
+  type TestNotificationChannelConfig,
 } from "./validators/index.js";
 
 export { API_PREFIX, API } from "./api.js";
