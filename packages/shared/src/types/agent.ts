@@ -28,6 +28,7 @@ export interface Agent {
   permissions: AgentPermissions;
   lastHeartbeatAt: Date | null;
   trustLevel: TrustLevel;
+  trustPromotionThreshold: number | null;
   trustManuallySetAt: Date | null;
   metadata: Record<string, unknown> | null;
   createdAt: Date;

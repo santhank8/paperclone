@@ -56,6 +56,7 @@ export const updateAgentSchema = createAgentSchema
     permissions: z.never().optional(),
     status: z.enum(AGENT_STATUSES).optional(),
     spentMonthlyCents: z.number().int().nonnegative().optional(),
+    trustPromotionThreshold: z.number().int().min(1).nullable().optional(),
   });
 
 export type UpdateAgent = z.infer<typeof updateAgentSchema>;

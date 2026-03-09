@@ -242,6 +242,7 @@ export type TrustLevel = (typeof TRUST_LEVELS)[number];
 export const TRUST_PROMOTION_THRESHOLD = 20;
 export const TRUST_DEMOTION_FAILURE_THRESHOLD = 3;
 export const TRUST_DEMOTION_WINDOW_SIZE = 10;
+export const TRUST_MANUAL_OVERRIDE_COOLDOWN_MS = 5 * 60 * 1000;
 
 export const PERMISSION_KEYS = [
   "agents:create",

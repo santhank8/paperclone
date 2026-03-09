@@ -11,7 +11,8 @@ import {
 import { logActivity } from "./activity-log.js";
 
 export function trustService(db: Db) {
-  async function countConsecutiveSuccesses(agentId: string): Promise<number> {
+  async function countConsecutiveSuccesses(agentId: string, threshold?: number): Promise<number> {
+    const limit = threshold ?? TRUST_PROMOTION_THRESHOLD;
     const runs = await db
       .select({ status: heartbeatRuns.status })
       .from(heartbeatRuns)
@@ -22,7 +23,7 @@ export function trustService(db: Db) {
         ),
       )
       .orderBy(desc(heartbeatRuns.finishedAt))
-      .limit(TRUST_PROMOTION_THRESHOLD);
+      .limit(limit);
 
     let count = 0;
     for (const run of runs) {
@@ -65,6 +66,7 @@ export function trustService(db: Db) {
         id: agents.id,
         companyId: agents.companyId,
         trustLevel: agents.trustLevel,
+        trustPromotionThreshold: agents.trustPromotionThreshold,
         trustManuallySetAt: agents.trustManuallySetAt,
       })
       .from(agents)
@@ -79,9 +81,11 @@ export function trustService(db: Db) {
       if (new Date(agent.trustManuallySetAt) > fiveMinutesAgo) return;
     }
 
+    const threshold = agent.trustPromotionThreshold ?? TRUST_PROMOTION_THRESHOLD;
+
     if (outcome === "succeeded" && agent.trustLevel === "supervised") {
-      const consecutive = await countConsecutiveSuccesses(agentId);
-      if (consecutive >= TRUST_PROMOTION_THRESHOLD) {
+      const consecutive = await countConsecutiveSuccesses(agentId, threshold);
+      if (consecutive >= threshold) {
         await promoteTrust(agentId, agent.companyId);
       }
     } else if (outcome === "failed" && agent.trustLevel === "autonomous") {

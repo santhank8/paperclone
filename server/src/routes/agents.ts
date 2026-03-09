@@ -1056,15 +1056,17 @@ export function agentRoutes(db: Db) {
     }
     assertCompanyAccess(req, agent.companyId);
 
-    const consecutiveSuccesses = await trustSvc.countConsecutiveSuccesses(id);
+    const promotionThreshold = agent.trustPromotionThreshold ?? TRUST_PROMOTION_THRESHOLD;
+    const consecutiveSuccesses = await trustSvc.countConsecutiveSuccesses(id, promotionThreshold);
     const recentFailures = await trustSvc.countRecentFailures(id);
 
     res.json({
       trustLevel: agent.trustLevel,
+      trustPromotionThreshold: agent.trustPromotionThreshold,
       trustManuallySetAt: agent.trustManuallySetAt,
       consecutiveSuccesses,
       recentFailures,
-      promotionThreshold: TRUST_PROMOTION_THRESHOLD,
+      promotionThreshold,
       demotionFailureThreshold: TRUST_DEMOTION_FAILURE_THRESHOLD,
       demotionWindowSize: TRUST_DEMOTION_WINDOW_SIZE,
     });

@@ -48,6 +48,7 @@ export interface AgentHireResponse {
 
 export interface TrustProgress {
   trustLevel: TrustLevel;
+  trustPromotionThreshold: number | null;
   trustManuallySetAt: Date | null;
   consecutiveSuccesses: number;
   recentFailures: number;

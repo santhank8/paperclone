@@ -197,6 +197,13 @@
       "when": 1773020079020,
       "tag": "0027_silky_luke_cage",
       "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1773025968128,
+      "tag": "0028_spicy_flatman",
+      "breakpoints": true
     }
   ]
 }

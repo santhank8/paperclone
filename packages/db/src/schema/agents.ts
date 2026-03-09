@@ -30,6 +30,7 @@ export const agents = pgTable(
     permissions: jsonb("permissions").$type<Record<string, unknown>>().notNull().default({}),
     lastHeartbeatAt: timestamp("last_heartbeat_at", { withTimezone: true }),
     trustLevel: text("trust_level").notNull().default("supervised"),
+    trustPromotionThreshold: integer("trust_promotion_threshold"),
     trustManuallySetAt: timestamp("trust_manually_set_at", { withTimezone: true }),
     metadata: jsonb("metadata").$type<Record<string, unknown>>(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

@@ -479,35 +479,35 @@ router.get("/agents/:id/trust-progress", async (req, res) => {
 
 ### Functional Requirements
 
-- [ ] Agents start with `trustLevel: "supervised"` (default)
-- [ ] After 20 consecutive `succeeded` heartbeat runs, agent is promoted to `autonomous`
-- [ ] After 3 `failed` runs (excluding `process_lost`) in rolling window of 10 decisive runs, agent is demoted to `supervised`
-- [ ] `cancelled` and `timed_out` runs are neutral — do not affect trust
-- [ ] Autonomous agents auto-approve `hire_agent` requests (approval record created + immediately resolved)
-- [ ] `approve_ceo_strategy` always requires board approval regardless of trust
-- [ ] Board operators can manually set trust level via `PATCH /agents/:id/trust`
-- [ ] Manual override sets `trustManuallySetAt` to prevent immediate re-demotion
-- [ ] Trust is preserved across agent pause/resume
-- [ ] Trust evaluation does not run for terminated agents
-- [ ] All trust transitions are logged to `activity_log`
-- [ ] Trust badge displayed next to status badge on agent detail page
-- [ ] Promotion progress shown in agent metadata section
+- [x] Agents start with `trustLevel: "supervised"` (default)
+- [x] After 20 consecutive `succeeded` heartbeat runs, agent is promoted to `autonomous`
+- [x] After 3 `failed` runs (excluding `process_lost`) in rolling window of 10 decisive runs, agent is demoted to `supervised`
+- [x] `cancelled` and `timed_out` runs are neutral — do not affect trust
+- [x] Autonomous agents auto-approve `hire_agent` requests (approval record created + immediately resolved)
+- [x] `approve_ceo_strategy` always requires board approval regardless of trust
+- [x] Board operators can manually set trust level via `PATCH /agents/:id/trust`
+- [x] Manual override sets `trustManuallySetAt` to prevent immediate re-demotion
+- [x] Trust is preserved across agent pause/resume
+- [x] Trust evaluation does not run for terminated agents
+- [x] All trust transitions are logged to `activity_log`
+- [x] Trust badge displayed next to status badge on agent detail page
+- [x] Promotion progress shown in agent metadata section
 
 ### Non-Functional Requirements
 
-- [ ] Trust evaluation wrapped in try/catch — failures do not block `finalizeAgentStatus`
-- [ ] Trust updates are idempotent (WHERE clause guards)
-- [ ] Concurrent run completions cannot cause double-promotion
-- [ ] heartbeat_runs queries are bounded (max 20 rows for promotion, 10 for demotion)
-- [ ] All existing tests continue to pass
-- [ ] Type-safe across db/shared/server/ui layers
+- [x] Trust evaluation wrapped in try/catch — failures do not block `finalizeAgentStatus`
+- [x] Trust updates are idempotent (WHERE clause guards)
+- [x] Concurrent run completions cannot cause double-promotion
+- [x] heartbeat_runs queries are bounded (max 20 rows for promotion, 10 for demotion)
+- [x] All existing tests continue to pass
+- [x] Type-safe across db/shared/server/ui layers
 
 ### Quality Gates
 
-- [ ] `pnpm -r typecheck` passes
-- [ ] `pnpm test:run` passes (including new trust tests)
-- [ ] `pnpm build` succeeds
-- [ ] No new lint warnings
+- [x] `pnpm -r typecheck` passes
+- [x] `pnpm test:run` passes (including new trust tests)
+- [x] `pnpm build` succeeds
+- [x] No new lint warnings
 
 ## Edge Cases
 
