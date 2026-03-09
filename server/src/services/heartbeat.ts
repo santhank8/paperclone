@@ -1,6 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import { and, asc, desc, eq, gt, inArray, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gt, inArray, isNotNull, sql } from "drizzle-orm";
 import type { Db } from "@paperclipai/db";
 import {
   agents,
@@ -1039,7 +1039,7 @@ export function heartbeatService(db: Db) {
         assigneeAgentId: issues.assigneeAgentId,
       })
       .from(issues)
-      .where(sql`${issues.executionLockedAt} IS NOT NULL`);
+      .where(isNotNull(issues.executionLockedAt));
 
     if (lockedIssues.length === 0) {
       logger.info("No execution locks to clear on startup");
