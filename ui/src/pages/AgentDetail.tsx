@@ -1504,6 +1504,14 @@ function RunDetail({ run, agentRouteId, adapterType }: { run: HeartbeatRun; agen
   const sessionChanged = run.sessionIdBefore && run.sessionIdAfter && run.sessionIdBefore !== run.sessionIdAfter;
   const sessionId = run.sessionIdAfter || run.sessionIdBefore;
   const hasNonZeroExit = run.exitCode !== null && run.exitCode !== 0;
+  const workspaceMeta = useMemo(() => {
+    const context = asRecord(run.contextSnapshot);
+    return asRecord(context?.paperclipWorkspace);
+  }, [run.contextSnapshot]);
+  const workspacePath = asNonEmptyString(workspaceMeta?.worktreePath) ?? asNonEmptyString(workspaceMeta?.cwd);
+  const workspaceBranch = asNonEmptyString(workspaceMeta?.branchName);
+  const workspaceStatus = asNonEmptyString(workspaceMeta?.checkoutStatus);
+  const isolationUnavailable = workspaceMeta?.isolationUnavailable === true;
 
   return (
     <div className="space-y-4 min-w-0">
@@ -1596,6 +1604,17 @@ function RunDetail({ run, agentRouteId, adapterType }: { run: HeartbeatRun; agen
               <div className="text-xs">
                 <span className="text-red-600 dark:text-red-400">{run.error}</span>
                 {run.errorCode && <span className="text-muted-foreground ml-1">({run.errorCode})</span>}
+              </div>
+            )}
+            {workspacePath && (
+              <div className="rounded-md border border-border/70 bg-muted/20 px-3 py-2 text-xs">
+                <div className="font-medium text-foreground">Workspace</div>
+                <div className="mt-1 break-all text-muted-foreground">{workspacePath}</div>
+                <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
+                  {workspaceBranch ? <span>Branch {workspaceBranch}</span> : null}
+                  {workspaceStatus ? <span>Status {workspaceStatus}</span> : null}
+                  {isolationUnavailable ? <span>Isolation unavailable</span> : null}
+                </div>
               </div>
             )}
             {run.errorCode === "claude_auth_required" && adapterType === "claude_local" && (
