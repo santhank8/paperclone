@@ -6,6 +6,7 @@ import {
   RESULT_RECORD_KINDS,
   type Agent,
   type AnyRecord,
+  type ExecutiveDecisionItem,
   type Project,
   type RecordScopeType,
 } from "@paperclipai/shared";
@@ -488,7 +489,7 @@ function BoardRecordList({
   records,
   emptyMessage,
 }: {
-  records: AnyRecord[];
+  records: Array<AnyRecord | ExecutiveDecisionItem>;
   emptyMessage: string;
 }) {
   if (records.length === 0) {
@@ -498,6 +499,24 @@ function BoardRecordList({
   return (
     <div className="space-y-3">
       {records.map((record) => (
+        "sourceType" in record ? (
+          <Link
+            key={record.id}
+            to={record.sourceType === "plan" ? `/briefings/records/${record.plan.id}` : `/approvals/${record.approval.id}`}
+            className="block rounded-xl border border-border/70 bg-background px-4 py-3 transition-colors hover:bg-accent/20"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="space-y-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-sm font-medium text-foreground">{record.title}</span>
+                  <Badge variant="outline">{record.sourceType === "plan" ? "decision record" : "approval"}</Badge>
+                </div>
+                <p className="text-sm text-muted-foreground">{record.summary ?? "No summary yet."}</p>
+              </div>
+              <span className="text-xs text-muted-foreground">{record.dueAt ? relativeTime(record.dueAt) : "No due date"}</span>
+            </div>
+          </Link>
+        ) : (
         <Link
           key={record.id}
           to={`/briefings/records/${record.id}`}
@@ -514,6 +533,7 @@ function BoardRecordList({
             <span className="text-xs text-muted-foreground">{relativeTime(record.publishedAt ?? record.updatedAt)}</span>
           </div>
         </Link>
+        )
       ))}
     </div>
   );

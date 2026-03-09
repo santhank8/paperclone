@@ -23,6 +23,7 @@ import type {
   CreateResultRecord,
   ExecutiveBoardSummary,
   ExecutiveCostAnomaly,
+  ExecutiveDecisionItem,
   ExecutiveProjectHealth,
   GenerateRecord,
   PlanRecord,
@@ -137,6 +138,19 @@ function deriveProjectDelta(blocker: string | null, hasRecentResult: boolean) {
   return "unknown" as const;
 }
 
+function planDecisionItem(record: PlanRecord): ExecutiveDecisionItem {
+  return {
+    sourceType: "plan",
+    id: record.id,
+    title: record.title,
+    summary: record.summary,
+    status: record.status,
+    ownerAgentId: record.ownerAgentId,
+    dueAt: record.decisionDueAt,
+    plan: record,
+  };
+}
+
 export function summarizeProjectHealth(
   scopedProjects: Array<Pick<typeof projects.$inferSelect, "id" | "name" | "status">>,
   scopedResults: ResultRecord[],
@@ -161,7 +175,7 @@ export function summarizeProjectHealth(
       confidence: lastMeaningfulResult?.confidence ?? null,
       lastMeaningfulResult,
       currentBlocker,
-      nextDecision,
+      nextDecision: nextDecision ? planDecisionItem(nextDecision) : null,
     };
   });
 }
@@ -640,7 +654,7 @@ export function recordService(db: Db) {
     // board UI only shows a truncated list of top exceptions.
     const projectHealth = summarizeProjectHealth(scopedProjects, scopedResults, allRisksAndBlocks, allDecisionsNeeded);
     const risksAndBlocks = allRisksAndBlocks.slice(0, 8);
-    const decisionsNeeded = allDecisionsNeeded.slice(0, 8);
+    const decisionsNeeded = allDecisionsNeeded.slice(0, 8).map(planDecisionItem);
 
     const issueById = new Map(issueRows.map((issue) => [issue.id, issue]));
     const projectById = new Map(companyProjects.map((project) => [project.id, project]));
