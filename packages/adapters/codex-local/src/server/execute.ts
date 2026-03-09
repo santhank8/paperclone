@@ -67,6 +67,13 @@ function codexHomeDir(): string {
   return path.join(os.homedir(), ".codex");
 }
 
+function normalizeCodexCliModel(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+  const match = trimmed.match(/^(?:openai-codex|openai)\/([A-Za-z0-9._-]+)$/i);
+  return match ? match[1] : trimmed;
+}
+
 async function resolvePaperclipSkillsDir(): Promise<string | null> {
   for (const candidate of PAPERCLIP_SKILLS_CANDIDATES) {
     const isDir = await fs.stat(candidate).then((s) => s.isDirectory()).catch(() => false);
@@ -112,7 +119,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     "You are agent {{agent.id}} ({{agent.name}}). Continue your Paperclip work.",
   );
   const command = asString(config.command, "codex");
-  const model = asString(config.model, "");
+  const model = normalizeCodexCliModel(asString(config.model, ""));
   const modelReasoningEffort = asString(
     config.modelReasoningEffort,
     asString(config.reasoningEffort, ""),
