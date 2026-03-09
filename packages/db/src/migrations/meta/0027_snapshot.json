@@ -1,6 +1,6 @@
 {
   "id": "7c1766c7-deb2-4d7c-83e3-0f73da9c5e36",
-  "prevId": "bd8d9b8d-3012-4c58-bcfd-b3215c164f82",
+  "prevId": "096d4e7e-2a77-4edc-9a75-ca003b50c53f",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -3393,6 +3393,12 @@
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
+        },
+        "dismissed_at": {
+          "name": "dismissed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {

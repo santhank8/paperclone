@@ -1,6 +1,6 @@
 {
-  "id": "0c8ccf26-315d-4cbd-a2c6-8038a9ba4bd8",
-  "prevId": "7c1766c7-deb2-4d7c-83e3-0f73da9c5e36",
+  "id": "282ff49f-db8a-48d7-8892-813650ca8963",
+  "prevId": "0c8ccf26-315d-4cbd-a2c6-8038a9ba4bd8",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -1206,6 +1206,25 @@
           "primaryKey": false,
           "notNull": false
         },
+        "trust_level": {
+          "name": "trust_level",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'supervised'"
+        },
+        "trust_promotion_threshold": {
+          "name": "trust_promotion_threshold",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "trust_manually_set_at": {
+          "name": "trust_manually_set_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
         "metadata": {
           "name": "metadata",
           "type": "jsonb",
@@ -1225,25 +1244,6 @@
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
-        },
-        "trust_level": {
-          "name": "trust_level",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'supervised'"
-        },
-        "trust_promotion_threshold": {
-          "name": "trust_promotion_threshold",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "trust_manually_set_at": {
-          "name": "trust_manually_set_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
         }
       },
       "indexes": {
@@ -1527,6 +1527,13 @@
           "type": "jsonb",
           "primaryKey": false,
           "notNull": true
+        },
+        "auto_approve_if_trusted": {
+          "name": "auto_approve_if_trusted",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
         },
         "decision_note": {
           "name": "decision_note",
@@ -2148,6 +2155,13 @@
         },
         "require_board_approval_for_new_agents": {
           "name": "require_board_approval_for_new_agents",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "require_human_approval_for_all_actions": {
+          "name": "require_human_approval_for_all_actions",
           "type": "boolean",
           "primaryKey": false,
           "notNull": true,

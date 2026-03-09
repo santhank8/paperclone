@@ -8,6 +8,7 @@ export interface Approval {
   requestedByUserId: string | null;
   status: ApprovalStatus;
   payload: Record<string, unknown>;
+  autoApproveIfTrusted: boolean;
   decisionNote: string | null;
   decidedByUserId: string | null;
   decidedAt: Date | null;

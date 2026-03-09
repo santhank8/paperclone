@@ -1,0 +1,2 @@
+ALTER TABLE "approvals" ADD COLUMN "auto_approve_if_trusted" boolean DEFAULT false NOT NULL;--> statement-breakpoint
+ALTER TABLE "companies" ADD COLUMN "require_human_approval_for_all_actions" boolean DEFAULT true NOT NULL;
