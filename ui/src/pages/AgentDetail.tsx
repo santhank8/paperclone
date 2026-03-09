@@ -59,6 +59,7 @@ import { Input } from "@/components/ui/input";
 import { AgentIcon, AgentIconPicker } from "../components/AgentIconPicker";
 import { isUuidLike, type Agent, type HeartbeatRun, type HeartbeatRunEvent, type AgentRuntimeState, type LiveEvent } from "@paperclipai/shared";
 import { agentRouteRef } from "../lib/utils";
+import { copyTextToClipboard } from "../lib/clipboard";
 
 const runStatusIcons: Record<string, { icon: typeof CheckCircle2; color: string }> = {
   succeeded: { icon: CheckCircle2, color: "text-green-600 dark:text-green-400" },
@@ -2429,7 +2430,7 @@ function KeysTab({ agentId, companyId }: { agentId: string; companyId?: string }
   const [newKeyName, setNewKeyName] = useState("");
   const [newToken, setNewToken] = useState<string | null>(null);
   const [tokenVisible, setTokenVisible] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const [copyStatus, setCopyStatus] = useState<"idle" | "success" | "error">("idle");
 
   const { data: keys, isLoading } = useQuery({
     queryKey: queryKeys.agents.keys(agentId),
@@ -2453,11 +2454,11 @@ function KeysTab({ agentId, companyId }: { agentId: string; companyId?: string }
     },
   });
 
-  function copyToken() {
+  async function copyToken() {
     if (!newToken) return;
-    navigator.clipboard.writeText(newToken);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    const copied = await copyTextToClipboard(newToken);
+    setCopyStatus(copied ? "success" : "error");
+    setTimeout(() => setCopyStatus("idle"), 2000);
   }
 
   const activeKeys = (keys ?? []).filter((k: AgentKey) => !k.revokedAt);
@@ -2491,7 +2492,16 @@ function KeysTab({ agentId, companyId }: { agentId: string; companyId?: string }
             >
               <Copy className="h-3.5 w-3.5" />
             </Button>
-            {copied && <span className="text-xs text-green-400">Copied!</span>}
+            {copyStatus !== "idle" && (
+              <span
+                className={cn(
+                  "text-xs",
+                  copyStatus === "success" ? "text-green-400" : "text-red-400",
+                )}
+              >
+                {copyStatus === "success" ? "Copied!" : "Copy failed"}
+              </span>
+            )}
           </div>
           <Button
             variant="ghost"
