@@ -511,13 +511,23 @@ export function OnboardingWizard() {
     navigate("/dashboard");
   }
 
-  function handleKeyDown(e: React.KeyboardEvent) {
+function handleKeyDown(e: React.KeyboardEvent) {
     if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
       e.preventDefault();
       if (step === 1 && companyName.trim()) handleStep1Next();
       else if (step === 2 && agentName.trim()) handleStep2Next();
       else if (step === 3 && taskTitle.trim()) handleStep3Next();
-      else if (step === 4) handleLaunch();
+      else if (step === 4) {
+        const agentId = createdAgentId;
+        const prefix = createdCompanyPrefix;
+        reset();
+        closeOnboarding();
+        if (prefix && agentId) {
+          navigate(`/${prefix}/agents/${agentId}`);
+        } else {
+          navigate("/agents");
+        }
+      }
     }
   }
 
