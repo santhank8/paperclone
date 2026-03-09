@@ -348,7 +348,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     if (resumeSessionId) args.push("--resume", resumeSessionId);
     if (dangerouslySkipPermissions) args.push("--dangerously-skip-permissions");
     if (!dangerouslySkipPermissions && allowedTools) args.push("--allowedTools", allowedTools);
-    if (!dangerouslySkipPermissions && disallowedTools) args.push("--disallowedTools", disallowedTools);
+    else if (!dangerouslySkipPermissions && disallowedTools) args.push("--disallowedTools", disallowedTools);
     if (chrome) args.push("--chrome");
     if (model) args.push("--model", model);
     if (effort) args.push("--effort", effort);
