@@ -19,8 +19,7 @@ export function printGeminiStreamEvent(raw: string, _debug: boolean): void {
 
   let parsed: Record<string, unknown> | null = null;
   try {
-    const raw = JSON.parse(line);
-    parsed = asRecord(raw);
+    parsed = asRecord(JSON.parse(line));
   } catch {
     console.log(line);
     return;

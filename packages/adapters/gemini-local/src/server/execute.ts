@@ -123,7 +123,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     typeof envConfig.PAPERCLIP_API_KEY === "string" && envConfig.PAPERCLIP_API_KEY.trim().length > 0;
   const env: Record<string, string> = { ...buildPaperclipEnv(agent) };
   env.PAPERCLIP_RUN_ID = runId;
-  if (tmpHome) env.GEMINI_CLI_HOME = tmpHome;
+  env.GEMINI_CLI_HOME = tmpHome;
 
   const wakeTaskId =
     (typeof context.taskId === "string" && context.taskId.trim().length > 0 && context.taskId.trim()) ||
@@ -366,8 +366,6 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
 
     return toResult(initial);
   } finally {
-    if (tmpHome) {
-      fs.rm(tmpHome, { recursive: true, force: true }).catch(() => {});
-    }
+    fs.rm(tmpHome, { recursive: true, force: true }).catch(() => {});
   }
 }
