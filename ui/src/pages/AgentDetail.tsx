@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import { useParams, useNavigate, Link, useBeforeUnload } from "@/lib/router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { agentsApi, type AgentKey, type ClaudeLoginResult } from "../api/agents";
+import { agentsApi, type AgentKey, type ClaudeLoginResult, type TrustProgress } from "../api/agents";
 import { heartbeatsApi } from "../api/heartbeats";
 import { ApiError } from "../api/client";
 import { ChartCard, RunActivityChart, PriorityChart, IssueStatusChart, SuccessRateChart } from "../components/ActivityCharts";
@@ -18,6 +18,7 @@ import { adapterLabels, roleLabels } from "../components/agent-config-primitives
 import { getUIAdapter, buildTranscript } from "../adapters";
 import type { TranscriptEntry } from "../adapters";
 import { StatusBadge } from "../components/StatusBadge";
+import { TrustBadge } from "../components/TrustBadge";
 import { agentStatusDot, agentStatusDotDefault } from "../lib/status-colors";
 import { MarkdownBody } from "../components/MarkdownBody";
 import { CopyText } from "../components/CopyText";
@@ -56,7 +57,7 @@ import {
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { AgentIcon, AgentIconPicker } from "../components/AgentIconPicker";
-import { isUuidLike, type Agent, type HeartbeatRun, type HeartbeatRunEvent, type AgentRuntimeState, type LiveEvent } from "@paperclipai/shared";
+import { isUuidLike, TRUST_PROMOTION_THRESHOLD, type Agent, type HeartbeatRun, type HeartbeatRunEvent, type AgentRuntimeState, type LiveEvent } from "@paperclipai/shared";
 import { agentRouteRef } from "../lib/utils";
 
 const runStatusIcons: Record<string, { icon: typeof CheckCircle2; color: string }> = {
@@ -291,6 +292,12 @@ export function AgentDetail() {
     enabled: !!resolvedCompanyId,
   });
 
+  const { data: trustProgress } = useQuery({
+    queryKey: ["agents", resolvedAgentId, "trust-progress"],
+    queryFn: () => agentsApi.trustProgress(resolvedAgentId!, resolvedCompanyId ?? undefined),
+    enabled: Boolean(resolvedAgentId),
+  });
+
   const assignedIssues = (allIssues ?? [])
     .filter((i) => i.assigneeAgentId === agent?.id)
     .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
@@ -492,6 +499,7 @@ export function AgentDetail() {
             </Button>
           )}
           <span className="hidden sm:inline"><StatusBadge status={agent.status} /></span>
+          <span className="hidden sm:inline"><TrustBadge level={agent.trustLevel} /></span>
           {mobileLiveRun && (
             <Link
               to={`/agents/${canonicalAgentRef}/runs/${mobileLiveRun.id}`}
@@ -632,6 +640,7 @@ export function AgentDetail() {
           directReports={directReports}
           agentId={agent.id}
           agentRouteId={canonicalAgentRef}
+          trustProgress={trustProgress ?? null}
         />
       )}
 
@@ -753,6 +762,7 @@ function AgentOverview({
   directReports,
   agentId,
   agentRouteId,
+  trustProgress,
 }: {
   agent: Agent;
   runs: HeartbeatRun[];
@@ -762,6 +772,7 @@ function AgentOverview({
   directReports: Agent[];
   agentId: string;
   agentRouteId: string;
+  trustProgress: TrustProgress | null;
 }) {
   return (
     <div className="space-y-8">
@@ -826,6 +837,7 @@ function AgentOverview({
         agentRouteId={agentRouteId}
         reportsToAgent={reportsToAgent}
         directReports={directReports}
+        trustProgress={trustProgress ?? null}
       />
     </div>
   );
@@ -840,11 +852,13 @@ function ConfigSummary({
   agentRouteId,
   reportsToAgent,
   directReports,
+  trustProgress,
 }: {
   agent: Agent;
   agentRouteId: string;
   reportsToAgent: Agent | null;
   directReports: Agent[];
+  trustProgress: TrustProgress | null;
 }) {
   const config = agent.adapterConfig as Record<string, unknown>;
   const promptText = typeof config?.promptTemplate === "string" ? config.promptTemplate : "";
@@ -896,6 +910,19 @@ function ConfigSummary({
                 ? <span>{relativeTime(agent.lastHeartbeatAt)}</span>
                 : <span className="text-muted-foreground">Never</span>
               }
+            </SummaryRow>
+            <SummaryRow label="Trust">
+              <TrustBadge level={agent.trustLevel} />
+              {trustProgress && agent.trustLevel === "supervised" && (
+                <span className="text-muted-foreground ml-1 text-xs">
+                  {trustProgress.consecutiveSuccesses}/{TRUST_PROMOTION_THRESHOLD} to promotion
+                </span>
+              )}
+              {trustProgress && agent.trustLevel === "autonomous" && trustProgress.recentFailures > 0 && (
+                <span className="text-muted-foreground ml-1 text-xs">
+                  {trustProgress.recentFailures} recent failure{trustProgress.recentFailures !== 1 ? "s" : ""}
+                </span>
+              )}
             </SummaryRow>
             <SummaryRow label="Reports to">
               {reportsToAgent ? (
