@@ -18,7 +18,6 @@ import { adapterLabels, roleLabels } from "../components/agent-config-primitives
 import { getUIAdapter, buildTranscript } from "../adapters";
 import type { TranscriptEntry } from "../adapters";
 import { StatusBadge } from "../components/StatusBadge";
-import { TrustBadge } from "../components/TrustBadge";
 import { agentStatusDot, agentStatusDotDefault } from "../lib/status-colors";
 import { MarkdownBody } from "../components/MarkdownBody";
 import { CopyText } from "../components/CopyText";
@@ -33,6 +32,12 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import {
   MoreHorizontal,
   Play,
@@ -54,6 +59,7 @@ import {
   ChevronDown,
   ArrowLeft,
   Settings,
+  ShieldCheck,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { AgentIcon, AgentIconPicker } from "../components/AgentIconPicker";
@@ -453,9 +459,18 @@ export function AgentDetail() {
           </AgentIconPicker>
           <div className="min-w-0">
             <h2 className="text-2xl font-bold truncate">{agent.name}</h2>
-            <p className="text-sm text-muted-foreground truncate">
-              {roleLabels[agent.role] ?? agent.role}
-              {agent.title ? ` - ${agent.title}` : ""}
+            <p className="text-sm text-muted-foreground truncate flex items-center gap-1">
+              <span>{roleLabels[agent.role] ?? agent.role}{agent.title ? ` - ${agent.title}` : ""}</span>
+              {agent.trustLevel === "autonomous" && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <ShieldCheck className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                    </TooltipTrigger>
+                    <TooltipContent>Autonomous — earned through consistent performance</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
             </p>
           </div>
         </div>
@@ -499,7 +514,6 @@ export function AgentDetail() {
             </Button>
           )}
           <span className="hidden sm:inline"><StatusBadge status={agent.status} /></span>
-          {agent.trustLevel === "autonomous" && <span className="hidden sm:inline"><TrustBadge level={agent.trustLevel} /></span>}
           {mobileLiveRun && (
             <Link
               to={`/agents/${canonicalAgentRef}/runs/${mobileLiveRun.id}`}
@@ -912,15 +926,15 @@ function ConfigSummary({
               }
             </SummaryRow>
             <SummaryRow label="Trust">
-              <TrustBadge level={agent.trustLevel} />
+              <span className="capitalize">{agent.trustLevel}</span>
               {trustProgress && agent.trustLevel === "supervised" && (
                 <span className="text-muted-foreground ml-1 text-xs">
-                  {trustProgress.consecutiveSuccesses}/{trustProgress.promotionThreshold} to promotion
+                  ({trustProgress.consecutiveSuccesses}/{trustProgress.promotionThreshold} to promotion)
                 </span>
               )}
               {trustProgress && agent.trustLevel === "autonomous" && trustProgress.recentFailures > 0 && (
                 <span className="text-muted-foreground ml-1 text-xs">
-                  {trustProgress.recentFailures} recent failure{trustProgress.recentFailures !== 1 ? "s" : ""}
+                  ({trustProgress.recentFailures} recent failure{trustProgress.recentFailures !== 1 ? "s" : ""})
                 </span>
               )}
             </SummaryRow>
