@@ -210,6 +210,14 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
   if (!hasExplicitApiKey && authToken) {
     env.PAPERCLIP_API_KEY = authToken;
   }
+  // Phase 7: Fall through to server-level OPENAI_API_KEY when adapter config has no key.
+  // Handles Docker-level env vars and acts as a global default for all codex_local agents.
+  if (!hasNonEmptyEnvValue(env, "OPENAI_API_KEY")) {
+    const globalKey = process.env.OPENAI_API_KEY;
+    if (globalKey && globalKey.trim().length > 0) {
+      env.OPENAI_API_KEY = globalKey;
+    }
+  }
   const billingType = resolveCodexBillingType(env);
   const runtimeEnv = ensurePathInEnv({ ...process.env, ...env });
   await ensureCommandResolvable(command, cwd, runtimeEnv);

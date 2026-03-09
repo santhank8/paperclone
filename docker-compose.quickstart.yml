@@ -8,6 +8,9 @@ services:
     environment:
       HOST: "0.0.0.0"
       PAPERCLIP_HOME: "/paperclip"
+      # Global API keys — used as fallback for all codex_local / claude_local agents that
+      # don't override the key in their own adapter config. An empty value is treated as
+      # "not set" by the billing detection logic, so leaving these blank is safe.
       OPENAI_API_KEY: "${OPENAI_API_KEY:-}"
       ANTHROPIC_API_KEY: "${ANTHROPIC_API_KEY:-}"
       PAPERCLIP_DEPLOYMENT_MODE: "authenticated"
