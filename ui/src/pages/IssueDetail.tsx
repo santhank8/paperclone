@@ -40,8 +40,10 @@ import {
   MoreHorizontal,
   Paperclip,
   SlidersHorizontal,
+  ClipboardCopy,
   Trash2,
 } from "lucide-react";
+import { useToast } from "../context/ToastContext";
 import type { ActivityEvent } from "@paperclipai/shared";
 import type { Agent, IssueAttachment } from "@paperclipai/shared";
 
@@ -149,6 +151,7 @@ export function IssueDetail() {
   const { setBreadcrumbs } = useBreadcrumbs();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const { pushToast } = useToast();
   const [moreOpen, setMoreOpen] = useState(false);
   const [mobilePropsOpen, setMobilePropsOpen] = useState(false);
   const [detailTab, setDetailTab] = useState("comments");
@@ -631,6 +634,19 @@ export function IssueDetail() {
                 </Button>
               </PopoverTrigger>
             <PopoverContent className="w-44 p-1" align="end">
+              {issue.description && (
+                <button
+                  className="flex items-center gap-2 w-full px-2 py-1.5 text-xs rounded hover:bg-accent/50"
+                  onClick={() => {
+                    navigator.clipboard.writeText(issue.description!);
+                    pushToast({ title: "Prompt copied to clipboard" });
+                    setMoreOpen(false);
+                  }}
+                >
+                  <ClipboardCopy className="h-3 w-3" />
+                  Copy Prompt
+                </button>
+              )}
               <button
                 className="flex items-center gap-2 w-full px-2 py-1.5 text-xs rounded hover:bg-accent/50 text-destructive"
                 onClick={() => {
