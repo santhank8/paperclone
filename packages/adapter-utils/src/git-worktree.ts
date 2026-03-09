@@ -46,11 +46,17 @@ export async function isGitRepository(dir: string): Promise<boolean> {
 }
 
 /**
- * Get the root of the git repository containing `dir`.
+ * Get the root of the **main** git repository containing `dir`.
+ *
+ * Uses `--git-common-dir` instead of `--show-toplevel` so that when called
+ * from inside a worktree the result is the main repo root, not the worktree
+ * root.  `--git-common-dir` returns the path to the main repo's `.git`
+ * directory (e.g. `/projects/myapp/.git`); `path.dirname` strips the `.git`
+ * suffix to yield the repo root.
  */
 export async function gitRepoRoot(dir: string): Promise<string> {
-  const { stdout } = await git(dir, ["rev-parse", "--show-toplevel"]);
-  return stdout.trim();
+  const { stdout } = await git(dir, ["rev-parse", "--git-common-dir"]);
+  return path.dirname(path.resolve(dir, stdout.trim()));
 }
 
 /**
