@@ -30,7 +30,8 @@ export async function promptServer(opts?: {
     p.cancel("Setup cancelled.");
     process.exit(0);
   }
-  const deploymentMode = deploymentModeSelection as ServerConfig["deploymentMode"];
+  const deploymentMode =
+    deploymentModeSelection as ServerConfig["deploymentMode"];
 
   let exposure: ServerConfig["exposure"] = "private";
   if (deploymentMode === "authenticated") {
@@ -57,7 +58,8 @@ export async function promptServer(opts?: {
     exposure = exposureSelection as ServerConfig["exposure"];
   }
 
-  const hostDefault = deploymentMode === "local_trusted" ? "127.0.0.1" : "0.0.0.0";
+  const hostDefault =
+    deploymentMode === "local_trusted" ? "127.0.0.1" : "0.0.0.0";
   const hostStr = await p.text({
     message: "Bind host",
     defaultValue: currentServer?.host ?? hostDefault,
@@ -113,7 +115,7 @@ export async function promptServer(opts?: {
   }
 
   const port = Number(portStr) || 3100;
-  let auth: AuthConfig = { baseUrlMode: "auto" };
+  let auth: AuthConfig = { baseUrlMode: "auto", disableSignUp: false };
   if (deploymentMode === "authenticated" && exposure === "public") {
     const urlInput = await p.text({
       message: "Public base URL",
@@ -121,7 +123,8 @@ export async function promptServer(opts?: {
       placeholder: "https://paperclip.example.com",
       validate: (val) => {
         const candidate = val.trim();
-        if (!candidate) return "Public base URL is required for public exposure";
+        if (!candidate)
+          return "Public base URL is required for public exposure";
         try {
           const url = new URL(candidate);
           if (url.protocol !== "http:" && url.protocol !== "https:") {
@@ -139,11 +142,16 @@ export async function promptServer(opts?: {
     }
     auth = {
       baseUrlMode: "explicit",
+      disableSignUp: currentAuth?.disableSignUp ?? false,
       publicBaseUrl: urlInput.trim().replace(/\/+$/, ""),
     };
-  } else if (currentAuth?.baseUrlMode === "explicit" && currentAuth.publicBaseUrl) {
+  } else if (
+    currentAuth?.baseUrlMode === "explicit" &&
+    currentAuth.publicBaseUrl
+  ) {
     auth = {
       baseUrlMode: "explicit",
+      disableSignUp: currentAuth?.disableSignUp ?? false,
       publicBaseUrl: currentAuth.publicBaseUrl,
     };
   }
@@ -160,4 +168,3 @@ export async function promptServer(opts?: {
     auth,
   };
 }
-
