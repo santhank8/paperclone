@@ -56,6 +56,53 @@ function hasNonEmptyEnvValue(env: Record<string, string>, key: string): boolean 
   return typeof raw === "string" && raw.trim().length > 0;
 }
 
+function renderPaperclipEnvNote(env: Record<string, string>): string {
+  const paperclipKeys = Object.keys(env)
+    .filter((key) => key.startsWith("PAPERCLIP_"))
+    .sort();
+  if (paperclipKeys.length === 0) return "";
+  return [
+    "Paperclip runtime note:",
+    `The following PAPERCLIP_* environment variables are available in this run: ${paperclipKeys.join(", ")}`,
+    "Do not assume these variables are missing without checking your shell environment.",
+    "",
+    "",
+  ].join("\n");
+}
+
+function readNonEmptyString(value: unknown): string {
+  return typeof value === "string" && value.trim().length > 0 ? value.trim() : "";
+}
+
+function renderTaskFirstPromptNote(input: {
+  env: Record<string, string>;
+  context: Record<string, unknown>;
+  runtimeTaskKey: string | null;
+}): string {
+  const taskId = readNonEmptyString(input.env.PAPERCLIP_TASK_ID);
+  const contextTaskKey = readNonEmptyString(input.context.taskKey);
+  const runtimeTaskKey = readNonEmptyString(input.runtimeTaskKey);
+  const activeTaskKey = taskId || contextTaskKey || runtimeTaskKey;
+  const wakeReason = readNonEmptyString(input.env.PAPERCLIP_WAKE_REASON);
+  const isIssueWake = wakeReason === "issue_assigned" || wakeReason === "issue_checked_out";
+  if (!activeTaskKey && !isIssueWake) return "";
+
+  return [
+    "Paperclip task-first note:",
+    activeTaskKey
+      ? `This run has an active Paperclip issue/task context: ${activeTaskKey}.`
+      : "This run was woken for an active Paperclip issue/task.",
+    "Prioritize executing that issue now. Do not spend this run on generic startup, onboarding, repo tour, or context anchoring unless directly required to complete the issue.",
+    "If the issue id is not obvious, resolve it from PAPERCLIP_TASK_ID or the current Paperclip task context before doing anything else.",
+    "This run must not exit without doing one of the following on the active issue:",
+    "1. Post a comment describing the completed work, then mark the issue done.",
+    "2. Post a blocker comment explaining why it cannot be completed now, then mark the issue blocked.",
+    "Do not exit after only reading instructions, inspecting env or memory, or posting a generic heartbeat/context message.",
+    "",
+    "",
+  ].join("\n");
+}
+
 function resolveCodexBillingType(env: Record<string, string>): "api" | "subscription" {
   // Codex uses API-key auth when OPENAI_API_KEY is present; otherwise rely on local login/session auth.
   return hasNonEmptyEnvValue(env, "OPENAI_API_KEY") ? "api" : "subscription";
@@ -285,7 +332,16 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     run: { id: runId, source: "on_demand" },
     context,
   });
-  const prompt = `${instructionsPrefix}${renderedPrompt}`;
+  const paperclipEnvNote = renderPaperclipEnvNote(env);
+  const taskFirstPromptNote = renderTaskFirstPromptNote({
+    env,
+    context,
+    runtimeTaskKey: runtime.taskKey,
+  });
+  if (taskFirstPromptNote) {
+    commandNotes.push("Detected active Paperclip task context; prepended task-first completion directive to stdin prompt.");
+  }
+  const prompt = `${instructionsPrefix}${paperclipEnvNote}${taskFirstPromptNote}${renderedPrompt}`;
 
   const buildArgs = (resumeSessionId: string | null) => {
     const args = ["exec", "--json"];
