@@ -60,6 +60,84 @@ From `.env.example`:
   - `openclaw-gateway`
   - `pi-local`
 
+## Current product surfaces to know about
+
+If the app "looks fine" but the shape is unclear, this is the current mental model:
+
+- `/dashboard`
+  - still the narrow telemetry/operations page
+  - metric cards, charts, recent activity, recent tasks
+  - not the new executive summary surface
+- `/briefings/board`
+  - new executive board added in the recent merge
+  - answers: outcomes landed, risks/blocks, decisions needed, project health, cost anomalies, executive rollups
+- `/briefings/results`
+  - durable results library
+  - where deliverables, findings, blockers, decision outcomes, and status reports now live as first-class records
+- `/briefings/plans`
+  - durable planning library
+  - where strategy memos, project briefs, decision records, operating plans, weekly objectives, and risk registers now live
+- `/briefings/briefings`
+  - planned next for a dedicated briefing library
+  - not shipped yet in the current baseline
+- `/briefings/portfolio`
+  - planned next for a true portfolio/program surface
+  - not shipped yet in the current baseline
+- `/knowledge`
+  - planned next for durable organizational memory
+  - not shipped yet in the current baseline
+- `/briefings/records/:recordId`
+  - shared detail page for plans, results, and briefings
+  - shows markdown body, attachments, linked work, publish state, and activity
+- issue / approval / agent run detail pages
+  - still part of the operational layer
+  - now include "Promote to result" entry points so execution artifacts can become durable outputs
+
+## Recent architecture additions now present in code
+
+The repository now includes a durable executive-record layer in addition to goals/projects/issues/runs:
+
+- DB tables:
+  - `records`
+  - `record_links`
+  - `record_attachments`
+  - `briefing_view_states`
+- Shared contracts:
+  - record categories: `plan`, `result`, `briefing`
+  - record scopes: `company`, `project`, `agent`
+  - explicit plan/result/briefing kind enums
+  - explicit health and pricing-state enums
+- Server routes:
+  - company-scoped CRUD/list routes for plans, results, and briefings
+  - board summary endpoint at `/api/companies/:companyId/briefings/board`
+  - shared record detail/mutation routes under `/api/records/:recordId/*`
+  - generic asset upload route at `/api/companies/:companyId/assets/files`
+- UI routes:
+  - `/briefings`
+  - `/briefings/board`
+  - `/briefings/results`
+  - `/briefings/plans`
+  - `/briefings/records/:recordId`
+
+## Security/runtime corrections included in the merged feature work
+
+The recent executive-record work also shipped follow-up fixes:
+
+- generic `/assets/files` uploads are now limited to inert document MIME types
+- asset responses add `X-Content-Type-Options: nosniff`
+- project health is derived from the full blocker/decision sets before the board truncates visible lists
+- server tests now cover those regressions
+
+## Major gaps still open after the first executive-layer merge
+
+- no dedicated briefing library yet
+- no scheduled digest generation yet
+- no knowledge library/index yet
+- no project milestones model yet
+- no dedicated portfolio/program page yet
+- no worktree-backed workspace isolation yet
+- no pricing-state propagation across all cost surfaces yet
+
 ## Source/build artifacts present
 
 The repository currently includes built output directories such as:
