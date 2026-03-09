@@ -1030,6 +1030,48 @@ export function agentRoutes(db: Db) {
     res.json(agent);
   });
 
+  router.patch("/agents/:id/trust", validate(setAgentTrustSchema), async (req, res) => {
+    assertBoard(req);
+    const id = req.params.id as string;
+    const agent = await svc.getById(id);
+    if (!agent) {
+      res.status(404).json({ error: "Agent not found" });
+      return;
+    }
+    assertCompanyAccess(req, agent.companyId);
+
+    const actorId = req.actor.userId ?? "board";
+    await trustSvc.setTrustLevel(id, agent.companyId, req.body.trustLevel, actorId);
+
+    const updated = await svc.getById(id);
+    res.json(updated);
+  });
+
+  router.get("/agents/:id/trust-progress", async (req, res) => {
+    const id = req.params.id as string;
+    const agent = await svc.getById(id);
+    if (!agent) {
+      res.status(404).json({ error: "Agent not found" });
+      return;
+    }
+    assertCompanyAccess(req, agent.companyId);
+
+    const promotionThreshold = agent.trustPromotionThreshold ?? TRUST_PROMOTION_THRESHOLD;
+    const consecutiveSuccesses = await trustSvc.countConsecutiveSuccesses(id, promotionThreshold);
+    const recentFailures = await trustSvc.countRecentFailures(id);
+
+    res.json({
+      trustLevel: agent.trustLevel,
+      trustPromotionThreshold: agent.trustPromotionThreshold,
+      trustManuallySetAt: agent.trustManuallySetAt,
+      consecutiveSuccesses,
+      recentFailures,
+      promotionThreshold,
+      demotionFailureThreshold: TRUST_DEMOTION_FAILURE_THRESHOLD,
+      demotionWindowSize: TRUST_DEMOTION_WINDOW_SIZE,
+    });
+  });
+
   router.post("/agents/:id/pause", async (req, res) => {
     assertBoard(req);
     const id = req.params.id as string;

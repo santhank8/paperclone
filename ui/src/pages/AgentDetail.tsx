@@ -333,7 +333,6 @@ export function AgentDetail() {
     }),
     [resolvedCompanyId, resolvedCompanyPrefix, agent?.id],
   );
-
   const assignedIssues = (allIssues ?? [])
     .filter((i) => i.assigneeAgentId === agent?.id)
     .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
