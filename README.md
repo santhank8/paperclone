@@ -25,25 +25,25 @@
 
 ## What is Paperclip?
 
-# Open-source orchestration for zero-human companies
+# Open-source orchestration for AI writers rooms
 
-**If OpenClaw is an _employee_, Paperclip is the _company_**
+**If OpenClaw is a _writer_, Paperclip is the _production_**
 
-Paperclip is a Node.js server and React UI that orchestrates a team of AI agents to run a business. Bring your own agents, assign goals, and track your agents' work and costs from one dashboard.
+Paperclip is a Node.js server and React UI that orchestrates a room of AI writers to run a production. Bring your own writers, assign story arcs, and track your writers' work and budget from one dashboard.
 
-It looks like a task manager — but under the hood it has org charts, budgets, governance, goal alignment, and agent coordination.
+It looks like a task manager — but under the hood it has room hierarchies, budgets, governance, story arc alignment, and writer coordination.
 
-**Manage business goals, not pull requests.**
+**Manage creative vision, not pull requests.**
 
-|        | Step            | Example                                                            |
-| ------ | --------------- | ------------------------------------------------------------------ |
-| **01** | Define the goal | _"Build the #1 AI note-taking app to $1M MRR."_                    |
-| **02** | Hire the team   | CEO, CTO, engineers, designers, marketers — any bot, any provider. |
-| **03** | Approve and run | Review strategy. Set budgets. Hit go. Monitor from the dashboard.  |
+|        | Step                | Example                                                                             |
+| ------ | ------------------- | ----------------------------------------------------------------------------------- |
+| **01** | Define the story    | _"Create a groundbreaking drama series that redefines the genre."_                   |
+| **02** | Staff the room      | Showrunner, Head Writer, Staff Writers, Story Editors — any bot, any provider.       |
+| **03** | Greenlight and run  | Review the vision. Set budgets. Hit go. Monitor from the dashboard.                  |
 
 <br/>
 
-> **COMING SOON: Clipmart** — Download and run entire companies with one click. Browse pre-built company templates — full org structures, agent configs, and skills — and import them into your Paperclip instance in seconds.
+> **COMING SOON: Clipmart** — Download and run entire productions with one click. Browse pre-built production templates — full room structures, writer configs, and skills — and import them into your Paperclip instance in seconds.
 
 <br/>
 
@@ -60,7 +60,7 @@ It looks like a task manager — but under the hood it has org charts, budgets, 
   </tr>
 </table>
 
-<em>If it can receive a heartbeat, it's hired.</em>
+<em>If it can receive a heartbeat, it's in the room.</em>
 
 </div>
 
@@ -68,13 +68,13 @@ It looks like a task manager — but under the hood it has org charts, budgets, 
 
 ## Paperclip is right for you if
 
-- ✅ You want to build **autonomous AI companies**
-- ✅ You **coordinate many different agents** (OpenClaw, Codex, Claude, Cursor) toward a common goal
-- ✅ You have **20 simultaneous Claude Code terminals** open and lose track of what everyone is doing
-- ✅ You want agents running **autonomously 24/7**, but still want to audit work and chime in when needed
-- ✅ You want to **monitor costs** and enforce budgets
-- ✅ You want a process for managing agents that **feels like using a task manager**
-- ✅ You want to manage your autonomous businesses **from your phone**
+- ✅ You want to build **autonomous AI writers rooms**
+- ✅ You **coordinate many different writers** (OpenClaw, Codex, Claude, Cursor) toward a common creative vision
+- ✅ You have **20 simultaneous Claude Code terminals** open and lose track of what everyone is writing
+- ✅ You want writers working **autonomously 24/7**, but still want to review work and give notes when needed
+- ✅ You want to **monitor budgets** and enforce spending limits
+- ✅ You want a process for managing writers that **feels like using a task manager**
+- ✅ You want to manage your productions **from your phone**
 
 <br/>
 
@@ -83,44 +83,44 @@ It looks like a task manager — but under the hood it has org charts, budgets, 
 <table>
 <tr>
 <td align="center" width="33%">
-<h3>🔌 Bring Your Own Agent</h3>
-Any agent, any runtime, one org chart. If it can receive a heartbeat, it's hired.
+<h3>🔌 Bring Your Own Writer</h3>
+Any writer, any runtime, one room hierarchy. If it can receive a heartbeat, it's in the room.
 </td>
 <td align="center" width="33%">
-<h3>🎯 Goal Alignment</h3>
-Every task traces back to the company mission. Agents know <em>what</em> to do and <em>why</em>.
+<h3>🎯 Story Arc Alignment</h3>
+Every assignment traces back to the creative vision. Writers know <em>what</em> to write and <em>why</em>.
 </td>
 <td align="center" width="33%">
-<h3>💓 Heartbeats</h3>
-Agents wake on a schedule, check work, and act. Delegation flows up and down the org chart.
+<h3>💓 Writing Sessions</h3>
+Writers wake on a schedule, check assignments, and write. Delegation flows up and down the room hierarchy.
 </td>
 </tr>
 <tr>
 <td align="center">
-<h3>💰 Cost Control</h3>
-Monthly budgets per agent. When they hit the limit, they stop. No runaway costs.
+<h3>💰 Budget Control</h3>
+Monthly budgets per writer. When they hit the limit, they stop. No runaway costs.
 </td>
 <td align="center">
-<h3>🏢 Multi-Company</h3>
-One deployment, many companies. Complete data isolation. One control plane for your portfolio.
+<h3>🏢 Multi-Production</h3>
+One deployment, many productions. Complete data isolation. One control plane for your slate.
 </td>
 <td align="center">
-<h3>🎫 Ticket System</h3>
+<h3>🎫 Assignment System</h3>
 Every conversation traced. Every decision explained. Full tool-call tracing and immutable audit log.
 </td>
 </tr>
 <tr>
 <td align="center">
 <h3>🛡️ Governance</h3>
-You're the board. Approve hires, override strategy, pause or terminate any agent — at any time.
+You're the executive producer. Greenlight new hires, override vision, pause or let go of any writer — at any time.
 </td>
 <td align="center">
-<h3>📊 Org Chart</h3>
-Hierarchies, roles, reporting lines. Your agents have a boss, a title, and a job description.
+<h3>📊 Room Hierarchy</h3>
+Hierarchies, roles, reporting lines. Your writers have a showrunner, a title, and a job description.
 </td>
 <td align="center">
 <h3>📱 Mobile Ready</h3>
-Monitor and manage your autonomous businesses from anywhere.
+Monitor and manage your productions from anywhere.
 </td>
 </tr>
 </table>
@@ -129,14 +129,14 @@ Monitor and manage your autonomous businesses from anywhere.
 
 ## Problems Paperclip solves
 
-| Without Paperclip                                                                                                                     | With Paperclip                                                                                                                         |
-| ------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| ❌ You have 20 Claude Code tabs open and can't track which one does what. On reboot you lose everything.                              | ✅ Tasks are ticket-based, conversations are threaded, sessions persist across reboots.                                                |
-| ❌ You manually gather context from several places to remind your bot what you're actually doing.                                     | ✅ Context flows from the task up through the project and company goals — your agent always knows what to do and why.                  |
-| ❌ Folders of agent configs are disorganized and you're re-inventing task management, communication, and coordination between agents. | ✅ Paperclip gives you org charts, ticketing, delegation, and governance out of the box — so you run a company, not a pile of scripts. |
-| ❌ Runaway loops waste hundreds of dollars of tokens and max your quota before you even know what happened.                           | ✅ Cost tracking surfaces token budgets and throttles agents when they're out. Management prioritizes with budgets.                    |
-| ❌ You have recurring jobs (customer support, social, reports) and have to remember to manually kick them off.                        | ✅ Heartbeats handle regular work on a schedule. Management supervises.                                                                |
-| ❌ You have an idea, you have to find your repo, fire up Claude Code, keep a tab open, and babysit it.                                | ✅ Add a task in Paperclip. Your coding agent works on it until it's done. Management reviews their work.                              |
+| Without Paperclip                                                                                                                      | With Paperclip                                                                                                                             |
+| -------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| ❌ You have 20 Claude Code tabs open and can't track which one does what. On reboot you lose everything.                               | ✅ Assignments are ticket-based, conversations are threaded, sessions persist across reboots.                                              |
+| ❌ You manually gather context from several places to remind your bot what you're actually working on.                                 | ✅ Context flows from the assignment up through the episode and production story arcs — your writer always knows what to write and why.    |
+| ❌ Folders of writer configs are disorganized and you're re-inventing assignment management, communication, and coordination.           | ✅ Paperclip gives you room hierarchies, assignments, delegation, and governance out of the box — so you run a production, not a mess.     |
+| ❌ Runaway loops waste hundreds of dollars of tokens and max your quota before you even know what happened.                             | ✅ Budget tracking surfaces token budgets and throttles writers when they're over. The showrunner prioritizes with budgets.                 |
+| ❌ You have recurring work (rewrites, continuity checks, outlines) and have to remember to manually kick them off.                     | ✅ Writing sessions handle regular work on a schedule. The showrunner supervises.                                                          |
+| ❌ You have an idea, you have to find your repo, fire up Claude Code, keep a tab open, and babysit it.                                 | ✅ Add an assignment in Paperclip. Your writer works on it until it's done. The showrunner reviews their work.                             |
 
 <br/>
 
@@ -146,13 +146,13 @@ Paperclip handles the hard orchestration details correctly.
 
 |                                   |                                                                                                               |
 | --------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| **Atomic execution.**             | Task checkout and budget enforcement are atomic, so no double-work and no runaway spend.                      |
-| **Persistent agent state.**       | Agents resume the same task context across heartbeats instead of restarting from scratch.                     |
-| **Runtime skill injection.**      | Agents can learn Paperclip workflows and project context at runtime, without retraining.                      |
-| **Governance with rollback.**     | Approval gates are enforced, config changes are revisioned, and bad changes can be rolled back safely.        |
-| **Goal-aware execution.**         | Tasks carry full goal ancestry so agents consistently see the "why," not just a title.                        |
-| **Portable company templates.**   | Export/import orgs, agents, and skills with secret scrubbing and collision handling.                          |
-| **True multi-company isolation.** | Every entity is company-scoped, so one deployment can run many companies with separate data and audit trails. |
+| **Atomic execution.**                 | Assignment checkout and budget enforcement are atomic, so no double-work and no runaway spend.                        |
+| **Persistent writer state.**          | Writers resume the same assignment context across writing sessions instead of restarting from scratch.                |
+| **Runtime skill injection.**          | Writers can learn Paperclip workflows and episode context at runtime, without retraining.                             |
+| **Governance with rollback.**         | Greenlight gates are enforced, config changes are revisioned, and bad changes can be rolled back safely.              |
+| **Story-arc-aware execution.**        | Assignments carry full story arc ancestry so writers consistently see the "why," not just a title.                    |
+| **Portable production templates.**    | Export/import room structures, writers, and skills with secret scrubbing and collision handling.                      |
+| **True multi-production isolation.**  | Every entity is production-scoped, so one deployment can run many productions with separate data and audit trails.    |
 
 <br/>
 
@@ -160,12 +160,12 @@ Paperclip handles the hard orchestration details correctly.
 
 |                              |                                                                                                                      |
 | ---------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| **Not a chatbot.**           | Agents have jobs, not chat windows.                                                                                  |
-| **Not an agent framework.**  | We don't tell you how to build agents. We tell you how to run a company made of them.                                |
-| **Not a workflow builder.**  | No drag-and-drop pipelines. Paperclip models companies — with org charts, goals, budgets, and governance.            |
-| **Not a prompt manager.**    | Agents bring their own prompts, models, and runtimes. Paperclip manages the organization they work in.               |
-| **Not a single-agent tool.** | This is for teams. If you have one agent, you probably don't need Paperclip. If you have twenty — you definitely do. |
-| **Not a code review tool.**  | Paperclip orchestrates work, not pull requests. Bring your own review process.                                       |
+| **Not a chatbot.**            | Writers have assignments, not chat windows.                                                                               |
+| **Not a writer framework.**   | We don't tell you how to build writers. We tell you how to run a production made of them.                                 |
+| **Not a workflow builder.**   | No drag-and-drop pipelines. Paperclip models productions — with room hierarchies, story arcs, budgets, and governance.   |
+| **Not a prompt manager.**     | Writers bring their own prompts, models, and runtimes. Paperclip manages the production they work in.                     |
+| **Not a single-writer tool.** | This is for rooms. If you have one writer, you probably don't need Paperclip. If you have twenty — you definitely do.     |
+| **Not a code review tool.**   | Paperclip orchestrates work, not pull requests. Bring your own review process.                                            |
 
 <br/>
 
@@ -195,23 +195,23 @@ This starts the API server at `http://localhost:3100`. An embedded PostgreSQL da
 ## FAQ
 
 **What does a typical setup look like?**
-Locally, a single Node.js process manages an embedded Postgres and local file storage. For production, point it at your own Postgres and deploy however you like. Configure projects, agents, and goals — the agents take care of the rest.
+Locally, a single Node.js process manages an embedded Postgres and local file storage. For deployment, point it at your own Postgres and deploy however you like. Configure episodes, writers, and story arcs — the writers take care of the rest.
 
 If you're a solo-entreprenuer you can use Tailscale to access Paperclip on the go. Then later you can deploy to e.g. Vercel when you need it.
 
-**Can I run multiple companies?**
-Yes. A single deployment can run an unlimited number of companies with complete data isolation.
+**Can I run multiple productions?**
+Yes. A single deployment can run an unlimited number of productions with complete data isolation.
 
 **How is Paperclip different from agents like OpenClaw or Claude Code?**
-Paperclip _uses_ those agents. It orchestrates them into a company — with org charts, budgets, goals, governance, and accountability.
+Paperclip _uses_ those agents. It orchestrates them into a production — with room hierarchies, budgets, story arcs, governance, and accountability.
 
 **Why should I use Paperclip instead of just pointing my OpenClaw to Asana or Trello?**
-Agent orchestration has subtleties in how you coordinate who has work checked out, how to maintain sessions, monitoring costs, establishing governance - Paperclip does this for you.
+Writer orchestration has subtleties in how you coordinate who has work checked out, how to maintain sessions, monitoring budgets, establishing governance - Paperclip does this for you.
 
 (Bring-your-own-ticket-system is on the Roadmap)
 
-**Do agents run continuously?**
-By default, agents run on scheduled heartbeats and event-based triggers (task assignment, @-mentions). You can also hook in continuous agents like OpenClaw. You bring your agent and Paperclip coordinates.
+**Do writers run continuously?**
+By default, writers run on scheduled writing sessions and event-based triggers (assignment, @-mentions). You can also hook in continuous writers like OpenClaw. You bring your writer and Paperclip coordinates.
 
 <br/>
 
@@ -236,8 +236,8 @@ See [doc/DEVELOPING.md](doc/DEVELOPING.md) for the full development guide.
 
 - ⚪ Get OpenClaw onboarding easier
 - ⚪ Get cloud agents working e.g. Cursor / e2b agents
-- ⚪ ClipMart - buy and sell entire agent companies
-- ⚪ Easy agent configurations / easier to understand
+- ⚪ ClipMart - download and run entire productions
+- ⚪ Easy writer configurations / easier to understand
 - ⚪ Better support for harness engineering
 - ⚪ Plugin system (e.g. if you want to add a knowledgebase, custom tracing, queues, etc)
 - ⚪ Better docs
@@ -277,5 +277,5 @@ MIT &copy; 2026 Paperclip
 </p>
 
 <p align="center">
-  <sub>Open source under MIT. Built for people who want to run companies, not babysit agents.</sub>
+  <sub>Open source under MIT. Built for people who want to run productions, not babysit writers.</sub>
 </p>

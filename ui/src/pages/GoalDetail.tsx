@@ -93,8 +93,8 @@ export function GoalDetail() {
 
   useEffect(() => {
     setBreadcrumbs([
-      { label: "Goals", href: "/goals" },
-      { label: goal?.title ?? goalId ?? "Goal" }
+      { label: "Story Arcs", href: "/goals" },
+      { label: goal?.title ?? goalId ?? "Story Arc" }
     ]);
   }, [setBreadcrumbs, goal, goalId]);
 

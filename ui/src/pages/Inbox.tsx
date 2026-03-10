@@ -524,7 +524,7 @@ export function Inbox() {
   });
 
   if (!selectedCompanyId) {
-    return <EmptyState icon={InboxIcon} message="Select a company to view inbox." />;
+    return <EmptyState icon={InboxIcon} message="Select a production to view inbox." />;
   }
 
   const hasRunFailures = failedRuns.length > 0;
@@ -622,10 +622,10 @@ export function Inbox() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="everything">All categories</SelectItem>
-                <SelectItem value="issues_i_touched">My recent issues</SelectItem>
+                <SelectItem value="issues_i_touched">My recent assignments</SelectItem>
                 <SelectItem value="join_requests">Join requests</SelectItem>
-                <SelectItem value="approvals">Approvals</SelectItem>
-                <SelectItem value="failed_runs">Failed runs</SelectItem>
+                <SelectItem value="approvals">Greenlights</SelectItem>
+                <SelectItem value="failed_runs">Failed sessions</SelectItem>
                 <SelectItem value="alerts">Alerts</SelectItem>
                 <SelectItem value="stale_work">Stale work</SelectItem>
               </SelectContent>
@@ -637,7 +637,7 @@ export function Inbox() {
                 onValueChange={(value) => setAllApprovalFilter(value as InboxApprovalFilter)}
               >
                 <SelectTrigger className="h-8 w-[170px] text-xs">
-                  <SelectValue placeholder="Approval status" />
+                  <SelectValue placeholder="Greenlight status" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All approval statuses</SelectItem>
@@ -673,7 +673,7 @@ export function Inbox() {
           {showSeparatorBefore("approvals") && <Separator />}
           <div>
             <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-              {tab === "new" ? "Approvals Needing Action" : "Approvals"}
+              {tab === "new" ? "Greenlights Needing Action" : "Greenlights"}
             </h3>
             <div className="grid gap-3">
               {approvalsToRender.map((approval) => (
@@ -755,7 +755,7 @@ export function Inbox() {
           {showSeparatorBefore("failed_runs") && <Separator />}
           <div>
             <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-              Failed Runs
+              Failed Sessions
             </h3>
             <div className="grid gap-3">
               {failedRuns.map((run) => (

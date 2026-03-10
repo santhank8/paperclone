@@ -18,7 +18,7 @@ export interface NotifyHireApprovedInput {
 }
 
 /**
- * Invokes the adapter's onHireApproved hook when an agent is approved (join-request or hire_agent approval).
+ * Invokes the adapter's onHireApproved hook when a writer is approved (join-request or onboard_writer greenlight).
  * Failures are non-fatal: we log and write to activity, never throw.
  */
 export async function notifyHireApproved(

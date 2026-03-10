@@ -41,6 +41,14 @@ import {
   Hexagon,
   Pentagon,
   Fingerprint,
+  PenTool,
+  Scroll,
+  Film,
+  Clapperboard,
+  Drama,
+  Feather,
+  BookOpen,
+  Theater,
   type LucideIcon,
 } from "lucide-react";
 import { AGENT_ICON_NAMES, type AgentIconName } from "@paperclipai/shared";
@@ -94,6 +102,14 @@ export const AGENT_ICONS: Record<AgentIconName, LucideIcon> = {
   hexagon: Hexagon,
   pentagon: Pentagon,
   fingerprint: Fingerprint,
+  "pen-tool": PenTool,
+  scroll: Scroll,
+  film: Film,
+  clapperboard: Clapperboard,
+  drama: Drama,
+  feather: Feather,
+  "book-open": BookOpen,
+  theater: Theater,
 };
 
 const DEFAULT_ICON: AgentIconName = "bot";

@@ -61,7 +61,7 @@ export function approvalService(db: Db) {
         .then((rows) => rows[0]);
 
       let hireApprovedAgentId: string | null = null;
-      if (updated.type === "hire_agent") {
+      if (updated.type === "onboard_writer") {
         const payload = updated.payload as Record<string, unknown>;
         const payloadAgentId = typeof payload.agentId === "string" ? payload.agentId : null;
         if (payloadAgentId) {
@@ -126,7 +126,7 @@ export function approvalService(db: Db) {
         .returning()
         .then((rows) => rows[0]);
 
-      if (updated.type === "hire_agent") {
+      if (updated.type === "onboard_writer") {
         const payload = updated.payload as Record<string, unknown>;
         const payloadAgentId = typeof payload.agentId === "string" ? payload.agentId : null;
         if (payloadAgentId) {

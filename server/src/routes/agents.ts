@@ -112,7 +112,7 @@ export function agentRoutes(db: Db) {
     }
 
     if (actorAgent.id === targetAgent.id) return;
-    if (actorAgent.role === "ceo") return;
+    if (actorAgent.role === "showrunner") return;
     const allowedByGrant = await access.hasPermission(
       targetAgent.companyId,
       "agent",
@@ -120,7 +120,7 @@ export function agentRoutes(db: Db) {
       "agents:create",
     );
     if (allowedByGrant || canCreateAgents(actorAgent)) return;
-    throw forbidden("Only CEO or agent creators can modify other agents");
+    throw forbidden("Only Showrunner or writer creators can modify other writers");
   }
 
   async function resolveCompanyIdForAgentReference(req: Request): Promise<string | null> {
@@ -694,7 +694,7 @@ export function agentRoutes(db: Db) {
           ((normalizedHireInput.metadata ?? agent.metadata ?? {}) as Record<string, unknown>),
         ) ?? {};
       approval = await approvalsSvc.create(companyId, {
-        type: "hire_agent",
+        type: "onboard_writer",
         requestedByAgentId: actor.actorType === "agent" ? actor.actorId : null,
         requestedByUserId: actor.actorType === "user" ? actor.actorId : null,
         status: "pending",
@@ -832,8 +832,8 @@ export function agentRoutes(db: Db) {
         res.status(403).json({ error: "Forbidden" });
         return;
       }
-      if (actorAgent.role !== "ceo") {
-        res.status(403).json({ error: "Only CEO can manage permissions" });
+      if (actorAgent.role !== "showrunner") {
+        res.status(403).json({ error: "Only Showrunner can manage permissions" });
         return;
       }
     }

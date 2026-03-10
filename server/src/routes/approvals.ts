@@ -63,7 +63,7 @@ export function approvalRoutes(db: Db) {
     const uniqueIssueIds = Array.from(new Set(issueIds));
     const { issueIds: _issueIds, ...approvalInput } = req.body;
     const normalizedPayload =
-      approvalInput.type === "hire_agent"
+      approvalInput.type === "onboard_writer"
         ? await secretsSvc.normalizeHireApprovalPayloadForPersistence(
             companyId,
             approvalInput.payload,
@@ -265,7 +265,7 @@ export function approvalRoutes(db: Db) {
     }
 
     const normalizedPayload = req.body.payload
-      ? existing.type === "hire_agent"
+      ? existing.type === "onboard_writer"
         ? await secretsSvc.normalizeHireApprovalPayloadForPersistence(
             existing.companyId,
             req.body.payload,

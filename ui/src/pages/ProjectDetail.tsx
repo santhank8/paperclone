@@ -252,8 +252,8 @@ export function ProjectDetail() {
 
   useEffect(() => {
     setBreadcrumbs([
-      { label: "Projects", href: "/projects" },
-      { label: project?.name ?? routeProjectRef ?? "Project" },
+      { label: "Episodes", href: "/projects" },
+      { label: project?.name ?? routeProjectRef ?? "Episode" },
     ]);
   }, [setBreadcrumbs, project, routeProjectRef]);
 

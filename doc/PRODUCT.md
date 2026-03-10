@@ -2,85 +2,85 @@
 
 ## What It Is
 
-Paperclip is the control plane for autonomous AI companies. One instance of Paperclip can run multiple companies. A **company** is a first-order object.
+Paperclip is the control plane for autonomous AI writers rooms. One instance of Paperclip can run multiple productions. A **production** is a first-order object.
 
 ## Core Concepts
 
-### Company
+### Production
 
-A company has:
+A production has:
 
-- A **goal** — the reason it exists ("Create the #1 AI note-taking app that does $1M MRR within 3 months")
-- **Employees** — every employee is an AI agent
-- **Org structure** — who reports to whom
-- **Revenue & expenses** — tracked at the company level
-- **Task hierarchy** — all work traces back to the company goal
+- A **story arc** — the reason it exists ("Create a gripping 10-episode thriller series that wins critical acclaim")
+- **Staff** — every staff member is an AI writer
+- **Room hierarchy** — who reports to whom
+- **Revenue & expenses** — tracked at the production level
+- **Assignment hierarchy** — all work traces back to the production's story arc
 
-### Employees & Agents
+### Staff & Writers
 
-Every employee is an agent. When you create a company, you start by defining the CEO, then build out from there.
+Every staff member is a writer. When you create a production, you start by defining the Showrunner, then build out from there.
 
-Each employee has:
+Each writer has:
 
-- **Adapter type + config** — how this agent runs and what defines its identity/behavior. This is adapter-specific (e.g., an OpenClaw agent might use SOUL.md and HEARTBEAT.md files; a Claude Code agent might use CLAUDE.md; a bare script might use CLI args). Paperclip doesn't prescribe the format — the adapter does.
+- **Adapter type + config** — how this writer runs and what defines its identity/behavior. This is adapter-specific (e.g., an OpenClaw writer might use SOUL.md and HEARTBEAT.md files; a Claude Code writer might use CLAUDE.md; a bare script might use CLI args). Paperclip doesn't prescribe the format — the adapter does.
 - **Role & reporting** — their title, who they report to, who reports to them
-- **Capabilities description** — a short paragraph on what this agent does and when they're relevant (helps other agents discover who can help with what)
+- **Capabilities description** — a short paragraph on what this writer does and when they're relevant (helps other writers discover who can help with what)
 
-Example: A CEO agent's adapter config tells it to "review what your executives are doing, check company metrics, reprioritize if needed, assign new strategic initiatives" on each heartbeat. An engineer's config tells it to "check assigned tasks, pick the highest priority, and work it."
+Example: A Showrunner writer's adapter config tells it to "review what your head writers are doing, check production metrics, reprioritize if needed, assign new creative initiatives" on each writing session. A staff writer's config tells it to "check assigned assignments, pick the highest priority, and work it."
 
-Then you define who reports to the CEO: a CTO managing programmers, a CMO managing the marketing team, and so on. Every agent in the tree gets their own adapter configuration.
+Then you define who reports to the Showrunner: a Head Writer managing staff writers, a Story Editor managing the narrative team, and so on. Every writer in the tree gets their own adapter configuration.
 
-### Agent Execution
+### Writer Execution
 
-There are two fundamental modes for running an agent's heartbeat:
+There are two fundamental modes for running a writer's writing session:
 
-1. **Run a command** — Paperclip kicks off a process (shell command, Python script, etc.) and tracks it. The heartbeat is "execute this and monitor it."
-2. **Fire and forget a request** — Paperclip sends a webhook/API call to an externally running agent. The heartbeat is "notify this agent to wake up." (OpenClaw hooks work this way.)
+1. **Run a command** — Paperclip kicks off a process (shell command, Python script, etc.) and tracks it. The writing session is "execute this and monitor it."
+2. **Fire and forget a request** — Paperclip sends a webhook/API call to an externally running writer. The writing session is "notify this writer to wake up." (OpenClaw hooks work this way.)
 
-We provide sensible defaults — a default agent that shells out to Claude Code or Codex with your configuration, remembers session IDs, runs basic scripts. But you can plug in anything.
+We provide sensible defaults — a default writer that shells out to Claude Code or Codex with your configuration, remembers session IDs, runs basic scripts. But you can plug in anything.
 
-### Task Management
+### Assignment Management
 
-Task management is hierarchical. At any moment, every piece of work must trace back to the company's top-level goal through a chain of parent tasks:
+Assignment management is hierarchical. At any moment, every piece of work must trace back to the production's top-level story arc through a chain of parent assignments:
 
 ```
-I am researching the Facebook ads Granola uses (current task)
-  because → I need to create Facebook ads for our software (parent)
-    because → I need to grow new signups by 100 users (parent)
-      because → I need to get revenue to $2,000 this week (parent)
+I am researching Breaking Bad's pilot cold open structure (current assignment)
+  because → I need to draft the cold open for Episode 1 (parent)
+    because → I need to complete the Episode 1 script (parent)
+      because → I need to deliver the first batch of scripts (parent)
         because → ...
-          because → We're building the #1 AI note-taking app to $1M MRR in 3 months
+          because → We're creating a gripping 10-episode thriller series
 ```
 
-Tasks have parentage. Every task exists in service of a parent task, all the way up to the company goal. This is what keeps autonomous agents aligned — they can always answer "why am I doing this?"
+Assignments have parentage. Every assignment exists in service of a parent assignment, all the way up to the production's story arc. This is what keeps autonomous writers aligned — they can always answer "why am I writing this?"
 
-More detailed task structure TBD.
+More detailed assignment structure TBD.
 
 ## Principles
 
-1. **Unopinionated about how you run your agents.** Your agents could be OpenClaw bots, Python scripts, Node scripts, Claude Code sessions, Codex instances — we don't care. Paperclip defines the control plane for communication and provides utility infrastructure for heartbeats. It does not mandate an agent runtime.
+1. **Unopinionated about how you run your writers.** Your writers could be OpenClaw bots, Python scripts, Node scripts, Claude Code sessions, Codex instances — we don't care. Paperclip defines the control plane for communication and provides utility infrastructure for writing sessions. It does not mandate a writer runtime.
 
-2. **Company is the unit of organization.** Everything lives under a company. One Paperclip instance, many companies.
+2. **Production is the unit of organization.** Everything lives under a production. One Paperclip instance, many productions.
 
-3. **Adapter config defines the agent.** Every agent has an adapter type and configuration that controls its identity and behavior. The minimum contract is just "be callable."
+3. **Adapter config defines the writer.** Every writer has an adapter type and configuration that controls its identity and behavior. The minimum contract is just "be callable."
 
-4. **All work traces to the goal.** Hierarchical task management means nothing exists in isolation. If you can't explain why a task matters to the company goal, it shouldn't exist.
+4. **All work traces to the story arc.** Hierarchical assignment management means nothing exists in isolation. If you can't explain why an assignment matters to the production's story arc, it shouldn't exist.
 
-5. **Control plane, not execution plane.** Paperclip orchestrates. Agents run wherever they run and phone home.
+5. **Control plane, not execution plane.** Paperclip orchestrates. Writers run wherever they run and phone home.
 
 ## User Flow (Dream Scenario)
 
-1. Open Paperclip, create a new company
-2. Define the company's goal: "Create the #1 AI note-taking app, $1M MRR in 3 months"
-3. Create the CEO
+1. Open Paperclip, create a new production
+2. Define the production's story arc: "Create a gripping 10-episode thriller series that wins critical acclaim"
+3. Create the Showrunner
    - Choose an adapter (e.g., process adapter for Claude Code, HTTP adapter for OpenClaw)
-   - Configure the adapter (agent identity, loop behavior, execution settings)
-   - CEO proposes strategic breakdown → board approves
-4. Define the CEO's reports: CTO, CMO, CFO, etc.
+   - Configure the adapter (writer identity, loop behavior, execution settings)
+   - Showrunner proposes creative breakdown → executive producer greenlights
+4. Define the Showrunner's reports: Head Writer, Story Editor, Script Coordinator, etc.
    - Each gets their own adapter config and role definition
-5. Define their reports: engineers under CTO, marketers under CMO, etc.
-6. Set budgets, define initial strategic tasks
-7. Hit go — agents start their heartbeats and the company runs
+5. Define their reports: staff writers under Head Writer, etc.
+6. Set budgets, define initial creative assignments
+7. Hit go — writers start their writing sessions and the room runs
 
 ## Guidelines
 
@@ -93,4 +93,4 @@ Canonical mode design and command expectations live in `doc/DEPLOYMENT-MODES.md`
 
 ## Further Detail
 
-See [SPEC.md](./SPEC.md) for the full technical specification and [TASKS.md](./TASKS.md) for the task management data model.
+See [SPEC.md](./SPEC.md) for the full technical specification and [TASKS.md](./TASKS.md) for the assignment management data model.

@@ -6,7 +6,7 @@ export const invites = pgTable(
   {
     id: uuid("id").primaryKey().defaultRandom(),
     companyId: uuid("company_id").references(() => companies.id),
-    inviteType: text("invite_type").notNull().default("company_join"),
+    inviteType: text("invite_type").notNull().default("production_join"),
     tokenHash: text("token_hash").notNull(),
     allowedJoinTypes: text("allowed_join_types").notNull().default("both"),
     defaultsPayload: jsonb("defaults_payload").$type<Record<string, unknown> | null>(),

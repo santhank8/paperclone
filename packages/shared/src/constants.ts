@@ -34,30 +34,30 @@ export const AGENT_ADAPTER_TYPES = [
 export type AgentAdapterType = (typeof AGENT_ADAPTER_TYPES)[number];
 
 export const AGENT_ROLES = [
-  "ceo",
-  "cto",
-  "cmo",
-  "cfo",
-  "engineer",
-  "designer",
-  "pm",
-  "qa",
-  "devops",
+  "showrunner",
+  "head_writer",
+  "story_editor",
+  "script_coordinator",
+  "staff_writer",
+  "creative_consultant",
+  "writers_assistant",
+  "continuity_editor",
+  "room_runner",
   "researcher",
   "general",
 ] as const;
 export type AgentRole = (typeof AGENT_ROLES)[number];
 
 export const AGENT_ROLE_LABELS: Record<AgentRole, string> = {
-  ceo: "CEO",
-  cto: "CTO",
-  cmo: "CMO",
-  cfo: "CFO",
-  engineer: "Engineer",
-  designer: "Designer",
-  pm: "PM",
-  qa: "QA",
-  devops: "DevOps",
+  showrunner: "Showrunner",
+  head_writer: "Head Writer",
+  story_editor: "Story Editor",
+  script_coordinator: "Script Coordinator",
+  staff_writer: "Staff Writer",
+  creative_consultant: "Creative Consultant",
+  writers_assistant: "Writers' Assistant",
+  continuity_editor: "Continuity Editor",
+  room_runner: "Room Runner",
   researcher: "Researcher",
   general: "General",
 };
@@ -104,6 +104,14 @@ export const AGENT_ICON_NAMES = [
   "hexagon",
   "pentagon",
   "fingerprint",
+  "pen-tool",
+  "scroll",
+  "film",
+  "clapperboard",
+  "drama",
+  "feather",
+  "book-open",
+  "theater",
 ] as const;
 export type AgentIconName = (typeof AGENT_ICON_NAMES)[number];
 
@@ -121,7 +129,7 @@ export type IssueStatus = (typeof ISSUE_STATUSES)[number];
 export const ISSUE_PRIORITIES = ["critical", "high", "medium", "low"] as const;
 export type IssuePriority = (typeof ISSUE_PRIORITIES)[number];
 
-export const GOAL_LEVELS = ["company", "team", "agent", "task"] as const;
+export const GOAL_LEVELS = ["production", "room", "writer", "assignment"] as const;
 export type GoalLevel = (typeof GOAL_LEVELS)[number];
 
 export const GOAL_STATUSES = ["planned", "active", "achieved", "cancelled"] as const;
@@ -149,7 +157,7 @@ export const PROJECT_COLORS = [
   "#3b82f6", // blue
 ] as const;
 
-export const APPROVAL_TYPES = ["hire_agent", "approve_ceo_strategy"] as const;
+export const APPROVAL_TYPES = ["onboard_writer", "approve_showrunner_vision"] as const;
 export type ApprovalType = (typeof APPROVAL_TYPES)[number];
 
 export const APPROVAL_STATUSES = [
@@ -224,7 +232,7 @@ export type MembershipStatus = (typeof MEMBERSHIP_STATUSES)[number];
 export const INSTANCE_USER_ROLES = ["instance_admin"] as const;
 export type InstanceUserRole = (typeof INSTANCE_USER_ROLES)[number];
 
-export const INVITE_TYPES = ["company_join", "bootstrap_ceo"] as const;
+export const INVITE_TYPES = ["production_join", "bootstrap_showrunner"] as const;
 export type InviteType = (typeof INVITE_TYPES)[number];
 
 export const INVITE_JOIN_TYPES = ["human", "agent", "both"] as const;

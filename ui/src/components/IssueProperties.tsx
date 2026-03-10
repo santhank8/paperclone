@@ -383,7 +383,7 @@ export function IssueProperties({ issue, onUpdate, inline }: IssuePropertiesProp
   ) : (
     <>
       <Hexagon className="h-3.5 w-3.5 text-muted-foreground" />
-      <span className="text-sm text-muted-foreground">No project</span>
+      <span className="text-sm text-muted-foreground">No episode</span>
     </>
   );
 
@@ -391,7 +391,7 @@ export function IssueProperties({ issue, onUpdate, inline }: IssuePropertiesProp
     <>
       <input
         className="w-full px-2 py-1.5 text-xs bg-transparent outline-none border-b border-border mb-1 placeholder:text-muted-foreground/50"
-        placeholder="Search projects..."
+        placeholder="Search episodes..."
         value={projectSearch}
         onChange={(e) => setProjectSearch(e.target.value)}
         autoFocus={!inline}
@@ -404,7 +404,7 @@ export function IssueProperties({ issue, onUpdate, inline }: IssuePropertiesProp
           )}
           onClick={() => { onUpdate({ projectId: null }); setProjectOpen(false); }}
         >
-          No project
+          No episode
         </button>
         {orderedProjects
           .filter((p) => {
@@ -485,7 +485,7 @@ export function IssueProperties({ issue, onUpdate, inline }: IssuePropertiesProp
 
         <PropertyPicker
           inline={inline}
-          label="Project"
+          label="Episode"
           open={projectOpen}
           onOpenChange={(open) => { setProjectOpen(open); if (!open) setProjectSearch(""); }}
           triggerContent={projectTrigger}

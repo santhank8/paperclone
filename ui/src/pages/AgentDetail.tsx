@@ -393,9 +393,9 @@ export function AgentDetail() {
 
   useEffect(() => {
     const crumbs: { label: string; href?: string }[] = [
-      { label: "Agents", href: "/agents" },
+      { label: "Writers", href: "/agents" },
     ];
-    const agentName = agent?.name ?? routeAgentRef ?? "Agent";
+    const agentName = agent?.name ?? routeAgentRef ?? "Writer";
     if (activeView === "overview" && !urlRunId) {
       crumbs.push({ label: agentName });
     } else {
@@ -773,10 +773,10 @@ function AgentOverview({
         <ChartCard title="Run Activity" subtitle="Last 14 days">
           <RunActivityChart runs={runs} />
         </ChartCard>
-        <ChartCard title="Issues by Priority" subtitle="Last 14 days">
+        <ChartCard title="Assignments by Priority" subtitle="Last 14 days">
           <PriorityChart issues={assignedIssues} />
         </ChartCard>
-        <ChartCard title="Issues by Status" subtitle="Last 14 days">
+        <ChartCard title="Assignments by Status" subtitle="Last 14 days">
           <IssueStatusChart issues={assignedIssues} />
         </ChartCard>
         <ChartCard title="Success Rate" subtitle="Last 14 days">

@@ -474,7 +474,7 @@ export function NewIssueDialog() {
         ? "Codex options"
         : assigneeAdapterType === "opencode_local"
           ? "OpenCode options"
-        : "Agent options";
+        : "Writer options";
   const thinkingEffortOptions =
     assigneeAdapterType === "codex_local"
       ? ISSUE_THINKING_EFFORT_OPTIONS.codex_local
@@ -609,7 +609,7 @@ export function NewIssueDialog() {
               </PopoverContent>
             </Popover>
             <span className="text-muted-foreground/60">&rsaquo;</span>
-            <span>New issue</span>
+            <span>New assignment</span>
           </div>
           <div className="flex items-center gap-1">
             <Button
@@ -635,7 +635,7 @@ export function NewIssueDialog() {
         <div className="px-4 pt-4 pb-2 shrink-0">
           <textarea
             className="w-full text-lg font-semibold bg-transparent outline-none resize-none overflow-hidden placeholder:text-muted-foreground/50"
-            placeholder="Issue title"
+            placeholder="Assignment title"
             rows={1}
             value={title}
             onChange={(e) => {
@@ -702,9 +702,9 @@ export function NewIssueDialog() {
                 options={projectOptions}
                 placeholder="Project"
                 disablePortal
-                noneLabel="No project"
-                searchPlaceholder="Search projects..."
-                emptyMessage="No projects found."
+                noneLabel="No episode"
+                searchPlaceholder="Search episodes..."
+                emptyMessage="No episodes found."
                 onChange={setProjectId}
                 onConfirm={() => {
                   descriptionEditorRef.current?.focus();
@@ -719,7 +719,7 @@ export function NewIssueDialog() {
                       <span className="truncate">{option.label}</span>
                     </>
                   ) : (
-                    <span className="text-muted-foreground">Project</span>
+                    <span className="text-muted-foreground">Episode</span>
                   )
                 }
                 renderOption={(option) => {
@@ -959,7 +959,7 @@ export function NewIssueDialog() {
             disabled={!title.trim() || createIssue.isPending}
             onClick={handleSubmit}
           >
-            {createIssue.isPending ? "Creating..." : "Create Issue"}
+            {createIssue.isPending ? "Creating..." : "Create Assignment"}
           </Button>
         </div>
       </DialogContent>

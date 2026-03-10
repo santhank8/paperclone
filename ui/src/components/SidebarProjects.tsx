@@ -147,7 +147,7 @@ export function SidebarProjects() {
               )}
             />
             <span className="text-[10px] font-medium uppercase tracking-widest font-mono text-muted-foreground/60">
-              Projects
+              Episodes
             </span>
           </CollapsibleTrigger>
           <button
@@ -156,7 +156,7 @@ export function SidebarProjects() {
               openNewProject();
             }}
             className="flex items-center justify-center h-4 w-4 rounded text-muted-foreground/60 hover:text-foreground hover:bg-accent/50 transition-colors"
-            aria-label="New project"
+            aria-label="New episode"
           >
             <Plus className="h-3 w-3" />
           </button>

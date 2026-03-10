@@ -406,7 +406,7 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
                 onCommit={(v) => mark("identity", "name", v)}
                 immediate
                 className={inputClass}
-                placeholder="Agent name"
+                placeholder="Writer name"
               />
             </Field>
             <Field label="Title" hint={help.title}>

@@ -94,7 +94,7 @@ export function Org() {
   const { setBreadcrumbs } = useBreadcrumbs();
 
   useEffect(() => {
-    setBreadcrumbs([{ label: "Org Chart" }]);
+    setBreadcrumbs([{ label: "Room Chart" }]);
   }, [setBreadcrumbs]);
 
   const { data, isLoading, error } = useQuery({
@@ -104,7 +104,7 @@ export function Org() {
   });
 
   if (!selectedCompanyId) {
-    return <EmptyState icon={GitBranch} message="Select a company to view org chart." />;
+    return <EmptyState icon={GitBranch} message="Select a production to view room chart." />;
   }
 
   if (isLoading) {
@@ -118,7 +118,7 @@ export function Org() {
       {data && data.length === 0 && (
         <EmptyState
           icon={GitBranch}
-          message="No agents in the organization. Create agents to build your org chart."
+          message="No writers in the room. Bring in writers to build your room chart."
         />
       )}
 

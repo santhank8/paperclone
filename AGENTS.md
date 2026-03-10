@@ -4,7 +4,7 @@ Guidance for human and AI contributors working in this repository.
 
 ## 1. Purpose
 
-Paperclip is a control plane for AI-agent companies.
+Paperclip is a control plane for AI writers rooms.
 The current implementation target is V1 and is defined in `doc/SPEC-implementation.md`.
 
 ## 2. Read This First
@@ -23,7 +23,7 @@ Before making changes, read in this order:
 ## 3. Repo Map
 
 - `server/`: Express REST API and orchestration services
-- `ui/`: React + Vite board UI
+- `ui/`: React + Vite executive producer UI
 - `packages/db/`: Drizzle schema, migrations, DB clients
 - `packages/shared/`: shared types, constants, validators, API path constants
 - `doc/`: operational and product docs
@@ -58,8 +58,8 @@ pnpm dev
 
 ## 5. Core Engineering Rules
 
-1. Keep changes company-scoped.
-Every domain entity should be scoped to a company and company boundaries must be enforced in routes/services.
+1. Keep changes production-scoped.
+Every domain entity should be scoped to a production and production boundaries must be enforced in routes/services.
 
 2. Keep contracts synchronized.
 If you change schema/API behavior, update all impacted layers:
@@ -69,9 +69,9 @@ If you change schema/API behavior, update all impacted layers:
 - `ui` API clients and pages
 
 3. Preserve control-plane invariants.
-- Single-assignee task model
-- Atomic issue checkout semantics
-- Approval gates for governed actions
+- Single-assignee assignment model
+- Atomic assignment checkout semantics
+- Greenlight gates for governed actions
 - Budget hard-stop auto-pause behavior
 - Activity logging for mutating actions
 
@@ -115,21 +115,21 @@ If anything cannot be run, explicitly report what was not run and why.
 ## 8. API and Auth Expectations
 
 - Base path: `/api`
-- Board access is treated as full-control operator context
-- Agent access uses bearer API keys (`agent_api_keys`), hashed at rest
-- Agent keys must not access other companies
+- Executive producer access is treated as full-control operator context
+- Writer access uses bearer API keys (`agent_api_keys`), hashed at rest
+- Writer keys must not access other productions
 
 When adding endpoints:
 
-- apply company access checks
-- enforce actor permissions (board vs agent)
+- apply production access checks
+- enforce actor permissions (executive producer vs writer)
 - write activity log entries for mutations
 - return consistent HTTP errors (`400/401/403/404/409/422/500`)
 
 ## 9. UI Expectations
 
 - Keep routes and nav aligned with available API surface
-- Use company selection context for company-scoped pages
+- Use production selection context for production-scoped pages
 - Surface failures clearly; do not silently ignore API errors
 
 ## 10. Definition of Done

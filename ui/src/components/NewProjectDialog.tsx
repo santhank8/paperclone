@@ -226,7 +226,7 @@ export function NewProjectDialog() {
               </span>
             )}
             <span className="text-muted-foreground/60">&rsaquo;</span>
-            <span>New project</span>
+            <span>New episode</span>
           </div>
           <div className="flex items-center gap-1">
             <Button
@@ -252,7 +252,7 @@ export function NewProjectDialog() {
         <div className="px-4 pt-4 pb-2 shrink-0">
           <input
             className="w-full text-lg font-semibold bg-transparent outline-none placeholder:text-muted-foreground/50"
-            placeholder="Project name"
+            placeholder="Episode name"
             value={name}
             onChange={(e) => setName(e.target.value)}
             onKeyDown={(e) => {
@@ -283,7 +283,7 @@ export function NewProjectDialog() {
 
         <div className="px-4 pb-3 space-y-3 border-t border-border">
           <div className="pt-3">
-            <p className="text-sm font-medium">Where will work be done on this project?</p>
+            <p className="text-sm font-medium">Where will work be done on this episode?</p>
             <p className="text-xs text-muted-foreground">Add local folder and/or GitHub repo workspace hints.</p>
           </div>
           <div className="grid gap-2 sm:grid-cols-3">
@@ -411,7 +411,7 @@ export function NewProjectDialog() {
                 disabled={selectedGoals.length > 0 && availableGoals.length === 0}
               >
                 {selectedGoals.length > 0 ? <Plus className="h-3 w-3 text-muted-foreground" /> : <Target className="h-3 w-3 text-muted-foreground" />}
-                {selectedGoals.length > 0 ? "+ Goal" : "Goal"}
+                {selectedGoals.length > 0 ? "+ Story Arc" : "Story Arc"}
               </button>
             </PopoverTrigger>
             <PopoverContent className="w-56 p-1" align="start">
@@ -420,7 +420,7 @@ export function NewProjectDialog() {
                   className="flex items-center gap-2 w-full px-2 py-1.5 text-xs rounded hover:bg-accent/50 text-muted-foreground"
                   onClick={() => setGoalOpen(false)}
                 >
-                  No goal
+                  No story arc
                 </button>
               )}
               {availableGoals.map((g) => (
@@ -437,7 +437,7 @@ export function NewProjectDialog() {
               ))}
               {selectedGoals.length > 0 && availableGoals.length === 0 && (
                 <div className="px-2 py-1.5 text-xs text-muted-foreground">
-                  All goals already selected.
+                  All story arcs already selected.
                 </div>
               )}
             </PopoverContent>
@@ -459,7 +459,7 @@ export function NewProjectDialog() {
         {/* Footer */}
         <div className="flex items-center justify-between px-4 py-2.5 border-t border-border">
           {createProject.isError ? (
-            <p className="text-xs text-destructive">Failed to create project.</p>
+            <p className="text-xs text-destructive">Failed to create episode.</p>
           ) : (
             <span />
           )}
@@ -468,7 +468,7 @@ export function NewProjectDialog() {
             disabled={!name.trim() || createProject.isPending}
             onClick={handleSubmit}
           >
-            {createProject.isPending ? "Creating…" : "Create project"}
+            {createProject.isPending ? "Creating…" : "Create episode"}
           </Button>
         </div>
       </DialogContent>

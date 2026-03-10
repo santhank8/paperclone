@@ -465,9 +465,9 @@ export function IssueDetail() {
   });
 
   useEffect(() => {
-    const titleLabel = issue?.title ?? issueId ?? "Issue";
+    const titleLabel = issue?.title ?? issueId ?? "Assignment";
     setBreadcrumbs([
-      { label: "Issues", href: "/issues" },
+      { label: "Assignments", href: "/issues" },
       { label: hasLiveRuns ? `🔵 ${titleLabel}` : titleLabel },
     ]);
   }, [setBreadcrumbs, issue, issueId, hasLiveRuns]);

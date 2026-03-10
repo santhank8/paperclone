@@ -11,38 +11,38 @@ console.log("Seeding database...");
 const [company] = await db
   .insert(companies)
   .values({
-    name: "Paperclip Demo Co",
-    description: "A demo autonomous company",
+    name: "Writers Room Demo",
+    description: "A demo writers room production",
     status: "active",
     budgetMonthlyCents: 50000,
   })
   .returning();
 
-const [ceo] = await db
+const [showrunner] = await db
   .insert(agents)
   .values({
     companyId: company!.id,
-    name: "CEO Agent",
-    role: "ceo",
-    title: "Chief Executive Officer",
+    name: "Showrunner",
+    role: "showrunner",
+    title: "Head of the Room",
     status: "idle",
     adapterType: "process",
-    adapterConfig: { command: "echo", args: ["hello from ceo"] },
+    adapterConfig: { command: "echo", args: ["hello from showrunner"] },
     budgetMonthlyCents: 15000,
   })
   .returning();
 
-const [engineer] = await db
+const [staffWriter] = await db
   .insert(agents)
   .values({
     companyId: company!.id,
-    name: "Engineer Agent",
-    role: "engineer",
-    title: "Software Engineer",
+    name: "Staff Writer",
+    role: "staff_writer",
+    title: "Staff Writer",
     status: "idle",
-    reportsTo: ceo!.id,
+    reportsTo: showrunner!.id,
     adapterType: "process",
-    adapterConfig: { command: "echo", args: ["hello from engineer"] },
+    adapterConfig: { command: "echo", args: ["hello from staff writer"] },
     budgetMonthlyCents: 10000,
   })
   .returning();
@@ -51,11 +51,11 @@ const [goal] = await db
   .insert(goals)
   .values({
     companyId: company!.id,
-    title: "Ship V1",
-    description: "Deliver first control plane release",
-    level: "company",
+    title: "Season 1 Pilot",
+    description: "Write and deliver the pilot episode",
+    level: "production",
     status: "active",
-    ownerAgentId: ceo!.id,
+    ownerAgentId: showrunner!.id,
   })
   .returning();
 
@@ -64,10 +64,10 @@ const [project] = await db
   .values({
     companyId: company!.id,
     goalId: goal!.id,
-    name: "Control Plane MVP",
-    description: "Implement core board + agent loop",
+    name: "Episode 1: Pilot",
+    description: "Draft and polish the pilot episode script",
     status: "in_progress",
-    leadAgentId: ceo!.id,
+    leadAgentId: showrunner!.id,
   })
   .returning();
 
@@ -76,22 +76,22 @@ await db.insert(issues).values([
     companyId: company!.id,
     projectId: project!.id,
     goalId: goal!.id,
-    title: "Implement atomic task checkout",
-    description: "Ensure in_progress claiming is conflict-safe",
+    title: "Write cold open for pilot",
+    description: "Draft the teaser/cold open scene for episode 1",
     status: "todo",
     priority: "high",
-    assigneeAgentId: engineer!.id,
-    createdByAgentId: ceo!.id,
+    assigneeAgentId: staffWriter!.id,
+    createdByAgentId: showrunner!.id,
   },
   {
     companyId: company!.id,
     projectId: project!.id,
     goalId: goal!.id,
-    title: "Add budget auto-pause",
-    description: "Pause agent at hard budget ceiling",
+    title: "Develop character bibles",
+    description: "Create detailed backstories for the main cast",
     status: "backlog",
     priority: "medium",
-    createdByAgentId: ceo!.id,
+    createdByAgentId: showrunner!.id,
   },
 ]);
 

@@ -60,7 +60,7 @@ export function Costs() {
   const [customTo, setCustomTo] = useState("");
 
   useEffect(() => {
-    setBreadcrumbs([{ label: "Costs" }]);
+    setBreadcrumbs([{ label: "Budget" }]);
   }, [setBreadcrumbs]);
 
   const { from, to } = useMemo(() => {
@@ -87,7 +87,7 @@ export function Costs() {
   });
 
   if (!selectedCompanyId) {
-    return <EmptyState icon={DollarSign} message="Select a company to view costs." />;
+    return <EmptyState icon={DollarSign} message="Select a production to view budget." />;
   }
 
   if (isLoading) {
@@ -173,7 +173,7 @@ export function Costs() {
           <div className="grid md:grid-cols-2 gap-4">
             <Card>
               <CardContent className="p-4">
-                <h3 className="text-sm font-semibold mb-3">By Agent</h3>
+                <h3 className="text-sm font-semibold mb-3">By Writer</h3>
                 {data.byAgent.length === 0 ? (
                   <p className="text-sm text-muted-foreground">No cost events yet.</p>
                 ) : (
@@ -216,9 +216,9 @@ export function Costs() {
 
             <Card>
               <CardContent className="p-4">
-                <h3 className="text-sm font-semibold mb-3">By Project</h3>
+                <h3 className="text-sm font-semibold mb-3">By Episode</h3>
                 {data.byProject.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No project-attributed run costs yet.</p>
+                  <p className="text-sm text-muted-foreground">No episode-attributed run costs yet.</p>
                 ) : (
                   <div className="space-y-2">
                     {data.byProject.map((row) => (

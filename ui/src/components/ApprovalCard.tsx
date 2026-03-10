@@ -75,7 +75,7 @@ export function ApprovalCard({
             onClick={onApprove}
             disabled={isPending}
           >
-            Approve
+            Greenlight
           </Button>
           <Button
             variant="destructive"

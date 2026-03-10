@@ -40,33 +40,33 @@ const ADVANCED_ADAPTER_OPTIONS: Array<{
     value: "claude_local",
     label: "Claude Code",
     icon: Sparkles,
-    desc: "Local Claude agent",
+    desc: "Local Claude writer",
     recommended: true,
   },
   {
     value: "codex_local",
     label: "Codex",
     icon: Code,
-    desc: "Local Codex agent",
+    desc: "Local Codex writer",
     recommended: true,
   },
   {
     value: "opencode_local",
     label: "OpenCode",
     icon: OpenCodeLogoIcon,
-    desc: "Local multi-provider agent",
+    desc: "Local multi-provider writer",
   },
   {
     value: "pi_local",
     label: "Pi",
     icon: Terminal,
-    desc: "Local Pi agent",
+    desc: "Local Pi writer",
   },
   {
     value: "cursor",
     label: "Cursor",
     icon: MousePointer2,
-    desc: "Local Cursor agent",
+    desc: "Local Cursor writer",
   },
   {
     value: "openclaw_gateway",
@@ -88,14 +88,14 @@ export function NewAgentDialog() {
     enabled: !!selectedCompanyId && newAgentOpen,
   });
 
-  const ceoAgent = (agents ?? []).find((a) => a.role === "ceo");
+  const ceoAgent = (agents ?? []).find((a) => a.role === "showrunner");
 
   function handleAskCeo() {
     closeNewAgent();
     openNewIssue({
       assigneeAgentId: ceoAgent?.id,
-      title: "Create a new agent",
-      description: "(type in what kind of agent you want here)",
+      title: "Onboard a new writer",
+      description: "(type in what kind of writer you want here)",
     });
   }
 
@@ -125,7 +125,7 @@ export function NewAgentDialog() {
       >
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-2.5 border-b border-border">
-          <span className="text-sm text-muted-foreground">Add a new agent</span>
+          <span className="text-sm text-muted-foreground">Add a new writer</span>
           <Button
             variant="ghost"
             size="icon-xs"
@@ -148,7 +148,7 @@ export function NewAgentDialog() {
                   <Sparkles className="h-6 w-6 text-foreground" />
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  We recommend letting your CEO handle agent setup — they know the
+                  We recommend letting your Showrunner handle writer setup — they know the
                   org structure and can configure reporting, permissions, and
                   adapters.
                 </p>
@@ -156,7 +156,7 @@ export function NewAgentDialog() {
 
               <Button className="w-full" size="lg" onClick={handleAskCeo}>
                 <Bot className="h-4 w-4 mr-2" />
-                Ask the CEO to create a new agent
+                Ask the Showrunner to onboard a new writer
               </Button>
 
               {/* Advanced link */}

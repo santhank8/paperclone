@@ -65,8 +65,8 @@ export function ApprovalDetail() {
 
   useEffect(() => {
     setBreadcrumbs([
-      { label: "Approvals", href: "/approvals" },
-      { label: approval?.id?.slice(0, 8) ?? approvalId ?? "Approval" },
+      { label: "Greenlights", href: "/approvals" },
+      { label: approval?.id?.slice(0, 8) ?? approvalId ?? "Greenlight" },
     ]);
   }, [setBreadcrumbs, approval, approvalId]);
 
@@ -155,17 +155,17 @@ export function ApprovalDetail() {
       ? {
           label:
             (linkedIssues?.length ?? 0) > 1
-              ? "Review linked issues"
-              : "Review linked issue",
+              ? "Review linked assignments"
+              : "Review linked assignment",
           to: `/issues/${primaryLinkedIssue.identifier ?? primaryLinkedIssue.id}`,
         }
       : linkedAgentId
         ? {
-            label: "Open hired agent",
+            label: "Open onboarded writer",
             to: `/agents/${linkedAgentId}`,
           }
         : {
-            label: "Back to approvals",
+            label: "Back to greenlights",
             to: "/approvals",
           };
 
@@ -300,7 +300,7 @@ export function ApprovalDetail() {
               Mark resubmitted
             </Button>
           )}
-          {approval.status === "rejected" && approval.type === "hire_agent" && linkedAgentId && (
+          {approval.status === "rejected" && approval.type === "onboard_writer" && linkedAgentId && (
             <Button
               size="sm"
               variant="outline"

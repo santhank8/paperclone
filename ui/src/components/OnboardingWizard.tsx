@@ -58,11 +58,11 @@ type AdapterType =
   | "http"
   | "openclaw_gateway";
 
-const DEFAULT_TASK_DESCRIPTION = `Setup yourself as the CEO. Use the ceo persona found here: [https://github.com/paperclipai/companies/blob/main/default/ceo/AGENTS.md](https://github.com/paperclipai/companies/blob/main/default/ceo/AGENTS.md)
+const DEFAULT_TASK_DESCRIPTION = `Setup yourself as the Showrunner. Use the showrunner persona found here: [https://github.com/paperclipai/companies/blob/main/default/ceo/AGENTS.md](https://github.com/paperclipai/companies/blob/main/default/ceo/AGENTS.md)
 
-Ensure you have a folder agents/ceo and then download this AGENTS.md as well as the sibling HEARTBEAT.md, SOUL.md, and TOOLS.md. and set that AGENTS.md as the path to your agents instruction file
+Ensure you have a folder agents/showrunner and then download this AGENTS.md as well as the sibling HEARTBEAT.md, SOUL.md, and TOOLS.md. and set that AGENTS.md as the path to your agents instruction file
 
-And after you've finished that, hire yourself a Founding Engineer agent`;
+And after you've finished that, bring in your first Staff Writer`;
 
 export function OnboardingWizard() {
   const { onboardingOpen, onboardingOptions, closeOnboarding } = useDialog();
@@ -84,7 +84,7 @@ export function OnboardingWizard() {
   const [companyGoal, setCompanyGoal] = useState("");
 
   // Step 2
-  const [agentName, setAgentName] = useState("CEO");
+  const [agentName, setAgentName] = useState("Showrunner");
   const [adapterType, setAdapterType] = useState<AdapterType>("claude_local");
   const [cwd, setCwd] = useState("");
   const [model, setModel] = useState("");
@@ -100,7 +100,7 @@ export function OnboardingWizard() {
   const [unsetAnthropicLoading, setUnsetAnthropicLoading] = useState(false);
 
   // Step 3
-  const [taskTitle, setTaskTitle] = useState("Create your CEO HEARTBEAT.md");
+  const [taskTitle, setTaskTitle] = useState("Create your Showrunner HEARTBEAT.md");
   const [taskDescription, setTaskDescription] = useState(
     DEFAULT_TASK_DESCRIPTION
   );
@@ -234,7 +234,7 @@ export function OnboardingWizard() {
     setError(null);
     setCompanyName("");
     setCompanyGoal("");
-    setAgentName("CEO");
+    setAgentName("Showrunner");
     setAdapterType("claude_local");
     setCwd("");
     setModel("");
@@ -246,7 +246,7 @@ export function OnboardingWizard() {
     setAdapterEnvLoading(false);
     setForceUnsetAnthropicApiKey(false);
     setUnsetAnthropicLoading(false);
-    setTaskTitle("Create your CEO HEARTBEAT.md");
+    setTaskTitle("Create your Showrunner HEARTBEAT.md");
     setTaskDescription(DEFAULT_TASK_DESCRIPTION);
     setCreatedCompanyId(null);
     setCreatedCompanyPrefix(null);
@@ -298,7 +298,7 @@ export function OnboardingWizard() {
   ): Promise<AdapterEnvironmentTestResult | null> {
     if (!createdCompanyId) {
       setAdapterEnvError(
-        "Create or select a company before testing adapter environment."
+        "Create or select a production before testing adapter environment."
       );
       return null;
     }
@@ -347,7 +347,7 @@ export function OnboardingWizard() {
 
       setStep(2);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create company");
+      setError(err instanceof Error ? err.message : "Failed to create production");
     } finally {
       setLoading(false);
     }
@@ -394,7 +394,7 @@ export function OnboardingWizard() {
 
       const agent = await agentsApi.create(createdCompanyId, {
         name: agentName.trim(),
-        role: "ceo",
+        role: "showrunner",
         adapterType,
         adapterConfig: buildAdapterConfig(),
         runtimeConfig: {
@@ -413,7 +413,7 @@ export function OnboardingWizard() {
       });
       setStep(3);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create agent");
+      setError(err instanceof Error ? err.message : "Failed to create writer");
     } finally {
       setLoading(false);
     }
@@ -580,19 +580,19 @@ export function OnboardingWizard() {
                       <Building2 className="h-5 w-5 text-muted-foreground" />
                     </div>
                     <div>
-                      <h3 className="font-medium">Name your company</h3>
+                      <h3 className="font-medium">Name your production</h3>
                       <p className="text-xs text-muted-foreground">
-                        This is the organization your agents will work for.
+                        This is the production your writers will work on.
                       </p>
                     </div>
                   </div>
                   <div>
                     <label className="text-xs text-muted-foreground mb-1 block">
-                      Company name
+                      Production name
                     </label>
                     <input
                       className="w-full rounded-md border border-border bg-transparent px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/50"
-                      placeholder="Acme Corp"
+                      placeholder="Season 3: The Return"
                       value={companyName}
                       onChange={(e) => setCompanyName(e.target.value)}
                       autoFocus
@@ -600,11 +600,11 @@ export function OnboardingWizard() {
                   </div>
                   <div>
                     <label className="text-xs text-muted-foreground mb-1 block">
-                      Mission / goal (optional)
+                      Creative vision (optional)
                     </label>
                     <textarea
                       className="w-full rounded-md border border-border bg-transparent px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/50 resize-none min-h-[60px]"
-                      placeholder="What is this company trying to achieve?"
+                      placeholder="What story are you telling?"
                       value={companyGoal}
                       onChange={(e) => setCompanyGoal(e.target.value)}
                     />
@@ -619,19 +619,19 @@ export function OnboardingWizard() {
                       <Bot className="h-5 w-5 text-muted-foreground" />
                     </div>
                     <div>
-                      <h3 className="font-medium">Create your first agent</h3>
+                      <h3 className="font-medium">Bring in your first writer</h3>
                       <p className="text-xs text-muted-foreground">
-                        Choose how this agent will run tasks.
+                        Choose how this writer will handle assignments.
                       </p>
                     </div>
                   </div>
                   <div>
                     <label className="text-xs text-muted-foreground mb-1 block">
-                      Agent name
+                      Writer name
                     </label>
                     <input
                       className="w-full rounded-md border border-border bg-transparent px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/50"
-                      placeholder="CEO"
+                      placeholder="Showrunner"
                       value={agentName}
                       onChange={(e) => setAgentName(e.target.value)}
                       autoFocus
@@ -887,7 +887,7 @@ export function OnboardingWizard() {
                         <div className="rounded-md border border-amber-300/60 bg-amber-50/40 px-2.5 py-2 space-y-2">
                           <p className="text-[11px] text-amber-900/90 leading-relaxed">
                             Claude failed while <span className="font-mono">ANTHROPIC_API_KEY</span> is set.
-                            You can clear it in this CEO adapter config and retry the probe.
+                            You can clear it in this Showrunner adapter config and retry the probe.
                           </p>
                           <Button
                             size="sm"
@@ -993,20 +993,20 @@ export function OnboardingWizard() {
                       <ListTodo className="h-5 w-5 text-muted-foreground" />
                     </div>
                     <div>
-                      <h3 className="font-medium">Give it something to do</h3>
+                      <h3 className="font-medium">Give them an assignment</h3>
                       <p className="text-xs text-muted-foreground">
-                        Give your agent a small task to start with — a bug fix,
-                        a research question, writing a script.
+                        Give your writer a first assignment — a scene draft,
+                        character study, or story outline.
                       </p>
                     </div>
                   </div>
                   <div>
                     <label className="text-xs text-muted-foreground mb-1 block">
-                      Task title
+                      Assignment title
                     </label>
                     <input
                       className="w-full rounded-md border border-border bg-transparent px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/50"
-                      placeholder="e.g. Research competitor pricing"
+                      placeholder="e.g. Draft the cold open for Episode 1"
                       value={taskTitle}
                       onChange={(e) => setTaskTitle(e.target.value)}
                       autoFocus
@@ -1019,7 +1019,7 @@ export function OnboardingWizard() {
                     <textarea
                       ref={textareaRef}
                       className="w-full rounded-md border border-border bg-transparent px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/50 resize-none min-h-[120px] max-h-[300px] overflow-y-auto"
-                      placeholder="Add more detail about what the agent should do..."
+                      placeholder="Add more detail about what the writer should work on..."
                       value={taskDescription}
                       onChange={(e) => setTaskDescription(e.target.value)}
                     />
@@ -1036,8 +1036,8 @@ export function OnboardingWizard() {
                     <div>
                       <h3 className="font-medium">Ready to launch</h3>
                       <p className="text-xs text-muted-foreground">
-                        Everything is set up. Your assigned task already woke
-                        the agent, so you can jump straight to the issue.
+                        Everything is set up. Your assignment already woke
+                        the writer, so you can jump straight to it.
                       </p>
                     </div>
                   </div>
@@ -1048,7 +1048,7 @@ export function OnboardingWizard() {
                         <p className="text-sm font-medium truncate">
                           {companyName}
                         </p>
-                        <p className="text-xs text-muted-foreground">Company</p>
+                        <p className="text-xs text-muted-foreground">Production</p>
                       </div>
                       <Check className="h-4 w-4 text-green-500 shrink-0" />
                     </div>
@@ -1070,7 +1070,7 @@ export function OnboardingWizard() {
                         <p className="text-sm font-medium truncate">
                           {taskTitle}
                         </p>
-                        <p className="text-xs text-muted-foreground">Task</p>
+                        <p className="text-xs text-muted-foreground">Assignment</p>
                       </div>
                       <Check className="h-4 w-4 text-green-500 shrink-0" />
                     </div>
