@@ -928,11 +928,12 @@ export function IssuesList({
                 {hasSubtasks && (
                   <div>
                     <button
-                      className="flex items-center gap-1 px-3 py-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors w-full text-left"
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] text-muted-foreground hover:text-foreground hover:bg-accent/40 transition-colors w-full text-left rounded-b-sm"
                       onClick={() => toggleSubtasks(issue.id)}
                     >
-                      <span>{isExpanded ? "⬆️" : "⬇️"}</span>
-                      <span>Subtasks ({issueSubtasks.length})</span>
+                      <ChevronRight className={`h-3 w-3 shrink-0 transition-transform duration-150 ${isExpanded ? "rotate-90" : ""}`} />
+                      <span className="font-medium">{isExpanded ? "Hide subtasks" : `Show subtasks`}</span>
+                      <span className="text-muted-foreground/60">({issueSubtasks.length})</span>
                     </button>
                     {isExpanded && (
                       <SubtaskList
