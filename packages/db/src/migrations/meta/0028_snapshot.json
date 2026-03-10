@@ -1,6 +1,6 @@
 {
-  "id": "8186209d-f7ec-4048-bd4f-c96530f45304",
-  "prevId": "5f8dd541-9e28-4a42-890b-fc4a301604ac",
+  "id": "b2eff302-2f74-4dc8-9af6-e489e398f6f9",
+  "prevId": "8186209d-f7ec-4048-bd4f-c96530f45304",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -4199,6 +4199,101 @@
         }
       },
       "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.issue_favorites": {
+      "name": "issue_favorites",
+      "schema": "",
+      "columns": {
+        "issue_id": {
+          "name": "issue_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "company_id": {
+          "name": "company_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "issue_favorites_company_user_idx": {
+          "name": "issue_favorites_company_user_idx",
+          "columns": [
+            {
+              "expression": "company_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "issue_favorites_issue_id_issues_id_fk": {
+          "name": "issue_favorites_issue_id_issues_id_fk",
+          "tableFrom": "issue_favorites",
+          "tableTo": "issues",
+          "columnsFrom": [
+            "issue_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "issue_favorites_company_id_companies_id_fk": {
+          "name": "issue_favorites_company_id_companies_id_fk",
+          "tableFrom": "issue_favorites",
+          "tableTo": "companies",
+          "columnsFrom": [
+            "company_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "issue_favorites_issue_id_user_id_pk": {
+          "name": "issue_favorites_issue_id_user_id_pk",
+          "columns": [
+            "issue_id",
+            "user_id"
+          ]
+        }
+      },
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
