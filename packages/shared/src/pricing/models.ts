@@ -22,11 +22,12 @@ export function calculateTokenCostCents(
   inputTokens: number,
   outputTokens: number,
   cachedInputTokens?: number,
-): number {
-  if (!model) return 0;
+): number | null {
+  if (!model) return null;
   const pricing = MODEL_PRICING[model];
-  if (!pricing) return 0;
-  const inputCost = (inputTokens / 1000) * pricing.inputCentsPer1k;
+  if (!pricing) return null;
+  const nonCachedInputTokens = Math.max(0, inputTokens - (cachedInputTokens ?? 0));
+  const inputCost = (nonCachedInputTokens / 1000) * pricing.inputCentsPer1k;
   const outputCost = (outputTokens / 1000) * pricing.outputCentsPer1k;
   const cachedCost = cachedInputTokens && pricing.cachedInputCentsPer1k
     ? (cachedInputTokens / 1000) * pricing.cachedInputCentsPer1k
