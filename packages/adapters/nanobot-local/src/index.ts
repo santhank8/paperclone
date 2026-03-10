@@ -23,5 +23,5 @@ Core fields:
 Notes:
 - The model is configured per-nanobot-instance, not per-Paperclip-agent.
 - Each nanobot instance needs its own port for the Paperclip channel.
-- Token usage is not reported (nanobot does not return usage stats in responses).
+- Token usage (input/output tokens) is reported when the nanobot includes a usage object in its response.
 `;

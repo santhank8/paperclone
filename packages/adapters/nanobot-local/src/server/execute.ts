@@ -106,11 +106,36 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     await ctx.onLog("stdout", `[nanobot-local] response received (${responseText.length} chars)\n`);
     await ctx.onLog("stdout", responseText + "\n");
 
+    const usageObj = parsed?.usage as Record<string, unknown> | undefined;
+    const usage = usageObj
+      ? {
+          inputTokens: asNumber(usageObj.inputTokens, 0),
+          outputTokens: asNumber(usageObj.outputTokens, 0),
+          cachedInputTokens: asNumber(usageObj.cachedInputTokens, 0),
+        }
+      : undefined;
+    const costUsd = usageObj ? asNumber(usageObj.costUsd, 0) : undefined;
+    const model = usageObj && typeof usageObj.model === "string" ? usageObj.model : undefined;
+
+    if (usage) {
+      const cachedStr = usage.cachedInputTokens ? ` (${usage.cachedInputTokens} cached)` : "";
+      const costStr = costUsd != null ? ` / $${costUsd.toFixed(4)}` : "";
+      const modelStr = model ? ` (${model})` : "";
+      await ctx.onLog(
+        "stdout",
+        `[nanobot-local] tokens: ${usage.inputTokens} in${cachedStr} / ${usage.outputTokens} out${costStr}${modelStr}\n`,
+      );
+    }
+
     return {
       exitCode: 0,
       signal: null,
       timedOut: false,
       summary: responseText,
+      usage,
+      costUsd: costUsd || undefined,
+      model: model || undefined,
+      billingType: "api" as const,
       sessionParams: parsed?.sessionKey ? { sessionKey: parsed.sessionKey } : null,
     };
   } catch (err) {
