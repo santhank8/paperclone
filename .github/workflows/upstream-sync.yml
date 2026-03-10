@@ -1,0 +1,160 @@
+name: Upstream Sync
+
+on:
+  schedule:
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+
+jobs:
+  sync:
+    name: Sync from paperclipai/paperclip
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout fork
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Set date
+        id: date
+        run: echo "today=$(date -u +%Y-%m-%d)" >> "$GITHUB_OUTPUT"
+
+      - name: Check for existing sync PR
+        id: check_pr
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          BRANCH="sync/upstream-${{ steps.date.outputs.today }}"
+          EXISTING=$(gh pr list --repo "${{ github.repository }}" \
+            --head "$BRANCH" \
+            --state all \
+            --json number \
+            --jq '.[0].number // empty')
+          if [ -n "$EXISTING" ]; then
+            echo "Sync PR #$EXISTING already exists for today — skipping."
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Fetch upstream
+        if: steps.check_pr.outputs.exists == 'false'
+        run: |
+          git remote add upstream https://github.com/paperclipai/paperclip.git
+          git fetch upstream master
+
+      - name: Check for new upstream commits
+        id: check_commits
+        if: steps.check_pr.outputs.exists == 'false'
+        run: |
+          NEW_COMMITS=$(git rev-list HEAD..upstream/master --count)
+          echo "new_commits=$NEW_COMMITS" >> "$GITHUB_OUTPUT"
+          if [ "$NEW_COMMITS" -eq 0 ]; then
+            echo "No new upstream commits — nothing to sync."
+          else
+            echo "$NEW_COMMITS new upstream commit(s) found."
+          fi
+
+      - name: Create sync branch and attempt merge
+        id: merge
+        if: |
+          steps.check_pr.outputs.exists == 'false' &&
+          steps.check_commits.outputs.new_commits != '0'
+        run: |
+          BRANCH="sync/upstream-${{ steps.date.outputs.today }}"
+          git checkout -b "$BRANCH"
+
+          # Collect upstream commit list for PR body
+          COMMIT_LOG=$(git log HEAD..upstream/master --oneline --no-merges | head -50)
+          echo "commit_log<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$COMMIT_LOG" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+          echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
+
+          if git merge upstream/master --no-edit; then
+            echo "merge_clean=true" >> "$GITHUB_OUTPUT"
+            echo "Merge succeeded cleanly."
+          else
+            echo "merge_clean=false" >> "$GITHUB_OUTPUT"
+            CONFLICTED=$(git diff --name-only --diff-filter=U | tr '\n' ' ')
+            echo "conflicted_files=$CONFLICTED" >> "$GITHUB_OUTPUT"
+            echo "Merge conflicts detected in: $CONFLICTED"
+            # Stage conflict markers so we can push the branch
+            git add -A
+            git commit --no-edit -m "chore: sync upstream paperclip ${{ steps.date.outputs.today }} [conflicts]" || true
+          fi
+
+          git push origin "$BRANCH"
+
+      - name: Create PR (clean merge)
+        if: |
+          steps.merge.outputs.merge_clean == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr create \
+            --repo "${{ github.repository }}" \
+            --base master \
+            --head "${{ steps.merge.outputs.branch }}" \
+            --title "chore: sync upstream paperclip (${{ steps.date.outputs.today }})" \
+            --body "$(cat <<'BODY'
+## Upstream sync — ${{ steps.date.outputs.today }}
+
+Automated daily sync from [paperclipai/paperclip](https://github.com/paperclipai/paperclip).
+
+### Upstream commits included
+
+```
+${{ steps.merge.outputs.commit_log }}
+```
+
+---
+*Merged cleanly. Review and merge when ready — branch protection still applies.*
+BODY
+)" \
+            --assignee kaylenmistry
+
+      - name: Create PR (conflicts)
+        if: |
+          steps.merge.outputs.merge_clean == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr create \
+            --repo "${{ github.repository }}" \
+            --base master \
+            --head "${{ steps.merge.outputs.branch }}" \
+            --title "chore: sync upstream paperclip (${{ steps.date.outputs.today }}) [CONFLICTS]" \
+            --body "$(cat <<'BODY'
+## Upstream sync — ${{ steps.date.outputs.today }} ⚠️ Merge conflicts
+
+Automated daily sync from [paperclipai/paperclip](https://github.com/paperclipai/paperclip).
+
+### Upstream commits included
+
+```
+${{ steps.merge.outputs.commit_log }}
+```
+
+### Conflicting files
+
+```
+${{ steps.merge.outputs.conflicted_files }}
+```
+
+---
+*Manual resolution required. Assign to CTO + engineer to resolve conflicts before merging.*
+BODY
+)" \
+            --label conflicts \
+            --assignee kaylenmistry
