@@ -16,6 +16,7 @@ import { relativeTime, cn, formatTokens } from "../lib/utils";
 import { InlineEditor } from "../components/InlineEditor";
 import { CommentThread } from "../components/CommentThread";
 import { IssueProperties } from "../components/IssueProperties";
+import { buildSubtaskCountMap, SubtaskBadge } from "../components/subtask-utils";
 import { LiveRunWidget } from "../components/LiveRunWidget";
 import type { MentionOption } from "../components/MarkdownEditor";
 import { ScrollToBottom } from "../components/ScrollToBottom";
@@ -152,6 +153,7 @@ export function IssueDetail() {
   const navigate = useNavigate();
   const [moreOpen, setMoreOpen] = useState(false);
   const [mobilePropsOpen, setMobilePropsOpen] = useState(false);
+  const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
   const [detailTab, setDetailTab] = useState("comments");
   const [secondaryOpen, setSecondaryOpen] = useState({
     approvals: false,
@@ -288,6 +290,12 @@ export function IssueDetail() {
       .filter((i) => i.parentId === issue.id)
       .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
   }, [allIssues, issue]);
+
+  const subtaskCounts = useMemo(() => {
+    if (!issue || childIssues.length === 0) return null;
+    const map = buildSubtaskCountMap(childIssues.map((c) => ({ ...c, parentId: issue.id })));
+    return map.get(issue.id) ?? null;
+  }, [childIssues, issue]);
 
   const commentReassignOptions = useMemo(() => {
     const options: Array<{ id: string; label: string; searchText?: string }> = [];
@@ -657,19 +665,45 @@ export function IssueDetail() {
           className="text-xl font-bold"
         />
 
-        <InlineEditor
-          value={issue.description ?? ""}
-          onSave={(description) => updateIssue.mutate({ description })}
-          as="p"
-          className="text-sm text-muted-foreground"
-          placeholder="Add a description..."
-          multiline
-          mentions={mentionOptions}
-          imageUploadHandler={async (file) => {
-            const attachment = await uploadAttachment.mutateAsync(file);
-            return attachment.contentPath;
-          }}
-        />
+        <div className="space-y-1">
+          <div
+            className={cn(
+              "overflow-hidden transition-all duration-200",
+              isDescriptionExpanded
+                ? "max-h-screen overflow-y-auto"
+                : "max-h-32",
+            )}
+          >
+            <InlineEditor
+              value={issue.description ?? ""}
+              onSave={(description) => updateIssue.mutate({ description })}
+              as="p"
+              className="text-sm text-muted-foreground"
+              placeholder="Add a description..."
+              multiline
+              mentions={mentionOptions}
+              imageUploadHandler={async (file) => {
+                const attachment = await uploadAttachment.mutateAsync(file);
+                return attachment.contentPath;
+              }}
+            />
+          </div>
+          {(issue.description ?? "").length > 0 && (
+            <button
+              type="button"
+              onClick={() => setIsDescriptionExpanded((prev) => !prev)}
+              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <ChevronDown
+                className={cn(
+                  "h-3.5 w-3.5 transition-transform duration-200",
+                  isDescriptionExpanded && "rotate-180",
+                )}
+              />
+              {isDescriptionExpanded ? "Hide description" : "Show description"}
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="space-y-3">
@@ -755,6 +789,7 @@ export function IssueDetail() {
           <TabsTrigger value="subissues" className="gap-1.5">
             <ListTree className="h-3.5 w-3.5" />
             Sub-issues
+            {subtaskCounts && <SubtaskBadge counts={subtaskCounts} />}
           </TabsTrigger>
           <TabsTrigger value="activity" className="gap-1.5">
             <ActivityIcon className="h-3.5 w-3.5" />
@@ -795,6 +830,19 @@ export function IssueDetail() {
           {childIssues.length === 0 ? (
             <p className="text-xs text-muted-foreground">No sub-issues.</p>
           ) : (
+            <div className="space-y-2">
+            {subtaskCounts && (
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <SubtaskBadge counts={subtaskCounts} />
+                <span>{subtaskCounts.done} of {subtaskCounts.total} completed</span>
+                <div className="flex-1 h-1 rounded-full bg-muted overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all ${subtaskCounts.done === subtaskCounts.total ? "bg-green-500" : "bg-primary"}`}
+                    style={{ width: `${(subtaskCounts.done / subtaskCounts.total) * 100}%` }}
+                  />
+                </div>
+              </div>
+            )}
             <div className="border border-border rounded-lg divide-y divide-border">
               {childIssues.map((child) => (
                 <Link
@@ -818,6 +866,7 @@ export function IssueDetail() {
                   })()}
                 </Link>
               ))}
+            </div>
             </div>
           )}
         </TabsContent>
