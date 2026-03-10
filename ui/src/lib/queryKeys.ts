@@ -37,6 +37,12 @@ export const queryKeys = {
     list: (companyId: string) => ["projects", companyId] as const,
     detail: (id: string) => ["projects", "detail", id] as const,
   },
+  agentMemories: {
+    list: (agentId: string, category?: string) =>
+      ["agent-memories", agentId, category] as const,
+    listForCompany: (companyId: string) =>
+      ["agent-memories", "company", companyId] as const,
+  },
   goals: {
     list: (companyId: string) => ["goals", companyId] as const,
     detail: (id: string) => ["goals", "detail", id] as const,

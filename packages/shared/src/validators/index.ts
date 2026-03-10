@@ -80,6 +80,15 @@ export {
 } from "./goal.js";
 
 export {
+  createAgentMemorySchema,
+  updateAgentMemorySchema,
+  MEMORY_CATEGORIES,
+  type MemoryCategory,
+  type CreateAgentMemory,
+  type UpdateAgentMemory,
+} from "./agent-memory.js";
+
+export {
   createApprovalSchema,
   resolveApprovalSchema,
   requestApprovalRevisionSchema,

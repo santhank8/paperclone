@@ -14,6 +14,7 @@ import { useDialog } from "../context/DialogContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
 import { queryKeys } from "../lib/queryKeys";
 import { AgentConfigForm } from "../components/AgentConfigForm";
+import { AgentMemories } from "../components/AgentMemories";
 import { adapterLabels, roleLabels } from "../components/agent-config-primitives";
 import { getUIAdapter, buildTranscript } from "../adapters";
 import type { TranscriptEntry } from "../adapters";
@@ -54,6 +55,7 @@ import {
   ChevronDown,
   ArrowLeft,
   Settings,
+  Brain,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { AgentIcon, AgentIconPicker } from "../components/AgentIconPicker";
@@ -173,11 +175,12 @@ function scrollToContainerBottom(container: ScrollContainer, behavior: ScrollBeh
   container.scrollTo({ top: container.scrollHeight, behavior });
 }
 
-type AgentDetailView = "overview" | "configure" | "runs";
+type AgentDetailView = "overview" | "configure" | "runs" | "memory";
 
 function parseAgentDetailView(value: string | null): AgentDetailView {
   if (value === "configure" || value === "configuration") return "configure";
   if (value === "runs") return value;
+  if (value === "memory") return value;
   return "overview";
 }
 
@@ -408,6 +411,8 @@ export function AgentDetail() {
         crumbs.push({ label: "Configure" });
       } else if (activeView === "runs") {
         crumbs.push({ label: "Runs" });
+      } else if (activeView === "memory") {
+        crumbs.push({ label: "Memory" });
       }
     }
     setBreadcrumbs(crumbs);
@@ -523,6 +528,16 @@ export function AgentDetail() {
               >
                 <Settings className="h-3 w-3" />
                 Configure Agent
+              </button>
+              <button
+                className="flex items-center gap-2 w-full px-2 py-1.5 text-xs rounded hover:bg-accent/50"
+                onClick={() => {
+                  navigate(`/agents/${canonicalAgentRef}/memory`);
+                  setMoreOpen(false);
+                }}
+              >
+                <Brain className="h-3 w-3" />
+                Memory
               </button>
               <button
                 className="flex items-center gap-2 w-full px-2 py-1.5 text-xs rounded hover:bg-accent/50"
@@ -658,6 +673,10 @@ export function AgentDetail() {
           selectedRunId={urlRunId ?? null}
           adapterType={agent.adapterType}
         />
+      )}
+
+      {activeView === "memory" && (
+        <AgentMemories agentId={agent.id} />
       )}
     </div>
   );
