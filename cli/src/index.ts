@@ -11,6 +11,7 @@ import { dbBackupCommand } from "./commands/db-backup.js";
 import { registerContextCommands } from "./commands/client/context.js";
 import { registerCompanyCommands } from "./commands/client/company.js";
 import { registerIssueCommands } from "./commands/client/issue.js";
+import { registerProjectCommands } from "./commands/client/project.js";
 import { registerAgentCommands } from "./commands/client/agent.js";
 import { registerApprovalCommands } from "./commands/client/approval.js";
 import { registerActivityCommands } from "./commands/client/activity.js";
@@ -130,6 +131,7 @@ heartbeat
 
 registerContextCommands(program);
 registerCompanyCommands(program);
+registerProjectCommands(program);
 registerIssueCommands(program);
 registerAgentCommands(program);
 registerApprovalCommands(program);
