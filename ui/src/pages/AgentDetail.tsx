@@ -862,7 +862,7 @@ function ConfigSummary({
           Manage &rarr;
         </Link>
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
         <div className="border border-border rounded-lg p-4 space-y-3">
           <h4 className="text-xs text-muted-foreground font-medium">Agent Details</h4>
           <div className="space-y-2 text-sm">
@@ -941,7 +941,7 @@ function ConfigSummary({
         {promptText && (
           <div className="border border-border rounded-lg p-4 space-y-2">
             <h4 className="text-xs text-muted-foreground font-medium">Prompt Template</h4>
-            <pre className="text-xs text-muted-foreground line-clamp-[12] font-mono whitespace-pre-wrap">{promptText}</pre>
+            <pre className="text-xs text-muted-foreground font-mono whitespace-pre-wrap max-h-96 overflow-y-auto">{promptText}</pre>
           </div>
         )}
       </div>
