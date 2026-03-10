@@ -1,0 +1,16 @@
+[Unit]
+Description=Paperclip Dev Server
+After=network.target
+
+[Service]
+Type=simple
+User=saya
+WorkingDirectory=/home/saya/ai-workspace/paperclip
+ExecStart=/home/saya/.npm-global/bin/pnpm dev
+Restart=on-failure
+RestartSec=5
+Environment=NODE_ENV=development
+Environment=PATH=/home/saya/.npm-global/bin:/home/saya/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/bin
+
+[Install]
+WantedBy=multi-user.target
