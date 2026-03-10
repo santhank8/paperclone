@@ -726,8 +726,19 @@ export async function ensurePostgresDatabase(
     `;
     if (existing.length > 0) return "exists";
 
-    await sql.unsafe(`create database "${databaseName}"`);
+    await sql.unsafe(`create database "${databaseName}" template template0 encoding 'UTF8' lc_collate 'C' lc_ctype 'C'`);
     return "created";
+  } finally {
+    await sql.end();
+  }
+}
+
+export async function checkDatabaseEncoding(url: string): Promise<{ encoding: string; isUtf8: boolean }> {
+  const sql = postgres(url, { max: 1 });
+  try {
+    const [row] = await sql<{ encoding: string }[]>`select pg_encoding_to_char(encoding) as encoding from pg_database where datname = current_database()`;
+    const encoding = row?.encoding ?? "unknown";
+    return { encoding, isUtf8: encoding.toUpperCase() === "UTF8" };
   } finally {
     await sql.end();
   }

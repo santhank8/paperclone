@@ -15,6 +15,7 @@ import {
   reconcilePendingMigrationHistory,
   formatDatabaseBackupResult,
   runDatabaseBackup,
+  checkDatabaseEncoding,
   authUsers,
   companies,
   companyMemberships,
@@ -334,6 +335,7 @@ export async function startServer(): Promise<StartedServer> {
         password: "paperclip",
         port,
         persistent: true,
+        initdbFlags: ["--encoding=UTF8", "--locale=C"],
         onLog: appendEmbeddedPostgresLog,
         onError: appendEmbeddedPostgresLog,
       });
@@ -369,6 +371,16 @@ export async function startServer(): Promise<StartedServer> {
     }
   
     const embeddedConnectionString = `postgres://paperclip:paperclip@127.0.0.1:${port}/paperclip`;
+
+    const { encoding, isUtf8 } = await checkDatabaseEncoding(embeddedConnectionString);
+    if (!isUtf8) {
+      logger.error(
+        `Embedded PostgreSQL database is using "${encoding}" encoding instead of UTF8. ` +
+        `Non-ASCII characters (e.g. Vietnamese, CJK) will fail. ` +
+        `Delete the data directory (${dataDir}) and restart to re-initialize with UTF8.`,
+      );
+    }
+
     const shouldAutoApplyFirstRunMigrations = !clusterAlreadyInitialized || dbStatus === "created";
     if (shouldAutoApplyFirstRunMigrations) {
       logger.info("Detected first-run embedded PostgreSQL setup; applying pending migrations automatically");

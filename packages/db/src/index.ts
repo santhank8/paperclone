@@ -9,6 +9,7 @@ export {
   migratePostgresIfEmpty,
   type MigrationBootstrapResult,
   type Db,
+  checkDatabaseEncoding,
 } from "./client.js";
 export {
   runDatabaseBackup,
