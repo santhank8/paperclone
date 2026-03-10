@@ -9,6 +9,7 @@ import { authApi } from "../api/auth";
 import { assetsApi } from "../api/assets";
 import { queryKeys } from "../lib/queryKeys";
 import { useProjectOrder } from "../hooks/useProjectOrder";
+import { useAttachmentConfig } from "../hooks/useAttachmentConfig";
 import { getRecentAssigneeIds, sortAgentsByRecency, trackRecentAssignee } from "../lib/recent-assignees";
 import {
   Dialog,
@@ -169,6 +170,7 @@ const priorities = [
 export function NewIssueDialog() {
   const { newIssueOpen, newIssueDefaults, closeNewIssue } = useDialog();
   const { companies, selectedCompanyId, selectedCompany } = useCompany();
+  const { accept: attachAccept } = useAttachmentConfig();
   const queryClient = useQueryClient();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -448,15 +450,20 @@ export function NewIssueDialog() {
   }
 
   async function handleAttachImage(evt: ChangeEvent<HTMLInputElement>) {
-    const file = evt.target.files?.[0];
-    if (!file) return;
+    const files = evt.target.files;
+    if (!files || files.length === 0) return;
     try {
-      const asset = await uploadDescriptionImage.mutateAsync(file);
-      const name = file.name || "image";
-      setDescription((prev) => {
-        const suffix = `![${name}](${asset.contentPath})`;
-        return prev ? `${prev}\n\n${suffix}` : suffix;
-      });
+      for (const file of Array.from(files)) {
+        const asset = await uploadDescriptionImage.mutateAsync(file);
+        const name = file.name || "file";
+        const isImage = file.type.startsWith("image/");
+        setDescription((prev) => {
+          const suffix = isImage
+            ? `![${name}](${asset.contentPath})`
+            : `[${name}](${asset.contentPath})`;
+          return prev ? `${prev}\n\n${suffix}` : suffix;
+        });
+      }
     } finally {
       if (attachInputRef.current) attachInputRef.current.value = "";
     }
@@ -906,11 +913,12 @@ export function NewIssueDialog() {
             Labels
           </button>
 
-          {/* Attach image chip */}
+          {/* Attach file chip */}
           <input
             ref={attachInputRef}
             type="file"
-            accept="image/png,image/jpeg,image/webp,image/gif"
+            accept={attachAccept}
+            multiple
             className="hidden"
             onChange={handleAttachImage}
           />
@@ -920,7 +928,7 @@ export function NewIssueDialog() {
             disabled={uploadDescriptionImage.isPending}
           >
             <Paperclip className="h-3 w-3" />
-            {uploadDescriptionImage.isPending ? "Uploading..." : "Image"}
+            {uploadDescriptionImage.isPending ? "Uploading..." : "Attach"}
           </button>
 
           {/* More (dates) */}

@@ -8,6 +8,7 @@ export type HealthStatus = {
   features?: {
     companyDeletionEnabled?: boolean;
   };
+  allowedAttachmentTypes?: string[];
 };
 
 export const healthApi = {

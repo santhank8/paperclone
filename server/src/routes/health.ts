@@ -3,6 +3,7 @@ import type { Db } from "@paperclipai/db";
 import { and, count, eq, gt, isNull, sql } from "drizzle-orm";
 import { instanceUserRoles, invites } from "@paperclipai/db";
 import type { DeploymentExposure, DeploymentMode } from "@paperclipai/shared";
+import { parseAllowedTypes } from "../attachment-types.js";
 
 export function healthRoutes(
   db?: Db,
@@ -64,6 +65,9 @@ export function healthRoutes(
       features: {
         companyDeletionEnabled: opts.companyDeletionEnabled,
       },
+      allowedAttachmentTypes: parseAllowedTypes(
+        process.env.PAPERCLIP_ALLOWED_ATTACHMENT_TYPES,
+      ),
     });
   });
 

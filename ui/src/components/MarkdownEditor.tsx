@@ -473,7 +473,7 @@ export const MarkdownEditor = forwardRef<MarkdownEditorRef, MarkdownEditorProps>
     return Array.from(evt.dataTransfer?.types ?? []).includes("Files");
   }
 
-  const canDropImage = Boolean(imageUploadHandler);
+  const canDrop = Boolean(imageUploadHandler);
 
   return (
     <div
@@ -533,23 +533,56 @@ export const MarkdownEditor = forwardRef<MarkdownEditorRef, MarkdownEditorProps>
         }
       }}
       onDragEnter={(evt) => {
-        if (!canDropImage || !hasFilePayload(evt)) return;
+        if (!canDrop || !hasFilePayload(evt)) return;
         dragDepthRef.current += 1;
         setIsDragOver(true);
       }}
       onDragOver={(evt) => {
-        if (!canDropImage || !hasFilePayload(evt)) return;
+        if (!canDrop || !hasFilePayload(evt)) return;
         evt.preventDefault();
         evt.dataTransfer.dropEffect = "copy";
       }}
       onDragLeave={() => {
-        if (!canDropImage) return;
+        if (!canDrop) return;
         dragDepthRef.current = Math.max(0, dragDepthRef.current - 1);
         if (dragDepthRef.current === 0) setIsDragOver(false);
       }}
-      onDrop={() => {
+      onDrop={async (evt) => {
         dragDepthRef.current = 0;
         setIsDragOver(false);
+
+        const handler = imageUploadHandlerRef.current;
+        if (!handler) return;
+
+        const files = evt.dataTransfer?.files;
+        if (!files || files.length === 0) return;
+
+        // Non-image files are ignored by MDXEditor's imagePlugin,
+        // so we handle them here by uploading and inserting a link.
+        const nonImageFiles = Array.from(files).filter(
+          (f) => !f.type.startsWith("image/"),
+        );
+        if (nonImageFiles.length === 0) return; // all images — imagePlugin handles them
+
+        evt.preventDefault();
+        for (const file of nonImageFiles) {
+          try {
+            const url = await handler(file);
+            const name = file.name || "file";
+            const md = `[${name}](${url})`;
+            const next = latestValueRef.current
+              ? `${latestValueRef.current}\n\n${md}`
+              : md;
+            latestValueRef.current = next;
+            ref.current?.setMarkdown(next);
+            onChange(next);
+            setUploadError(null);
+          } catch (err) {
+            const message =
+              err instanceof Error ? err.message : "Upload failed";
+            setUploadError(message);
+          }
+        }
       }}
     >
       <MDXEditor
@@ -608,14 +641,14 @@ export const MarkdownEditor = forwardRef<MarkdownEditorRef, MarkdownEditorProps>
         </div>
       )}
 
-      {isDragOver && canDropImage && (
+      {isDragOver && canDrop && (
         <div
           className={cn(
             "pointer-events-none absolute inset-1 z-40 flex items-center justify-center rounded-md border border-dashed border-primary/80 bg-primary/10 text-xs font-medium text-primary",
             !bordered && "inset-0 rounded-sm",
           )}
         >
-          Drop image to upload
+          Drop files to upload
         </div>
       )}
       {uploadError && (

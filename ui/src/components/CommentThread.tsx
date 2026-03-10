@@ -10,6 +10,7 @@ import { MarkdownEditor, type MarkdownEditorRef, type MentionOption } from "./Ma
 import { StatusBadge } from "./StatusBadge";
 import { AgentIcon } from "./AgentIconPicker";
 import { formatDateTime } from "../lib/utils";
+import { useAttachmentConfig } from "../hooks/useAttachmentConfig";
 
 interface CommentWithRunMeta extends IssueComment {
   runId?: string | null;
@@ -233,6 +234,7 @@ export function CommentThread({
   const [submitting, setSubmitting] = useState(false);
   const [attaching, setAttaching] = useState(false);
   const [reassignTarget, setReassignTarget] = useState(currentAssigneeValue);
+  const { accept: attachAccept } = useAttachmentConfig();
   const [highlightCommentId, setHighlightCommentId] = useState<string | null>(null);
   const editorRef = useRef<MarkdownEditorRef>(null);
   const attachInputRef = useRef<HTMLInputElement | null>(null);
@@ -334,11 +336,13 @@ export function CommentThread({
   }
 
   async function handleAttachFile(evt: ChangeEvent<HTMLInputElement>) {
-    const file = evt.target.files?.[0];
-    if (!file || !onAttachImage) return;
+    const files = evt.target.files;
+    if (!files || files.length === 0 || !onAttachImage) return;
     setAttaching(true);
     try {
-      await onAttachImage(file);
+      for (const file of Array.from(files)) {
+        await onAttachImage(file);
+      }
     } finally {
       setAttaching(false);
       if (attachInputRef.current) attachInputRef.current.value = "";
@@ -372,7 +376,8 @@ export function CommentThread({
               <input
                 ref={attachInputRef}
                 type="file"
-                accept="image/png,image/jpeg,image/webp,image/gif"
+                accept={attachAccept}
+                multiple
                 className="hidden"
                 onChange={handleAttachFile}
               />
@@ -381,7 +386,7 @@ export function CommentThread({
                 size="icon-sm"
                 onClick={() => attachInputRef.current?.click()}
                 disabled={attaching}
-                title="Attach image"
+                title="Attach file"
               >
                 <Paperclip className="h-4 w-4" />
               </Button>

@@ -12,6 +12,7 @@ import { usePanel } from "../context/PanelContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
 import { queryKeys } from "../lib/queryKeys";
 import { useProjectOrder } from "../hooks/useProjectOrder";
+import { useAttachmentConfig } from "../hooks/useAttachmentConfig";
 import { relativeTime, cn, formatTokens } from "../lib/utils";
 import { InlineEditor } from "../components/InlineEditor";
 import { CommentThread } from "../components/CommentThread";
@@ -158,6 +159,7 @@ export function IssueDetail() {
     cost: false,
   });
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
+  const { accept: attachAccept } = useAttachmentConfig();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const lastMarkedReadIssueIdRef = useRef<string | null>(null);
 
@@ -504,9 +506,11 @@ export function IssueDetail() {
   const ancestors = issue.ancestors ?? [];
 
   const handleFilePicked = async (evt: ChangeEvent<HTMLInputElement>) => {
-    const file = evt.target.files?.[0];
-    if (!file) return;
-    await uploadAttachment.mutateAsync(file);
+    const files = evt.target.files;
+    if (!files || files.length === 0) return;
+    for (const file of Array.from(files)) {
+      await uploadAttachment.mutateAsync(file);
+    }
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -679,7 +683,8 @@ export function IssueDetail() {
             <input
               ref={fileInputRef}
               type="file"
-              accept="image/png,image/jpeg,image/webp,image/gif"
+              accept={attachAccept}
+              multiple
               className="hidden"
               onChange={handleFilePicked}
             />
@@ -690,7 +695,7 @@ export function IssueDetail() {
               disabled={uploadAttachment.isPending}
             >
               <Paperclip className="h-3.5 w-3.5 mr-1.5" />
-              {uploadAttachment.isPending ? "Uploading..." : "Upload image"}
+              {uploadAttachment.isPending ? "Uploading..." : "Upload file"}
             </Button>
           </div>
         </div>
