@@ -5,6 +5,7 @@ import { useCompany } from "../context/CompanyContext";
 import { issuesApi } from "../api/issues";
 import { projectsApi } from "../api/projects";
 import { agentsApi } from "../api/agents";
+import { accessApi } from "../api/access";
 import { authApi } from "../api/auth";
 import { assetsApi } from "../api/assets";
 import { queryKeys } from "../lib/queryKeys";
@@ -33,7 +34,9 @@ import {
   AlertTriangle,
   Tag,
   Calendar,
+  ListTree,
   Paperclip,
+  User,
 } from "lucide-react";
 import { cn } from "../lib/utils";
 import { extractProviderIdWithFallback } from "../lib/model-utils";
@@ -198,9 +201,23 @@ export function NewIssueDialog() {
   const assigneeSelectorRef = useRef<HTMLButtonElement | null>(null);
   const projectSelectorRef = useRef<HTMLButtonElement | null>(null);
 
+  const parentId = newIssueDefaults.parentId ?? null;
+
+  const { data: parentIssue } = useQuery({
+    queryKey: queryKeys.issues.detail(parentId!),
+    queryFn: () => issuesApi.get(parentId!),
+    enabled: !!parentId && newIssueOpen,
+  });
+
   const { data: agents } = useQuery({
     queryKey: queryKeys.agents.list(effectiveCompanyId!),
     queryFn: () => agentsApi.list(effectiveCompanyId!),
+    enabled: !!effectiveCompanyId && newIssueOpen,
+  });
+
+  const { data: memberUsers } = useQuery({
+    queryKey: queryKeys.access.memberUsers(effectiveCompanyId!),
+    queryFn: () => accessApi.listMemberUsers(effectiveCompanyId!),
     enabled: !!effectiveCompanyId && newIssueOpen,
   });
 
@@ -262,6 +279,9 @@ export function NewIssueDialog() {
       issuesApi.create(companyId, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.issues.list(effectiveCompanyId!) });
+      if (parentId) {
+        queryClient.invalidateQueries({ queryKey: queryKeys.issues.detail(parentId) });
+      }
       if (draftTimer.current) clearTimeout(draftTimer.current);
       clearDraft();
       reset();
@@ -434,8 +454,13 @@ export function NewIssueDialog() {
       description: description.trim() || undefined,
       status,
       priority: priority || "medium",
-      ...(assigneeId ? { assigneeAgentId: assigneeId } : {}),
+      ...(assigneeId
+        ? assigneeId.startsWith("user:")
+          ? { assigneeUserId: assigneeId.slice(5) }
+          : { assigneeAgentId: assigneeId }
+        : {}),
       ...(projectId ? { projectId } : {}),
+      ...(parentId ? { parentId } : {}),
       ...(assigneeAdapterOverrides ? { assigneeAdapterOverrides } : {}),
     });
   }
@@ -465,7 +490,9 @@ export function NewIssueDialog() {
   const hasDraft = title.trim().length > 0 || description.trim().length > 0;
   const currentStatus = statuses.find((s) => s.value === status) ?? statuses[1]!;
   const currentPriority = priorities.find((p) => p.value === priority);
-  const currentAssignee = (agents ?? []).find((a) => a.id === assigneeId);
+  const isUserAssignee = assigneeId.startsWith("user:");
+  const currentAssignee = isUserAssignee ? null : (agents ?? []).find((a) => a.id === assigneeId);
+  const currentAssigneeUser = isUserAssignee ? (memberUsers ?? []).find((u) => u.id === assigneeId.slice(5)) : null;
   const currentProject = orderedProjects.find((project) => project.id === projectId);
   const assigneeOptionsTitle =
     assigneeAdapterType === "claude_local"
@@ -482,18 +509,22 @@ export function NewIssueDialog() {
         ? ISSUE_THINKING_EFFORT_OPTIONS.opencode_local
       : ISSUE_THINKING_EFFORT_OPTIONS.claude_local;
   const recentAssigneeIds = useMemo(() => getRecentAssigneeIds(), [newIssueOpen]);
-  const assigneeOptions = useMemo<InlineEntityOption[]>(
-    () =>
-      sortAgentsByRecency(
-        (agents ?? []).filter((agent) => agent.status !== "terminated"),
-        recentAssigneeIds,
-      ).map((agent) => ({
-        id: agent.id,
-        label: agent.name,
-        searchText: `${agent.name} ${agent.role} ${agent.title ?? ""}`,
-      })),
-    [agents, recentAssigneeIds],
-  );
+  const assigneeOptions = useMemo<InlineEntityOption[]>(() => {
+    const userOptions: InlineEntityOption[] = (memberUsers ?? []).map((u) => ({
+      id: `user:${u.id}`,
+      label: u.name,
+      searchText: `${u.name} member user`,
+    }));
+    const agentOptions: InlineEntityOption[] = sortAgentsByRecency(
+      (agents ?? []).filter((agent) => agent.status !== "terminated"),
+      recentAssigneeIds,
+    ).map((agent) => ({
+      id: agent.id,
+      label: agent.name,
+      searchText: `${agent.name} ${agent.role} ${agent.title ?? ""}`,
+    }));
+    return [...userOptions, ...agentOptions];
+  }, [agents, memberUsers, recentAssigneeIds]);
   const projectOptions = useMemo<InlineEntityOption[]>(
     () =>
       orderedProjects.map((project) => ({
@@ -609,7 +640,7 @@ export function NewIssueDialog() {
               </PopoverContent>
             </Popover>
             <span className="text-muted-foreground/60">&rsaquo;</span>
-            <span>New issue</span>
+            <span>{parentId ? "New sub-issue" : "New issue"}</span>
           </div>
           <div className="flex items-center gap-1">
             <Button
@@ -630,6 +661,22 @@ export function NewIssueDialog() {
             </Button>
           </div>
         </div>
+
+        {/* Parent badge */}
+        {parentId && (
+          <div className="px-4 pt-3 pb-0 shrink-0">
+            <span className="inline-flex items-center gap-1.5 rounded-md border border-border bg-accent/30 px-2 py-1 text-xs text-muted-foreground">
+              <ListTree className="h-3 w-3" />
+              Sub-issue of
+              <span className="font-mono">
+                {parentIssue?.identifier ?? parentId.slice(0, 8)}
+              </span>
+              {parentIssue?.title && (
+                <span className="truncate max-w-[200px]">{parentIssue.title}</span>
+              )}
+            </span>
+          </div>
+        )}
 
         {/* Title */}
         <div className="px-4 pt-4 pb-2 shrink-0">
@@ -670,7 +717,7 @@ export function NewIssueDialog() {
                 noneLabel="No assignee"
                 searchPlaceholder="Search assignees..."
                 emptyMessage="No assignees found."
-                onChange={(id) => { if (id) trackRecentAssignee(id); setAssigneeId(id); }}
+                onChange={(id) => { if (id && !id.startsWith("user:")) trackRecentAssignee(id); setAssigneeId(id); }}
                 onConfirm={() => {
                   projectSelectorRef.current?.focus();
                 }}
@@ -680,12 +727,25 @@ export function NewIssueDialog() {
                       <AgentIcon icon={currentAssignee.icon} className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                       <span className="truncate">{option.label}</span>
                     </>
+                  ) : option && currentAssigneeUser ? (
+                    <>
+                      <User className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                      <span className="truncate">{option.label}</span>
+                    </>
                   ) : (
                     <span className="text-muted-foreground">Assignee</span>
                   )
                 }
                 renderOption={(option) => {
                   if (!option.id) return <span className="truncate">{option.label}</span>;
+                  if (option.id.startsWith("user:")) {
+                    return (
+                      <>
+                        <User className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                        <span className="truncate">{option.label}</span>
+                      </>
+                    );
+                  }
                   const assignee = (agents ?? []).find((agent) => agent.id === option.id);
                   return (
                     <>

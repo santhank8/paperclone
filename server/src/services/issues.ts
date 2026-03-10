@@ -1213,7 +1213,7 @@ export function issueService(db: Db) {
       }),
 
     findMentionedAgents: async (companyId: string, body: string) => {
-      const re = /\B@([^\s@,!?.]+)/g;
+      const re = /\B@([^\s@,!?.&]+)/g;
       const tokens = new Set<string>();
       let m: RegExpExecArray | null;
       while ((m = re.exec(body)) !== null) tokens.add(m[1].toLowerCase());
@@ -1387,6 +1387,22 @@ export function issueService(db: Db) {
         project: a.projectId ? projectMap.get(a.projectId) ?? null : null,
         goal: a.goalId ? goalMap.get(a.goalId) ?? null : null,
       }));
+    },
+
+    assignedToUserCount: async (companyId: string, userId: string) => {
+      const result = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(issues)
+        .where(
+          and(
+            eq(issues.companyId, companyId),
+            eq(issues.assigneeUserId, userId),
+            isNull(issues.hiddenAt),
+            inArray(issues.status, ["backlog", "todo", "in_progress", "in_review", "blocked"]),
+          ),
+        )
+        .then((rows) => rows[0]);
+      return Number(result?.count ?? 0);
     },
 
     staleCount: async (companyId: string, minutes = 60) => {
