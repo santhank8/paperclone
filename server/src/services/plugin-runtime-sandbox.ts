@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, realpathSync } from "node:fs";
 import path from "node:path";
 import vm from "node:vm";
 import type { PaperclipPluginManifestV1 } from "@paperclipai/shared";
@@ -89,19 +89,22 @@ export async function loadPluginModuleInSandbox(
   const moduleCache = new Map<string, Record<string, unknown>>();
   const allowedModules = options.allowedModules ?? {};
 
-  const loadModuleSync = (modulePath: string): Record<string, unknown> => {
-    const normalizedPath = resolveModulePathSync(path.resolve(modulePath));
+  const realPluginRoot = realpathSync(pluginRoot);
 
-    if (!isWithinRoot(normalizedPath, pluginRoot)) {
+  const loadModuleSync = (modulePath: string): Record<string, unknown> => {
+    const resolvedPath = resolveModulePathSync(path.resolve(modulePath));
+    const realPath = realpathSync(resolvedPath);
+
+    if (!isWithinRoot(realPath, realPluginRoot)) {
       throw new PluginSandboxError(
         `Import '${modulePath}' escapes plugin root and is not allowed`,
       );
     }
 
-    const cached = moduleCache.get(normalizedPath);
+    const cached = moduleCache.get(realPath);
     if (cached) return cached;
 
-    const code = readModuleSourceSync(normalizedPath);
+    const code = readModuleSourceSync(realPath);
 
     if (looksLikeEsm(code)) {
       throw new PluginSandboxError(
@@ -111,7 +114,7 @@ export async function loadPluginModuleInSandbox(
 
     const module = { exports: {} as Record<string, unknown> };
     // Cache the module before execution to preserve CommonJS cycle semantics.
-    moduleCache.set(normalizedPath, module.exports);
+    moduleCache.set(realPath, module.exports);
 
     const requireInSandbox = (specifier: string): Record<string, unknown> => {
       if (!specifier.startsWith(".") && !specifier.startsWith("/")) {
@@ -131,7 +134,7 @@ export async function loadPluginModuleInSandbox(
         return binding;
       }
 
-      const candidatePath = path.resolve(path.dirname(normalizedPath), specifier);
+      const candidatePath = path.resolve(path.dirname(realPath), specifier);
       return loadModuleSync(candidatePath);
     };
 
@@ -144,13 +147,13 @@ export async function loadPluginModuleInSandbox(
       __paperclip_exports: module.exports,
       __paperclip_module: module,
       __paperclip_require: requireInSandbox,
-      __paperclip_filename: normalizedPath,
-      __paperclip_dirname: path.dirname(normalizedPath),
+      __paperclip_filename: realPath,
+      __paperclip_dirname: path.dirname(realPath),
     };
     // Temporarily inject args into the context, run, then remove to avoid pollution.
     Object.assign(context, sandboxArgs);
     const wrapped = `(function (exports, module, require, __filename, __dirname) {\n${code}\n})(__paperclip_exports, __paperclip_module, __paperclip_require, __paperclip_filename, __paperclip_dirname)`;
-    const script = new vm.Script(wrapped, { filename: normalizedPath });
+    const script = new vm.Script(wrapped, { filename: realPath });
     try {
       script.runInContext(context, { timeout: timeoutMs });
     } finally {
@@ -161,7 +164,7 @@ export async function loadPluginModuleInSandbox(
     }
 
     const normalizedExports = normalizeModuleExports(module.exports);
-    moduleCache.set(normalizedPath, normalizedExports);
+    moduleCache.set(realPath, normalizedExports);
     return normalizedExports;
   };
 

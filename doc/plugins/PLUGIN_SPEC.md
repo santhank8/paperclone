@@ -32,7 +32,7 @@ The following spec sections are implemented on `feature/plugins`:
 | §24 Operator UX | Done | `ui/src/pages/PluginManager.tsx`, `PluginSettings.tsx` |
 
 Partially implemented:
-- §20 Local Tooling — workspace metadata (`ctx.projects.listWorkspaces`, `getPrimaryWorkspace`, `getWorkspaceForIssue`) and dev watcher are implemented; `devUiUrl` proxy is not yet wired
+- §20 Local Tooling — workspace metadata (`ctx.projects.listWorkspaces`, `getPrimaryWorkspace`, `getWorkspaceForIssue`), dev watcher, and `devUiUrl` proxy are implemented
 - §29 Compatibility / Versioning — single API version (v1) supported; multi-version loading and migration tooling deferred
 
 ## 1. Scope
@@ -1020,6 +1020,17 @@ Wildcard patterns use `.*` as the only supported glob token. They must appear at
 
 Wildcard subscriptions require the `events.subscribe` capability, same as exact subscriptions.
 
+### 16.4 Company-Scoped Event Delivery
+
+When an event carries a `companyId`, the host checks whether each subscribing plugin is enabled for that company before delivering the event. Plugins that are disabled for a company (via `plugin_company_settings.enabled = false`) do not receive that company's events.
+
+This check is performed at the event bus level so that:
+
+- disabled plugins never see events they should not act on
+- the check is cached with a short TTL (30 s) to avoid per-event database lookups
+- events without a `companyId` are delivered to all subscribers regardless of company availability
+- backwards compatibility is preserved: when no availability checker is configured (e.g. in tests), all events are delivered
+
 ## 17. Scheduled Jobs
 
 Plugins may declare scheduled jobs in their manifest.
@@ -1143,7 +1154,7 @@ The host serves the plugin's `dist/ui/` directory as static assets under a names
 
 When the host renders an extension slot, it dynamically imports the plugin's UI entry module from this path, resolves the named export declared in `ui.slots[].exportName`, and mounts it into the slot.
 
-In development, the host may support a `devUiUrl` override in plugin config that points to a local dev server (e.g. Vite) so plugin authors can use hot-reload during development without rebuilding.
+In development, the host proxies requests to the `devUiUrl` override in plugin config when it points to a local dev server (e.g. Vite), enabling hot-reload during development without rebuilding. The proxy is restricted to loopback addresses only (localhost, 127.0.0.1, ::1), enforces http/https protocols, blocks protocol-relative and scheme-override paths, and is disabled entirely in production mode. Only instance admins may set `devUiUrl` in plugin config.
 
 ### 19.0.4 Current UI Support Matrix
 
@@ -1638,14 +1649,32 @@ Plugin config must never persist raw secret values.
 
 Rules:
 
-1. Plugin config stores secret refs only.
+1. Plugin config stores secret refs (UUIDs) only.
 2. Secret refs resolve through the existing Paperclip secret provider system.
-3. Plugin workers receive resolved secrets only at execution time.
+3. Plugin workers receive resolved secrets only at execution time via `ctx.secrets.resolve(secretRef)`.
 4. Secret values must never be written to:
    - plugin config JSON
    - activity logs
    - webhook delivery rows
    - error messages
+
+### 22.1 Config Scoping
+
+The host restricts which secrets a plugin can resolve based on its current config:
+
+- Before resolving a secret, the host loads the plugin's `configJson` and extracts all UUID-shaped values from fields annotated with `format: "secret-ref"` in the plugin's `instanceConfigSchema`.
+- If the requested `secretRef` is not among those values, the host returns a "not found" error (to avoid leaking whether the secret exists).
+- When the plugin has no `instanceConfigSchema` or no `secret-ref` annotations, the host falls back to allowing any UUID present anywhere in the config (backwards compatibility).
+
+This ensures a plugin can only resolve secrets that an operator has explicitly placed in its configuration.
+
+### 22.2 Company Availability Check
+
+After matching the secret to the plugin's config, the host verifies that the plugin is available for the secret's owning company (via `plugin_company_settings`). This prevents cross-company secret access via UUID guessing.
+
+### 22.3 Rate Limiting
+
+The host rate-limits secret resolution attempts per plugin (30 attempts per minute) to prevent brute-force UUID enumeration.
 
 ## 23. Auditing
 

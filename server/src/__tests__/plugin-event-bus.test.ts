@@ -663,6 +663,101 @@ describe("createPluginEventBus", () => {
   });
 
   // -------------------------------------------------------------------------
+  // Company availability scoping
+  // -------------------------------------------------------------------------
+
+  describe("company availability scoping", () => {
+    it("skips delivery when plugin is disabled for the event's company", async () => {
+      const checkerBus = createPluginEventBus({
+        isPluginEnabledForCompany: async (_pluginId, companyId) =>
+          companyId !== "comp-disabled",
+      });
+
+      const handler = vi.fn().mockResolvedValue(undefined);
+      checkerBus.forPlugin("plugin-a").subscribe("issue.created", handler);
+
+      await checkerBus.emit(makeEvent({ companyId: "comp-disabled" }));
+      expect(handler).not.toHaveBeenCalled();
+
+      await checkerBus.emit(makeEvent({ companyId: "comp-enabled" }));
+      expect(handler).toHaveBeenCalledTimes(1);
+    });
+
+    it("delivers to enabled plugins and skips disabled ones for the same event", async () => {
+      const checkerBus = createPluginEventBus({
+        isPluginEnabledForCompany: async (pluginId, _companyId) =>
+          pluginId !== "plugin-disabled",
+      });
+
+      const enabledHandler = vi.fn().mockResolvedValue(undefined);
+      const disabledHandler = vi.fn().mockResolvedValue(undefined);
+      checkerBus.forPlugin("plugin-enabled").subscribe("issue.created", enabledHandler);
+      checkerBus.forPlugin("plugin-disabled").subscribe("issue.created", disabledHandler);
+
+      await checkerBus.emit(makeEvent({ companyId: "comp-1" }));
+
+      expect(enabledHandler).toHaveBeenCalledTimes(1);
+      expect(disabledHandler).not.toHaveBeenCalled();
+    });
+
+    it("delivers events without companyId even when checker is configured", async () => {
+      const checker = vi.fn().mockResolvedValue(true);
+      const checkerBus = createPluginEventBus({
+        isPluginEnabledForCompany: checker,
+      });
+
+      const handler = vi.fn().mockResolvedValue(undefined);
+      checkerBus.forPlugin("plugin-a").subscribe("issue.created", handler);
+
+      await checkerBus.emit(makeEvent({ companyId: undefined }));
+
+      expect(handler).toHaveBeenCalledTimes(1);
+      expect(checker).not.toHaveBeenCalled();
+    });
+
+    it("caches availability results across emit calls", async () => {
+      const checker = vi.fn().mockResolvedValue(true);
+      const checkerBus = createPluginEventBus({
+        isPluginEnabledForCompany: checker,
+      });
+
+      checkerBus.forPlugin("plugin-a").subscribe("issue.created", vi.fn().mockResolvedValue(undefined));
+
+      await checkerBus.emit(makeEvent({ companyId: "comp-1" }));
+      await checkerBus.emit(makeEvent({ companyId: "comp-1" }));
+      await checkerBus.emit(makeEvent({ companyId: "comp-1" }));
+
+      // Checker should only be called once thanks to caching
+      expect(checker).toHaveBeenCalledTimes(1);
+    });
+
+    it("plugin-emitted events are also subject to company scoping", async () => {
+      const checkerBus = createPluginEventBus({
+        isPluginEnabledForCompany: async (pluginId, _companyId) =>
+          pluginId !== "plugin-receiver",
+      });
+
+      const handler = vi.fn().mockResolvedValue(undefined);
+      checkerBus.forPlugin("plugin-receiver").subscribe("plugin.acme.linear.*", handler);
+
+      await checkerBus.forPlugin("acme.linear").emit("sync-done", "comp-1", {});
+
+      expect(handler).not.toHaveBeenCalled();
+    });
+
+    it("without a checker, all events are delivered (backwards-compatible)", async () => {
+      // Default bus (no options) — same as before
+      const handler = vi.fn().mockResolvedValue(undefined);
+      bus.forPlugin("plugin-a").subscribe("issue.created", handler);
+
+      await bus.emit(makeEvent({ companyId: "comp-1" }));
+      await bus.emit(makeEvent({ companyId: "comp-2" }));
+
+      expect(handler).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  // -------------------------------------------------------------------------
   // Re-subscribe after clear
   // -------------------------------------------------------------------------
 

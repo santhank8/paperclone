@@ -52,6 +52,8 @@ export {
 export {
   createPluginEventBus,
   type PluginEventBus,
+  type PluginEventBusOptions,
+  type CompanyAvailabilityChecker,
   type ScopedPluginEventBus,
   type PluginEventBusEmitResult,
 } from "./plugin-event-bus.js";

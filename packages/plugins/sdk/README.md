@@ -115,6 +115,8 @@ Subscribe in `setup` with `ctx.events.on(name, handler)` or `ctx.events.on(name,
 
 **Filter (optional):** Pass a second argument to `on()`: `{ projectId?, companyId?, agentId? }` so the host only delivers matching events.
 
+**Company-scoped delivery:** Events with a `companyId` are only delivered to plugins that are enabled for that company. If a company has disabled a plugin via settings, that plugin's handlers will not receive events belonging to that company. Events without a `companyId` are delivered to all subscribers.
+
 ## Scheduled (recurring) jobs
 
 Plugins can declare **scheduled jobs** that the host runs on a cron schedule. Use this for recurring tasks like syncs, digest reports, or cleanup.

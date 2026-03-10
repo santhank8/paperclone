@@ -455,17 +455,23 @@ Requires the `jobs.schedule` capability.
 
 ### Secrets and Config
 
-Never hardcode secrets. The plugin stores a secret **reference** (a name) in its config, and resolves it to the actual value at runtime.
+Never hardcode secrets. The plugin stores a secret **reference** (a UUID) in its config, and resolves it to the actual value at runtime. Mark secret fields in your `instanceConfigSchema` with `format: "secret-ref"` so the settings UI renders a secret picker and the host can scope resolution correctly.
 
 ```ts
-// In setup(), register a config validator
-// (You can also do this inline in onValidateConfig)
+// In your manifest:
+instanceConfigSchema: {
+  type: "object",
+  properties: {
+    apiKey: { type: "string", format: "secret-ref", title: "API Key" },
+  },
+  required: ["apiKey"],
+}
 
 // In your event handler or job handler:
 async function getApiKey(ctx: PluginContext): Promise<string> {
   const config = await ctx.config.get();
-  // config.apiKeyRef is the secret reference name (e.g. "LINEAR_API_KEY")
-  return ctx.secrets.resolve(config.apiKeyRef as string);
+  // config.apiKey is a secret UUID placed by the operator via the settings UI
+  return ctx.secrets.resolve(config.apiKey as string);
 }
 ```
 
@@ -473,6 +479,8 @@ async function getApiKey(ctx: PluginContext): Promise<string> {
 - Never log, cache, or store resolved secret values.
 - Resolve the secret just before use, every time.
 - Secrets are resolved through the host's secret provider at runtime.
+- The host only allows resolution of secrets that appear in the plugin's current `configJson` in fields annotated with `format: "secret-ref"`.
+- Mark all secret fields in your `instanceConfigSchema` with `format: "secret-ref"` for proper UI rendering and host-side scoping.
 
 Requires the `secrets.read-ref` capability.
 

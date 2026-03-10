@@ -1284,6 +1284,10 @@ export function pluginRoutes(
 
     assertCompanyAccess(req, companyId);
 
+    if (!await enforceCompanyPluginAvailability(companyId, plugin.id, res)) {
+      return;
+    }
+
     // Set SSE headers
     res.writeHead(200, {
       "Content-Type": "text/event-stream",
@@ -1694,6 +1698,16 @@ export function pluginRoutes(
     if (!body?.configJson || typeof body.configJson !== "object") {
       res.status(400).json({ error: '"configJson" is required and must be an object' });
       return;
+    }
+
+    // Strip devUiUrl unless the caller is an instance admin. devUiUrl activates
+    // a dev-proxy in the static file route that could be abused for SSRF if any
+    // board-level user were allowed to set it.
+    if (
+      "devUiUrl" in body.configJson &&
+      !(req.actor.type === "board" && req.actor.isInstanceAdmin)
+    ) {
+      delete body.configJson.devUiUrl;
     }
 
     // Validate configJson against the plugin's instanceConfigSchema (if declared).

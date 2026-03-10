@@ -135,6 +135,7 @@ describe("SSE stream bridge route", () => {
     registry.listByStatus.mockResolvedValue([]);
     registry.getById.mockResolvedValue(null);
     registry.getByKey.mockResolvedValue(null);
+    registry.getCompanyAvailability.mockResolvedValue({ available: true });
     streamBus = createPluginStreamBus();
   });
 

@@ -232,10 +232,19 @@ async function executePinnedHttpRequest(
     req.end();
   });
 
+  const MAX_RESPONSE_BODY_BYTES = 200 * 1024 * 1024; // 200 MB
   const chunks: Buffer[] = [];
+  let totalBytes = 0;
   await new Promise<void>((resolve, reject) => {
     response.on("data", (chunk: Buffer | string) => {
-      chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+      const buf = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+      totalBytes += buf.length;
+      if (totalBytes > MAX_RESPONSE_BODY_BYTES) {
+        chunks.length = 0;
+        response.destroy(new Error(`Response body exceeded ${MAX_RESPONSE_BODY_BYTES} bytes`));
+        return;
+      }
+      chunks.push(buf);
     });
     response.on("end", resolve);
     response.on("error", reject);
@@ -300,6 +309,54 @@ const LOG_BUFFER_FLUSH_SIZE = 100;
 
 /** How often (ms) the buffer is flushed regardless of size. */
 const LOG_BUFFER_FLUSH_INTERVAL_MS = 5_000;
+
+/** Max length for a single plugin log message (bytes/chars). */
+const MAX_LOG_MESSAGE_LENGTH = 10_000;
+
+/** Max serialised JSON size for plugin log meta objects. */
+const MAX_LOG_META_JSON_LENGTH = 50_000;
+
+/** Max length for a metric name. */
+const MAX_METRIC_NAME_LENGTH = 500;
+
+/** Pino reserved field names that plugins must not overwrite. */
+const PINO_RESERVED_KEYS = new Set([
+  "level",
+  "time",
+  "pid",
+  "hostname",
+  "msg",
+  "v",
+]);
+
+/** Truncate a string to `max` characters, appending a marker if truncated. */
+function truncStr(s: string, max: number): string {
+  if (s.length <= max) return s;
+  return s.slice(0, max) + "...[truncated]";
+}
+
+/** Sanitise a plugin-supplied meta object: enforce size limit and strip reserved keys. */
+function sanitiseMeta(meta: Record<string, unknown> | null | undefined): Record<string, unknown> | null {
+  if (meta == null) return null;
+  // Strip pino reserved keys
+  const cleaned: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(meta)) {
+    if (!PINO_RESERVED_KEYS.has(k)) {
+      cleaned[k] = v;
+    }
+  }
+  // Enforce total serialised size
+  let json: string;
+  try {
+    json = JSON.stringify(cleaned);
+  } catch {
+    return { _sanitised: true, _error: "meta was not JSON-serialisable" };
+  }
+  if (json.length > MAX_LOG_META_JSON_LENGTH) {
+    return { _sanitised: true, _error: `meta exceeded ${MAX_LOG_META_JSON_LENGTH} chars` };
+  }
+  return cleaned;
+}
 
 interface BufferedLogEntry {
   db: Db;
@@ -540,7 +597,8 @@ export function buildHostServices(
 
     metrics: {
       async write(params) {
-        logger.debug({ pluginId, ...params }, "Plugin metric write");
+        const safeName = truncStr(String(params.name ?? ""), MAX_METRIC_NAME_LENGTH);
+        logger.debug({ pluginId, name: safeName, value: params.value, tags: params.tags }, "Plugin metric write");
 
         // Persist metrics to plugin_logs via the batch buffer (same path as
         // logger.log) so they benefit from batched writes and are flushed
@@ -550,8 +608,8 @@ export function buildHostServices(
           db,
           pluginId,
           level: "metric",
-          message: params.name,
-          meta: { value: params.value, tags: params.tags ?? null },
+          message: safeName,
+          meta: sanitiseMeta({ value: params.value, tags: params.tags ?? null }),
         });
         if (_logBuffer.length >= LOG_BUFFER_FLUSH_SIZE) {
           flushPluginLogBuffer().catch((err) => {
@@ -563,18 +621,20 @@ export function buildHostServices(
 
     logger: {
       async log(params) {
-        const { level, message, meta } = params;
+        const { level, meta } = params;
+        const safeMessage = truncStr(String(params.message ?? ""), MAX_LOG_MESSAGE_LENGTH);
+        const safeMeta = sanitiseMeta(meta);
         const pluginLogger = logger.child({ service: "plugin-worker", pluginId });
         const logFields = {
-          ...meta,
+          ...safeMeta,
           pluginLogLevel: level,
           pluginTimestamp: new Date().toISOString(),
         };
 
-        if (level === "error") pluginLogger.error(logFields, `[plugin] ${message}`);
-        else if (level === "warn") pluginLogger.warn(logFields, `[plugin] ${message}`);
-        else if (level === "debug") pluginLogger.debug(logFields, `[plugin] ${message}`);
-        else pluginLogger.info(logFields, `[plugin] ${message}`);
+        if (level === "error") pluginLogger.error(logFields, `[plugin] ${safeMessage}`);
+        else if (level === "warn") pluginLogger.warn(logFields, `[plugin] ${safeMessage}`);
+        else if (level === "debug") pluginLogger.debug(logFields, `[plugin] ${safeMessage}`);
+        else pluginLogger.info(logFields, `[plugin] ${safeMessage}`);
 
         // Persist to plugin_logs table via the module-level batch buffer (§26.1).
         // Fire-and-forget — logging should never block the worker.
@@ -582,8 +642,8 @@ export function buildHostServices(
           db,
           pluginId,
           level: level ?? "info",
-          message: message ?? "",
-          meta: meta ?? null,
+          message: safeMessage,
+          meta: safeMeta,
         });
         if (_logBuffer.length >= LOG_BUFFER_FLUSH_SIZE) {
           flushPluginLogBuffer().catch((err) => {

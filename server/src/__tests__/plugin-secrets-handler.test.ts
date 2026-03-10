@@ -26,8 +26,11 @@ vi.mock("../secrets/provider-registry.js", () => ({
   }),
 }));
 
+const mockGetById = vi.hoisted(() => vi.fn().mockResolvedValue(null));
+
 vi.mock("../services/plugin-registry.js", () => ({
   pluginRegistryService: vi.fn().mockReturnValue({
+    getById: mockGetById,
     getCompanyAvailability: vi.fn().mockResolvedValue({
       companyId: "company-uuid-1",
       pluginId: "acme.test-plugin",
@@ -91,16 +94,18 @@ function makeVersionRow(overrides: Record<string, unknown> = {}) {
  * Build a mock DB that chains:
  *   db.select().from(table).where(cond) → resolves with `rows`
  *
- * Supports two successive select calls with different results
- * (one for the secret lookup, one for the version lookup).
+ * Supports three successive select calls with different results
+ * (config lookup, secret lookup, version lookup).
  */
 function makeMockDb(
   secretRows: unknown[],
   versionRows: unknown[] = [],
+  configRows: unknown[] = [{ configJson: { apiKey: SECRET_UUID } }],
 ) {
   // Each .select() call returns a fresh chain
+  // Order: 1) config lookup, 2) secret lookup, 3) version lookup
   let selectCallCount = 0;
-  const rowSets = [secretRows, versionRows];
+  const rowSets = [configRows, secretRows, versionRows];
 
   return {
     select: vi.fn().mockImplementation(() => ({
@@ -125,6 +130,8 @@ describe("createPluginSecretsHandler", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockResolveVersion.mockResolvedValue("resolved-secret-value");
+    // Default: plugin without instanceConfigSchema → fallback to UUID scan
+    mockGetById.mockResolvedValue({ manifestJson: {} });
   });
 
   // =========================================================================
@@ -139,7 +146,7 @@ describe("createPluginSecretsHandler", () => {
       const result = await handler.resolve({ secretRef: SECRET_UUID });
 
       expect(result).toBe("resolved-secret-value");
-      expect(db.select).toHaveBeenCalledTimes(2);
+      expect(db.select).toHaveBeenCalledTimes(3);
       expect(mockResolveVersion).toHaveBeenCalledWith({
         material: {
           scheme: "local_encrypted_v1",
@@ -244,8 +251,8 @@ describe("createPluginSecretsHandler", () => {
       await expect(handler.resolve({ secretRef: SECRET_UUID })).rejects.toThrow(
         "Secret not found",
       );
-      // Should have queried the DB once (for the secret) but NOT for the version
-      expect(db.select).toHaveBeenCalledTimes(1);
+      // Should have queried the DB twice (config + secret) but NOT for the version
+      expect(db.select).toHaveBeenCalledTimes(2);
       expect(mockResolveVersion).not.toHaveBeenCalled();
     });
   });
@@ -262,7 +269,7 @@ describe("createPluginSecretsHandler", () => {
       await expect(handler.resolve({ secretRef: SECRET_UUID })).rejects.toThrow(
         "No version found for secret",
       );
-      expect(db.select).toHaveBeenCalledTimes(2);
+      expect(db.select).toHaveBeenCalledTimes(3);
       expect(mockResolveVersion).not.toHaveBeenCalled();
     });
   });
@@ -324,6 +331,135 @@ describe("createPluginSecretsHandler", () => {
       expect(result1).toBe("value-1");
       expect(result2).toBe("value-2");
       expect(mockResolveVersion).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  // =========================================================================
+  // Config scoping — secrets must be referenced in plugin's configJson
+  // =========================================================================
+
+  describe("config scoping", () => {
+    it("rejects a valid secret UUID that is not in the plugin's configJson", async () => {
+      const OTHER_UUID = "11111111-2222-3333-4444-555555555555";
+      // Config references OTHER_UUID, but we request SECRET_UUID
+      const db = makeMockDb(
+        [makeSecretRow()],
+        [makeVersionRow()],
+        [{ configJson: { apiKey: OTHER_UUID } }],
+      );
+      handler = createPluginSecretsHandler({ db: db as never, pluginId: PLUGIN_ID });
+
+      await expect(handler.resolve({ secretRef: SECRET_UUID })).rejects.toThrow(
+        "Secret not found",
+      );
+      // Only the config query should have run; secret lookup should be skipped
+      expect(db.select).toHaveBeenCalledTimes(1);
+      expect(mockResolveVersion).not.toHaveBeenCalled();
+    });
+
+    it("rejects when plugin has no config row", async () => {
+      const db = makeMockDb(
+        [makeSecretRow()],
+        [makeVersionRow()],
+        [], // no config row
+      );
+      handler = createPluginSecretsHandler({ db: db as never, pluginId: PLUGIN_ID });
+
+      await expect(handler.resolve({ secretRef: SECRET_UUID })).rejects.toThrow(
+        "Secret not found",
+      );
+      expect(db.select).toHaveBeenCalledTimes(1);
+    });
+
+    it("rejects when configJson is empty", async () => {
+      const db = makeMockDb(
+        [makeSecretRow()],
+        [makeVersionRow()],
+        [{ configJson: {} }],
+      );
+      handler = createPluginSecretsHandler({ db: db as never, pluginId: PLUGIN_ID });
+
+      await expect(handler.resolve({ secretRef: SECRET_UUID })).rejects.toThrow(
+        "Secret not found",
+      );
+    });
+
+    it("finds secret refs in nested config objects", async () => {
+      const db = makeMockDb(
+        [makeSecretRow()],
+        [makeVersionRow()],
+        [{ configJson: { nested: { deep: { key: SECRET_UUID } } } }],
+      );
+      handler = createPluginSecretsHandler({ db: db as never, pluginId: PLUGIN_ID });
+
+      const result = await handler.resolve({ secretRef: SECRET_UUID });
+      expect(result).toBe("resolved-secret-value");
+    });
+
+    it("finds secret refs in config arrays", async () => {
+      const db = makeMockDb(
+        [makeSecretRow()],
+        [makeVersionRow()],
+        [{ configJson: { secrets: [SECRET_UUID] } }],
+      );
+      handler = createPluginSecretsHandler({ db: db as never, pluginId: PLUGIN_ID });
+
+      const result = await handler.resolve({ secretRef: SECRET_UUID });
+      expect(result).toBe("resolved-secret-value");
+    });
+
+    it("uses instanceConfigSchema to scope extraction to secret-ref fields only", async () => {
+      // Schema marks only `apiKey` as secret-ref; `projectId` is a plain string
+      mockGetById.mockResolvedValue({
+        manifestJson: {
+          instanceConfigSchema: {
+            type: "object",
+            properties: {
+              apiKey: { type: "string", format: "secret-ref" },
+              projectId: { type: "string" },
+            },
+          },
+        },
+      });
+
+      // configJson has SECRET_UUID in both fields, but only apiKey is a secret-ref
+      const db = makeMockDb(
+        [makeSecretRow()],
+        [makeVersionRow()],
+        [{ configJson: { apiKey: SECRET_UUID, projectId: SECRET_UUID } }],
+      );
+      handler = createPluginSecretsHandler({ db: db as never, pluginId: PLUGIN_ID });
+
+      // Should resolve — SECRET_UUID is in a secret-ref field
+      const result = await handler.resolve({ secretRef: SECRET_UUID });
+      expect(result).toBe("resolved-secret-value");
+    });
+
+    it("rejects UUID that only appears in non-secret-ref fields when schema is present", async () => {
+      const OTHER_UUID = "11111111-2222-3333-4444-555555555555";
+      mockGetById.mockResolvedValue({
+        manifestJson: {
+          instanceConfigSchema: {
+            type: "object",
+            properties: {
+              apiKey: { type: "string", format: "secret-ref" },
+              projectId: { type: "string" },
+            },
+          },
+        },
+      });
+
+      // SECRET_UUID only in projectId (not a secret-ref), apiKey has OTHER_UUID
+      const db = makeMockDb(
+        [makeSecretRow()],
+        [makeVersionRow()],
+        [{ configJson: { apiKey: OTHER_UUID, projectId: SECRET_UUID } }],
+      );
+      handler = createPluginSecretsHandler({ db: db as never, pluginId: PLUGIN_ID });
+
+      await expect(handler.resolve({ secretRef: SECRET_UUID })).rejects.toThrow(
+        "Secret not found",
+      );
     });
   });
 

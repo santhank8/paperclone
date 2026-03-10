@@ -161,7 +161,17 @@ export async function createApp(
       hostServiceCleanup?.handleWorkerEvent(event);
     },
   });
-  const eventBus = createPluginEventBus();
+  // Registry created early so the event bus can check company availability.
+  const pluginRegistry = pluginRegistryService(db);
+
+  const eventBus = createPluginEventBus({
+    async isPluginEnabledForCompany(pluginKey, companyId) {
+      const plugin = await pluginRegistry.getByKey(pluginKey);
+      if (!plugin) return false;
+      const availability = await pluginRegistry.getCompanyAvailability(companyId, plugin.id);
+      return availability?.available ?? true;
+    },
+  });
 
   // Bridge core domain events to the plugin event bus. This allows plugins to
   // react to things like issue creation, agent status changes, etc.
@@ -328,7 +338,6 @@ export async function createApp(
   });
 
   // Dev watcher — watches local-path plugins for file changes and restarts workers
-  const pluginRegistry = pluginRegistryService(db);
   const devWatcher = createPluginDevWatcher(
     lifecycle,
     async (pluginId) => (await pluginRegistry.getById(pluginId))?.packagePath ?? null,

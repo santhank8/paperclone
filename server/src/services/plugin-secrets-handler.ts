@@ -35,7 +35,7 @@
 
 import { eq, and, desc } from "drizzle-orm";
 import type { Db } from "@paperclipai/db";
-import { companySecrets, companySecretVersions } from "@paperclipai/db";
+import { companySecrets, companySecretVersions, pluginConfig } from "@paperclipai/db";
 import type { SecretProvider } from "@paperclipai/shared";
 import { getSecretProvider } from "../secrets/provider-registry.js";
 import { pluginRegistryService } from "./plugin-registry.js";
@@ -79,6 +79,86 @@ const UUID_RE =
  */
 function isUuid(value: string): boolean {
   return UUID_RE.test(value);
+}
+
+/**
+ * Collect the property paths (dot-separated keys) whose schema node declares
+ * `format: "secret-ref"`. Only top-level and nested `properties` are walked —
+ * this mirrors the flat/nested object shapes that `JsonSchemaForm` renders.
+ */
+function collectSecretRefPaths(
+  schema: Record<string, unknown> | null | undefined,
+): Set<string> {
+  const paths = new Set<string>();
+  if (!schema || typeof schema !== "object") return paths;
+
+  function walk(node: Record<string, unknown>, prefix: string): void {
+    const props = node.properties as Record<string, Record<string, unknown>> | undefined;
+    if (!props || typeof props !== "object") return;
+    for (const [key, propSchema] of Object.entries(props)) {
+      if (!propSchema || typeof propSchema !== "object") continue;
+      const path = prefix ? `${prefix}.${key}` : key;
+      if (propSchema.format === "secret-ref") {
+        paths.add(path);
+      }
+      // Recurse into nested object schemas
+      if (propSchema.type === "object") {
+        walk(propSchema, path);
+      }
+    }
+  }
+
+  walk(schema, "");
+  return paths;
+}
+
+/**
+ * Extract secret reference UUIDs from a plugin's configJson, scoped to only
+ * the fields annotated with `format: "secret-ref"` in the schema.
+ *
+ * When no schema is provided, falls back to collecting all UUID-shaped strings
+ * (backwards-compatible for plugins without a declared instanceConfigSchema).
+ */
+export function extractSecretRefsFromConfig(
+  configJson: unknown,
+  schema?: Record<string, unknown> | null,
+): Set<string> {
+  const refs = new Set<string>();
+  if (configJson == null || typeof configJson !== "object") return refs;
+
+  const secretPaths = collectSecretRefPaths(schema);
+
+  // If schema declares secret-ref paths, extract only those values.
+  if (secretPaths.size > 0) {
+    for (const dotPath of secretPaths) {
+      const keys = dotPath.split(".");
+      let current: unknown = configJson;
+      for (const k of keys) {
+        if (current == null || typeof current !== "object") { current = undefined; break; }
+        current = (current as Record<string, unknown>)[k];
+      }
+      if (typeof current === "string" && isUuid(current)) {
+        refs.add(current);
+      }
+    }
+    return refs;
+  }
+
+  // Fallback: no schema or no secret-ref annotations — collect all UUIDs.
+  // This preserves backwards compatibility for plugins that omit
+  // instanceConfigSchema.
+  function walkAll(value: unknown): void {
+    if (typeof value === "string") {
+      if (isUuid(value)) refs.add(value);
+    } else if (Array.isArray(value)) {
+      for (const item of value) walkAll(item);
+    } else if (value !== null && typeof value === "object") {
+      for (const v of Object.values(value as Record<string, unknown>)) walkAll(v);
+    }
+  }
+
+  walkAll(configJson);
+  return refs;
 }
 
 // ---------------------------------------------------------------------------
@@ -173,6 +253,10 @@ export function createPluginSecretsHandler(
   // Rate limit: max 30 resolution attempts per plugin per minute
   const rateLimiter = createRateLimiter(30, 60_000);
 
+  let cachedAllowedRefs: Set<string> | null = null;
+  let cachedAllowedRefsExpiry = 0;
+  const CONFIG_CACHE_TTL_MS = 30_000; // 30 seconds, matches event bus TTL
+
   return {
     async resolve(params: PluginSecretsResolveParams): Promise<string> {
       const { secretRef } = params;
@@ -197,6 +281,31 @@ export function createPluginSecretsHandler(
 
       if (!isUuid(trimmedRef)) {
         throw invalidSecretRef(trimmedRef);
+      }
+
+      // ---------------------------------------------------------------
+      // 1b. Scope check — only allow secrets referenced in this plugin's config
+      // ---------------------------------------------------------------
+      const now = Date.now();
+      if (!cachedAllowedRefs || now > cachedAllowedRefsExpiry) {
+        const [configRow, plugin] = await Promise.all([
+          db
+            .select()
+            .from(pluginConfig)
+            .where(eq(pluginConfig.pluginId, pluginId))
+            .then((rows) => rows[0] ?? null),
+          registry.getById(pluginId),
+        ]);
+
+        const schema = (plugin?.manifestJson as unknown as Record<string, unknown> | null)
+          ?.instanceConfigSchema as Record<string, unknown> | undefined;
+        cachedAllowedRefs = extractSecretRefsFromConfig(configRow?.configJson, schema);
+        cachedAllowedRefsExpiry = now + CONFIG_CACHE_TTL_MS;
+      }
+
+      if (!cachedAllowedRefs.has(trimmedRef)) {
+        // Return "not found" to avoid leaking whether the secret exists
+        throw secretNotFound(trimmedRef);
       }
 
       // ---------------------------------------------------------------
