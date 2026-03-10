@@ -178,6 +178,14 @@
   background: oklch(0.5 0 0);
 }
 
+/* Completely hidden scrollbar (scrollable via touch/keyboard, no visible bar) */
+.scrollbar-none {
+  scrollbar-width: none; /* Firefox */
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Edge */
+}
+
 /* Auto-hide scrollbar: transparent by default, visible on container hover */
 .scrollbar-auto-hide::-webkit-scrollbar-thumb {
   background: transparent !important;
