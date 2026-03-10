@@ -77,6 +77,11 @@ interface ProjectWorkspaceUpdateOptions extends BaseClientOptions {
   notPrimary?: boolean;
 }
 
+interface ProjectWorkspaceDeleteOptions extends BaseClientOptions {
+  companyId?: string;
+  yes?: boolean;
+}
+
 function parseCsv(value: string | undefined): string[] {
   if (!value) return [];
   return value
@@ -455,6 +460,34 @@ export function registerProjectCommands(program: Command): void {
             payload,
           );
           printOutput(updated, { json: ctx.json });
+        } catch (err) {
+          handleCommandError(err);
+        }
+      }),
+    { includeCompany: true },
+  );
+
+  addCommonClientOptions(
+    workspace
+      .command("delete")
+      .description("Delete a project workspace")
+      .argument("<projectIdOrReference>", "Project ID or shortname/url-key")
+      .argument("<workspaceId>", "Workspace ID")
+      .option("--yes", "Required safety flag to confirm workspace deletion", false)
+      .action(async (
+        projectIdOrReference: string,
+        workspaceId: string,
+        opts: ProjectWorkspaceDeleteOptions,
+      ) => {
+        try {
+          if (!opts.yes) {
+            throw new Error("Workspace deletion requires --yes.");
+          }
+          const ctx = resolveCommandContext(opts);
+          const deleted = await ctx.api.delete<ProjectWorkspace>(
+            buildProjectWorkspacePath(projectIdOrReference, workspaceId, ctx.companyId),
+          );
+          printOutput(deleted, { json: ctx.json });
         } catch (err) {
           handleCommandError(err);
         }
