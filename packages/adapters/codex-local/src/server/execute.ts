@@ -10,6 +10,7 @@ import {
   asStringArray,
   parseObject,
   buildPaperclipEnv,
+  buildWakeContextSuffix,
   redactEnvForLogs,
   ensureAbsoluteDirectory,
   ensureCommandResolvable,
@@ -50,6 +51,7 @@ function firstNonEmptyLine(text: string): string {
       .find(Boolean) ?? ""
   );
 }
+
 
 function hasNonEmptyEnvValue(env: Record<string, string>, key: string): boolean {
   const raw = env[key];
@@ -278,7 +280,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     run: { id: runId, source: "on_demand" },
     context,
   });
-  const prompt = `${instructionsPrefix}${renderedPrompt}`;
+  const prompt = `${instructionsPrefix}${renderedPrompt}${buildWakeContextSuffix(context, env)}`;
 
   const buildArgs = (resumeSessionId: string | null) => {
     const args = ["exec", "--json"];

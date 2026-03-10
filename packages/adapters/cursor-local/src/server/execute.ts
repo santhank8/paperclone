@@ -10,6 +10,7 @@ import {
   asStringArray,
   parseObject,
   buildPaperclipEnv,
+  buildWakeContextSuffix,
   redactEnvForLogs,
   ensureAbsoluteDirectory,
   ensureCommandResolvable,
@@ -326,7 +327,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     context,
   });
   const paperclipEnvNote = renderPaperclipEnvNote(env);
-  const prompt = `${instructionsPrefix}${paperclipEnvNote}${renderedPrompt}`;
+  const prompt = `${instructionsPrefix}${paperclipEnvNote}${renderedPrompt}${buildWakeContextSuffix(context, env)}`;
 
   const buildArgs = (resumeSessionId: string | null) => {
     const args = ["-p", "--output-format", "stream-json", "--workspace", cwd];

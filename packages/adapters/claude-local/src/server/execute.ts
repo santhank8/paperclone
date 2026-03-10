@@ -12,6 +12,7 @@ import {
   parseObject,
   parseJson,
   buildPaperclipEnv,
+  buildWakeContextSuffix,
   redactEnvForLogs,
   ensureAbsoluteDirectory,
   ensureCommandResolvable,
@@ -42,25 +43,63 @@ async function resolvePaperclipSkillsDir(): Promise<string | null> {
 }
 
 /**
- * Create a tmpdir with `.claude/skills/` containing symlinks to skills from
+ * Create a dir with `.claude/skills/` containing symlinks to skills from
  * the repo's `skills/` directory, so `--add-dir` makes Claude Code discover
  * them as proper registered skills.
+ *
+ * The directory is cached across runs to avoid redundant tmpdir creation.
+ * Symlinks point at the canonical skills source so content changes are
+ * picked up automatically; we only rebuild when the set of skill
+ * sub-directories changes (new skill added / removed).
  */
-async function buildSkillsDir(): Promise<string> {
+let _cachedSkillsDir: string | null = null;
+let _cachedSkillsFingerprint: string | null = null;
+
+/** @internal — exported for testing only. */
+export function _resetSkillsDirCache() {
+  _cachedSkillsDir = null;
+  _cachedSkillsFingerprint = null;
+}
+
+/** @internal — exported for testing only. */
+export async function buildSkillsDir(): Promise<string> {
+  const skillsDir = await resolvePaperclipSkillsDir();
+
+  // Read skill directory entries once and reuse for both fingerprinting and
+  // symlink creation to avoid a redundant readdir + TOCTOU window.
+  let fingerprint = "";
+  let skillEntries: import("node:fs").Dirent[] = [];
+  if (skillsDir) {
+    skillEntries = await fs.readdir(skillsDir, { withFileTypes: true });
+    fingerprint = skillEntries
+      .filter((e) => e.isDirectory())
+      .map((e) => e.name)
+      .sort()
+      .join("\0");
+  }
+
+  if (_cachedSkillsDir && _cachedSkillsFingerprint === fingerprint) {
+    // Verify the cached directory still exists on disk.
+    const exists = await fs.stat(_cachedSkillsDir).then(() => true).catch(() => false);
+    if (exists) return _cachedSkillsDir;
+  }
+
   const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "paperclip-skills-"));
   const target = path.join(tmp, ".claude", "skills");
   await fs.mkdir(target, { recursive: true });
-  const skillsDir = await resolvePaperclipSkillsDir();
-  if (!skillsDir) return tmp;
-  const entries = await fs.readdir(skillsDir, { withFileTypes: true });
-  for (const entry of entries) {
+  for (const entry of skillEntries) {
     if (entry.isDirectory()) {
       await fs.symlink(
-        path.join(skillsDir, entry.name),
+        path.join(skillsDir!, entry.name),
         path.join(target, entry.name),
       );
     }
   }
+
+  // Previous cached dir (if any) is left for OS temp cleanup rather than
+  // eagerly deleted — concurrent runs may still reference it.
+  _cachedSkillsDir = tmp;
+  _cachedSkillsFingerprint = fingerprint;
   return tmp;
 }
 
@@ -313,7 +352,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
   if (instructionsFilePath) {
     const instructionsContent = await fs.readFile(instructionsFilePath, "utf-8");
     const pathDirective = `\nThe above agent instructions were loaded from ${instructionsFilePath}. Resolve any relative file references from ${instructionsFileDir}.`;
-    const combinedPath = path.join(skillsDir, "agent-instructions.md");
+    const combinedPath = path.join(skillsDir, `agent-instructions-${runId}.md`);
     await fs.writeFile(combinedPath, instructionsContent + pathDirective, "utf-8");
     effectiveInstructionsFilePath = combinedPath;
   }
@@ -331,7 +370,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
       `[paperclip] Claude session "${runtimeSessionId}" was saved for cwd "${runtimeSessionCwd}" and will not be resumed in "${cwd}".\n`,
     );
   }
-  const prompt = renderTemplate(promptTemplate, {
+  const basePrompt = renderTemplate(promptTemplate, {
     agentId: agent.id,
     companyId: agent.companyId,
     runId,
@@ -340,6 +379,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     run: { id: runId, source: "on_demand" },
     context,
   });
+  const prompt = basePrompt + buildWakeContextSuffix(context, env);
 
   const buildClaudeArgs = (resumeSessionId: string | null) => {
     const args = ["--print", "-", "--output-format", "stream-json", "--verbose"];
@@ -500,6 +540,11 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     };
   };
 
+  // Clean up per-run instructions file after execution (skills dir is cached).
+  const runInstructionsPath = instructionsFilePath
+    ? path.join(skillsDir, `agent-instructions-${runId}.md`)
+    : null;
+
   try {
     const initial = await runAttempt(sessionId ?? null);
     if (
@@ -519,6 +564,8 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
 
     return toAdapterResult(initial, { fallbackSessionId: runtimeSessionId || runtime.sessionId });
   } finally {
-    fs.rm(skillsDir, { recursive: true, force: true }).catch(() => {});
+    if (runInstructionsPath) {
+      fs.rm(runInstructionsPath, { force: true }).catch(() => {});
+    }
   }
 }
