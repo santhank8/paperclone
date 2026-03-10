@@ -53,6 +53,14 @@ export type {
   InstanceUserRoleGrant,
 } from "./access.js";
 export type {
+  PluginManifestV1,
+  PluginInstallRecord,
+  PluginToolDeclaration,
+  PluginJobDeclaration,
+  PluginWebhookDeclaration,
+  PluginUiSlotDeclaration,
+} from "./plugin.js";
+export type {
   CompanyPortabilityInclude,
   CompanyPortabilitySecretRequirement,
   CompanyPortabilityCompanyManifestEntry,

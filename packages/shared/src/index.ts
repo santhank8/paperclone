@@ -61,6 +61,11 @@ export {
   type JoinRequestType,
   type JoinRequestStatus,
   type PermissionKey,
+  PLUGIN_CATEGORIES,
+  PLUGIN_STATUSES,
+  type JsonSchema,
+  type PluginCategory,
+  type PluginStatus,
 } from "./constants.js";
 
 export type {
@@ -118,6 +123,12 @@ export type {
   CompanyPortabilityImportRequest,
   CompanyPortabilityImportResult,
   CompanyPortabilityExportRequest,
+  PluginManifestV1,
+  PluginInstallRecord,
+  PluginToolDeclaration,
+  PluginJobDeclaration,
+  PluginWebhookDeclaration,
+  PluginUiSlotDeclaration,
   EnvBinding,
   AgentEnvConfig,
   CompanySecret,

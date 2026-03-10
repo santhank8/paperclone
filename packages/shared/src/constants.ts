@@ -212,6 +212,9 @@ export const LIVE_EVENT_TYPES = [
   "heartbeat.run.log",
   "agent.status",
   "activity.logged",
+  "plugin.loaded",
+  "plugin.failed",
+  "plugin.unloaded",
 ] as const;
 export type LiveEventType = (typeof LIVE_EVENT_TYPES)[number];
 
@@ -245,3 +248,26 @@ export const PERMISSION_KEYS = [
   "joins:approve",
 ] as const;
 export type PermissionKey = (typeof PERMISSION_KEYS)[number];
+
+// ---------------------------------------------------------------------------
+// Plugin system
+// ---------------------------------------------------------------------------
+
+/** Generic JSON Schema type used by plugin manifests */
+export type JsonSchema = Record<string, unknown>;
+
+export const PLUGIN_CATEGORIES = [
+  "connector",
+  "workspace",
+  "automation",
+  "ui",
+] as const;
+export type PluginCategory = (typeof PLUGIN_CATEGORIES)[number];
+
+export const PLUGIN_STATUSES = [
+  "installing",
+  "ready",
+  "error",
+  "uninstalling",
+] as const;
+export type PluginStatus = (typeof PLUGIN_STATUSES)[number];
