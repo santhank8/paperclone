@@ -156,6 +156,8 @@ export function IssueDetail() {
   const [moreOpen, setMoreOpen] = useState(false);
   const [mobilePropsOpen, setMobilePropsOpen] = useState(false);
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
+  const [isDescriptionOverflowing, setIsDescriptionOverflowing] = useState(false);
+  const descriptionRef = useRef<HTMLDivElement>(null);
   const [detailTab, setDetailTab] = useState("comments");
   const [secondaryOpen, setSecondaryOpen] = useState({
     approvals: false,
@@ -508,6 +510,17 @@ export function IssueDetail() {
     return () => closePanel();
   }, [issue]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Reset description expanded state when navigating between issues
+  useEffect(() => {
+    setIsDescriptionExpanded(false);
+  }, [issueId]);
+
+  // Detect whether description actually overflows the collapsed height
+  useEffect(() => {
+    const el = descriptionRef.current;
+    if (el) setIsDescriptionOverflowing(el.scrollHeight > el.clientHeight);
+  }, [issue?.description]);
+
   if (isLoading) return <p className="text-sm text-muted-foreground">Loading...</p>;
   if (error) return <p className="text-sm text-destructive">{error.message}</p>;
   if (!issue) return null;
@@ -669,13 +682,12 @@ export function IssueDetail() {
           className="text-xl font-bold"
         />
 
-        <div className="space-y-1">
+        <Collapsible open={isDescriptionExpanded} onOpenChange={setIsDescriptionExpanded}>
           <div
+            ref={descriptionRef}
             className={cn(
               "overflow-hidden transition-all duration-200",
-              isDescriptionExpanded
-                ? "max-h-screen overflow-y-auto"
-                : "max-h-32",
+              isDescriptionExpanded ? "max-h-screen overflow-y-auto" : "max-h-32",
             )}
           >
             <InlineEditor
@@ -692,12 +704,8 @@ export function IssueDetail() {
               }}
             />
           </div>
-          {(issue.description ?? "").length > 0 && (
-            <button
-              type="button"
-              onClick={() => setIsDescriptionExpanded((prev) => !prev)}
-              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
-            >
+          {isDescriptionOverflowing && (
+            <CollapsibleTrigger className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors mt-1">
               <ChevronDown
                 className={cn(
                   "h-3.5 w-3.5 transition-transform duration-200",
@@ -705,9 +713,9 @@ export function IssueDetail() {
                 )}
               />
               {isDescriptionExpanded ? "Hide description" : "Show description"}
-            </button>
+            </CollapsibleTrigger>
           )}
-        </div>
+        </Collapsible>
       </div>
 
       <div className="space-y-3">
@@ -894,21 +902,23 @@ export function IssueDetail() {
                 </div>
               </div>
             )}
-            <Button
-              variant="outline"
-              size="sm"
-              className="w-full text-muted-foreground"
-              onClick={() =>
-                openNewIssue({
-                  parentId: issue.id,
-                  ...(issue.projectId ? { projectId: issue.projectId } : {}),
-                  ...(issue.goalId ? { goalId: issue.goalId } : {}),
-                })
-              }
-            >
-              <Plus className="h-3.5 w-3.5 mr-1.5" />
-              Create sub-issue
-            </Button>
+            {!issue.parentId && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full text-muted-foreground"
+                onClick={() =>
+                  openNewIssue({
+                    parentId: issue.id,
+                    ...(issue.projectId ? { projectId: issue.projectId } : {}),
+                    ...(issue.goalId ? { goalId: issue.goalId } : {}),
+                  })
+                }
+              >
+                <Plus className="h-3.5 w-3.5 mr-1.5" />
+                Create sub-issue
+              </Button>
+            )}
           </div>
         </TabsContent>
 
