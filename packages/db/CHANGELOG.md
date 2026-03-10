@@ -22,7 +22,7 @@
 
 ### Patch Changes
 
-- **Migration fix (0026_plugin_tables)**: Added the missing SQL migration file for all plugin tables. The schema files (`plugins.ts`, `plugin_config.ts`, `plugin_state.ts`, `plugin_entities.ts`, `plugin_jobs.ts`, `plugin_webhooks.ts`) were present but `drizzle-kit generate` had not been run, so the tables were never created in the database. The server would fail at startup with `relation "plugins" does not exist`. The migration creates all 7 plugin tables with correct foreign keys, indexes, and the `NULLS NOT DISTINCT` unique constraint on `plugin_state`. Updated `_journal.json` to include the new entry at index 26.
+- **Migration fix (0028_plugin_tables)**: Added the missing SQL migration file for all plugin tables. The schema files (`plugins.ts`, `plugin_config.ts`, `plugin_state.ts`, `plugin_entities.ts`, `plugin_jobs.ts`, `plugin_webhooks.ts`) were present but `drizzle-kit generate` had not been run, so the tables were never created in the database. The server would fail at startup with `relation "plugins" does not exist`. The migration creates all 7 plugin tables with correct foreign keys, indexes, and the `NULLS NOT DISTINCT` unique constraint on `plugin_state`. The plugin migration runs after the worktree migrations (0026_lying_pete_wisdom, 0027_tranquil_tenebrous). Updated `_journal.json` to include the new entry at index 28.
 
 ## 0.2.8
 

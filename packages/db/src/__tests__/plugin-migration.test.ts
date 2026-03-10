@@ -1,5 +1,5 @@
 /**
- * Tests for the plugin tables migration (0026_plugin_tables).
+ * Tests for the plugin tables migration (0028_plugin_tables).
  *
  * These tests validate the migration artifacts without requiring a live
  * database connection:
@@ -19,7 +19,7 @@ import * as schema from "../schema/index.js";
 // ---------------------------------------------------------------------------
 
 const MIGRATION_FILE = new URL(
-  "../migrations/0026_plugin_tables.sql",
+  "../migrations/0028_plugin_tables.sql",
   import.meta.url,
 ).pathname;
 
@@ -49,7 +49,7 @@ async function readJournal(): Promise<{ version: string; dialect: string; entrie
 // Migration SQL file — existence and basic structure
 // ===========================================================================
 
-describe("0026_plugin_tables.sql — file structure", () => {
+describe("0028_plugin_tables.sql — file structure", () => {
   it("the migration file exists and is readable", async () => {
     const content = await readMigrationSql();
     expect(content.length).toBeGreaterThan(0);
@@ -71,7 +71,7 @@ describe("0026_plugin_tables.sql — file structure", () => {
 // CREATE TABLE statements
 // ===========================================================================
 
-describe("0026_plugin_tables.sql — CREATE TABLE statements", () => {
+describe("0028_plugin_tables.sql — CREATE TABLE statements", () => {
   const expectedTables = [
     "plugins",
     "plugin_config",
@@ -193,7 +193,7 @@ describe("plugin_state table — unique constraint", () => {
 // Foreign keys — cascade delete
 // ===========================================================================
 
-describe("0026_plugin_tables.sql — foreign key constraints", () => {
+describe("0028_plugin_tables.sql — foreign key constraints", () => {
   const expectedForeignKeys = [
     { constraint: "plugin_config_plugin_id_plugins_id_fk", table: "plugin_config", references: "plugins" },
     { constraint: "plugin_state_plugin_id_plugins_id_fk", table: "plugin_state", references: "plugins" },
@@ -220,7 +220,7 @@ describe("0026_plugin_tables.sql — foreign key constraints", () => {
 // Unique indexes — uniqueIndex() columns
 // ===========================================================================
 
-describe("0026_plugin_tables.sql — CREATE UNIQUE INDEX statements", () => {
+describe("0028_plugin_tables.sql — CREATE UNIQUE INDEX statements", () => {
   const expectedUniqueIndexes = [
     { name: "plugins_plugin_key_idx", table: "plugins", columns: '"plugin_key"' },
     { name: "plugin_config_plugin_id_idx", table: "plugin_config", columns: '"plugin_id"' },
@@ -241,7 +241,7 @@ describe("0026_plugin_tables.sql — CREATE UNIQUE INDEX statements", () => {
 // Regular indexes
 // ===========================================================================
 
-describe("0026_plugin_tables.sql — CREATE INDEX statements (non-unique)", () => {
+describe("0028_plugin_tables.sql — CREATE INDEX statements (non-unique)", () => {
   const expectedIndexes = [
     { name: "plugins_status_idx", table: "plugins", columns: '"status"' },
     { name: "plugin_entities_plugin_idx", table: "plugin_entities", columns: '"plugin_id"' },
@@ -271,10 +271,10 @@ describe("0026_plugin_tables.sql — CREATE INDEX statements (non-unique)", () =
 });
 
 // ===========================================================================
-// _journal.json — entry for migration 0026
+// _journal.json — entry for migration 0028
 // ===========================================================================
 
-describe("_journal.json — migration 0026_plugin_tables entry", () => {
+describe("_journal.json — migration 0028_plugin_tables entry", () => {
   it("has a valid journal file", async () => {
     const journal = await readJournal();
     expect(journal.version).toBe("7");
@@ -282,42 +282,42 @@ describe("_journal.json — migration 0026_plugin_tables entry", () => {
     expect(Array.isArray(journal.entries)).toBe(true);
   });
 
-  it("includes an entry for 0026_plugin_tables", async () => {
+  it("includes an entry for 0028_plugin_tables", async () => {
     const journal = await readJournal();
-    const entry = journal.entries.find((e) => e.tag === "0026_plugin_tables");
+    const entry = journal.entries.find((e) => e.tag === "0028_plugin_tables");
     expect(entry).toBeDefined();
   });
 
-  it("entry has idx 26", async () => {
+  it("entry has idx 28", async () => {
     const journal = await readJournal();
-    const entry = journal.entries.find((e) => e.tag === "0026_plugin_tables");
-    expect(entry?.idx).toBe(26);
+    const entry = journal.entries.find((e) => e.tag === "0028_plugin_tables");
+    expect(entry?.idx).toBe(28);
   });
 
   it("entry has version '7'", async () => {
     const journal = await readJournal();
-    const entry = journal.entries.find((e) => e.tag === "0026_plugin_tables");
+    const entry = journal.entries.find((e) => e.tag === "0028_plugin_tables");
     expect(entry?.version).toBe("7");
   });
 
   it("entry has breakpoints: true", async () => {
     const journal = await readJournal();
-    const entry = journal.entries.find((e) => e.tag === "0026_plugin_tables");
+    const entry = journal.entries.find((e) => e.tag === "0028_plugin_tables");
     expect(entry?.breakpoints).toBe(true);
   });
 
-  it("entry 'when' timestamp is after migration 0025 (chronological order)", async () => {
+  it("entry 'when' timestamp is after migration 0027 (plugin after worktree)", async () => {
     const journal = await readJournal();
-    const entry0025 = journal.entries.find((e) => e.tag === "0025_nasty_salo");
-    const entry0026 = journal.entries.find((e) => e.tag === "0026_plugin_tables");
-    expect(entry0025).toBeDefined();
-    expect(entry0026).toBeDefined();
-    expect(entry0026!.when).toBeGreaterThan(entry0025!.when);
+    const entry0027 = journal.entries.find((e) => e.tag === "0027_tranquil_tenebrous");
+    const entry0028 = journal.entries.find((e) => e.tag === "0028_plugin_tables");
+    expect(entry0027).toBeDefined();
+    expect(entry0028).toBeDefined();
+    expect(entry0028!.when).toBeGreaterThan(entry0027!.when);
   });
 
   it("entry 'when' is a finite positive integer", async () => {
     const journal = await readJournal();
-    const entry = journal.entries.find((e) => e.tag === "0026_plugin_tables");
+    const entry = journal.entries.find((e) => e.tag === "0028_plugin_tables");
     expect(typeof entry?.when).toBe("number");
     expect(Number.isFinite(entry?.when)).toBe(true);
     expect(entry!.when).toBeGreaterThan(0);

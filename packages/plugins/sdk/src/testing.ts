@@ -391,6 +391,7 @@ export function createTestHarness(options: TestHarnessOptions): TestHarness {
           completedAt: null,
           cancelledAt: null,
           hiddenAt: null,
+          executionWorkspaceSettings: null,
           createdAt: now,
           updatedAt: now,
         };

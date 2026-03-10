@@ -58,6 +58,9 @@ export async function createApp(
     bindHost: string;
     authReady: boolean;
     companyDeletionEnabled: boolean;
+    localPluginDir?: string;
+    instanceId?: string;
+    hostVersion?: string;
     betterAuthHandler?: express.RequestHandler;
     resolveSession?: (req: ExpressRequest) => Promise<BetterAuthSessionResult | null>;
   },
