@@ -17,6 +17,7 @@ import {
   useSortable,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
+import { ChevronRight } from "lucide-react";
 import { StatusIcon } from "./StatusIcon";
 import { PriorityIcon } from "./PriorityIcon";
 import { Identity } from "./Identity";
@@ -202,14 +203,15 @@ function KanbanCard({
       {subtasks && subtasks.length > 0 && onToggleSubtasks && (
         <div>
           <button
-            className="flex items-center gap-1 px-2 pt-1.5 pb-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors w-full text-left"
+            className="flex items-center gap-1.5 px-2 pt-2 pb-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors w-full text-left border-t border-border/50 mt-1"
             onClick={(e) => {
               e.stopPropagation();
               onToggleSubtasks(issue.id);
             }}
           >
-            <span>{isExpanded ? "⬆️" : "⬇️"}</span>
-            <span>Subtasks ({subtasks.length})</span>
+            <ChevronRight className={`h-3 w-3 shrink-0 transition-transform duration-150 ${isExpanded ? "rotate-90" : ""}`} />
+            <span className="font-medium">{isExpanded ? "Hide subtasks" : "Show subtasks"}</span>
+            <span className="text-muted-foreground/60">({subtasks.length})</span>
           </button>
           {isExpanded && (
             <div className="px-1 pb-1.5">
