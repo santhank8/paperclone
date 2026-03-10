@@ -38,12 +38,14 @@ FROM base AS production
 WORKDIR /app
 COPY --chown=node:node --from=build /app /app
 RUN arch="$(dpkg --print-architecture)" \
+  && codex_vendor_bin='' \
   && case "$arch" in \
-    amd64) codex_pkg='@openai/codex@linux-x64' ;; \
-    arm64) codex_pkg='@openai/codex@linux-arm64' ;; \
+    amd64) codex_pkg='@openai/codex@linux-x64'; codex_vendor_bin='/usr/local/lib/node_modules/@openai/codex/vendor/x86_64-unknown-linux-musl/codex/codex' ;; \
+    arm64) codex_pkg='@openai/codex@linux-arm64'; codex_vendor_bin='/usr/local/lib/node_modules/@openai/codex/vendor/aarch64-unknown-linux-musl/codex/codex' ;; \
     *) codex_pkg='@openai/codex@latest' ;; \
   esac \
   && npm install --global --omit=dev @anthropic-ai/claude-code@latest "$codex_pkg" opencode-ai \
+  && if [ -n "$codex_vendor_bin" ] && [ -f "$codex_vendor_bin" ]; then ln -sf "$codex_vendor_bin" /usr/local/bin/codex; fi \
   && mkdir -p /paperclip \
   && chown node:node /paperclip
 
