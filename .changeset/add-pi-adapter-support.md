@@ -1,5 +1,6 @@
 ---
+"@paperclipai/adapter-pi-local": minor
 "@paperclipai/shared": minor
 ---
 
-Add support for Pi local adapter in constants and onboarding UI.
+Add Pi local adapter with full server/UI/CLI modules and documentation.
