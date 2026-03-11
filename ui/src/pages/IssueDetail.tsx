@@ -465,6 +465,9 @@ export function IssueDetail() {
     },
   });
 
+  const markIssueReadMutate = markIssueRead.mutate;
+  const updateIssueMutate = updateIssue.mutate;
+
   useEffect(() => {
     const titleLabel = issue?.title ?? issueId ?? "Issue";
     setBreadcrumbs([
@@ -484,17 +487,17 @@ export function IssueDetail() {
     if (!issue?.id) return;
     if (lastMarkedReadIssueIdRef.current === issue.id) return;
     lastMarkedReadIssueIdRef.current = issue.id;
-    markIssueRead.mutate(issue.id);
-  }, [issue?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+    markIssueReadMutate(issue.id);
+  }, [issue?.id, markIssueReadMutate]);
 
   useEffect(() => {
     if (issue) {
       openPanel(
-        <IssueProperties issue={issue} onUpdate={(data) => updateIssue.mutate(data)} />
+        <IssueProperties issue={issue} onUpdate={(data) => updateIssueMutate(data)} />
       );
     }
     return () => closePanel();
-  }, [issue]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [closePanel, issue, openPanel, updateIssueMutate]);
 
   if (isLoading) return <p className="text-sm text-muted-foreground">Loading...</p>;
   if (error) return <p className="text-sm text-destructive">{error.message}</p>;
@@ -504,9 +507,11 @@ export function IssueDetail() {
   const ancestors = issue.ancestors ?? [];
 
   const handleFilePicked = async (evt: ChangeEvent<HTMLInputElement>) => {
-    const file = evt.target.files?.[0];
-    if (!file) return;
-    await uploadAttachment.mutateAsync(file);
+    const files = Array.from(evt.target.files ?? []);
+    if (files.length === 0) return;
+    for (const file of files) {
+      await uploadAttachment.mutateAsync(file);
+    }
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -633,6 +638,7 @@ export function IssueDetail() {
               </PopoverTrigger>
             <PopoverContent className="w-44 p-1" align="end">
               <button
+                type="button"
                 className="flex items-center gap-2 w-full px-2 py-1.5 text-xs rounded hover:bg-accent/50 text-destructive"
                 onClick={() => {
                   updateIssue.mutate(
@@ -679,7 +685,7 @@ export function IssueDetail() {
             <input
               ref={fileInputRef}
               type="file"
-              accept="image/png,image/jpeg,image/webp,image/gif"
+              multiple
               className="hidden"
               onChange={handleFilePicked}
             />
@@ -690,7 +696,7 @@ export function IssueDetail() {
               disabled={uploadAttachment.isPending}
             >
               <Paperclip className="h-3.5 w-3.5 mr-1.5" />
-              {uploadAttachment.isPending ? "Uploading..." : "Upload image"}
+              {uploadAttachment.isPending ? "Uploading..." : "Upload files"}
             </Button>
           </div>
         </div>

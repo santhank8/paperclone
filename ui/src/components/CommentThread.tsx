@@ -36,7 +36,6 @@ interface CommentThreadProps {
   issueStatus?: string;
   agentMap?: Map<string, Agent>;
   imageUploadHandler?: (file: File) => Promise<string>;
-  /** Callback to attach an image file to the parent issue (not inline in a comment). */
   onAttachImage?: (file: File) => Promise<void>;
   draftKey?: string;
   liveRunSlot?: React.ReactNode;
@@ -334,11 +333,13 @@ export function CommentThread({
   }
 
   async function handleAttachFile(evt: ChangeEvent<HTMLInputElement>) {
-    const file = evt.target.files?.[0];
-    if (!file || !onAttachImage) return;
+    const files = Array.from(evt.target.files ?? []);
+    if (files.length === 0 || !onAttachImage) return;
     setAttaching(true);
     try {
-      await onAttachImage(file);
+      for (const file of files) {
+        await onAttachImage(file);
+      }
     } finally {
       setAttaching(false);
       if (attachInputRef.current) attachInputRef.current.value = "";
@@ -372,7 +373,7 @@ export function CommentThread({
               <input
                 ref={attachInputRef}
                 type="file"
-                accept="image/png,image/jpeg,image/webp,image/gif"
+                multiple
                 className="hidden"
                 onChange={handleAttachFile}
               />
@@ -381,7 +382,7 @@ export function CommentThread({
                 size="icon-sm"
                 onClick={() => attachInputRef.current?.click()}
                 disabled={attaching}
-                title="Attach image"
+                title="Attach files"
               >
                 <Paperclip className="h-4 w-4" />
               </Button>
