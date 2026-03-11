@@ -35,6 +35,26 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return res.json();
 }
 
+async function requestNoContent(path: string, init?: RequestInit): Promise<void> {
+  const headers = new Headers(init?.headers ?? undefined);
+  if (!headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json");
+  }
+  const res = await fetch(`${BASE}${path}`, {
+    headers,
+    credentials: "include",
+    ...init,
+  });
+  if (!res.ok) {
+    const errorBody = await res.json().catch(() => null);
+    throw new ApiError(
+      (errorBody as { error?: string } | null)?.error ?? `Request failed: ${res.status}`,
+      res.status,
+      errorBody,
+    );
+  }
+}
+
 export const api = {
   get: <T>(path: string) => request<T>(path),
   post: <T>(path: string, body: unknown) =>
@@ -44,4 +64,10 @@ export const api = {
   patch: <T>(path: string, body: unknown) =>
     request<T>(path, { method: "PATCH", body: JSON.stringify(body) }),
   delete: <T>(path: string) => request<T>(path, { method: "DELETE" }),
+  put: <T>(path: string, body?: unknown) =>
+    request<T>(path, { method: "PUT", body: body !== undefined ? JSON.stringify(body) : undefined }),
+  putNoContent: (path: string, body?: unknown) =>
+    requestNoContent(path, { method: "PUT", body: body !== undefined ? JSON.stringify(body) : undefined }),
+  deleteNoContent: (path: string) =>
+    requestNoContent(path, { method: "DELETE" }),
 };

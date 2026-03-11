@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { issuesApi } from "../api/issues";
+import { favoritesApi } from "../api/favorites";
 import { activityApi } from "../api/activity";
 import { heartbeatsApi } from "../api/heartbeats";
 import { agentsApi } from "../api/agents";
@@ -40,6 +41,7 @@ import {
   MoreHorizontal,
   Paperclip,
   SlidersHorizontal,
+  Star,
   Trash2,
 } from "lucide-react";
 import type { ActivityEvent } from "@paperclipai/shared";
@@ -406,6 +408,23 @@ export function IssueDetail() {
     },
   });
 
+  const toggleFavorite = useMutation({
+    mutationFn: async ({ issueId: id, isFavorited }: { issueId: string; isFavorited: boolean }) => {
+      if (isFavorited) {
+        await favoritesApi.remove(id);
+      } else {
+        await favoritesApi.add(id);
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.issues.detail(issueId!) });
+      if (selectedCompanyId) {
+        queryClient.invalidateQueries({ queryKey: queryKeys.issues.list(selectedCompanyId) });
+        queryClient.invalidateQueries({ queryKey: queryKeys.favorites(selectedCompanyId) });
+      }
+    },
+  });
+
   const addComment = useMutation({
     mutationFn: ({ body, reopen }: { body: string; reopen?: boolean }) =>
       issuesApi.addComment(issueId!, body, reopen),
@@ -611,6 +630,24 @@ export function IssueDetail() {
           </Button>
 
           <div className="hidden md:flex items-center md:ml-auto shrink-0">
+            <Button
+              variant="ghost"
+              size="icon-xs"
+              className={cn(
+                "shrink-0 transition-colors",
+                issue.isFavoritedByMe
+                  ? "text-yellow-500 hover:text-yellow-400"
+                  : "text-muted-foreground hover:text-yellow-500",
+              )}
+              title={issue.isFavoritedByMe ? "Remove from favorites" : "Add to favorites"}
+              onClick={() => toggleFavorite.mutate({ issueId: issue.id, isFavorited: Boolean(issue.isFavoritedByMe) })}
+            >
+              <Star
+                className="h-4 w-4"
+                fill={issue.isFavoritedByMe ? "currentColor" : "none"}
+              />
+            </Button>
+
             <Button
               variant="ghost"
               size="icon-xs"

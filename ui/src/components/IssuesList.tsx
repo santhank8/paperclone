@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { Link } from "@/lib/router";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useDialog } from "../context/DialogContext";
 import { useCompany } from "../context/CompanyContext";
 import { issuesApi } from "../api/issues";
+import { favoritesApi } from "../api/favorites";
 import { queryKeys } from "../lib/queryKeys";
 import { groupBy } from "../lib/groupBy";
 import { formatDate, cn } from "../lib/utils";
@@ -17,7 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
-import { CircleDot, Plus, Filter, ArrowUpDown, Layers, Check, X, ChevronRight, List, Columns3, User, Search, ArrowDown } from "lucide-react";
+import { CircleDot, Plus, Filter, ArrowUpDown, Layers, Check, X, ChevronRight, List, Columns3, User, Search, ArrowDown, Star } from "lucide-react";
 import { KanbanBoard } from "./KanbanBoard";
 import type { Issue } from "@paperclipai/shared";
 
@@ -162,6 +163,23 @@ export function IssuesList({
 }: IssuesListProps) {
   const { selectedCompanyId } = useCompany();
   const { openNewIssue } = useDialog();
+  const queryClient = useQueryClient();
+
+  const toggleFavorite = useMutation({
+    mutationFn: async ({ issueId, isFavorited }: { issueId: string; isFavorited: boolean }) => {
+      if (isFavorited) {
+        await favoritesApi.remove(issueId);
+      } else {
+        await favoritesApi.add(issueId);
+      }
+    },
+    onSuccess: () => {
+      if (selectedCompanyId) {
+        void queryClient.invalidateQueries({ queryKey: queryKeys.issues.list(selectedCompanyId) });
+        void queryClient.invalidateQueries({ queryKey: queryKeys.favorites(selectedCompanyId) });
+      }
+    },
+  });
 
   // Scope the storage key per company so folding/view state is independent across companies.
   const scopedKey = selectedCompanyId ? `${viewStateKey}:${selectedCompanyId}` : viewStateKey;
@@ -605,10 +623,10 @@ export function IssuesList({
             )}
             <CollapsibleContent>
               {group.items.map((issue) => (
-                <Link
+                  <Link
                   key={issue.id}
                   to={`/issues/${issue.identifier ?? issue.id}`}
-                  className="flex items-center gap-2 py-2 pl-1 pr-3 text-sm border-b border-border last:border-b-0 cursor-pointer hover:bg-accent/50 transition-colors no-underline text-inherit"
+                  className="group flex items-center gap-2 py-2 pl-1 pr-3 text-sm border-b border-border last:border-b-0 cursor-pointer hover:bg-accent/50 transition-colors no-underline text-inherit"
                 >
                   {/* Spacer matching caret width so status icon aligns with group title (hidden on mobile) */}
                   <div className="w-3.5 shrink-0 hidden sm:block" />
@@ -732,6 +750,25 @@ export function IssuesList({
                         </PopoverContent>
                       </Popover>
                     </div>
+                    <button
+                      className={cn(
+                        "shrink-0 p-0.5 rounded transition-colors",
+                        issue.isFavoritedByMe
+                          ? "text-yellow-500 hover:text-yellow-400"
+                          : "text-muted-foreground/0 group-hover:text-muted-foreground hover:text-yellow-500",
+                      )}
+                      title={issue.isFavoritedByMe ? "Remove from favorites" : "Add to favorites"}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        toggleFavorite.mutate({ issueId: issue.id, isFavorited: Boolean(issue.isFavoritedByMe) });
+                      }}
+                    >
+                      <Star
+                        className="h-3.5 w-3.5"
+                        fill={issue.isFavoritedByMe ? "currentColor" : "none"}
+                      />
+                    </button>
                     <span className="text-xs text-muted-foreground hidden sm:inline">
                       {formatDate(issue.createdAt)}
                     </span>

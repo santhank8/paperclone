@@ -85,6 +85,7 @@ export interface Issue {
   myLastTouchAt?: Date | null;
   lastExternalCommentAt?: Date | null;
   isUnreadForMe?: boolean;
+  isFavoritedByMe?: boolean;
   createdAt: Date;
   updatedAt: Date;
 }

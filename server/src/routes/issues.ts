@@ -1,6 +1,8 @@
 import { Router, type Request, type Response } from "express";
 import multer from "multer";
 import type { Db } from "@paperclipai/db";
+import { issueFavorites } from "@paperclipai/db";
+import { and, eq, inArray } from "drizzle-orm";
 import {
   addIssueCommentSchema,
   createIssueAttachmentMetadataSchema,
@@ -35,6 +37,19 @@ const ALLOWED_ATTACHMENT_CONTENT_TYPES = new Set([
   "image/webp",
   "image/gif",
 ]);
+
+async function getFavoriteIssueIds(db: Db, companyId: string, userId: string): Promise<Set<string>> {
+  try {
+    const rows = await db
+      .select({ issueId: issueFavorites.issueId })
+      .from(issueFavorites)
+      .where(and(eq(issueFavorites.companyId, companyId), eq(issueFavorites.userId, userId)));
+    return new Set(rows.map((r) => r.issueId));
+  } catch {
+    // Table may not exist yet if migrations are pending; return empty set gracefully.
+    return new Set();
+  }
+}
 
 export function issueRoutes(db: Db, storage: StorageService) {
   const router = Router();
@@ -233,6 +248,14 @@ export function issueRoutes(db: Db, storage: StorageService) {
       labelId: req.query.labelId as string | undefined,
       q: req.query.q as string | undefined,
     });
+
+    if (req.actor.type === "board" && req.actor.userId && result.length > 0) {
+      const favoriteIds = await getFavoriteIssueIds(db, companyId, req.actor.userId);
+      if (favoriteIds.size > 0) {
+        res.json(result.map((issue) => ({ ...issue, isFavoritedByMe: favoriteIds.has(issue.id) })));
+        return;
+      }
+    }
     res.json(result);
   });
 
@@ -307,7 +330,14 @@ export function issueRoutes(db: Db, storage: StorageService) {
     const mentionedProjects = mentionedProjectIds.length > 0
       ? await projectsSvc.listByIds(issue.companyId, mentionedProjectIds)
       : [];
-    res.json({ ...issue, ancestors, project: project ?? null, goal: goal ?? null, mentionedProjects });
+
+    let isFavoritedByMe = false;
+    if (req.actor.type === "board" && req.actor.userId) {
+      const favoriteIds = await getFavoriteIssueIds(db, issue.companyId, req.actor.userId);
+      isFavoritedByMe = favoriteIds.has(issue.id);
+    }
+
+    res.json({ ...issue, ancestors, project: project ?? null, goal: goal ?? null, mentionedProjects, isFavoritedByMe });
   });
 
   router.post("/issues/:id/read", async (req, res) => {
