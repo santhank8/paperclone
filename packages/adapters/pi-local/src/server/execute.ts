@@ -15,6 +15,8 @@ import {
   ensurePathInEnv,
   renderTemplate,
   runChildProcess,
+  resolveHeartbeatPromptTemplate,
+  DEFAULT_HEARTBEAT_PROMPT_TEMPLATE,
 } from "@paperclipai/adapter-utils/server-utils";
 import { isPiUnknownSessionError, parsePiJsonl } from "./parse.js";
 import { ensurePiModelConfiguredAndAvailable } from "./models.js";
@@ -101,10 +103,7 @@ function buildSessionPath(agentId: string, timestamp: string): string {
 export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExecutionResult> {
   const { runId, agent, runtime, config, context, onLog, onMeta, authToken } = ctx;
 
-  const promptTemplate = asString(
-    config.promptTemplate,
-    "You are agent {{agent.id}} ({{agent.name}}). Continue your Paperclip work.",
-  );
+  const promptTemplate = resolveHeartbeatPromptTemplate(config.promptTemplate);
   const command = asString(config.command, "pi");
   const model = asString(config.model, "").trim();
   const thinking = asString(config.thinking, "").trim();
@@ -281,6 +280,15 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     agent,
     run: { id: runId, source: "on_demand" },
     context,
+    defaultPrompt: renderTemplate(DEFAULT_HEARTBEAT_PROMPT_TEMPLATE, {
+      agentId: agent.id,
+      companyId: agent.companyId,
+      runId,
+      company: { id: agent.companyId },
+      agent,
+      run: { id: runId, source: "on_demand" },
+      context,
+    }),
   });
 
   // User prompt is simple - just the rendered prompt template without instructions
@@ -292,6 +300,15 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     agent,
     run: { id: runId, source: "on_demand" },
     context,
+    defaultPrompt: renderTemplate(DEFAULT_HEARTBEAT_PROMPT_TEMPLATE, {
+      agentId: agent.id,
+      companyId: agent.companyId,
+      runId,
+      company: { id: agent.companyId },
+      agent,
+      run: { id: runId, source: "on_demand" },
+      context,
+    }),
   });
 
   const commandNotes = (() => {

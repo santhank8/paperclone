@@ -16,6 +16,8 @@ import {
   ensurePathInEnv,
   renderTemplate,
   runChildProcess,
+  resolveHeartbeatPromptTemplate,
+  DEFAULT_HEARTBEAT_PROMPT_TEMPLATE,
 } from "@paperclipai/adapter-utils/server-utils";
 import { parseCodexJsonl, isCodexUnknownSessionError } from "./parse.js";
 
@@ -107,10 +109,7 @@ async function ensureCodexSkillsInjected(onLog: AdapterExecutionContext["onLog"]
 export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExecutionResult> {
   const { runId, agent, runtime, config, context, onLog, onMeta, authToken } = ctx;
 
-  const promptTemplate = asString(
-    config.promptTemplate,
-    "You are agent {{agent.id}} ({{agent.name}}). Continue your Paperclip work.",
-  );
+  const promptTemplate = resolveHeartbeatPromptTemplate(config.promptTemplate);
   const command = asString(config.command, "codex");
   const model = asString(config.model, "");
   const modelReasoningEffort = asString(
@@ -309,6 +308,15 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     agent,
     run: { id: runId, source: "on_demand" },
     context,
+    defaultPrompt: renderTemplate(DEFAULT_HEARTBEAT_PROMPT_TEMPLATE, {
+      agentId: agent.id,
+      companyId: agent.companyId,
+      runId,
+      company: { id: agent.companyId },
+      agent,
+      run: { id: runId, source: "on_demand" },
+      context,
+    }),
   });
   const prompt = `${instructionsPrefix}${renderedPrompt}`;
 

@@ -16,6 +16,8 @@ import {
   ensurePathInEnv,
   renderTemplate,
   runChildProcess,
+  resolveHeartbeatPromptTemplate,
+  DEFAULT_HEARTBEAT_PROMPT_TEMPLATE,
 } from "@paperclipai/adapter-utils/server-utils";
 import { DEFAULT_CURSOR_LOCAL_MODEL } from "../index.js";
 import { parseCursorJsonl, isCursorUnknownSessionError } from "./parse.js";
@@ -151,10 +153,7 @@ export async function ensureCursorSkillsInjected(
 export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExecutionResult> {
   const { runId, agent, runtime, config, context, onLog, onMeta, authToken } = ctx;
 
-  const promptTemplate = asString(
-    config.promptTemplate,
-    "You are agent {{agent.id}} ({{agent.name}}). Continue your Paperclip work.",
-  );
+  const promptTemplate = resolveHeartbeatPromptTemplate(config.promptTemplate);
   const command = asString(config.command, "agent");
   const model = asString(config.model, DEFAULT_CURSOR_LOCAL_MODEL).trim();
   const mode = normalizeMode(asString(config.mode, ""));
@@ -324,6 +323,15 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     agent,
     run: { id: runId, source: "on_demand" },
     context,
+    defaultPrompt: renderTemplate(DEFAULT_HEARTBEAT_PROMPT_TEMPLATE, {
+      agentId: agent.id,
+      companyId: agent.companyId,
+      runId,
+      company: { id: agent.companyId },
+      agent,
+      run: { id: runId, source: "on_demand" },
+      context,
+    }),
   });
   const paperclipEnvNote = renderPaperclipEnvNote(env);
   const prompt = `${instructionsPrefix}${paperclipEnvNote}${renderedPrompt}`;
