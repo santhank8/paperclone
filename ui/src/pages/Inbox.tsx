@@ -622,16 +622,7 @@ export function Inbox() {
             items={[
               {
                 value: "new",
-                label: (
-                  <>
-                    New
-                    {newItemCount > 0 && (
-                      <span className="ml-1.5 rounded-full bg-blue-500/20 px-1.5 py-0.5 text-[10px] font-medium text-blue-500">
-                        {newItemCount}
-                      </span>
-                    )}
-                  </>
-                ),
+                label: "New",
               },
               { value: "all", label: "All" },
             ]}
