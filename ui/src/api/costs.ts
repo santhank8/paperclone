@@ -24,4 +24,8 @@ export const costsApi = {
     api.get<CostByAgent[]>(`/companies/${companyId}/costs/by-agent${dateParams(from, to)}`),
   byProject: (companyId: string, from?: string, to?: string) =>
     api.get<CostByProject[]>(`/companies/${companyId}/costs/by-project${dateParams(from, to)}`),
+  updateCompanyBudget: (companyId: string, budgetMonthlyCents: number) =>
+    api.patch<Record<string, unknown>>(`/companies/${companyId}/budgets`, { budgetMonthlyCents }),
+  updateAgentBudget: (agentId: string, budgetMonthlyCents: number) =>
+    api.patch<Record<string, unknown>>(`/agents/${agentId}/budgets`, { budgetMonthlyCents }),
 };

@@ -5,6 +5,7 @@ import { useBreadcrumbs } from "../context/BreadcrumbContext";
 import { companiesApi } from "../api/companies";
 import { accessApi } from "../api/access";
 import { queryKeys } from "../lib/queryKeys";
+import { formatCents } from "../lib/utils";
 import { Button } from "@/components/ui/button";
 import { Settings, Check } from "lucide-react";
 import { CompanyPatternIcon } from "../components/CompanyPatternIcon";
@@ -34,6 +35,7 @@ export function CompanySettings() {
   const [companyName, setCompanyName] = useState("");
   const [description, setDescription] = useState("");
   const [brandColor, setBrandColor] = useState("");
+  const [budgetDollars, setBudgetDollars] = useState("");
 
   // Sync local state from selected company
   useEffect(() => {
@@ -41,6 +43,11 @@ export function CompanySettings() {
     setCompanyName(selectedCompany.name);
     setDescription(selectedCompany.description ?? "");
     setBrandColor(selectedCompany.brandColor ?? "");
+    setBudgetDollars(
+      selectedCompany.budgetMonthlyCents > 0
+        ? (selectedCompany.budgetMonthlyCents / 100).toFixed(2)
+        : "",
+    );
   }, [selectedCompany]);
 
   const [inviteError, setInviteError] = useState<string | null>(null);
@@ -74,6 +81,24 @@ export function CompanySettings() {
       queryClient.invalidateQueries({ queryKey: queryKeys.companies.all });
     }
   });
+
+  const budgetMutation = useMutation({
+    mutationFn: (cents: number) =>
+      companiesApi.update(selectedCompanyId!, { budgetMonthlyCents: cents }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.companies.all });
+    },
+  });
+
+  const budgetDirty =
+    !!selectedCompany &&
+    (() => {
+      const currentCents = selectedCompany.budgetMonthlyCents;
+      const editedCents = budgetDollars
+        ? Math.round(parseFloat(budgetDollars) * 100)
+        : 0;
+      return currentCents !== editedCents;
+    })();
 
   const inviteMutation = useMutation({
     mutationFn: () =>
@@ -304,6 +329,65 @@ export function CompanySettings() {
             checked={!!selectedCompany.requireBoardApprovalForNewAgents}
             onChange={(v) => settingsMutation.mutate(v)}
           />
+        </div>
+      </div>
+
+      {/* Budget */}
+      <div className="space-y-4">
+        <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+          Monthly Budget
+        </div>
+        <div className="space-y-3 rounded-md border border-border px-4 py-4">
+          <Field
+            label="Company monthly budget"
+            hint="Maximum monthly spend across all agents. Set to 0 or leave empty for unlimited."
+          >
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground">$</span>
+              <input
+                className="w-32 rounded-md border border-border bg-transparent px-2.5 py-1.5 text-sm outline-none text-right font-mono"
+                type="number"
+                min="0"
+                step="0.01"
+                value={budgetDollars}
+                placeholder="0.00 (unlimited)"
+                onChange={(e) => setBudgetDollars(e.target.value)}
+              />
+              <span className="text-sm text-muted-foreground">/ month</span>
+            </div>
+          </Field>
+          {selectedCompany.budgetMonthlyCents > 0 && (
+            <p className="text-xs text-muted-foreground">
+              Current budget: {formatCents(selectedCompany.budgetMonthlyCents)}/mo
+              {" · "}Spent: {formatCents(selectedCompany.spentMonthlyCents ?? 0)}
+            </p>
+          )}
+          {budgetDirty && (
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                onClick={() => {
+                  const cents = budgetDollars
+                    ? Math.round(parseFloat(budgetDollars) * 100)
+                    : 0;
+                  budgetMutation.mutate(isNaN(cents) ? 0 : cents);
+                }}
+                disabled={budgetMutation.isPending}
+              >
+                {budgetMutation.isPending ? "Saving..." : "Save budget"}
+              </Button>
+              {budgetMutation.isSuccess && (
+                <span className="text-xs text-muted-foreground">Saved</span>
+              )}
+              {budgetMutation.isError && (
+                <span className="text-xs text-destructive">
+                  {budgetMutation.error instanceof Error
+                    ? budgetMutation.error.message
+                    : "Failed to save budget"}
+                </span>
+              )}
+            </div>
+          )}
         </div>
       </div>
 

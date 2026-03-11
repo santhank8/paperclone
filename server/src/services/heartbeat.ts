@@ -7,6 +7,7 @@ import {
   agentRuntimeState,
   agentTaskSessions,
   agentWakeupRequests,
+  companies,
   heartbeatRunEvents,
   heartbeatRuns,
   costEvents,
@@ -1045,6 +1046,63 @@ export function heartbeatService(db: Db) {
           updatedAt: new Date(),
         })
         .where(eq(agents.id, agent.id));
+
+      await db
+        .update(companies)
+        .set({
+          spentMonthlyCents: sql`${companies.spentMonthlyCents} + ${additionalCostCents}`,
+          updatedAt: new Date(),
+        })
+        .where(eq(companies.id, agent.companyId));
+
+      const updatedAgent = await db
+        .select()
+        .from(agents)
+        .where(eq(agents.id, agent.id))
+        .then((rows) => rows[0] ?? null);
+
+      if (
+        updatedAgent &&
+        updatedAgent.budgetMonthlyCents > 0 &&
+        updatedAgent.spentMonthlyCents >= updatedAgent.budgetMonthlyCents &&
+        updatedAgent.status !== "paused" &&
+        updatedAgent.status !== "terminated"
+      ) {
+        logger.info(
+          { agentId: agent.id, spent: updatedAgent.spentMonthlyCents, budget: updatedAgent.budgetMonthlyCents },
+          "agent over budget, pausing",
+        );
+        await db
+          .update(agents)
+          .set({ status: "paused", updatedAt: new Date() })
+          .where(eq(agents.id, updatedAgent.id));
+      }
+
+      const updatedCompany = await db
+        .select()
+        .from(companies)
+        .where(eq(companies.id, agent.companyId))
+        .then((rows) => rows[0] ?? null);
+
+      if (
+        updatedCompany &&
+        updatedCompany.budgetMonthlyCents > 0 &&
+        updatedCompany.spentMonthlyCents >= updatedCompany.budgetMonthlyCents
+      ) {
+        logger.info(
+          { companyId: agent.companyId, spent: updatedCompany.spentMonthlyCents, budget: updatedCompany.budgetMonthlyCents },
+          "company over budget, pausing all active agents",
+        );
+        await db
+          .update(agents)
+          .set({ status: "paused", updatedAt: new Date() })
+          .where(
+            and(
+              eq(agents.companyId, agent.companyId),
+              eq(agents.status, "idle"),
+            ),
+          );
+      }
     }
   }
 
@@ -1868,6 +1926,38 @@ export function heartbeatService(db: Db) {
       throw conflict("Agent is not invokable in its current state", { status: agent.status });
     }
 
+    if (agent.budgetMonthlyCents > 0 && agent.spentMonthlyCents >= agent.budgetMonthlyCents) {
+      logger.info(
+        { agentId, spent: agent.spentMonthlyCents, budget: agent.budgetMonthlyCents },
+        "agent over budget, blocking run",
+      );
+      throw conflict("Agent has exceeded its monthly budget", {
+        spent: agent.spentMonthlyCents,
+        budget: agent.budgetMonthlyCents,
+      });
+    }
+
+    const company = await db
+      .select()
+      .from(companies)
+      .where(eq(companies.id, agent.companyId))
+      .then((rows) => rows[0] ?? null);
+
+    if (
+      company &&
+      company.budgetMonthlyCents > 0 &&
+      company.spentMonthlyCents >= company.budgetMonthlyCents
+    ) {
+      logger.info(
+        { companyId: agent.companyId, spent: company.spentMonthlyCents, budget: company.budgetMonthlyCents },
+        "company over budget, blocking run",
+      );
+      throw conflict("Company has exceeded its monthly budget", {
+        spent: company.spentMonthlyCents,
+        budget: company.budgetMonthlyCents,
+      });
+    }
+
     const policy = parseHeartbeatPolicy(agent);
     const writeSkippedRequest = async (reason: string) => {
       await db.insert(agentWakeupRequests).values({
@@ -2433,10 +2523,31 @@ export function heartbeatService(db: Db) {
       let enqueued = 0;
       let skipped = 0;
 
+      const companyBudgetCache = new Map<string, { budgetMonthlyCents: number; spentMonthlyCents: number }>();
+
       for (const agent of allAgents) {
         if (agent.status === "paused" || agent.status === "terminated" || agent.status === "pending_approval") continue;
         const policy = parseHeartbeatPolicy(agent);
         if (!policy.enabled || policy.intervalSec <= 0) continue;
+
+        if (agent.budgetMonthlyCents > 0 && agent.spentMonthlyCents >= agent.budgetMonthlyCents) {
+          skipped += 1;
+          continue;
+        }
+
+        if (!companyBudgetCache.has(agent.companyId)) {
+          const co = await db
+            .select({ budgetMonthlyCents: companies.budgetMonthlyCents, spentMonthlyCents: companies.spentMonthlyCents })
+            .from(companies)
+            .where(eq(companies.id, agent.companyId))
+            .then((rows) => rows[0] ?? null);
+          if (co) companyBudgetCache.set(agent.companyId, co);
+        }
+        const coBudget = companyBudgetCache.get(agent.companyId);
+        if (coBudget && coBudget.budgetMonthlyCents > 0 && coBudget.spentMonthlyCents >= coBudget.budgetMonthlyCents) {
+          skipped += 1;
+          continue;
+        }
 
         checked += 1;
         const baseline = new Date(agent.lastHeartbeatAt ?? agent.createdAt).getTime();

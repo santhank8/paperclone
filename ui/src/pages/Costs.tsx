@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { costsApi } from "../api/costs";
 import { useCompany } from "../context/CompanyContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
@@ -11,7 +11,7 @@ import { Identity } from "../components/Identity";
 import { StatusBadge } from "../components/StatusBadge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { DollarSign } from "lucide-react";
+import { DollarSign, Pencil, Check, X } from "lucide-react";
 
 type DatePreset = "mtd" | "7d" | "30d" | "ytd" | "all" | "custom";
 
@@ -51,9 +51,88 @@ function computeRange(preset: DatePreset): { from: string; to: string } {
   }
 }
 
+function BudgetEditor({
+  currentCents,
+  onSave,
+  isPending,
+  label,
+}: {
+  currentCents: number;
+  onSave: (cents: number) => void;
+  isPending: boolean;
+  label?: string;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(() =>
+    currentCents > 0 ? (currentCents / 100).toFixed(2) : "",
+  );
+
+  useEffect(() => {
+    setValue(currentCents > 0 ? (currentCents / 100).toFixed(2) : "");
+  }, [currentCents]);
+
+  if (!editing) {
+    return (
+      <button
+        type="button"
+        onClick={() => setEditing(true)}
+        className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground transition-colors"
+        title={label ?? "Edit budget"}
+      >
+        <Pencil className="h-3 w-3" />
+      </button>
+    );
+  }
+
+  function handleSave() {
+    const dollars = parseFloat(value);
+    const cents = !value || isNaN(dollars) ? 0 : Math.round(dollars * 100);
+    onSave(cents);
+    setEditing(false);
+  }
+
+  return (
+    <span className="inline-flex items-center gap-1">
+      <span className="text-sm text-muted-foreground">$</span>
+      <input
+        type="number"
+        min="0"
+        step="0.01"
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        placeholder="0.00"
+        className="w-20 h-6 rounded border border-border bg-transparent px-1.5 text-sm outline-none text-right"
+        autoFocus
+        onKeyDown={(e) => {
+          if (e.key === "Enter") handleSave();
+          if (e.key === "Escape") setEditing(false);
+        }}
+      />
+      <button
+        type="button"
+        onClick={handleSave}
+        disabled={isPending}
+        className="text-green-600 hover:text-green-700 disabled:opacity-50"
+        title="Save"
+      >
+        <Check className="h-3.5 w-3.5" />
+      </button>
+      <button
+        type="button"
+        onClick={() => setEditing(false)}
+        className="text-muted-foreground hover:text-foreground"
+        title="Cancel"
+      >
+        <X className="h-3.5 w-3.5" />
+      </button>
+    </span>
+  );
+}
+
 export function Costs() {
   const { selectedCompanyId } = useCompany();
   const { setBreadcrumbs } = useBreadcrumbs();
+  const queryClient = useQueryClient();
 
   const [preset, setPreset] = useState<DatePreset>("mtd");
   const [customFrom, setCustomFrom] = useState("");
@@ -84,6 +163,23 @@ export function Costs() {
       return { summary, byAgent, byProject };
     },
     enabled: !!selectedCompanyId,
+  });
+
+  const companyBudgetMutation = useMutation({
+    mutationFn: (cents: number) =>
+      costsApi.updateCompanyBudget(selectedCompanyId!, cents),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.costs(selectedCompanyId!, from || undefined, to || undefined) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.companies.all });
+    },
+  });
+
+  const agentBudgetMutation = useMutation({
+    mutationFn: ({ agentId, cents }: { agentId: string; cents: number }) =>
+      costsApi.updateAgentBudget(agentId, cents),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.costs(selectedCompanyId!, from || undefined, to || undefined) });
+    },
   });
 
   if (!selectedCompanyId) {
@@ -149,7 +245,13 @@ export function Costs() {
                 <span className="text-base font-normal text-muted-foreground">
                   {data.summary.budgetCents > 0
                     ? `/ ${formatCents(data.summary.budgetCents)}`
-                    : "Unlimited budget"}
+                    : "No budget limit"}{" "}
+                  <BudgetEditor
+                    currentCents={data.summary.budgetCents}
+                    onSave={(cents) => companyBudgetMutation.mutate(cents)}
+                    isPending={companyBudgetMutation.isPending}
+                    label="Edit company monthly budget"
+                  />
                 </span>
               </p>
               {data.summary.budgetCents > 0 && (
@@ -177,33 +279,51 @@ export function Costs() {
                 {data.byAgent.length === 0 ? (
                   <p className="text-sm text-muted-foreground">No cost events yet.</p>
                 ) : (
-                  <div className="space-y-2">
+                  <div className="space-y-3">
                     {data.byAgent.map((row) => (
                       <div
                         key={row.agentId}
-                        className="flex items-start justify-between text-sm"
+                        className="space-y-1"
                       >
-                        <div className="flex items-center gap-2 min-w-0">
-                          <Identity
-                            name={row.agentName ?? row.agentId}
-                            size="sm"
-                          />
-                          {row.agentStatus === "terminated" && (
-                            <StatusBadge status="terminated" />
-                          )}
-                        </div>
-                        <div className="text-right shrink-0 ml-2 tabular-nums">
-                          <span className="font-medium block">{formatCents(row.costCents)}</span>
-                          <span className="text-xs text-muted-foreground block">
-                            in {formatTokens(row.inputTokens)} / out {formatTokens(row.outputTokens)} tok
-                          </span>
-                          {(row.apiRunCount > 0 || row.subscriptionRunCount > 0) && (
+                        <div className="flex items-start justify-between text-sm">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <Identity
+                              name={row.agentName ?? row.agentId}
+                              size="sm"
+                            />
+                            {row.agentStatus === "terminated" && (
+                              <StatusBadge status="terminated" />
+                            )}
+                          </div>
+                          <div className="text-right shrink-0 ml-2">
+                            <span className="font-medium block">{formatCents(row.costCents)}</span>
                             <span className="text-xs text-muted-foreground block">
-                              {row.apiRunCount > 0 ? `api runs: ${row.apiRunCount}` : null}
-                              {row.apiRunCount > 0 && row.subscriptionRunCount > 0 ? " | " : null}
-                              {row.subscriptionRunCount > 0
-                                ? `subscription runs: ${row.subscriptionRunCount} (${formatTokens(row.subscriptionInputTokens)} in / ${formatTokens(row.subscriptionOutputTokens)} out tok)`
-                                : null}
+                              in {formatTokens(row.inputTokens)} / out {formatTokens(row.outputTokens)} tok
+                            </span>
+                            {(row.apiRunCount > 0 || row.subscriptionRunCount > 0) && (
+                              <span className="text-xs text-muted-foreground block">
+                                {row.apiRunCount > 0 ? `api runs: ${row.apiRunCount}` : null}
+                                {row.apiRunCount > 0 && row.subscriptionRunCount > 0 ? " | " : null}
+                                {row.subscriptionRunCount > 0
+                                  ? `subscription runs: ${row.subscriptionRunCount} (${formatTokens(row.subscriptionInputTokens)} in / ${formatTokens(row.subscriptionOutputTokens)} out tok)`
+                                  : null}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground pl-7">
+                          <span>
+                            Budget: {row.budgetMonthlyCents > 0 ? `${formatCents(row.budgetMonthlyCents)}/mo` : "Unlimited"}
+                          </span>
+                          <BudgetEditor
+                            currentCents={row.budgetMonthlyCents}
+                            onSave={(cents) => agentBudgetMutation.mutate({ agentId: row.agentId, cents })}
+                            isPending={agentBudgetMutation.isPending}
+                            label={`Edit budget for ${row.agentName ?? "agent"}`}
+                          />
+                          {row.budgetMonthlyCents > 0 && (
+                            <span className="text-muted-foreground">
+                              ({Math.min(100, Math.round((row.costCents / row.budgetMonthlyCents) * 100))}% used)
                             </span>
                           )}
                         </div>

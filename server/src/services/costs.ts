@@ -63,6 +63,28 @@ export function costService(db: Db) {
           .where(eq(agents.id, updatedAgent.id));
       }
 
+      const updatedCompany = await db
+        .select()
+        .from(companies)
+        .where(eq(companies.id, companyId))
+        .then((rows) => rows[0] ?? null);
+
+      if (
+        updatedCompany &&
+        updatedCompany.budgetMonthlyCents > 0 &&
+        updatedCompany.spentMonthlyCents >= updatedCompany.budgetMonthlyCents
+      ) {
+        await db
+          .update(agents)
+          .set({ status: "paused", updatedAt: new Date() })
+          .where(
+            and(
+              eq(agents.companyId, companyId),
+              eq(agents.status, "idle"),
+            ),
+          );
+      }
+
       return event;
     },
 
@@ -113,6 +135,7 @@ export function costService(db: Db) {
           costCents: sql<number>`coalesce(sum(${costEvents.costCents}), 0)::int`,
           inputTokens: sql<number>`coalesce(sum(${costEvents.inputTokens}), 0)::int`,
           outputTokens: sql<number>`coalesce(sum(${costEvents.outputTokens}), 0)::int`,
+          budgetMonthlyCents: sql<number>`coalesce(max(${agents.budgetMonthlyCents}), 0)::int`,
         })
         .from(costEvents)
         .leftJoin(agents, eq(costEvents.agentId, agents.id))
