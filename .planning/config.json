@@ -1,0 +1,7 @@
+{
+  "executor_model": "sonnet",
+  "planner_model": "inherit",
+  "commit_docs": true,
+  "milestone_version": "v1.0",
+  "milestone_name": "harness-engineering-adoption"
+}
