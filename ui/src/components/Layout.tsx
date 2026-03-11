@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type UIEvent } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { BookOpen, Moon, Sun } from "lucide-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { BookOpen, LogOut, Moon, Sun } from "lucide-react";
 import { Outlet, useLocation, useNavigate, useParams } from "@/lib/router";
 import { CompanyRail } from "./CompanyRail";
 import { Sidebar } from "./Sidebar";
@@ -21,6 +21,7 @@ import { useSidebar } from "../context/SidebarContext";
 import { useTheme } from "../context/ThemeContext";
 import { useKeyboardShortcuts } from "../hooks/useKeyboardShortcuts";
 import { useCompanyPageMemory } from "../hooks/useCompanyPageMemory";
+import { authApi } from "../api/auth";
 import { healthApi } from "../api/health";
 import { queryKeys } from "../lib/queryKeys";
 import { cn } from "../lib/utils";
@@ -39,10 +40,19 @@ export function Layout() {
   const lastMainScrollTop = useRef(0);
   const [mobileNavVisible, setMobileNavVisible] = useState(true);
   const nextTheme = theme === "dark" ? "light" : "dark";
+  const queryClient = useQueryClient();
   const { data: health } = useQuery({
     queryKey: queryKeys.health,
     queryFn: () => healthApi.get(),
     retry: false,
+  });
+  const isAuthenticated = health?.deploymentMode === "authenticated";
+  const signOutMutation = useMutation({
+    mutationFn: () => authApi.signOut(),
+    onSuccess: () => {
+      queryClient.clear();
+      navigate("/auth");
+    },
   });
 
   useEffect(() => {
@@ -232,6 +242,20 @@ export function Layout() {
               >
                 {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
               </Button>
+              {isAuthenticated && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  className="text-muted-foreground shrink-0"
+                  onClick={() => signOutMutation.mutate()}
+                  disabled={signOutMutation.isPending}
+                  aria-label="Sign out"
+                  title="Sign out"
+                >
+                  <LogOut className="h-4 w-4" />
+                </Button>
+              )}
             </div>
           </div>
         </div>
@@ -267,6 +291,20 @@ export function Layout() {
               >
                 {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
               </Button>
+              {isAuthenticated && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  className="text-muted-foreground shrink-0"
+                  onClick={() => signOutMutation.mutate()}
+                  disabled={signOutMutation.isPending}
+                  aria-label="Sign out"
+                  title="Sign out"
+                >
+                  <LogOut className="h-4 w-4" />
+                </Button>
+              )}
             </div>
           </div>
         </div>

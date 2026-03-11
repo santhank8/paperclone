@@ -98,6 +98,7 @@ export async function createApp(
       deploymentExposure: opts.deploymentExposure,
       authReady: opts.authReady,
       companyDeletionEnabled: opts.companyDeletionEnabled,
+      googleAuthEnabled: !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET),
     }),
   );
   api.use("/companies", companyRoutes(db));
