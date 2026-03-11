@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { BookOpen, Moon, Sun } from "lucide-react";
+import { BookOpen, Moon, Settings, Sun } from "lucide-react";
 import { Outlet, useLocation, useNavigate, useParams } from "@/lib/router";
 import { CompanyRail } from "./CompanyRail";
 import { Sidebar } from "./Sidebar";
@@ -72,11 +72,13 @@ export function Layout() {
     if (!companyPrefix || companiesLoading || companies.length === 0) return;
 
     if (!matchedCompany) {
-      const fallback = (selectedCompanyId ? companies.find((company) => company.id === selectedCompanyId) : null)
+      const fallback =
+        (selectedCompanyId ? companies.find((company) => company.id === selectedCompanyId) : null)
         ?? companies[0]
         ?? null;
-      if (fallback && selectedCompanyId !== fallback.id) {
-        setSelectedCompanyId(fallback.id, { source: "route_sync" });
+      if (fallback) {
+        const suffix = location.pathname.replace(/^\/[^/]+/, "") || "/dashboard";
+        navigate(`/${fallback.issuePrefix}${suffix}${location.search}`, { replace: true });
       }
       return;
     }
@@ -263,6 +265,12 @@ export function Layout() {
                 icon={BookOpen}
                 className="flex-1 min-w-0"
               />
+              <SidebarNavItem
+                to="/settings"
+                label="Settings"
+                icon={Settings}
+                className="flex-1 min-w-0"
+              />
               <Button
                 type="button"
                 variant="ghost"
@@ -296,6 +304,12 @@ export function Layout() {
                 to="/docs"
                 label="Documentation"
                 icon={BookOpen}
+                className="flex-1 min-w-0"
+              />
+              <SidebarNavItem
+                to="/settings"
+                label="Settings"
+                icon={Settings}
                 className="flex-1 min-w-0"
               />
               <Button

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, useRef } from "react";
-import { useParams, useNavigate, useLocation, Navigate } from "@/lib/router";
+import { useParams, useNavigate, useLocation, useSearchParams, Navigate } from "@/lib/router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { PROJECT_COLORS, isUuidLike } from "@paperclipai/shared";
 import { projectsApi } from "../api/projects";
@@ -16,15 +16,19 @@ import { InlineEditor } from "../components/InlineEditor";
 import { StatusBadge } from "../components/StatusBadge";
 import { IssuesList } from "../components/IssuesList";
 import { PageSkeleton } from "../components/PageSkeleton";
-import { PageTabBar } from "../components/PageTabBar";
 import { projectRouteRef, cn } from "../lib/utils";
-import { Tabs } from "@/components/ui/tabs";
+import { usePluginSlots, PluginSlotMount } from "@/plugins/slots";
+import { PluginLauncherOutlet } from "@/plugins/launchers";
+import { Button } from "@/components/ui/button";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { SlidersHorizontal } from "lucide-react";
 
 /* ── Top-level tab types ── */
 
-type ProjectTab = "overview" | "list" | "configuration";
+type ProjectTab = "overview" | "list" | "configuration" | (string & {});
 
-function resolveProjectTab(pathname: string, projectId: string): ProjectTab | null {
+function resolveProjectTab(pathname: string, projectId: string): "overview" | "list" | "configuration" | null {
   const segments = pathname.split("/").filter(Boolean);
   const projectsIdx = segments.indexOf("projects");
   if (projectsIdx === -1 || segments[projectsIdx + 1] !== projectId) return null;
@@ -33,6 +37,10 @@ function resolveProjectTab(pathname: string, projectId: string): ProjectTab | nu
   if (tab === "configuration") return "configuration";
   if (tab === "issues") return "list";
   return null;
+}
+
+function isPluginTab(value: string): boolean {
+  return value.startsWith("plugin:");
 }
 
 /* ── Overview tab content ── */
@@ -191,11 +199,13 @@ function ProjectIssuesList({ projectId, companyId }: { projectId: string; compan
 /* ── Main project page ── */
 
 export function ProjectDetail() {
-  const { companyPrefix, projectId, filter } = useParams<{
+  const { companyPrefix: routeCompanyPrefix, projectId, filter } = useParams<{
     companyPrefix?: string;
     projectId: string;
     filter?: string;
   }>();
+  const [searchParams] = useSearchParams();
+  const tabParam = searchParams.get("tab");
   const { companies, selectedCompanyId, setSelectedCompanyId } = useCompany();
   const { closePanel } = usePanel();
   const { setBreadcrumbs } = useBreadcrumbs();
@@ -203,18 +213,24 @@ export function ProjectDetail() {
   const navigate = useNavigate();
   const location = useLocation();
   const [fieldSaveStates, setFieldSaveStates] = useState<Partial<Record<ProjectConfigFieldKey, ProjectFieldSaveState>>>({});
+  const [mobilePropsOpen, setMobilePropsOpen] = useState(false);
   const fieldSaveRequestIds = useRef<Partial<Record<ProjectConfigFieldKey, number>>>({});
   const fieldSaveTimers = useRef<Partial<Record<ProjectConfigFieldKey, ReturnType<typeof setTimeout>>>>({});
   const routeProjectRef = projectId ?? "";
   const routeCompanyId = useMemo(() => {
-    if (!companyPrefix) return null;
-    const requestedPrefix = companyPrefix.toUpperCase();
+    if (!routeCompanyPrefix) return null;
+    const requestedPrefix = routeCompanyPrefix.toUpperCase();
     return companies.find((company) => company.issuePrefix.toUpperCase() === requestedPrefix)?.id ?? null;
-  }, [companies, companyPrefix]);
+  }, [companies, routeCompanyPrefix]);
   const lookupCompanyId = routeCompanyId ?? selectedCompanyId ?? undefined;
   const canFetchProject = routeProjectRef.length > 0 && (isUuidLike(routeProjectRef) || Boolean(lookupCompanyId));
 
-  const activeTab = routeProjectRef ? resolveProjectTab(location.pathname, routeProjectRef) : null;
+  const pathTab = routeProjectRef ? resolveProjectTab(location.pathname, routeProjectRef) : null;
+  const activeTab: ProjectTab = useMemo(() => {
+    if (tabParam?.startsWith("plugin:")) return tabParam;
+    if (pathTab) return pathTab;
+    return "list";
+  }, [tabParam, pathTab]);
 
   const { data: project, isLoading, error } = useQuery({
     queryKey: [...queryKeys.projects.detail(routeProjectRef), lookupCompanyId ?? null],
@@ -224,6 +240,32 @@ export function ProjectDetail() {
   const canonicalProjectRef = project ? projectRouteRef(project) : routeProjectRef;
   const projectLookupRef = project?.id ?? routeProjectRef;
   const resolvedCompanyId = project?.companyId ?? selectedCompanyId;
+  const slotCompanyId = useMemo(() => {
+    if (project?.companyId) return project.companyId;
+    if (routeCompanyId) return routeCompanyId;
+    if (!isUuidLike(routeProjectRef)) return selectedCompanyId;
+    return null;
+  }, [project?.companyId, routeCompanyId, routeProjectRef, selectedCompanyId]);
+
+  const { slots: projectPluginSlots } = usePluginSlots({
+    slotTypes: ["taskDetailView", "detailTab"],
+    entityType: "project",
+    companyId: slotCompanyId,
+    enabled: !!slotCompanyId,
+  });
+  const companyPrefix = useMemo(
+    () => (resolvedCompanyId ? companies.find((c) => c.id === resolvedCompanyId)?.issuePrefix ?? null : null),
+    [companies, resolvedCompanyId],
+  );
+  const pluginSlotContext = useMemo(
+    () => ({
+      companyId: resolvedCompanyId ?? null,
+      companyPrefix,
+      entityId: project?.id ?? null,
+      entityType: "project" as const,
+    }),
+    [resolvedCompanyId, companyPrefix, project?.id],
+  );
 
   useEffect(() => {
     if (!project?.companyId || project.companyId === selectedCompanyId) return;
@@ -260,7 +302,11 @@ export function ProjectDetail() {
 
   useEffect(() => {
     if (!project) return;
-    if (routeProjectRef === canonicalProjectRef) return;
+    if (routeProjectRef === canonicalProjectRef && !isPluginTab(activeTab)) return;
+    if (isPluginTab(activeTab)) {
+      navigate(`/projects/${canonicalProjectRef}?tab=${encodeURIComponent(activeTab)}`, { replace: true });
+      return;
+    }
     if (activeTab === "overview") {
       navigate(`/projects/${canonicalProjectRef}/overview`, { replace: true });
       return;
@@ -277,7 +323,7 @@ export function ProjectDetail() {
       navigate(`/projects/${canonicalProjectRef}/issues`, { replace: true });
       return;
     }
-    navigate(`/projects/${canonicalProjectRef}`, { replace: true });
+    navigate(`/projects/${canonicalProjectRef}/issues`, { replace: true });
   }, [project, routeProjectRef, canonicalProjectRef, activeTab, filter, navigate]);
 
   useEffect(() => {
@@ -328,8 +374,8 @@ export function ProjectDetail() {
     }
   }, [invalidateProject, lookupCompanyId, projectLookupRef, resolvedCompanyId, scheduleFieldReset, setFieldState]);
 
-  // Redirect bare /projects/:id to /projects/:id/issues
-  if (routeProjectRef && activeTab === null) {
+  // Redirect bare /projects/:id to /projects/:id/issues unless a plugin tab is selected via ?tab=
+  if (routeProjectRef && pathTab === null && !tabParam?.startsWith("plugin:")) {
     return <Navigate to={`/projects/${canonicalProjectRef}/issues`} replace />;
   }
 
@@ -342,10 +388,16 @@ export function ProjectDetail() {
       navigate(`/projects/${canonicalProjectRef}/overview`);
     } else if (tab === "configuration") {
       navigate(`/projects/${canonicalProjectRef}/configuration`);
-    } else {
+    } else if (tab === "list") {
       navigate(`/projects/${canonicalProjectRef}/issues`);
+    } else if (isPluginTab(tab)) {
+      navigate(`/projects/${canonicalProjectRef}?tab=${encodeURIComponent(tab)}`);
     }
   };
+
+  const activePluginSlot = isPluginTab(activeTab)
+    ? projectPluginSlots.find((s) => `plugin:${s.pluginKey}:${s.id}` === activeTab)
+    : null;
 
   return (
     <div className="space-y-6">
@@ -364,18 +416,63 @@ export function ProjectDetail() {
         />
       </div>
 
-      <Tabs value={activeTab ?? "list"} onValueChange={(value) => handleTabChange(value as ProjectTab)}>
-        <PageTabBar
-          items={[
-            { value: "overview", label: "Overview" },
-            { value: "list", label: "List" },
-            { value: "configuration", label: "Configuration" },
-          ]}
-          align="start"
-          value={activeTab ?? "list"}
-          onValueChange={(value) => handleTabChange(value as ProjectTab)}
+      {/* Top-level project tabs */}
+      <div className="flex items-center gap-2 border-b border-border">
+        <div className="flex items-center gap-1 min-w-0 overflow-x-auto scrollbar-auto-hide">
+          <button
+            className={`px-3 py-2 text-sm font-medium transition-colors border-b-2 ${
+              activeTab === "overview"
+                ? "border-foreground text-foreground"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+            onClick={() => handleTabChange("overview")}
+          >
+            Overview
+          </button>
+          <button
+            className={`px-3 py-2 text-sm font-medium transition-colors border-b-2 ${
+              activeTab === "list"
+                ? "border-foreground text-foreground"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+            onClick={() => handleTabChange("list")}
+          >
+            List
+          </button>
+          <button
+            className={`px-3 py-2 text-sm font-medium transition-colors border-b-2 ${
+              activeTab === "configuration"
+                ? "border-foreground text-foreground"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+            onClick={() => handleTabChange("configuration")}
+          >
+            Configuration
+          </button>
+          {projectPluginSlots.map((slot) => {
+            const value = `plugin:${slot.pluginKey}:${slot.id}`;
+            return (
+              <button
+                key={value}
+                className={`px-3 py-2 text-sm font-medium transition-colors border-b-2 ${
+                  activeTab === value
+                    ? "border-foreground text-foreground"
+                    : "border-transparent text-muted-foreground hover:text-foreground"
+                }`}
+                onClick={() => handleTabChange(value)}
+              >
+                {slot.displayName}
+              </button>
+            );
+          })}
+        </div>
+        <PluginLauncherOutlet
+          placementZones={["taskDetailView", "detailTab"]}
+          entityType="project"
+          context={pluginSlotContext}
+          className="ml-auto flex items-center gap-1 shrink-0 py-1"
         />
-      </Tabs>
+      </div>
 
       {activeTab === "overview" && (
         <OverviewContent
@@ -402,6 +499,28 @@ export function ProjectDetail() {
           />
         </div>
       )}
+
+      {activePluginSlot && (
+        <PluginSlotMount
+          slot={activePluginSlot}
+          context={pluginSlotContext}
+          missingBehavior="placeholder"
+        />
+      )}
+
+      {/* Mobile properties drawer */}
+      <Sheet open={mobilePropsOpen} onOpenChange={setMobilePropsOpen}>
+        <SheetContent side="bottom" className="max-h-[85dvh] pb-[env(safe-area-inset-bottom)]">
+          <SheetHeader>
+            <SheetTitle className="text-sm">Properties</SheetTitle>
+          </SheetHeader>
+          <ScrollArea className="flex-1 overflow-y-auto">
+            <div className="px-4 pb-4">
+              <ProjectProperties project={project} onUpdate={(data) => updateProject.mutate(data)} />
+            </div>
+          </ScrollArea>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }

@@ -25,10 +25,15 @@ import { CompanySettings } from "./pages/CompanySettings";
 import { DesignGuide } from "./pages/DesignGuide";
 import { OrgChart } from "./pages/OrgChart";
 import { NewAgent } from "./pages/NewAgent";
+import { PluginManager } from "./pages/PluginManager";
+import { PluginSettings } from "./pages/PluginSettings";
+import { PluginPage } from "./pages/PluginPage";
+import { InstanceSettings } from "./pages/InstanceSettings";
 import { AuthPage } from "./pages/Auth";
 import { BoardClaimPage } from "./pages/BoardClaim";
 import { InviteLandingPage } from "./pages/InviteLanding";
 import { NotFoundPage } from "./pages/NotFound";
+import { PluginLauncherProvider } from "./plugins/launchers";
 import { queryKeys } from "./lib/queryKeys";
 import { useCompany } from "./context/CompanyContext";
 import { useDialog } from "./context/DialogContext";
@@ -45,7 +50,7 @@ function BootstrapPendingPage({ hasActiveInvite = false }: { hasActiveInvite?: b
             : "No instance admin exists yet. Run this command in your Paperclip environment to generate the first admin invite URL:"}
         </p>
         <pre className="mt-4 overflow-x-auto rounded-md border border-border bg-muted/30 p-3 text-xs">
-{`pnpm paperclipai auth bootstrap-ceo`}
+          {`pnpm paperclipai auth bootstrap-ceo`}
         </pre>
       </div>
     </div>
@@ -108,6 +113,12 @@ function boardRoutes() {
       <Route path="dashboard" element={<Dashboard />} />
       <Route path="companies" element={<Companies />} />
       <Route path="company/settings" element={<CompanySettings />} />
+      <Route path="plugins/:pluginId" element={<PluginPage />} />
+      <Route path="settings" element={<InstanceSettings />}>
+        <Route index element={<Navigate to="plugins" replace />} />
+        <Route path="plugins" element={<PluginManager />} />
+        <Route path="plugins/:pluginId" element={<PluginSettings />} />
+      </Route>
       <Route path="org" element={<OrgChart />} />
       <Route path="agents" element={<Navigate to="/agents/all" replace />} />
       <Route path="agents/all" element={<Agents />} />
@@ -224,7 +235,7 @@ function NoCompaniesStartPage({ autoOpen = true }: { autoOpen?: boolean }) {
 
 export function App() {
   return (
-    <>
+    <PluginLauncherProvider>
       <Routes>
         <Route path="auth" element={<AuthPage />} />
         <Route path="board-claim/:token" element={<BoardClaimPage />} />
@@ -235,6 +246,8 @@ export function App() {
           <Route path="companies" element={<UnprefixedBoardRedirect />} />
           <Route path="issues" element={<UnprefixedBoardRedirect />} />
           <Route path="issues/:issueId" element={<UnprefixedBoardRedirect />} />
+          <Route path="settings" element={<UnprefixedBoardRedirect />} />
+          <Route path="settings/*" element={<UnprefixedBoardRedirect />} />
           <Route path="agents" element={<UnprefixedBoardRedirect />} />
           <Route path="agents/new" element={<UnprefixedBoardRedirect />} />
           <Route path="agents/:agentId" element={<UnprefixedBoardRedirect />} />
@@ -246,6 +259,8 @@ export function App() {
           <Route path="projects/:projectId/issues" element={<UnprefixedBoardRedirect />} />
           <Route path="projects/:projectId/issues/:filter" element={<UnprefixedBoardRedirect />} />
           <Route path="projects/:projectId/configuration" element={<UnprefixedBoardRedirect />} />
+          <Route path="plugins" element={<UnprefixedBoardRedirect />} />
+          <Route path="plugins/:pluginId" element={<UnprefixedBoardRedirect />} />
           <Route path=":companyPrefix" element={<Layout />}>
             {boardRoutes()}
           </Route>
@@ -253,6 +268,6 @@ export function App() {
         </Route>
       </Routes>
       <OnboardingWizard />
-    </>
+    </PluginLauncherProvider>
   );
 }

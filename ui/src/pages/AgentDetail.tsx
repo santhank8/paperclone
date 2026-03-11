@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, useRef } from "react";
-import { useParams, useNavigate, Link, Navigate, useBeforeUnload } from "@/lib/router";
+import { useParams, useNavigate, useSearchParams, Link, Navigate, useBeforeUnload } from "@/lib/router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { agentsApi, type AgentKey, type ClaudeLoginResult } from "../api/agents";
 import { heartbeatsApi } from "../api/heartbeats";
@@ -14,7 +14,6 @@ import { useDialog } from "../context/DialogContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
 import { queryKeys } from "../lib/queryKeys";
 import { AgentConfigForm } from "../components/AgentConfigForm";
-import { PageTabBar } from "../components/PageTabBar";
 import { adapterLabels, roleLabels } from "../components/agent-config-primitives";
 import { getUIAdapter, buildTranscript } from "../adapters";
 import type { TranscriptEntry } from "../adapters";
@@ -29,7 +28,6 @@ import { ScrollToBottom } from "../components/ScrollToBottom";
 import { formatCents, formatDate, relativeTime, formatTokens } from "../lib/utils";
 import { cn } from "../lib/utils";
 import { Button } from "@/components/ui/button";
-import { Tabs } from "@/components/ui/tabs";
 import {
   Popover,
   PopoverContent,
@@ -60,6 +58,8 @@ import { Input } from "@/components/ui/input";
 import { AgentIcon, AgentIconPicker } from "../components/AgentIconPicker";
 import { isUuidLike, type Agent, type HeartbeatRun, type HeartbeatRunEvent, type AgentRuntimeState, type LiveEvent } from "@paperclipai/shared";
 import { agentRouteRef } from "../lib/utils";
+import { usePluginSlots, PluginSlotMount } from "@/plugins/slots";
+import { PluginLauncherOutlet } from "@/plugins/launchers";
 
 const runStatusIcons: Record<string, { icon: typeof CheckCircle2; color: string }> = {
   succeeded: { icon: CheckCircle2, color: "text-green-600 dark:text-green-400" },
@@ -174,11 +174,12 @@ function scrollToContainerBottom(container: ScrollContainer, behavior: ScrollBeh
   container.scrollTo({ top: container.scrollHeight, behavior });
 }
 
-type AgentDetailView = "dashboard" | "configuration" | "runs";
+type AgentDetailView = "dashboard" | "configuration" | "runs" | (string & {});
 
 function parseAgentDetailView(value: string | null): AgentDetailView {
   if (value === "configure" || value === "configuration") return "configuration";
   if (value === "runs") return value;
+  if (value?.startsWith("plugin:")) return value;
   return "dashboard";
 }
 
@@ -234,6 +235,8 @@ export function AgentDetail() {
     tab?: string;
     runId?: string;
   }>();
+  const [searchParams] = useSearchParams();
+  const tabParam = searchParams.get("tab");
   const { companies, selectedCompanyId, setSelectedCompanyId } = useCompany();
   const { closePanel } = usePanel();
   const { openNewIssue } = useDialog();
@@ -242,7 +245,11 @@ export function AgentDetail() {
   const navigate = useNavigate();
   const [actionError, setActionError] = useState<string | null>(null);
   const [moreOpen, setMoreOpen] = useState(false);
-  const activeView = urlRunId ? "runs" as AgentDetailView : parseAgentDetailView(urlTab ?? null);
+  const activeView: AgentDetailView = urlRunId
+    ? ("runs" as const)
+    : tabParam?.startsWith("plugin:")
+      ? tabParam
+      : parseAgentDetailView(urlTab ?? null);
   const [configDirty, setConfigDirty] = useState(false);
   const [configSaving, setConfigSaving] = useState(false);
   const saveConfigActionRef = useRef<(() => void) | null>(null);
@@ -293,6 +300,27 @@ export function AgentDetail() {
     enabled: !!resolvedCompanyId,
   });
 
+  const slotCompanyId = resolvedCompanyId ?? routeCompanyId ?? selectedCompanyId ?? null;
+  const { slots: agentPluginSlots } = usePluginSlots({
+    slotTypes: ["taskDetailView", "detailTab"],
+    entityType: "agent",
+    companyId: slotCompanyId,
+    enabled: !!slotCompanyId,
+  });
+  const resolvedCompanyPrefix = useMemo(
+    () => (resolvedCompanyId ? companies.find((c) => c.id === resolvedCompanyId)?.issuePrefix ?? null : null),
+    [companies, resolvedCompanyId],
+  );
+  const pluginSlotContext = useMemo(
+    () => ({
+      companyId: resolvedCompanyId ?? null,
+      companyPrefix: resolvedCompanyPrefix,
+      entityId: agent?.id ?? null,
+      entityType: "agent" as const,
+    }),
+    [resolvedCompanyId, resolvedCompanyPrefix, agent?.id],
+  );
+
   const assignedIssues = (allIssues ?? [])
     .filter((i) => i.assigneeAgentId === agent?.id)
     .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
@@ -311,17 +339,24 @@ export function AgentDetail() {
       }
       return;
     }
-    const canonicalTab =
-      activeView === "configuration"
-        ? "configuration"
-        : activeView === "runs"
-          ? "runs"
-          : "dashboard";
+    if (typeof activeView === "string" && activeView.startsWith("plugin:")) {
+      if (tabParam !== activeView) {
+        navigate(`/agents/${canonicalAgentRef}?tab=${encodeURIComponent(activeView)}`, { replace: true });
+      }
+      return;
+    }
+    if (activeView === "runs") {
+      if (routeAgentRef !== canonicalAgentRef || urlTab !== "runs") {
+        navigate(`/agents/${canonicalAgentRef}/runs`, { replace: true });
+      }
+      return;
+    }
+    const canonicalTab = activeView === "configuration" ? "configuration" : "dashboard";
     if (routeAgentRef !== canonicalAgentRef || urlTab !== canonicalTab) {
       navigate(`/agents/${canonicalAgentRef}/${canonicalTab}`, { replace: true });
       return;
     }
-  }, [agent, routeAgentRef, canonicalAgentRef, urlRunId, urlTab, activeView, navigate]);
+  }, [agent, routeAgentRef, canonicalAgentRef, urlRunId, urlTab, tabParam, activeView, navigate]);
 
   useEffect(() => {
     if (!agent?.companyId || agent.companyId === selectedCompanyId) return;
@@ -415,12 +450,13 @@ export function AgentDetail() {
         crumbs.push({ label: "Configuration" });
       } else if (activeView === "runs") {
         crumbs.push({ label: "Runs" });
-      } else {
-        crumbs.push({ label: "Dashboard" });
+      } else if (typeof activeView === "string" && activeView.startsWith("plugin:")) {
+        const slot = agentPluginSlots.find((s) => `plugin:${s.pluginKey}:${s.id}` === activeView);
+        crumbs.push({ label: slot?.displayName ?? "Plugin" });
       }
     }
     setBreadcrumbs(crumbs);
-  }, [setBreadcrumbs, agent, routeAgentRef, canonicalAgentRef, activeView, urlRunId]);
+  }, [setBreadcrumbs, agent, routeAgentRef, canonicalAgentRef, activeView, urlRunId, agentPluginSlots]);
 
   useEffect(() => {
     closePanel();
@@ -438,7 +474,7 @@ export function AgentDetail() {
   if (isLoading) return <PageSkeleton variant="detail" />;
   if (error) return <p className="text-sm text-destructive">{error.message}</p>;
   if (!agent) return null;
-  if (!urlRunId && !urlTab) {
+  if (!urlRunId && !urlTab && !tabParam) {
     return <Navigate to={`/agents/${canonicalAgentRef}/dashboard`} replace />;
   }
   const isPendingApproval = agent.status === "pending_approval";
@@ -561,23 +597,6 @@ export function AgentDetail() {
         </div>
       </div>
 
-      {!urlRunId && (
-        <Tabs
-          value={activeView}
-          onValueChange={(value) => navigate(`/agents/${canonicalAgentRef}/${value}`)}
-        >
-          <PageTabBar
-            items={[
-              { value: "dashboard", label: "Dashboard" },
-              { value: "configuration", label: "Configuration" },
-              { value: "runs", label: "Runs" },
-            ]}
-            value={activeView}
-            onValueChange={(value) => navigate(`/agents/${canonicalAgentRef}/${value}`)}
-          />
-        </Tabs>
-      )}
-
       {actionError && <p className="text-sm text-destructive">{actionError}</p>}
       {isPendingApproval && (
         <p className="text-sm text-amber-500">
@@ -641,6 +660,70 @@ export function AgentDetail() {
         </div>
       )}
 
+      {/* Tab bar: Dashboard | Configuration | Runs | plugin tabs */}
+      {!urlRunId && (
+        <div className="flex items-center gap-2 border-b border-border">
+          <div className="flex items-center gap-1 min-w-0 overflow-x-auto scrollbar-auto-hide">
+            <Link
+              to={`/agents/${canonicalAgentRef}/dashboard`}
+              className={cn(
+                "px-3 py-2 text-sm font-medium transition-colors border-b-2 no-underline",
+                activeView === "dashboard"
+                  ? "border-foreground text-foreground"
+                  : "border-transparent text-muted-foreground hover:text-foreground"
+              )}
+            >
+              Dashboard
+            </Link>
+            <Link
+              to={`/agents/${canonicalAgentRef}/configuration`}
+              className={cn(
+                "px-3 py-2 text-sm font-medium transition-colors border-b-2 no-underline",
+                activeView === "configuration"
+                  ? "border-foreground text-foreground"
+                  : "border-transparent text-muted-foreground hover:text-foreground"
+              )}
+            >
+              Configuration
+            </Link>
+            <Link
+              to={`/agents/${canonicalAgentRef}/runs`}
+              className={cn(
+                "px-3 py-2 text-sm font-medium transition-colors border-b-2 no-underline",
+                activeView === "runs"
+                  ? "border-foreground text-foreground"
+                  : "border-transparent text-muted-foreground hover:text-foreground"
+              )}
+            >
+              Runs
+            </Link>
+            {agentPluginSlots.map((slot) => {
+              const value = `plugin:${slot.pluginKey}:${slot.id}`;
+              return (
+                <Link
+                  key={value}
+                  to={`/agents/${canonicalAgentRef}?tab=${encodeURIComponent(value)}`}
+                  className={cn(
+                    "px-3 py-2 text-sm font-medium transition-colors border-b-2 no-underline shrink-0",
+                    activeView === value
+                      ? "border-foreground text-foreground"
+                      : "border-transparent text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  {slot.displayName}
+                </Link>
+              );
+            })}
+          </div>
+          <PluginLauncherOutlet
+            placementZones={["taskDetailView", "detailTab"]}
+            entityType="agent"
+            context={pluginSlotContext}
+            className="ml-auto flex items-center gap-1 shrink-0 py-1"
+          />
+        </div>
+      )}
+
       {/* View content */}
       {activeView === "dashboard" && (
         <AgentOverview
@@ -676,6 +759,17 @@ export function AgentDetail() {
           adapterType={agent.adapterType}
         />
       )}
+
+      {typeof activeView === "string" && activeView.startsWith("plugin:") && (() => {
+        const activeSlot = agentPluginSlots.find((s) => `plugin:${s.pluginKey}:${s.id}` === activeView);
+        return activeSlot ? (
+          <PluginSlotMount
+            slot={activeSlot}
+            context={pluginSlotContext}
+            missingBehavior="placeholder"
+          />
+        ) : null;
+      })()}
     </div>
   );
 }
@@ -742,8 +836,8 @@ function LatestRunCard({ runs, agentId }: { runs: HeartbeatRun[]; agentId: strin
             "inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium",
             run.invocationSource === "timer" ? "bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300"
               : run.invocationSource === "assignment" ? "bg-violet-100 text-violet-700 dark:bg-violet-900/50 dark:text-violet-300"
-              : run.invocationSource === "on_demand" ? "bg-cyan-100 text-cyan-700 dark:bg-cyan-900/50 dark:text-cyan-300"
-              : "bg-muted text-muted-foreground"
+                : run.invocationSource === "on_demand" ? "bg-cyan-100 text-cyan-700 dark:bg-cyan-900/50 dark:text-cyan-300"
+                  : "bg-muted text-muted-foreground"
           )}>
             {sourceLabels[run.invocationSource] ?? run.invocationSource}
           </span>
@@ -1148,8 +1242,8 @@ function RunListItem({ run, isSelected, agentId }: { run: HeartbeatRun; isSelect
           "inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium shrink-0",
           run.invocationSource === "timer" ? "bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300"
             : run.invocationSource === "assignment" ? "bg-violet-100 text-violet-700 dark:bg-violet-900/50 dark:text-violet-300"
-            : run.invocationSource === "on_demand" ? "bg-cyan-100 text-cyan-700 dark:bg-cyan-900/50 dark:text-cyan-300"
-            : "bg-muted text-muted-foreground"
+              : run.invocationSource === "on_demand" ? "bg-cyan-100 text-cyan-700 dark:bg-cyan-900/50 dark:text-cyan-300"
+                : "bg-muted text-muted-foreground"
         )}>
           {sourceLabels[run.invocationSource] ?? run.invocationSource}
         </span>
@@ -1236,9 +1330,9 @@ function RunsTab({
         selectedRun ? "w-72" : "w-full",
       )}>
         <div className="sticky top-4 overflow-y-auto" style={{ maxHeight: "calc(100vh - 2rem)" }}>
-        {sorted.map((run) => (
-          <RunListItem key={run.id} run={run} isSelected={run.id === effectiveRunId} agentId={agentRouteId} />
-        ))}
+          {sorted.map((run) => (
+            <RunListItem key={run.id} run={run} isSelected={run.id === effectiveRunId} agentId={agentRouteId} />
+          ))}
         </div>
       </div>
 
@@ -2248,12 +2342,12 @@ function LogViewer({ run, adapterType }: { run: HeartbeatRun; adapterType: strin
           const rawText = entry.text;
           const label =
             entry.kind === "stderr" ? "stderr" :
-            entry.kind === "system" ? "system" :
-            "stdout";
+              entry.kind === "system" ? "system" :
+                "stdout";
           const color =
             entry.kind === "stderr" ? "text-red-600 dark:text-red-300" :
-            entry.kind === "system" ? "text-blue-600 dark:text-blue-300" :
-            "text-neutral-500";
+              entry.kind === "system" ? "text-blue-600 dark:text-blue-300" :
+                "text-neutral-500";
           return (
             <div key={`${entry.ts}-raw-${idx}`} className={grid}>
               <span className={tsCell}>{time}</span>

@@ -6,6 +6,7 @@ import type { Db } from "@paperclipai/db";
 import type { DeploymentExposure, DeploymentMode } from "@paperclipai/shared";
 import type { StorageService } from "./storage/types.js";
 import { httpLogger, errorHandler } from "./middleware/index.js";
+import { logger } from "./middleware/logger.js";
 import { actorMiddleware } from "./middleware/auth.js";
 import { boardMutationGuard } from "./middleware/board-mutation-guard.js";
 import { privateHostnameGuard, resolvePrivateHostnameAllowSet } from "./middleware/private-hostname-guard.js";
@@ -25,6 +26,19 @@ import { llmRoutes } from "./routes/llms.js";
 import { assetRoutes } from "./routes/assets.js";
 import { accessRoutes } from "./routes/access.js";
 import { applyUiBranding } from "./ui-branding.js";
+import { pluginRoutes } from "./routes/plugins.js";
+import { pluginUiStaticRoutes } from "./routes/plugin-ui-static.js";
+import { DEFAULT_LOCAL_PLUGIN_DIR, pluginLoader } from "./services/plugin-loader.js";
+import { createPluginWorkerManager } from "./services/plugin-worker-manager.js";
+import { createPluginJobScheduler } from "./services/plugin-job-scheduler.js";
+import { pluginJobStore } from "./services/plugin-job-store.js";
+import { createPluginToolDispatcher } from "./services/plugin-tool-dispatcher.js";
+import { pluginLifecycleManager } from "./services/plugin-lifecycle.js";
+import { createPluginJobCoordinator } from "./services/plugin-job-coordinator.js";
+import { buildHostServices } from "./services/plugin-host-services.js";
+import { createPluginEventBus } from "./services/plugin-event-bus.js";
+import { subscribeDomainEvents } from "./services/index.js";
+import { createHostClientHandlers } from "@paperclipai/plugin-sdk";
 import type { BetterAuthSessionResult } from "./auth/better-auth.js";
 
 type UiMode = "none" | "static" | "vite-dev";
@@ -114,6 +128,76 @@ export async function createApp(
   api.use(activityRoutes(db));
   api.use(dashboardRoutes(db));
   api.use(sidebarBadgeRoutes(db));
+  // ---------------------------------------------------------------------------
+  // Plugin runtime services — job scheduler, worker manager, tool dispatcher
+  // ---------------------------------------------------------------------------
+  const workerManager = createPluginWorkerManager();
+  const eventBus = createPluginEventBus();
+
+  // Bridge core domain events to the plugin event bus. This allows plugins to
+  // react to things like issue creation, agent status changes, etc.
+  const unsubscribeDomainEvents = subscribeDomainEvents((event) => {
+    void eventBus.emit(event).catch((err) => {
+      logger.error({ err, eventType: event.eventType }, "Failed to bridge domain event to plugin bus");
+    });
+  });
+
+  const jobStore = pluginJobStore(db);
+  const lifecycle = pluginLifecycleManager(db, { workerManager });
+  const scheduler = createPluginJobScheduler({
+    db,
+    jobStore,
+    workerManager,
+  });
+  const toolDispatcher = createPluginToolDispatcher({
+    workerManager,
+    lifecycleManager: lifecycle,
+    db,
+  });
+  const jobCoordinator = createPluginJobCoordinator({
+    db,
+    lifecycle,
+    scheduler,
+    jobStore,
+  });
+
+  // Create the plugin loader with full runtime services
+  const loader = pluginLoader(
+    db,
+    { localPluginDir: opts.localPluginDir ?? DEFAULT_LOCAL_PLUGIN_DIR },
+    {
+      workerManager,
+      eventBus,
+      jobScheduler: scheduler,
+      jobStore,
+      toolDispatcher,
+      lifecycleManager: lifecycle,
+      instanceInfo: {
+        instanceId: opts.instanceId ?? "default",
+        hostVersion: opts.hostVersion ?? "0.0.0",
+      },
+      buildHostHandlers: (pluginId, manifest) => {
+        const services = buildHostServices(db, pluginId, manifest.id, eventBus);
+        return createHostClientHandlers({
+          pluginId,
+          capabilities: manifest.capabilities,
+          services,
+        });
+      },
+    },
+  );
+
+  // Mount plugin API routes with all optional deps wired in
+  api.use(
+    pluginRoutes(
+      db,
+      loader,
+      { scheduler, jobStore },     // jobDeps
+      { workerManager },            // webhookDeps
+      { toolDispatcher },           // toolDeps
+      { workerManager },            // bridgeDeps
+    ),
+  );
   api.use(
     accessRoutes(db, {
       deploymentMode: opts.deploymentMode,
@@ -126,6 +210,13 @@ export async function createApp(
   app.use("/api", (_req, res) => {
     res.status(404).json({ error: "API route not found" });
   });
+
+  // Mount plugin UI static file serving at /_plugins/:pluginId/ui/*
+  // This must come after auth middleware but before the main UI fallback route.
+  // See PLUGIN_SPEC.md §19.0.3 — Bundle Serving
+  app.use(pluginUiStaticRoutes(db, {
+    localPluginDir: opts.localPluginDir ?? DEFAULT_LOCAL_PLUGIN_DIR,
+  }));
 
   const __dirname = path.dirname(fileURLToPath(import.meta.url));
   if (opts.uiMode === "static") {
@@ -179,5 +270,50 @@ export async function createApp(
 
   app.use(errorHandler);
 
-  return app;
+  // ---------------------------------------------------------------------------
+  // Start plugin runtime services
+  // ---------------------------------------------------------------------------
+  jobCoordinator.start();
+  scheduler.start();
+
+  // Initialize tool dispatcher — loads tools from all ready plugins and
+  // subscribes to lifecycle events for dynamic tool registration/removal.
+  void toolDispatcher.initialize().catch((err) => {
+    logger.error(
+      { err: err instanceof Error ? err.message : String(err) },
+      "Failed to initialize plugin tool dispatcher",
+    );
+  });
+
+  // Load and activate all plugins that are in 'ready' status
+  void loader.loadAll().catch((err) => {
+    logger.error(
+      { err: err instanceof Error ? err.message : String(err) },
+      "Failed to load ready plugins on startup",
+    );
+  });
+
+  logger.info("Plugin runtime services started (scheduler, worker manager, tool dispatcher, loader)");
+
+  /**
+   * Gracefully shut down plugin runtime services.
+   *
+   * Call this when the server is stopping to:
+   * 1. Stop the job scheduler tick loop
+   * 2. Tear down the tool dispatcher (unsubscribe lifecycle events)
+   * 3. Stop all plugin worker processes (graceful drain → SIGTERM → SIGKILL)
+   */
+  async function shutdownPlugins(): Promise<void> {
+    logger.info("Shutting down plugin runtime services…");
+
+    unsubscribeDomainEvents();
+    jobCoordinator.stop();
+    scheduler.stop();
+    toolDispatcher.teardown();
+    await workerManager.stopAll();
+
+    logger.info("Plugin runtime services stopped");
+  }
+
+  return { app, shutdownPlugins };
 }
