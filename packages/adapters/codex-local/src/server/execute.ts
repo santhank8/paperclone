@@ -119,6 +119,29 @@ async function ensureCodexSkillsInjected(onLog: AdapterExecutionContext["onLog"]
   }
 }
 
+async function isReadableFile(filePath: string): Promise<boolean> {
+  return fs.stat(filePath).then((s) => s.isFile()).catch(() => false);
+}
+
+async function isReadableDirectory(dirPath: string): Promise<boolean> {
+  return fs.stat(dirPath).then((s) => s.isDirectory()).catch(() => false);
+}
+
+async function resolveRuntimeInstructionsFilePath(
+  configuredPath: string,
+  env: Record<string, string>,
+): Promise<string> {
+  const trimmed = configuredPath.trim();
+  if (!trimmed) return "";
+  if (await isReadableFile(trimmed)) return trimmed;
+
+  const agentHome = env.AGENT_HOME?.trim();
+  if (!agentHome) return trimmed;
+  const fallbackPath = path.join(agentHome, "AGENTS.md");
+  if (await isReadableFile(fallbackPath)) return fallbackPath;
+  return trimmed;
+}
+
 type CodexExecutionInput = Pick<
   AdapterExecutionContext,
   "runId" | "agent" | "config" | "context" | "authToken" | "onLog"
@@ -173,10 +196,12 @@ async function buildCodexRuntimeConfig(
       )
     : [];
   const configuredCwd = asString(config.cwd, "");
-  const useConfiguredInsteadOfAgentHome =
-    workspaceSource === "agent_home" && configuredCwd.length > 0;
-  const effectiveWorkspaceCwd = useConfiguredInsteadOfAgentHome ? "" : workspaceCwd;
-  const cwd = effectiveWorkspaceCwd || configuredCwd || process.cwd();
+  const configuredCwdReadable =
+    configuredCwd.length > 0 ? await isReadableDirectory(configuredCwd) : false;
+  const cwd =
+    workspaceSource === "agent_home"
+      ? (configuredCwdReadable ? configuredCwd : workspaceCwd || process.cwd())
+      : (workspaceCwd || configuredCwd || process.cwd());
   await ensureAbsoluteDirectory(cwd, { createIfMissing: true });
 
   const envConfig = parseObject(config.env);
@@ -229,7 +254,7 @@ async function buildCodexRuntimeConfig(
   if (linkedIssueIds.length > 0) {
     env.PAPERCLIP_LINKED_ISSUE_IDS = linkedIssueIds.join(",");
   }
-  if (effectiveWorkspaceCwd) env.PAPERCLIP_WORKSPACE_CWD = effectiveWorkspaceCwd;
+  if (workspaceCwd) env.PAPERCLIP_WORKSPACE_CWD = workspaceCwd;
   if (workspaceSource) env.PAPERCLIP_WORKSPACE_SOURCE = workspaceSource;
   if (workspaceId) env.PAPERCLIP_WORKSPACE_ID = workspaceId;
   if (workspaceRepoUrl) env.PAPERCLIP_WORKSPACE_REPO_URL = workspaceRepoUrl;
@@ -405,8 +430,21 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
       `[paperclip] Codex session "${runtimeSessionId}" was saved for cwd "${runtimeSessionCwd}" and will not be resumed in "${cwd}".\n`,
     );
   }
-  const instructionsFilePath = asString(config.instructionsFilePath, "").trim();
+  const configuredInstructionsFilePath = asString(config.instructionsFilePath, "").trim();
+  const instructionsFilePath = await resolveRuntimeInstructionsFilePath(
+    configuredInstructionsFilePath,
+    env,
+  );
   const instructionsDir = instructionsFilePath ? `${path.dirname(instructionsFilePath)}/` : "";
+  if (
+    configuredInstructionsFilePath &&
+    configuredInstructionsFilePath !== instructionsFilePath
+  ) {
+    await onLog(
+      "stderr",
+      `[paperclip] Configured instructionsFilePath "${configuredInstructionsFilePath}" was not readable; using "${instructionsFilePath}" instead.\n`,
+    );
+  }
   let instructionsPrefix = "";
   if (instructionsFilePath) {
     try {

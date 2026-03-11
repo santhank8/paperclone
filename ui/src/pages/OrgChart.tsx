@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useMemo, useCallback } from "react";
 import { useNavigate } from "@/lib/router";
 import { useQuery } from "@tanstack/react-query";
 import { agentsApi, type OrgNode } from "../api/agents";
+import { heartbeatsApi } from "../api/heartbeats";
 import { useCompany } from "../context/CompanyContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
 import { queryKeys } from "../lib/queryKeys";
@@ -135,6 +136,10 @@ const statusDotColor: Record<string, string> = {
 };
 const defaultDotColor = "#a3a3a3";
 
+function effectiveAgentStatus(status: string, hasLiveRun: boolean): string {
+  return hasLiveRun ? "running" : status;
+}
+
 // ── Main component ──────────────────────────────────────────────────────
 
 export function OrgChart() {
@@ -154,11 +159,24 @@ export function OrgChart() {
     enabled: !!selectedCompanyId,
   });
 
+  const { data: liveRuns } = useQuery({
+    queryKey: queryKeys.liveRuns(selectedCompanyId!),
+    queryFn: () => heartbeatsApi.liveRunsForCompany(selectedCompanyId!),
+    enabled: !!selectedCompanyId,
+    refetchInterval: 5_000,
+  });
+
   const agentMap = useMemo(() => {
     const m = new Map<string, Agent>();
     for (const a of agents ?? []) m.set(a.id, a);
     return m;
   }, [agents]);
+
+  const liveAgentIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const run of liveRuns ?? []) ids.add(run.agentId);
+    return ids;
+  }, [liveRuns]);
 
   useEffect(() => {
     setBreadcrumbs([{ label: "Org Chart" }]);
@@ -372,7 +390,8 @@ export function OrgChart() {
       >
         {allNodes.map((node) => {
           const agent = agentMap.get(node.id);
-          const dotColor = statusDotColor[node.status] ?? defaultDotColor;
+          const displayStatus = effectiveAgentStatus(node.status, liveAgentIds.has(node.id));
+          const dotColor = statusDotColor[displayStatus] ?? defaultDotColor;
 
           return (
             <div

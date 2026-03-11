@@ -89,7 +89,22 @@ function firstNonEmptyLine(value: string | null | undefined): string | null {
 }
 
 function runFailureMessage(run: HeartbeatRun): string {
-  return firstNonEmptyLine(run.error) ?? firstNonEmptyLine(run.stderrExcerpt) ?? "Run exited with an error.";
+  const resultText =
+    run.resultJson && typeof run.resultJson.result === "string" ? run.resultJson.result : null;
+  if (run.status === "succeeded") {
+    return (
+      firstNonEmptyLine(resultText) ??
+      firstNonEmptyLine(run.error) ??
+      firstNonEmptyLine(run.stderrExcerpt) ??
+      "Run needs operator attention."
+    );
+  }
+  return (
+    firstNonEmptyLine(run.error) ??
+    firstNonEmptyLine(run.stderrExcerpt) ??
+    firstNonEmptyLine(resultText) ??
+    "Run exited with an error."
+  );
 }
 
 function normalizeTimestamp(value: string | Date | null | undefined): number {
@@ -139,6 +154,7 @@ function FailedRunCard({
   const issue = issueId ? issueById.get(issueId) ?? null : null;
   const sourceLabel = RUN_SOURCE_LABELS[run.invocationSource] ?? "Manual";
   const displayError = runFailureMessage(run);
+  const isAttentionRequest = run.status === "succeeded";
 
   const retryRun = useMutation({
     mutationFn: async () => {
@@ -211,7 +227,7 @@ function FailedRunCard({
               <StatusBadge status={run.status} />
             </div>
             <p className="mt-2 text-xs text-muted-foreground">
-              {sourceLabel} run failed {timeAgo(run.createdAt)}
+              {sourceLabel} run {isAttentionRequest ? "needs attention" : "failed"} {timeAgo(run.createdAt)}
             </p>
           </div>
           <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
@@ -637,7 +653,7 @@ export function Inbox() {
                 <SelectItem value="issues_i_touched">My recent issues</SelectItem>
                 <SelectItem value="join_requests">Join requests</SelectItem>
                 <SelectItem value="approvals">Approvals</SelectItem>
-                <SelectItem value="failed_runs">Failed runs</SelectItem>
+                <SelectItem value="failed_runs">Run issues</SelectItem>
                 <SelectItem value="alerts">Alerts</SelectItem>
                 <SelectItem value="stale_work">Stale work</SelectItem>
               </SelectContent>
@@ -786,7 +802,7 @@ export function Inbox() {
           {showSeparatorBefore("failed_runs") && <Separator />}
           <div>
             <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-              Failed Runs
+              Run Issues
             </h3>
             <div className="grid gap-3">
               {failedRuns.map((run) => (
@@ -820,7 +836,8 @@ export function Inbox() {
                     <AlertTriangle className="h-4 w-4 shrink-0 text-red-600 dark:text-red-400" />
                     <span className="text-sm">
                       <span className="font-medium">{dashboard!.agents.error}</span>{" "}
-                      {dashboard!.agents.error === 1 ? "agent has" : "agents have"} errors
+                      {dashboard!.agents.error === 1 ? "agent has" : "agents have"} runtime or
+                      access issues
                     </span>
                   </Link>
                   <button

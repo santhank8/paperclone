@@ -19,7 +19,6 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    user: "0:0"
     ports:
       - "${PAPERCLIP_PORT:-3100}:3100"
     environment:
@@ -46,6 +45,7 @@ services:
     volumes:
       - "${PAPERCLIP_DATA_DIR:-./.paperclip-local}:${PAPERCLIP_HOME_IN_CONTAINER:-/paperclip}"
       - "${PAPERCLIP_REPO_MOUNT_SOURCE:-.}:${PAPERCLIP_REPO_MOUNT_TARGET:-/app-host}:ro"
+      - "${PAPERCLIP_HOST_GITHUB_DIR:-/Users/juandi/Documents/github}:${PAPERCLIP_HOST_GITHUB_DIR_IN_CONTAINER:-/Users/juandi/Documents/github}"
       - "${CALENBOOK_DIR:-./data/calenbook}:${CALENBOOK_DIR_IN_CONTAINER:-/workspace/calenbook}"
       - "${PAPERCLIP_AGENTS_DIR:-./agents}:/paperclip-agents"
     depends_on:

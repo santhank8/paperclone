@@ -64,6 +64,29 @@ async function buildSkillsDir(): Promise<string> {
   return tmp;
 }
 
+async function isReadableFile(filePath: string): Promise<boolean> {
+  return fs.stat(filePath).then((s) => s.isFile()).catch(() => false);
+}
+
+async function isReadableDirectory(dirPath: string): Promise<boolean> {
+  return fs.stat(dirPath).then((s) => s.isDirectory()).catch(() => false);
+}
+
+async function resolveRuntimeInstructionsFilePath(
+  configuredPath: string,
+  env: Record<string, string>,
+): Promise<string> {
+  const trimmed = configuredPath.trim();
+  if (!trimmed) return "";
+  if (await isReadableFile(trimmed)) return trimmed;
+
+  const agentHome = env.AGENT_HOME?.trim();
+  if (!agentHome) return trimmed;
+  const fallbackPath = path.join(agentHome, "AGENTS.md");
+  if (await isReadableFile(fallbackPath)) return fallbackPath;
+  return trimmed;
+}
+
 interface ClaudeExecutionInput {
   runId: string;
   agent: AdapterExecutionContext["agent"];
@@ -138,9 +161,12 @@ async function buildClaudeRuntimeConfig(input: ClaudeExecutionInput): Promise<Cl
       )
     : [];
   const configuredCwd = asString(config.cwd, "");
-  const useConfiguredInsteadOfAgentHome = workspaceSource === "agent_home" && configuredCwd.length > 0;
-  const effectiveWorkspaceCwd = useConfiguredInsteadOfAgentHome ? "" : workspaceCwd;
-  const cwd = effectiveWorkspaceCwd || configuredCwd || process.cwd();
+  const configuredCwdReadable =
+    configuredCwd.length > 0 ? await isReadableDirectory(configuredCwd) : false;
+  const cwd =
+    workspaceSource === "agent_home"
+      ? (configuredCwdReadable ? configuredCwd : workspaceCwd || process.cwd())
+      : (workspaceCwd || configuredCwd || process.cwd());
   await ensureAbsoluteDirectory(cwd, { createIfMissing: true });
 
   const envConfig = parseObject(config.env);
@@ -192,8 +218,8 @@ async function buildClaudeRuntimeConfig(input: ClaudeExecutionInput): Promise<Cl
   if (linkedIssueIds.length > 0) {
     env.PAPERCLIP_LINKED_ISSUE_IDS = linkedIssueIds.join(",");
   }
-  if (effectiveWorkspaceCwd) {
-    env.PAPERCLIP_WORKSPACE_CWD = effectiveWorkspaceCwd;
+  if (workspaceCwd) {
+    env.PAPERCLIP_WORKSPACE_CWD = workspaceCwd;
   }
   if (workspaceSource) {
     env.PAPERCLIP_WORKSPACE_SOURCE = workspaceSource;
@@ -303,18 +329,6 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
   const maxTurns = asNumber(config.maxTurnsPerRun, 0);
   const wantsDangerouslySkipPermissions = asBoolean(config.dangerouslySkipPermissions, false);
   const dangerouslySkipPermissions = wantsDangerouslySkipPermissions && canUseDangerouslySkipPermissions();
-  const instructionsFilePath = asString(config.instructionsFilePath, "").trim();
-  const instructionsFileDir = instructionsFilePath ? `${path.dirname(instructionsFilePath)}/` : "";
-  const commandNotes = instructionsFilePath
-    ? [
-        `Injected agent instructions via --append-system-prompt-file ${instructionsFilePath} (with path directive appended)`,
-      ]
-    : [];
-  if (wantsDangerouslySkipPermissions && !dangerouslySkipPermissions) {
-    commandNotes.push(
-      "Skipped --dangerously-skip-permissions because Claude CLI rejects it when the Paperclip runtime is running as root.",
-    );
-  }
 
   const runtimeConfig = await buildClaudeRuntimeConfig({
     runId,
@@ -334,6 +348,34 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     graceSec,
     extraArgs,
   } = runtimeConfig;
+  const configuredInstructionsFilePath = asString(config.instructionsFilePath, "").trim();
+  const instructionsFilePath = await resolveRuntimeInstructionsFilePath(
+    configuredInstructionsFilePath,
+    env,
+  );
+  const instructionsFileDir = instructionsFilePath ? `${path.dirname(instructionsFilePath)}/` : "";
+  const commandNotes = configuredInstructionsFilePath
+    ? [
+        `Injected agent instructions via --append-system-prompt-file ${instructionsFilePath} (with path directive appended)`,
+      ]
+    : [];
+  if (
+    configuredInstructionsFilePath &&
+    configuredInstructionsFilePath !== instructionsFilePath
+  ) {
+    commandNotes.push(
+      `Configured instructionsFilePath ${configuredInstructionsFilePath} was not readable in this runtime; fell back to ${instructionsFilePath}.`,
+    );
+    await onLog(
+      "stderr",
+      `[paperclip] Configured instructionsFilePath "${configuredInstructionsFilePath}" was not readable; using "${instructionsFilePath}" instead.\n`,
+    );
+  }
+  if (wantsDangerouslySkipPermissions && !dangerouslySkipPermissions) {
+    commandNotes.push(
+      "Skipped --dangerously-skip-permissions because Claude CLI rejects it when the Paperclip runtime is running as root.",
+    );
+  }
   const billingType = resolveClaudeBillingType(env);
   const skillsDir = await buildSkillsDir();
 

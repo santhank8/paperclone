@@ -27,6 +27,8 @@ import { isPaperclipWorktree, gitRepoRoot, removeGitWorktree, pruneGitWorktrees 
 import { secretService } from "./secrets.js";
 import { resolveDefaultAgentWorkspaceDir } from "../home-paths.js";
 import { applyInstanceAgentRuntimeAuth } from "./instance-agent-auth.js";
+import { materializeAgentInstructionsForRuntime } from "./agent-runtime-instructions.js";
+import { hasHeartbeatOperatorAttentionRequest, hasHeartbeatRuntimeIssue } from "./heartbeat-runtime-issues.js";
 
 const MAX_LIVE_LOG_CHUNK_BYTES = 8 * 1024;
 const HEARTBEAT_MAX_CONCURRENT_RUNS_DEFAULT = 1;
@@ -1334,7 +1336,33 @@ export function heartbeatService(db: Db) {
         agent.companyId,
         mergedConfig,
       );
-      const effectiveResolvedConfig = applyInstanceAgentRuntimeAuth(agent.adapterType, resolvedConfig);
+      let runtimeResolvedConfig = resolvedConfig;
+      const configuredInstructionsFilePath = readNonEmptyString(resolvedConfig.instructionsFilePath);
+      if (configuredInstructionsFilePath) {
+        const materialized = await materializeAgentInstructionsForRuntime({
+          agentId: agent.id,
+          configuredPath: configuredInstructionsFilePath,
+          workspaceCwd: resolvedWorkspace.cwd,
+        });
+        if (materialized.runtimePath) {
+          runtimeResolvedConfig = {
+            ...resolvedConfig,
+            instructionsFilePath: materialized.runtimePath,
+          };
+          if (materialized.sourcePath && materialized.runtimePath !== configuredInstructionsFilePath) {
+            await onLog(
+              "stderr",
+              `[paperclip] Materialized agent instructions from "${materialized.sourcePath}" to "${materialized.runtimePath}".\n`,
+            );
+          } else if (!materialized.sourcePath && materialized.runtimePath !== configuredInstructionsFilePath) {
+            await onLog(
+              "stderr",
+              `[paperclip] Original instructionsFilePath "${configuredInstructionsFilePath}" was not readable; using persisted runtime copy "${materialized.runtimePath}".\n`,
+            );
+          }
+        }
+      }
+      const effectiveResolvedConfig = applyInstanceAgentRuntimeAuth(agent.adapterType, runtimeResolvedConfig);
       const onAdapterMeta = async (meta: AdapterInvocationMeta) => {
         if (meta.env && secretKeys.size > 0) {
           for (const key of secretKeys) {
@@ -2208,6 +2236,9 @@ export function heartbeatService(db: Db) {
         .selectDistinctOn([heartbeatRuns.agentId], {
           id: heartbeatRuns.id,
           status: heartbeatRuns.status,
+          error: heartbeatRuns.error,
+          stderrExcerpt: heartbeatRuns.stderrExcerpt,
+          resultJson: heartbeatRuns.resultJson,
         })
         .from(heartbeatRuns)
         .innerJoin(agents, eq(heartbeatRuns.agentId, agents.id))
@@ -2224,7 +2255,7 @@ export function heartbeatService(db: Db) {
         .filter((row) =>
           FAILED_HEARTBEAT_RUN_STATUSES.includes(
             row.status as (typeof FAILED_HEARTBEAT_RUN_STATUSES)[number],
-          ),
+          ) || hasHeartbeatRuntimeIssue(row) || hasHeartbeatOperatorAttentionRequest(row),
         )
         .map((row) => row.id);
 

@@ -12,6 +12,7 @@ Write all personal files to `$AGENT_HOME`:
 ## Role
 
 You execute WordPress-to-Next.js migration work packages assigned by the Principal Developer.
+Any Paperclip issue assigned directly to you is already an authorized work package. Do not wait for a second manual handoff if you have an assigned issue in your inbox.
 
 ## Responsibilities
 
@@ -30,3 +31,4 @@ You execute WordPress-to-Next.js migration work packages assigned by the Princip
 - Report to Principal Developer.
 - Coordinate branch and file ownership with Migration Dev 1 and Migration Dev 2.
 - Publish concise status updates after each completed slice.
+- If you wake up with `PAPERCLIP_TASK_ID` or any assigned `todo`/`in_progress` issue, start from that issue immediately and treat it as your active slice.

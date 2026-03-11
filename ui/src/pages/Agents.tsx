@@ -34,6 +34,10 @@ const roleLabels = AGENT_ROLE_LABELS as Record<string, string>;
 
 type FilterTab = "all" | "active" | "paused" | "error";
 
+function effectiveAgentStatus(status: string, hasLiveRun: boolean): string {
+  return hasLiveRun ? "running" : status;
+}
+
 function matchesFilter(status: string, tab: FilterTab, showTerminated: boolean): boolean {
   if (status === "terminated") return showTerminated;
   if (tab === "all") return true;
@@ -84,18 +88,17 @@ export function Agents() {
     enabled: !!selectedCompanyId && effectiveView === "org",
   });
 
-  const { data: runs } = useQuery({
-    queryKey: queryKeys.heartbeats(selectedCompanyId!),
-    queryFn: () => heartbeatsApi.list(selectedCompanyId!),
+  const { data: liveRuns } = useQuery({
+    queryKey: queryKeys.liveRuns(selectedCompanyId!),
+    queryFn: () => heartbeatsApi.liveRunsForCompany(selectedCompanyId!),
     enabled: !!selectedCompanyId,
-    refetchInterval: 15_000,
+    refetchInterval: 5_000,
   });
 
   // Map agentId -> first live run + live run count
   const liveRunByAgent = useMemo(() => {
     const map = new Map<string, { runId: string; liveCount: number }>();
-    for (const r of runs ?? []) {
-      if (r.status !== "running" && r.status !== "queued") continue;
+    for (const r of liveRuns ?? []) {
       const existing = map.get(r.agentId);
       if (existing) {
         existing.liveCount += 1;
@@ -104,7 +107,7 @@ export function Agents() {
       map.set(r.agentId, { runId: r.id, liveCount: 1 });
     }
     return map;
-  }, [runs]);
+  }, [liveRuns]);
 
   const agentMap = useMemo(() => {
     const map = new Map<string, Agent>();
@@ -222,6 +225,8 @@ export function Agents() {
       {effectiveView === "list" && filtered.length > 0 && (
         <div className="border border-border">
           {filtered.map((agent) => {
+            const hasLiveRun = liveRunByAgent.has(agent.id);
+            const displayStatus = effectiveAgentStatus(agent.status, hasLiveRun);
             return (
               <EntityRow
                 key={agent.id}
@@ -231,25 +236,17 @@ export function Agents() {
                 leading={
                   <span className="relative flex h-2.5 w-2.5">
                     <span
-                      className={`absolute inline-flex h-full w-full rounded-full ${agentStatusDot[agent.status] ?? agentStatusDotDefault}`}
+                      className={`absolute inline-flex h-full w-full rounded-full ${agentStatusDot[displayStatus] ?? agentStatusDotDefault}`}
                     />
                   </span>
                 }
                 trailing={
                   <div className="flex items-center gap-3">
                     <span className="sm:hidden">
-                      {liveRunByAgent.has(agent.id) ? (
-                        <LiveRunIndicator
-                          agentRef={agentRouteRef(agent)}
-                          runId={liveRunByAgent.get(agent.id)!.runId}
-                          liveCount={liveRunByAgent.get(agent.id)!.liveCount}
-                        />
-                      ) : (
-                        <StatusBadge status={agent.status} />
-                      )}
+                      <StatusBadge status={displayStatus} />
                     </span>
                     <div className="hidden sm:flex items-center gap-3">
-                      {liveRunByAgent.has(agent.id) && (
+                      {hasLiveRun && (
                         <LiveRunIndicator
                           agentRef={agentRouteRef(agent)}
                           runId={liveRunByAgent.get(agent.id)!.runId}
@@ -263,7 +260,7 @@ export function Agents() {
                         {agent.lastHeartbeatAt ? relativeTime(agent.lastHeartbeatAt) : "—"}
                       </span>
                       <span className="w-20 flex justify-end">
-                        <StatusBadge status={agent.status} />
+                        <StatusBadge status={displayStatus} />
                       </span>
                     </div>
                   </div>
@@ -316,8 +313,9 @@ function OrgTreeNode({
   liveRunByAgent: Map<string, { runId: string; liveCount: number }>;
 }) {
   const agent = agentMap.get(node.id);
-
-  const statusColor = agentStatusDot[node.status] ?? agentStatusDotDefault;
+  const hasLiveRun = liveRunByAgent.has(node.id);
+  const displayStatus = effectiveAgentStatus(node.status, hasLiveRun);
+  const statusColor = agentStatusDot[displayStatus] ?? agentStatusDotDefault;
 
   return (
     <div style={{ paddingLeft: depth * 24 }}>
@@ -337,18 +335,10 @@ function OrgTreeNode({
         </div>
         <div className="flex items-center gap-3 shrink-0">
           <span className="sm:hidden">
-            {liveRunByAgent.has(node.id) ? (
-              <LiveRunIndicator
-                agentRef={agent ? agentRouteRef(agent) : node.id}
-                runId={liveRunByAgent.get(node.id)!.runId}
-                liveCount={liveRunByAgent.get(node.id)!.liveCount}
-              />
-            ) : (
-              <StatusBadge status={node.status} />
-            )}
+            <StatusBadge status={displayStatus} />
           </span>
           <div className="hidden sm:flex items-center gap-3">
-            {liveRunByAgent.has(node.id) && (
+            {hasLiveRun && (
               <LiveRunIndicator
                 agentRef={agent ? agentRouteRef(agent) : node.id}
                 runId={liveRunByAgent.get(node.id)!.runId}
@@ -366,7 +356,7 @@ function OrgTreeNode({
               </>
             )}
             <span className="w-20 flex justify-end">
-              <StatusBadge status={node.status} />
+              <StatusBadge status={displayStatus} />
             </span>
           </div>
         </div>

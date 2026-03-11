@@ -3,6 +3,7 @@ import { mkdirSync, readFileSync, writeFileSync, existsSync, chmodSync } from "n
 import path from "node:path";
 import type { SecretProviderModule, StoredSecretVersionMaterial } from "./types.js";
 import { badRequest } from "../errors.js";
+import { resolveDefaultSecretsKeyFilePath } from "../home-paths.js";
 
 interface LocalEncryptedMaterial extends StoredSecretVersionMaterial {
   scheme: "local_encrypted_v1";
@@ -12,9 +13,17 @@ interface LocalEncryptedMaterial extends StoredSecretVersionMaterial {
 }
 
 function resolveMasterKeyFilePath() {
+  const defaultPath = resolveDefaultSecretsKeyFilePath();
   const fromEnv = process.env.PAPERCLIP_SECRETS_MASTER_KEY_FILE;
-  if (fromEnv && fromEnv.trim().length > 0) return path.resolve(fromEnv.trim());
-  return path.resolve(process.cwd(), "data/secrets/master.key");
+  if (fromEnv && fromEnv.trim().length > 0) {
+    const configuredPath = path.resolve(fromEnv.trim());
+    if (existsSync(configuredPath)) return configuredPath;
+    if (process.env.PAPERCLIP_IN_CONTAINER === "true" && existsSync(defaultPath)) {
+      return defaultPath;
+    }
+    return configuredPath;
+  }
+  return defaultPath;
 }
 
 function decodeMasterKey(raw: string): Buffer | null {

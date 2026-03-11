@@ -64,6 +64,24 @@ export function applyAgentCreateIssueDefaults<T extends { assigneeAgentId?: unkn
   return body;
 }
 
+export function applyInheritedIssueCreateContext<
+  T extends {
+    projectId?: string | null;
+    goalId?: string | null;
+  },
+>(
+  body: T,
+  parent: { projectId: string | null; goalId: string | null } | null,
+): T {
+  if (!parent) return body;
+
+  return {
+    ...body,
+    projectId: body.projectId === undefined ? parent.projectId : body.projectId,
+    goalId: body.goalId === undefined ? parent.goalId : body.goalId,
+  };
+}
+
 function isActionableIssueStatus(status: unknown): boolean {
   return status === "todo" || status === "in_progress" || status === "in_review" || status === "blocked";
 }
@@ -460,7 +478,15 @@ export function issueRoutes(db: Db, storage: StorageService) {
   router.post("/companies/:companyId/issues", validate(createIssueSchema), async (req, res) => {
     const companyId = req.params.companyId as string;
     assertCompanyAccess(req, companyId);
-    const createBody = applyAgentCreateIssueDefaults(req.actor, req.body);
+    let createBody = applyAgentCreateIssueDefaults(req.actor, req.body);
+    if (typeof createBody.parentId === "string" && createBody.parentId.length > 0) {
+      const parentIssue = await svc.getById(createBody.parentId);
+      if (!parentIssue || parentIssue.companyId !== companyId) {
+        res.status(404).json({ error: "Parent issue not found" });
+        return;
+      }
+      createBody = applyInheritedIssueCreateContext(createBody, parentIssue);
+    }
     if (
       req.actor.type === "agent" &&
       isActionableIssueStatus(createBody.status) &&

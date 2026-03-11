@@ -1,8 +1,9 @@
-import { and, eq, gte, inArray, isNotNull, sql } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, isNotNull, not, sql } from "drizzle-orm";
 import type { Db } from "@paperclipai/db";
 import { agents, approvals, companies, costEvents, heartbeatRuns, issues } from "@paperclipai/db";
 import { notFound } from "../errors.js";
 import { loadHeartbeatRunStderrStats } from "./heartbeat-run-stderr.js";
+import { hasHeartbeatRuntimeIssue } from "./heartbeat-runtime-issues.js";
 
 const effectiveCostCentsExpr = sql<number>`case
   when ${costEvents.billingType} = 'api'
@@ -109,6 +110,35 @@ export function dashboardService(db: Db) {
         if (row.status === "blocked") taskCounts.blocked += count;
         if (row.status === "done") taskCounts.done += count;
         if (row.status !== "done" && row.status !== "cancelled") taskCounts.open += count;
+      }
+
+      const latestRunByAgent = await db
+        .selectDistinctOn([heartbeatRuns.agentId], {
+          agentId: heartbeatRuns.agentId,
+          status: heartbeatRuns.status,
+          error: heartbeatRuns.error,
+          stderrExcerpt: heartbeatRuns.stderrExcerpt,
+          resultJson: heartbeatRuns.resultJson,
+        })
+        .from(heartbeatRuns)
+        .innerJoin(agents, eq(heartbeatRuns.agentId, agents.id))
+        .where(
+          and(
+            eq(heartbeatRuns.companyId, companyId),
+            eq(agents.companyId, companyId),
+            not(eq(agents.status, "terminated")),
+          ),
+        )
+        .orderBy(heartbeatRuns.agentId, desc(heartbeatRuns.createdAt));
+
+      const infrastructureIssueAgentIds = new Set(
+        latestRunByAgent.filter((run) => hasHeartbeatRuntimeIssue(run)).map((run) => run.agentId),
+      );
+      for (const row of agentRows) {
+        if (row.status === "error") continue;
+        if (infrastructureIssueAgentIds.has(row.id)) {
+          agentCounts.error += 1;
+        }
       }
 
       const now = new Date();
