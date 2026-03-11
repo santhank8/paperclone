@@ -71,11 +71,19 @@ function resolveAgentJwtSecretStatus(
   status: "pass" | "warn";
   message: string;
 } {
-  const envValue = process.env.PAPERCLIP_AGENT_JWT_SECRET?.trim();
-  if (envValue) {
+  const explicitSecret = process.env.PAPERCLIP_AGENT_JWT_SECRET?.trim();
+  if (explicitSecret) {
     return {
       status: "pass",
       message: "set",
+    };
+  }
+
+  const betterAuthSecret = process.env.BETTER_AUTH_SECRET?.trim();
+  if (betterAuthSecret) {
+    return {
+      status: "pass",
+      message: "using BETTER_AUTH_SECRET fallback",
     };
   }
 

@@ -57,6 +57,13 @@ type EmbeddedPostgresCtor = new (opts: {
   onError?: (message: unknown) => void;
 }) => EmbeddedPostgresInstance;
 
+type StartedServer = {
+  apiUrl: string;
+  databaseUrl: string;
+  host: string;
+  listenPort: number;
+};
+
 const config = loadConfig();
 if (process.env.PAPERCLIP_SECRETS_PROVIDER === undefined) {
   process.env.PAPERCLIP_SECRETS_PROVIDER = config.secretsProvider;
@@ -472,6 +479,12 @@ const app = await createApp(db as any, {
 });
 const server = createServer(app as unknown as Parameters<typeof createServer>[0]);
 const listenPort = await detectPort(config.port);
+let resolveStartedServer!: (value: StartedServer) => void;
+let rejectStartedServer!: (reason?: unknown) => void;
+const startedServerPromise = new Promise<StartedServer>((resolve, reject) => {
+  resolveStartedServer = resolve;
+  rejectStartedServer = reject;
+});
 
 if (listenPort !== config.port) {
   logger.warn(`Requested port is busy; using next free port (requestedPort=${config.port}, selectedPort=${listenPort})`);
@@ -489,6 +502,9 @@ process.env.PAPERCLIP_API_URL = `http://${runtimeApiHost}:${listenPort}`;
 setupLiveEventsWebSocketServer(server, db as any, {
   deploymentMode: config.deploymentMode,
   resolveSessionFromHeaders,
+});
+server.once("error", (err) => {
+  rejectStartedServer(err);
 });
 
 if (config.heartbeatSchedulerEnabled) {
@@ -611,6 +627,12 @@ if (config.storageProvider === "s3" && config.agentRuntimeSyncEnabled) {
 
 server.listen(listenPort, config.host, () => {
   logger.info(`Server listening on ${config.host}:${listenPort}`);
+  resolveStartedServer({
+    apiUrl: process.env.PAPERCLIP_API_URL ?? `http://${runtimeApiHost}:${listenPort}`,
+    databaseUrl: activeDatabaseConnectionString,
+    host: config.host,
+    listenPort,
+  });
   if (process.env.PAPERCLIP_OPEN_ON_LISTEN === "true") {
     const openHost = config.host === "0.0.0.0" || config.host === "::" ? "127.0.0.1" : config.host;
     const url = `http://${openHost}:${listenPort}`;
@@ -676,4 +698,8 @@ if (embeddedPostgres && embeddedPostgresStartedByThisProcess) {
   process.once("SIGTERM", () => {
     void shutdown("SIGTERM");
   });
+}
+
+export async function startServer(): Promise<StartedServer> {
+  return await startedServerPromise;
 }

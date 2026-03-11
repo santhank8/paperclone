@@ -69,8 +69,9 @@ pnpm paperclipai run
 
 ## Docker Quickstart (No local Node install)
 
-Use `docker-compose.quickstart.yml` as the canonical local Docker entrypoint for this repo.
-Do not create alternate day-to-day compose stacks from `docker-compose.yml`; keep any personal tweaks in an ignored override file such as `docker-compose.quickstart.local.yml`.
+Use `docker-compose.yml` as the canonical local Docker entrypoint for this repo.
+Keep any personal tweaks in an ignored override file such as `docker-compose.override.yml`.
+For this repo's normal local workflow, point Docker quickstart at `./.paperclip-local` so it shares the same Paperclip home as `ops/local/*`.
 
 Build and run Paperclip in Docker:
 
@@ -87,26 +88,29 @@ docker run --name paperclip \
 Or use Compose:
 
 ```sh
-docker compose -f docker-compose.quickstart.yml up --build
+docker compose -f docker-compose.yml up --build
 ```
 
 Recommended local rule:
 
-- use `docker-compose.quickstart.yml` for containerized local runs
+- use `docker-compose.yml` for containerized local runs
 - use `pnpm dev` only when you want watch mode / fast code iteration
+- use `./.paperclip-local` as the one canonical local Paperclip home
 - keep local Docker overrides out of git
+- do not alternate between `./.paperclip-local` and `~/.paperclip` for the same repo
 
 See `doc/DOCKER.md` for API key wiring (`OPENAI_API_KEY` / `ANTHROPIC_API_KEY`) and persistence details.
 
 For `claude_local` / `codex_local`, `Local subscription / login` always happens in the Paperclip runtime environment.
-With `pnpm dev`, that is your local machine. With `docker-compose.quickstart.yml`, that is the Paperclip container/runtime, not your host shell session.
+With `pnpm dev`, that is your local machine. With `docker-compose.yml`, that is the Paperclip container/runtime, not your host shell session.
 
 ## Database in Dev (Auto-Handled)
 
 For local development, leave `DATABASE_URL` unset.
 The server will automatically use embedded PostgreSQL and persist data at:
 
-- `~/.paperclip/instances/default/db`
+- `./.paperclip-local/instances/default/db` when using `ops/local/*`
+- whatever `PAPERCLIP_HOME` points at in custom setups
 
 Override home and instance:
 
@@ -120,7 +124,8 @@ No Docker or external database is required for this mode.
 
 For local development, the default storage provider is `local_disk`, which persists uploaded images/attachments at:
 
-- `~/.paperclip/instances/default/data/storage`
+- `./.paperclip-local/instances/default/data/storage` when using `ops/local/*`
+- whatever `PAPERCLIP_HOME` points at in custom setups
 
 Configure storage provider/settings:
 
@@ -137,19 +142,23 @@ Currently editable from the UI:
 - Automatic database backup schedule and backup directory
 - Heartbeat scheduler and agent runtime sync settings
 - Default auth mode for new `claude_local` and `codex_local` agents, including optional instance API keys
+- A Claude shared-auth flow that runs `claude auth login` in the Paperclip runtime environment and stores the shared config under the instance runtime directory
+- A Codex subscription wizard that runs `codex login --device-auth` in the Paperclip runtime environment and stores the shared session under the instance runtime directory
 - Default secrets provider, strict mode, and local encrypted key path
 
 Notes:
 
 - Existing agents are not migrated when you change instance auth defaults; only new agents pick up the new mode.
 - If you disable instance API-key usage for new Claude/Codex agents, Paperclip explicitly forces subscription/local-login auth for those newly created agents.
+- Codex subscription login from the board UI is shared for the instance runtime. Agents only use it when their auth mode is set to `Local subscription / login`.
 - For S3, you can either store static credentials in instance settings or leave them empty to keep using env / IAM / the default AWS credential chain.
 
 ## Default Agent Workspaces
 
 When a local agent run has no resolved project/session workspace, Paperclip falls back to an agent home workspace under the instance root:
 
-- `~/.paperclip/instances/default/workspaces/<agent-id>`
+- `./.paperclip-local/instances/default/workspaces/<agent-id>` when using `ops/local/*`
+- whatever `PAPERCLIP_HOME` points at in custom setups
 
 This path honors `PAPERCLIP_HOME` and `PAPERCLIP_INSTANCE_ID` in non-default setups.
 
@@ -172,7 +181,7 @@ Expected:
 To wipe local dev data and start fresh:
 
 ```sh
-rm -rf ~/.paperclip/instances/default/db
+rm -rf ./.paperclip-local/instances/default/db
 pnpm dev
 ```
 
@@ -187,7 +196,7 @@ Paperclip can run automatic DB backups on a timer. Defaults:
 - enabled
 - every 60 minutes
 - retain 30 days
-- backup dir: `~/.paperclip/instances/default/data/backups`
+- backup dir: `./.paperclip-local/instances/default/data/backups` when using `ops/local/*`
 
 Configure these in:
 
@@ -215,6 +224,7 @@ Environment overrides:
 Agent env vars now support secret references. By default, secret values are stored with local encryption and only secret refs are persisted in agent config.
 
 - Default local key path: `~/.paperclip/instances/default/secrets/master.key`
+- With `ops/local/*`, that resolves to `./.paperclip-local/instances/default/secrets/master.key`
 - Override key material directly: `PAPERCLIP_SECRETS_MASTER_KEY`
 - Override key file path: `PAPERCLIP_SECRETS_MASTER_KEY_FILE`
 

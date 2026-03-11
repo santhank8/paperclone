@@ -1,10 +1,11 @@
 export interface DashboardSummary {
   companyId: string;
   agents: {
-    active: number;
+    actionable: number;
     running: number;
     paused: number;
     error: number;
+    idleWithoutActionable: number;
   };
   tasks: {
     open: number;

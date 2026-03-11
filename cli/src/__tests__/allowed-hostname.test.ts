@@ -76,9 +76,23 @@ function writeBaseConfig(configPath: string) {
     agentAuth: {
       claudeLocal: {
         useApiKey: false,
+        subscriptionEstimate: {
+          enabled: false,
+          windowHours: 5,
+          unit: "runs",
+          capacity: 100,
+          extraCapacity: 0,
+        },
       },
       codexLocal: {
         useApiKey: false,
+        subscriptionEstimate: {
+          enabled: false,
+          windowHours: 5,
+          unit: "runs",
+          capacity: 100,
+          extraCapacity: 0,
+        },
       },
     },
   };

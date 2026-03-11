@@ -103,6 +103,20 @@ function hasNonEmptyEnvValue(env: Record<string, string>, key: string): boolean 
   return typeof raw === "string" && raw.trim().length > 0;
 }
 
+function readEnvBindingValue(value: unknown): string | null {
+  if (typeof value === "string") return value;
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return null;
+  const record = value as Record<string, unknown>;
+  if (record.type === "plain" && typeof record.value === "string") {
+    return record.value;
+  }
+  return null;
+}
+
+function canUseDangerouslySkipPermissions(): boolean {
+  return typeof process.getuid !== "function" || process.getuid() !== 0;
+}
+
 function resolveClaudeBillingType(env: Record<string, string>): "api" | "subscription" {
   // Claude uses API-key auth when ANTHROPIC_API_KEY is present; otherwise rely on local login/session auth.
   return hasNonEmptyEnvValue(env, "ANTHROPIC_API_KEY") ? "api" : "subscription";
@@ -130,8 +144,9 @@ async function buildClaudeRuntimeConfig(input: ClaudeExecutionInput): Promise<Cl
   await ensureAbsoluteDirectory(cwd, { createIfMissing: true });
 
   const envConfig = parseObject(config.env);
+  const explicitPaperclipApiKey = readEnvBindingValue(envConfig.PAPERCLIP_API_KEY);
   const hasExplicitApiKey =
-    typeof envConfig.PAPERCLIP_API_KEY === "string" && envConfig.PAPERCLIP_API_KEY.trim().length > 0;
+    typeof explicitPaperclipApiKey === "string" && explicitPaperclipApiKey.trim().length > 0;
   const env: Record<string, string> = { ...buildPaperclipEnv(agent) };
   env.PAPERCLIP_RUN_ID = runId;
 
@@ -197,7 +212,8 @@ async function buildClaudeRuntimeConfig(input: ClaudeExecutionInput): Promise<Cl
   }
 
   for (const [key, value] of Object.entries(envConfig)) {
-    if (typeof value === "string") env[key] = value;
+    const resolved = readEnvBindingValue(value);
+    if (typeof resolved === "string") env[key] = resolved;
   }
 
   if (!hasExplicitApiKey && authToken) {
@@ -258,7 +274,7 @@ export async function runClaudeLogin(input: {
     authToken: input.authToken,
   });
 
-  const proc = await runChildProcess(input.runId, runtime.command, ["login"], {
+  const proc = await runChildProcess(input.runId, runtime.command, ["auth", "login"], {
     cwd: runtime.cwd,
     env: runtime.env,
     timeoutSec: runtime.timeoutSec,
@@ -266,11 +282,7 @@ export async function runClaudeLogin(input: {
     onLog,
   });
 
-  const loginMeta = detectClaudeLoginRequired({
-    parsed: null,
-    stdout: proc.stdout,
-    stderr: proc.stderr,
-  });
+  const loginMeta = detectClaudeLoginRequired({ parsed: null, stdout: proc.stdout, stderr: proc.stderr });
 
   return buildLoginResult({
     proc,
@@ -289,7 +301,8 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
   const effort = asString(config.effort, "");
   const chrome = asBoolean(config.chrome, false);
   const maxTurns = asNumber(config.maxTurnsPerRun, 0);
-  const dangerouslySkipPermissions = asBoolean(config.dangerouslySkipPermissions, false);
+  const wantsDangerouslySkipPermissions = asBoolean(config.dangerouslySkipPermissions, false);
+  const dangerouslySkipPermissions = wantsDangerouslySkipPermissions && canUseDangerouslySkipPermissions();
   const instructionsFilePath = asString(config.instructionsFilePath, "").trim();
   const instructionsFileDir = instructionsFilePath ? `${path.dirname(instructionsFilePath)}/` : "";
   const commandNotes = instructionsFilePath
@@ -297,6 +310,11 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
         `Injected agent instructions via --append-system-prompt-file ${instructionsFilePath} (with path directive appended)`,
       ]
     : [];
+  if (wantsDangerouslySkipPermissions && !dangerouslySkipPermissions) {
+    commandNotes.push(
+      "Skipped --dangerously-skip-permissions because Claude CLI rejects it when the Paperclip runtime is running as root.",
+    );
+  }
 
   const runtimeConfig = await buildClaudeRuntimeConfig({
     runId,

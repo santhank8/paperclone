@@ -36,6 +36,38 @@ const ALLOWED_ATTACHMENT_CONTENT_TYPES = new Set([
   "image/gif",
 ]);
 
+export function canAgentAssignToSelfOrDescendant(
+  actorAgentId: string,
+  assigneeAgentId: string | null | undefined,
+  chainOfCommand: Array<{ id: string }>,
+) {
+  if (!assigneeAgentId) return false;
+  if (actorAgentId === assigneeAgentId) return true;
+  return chainOfCommand.some((manager) => manager.id === actorAgentId);
+}
+
+export function applyAgentCreateIssueDefaults<T extends { assigneeAgentId?: unknown; assigneeUserId?: unknown }>(
+  actor: Request["actor"],
+  body: T,
+): T & { assigneeAgentId?: unknown } {
+  if (
+    actor.type === "agent" &&
+    actor.agentId &&
+    !body.assigneeAgentId &&
+    !body.assigneeUserId
+  ) {
+    return {
+      ...body,
+      assigneeAgentId: actor.agentId,
+    };
+  }
+  return body;
+}
+
+function isActionableIssueStatus(status: unknown): boolean {
+  return status === "todo" || status === "in_progress" || status === "in_review" || status === "blocked";
+}
+
 export function issueRoutes(db: Db, storage: StorageService) {
   const router = Router();
   const svc = issueService(db);
@@ -89,7 +121,12 @@ export function issueRoutes(db: Db, storage: StorageService) {
     return Boolean((agent.permissions as Record<string, unknown>).canCreateAgents);
   }
 
-  async function assertCanAssignTasks(req: Request, companyId: string) {
+  async function assertCanAssignTasks(
+    req: Request,
+    companyId: string,
+    assigneeAgentId?: string | null,
+    assigneeUserId?: string | null,
+  ) {
     assertCompanyAccess(req, companyId);
     if (req.actor.type === "board") {
       if (req.actor.source === "local_implicit" || req.actor.isInstanceAdmin) return;
@@ -103,6 +140,13 @@ export function issueRoutes(db: Db, storage: StorageService) {
       if (allowedByGrant) return;
       const actorAgent = await agentsSvc.getById(req.actor.agentId);
       if (actorAgent && actorAgent.companyId === companyId && canCreateAgentsLegacy(actorAgent)) return;
+      if (assigneeUserId) throw forbidden("Missing permission: tasks:assign");
+      if (actorAgent && actorAgent.companyId === companyId && assigneeAgentId) {
+        const chainOfCommand = await agentsSvc.getChainOfCommand(assigneeAgentId);
+        if (canAgentAssignToSelfOrDescendant(req.actor.agentId, assigneeAgentId, chainOfCommand)) {
+          return;
+        }
+      }
       throw forbidden("Missing permission: tasks:assign");
     }
     throw unauthorized();
@@ -416,13 +460,23 @@ export function issueRoutes(db: Db, storage: StorageService) {
   router.post("/companies/:companyId/issues", validate(createIssueSchema), async (req, res) => {
     const companyId = req.params.companyId as string;
     assertCompanyAccess(req, companyId);
-    if (req.body.assigneeAgentId || req.body.assigneeUserId) {
-      await assertCanAssignTasks(req, companyId);
+    const createBody = applyAgentCreateIssueDefaults(req.actor, req.body);
+    if (
+      req.actor.type === "agent" &&
+      isActionableIssueStatus(createBody.status) &&
+      !createBody.assigneeAgentId &&
+      !createBody.assigneeUserId
+    ) {
+      res.status(422).json({ error: "Agent-created actionable issues require an assignee" });
+      return;
+    }
+    if (createBody.assigneeAgentId || createBody.assigneeUserId) {
+      await assertCanAssignTasks(req, companyId, createBody.assigneeAgentId as string | null | undefined, createBody.assigneeUserId as string | null | undefined);
     }
 
     const actor = getActorInfo(req);
     const issue = await svc.create(companyId, {
-      ...req.body,
+      ...createBody,
       createdByAgentId: actor.agentId,
       createdByUserId: actor.actorType === "user" ? actor.actorId : null,
     });
@@ -479,7 +533,11 @@ export function issueRoutes(db: Db, storage: StorageService) {
 
     if (assigneeWillChange) {
       if (!isAgentReturningIssueToCreator) {
-        await assertCanAssignTasks(req, existing.companyId);
+        const nextAssigneeAgentId =
+          req.body.assigneeAgentId !== undefined ? req.body.assigneeAgentId : existing.assigneeAgentId;
+        const nextAssigneeUserId =
+          req.body.assigneeUserId !== undefined ? req.body.assigneeUserId : existing.assigneeUserId;
+        await assertCanAssignTasks(req, existing.companyId, nextAssigneeAgentId, nextAssigneeUserId);
       }
     }
     if (!(await assertAgentRunCheckoutOwnership(req, res, existing))) return;

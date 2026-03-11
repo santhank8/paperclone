@@ -11,6 +11,11 @@ import { Settings, Check } from "lucide-react";
 import { CompanyPatternIcon } from "../components/CompanyPatternIcon";
 import { InstanceSettingsPanel } from "../components/InstanceSettingsPanel";
 import {
+  AGENT_ROLE_LABELS,
+  AGENT_ROLES,
+  type CompanyHeartbeatIntervalsByRole,
+} from "@paperclipai/shared";
+import {
   Field,
   ToggleField,
   HintIcon
@@ -21,6 +26,53 @@ type AgentSnippetInput = {
   connectionCandidates?: string[] | null;
   testResolutionUrl?: string | null;
 };
+
+const HEARTBEAT_ROLE_GROUPS: Array<{
+  title: string;
+  roles: Array<(typeof AGENT_ROLES)[number]>;
+}> = [
+  { title: "Leadership", roles: ["ceo", "cfo", "cmo"] },
+  { title: "Managers", roles: ["cto", "pm", "qa"] },
+  { title: "Builders", roles: ["engineer", "devops", "designer", "researcher", "general"] },
+];
+
+function emptyHeartbeatIntervalDraft(): Record<(typeof AGENT_ROLES)[number], string> {
+  return Object.fromEntries(AGENT_ROLES.map((role) => [role, ""])) as Record<(typeof AGENT_ROLES)[number], string>;
+}
+
+function heartbeatIntervalsToDraft(
+  intervals?: CompanyHeartbeatIntervalsByRole,
+): Record<(typeof AGENT_ROLES)[number], string> {
+  const next = emptyHeartbeatIntervalDraft();
+  for (const role of AGENT_ROLES) {
+    const value = intervals?.[role];
+    next[role] = typeof value === "number" && Number.isFinite(value) ? String(value) : "";
+  }
+  return next;
+}
+
+function draftToHeartbeatIntervals(
+  draft: Record<(typeof AGENT_ROLES)[number], string>,
+): CompanyHeartbeatIntervalsByRole {
+  const next: CompanyHeartbeatIntervalsByRole = {};
+  for (const role of AGENT_ROLES) {
+    const raw = draft[role].trim();
+    if (!raw) continue;
+    const parsed = Number(raw);
+    if (Number.isFinite(parsed) && parsed >= 30) next[role] = Math.floor(parsed);
+  }
+  return next;
+}
+
+function heartbeatIntervalsEqual(
+  left?: CompanyHeartbeatIntervalsByRole,
+  right?: CompanyHeartbeatIntervalsByRole,
+): boolean {
+  for (const role of AGENT_ROLES) {
+    if ((left?.[role] ?? null) !== (right?.[role] ?? null)) return false;
+  }
+  return true;
+}
 
 export function CompanySettings() {
   const {
@@ -42,21 +94,24 @@ export function CompanySettings() {
         : "operations";
   const instanceViewTitle =
     settingsView === "instance-auth"
-      ? "Agent Auth Defaults"
+      ? "Provider Keys & Auth"
       : settingsView === "instance-secrets"
-        ? "Instance Secrets"
-        : "Storage, DB & Runtime";
+        ? "Paperclip Secrets"
+        : "Storage, Backups & Runtime";
   const instanceViewDescription =
     settingsView === "instance-auth"
-      ? "Default auth behavior for new Claude and Codex local agents across this Paperclip installation."
+      ? "Store instance-level OpenAI and Anthropic keys, and choose how new Claude/Codex local agents authenticate by default."
       : settingsView === "instance-secrets"
-        ? "Global secret-storage behavior for this Paperclip installation."
-        : "Global app settings for file storage, S3, database backups, and scheduler/runtime automation.";
+        ? "Global secret-storage settings for how Paperclip encrypts and resolves sensitive values."
+        : "Global app settings for file storage, S3 destination and credentials, database backups, and scheduler/runtime automation.";
 
   // General settings local state
   const [companyName, setCompanyName] = useState("");
   const [description, setDescription] = useState("");
   const [brandColor, setBrandColor] = useState("");
+  const [heartbeatIntervalsByRole, setHeartbeatIntervalsByRole] = useState<
+    Record<(typeof AGENT_ROLES)[number], string>
+  >(emptyHeartbeatIntervalDraft);
 
   // Sync local state from selected company
   useEffect(() => {
@@ -64,6 +119,11 @@ export function CompanySettings() {
     setCompanyName(selectedCompany.name);
     setDescription(selectedCompany.description ?? "");
     setBrandColor(selectedCompany.brandColor ?? "");
+    setHeartbeatIntervalsByRole(
+      heartbeatIntervalsToDraft(
+        selectedCompany.runtimePolicy?.heartbeat?.intervalsByRole,
+      ),
+    );
   }, [selectedCompany]);
 
   const [inviteError, setInviteError] = useState<string | null>(null);
@@ -76,6 +136,13 @@ export function CompanySettings() {
     (companyName !== selectedCompany.name ||
       description !== (selectedCompany.description ?? "") ||
       brandColor !== (selectedCompany.brandColor ?? ""));
+
+  const heartbeatPolicyDirty =
+    !!selectedCompany &&
+    !heartbeatIntervalsEqual(
+      draftToHeartbeatIntervals(heartbeatIntervalsByRole),
+      selectedCompany.runtimePolicy?.heartbeat?.intervalsByRole,
+    );
 
   const generalMutation = useMutation({
     mutationFn: (data: {
@@ -96,6 +163,36 @@ export function CompanySettings() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.companies.all });
     }
+  });
+
+  const heartbeatPolicyMutation = useMutation({
+    mutationFn: (intervalsByRole: CompanyHeartbeatIntervalsByRole) =>
+      companiesApi.update(selectedCompanyId!, {
+        runtimePolicy: {
+          heartbeat: {
+            intervalsByRole,
+          },
+        },
+      }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: queryKeys.companies.all });
+      if (selectedCompanyId) {
+        await queryClient.invalidateQueries({ queryKey: queryKeys.companies.detail(selectedCompanyId) });
+      }
+    },
+  });
+
+  const applyHeartbeatPolicyMutation = useMutation({
+    mutationFn: () => companiesApi.applyHeartbeatPolicy(selectedCompanyId!),
+    onSuccess: async () => {
+      if (!selectedCompanyId) return;
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.agents.list(selectedCompanyId) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.dashboard(selectedCompanyId) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.activity(selectedCompanyId) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.heartbeats(selectedCompanyId) }),
+      ]);
+    },
   });
 
   const inviteMutation = useMutation({
@@ -201,6 +298,10 @@ export function CompanySettings() {
     });
   }
 
+  function handleSaveHeartbeatPolicy() {
+    heartbeatPolicyMutation.mutate(draftToHeartbeatIntervals(heartbeatIntervalsByRole));
+  }
+
   function setView(nextView: "company" | "instance-ops" | "instance-auth" | "instance-secrets") {
     const next = new URLSearchParams(searchParams);
     next.set("view", nextView);
@@ -208,24 +309,24 @@ export function CompanySettings() {
   }
 
   return (
-    <div className="max-w-2xl space-y-6">
+    <div className="w-full max-w-[min(1880px,calc(100vw-2rem))] space-y-6">
       <div className="flex items-center gap-2">
         <Settings className="h-5 w-5 text-muted-foreground" />
         <h1 className="text-lg font-semibold">Company Settings</h1>
       </div>
 
       <div className="flex flex-wrap gap-2">
-        <Button size="sm" variant={isCompanyView ? "secondary" : "outline"} onClick={() => setView("company")}>
+        <Button size="sm" className="h-7 px-2.5 text-[11px] font-medium" variant={isCompanyView ? "secondary" : "outline"} onClick={() => setView("company")}>
           Company
         </Button>
-        <Button size="sm" variant={settingsView === "instance-ops" ? "secondary" : "outline"} onClick={() => setView("instance-ops")}>
+        <Button size="sm" className="h-7 px-2.5 text-[11px] font-medium" variant={settingsView === "instance-ops" ? "secondary" : "outline"} onClick={() => setView("instance-ops")}>
           Storage / DB / Runtime
         </Button>
-        <Button size="sm" variant={settingsView === "instance-auth" ? "secondary" : "outline"} onClick={() => setView("instance-auth")}>
-          Agent Auth
+        <Button size="sm" className="h-7 px-2.5 text-[11px] font-medium" variant={settingsView === "instance-auth" ? "secondary" : "outline"} onClick={() => setView("instance-auth")}>
+          Provider Keys & Auth
         </Button>
-        <Button size="sm" variant={settingsView === "instance-secrets" ? "secondary" : "outline"} onClick={() => setView("instance-secrets")}>
-          Instance Secrets
+        <Button size="sm" className="h-7 px-2.5 text-[11px] font-medium" variant={settingsView === "instance-secrets" ? "secondary" : "outline"} onClick={() => setView("instance-secrets")}>
+          Paperclip Secrets
         </Button>
       </div>
 
@@ -350,6 +451,98 @@ export function CompanySettings() {
             checked={!!selectedCompany.requireBoardApprovalForNewAgents}
             onChange={(v) => settingsMutation.mutate(v)}
           />
+        </div>
+      </div>
+
+      <div className="space-y-4">
+        <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+          Agent Heartbeat Policy
+        </div>
+        <div className="space-y-4 rounded-md border border-border px-4 py-4">
+          <div className="space-y-1">
+            <div className="text-sm font-medium">Company-wide cadence defaults</div>
+            <div className="text-sm text-muted-foreground">
+              Manage heartbeat interval defaults centrally by role. New hires inherit this policy automatically. Save the policy first, then apply it to existing agents when you want to roll it out.
+            </div>
+          </div>
+          <div className="rounded-md border border-border bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+            Leave a field blank to use the built-in Paperclip default for that role.
+          </div>
+          <div className="space-y-4">
+            {HEARTBEAT_ROLE_GROUPS.map((group) => (
+              <div key={group.title} className="space-y-3">
+                <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  {group.title}
+                </div>
+                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                  {group.roles.map((role) => (
+                    <Field
+                      key={role}
+                      label={AGENT_ROLE_LABELS[role]}
+                      hint="Heartbeat interval in seconds for this role."
+                    >
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="number"
+                          min={30}
+                          step={30}
+                          value={heartbeatIntervalsByRole[role]}
+                          onChange={(e) =>
+                            setHeartbeatIntervalsByRole((prev) => ({
+                              ...prev,
+                              [role]: e.target.value,
+                            }))
+                          }
+                          placeholder="default"
+                          className="w-full rounded-md border border-border bg-transparent px-2.5 py-1.5 text-sm outline-none"
+                        />
+                        <span className="text-xs text-muted-foreground">sec</span>
+                      </div>
+                    </Field>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              size="sm"
+              onClick={handleSaveHeartbeatPolicy}
+              disabled={heartbeatPolicyMutation.isPending || !heartbeatPolicyDirty}
+            >
+              {heartbeatPolicyMutation.isPending ? "Saving..." : "Save heartbeat policy"}
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => applyHeartbeatPolicyMutation.mutate()}
+              disabled={applyHeartbeatPolicyMutation.isPending || heartbeatPolicyDirty}
+            >
+              {applyHeartbeatPolicyMutation.isPending ? "Applying..." : "Apply to existing agents"}
+            </Button>
+            {heartbeatPolicyDirty && (
+              <span className="text-xs text-muted-foreground">
+                Save the policy before applying it to existing agents.
+              </span>
+            )}
+            {heartbeatPolicyMutation.isSuccess && !heartbeatPolicyDirty && (
+              <span className="text-xs text-muted-foreground">Policy saved</span>
+            )}
+            {applyHeartbeatPolicyMutation.isSuccess && (
+              <span className="text-xs text-muted-foreground">
+                Applied to {applyHeartbeatPolicyMutation.data.updatedCount} agents
+              </span>
+            )}
+          </div>
+          {(heartbeatPolicyMutation.isError || applyHeartbeatPolicyMutation.isError) && (
+            <span className="text-xs text-destructive">
+              {heartbeatPolicyMutation.error instanceof Error
+                ? heartbeatPolicyMutation.error.message
+                : applyHeartbeatPolicyMutation.error instanceof Error
+                  ? applyHeartbeatPolicyMutation.error.message
+                  : "Failed to update heartbeat policy"}
+            </span>
+          )}
         </div>
       </div>
 
@@ -479,14 +672,39 @@ export function CompanySettings() {
       </div>
         </>
       ) : (
-        <div className="space-y-4">
-          <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-            {instanceViewTitle}
-          </div>
-          <div className="rounded-md border border-border bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
-            <div className="font-medium text-foreground">Global instance settings</div>
-            <div className="mt-1">
-              {instanceViewDescription} These settings apply to the whole Paperclip installation, not just the currently selected company.
+        <div className="space-y-5">
+          <div className="overflow-hidden rounded-[30px] border border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(94,165,255,0.14),transparent_32%),linear-gradient(180deg,rgba(12,13,18,0.98),rgba(5,6,10,0.98))] px-5 py-5 shadow-[0_18px_60px_rgba(0,0,0,0.28)] sm:px-6 lg:px-7">
+            <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
+              <div className="max-w-4xl space-y-2.5">
+                <div className="text-[9px] font-semibold uppercase tracking-[0.22em] text-slate-400">
+                  Global Instance Settings
+                </div>
+                <div className="space-y-1.5">
+                  <div className="text-lg font-semibold tracking-tight text-white sm:text-xl">
+                    {instanceViewTitle}
+                  </div>
+                  <p className="max-w-3xl text-[12px] leading-5 text-slate-300">
+                    {instanceViewDescription} These settings apply to the whole Paperclip installation, not just the currently selected company.
+                  </p>
+                </div>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-3 xl:min-w-[560px]">
+                <div className="rounded-[20px] border border-white/10 bg-black/30 px-4 py-3">
+                  <div className="text-[9px] font-semibold uppercase tracking-[0.18em] text-slate-500">Scope</div>
+                  <div className="mt-1.5 text-[12px] font-semibold text-white">Instance-wide</div>
+                  <div className="mt-1 text-[10px] text-slate-400">Shared across all companies</div>
+                </div>
+                <div className="rounded-[20px] border border-white/10 bg-black/30 px-4 py-3">
+                  <div className="text-[9px] font-semibold uppercase tracking-[0.18em] text-slate-500">View</div>
+                  <div className="mt-1.5 text-[12px] font-semibold text-white">{instanceViewTitle}</div>
+                  <div className="mt-1 text-[10px] text-slate-400">Focused admin console section</div>
+                </div>
+                <div className="rounded-[20px] border border-white/10 bg-black/30 px-4 py-3">
+                  <div className="text-[9px] font-semibold uppercase tracking-[0.18em] text-slate-500">Behavior</div>
+                  <div className="mt-1.5 text-[12px] font-semibold text-white">Live config</div>
+                  <div className="mt-1 text-[10px] text-slate-400">Changes update Paperclip runtime settings</div>
+                </div>
+              </div>
             </div>
           </div>
           <InstanceSettingsPanel section={instanceSection} />

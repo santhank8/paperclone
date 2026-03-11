@@ -38,10 +38,11 @@ For the Wong Digital Dentistry migration, you design and operationalize the path
 
 ## Collaboration Rules
 
-- Report to Principal Architect.
+- Report to CEO.
+- Partner with Principal Architect for cross-team architecture alignment and sequencing.
 - Partner with Principal Developer for build/export contracts and artifact integrity.
 - Partner with QA Architect for deployment validation criteria and release confidence gates.
-- Escalate to CEO only for strategic tradeoffs (timeline vs. risk vs. cost) or unresolved blockers.
+- Escalate promptly on strategic tradeoffs (timeline vs. risk vs. cost), unresolved blockers, or approval-gated infrastructure decisions.
 
 ## Operating Standard
 

@@ -8,6 +8,7 @@ import { dashboardApi } from "../api/dashboard";
 import { issuesApi } from "../api/issues";
 import { agentsApi } from "../api/agents";
 import { heartbeatsApi } from "../api/heartbeats";
+import { inboxDismissalsApi } from "../api/inboxDismissals";
 import { useCompany } from "../context/CompanyContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
 import { queryKeys } from "../lib/queryKeys";
@@ -39,11 +40,10 @@ import {
 } from "lucide-react";
 import { Identity } from "../components/Identity";
 import { PageTabBar } from "../components/PageTabBar";
-import type { HeartbeatRun, Issue, JoinRequest } from "@paperclipai/shared";
+import type { CreateInboxDismissalRequest, HeartbeatRun, Issue, JoinRequest } from "@paperclipai/shared";
 
 const STALE_THRESHOLD_MS = 24 * 60 * 60 * 1000; // 24 hours
 const RECENT_ISSUES_LIMIT = 100;
-const FAILED_RUN_STATUSES = new Set(["failed", "timed_out"]);
 const ACTIONABLE_APPROVAL_STATUSES = new Set(["pending", "revision_requested"]);
 
 type InboxTab = "new" | "all";
@@ -64,36 +64,6 @@ type SectionKey =
   | "alerts"
   | "stale_work";
 
-const DISMISSED_KEY = "paperclip:inbox:dismissed";
-
-function loadDismissed(): Set<string> {
-  try {
-    const raw = localStorage.getItem(DISMISSED_KEY);
-    return raw ? new Set(JSON.parse(raw)) : new Set();
-  } catch {
-    return new Set();
-  }
-}
-
-function saveDismissed(ids: Set<string>) {
-  localStorage.setItem(DISMISSED_KEY, JSON.stringify([...ids]));
-}
-
-function useDismissedItems() {
-  const [dismissed, setDismissed] = useState<Set<string>>(loadDismissed);
-
-  const dismiss = useCallback((id: string) => {
-    setDismissed((prev) => {
-      const next = new Set(prev);
-      next.add(id);
-      saveDismissed(next);
-      return next;
-    });
-  }, []);
-
-  return { dismissed, dismiss };
-}
-
 const RUN_SOURCE_LABELS: Record<string, string> = {
   timer: "Scheduled",
   assignment: "Assignment",
@@ -110,21 +80,6 @@ function getStaleIssues(issues: Issue[]): Issue[] {
         now - new Date(i.updatedAt).getTime() > STALE_THRESHOLD_MS,
     )
     .sort((a, b) => new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime());
-}
-
-function getLatestFailedRunsByAgent(runs: HeartbeatRun[]): HeartbeatRun[] {
-  const sorted = [...runs].sort(
-    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-  );
-  const latestByAgent = new Map<string, HeartbeatRun>();
-
-  for (const run of sorted) {
-    if (!latestByAgent.has(run.agentId)) {
-      latestByAgent.set(run.agentId, run);
-    }
-  }
-
-  return Array.from(latestByAgent.values()).filter((run) => FAILED_RUN_STATUSES.has(run.status));
 }
 
 function firstNonEmptyLine(value: string | null | undefined): string | null {
@@ -208,6 +163,8 @@ function FailedRunCard({
     onSuccess: (newRun) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.heartbeats(run.companyId) });
       queryClient.invalidateQueries({ queryKey: queryKeys.heartbeats(run.companyId, run.agentId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.latestFailedRuns(run.companyId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.sidebarBadges(run.companyId) });
       navigate(`/agents/${run.agentId}/runs/${newRun.id}`);
     },
   });
@@ -311,7 +268,6 @@ export function Inbox() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [allCategoryFilter, setAllCategoryFilter] = useState<InboxCategoryFilter>("everything");
   const [allApprovalFilter, setAllApprovalFilter] = useState<InboxApprovalFilter>("all");
-  const { dismissed, dismiss } = useDismissedItems();
 
   const pathSegment = location.pathname.split("/").pop() ?? "new";
   const tab: InboxTab = pathSegment === "all" ? "all" : "new";
@@ -325,6 +281,10 @@ export function Inbox() {
   useEffect(() => {
     setBreadcrumbs([{ label: "Inbox" }]);
   }, [setBreadcrumbs]);
+
+  useEffect(() => {
+    window.localStorage.removeItem("paperclip:inbox:dismissed");
+  }, []);
 
   const {
     data: approvals,
@@ -379,15 +339,36 @@ export function Inbox() {
     enabled: !!selectedCompanyId,
   });
 
-  const { data: heartbeatRuns, isLoading: isRunsLoading } = useQuery({
-    queryKey: queryKeys.heartbeats(selectedCompanyId!),
-    queryFn: () => heartbeatsApi.list(selectedCompanyId!),
+  const {
+    data: latestFailedRuns,
+    isLoading: isRunsLoading,
+    error: failedRunsError,
+  } = useQuery({
+    queryKey: queryKeys.latestFailedRuns(selectedCompanyId!),
+    queryFn: () => heartbeatsApi.latestFailedRuns(selectedCompanyId!),
+    enabled: !!selectedCompanyId,
+    refetchInterval: 15_000,
+  });
+  const { data: dismissals, isLoading: isDismissalsLoading } = useQuery({
+    queryKey: queryKeys.inboxDismissals(selectedCompanyId!),
+    queryFn: () => inboxDismissalsApi.get(selectedCompanyId!),
     enabled: !!selectedCompanyId,
   });
 
+  const dismissedFailedRunIds = useMemo(
+    () => new Set(dismissals?.failedRunIds ?? []),
+    [dismissals?.failedRunIds],
+  );
+  const dismissedStaleIssueIds = useMemo(
+    () => new Set(dismissals?.staleIssueIds ?? []),
+    [dismissals?.staleIssueIds],
+  );
+  const dismissedAgentErrorsAlert = dismissals?.alerts.agentErrors ?? false;
+  const dismissedBudgetAlert = dismissals?.alerts.budget ?? false;
+
   const staleIssues = useMemo(
-    () => (issues ? getStaleIssues(issues) : []).filter((i) => !dismissed.has(`stale:${i.id}`)),
-    [issues, dismissed],
+    () => (issues ? getStaleIssues(issues) : []).filter((i) => !dismissedStaleIssueIds.has(i.id)),
+    [dismissedStaleIssueIds, issues],
   );
   const sortByMostRecentActivity = useCallback(
     (a: Issue, b: Issue) => {
@@ -416,8 +397,8 @@ export function Inbox() {
   }, [issues]);
 
   const failedRuns = useMemo(
-    () => getLatestFailedRunsByAgent(heartbeatRuns ?? []).filter((r) => !dismissed.has(`run:${r.id}`)),
-    [heartbeatRuns, dismissed],
+    () => (latestFailedRuns ?? []).filter((r) => !dismissedFailedRunIds.has(r.id)),
+    [dismissedFailedRunIds, latestFailedRuns],
   );
 
   const allApprovals = useMemo(
@@ -498,6 +479,31 @@ export function Inbox() {
     },
   });
 
+  const dismissMutation = useMutation({
+    mutationFn: (payload: CreateInboxDismissalRequest) =>
+      inboxDismissalsApi.create(selectedCompanyId!, payload),
+    onSuccess: () => {
+      setActionError(null);
+      queryClient.invalidateQueries({ queryKey: queryKeys.inboxDismissals(selectedCompanyId!) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.sidebarBadges(selectedCompanyId!) });
+    },
+    onError: (err) => {
+      setActionError(err instanceof Error ? err.message : "Failed to dismiss inbox item");
+    },
+  });
+
+  const clearDismissedMutation = useMutation({
+    mutationFn: () => inboxDismissalsApi.clear(selectedCompanyId!),
+    onSuccess: () => {
+      setActionError(null);
+      queryClient.invalidateQueries({ queryKey: queryKeys.inboxDismissals(selectedCompanyId!) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.sidebarBadges(selectedCompanyId!) });
+    },
+    onError: (err) => {
+      setActionError(err instanceof Error ? err.message : "Failed to reset dismissed inbox items");
+    },
+  });
+
   const [fadingOutIssues, setFadingOutIssues] = useState<Set<string>>(new Set());
 
   const markReadMutation = useMutation({
@@ -528,12 +534,16 @@ export function Inbox() {
   }
 
   const hasRunFailures = failedRuns.length > 0;
-  const showAggregateAgentError = !!dashboard && dashboard.agents.error > 0 && !hasRunFailures && !dismissed.has("alert:agent-errors");
+  const showAggregateAgentError =
+    !!dashboard &&
+    dashboard.agents.error > 0 &&
+    !hasRunFailures &&
+    !dismissedAgentErrorsAlert;
   const showBudgetAlert =
     !!dashboard &&
     dashboard.costs.monthBudgetCents > 0 &&
     dashboard.costs.monthUtilizationPercent >= 80 &&
-    !dismissed.has("alert:budget");
+    !dismissedBudgetAlert;
   const hasAlerts = showAggregateAgentError || showBudgetAlert;
   const hasStale = staleIssues.length > 0;
   const hasJoinRequests = joinRequests.length > 0;
@@ -578,12 +588,14 @@ export function Inbox() {
   ].filter((key): key is SectionKey => key !== null);
 
   const allLoaded =
+    !isDismissalsLoading &&
     !isJoinRequestsLoading &&
     !isApprovalsLoading &&
     !isDashboardLoading &&
     !isIssuesLoading &&
     !isTouchedIssuesLoading &&
     !isRunsLoading;
+  const hasDismissedItems = (dismissals?.items.length ?? 0) > 0;
 
   const showSeparatorBefore = (key: SectionKey) => visibleSections.indexOf(key) > 0;
 
@@ -646,11 +658,26 @@ export function Inbox() {
                 </SelectContent>
               </Select>
             )}
+
+            {hasDismissedItems && (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-8 px-2.5"
+                onClick={() => clearDismissedMutation.mutate()}
+                disabled={clearDismissedMutation.isPending}
+              >
+                <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
+                {clearDismissedMutation.isPending ? "Resetting…" : "Reset dismissed"}
+              </Button>
+            )}
           </div>
         )}
       </div>
 
       {approvalsError && <p className="text-sm text-destructive">{approvalsError.message}</p>}
+      {failedRunsError && <p className="text-sm text-destructive">{failedRunsError.message}</p>}
       {actionError && <p className="text-sm text-destructive">{actionError}</p>}
 
       {!allLoaded && visibleSections.length === 0 && (
@@ -662,9 +689,13 @@ export function Inbox() {
           icon={InboxIcon}
           message={
             tab === "new"
-              ? "No issues you're involved in yet."
+              ? hasDismissedItems
+                ? "No inbox items are visible right now. Some may be hidden by your dismissed items."
+                : "No issues you're involved in yet."
               : "No inbox items match these filters."
           }
+          action={hasDismissedItems ? "Reset dismissed items" : undefined}
+          onAction={hasDismissedItems ? () => clearDismissedMutation.mutate() : undefined}
         />
       )}
 
@@ -764,7 +795,7 @@ export function Inbox() {
                   run={run}
                   issueById={issueById}
                   agentName={agentName(run.agentId)}
-                  onDismiss={() => dismiss(`run:${run.id}`)}
+                  onDismiss={() => dismissMutation.mutate({ kind: "failed_run", runId: run.id })}
                 />
               ))}
             </div>
@@ -794,7 +825,7 @@ export function Inbox() {
                   </Link>
                   <button
                     type="button"
-                    onClick={() => dismiss("alert:agent-errors")}
+                    onClick={() => dismissMutation.mutate({ kind: "agent_errors_alert" })}
                     className="rounded-md p-1 text-muted-foreground opacity-0 transition-opacity hover:bg-accent hover:text-foreground group-hover/alert:opacity-100"
                     aria-label="Dismiss"
                   >
@@ -817,7 +848,7 @@ export function Inbox() {
                   </Link>
                   <button
                     type="button"
-                    onClick={() => dismiss("alert:budget")}
+                    onClick={() => dismissMutation.mutate({ kind: "budget_alert" })}
                     className="rounded-md p-1 text-muted-foreground opacity-0 transition-opacity hover:bg-accent hover:text-foreground group-hover/alert:opacity-100"
                     aria-label="Dismiss"
                   >
@@ -877,7 +908,7 @@ export function Inbox() {
                   </Link>
                   <button
                     type="button"
-                    onClick={() => dismiss(`stale:${issue.id}`)}
+                    onClick={() => dismissMutation.mutate({ kind: "stale_issue", issueId: issue.id })}
                     className="mt-0.5 rounded-md p-1 text-muted-foreground opacity-0 transition-opacity hover:bg-accent hover:text-foreground group-hover/stale:opacity-100 sm:mt-0"
                     aria-label="Dismiss"
                   >

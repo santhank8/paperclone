@@ -573,6 +573,27 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
             />
           </Field>
 
+          {supportsExplicitAuthMode && (
+            <Field label="Auth mode" hint={help.authMode}>
+              <LocalAgentAuthModeDropdown
+                value={currentAuthMode}
+                adapterType={adapterType}
+                onChange={(modeValue) =>
+                  isCreate
+                    ? set!({ authMode: modeValue })
+                    : mark(
+                        "adapterConfig",
+                        "paperclipAuthMode",
+                        localAgentAuthModePatchValue(modeValue),
+                      )
+                }
+              />
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                {localAgentAuthModeDescription(adapterType, currentAuthMode)}
+              </p>
+            </Field>
+          )}
+
           {testEnvironment.error && (
             <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
               {testEnvironment.error instanceof Error
@@ -700,26 +721,6 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
                 open={thinkingEffortOpen}
                 onOpenChange={setThinkingEffortOpen}
               />
-              {supportsExplicitAuthMode && (
-                <Field label="Auth mode" hint={help.authMode}>
-                  <LocalAgentAuthModeDropdown
-                    value={currentAuthMode}
-                    adapterType={adapterType}
-                    onChange={(modeValue) =>
-                      isCreate
-                        ? set!({ authMode: modeValue })
-                        : mark(
-                            "adapterConfig",
-                            "paperclipAuthMode",
-                            localAgentAuthModePatchValue(modeValue),
-                          )
-                    }
-                  />
-                  <p className="mt-1 text-[11px] text-muted-foreground">
-                    {localAgentAuthModeDescription(adapterType, currentAuthMode)}
-                  </p>
-                </Field>
-              )}
               {adapterType === "codex_local" &&
                 codexSearchEnabled &&
                 currentThinkingEffort === "minimal" && (

@@ -1,6 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import { and, asc, desc, eq, gt, inArray, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gt, inArray, not, sql } from "drizzle-orm";
 import type { Db } from "@paperclipai/db";
 import {
   agents,
@@ -34,6 +34,7 @@ const HEARTBEAT_MAX_CONCURRENT_RUNS_MAX = 10;
 const DEFERRED_WAKE_CONTEXT_KEY = "_paperclipWakeContext";
 const startLocksByAgent = new Map<string, Promise<void>>();
 const REPO_ONLY_CWD_SENTINEL = "/__paperclip_repo_only__";
+const FAILED_HEARTBEAT_RUN_STATUSES = ["failed", "timed_out"] as const;
 
 function appendExcerpt(prev: string, chunk: string) {
   return appendWithCap(prev, chunk, MAX_EXCERPT_BYTES);
@@ -860,7 +861,7 @@ export function heartbeatService(db: Db) {
 
   async function finalizeAgentStatus(
     agentId: string,
-    outcome: "succeeded" | "failed" | "cancelled" | "timed_out",
+    outcome: "succeeded" | "skipped" | "failed" | "cancelled" | "timed_out",
   ) {
     const existing = await getAgent(agentId);
     if (!existing) return;
@@ -873,7 +874,7 @@ export function heartbeatService(db: Db) {
     const nextStatus =
       runningCount > 0
         ? "running"
-        : outcome === "succeeded" || outcome === "cancelled"
+        : outcome === "succeeded" || outcome === "skipped" || outcome === "cancelled"
           ? "idle"
           : "error";
 
@@ -1112,7 +1113,7 @@ export function heartbeatService(db: Db) {
           { companyId: agent.companyId, agentId: agent.id, runId: run.id },
           "pre-flight: no active assigned issues for timer wake — skipping adapter invocation",
         );
-        const skippedRun = await setRunStatus(run.id, "succeeded", {
+        const skippedRun = await setRunStatus(run.id, "skipped", {
           finishedAt: new Date(),
           resultJson: { skipped: true, reason: "no_actionable_work" },
         });
@@ -1126,6 +1127,7 @@ export function heartbeatService(db: Db) {
           });
           await releaseIssueExecutionAndPromote(skippedRun);
         }
+        await finalizeAgentStatus(agent.id, "skipped");
         return;
       }
     }
@@ -2199,6 +2201,41 @@ export function heartbeatService(db: Db) {
         return query.limit(limit);
       }
       return query;
+    },
+
+    listLatestFailedRuns: async (companyId: string) => {
+      const latestRunByAgent = await db
+        .selectDistinctOn([heartbeatRuns.agentId], {
+          id: heartbeatRuns.id,
+          status: heartbeatRuns.status,
+        })
+        .from(heartbeatRuns)
+        .innerJoin(agents, eq(heartbeatRuns.agentId, agents.id))
+        .where(
+          and(
+            eq(heartbeatRuns.companyId, companyId),
+            eq(agents.companyId, companyId),
+            not(eq(agents.status, "terminated")),
+          ),
+        )
+        .orderBy(heartbeatRuns.agentId, desc(heartbeatRuns.createdAt));
+
+      const failedRunIds = latestRunByAgent
+        .filter((row) =>
+          FAILED_HEARTBEAT_RUN_STATUSES.includes(
+            row.status as (typeof FAILED_HEARTBEAT_RUN_STATUSES)[number],
+          ),
+        )
+        .map((row) => row.id);
+
+      if (failedRunIds.length === 0) return [];
+
+      const runs = await db
+        .select()
+        .from(heartbeatRuns)
+        .where(inArray(heartbeatRuns.id, failedRunIds));
+
+      return runs.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
     },
 
     getRun,

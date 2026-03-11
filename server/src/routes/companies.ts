@@ -9,12 +9,20 @@ import {
 } from "@paperclipai/shared";
 import { forbidden } from "../errors.js";
 import { validate } from "../middleware/validate.js";
-import { accessService, companyPortabilityService, companyService, logActivity } from "../services/index.js";
+import {
+  accessService,
+  agentService,
+  companyPortabilityService,
+  companyService,
+  logActivity,
+} from "../services/index.js";
 import { assertBoard, assertCompanyAccess, getActorInfo } from "./authz.js";
+import { applyCompanyHeartbeatPolicyToRuntimeConfig } from "../services/agent-heartbeat-profile.js";
 
 export function companyRoutes(db: Db) {
   const router = Router();
   const svc = companyService(db);
+  const agentSvc = agentService(db);
   const portability = companyPortabilityService(db);
   const access = accessService(db);
 
@@ -144,6 +152,42 @@ export function companyRoutes(db: Db) {
       details: req.body,
     });
     res.json(company);
+  });
+
+  router.post("/:companyId/heartbeat-policy/apply", async (req, res) => {
+    assertBoard(req);
+    const companyId = req.params.companyId as string;
+    assertCompanyAccess(req, companyId);
+    const company = await svc.getById(companyId);
+    if (!company) {
+      res.status(404).json({ error: "Company not found" });
+      return;
+    }
+
+    const agents = await agentSvc.list(companyId);
+    let updatedCount = 0;
+    for (const agent of agents) {
+      if (agent.status === "terminated" || agent.status === "pending_approval") continue;
+      const nextRuntimeConfig = applyCompanyHeartbeatPolicyToRuntimeConfig(
+        agent.role,
+        agent.runtimeConfig,
+        company.runtimePolicy ?? {},
+      );
+      await agentSvc.update(agent.id, { runtimeConfig: nextRuntimeConfig });
+      updatedCount += 1;
+    }
+
+    await logActivity(db, {
+      companyId,
+      actorType: "user",
+      actorId: req.actor.userId ?? "board",
+      action: "company.heartbeat_policy_applied",
+      entityType: "company",
+      entityId: companyId,
+      details: { updatedCount },
+    });
+
+    res.json({ updatedCount });
   });
 
   router.post("/:companyId/archive", async (req, res) => {

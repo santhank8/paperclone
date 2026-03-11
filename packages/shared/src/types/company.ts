@@ -1,4 +1,12 @@
-import type { CompanyStatus } from "../constants.js";
+import type { AgentRole, CompanyStatus } from "../constants.js";
+
+export type CompanyHeartbeatIntervalsByRole = Partial<Record<AgentRole, number>>;
+
+export interface CompanyRuntimePolicy {
+  heartbeat?: {
+    intervalsByRole?: CompanyHeartbeatIntervalsByRole;
+  };
+}
 
 export interface Company {
   id: string;
@@ -10,6 +18,7 @@ export interface Company {
   budgetMonthlyCents: number;
   spentMonthlyCents: number;
   requireBoardApprovalForNewAgents: boolean;
+  runtimePolicy: CompanyRuntimePolicy;
   brandColor: string | null;
   createdAt: Date;
   updatedAt: Date;

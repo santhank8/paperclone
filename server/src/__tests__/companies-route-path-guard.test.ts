@@ -22,6 +22,10 @@ vi.mock("../services/index.js", () => ({
     canUser: vi.fn(),
     ensureMembership: vi.fn(),
   }),
+  agentService: () => ({
+    list: vi.fn(),
+    update: vi.fn(),
+  }),
   logActivity: vi.fn(),
 }));
 

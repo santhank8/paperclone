@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "@/lib/router";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { dashboardApi } from "../api/dashboard";
 import { activityApi } from "../api/activity";
 import { issuesApi } from "../api/issues";
@@ -34,6 +34,7 @@ export function Dashboard() {
   const { selectedCompanyId, companies } = useCompany();
   const { openOnboarding } = useDialog();
   const { setBreadcrumbs } = useBreadcrumbs();
+  const queryClient = useQueryClient();
   const [animatedActivityIds, setAnimatedActivityIds] = useState<Set<string>>(new Set());
   const seenActivityIdsRef = useRef<Set<string>>(new Set());
   const hydratedActivityRef = useRef(false);
@@ -77,6 +78,25 @@ export function Dashboard() {
     queryKey: queryKeys.heartbeats(selectedCompanyId!),
     queryFn: () => heartbeatsApi.list(selectedCompanyId!),
     enabled: !!selectedCompanyId,
+  });
+
+  const companyAgentBatchAction = useMutation({
+    mutationFn: async (action: "pause" | "resume") => {
+      if (!selectedCompanyId) throw new Error("No company selected");
+      if (action === "pause") return agentsApi.pauseAll(selectedCompanyId);
+      return agentsApi.resumeAll(selectedCompanyId);
+    },
+    onSuccess: async () => {
+      if (!selectedCompanyId) return;
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.agents.list(selectedCompanyId) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.dashboard(selectedCompanyId) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.liveRuns(selectedCompanyId) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.heartbeats(selectedCompanyId) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.activity(selectedCompanyId) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.sidebarBadges(selectedCompanyId) }),
+      ]);
+    },
   });
 
   const recentIssues = issues ? getRecentIssues(issues) : [];
@@ -205,6 +225,27 @@ export function Dashboard() {
         </div>
       )}
 
+      {!!agents?.length && (
+        <div className="flex items-center justify-end gap-2">
+          <button
+            type="button"
+            onClick={() => companyAgentBatchAction.mutate("pause")}
+            disabled={companyAgentBatchAction.isPending}
+            className="rounded-md border border-border px-3 py-1.5 text-sm text-foreground transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Pause All Agents
+          </button>
+          <button
+            type="button"
+            onClick={() => companyAgentBatchAction.mutate("resume")}
+            disabled={companyAgentBatchAction.isPending}
+            className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Resume All Agents
+          </button>
+        </div>
+      )}
+
       <ActiveAgentsPanel companyId={selectedCompanyId!} />
 
       {data && (
@@ -212,12 +253,13 @@ export function Dashboard() {
           <div className="grid grid-cols-2 xl:grid-cols-4 gap-1 sm:gap-2">
             <MetricCard
               icon={Bot}
-              value={data.agents.active + data.agents.running + data.agents.paused + data.agents.error}
-              label="Agents Enabled"
+              value={data.agents.actionable}
+              label="Actionable Agents"
               to="/agents"
               description={
                 <span>
                   {data.agents.running} running{", "}
+                  {data.agents.idleWithoutActionable} idle without work{", "}
                   {data.agents.paused} paused{", "}
                   {data.agents.error} errors
                 </span>

@@ -17,7 +17,21 @@ You need either:
 - board access, or
 - agent permission `can_create_agents=true` in your company
 
-If you do not have this permission, escalate to your CEO or board.
+If you do not have this permission, escalate to your CEO.
+
+Do not create a separate "decision needed" issue for the board just to request a hire.
+If board approval is required for new agents, the correct flow is:
+
+1. escalate the staffing need to the CEO,
+2. the CEO submits `POST /agent-hires`,
+3. Paperclip creates the real `hire_agent` approval,
+4. the board approves or rejects that approval.
+
+If you are not the CEO and cannot create agents:
+
+- comment with the staffing recommendation, business rationale, reporting line, and urgency
+- reassign the issue to the CEO or create a sub-issue assigned to the CEO
+- do not invent a parallel governance issue for the board unless the CEO explicitly asked for a board decision issue
 
 ## Workflow
 
@@ -90,6 +104,11 @@ curl -sS -X POST "$PAPERCLIP_API_URL/api/companies/$PAPERCLIP_COMPANY_ID/agent-h
 - if response has `approval`, hire is `pending_approval`
 - monitor and discuss on approval thread
 - when the board approves, you will be woken with `PAPERCLIP_APPROVAL_ID`; read linked issues and close/comment follow-up
+
+Important:
+- the approval is the board decision object
+- the approval, not a normal issue, is what should surface approve/reject UI
+- avoid creating extra "board decision" issues when an approval already covers the decision
 
 ```sh
 curl -sS "$PAPERCLIP_API_URL/api/approvals/<approval-id>" \

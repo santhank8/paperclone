@@ -1,5 +1,6 @@
 export { execute, runCodexLogin } from "./execute.js";
 export { testEnvironment } from "./test.js";
+export { loginCodexWithApiKey } from "./auth.js";
 export {
   parseCodexJsonl,
   detectCodexAuthRequired,

@@ -1,7 +1,8 @@
-import { and, eq, gte, isNotNull, sql } from "drizzle-orm";
+import { and, eq, gte, inArray, isNotNull, sql } from "drizzle-orm";
 import type { Db } from "@paperclipai/db";
 import { agents, approvals, companies, costEvents, heartbeatRuns, issues } from "@paperclipai/db";
 import { notFound } from "../errors.js";
+import { loadHeartbeatRunStderrStats } from "./heartbeat-run-stderr.js";
 
 const effectiveCostCentsExpr = sql<number>`case
   when ${costEvents.billingType} = 'api'
@@ -23,10 +24,9 @@ export function dashboardService(db: Db) {
       if (!company) throw notFound("Company not found");
 
       const agentRows = await db
-        .select({ status: agents.status, count: sql<number>`count(*)` })
+        .select({ id: agents.id, status: agents.status })
         .from(agents)
-        .where(eq(agents.companyId, companyId))
-        .groupBy(agents.status);
+        .where(eq(agents.companyId, companyId));
 
       const taskRows = await db
         .select({ status: issues.status, count: sql<number>`count(*)` })
@@ -53,17 +53,48 @@ export function dashboardService(db: Db) {
         )
         .then((rows) => Number(rows[0]?.count ?? 0));
 
+      const actionableAgentIds = new Set(
+        await db
+          .selectDistinct({ assigneeAgentId: issues.assigneeAgentId })
+          .from(issues)
+          .where(
+            and(
+              eq(issues.companyId, companyId),
+              inArray(issues.status, ["todo", "in_progress"]),
+              isNotNull(issues.assigneeAgentId),
+            ),
+          )
+          .then((rows) =>
+            rows
+              .map((row) => row.assigneeAgentId)
+              .filter((value): value is string => typeof value === "string" && value.length > 0),
+          ),
+      );
+
       const agentCounts: Record<string, number> = {
-        active: 0,
+        actionable: 0,
         running: 0,
         paused: 0,
         error: 0,
+        idleWithoutActionable: 0,
       };
       for (const row of agentRows) {
-        const count = Number(row.count);
-        // "idle" agents are operational — count them as active
-        const bucket = row.status === "idle" ? "active" : row.status;
-        agentCounts[bucket] = (agentCounts[bucket] ?? 0) + count;
+        if (row.status === "paused") {
+          agentCounts.paused += 1;
+          continue;
+        }
+        if (row.status === "error") {
+          agentCounts.error += 1;
+          continue;
+        }
+        if (row.status === "running") {
+          agentCounts.running += 1;
+        }
+        if (actionableAgentIds.has(row.id)) {
+          agentCounts.actionable += 1;
+        } else if (row.status === "idle" || row.status === "active" || row.status === "running") {
+          agentCounts.idleWithoutActionable += 1;
+        }
       }
 
       const taskCounts: Record<string, number> = {
@@ -104,6 +135,7 @@ export function dashboardService(db: Db) {
       const healthSince = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
       const runRows = await db
         .select({
+          id: heartbeatRuns.id,
           invocationSource: heartbeatRuns.invocationSource,
           status: heartbeatRuns.status,
           stderrExcerpt: heartbeatRuns.stderrExcerpt,
@@ -127,10 +159,16 @@ export function dashboardService(db: Db) {
       let runtimeHealth: { windowDays: number; totalRuns: number; timerWakeSkipPct: number | null; stderrNoisePct: number | null; sessionResumeRatePct: number | null; medianTimerInputTokens: number | null } | undefined;
 
       if (healthTotal > 0) {
+        const stderrStatsByRunId = await loadHeartbeatRunStderrStats(db, runRows.map((r) => r.id));
         const timerRows = runRows.filter((r) => r.invocationSource === "timer");
         const skippedRows = runRows.filter((r) => r.status === "skipped");
         const succeededWithStderr = runRows.filter(
-          (r) => r.status === "succeeded" && r.stderrExcerpt && r.stderrExcerpt.trim().length > 0,
+          (r) => {
+            if (r.status !== "succeeded") return false;
+            const stats = stderrStatsByRunId.get(r.id);
+            if (stats) return stats.errorCount > 0;
+            return Boolean(r.stderrExcerpt && r.stderrExcerpt.trim().length > 0);
+          },
         );
         const withSession = runRows.filter((r) => r.sessionIdBefore != null);
 
@@ -159,10 +197,11 @@ export function dashboardService(db: Db) {
       return {
         companyId,
         agents: {
-          active: agentCounts.active,
+          actionable: agentCounts.actionable,
           running: agentCounts.running,
           paused: agentCounts.paused,
           error: agentCounts.error,
+          idleWithoutActionable: agentCounts.idleWithoutActionable,
         },
         tasks: taskCounts,
         costs: {

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import type { CostByProvider } from "@paperclipai/shared";
 import { costsApi } from "../api/costs";
 import { useCompany } from "../context/CompanyContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
@@ -12,7 +13,7 @@ import { StatusBadge } from "../components/StatusBadge";
 import { adapterLabels } from "../components/agent-config-primitives";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { DollarSign } from "lucide-react";
+import { Activity, DollarSign, Gauge, Layers3 } from "lucide-react";
 
 type DatePreset = "mtd" | "7d" | "30d" | "ytd" | "all" | "custom";
 
@@ -57,6 +58,44 @@ function formatAdapterLabel(adapterType?: string | null): string {
   return adapterLabels[adapterType] ?? adapterType;
 }
 
+function formatProviderLabel(provider?: string | null): string {
+  switch ((provider ?? "").toLowerCase()) {
+    case "anthropic":
+      return "Claude";
+    case "openai":
+      return "Codex";
+    default:
+      return provider?.trim() || "Unknown";
+  }
+}
+
+function providerModeLabel(row: Pick<CostByProvider, "provider" | "billingType">): string {
+  const provider = formatProviderLabel(row.provider);
+  switch (row.billingType) {
+    case "api":
+      return `${provider} API`;
+    case "subscription":
+      return `${provider} subscription`;
+    default:
+      return `${provider} other`;
+  }
+}
+
+function providerTone(row: Pick<CostByProvider, "provider" | "billingType">): string {
+  const provider = (row.provider ?? "").toLowerCase();
+  if (provider === "anthropic") {
+    return row.billingType === "api"
+      ? "border-sky-500/30 bg-sky-500/5"
+      : "border-teal-500/30 bg-teal-500/5";
+  }
+  if (provider === "openai") {
+    return row.billingType === "api"
+      ? "border-emerald-500/30 bg-emerald-500/5"
+      : "border-green-500/30 bg-green-500/5";
+  }
+  return "border-border bg-card";
+}
+
 export function Costs() {
   const { selectedCompanyId } = useCompany();
   const { setBreadcrumbs } = useBreadcrumbs();
@@ -82,13 +121,15 @@ export function Costs() {
   const { data, isLoading, error } = useQuery({
     queryKey: queryKeys.costs(selectedCompanyId!, from || undefined, to || undefined),
     queryFn: async () => {
-      const [summary, byRuntime, byAgent, byProject] = await Promise.all([
+      const [summary, byProvider, byRuntime, byAgent, byProject, windows] = await Promise.all([
         costsApi.summary(selectedCompanyId!, from || undefined, to || undefined),
+        costsApi.byProvider(selectedCompanyId!, from || undefined, to || undefined),
         costsApi.byRuntime(selectedCompanyId!, from || undefined, to || undefined),
         costsApi.byAgent(selectedCompanyId!, from || undefined, to || undefined),
         costsApi.byProject(selectedCompanyId!, from || undefined, to || undefined),
+        costsApi.windows(selectedCompanyId!),
       ]);
-      return { summary, byRuntime, byAgent, byProject };
+      return { summary, byProvider, byRuntime, byAgent, byProject, windows };
     },
     enabled: !!selectedCompanyId,
   });
@@ -140,41 +181,126 @@ export function Costs() {
 
       {data && (
         <>
-          {/* Summary card */}
-          <Card>
-            <CardContent className="p-4 space-y-3">
-              <div className="flex items-center justify-between">
-                <p className="text-sm text-muted-foreground">{PRESET_LABELS[preset]}</p>
-                {data.summary.budgetCents > 0 && (
-                  <p className="text-sm text-muted-foreground">
-                    {data.summary.utilizationPercent}% utilized
-                  </p>
-                )}
-              </div>
-              <p className="text-2xl font-bold">
-                {formatCents(data.summary.spendCents)}{" "}
-                <span className="text-base font-normal text-muted-foreground">
-                  {data.summary.budgetCents > 0
-                    ? `/ ${formatCents(data.summary.budgetCents)}`
-                    : "Unlimited budget"}
-                </span>
-              </p>
-              {data.summary.budgetCents > 0 && (
-                <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
-                  <div
-                    className={`h-full rounded-full transition-[width,background-color] duration-150 ${
-                      data.summary.utilizationPercent > 90
-                        ? "bg-red-400"
-                        : data.summary.utilizationPercent > 70
-                          ? "bg-yellow-400"
-                          : "bg-green-400"
-                    }`}
-                    style={{ width: `${Math.min(100, data.summary.utilizationPercent)}%` }}
-                  />
+          <div className="grid xl:grid-cols-[1.15fr_0.85fr] gap-4">
+            <Card>
+              <CardContent className="p-4 space-y-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm text-muted-foreground">{PRESET_LABELS[preset]}</p>
+                    <h3 className="text-2xl font-bold">
+                      {formatCents(data.summary.spendCents)}{" "}
+                      <span className="text-base font-normal text-muted-foreground">
+                        {data.summary.budgetCents > 0
+                          ? `/ ${formatCents(data.summary.budgetCents)}`
+                          : "Unlimited budget"}
+                      </span>
+                    </h3>
+                  </div>
+                  {data.summary.budgetCents > 0 && (
+                    <div className="text-right text-sm text-muted-foreground">
+                      <div>{data.summary.utilizationPercent}% utilized</div>
+                      <div>{formatCents(data.summary.budgetCents - data.summary.spendCents)} remaining</div>
+                    </div>
+                  )}
                 </div>
-              )}
-            </CardContent>
-          </Card>
+                {data.summary.budgetCents > 0 && (
+                  <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-[width,background-color] duration-150 ${
+                        data.summary.utilizationPercent > 90
+                          ? "bg-red-400"
+                          : data.summary.utilizationPercent > 70
+                            ? "bg-yellow-400"
+                            : "bg-green-400"
+                      }`}
+                      style={{ width: `${Math.min(100, data.summary.utilizationPercent)}%` }}
+                    />
+                  </div>
+                )}
+                <div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-3">
+                  {data.windows.map((window) => (
+                    <div key={window.key} className="rounded-lg border border-border/70 bg-muted/20 p-3">
+                      <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-muted-foreground">
+                        <Gauge className="h-3.5 w-3.5" />
+                        {window.label}
+                      </div>
+                      <p className="mt-2 text-lg font-semibold">{formatCents(window.apiSpendCents)}</p>
+                      <p className="text-xs text-muted-foreground">
+                        API spend
+                      </p>
+                      <p className="mt-2 text-xs text-muted-foreground">
+                        {window.apiRunCount} API run{window.apiRunCount === 1 ? "" : "s"} |{" "}
+                        {window.subscriptionRunCount} subscription run{window.subscriptionRunCount === 1 ? "" : "s"}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {formatTokens(window.inputTokens)} in / {formatTokens(window.outputTokens)} out tok
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="p-4 space-y-3">
+                <div>
+                  <h3 className="text-sm font-semibold">Provider Split</h3>
+                  <p className="text-xs text-muted-foreground">
+                    API is shown in dollars. Subscription is shown as usage pressure, not billed spend.
+                  </p>
+                </div>
+                <div className="grid gap-3">
+                  {data.byProvider.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">No provider-attributed usage yet.</p>
+                  ) : (
+                    data.byProvider.map((row) => (
+                      <div
+                        key={`${row.provider}:${row.billingType}`}
+                        className={`rounded-lg border p-3 ${providerTone(row)}`}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2">
+                              <Layers3 className="h-4 w-4 text-muted-foreground" />
+                              <p className="font-medium">{providerModeLabel(row)}</p>
+                            </div>
+                            <p className="text-xs text-muted-foreground">
+                              {row.runCount} run{row.runCount === 1 ? "" : "s"} · {formatTokens(row.inputTokens)} in /{" "}
+                              {formatTokens(row.outputTokens)} out tok
+                            </p>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <p className="font-semibold">
+                              {row.billingType === "api" ? formatCents(row.costCents) : "Usage only"}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {row.models.length} model{row.models.length === 1 ? "" : "s"}
+                            </p>
+                          </div>
+                        </div>
+                        {row.models.length > 0 && (
+                          <div className="mt-3 space-y-1">
+                            {row.models.slice(0, 4).map((model) => (
+                              <div
+                                key={`${row.provider}:${row.billingType}:${model.model}`}
+                                className="flex items-center justify-between gap-3 text-xs text-muted-foreground"
+                              >
+                                <span className="truncate">{model.model}</span>
+                                <span className="shrink-0">
+                                  {model.runCount} run{model.runCount === 1 ? "" : "s"}
+                                  {row.billingType === "api" ? ` · ${formatCents(model.costCents)}` : ""}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ))
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
 
           <div className="grid md:grid-cols-2 gap-4">
             <Card>
@@ -246,7 +372,10 @@ export function Costs() {
 
           <Card>
             <CardContent className="p-4">
-              <h3 className="text-sm font-semibold mb-3">By Agent</h3>
+              <div className="mb-3 flex items-center gap-2">
+                <Activity className="h-4 w-4 text-muted-foreground" />
+                <h3 className="text-sm font-semibold">By Agent</h3>
+              </div>
               {data.byAgent.length === 0 ? (
                 <p className="text-sm text-muted-foreground">No agent cost or usage data yet.</p>
               ) : (

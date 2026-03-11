@@ -21,10 +21,12 @@ export const companiesApi = {
     data: Partial<
       Pick<
         Company,
-        "name" | "description" | "status" | "budgetMonthlyCents" | "requireBoardApprovalForNewAgents" | "brandColor"
+        "name" | "description" | "status" | "budgetMonthlyCents" | "requireBoardApprovalForNewAgents" | "runtimePolicy" | "brandColor"
       >
     >,
   ) => api.patch<Company>(`/companies/${companyId}`, data),
+  applyHeartbeatPolicy: (companyId: string) =>
+    api.post<{ updatedCount: number }>(`/companies/${companyId}/heartbeat-policy/apply`, {}),
   archive: (companyId: string) => api.post<Company>(`/companies/${companyId}/archive`, {}),
   remove: (companyId: string) => api.delete<{ ok: true }>(`/companies/${companyId}`),
   exportBundle: (companyId: string, data: { include?: { company?: boolean; agents?: boolean } }) =>

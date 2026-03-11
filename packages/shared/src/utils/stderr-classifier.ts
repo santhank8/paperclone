@@ -54,6 +54,17 @@ export const BENIGN_STDERR_PATTERNS: Array<{ name: string; pattern: RegExp }> = 
     name: "paperclip_retry",
     pattern: /\[paperclip\] (?:retrying|session unavailable|waiting)/i,
   },
+  // Codex shell snapshot cleanup warnings are noisy but non-fatal.
+  {
+    name: "codex_shell_snapshot_cleanup",
+    pattern: /codex_core::shell_snapshot: Failed to delete shell snapshot/i,
+  },
+  // MCP OAuth/token auth failures from optional integrations are noisy but
+  // should not count as runtime errors for the agent itself.
+  {
+    name: "mcp_oauth_auth_required",
+    pattern: /AuthRequired\(AuthRequiredError|Missing or invalid access token/i,
+  },
 ];
 
 /**

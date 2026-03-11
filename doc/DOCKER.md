@@ -28,7 +28,7 @@ All persisted under your bind mount (`./data/docker-paperclip` in the example ab
 ## Compose Quickstart
 
 ```sh
-docker compose -f docker-compose.quickstart.yml up --build
+docker compose -f docker-compose.yml up --build
 ```
 
 Defaults:
@@ -39,7 +39,7 @@ Defaults:
 Optional overrides:
 
 ```sh
-PAPERCLIP_PORT=3200 PAPERCLIP_DATA_DIR=./data/pc docker compose -f docker-compose.quickstart.yml up --build
+PAPERCLIP_PORT=3200 PAPERCLIP_DATA_DIR=./data/pc docker compose -f docker-compose.yml up --build
 ```
 
 If you change host port or use a non-local domain, set `PAPERCLIP_PUBLIC_URL` to the external URL you will use in browser/auth flows.

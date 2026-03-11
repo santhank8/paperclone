@@ -4,6 +4,8 @@ import type { Config } from "../config.js";
 import {
   applyInstanceAgentCreateDefaults,
   applyInstanceAgentRuntimeAuth,
+  resolveClaudeSharedSubscriptionHome,
+  resolveCodexSharedSubscriptionHome,
 } from "../services/instance-agent-auth.js";
 
 function runtimeConfig(overrides: Partial<Config> = {}): Config {
@@ -114,6 +116,7 @@ describe("instance agent auth defaults", () => {
   });
 
   it("forces subscription mode by blanking the inherited host key", () => {
+    const runtime = runtimeConfig();
     const result = applyInstanceAgentRuntimeAuth(
       "codex_local",
       { paperclipAuthMode: "subscription" },
@@ -122,9 +125,37 @@ describe("instance agent auth defaults", () => {
       }),
     );
     expect(result.env).toEqual({
+      CODEX_HOME: {
+        type: "plain",
+        value: resolveCodexSharedSubscriptionHome(runtime),
+      },
+      HOME: {
+        type: "plain",
+        value: resolveCodexSharedSubscriptionHome(runtime),
+      },
       OPENAI_API_KEY: {
         type: "plain",
         value: "",
+      },
+    });
+  });
+
+  it("mounts the shared Claude config dir for subscription mode", () => {
+    const result = applyInstanceAgentRuntimeAuth(
+      "claude_local",
+      { paperclipAuthMode: "subscription" },
+      runtimeConfig({
+        claudeInstanceUseApiKey: false,
+      }),
+    );
+    expect(result.env).toEqual({
+      ANTHROPIC_API_KEY: {
+        type: "plain",
+        value: "",
+      },
+      CLAUDE_CONFIG_DIR: {
+        type: "plain",
+        value: resolveClaudeSharedSubscriptionHome(runtimeConfig()),
       },
     });
   });

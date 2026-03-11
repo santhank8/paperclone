@@ -70,6 +70,114 @@ export interface InstanceSettingsAgentAuthProfile {
   useApiKey: boolean;
   hasApiKey: boolean;
   apiKeyPreview: string | null;
+  subscriptionEstimate: InstanceSubscriptionUsageEstimateConfig;
+}
+
+export interface InstanceSubscriptionUsageEstimateConfig {
+  enabled: boolean;
+  windowHours: number;
+  unit: "runs" | "input_tokens" | "total_tokens";
+  capacity: number;
+  extraCapacity: number;
+}
+
+export interface InstanceSubscriptionUsageEstimateStatus {
+  provider: "anthropic" | "openai";
+  config: InstanceSubscriptionUsageEstimateConfig;
+  usedUnits: number;
+  totalCapacityUnits: number;
+  usagePercent: number;
+  runCount: number;
+  inputTokens: number;
+  outputTokens: number;
+  windowStart: string;
+  windowEnd: string;
+  nextReliefAt: string | null;
+}
+
+export interface InstanceCodexSubscriptionStatus {
+  command: string;
+  sharedHomeDir: string;
+  checkedAt: string;
+  loggedIn: boolean;
+  exitCode: number | null;
+  stdout: string;
+  stderr: string;
+}
+
+export interface InstanceClaudeSubscriptionStatus {
+  command: string;
+  sharedConfigDir: string;
+  checkedAt: string;
+  loggedIn: boolean;
+  authMethod: string | null;
+  apiProvider: string | null;
+  exitCode: number | null;
+  stdout: string;
+  stderr: string;
+}
+
+export interface InstanceClaudeAuthSession {
+  state: "idle" | "pending" | "succeeded" | "failed";
+  loginUrl: string | null;
+  startedAt: string | null;
+  finishedAt: string | null;
+  exitCode: number | null;
+  signal: string | null;
+  stdout: string;
+  stderr: string;
+}
+
+export interface InstanceClaudeSubscriptionAuthResponse {
+  command: string;
+  sharedConfigDir: string;
+  session: InstanceClaudeAuthSession;
+  loginStatus: InstanceClaudeSubscriptionStatus;
+}
+
+export interface InstanceClaudeConnectionProbeResult {
+  mode: "api_key" | "subscription";
+  command: string;
+  sharedConfigDir: string | null;
+  checkedAt: string;
+  ok: boolean;
+  exitCode: number | null;
+  summary: string;
+  detail: string | null;
+  stdout: string;
+  stderr: string;
+}
+
+export interface InstanceCodexDeviceAuthSession {
+  state: "idle" | "pending" | "succeeded" | "failed";
+  loginUrl: string | null;
+  userCode: string | null;
+  startedAt: string | null;
+  finishedAt: string | null;
+  exitCode: number | null;
+  signal: string | null;
+  stdout: string;
+  stderr: string;
+}
+
+export interface InstanceCodexSubscriptionAuthResponse {
+  command: string;
+  sharedHomeDir: string;
+  session: InstanceCodexDeviceAuthSession;
+  loginStatus: InstanceCodexSubscriptionStatus;
+}
+
+export interface InstanceCodexConnectionProbeResult {
+  mode: "api_key" | "subscription";
+  command: string;
+  sharedHomeDir: string | null;
+  checkedAt: string;
+  ok: boolean;
+  exitCode: number | null;
+  summary: string;
+  detail: string | null;
+  stdout: string;
+  stderr: string;
 }
 
 export interface InstanceSettingsResponse {
@@ -124,6 +232,10 @@ export interface InstanceSettingsResponse {
       claudeLocal: InstanceSettingsAgentAuthProfile;
       codexLocal: InstanceSettingsAgentAuthProfile;
     };
+    usage: {
+      claudeLocal: InstanceSubscriptionUsageEstimateStatus;
+      codexLocal: InstanceSubscriptionUsageEstimateStatus;
+    };
   };
   metrics: InstanceSettingsMetrics;
 }
@@ -142,10 +254,12 @@ export interface UpdateInstanceAgentAuthSettings {
     useApiKey: boolean;
     apiKey?: string;
     clearApiKey?: boolean;
+    subscriptionEstimate?: InstanceSubscriptionUsageEstimateConfig;
   };
   codexLocal?: {
     useApiKey: boolean;
     apiKey?: string;
     clearApiKey?: boolean;
+    subscriptionEstimate?: InstanceSubscriptionUsageEstimateConfig;
   };
 }

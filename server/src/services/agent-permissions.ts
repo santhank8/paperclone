@@ -20,8 +20,9 @@ export function normalizeAgentPermissions(
   const record = permissions as Record<string, unknown>;
   return {
     canCreateAgents:
-      typeof record.canCreateAgents === "boolean"
+      defaults.canCreateAgents ||
+      (typeof record.canCreateAgents === "boolean"
         ? record.canCreateAgents
-        : defaults.canCreateAgents,
+        : false),
   };
 }

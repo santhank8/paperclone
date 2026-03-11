@@ -44,6 +44,7 @@ RUN arch="$(dpkg --print-architecture)" \
     arm64) codex_pkg='@openai/codex@linux-arm64'; codex_vendor_bin='/usr/local/lib/node_modules/@openai/codex/vendor/aarch64-unknown-linux-musl/codex/codex' ;; \
     *) codex_pkg='@openai/codex@latest' ;; \
   esac \
+  && if ! id postgres >/dev/null 2>&1; then adduser --system --group --home /var/lib/postgresql postgres; fi \
   && npm install --global --omit=dev @anthropic-ai/claude-code@latest "$codex_pkg" opencode-ai \
   && if [ -n "$codex_vendor_bin" ] && [ -f "$codex_vendor_bin" ]; then ln -sf "$codex_vendor_bin" /usr/local/bin/codex; fi \
   && mkdir -p /paperclip \

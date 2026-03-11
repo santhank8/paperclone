@@ -39,6 +39,9 @@ const ACTION_VERBS: Record<string, string> = {
   "company.updated": "updated company",
   "company.archived": "archived",
   "company.budget_updated": "updated budget for",
+  "company.agents_paused": "paused all agents for",
+  "company.agents_resumed": "resumed all agents for",
+  "company.heartbeat_policy_applied": "applied heartbeat policy to",
 };
 
 function humanizeValue(value: unknown): string {

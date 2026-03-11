@@ -10,7 +10,7 @@ export function sidebarBadgeService(db: Db) {
   return {
     get: async (
       companyId: string,
-      extra?: { joinRequests?: number; unreadTouchedIssues?: number },
+      extra?: { joinRequests?: number; unreadTouchedIssues?: number; failedRuns?: number },
     ): Promise<SidebarBadges> => {
       const actionableApprovals = await db
         .select({ count: sql<number>`count(*)` })
@@ -23,31 +23,34 @@ export function sidebarBadgeService(db: Db) {
         )
         .then((rows) => Number(rows[0]?.count ?? 0));
 
-      const latestRunByAgent = await db
-        .selectDistinctOn([heartbeatRuns.agentId], {
-          runStatus: heartbeatRuns.status,
-        })
-        .from(heartbeatRuns)
-        .innerJoin(agents, eq(heartbeatRuns.agentId, agents.id))
-        .where(
-          and(
-            eq(heartbeatRuns.companyId, companyId),
-            eq(agents.companyId, companyId),
-            not(eq(agents.status, "terminated")),
-          ),
-        )
-        .orderBy(heartbeatRuns.agentId, desc(heartbeatRuns.createdAt));
+      let failedRuns = extra?.failedRuns;
+      if (failedRuns === undefined) {
+        failedRuns = await db
+          .selectDistinctOn([heartbeatRuns.agentId], {
+            runStatus: heartbeatRuns.status,
+          })
+          .from(heartbeatRuns)
+          .innerJoin(agents, eq(heartbeatRuns.agentId, agents.id))
+          .where(
+            and(
+              eq(heartbeatRuns.companyId, companyId),
+              eq(agents.companyId, companyId),
+              not(eq(agents.status, "terminated")),
+            ),
+          )
+          .orderBy(heartbeatRuns.agentId, desc(heartbeatRuns.createdAt))
+          .then((latestRunByAgent) =>
+            latestRunByAgent.filter((row) => FAILED_HEARTBEAT_STATUSES.includes(row.runStatus)).length,
+          );
+      }
 
-      const failedRuns = latestRunByAgent.filter((row) =>
-        FAILED_HEARTBEAT_STATUSES.includes(row.runStatus),
-      ).length;
-
+      const resolvedFailedRuns = failedRuns ?? 0;
       const joinRequests = extra?.joinRequests ?? 0;
       const unreadTouchedIssues = extra?.unreadTouchedIssues ?? 0;
       return {
-        inbox: actionableApprovals + failedRuns + joinRequests + unreadTouchedIssues,
+        inbox: actionableApprovals + resolvedFailedRuns + joinRequests + unreadTouchedIssues,
         approvals: actionableApprovals,
-        failedRuns,
+        failedRuns: resolvedFailedRuns,
         joinRequests,
       };
     },

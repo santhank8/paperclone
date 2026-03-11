@@ -131,6 +131,7 @@ Access control:
 - **Budget**: auto-paused at 100%. Above 80%, focus on critical tasks only.
 - **Escalate** via `chainOfCommand` when stuck. Reassign to manager or create a task for them.
 - **Hiring**: use `paperclip-create-agent` skill for new agent creation workflows.
+- **Hiring authority**: if you do not have agent-creation permission, escalate the staffing request to your manager or CEO. Do not create "decision needed" board issues as a substitute for the real `hire_agent` approval flow.
 
 ## Comment Style (Required)
 

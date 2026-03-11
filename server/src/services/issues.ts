@@ -16,10 +16,34 @@ import {
   projectWorkspaces,
   projects,
 } from "@paperclipai/db";
-import { extractProjectMentionIds } from "@paperclipai/shared";
+import { extractProjectMentionIds, normalizeAgentUrlKey } from "@paperclipai/shared";
 import { conflict, notFound, unprocessable } from "../errors.js";
 
 const ALL_ISSUE_STATUSES = ["backlog", "todo", "in_progress", "in_review", "blocked", "done", "cancelled"];
+
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+export function findMentionedAgentIdsInBody(
+  agentsInCompany: Array<{ id: string; name: string }>,
+  body: string,
+) {
+  const matchedIds = new Set<string>();
+  for (const agent of agentsInCompany) {
+    const rawName = agent.name.trim();
+    const slug = normalizeAgentUrlKey(rawName);
+    const candidates = [rawName, slug].filter((candidate): candidate is string => Boolean(candidate));
+    for (const candidate of candidates) {
+      const pattern = new RegExp(`(^|\\s)@${escapeRegExp(candidate)}(?=$|[\\s,!?;:.)\\]}>])`, "i");
+      if (pattern.test(body)) {
+        matchedIds.add(agent.id);
+        break;
+      }
+    }
+  }
+  return [...matchedIds];
+}
 
 function assertTransition(from: string, to: string) {
   if (from === to) return;
@@ -1211,14 +1235,9 @@ export function issueService(db: Db) {
       }),
 
     findMentionedAgents: async (companyId: string, body: string) => {
-      const re = /\B@([^\s@,!?.]+)/g;
-      const tokens = new Set<string>();
-      let m: RegExpExecArray | null;
-      while ((m = re.exec(body)) !== null) tokens.add(m[1].toLowerCase());
-      if (tokens.size === 0) return [];
       const rows = await db.select({ id: agents.id, name: agents.name })
         .from(agents).where(eq(agents.companyId, companyId));
-      return rows.filter(a => tokens.has(a.name.toLowerCase())).map(a => a.id);
+      return findMentionedAgentIdsInBody(rows, body);
     },
 
     findMentionedProjectIds: async (issueId: string) => {
@@ -1395,9 +1414,9 @@ export function issueService(db: Db) {
         .where(
           and(
             eq(issues.companyId, companyId),
-            eq(issues.status, "in_progress"),
+            inArray(issues.status, ["in_progress", "todo"]),
             isNull(issues.hiddenAt),
-            sql`${issues.startedAt} < ${cutoff.toISOString()}`,
+            sql`${issues.updatedAt} < ${cutoff.toISOString()}`,
           ),
         )
         .then((rows) => rows[0]);

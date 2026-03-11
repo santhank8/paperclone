@@ -1,6 +1,6 @@
-import { and, desc, eq, inArray, notInArray } from "drizzle-orm";
+import { and, desc, eq, inArray, notInArray, sql } from "drizzle-orm";
 import type { Db } from "@paperclipai/db";
-import { agents, heartbeatRuns } from "@paperclipai/db";
+import { activityLog, agents, heartbeatRuns } from "@paperclipai/db";
 import { logger } from "../middleware/logger.js";
 import { logActivity } from "./activity-log.js";
 import { publishLiveEvent } from "./live-events.js";
@@ -16,7 +16,7 @@ export interface CircuitBreakerConfig {
 const DEFAULTS: CircuitBreakerConfig = {
   enabled: true,
   maxConsecutiveFailures: 3,
-  maxConsecutiveNoProgress: 5,
+  maxConsecutiveNoProgress: 0,
   tokenVelocityMultiplier: 3.0,
 };
 
@@ -27,7 +27,7 @@ export function parseCircuitBreakerConfig(agent: typeof agents.$inferSelect): Ci
   return {
     enabled: asBoolean(cb.enabled, DEFAULTS.enabled),
     maxConsecutiveFailures: Math.max(1, asNumber(cb.maxConsecutiveFailures, DEFAULTS.maxConsecutiveFailures)),
-    maxConsecutiveNoProgress: Math.max(1, asNumber(cb.maxConsecutiveNoProgress, DEFAULTS.maxConsecutiveNoProgress)),
+    maxConsecutiveNoProgress: Math.max(0, asNumber(cb.maxConsecutiveNoProgress, DEFAULTS.maxConsecutiveNoProgress)),
     tokenVelocityMultiplier: Math.max(1.5, asNumber(cb.tokenVelocityMultiplier, DEFAULTS.tokenVelocityMultiplier)),
   };
 }
@@ -40,6 +40,18 @@ export interface CircuitBreakerResult {
   details?: Record<string, unknown>;
 }
 
+export function hasMeaningfulRunProgress(
+  resultJson: Record<string, unknown> | null,
+  activityCount = 0,
+): boolean {
+  if (activityCount > 0) return true;
+  if (!resultJson) return false;
+  const issuesModified = Number(resultJson.issuesModified ?? resultJson.issuesMoved ?? 0);
+  const issuesCreated = Number(resultJson.issuesCreated ?? 0);
+  const commentsPosted = Number(resultJson.commentsPosted ?? 0);
+  return issuesModified > 0 || issuesCreated > 0 || commentsPosted > 0;
+}
+
 /**
  * Evaluate circuit breaker conditions for an agent after a run completes.
  * Returns whether the breaker should trip and why.
@@ -47,7 +59,7 @@ export interface CircuitBreakerResult {
 export async function evaluateCircuitBreaker(
   db: Db,
   agentId: string,
-  outcome: "succeeded" | "failed" | "cancelled" | "timed_out",
+  outcome: "succeeded" | "skipped" | "failed" | "cancelled" | "timed_out",
 ): Promise<CircuitBreakerResult> {
   const agent = await db
     .select()
@@ -60,8 +72,8 @@ export async function evaluateCircuitBreaker(
   const config = parseCircuitBreakerConfig(agent);
   if (!config.enabled) return { tripped: false };
 
-  // Skip evaluation for cancelled runs — those are intentional
-  if (outcome === "cancelled") return { tripped: false };
+  // Skip evaluation for cancelled/skipped runs — those are intentional or no-op.
+  if (outcome === "cancelled" || outcome === "skipped") return { tripped: false };
 
   // Check consecutive failures
   if (outcome === "failed" || outcome === "timed_out") {
@@ -70,7 +82,7 @@ export async function evaluateCircuitBreaker(
   }
 
   // Check consecutive no-progress (only for succeeded runs that did nothing useful)
-  if (outcome === "succeeded") {
+  if (outcome === "succeeded" && config.maxConsecutiveNoProgress > 0) {
     const noProgressResult = await checkConsecutiveNoProgress(db, agentId, config);
     if (noProgressResult.tripped) return noProgressResult;
   }
@@ -122,6 +134,7 @@ async function checkConsecutiveNoProgress(
 ): Promise<CircuitBreakerResult> {
   const recentRuns = await db
     .select({
+      id: heartbeatRuns.id,
       status: heartbeatRuns.status,
       resultJson: heartbeatRuns.resultJson,
     })
@@ -136,17 +149,36 @@ async function checkConsecutiveNoProgress(
   const allSucceeded = recentRuns.every((r) => r.status === "succeeded");
   if (!allSucceeded) return { tripped: false };
 
-  // A run counts as "no progress" when resultJson carries none of the known
-  // progress indicators. Adapters that don't write these fields at all will
-  // produce a false-positive — this is intentionally conservative: a run that
-  // claims no work is safer to flag than a runaway loop.
+  const runIds = recentRuns.map((r) => r.id);
+  const activityCountsByRunId = new Map<string, number>();
+  if (runIds.length > 0) {
+    const activityRows = await db
+      .select({
+        runId: activityLog.runId,
+        count: sql<number>`count(*)`,
+      })
+      .from(activityLog)
+      .where(
+        and(
+          eq(activityLog.agentId, agentId),
+          inArray(activityLog.runId, runIds),
+        ),
+      )
+      .groupBy(activityLog.runId);
+
+    for (const row of activityRows) {
+      const runId = row.runId;
+      if (!runId) continue;
+      activityCountsByRunId.set(runId, (activityCountsByRunId.get(runId) ?? 0) + 1);
+    }
+  }
+
+  // A run counts as "no progress" only when it has no tracked control-plane
+  // activity for this run and no adapter-reported issue/comment counters.
   const allNoProgress = recentRuns.every((r) => {
     const result = r.resultJson as Record<string, unknown> | null;
-    if (!result) return true;
-    const issuesModified = Number(result.issuesModified ?? result.issuesMoved ?? 0);
-    const issuesCreated = Number(result.issuesCreated ?? 0);
-    const commentsPosted = Number(result.commentsPosted ?? 0);
-    return issuesModified === 0 && issuesCreated === 0 && commentsPosted === 0;
+    const activityCount = activityCountsByRunId.get(r.id) ?? 0;
+    return !hasMeaningfulRunProgress(result, activityCount);
   });
 
   if (allNoProgress) {

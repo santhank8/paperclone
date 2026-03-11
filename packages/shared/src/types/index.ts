@@ -1,4 +1,8 @@
-export type { Company } from "./company.js";
+export type {
+  Company,
+  CompanyHeartbeatIntervalsByRole,
+  CompanyRuntimePolicy,
+} from "./company.js";
 export type {
   Agent,
   AgentPermissions,
@@ -33,7 +37,15 @@ export type {
   CompanySecret,
   SecretProviderDescriptor,
 } from "./secrets.js";
-export type { CostEvent, CostSummary, CostByAgent, CostByRuntime } from "./cost.js";
+export type {
+  CostEvent,
+  CostSummary,
+  CostByProvider,
+  CostByProviderModel,
+  CostWindow,
+  CostByAgent,
+  CostByRuntime,
+} from "./cost.js";
 export type {
   HeartbeatRun,
   HeartbeatRunEvent,
@@ -43,11 +55,25 @@ export type {
 } from "./heartbeat.js";
 export type { LiveEvent } from "./live.js";
 export type { DashboardSummary } from "./dashboard.js";
+export type {
+  InboxDismissal,
+  InboxDismissalsResponse,
+  CreateInboxDismissalRequest,
+  InboxStateResponse,
+} from "./inbox.js";
 export type { ActivityEvent } from "./activity.js";
 export type {
   InstanceSettingsResponse,
   InstanceSettingsMetrics,
   InstanceSettingsStorageEnvOverrides,
+  InstanceClaudeSubscriptionStatus,
+  InstanceClaudeAuthSession,
+  InstanceClaudeSubscriptionAuthResponse,
+  InstanceClaudeConnectionProbeResult,
+  InstanceCodexSubscriptionStatus,
+  InstanceCodexDeviceAuthSession,
+  InstanceCodexSubscriptionAuthResponse,
+  InstanceCodexConnectionProbeResult,
   UpdateInstanceStorageAuthSettings,
   UpdateInstanceAgentAuthSettings,
 } from "./instance-settings.js";

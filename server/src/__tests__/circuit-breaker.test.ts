@@ -4,7 +4,7 @@ vi.mock("../middleware/logger.js", () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
 }));
 
-import { parseCircuitBreakerConfig } from "../services/circuit-breaker.js";
+import { hasMeaningfulRunProgress, parseCircuitBreakerConfig } from "../services/circuit-breaker.js";
 
 describe("parseCircuitBreakerConfig", () => {
   it("returns defaults when no config is set", () => {
@@ -12,7 +12,7 @@ describe("parseCircuitBreakerConfig", () => {
     expect(config).toEqual({
       enabled: true,
       maxConsecutiveFailures: 3,
-      maxConsecutiveNoProgress: 5,
+      maxConsecutiveNoProgress: 0,
       tokenVelocityMultiplier: 3.0,
     });
   });
@@ -47,7 +47,7 @@ describe("parseCircuitBreakerConfig", () => {
       },
     }));
     expect(config.maxConsecutiveFailures).toBe(1);
-    expect(config.maxConsecutiveNoProgress).toBe(1);
+    expect(config.maxConsecutiveNoProgress).toBe(0);
     expect(config.tokenVelocityMultiplier).toBe(1.5);
   });
 
@@ -67,7 +67,7 @@ describe("parseCircuitBreakerConfig", () => {
     expect(config).toEqual({
       enabled: true,
       maxConsecutiveFailures: 3,
-      maxConsecutiveNoProgress: 5,
+      maxConsecutiveNoProgress: 0,
       tokenVelocityMultiplier: 3.0,
     });
   });
@@ -79,6 +79,30 @@ describe("parseCircuitBreakerConfig", () => {
     expect(config.enabled).toBe(false);
     // other values remain at defaults
     expect(config.maxConsecutiveFailures).toBe(3);
+  });
+
+  it("allows re-enabling consecutive no-progress pausing explicitly", () => {
+    const config = parseCircuitBreakerConfig(makeAgent({
+      runtimeConfig: { circuitBreaker: { maxConsecutiveNoProgress: 5 } },
+    }));
+    expect(config.maxConsecutiveNoProgress).toBe(5);
+  });
+});
+
+describe("hasMeaningfulRunProgress", () => {
+  it("treats control-plane activity as meaningful progress", () => {
+    expect(hasMeaningfulRunProgress(null, 1)).toBe(true);
+  });
+
+  it("treats adapter result counters as meaningful progress", () => {
+    expect(hasMeaningfulRunProgress({ commentsPosted: 1 }, 0)).toBe(true);
+    expect(hasMeaningfulRunProgress({ issuesCreated: 1 }, 0)).toBe(true);
+    expect(hasMeaningfulRunProgress({ issuesMoved: 1 }, 0)).toBe(true);
+  });
+
+  it("treats empty runs as no progress", () => {
+    expect(hasMeaningfulRunProgress(null, 0)).toBe(false);
+    expect(hasMeaningfulRunProgress({}, 0)).toBe(false);
   });
 });
 

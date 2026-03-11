@@ -188,10 +188,67 @@ pnpm dev
 
 This starts the API server at `http://localhost:3100`. An embedded PostgreSQL database is created automatically — no setup required.
 
-If you prefer Docker locally, use `docker-compose.quickstart.yml` as the default compose entrypoint for Paperclip.
+If you prefer Docker locally, use `docker-compose.yml` as the default compose entrypoint for Paperclip.
 For `claude_local` / `codex_local`, subscription/login auth happens inside the environment running Paperclip. In Docker, that means inside the Paperclip container/runtime, not your host shell session.
 
 > **Requirements:** Node.js 20+, pnpm 9.15+
+
+<br/>
+
+## Local Runtime Model
+
+This repo uses one canonical local Paperclip home:
+
+- `./.paperclip-local`
+
+That folder contains the local Paperclip state for this repo:
+
+- embedded PostgreSQL data
+- local secrets key
+- logs
+- workspaces
+- agent runtime state
+
+The local helper scripts in `ops/local/*` are not a different system. They are the safe entrypoints for running this same Paperclip instance with the correct repo-local home:
+
+- `./ops/local/run.sh` runs Paperclip against `./.paperclip-local`
+- `./ops/local/dev.sh` runs dev/watch mode against `./.paperclip-local`
+
+Docker quickstart should also point to that same `./.paperclip-local` so local scripts and Docker see the same company/projects/issues instead of drifting into a second hidden installation.
+
+If you have an old `~/.paperclip`, treat it as a legacy backup only, not as active runtime state for this repo.
+
+### Daily Local Rule
+
+Use one Paperclip instance for this repo, not two:
+
+- `./ops/local/run.sh` or `./ops/local/dev.sh` for normal repo-local work
+- Docker quickstart only if you need to validate the containerized runtime
+- both must use the same `./.paperclip-local`
+
+`ops/local/*` is not a separate system. Those scripts are just wrappers that force:
+
+- `PAPERCLIP_HOME=./.paperclip-local`
+- the matching repo-local config file
+- the matching repo-local embedded PostgreSQL data
+
+What this means in practice:
+
+- if you see `./.paperclip-local`, you are looking at the real local Paperclip state for this repo
+- if you see an old `~/.paperclip`, that is legacy state and should stay off unless doing explicit recovery work
+- do not run two Paperclip homes on the same `localhost:3100` and expect stable state
+
+### Agent Instruction Files
+
+For this repo, the runtime-canonical agent instruction path is:
+
+- `agents/<slug>/AGENTS.md`
+
+The files under:
+
+- `ops/templates/agents/*.md`
+
+should be treated as templates/source material for role definitions, not as the primary runtime path used by agent configs.
 
 <br/>
 
@@ -234,7 +291,7 @@ pnpm db:migrate       # Apply migrations
 See [doc/DEVELOPING.md](doc/DEVELOPING.md) for the full development guide.
 Known migration and auth bugs tracked during active development are noted in [BUG-TRACKING.md](BUG-TRACKING.md).
 
-The board UI now also exposes instance-level app settings under `Settings`, including storage and AWS auth, backup policy, runtime automation, default secrets configuration, and auth defaults for new Claude/Codex local agents. The `Costs` page breaks spend down by runtime as well, so you can compare Claude vs Codex and see API-billed runs separately from local subscription usage.
+The board UI now also exposes instance-level app settings under `Settings`, including storage and AWS auth, backup policy, runtime automation, default secrets configuration, auth defaults for new Claude/Codex local agents, a Claude shared-auth flow powered by `claude auth login`, and a Codex subscription wizard for shared `codex login --device-auth` inside the Paperclip runtime. The `Costs` page breaks spend down by runtime as well, so you can compare Claude vs Codex and see API-billed runs separately from local subscription usage.
 
 <br/>
 

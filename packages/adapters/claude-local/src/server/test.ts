@@ -27,6 +27,16 @@ function isNonEmpty(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
 }
 
+function readEnvBindingValue(value: unknown): string | null {
+  if (typeof value === "string") return value;
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return null;
+  const record = value as Record<string, unknown>;
+  if (record.type === "plain" && typeof record.value === "string") {
+    return record.value;
+  }
+  return null;
+}
+
 function firstNonEmptyLine(text: string): string {
   return (
     text
@@ -47,6 +57,10 @@ function summarizeProbeDetail(stdout: string, stderr: string): string | null {
   const clean = raw.replace(/\s+/g, " ").trim();
   const max = 240;
   return clean.length > max ? `${clean.slice(0, max - 1)}…` : clean;
+}
+
+function canUseDangerouslySkipPermissions(): boolean {
+  return typeof process.getuid !== "function" || process.getuid() !== 0;
 }
 
 export async function testEnvironment(
@@ -76,7 +90,8 @@ export async function testEnvironment(
   const envConfig = parseObject(config.env);
   const env: Record<string, string> = {};
   for (const [key, value] of Object.entries(envConfig)) {
-    if (typeof value === "string") env[key] = value;
+    const resolved = readEnvBindingValue(value);
+    if (typeof resolved === "string") env[key] = resolved;
   }
   const runtimeEnv = ensurePathInEnv({ ...process.env, ...env });
   try {
@@ -150,12 +165,23 @@ export async function testEnvironment(
       const effort = asString(config.effort, "").trim();
       const chrome = asBoolean(config.chrome, false);
       const maxTurns = asNumber(config.maxTurnsPerRun, 0);
-      const dangerouslySkipPermissions = asBoolean(config.dangerouslySkipPermissions, false);
+      const wantsDangerouslySkipPermissions = asBoolean(config.dangerouslySkipPermissions, false);
+      const dangerouslySkipPermissions = wantsDangerouslySkipPermissions && canUseDangerouslySkipPermissions();
       const extraArgs = (() => {
         const fromExtraArgs = asStringArray(config.extraArgs);
         if (fromExtraArgs.length > 0) return fromExtraArgs;
         return asStringArray(config.args);
       })();
+
+      if (wantsDangerouslySkipPermissions && !dangerouslySkipPermissions) {
+        checks.push({
+          code: "claude_skip_permissions_disabled_for_root",
+          level: "warn",
+          message:
+            "Claude skip-permissions was requested, but the Paperclip runtime is running as root so the flag will be ignored.",
+          hint: "Run the container as a non-root user if you need this unattended Claude mode.",
+        });
+      }
 
       const args = ["--print", "-", "--output-format", "stream-json", "--verbose"];
       if (dangerouslySkipPermissions) args.push("--dangerously-skip-permissions");
@@ -202,8 +228,8 @@ export async function testEnvironment(
           message: "Claude CLI is installed, but login is required.",
           ...(detail ? { detail } : {}),
           hint: loginMeta.loginUrl
-            ? `Run \`claude login\` and complete sign-in at ${loginMeta.loginUrl}, then retry.`
-            : "Run `claude login` in the Paperclip runtime environment, then retry the probe.",
+            ? `Run \`claude auth login\` and complete sign-in at ${loginMeta.loginUrl}, then retry.`
+            : "Run `claude auth login` in the Paperclip runtime environment, then retry the probe.",
         });
       } else if ((probe.exitCode ?? 1) === 0) {
         const summary = parsedStream.summary.trim();

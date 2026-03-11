@@ -1,4 +1,4 @@
-import { Router, type Request } from "express";
+import { Router, type Request, type Response } from "express";
 import { generateKeyPairSync, randomUUID } from "node:crypto";
 import path from "node:path";
 import type { Db } from "@paperclipai/db";
@@ -44,6 +44,7 @@ import {
   applyInstanceAgentCreateDefaults,
   applyInstanceAgentRuntimeAuth,
 } from "../services/instance-agent-auth.js";
+import { applyAgentHeartbeatProfileDefaults } from "../services/agent-heartbeat-profile.js";
 
 export function agentRoutes(db: Db) {
   const DEFAULT_INSTRUCTIONS_PATH_KEYS: Record<string, string> = {
@@ -64,6 +65,7 @@ export function agentRoutes(db: Db) {
   const strictSecretsMode = process.env.PAPERCLIP_SECRETS_STRICT_MODE === "true";
 
   function canCreateAgents(agent: { role: string; permissions: Record<string, unknown> | null | undefined }) {
+    if (agent.role === "ceo") return true;
     if (!agent.permissions || typeof agent.permissions !== "object") return false;
     return Boolean((agent.permissions as Record<string, unknown>).canCreateAgents);
   }
@@ -243,6 +245,19 @@ export function agentRoutes(db: Db) {
       next.model = DEFAULT_CURSOR_LOCAL_MODEL;
     }
     return ensureGatewayDeviceKey(adapterType, next);
+  }
+
+  async function getCompanyOr404(companyId: string, res: Response) {
+    const company = await db
+      .select()
+      .from(companies)
+      .where(eq(companies.id, companyId))
+      .then((rows) => rows[0] ?? null);
+    if (!company) {
+      res.status(404).json({ error: "Company not found" });
+      return null;
+    }
+    return company;
   }
 
   async function assertAdapterConfigConstraints(
@@ -647,6 +662,8 @@ export function agentRoutes(db: Db) {
   router.post("/companies/:companyId/agent-hires", validate(createAgentHireSchema), async (req, res) => {
     const companyId = req.params.companyId as string;
     await assertCanCreateAgentsForCompany(req, companyId);
+    const company = await getCompanyOr404(companyId, res);
+    if (!company) return;
     const sourceIssueIds = parseSourceIssueIds(req.body);
     const { sourceIssueId: _sourceIssueId, sourceIssueIds: _sourceIssueIds, ...hireInput } = req.body;
     const requestedAdapterConfig = applyCreateDefaultsByAdapterType(
@@ -670,17 +687,12 @@ export function agentRoutes(db: Db) {
     const normalizedHireInput = {
       ...hireInput,
       adapterConfig: normalizedAdapterConfig,
+      runtimeConfig: applyAgentHeartbeatProfileDefaults(
+        hireInput.role,
+        hireInput.runtimeConfig,
+        company.runtimePolicy ?? {},
+      ),
     };
-
-    const company = await db
-      .select()
-      .from(companies)
-      .where(eq(companies.id, companyId))
-      .then((rows) => rows[0] ?? null);
-    if (!company) {
-      res.status(404).json({ error: "Company not found" });
-      return;
-    }
 
     const requiresApproval = company.requireBoardApprovalForNewAgents;
     const status = requiresApproval ? "pending_approval" : "idle";
@@ -788,6 +800,8 @@ export function agentRoutes(db: Db) {
   router.post("/companies/:companyId/agents", validate(createAgentSchema), async (req, res) => {
     const companyId = req.params.companyId as string;
     assertCompanyAccess(req, companyId);
+    const company = await getCompanyOr404(companyId, res);
+    if (!company) return;
 
     if (req.actor.type === "agent") {
       assertBoard(req);
@@ -815,6 +829,11 @@ export function agentRoutes(db: Db) {
     const agent = await svc.create(companyId, {
       ...req.body,
       adapterConfig: normalizedAdapterConfig,
+      runtimeConfig: applyAgentHeartbeatProfileDefaults(
+        req.body.role,
+        req.body.runtimeConfig,
+        company.runtimePolicy ?? {},
+      ),
       status: "idle",
       spentMonthlyCents: 0,
       lastHeartbeatAt: null,
@@ -1006,6 +1025,16 @@ export function agentRoutes(db: Db) {
       );
       patchData.adapterConfig = normalizedEffectiveAdapterConfig;
     }
+    if (Object.prototype.hasOwnProperty.call(patchData, "runtimeConfig")) {
+      const requestedRole = typeof patchData.role === "string" ? patchData.role : existing.role;
+      const company = await getCompanyOr404(existing.companyId, res);
+      if (!company) return;
+      patchData.runtimeConfig = applyAgentHeartbeatProfileDefaults(
+        requestedRole,
+        patchData.runtimeConfig,
+        company.runtimePolicy ?? {},
+      );
+    }
     if (touchesAdapterConfiguration && requestedAdapterType === "opencode_local") {
       const effectiveAdapterConfig = asRecord(patchData.adapterConfig) ?? {};
       await assertAdapterConfigConstraints(
@@ -1066,6 +1095,36 @@ export function agentRoutes(db: Db) {
     res.json(agent);
   });
 
+  router.post("/companies/:companyId/agents/pause", async (req, res) => {
+    assertBoard(req);
+    const companyId = req.params.companyId as string;
+    assertCompanyAccess(req, companyId);
+
+    const companyAgents = await svc.list(companyId);
+    const updated = [];
+    for (const agent of companyAgents) {
+      if (agent.status === "paused" || agent.status === "terminated" || agent.status === "pending_approval") {
+        continue;
+      }
+      const pausedAgent = await svc.pause(agent.id);
+      if (!pausedAgent) continue;
+      updated.push(pausedAgent);
+      await heartbeat.cancelActiveForAgent(agent.id);
+    }
+
+    await logActivity(db, {
+      companyId,
+      actorType: "user",
+      actorId: req.actor.userId ?? "board",
+      action: "company.agents_paused",
+      entityType: "company",
+      entityId: companyId,
+      details: { count: updated.length, agentIds: updated.map((agent) => agent.id) },
+    });
+
+    res.json({ ok: true, count: updated.length, agents: updated });
+  });
+
   router.post("/agents/:id/resume", async (req, res) => {
     assertBoard(req);
     const id = req.params.id as string;
@@ -1085,6 +1144,33 @@ export function agentRoutes(db: Db) {
     });
 
     res.json(agent);
+  });
+
+  router.post("/companies/:companyId/agents/resume", async (req, res) => {
+    assertBoard(req);
+    const companyId = req.params.companyId as string;
+    assertCompanyAccess(req, companyId);
+
+    const companyAgents = await svc.list(companyId);
+    const updated = [];
+    for (const agent of companyAgents) {
+      if (agent.status !== "paused" && agent.status !== "error") continue;
+      const resumedAgent = await svc.resume(agent.id);
+      if (!resumedAgent) continue;
+      updated.push(resumedAgent);
+    }
+
+    await logActivity(db, {
+      companyId,
+      actorType: "user",
+      actorId: req.actor.userId ?? "board",
+      action: "company.agents_resumed",
+      entityType: "company",
+      entityId: companyId,
+      details: { count: updated.length, agentIds: updated.map((agent) => agent.id) },
+    });
+
+    res.json({ ok: true, count: updated.length, agents: updated });
   });
 
   router.post("/agents/:id/terminate", async (req, res) => {
@@ -1339,6 +1425,17 @@ export function agentRoutes(db: Db) {
     const limitParam = req.query.limit as string | undefined;
     const limit = limitParam ? Math.max(1, Math.min(1000, parseInt(limitParam, 10) || 200)) : undefined;
     const runs = await heartbeat.list(companyId, agentId, limit);
+    const stderrStatsByRunId = await loadHeartbeatRunStderrStats(db, runs.map((run) => run.id));
+    res.json(runs.map((run) => ({
+      ...run,
+      stderrStats: stderrStatsByRunId.get(run.id) ?? null,
+    })));
+  });
+
+  router.get("/companies/:companyId/heartbeat-runs/latest-failed", async (req, res) => {
+    const companyId = req.params.companyId as string;
+    assertCompanyAccess(req, companyId);
+    const runs = await heartbeat.listLatestFailedRuns(companyId);
     const stderrStatsByRunId = await loadHeartbeatRunStderrStats(db, runs.map((run) => run.id));
     res.json(runs.map((run) => ({
       ...run,

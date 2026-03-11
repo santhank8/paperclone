@@ -58,6 +58,8 @@ export const queryKeys = {
   },
   instance: {
     settings: ["instance", "settings"] as const,
+    claudeSubscriptionAuth: ["instance", "claude-subscription-auth"] as const,
+    codexSubscriptionAuth: ["instance", "codex-subscription-auth"] as const,
   },
   health: ["health"] as const,
   secrets: {
@@ -66,11 +68,13 @@ export const queryKeys = {
   },
   dashboard: (companyId: string) => ["dashboard", companyId] as const,
   sidebarBadges: (companyId: string) => ["sidebar-badges", companyId] as const,
+  inboxDismissals: (companyId: string) => ["inbox-dismissals", companyId] as const,
   activity: (companyId: string) => ["activity", companyId] as const,
   costs: (companyId: string, from?: string, to?: string) =>
     ["costs", companyId, from, to] as const,
   heartbeats: (companyId: string, agentId?: string) =>
     ["heartbeats", companyId, agentId] as const,
+  latestFailedRuns: (companyId: string) => ["heartbeats", companyId, "latest-failed"] as const,
   liveRuns: (companyId: string) => ["live-runs", companyId] as const,
   runIssues: (runId: string) => ["run-issues", runId] as const,
   org: (companyId: string) => ["org", companyId] as const,

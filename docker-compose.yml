@@ -11,28 +11,43 @@ services:
       timeout: 5s
       retries: 30
     ports:
-      - "5432:5432"
+      - "${PAPERCLIP_POSTGRES_PORT:-5432}:5432"
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - "${PAPERCLIP_POSTGRES_DATA_DIR:-./.paperclip-local/postgres-data}:/var/lib/postgresql/data"
 
-  server:
-    build: .
+  paperclip:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    user: "0:0"
     ports:
-      - "3100:3100"
+      - "${PAPERCLIP_PORT:-3100}:3100"
     environment:
       DATABASE_URL: postgres://paperclip:paperclip@db:5432/paperclip
-      PORT: "3100"
-      SERVE_UI: "true"
+      HOST: "0.0.0.0"
+      PAPERCLIP_HOME: "${PAPERCLIP_HOME_IN_CONTAINER:-/paperclip}"
+      PAPERCLIP_CONFIG: "${PAPERCLIP_HOME_IN_CONTAINER:-/paperclip}/instances/default/config.json"
+      OPENAI_API_KEY: "${OPENAI_API_KEY:-}"
+      ANTHROPIC_API_KEY: "${ANTHROPIC_API_KEY:-}"
       PAPERCLIP_DEPLOYMENT_MODE: "authenticated"
       PAPERCLIP_DEPLOYMENT_EXPOSURE: "private"
       PAPERCLIP_PUBLIC_URL: "${PAPERCLIP_PUBLIC_URL:-http://localhost:3100}"
       BETTER_AUTH_SECRET: "${BETTER_AUTH_SECRET:?BETTER_AUTH_SECRET must be set}"
+      PAPERCLIP_STORAGE_PROVIDER: "${PAPERCLIP_STORAGE_PROVIDER:-local_disk}"
+      PAPERCLIP_STORAGE_S3_BUCKET: "${PAPERCLIP_STORAGE_S3_BUCKET:-}"
+      PAPERCLIP_STORAGE_S3_REGION: "${PAPERCLIP_STORAGE_S3_REGION:-us-east-1}"
+      PAPERCLIP_STORAGE_S3_ENDPOINT: "${PAPERCLIP_STORAGE_S3_ENDPOINT:-}"
+      PAPERCLIP_STORAGE_S3_PREFIX: "${PAPERCLIP_STORAGE_S3_PREFIX:-}"
+      AWS_ACCESS_KEY_ID: "${AWS_ACCESS_KEY_ID:-}"
+      AWS_SECRET_ACCESS_KEY: "${AWS_SECRET_ACCESS_KEY:-}"
+      PAPERCLIP_AGENT_RUNTIME_SYNC_INTERVAL_MS: "${PAPERCLIP_AGENT_RUNTIME_SYNC_INTERVAL_MS:-300000}"
+      PAPERCLIP_AGENT_RUNTIME_DIR: "${PAPERCLIP_AGENT_RUNTIME_DIR:-${PAPERCLIP_HOME_IN_CONTAINER:-/paperclip}/agent-home}"
+    stop_grace_period: 120s
     volumes:
-      - paperclip-data:/paperclip
+      - "${PAPERCLIP_DATA_DIR:-./.paperclip-local}:${PAPERCLIP_HOME_IN_CONTAINER:-/paperclip}"
+      - "${PAPERCLIP_REPO_MOUNT_SOURCE:-.}:${PAPERCLIP_REPO_MOUNT_TARGET:-/app-host}:ro"
+      - "${CALENBOOK_DIR:-./data/calenbook}:${CALENBOOK_DIR_IN_CONTAINER:-/workspace/calenbook}"
+      - "${PAPERCLIP_AGENTS_DIR:-./agents}:/paperclip-agents"
     depends_on:
       db:
         condition: service_healthy
-
-volumes:
-  pgdata:
-  paperclip-data:

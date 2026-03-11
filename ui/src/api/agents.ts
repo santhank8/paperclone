@@ -45,6 +45,12 @@ export interface AgentHireResponse {
   approval: Approval | null;
 }
 
+export interface CompanyAgentBatchActionResponse {
+  ok: true;
+  count: number;
+  agents: Agent[];
+}
+
 function withCompanyScope(path: string, companyId?: string) {
   if (!companyId) return path;
   const separator = path.includes("?") ? "&" : "?";
@@ -104,6 +110,10 @@ export const agentsApi = {
     api.patch<Agent>(agentPath(id, companyId, "/permissions"), data),
   pause: (id: string, companyId?: string) => api.post<Agent>(agentPath(id, companyId, "/pause"), {}),
   resume: (id: string, companyId?: string) => api.post<Agent>(agentPath(id, companyId, "/resume"), {}),
+  pauseAll: (companyId: string) =>
+    api.post<CompanyAgentBatchActionResponse>(`/companies/${companyId}/agents/pause`, {}),
+  resumeAll: (companyId: string) =>
+    api.post<CompanyAgentBatchActionResponse>(`/companies/${companyId}/agents/resume`, {}),
   terminate: (id: string, companyId?: string) => api.post<Agent>(agentPath(id, companyId, "/terminate"), {}),
   remove: (id: string, companyId?: string) => api.delete<{ ok: true }>(agentPath(id, companyId)),
   listKeys: (id: string, companyId?: string) => api.get<AgentKey[]>(agentPath(id, companyId, "/keys")),

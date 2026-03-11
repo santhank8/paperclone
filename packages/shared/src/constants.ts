@@ -195,9 +195,18 @@ export const WAKEUP_REQUEST_STATUSES = [
 ] as const;
 export type WakeupRequestStatus = (typeof WAKEUP_REQUEST_STATUSES)[number];
 
+export const INBOX_DISMISSAL_KINDS = [
+  "failed_run",
+  "stale_issue",
+  "agent_errors_alert",
+  "budget_alert",
+] as const;
+export type InboxDismissalKind = (typeof INBOX_DISMISSAL_KINDS)[number];
+
 export const HEARTBEAT_RUN_STATUSES = [
   "queued",
   "running",
+  "skipped",
   "succeeded",
   "failed",
   "cancelled",

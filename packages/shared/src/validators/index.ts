@@ -1,5 +1,7 @@
 export {
   createCompanySchema,
+  companyHeartbeatIntervalsByRoleSchema,
+  companyRuntimePolicySchema,
   updateCompanySchema,
   type CreateCompany,
   type UpdateCompany,
@@ -116,6 +118,11 @@ export {
   createAssetImageMetadataSchema,
   type CreateAssetImageMetadata,
 } from "./asset.js";
+
+export {
+  createInboxDismissalSchema,
+  type CreateInboxDismissal,
+} from "./inbox.js";
 
 export {
   createCompanyInviteSchema,

@@ -129,6 +129,19 @@ export const runtimeConfigSchema = z.object({
 export const agentAuthProfileConfigSchema = z.object({
   useApiKey: z.boolean().default(false),
   apiKey: z.string().optional(),
+  subscriptionEstimate: z.object({
+    enabled: z.boolean().default(false),
+    windowHours: z.number().int().min(1).max(24 * 30).default(5),
+    unit: z.enum(["runs", "input_tokens", "total_tokens"]).default("runs"),
+    capacity: z.number().int().positive().default(100),
+    extraCapacity: z.number().int().nonnegative().default(0),
+  }).default({
+    enabled: false,
+    windowHours: 5,
+    unit: "runs",
+    capacity: 100,
+    extraCapacity: 0,
+  }),
 });
 
 export const agentAuthConfigSchema = z.object({

@@ -15,6 +15,14 @@ export function agentJwtSecretCheck(configPath?: string): CheckResult {
     };
   }
 
+  if (process.env.BETTER_AUTH_SECRET?.trim()) {
+    return {
+      name: "Agent JWT secret",
+      status: "pass",
+      message: "Using BETTER_AUTH_SECRET fallback for local agent JWTs",
+    };
+  }
+
   const envPath = resolveAgentJwtEnvFile(configPath);
   const fileSecret = readAgentJwtSecretFromEnvFile(envPath);
 

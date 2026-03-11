@@ -66,6 +66,7 @@ const runStatusIcons: Record<string, { icon: typeof CheckCircle2; color: string 
   failed: { icon: XCircle, color: "text-red-600 dark:text-red-400" },
   running: { icon: Loader2, color: "text-cyan-600 dark:text-cyan-400" },
   queued: { icon: Clock, color: "text-yellow-600 dark:text-yellow-400" },
+  skipped: { icon: Clock, color: "text-slate-500 dark:text-slate-400" },
   timed_out: { icon: Timer, color: "text-orange-600 dark:text-orange-400" },
   cancelled: { icon: Slash, color: "text-neutral-500 dark:text-neutral-400" },
 };
@@ -1599,7 +1600,7 @@ function RunDetail({ run, agentRouteId, adapterType }: { run: HeartbeatRun; agen
                 >
                   {runClaudeLogin.isPending || runCodexLogin.isPending
                     ? adapterType === "claude_local"
-                      ? "Running claude login..."
+                      ? "Running Claude auth login..."
                       : "Running codex login..."
                     : adapterType === "claude_local"
                       ? "Login to Claude Code"

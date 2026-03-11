@@ -1,7 +1,7 @@
 import { Router } from "express";
 import type { Db } from "@paperclipai/db";
 import { agents, companies, costEvents, heartbeatRuns } from "@paperclipai/db";
-import { eq, gte, ne, sql } from "drizzle-orm";
+import { and, eq, gte, ne, sql } from "drizzle-orm";
 import {
   type InstanceSettingsResponse,
   updateInstanceSettingsSchema,
@@ -10,6 +10,16 @@ import { createDefaultConfigFile, readConfigFile, writeConfigFile } from "../con
 import { loadConfig } from "../config.js";
 import { validate } from "../middleware/validate.js";
 import { resolvePaperclipConfigPath } from "../paths.js";
+import {
+  getClaudeInstanceSubscriptionAuth,
+  probeClaudeInstanceConnection,
+  startClaudeInstanceAuth,
+} from "../services/claude-instance-subscription.js";
+import {
+  getCodexInstanceSubscriptionAuth,
+  probeCodexInstanceConnection,
+  startCodexInstanceDeviceAuth,
+} from "../services/codex-instance-subscription.js";
 import { assertBoard } from "./authz.js";
 
 const effectiveCostCentsExpr = sql<number>`case
@@ -95,11 +105,88 @@ function buildStorageAuthStatus(input: {
   };
 }
 
-function buildAgentAuthProfile(input: { useApiKey: boolean; apiKey?: string }) {
+function buildAgentAuthProfile(input: {
+  useApiKey: boolean;
+  apiKey?: string;
+  subscriptionEstimate?: {
+    enabled: boolean;
+    windowHours: number;
+    unit: "runs" | "input_tokens" | "total_tokens";
+    capacity: number;
+    extraCapacity: number;
+  };
+}) {
   return {
     useApiKey: input.useApiKey,
     hasApiKey: Boolean(input.apiKey?.trim()),
     apiKeyPreview: previewSecret(input.apiKey),
+    subscriptionEstimate: input.subscriptionEstimate ?? {
+      enabled: false,
+      windowHours: 5,
+      unit: "runs",
+      capacity: 100,
+      extraCapacity: 0,
+    },
+  };
+}
+
+async function buildSubscriptionUsageEstimate(
+  db: Db,
+  provider: "anthropic" | "openai",
+  config: {
+    enabled: boolean;
+    windowHours: number;
+    unit: "runs" | "input_tokens" | "total_tokens";
+    capacity: number;
+    extraCapacity: number;
+  },
+) {
+  const now = new Date();
+  const windowStart = new Date(now.getTime() - config.windowHours * 60 * 60 * 1000);
+  const [row] = await db
+    .select({
+      runCount: sql<number>`count(*)::int`,
+      inputTokens: sql<number>`coalesce(sum(${costEvents.inputTokens}), 0)::int`,
+      outputTokens: sql<number>`coalesce(sum(${costEvents.outputTokens}), 0)::int`,
+      oldestEventAt: sql<string | null>`min(${costEvents.occurredAt})::text`,
+    })
+    .from(costEvents)
+    .where(
+      and(
+        eq(costEvents.billingType, "subscription"),
+        eq(costEvents.provider, provider),
+        gte(costEvents.occurredAt, windowStart),
+      ),
+    );
+
+  const runCount = Number(row?.runCount ?? 0);
+  const inputTokens = Number(row?.inputTokens ?? 0);
+  const outputTokens = Number(row?.outputTokens ?? 0);
+  const usedUnits =
+    config.unit === "runs"
+      ? runCount
+      : config.unit === "input_tokens"
+        ? inputTokens
+        : inputTokens + outputTokens;
+  const totalCapacityUnits = Math.max(1, Number(config.capacity ?? 0) + Number(config.extraCapacity ?? 0));
+  const usagePercent = Number(((usedUnits / totalCapacityUnits) * 100).toFixed(1));
+  const oldestEventAt = row?.oldestEventAt ? new Date(row.oldestEventAt) : null;
+  const nextReliefAt = oldestEventAt
+    ? new Date(oldestEventAt.getTime() + config.windowHours * 60 * 60 * 1000).toISOString()
+    : null;
+
+  return {
+    provider,
+    config,
+    usedUnits,
+    totalCapacityUnits,
+    usagePercent,
+    runCount,
+    inputTokens,
+    outputTokens,
+    windowStart: windowStart.toISOString(),
+    windowEnd: now.toISOString(),
+    nextReliefAt,
   };
 }
 
@@ -207,6 +294,30 @@ export function instanceSettingsRoutes(db: Db) {
           claudeLocal: buildAgentAuthProfile(fileConfig.agentAuth.claudeLocal),
           codexLocal: buildAgentAuthProfile(fileConfig.agentAuth.codexLocal),
         },
+        usage: {
+          claudeLocal: await buildSubscriptionUsageEstimate(
+            db,
+            "anthropic",
+            fileConfig.agentAuth.claudeLocal.subscriptionEstimate ?? {
+              enabled: false,
+              windowHours: 5,
+              unit: "runs",
+              capacity: 100,
+              extraCapacity: 0,
+            },
+          ),
+          codexLocal: await buildSubscriptionUsageEstimate(
+            db,
+            "openai",
+            fileConfig.agentAuth.codexLocal.subscriptionEstimate ?? {
+              enabled: false,
+              windowHours: 5,
+              unit: "runs",
+              capacity: 100,
+              extraCapacity: 0,
+            },
+          ),
+        },
       },
       metrics: {
         totalCompanies,
@@ -222,6 +333,56 @@ export function instanceSettingsRoutes(db: Db) {
   router.get("/instance/settings", async (req, res) => {
     assertBoard(req);
     res.json(await buildResponse());
+  });
+
+  router.get("/instance/settings/provider-auth/codex/subscription", async (req, res) => {
+    assertBoard(req);
+    res.json(await getCodexInstanceSubscriptionAuth());
+  });
+
+  router.get("/instance/settings/provider-auth/claude/subscription", async (req, res) => {
+    assertBoard(req);
+    res.json(await getClaudeInstanceSubscriptionAuth());
+  });
+
+  router.post("/instance/settings/provider-auth/codex/subscription/start", async (req, res) => {
+    assertBoard(req);
+    await startCodexInstanceDeviceAuth();
+    res.json(await getCodexInstanceSubscriptionAuth());
+  });
+
+  router.post("/instance/settings/provider-auth/claude/subscription/start", async (req, res) => {
+    assertBoard(req);
+    await startClaudeInstanceAuth();
+    res.json(await getClaudeInstanceSubscriptionAuth());
+  });
+
+  router.post("/instance/settings/provider-auth/claude/test-api-key", async (req, res) => {
+    assertBoard(req);
+    const apiKeyOverride =
+      typeof req.body?.apiKey === "string" && req.body.apiKey.trim().length > 0
+        ? req.body.apiKey.trim()
+        : null;
+    res.json(await probeClaudeInstanceConnection("api_key", { apiKeyOverride }));
+  });
+
+  router.post("/instance/settings/provider-auth/claude/test-subscription", async (req, res) => {
+    assertBoard(req);
+    res.json(await probeClaudeInstanceConnection("subscription"));
+  });
+
+  router.post("/instance/settings/provider-auth/codex/test-api-key", async (req, res) => {
+    assertBoard(req);
+    const apiKeyOverride =
+      typeof req.body?.apiKey === "string" && req.body.apiKey.trim().length > 0
+        ? req.body.apiKey.trim()
+        : null;
+    res.json(await probeCodexInstanceConnection("api_key", { apiKeyOverride }));
+  });
+
+  router.post("/instance/settings/provider-auth/codex/test-subscription", async (req, res) => {
+    assertBoard(req);
+    res.json(await probeCodexInstanceConnection("subscription"));
   });
 
   router.patch("/instance/settings", validate(updateInstanceSettingsSchema), async (req, res) => {
@@ -272,6 +433,9 @@ export function instanceSettingsRoutes(db: Db) {
                   : req.body.agentAuth.claudeLocal.apiKey !== undefined
                     ? { apiKey: req.body.agentAuth.claudeLocal.apiKey.trim() }
                     : {}),
+                ...(req.body.agentAuth.claudeLocal.subscriptionEstimate
+                  ? { subscriptionEstimate: req.body.agentAuth.claudeLocal.subscriptionEstimate }
+                  : {}),
               },
             }
           : {}),
@@ -285,6 +449,9 @@ export function instanceSettingsRoutes(db: Db) {
                   : req.body.agentAuth.codexLocal.apiKey !== undefined
                     ? { apiKey: req.body.agentAuth.codexLocal.apiKey.trim() }
                     : {}),
+                ...(req.body.agentAuth.codexLocal.subscriptionEstimate
+                  ? { subscriptionEstimate: req.body.agentAuth.codexLocal.subscriptionEstimate }
+                  : {}),
               },
             }
           : {}),

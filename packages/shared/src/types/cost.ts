@@ -26,6 +26,41 @@ export interface CostSummary {
   utilizationPercent: number;
 }
 
+export interface CostByProviderModel {
+  model: string;
+  billingType: "api" | "subscription" | "unknown";
+  costCents: number;
+  runCount: number;
+  inputTokens: number;
+  outputTokens: number;
+}
+
+export interface CostByProvider {
+  provider: string;
+  billingType: "api" | "subscription" | "unknown";
+  costCents: number;
+  runCount: number;
+  inputTokens: number;
+  outputTokens: number;
+  models: CostByProviderModel[];
+}
+
+export interface CostWindow {
+  key: "5h" | "24h" | "7d" | "30d";
+  label: string;
+  from: string;
+  to: string;
+  apiSpendCents: number;
+  apiRunCount: number;
+  subscriptionRunCount: number;
+  unknownRunCount: number;
+  totalRunCount: number;
+  inputTokens: number;
+  outputTokens: number;
+  subscriptionInputTokens: number;
+  subscriptionOutputTokens: number;
+}
+
 export interface CostByAgent {
   agentId: string;
   agentName: string | null;

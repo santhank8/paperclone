@@ -22,6 +22,12 @@ import {
   parseCodexJsonl,
   isCodexUnknownSessionError
 } from "./parse.js";
+import {
+  hasNonEmptyEnvValue,
+  loginCodexWithApiKey,
+  resolveCodexApiKeyHome,
+  resolveCodexAuthMode,
+} from "./auth.js";
 
 const __moduleDir = path.dirname(fileURLToPath(import.meta.url));
 const PAPERCLIP_SKILLS_CANDIDATES = [
@@ -55,9 +61,14 @@ function firstNonEmptyLine(text: string): string {
   );
 }
 
-function hasNonEmptyEnvValue(env: Record<string, string>, key: string): boolean {
-  const raw = env[key];
-  return typeof raw === "string" && raw.trim().length > 0;
+function readEnvBindingValue(value: unknown): string | null {
+  if (typeof value === "string") return value;
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return null;
+  const record = value as Record<string, unknown>;
+  if (record.type === "plain" && typeof record.value === "string") {
+    return record.value;
+  }
+  return null;
 }
 
 function resolveCodexBillingType(env: Record<string, string>): "api" | "subscription" {
@@ -170,8 +181,8 @@ async function buildCodexRuntimeConfig(
 
   const envConfig = parseObject(config.env);
   const hasExplicitApiKey =
-    typeof envConfig.PAPERCLIP_API_KEY === "string" &&
-    envConfig.PAPERCLIP_API_KEY.trim().length > 0;
+    typeof readEnvBindingValue(envConfig.PAPERCLIP_API_KEY) === "string" &&
+    readEnvBindingValue(envConfig.PAPERCLIP_API_KEY)!.trim().length > 0;
   const env: Record<string, string> = { ...buildPaperclipEnv(agent) };
   env.PAPERCLIP_RUN_ID = runId;
 
@@ -227,7 +238,8 @@ async function buildCodexRuntimeConfig(
     env.PAPERCLIP_WORKSPACES_JSON = JSON.stringify(workspaceHints);
   }
   for (const [k, v] of Object.entries(envConfig)) {
-    if (typeof v === "string") env[k] = v;
+    const resolved = readEnvBindingValue(v);
+    if (typeof resolved === "string") env[k] = resolved;
   }
   if (!hasExplicitApiKey && authToken) {
     env.PAPERCLIP_API_KEY = authToken;
@@ -244,20 +256,32 @@ async function buildCodexRuntimeConfig(
     await fs.mkdir(agentHome, { recursive: true }).catch(() => {});
   }
 
-  if (!hasNonEmptyEnvValue(env, "CODEX_HOME") && env.AGENT_HOME) {
+  const authModeSetting =
+    typeof config.paperclipAuthMode === "string" ? config.paperclipAuthMode.trim() : "";
+  if (!Object.prototype.hasOwnProperty.call(env, "OPENAI_API_KEY")) {
+    const globalKey = process.env.OPENAI_API_KEY?.trim();
+    if (authModeSetting === "instance_api_key") {
+      env.OPENAI_API_KEY = globalKey ?? "";
+    } else if (globalKey) {
+      env.OPENAI_API_KEY = globalKey;
+    }
+  }
+
+  const authMode = resolveCodexAuthMode(config, env);
+  if (authMode === "api_key") {
+    const codexHome = resolveCodexApiKeyHome(env);
+    env.CODEX_HOME = codexHome;
+    env.HOME = codexHome;
+    await fs.mkdir(codexHome, { recursive: true }).catch(() => {});
+  } else if (!hasNonEmptyEnvValue(env, "CODEX_HOME") && env.AGENT_HOME) {
     const codexHome = path.join(env.AGENT_HOME, ".codex");
     env.CODEX_HOME = codexHome;
     await fs.mkdir(codexHome, { recursive: true }).catch(() => {});
   }
   await ensureCodexSkillsInjected(onLog, env.CODEX_HOME);
 
-  if (!hasNonEmptyEnvValue(env, "OPENAI_API_KEY")) {
-    const globalKey = process.env.OPENAI_API_KEY;
-    if (globalKey && globalKey.trim().length > 0) {
-      env.OPENAI_API_KEY = globalKey;
-    }
-  }
-  const billingType = resolveCodexBillingType(env);
+  const billingType =
+    authMode === "api_key" ? "api" : resolveCodexBillingType(env);
   const runtimeEnv = ensurePathInEnv({ ...process.env, ...env });
   await ensureCommandResolvable(command, cwd, runtimeEnv);
 
@@ -437,6 +461,64 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     else args.push("-");
     return args;
   };
+
+  if (billingType === "api") {
+    const apiKey = env.OPENAI_API_KEY?.trim() ?? "";
+    if (!apiKey) {
+      return {
+        exitCode: 1,
+        signal: null,
+        timedOut: false,
+        errorMessage: "OPENAI_API_KEY is required for Codex API-key auth mode.",
+        errorCode: "codex_auth_required",
+        provider: "openai",
+        model,
+        billingType,
+        costUsd: null,
+        resultJson: {
+          stdout: "",
+          stderr: "",
+        },
+        summary: null,
+      };
+    }
+
+    const login = await loginCodexWithApiKey({
+      runId: `${runId}-codex-api-key-login`,
+      command,
+      cwd,
+      env,
+      apiKey,
+      timeoutSec: Math.max(20, timeoutSec || 0),
+      graceSec,
+      onLog: async (stream, chunk) => {
+        if (stream === "stderr") {
+          await onLog(stream, chunk);
+        }
+      },
+    });
+    if (login.timedOut || (login.exitCode ?? 1) !== 0) {
+      return {
+        exitCode: login.exitCode,
+        signal: login.signal,
+        timedOut: login.timedOut,
+        errorMessage:
+          firstNonEmptyLine(login.stderr) ||
+          firstNonEmptyLine(login.stdout) ||
+          "Codex API-key login failed.",
+        errorCode: "codex_auth_required",
+        provider: "openai",
+        model,
+        billingType,
+        costUsd: null,
+        resultJson: {
+          stdout: login.stdout,
+          stderr: login.stderr,
+        },
+        summary: null,
+      };
+    }
+  }
 
   const runAttempt = async (resumeSessionId: string | null) => {
     const args = buildArgs(resumeSessionId);
