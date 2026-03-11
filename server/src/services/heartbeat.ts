@@ -1407,9 +1407,19 @@ export function heartbeatService(db: Db) {
       // stays effective for long-running processes.  Without this, a process
       // that runs >5 min makes the row look stale and vulnerable to reaping
       // during the brief window after the child exits but before DB status
-      // is finalised.
+      // is finalised.  Using setInterval (not onLog) ensures the touch fires
+      // even when the agent is silent (e.g. waiting on a slow API call).
       const HEARTBEAT_TOUCH_INTERVAL_MS = 60_000;
-      let lastHeartbeatTouch = Date.now();
+      const heartbeatTouchInterval = setInterval(async () => {
+        try {
+          await db
+            .update(heartbeatRuns)
+            .set({ updatedAt: new Date() })
+            .where(eq(heartbeatRuns.id, run.id));
+        } catch {
+          // Best-effort — don't crash the run if the touch fails.
+        }
+      }, HEARTBEAT_TOUCH_INTERVAL_MS);
 
       const onLog = async (stream: "stdout" | "stderr", chunk: string) => {
         if (stream === "stdout") stdoutExcerpt = appendExcerpt(stdoutExcerpt, chunk);
@@ -1421,16 +1431,6 @@ export function heartbeatService(db: Db) {
             chunk,
             ts: new Date().toISOString(),
           });
-        }
-
-        // Debounced updatedAt touch — at most once per minute.
-        const now = Date.now();
-        if (now - lastHeartbeatTouch >= HEARTBEAT_TOUCH_INTERVAL_MS) {
-          lastHeartbeatTouch = now;
-          await db
-            .update(heartbeatRuns)
-            .set({ updatedAt: new Date() })
-            .where(eq(heartbeatRuns.id, run.id));
         }
 
         const payloadChunk =
@@ -1551,7 +1551,7 @@ export function heartbeatService(db: Db) {
       if (!runningProcesses.has(run.id)) {
         runningProcesses.set(run.id, {
           child: { kill: () => false, killed: true } as any,
-          graceSec: 0,
+          graceSec: 1,
         });
       }
 
@@ -1779,6 +1779,7 @@ export function heartbeatService(db: Db) {
 
       await finalizeAgentStatus(agent.id, "failed");
     } finally {
+      clearInterval(heartbeatTouchInterval);
       // Clean up the sentinel (or real entry) we may have kept alive during
       // DB finalization — see the comment after adapter.execute() above.
       runningProcesses.delete(run.id);
