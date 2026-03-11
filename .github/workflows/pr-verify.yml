@@ -35,6 +35,9 @@ jobs:
       - name: Lint documentation
         run: pnpm docs:lint
 
+      - name: Lint architecture boundaries
+        run: pnpm arch:lint
+
       - name: Typecheck
         run: pnpm -r typecheck
 

@@ -33,7 +33,8 @@
     "test:e2e": "npx playwright test --config tests/e2e/playwright.config.ts",
     "test:e2e:headed": "npx playwright test --config tests/e2e/playwright.config.ts --headed",
     "harness:scorecard:check": "node scripts/harness-scorecard.mjs",
-    "docs:lint": "node scripts/docs-lint.mjs"
+    "docs:lint": "node scripts/docs-lint.mjs",
+    "arch:lint": "node scripts/arch-lint.mjs"
   },
   "devDependencies": {
     "@changesets/cli": "^2.30.0",
