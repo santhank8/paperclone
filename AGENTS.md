@@ -140,3 +140,12 @@ A change is done when all are true:
 2. Typecheck, tests, and build pass
 3. Contracts are synced across db/shared/server/ui
 4. Docs updated when behavior or commands change
+
+## 11. Agent PR Requirements
+
+Agent-authored PRs must follow `doc/AGENT_PR_CONTRACT.md`:
+
+- Include implementation + tests + docs + contract sync
+- PR description must have Scope, Verification, Contract Sync, and Risks sections
+- Reference actual command output as proof of verification
+- Escalate to human review for: security/auth, budget/financial, data model, unclear requirements, data loss risk, cross-cutting changes

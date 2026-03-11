@@ -20,6 +20,7 @@ const REQUIRED_DOCS = [
   'doc/HARNESS_SCORECARD.md',
   'doc/HARNESS_RUNBOOK.md',
   'doc/MERGE_POLICY.md',
+  'doc/AGENT_PR_CONTRACT.md',
   'doc/DECISIONS/0001-harness-engineering-adoption.md',
 ];
 

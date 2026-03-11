@@ -35,7 +35,8 @@
     "harness:scorecard:check": "node scripts/harness-scorecard.mjs",
     "docs:lint": "node scripts/docs-lint.mjs",
     "arch:lint": "node scripts/arch-lint.mjs",
-    "harness:run": "bash scripts/harness/run-agent-task.sh"
+    "harness:run": "bash scripts/harness/run-agent-task.sh",
+    "pr:evidence:check": "node scripts/check-pr-evidence.mjs"
   },
   "devDependencies": {
     "@changesets/cli": "^2.30.0",
