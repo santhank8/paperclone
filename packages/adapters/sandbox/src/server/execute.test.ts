@@ -202,6 +202,172 @@ describe("sandbox adapter execute", () => {
     expect(result.summary).toBe("bootstrapped");
   });
 
+  it("skips sandbox bootstrap when reconnecting to a warm keepAlive sandbox", async () => {
+    const execCalls: string[] = [];
+
+    setSandboxProviderFactoryForTests(() => ({
+      type: "e2b",
+      async create() {
+        throw new Error("create should not be called");
+      },
+      async reconnect(id) {
+        return {
+          id,
+          async exec(command, execOpts = {}) {
+            execCalls.push(command);
+            await execOpts.onStdout?.(`${JSON.stringify({ type: "thread.started", thread_id: "thread-warm" })}\n`);
+            await execOpts.onStdout?.(
+              `${JSON.stringify({ type: "item.completed", item: { type: "agent_message", text: "warm sandbox" } })}\n`,
+            );
+            return { exitCode: 0, signal: null, timedOut: false };
+          },
+          async writeFile() {},
+          async readFile() {
+            return "";
+          },
+          async status() {
+            return { status: "running", endpoint: null };
+          },
+          async destroy() {},
+        };
+      },
+      async testConnection() {
+        return { ok: true };
+      },
+    }));
+
+    const result = await execute({
+      runId: "run-reconnect",
+      agent: {
+        id: "agent-reconnect",
+        companyId: "company-1",
+        name: "Sandbox Agent",
+        adapterType: "sandbox",
+        adapterConfig: {},
+      },
+      runtime: {
+        sessionId: null,
+        sessionParams: {
+          sandboxId: "sandbox-existing",
+          agentType: "codex_local",
+        },
+        sessionDisplayId: null,
+        taskKey: null,
+      },
+      config: {
+        providerType: "e2b",
+        sandboxAgentType: "codex_local",
+        keepAlive: true,
+        promptTemplate: "Do the thing",
+        bootstrapCommand: "sh -lc 'echo bootstrap-ready >/tmp/bootstrap.txt'",
+        providerConfig: {
+          template: "codex",
+        },
+      },
+      context: {},
+      onLog: async () => {},
+      onMeta: async () => {},
+      authToken: "jwt-token",
+    });
+
+    expect(execCalls[0]).toBe('sh -lc \'mkdir -p \'"\'"\'/home/user/workspace\'"\'"\'\'');
+    expect(execCalls).toHaveLength(2);
+    expect(execCalls[1]).not.toBe("sh -lc 'echo bootstrap-ready >/tmp/bootstrap.txt'");
+    expect(result.summary).toBe("warm sandbox");
+  });
+
+  it("clones by fetch and checkout when workspace repoRef is a commit sha", async () => {
+    const execCalls: string[] = [];
+
+    setSandboxProviderFactoryForTests(() => ({
+      type: "cloudflare",
+      async create(opts) {
+        return {
+          id: opts.sandboxId,
+          async exec(command, execOpts = {}) {
+            execCalls.push(command);
+            if (execCalls.length === 3) {
+              await execOpts.onStdout?.(`${JSON.stringify({ type: "thread.started", thread_id: "thread-sha" })}\n`);
+              await execOpts.onStdout?.(
+                `${JSON.stringify({ type: "item.completed", item: { type: "agent_message", text: "sha checkout" } })}\n`,
+              );
+            }
+            return { exitCode: 0, signal: null, timedOut: false };
+          },
+          async writeFile() {},
+          async readFile() {
+            return "";
+          },
+          async status() {
+            return { status: "running", endpoint: null };
+          },
+          async destroy() {},
+        };
+      },
+      async reconnect(id) {
+        return {
+          id,
+          async exec() {
+            return { exitCode: 0, signal: null, timedOut: false };
+          },
+          async writeFile() {},
+          async readFile() {
+            return "";
+          },
+          async status() {
+            return { status: "running", endpoint: null };
+          },
+          async destroy() {},
+        };
+      },
+      async testConnection() {
+        return { ok: true };
+      },
+    }));
+
+    const result = await execute({
+      runId: "run-sha",
+      agent: {
+        id: "agent-sha",
+        companyId: "company-1",
+        name: "Sandbox Agent",
+        adapterType: "sandbox",
+        adapterConfig: {},
+      },
+      runtime: {
+        sessionId: null,
+        sessionParams: null,
+        sessionDisplayId: null,
+        taskKey: null,
+      },
+      config: {
+        providerType: "cloudflare",
+        sandboxAgentType: "codex_local",
+        keepAlive: false,
+        promptTemplate: "Do the thing",
+        providerConfig: {
+          baseUrl: "https://example.workers.dev",
+          namespace: "paperclip",
+        },
+      },
+      context: {
+        paperclipWorkspace: {
+          repoUrl: "https://github.com/paperclipai/paperclip.git",
+          repoRef: "0123456789abcdef0123456789abcdef01234567",
+        },
+      },
+      onLog: async () => {},
+      onMeta: async () => {},
+      authToken: "jwt-token",
+    });
+
+    expect(execCalls[1]).toContain("git clone --depth 1 'https://github.com/paperclipai/paperclip.git' '/workspace'");
+    expect(execCalls[1]).toContain("git -C '/workspace' fetch --depth 1 origin '0123456789abcdef0123456789abcdef01234567'");
+    expect(execCalls[1]).toContain("git -C '/workspace' checkout FETCH_HEAD");
+    expect(execCalls[1]).not.toContain("--branch '0123456789abcdef0123456789abcdef01234567'");
+    expect(result.summary).toBe("sha checkout");
+  });
+
   it("treats successful claude result events as success, not failure", async () => {
     setSandboxProviderFactoryForTests(() => ({
       type: "e2b",

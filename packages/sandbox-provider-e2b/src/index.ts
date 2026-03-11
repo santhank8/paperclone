@@ -94,19 +94,31 @@ class E2BSandboxInstance implements SandboxInstance {
     }
 
     try {
-      const result = await this.sandbox.commands.run(resolvedCommand, {
-        cwd: opts.cwd,
-        envs: opts.env ?? {},
-        timeoutMs: timeoutMs(opts.timeoutSec),
-        onStdout: opts.onStdout,
-        onStderr: opts.onStderr,
-      });
+      try {
+        const result = await this.sandbox.commands.run(resolvedCommand, {
+          cwd: opts.cwd,
+          envs: opts.env ?? {},
+          timeoutMs: timeoutMs(opts.timeoutSec),
+          onStdout: opts.onStdout,
+          onStderr: opts.onStderr,
+        });
 
-      return {
-        exitCode: typeof result.exitCode === "number" ? result.exitCode : null,
-        signal: null,
-        timedOut: false,
-      };
+        return {
+          exitCode: typeof result.exitCode === "number" ? result.exitCode : null,
+          signal: null,
+          timedOut: false,
+        };
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        if (/timeout|timed out/i.test(message)) {
+          return {
+            exitCode: null,
+            signal: null,
+            timedOut: true,
+          };
+        }
+        throw err;
+      }
     } finally {
       if (stdinPath) {
         void this.sandbox.commands.run(`rm -f ${shellEscape(stdinPath)}`, {

@@ -12,7 +12,7 @@ Cloudflare uses a small gateway Worker that wraps Cloudflare Sandbox and exposes
 E2B and OpenSandbox connect directly from the Paperclip server through their SDKs.
 
 Reference implementation:
-- [`/Users/Konan/Documents/personal/paperclip/examples/cloudflare-sandbox-gateway/README.md`](/Users/Konan/Documents/personal/paperclip/examples/cloudflare-sandbox-gateway/README.md)
+- [`examples/cloudflare-sandbox-gateway/README.md`](../examples/cloudflare-sandbox-gateway/README.md)
 
 ## Adapter config shape
 

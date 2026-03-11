@@ -327,11 +327,17 @@ async function syncRepoIfNeeded(
   if (!repoUrl) return;
 
   const repoRef = asString(workspace.repoRef, "main").trim() || "main";
+  const isCommitSha = /^[0-9a-f]{40}$/i.test(repoRef);
+  const cloneStep = isCommitSha
+    ? `git clone --depth 1 ${shellEscape(repoUrl)} ${shellEscape(cwd)} && ` +
+      `git -C ${shellEscape(cwd)} fetch --depth 1 origin ${shellEscape(repoRef)} && ` +
+      `git -C ${shellEscape(cwd)} checkout FETCH_HEAD`
+    : `git clone --depth 1 --branch ${shellEscape(repoRef)} ${shellEscape(repoUrl)} ${shellEscape(cwd)}`;
   const cloneCommand =
     "sh -lc " +
     shellEscape(
       `if [ ! -d ${shellEscape(cwd)}/.git ]; then ` +
-        `mkdir -p ${shellEscape(path.posix.dirname(cwd))} && git clone --depth 1 --branch ${shellEscape(repoRef)} ${shellEscape(repoUrl)} ${shellEscape(cwd)}; ` +
+        `mkdir -p ${shellEscape(path.posix.dirname(cwd))} && ${cloneStep}; ` +
       `fi`,
     );
 
@@ -475,6 +481,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
   const cliSessionId = asString(cliSession.sessionId, "").trim() || null;
   const cwd = asString(config.cwd, defaultCwdForProvider(config)).trim() || defaultCwdForProvider(config);
   const env = buildRuntimeEnv(ctx, cwd);
+  const isNewSandbox = !(keepAlive && savedSandboxId);
 
   let instance = keepAlive && savedSandboxId
     ? await provider.reconnect(savedSandboxId)
@@ -493,13 +500,15 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
 
   await ensureWorkspaceDir(instance, cwd);
   await syncRepoIfNeeded(instance, ctx, cwd);
-  await runBootstrapCommandIfNeeded({
-    ctx,
-    instance,
-    config,
-    cwd,
-    env,
-  });
+  if (isNewSandbox) {
+    await runBootstrapCommandIfNeeded({
+      ctx,
+      instance,
+      config,
+      cwd,
+      env,
+    });
+  }
 
   let attempt = await runInnerAgent({
     ctx,

@@ -111,12 +111,12 @@ export class PaperclipSandbox extends CloudflareSandbox {}
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
-    const proxy = await proxyToSandbox(request, env);
-    if (proxy) return proxy;
-
     if (!requireAuth(request, env)) {
       return unauthorized();
     }
+
+    const proxy = await proxyToSandbox(request, env);
+    if (proxy) return proxy;
 
     const url = new URL(request.url);
 

@@ -115,8 +115,8 @@ class OpenSandboxInstance implements SandboxInstance {
           timeoutSeconds: timeoutSeconds(opts.timeoutSec),
         },
         {
-          onStdout: (msg) => opts.onStdout?.(msg.text),
-          onStderr: (msg) => opts.onStderr?.(msg.text),
+          onStdout: (msg) => void opts.onStdout?.(msg.text),
+          onStderr: (msg) => void opts.onStderr?.(msg.text),
         },
       );
 
