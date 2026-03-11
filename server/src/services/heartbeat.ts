@@ -1272,7 +1272,8 @@ export function heartbeatService(db: Db) {
     // to prevent infinite restart loops (max 3 process_lost failures in 10 minutes).
     const MAX_AUTO_RESTARTS = 3;
     const AUTO_RESTART_WINDOW_MS = 10 * 60 * 1000;
-    const reapedAgentIds = [...new Set(activeRuns.filter((r) => reaped.includes(r.id)).map((r) => r.agentId))];
+    const reapedSet = new Set(reaped);
+    const reapedAgentIds = [...new Set(activeRuns.filter((r) => reapedSet.has(r.id)).map((r) => r.agentId))];
 
     let autoRestarted = 0;
     for (const agentId of reapedAgentIds) {
@@ -1297,7 +1298,7 @@ export function heartbeatService(db: Db) {
         )
         .then((rows) => Number(rows[0]?.count ?? 0));
 
-      if (recentFailures >= MAX_AUTO_RESTARTS) {
+      if (recentFailures > MAX_AUTO_RESTARTS) {
         logger.warn(
           { agentId, recentFailures, maxAutoRestarts: MAX_AUTO_RESTARTS },
           "skipping auto-restart: too many recent process_lost failures",
@@ -1306,7 +1307,7 @@ export function heartbeatService(db: Db) {
       }
 
       try {
-        await enqueueWakeup(agentId, {
+        const wakeupResult = await enqueueWakeup(agentId, {
           source: "on_demand",
           triggerDetail: "system",
           reason: "auto_restart_after_process_lost",
@@ -1318,11 +1319,18 @@ export function heartbeatService(db: Db) {
             consecutiveFailures: recentFailures + 1,
           },
         });
-        autoRestarted += 1;
-        logger.info(
-          { agentId, consecutiveFailures: recentFailures + 1 },
-          "auto-restarted agent after process_lost",
-        );
+        if (wakeupResult) {
+          autoRestarted += 1;
+          logger.info(
+            { agentId, consecutiveFailures: recentFailures + 1 },
+            "auto-restarted agent after process_lost",
+          );
+        } else {
+          logger.info(
+            { agentId },
+            "auto-restart wakeup skipped (agent policy or execution lock)",
+          );
+        }
       } catch (err) {
         logger.warn({ agentId, err }, "failed to auto-restart agent after process_lost");
       }
