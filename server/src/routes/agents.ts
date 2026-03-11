@@ -10,6 +10,7 @@ import {
   createAgentSchema,
   isUuidLike,
   resetAgentSessionSchema,
+  terminateAgentSchema,
   testAdapterEnvironmentSchema,
   updateAgentPermissionsSchema,
   updateAgentInstructionsPathSchema,
@@ -1068,10 +1069,11 @@ export function agentRoutes(db: Db) {
     res.json(agent);
   });
 
-  router.post("/agents/:id/terminate", async (req, res) => {
+  router.post("/agents/:id/terminate", validate(terminateAgentSchema), async (req, res) => {
     assertBoard(req);
     const id = req.params.id as string;
-    const agent = await svc.terminate(id);
+    const { force } = req.body;
+    const agent = await svc.terminate(id, { force });
     if (!agent) {
       res.status(404).json({ error: "Agent not found" });
       return;
@@ -1084,6 +1086,27 @@ export function agentRoutes(db: Db) {
       actorType: "user",
       actorId: req.actor.userId ?? "board",
       action: "agent.terminated",
+      entityType: "agent",
+      entityId: agent.id,
+    });
+
+    res.json(agent);
+  });
+
+  router.post("/agents/:id/reactivate", async (req, res) => {
+    assertBoard(req);
+    const id = req.params.id as string;
+    const agent = await svc.reactivate(id);
+    if (!agent) {
+      res.status(404).json({ error: "Agent not found" });
+      return;
+    }
+
+    await logActivity(db, {
+      companyId: agent.companyId,
+      actorType: "user",
+      actorId: req.actor.userId ?? "board",
+      action: "agent.reactivated",
       entityType: "agent",
       entityId: agent.id,
     });

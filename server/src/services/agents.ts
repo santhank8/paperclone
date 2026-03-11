@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from "node:crypto";
-import { and, desc, eq, inArray, ne } from "drizzle-orm";
+import { and, desc, eq, inArray, ne, notInArray } from "drizzle-orm";
 import type { Db } from "@paperclipai/db";
 import {
   agents,
@@ -391,9 +391,30 @@ export function agentService(db: Db) {
       return updated ? normalizeAgentRow(updated) : null;
     },
 
-    terminate: async (id: string) => {
+    terminate: async (id: string, options?: { force?: boolean }) => {
       const existing = await getById(id);
       if (!existing) return null;
+
+      // CEO termination protection: prevent terminating the only CEO
+      if (existing.role === "ceo" && !options?.force) {
+        const otherCeo = await db
+          .select({ id: agents.id })
+          .from(agents)
+          .where(
+            and(
+              eq(agents.companyId, existing.companyId),
+              eq(agents.role, "ceo"),
+              notInArray(agents.status, ["terminated", "pending_approval"]),
+              ne(agents.id, id)
+            )
+          )
+          .limit(1);
+        if (otherCeo.length === 0) {
+          throw conflict(
+            "Cannot terminate the only CEO. Use force: true to override, or create a replacement CEO first."
+          );
+        }
+      }
 
       await db
         .update(agents)
@@ -406,6 +427,22 @@ export function agentService(db: Db) {
         .where(eq(agentApiKeys.agentId, id));
 
       return getById(id);
+    },
+
+    reactivate: async (id: string) => {
+      const existing = await getById(id);
+      if (!existing) return null;
+      if (existing.status !== "terminated") {
+        throw conflict("Only terminated agents can be reactivated");
+      }
+
+      const updated = await db
+        .update(agents)
+        .set({ status: "idle", updatedAt: new Date() })
+        .where(eq(agents.id, id))
+        .returning()
+        .then((rows) => rows[0] ?? null);
+      return updated ? normalizeAgentRow(updated) : null;
     },
 
     remove: async (id: string) => {
