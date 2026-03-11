@@ -96,6 +96,11 @@ async function ensureEmbeddedPostgresConnection(
     password: "paperclip",
     port: preferredPort,
     persistent: true,
+    // Force UTF-8 so the database can store any Unicode content (agent
+    // output, skills, prompt templates).  Without this Windows defaults to
+    // the system locale encoding (e.g. WIN1252) which rejects characters
+    // like \u2192 and \u2014, crashing every run that produces them.
+    initdbFlags: ["--encoding=UTF8", "--no-locale"],
     onLog: () => {},
     onError: () => {},
   });
