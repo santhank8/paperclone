@@ -10,6 +10,7 @@ import { queryKeys } from "../lib/queryKeys";
 import { cn, relativeTime } from "../lib/utils";
 import { ExternalLink } from "lucide-react";
 import { Identity } from "./Identity";
+import { useI18n } from "../context/I18nContext";
 
 type FeedTone = "info" | "warn" | "error" | "assistant" | "tool";
 
@@ -195,6 +196,7 @@ interface ActiveAgentsPanelProps {
 }
 
 export function ActiveAgentsPanel({ companyId }: ActiveAgentsPanelProps) {
+  const { t } = useI18n();
   const [feedByRun, setFeedByRun] = useState<Map<string, FeedItem[]>>(new Map());
   const seenKeysRef = useRef(new Set<string>());
   const pendingByRunRef = useRef(new Map<string, string>());
@@ -383,7 +385,7 @@ export function ActiveAgentsPanel({ companyId }: ActiveAgentsPanelProps) {
       </h3>
       {runs.length === 0 ? (
         <div className="border border-border rounded-lg p-4">
-          <p className="text-sm text-muted-foreground">No recent agent runs.</p>
+          <p className="text-sm text-muted-foreground">{t("activity.noRecentAgentRuns")}</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2 sm:gap-4">

@@ -2,6 +2,7 @@ import { Link } from "@/lib/router";
 import { Identity } from "./Identity";
 import { timeAgo } from "../lib/timeAgo";
 import { cn } from "../lib/utils";
+import { useI18n } from "../context/I18nContext";
 import { deriveProjectUrlKey, type ActivityEvent, type Agent } from "@paperclipai/shared";
 
 const ACTION_VERBS: Record<string, string> = {
@@ -46,22 +47,74 @@ function humanizeValue(value: unknown): string {
   return value.replace(/_/g, " ");
 }
 
-function formatVerb(action: string, details?: Record<string, unknown> | null): string {
+function formatVerb(action: string, details?: Record<string, unknown> | null, t?: (key: string, vars?: Record<string, string>) => string): string {
   if (action === "issue.updated" && details) {
     const previous = (details._previous ?? {}) as Record<string, unknown>;
     if (details.status !== undefined) {
       const from = previous.status;
       return from
-        ? `changed status from ${humanizeValue(from)} to ${humanizeValue(details.status)} on`
-        : `changed status to ${humanizeValue(details.status)} on`;
+        ? (t
+            ? t("activityVerb.changedStatus", {
+                from: humanizeValue(from),
+                to: humanizeValue(details.status),
+              })
+            : `changed status from ${humanizeValue(from)} to ${humanizeValue(details.status)} on`)
+        : (t
+            ? t("activityVerb.changedStatusTo", { to: humanizeValue(details.status) })
+            : `changed status to ${humanizeValue(details.status)} on`);
     }
     if (details.priority !== undefined) {
       const from = previous.priority;
       return from
-        ? `changed priority from ${humanizeValue(from)} to ${humanizeValue(details.priority)} on`
-        : `changed priority to ${humanizeValue(details.priority)} on`;
+        ? (t
+            ? t("activityVerb.changedPriority", {
+                from: humanizeValue(from),
+                to: humanizeValue(details.priority),
+              })
+            : `changed priority from ${humanizeValue(from)} to ${humanizeValue(details.priority)} on`)
+        : (t
+            ? t("activityVerb.changedPriorityTo", { to: humanizeValue(details.priority) })
+            : `changed priority to ${humanizeValue(details.priority)} on`);
     }
   }
+
+  const verbKeyMap: Record<string, string> = {
+    "issue.created": "activityVerb.created",
+    "issue.checked_out": "activityVerb.checkedOut",
+    "issue.released": "activityVerb.released",
+    "issue.comment_added": "activityVerb.commentedOn",
+    "issue.attachment_added": "activityVerb.attachedFileTo",
+    "issue.attachment_removed": "activityVerb.removedAttachmentFrom",
+    "issue.commented": "activityVerb.commentedOn",
+    "issue.deleted": "activityVerb.deleted",
+    "agent.created": "activityVerb.created",
+    "agent.updated": "activityVerb.updated",
+    "agent.paused": "activityVerb.paused",
+    "agent.resumed": "activityVerb.resumed",
+    "agent.terminated": "activityVerb.terminated",
+    "agent.key_created": "activityVerb.createdApiKeyFor",
+    "agent.budget_updated": "activityVerb.updatedBudgetFor",
+    "agent.runtime_session_reset": "activityVerb.resetSessionFor",
+    "heartbeat.invoked": "activityVerb.invokedHeartbeatFor",
+    "heartbeat.cancelled": "activityVerb.cancelledHeartbeatFor",
+    "approval.created": "activityVerb.requestedApproval",
+    "approval.approved": "activityVerb.approved",
+    "approval.rejected": "activityVerb.rejected",
+    "project.created": "activityVerb.created",
+    "project.updated": "activityVerb.updated",
+    "project.deleted": "activityVerb.deleted",
+    "goal.created": "activityVerb.created",
+    "goal.updated": "activityVerb.updated",
+    "goal.deleted": "activityVerb.deleted",
+    "cost.reported": "activityVerb.reportedCostFor",
+    "cost.recorded": "activityVerb.recordedCostFor",
+    "company.created": "event.companyCreated",
+    "company.updated": "activityVerb.updatedCompany",
+    "company.archived": "activityVerb.archived",
+    "company.budget_updated": "activityVerb.updatedBudgetFor",
+  };
+
+  if (t && verbKeyMap[action]) return t(verbKeyMap[action]);
   return ACTION_VERBS[action] ?? action.replace(/[._]/g, " ");
 }
 
@@ -85,7 +138,8 @@ interface ActivityRowProps {
 }
 
 export function ActivityRow({ event, agentMap, entityNameMap, entityTitleMap, className }: ActivityRowProps) {
-  const verb = formatVerb(event.action, event.details);
+  const { t } = useI18n();
+  const verb = formatVerb(event.action, event.details, t);
 
   const isHeartbeatEvent = event.entityType === "heartbeat_run";
   const heartbeatAgentId = isHeartbeatEvent
@@ -103,7 +157,7 @@ export function ActivityRow({ event, agentMap, entityNameMap, entityTitleMap, cl
     : entityLink(event.entityType, event.entityId, name);
 
   const actor = event.actorType === "agent" ? agentMap.get(event.actorId) : null;
-  const actorName = actor?.name ?? (event.actorType === "system" ? "System" : event.actorType === "user" ? "Board" : event.actorId || "Unknown");
+  const actorName = actor?.name ?? (event.actorType === "system" ? t("activity.actorSystem") : event.actorType === "user" ? t("activity.actorBoard") : event.actorId || t("activity.actorUnknown"));
 
   const inner = (
     <div className="flex gap-3">
