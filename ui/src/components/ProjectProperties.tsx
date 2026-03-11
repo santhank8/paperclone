@@ -229,13 +229,31 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
   const updateWorkspace = useMutation({
     mutationFn: ({ workspaceId, data }: { workspaceId: string; data: Record<string, unknown> }) =>
       projectsApi.updateWorkspace(project.id, workspaceId, data),
-    onSuccess: invalidateProject,
+    onSuccess: () => {
+      setEditingWorkspace(null);
+      setWorkspaceMode(null);
+      setWorkspaceCwd("");
+      setWorkspaceRepoUrl("");
+      setWorkspaceError(null);
+      invalidateProject();
+    },
   });
   const startEditWorkspace = (workspace: ProjectWorkspace) => {
+    const hasLocal = Boolean(workspace.cwd && workspace.cwd !== REPO_ONLY_CWD_SENTINEL);
+    const hasRepo = Boolean(workspace.repoUrl);
     setEditingWorkspace(workspace);
     setWorkspaceCwd(workspace.cwd ?? "");
     setWorkspaceRepoUrl(workspace.repoUrl ?? "");
-    setWorkspaceMode("both");
+    // Derive mode from what the workspace actually has
+    if (hasLocal && hasRepo) {
+      setWorkspaceMode("both");
+    } else if (hasLocal) {
+      setWorkspaceMode("local");
+    } else if (hasRepo) {
+      setWorkspaceMode("repo");
+    } else {
+      setWorkspaceMode("both"); // Fallback
+    }
     setWorkspaceError(null);
   };
 
@@ -372,16 +390,23 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
 
   const editWorkspace = () => {
     if (!editingWorkspace) return;
-    const localRequired = workspaceMode === "local" || workspaceMode === "both";
-    const repoRequired = workspaceMode === "repo" || workspaceMode === "both";
+    const isLocalMode = workspaceMode === "local";
+    const isRepoMode = workspaceMode === "repo";
+    const isBothMode = workspaceMode === "both";
     const localPath = workspaceCwd.trim();
     const repoUrl = workspaceRepoUrl.trim();
 
-    if (localRequired && !isAbsolutePath(localPath)) {
+    // In "both" mode, at least one field must be provided
+    if (isBothMode && !localPath && !repoUrl) {
+      setWorkspaceError("Please provide at least a local folder path or a GitHub repo URL.");
+      return;
+    }
+
+    if ((isLocalMode || (isBothMode && localPath)) && localPath && !isAbsolutePath(localPath)) {
       setWorkspaceError("Local folder must be a full absolute path.");
       return;
     }
-    if (repoRequired && !isGitHubRepoUrl(repoUrl)) {
+    if ((isRepoMode || (isBothMode && repoUrl)) && repoUrl && !isGitHubRepoUrl(repoUrl)) {
       setWorkspaceError("Repo workspace must use a valid GitHub repo URL.");
       return;
     }
@@ -389,26 +414,24 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
     setWorkspaceError(null);
 
     const updateData: Record<string, unknown> = {};
-    if (localRequired) {
+    if (isLocalMode) {
       updateData.cwd = localPath;
-    } else {
-      updateData.cwd = null;
-    }
-    if (repoRequired) {
+    } else if (isRepoMode) {
       updateData.repoUrl = repoUrl;
-    } else {
-      updateData.repoUrl = null;
+    } else if (isBothMode) {
+      // In "both" edit mode, only update fields that have values
+      if (localPath) {
+        updateData.cwd = localPath;
+      }
+      if (repoUrl) {
+        updateData.repoUrl = repoUrl;
+      }
     }
 
     updateWorkspace.mutate({
       workspaceId: editingWorkspace.id,
       data: updateData,
     });
-
-    setEditingWorkspace(null);
-    setWorkspaceMode(null);
-    setWorkspaceCwd("");
-    setWorkspaceRepoUrl("");
   };
 
   return (
@@ -600,7 +623,13 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
                     <Button
                       variant="ghost"
                       size="icon-xs"
-                      onClick={() => clearLocalWorkspace(workspace)}
+                      onClick={() => {
+                        // Always clear just the local folder, leave repo intact
+                        updateWorkspace.mutate({
+                          workspaceId: workspace.id,
+                          data: { cwd: null },
+                        });
+                      }}
                       aria-label="Delete local folder"
                       className="text-muted-foreground hover:text-foreground"
                     >
@@ -623,7 +652,13 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
                       <Button
                         variant="ghost"
                         size="icon-xs"
-                        onClick={() => clearRepoWorkspace(workspace)}
+                        onClick={() => {
+                          // Always clear just the repo, leave local folder intact
+                          updateWorkspace.mutate({
+                            workspaceId: workspace.id,
+                            data: { repoUrl: null, repoRef: null },
+                          });
+                        }}
                         aria-label="Delete workspace repo"
                       >
                         <Trash2 className="h-3 w-3" />
@@ -807,7 +842,7 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
                   variant="outline"
                   size="xs"
                   className="h-6 px-2"
-                  disabled={createWorkspace.isPending}
+                  disabled={editingWorkspace ? updateWorkspace.isPending : createWorkspace.isPending}
                   onClick={() => editingWorkspace ? editWorkspace() : (
                     // Default to local if only local path provided
                     workspaceCwd.trim() && !workspaceRepoUrl.trim() ? submitLocalWorkspace() :
