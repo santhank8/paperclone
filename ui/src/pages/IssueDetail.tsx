@@ -514,7 +514,7 @@ export function IssueDetail() {
   const isImageAttachment = (attachment: IssueAttachment) => attachment.contentType.startsWith("image/");
 
   return (
-    <div className="max-w-2xl space-y-6">
+    <div className="max-w-2xl space-y-6 overflow-hidden">
       {/* Parent chain breadcrumb */}
       {ancestors.length > 0 && (
         <nav className="flex items-center gap-1 text-xs text-muted-foreground flex-wrap">
@@ -703,13 +703,13 @@ export function IssueDetail() {
         ) : (
           <div className="space-y-2">
             {attachments.map((attachment) => (
-              <div key={attachment.id} className="border border-border rounded-md p-2">
-                <div className="flex items-center justify-between gap-2">
+              <div key={attachment.id} className="border border-border rounded-md p-2 overflow-hidden">
+                <div className="flex items-center justify-between gap-2 min-w-0">
                   <a
                     href={attachment.contentPath}
                     target="_blank"
                     rel="noreferrer"
-                    className="text-xs hover:underline truncate"
+                    className="text-xs hover:underline truncate min-w-0"
                     title={attachment.originalFilename ?? attachment.id}
                   >
                     {attachment.originalFilename ?? attachment.id}
