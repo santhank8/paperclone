@@ -16,7 +16,7 @@ import {
   projectWorkspaces,
   projects,
 } from "@paperclipai/db";
-import { extractProjectMentionIds } from "@paperclipai/shared";
+import { extractProjectMentionIds, normalizeAgentUrlKey } from "@paperclipai/shared";
 import { conflict, notFound, unprocessable } from "../errors.js";
 
 const ALL_ISSUE_STATUSES = ["backlog", "todo", "in_progress", "in_review", "blocked", "done", "cancelled"];
@@ -1218,7 +1218,10 @@ export function issueService(db: Db) {
       if (tokens.size === 0) return [];
       const rows = await db.select({ id: agents.id, name: agents.name })
         .from(agents).where(eq(agents.companyId, companyId));
-      return rows.filter(a => tokens.has(a.name.toLowerCase())).map(a => a.id);
+      return rows.filter(a => {
+        const urlKey = normalizeAgentUrlKey(a.name);
+        return tokens.has(a.name.toLowerCase()) || (urlKey !== null && tokens.has(urlKey));
+      }).map(a => a.id);
     },
 
     findMentionedProjectIds: async (issueId: string) => {
