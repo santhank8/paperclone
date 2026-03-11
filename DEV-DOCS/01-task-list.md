@@ -4,6 +4,14 @@ Last updated: 2026-03-10
 
 ## Done
 
+- Add deep DEV-DOCS reference docs for:
+  - infrastructure
+  - cross-subsystem interaction map
+- Produce a whole-repo condense audit:
+  - scored hotspot inventory
+  - five-batch simplification backlog
+  - docs overlap map
+  - do-not-condense guidance for canonical contracts
 - Turn the old Goals surface into the roadmap layer:
   - `/roadmap` UI routes
   - legacy `/goals*` redirects
@@ -76,6 +84,14 @@ Last updated: 2026-03-10
 
 ## Next
 
+- Execute Batch 1 from `DEV-DOCS/CONDENSE-AUDIT.md`:
+  - `server/src/routes/access.ts`
+  - `server/src/services/heartbeat.ts`
+  - `server/src/routes/issues.ts`
+  - `server/src/routes/agents.ts`
+  - `server/src/services/issues.ts`
+  - `server/src/services/company-portability.ts`
+- Add status banners or an index for historical docs under `doc/plans/` and `doc/plan/`
 - Do browser QA on:
   - dashboard health section
   - roadmap list/detail flows
@@ -90,6 +106,7 @@ Last updated: 2026-03-10
 
 ## Later
 
+- Execute Batch 2 through Batch 5 from `DEV-DOCS/CONDENSE-AUDIT.md`
 - External delivery for briefings and alerts
   - Slack
   - email

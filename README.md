@@ -183,12 +183,24 @@ Or manually:
 git clone https://github.com/paperclipai/paperclip.git
 cd paperclip
 pnpm install
-pnpm dev
+pnpm start
 ```
 
 This starts the API server at `http://localhost:3100`. An embedded PostgreSQL database is created automatically — no setup required.
 
 > **Requirements:** Node.js 20+, pnpm 9.15+
+
+If you are not sure which command to run, use:
+
+```bash
+pnpm start
+```
+
+That is the simplest repo-local startup path. It runs a startup preflight and then launches the app without watch mode.
+
+If `pnpm start` says startup dependencies are incomplete, rerun `pnpm install`. If that still fails, remove `node_modules` and reinstall once.
+
+Use `pnpm dev` only when you are actively changing code and want watch mode for the server and UI.
 
 ### Optional: install QMD for richer agent memory recall
 
@@ -255,6 +267,7 @@ By default, agents run on scheduled heartbeats and event-based triggers (task as
 ## Development
 
 ```bash
+pnpm start            # Easiest local startup
 pnpm dev              # Full dev (API + UI, watch mode)
 pnpm dev:once         # Full dev without file watching
 pnpm dev:server       # Server only

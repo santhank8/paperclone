@@ -32,6 +32,15 @@ Before making changes, read in this order:
 
 Use embedded PGlite in dev by leaving `DATABASE_URL` unset.
 
+If you just want to start the app locally, use:
+
+```sh
+pnpm install
+pnpm start
+```
+
+If you are actively editing code and want watch mode, use:
+
 ```sh
 pnpm install
 pnpm dev
@@ -52,8 +61,8 @@ curl http://localhost:3100/api/companies
 Reset local dev DB:
 
 ```sh
-rm -rf data/pglite
-pnpm dev
+rm -rf ~/.paperclip/instances/default/db
+pnpm start
 ```
 
 ## 5. Core Engineering Rules

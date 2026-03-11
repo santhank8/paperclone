@@ -32,8 +32,14 @@ These docs were updated from live repo inspection of:
   - practical task breakdown with `done`, `partial`, `next`, and `later`
 - `DEV-DOCS/work-log.md`
   - dated execution log for major implementation sessions
+- `DEV-DOCS/CONDENSE-AUDIT.md`
+  - whole-repo safe-simplification backlog with hotspot scoring, batch sequencing, and doc overlap guidance
 - `DEV-DOCS/ARCHITECTURE.md`
   - detailed system boundaries, entity model, runtime flow, roadmap semantics, and governance rules
+- `DEV-DOCS/INFRASTRUCURE.md`
+  - infrastructure reference for runtime processes, config, persistence, storage, secrets, adapters, realtime, and schedulers
+- `DEV-DOCS/MAP.md`
+  - interaction map showing how the server, UI, CLI, adapters, records, and governance flows connect
 - `DEV-DOCS/roadmap.md`
   - the five-phase executive-layer roadmap and what each phase means
 
@@ -53,4 +59,5 @@ If you only read two files before continuing work on this branch:
 1. `DEV-DOCS/ARCHITECTURE.md`
 2. `DEV-DOCS/DEVELOPMENT-STATUS.md`
 
-They now describe the current Paperclip control plane after the roadmap rename, system-health diagnostics, and manager-planning-governance work.
+If the task is about safe simplification or codebase cleanup, read `DEV-DOCS/CONDENSE-AUDIT.md` immediately after those two files.
+If the task is about runtime topology, deployment, or subsystem interactions, read `DEV-DOCS/INFRASTRUCURE.md` and `DEV-DOCS/MAP.md`.

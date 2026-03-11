@@ -25,12 +25,34 @@ GitHub Actions owns `pnpm-lock.yaml`.
 - Pushes to `development` regenerate `pnpm-lock.yaml` with `pnpm install --lockfile-only --no-frozen-lockfile`, commit it back if needed, and then run verification with `--frozen-lockfile`.
 - Promotion PRs from `development` to `master` may include the CI-owned lockfile update from `development`.
 
+## Start the App
+
+If you are not sure which command to use, run:
+
+```sh
+pnpm start
+```
+
+`pnpm start` is the simplest local entrypoint. It:
+
+1. runs a startup preflight
+2. tells you directly if the local install is incomplete
+3. launches the app without watch mode
+
+If startup says dependencies are incomplete, rerun `pnpm install`. If the problem persists, remove `node_modules` and reinstall once.
+
 ## Start Dev
 
 From repo root:
 
 ```sh
 pnpm install
+pnpm start
+```
+
+If you are actively changing code and want watch mode instead, run:
+
+```sh
 pnpm dev
 ```
 
@@ -57,17 +79,13 @@ pnpm paperclipai allowed-hostname dotta-macbook-pro
 
 ## One-Command Local Run
 
-For a first-time local install, you can bootstrap and run in one command:
+For the simplest local run from this repo checkout, use:
 
 ```sh
-pnpm paperclipai run
+pnpm start
 ```
 
-`paperclipai run` does:
-
-1. auto-onboard if config is missing
-2. `paperclipai doctor` with repair enabled
-3. starts the server when checks pass
+`pnpm start` is the standard repo-local answer to "what command starts the app?"
 
 ## Docker Quickstart (No local Node install)
 
@@ -101,7 +119,7 @@ The server will automatically use embedded PostgreSQL and persist data at:
 Override home and instance:
 
 ```sh
-PAPERCLIP_HOME=/custom/path PAPERCLIP_INSTANCE_ID=dev pnpm paperclipai run
+PAPERCLIP_HOME=/custom/path PAPERCLIP_INSTANCE_ID=dev pnpm start
 ```
 
 No Docker or external database is required for this mode.

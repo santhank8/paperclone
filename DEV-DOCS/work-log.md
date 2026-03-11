@@ -2,6 +2,59 @@
 
 ## 2026-03-10
 
+### Session: simplify local startup command
+
+- Added a root `pnpm start` wrapper at `scripts/start-local.mjs`.
+- Updated the main startup docs so there is one clear answer to "how do I start this app?":
+  - `README.md`
+  - `doc/DEVELOPING.md`
+  - `doc/DATABASE.md`
+  - `AGENTS.md`
+  - `DEV-DOCS/repo-state.md`
+- Added a startup preflight so incomplete local installs fail with a direct remediation message instead of a raw module-resolution stack.
+- Clarified the split between:
+  - `pnpm start` for the simplest local startup
+  - `pnpm dev` for active code changes with watch mode
+- Verified that `pnpm start` currently fails fast with a clear preflight in this workspace because required dependency payloads are missing under `server/node_modules`.
+
+### Session: infrastructure and system-map docs
+
+- Added `DEV-DOCS/INFRASTRUCURE.md`:
+  - runtime topology
+  - configuration layers
+  - database and filesystem layout
+  - auth, storage, secrets, adapter, realtime, scheduler, UI, and CLI infrastructure
+- Added `DEV-DOCS/MAP.md`:
+  - topology map
+  - startup sequence
+  - operator request path
+  - manager roadmap governance flow
+  - issue execution flow
+  - records/briefings flow
+  - asset, secret, and live-update maps
+- Updated the DEV-DOCS spine so the new docs are discoverable from `README.md` and reflected in status/task tracking.
+- Verified the doc-only change set with:
+  - `git diff --check`
+
+### Session: full condense audit and backlog
+
+- Ran a whole-repo safe-simplification audit across:
+  - `server/src`
+  - `ui/src`
+  - `packages/shared/src`
+  - `packages/db/src`
+  - `DEV-DOCS/`
+  - `doc/`
+  - `docs/`
+- Produced `DEV-DOCS/CONDENSE-AUDIT.md` with:
+  - hotspot scoring
+  - a five-batch implementation backlog
+  - a docs overlap map
+  - explicit do-not-condense guidance for canonical contract files
+- Updated the DEV-DOCS operational spine so Batch 1 server condensation is the next documented maintainability step.
+- Verified the doc-only change set with:
+  - `git diff --check`
+
 ### Session: roadmap, health, and manager-governance implementation
 
 - Extended the `goals` model into the operator-facing roadmap surface:

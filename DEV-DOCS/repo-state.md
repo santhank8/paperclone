@@ -16,6 +16,7 @@ Date: 2026-03-10
 Top-level scripts (`package.json`):
 
 - Dev:
+  - `pnpm start`
   - `pnpm dev` (full dev runner)
   - `pnpm dev:watch`
   - `pnpm dev:once`

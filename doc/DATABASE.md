@@ -7,7 +7,7 @@ Paperclip uses PostgreSQL via [Drizzle ORM](https://orm.drizzle.team/). There ar
 If you don't set `DATABASE_URL`, the server automatically starts an embedded PostgreSQL instance and manages a local data directory.
 
 ```sh
-pnpm dev
+pnpm start
 ```
 
 That's it. On first start the server:
@@ -49,7 +49,7 @@ DATABASE_URL=postgres://paperclip:paperclip@localhost:5432/paperclip \
 Start the server:
 
 ```sh
-pnpm dev
+pnpm start
 ```
 
 ## 3. Hosted PostgreSQL (Supabase)
