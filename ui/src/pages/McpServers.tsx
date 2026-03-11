@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useCompany } from "../context/CompanyContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
 import { mcpServersApi } from "../api/mcpServers";
+import { projectsApi } from "../api/projects";
 import { queryKeys } from "../lib/queryKeys";
 import { EmptyState } from "../components/EmptyState";
 import { PageSkeleton } from "../components/PageSkeleton";
@@ -13,7 +14,7 @@ import {
   DialogContent,
 } from "@/components/ui/dialog";
 import { Plug, Plus, Pencil, Trash2 } from "lucide-react";
-import type { McpServer, McpTransportType } from "@paperclipai/shared";
+import type { McpServer, McpTransportType, Project } from "@paperclipai/shared";
 
 const TRANSPORT_LABELS: Record<McpTransportType, string> = {
   stdio: "stdio",
@@ -21,20 +22,27 @@ const TRANSPORT_LABELS: Record<McpTransportType, string> = {
   "streamable-http": "Streamable HTTP",
 };
 
+type ProjectFilter = "__all__" | "__company__" | string;
+
 function McpServerDialog({
   open,
   onOpenChange,
   companyId,
   editServer,
+  projects,
+  defaultProjectId,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   companyId: string;
   editServer: McpServer | null;
+  projects: Project[];
+  defaultProjectId?: string | null;
 }) {
   const queryClient = useQueryClient();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [projectId, setProjectId] = useState<string>("");
   const [transportType, setTransportType] = useState<McpTransportType>("stdio");
   const [command, setCommand] = useState("");
   const [args, setArgs] = useState("");
@@ -45,6 +53,7 @@ function McpServerDialog({
     if (editServer) {
       setName(editServer.name);
       setDescription(editServer.description ?? "");
+      setProjectId(editServer.projectId ?? "");
       setTransportType(editServer.transportType);
       setCommand(editServer.command ?? "");
       setArgs(Array.isArray(editServer.args) ? editServer.args.join(" ") : "");
@@ -58,19 +67,20 @@ function McpServerDialog({
     } else {
       setName("");
       setDescription("");
+      setProjectId(defaultProjectId ?? "");
       setTransportType("stdio");
       setCommand("");
       setArgs("");
       setUrl("");
       setEnvText("");
     }
-  }, [editServer, open]);
+  }, [editServer, open, defaultProjectId]);
 
   const createMutation = useMutation({
     mutationFn: (data: Record<string, unknown>) =>
       mcpServersApi.create(companyId, data as Parameters<typeof mcpServersApi.create>[1]),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.mcpServers.list(companyId) });
+      queryClient.invalidateQueries({ queryKey: ["mcp-servers", companyId] });
     },
   });
 
@@ -78,7 +88,7 @@ function McpServerDialog({
     mutationFn: ({ id, data }: { id: string; data: Record<string, unknown> }) =>
       mcpServersApi.update(id, data as Parameters<typeof mcpServersApi.update>[1]),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.mcpServers.list(companyId) });
+      queryClient.invalidateQueries({ queryKey: ["mcp-servers", companyId] });
     },
   });
 
@@ -101,6 +111,7 @@ function McpServerDialog({
     const payload: Record<string, unknown> = {
       name: name.trim(),
       description: description.trim() || null,
+      projectId: projectId || null,
       transportType,
       command: transportType === "stdio" ? command.trim() : null,
       args: transportType === "stdio" && args.trim() ? args.trim().split(/\s+/) : [],
@@ -159,6 +170,22 @@ function McpServerDialog({
               value={description}
               onChange={(e) => setDescription(e.target.value)}
             />
+          </div>
+
+          <div>
+            <label className="text-xs font-medium text-muted-foreground">Project</label>
+            <select
+              className={inputClass}
+              value={projectId}
+              onChange={(e) => setProjectId(e.target.value)}
+            >
+              <option value="">Company-wide</option>
+              {projects.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div>
@@ -259,7 +286,7 @@ function DeleteConfirmDialog({
   const deleteMutation = useMutation({
     mutationFn: (id: string) => mcpServersApi.remove(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.mcpServers.list(companyId) });
+      queryClient.invalidateQueries({ queryKey: ["mcp-servers", companyId] });
       onOpenChange(false);
     },
   });
@@ -305,10 +332,23 @@ export function McpServers() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editServer, setEditServer] = useState<McpServer | null>(null);
   const [deleteServer, setDeleteServer] = useState<McpServer | null>(null);
+  const [projectFilter, setProjectFilter] = useState<ProjectFilter>("__all__");
 
   useEffect(() => {
     setBreadcrumbs([{ label: "MCP Servers" }]);
   }, [setBreadcrumbs]);
+
+  const { data: projects } = useQuery({
+    queryKey: queryKeys.projects.list(selectedCompanyId!),
+    queryFn: () => projectsApi.list(selectedCompanyId!),
+    enabled: !!selectedCompanyId,
+  });
+
+  const projectMap = useMemo(() => {
+    const map = new Map<string, Project>();
+    for (const p of projects ?? []) map.set(p.id, p);
+    return map;
+  }, [projects]);
 
   const {
     data: servers,
@@ -320,16 +360,26 @@ export function McpServers() {
     enabled: !!selectedCompanyId,
   });
 
+  const filteredServers = useMemo(() => {
+    if (!servers) return [];
+    if (projectFilter === "__all__") return servers;
+    if (projectFilter === "__company__") return servers.filter((s) => !s.projectId);
+    return servers.filter((s) => s.projectId === projectFilter);
+  }, [servers, projectFilter]);
+
   const toggleMutation = useMutation({
     mutationFn: ({ id, enabled }: { id: string; enabled: boolean }) =>
       mcpServersApi.update(id, { enabled }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.mcpServers.list(selectedCompanyId!) });
+      queryClient.invalidateQueries({ queryKey: ["mcp-servers", selectedCompanyId!] });
     },
   });
 
   if (!selectedCompanyId) return <EmptyState icon={Plug} message="Select a company." />;
   if (isLoading) return <PageSkeleton variant="list" />;
+
+  const selectClass =
+    "rounded-md border border-border bg-transparent px-2.5 py-1.5 text-sm outline-none focus:border-foreground/30 transition-colors";
 
   return (
     <div className="space-y-4">
@@ -348,9 +398,26 @@ export function McpServers() {
         </Button>
       </div>
 
+      <div className="flex items-center gap-2">
+        <label className="text-xs text-muted-foreground">Scope:</label>
+        <select
+          className={selectClass}
+          value={projectFilter}
+          onChange={(e) => setProjectFilter(e.target.value)}
+        >
+          <option value="__all__">All</option>
+          <option value="__company__">Company-wide</option>
+          {(projects ?? []).map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.name}
+            </option>
+          ))}
+        </select>
+      </div>
+
       {error && <p className="text-sm text-destructive">{error instanceof Error ? error.message : "Failed to load"}</p>}
 
-      {servers && servers.length === 0 && (
+      {filteredServers.length === 0 && !error && (
         <EmptyState
           icon={Plug}
           message="No MCP servers configured yet."
@@ -362,65 +429,78 @@ export function McpServers() {
         />
       )}
 
-      {servers && servers.length > 0 && (
+      {filteredServers.length > 0 && (
         <div className="rounded-md border border-border divide-y divide-border">
-          {servers.map((server) => (
-            <div
-              key={server.id}
-              className="flex items-center gap-3 px-4 py-3 hover:bg-accent/30 transition-colors"
-            >
-              <Plug className="h-4 w-4 text-muted-foreground shrink-0" />
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium truncate">{server.name}</span>
-                  <Badge variant="outline" className="text-[10px] font-normal shrink-0">
-                    {TRANSPORT_LABELS[server.transportType]}
-                  </Badge>
-                  {!server.enabled && (
-                    <Badge variant="secondary" className="text-[10px] font-normal shrink-0">
-                      disabled
+          {filteredServers.map((server) => {
+            const project = server.projectId ? projectMap.get(server.projectId) : null;
+            return (
+              <div
+                key={server.id}
+                className="flex items-center gap-3 px-4 py-3 hover:bg-accent/30 transition-colors"
+              >
+                <Plug className="h-4 w-4 text-muted-foreground shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium truncate">{server.name}</span>
+                    <Badge variant="outline" className="text-[10px] font-normal shrink-0">
+                      {TRANSPORT_LABELS[server.transportType]}
                     </Badge>
+                    {project && (
+                      <Badge variant="secondary" className="text-[10px] font-normal shrink-0">
+                        {project.name}
+                      </Badge>
+                    )}
+                    {!server.projectId && (
+                      <Badge variant="secondary" className="text-[10px] font-normal shrink-0 opacity-50">
+                        company-wide
+                      </Badge>
+                    )}
+                    {!server.enabled && (
+                      <Badge variant="secondary" className="text-[10px] font-normal shrink-0">
+                        disabled
+                      </Badge>
+                    )}
+                  </div>
+                  {server.description && (
+                    <p className="text-xs text-muted-foreground truncate mt-0.5">
+                      {server.description}
+                    </p>
                   )}
                 </div>
-                {server.description && (
-                  <p className="text-xs text-muted-foreground truncate mt-0.5">
-                    {server.description}
-                  </p>
-                )}
+                <div className="flex items-center gap-1 shrink-0">
+                  <Button
+                    variant="ghost"
+                    size="icon-xs"
+                    title={server.enabled ? "Disable" : "Enable"}
+                    onClick={() =>
+                      toggleMutation.mutate({ id: server.id, enabled: !server.enabled })
+                    }
+                  >
+                    <span className={`text-xs ${server.enabled ? "text-green-500" : "text-muted-foreground"}`}>
+                      {server.enabled ? "ON" : "OFF"}
+                    </span>
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon-xs"
+                    onClick={() => {
+                      setEditServer(server);
+                      setDialogOpen(true);
+                    }}
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon-xs"
+                    onClick={() => setDeleteServer(server)}
+                  >
+                    <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                  </Button>
+                </div>
               </div>
-              <div className="flex items-center gap-1 shrink-0">
-                <Button
-                  variant="ghost"
-                  size="icon-xs"
-                  title={server.enabled ? "Disable" : "Enable"}
-                  onClick={() =>
-                    toggleMutation.mutate({ id: server.id, enabled: !server.enabled })
-                  }
-                >
-                  <span className={`text-xs ${server.enabled ? "text-green-500" : "text-muted-foreground"}`}>
-                    {server.enabled ? "ON" : "OFF"}
-                  </span>
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon-xs"
-                  onClick={() => {
-                    setEditServer(server);
-                    setDialogOpen(true);
-                  }}
-                >
-                  <Pencil className="h-3.5 w-3.5" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon-xs"
-                  onClick={() => setDeleteServer(server)}
-                >
-                  <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                </Button>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -429,6 +509,7 @@ export function McpServers() {
         onOpenChange={setDialogOpen}
         companyId={selectedCompanyId}
         editServer={editServer}
+        projects={projects ?? []}
       />
 
       <DeleteConfirmDialog

@@ -27,6 +27,49 @@ const PAPERCLIP_SKILLS_CANDIDATES = [
 const CODEX_ROLLOUT_NOISE_RE =
   /^\d{4}-\d{2}-\d{2}T[^\s]+\s+ERROR\s+codex_core::rollout::list:\s+state db missing rollout path for thread\s+[a-z0-9-]+$/i;
 
+interface McpServerEntry {
+  name: string;
+  transportType: string;
+  command: string | null;
+  args: string[];
+  url: string | null;
+  headers: Record<string, string>;
+  env: Record<string, string>;
+}
+
+/**
+ * Build `-c` config override args to inject MCP servers into a `codex exec` invocation.
+ * Uses dotted-path TOML overrides so no global config is mutated.
+ */
+function buildMcpConfigArgs(mcpServers: McpServerEntry[]): string[] {
+  const args: string[] = [];
+  for (const s of mcpServers) {
+    // Codex -c uses simple dotted paths (split on '.'), no TOML quoted-key support.
+    // Server names with dots would break the path, so replace dots with underscores.
+    const safeName = s.name.replace(/\./g, "_");
+    const key = `mcp_servers.${safeName}`;
+    if (s.transportType === "stdio" && s.command) {
+      args.push("-c", `${key}.command=${JSON.stringify(s.command)}`);
+      if (s.args.length > 0) {
+        const tomlArray = `[${s.args.map((a) => JSON.stringify(a)).join(", ")}]`;
+        args.push("-c", `${key}.args=${tomlArray}`);
+      }
+      for (const [ek, ev] of Object.entries(s.env)) {
+        args.push("-c", `${key}.env.${ek}=${JSON.stringify(ev)}`);
+      }
+    } else if (s.url) {
+      args.push("-c", `${key}.url=${JSON.stringify(s.url)}`);
+      for (const [hk, hv] of Object.entries(s.headers)) {
+        args.push("-c", `${key}.headers.${hk}=${JSON.stringify(hv)}`);
+      }
+      for (const [ek, ev] of Object.entries(s.env)) {
+        args.push("-c", `${key}.env.${ek}=${JSON.stringify(ev)}`);
+      }
+    }
+  }
+  return args;
+}
+
 function stripCodexRolloutNoise(text: string): string {
   const parts = text.split(/\r?\n/);
   const kept: string[] = [];
@@ -280,12 +323,25 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
   });
   const prompt = `${instructionsPrefix}${renderedPrompt}`;
 
+  // Build MCP server config args from context (project-scoped + agent-assigned)
+  const mcpServers = Array.isArray(context.mcpServers)
+    ? (context.mcpServers as McpServerEntry[])
+    : [];
+  const mcpConfigArgs = buildMcpConfigArgs(mcpServers);
+  if (mcpConfigArgs.length > 0) {
+    await onLog(
+      "stderr",
+      `[paperclip] Injecting ${mcpServers.length} MCP server(s) into Codex via config overrides\n`,
+    );
+  }
+
   const buildArgs = (resumeSessionId: string | null) => {
     const args = ["exec", "--json"];
     if (search) args.unshift("--search");
     if (bypass) args.push("--dangerously-bypass-approvals-and-sandbox");
     if (model) args.push("--model", model);
     if (modelReasoningEffort) args.push("-c", `model_reasoning_effort=${JSON.stringify(modelReasoningEffort)}`);
+    if (mcpConfigArgs.length > 0) args.push(...mcpConfigArgs);
     if (extraArgs.length > 0) args.push(...extraArgs);
     if (resumeSessionId) args.push("resume", resumeSessionId, "-");
     else args.push("-");

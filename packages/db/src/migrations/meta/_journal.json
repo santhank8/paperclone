@@ -197,6 +197,13 @@
       "when": 1773159336480,
       "tag": "0027_conscious_vision",
       "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1773465600000,
+      "tag": "0028_mcp_server_project_scope",
+      "breakpoints": true
     }
   ]
 }

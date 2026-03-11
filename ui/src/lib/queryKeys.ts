@@ -71,9 +71,12 @@ export const queryKeys = {
       ["jira-integrations", "assignees", id, projectKey] as const,
   },
   mcpServers: {
-    list: (companyId: string) => ["mcp-servers", companyId] as const,
+    list: (companyId: string, projectId?: string) =>
+      ["mcp-servers", companyId, projectId ?? "__all__"] as const,
     detail: (id: string) => ["mcp-servers", "detail", id] as const,
     forAgent: (agentId: string) => ["mcp-servers", "agent", agentId] as const,
+    forProject: (companyId: string, projectId: string) =>
+      ["mcp-servers", companyId, projectId] as const,
   },
   dashboard: (companyId: string) => ["dashboard", companyId] as const,
   sidebarBadges: (companyId: string) => ["sidebar-badges", companyId] as const,

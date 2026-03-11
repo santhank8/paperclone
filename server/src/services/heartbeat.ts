@@ -1260,12 +1260,27 @@ export function heartbeatService(db: Db) {
         });
       };
 
-      // Fetch MCP servers assigned to this agent and resolve secret refs
+      // Fetch MCP servers assigned to this agent + project-scoped servers, resolve secret refs
       const mcpSvc = mcpServerService(db);
       const agentMcpServers = await mcpSvc.listEnabledForAgent(agent.id);
-      if (agentMcpServers.length > 0) {
+
+      // Merge project-scoped servers if a projectId is available
+      const ctxProjectId = typeof context.projectId === "string" ? context.projectId : null;
+      let projectMcpServers: typeof agentMcpServers = [];
+      if (ctxProjectId) {
+        projectMcpServers = await mcpSvc.listEnabledForProject(agent.companyId, ctxProjectId);
+      }
+
+      // Dedup: agent-assigned servers win over project-scoped by ID
+      const seenIds = new Set(agentMcpServers.map((s) => s.id));
+      const mergedMcpServers = [
+        ...agentMcpServers,
+        ...projectMcpServers.filter((s) => !seenIds.has(s.id)),
+      ];
+
+      if (mergedMcpServers.length > 0) {
         const resolved = await Promise.all(
-          agentMcpServers.map(async (s) => {
+          mergedMcpServers.map(async (s) => {
             const env: Record<string, string> = {};
             const envRecord = (s.env ?? {}) as Record<string, unknown>;
             for (const [k, v] of Object.entries(envRecord)) {

@@ -19,7 +19,8 @@ export function mcpServerRoutes(db: Db) {
     assertBoard(req);
     const companyId = req.params.companyId as string;
     assertCompanyAccess(req, companyId);
-    const servers = await svc.list(companyId);
+    const projectId = typeof req.query.projectId === "string" ? req.query.projectId : undefined;
+    const servers = await svc.list(companyId, projectId ? { projectId } : undefined);
     res.json(servers);
   });
 

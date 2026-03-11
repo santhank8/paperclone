@@ -1,4 +1,4 @@
-import { and, eq, desc, inArray } from "drizzle-orm";
+import { and, eq, desc, inArray, isNull } from "drizzle-orm";
 import type { Db } from "@paperclipai/db";
 import { mcpServers, agentMcpServers } from "@paperclipai/db";
 import type { CreateMcpServer, UpdateMcpServer } from "@paperclipai/shared";
@@ -16,19 +16,33 @@ export function mcpServerService(db: Db) {
   return {
     getById,
 
-    list: async (companyId: string) => {
+    list: async (companyId: string, opts?: { projectId?: string }) => {
+      const conditions = [eq(mcpServers.companyId, companyId)];
+      if (opts?.projectId) {
+        conditions.push(eq(mcpServers.projectId, opts.projectId));
+      }
       return db
         .select()
         .from(mcpServers)
-        .where(eq(mcpServers.companyId, companyId))
+        .where(and(...conditions))
         .orderBy(desc(mcpServers.createdAt));
     },
 
     create: async (companyId: string, input: CreateMcpServer) => {
+      const projectId = input.projectId ?? null;
+      const dupConditions = [
+        eq(mcpServers.companyId, companyId),
+        eq(mcpServers.name, input.name),
+      ];
+      if (projectId) {
+        dupConditions.push(eq(mcpServers.projectId, projectId));
+      } else {
+        dupConditions.push(isNull(mcpServers.projectId));
+      }
       const existing = await db
         .select()
         .from(mcpServers)
-        .where(and(eq(mcpServers.companyId, companyId), eq(mcpServers.name, input.name)))
+        .where(and(...dupConditions))
         .then((rows) => rows[0] ?? null);
       if (existing) throw conflict(`MCP server with name "${input.name}" already exists`);
 
@@ -36,6 +50,7 @@ export function mcpServerService(db: Db) {
         .insert(mcpServers)
         .values({
           companyId,
+          projectId,
           name: input.name,
           description: input.description ?? null,
           transportType: input.transportType,
@@ -54,6 +69,7 @@ export function mcpServerService(db: Db) {
       const updates: Record<string, unknown> = { updatedAt: new Date() };
       if (patch.name !== undefined) updates.name = patch.name;
       if (patch.description !== undefined) updates.description = patch.description;
+      if (patch.projectId !== undefined) updates.projectId = patch.projectId;
       if (patch.transportType !== undefined) updates.transportType = patch.transportType;
       if (patch.command !== undefined) updates.command = patch.command;
       if (patch.args !== undefined) updates.args = patch.args;
@@ -68,6 +84,20 @@ export function mcpServerService(db: Db) {
         .where(eq(mcpServers.id, id))
         .returning();
       return updated ?? null;
+    },
+
+    /** Returns enabled project-scoped MCP servers for runtime injection. */
+    listEnabledForProject: async (companyId: string, projectId: string) => {
+      return db
+        .select()
+        .from(mcpServers)
+        .where(
+          and(
+            eq(mcpServers.companyId, companyId),
+            eq(mcpServers.projectId, projectId),
+            eq(mcpServers.enabled, true),
+          ),
+        );
     },
 
     remove: async (id: string) => {

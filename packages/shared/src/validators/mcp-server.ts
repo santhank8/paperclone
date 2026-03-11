@@ -7,6 +7,7 @@ export const createMcpServerSchema = z
   .object({
     name: z.string().min(1),
     description: z.string().optional().nullable(),
+    projectId: z.string().uuid().optional().nullable(),
     transportType: z.enum(MCP_TRANSPORT_TYPES),
     command: z.string().optional().nullable(),
     args: z.array(z.string()).optional().nullable(),
@@ -40,6 +41,7 @@ export type CreateMcpServer = z.infer<typeof createMcpServerSchema>;
 export const updateMcpServerSchema = z.object({
   name: z.string().min(1).optional(),
   description: z.string().optional().nullable(),
+  projectId: z.string().uuid().optional().nullable(),
   transportType: z.enum(MCP_TRANSPORT_TYPES).optional(),
   command: z.string().optional().nullable(),
   args: z.array(z.string()).optional().nullable(),

@@ -113,6 +113,7 @@ export function approvalService(db: Db) {
           await mcpSvc.create(updated.companyId, {
             name: String(payload.name ?? "unnamed-mcp-server"),
             description: typeof payload.description === "string" ? payload.description : null,
+            projectId: typeof payload.projectId === "string" ? payload.projectId : null,
             transportType,
             command: typeof payload.command === "string" ? payload.command : null,
             args: Array.isArray(payload.args) ? payload.args.map(String) : null,

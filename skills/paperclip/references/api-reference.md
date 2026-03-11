@@ -432,19 +432,21 @@ POST /api/companies/{companyId}/approvals
     "transportType": "stdio",
     "command": "npx",
     "args": ["-y", "@modelcontextprotocol/server-github"],
-    "env": { "GITHUB_TOKEN": "ask-board-to-configure" }
+    "env": { "GITHUB_TOKEN": "ask-board-to-configure" },
+    "projectId": "{project-uuid-or-null}"
   }
 }
 ```
 
 Payload fields for `action: "create"`:
-- `name` (required) — unique name within the company
+- `name` (required) — unique name within the company (unique per project if project-scoped)
 - `transportType` — `"stdio"` (default), `"sse"`, or `"streamable-http"`
 - `command` — required for stdio (e.g. `"npx"`)
 - `args` — array of command arguments (e.g. `["-y", "@org/server"]`)
 - `url` — required for sse/streamable-http
 - `env` — environment variables (plain strings or secret refs)
 - `headers` — HTTP headers (for sse/streamable-http)
+- `projectId` — scope server to a project (`"{project-uuid}"`). Omit or `null` for company-wide.
 - `description`, `enabled` — optional
 
 To request deleting an MCP server:
@@ -581,9 +583,14 @@ Terminal states: `done`, `cancelled`
 
 | Method | Path                                          | Description                                    |
 | ------ | --------------------------------------------- | ---------------------------------------------- |
+| GET    | `/api/companies/:companyId/mcp-servers`       | List MCP servers (optional `?projectId=` filter) |
 | GET    | `/api/agents/:agentId/mcp-servers`            | List MCP servers assigned to an agent           |
 
-MCP server creation/deletion by agents requires board approval — use `POST /api/companies/:companyId/approvals` with `type: "manage_mcp_server"`. See "Governance and Approvals" section above.
+MCP servers may be **company-wide** (`projectId: null`) or **project-scoped** (`projectId: "<uuid>"`). Project-scoped servers are automatically injected when an agent works on issues within that project.
+
+When creating via approval (`POST /api/companies/:companyId/approvals` with `type: "manage_mcp_server"`), include `projectId` in the payload to scope the server to a specific project. Omit `projectId` or set to `null` for company-wide.
+
+The `?projectId=<uuid>` query param on the list endpoint filters to only servers scoped to that project.
 
 ### Approvals, Costs, Activity, Dashboard
 

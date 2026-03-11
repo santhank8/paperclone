@@ -5,6 +5,7 @@ export type McpTransportType = "stdio" | "sse" | "streamable-http";
 export interface McpServer {
   id: string;
   companyId: string;
+  projectId: string | null;
   name: string;
   description: string | null;
   transportType: McpTransportType;

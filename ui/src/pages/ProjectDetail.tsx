@@ -2,10 +2,12 @@ import { useEffect, useMemo, useState, useRef } from "react";
 import { useParams, useNavigate, useLocation, Navigate } from "@/lib/router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { PROJECT_COLORS, isUuidLike } from "@paperclipai/shared";
+import type { McpServer, McpTransportType } from "@paperclipai/shared";
 import { projectsApi } from "../api/projects";
 import { issuesApi } from "../api/issues";
 import { agentsApi } from "../api/agents";
 import { heartbeatsApi } from "../api/heartbeats";
+import { mcpServersApi } from "../api/mcpServers";
 import { assetsApi } from "../api/assets";
 import { usePanel } from "../context/PanelContext";
 import { useCompany } from "../context/CompanyContext";
@@ -18,9 +20,10 @@ import { IssuesList } from "../components/IssuesList";
 import { PageSkeleton } from "../components/PageSkeleton";
 import { projectRouteRef, cn } from "../lib/utils";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { SlidersHorizontal } from "lucide-react";
+import { SlidersHorizontal, Plug, Pencil, Trash2 } from "lucide-react";
 
 /* ── Top-level tab types ── */
 
@@ -128,6 +131,105 @@ function ColorPicker({
               />
             ))}
           </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ── Project MCP Servers section ── */
+
+const PROJECT_TRANSPORT_LABELS: Record<McpTransportType, string> = {
+  stdio: "stdio",
+  sse: "SSE",
+  "streamable-http": "Streamable HTTP",
+};
+
+function ProjectMcpServers({ projectId, companyId }: { projectId: string; companyId: string }) {
+  const queryClient = useQueryClient();
+
+  const { data: servers, isLoading } = useQuery({
+    queryKey: queryKeys.mcpServers.forProject(companyId, projectId),
+    queryFn: () => mcpServersApi.list(companyId, projectId),
+    enabled: !!companyId && !!projectId,
+  });
+
+  const toggleMutation = useMutation({
+    mutationFn: ({ id, enabled }: { id: string; enabled: boolean }) =>
+      mcpServersApi.update(id, { enabled }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.mcpServers.forProject(companyId, projectId) });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => mcpServersApi.remove(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.mcpServers.forProject(companyId, projectId) });
+    },
+  });
+
+  if (isLoading) return <div className="text-sm text-muted-foreground">Loading MCP servers...</div>;
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold">MCP Servers</h3>
+        <a href="/mcp-servers" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+          Manage all servers
+        </a>
+      </div>
+
+      {(!servers || servers.length === 0) && (
+        <p className="text-xs text-muted-foreground">
+          No project-scoped MCP servers. Add servers from the{" "}
+          <a href="/mcp-servers" className="underline hover:text-foreground">MCP Servers</a> page.
+        </p>
+      )}
+
+      {servers && servers.length > 0 && (
+        <div className="rounded-md border border-border divide-y divide-border">
+          {servers.map((server) => (
+            <div
+              key={server.id}
+              className="flex items-center gap-3 px-3 py-2 hover:bg-accent/30 transition-colors"
+            >
+              <Plug className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium truncate">{server.name}</span>
+                  <Badge variant="outline" className="text-[10px] font-normal shrink-0">
+                    {PROJECT_TRANSPORT_LABELS[server.transportType]}
+                  </Badge>
+                  {!server.enabled && (
+                    <Badge variant="secondary" className="text-[10px] font-normal shrink-0">
+                      disabled
+                    </Badge>
+                  )}
+                </div>
+              </div>
+              <div className="flex items-center gap-1 shrink-0">
+                <button
+                  className={`text-xs px-1 ${server.enabled ? "text-green-500" : "text-muted-foreground"} hover:opacity-70`}
+                  title={server.enabled ? "Disable" : "Enable"}
+                  onClick={() => toggleMutation.mutate({ id: server.id, enabled: !server.enabled })}
+                >
+                  {server.enabled ? "ON" : "OFF"}
+                </button>
+                <button
+                  className="text-muted-foreground hover:text-destructive p-0.5"
+                  title="Delete"
+                  onClick={() => {
+                    if (confirm(`Delete MCP server "${server.name}"?`)) {
+                      deleteMutation.mutate(server.id);
+                    }
+                  }}
+                >
+                  <Trash2 className="h-3 w-3" />
+                </button>
+              </div>
+            </div>
+          ))}
         </div>
       )}
     </div>
@@ -363,14 +465,19 @@ export function ProjectDetail() {
 
       {/* Tab content */}
       {activeTab === "overview" && (
-        <OverviewContent
-          project={project}
-          onUpdate={(data) => updateProject.mutate(data)}
-          imageUploadHandler={async (file) => {
-            const asset = await uploadImage.mutateAsync(file);
-            return asset.contentPath;
-          }}
-        />
+        <>
+          <OverviewContent
+            project={project}
+            onUpdate={(data) => updateProject.mutate(data)}
+            imageUploadHandler={async (file) => {
+              const asset = await uploadImage.mutateAsync(file);
+              return asset.contentPath;
+            }}
+          />
+          {project.id && resolvedCompanyId && (
+            <ProjectMcpServers projectId={project.id} companyId={resolvedCompanyId} />
+          )}
+        </>
       )}
 
       {activeTab === "list" && project?.id && resolvedCompanyId && (

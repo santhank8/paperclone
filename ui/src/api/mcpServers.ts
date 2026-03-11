@@ -2,7 +2,10 @@ import type { McpServer, CreateMcpServer, UpdateMcpServer } from "@paperclipai/s
 import { api } from "./client";
 
 export const mcpServersApi = {
-  list: (companyId: string) => api.get<McpServer[]>(`/companies/${companyId}/mcp-servers`),
+  list: (companyId: string, projectId?: string) => {
+    const params = projectId ? `?projectId=${encodeURIComponent(projectId)}` : "";
+    return api.get<McpServer[]>(`/companies/${companyId}/mcp-servers${params}`);
+  },
   get: (id: string) => api.get<McpServer>(`/mcp-servers/${id}`),
   create: (companyId: string, data: CreateMcpServer) =>
     api.post<McpServer>(`/companies/${companyId}/mcp-servers`, data),

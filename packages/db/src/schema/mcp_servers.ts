@@ -1,11 +1,13 @@
 import { pgTable, uuid, text, boolean, jsonb, timestamp, index, uniqueIndex } from "drizzle-orm/pg-core";
 import { companies } from "./companies.js";
+import { projects } from "./projects.js";
 
 export const mcpServers = pgTable(
   "mcp_servers",
   {
     id: uuid("id").primaryKey().defaultRandom(),
     companyId: uuid("company_id").notNull().references(() => companies.id),
+    projectId: uuid("project_id").references(() => projects.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
     description: text("description"),
     transportType: text("transport_type").notNull().default("stdio"),
@@ -20,6 +22,7 @@ export const mcpServers = pgTable(
   },
   (table) => ({
     companyIdx: index("mcp_servers_company_idx").on(table.companyId),
+    projectIdx: index("mcp_servers_project_idx").on(table.projectId),
     companyNameUq: uniqueIndex("mcp_servers_company_name_uq").on(table.companyId, table.name),
   }),
 );
