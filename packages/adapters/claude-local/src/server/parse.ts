@@ -125,7 +125,10 @@ export function detectClaudeLoginRequired(input: {
   stderr: string;
 }): { requiresLogin: boolean; loginUrl: string | null } {
   const resultText = asString(input.parsed?.result, "").trim();
-  const messages = [resultText, ...extractClaudeErrorMessages(input.parsed ?? {}), input.stdout, input.stderr]
+  // Only check parsed result, error messages, and stderr for auth keywords.
+  // Raw stdout is excluded because agent output may contain words like
+  // "unauthorized" in normal task context, causing false positives.
+  const messages = [resultText, ...extractClaudeErrorMessages(input.parsed ?? {}), input.stderr]
     .join("\n")
     .split(/\r?\n/)
     .map((line) => line.trim())
@@ -165,6 +168,40 @@ export function isClaudeMaxTurnsResult(parsed: Record<string, unknown> | null | 
 
   const resultText = asString(parsed.result, "").trim();
   return /max(?:imum)?\s+turns?/i.test(resultText);
+}
+
+/**
+ * Scan Claude stream-json stdout for rate_limit events emitted by the CLI.
+ * These appear as JSON lines with `{"type":"error","subtype":"rate_limit",...}` or
+ * a top-level `rate_limit_event` type.
+ */
+export function hasRateLimitEvent(stdout: string): boolean {
+  for (const rawLine of stdout.split(/\r?\n/)) {
+    const line = rawLine.trim();
+    if (!line) continue;
+    const event = parseJson(line);
+    if (!event) continue;
+    const type = asString(event.type, "");
+    const subtype = asString(event.subtype, "");
+    if (type === "rate_limit_event") return true;
+    if (type === "error" && subtype === "rate_limit") return true;
+    // Claude Code may surface Anthropic API overloaded errors as rate limits
+    if (type === "error" && /rate.?limit|overloaded|too many requests|429/i.test(asString(event.error, "") + asString(event.message, ""))) return true;
+  }
+  return false;
+}
+
+/**
+ * Check if the parsed result JSON indicates a rate-limit failure.
+ */
+export function isClaudeRateLimitResult(parsed: Record<string, unknown> | null | undefined): boolean {
+  if (!parsed) return false;
+  const subtype = asString(parsed.subtype, "").trim().toLowerCase();
+  if (subtype === "rate_limit" || subtype === "error_rate_limit") return true;
+  const resultText = asString(parsed.result, "");
+  const errors = Array.isArray(parsed.errors) ? parsed.errors : [];
+  const allText = [resultText, ...errors.map((e) => (typeof e === "string" ? e : asString((e as Record<string, unknown>)?.message, "")))].join(" ");
+  return /rate.?limit|overloaded|too many requests|429/i.test(allText);
 }
 
 export function isClaudeUnknownSessionError(parsed: Record<string, unknown>): boolean {

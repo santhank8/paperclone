@@ -1231,6 +1231,8 @@ function RunsTab({
 
 /* ---- Run Detail (expanded) ---- */
 
+const RESUMABLE_ERROR_CODES = ["process_lost", "rate_limited"];
+
 function RunDetail({ run, agentRouteId, adapterType }: { run: HeartbeatRun; agentRouteId: string; adapterType: string }) {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
@@ -1248,7 +1250,7 @@ function RunDetail({ run, agentRouteId, adapterType }: { run: HeartbeatRun; agen
       queryClient.invalidateQueries({ queryKey: queryKeys.heartbeats(run.companyId, run.agentId) });
     },
   });
-  const canResumeLostRun = run.errorCode === "process_lost" && run.status === "failed";
+  const canResumeLostRun = RESUMABLE_ERROR_CODES.includes(run.errorCode ?? "") && run.status === "failed";
   const resumePayload = useMemo(() => {
     const payload: Record<string, unknown> = {
       resumeFromRunId: run.id,
@@ -1270,7 +1272,7 @@ function RunDetail({ run, agentRouteId, adapterType }: { run: HeartbeatRun; agen
       const result = await agentsApi.wakeup(run.agentId, {
         source: "on_demand",
         triggerDetail: "manual",
-        reason: "resume_process_lost_run",
+        reason: run.errorCode === "rate_limited" ? "resume_rate_limited_run" : "resume_process_lost_run",
         payload: resumePayload,
       }, run.companyId);
       if (!("id" in result)) {
@@ -1451,6 +1453,21 @@ function RunDetail({ run, agentRouteId, adapterType }: { run: HeartbeatRun; agen
               <div className="text-xs">
                 <span className="text-red-600 dark:text-red-400">{run.error}</span>
                 {run.errorCode && <span className="text-muted-foreground ml-1">({run.errorCode})</span>}
+              </div>
+            )}
+            {run.errorCode === "rate_limited" && (
+              <div className="text-xs text-amber-600 dark:text-amber-400">
+                The Anthropic API rate limit was hit. The agent can be resumed once the rate limit window expires.
+              </div>
+            )}
+            {run.errorCode === "max_turns_exceeded" && (
+              <div className="text-xs text-amber-600 dark:text-amber-400">
+                The agent hit the maximum number of conversation turns. Consider increasing maxTurnsPerRun or breaking work into smaller tasks.
+              </div>
+            )}
+            {run.errorCode === "process_killed" && (
+              <div className="text-xs text-amber-600 dark:text-amber-400">
+                The agent process was terminated by signal {run.signal ?? "unknown"}. This may indicate an OOM kill or external signal.
               </div>
             )}
             {run.errorCode === "claude_auth_required" && adapterType === "claude_local" && (

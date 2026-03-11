@@ -38,7 +38,7 @@ export const help: Record<string, string> = {
   workspaceBranchTemplate: "Template for naming derived branches. Supports {{issue.identifier}}, {{issue.title}}, {{agent.name}}, {{project.id}}, {{workspace.repoRef}}, and {{slug}}.",
   worktreeParentDir: "Directory where derived worktrees should be created. Absolute, ~-prefixed, and repo-relative paths are supported.",
   runtimeServicesJson: "Optional workspace runtime service definitions. Use this for shared app servers, workers, or other long-lived companion processes attached to the workspace.",
-  maxTurnsPerRun: "Maximum number of agentic turns (tool calls) per heartbeat run.",
+  maxTurnsPerRun: "Maximum number of agentic turns (tool calls) per heartbeat run. Set to 0 for unlimited. Default is 200. For agents doing complex multi-step work (engineering, research, long-form content), consider setting to 0 to avoid mid-task cutoffs.",
   command: "The command to execute (e.g. node, python).",
   localCommand: "Override the path to the CLI command you want the adapter to call (e.g. /usr/local/bin/claude, codex, opencode).",
   args: "Command-line arguments, comma-separated.",
