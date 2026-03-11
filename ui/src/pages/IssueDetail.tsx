@@ -7,6 +7,7 @@ import { heartbeatsApi } from "../api/heartbeats";
 import { agentsApi } from "../api/agents";
 import { authApi } from "../api/auth";
 import { projectsApi } from "../api/projects";
+import { webhooksApi } from "../api/webhooks";
 import { useCompany } from "../context/CompanyContext";
 import { usePanel } from "../context/PanelContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
@@ -42,8 +43,11 @@ import {
   Paperclip,
   SlidersHorizontal,
   Trash2,
+  Link2,
+  Plus,
+  X,
 } from "lucide-react";
-import type { ActivityEvent } from "@paperclipai/shared";
+import type { ActivityEvent, WebhookIssueLink } from "@paperclipai/shared";
 import type { Agent, IssueAttachment } from "@paperclipai/shared";
 
 type CommentReassignment = {
@@ -143,6 +147,118 @@ function ActorIdentity({ evt, agentMap }: { evt: ActivityEvent; agentMap: Map<st
   return <Identity name={id || "Unknown"} size="sm" />;
 }
 
+function WebhookLinksSection({
+  issueId,
+  links,
+}: {
+  issueId: string;
+  links: WebhookIssueLink[];
+}) {
+  const queryClient = useQueryClient();
+  const [adding, setAdding] = useState(false);
+  const [provider, setProvider] = useState("github");
+  const [externalType, setExternalType] = useState("pull_request");
+  const [externalId, setExternalId] = useState("");
+
+  const addMutation = useMutation({
+    mutationFn: () =>
+      webhooksApi.createIssueLink(issueId, {
+        provider: provider as any,
+        externalType: externalType as any,
+        externalId,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.webhooks.issueLinks(issueId) });
+      setAdding(false);
+      setExternalId("");
+    },
+  });
+
+  const removeMutation = useMutation({
+    mutationFn: (linkId: string) => webhooksApi.removeIssueLink(linkId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.webhooks.issueLinks(issueId) });
+    },
+  });
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-1.5">
+          <Link2 className="h-3.5 w-3.5" />
+          Webhook Links
+        </h3>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-6 text-xs"
+          onClick={() => setAdding(!adding)}
+        >
+          <Plus className="h-3 w-3 mr-0.5" /> Link
+        </Button>
+      </div>
+
+      {links.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {links.map((link) => (
+            <span
+              key={link.id}
+              className="inline-flex items-center gap-1 rounded-full border border-border bg-muted/30 px-2 py-0.5 text-[11px]"
+            >
+              <span className="font-medium">{link.provider}</span>
+              <span className="text-muted-foreground">{link.externalType}:</span>
+              <span>{link.externalId}</span>
+              <button
+                className="text-muted-foreground hover:text-destructive ml-0.5"
+                onClick={() => removeMutation.mutate(link.id)}
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+
+      {adding && (
+        <div className="flex items-end gap-2 p-2 border border-border rounded-md bg-muted/10">
+          <select
+            className="rounded border border-border bg-background text-xs px-1.5 py-1"
+            value={provider}
+            onChange={(e) => setProvider(e.target.value)}
+          >
+            <option value="github">GitHub</option>
+            <option value="gitlab">GitLab</option>
+            <option value="generic">Generic</option>
+          </select>
+          <select
+            className="rounded border border-border bg-background text-xs px-1.5 py-1"
+            value={externalType}
+            onChange={(e) => setExternalType(e.target.value)}
+          >
+            <option value="pull_request">PR</option>
+            <option value="branch">Branch</option>
+            <option value="repository">Repo</option>
+          </select>
+          <input
+            className="flex-1 rounded border border-border bg-transparent text-xs px-1.5 py-1 outline-none"
+            placeholder="e.g. feature/PAP-42 or 123"
+            value={externalId}
+            onChange={(e) => setExternalId(e.target.value)}
+          />
+          <Button
+            size="sm"
+            className="h-6 text-xs"
+            disabled={!externalId || addMutation.isPending}
+            onClick={() => addMutation.mutate()}
+          >
+            Add
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function IssueDetail() {
   const { issueId } = useParams<{ issueId: string }>();
   const { selectedCompanyId } = useCompany();
@@ -195,6 +311,12 @@ export function IssueDetail() {
   const { data: attachments } = useQuery({
     queryKey: queryKeys.issues.attachments(issueId!),
     queryFn: () => issuesApi.listAttachments(issueId!),
+    enabled: !!issueId,
+  });
+
+  const { data: webhookLinks } = useQuery({
+    queryKey: queryKeys.webhooks.issueLinks(issueId!),
+    queryFn: () => webhooksApi.listIssueLinks(issueId!),
     enabled: !!issueId,
   });
 
@@ -743,6 +865,8 @@ export function IssueDetail() {
           </div>
         )}
       </div>
+
+      <WebhookLinksSection issueId={issueId!} links={webhookLinks ?? []} />
 
       <Separator />
 

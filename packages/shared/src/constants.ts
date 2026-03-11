@@ -205,6 +205,18 @@ export const HEARTBEAT_RUN_STATUSES = [
 ] as const;
 export type HeartbeatRunStatus = (typeof HEARTBEAT_RUN_STATUSES)[number];
 
+export const WEBHOOK_PROVIDERS = ["github", "gitlab", "generic"] as const;
+export type WebhookProvider = (typeof WEBHOOK_PROVIDERS)[number];
+
+export const WEBHOOK_ACTIONS = ["move_issue_to_status", "add_issue_comment", "wake_agent"] as const;
+export type WebhookAction = (typeof WEBHOOK_ACTIONS)[number];
+
+export const WEBHOOK_EVENT_STATUSES = ["received", "processed", "failed", "ignored"] as const;
+export type WebhookEventStatus = (typeof WEBHOOK_EVENT_STATUSES)[number];
+
+export const WEBHOOK_EXTERNAL_TYPES = ["pull_request", "branch", "repository"] as const;
+export type WebhookExternalType = (typeof WEBHOOK_EXTERNAL_TYPES)[number];
+
 export const LIVE_EVENT_TYPES = [
   "heartbeat.run.queued",
   "heartbeat.run.status",
@@ -212,6 +224,7 @@ export const LIVE_EVENT_TYPES = [
   "heartbeat.run.log",
   "agent.status",
   "activity.logged",
+  "webhook.received",
 ] as const;
 export type LiveEventType = (typeof LIVE_EVENT_TYPES)[number];
 

@@ -26,6 +26,8 @@ import { sidebarBadgeRoutes } from "./routes/sidebar-badges.js";
 import { llmRoutes } from "./routes/llms.js";
 import { assetRoutes } from "./routes/assets.js";
 import { accessRoutes } from "./routes/access.js";
+import { webhookRoutes } from "./routes/webhooks.js";
+import { webhookIngestionRoutes } from "./routes/webhook-ingestion.js";
 import type { BetterAuthSessionResult } from "./auth/better-auth.js";
 
 type UiMode = "none" | "static" | "vite-dev";
@@ -46,6 +48,9 @@ export async function createApp(
   },
 ) {
   const app = express();
+
+  // Webhook ingestion must be mounted BEFORE express.json() for raw body access (HMAC verification)
+  app.use("/api", webhookIngestionRoutes(db));
 
   app.use(express.json());
   app.use(httpLogger);
@@ -112,6 +117,7 @@ export async function createApp(
   api.use(secretRoutes(db));
   api.use(mcpServerRoutes(db));
   api.use(jiraIntegrationRoutes(db));
+  api.use(webhookRoutes(db));
   api.use(costRoutes(db));
   api.use(activityRoutes(db));
   api.use(dashboardRoutes(db));

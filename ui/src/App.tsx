@@ -24,6 +24,7 @@ import { Inbox } from "./pages/Inbox";
 import { CompanySettings } from "./pages/CompanySettings";
 import { McpServers } from "./pages/McpServers";
 import { JiraIntegration } from "./pages/JiraIntegration";
+import { Webhooks } from "./pages/Webhooks";
 import { DesignGuide } from "./pages/DesignGuide";
 import { OrgChart } from "./pages/OrgChart";
 import { NewAgent } from "./pages/NewAgent";
@@ -110,6 +111,7 @@ function boardRoutes() {
       <Route path="company/settings" element={<CompanySettings />} />
       <Route path="company/jira" element={<JiraIntegration />} />
       <Route path="company/mcp-servers" element={<McpServers />} />
+      <Route path="company/webhooks" element={<Webhooks />} />
       <Route path="org" element={<OrgChart />} />
       <Route path="agents" element={<Navigate to="/agents/all" replace />} />
       <Route path="agents/all" element={<Agents />} />

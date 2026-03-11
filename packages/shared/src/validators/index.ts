@@ -136,6 +136,19 @@ export {
 } from "./jira-integration.js";
 
 export {
+  createWebhookConfigSchema,
+  updateWebhookConfigSchema,
+  createWebhookActionRuleSchema,
+  updateWebhookActionRuleSchema,
+  createWebhookIssueLinkSchema,
+  type CreateWebhookConfig,
+  type UpdateWebhookConfig,
+  type CreateWebhookActionRule,
+  type UpdateWebhookActionRule,
+  type CreateWebhookIssueLink,
+} from "./webhook.js";
+
+export {
   createCompanyInviteSchema,
   createOpenClawInvitePromptSchema,
   acceptInviteSchema,

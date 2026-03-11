@@ -34,3 +34,7 @@ export { companySecretVersions } from "./company_secret_versions.js";
 export { mcpServers } from "./mcp_servers.js";
 export { agentMcpServers } from "./agent_mcp_servers.js";
 export { jiraIntegrations } from "./jira_integrations.js";
+export { webhookConfigs } from "./webhook_configs.js";
+export { webhookActionRules } from "./webhook_action_rules.js";
+export { webhookEventLog } from "./webhook_event_log.js";
+export { webhookIssueLinks } from "./webhook_issue_links.js";

@@ -10,6 +10,8 @@ export { approvalService } from "./approvals.js";
 export { secretService } from "./secrets.js";
 export { mcpServerService } from "./mcp-servers.js";
 export { jiraIntegrationService } from "./jira-integrations.js";
+export { webhookService } from "./webhooks.js";
+export { webhookIssueResolverService } from "./webhook-issue-resolver.js";
 export { costService } from "./costs.js";
 export { heartbeatService } from "./heartbeat.js";
 export { dashboardService } from "./dashboard.js";

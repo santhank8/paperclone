@@ -70,6 +70,13 @@ export const queryKeys = {
     assignees: (id: string, projectKey: string) =>
       ["jira-integrations", "assignees", id, projectKey] as const,
   },
+  webhooks: {
+    list: (companyId: string) => ["webhooks", companyId] as const,
+    detail: (id: string) => ["webhooks", "detail", id] as const,
+    rules: (webhookId: string) => ["webhooks", "rules", webhookId] as const,
+    events: (companyId: string) => ["webhooks", "events", companyId] as const,
+    issueLinks: (issueId: string) => ["webhooks", "issue-links", issueId] as const,
+  },
   mcpServers: {
     list: (companyId: string, projectId?: string) =>
       ["mcp-servers", companyId, projectId ?? "__all__"] as const,

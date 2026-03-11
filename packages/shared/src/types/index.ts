@@ -68,6 +68,12 @@ export type {
   JiraImportResult,
 } from "./jira-integration.js";
 export type {
+  WebhookConfig,
+  WebhookActionRule,
+  WebhookEvent,
+  WebhookIssueLink,
+} from "./webhook.js";
+export type {
   CompanyPortabilityInclude,
   CompanyPortabilitySecretRequirement,
   CompanyPortabilityCompanyManifestEntry,

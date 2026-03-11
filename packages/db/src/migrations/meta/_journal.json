@@ -204,6 +204,20 @@
       "when": 1773465600000,
       "tag": "0028_mcp_server_project_scope",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1773552000000,
+      "tag": "0029_webhook_system",
+      "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1773638400000,
+      "tag": "0030_webhook_project_scope",
+      "breakpoints": true
     }
   ]
 }
