@@ -34,17 +34,28 @@ export function actorMiddleware(db: Db, opts: ActorMiddlewareOptions): RequestHa
         const run = await db
           .select({ agentId: heartbeatRuns.agentId, companyId: heartbeatRuns.companyId })
           .from(heartbeatRuns)
-          .where(eq(heartbeatRuns.id, runIdHeader))
+          .where(and(eq(heartbeatRuns.id, runIdHeader), isNull(heartbeatRuns.finishedAt)))
           .then((rows) => rows[0] ?? null);
 
         if (run) {
+          const agentRecord = await db
+            .select()
+            .from(agents)
+            .where(eq(agents.id, run.agentId))
+            .then((rows) => rows[0] ?? null);
+
+          if (!agentRecord || agentRecord.status === "terminated" || agentRecord.status === "pending_approval") {
+            next();
+            return;
+          }
+
           req.actor = {
             type: "agent",
             agentId: run.agentId,
             companyId: run.companyId,
             keyId: undefined,
             runId: runIdHeader,
-            source: "agent_jwt",
+            source: "run_id",
           };
           next();
           return;
