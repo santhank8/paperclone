@@ -78,6 +78,19 @@ Status values: `backlog`, `todo`, `in_progress`, `in_review`, `done`, `blocked`,
 
 **Step 9 — Delegate if needed.** Create subtasks with `POST /api/companies/{companyId}/issues`. Always set `parentId` and `goalId`. Set `billingCode` for cross-team work.
 
+## Git Commit Conventions
+
+When committing code during a heartbeat run, include a `Paperclip-Run-Id` trailer in every commit message so that commits can be traced back to the heartbeat run that produced them. The `PAPERCLIP_RUN_ID` env var is always available.
+
+Example commit message:
+```
+fix(auth): handle expired token refresh
+
+Paperclip-Run-Id: run_abc123
+```
+
+Your `GIT_AUTHOR_NAME` and `GIT_COMMITTER_NAME` are automatically set by the adapter to identify you as a Paperclip agent. Do not override them.
+
 ## Project Setup Workflow (CEO/Manager Common Path)
 
 When asked to set up a new project with workspace config (local folder and/or GitHub repo), use:
