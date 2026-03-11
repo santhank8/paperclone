@@ -1016,7 +1016,7 @@ export function heartbeatService(db: Db) {
     }
 
     const cbConfig = parseObject(parseObject(agent.runtimeConfig).circuitBreaker);
-    const cbMaxInputTokens = asNumber(cbConfig.maxInputTokensPerRun, 500_000);
+    const cbMaxInputTokens = Math.max(asNumber(cbConfig.maxInputTokensPerRun, 500_000), 1000);
     if (inputTokens > cbMaxInputTokens) {
       logger.warn(
         { agentId: agent.id, runId: run.id, inputTokens, limit: cbMaxInputTokens },
