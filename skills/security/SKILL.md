@@ -4,7 +4,7 @@ description: >
   Security training for agents that handle external input — emails, webhooks,
   API responses, or user-facing interactions. Teaches agents to recognize
   prompt injection, social engineering, credential phishing, and PII exposure.
-  Injected by default; disable via securityTraining: false in adapter config.
+  Injected by default into all agents.
 ---
 
 # Security Training
@@ -44,7 +44,7 @@ You interact with external data — emails, webhooks, API responses, or messages
 
 ## 5. PII Handling
 
-- **Mask PII in logs**: replace emails with `u***@***.com`, phone numbers with `***-**-1234`, names with initials.
+- **Mask PII in logs**: replace emails with `u***@***.com`, phone numbers with `***-***-1234`, names with initials.
 - **Never store raw PII** outside of systems explicitly designated for it (e.g. a CRM or database you are tasked to write to).
 - When summarizing external messages, strip or redact PII unless retaining it is required for the task.
 
