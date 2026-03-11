@@ -26,6 +26,7 @@ import { queryKeys } from "../lib/queryKeys";
 import { cn } from "../lib/utils";
 import { NotFoundPage } from "../pages/NotFound";
 import { Button } from "@/components/ui/button";
+import { LanguageSwitcher } from "@/components/ui/language-switcher";
 
 export function Layout() {
   const { sidebarOpen, setSidebarOpen, toggleSidebar, isMobile } = useSidebar();
@@ -235,6 +236,7 @@ export function Layout() {
                 icon={BookOpen}
                 className="flex-1 min-w-0"
               />
+              <LanguageSwitcher />
               <Button
                 type="button"
                 variant="ghost"
@@ -270,6 +272,7 @@ export function Layout() {
                 icon={BookOpen}
                 className="flex-1 min-w-0"
               />
+              <LanguageSwitcher />
               <Button
                 type="button"
                 variant="ghost"
