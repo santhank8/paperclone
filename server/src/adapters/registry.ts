@@ -49,6 +49,7 @@ import {
   execute as copilotCliExecute,
   testEnvironment as copilotCliTestEnvironment,
   sessionCodec as copilotCliSessionCodec,
+  listCopilotModels,
 } from "@paperclipai/adapter-copilot-cli/server";
 import { agentConfigurationDoc as copilotCliAgentConfigurationDoc, models as copilotCliModels } from "@paperclipai/adapter-copilot-cli";
 import { processAdapter } from "./process/index.js";
@@ -123,6 +124,7 @@ const copilotCliAdapter: ServerAdapterModule = {
   testEnvironment: copilotCliTestEnvironment,
   sessionCodec: copilotCliSessionCodec,
   models: copilotCliModels,
+  listModels: listCopilotModels,
   supportsLocalAgentJwt: true,
   agentConfigurationDoc: copilotCliAgentConfigurationDoc,
 };
