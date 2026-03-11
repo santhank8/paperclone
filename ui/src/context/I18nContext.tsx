@@ -40,6 +40,10 @@ const messages: Record<Locale, Record<string, string>> = {
     "sidebar.costs": "Costs",
     "sidebar.activity": "Activity",
     "sidebar.settings": "Settings",
+    "sidebar.projects": "Projects",
+    "sidebar.newProject": "New project",
+    "sidebar.agents": "Agents",
+    "sidebar.newAgent": "New agent",
 
     "issues.breadcrumb": "Issues",
     "issues.selectCompany": "Select a company to view issues.",
@@ -254,6 +258,10 @@ const messages: Record<Locale, Record<string, string>> = {
     "sidebar.costs": "비용",
     "sidebar.activity": "활동",
     "sidebar.settings": "설정",
+    "sidebar.projects": "프로젝트",
+    "sidebar.newProject": "새 프로젝트",
+    "sidebar.agents": "에이전트",
+    "sidebar.newAgent": "새 에이전트",
 
     "issues.breadcrumb": "이슈",
     "issues.selectCompany": "이슈를 보려면 회사를 선택하세요.",
