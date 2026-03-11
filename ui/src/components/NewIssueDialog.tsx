@@ -475,6 +475,14 @@ export function NewIssueDialog() {
 
   const hasDraft = title.trim().length > 0 || description.trim().length > 0;
   const currentStatus = statuses.find((s) => s.value === status) ?? statuses[1]!;
+  const statusLabel = (value: string, fallback: string) => {
+    if (value === "todo") return t("issueDialog.todo");
+    if (value === "backlog") return t("issueDialog.backlog");
+    if (value === "in_progress") return t("issueDialog.inProgress");
+    if (value === "in_review") return t("issueDialog.inReview");
+    if (value === "done") return t("issueDialog.done");
+    return fallback;
+  };
   const currentPriority = priorities.find((p) => p.value === priority);
   const currentAssignee = (agents ?? []).find((a) => a.id === assigneeId);
   const currentProject = orderedProjects.find((project) => project.id === projectId);
@@ -896,7 +904,7 @@ export function NewIssueDialog() {
             <PopoverTrigger asChild>
               <button className="inline-flex items-center gap-1.5 rounded-md border border-border px-2 py-1 text-xs hover:bg-accent/50 transition-colors">
                 <CircleDot className={cn("h-3 w-3", currentStatus.color)} />
-                {currentStatus.value === "todo" ? t("issueDialog.todo") : currentStatus.label}
+                {statusLabel(currentStatus.value, currentStatus.label)}
               </button>
             </PopoverTrigger>
             <PopoverContent className="w-36 p-1" align="start">
@@ -910,7 +918,7 @@ export function NewIssueDialog() {
                   onClick={() => { setStatus(s.value); setStatusOpen(false); }}
                 >
                   <CircleDot className={cn("h-3 w-3", s.color)} />
-                  {s.value === "todo" ? t("issueDialog.todo") : s.label}
+                  {statusLabel(s.value, s.label)}
                 </button>
               ))}
             </PopoverContent>

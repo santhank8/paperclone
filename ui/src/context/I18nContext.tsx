@@ -13,7 +13,6 @@ export type Locale = "en" | "ko" | "ja";
 interface I18nContextValue {
   locale: Locale;
   setLocale: (locale: Locale) => void;
-  toggleLocale: () => void;
   t: (key: string, vars?: Record<string, string>) => string;
 }
 
@@ -27,7 +26,7 @@ const messages: Record<Locale, Record<string, string>> = {
     "layout.switchLanguage": "Switch language",
     "layout.language.en": "English",
     "layout.language.ko": "한국어",
-    "layout.language.ja": "日本語",
+    "layout.language.ja": "日本語 (Beta)",
     "theme.light": "light",
     "theme.dark": "dark",
 
@@ -191,6 +190,7 @@ const messages: Record<Locale, Record<string, string>> = {
     "issuesList.create": "Create Issue",
     "issuesList.newIssue": "New Issue",
     "issuesList.searchIssues": "Search issues",
+    "issuesList.searchPlaceholder": "Search issues...",
 
     "issueDialog.newIssue": "New issue",
     "issueDialog.issueTitle": "Issue title",
@@ -213,6 +213,10 @@ const messages: Record<Locale, Record<string, string>> = {
     "issueDialog.creating": "Creating...",
     "issueDialog.createIssue": "Create Issue",
     "issueDialog.todo": "Todo",
+    "issueDialog.backlog": "Backlog",
+    "issueDialog.inProgress": "In Progress",
+    "issueDialog.inReview": "In Review",
+    "issueDialog.done": "Done",
 
     "mobileNav.home": "Home",
     "mobileNav.issues": "Issues",
@@ -248,7 +252,7 @@ const messages: Record<Locale, Record<string, string>> = {
     "layout.switchLanguage": "언어 전환",
     "layout.language.en": "English",
     "layout.language.ko": "한국어",
-    "layout.language.ja": "日本語",
+    "layout.language.ja": "日本語 (Beta)",
     "theme.light": "라이트",
     "theme.dark": "다크",
 
@@ -412,6 +416,7 @@ const messages: Record<Locale, Record<string, string>> = {
     "issuesList.create": "이슈 생성",
     "issuesList.newIssue": "새 이슈",
     "issuesList.searchIssues": "이슈 검색",
+    "issuesList.searchPlaceholder": "이슈 검색...",
 
     "issueDialog.newIssue": "새 이슈",
     "issueDialog.issueTitle": "이슈 제목",
@@ -434,6 +439,10 @@ const messages: Record<Locale, Record<string, string>> = {
     "issueDialog.creating": "생성 중...",
     "issueDialog.createIssue": "이슈 생성",
     "issueDialog.todo": "할 일",
+    "issueDialog.backlog": "백로그",
+    "issueDialog.inProgress": "진행 중",
+    "issueDialog.inReview": "검토 중",
+    "issueDialog.done": "완료",
 
     "mobileNav.home": "홈",
     "mobileNav.issues": "이슈",
@@ -469,7 +478,7 @@ const messages: Record<Locale, Record<string, string>> = {
     "layout.switchLanguage": "言語を切り替え",
     "layout.language.en": "English",
     "layout.language.ko": "한국어",
-    "layout.language.ja": "日本語",
+    "layout.language.ja": "日本語 (Beta)",
     "theme.light": "ライト",
     "theme.dark": "ダーク",
 
@@ -523,6 +532,7 @@ const messages: Record<Locale, Record<string, string>> = {
 
     "issuesList.newIssue": "新しいイシュー",
     "issuesList.searchIssues": "イシューを検索",
+    "issuesList.searchPlaceholder": "イシューを検索...",
     "issuesList.empty": "現在のフィルター/検索条件に一致するイシューがありません。",
     "issuesList.create": "イシューを作成",
 
@@ -540,6 +550,10 @@ const messages: Record<Locale, Record<string, string>> = {
     "issueDialog.createIssue": "イシューを作成",
     "issueDialog.creating": "作成中...",
     "issueDialog.todo": "ToDo",
+    "issueDialog.backlog": "バックログ",
+    "issueDialog.inProgress": "進行中",
+    "issueDialog.inReview": "レビュー中",
+    "issueDialog.done": "完了",
 
     "mobileNav.home": "ホーム",
     "mobileNav.issues": "イシュー",
@@ -586,10 +600,6 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     setLocaleState(nextLocale);
   }, []);
 
-  const toggleLocale = useCallback(() => {
-    setLocaleState((current) => (current === "en" ? "ko" : current === "ko" ? "ja" : "en"));
-  }, []);
-
   const t = useCallback(
     (key: string, vars?: Record<string, string>) => {
       return formatMessage(locale, key, vars);
@@ -612,10 +622,9 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     () => ({
       locale,
       setLocale,
-      toggleLocale,
       t,
     }),
-    [locale, setLocale, toggleLocale, t],
+    [locale, setLocale, t],
   );
 
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;

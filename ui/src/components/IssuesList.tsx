@@ -295,7 +295,7 @@ export function IssuesList({
                 setIssueSearch(e.target.value);
                 onSearchChange?.(e.target.value);
               }}
-              placeholder={t("issuesList.searchIssues") + "..."}
+              placeholder={t("issuesList.searchPlaceholder")}
               className="pl-7 text-xs sm:text-sm"
               aria-label={t("issuesList.searchIssues")}
             />
