@@ -10,13 +10,19 @@
  *   5. Retry request with PAYMENT-SIGNATURE header
  */
 
-import { createWalletClient, http, type Hex, type Address } from "viem";
+import { createWalletClient, http, isAddress, type Hex, type Address } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { base, baseSepolia } from "viem/chains";
 
 // USDC contract addresses
 const USDC_BASE = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913" as const;
 const USDC_BASE_SEPOLIA = "0x036CbD53842c5426634e7929541eC2318f3dCF7e" as const;
+
+// Expected network identifiers per environment
+const EXPECTED_NETWORK: Record<string, string> = {
+  mainnet: "eip155:8453",
+  testnet: "eip155:84532",
+};
 
 // EIP-712 domain for USDC TransferWithAuthorization
 const USDC_DOMAIN = {
@@ -117,8 +123,35 @@ export async function signX402Payment(
   paymentRequiredHeader: string,
   privateKey: string,
   network: "mainnet" | "testnet",
+  maxPaymentUsd: number = 1.0,
 ): Promise<string> {
   const requirements = parsePaymentRequired(paymentRequiredHeader);
+
+  // Validate payment amount cap (USDC has 6 decimals: $1.00 = 1_000_000 units)
+  const maxAmountUnits = BigInt(Math.floor(maxPaymentUsd * 1_000_000));
+  const requestedAmount = BigInt(requirements.amount);
+  if (requestedAmount > maxAmountUnits) {
+    throw new Error(
+      `Payment amount ${requirements.amount} exceeds cap of ${maxAmountUnits} ` +
+        `(maxPaymentUsd=${maxPaymentUsd}). Refusing to sign.`,
+    );
+  }
+
+  // Validate payTo is a valid Ethereum address
+  if (!isAddress(requirements.payTo)) {
+    throw new Error(
+      `Invalid payTo address: "${requirements.payTo}". Must be a valid Ethereum address.`,
+    );
+  }
+
+  // Validate network matches expected environment
+  const expectedNetwork = EXPECTED_NETWORK[network];
+  if (expectedNetwork && requirements.network !== expectedNetwork) {
+    throw new Error(
+      `Network mismatch: payment requires "${requirements.network}" but adapter ` +
+        `is configured for "${network}" (expected "${expectedNetwork}").`,
+    );
+  }
 
   const chain = network === "testnet" ? baseSepolia : base;
   const usdcAddress =

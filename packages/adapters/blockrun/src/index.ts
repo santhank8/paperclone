@@ -7,6 +7,7 @@ export const models: { id: string; label: string }[] = [
   { id: "openai/gpt-4o", label: "GPT-4o" },
   { id: "openai/gpt-4o-mini", label: "GPT-4o Mini" },
   { id: "openai/o3", label: "o3 (Reasoning)" },
+  { id: "openai/o1", label: "o1 (Reasoning)" },
   // Anthropic
   { id: "anthropic/claude-opus-4.6", label: "Claude Opus 4.6" },
   { id: "anthropic/claude-sonnet-4.6", label: "Claude Sonnet 4.6" },

@@ -14,6 +14,73 @@ function resolveApiUrl(config: Record<string, unknown>): string {
     : "https://blockrun.ai/api";
 }
 
+// Private/reserved IPv4 ranges (CIDR notation converted to prefix checks)
+const PRIVATE_IP_PATTERNS = [
+  /^127\./, // 127.0.0.0/8 loopback
+  /^10\./, // 10.0.0.0/8
+  /^172\.(1[6-9]|2\d|3[01])\./, // 172.16.0.0/12
+  /^192\.168\./, // 192.168.0.0/16
+  /^169\.254\./, // 169.254.0.0/16 link-local
+  /^0\./, // 0.0.0.0/8
+];
+
+/**
+ * Validate a URL for SSRF safety: only https:// is allowed, plus http://localhost
+ * for local development. Private IP ranges are rejected.
+ */
+function validateUrl(url: string): { ok: boolean; reason?: string } {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return { ok: false, reason: `Invalid URL: ${url}` };
+  }
+
+  // Allow http only for localhost
+  if (parsed.protocol === "http:") {
+    if (
+      parsed.hostname === "localhost" ||
+      parsed.hostname === "127.0.0.1" ||
+      parsed.hostname === "::1"
+    ) {
+      return { ok: true };
+    }
+    return {
+      ok: false,
+      reason: `HTTP is only allowed for localhost. Got: ${parsed.hostname}`,
+    };
+  }
+
+  // Only https is allowed otherwise
+  if (parsed.protocol !== "https:") {
+    return {
+      ok: false,
+      reason: `Only https:// URLs are allowed (or http://localhost). Got: ${parsed.protocol}`,
+    };
+  }
+
+  // Reject private IP ranges
+  const hostname = parsed.hostname;
+  for (const pattern of PRIVATE_IP_PATTERNS) {
+    if (pattern.test(hostname)) {
+      return {
+        ok: false,
+        reason: `Private/reserved IP address not allowed: ${hostname}`,
+      };
+    }
+  }
+
+  // Reject IPv6 private ranges (bracketed in URLs)
+  if (hostname.startsWith("[")) {
+    return {
+      ok: false,
+      reason: `IPv6 addresses are not allowed: ${hostname}`,
+    };
+  }
+
+  return { ok: true };
+}
+
 export async function testEnvironment(
   ctx: AdapterEnvironmentTestContext,
 ): Promise<AdapterEnvironmentTestResult> {
@@ -83,6 +150,23 @@ export async function testEnvironment(
       level: "warn",
       message: `Model "${model}" should be in provider/model format (e.g., "openai/gpt-4o").`,
     });
+  }
+
+  // ---- Check: URL safety (SSRF protection) ----
+  const urlCheck = validateUrl(apiUrl);
+  if (!urlCheck.ok) {
+    checks.push({
+      code: "blockrun_api_ssrf",
+      level: "error",
+      message: `API URL rejected: ${urlCheck.reason}`,
+      hint: "Only https:// URLs (or http://localhost for local dev) are allowed.",
+    });
+    return {
+      adapterType: "blockrun",
+      status: "fail",
+      checks,
+      testedAt: new Date().toISOString(),
+    };
   }
 
   // ---- Check: API reachability ----

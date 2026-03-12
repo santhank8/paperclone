@@ -287,10 +287,12 @@ export async function execute(
         "[blockrun] Payment required — signing x402 authorization...\n",
       );
 
+      const maxPaymentUsd = asNumber(config.maxPaymentUsd, 1.0);
       const paymentSignature = await signX402Payment(
         paymentHeader,
         privateKey,
         network,
+        maxPaymentUsd,
       );
 
       // ------- Second request with payment -------
