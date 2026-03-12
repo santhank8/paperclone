@@ -286,6 +286,23 @@ export function shouldResetTaskSessionForWake(
   return wakeSource === "on_demand" && wakeTriggerDetail === "manual";
 }
 
+/**
+ * Determines whether a completed run should clear its task session.
+ * Returns true when the session should be deleted (agent starts fresh next run).
+ */
+export function shouldClearTaskSessionAfterRun(input: {
+  outcome: "succeeded" | "failed" | "cancelled" | "timed_out";
+  clearSession?: boolean;
+  hasSessionParams: boolean;
+  hasSessionDisplayId: boolean;
+}): boolean {
+  return (
+    input.outcome !== "succeeded" ||
+    !!input.clearSession ||
+    (!input.hasSessionParams && !input.hasSessionDisplayId)
+  );
+}
+
 function describeSessionResetReason(
   contextSnapshot: Record<string, unknown> | null | undefined,
 ) {
@@ -1641,13 +1658,13 @@ export function heartbeatService(db: Db) {
         });
         if (taskKey) {
           if (
-            outcome !== "succeeded" ||
-            adapterResult.clearSession ||
-            (!nextSessionState.params && !nextSessionState.displayId)
+            shouldClearTaskSessionAfterRun({
+              outcome,
+              clearSession: adapterResult.clearSession,
+              hasSessionParams: !!nextSessionState.params,
+              hasSessionDisplayId: !!nextSessionState.displayId,
+            })
           ) {
-            // Clear session on any non-success outcome (failed, timed_out,
-            // cancelled) so the next run starts fresh instead of resuming
-            // a potentially stale/corrupt session context.
             await clearTaskSessions(agent.companyId, agent.id, {
               taskKey,
               adapterType: agent.adapterType,
