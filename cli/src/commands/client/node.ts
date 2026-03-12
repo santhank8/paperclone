@@ -243,11 +243,13 @@ export function registerNodeCommands(program: Command): void {
         const localConfig = (adapterConfig.localAdapterConfig as Record<string, unknown>) || {};
         const cwd = (localConfig.cwd as string) || process.cwd();
 
-        // Build env for the local adapter
-        const childEnv: Record<string, string> = { ...process.env as Record<string, string> };
-        // Prevent "nested session" error if runner is launched from within Claude Code
-        delete (childEnv as Record<string, string | undefined>).CLAUDECODE;
-        delete (childEnv as Record<string, string | undefined>).CLAUDE_CODE_ENTRYPOINT;
+        // Build env for the local adapter — strip Claude Code session vars to avoid nested-session errors
+        const childEnv: Record<string, string> = {};
+        for (const [k, v] of Object.entries(process.env)) {
+          if (v !== undefined && !k.startsWith("CLAUDECODE") && !k.startsWith("CLAUDE_CODE_")) {
+            childEnv[k] = v;
+          }
+        }
         childEnv.PAPERCLIP_API_URL = _apiUrl;
         childEnv.PAPERCLIP_AGENT_ID = claim.agentId;
         childEnv.PAPERCLIP_COMPANY_ID = claim.companyId;
@@ -295,7 +297,7 @@ export function registerNodeCommands(program: Command): void {
           const child: ChildProcess = spawn(command, args, {
             cwd,
             env: childEnv,
-            stdio: ["pipe", "pipe", "pipe"],
+            stdio: ["ignore", "pipe", "pipe"],
           });
 
           // Stream stdout
