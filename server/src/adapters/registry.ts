@@ -51,6 +51,15 @@ import {
 import {
   agentConfigurationDoc as piAgentConfigurationDoc,
 } from "@paperclipai/adapter-pi-local";
+import {
+  execute as blockrunExecute,
+  testEnvironment as blockrunTestEnvironment,
+  listModels as listBlockRunModels,
+} from "@paperclipai/adapter-blockrun/server";
+import {
+  agentConfigurationDoc as blockrunAgentConfigurationDoc,
+  models as blockrunModels,
+} from "@paperclipai/adapter-blockrun";
 import { processAdapter } from "./process/index.js";
 import { httpAdapter } from "./http/index.js";
 
@@ -127,6 +136,16 @@ const piLocalAdapter: ServerAdapterModule = {
   agentConfigurationDoc: piAgentConfigurationDoc,
 };
 
+const blockrunAdapter: ServerAdapterModule = {
+  type: "blockrun",
+  execute: blockrunExecute,
+  testEnvironment: blockrunTestEnvironment,
+  models: blockrunModels,
+  listModels: listBlockRunModels,
+  supportsLocalAgentJwt: false,
+  agentConfigurationDoc: blockrunAgentConfigurationDoc,
+};
+
 const adaptersByType = new Map<string, ServerAdapterModule>(
   [
     claudeLocalAdapter,
@@ -136,6 +155,7 @@ const adaptersByType = new Map<string, ServerAdapterModule>(
     cursorLocalAdapter,
     geminiLocalAdapter,
     openclawGatewayAdapter,
+    blockrunAdapter,
     processAdapter,
     httpAdapter,
   ].map((a) => [a.type, a]),
