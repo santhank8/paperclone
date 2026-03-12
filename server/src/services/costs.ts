@@ -26,7 +26,9 @@ export function costService(db: Db) {
         .insert(costEvents)
         .values({ ...data, companyId })
         .returning()
-        .then((rows) => rows[0]);
+        .then((rows) => rows[0] ?? null);
+
+      if (!event) throw new Error("Failed to insert cost event");
 
       await db
         .update(agents)
