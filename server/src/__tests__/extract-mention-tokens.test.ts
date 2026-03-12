@@ -42,4 +42,13 @@ describe("extractMentionTokens", () => {
     expect(tokens.has("full-stack-engineer")).toBe(true);
     expect(tokens.has("full stack engineer")).toBe(true);
   });
+
+  it("matches standalone @example.com (\\B guard only blocks word-char before @)", () => {
+    // \B matches between two non-word characters (space + @), so a
+    // standalone "@example.com" after whitespace IS extracted as "example".
+    // The \B guard only prevents matching when @ is preceded by a word
+    // character, e.g. "user@example.com".
+    const tokens = extractMentionTokens("see docs at @example.com");
+    expect(tokens.has("example")).toBe(true);
+  });
 });
