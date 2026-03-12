@@ -211,6 +211,16 @@ describe("shouldClearTaskSessionAfterRun", () => {
     ).toBe(false);
   });
 
+  it("preserves session on success with displayId but no params", () => {
+    expect(
+      shouldClearTaskSessionAfterRun({
+        outcome: "succeeded",
+        hasSessionParams: false,
+        hasSessionDisplayId: true,
+      }),
+    ).toBe(false);
+  });
+
   // --- Successful runs: clear when adapter requests or no session state ---
 
   it("clears session on success when adapter requests clearSession", () => {
