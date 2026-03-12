@@ -365,7 +365,9 @@ export function CommentThread({
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-2">
-        <h3 className="text-sm font-semibold">Comments &amp; Runs ({timeline.length})</h3>
+        <h3 className="text-sm font-semibold">
+          Comments &amp; Runs ({timelineFilter === "all" ? timeline.length : `${filteredTimeline.length}/${timeline.length}`})
+        </h3>
         <Select value={timelineFilter} onValueChange={(v) => setTimelineFilter(v as TimelineFilter)}>
           <SelectTrigger className="h-7 w-[140px] text-xs">
             <SelectValue />
@@ -378,7 +380,13 @@ export function CommentThread({
         </Select>
       </div>
 
-      <TimelineList timeline={filteredTimeline} agentMap={agentMap} highlightCommentId={highlightCommentId} />
+      {filteredTimeline.length === 0 && timeline.length > 0 ? (
+        <p className="text-sm text-muted-foreground">
+          No {timelineFilter === "comments" ? "comments" : "runs"} found.
+        </p>
+      ) : (
+        <TimelineList timeline={filteredTimeline} agentMap={agentMap} highlightCommentId={highlightCommentId} />
+      )}
 
       {liveRunSlot}
 
