@@ -3,7 +3,9 @@
   "name": "Solo Founder Lite",
   "description": "A minimal starter company with a CEO and an operator.",
   "category": "starter",
+  "maturity": "starter",
   "tags": ["starter", "2-agent", "local"],
+  "useCases": ["first-time setup", "local experimentation"],
   "recommended": true,
   "icon": "rocket"
 }

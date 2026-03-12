@@ -434,6 +434,9 @@ export function OnboardingWizard() {
           include: {
             company: true,
             agents: true,
+            goals: true,
+            projects: true,
+            issues: true,
           },
           target: {
             mode: "new_company" as const,
@@ -894,6 +897,11 @@ export function OnboardingWizard() {
                                       {template.category}
                                     </span>
                                   )}
+                                  {template.maturity && (
+                                    <span className="rounded-full border border-border px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                                      {template.maturity}
+                                    </span>
+                                  )}
                                   {template.tags.map((tag) => (
                                     <span
                                       key={tag}
@@ -932,6 +940,11 @@ export function OnboardingWizard() {
                             {selectedTemplateDetail.companyName ??
                               "Template-defined company"}
                           </p>
+                          {selectedTemplateDetail.useCases.length > 0 && (
+                            <p className="text-[11px] text-muted-foreground">
+                              Best for: {selectedTemplateDetail.useCases.join(", ")}
+                            </p>
+                          )}
                           <div className="flex flex-wrap gap-1.5">
                             {selectedTemplateDetail.manifest.agents.map(
                               (agent) => (

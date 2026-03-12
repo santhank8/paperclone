@@ -8,7 +8,9 @@ export interface BuiltInTemplateMetadata {
   name: string;
   description: string;
   category: string | null;
+  maturity: string | null;
   tags: string[];
+  useCases: string[];
   recommended: boolean;
   icon: string | null;
 }

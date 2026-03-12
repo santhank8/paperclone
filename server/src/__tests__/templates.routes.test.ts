@@ -54,10 +54,13 @@ describe("template routes", () => {
         id: "solo-founder-lite",
         setupMarkdown: null,
         manifest: expect.objectContaining({
-          includes: {
+          includes: expect.objectContaining({
             company: true,
             agents: true,
-          },
+            goals: false,
+            projects: false,
+            issues: false,
+          }),
         }),
       }),
     );

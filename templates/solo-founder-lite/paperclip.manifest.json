@@ -4,7 +4,10 @@
   "source": null,
   "includes": {
     "company": true,
-    "agents": true
+    "agents": true,
+    "goals": false,
+    "projects": false,
+    "issues": false
   },
   "company": {
     "path": "COMPANY.md",
@@ -72,5 +75,8 @@
       "metadata": null
     }
   ],
+  "goals": [],
+  "projects": [],
+  "issues": [],
   "requiredSecrets": []
 }

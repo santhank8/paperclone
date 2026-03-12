@@ -3,7 +3,9 @@
   "name": "Safe Autonomous Organization",
   "description": "A governance-first company with dedicated safety, research, operations, finance, and execution roles.",
   "category": "governance",
+  "maturity": "opinionated",
   "tags": ["safety", "governance", "6-agent", "risk-aware"],
+  "useCases": ["governance-first automation", "high-trust operations"],
   "recommended": false,
   "icon": "shield"
 }

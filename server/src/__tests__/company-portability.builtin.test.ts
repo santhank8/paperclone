@@ -43,6 +43,13 @@ describe("company portability built-in source", () => {
         type: "builtin",
         templateId: "safe-autonomous-organization",
       },
+      include: {
+        company: true,
+        agents: true,
+        goals: true,
+        projects: true,
+        issues: true,
+      },
       target: {
         mode: "new_company",
         newCompanyName: null,
@@ -62,5 +69,8 @@ describe("company portability built-in source", () => {
       "finance-risk-lead",
       "operator",
     ]);
+    expect(preview.plan.goalPlans).toHaveLength(3);
+    expect(preview.plan.projectPlans).toHaveLength(2);
+    expect(preview.plan.issuePlans).toHaveLength(4);
   });
 });

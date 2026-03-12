@@ -1,6 +1,17 @@
+import type {
+  GoalLevel,
+  GoalStatus,
+  IssuePriority,
+  IssueStatus,
+  ProjectStatus,
+} from "../constants.js";
+
 export interface CompanyPortabilityInclude {
   company: boolean;
   agents: boolean;
+  goals: boolean;
+  projects: boolean;
+  issues: boolean;
 }
 
 export interface CompanyPortabilitySecretRequirement {
@@ -35,6 +46,51 @@ export interface CompanyPortabilityAgentManifestEntry {
   metadata: Record<string, unknown> | null;
 }
 
+export interface CompanyPortabilityGoalManifestEntry {
+  key: string;
+  title: string;
+  description: string | null;
+  level: GoalLevel;
+  status: GoalStatus;
+  parentKey: string | null;
+  ownerAgentSlug: string | null;
+}
+
+export interface CompanyPortabilityProjectWorkspaceManifestEntry {
+  name: string;
+  cwd: string | null;
+  repoUrl: string | null;
+  repoRef: string | null;
+  metadata: Record<string, unknown> | null;
+  isPrimary: boolean;
+}
+
+export interface CompanyPortabilityProjectManifestEntry {
+  key: string;
+  name: string;
+  description: string | null;
+  status: ProjectStatus;
+  goalKeys: string[];
+  leadAgentSlug: string | null;
+  targetDate: string | null;
+  color: string | null;
+  workspaces: CompanyPortabilityProjectWorkspaceManifestEntry[];
+}
+
+export interface CompanyPortabilityIssueManifestEntry {
+  key: string;
+  title: string;
+  description: string | null;
+  status: IssueStatus;
+  priority: IssuePriority;
+  projectKey: string | null;
+  goalKey: string | null;
+  parentKey: string | null;
+  assigneeAgentSlug: string | null;
+  requestDepth: number;
+  billingCode: string | null;
+}
+
 export interface CompanyPortabilityManifest {
   schemaVersion: number;
   generatedAt: string;
@@ -45,6 +101,9 @@ export interface CompanyPortabilityManifest {
   includes: CompanyPortabilityInclude;
   company: CompanyPortabilityCompanyManifestEntry | null;
   agents: CompanyPortabilityAgentManifestEntry[];
+  goals: CompanyPortabilityGoalManifestEntry[];
+  projects: CompanyPortabilityProjectManifestEntry[];
+  issues: CompanyPortabilityIssueManifestEntry[];
   requiredSecrets: CompanyPortabilitySecretRequirement[];
 }
 
@@ -103,6 +162,30 @@ export interface CompanyPortabilityPreviewAgentPlan {
   reason: string | null;
 }
 
+export interface CompanyPortabilityPreviewGoalPlan {
+  key: string;
+  action: "create" | "update" | "skip";
+  plannedTitle: string;
+  existingGoalId: string | null;
+  reason: string | null;
+}
+
+export interface CompanyPortabilityPreviewProjectPlan {
+  key: string;
+  action: "create" | "update" | "skip";
+  plannedName: string;
+  existingProjectId: string | null;
+  reason: string | null;
+}
+
+export interface CompanyPortabilityPreviewIssuePlan {
+  key: string;
+  action: "create" | "update" | "skip";
+  plannedTitle: string;
+  existingIssueId: string | null;
+  reason: string | null;
+}
+
 export interface CompanyPortabilityPreviewResult {
   include: CompanyPortabilityInclude;
   targetCompanyId: string | null;
@@ -112,6 +195,9 @@ export interface CompanyPortabilityPreviewResult {
   plan: {
     companyAction: "none" | "create" | "update";
     agentPlans: CompanyPortabilityPreviewAgentPlan[];
+    goalPlans: CompanyPortabilityPreviewGoalPlan[];
+    projectPlans: CompanyPortabilityPreviewProjectPlan[];
+    issuePlans: CompanyPortabilityPreviewIssuePlan[];
   };
   requiredSecrets: CompanyPortabilitySecretRequirement[];
   warnings: string[];
@@ -133,6 +219,27 @@ export interface CompanyPortabilityImportResult {
     name: string;
     reason: string | null;
   }[];
+  goals: {
+    key: string;
+    id: string | null;
+    action: "created" | "updated" | "skipped";
+    title: string;
+    reason: string | null;
+  }[];
+  projects: {
+    key: string;
+    id: string | null;
+    action: "created" | "updated" | "skipped";
+    name: string;
+    reason: string | null;
+  }[];
+  issues: {
+    key: string;
+    id: string | null;
+    action: "created" | "updated" | "skipped";
+    title: string;
+    reason: string | null;
+  }[];
   requiredSecrets: CompanyPortabilitySecretRequirement[];
   warnings: string[];
 }
@@ -146,7 +253,9 @@ export interface CompanyTemplateCatalogEntry {
   name: string;
   description: string;
   category: string | null;
+  maturity: string | null;
   tags: string[];
+  useCases: string[];
   recommended: boolean;
   icon: string | null;
   agentCount: number;

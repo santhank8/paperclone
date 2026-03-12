@@ -4,7 +4,10 @@
   "source": null,
   "includes": {
     "company": true,
-    "agents": true
+    "agents": true,
+    "goals": true,
+    "projects": true,
+    "issues": true
   },
   "company": {
     "path": "COMPANY.md",
@@ -181,6 +184,113 @@
       "permissions": {},
       "budgetMonthlyCents": 0,
       "metadata": null
+    }
+  ],
+  "goals": [
+    {
+      "key": "operating-boundary",
+      "title": "Establish operating boundary and decision rights",
+      "description": "Define what the organization may do autonomously, what requires escalation, and what is out of bounds.",
+      "level": "company",
+      "status": "active",
+      "parentKey": null,
+      "ownerAgentSlug": "ceo"
+    },
+    {
+      "key": "controls-framework",
+      "title": "Publish initial safety and control checklist",
+      "description": "Turn governance principles into concrete checks the org can apply before execution.",
+      "level": "team",
+      "status": "planned",
+      "parentKey": "operating-boundary",
+      "ownerAgentSlug": "safety-lead"
+    },
+    {
+      "key": "bounded-operating-plan",
+      "title": "Build the first bounded operating plan",
+      "description": "Translate the approved constraints into a staged operating cadence with explicit review points.",
+      "level": "team",
+      "status": "planned",
+      "parentKey": "operating-boundary",
+      "ownerAgentSlug": "operations-lead"
+    }
+  ],
+  "projects": [
+    {
+      "key": "initial-control-framework",
+      "name": "Initial Control Framework",
+      "description": "The first project to codify decision gates, review rules, and escalation triggers.",
+      "status": "planned",
+      "goalKeys": ["controls-framework"],
+      "leadAgentSlug": "safety-lead",
+      "targetDate": null,
+      "color": "#14532d",
+      "workspaces": []
+    },
+    {
+      "key": "bounded-operating-plan",
+      "name": "Bounded Operating Plan",
+      "description": "A staged plan for how the organization should move from research to execution under explicit controls.",
+      "status": "planned",
+      "goalKeys": ["bounded-operating-plan"],
+      "leadAgentSlug": "operations-lead",
+      "targetDate": null,
+      "color": "#0f766e",
+      "workspaces": []
+    }
+  ],
+  "issues": [
+    {
+      "key": "research-open-questions",
+      "title": "Draft the initial operating boundary and open questions",
+      "description": "Research the main unknowns, assumptions, and decision points the organization should resolve before autonomous execution expands.",
+      "status": "todo",
+      "priority": "high",
+      "projectKey": null,
+      "goalKey": "operating-boundary",
+      "parentKey": null,
+      "assigneeAgentSlug": "research-lead",
+      "requestDepth": 0,
+      "billingCode": null
+    },
+    {
+      "key": "safety-control-checklist",
+      "title": "Produce the first-pass safety control checklist",
+      "description": "Define concrete review checks for risky actions, unclear authority, broad automation, and irreversible changes.",
+      "status": "todo",
+      "priority": "high",
+      "projectKey": "initial-control-framework",
+      "goalKey": "controls-framework",
+      "parentKey": null,
+      "assigneeAgentSlug": "safety-lead",
+      "requestDepth": 0,
+      "billingCode": null
+    },
+    {
+      "key": "budget-risk-thresholds",
+      "title": "Define initial budget and risk review thresholds",
+      "description": "Set initial thresholds for when work must escalate for financial or operational risk review.",
+      "status": "todo",
+      "priority": "medium",
+      "projectKey": "bounded-operating-plan",
+      "goalKey": "bounded-operating-plan",
+      "parentKey": null,
+      "assigneeAgentSlug": "finance-risk-lead",
+      "requestDepth": 0,
+      "billingCode": null
+    },
+    {
+      "key": "staged-operating-cadence",
+      "title": "Turn approved controls into a staged operating cadence",
+      "description": "Build a first operating plan that sequences research, review, approval, and execution without collapsing them together.",
+      "status": "todo",
+      "priority": "high",
+      "projectKey": "bounded-operating-plan",
+      "goalKey": "bounded-operating-plan",
+      "parentKey": null,
+      "assigneeAgentSlug": "operations-lead",
+      "requestDepth": 0,
+      "billingCode": null
     }
   ],
   "requiredSecrets": []
