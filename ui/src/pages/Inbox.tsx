@@ -65,10 +65,10 @@ type SectionKey =
   | "alerts";
 
 const RUN_SOURCE_LABELS: Record<string, string> = {
-  timer: "Scheduled",
-  assignment: "Assignment",
-  on_demand: "Manual",
-  automation: "Automation",
+  timer: "定时",
+  assignment: "分配",
+  on_demand: "手动",
+  automation: "自动化",
 };
 
 function firstNonEmptyLine(value: string | null | undefined): string | null {
@@ -78,7 +78,7 @@ function firstNonEmptyLine(value: string | null | undefined): string | null {
 }
 
 function runFailureMessage(run: HeartbeatRun): string {
-  return firstNonEmptyLine(run.error) ?? firstNonEmptyLine(run.stderrExcerpt) ?? "Run exited with an error.";
+  return firstNonEmptyLine(run.error) ?? firstNonEmptyLine(run.stderrExcerpt) ?? "运行退出时出错。";
 }
 
 function readIssueIdFromRun(run: HeartbeatRun): string | null {
@@ -130,7 +130,7 @@ function FailedRunCard({
         payload,
       });
       if (!("id" in result)) {
-        throw new Error("Retry was skipped because the agent is not currently invokable.");
+        throw new Error("重试被跳过，因为智能体当前不可调用。");
       }
       return result;
     },
@@ -148,7 +148,7 @@ function FailedRunCard({
         type="button"
         onClick={onDismiss}
         className="absolute right-2 top-2 z-10 rounded-md p-1 text-muted-foreground opacity-0 transition-opacity hover:bg-accent hover:text-foreground group-hover:opacity-100"
-        aria-label="Dismiss"
+        aria-label="忽略"
       >
         <X className="h-4 w-4" />
       </button>
@@ -166,7 +166,7 @@ function FailedRunCard({
           </Link>
         ) : (
           <span className="block text-sm text-muted-foreground">
-            {run.errorCode ? `Error code: ${run.errorCode}` : "No linked issue"}
+            {run.errorCode ? `错误代码: ${run.errorCode}` : "无关联议题"}
           </span>
         )}
 
@@ -179,12 +179,12 @@ function FailedRunCard({
               {linkedAgentName ? (
                 <Identity name={linkedAgentName} size="sm" />
               ) : (
-                <span className="text-sm font-medium">Agent {run.agentId.slice(0, 8)}</span>
+                <span className="text-sm font-medium">智能体 {run.agentId.slice(0, 8)}</span>
               )}
               <StatusBadge status={run.status} />
             </div>
             <p className="mt-2 text-xs text-muted-foreground">
-              {sourceLabel} run failed {timeAgo(run.createdAt)}
+              {sourceLabel} 运行失败于 {timeAgo(run.createdAt)}
             </p>
           </div>
           <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
@@ -197,7 +197,7 @@ function FailedRunCard({
               disabled={retryRun.isPending}
             >
               <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
-              {retryRun.isPending ? "Retrying…" : "Retry"}
+              {retryRun.isPending ? "重试中…" : "重试"}
             </Button>
             <Button
               type="button"
@@ -207,7 +207,7 @@ function FailedRunCard({
               asChild
             >
               <Link to={`/agents/${run.agentId}/runs/${run.id}`}>
-                Open run
+                打开运行记录
                 <ArrowUpRight className="ml-1.5 h-3.5 w-3.5" />
               </Link>
             </Button>
@@ -224,7 +224,7 @@ function FailedRunCard({
 
         {retryRun.isError && (
           <div className="text-xs text-destructive">
-            {retryRun.error instanceof Error ? retryRun.error.message : "Failed to retry run"}
+            {retryRun.error instanceof Error ? retryRun.error.message : "重试运行失败"}
           </div>
         )}
       </div>
@@ -262,7 +262,7 @@ export function Inbox() {
   });
 
   useEffect(() => {
-    setBreadcrumbs([{ label: "Inbox" }]);
+    setBreadcrumbs([{ label: "收件箱" }]);
   }, [setBreadcrumbs]);
 
   useEffect(() => {
@@ -386,7 +386,7 @@ export function Inbox() {
       navigate(`/approvals/${id}?resolved=approved`);
     },
     onError: (err) => {
-      setActionError(err instanceof Error ? err.message : "Failed to approve");
+      setActionError(err instanceof Error ? err.message : "批准失败");
     },
   });
 
@@ -397,7 +397,7 @@ export function Inbox() {
       queryClient.invalidateQueries({ queryKey: queryKeys.approvals.list(selectedCompanyId!) });
     },
     onError: (err) => {
-      setActionError(err instanceof Error ? err.message : "Failed to reject");
+      setActionError(err instanceof Error ? err.message : "拒绝失败");
     },
   });
 
@@ -412,7 +412,7 @@ export function Inbox() {
       queryClient.invalidateQueries({ queryKey: queryKeys.companies.all });
     },
     onError: (err) => {
-      setActionError(err instanceof Error ? err.message : "Failed to approve join request");
+      setActionError(err instanceof Error ? err.message : "批准加入请求失败");
     },
   });
 
@@ -425,7 +425,7 @@ export function Inbox() {
       queryClient.invalidateQueries({ queryKey: queryKeys.sidebarBadges(selectedCompanyId!) });
     },
     onError: (err) => {
-      setActionError(err instanceof Error ? err.message : "Failed to reject join request");
+      setActionError(err instanceof Error ? err.message : "拒绝加入请求失败");
     },
   });
 
@@ -483,7 +483,7 @@ export function Inbox() {
   });
 
   if (!selectedCompanyId) {
-    return <EmptyState icon={InboxIcon} message="Select a company to view inbox." />;
+    return <EmptyState icon={InboxIcon} message="请选择一个公司以查看收件箱。" />;
   }
 
   const hasRunFailures = failedRuns.length > 0;
@@ -552,10 +552,10 @@ export function Inbox() {
             items={[
               {
                 value: "recent",
-                label: "Recent",
+                label: "最近",
               },
-              { value: "unread", label: "Unread" },
-              { value: "all", label: "All" },
+              { value: "unread", label: "未读" },
+              { value: "all", label: "全部" },
             ]}
           />
         </Tabs>
@@ -570,7 +570,7 @@ export function Inbox() {
               onClick={() => markAllReadMutation.mutate(unreadIssueIds)}
               disabled={markAllReadMutation.isPending}
             >
-              {markAllReadMutation.isPending ? "Marking…" : "Mark all as read"}
+              {markAllReadMutation.isPending ? "标记中…" : "全部标为已读"}
             </Button>
           )}
 
@@ -581,15 +581,15 @@ export function Inbox() {
               onValueChange={(value) => setAllCategoryFilter(value as InboxCategoryFilter)}
             >
               <SelectTrigger className="h-8 w-[170px] text-xs">
-                <SelectValue placeholder="Category" />
+                <SelectValue placeholder="分类" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="everything">All categories</SelectItem>
-                <SelectItem value="issues_i_touched">My recent issues</SelectItem>
-                <SelectItem value="join_requests">Join requests</SelectItem>
-                <SelectItem value="approvals">Approvals</SelectItem>
-                <SelectItem value="failed_runs">Failed runs</SelectItem>
-                <SelectItem value="alerts">Alerts</SelectItem>
+                <SelectItem value="everything">所有分类</SelectItem>
+                <SelectItem value="issues_i_touched">我最近的议题</SelectItem>
+                <SelectItem value="join_requests">加入请求</SelectItem>
+                <SelectItem value="approvals">审批</SelectItem>
+                <SelectItem value="failed_runs">失败的运行</SelectItem>
+                <SelectItem value="alerts">告警</SelectItem>
               </SelectContent>
             </Select>
 
@@ -599,12 +599,12 @@ export function Inbox() {
                 onValueChange={(value) => setAllApprovalFilter(value as InboxApprovalFilter)}
               >
                 <SelectTrigger className="h-8 w-[170px] text-xs">
-                  <SelectValue placeholder="Approval status" />
+                  <SelectValue placeholder="审批状态" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All approval statuses</SelectItem>
-                  <SelectItem value="actionable">Needs action</SelectItem>
-                  <SelectItem value="resolved">Resolved</SelectItem>
+                  <SelectItem value="all">所有审批状态</SelectItem>
+                  <SelectItem value="actionable">需处理</SelectItem>
+                  <SelectItem value="resolved">已处理</SelectItem>
                 </SelectContent>
               </Select>
             )}
@@ -625,10 +625,10 @@ export function Inbox() {
           icon={InboxIcon}
           message={
             tab === "unread"
-              ? "No new inbox items."
+              ? "暂无新收件箱项目。"
               : tab === "recent"
-                ? "No recent inbox items."
-                : "No inbox items match these filters."
+                ? "暂无最近的收件箱项目。"
+                : "没有匹配这些筛选条件的收件箱项目。"
           }
         />
       )}
@@ -638,7 +638,7 @@ export function Inbox() {
           {showSeparatorBefore("approvals") && <Separator />}
           <div>
             <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-              {tab === "unread" ? "Approvals Needing Action" : "Approvals"}
+              {tab === "unread" ? "需处理的审批" : "审批"}
             </h3>
             <div className="grid gap-3">
               {approvalsToRender.map((approval) => (
@@ -666,7 +666,7 @@ export function Inbox() {
           {showSeparatorBefore("join_requests") && <Separator />}
           <div>
             <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-              Join Requests
+              加入请求
             </h3>
             <div className="grid gap-3">
               {joinRequests.map((joinRequest) => (
@@ -675,19 +675,19 @@ export function Inbox() {
                     <div className="space-y-1">
                       <p className="text-sm font-medium">
                         {joinRequest.requestType === "human"
-                          ? "Human join request"
-                          : `Agent join request${joinRequest.agentName ? `: ${joinRequest.agentName}` : ""}`}
+                          ? "人类加入请求"
+                          : `智能体加入请求${joinRequest.agentName ? `: ${joinRequest.agentName}` : ""}`}
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        requested {timeAgo(joinRequest.createdAt)} from IP {joinRequest.requestIp}
+                        请求于 {timeAgo(joinRequest.createdAt)}，来自 IP {joinRequest.requestIp}
                       </p>
                       {joinRequest.requestEmailSnapshot && (
                         <p className="text-xs text-muted-foreground">
-                          email: {joinRequest.requestEmailSnapshot}
+                          邮箱: {joinRequest.requestEmailSnapshot}
                         </p>
                       )}
                       {joinRequest.adapterType && (
-                        <p className="text-xs text-muted-foreground">adapter: {joinRequest.adapterType}</p>
+                        <p className="text-xs text-muted-foreground">适配器: {joinRequest.adapterType}</p>
                       )}
                     </div>
                     <div className="flex items-center gap-2">
@@ -697,14 +697,14 @@ export function Inbox() {
                         disabled={approveJoinMutation.isPending || rejectJoinMutation.isPending}
                         onClick={() => rejectJoinMutation.mutate(joinRequest)}
                       >
-                        Reject
+                        拒绝
                       </Button>
                       <Button
                         size="sm"
                         disabled={approveJoinMutation.isPending || rejectJoinMutation.isPending}
                         onClick={() => approveJoinMutation.mutate(joinRequest)}
                       >
-                        Approve
+                        批准
                       </Button>
                     </div>
                   </div>
@@ -720,7 +720,7 @@ export function Inbox() {
           {showSeparatorBefore("failed_runs") && <Separator />}
           <div>
             <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-              Failed Runs
+              失败的运行
             </h3>
             <div className="grid gap-3">
               {failedRuns.map((run) => (
@@ -743,7 +743,7 @@ export function Inbox() {
           {showSeparatorBefore("alerts") && <Separator />}
           <div>
             <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-              Alerts
+              告警
             </h3>
             <div className="divide-y divide-border border border-border">
               {showAggregateAgentError && (
@@ -755,14 +755,14 @@ export function Inbox() {
                     <AlertTriangle className="h-4 w-4 shrink-0 text-red-600 dark:text-red-400" />
                     <span className="text-sm">
                       <span className="font-medium">{dashboard!.agents.error}</span>{" "}
-                      {dashboard!.agents.error === 1 ? "agent has" : "agents have"} errors
+                      {dashboard!.agents.error === 1 ? "个智能体有" : "个智能体有"}错误
                     </span>
                   </Link>
                   <button
                     type="button"
                     onClick={() => dismiss("alert:agent-errors")}
                     className="rounded-md p-1 text-muted-foreground opacity-0 transition-opacity hover:bg-accent hover:text-foreground group-hover/alert:opacity-100"
-                    aria-label="Dismiss"
+                    aria-label="忽略"
                   >
                     <X className="h-3.5 w-3.5" />
                   </button>
@@ -776,16 +776,15 @@ export function Inbox() {
                   >
                     <AlertTriangle className="h-4 w-4 shrink-0 text-yellow-400" />
                     <span className="text-sm">
-                      Budget at{" "}
-                      <span className="font-medium">{dashboard!.costs.monthUtilizationPercent}%</span>{" "}
-                      utilization this month
+                      本月预算已使用{" "}
+                      <span className="font-medium">{dashboard!.costs.monthUtilizationPercent}%</span>
                     </span>
                   </Link>
                   <button
                     type="button"
                     onClick={() => dismiss("alert:budget")}
                     className="rounded-md p-1 text-muted-foreground opacity-0 transition-opacity hover:bg-accent hover:text-foreground group-hover/alert:opacity-100"
-                    aria-label="Dismiss"
+                    aria-label="忽略"
                   >
                     <X className="h-3.5 w-3.5" />
                   </button>
@@ -829,7 +828,7 @@ export function Inbox() {
                             }
                           }}
                           className="inline-flex h-4 w-4 cursor-pointer items-center justify-center rounded-full transition-colors hover:bg-blue-500/20"
-                          aria-label="Mark as read"
+                          aria-label="标为已读"
                         >
                           <span
                             className={`block h-2 w-2 rounded-full bg-blue-600 dark:bg-blue-400 transition-opacity duration-300 ${
@@ -854,8 +853,8 @@ export function Inbox() {
                     </span>
                     <span className="hidden shrink-0 self-center text-xs text-muted-foreground sm:block">
                       {issue.lastExternalCommentAt
-                        ? `commented ${timeAgo(issue.lastExternalCommentAt)}`
-                        : `updated ${timeAgo(issue.updatedAt)}`}
+                        ? `评论于 ${timeAgo(issue.lastExternalCommentAt)}`
+                        : `更新于 ${timeAgo(issue.updatedAt)}`}
                     </span>
                   </Link>
                 );

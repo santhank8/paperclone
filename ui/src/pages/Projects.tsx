@@ -19,7 +19,7 @@ export function Projects() {
   const { setBreadcrumbs } = useBreadcrumbs();
 
   useEffect(() => {
-    setBreadcrumbs([{ label: "Projects" }]);
+    setBreadcrumbs([{ label: "项目" }]);
   }, [setBreadcrumbs]);
 
   const { data: projects, isLoading, error } = useQuery({
@@ -29,7 +29,7 @@ export function Projects() {
   });
 
   if (!selectedCompanyId) {
-    return <EmptyState icon={Hexagon} message="Select a company to view projects." />;
+    return <EmptyState icon={Hexagon} message="请先选择一个公司以查看项目。" />;
   }
 
   if (isLoading) {
@@ -41,7 +41,7 @@ export function Projects() {
       <div className="flex items-center justify-end">
         <Button size="sm" variant="outline" onClick={openNewProject}>
           <Plus className="h-4 w-4 mr-1" />
-          Add Project
+          添加项目
         </Button>
       </div>
 
@@ -50,8 +50,8 @@ export function Projects() {
       {projects && projects.length === 0 && (
         <EmptyState
           icon={Hexagon}
-          message="No projects yet."
-          action="Add Project"
+          message="暂无项目。"
+          action="添加项目"
           onAction={openNewProject}
         />
       )}

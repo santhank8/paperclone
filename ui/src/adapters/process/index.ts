@@ -5,7 +5,7 @@ import { buildProcessConfig } from "./build-config";
 
 export const processUIAdapter: UIAdapterModule = {
   type: "process",
-  label: "Shell Process",
+  label: "Shell 进程",
   parseStdoutLine: parseProcessStdoutLine,
   ConfigFields: ProcessConfigFields,
   buildAdapterConfig: buildProcessConfig,

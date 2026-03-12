@@ -54,13 +54,13 @@ export const AGENT_ROLE_LABELS: Record<AgentRole, string> = {
   cto: "CTO",
   cmo: "CMO",
   cfo: "CFO",
-  engineer: "Engineer",
-  designer: "Designer",
-  pm: "PM",
-  qa: "QA",
-  devops: "DevOps",
-  researcher: "Researcher",
-  general: "General",
+  engineer: "工程师",
+  designer: "设计师",
+  pm: "产品经理",
+  qa: "质量保证",
+  devops: "运维",
+  researcher: "研究员",
+  general: "通用",
 };
 
 export const AGENT_ICON_NAMES = [

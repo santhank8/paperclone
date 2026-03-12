@@ -23,7 +23,7 @@ export function InlineEditor({
   onSave,
   as: Tag = "span",
   className,
-  placeholder = "Click to edit...",
+  placeholder = "点击编辑...",
   multiline = false,
   imageUploadHandler,
   mentions,
@@ -95,10 +95,10 @@ export function InlineEditor({
                 setEditing(false);
               }}
             >
-              Cancel
+              取消
             </Button>
             <Button size="sm" onClick={commit}>
-              Save
+              保存
             </Button>
           </div>
         </div>

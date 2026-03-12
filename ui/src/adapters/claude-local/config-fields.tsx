@@ -13,7 +13,7 @@ const inputClass =
   "w-full rounded-md border border-border px-2.5 py-1.5 bg-transparent outline-none text-sm font-mono placeholder:text-muted-foreground/40";
 
 const instructionsFileHint =
-  "Absolute path to a markdown file (e.g. AGENTS.md) that defines this agent's behavior. Injected into the system prompt at runtime.";
+  "Markdown 文件的绝对路径（例如 AGENTS.md），用于定义此 Agent 的行为。运行时注入系统提示词。";
 
 export function ClaudeLocalConfigFields({
   mode,
@@ -28,7 +28,7 @@ export function ClaudeLocalConfigFields({
 }: AdapterConfigFieldsProps) {
   return (
     <>
-      <Field label="Agent instructions file" hint={instructionsFileHint}>
+      <Field label="Agent 指令文件" hint={instructionsFileHint}>
         <div className="flex items-center gap-2">
           <DraftInput
             value={
@@ -47,7 +47,7 @@ export function ClaudeLocalConfigFields({
             }
             immediate
             className={inputClass}
-            placeholder="/absolute/path/to/AGENTS.md"
+            placeholder="/绝对路径/AGENTS.md"
           />
           <ChoosePathButton />
         </div>
@@ -78,7 +78,7 @@ export function ClaudeLocalAdvancedFields({
   return (
     <>
       <ToggleField
-        label="Enable Chrome"
+        label="启用 Chrome"
         hint={help.chrome}
         checked={
           isCreate
@@ -92,7 +92,7 @@ export function ClaudeLocalAdvancedFields({
         }
       />
       <ToggleField
-        label="Skip permissions"
+        label="跳过权限确认"
         hint={help.dangerouslySkipPermissions}
         checked={
           isCreate
@@ -109,7 +109,7 @@ export function ClaudeLocalAdvancedFields({
             : mark("adapterConfig", "dangerouslySkipPermissions", v)
         }
       />
-      <Field label="Max turns per run" hint={help.maxTurnsPerRun}>
+      <Field label="每次运行最大轮次" hint={help.maxTurnsPerRun}>
         {isCreate ? (
           <input
             type="number"

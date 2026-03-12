@@ -19,52 +19,52 @@ import { AGENT_ROLE_LABELS } from "@paperclipai/shared";
 
 /* ---- Help text for (?) tooltips ---- */
 export const help: Record<string, string> = {
-  name: "Display name for this agent.",
-  title: "Job title shown in the org chart.",
-  role: "Organizational role. Determines position and capabilities.",
-  reportsTo: "The agent this one reports to in the org hierarchy.",
-  capabilities: "Describes what this agent can do. Shown in the org chart and used for task routing.",
-  adapterType: "How this agent runs: local CLI (Claude/Codex/OpenCode), OpenClaw Gateway, spawned process, or generic HTTP webhook.",
-  cwd: "Default working directory fallback for local adapters. Use an absolute path on the machine running Paperclip.",
-  promptTemplate: "The prompt sent to the agent on each heartbeat. Supports {{ agent.id }}, {{ agent.name }}, {{ agent.role }} variables.",
-  model: "Override the default model used by the adapter.",
-  thinkingEffort: "Control model reasoning depth. Supported values vary by adapter/model.",
-  chrome: "Enable Claude's Chrome integration by passing --chrome.",
-  dangerouslySkipPermissions: "Run Claude without permission prompts. Required for unattended operation.",
-  dangerouslyBypassSandbox: "Run Codex without sandbox restrictions. Required for filesystem/network access.",
-  search: "Enable Codex web search capability during runs.",
-  workspaceStrategy: "How Paperclip should realize an execution workspace for this agent. Keep project_primary for normal cwd execution, or use git_worktree for issue-scoped isolated checkouts.",
-  workspaceBaseRef: "Base git ref used when creating a worktree branch. Leave blank to use the resolved workspace ref or HEAD.",
-  workspaceBranchTemplate: "Template for naming derived branches. Supports {{issue.identifier}}, {{issue.title}}, {{agent.name}}, {{project.id}}, {{workspace.repoRef}}, and {{slug}}.",
-  worktreeParentDir: "Directory where derived worktrees should be created. Absolute, ~-prefixed, and repo-relative paths are supported.",
-  runtimeServicesJson: "Optional workspace runtime service definitions. Use this for shared app servers, workers, or other long-lived companion processes attached to the workspace.",
-  maxTurnsPerRun: "Maximum number of agentic turns (tool calls) per heartbeat run.",
-  command: "The command to execute (e.g. node, python).",
-  localCommand: "Override the path to the CLI command you want the adapter to call (e.g. /usr/local/bin/claude, codex, opencode).",
-  args: "Command-line arguments, comma-separated.",
-  extraArgs: "Extra CLI arguments for local adapters, comma-separated.",
-  envVars: "Environment variables injected into the adapter process. Use plain values or secret references.",
-  bootstrapPrompt: "Optional prompt prepended on the first run to bootstrap the agent's environment or habits.",
-  payloadTemplateJson: "Optional JSON merged into remote adapter request payloads before Paperclip adds its standard wake and workspace fields.",
-  webhookUrl: "The URL that receives POST requests when the agent is invoked.",
-  heartbeatInterval: "Run this agent automatically on a timer. Useful for periodic tasks like checking for new work.",
-  intervalSec: "Seconds between automatic heartbeat invocations.",
-  timeoutSec: "Maximum seconds a run can take before being terminated. 0 means no timeout.",
-  graceSec: "Seconds to wait after sending interrupt before force-killing the process.",
-  wakeOnDemand: "Allow this agent to be woken by assignments, API calls, UI actions, or automated systems.",
-  cooldownSec: "Minimum seconds between consecutive heartbeat runs.",
-  maxConcurrentRuns: "Maximum number of heartbeat runs that can execute simultaneously for this agent.",
-  budgetMonthlyCents: "Monthly spending limit in cents. 0 means no limit.",
+  name: "此 Agent 的显示名称。",
+  title: "在组织架构图中显示的职位名称。",
+  role: "组织角色。决定位置和能力范围。",
+  reportsTo: "在组织层级中该 Agent 汇报的上级。",
+  capabilities: "描述此 Agent 的能力。显示在组织架构图中，并用于任务路由。",
+  adapterType: "此 Agent 的运行方式：本地 CLI（Claude/Codex/OpenCode）、OpenClaw 网关、派生进程或通用 HTTP webhook。",
+  cwd: "本地适配器的默认工作目录。请使用运行 Paperclip 的机器上的绝对路径。",
+  promptTemplate: "每次心跳时发送给 Agent 的提示词。支持 {{ agent.id }}、{{ agent.name }}、{{ agent.role }} 变量。",
+  model: "覆盖适配器使用的默认模型。",
+  thinkingEffort: "控制模型推理深度。支持的值因适配器/模型而异。",
+  chrome: "通过传递 --chrome 启用 Claude 的 Chrome 集成。",
+  dangerouslySkipPermissions: "在无权限提示的情况下运行 Claude。无人值守运行时需要启用。",
+  dangerouslyBypassSandbox: "在无沙箱限制的情况下运行 Codex。需要文件系统/网络访问时启用。",
+  search: "在运行期间启用 Codex 网络搜索功能。",
+  workspaceStrategy: "Paperclip 如何为此 Agent 实现执行工作区。保持 project_primary 以进行正常 cwd 执行，或使用 git_worktree 进行任务隔离签出。",
+  workspaceBaseRef: "创建工作树分支时使用的基础 git 引用。留空则使用已解析的工作区引用或 HEAD。",
+  workspaceBranchTemplate: "派生分支的命名模板。支持 {{issue.identifier}}、{{issue.title}}、{{agent.name}}、{{project.id}}、{{workspace.repoRef}} 和 {{slug}}。",
+  worktreeParentDir: "派生工作树的创建目录。支持绝对路径、~前缀路径和仓库相对路径。",
+  runtimeServicesJson: "可选的工作区运行时服务定义。用于共享应用服务器、Worker 或其他附加到工作区的长期伴随进程。",
+  maxTurnsPerRun: "每次心跳运行的最大 Agent 轮次（工具调用）数。",
+  command: "要执行的命令（如 node、python）。",
+  localCommand: "覆盖适配器要调用的 CLI 命令路径（如 /usr/local/bin/claude、codex、opencode）。",
+  args: "命令行参数，以逗号分隔。",
+  extraArgs: "本地适配器的额外 CLI 参数，以逗号分隔。",
+  envVars: "注入到适配器进程的环境变量。可使用明文值或密钥引用。",
+  bootstrapPrompt: "可选的提示词，在首次运行时预置，用于初始化 Agent 的环境或行为习惯。",
+  payloadTemplateJson: "可选的 JSON，在 Paperclip 添加标准唤醒和工作区字段之前合并到远程适配器请求负载中。",
+  webhookUrl: "Agent 被调用时接收 POST 请求的 URL。",
+  heartbeatInterval: "按定时器自动运行此 Agent。适用于检查新任务等周期性工作。",
+  intervalSec: "自动心跳调用之间的间隔秒数。",
+  timeoutSec: "运行的最大超时秒数，超时后将被终止。0 表示无超时限制。",
+  graceSec: "发送中断信号后等待强制终止进程的秒数。",
+  wakeOnDemand: "允许通过任务分配、API 调用、界面操作或自动化系统唤醒此 Agent。",
+  cooldownSec: "连续心跳运行之间的最小间隔秒数。",
+  maxConcurrentRuns: "此 Agent 可同时执行的最大心跳运行数。",
+  budgetMonthlyCents: "每月消费限额（单位：分）。0 表示无限制。",
 };
 
 export const adapterLabels: Record<string, string> = {
-  claude_local: "Claude (local)",
-  codex_local: "Codex (local)",
-  gemini_local: "Gemini CLI (local)",
-  opencode_local: "OpenCode (local)",
-  openclaw_gateway: "OpenClaw Gateway",
-  cursor: "Cursor (local)",
-  process: "Process",
+  claude_local: "Claude（本地）",
+  codex_local: "Codex（本地）",
+  gemini_local: "Gemini CLI（本地）",
+  opencode_local: "OpenCode（本地）",
+  openclaw_gateway: "OpenClaw 网关",
+  cursor: "Cursor（本地）",
+  process: "进程",
   http: "HTTP",
 };
 
@@ -401,54 +401,54 @@ export function ChoosePathButton() {
         className="inline-flex items-center rounded-md border border-border px-2 py-0.5 text-xs text-muted-foreground hover:bg-accent/50 transition-colors shrink-0"
         onClick={() => setOpen(true)}
       >
-        Choose
+        选择路径
       </button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Specify path manually</DialogTitle>
+            <DialogTitle>手动指定路径</DialogTitle>
             <DialogDescription>
-              Browser security blocks apps from reading full local paths via a file picker.
-              Copy the absolute path and paste it into the input.
+              浏览器安全策略限制应用通过文件选择器读取本地完整路径。
+              请复制绝对路径并粘贴到输入框中。
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 text-sm">
             <section className="space-y-1.5">
-              <p className="font-medium">macOS (Finder)</p>
+              <p className="font-medium">macOS（访达）</p>
               <ol className="list-decimal space-y-1 pl-5 text-muted-foreground">
-                <li>Find the folder in Finder.</li>
-                <li>Hold <kbd>Option</kbd> and right-click the folder.</li>
-                <li>Click "Copy &lt;folder name&gt; as Pathname".</li>
-                <li>Paste the result into the path input.</li>
+                <li>在访达中找到目标文件夹。</li>
+                <li>按住 <kbd>Option</kbd> 键并右键点击文件夹。</li>
+                <li>点击"将&lt;文件夹名&gt;拷贝为路径名"。</li>
+                <li>将结果粘贴到路径输入框中。</li>
               </ol>
               <p className="rounded-md bg-muted px-2 py-1 font-mono text-xs">
                 /Users/yourname/Documents/project
               </p>
             </section>
             <section className="space-y-1.5">
-              <p className="font-medium">Windows (File Explorer)</p>
+              <p className="font-medium">Windows（文件资源管理器）</p>
               <ol className="list-decimal space-y-1 pl-5 text-muted-foreground">
-                <li>Find the folder in File Explorer.</li>
-                <li>Hold <kbd>Shift</kbd> and right-click the folder.</li>
-                <li>Click "Copy as path".</li>
-                <li>Paste the result into the path input.</li>
+                <li>在文件资源管理器中找到目标文件夹。</li>
+                <li>按住 <kbd>Shift</kbd> 键并右键点击文件夹。</li>
+                <li>点击"复制为路径"。</li>
+                <li>将结果粘贴到路径输入框中。</li>
               </ol>
               <p className="rounded-md bg-muted px-2 py-1 font-mono text-xs">
                 C:\Users\yourname\Documents\project
               </p>
             </section>
             <section className="space-y-1.5">
-              <p className="font-medium">Terminal fallback (macOS/Linux)</p>
+              <p className="font-medium">终端备选方案（macOS/Linux）</p>
               <ol className="list-decimal space-y-1 pl-5 text-muted-foreground">
-                <li>Run <code>cd /path/to/folder</code>.</li>
-                <li>Run <code>pwd</code>.</li>
-                <li>Copy the output and paste it into the path input.</li>
+                <li>运行 <code>cd /path/to/folder</code>。</li>
+                <li>运行 <code>pwd</code>。</li>
+                <li>复制输出内容并粘贴到路径输入框中。</li>
               </ol>
             </section>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)}>
-              OK
+              确定
             </Button>
           </DialogFooter>
         </DialogContent>

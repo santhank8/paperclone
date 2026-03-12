@@ -253,7 +253,7 @@ export const MarkdownEditor = forwardRef<MarkdownEditorRef, MarkdownEditorProps>
             setUploadError(null);
             return src;
           } catch (err) {
-            const message = err instanceof Error ? err.message : "Image upload failed";
+            const message = err instanceof Error ? err.message : "图片上传失败";
             setUploadError(message);
             throw err;
           }
@@ -599,7 +599,7 @@ export const MarkdownEditor = forwardRef<MarkdownEditorRef, MarkdownEditorProps>
               <span>{option.name}</span>
               {option.kind === "project" && option.projectId && (
                 <span className="ml-auto text-[10px] uppercase tracking-wide text-muted-foreground">
-                  Project
+                  项目
                 </span>
               )}
             </button>
@@ -614,7 +614,7 @@ export const MarkdownEditor = forwardRef<MarkdownEditorRef, MarkdownEditorProps>
             !bordered && "inset-0 rounded-sm",
           )}
         >
-          Drop image to upload
+          拖放图片以上传
         </div>
       )}
       {uploadError && (

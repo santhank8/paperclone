@@ -32,8 +32,18 @@ const boardStatuses = [
   "cancelled",
 ];
 
+const statusLabelMap: Record<string, string> = {
+  backlog: "待规划",
+  todo: "待办",
+  in_progress: "进行中",
+  in_review: "审核中",
+  blocked: "已阻塞",
+  done: "已完成",
+  cancelled: "已取消",
+};
+
 function statusLabel(status: string): string {
-  return status.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+  return statusLabelMap[status] ?? status.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 interface Agent {

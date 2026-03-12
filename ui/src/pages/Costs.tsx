@@ -16,12 +16,12 @@ import { DollarSign } from "lucide-react";
 type DatePreset = "mtd" | "7d" | "30d" | "ytd" | "all" | "custom";
 
 const PRESET_LABELS: Record<DatePreset, string> = {
-  mtd: "Month to Date",
-  "7d": "Last 7 Days",
-  "30d": "Last 30 Days",
-  ytd: "Year to Date",
-  all: "All Time",
-  custom: "Custom",
+  mtd: "本月至今",
+  "7d": "最近 7 天",
+  "30d": "最近 30 天",
+  ytd: "本年至今",
+  all: "全部时间",
+  custom: "自定义",
 };
 
 function computeRange(preset: DatePreset): { from: string; to: string } {
@@ -60,7 +60,7 @@ export function Costs() {
   const [customTo, setCustomTo] = useState("");
 
   useEffect(() => {
-    setBreadcrumbs([{ label: "Costs" }]);
+    setBreadcrumbs([{ label: "费用" }]);
   }, [setBreadcrumbs]);
 
   const { from, to } = useMemo(() => {
@@ -87,7 +87,7 @@ export function Costs() {
   });
 
   if (!selectedCompanyId) {
-    return <EmptyState icon={DollarSign} message="Select a company to view costs." />;
+    return <EmptyState icon={DollarSign} message="请选择一个公司以查看费用。" />;
   }
 
   if (isLoading) {
@@ -118,7 +118,7 @@ export function Costs() {
               onChange={(e) => setCustomFrom(e.target.value)}
               className="h-8 rounded-md border border-input bg-background px-2 text-sm text-foreground"
             />
-            <span className="text-sm text-muted-foreground">to</span>
+            <span className="text-sm text-muted-foreground">至</span>
             <input
               type="date"
               value={customTo}
@@ -140,7 +140,7 @@ export function Costs() {
                 <p className="text-sm text-muted-foreground">{PRESET_LABELS[preset]}</p>
                 {data.summary.budgetCents > 0 && (
                   <p className="text-sm text-muted-foreground">
-                    {data.summary.utilizationPercent}% utilized
+                    已使用 {data.summary.utilizationPercent}%
                   </p>
                 )}
               </div>
@@ -149,7 +149,7 @@ export function Costs() {
                 <span className="text-base font-normal text-muted-foreground">
                   {data.summary.budgetCents > 0
                     ? `/ ${formatCents(data.summary.budgetCents)}`
-                    : "Unlimited budget"}
+                    : "无限预算"}
                 </span>
               </p>
               {data.summary.budgetCents > 0 && (
@@ -173,9 +173,9 @@ export function Costs() {
           <div className="grid md:grid-cols-2 gap-4">
             <Card>
               <CardContent className="p-4">
-                <h3 className="text-sm font-semibold mb-3">By Agent</h3>
+                <h3 className="text-sm font-semibold mb-3">按智能体</h3>
                 {data.byAgent.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No cost events yet.</p>
+                  <p className="text-sm text-muted-foreground">暂无费用记录。</p>
                 ) : (
                   <div className="space-y-2">
                     {data.byAgent.map((row) => (
@@ -216,9 +216,9 @@ export function Costs() {
 
             <Card>
               <CardContent className="p-4">
-                <h3 className="text-sm font-semibold mb-3">By Project</h3>
+                <h3 className="text-sm font-semibold mb-3">按项目</h3>
                 {data.byProject.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No project-attributed run costs yet.</p>
+                  <p className="text-sm text-muted-foreground">暂无项目关联的运行费用。</p>
                 ) : (
                   <div className="space-y-2">
                     {data.byProject.map((row) => (
@@ -227,7 +227,7 @@ export function Costs() {
                         className="flex items-center justify-between text-sm"
                       >
                         <span className="truncate">
-                          {row.projectName ?? row.projectId ?? "Unattributed"}
+                          {row.projectName ?? row.projectId ?? "未归属"}
                         </span>
                         <span className="font-medium tabular-nums">{formatCents(row.costCents)}</span>
                       </div>
