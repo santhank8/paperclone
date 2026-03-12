@@ -78,6 +78,7 @@ export function parseGeminiJsonl(stdout: string) {
   let errorMessage: string | null = null;
   let costUsd: number | null = null;
   let resultEvent: Record<string, unknown> | null = null;
+  let question: any = null;
   const usage = {
     inputTokens: 0,
     cachedInputTokens: 0,
@@ -98,6 +99,24 @@ export function parseGeminiJsonl(stdout: string) {
 
     if (type === "assistant") {
       messages.push(...collectMessageText(event.message));
+      const messageObj = parseObject(event.message);
+      const content = Array.isArray(messageObj.content) ? messageObj.content : [];
+      for (const partRaw of content) {
+        const part = parseObject(partRaw);
+        if (asString(part.type, "").trim() === "question") {
+          question = {
+            prompt: asString(part.prompt, "").trim(),
+            choices: (Array.isArray(part.choices) ? part.choices : []).map((choiceRaw) => {
+              const choice = parseObject(choiceRaw);
+              return {
+                key: asString(choice.key, "").trim(),
+                label: asString(choice.label, "").trim(),
+                description: asString(choice.description, "").trim() || undefined,
+              };
+            }),
+          };
+        }
+      }
       continue;
     }
 
@@ -154,6 +173,7 @@ export function parseGeminiJsonl(stdout: string) {
     costUsd,
     errorMessage,
     resultEvent,
+    question,
   };
 }
 
