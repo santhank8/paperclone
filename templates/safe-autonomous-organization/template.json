@@ -1,0 +1,9 @@
+{
+  "id": "safe-autonomous-organization",
+  "name": "Safe Autonomous Organization",
+  "description": "A governance-first company with dedicated safety, research, operations, finance, and execution roles.",
+  "category": "governance",
+  "tags": ["safety", "governance", "6-agent", "risk-aware"],
+  "recommended": false,
+  "icon": "shield"
+}

@@ -38,6 +38,10 @@ describe("template routes", () => {
           id: "solo-founder-lite",
           name: "Solo Founder Lite",
         }),
+        expect.objectContaining({
+          id: "safe-autonomous-organization",
+          name: "Safe Autonomous Organization",
+        }),
       ]),
     );
   });

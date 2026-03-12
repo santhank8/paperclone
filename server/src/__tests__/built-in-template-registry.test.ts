@@ -23,6 +23,12 @@ describe("built-in template registry", () => {
           agentCount: 2,
           companyName: "Solo Founder Lite",
         }),
+        expect.objectContaining({
+          id: "safe-autonomous-organization",
+          name: "Safe Autonomous Organization",
+          agentCount: 6,
+          companyName: "Safe Autonomous Organization",
+        }),
       ]),
     );
   });
@@ -31,6 +37,19 @@ describe("built-in template registry", () => {
     const detail = await getBuiltInTemplate("solo-founder-lite", { templatesRoot });
     expect(detail.id).toBe("solo-founder-lite");
     expect(detail.manifest.agents.map((agent) => agent.slug)).toEqual(["ceo", "operator"]);
+  });
+
+  it("loads safe autonomous organization detail", async () => {
+    const detail = await getBuiltInTemplate("safe-autonomous-organization", { templatesRoot });
+    expect(detail.id).toBe("safe-autonomous-organization");
+    expect(detail.manifest.agents.map((agent) => agent.slug)).toEqual([
+      "ceo",
+      "safety-lead",
+      "operations-lead",
+      "research-lead",
+      "finance-risk-lead",
+      "operator",
+    ]);
   });
 
   it("loads the full built-in template bundle", async () => {

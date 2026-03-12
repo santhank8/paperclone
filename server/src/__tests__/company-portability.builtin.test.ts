@@ -34,4 +34,33 @@ describe("company portability built-in source", () => {
       expect.objectContaining({ slug: "operator", action: "create", plannedName: "Operator" }),
     ]);
   });
+
+  it("previews the safe autonomous organization template", async () => {
+    const portability = companyPortabilityService({} as any, { templatesRoot });
+
+    const preview = await portability.previewImport({
+      source: {
+        type: "builtin",
+        templateId: "safe-autonomous-organization",
+      },
+      target: {
+        mode: "new_company",
+        newCompanyName: null,
+      },
+      agents: "all",
+      collisionStrategy: "rename",
+    });
+
+    expect(preview.errors).toEqual([]);
+    expect(preview.warnings).toEqual([]);
+    expect(preview.plan.companyAction).toBe("create");
+    expect(preview.selectedAgentSlugs).toEqual([
+      "ceo",
+      "safety-lead",
+      "operations-lead",
+      "research-lead",
+      "finance-risk-lead",
+      "operator",
+    ]);
+  });
 });
