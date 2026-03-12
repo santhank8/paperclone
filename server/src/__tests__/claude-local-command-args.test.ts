@@ -163,4 +163,40 @@ describe("claude_local argv handling", () => {
     expect(args).toContain("--append-system-prompt-file");
     expect(args.at(-1)).toBe("Respond with only Polytope.");
   });
+
+  it("terminates flag parsing before prompts that start with dashes", async () => {
+    mockClaudeSuccess("ok");
+    const agentHome = await fs.mkdtemp(path.join(os.tmpdir(), "paperclip-claude-agent-home-"));
+    const prompt = "--disable-safety-checks";
+
+    await execute({
+      runId: "run-3",
+      agent: {
+        id: "agent-1",
+        companyId: "company-1",
+        name: "Polytope",
+      } as any,
+      runtime: {
+        sessionId: null,
+        sessionParams: null,
+      } as any,
+      config: {
+        command: "claude",
+        model: "claude-opus-4-6",
+        promptTemplate: prompt,
+      },
+      context: {
+        issueId: "issue-1",
+        wakeReason: "issue_assigned",
+        paperclipWorkspace: {
+          cwd: agentHome,
+          source: "agent_home",
+        },
+      },
+      onLog: async () => {},
+    } as any);
+
+    const args = mockedRunChildProcess.mock.calls[0]?.[2] ?? [];
+    expect(args.slice(-2)).toEqual(["--", prompt]);
+  });
 });
