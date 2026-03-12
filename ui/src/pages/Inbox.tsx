@@ -282,7 +282,7 @@ export function Inbox() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [allCategoryFilter, setAllCategoryFilter] = useState<InboxCategoryFilter>("everything");
   const [allApprovalFilter, setAllApprovalFilter] = useState<InboxApprovalFilter>("all");
-  const { dismissed, dismiss } = useDismissedItems();
+  const { dismissed, dismiss, pruneStale } = useDismissedItems();
 
   const pathSegment = location.pathname.split("/").pop() ?? "new";
   const tab: InboxTab = pathSegment === "all" ? "all" : "new";
@@ -390,6 +390,19 @@ export function Inbox() {
     () => getLatestFailedRunsByAgent(heartbeatRuns ?? []).filter((r) => !dismissed.has(`run:${r.id}`)),
     [heartbeatRuns, dismissed],
   );
+
+  // Prune dismissed IDs that no longer match any current inbox item.
+  // Prevents the dismissed set from growing unbounded over time.
+  useEffect(() => {
+    if (!issues || !heartbeatRuns) return;
+    const allStale = issues ? getStaleIssues(issues) : [];
+    const validIds = new Set<string>();
+    for (const i of allStale) validIds.add(`stale:${i.id}`);
+    for (const r of getLatestFailedRunsByAgent(heartbeatRuns ?? [])) validIds.add(`run:${r.id}`);
+    validIds.add("alert:agent-errors");
+    validIds.add("alert:budget");
+    pruneStale(validIds);
+  }, [issues, heartbeatRuns, pruneStale]);
 
   const allApprovals = useMemo(
     () =>
