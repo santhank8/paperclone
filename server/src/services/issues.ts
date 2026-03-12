@@ -22,6 +22,7 @@ import {
   defaultIssueExecutionWorkspaceSettingsForProject,
   parseProjectExecutionWorkspacePolicy,
 } from "./execution-workspace-policy.js";
+import { shouldAttemptStaleCheckoutAdoption } from "./issues-checkout-adoption.js";
 
 const ALL_ISSUE_STATUSES = ["backlog", "todo", "in_progress", "in_review", "blocked", "done", "cancelled"];
 
@@ -872,17 +873,22 @@ export function issueService(db: Db) {
       }
 
       if (
-        checkoutRunId &&
-        current.assigneeAgentId === agentId &&
-        current.status === "in_progress" &&
-        current.checkoutRunId &&
-        current.checkoutRunId !== checkoutRunId
+        shouldAttemptStaleCheckoutAdoption({
+          actorAgentId: agentId,
+          actorRunId: checkoutRunId,
+          current: {
+            status: current.status,
+            assigneeAgentId: current.assigneeAgentId,
+            checkoutRunId: current.checkoutRunId,
+            executionRunId: current.executionRunId,
+          },
+        })
       ) {
         const adopted = await adoptStaleCheckoutRun({
           issueId: id,
           actorAgentId: agentId,
-          actorRunId: checkoutRunId,
-          expectedCheckoutRunId: current.checkoutRunId,
+          actorRunId: checkoutRunId!,
+          expectedCheckoutRunId: current.checkoutRunId!,
         });
         if (adopted) {
           const row = await db.select().from(issues).where(eq(issues.id, id)).then((rows) => rows[0]!);
@@ -918,6 +924,7 @@ export function issueService(db: Db) {
           status: issues.status,
           assigneeAgentId: issues.assigneeAgentId,
           checkoutRunId: issues.checkoutRunId,
+          executionRunId: issues.executionRunId,
         })
         .from(issues)
         .where(eq(issues.id, id))
@@ -934,17 +941,22 @@ export function issueService(db: Db) {
       }
 
       if (
-        actorRunId &&
-        current.status === "in_progress" &&
-        current.assigneeAgentId === actorAgentId &&
-        current.checkoutRunId &&
-        current.checkoutRunId !== actorRunId
+        shouldAttemptStaleCheckoutAdoption({
+          actorAgentId,
+          actorRunId,
+          current: {
+            status: current.status,
+            assigneeAgentId: current.assigneeAgentId,
+            checkoutRunId: current.checkoutRunId,
+            executionRunId: current.executionRunId,
+          },
+        })
       ) {
         const adopted = await adoptStaleCheckoutRun({
           issueId: id,
           actorAgentId,
-          actorRunId,
-          expectedCheckoutRunId: current.checkoutRunId,
+          actorRunId: actorRunId!,
+          expectedCheckoutRunId: current.checkoutRunId!,
         });
 
         if (adopted) {
@@ -960,6 +972,7 @@ export function issueService(db: Db) {
         status: current.status,
         assigneeAgentId: current.assigneeAgentId,
         checkoutRunId: current.checkoutRunId,
+        executionRunId: current.executionRunId,
         actorAgentId,
         actorRunId,
       });
