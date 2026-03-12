@@ -1309,6 +1309,7 @@ export function heartbeatService(db: Db) {
     let handle: RunLogHandle | null = null;
     let stdoutExcerpt = "";
     let stderrExcerpt = "";
+    let heartbeatTouchInterval: ReturnType<typeof setInterval> | undefined;
     try {
       const startedAt = run.startedAt ?? new Date();
       const runningWithSession = await db
@@ -1373,7 +1374,7 @@ export function heartbeatService(db: Db) {
       // is finalised.  Using setInterval (not onLog) ensures the touch fires
       // even when the agent is silent (e.g. waiting on a slow API call).
       const HEARTBEAT_TOUCH_INTERVAL_MS = 60_000;
-      const heartbeatTouchInterval = setInterval(async () => {
+      heartbeatTouchInterval = setInterval(async () => {
         try {
           await db
             .update(heartbeatRuns)
