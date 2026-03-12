@@ -24,6 +24,7 @@ import { Inbox } from "./pages/Inbox";
 import { CompanySettings } from "./pages/CompanySettings";
 import { DesignGuide } from "./pages/DesignGuide";
 import { InstanceSettings } from "./pages/InstanceSettings";
+import { InstancePluginsSettings } from "./pages/InstancePluginsSettings";
 import { RunTranscriptUxLab } from "./pages/RunTranscriptUxLab";
 import { OrgChart } from "./pages/OrgChart";
 import { NewAgent } from "./pages/NewAgent";
@@ -245,6 +246,7 @@ export function App() {
           <Route path="instance" element={<Navigate to="/instance/settings" replace />} />
           <Route path="instance/settings" element={<Layout />}>
             <Route index element={<InstanceSettings />} />
+            <Route path="plugins" element={<InstancePluginsSettings />} />
           </Route>
           <Route path="companies" element={<UnprefixedBoardRedirect />} />
           <Route path="issues" element={<UnprefixedBoardRedirect />} />
