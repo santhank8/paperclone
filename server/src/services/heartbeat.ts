@@ -243,6 +243,17 @@ function deriveTaskKey(
   );
 }
 
+/**
+ * Determines whether a heartbeat run should be reaped by the orphan reaper.
+ * Queued runs are legitimately waiting for a concurrency slot — they are NOT
+ * orphaned and must not be reaped.
+ */
+export function shouldReapRun(run: { status: string }, isTrackedProcess: boolean): boolean {
+  if (run.status === "queued") return false;
+  if (isTrackedProcess) return false;
+  return true;
+}
+
 export function shouldResetTaskSessionForWake(
   contextSnapshot: Record<string, unknown> | null | undefined,
 ) {
@@ -959,8 +970,7 @@ export function heartbeatService(db: Db) {
     const reaped: string[] = [];
 
     for (const run of activeRuns) {
-      if (run.status === "queued") continue;
-      if (runningProcesses.has(run.id)) continue;
+      if (!shouldReapRun(run, runningProcesses.has(run.id))) continue;
 
       // Apply staleness threshold to avoid false positives
       if (staleThresholdMs > 0) {
