@@ -6,6 +6,7 @@ import type {
   CompanyPortabilityExportResult,
   CompanyPortabilityInclude,
   CompanyPortabilityManifest,
+  CompanyPortabilitySource,
   CompanyPortabilityPreviewResult,
   CompanyPortabilityImportResult,
 } from "@paperclipai/shared";
@@ -84,6 +85,16 @@ function isGithubUrl(input: string): boolean {
   return /^https?:\/\/github\.com\//i.test(input.trim());
 }
 
+export function parseBuiltinTemplateRef(input: string): string | null {
+  const normalized = input.trim();
+  if (!/^builtin:/i.test(normalized)) return null;
+  const templateId = normalized.slice("builtin:".length).trim();
+  if (!templateId) {
+    throw new Error("Built-in template source requires a template ID, for example builtin:solo-founder-lite.");
+  }
+  return templateId;
+}
+
 async function resolveInlineSourceFromPath(inputPath: string): Promise<{
   manifest: CompanyPortabilityManifest;
   files: Record<string, string>;
@@ -108,6 +119,29 @@ async function resolveInlineSourceFromPath(inputPath: string): Promise<{
   }
 
   return { manifest, files };
+}
+
+export async function resolveCompanyImportSource(from: string): Promise<CompanyPortabilitySource> {
+  const builtinTemplateId = parseBuiltinTemplateRef(from);
+  if (builtinTemplateId) {
+    return {
+      type: "builtin",
+      templateId: builtinTemplateId,
+    };
+  }
+
+  if (isHttpUrl(from)) {
+    return isGithubUrl(from)
+      ? { type: "github", url: from }
+      : { type: "url", url: from };
+  }
+
+  const inline = await resolveInlineSourceFromPath(from);
+  return {
+    type: "inline",
+    manifest: inline.manifest,
+    files: inline.files,
+  };
 }
 
 async function writeExportToFolder(outDir: string, exported: CompanyPortabilityExportResult): Promise<void> {
@@ -296,8 +330,8 @@ export function registerCompanyCommands(program: Command): void {
   addCommonClientOptions(
     company
       .command("import")
-      .description("Import a portable company package from local path, URL, or GitHub")
-      .requiredOption("--from <pathOrUrl>", "Source path or URL")
+      .description("Import a portable company package from local path, URL, GitHub, or builtin:<template-id>")
+      .requiredOption("--from <pathOrUrl>", "Source path, URL, or builtin:<template-id>")
       .option("--include <values>", "Comma-separated include set: company,agents", "company,agents")
       .option("--target <mode>", "Target mode: new | existing")
       .option("-C, --company-id <id>", "Existing target company ID")
@@ -342,23 +376,7 @@ export function registerCompanyCommands(program: Command): void {
             throw new Error("Target existing company requires --company-id (or context default companyId).");
           }
 
-          let sourcePayload:
-            | { type: "inline"; manifest: CompanyPortabilityManifest; files: Record<string, string> }
-            | { type: "url"; url: string }
-            | { type: "github"; url: string };
-
-          if (isHttpUrl(from)) {
-            sourcePayload = isGithubUrl(from)
-              ? { type: "github", url: from }
-              : { type: "url", url: from };
-          } else {
-            const inline = await resolveInlineSourceFromPath(from);
-            sourcePayload = {
-              type: "inline",
-              manifest: inline.manifest,
-              files: inline.files,
-            };
-          }
+          const sourcePayload = await resolveCompanyImportSource(from);
 
           const payload = {
             source: sourcePayload,
