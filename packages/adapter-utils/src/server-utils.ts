@@ -66,7 +66,21 @@ export function parseJson(value: string): Record<string, unknown> | null {
 
 export function appendWithCap(prev: string, chunk: string, cap = MAX_CAPTURE_BYTES) {
   const combined = prev + chunk;
-  return combined.length > cap ? combined.slice(combined.length - cap) : combined;
+  const byteLen = Buffer.byteLength(combined, "utf8");
+  if (byteLen <= cap) return combined;
+
+  // Encode to bytes, keep the last `cap` bytes, then decode back.
+  const buf = Buffer.from(combined, "utf8");
+  let start = buf.length - cap;
+
+  // Advance past any truncated multi-byte sequence at the start so we
+  // never produce invalid UTF-8. In UTF-8, continuation bytes are 10xxxxxx
+  // (0x80..0xBF). Skip them to find the next character boundary.
+  while (start < buf.length && buf[start] >= 0x80 && buf[start] < 0xc0) {
+    start++;
+  }
+
+  return buf.subarray(start).toString("utf8");
 }
 
 export function resolvePathValue(obj: Record<string, unknown>, dottedPath: string) {
