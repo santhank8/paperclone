@@ -3,6 +3,7 @@ RUN apt-get update \
   && apt-get install -y --no-install-recommends ca-certificates curl git \
   && rm -rf /var/lib/apt/lists/*
 RUN corepack enable
+RUN corepack prepare pnpm@9.15.4 --activate
 
 FROM base AS build
 WORKDIR /app
@@ -25,6 +26,7 @@ RUN pnpm fetch --frozen-lockfile \
   && pnpm install --frozen-lockfile --offline
 
 COPY tsconfig.json tsconfig.base.json ./
+COPY cli/src cli/src
 COPY server server
 COPY ui ui
 COPY packages packages
@@ -40,6 +42,9 @@ RUN npm install --global --omit=dev @anthropic-ai/claude-code@latest @openai/cod
   && mkdir -p /paperclip \
   && chown node:node /paperclip
 COPY --from=build /app/package.json /app/pnpm-workspace.yaml /app/tsconfig.base.json /app/
+COPY --from=build /app/cli/package.json /app/cli/package.json
+COPY --from=build /app/cli/node_modules /app/cli/node_modules
+COPY --from=build /app/cli/src /app/cli/src
 COPY --from=build /app/node_modules /app/node_modules
 COPY --from=build /app/server/package.json /app/server/package.json
 COPY --from=build /app/server/node_modules /app/server/node_modules
