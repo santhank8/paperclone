@@ -146,6 +146,7 @@ export function resolveRuntimeSessionParamsForWorkspace(input: {
   agentId: string;
   previousSessionParams: Record<string, unknown> | null;
   resolvedWorkspace: ResolvedWorkspaceForRun;
+  configuredCwd?: string | null;
 }) {
   const { agentId, previousSessionParams, resolvedWorkspace } = input;
   const previousSessionId = readNonEmptyString(previousSessionParams?.sessionId);
@@ -170,7 +171,11 @@ export function resolveRuntimeSessionParamsForWorkspace(input: {
     };
   }
   const fallbackAgentHomeCwd = resolveDefaultAgentWorkspaceDir(agentId);
-  if (path.resolve(previousCwd) !== path.resolve(fallbackAgentHomeCwd)) {
+  const configuredCwd = readNonEmptyString(input.configuredCwd);
+  const migratableFallbackCwds = [fallbackAgentHomeCwd, configuredCwd]
+    .filter((value): value is string => Boolean(value))
+    .map((value) => path.resolve(value));
+  if (!migratableFallbackCwds.includes(path.resolve(previousCwd))) {
     return {
       sessionParams: previousSessionParams,
       warning: null as string | null,
@@ -1226,6 +1231,7 @@ export function heartbeatService(db: Db) {
         ...resolvedWorkspace,
         cwd: executionWorkspace.cwd,
       },
+      configuredCwd: readNonEmptyString(config.cwd),
     });
     const runtimeSessionParams = runtimeSessionResolution.sessionParams;
     const runtimeWorkspaceWarnings = [

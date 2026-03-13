@@ -62,6 +62,26 @@ describe("resolveRuntimeSessionParamsForWorkspace", () => {
     expect(result.warning).toBeNull();
   });
 
+  it("migrates configured wrapper cwd sessions to project workspace when project cwd becomes available", () => {
+    const result = resolveRuntimeSessionParamsForWorkspace({
+      agentId: "agent-123",
+      previousSessionParams: {
+        sessionId: "session-1",
+        cwd: "/tmp/wrapper-workspace",
+        workspaceId: "workspace-1",
+      },
+      resolvedWorkspace: buildResolvedWorkspace({ cwd: "/tmp/new-project-cwd" }),
+      configuredCwd: "/tmp/wrapper-workspace",
+    });
+
+    expect(result.sessionParams).toMatchObject({
+      sessionId: "session-1",
+      cwd: "/tmp/new-project-cwd",
+      workspaceId: "workspace-1",
+    });
+    expect(result.warning).toContain("Attempting to resume session");
+  });
+
   it("does not migrate when resolved workspace id differs from previous session workspace id", () => {
     const agentId = "agent-123";
     const fallbackCwd = resolveDefaultAgentWorkspaceDir(agentId);
