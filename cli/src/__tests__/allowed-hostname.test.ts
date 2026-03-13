@@ -6,7 +6,9 @@ import type { PaperclipConfig } from "../config/schema.js";
 import { addAllowedHostname } from "../commands/allowed-hostname.js";
 
 function createTempConfigPath() {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "paperclip-allowed-hostname-"));
+  const dir = fs.mkdtempSync(
+    path.join(os.tmpdir(), "paperclip-allowed-hostname-")
+  );
   return path.join(dir, "config.json");
 }
 
@@ -42,6 +44,7 @@ function writeBaseConfig(configPath: string) {
     },
     auth: {
       baseUrlMode: "auto",
+      disableSignUp: false,
     },
     storage: {
       provider: "local_disk",
@@ -67,10 +70,14 @@ describe("allowed-hostname command", () => {
     const configPath = createTempConfigPath();
     writeBaseConfig(configPath);
 
-    await addAllowedHostname("https://Dotta-MacBook-Pro:3100", { config: configPath });
+    await addAllowedHostname("https://Dotta-MacBook-Pro:3100", {
+      config: configPath,
+    });
     await addAllowedHostname("dotta-macbook-pro", { config: configPath });
 
-    const raw = JSON.parse(fs.readFileSync(configPath, "utf-8")) as PaperclipConfig;
+    const raw = JSON.parse(
+      fs.readFileSync(configPath, "utf-8")
+    ) as PaperclipConfig;
     expect(raw.server.allowedHostnames).toEqual(["dotta-macbook-pro"]);
   });
 });

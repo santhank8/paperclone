@@ -1,4 +1,7 @@
-import type { AdapterExecutionContext, AdapterExecutionResult } from "../types.js";
+import type {
+  AdapterExecutionContext,
+  AdapterExecutionResult,
+} from "../types.js";
 import {
   asString,
   asNumber,
@@ -9,8 +12,10 @@ import {
   runChildProcess,
 } from "../utils.js";
 
-export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExecutionResult> {
-  const { runId, agent, config, onLog, onMeta } = ctx;
+export async function execute(
+  ctx: AdapterExecutionContext
+): Promise<AdapterExecutionResult> {
+  const { runId, agent, config, onLog, onMeta, authToken } = ctx;
   const command = asString(config.command, "");
   if (!command) throw new Error("Process adapter missing command");
 
@@ -18,6 +23,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
   const cwd = asString(config.cwd, process.cwd());
   const envConfig = parseObject(config.env);
   const env: Record<string, string> = { ...buildPaperclipEnv(agent) };
+  if (authToken) env.PAPERCLIP_API_KEY = authToken;
   for (const [k, v] of Object.entries(envConfig)) {
     if (typeof v === "string") env[k] = v;
   }

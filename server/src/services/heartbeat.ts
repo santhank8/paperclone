@@ -18,9 +18,19 @@ import { logger } from "../middleware/logger.js";
 import { publishLiveEvent } from "./live-events.js";
 import { getRunLogStore, type RunLogHandle } from "./run-log-store.js";
 import { getServerAdapter, runningProcesses } from "../adapters/index.js";
-import type { AdapterExecutionResult, AdapterInvocationMeta, AdapterSessionCodec } from "../adapters/index.js";
+import type {
+  AdapterExecutionResult,
+  AdapterInvocationMeta,
+  AdapterSessionCodec,
+} from "../adapters/index.js";
 import { createLocalAgentJwt } from "../agent-auth-jwt.js";
-import { parseObject, asBoolean, asNumber, appendWithCap, MAX_EXCERPT_BYTES } from "../adapters/utils.js";
+import {
+  parseObject,
+  asBoolean,
+  asNumber,
+  appendWithCap,
+  MAX_EXCERPT_BYTES,
+} from "../adapters/utils.js";
 import { secretService } from "./secrets.js";
 import { resolveDefaultAgentWorkspaceDir } from "../home-paths.js";
 
@@ -36,9 +46,14 @@ function appendExcerpt(prev: string, chunk: string) {
 }
 
 function normalizeMaxConcurrentRuns(value: unknown) {
-  const parsed = Math.floor(asNumber(value, HEARTBEAT_MAX_CONCURRENT_RUNS_DEFAULT));
+  const parsed = Math.floor(
+    asNumber(value, HEARTBEAT_MAX_CONCURRENT_RUNS_DEFAULT)
+  );
   if (!Number.isFinite(parsed)) return HEARTBEAT_MAX_CONCURRENT_RUNS_DEFAULT;
-  return Math.max(HEARTBEAT_MAX_CONCURRENT_RUNS_DEFAULT, Math.min(HEARTBEAT_MAX_CONCURRENT_RUNS_MAX, parsed));
+  return Math.max(
+    HEARTBEAT_MAX_CONCURRENT_RUNS_DEFAULT,
+    Math.min(HEARTBEAT_MAX_CONCURRENT_RUNS_MAX, parsed)
+  );
 }
 
 async function withAgentStartLock<T>(agentId: string, fn: () => Promise<T>) {
@@ -46,7 +61,7 @@ async function withAgentStartLock<T>(agentId: string, fn: () => Promise<T>) {
   const run = previous.then(fn);
   const marker = run.then(
     () => undefined,
-    () => undefined,
+    () => undefined
   );
   startLocksByAgent.set(agentId, marker);
   try {
@@ -100,7 +115,9 @@ export function resolveRuntimeSessionParamsForWorkspace(input: {
   resolvedWorkspace: ResolvedWorkspaceForRun;
 }) {
   const { agentId, previousSessionParams, resolvedWorkspace } = input;
-  const previousSessionId = readNonEmptyString(previousSessionParams?.sessionId);
+  const previousSessionId = readNonEmptyString(
+    previousSessionParams?.sessionId
+  );
   const previousCwd = readNonEmptyString(previousSessionParams?.cwd);
   if (!previousSessionId || !previousCwd) {
     return {
@@ -134,7 +151,9 @@ export function resolveRuntimeSessionParamsForWorkspace(input: {
       warning: null as string | null,
     };
   }
-  const previousWorkspaceId = readNonEmptyString(previousSessionParams?.workspaceId);
+  const previousWorkspaceId = readNonEmptyString(
+    previousSessionParams?.workspaceId
+  );
   if (
     previousWorkspaceId &&
     resolvedWorkspace.workspaceId &&
@@ -150,9 +169,12 @@ export function resolveRuntimeSessionParamsForWorkspace(input: {
     ...(previousSessionParams ?? {}),
     cwd: projectCwd,
   };
-  if (resolvedWorkspace.workspaceId) migratedSessionParams.workspaceId = resolvedWorkspace.workspaceId;
-  if (resolvedWorkspace.repoUrl) migratedSessionParams.repoUrl = resolvedWorkspace.repoUrl;
-  if (resolvedWorkspace.repoRef) migratedSessionParams.repoRef = resolvedWorkspace.repoRef;
+  if (resolvedWorkspace.workspaceId)
+    migratedSessionParams.workspaceId = resolvedWorkspace.workspaceId;
+  if (resolvedWorkspace.repoUrl)
+    migratedSessionParams.repoUrl = resolvedWorkspace.repoUrl;
+  if (resolvedWorkspace.repoRef)
+    migratedSessionParams.repoRef = resolvedWorkspace.repoRef;
 
   return {
     sessionParams: migratedSessionParams,
@@ -163,7 +185,7 @@ export function resolveRuntimeSessionParamsForWorkspace(input: {
 }
 
 function parseIssueAssigneeAdapterOverrides(
-  raw: unknown,
+  raw: unknown
 ): ParsedIssueAssigneeAdapterOverrides | null {
   const parsed = parseObject(raw);
   const parsedAdapterConfig = parseObject(parsed.adapterConfig);
@@ -182,7 +204,7 @@ function parseIssueAssigneeAdapterOverrides(
 
 function deriveTaskKey(
   contextSnapshot: Record<string, unknown> | null | undefined,
-  payload: Record<string, unknown> | null | undefined,
+  payload: Record<string, unknown> | null | undefined
 ) {
   return (
     readNonEmptyString(contextSnapshot?.taskKey) ??
@@ -196,7 +218,7 @@ function deriveTaskKey(
 }
 
 export function shouldResetTaskSessionForWake(
-  contextSnapshot: Record<string, unknown> | null | undefined,
+  contextSnapshot: Record<string, unknown> | null | undefined
 ) {
   const wakeReason = readNonEmptyString(contextSnapshot?.wakeReason);
   if (wakeReason === "issue_assigned") return true;
@@ -204,12 +226,14 @@ export function shouldResetTaskSessionForWake(
   const wakeSource = readNonEmptyString(contextSnapshot?.wakeSource);
   if (wakeSource === "timer") return true;
 
-  const wakeTriggerDetail = readNonEmptyString(contextSnapshot?.wakeTriggerDetail);
+  const wakeTriggerDetail = readNonEmptyString(
+    contextSnapshot?.wakeTriggerDetail
+  );
   return wakeSource === "on_demand" && wakeTriggerDetail === "manual";
 }
 
 function describeSessionResetReason(
-  contextSnapshot: Record<string, unknown> | null | undefined,
+  contextSnapshot: Record<string, unknown> | null | undefined
 ) {
   const wakeReason = readNonEmptyString(contextSnapshot?.wakeReason);
   if (wakeReason === "issue_assigned") return "wake reason is issue_assigned";
@@ -217,7 +241,9 @@ function describeSessionResetReason(
   const wakeSource = readNonEmptyString(contextSnapshot?.wakeSource);
   if (wakeSource === "timer") return "wake source is timer";
 
-  const wakeTriggerDetail = readNonEmptyString(contextSnapshot?.wakeTriggerDetail);
+  const wakeTriggerDetail = readNonEmptyString(
+    contextSnapshot?.wakeTriggerDetail
+  );
   if (wakeSource === "on_demand" && wakeTriggerDetail === "manual") {
     return "this is a manual invoke";
   }
@@ -226,7 +252,7 @@ function describeSessionResetReason(
 
 function deriveCommentId(
   contextSnapshot: Record<string, unknown> | null | undefined,
-  payload: Record<string, unknown> | null | undefined,
+  payload: Record<string, unknown> | null | undefined
 ) {
   return (
     readNonEmptyString(contextSnapshot?.wakeCommentId) ??
@@ -261,7 +287,10 @@ function enrichWakeContextSnapshot(input: {
   if (!readNonEmptyString(contextSnapshot["taskKey"]) && taskKey) {
     contextSnapshot.taskKey = taskKey;
   }
-  if (!readNonEmptyString(contextSnapshot["commentId"]) && commentIdFromPayload) {
+  if (
+    !readNonEmptyString(contextSnapshot["commentId"]) &&
+    commentIdFromPayload
+  ) {
     contextSnapshot.commentId = commentIdFromPayload;
   }
   if (!readNonEmptyString(contextSnapshot["wakeCommentId"]) && wakeCommentId) {
@@ -270,7 +299,10 @@ function enrichWakeContextSnapshot(input: {
   if (!readNonEmptyString(contextSnapshot["wakeSource"]) && source) {
     contextSnapshot.wakeSource = source;
   }
-  if (!readNonEmptyString(contextSnapshot["wakeTriggerDetail"]) && triggerDetail) {
+  if (
+    !readNonEmptyString(contextSnapshot["wakeTriggerDetail"]) &&
+    triggerDetail
+  ) {
     contextSnapshot.wakeTriggerDetail = triggerDetail;
   }
 
@@ -285,7 +317,7 @@ function enrichWakeContextSnapshot(input: {
 
 function mergeCoalescedContextSnapshot(
   existingRaw: unknown,
-  incoming: Record<string, unknown>,
+  incoming: Record<string, unknown>
 ) {
   const existing = parseObject(existingRaw);
   const merged: Record<string, unknown> = {
@@ -301,7 +333,10 @@ function mergeCoalescedContextSnapshot(
 }
 
 function runTaskKey(run: typeof heartbeatRuns.$inferSelect) {
-  return deriveTaskKey(run.contextSnapshot as Record<string, unknown> | null, null);
+  return deriveTaskKey(
+    run.contextSnapshot as Record<string, unknown> | null,
+    null
+  );
 }
 
 function isSameTaskScope(left: string | null, right: string | null) {
@@ -323,7 +358,9 @@ const defaultSessionCodec: AdapterSessionCodec = {
   deserialize(raw: unknown) {
     const asObj = parseObject(raw);
     if (Object.keys(asObj).length > 0) return asObj;
-    const sessionId = readNonEmptyString((raw as Record<string, unknown> | null)?.sessionId);
+    const sessionId = readNonEmptyString(
+      (raw as Record<string, unknown> | null)?.sessionId
+    );
     if (sessionId) return { sessionId };
     return null;
   },
@@ -341,7 +378,9 @@ function getAdapterSessionCodec(adapterType: string) {
   return adapter.sessionCodec ?? defaultSessionCodec;
 }
 
-function normalizeSessionParams(params: Record<string, unknown> | null | undefined) {
+function normalizeSessionParams(
+  params: Record<string, unknown> | null | undefined
+) {
   if (!params) return null;
   return Object.keys(params).length > 0 ? params : null;
 }
@@ -353,7 +392,13 @@ function resolveNextSessionState(input: {
   previousDisplayId: string | null;
   previousLegacySessionId: string | null;
 }) {
-  const { codec, adapterResult, previousParams, previousDisplayId, previousLegacySessionId } = input;
+  const {
+    codec,
+    adapterResult,
+    previousParams,
+    previousDisplayId,
+    previousLegacySessionId,
+  } = input;
 
   if (adapterResult.clearSession) {
     return {
@@ -369,16 +414,20 @@ function resolveNextSessionState(input: {
   const explicitSessionId = readNonEmptyString(adapterResult.sessionId);
   const hasExplicitDisplay = adapterResult.sessionDisplayId !== undefined;
   const explicitDisplayId = readNonEmptyString(adapterResult.sessionDisplayId);
-  const shouldUsePrevious = !hasExplicitParams && !hasExplicitSessionId && !hasExplicitDisplay;
+  const shouldUsePrevious =
+    !hasExplicitParams && !hasExplicitSessionId && !hasExplicitDisplay;
 
-  const candidateParams =
-    hasExplicitParams
-      ? explicitParams
-      : hasExplicitSessionId
-        ? (explicitSessionId ? { sessionId: explicitSessionId } : null)
-        : previousParams;
+  const candidateParams = hasExplicitParams
+    ? explicitParams
+    : hasExplicitSessionId
+    ? explicitSessionId
+      ? { sessionId: explicitSessionId }
+      : null
+    : previousParams;
 
-  const serialized = normalizeSessionParams(codec.serialize(normalizeSessionParams(candidateParams) ?? null));
+  const serialized = normalizeSessionParams(
+    codec.serialize(normalizeSessionParams(candidateParams) ?? null)
+  );
   const deserialized = normalizeSessionParams(codec.deserialize(serialized));
 
   const displayId = truncateDisplayId(
@@ -387,7 +436,7 @@ function resolveNextSessionState(input: {
       readNonEmptyString(deserialized?.sessionId) ??
       (shouldUsePrevious ? previousDisplayId : null) ??
       explicitSessionId ??
-      (shouldUsePrevious ? previousLegacySessionId : null),
+      (shouldUsePrevious ? previousLegacySessionId : null)
   );
 
   const legacySessionId =
@@ -435,7 +484,7 @@ export function heartbeatService(db: Db) {
     companyId: string,
     agentId: string,
     adapterType: string,
-    taskKey: string,
+    taskKey: string
   ) {
     return db
       .select()
@@ -445,15 +494,15 @@ export function heartbeatService(db: Db) {
           eq(agentTaskSessions.companyId, companyId),
           eq(agentTaskSessions.agentId, agentId),
           eq(agentTaskSessions.adapterType, adapterType),
-          eq(agentTaskSessions.taskKey, taskKey),
-        ),
+          eq(agentTaskSessions.taskKey, taskKey)
+        )
       )
       .then((rows) => rows[0] ?? null);
   }
 
   async function resolveSessionBeforeForWakeup(
     agent: typeof agents.$inferSelect,
-    taskKey: string | null,
+    taskKey: string | null
   ) {
     if (taskKey) {
       const codec = getAdapterSessionCodec(agent.adapterType);
@@ -461,15 +510,15 @@ export function heartbeatService(db: Db) {
         agent.companyId,
         agent.id,
         agent.adapterType,
-        taskKey,
+        taskKey
       );
       const parsedParams = normalizeSessionParams(
-        codec.deserialize(existingTaskSession?.sessionParamsJson ?? null),
+        codec.deserialize(existingTaskSession?.sessionParamsJson ?? null)
       );
       return truncateDisplayId(
         existingTaskSession?.sessionDisplayId ??
           (codec.getDisplayId ? codec.getDisplayId(parsedParams) : null) ??
-          readNonEmptyString(parsedParams?.sessionId),
+          readNonEmptyString(parsedParams?.sessionId)
       );
     }
 
@@ -481,7 +530,7 @@ export function heartbeatService(db: Db) {
     agent: typeof agents.$inferSelect,
     context: Record<string, unknown>,
     previousSessionParams: Record<string, unknown> | null,
-    opts?: { useProjectWorkspace?: boolean | null },
+    opts?: { useProjectWorkspace?: boolean | null }
   ): Promise<ResolvedWorkspaceForRun> {
     const issueId = readNonEmptyString(context.issueId);
     const contextProjectId = readNonEmptyString(context.projectId);
@@ -489,7 +538,9 @@ export function heartbeatService(db: Db) {
       ? await db
           .select({ projectId: issues.projectId })
           .from(issues)
-          .where(and(eq(issues.id, issueId), eq(issues.companyId, agent.companyId)))
+          .where(
+            and(eq(issues.id, issueId), eq(issues.companyId, agent.companyId))
+          )
           .then((rows) => rows[0]?.projectId ?? null)
       : null;
     const resolvedProjectId = issueProjectId ?? contextProjectId;
@@ -503,8 +554,8 @@ export function heartbeatService(db: Db) {
           .where(
             and(
               eq(projectWorkspaces.companyId, agent.companyId),
-              eq(projectWorkspaces.projectId, workspaceProjectId),
-            ),
+              eq(projectWorkspaces.projectId, workspaceProjectId)
+            )
           )
           .orderBy(asc(projectWorkspaces.createdAt), asc(projectWorkspaces.id))
       : [];
@@ -553,11 +604,11 @@ export function heartbeatService(db: Db) {
         warnings.push(
           extraMissingCount > 0
             ? `Project workspace path "${firstMissing}" and ${extraMissingCount} other configured path(s) are not available yet. Using fallback workspace "${fallbackCwd}" for this run.`
-            : `Project workspace path "${firstMissing}" is not available yet. Using fallback workspace "${fallbackCwd}" for this run.`,
+            : `Project workspace path "${firstMissing}" is not available yet. Using fallback workspace "${fallbackCwd}" for this run.`
         );
       } else if (!hasConfiguredProjectCwd) {
         warnings.push(
-          `Project workspace has no local cwd configured. Using fallback workspace "${fallbackCwd}" for this run.`,
+          `Project workspace has no local cwd configured. Using fallback workspace "${fallbackCwd}" for this run.`
         );
       }
       return {
@@ -597,15 +648,15 @@ export function heartbeatService(db: Db) {
     const warnings: string[] = [];
     if (sessionCwd) {
       warnings.push(
-        `Saved session workspace "${sessionCwd}" is not available. Using fallback workspace "${cwd}" for this run.`,
+        `Saved session workspace "${sessionCwd}" is not available. Using fallback workspace "${cwd}" for this run.`
       );
     } else if (resolvedProjectId) {
       warnings.push(
-        `No project workspace directory is currently available for this issue. Using fallback workspace "${cwd}" for this run.`,
+        `No project workspace directory is currently available for this issue. Using fallback workspace "${cwd}" for this run.`
       );
     } else {
       warnings.push(
-        `No project or prior session workspace was available. Using fallback workspace "${cwd}" for this run.`,
+        `No project or prior session workspace was available. Using fallback workspace "${cwd}" for this run.`
       );
     }
     return {
@@ -634,7 +685,7 @@ export function heartbeatService(db: Db) {
       input.companyId,
       input.agentId,
       input.adapterType,
-      input.taskKey,
+      input.taskKey
     );
     if (existing) {
       return db
@@ -670,7 +721,7 @@ export function heartbeatService(db: Db) {
   async function clearTaskSessions(
     companyId: string,
     agentId: string,
-    opts?: { taskKey?: string | null; adapterType?: string | null },
+    opts?: { taskKey?: string | null; adapterType?: string | null }
   ) {
     const conditions = [
       eq(agentTaskSessions.companyId, companyId),
@@ -709,7 +760,7 @@ export function heartbeatService(db: Db) {
   async function setRunStatus(
     runId: string,
     status: string,
-    patch?: Partial<typeof heartbeatRuns.$inferInsert>,
+    patch?: Partial<typeof heartbeatRuns.$inferInsert>
   ) {
     const updated = await db
       .update(heartbeatRuns)
@@ -730,8 +781,12 @@ export function heartbeatService(db: Db) {
           triggerDetail: updated.triggerDetail,
           error: updated.error ?? null,
           errorCode: updated.errorCode ?? null,
-          startedAt: updated.startedAt ? new Date(updated.startedAt).toISOString() : null,
-          finishedAt: updated.finishedAt ? new Date(updated.finishedAt).toISOString() : null,
+          startedAt: updated.startedAt
+            ? new Date(updated.startedAt).toISOString()
+            : null,
+          finishedAt: updated.finishedAt
+            ? new Date(updated.finishedAt).toISOString()
+            : null,
         },
       });
     }
@@ -742,7 +797,7 @@ export function heartbeatService(db: Db) {
   async function setWakeupStatus(
     wakeupRequestId: string | null | undefined,
     status: string,
-    patch?: Partial<typeof agentWakeupRequests.$inferInsert>,
+    patch?: Partial<typeof agentWakeupRequests.$inferInsert>
   ) {
     if (!wakeupRequestId) return;
     await db
@@ -761,7 +816,7 @@ export function heartbeatService(db: Db) {
       color?: string;
       message?: string;
       payload?: Record<string, unknown>;
-    },
+    }
   ) {
     await db.insert(heartbeatRunEvents).values({
       companyId: run.companyId,
@@ -800,8 +855,16 @@ export function heartbeatService(db: Db) {
     return {
       enabled: asBoolean(heartbeat.enabled, true),
       intervalSec: Math.max(0, asNumber(heartbeat.intervalSec, 0)),
-      wakeOnDemand: asBoolean(heartbeat.wakeOnDemand ?? heartbeat.wakeOnAssignment ?? heartbeat.wakeOnOnDemand ?? heartbeat.wakeOnAutomation, true),
-      maxConcurrentRuns: normalizeMaxConcurrentRuns(heartbeat.maxConcurrentRuns),
+      wakeOnDemand: asBoolean(
+        heartbeat.wakeOnDemand ??
+          heartbeat.wakeOnAssignment ??
+          heartbeat.wakeOnOnDemand ??
+          heartbeat.wakeOnAutomation,
+        true
+      ),
+      maxConcurrentRuns: normalizeMaxConcurrentRuns(
+        heartbeat.maxConcurrentRuns
+      ),
     };
   }
 
@@ -809,7 +872,12 @@ export function heartbeatService(db: Db) {
     const [{ count }] = await db
       .select({ count: sql<number>`count(*)` })
       .from(heartbeatRuns)
-      .where(and(eq(heartbeatRuns.agentId, agentId), eq(heartbeatRuns.status, "running")));
+      .where(
+        and(
+          eq(heartbeatRuns.agentId, agentId),
+          eq(heartbeatRuns.status, "running")
+        )
+      );
     return Number(count ?? 0);
   }
 
@@ -823,7 +891,9 @@ export function heartbeatService(db: Db) {
         startedAt: run.startedAt ?? claimedAt,
         updatedAt: claimedAt,
       })
-      .where(and(eq(heartbeatRuns.id, run.id), eq(heartbeatRuns.status, "queued")))
+      .where(
+        and(eq(heartbeatRuns.id, run.id), eq(heartbeatRuns.status, "queued"))
+      )
       .returning()
       .then((rows) => rows[0] ?? null);
     if (!claimed) return null;
@@ -839,8 +909,12 @@ export function heartbeatService(db: Db) {
         triggerDetail: claimed.triggerDetail,
         error: claimed.error ?? null,
         errorCode: claimed.errorCode ?? null,
-        startedAt: claimed.startedAt ? new Date(claimed.startedAt).toISOString() : null,
-        finishedAt: claimed.finishedAt ? new Date(claimed.finishedAt).toISOString() : null,
+        startedAt: claimed.startedAt
+          ? new Date(claimed.startedAt).toISOString()
+          : null,
+        finishedAt: claimed.finishedAt
+          ? new Date(claimed.finishedAt).toISOString()
+          : null,
       },
     });
 
@@ -850,7 +924,7 @@ export function heartbeatService(db: Db) {
 
   async function finalizeAgentStatus(
     agentId: string,
-    outcome: "succeeded" | "failed" | "cancelled" | "timed_out",
+    outcome: "succeeded" | "failed" | "cancelled" | "timed_out"
   ) {
     const existing = await getAgent(agentId);
     if (!existing) return;
@@ -864,8 +938,8 @@ export function heartbeatService(db: Db) {
       runningCount > 0
         ? "running"
         : outcome === "succeeded" || outcome === "cancelled"
-          ? "idle"
-          : "error";
+        ? "idle"
+        : "error";
 
     const updated = await db
       .update(agents)
@@ -941,7 +1015,10 @@ export function heartbeatService(db: Db) {
     }
 
     if (reaped.length > 0) {
-      logger.warn({ reapedCount: reaped.length, runIds: reaped }, "reaped orphaned heartbeat runs");
+      logger.warn(
+        { reapedCount: reaped.length, runIds: reaped },
+        "reaped orphaned heartbeat runs"
+      );
     }
     return { reaped: reaped.length, runIds: reaped };
   }
@@ -950,15 +1027,19 @@ export function heartbeatService(db: Db) {
     agent: typeof agents.$inferSelect,
     run: typeof heartbeatRuns.$inferSelect,
     result: AdapterExecutionResult,
-    session: { legacySessionId: string | null },
+    session: { legacySessionId: string | null }
   ) {
     await ensureRuntimeState(agent);
     const usage = result.usage;
     const inputTokens = usage?.inputTokens ?? 0;
     const outputTokens = usage?.outputTokens ?? 0;
     const cachedInputTokens = usage?.cachedInputTokens ?? 0;
-    const additionalCostCents = Math.max(0, Math.round((result.costUsd ?? 0) * 100));
-    const hasTokenUsage = inputTokens > 0 || outputTokens > 0 || cachedInputTokens > 0;
+    const additionalCostCents = Math.max(
+      0,
+      Math.round((result.costUsd ?? 0) * 100)
+    );
+    const hasTokenUsage =
+      inputTokens > 0 || outputTokens > 0 || cachedInputTokens > 0;
 
     await db
       .update(agentRuntimeState)
@@ -1006,13 +1087,21 @@ export function heartbeatService(db: Db) {
       if (!agent) return [];
       const policy = parseHeartbeatPolicy(agent);
       const runningCount = await countRunningRunsForAgent(agentId);
-      const availableSlots = Math.max(0, policy.maxConcurrentRuns - runningCount);
+      const availableSlots = Math.max(
+        0,
+        policy.maxConcurrentRuns - runningCount
+      );
       if (availableSlots <= 0) return [];
 
       const queuedRuns = await db
         .select()
         .from(heartbeatRuns)
-        .where(and(eq(heartbeatRuns.agentId, agentId), eq(heartbeatRuns.status, "queued")))
+        .where(
+          and(
+            eq(heartbeatRuns.agentId, agentId),
+            eq(heartbeatRuns.status, "queued")
+          )
+        )
         .orderBy(asc(heartbeatRuns.createdAt))
         .limit(availableSlots);
       if (queuedRuns.length === 0) return [];
@@ -1026,7 +1115,10 @@ export function heartbeatService(db: Db) {
 
       for (const claimedRun of claimedRuns) {
         void executeRun(claimedRun.id).catch((err) => {
-          logger.error({ err, runId: claimedRun.id }, "queued heartbeat execution failed");
+          logger.error(
+            { err, runId: claimedRun.id },
+            "queued heartbeat execution failed"
+          );
         });
       }
       return claimedRuns;
@@ -1075,29 +1167,39 @@ export function heartbeatService(db: Db) {
             assigneeAdapterOverrides: issues.assigneeAdapterOverrides,
           })
           .from(issues)
-          .where(and(eq(issues.id, issueId), eq(issues.companyId, agent.companyId)))
+          .where(
+            and(eq(issues.id, issueId), eq(issues.companyId, agent.companyId))
+          )
           .then((rows) => rows[0] ?? null)
       : null;
     const issueAssigneeOverrides =
       issueAssigneeConfig && issueAssigneeConfig.assigneeAgentId === agent.id
         ? parseIssueAssigneeAdapterOverrides(
-            issueAssigneeConfig.assigneeAdapterOverrides,
+            issueAssigneeConfig.assigneeAdapterOverrides
           )
         : null;
     const taskSession = taskKey
-      ? await getTaskSession(agent.companyId, agent.id, agent.adapterType, taskKey)
+      ? await getTaskSession(
+          agent.companyId,
+          agent.id,
+          agent.adapterType,
+          taskKey
+        )
       : null;
     const resetTaskSession = shouldResetTaskSessionForWake(context);
     const sessionResetReason = describeSessionResetReason(context);
     const taskSessionForRun = resetTaskSession ? null : taskSession;
     const previousSessionParams = normalizeSessionParams(
-      sessionCodec.deserialize(taskSessionForRun?.sessionParamsJson ?? null),
+      sessionCodec.deserialize(taskSessionForRun?.sessionParamsJson ?? null)
     );
     const resolvedWorkspace = await resolveWorkspaceForRun(
       agent,
       context,
       previousSessionParams,
-      { useProjectWorkspace: issueAssigneeOverrides?.useProjectWorkspace ?? null },
+      {
+        useProjectWorkspace:
+          issueAssigneeOverrides?.useProjectWorkspace ?? null,
+      }
     );
     const runtimeSessionResolution = resolveRuntimeSessionParamsForWorkspace({
       agentId: agent.id,
@@ -1107,7 +1209,9 @@ export function heartbeatService(db: Db) {
     const runtimeSessionParams = runtimeSessionResolution.sessionParams;
     const runtimeWorkspaceWarnings = [
       ...resolvedWorkspace.warnings,
-      ...(runtimeSessionResolution.warning ? [runtimeSessionResolution.warning] : []),
+      ...(runtimeSessionResolution.warning
+        ? [runtimeSessionResolution.warning]
+        : []),
       ...(resetTaskSession && sessionResetReason
         ? [
             taskKey
@@ -1128,15 +1232,20 @@ export function heartbeatService(db: Db) {
     if (resolvedWorkspace.projectId && !readNonEmptyString(context.projectId)) {
       context.projectId = resolvedWorkspace.projectId;
     }
-    const runtimeSessionFallback = taskKey || resetTaskSession ? null : runtime.sessionId;
+    const runtimeSessionFallback =
+      taskKey || resetTaskSession ? null : runtime.sessionId;
     const previousSessionDisplayId = truncateDisplayId(
       taskSessionForRun?.sessionDisplayId ??
-        (sessionCodec.getDisplayId ? sessionCodec.getDisplayId(runtimeSessionParams) : null) ??
+        (sessionCodec.getDisplayId
+          ? sessionCodec.getDisplayId(runtimeSessionParams)
+          : null) ??
         readNonEmptyString(runtimeSessionParams?.sessionId) ??
-        runtimeSessionFallback,
+        runtimeSessionFallback
     );
     const runtimeForAdapter = {
-      sessionId: readNonEmptyString(runtimeSessionParams?.sessionId) ?? runtimeSessionFallback,
+      sessionId:
+        readNonEmptyString(runtimeSessionParams?.sessionId) ??
+        runtimeSessionFallback,
       sessionParams: runtimeSessionParams,
       sessionDisplayId: previousSessionDisplayId,
       taskKey,
@@ -1153,7 +1262,8 @@ export function heartbeatService(db: Db) {
         .update(heartbeatRuns)
         .set({
           startedAt,
-          sessionIdBefore: runtimeForAdapter.sessionDisplayId ?? runtimeForAdapter.sessionId,
+          sessionIdBefore:
+            runtimeForAdapter.sessionDisplayId ?? runtimeForAdapter.sessionId,
           updatedAt: new Date(),
         })
         .where(eq(heartbeatRuns.id, run.id))
@@ -1204,8 +1314,10 @@ export function heartbeatService(db: Db) {
         .where(eq(heartbeatRuns.id, runId));
 
       const onLog = async (stream: "stdout" | "stderr", chunk: string) => {
-        if (stream === "stdout") stdoutExcerpt = appendExcerpt(stdoutExcerpt, chunk);
-        if (stream === "stderr") stderrExcerpt = appendExcerpt(stderrExcerpt, chunk);
+        if (stream === "stdout")
+          stdoutExcerpt = appendExcerpt(stdoutExcerpt, chunk);
+        if (stream === "stderr")
+          stderrExcerpt = appendExcerpt(stderrExcerpt, chunk);
 
         if (handle) {
           await runLogStore.append(handle, {
@@ -1240,10 +1352,11 @@ export function heartbeatService(db: Db) {
       const mergedConfig = issueAssigneeOverrides?.adapterConfig
         ? { ...config, ...issueAssigneeOverrides.adapterConfig }
         : config;
-      const { config: resolvedConfig, secretKeys } = await secretsSvc.resolveAdapterConfigForRuntime(
-        agent.companyId,
-        mergedConfig,
-      );
+      const { config: resolvedConfig, secretKeys } =
+        await secretsSvc.resolveAdapterConfigForRuntime(
+          agent.companyId,
+          mergedConfig
+        );
       const onAdapterMeta = async (meta: AdapterInvocationMeta) => {
         if (meta.env && secretKeys.size > 0) {
           for (const key of secretKeys) {
@@ -1261,7 +1374,12 @@ export function heartbeatService(db: Db) {
 
       const adapter = getServerAdapter(agent.adapterType);
       const authToken = adapter.supportsLocalAgentJwt
-        ? createLocalAgentJwt(agent.id, agent.companyId, agent.adapterType, run.id)
+        ? createLocalAgentJwt(
+            agent.id,
+            agent.companyId,
+            agent.adapterType,
+            run.id
+          )
         : null;
       if (adapter.supportsLocalAgentJwt && !authToken) {
         logger.warn(
@@ -1271,7 +1389,7 @@ export function heartbeatService(db: Db) {
             runId: run.id,
             adapterType: agent.adapterType,
           },
-          "local agent jwt secret missing or invalid; running without injected PAPERCLIP_API_KEY",
+          "local agent jwt secret missing or invalid; running without injected PAPERCLIP_API_KEY"
         );
       }
       const adapterResult = await adapter.execute({
@@ -1298,13 +1416,20 @@ export function heartbeatService(db: Db) {
         outcome = "cancelled";
       } else if (adapterResult.timedOut) {
         outcome = "timed_out";
-      } else if ((adapterResult.exitCode ?? 0) === 0 && !adapterResult.errorMessage) {
+      } else if (
+        (adapterResult.exitCode ?? 0) === 0 &&
+        !adapterResult.errorMessage
+      ) {
         outcome = "succeeded";
       } else {
         outcome = "failed";
       }
 
-      let logSummary: { bytes: number; sha256?: string; compressed: boolean } | null = null;
+      let logSummary: {
+        bytes: number;
+        sha256?: string;
+        compressed: boolean;
+      } | null = null;
       if (handle) {
         logSummary = await runLogStore.finalize(handle);
       }
@@ -1313,17 +1438,21 @@ export function heartbeatService(db: Db) {
         outcome === "succeeded"
           ? "succeeded"
           : outcome === "cancelled"
-            ? "cancelled"
-            : outcome === "timed_out"
-              ? "timed_out"
-              : "failed";
+          ? "cancelled"
+          : outcome === "timed_out"
+          ? "timed_out"
+          : "failed";
 
       const usageJson =
         adapterResult.usage || adapterResult.costUsd != null
           ? ({
               ...(adapterResult.usage ?? {}),
-              ...(adapterResult.costUsd != null ? { costUsd: adapterResult.costUsd } : {}),
-              ...(adapterResult.billingType ? { billingType: adapterResult.billingType } : {}),
+              ...(adapterResult.costUsd != null
+                ? { costUsd: adapterResult.costUsd }
+                : {}),
+              ...(adapterResult.billingType
+                ? { billingType: adapterResult.billingType }
+                : {}),
             } as Record<string, unknown>)
           : null;
 
@@ -1332,20 +1461,22 @@ export function heartbeatService(db: Db) {
         error:
           outcome === "succeeded"
             ? null
-            : adapterResult.errorMessage ?? (outcome === "timed_out" ? "Timed out" : "Adapter failed"),
+            : adapterResult.errorMessage ??
+              (outcome === "timed_out" ? "Timed out" : "Adapter failed"),
         errorCode:
           outcome === "timed_out"
             ? "timeout"
             : outcome === "cancelled"
-              ? "cancelled"
-              : outcome === "failed"
-                ? (adapterResult.errorCode ?? "adapter_failed")
-                : null,
+            ? "cancelled"
+            : outcome === "failed"
+            ? adapterResult.errorCode ?? "adapter_failed"
+            : null,
         exitCode: adapterResult.exitCode,
         signal: adapterResult.signal,
         usageJson,
         resultJson: adapterResult.resultJson ?? null,
-        sessionIdAfter: nextSessionState.displayId ?? nextSessionState.legacySessionId,
+        sessionIdAfter:
+          nextSessionState.displayId ?? nextSessionState.legacySessionId,
         stdoutExcerpt,
         stderrExcerpt,
         logBytes: logSummary?.bytes,
@@ -1353,10 +1484,14 @@ export function heartbeatService(db: Db) {
         logCompressed: logSummary?.compressed ?? false,
       });
 
-      await setWakeupStatus(run.wakeupRequestId, outcome === "succeeded" ? "completed" : status, {
-        finishedAt: new Date(),
-        error: adapterResult.errorMessage ?? null,
-      });
+      await setWakeupStatus(
+        run.wakeupRequestId,
+        outcome === "succeeded" ? "completed" : status,
+        {
+          finishedAt: new Date(),
+          error: adapterResult.errorMessage ?? null,
+        }
+      );
 
       const finalizedRun = await getRun(run.id);
       if (finalizedRun) {
@@ -1378,7 +1513,10 @@ export function heartbeatService(db: Db) {
           legacySessionId: nextSessionState.legacySessionId,
         });
         if (taskKey) {
-          if (adapterResult.clearSession || (!nextSessionState.params && !nextSessionState.displayId)) {
+          if (
+            adapterResult.clearSession ||
+            (!nextSessionState.params && !nextSessionState.displayId)
+          ) {
             await clearTaskSessions(agent.companyId, agent.id, {
               taskKey,
               adapterType: agent.adapterType,
@@ -1392,22 +1530,33 @@ export function heartbeatService(db: Db) {
               sessionParamsJson: nextSessionState.params,
               sessionDisplayId: nextSessionState.displayId,
               lastRunId: finalizedRun.id,
-              lastError: outcome === "succeeded" ? null : (adapterResult.errorMessage ?? "run_failed"),
+              lastError:
+                outcome === "succeeded"
+                  ? null
+                  : adapterResult.errorMessage ?? "run_failed",
             });
           }
         }
       }
       await finalizeAgentStatus(agent.id, outcome);
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Unknown adapter failure";
+      const message =
+        err instanceof Error ? err.message : "Unknown adapter failure";
       logger.error({ err, runId }, "heartbeat execution failed");
 
-      let logSummary: { bytes: number; sha256?: string; compressed: boolean } | null = null;
+      let logSummary: {
+        bytes: number;
+        sha256?: string;
+        compressed: boolean;
+      } | null = null;
       if (handle) {
         try {
           logSummary = await runLogStore.finalize(handle);
         } catch (finalizeErr) {
-          logger.warn({ err: finalizeErr, runId }, "failed to finalize run log after error");
+          logger.warn(
+            { err: finalizeErr, runId },
+            "failed to finalize run log after error"
+          );
         }
       }
 
@@ -1435,16 +1584,24 @@ export function heartbeatService(db: Db) {
         });
         await releaseIssueExecutionAndPromote(failedRun);
 
-        await updateRuntimeState(agent, failedRun, {
-          exitCode: null,
-          signal: null,
-          timedOut: false,
-          errorMessage: message,
-        }, {
-          legacySessionId: runtimeForAdapter.sessionId,
-        });
+        await updateRuntimeState(
+          agent,
+          failedRun,
+          {
+            exitCode: null,
+            signal: null,
+            timedOut: false,
+            errorMessage: message,
+          },
+          {
+            legacySessionId: runtimeForAdapter.sessionId,
+          }
+        );
 
-        if (taskKey && (previousSessionParams || previousSessionDisplayId || taskSession)) {
+        if (
+          taskKey &&
+          (previousSessionParams || previousSessionDisplayId || taskSession)
+        ) {
           await upsertTaskSession({
             companyId: agent.companyId,
             agentId: agent.id,
@@ -1464,10 +1621,12 @@ export function heartbeatService(db: Db) {
     }
   }
 
-  async function releaseIssueExecutionAndPromote(run: typeof heartbeatRuns.$inferSelect) {
+  async function releaseIssueExecutionAndPromote(
+    run: typeof heartbeatRuns.$inferSelect
+  ) {
     const promotedRun = await db.transaction(async (tx) => {
       await tx.execute(
-        sql`select id from issues where company_id = ${run.companyId} and execution_run_id = ${run.id} for update`,
+        sql`select id from issues where company_id = ${run.companyId} and execution_run_id = ${run.id} for update`
       );
 
       const issue = await tx
@@ -1476,7 +1635,12 @@ export function heartbeatService(db: Db) {
           companyId: issues.companyId,
         })
         .from(issues)
-        .where(and(eq(issues.companyId, run.companyId), eq(issues.executionRunId, run.id)))
+        .where(
+          and(
+            eq(issues.companyId, run.companyId),
+            eq(issues.executionRunId, run.id)
+          )
+        )
         .then((rows) => rows[0] ?? null);
 
       if (!issue) return;
@@ -1499,8 +1663,8 @@ export function heartbeatService(db: Db) {
             and(
               eq(agentWakeupRequests.companyId, issue.companyId),
               eq(agentWakeupRequests.status, "deferred_issue_execution"),
-              sql`${agentWakeupRequests.payload} ->> 'issueId' = ${issue.id}`,
-            ),
+              sql`${agentWakeupRequests.payload} ->> 'issueId' = ${issue.id}`
+            )
           )
           .orderBy(asc(agentWakeupRequests.requestedAt))
           .limit(1)
@@ -1526,7 +1690,8 @@ export function heartbeatService(db: Db) {
             .set({
               status: "failed",
               finishedAt: new Date(),
-              error: "Deferred wake could not be promoted: agent is not invokable",
+              error:
+                "Deferred wake could not be promoted: agent is not invokable",
               updatedAt: new Date(),
             })
             .where(eq(agentWakeupRequests.id, deferred.id));
@@ -1534,13 +1699,21 @@ export function heartbeatService(db: Db) {
         }
 
         const deferredPayload = parseObject(deferred.payload);
-        const deferredContextSeed = parseObject(deferredPayload[DEFERRED_WAKE_CONTEXT_KEY]);
-        const promotedContextSeed: Record<string, unknown> = { ...deferredContextSeed };
-        const promotedReason = readNonEmptyString(deferred.reason) ?? "issue_execution_promoted";
+        const deferredContextSeed = parseObject(
+          deferredPayload[DEFERRED_WAKE_CONTEXT_KEY]
+        );
+        const promotedContextSeed: Record<string, unknown> = {
+          ...deferredContextSeed,
+        };
+        const promotedReason =
+          readNonEmptyString(deferred.reason) ?? "issue_execution_promoted";
         const promotedSource =
-          (readNonEmptyString(deferred.source) as WakeupOptions["source"]) ?? "automation";
+          (readNonEmptyString(deferred.source) as WakeupOptions["source"]) ??
+          "automation";
         const promotedTriggerDetail =
-          (readNonEmptyString(deferred.triggerDetail) as WakeupOptions["triggerDetail"]) ?? null;
+          (readNonEmptyString(
+            deferred.triggerDetail
+          ) as WakeupOptions["triggerDetail"]) ?? null;
         const promotedPayload = deferredPayload;
         delete promotedPayload[DEFERRED_WAKE_CONTEXT_KEY];
 
@@ -1555,7 +1728,10 @@ export function heartbeatService(db: Db) {
           payload: promotedPayload,
         });
 
-        const sessionBefore = await resolveSessionBeforeForWakeup(deferredAgent, promotedTaskKey);
+        const sessionBefore = await resolveSessionBeforeForWakeup(
+          deferredAgent,
+          promotedTaskKey
+        );
         const now = new Date();
         const newRun = await tx
           .insert(heartbeatRuns)
@@ -1619,7 +1795,9 @@ export function heartbeatService(db: Db) {
   async function enqueueWakeup(agentId: string, opts: WakeupOptions = {}) {
     const source = opts.source ?? "on_demand";
     const triggerDetail = opts.triggerDetail ?? null;
-    const contextSnapshot: Record<string, unknown> = { ...(opts.contextSnapshot ?? {}) };
+    const contextSnapshot: Record<string, unknown> = {
+      ...(opts.contextSnapshot ?? {}),
+    };
     const reason = opts.reason ?? null;
     const payload = opts.payload ?? null;
     const {
@@ -1634,7 +1812,8 @@ export function heartbeatService(db: Db) {
       triggerDetail,
       payload,
     });
-    const issueId = readNonEmptyString(enrichedContextSnapshot.issueId) ?? issueIdFromPayload;
+    const issueId =
+      readNonEmptyString(enrichedContextSnapshot.issueId) ?? issueIdFromPayload;
 
     const agent = await getAgent(agentId);
     if (!agent) throw notFound("Agent not found");
@@ -1644,7 +1823,9 @@ export function heartbeatService(db: Db) {
       agent.status === "terminated" ||
       agent.status === "pending_approval"
     ) {
-      throw conflict("Agent is not invokable in its current state", { status: agent.status });
+      throw conflict("Agent is not invokable in its current state", {
+        status: agent.status,
+      });
     }
 
     const policy = parseHeartbeatPolicy(agent);
@@ -1675,7 +1856,8 @@ export function heartbeatService(db: Db) {
 
     const bypassIssueExecutionLock =
       reason === "issue_comment_mentioned" ||
-      readNonEmptyString(enrichedContextSnapshot.wakeReason) === "issue_comment_mentioned";
+      readNonEmptyString(enrichedContextSnapshot.wakeReason) ===
+        "issue_comment_mentioned";
 
     if (issueId && !bypassIssueExecutionLock) {
       const agentNameKey = normalizeAgentNameKey(agent.name);
@@ -1683,7 +1865,7 @@ export function heartbeatService(db: Db) {
 
       const outcome = await db.transaction(async (tx) => {
         await tx.execute(
-          sql`select id from issues where id = ${issueId} and company_id = ${agent.companyId} for update`,
+          sql`select id from issues where id = ${issueId} and company_id = ${agent.companyId} for update`
         );
 
         const issue = await tx
@@ -1694,7 +1876,9 @@ export function heartbeatService(db: Db) {
             executionAgentNameKey: issues.executionAgentNameKey,
           })
           .from(issues)
-          .where(and(eq(issues.id, issueId), eq(issues.companyId, agent.companyId)))
+          .where(
+            and(eq(issues.id, issueId), eq(issues.companyId, agent.companyId))
+          )
           .then((rows) => rows[0] ?? null);
 
         if (!issue) {
@@ -1716,13 +1900,17 @@ export function heartbeatService(db: Db) {
 
         let activeExecutionRun = issue.executionRunId
           ? await tx
-            .select()
-            .from(heartbeatRuns)
-            .where(eq(heartbeatRuns.id, issue.executionRunId))
-            .then((rows) => rows[0] ?? null)
+              .select()
+              .from(heartbeatRuns)
+              .where(eq(heartbeatRuns.id, issue.executionRunId))
+              .then((rows) => rows[0] ?? null)
           : null;
 
-        if (activeExecutionRun && activeExecutionRun.status !== "queued" && activeExecutionRun.status !== "running") {
+        if (
+          activeExecutionRun &&
+          activeExecutionRun.status !== "queued" &&
+          activeExecutionRun.status !== "running"
+        ) {
           activeExecutionRun = null;
         }
 
@@ -1746,12 +1934,12 @@ export function heartbeatService(db: Db) {
               and(
                 eq(heartbeatRuns.companyId, issue.companyId),
                 inArray(heartbeatRuns.status, ["queued", "running"]),
-                sql`${heartbeatRuns.contextSnapshot} ->> 'issueId' = ${issue.id}`,
-              ),
+                sql`${heartbeatRuns.contextSnapshot} ->> 'issueId' = ${issue.id}`
+              )
             )
             .orderBy(
               sql`case when ${heartbeatRuns.status} = 'running' then 0 else 1 end`,
-              asc(heartbeatRuns.createdAt),
+              asc(heartbeatRuns.createdAt)
             )
             .limit(1)
             .then((rows) => rows[0] ?? null);
@@ -1785,7 +1973,8 @@ export function heartbeatService(db: Db) {
             normalizeAgentNameKey(issue.executionAgentNameKey) ??
             normalizeAgentNameKey(executionAgent?.name);
           const isSameExecutionAgent =
-            Boolean(executionAgentNameKey) && executionAgentNameKey === agentNameKey;
+            Boolean(executionAgentNameKey) &&
+            executionAgentNameKey === agentNameKey;
           const shouldQueueFollowupForCommentWake =
             Boolean(wakeCommentId) &&
             activeExecutionRun.status === "running" &&
@@ -1794,7 +1983,7 @@ export function heartbeatService(db: Db) {
           if (isSameExecutionAgent && !shouldQueueFollowupForCommentWake) {
             const mergedContextSnapshot = mergeCoalescedContextSnapshot(
               activeExecutionRun.contextSnapshot,
-              enrichedContextSnapshot,
+              enrichedContextSnapshot
             );
             const mergedRun = await tx
               .update(heartbeatRuns)
@@ -1839,19 +2028,23 @@ export function heartbeatService(db: Db) {
                 eq(agentWakeupRequests.companyId, agent.companyId),
                 eq(agentWakeupRequests.agentId, agentId),
                 eq(agentWakeupRequests.status, "deferred_issue_execution"),
-                sql`${agentWakeupRequests.payload} ->> 'issueId' = ${issue.id}`,
-              ),
+                sql`${agentWakeupRequests.payload} ->> 'issueId' = ${issue.id}`
+              )
             )
             .orderBy(asc(agentWakeupRequests.requestedAt))
             .limit(1)
             .then((rows) => rows[0] ?? null);
 
           if (existingDeferred) {
-            const existingDeferredPayload = parseObject(existingDeferred.payload);
-            const existingDeferredContext = parseObject(existingDeferredPayload[DEFERRED_WAKE_CONTEXT_KEY]);
+            const existingDeferredPayload = parseObject(
+              existingDeferred.payload
+            );
+            const existingDeferredContext = parseObject(
+              existingDeferredPayload[DEFERRED_WAKE_CONTEXT_KEY]
+            );
             const mergedDeferredContext = mergeCoalescedContextSnapshot(
               existingDeferredContext,
-              enrichedContextSnapshot,
+              enrichedContextSnapshot
             );
             const mergedDeferredPayload = {
               ...existingDeferredPayload,
@@ -1941,7 +2134,8 @@ export function heartbeatService(db: Db) {
         return { kind: "queued" as const, run: newRun };
       });
 
-      if (outcome.kind === "deferred" || outcome.kind === "skipped") return null;
+      if (outcome.kind === "deferred" || outcome.kind === "skipped")
+        return null;
       if (outcome.kind === "coalesced") return outcome.run;
 
       const newRun = outcome.run;
@@ -1964,17 +2158,28 @@ export function heartbeatService(db: Db) {
     const activeRuns = await db
       .select()
       .from(heartbeatRuns)
-      .where(and(eq(heartbeatRuns.agentId, agentId), inArray(heartbeatRuns.status, ["queued", "running"])))
+      .where(
+        and(
+          eq(heartbeatRuns.agentId, agentId),
+          inArray(heartbeatRuns.status, ["queued", "running"])
+        )
+      )
       .orderBy(desc(heartbeatRuns.createdAt));
 
     const sameScopeQueuedRun = activeRuns.find(
-      (candidate) => candidate.status === "queued" && isSameTaskScope(runTaskKey(candidate), taskKey),
+      (candidate) =>
+        candidate.status === "queued" &&
+        isSameTaskScope(runTaskKey(candidate), taskKey)
     );
     const sameScopeRunningRun = activeRuns.find(
-      (candidate) => candidate.status === "running" && isSameTaskScope(runTaskKey(candidate), taskKey),
+      (candidate) =>
+        candidate.status === "running" &&
+        isSameTaskScope(runTaskKey(candidate), taskKey)
     );
     const shouldQueueFollowupForCommentWake =
-      Boolean(wakeCommentId) && Boolean(sameScopeRunningRun) && !sameScopeQueuedRun;
+      Boolean(wakeCommentId) &&
+      Boolean(sameScopeRunningRun) &&
+      !sameScopeQueuedRun;
 
     const coalescedTargetRun =
       sameScopeQueuedRun ??
@@ -1983,7 +2188,7 @@ export function heartbeatService(db: Db) {
     if (coalescedTargetRun) {
       const mergedContextSnapshot = mergeCoalescedContextSnapshot(
         coalescedTargetRun.contextSnapshot,
-        contextSnapshot,
+        contextSnapshot
       );
       const mergedRun = await db
         .update(heartbeatRuns)
@@ -2079,8 +2284,11 @@ export function heartbeatService(db: Db) {
         .from(heartbeatRuns)
         .where(
           agentId
-            ? and(eq(heartbeatRuns.companyId, companyId), eq(heartbeatRuns.agentId, agentId))
-            : eq(heartbeatRuns.companyId, companyId),
+            ? and(
+                eq(heartbeatRuns.companyId, companyId),
+                eq(heartbeatRuns.agentId, agentId)
+              )
+            : eq(heartbeatRuns.companyId, companyId)
         )
         .orderBy(desc(heartbeatRuns.createdAt));
 
@@ -2100,13 +2308,19 @@ export function heartbeatService(db: Db) {
       const latestTaskSession = await db
         .select()
         .from(agentTaskSessions)
-        .where(and(eq(agentTaskSessions.companyId, agent.companyId), eq(agentTaskSessions.agentId, agent.id)))
+        .where(
+          and(
+            eq(agentTaskSessions.companyId, agent.companyId),
+            eq(agentTaskSessions.agentId, agent.id)
+          )
+        )
         .orderBy(desc(agentTaskSessions.updatedAt))
         .limit(1)
         .then((rows) => rows[0] ?? null);
       return {
         ...ensured,
-        sessionDisplayId: latestTaskSession?.sessionDisplayId ?? ensured.sessionId,
+        sessionDisplayId:
+          latestTaskSession?.sessionDisplayId ?? ensured.sessionId,
         sessionParamsJson: latestTaskSession?.sessionParamsJson ?? null,
       };
     },
@@ -2118,11 +2332,22 @@ export function heartbeatService(db: Db) {
       return db
         .select()
         .from(agentTaskSessions)
-        .where(and(eq(agentTaskSessions.companyId, agent.companyId), eq(agentTaskSessions.agentId, agentId)))
-        .orderBy(desc(agentTaskSessions.updatedAt), desc(agentTaskSessions.createdAt));
+        .where(
+          and(
+            eq(agentTaskSessions.companyId, agent.companyId),
+            eq(agentTaskSessions.agentId, agentId)
+          )
+        )
+        .orderBy(
+          desc(agentTaskSessions.updatedAt),
+          desc(agentTaskSessions.createdAt)
+        );
     },
 
-    resetRuntimeSession: async (agentId: string, opts?: { taskKey?: string | null }) => {
+    resetRuntimeSession: async (
+      agentId: string,
+      opts?: { taskKey?: string | null }
+    ) => {
       const agent = await getAgent(agentId);
       if (!agent) throw notFound("Agent not found");
       await ensureRuntimeState(agent);
@@ -2130,7 +2355,7 @@ export function heartbeatService(db: Db) {
       const clearedTaskSessions = await clearTaskSessions(
         agent.companyId,
         agent.id,
-        taskKey ? { taskKey, adapterType: agent.adapterType } : undefined,
+        taskKey ? { taskKey, adapterType: agent.adapterType } : undefined
       );
       const runtimePatch: Partial<typeof agentRuntimeState.$inferInsert> = {
         sessionId: null,
@@ -2161,11 +2386,19 @@ export function heartbeatService(db: Db) {
       db
         .select()
         .from(heartbeatRunEvents)
-        .where(and(eq(heartbeatRunEvents.runId, runId), gt(heartbeatRunEvents.seq, afterSeq)))
+        .where(
+          and(
+            eq(heartbeatRunEvents.runId, runId),
+            gt(heartbeatRunEvents.seq, afterSeq)
+          )
+        )
         .orderBy(asc(heartbeatRunEvents.seq))
         .limit(Math.max(1, Math.min(limit, 1000))),
 
-    readLog: async (runId: string, opts?: { offset?: number; limitBytes?: number }) => {
+    readLog: async (
+      runId: string,
+      opts?: { offset?: number; limitBytes?: number }
+    ) => {
       const run = await getRun(runId);
       if (!run) throw notFound("Heartbeat run not found");
       if (!run.logStore || !run.logRef) throw notFound("Run log not found");
@@ -2175,7 +2408,7 @@ export function heartbeatService(db: Db) {
           store: run.logStore as "local_file",
           logRef: run.logRef,
         },
-        opts,
+        opts
       );
 
       return {
@@ -2191,7 +2424,10 @@ export function heartbeatService(db: Db) {
       source: "timer" | "assignment" | "on_demand" | "automation" = "on_demand",
       contextSnapshot: Record<string, unknown> = {},
       triggerDetail: "manual" | "ping" | "callback" | "system" = "manual",
-      actor?: { actorType?: "user" | "agent" | "system"; actorId?: string | null },
+      actor?: {
+        actorType?: "user" | "agent" | "system";
+        actorId?: string | null;
+      }
     ) =>
       enqueueWakeup(agentId, {
         source,
@@ -2212,12 +2448,19 @@ export function heartbeatService(db: Db) {
       let skipped = 0;
 
       for (const agent of allAgents) {
-        if (agent.status === "paused" || agent.status === "terminated" || agent.status === "pending_approval") continue;
+        if (
+          agent.status === "paused" ||
+          agent.status === "terminated" ||
+          agent.status === "pending_approval"
+        )
+          continue;
         const policy = parseHeartbeatPolicy(agent);
         if (!policy.enabled || policy.intervalSec <= 0) continue;
 
         checked += 1;
-        const baseline = new Date(agent.lastHeartbeatAt ?? agent.createdAt).getTime();
+        const baseline = new Date(
+          agent.lastHeartbeatAt ?? agent.createdAt
+        ).getTime();
         const elapsedMs = now.getTime() - baseline;
         if (elapsedMs < policy.intervalSec * 1000) continue;
 
@@ -2287,7 +2530,12 @@ export function heartbeatService(db: Db) {
       const runs = await db
         .select()
         .from(heartbeatRuns)
-        .where(and(eq(heartbeatRuns.agentId, agentId), inArray(heartbeatRuns.status, ["queued", "running"])));
+        .where(
+          and(
+            eq(heartbeatRuns.agentId, agentId),
+            inArray(heartbeatRuns.status, ["queued", "running"])
+          )
+        );
 
       for (const run of runs) {
         await setRunStatus(run.id, "cancelled", {
@@ -2312,6 +2560,19 @@ export function heartbeatService(db: Db) {
       return runs.length;
     },
 
+    dismissRun: async (runId: string) => {
+      const run = await getRun(runId);
+      if (!run) throw notFound("Heartbeat run not found");
+
+      const [updated] = await db
+        .update(heartbeatRuns)
+        .set({ dismissedAt: new Date() })
+        .where(eq(heartbeatRuns.id, runId))
+        .returning();
+
+      return updated ?? null;
+    },
+
     getActiveRunForAgent: async (agentId: string) => {
       const [run] = await db
         .select()
@@ -2319,8 +2580,8 @@ export function heartbeatService(db: Db) {
         .where(
           and(
             eq(heartbeatRuns.agentId, agentId),
-            eq(heartbeatRuns.status, "running"),
-          ),
+            eq(heartbeatRuns.status, "running")
+          )
         )
         .orderBy(desc(heartbeatRuns.startedAt))
         .limit(1);

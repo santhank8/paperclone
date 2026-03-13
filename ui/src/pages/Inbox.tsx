@@ -107,14 +107,17 @@ function getStaleIssues(issues: Issue[]): Issue[] {
     .filter(
       (i) =>
         ["in_progress", "todo"].includes(i.status) &&
-        now - new Date(i.updatedAt).getTime() > STALE_THRESHOLD_MS,
+        now - new Date(i.updatedAt).getTime() > STALE_THRESHOLD_MS
     )
-    .sort((a, b) => new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime());
+    .sort(
+      (a, b) =>
+        new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime()
+    );
 }
 
 function getLatestFailedRunsByAgent(runs: HeartbeatRun[]): HeartbeatRun[] {
   const sorted = [...runs].sort(
-    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
   );
   const latestByAgent = new Map<string, HeartbeatRun>();
 
@@ -124,17 +127,26 @@ function getLatestFailedRunsByAgent(runs: HeartbeatRun[]): HeartbeatRun[] {
     }
   }
 
-  return Array.from(latestByAgent.values()).filter((run) => FAILED_RUN_STATUSES.has(run.status));
+  return Array.from(latestByAgent.values()).filter((run) =>
+    FAILED_RUN_STATUSES.has(run.status)
+  );
 }
 
 function firstNonEmptyLine(value: string | null | undefined): string | null {
   if (!value) return null;
-  const line = value.split("\n").map((chunk) => chunk.trim()).find(Boolean);
+  const line = value
+    .split("\n")
+    .map((chunk) => chunk.trim())
+    .find(Boolean);
   return line ?? null;
 }
 
 function runFailureMessage(run: HeartbeatRun): string {
-  return firstNonEmptyLine(run.error) ?? firstNonEmptyLine(run.stderrExcerpt) ?? "Run exited with an error.";
+  return (
+    firstNonEmptyLine(run.error) ??
+    firstNonEmptyLine(run.stderrExcerpt) ??
+    "Run exited with an error."
+  );
 }
 
 function normalizeTimestamp(value: string | Date | null | undefined): number {
@@ -190,9 +202,12 @@ function FailedRunCard({
       const payload: Record<string, unknown> = {};
       const context = run.contextSnapshot as Record<string, unknown> | null;
       if (context) {
-        if (typeof context.issueId === "string" && context.issueId) payload.issueId = context.issueId;
-        if (typeof context.taskId === "string" && context.taskId) payload.taskId = context.taskId;
-        if (typeof context.taskKey === "string" && context.taskKey) payload.taskKey = context.taskKey;
+        if (typeof context.issueId === "string" && context.issueId)
+          payload.issueId = context.issueId;
+        if (typeof context.taskId === "string" && context.taskId)
+          payload.taskId = context.taskId;
+        if (typeof context.taskKey === "string" && context.taskKey)
+          payload.taskKey = context.taskKey;
       }
       const result = await agentsApi.wakeup(run.agentId, {
         source: "on_demand",
@@ -201,13 +216,19 @@ function FailedRunCard({
         payload,
       });
       if (!("id" in result)) {
-        throw new Error("Retry was skipped because the agent is not currently invokable.");
+        throw new Error(
+          "Retry was skipped because the agent is not currently invokable."
+        );
       }
       return result;
     },
     onSuccess: (newRun) => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.heartbeats(run.companyId) });
-      queryClient.invalidateQueries({ queryKey: queryKeys.heartbeats(run.companyId, run.agentId) });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.heartbeats(run.companyId),
+      });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.heartbeats(run.companyId, run.agentId),
+      });
       navigate(`/agents/${run.agentId}/runs/${newRun.id}`);
     },
   });
@@ -249,7 +270,9 @@ function FailedRunCard({
               {linkedAgentName ? (
                 <Identity name={linkedAgentName} size="sm" />
               ) : (
-                <span className="text-sm font-medium">Agent {run.agentId.slice(0, 8)}</span>
+                <span className="text-sm font-medium">
+                  Agent {run.agentId.slice(0, 8)}
+                </span>
               )}
               <StatusBadge status={run.status} />
             </div>
@@ -289,12 +312,16 @@ function FailedRunCard({
         </div>
 
         <div className="text-xs">
-          <span className="font-mono text-muted-foreground">run {run.id.slice(0, 8)}</span>
+          <span className="font-mono text-muted-foreground">
+            run {run.id.slice(0, 8)}
+          </span>
         </div>
 
         {retryRun.isError && (
           <div className="text-xs text-destructive">
-            {retryRun.error instanceof Error ? retryRun.error.message : "Failed to retry run"}
+            {retryRun.error instanceof Error
+              ? retryRun.error.message
+              : "Failed to retry run"}
           </div>
         )}
       </div>
@@ -309,8 +336,10 @@ export function Inbox() {
   const location = useLocation();
   const queryClient = useQueryClient();
   const [actionError, setActionError] = useState<string | null>(null);
-  const [allCategoryFilter, setAllCategoryFilter] = useState<InboxCategoryFilter>("everything");
-  const [allApprovalFilter, setAllApprovalFilter] = useState<InboxApprovalFilter>("all");
+  const [allCategoryFilter, setAllCategoryFilter] =
+    useState<InboxCategoryFilter>("everything");
+  const [allApprovalFilter, setAllApprovalFilter] =
+    useState<InboxApprovalFilter>("all");
   const { dismissed, dismiss } = useDismissedItems();
 
   const pathSegment = location.pathname.split("/").pop() ?? "new";
@@ -336,24 +365,28 @@ export function Inbox() {
     enabled: !!selectedCompanyId,
   });
 
-  const {
-    data: joinRequests = [],
-    isLoading: isJoinRequestsLoading,
-  } = useQuery({
-    queryKey: queryKeys.access.joinRequests(selectedCompanyId!),
-    queryFn: async () => {
-      try {
-        return await accessApi.listJoinRequests(selectedCompanyId!, "pending_approval");
-      } catch (err) {
-        if (err instanceof ApiError && (err.status === 403 || err.status === 401)) {
-          return [];
+  const { data: joinRequests = [], isLoading: isJoinRequestsLoading } =
+    useQuery({
+      queryKey: queryKeys.access.joinRequests(selectedCompanyId!),
+      queryFn: async () => {
+        try {
+          return await accessApi.listJoinRequests(
+            selectedCompanyId!,
+            "pending_approval"
+          );
+        } catch (err) {
+          if (
+            err instanceof ApiError &&
+            (err.status === 403 || err.status === 401)
+          ) {
+            return [];
+          }
+          throw err;
         }
-        throw err;
-      }
-    },
-    enabled: !!selectedCompanyId,
-    retry: false,
-  });
+      },
+      enabled: !!selectedCompanyId,
+      retry: false,
+    });
 
   const { data: dashboard, isLoading: isDashboardLoading } = useQuery({
     queryKey: queryKeys.dashboard(selectedCompanyId!),
@@ -366,18 +399,16 @@ export function Inbox() {
     queryFn: () => issuesApi.list(selectedCompanyId!),
     enabled: !!selectedCompanyId,
   });
-  const {
-    data: touchedIssuesRaw = [],
-    isLoading: isTouchedIssuesLoading,
-  } = useQuery({
-    queryKey: queryKeys.issues.listTouchedByMe(selectedCompanyId!),
-    queryFn: () =>
-      issuesApi.list(selectedCompanyId!, {
-        touchedByUserId: "me",
-        status: "backlog,todo,in_progress,in_review,blocked,done",
-      }),
-    enabled: !!selectedCompanyId,
-  });
+  const { data: touchedIssuesRaw = [], isLoading: isTouchedIssuesLoading } =
+    useQuery({
+      queryKey: queryKeys.issues.listTouchedByMe(selectedCompanyId!),
+      queryFn: () =>
+        issuesApi.list(selectedCompanyId!, {
+          touchedByUserId: "me",
+          status: "backlog,todo,in_progress,in_review,blocked,done",
+        }),
+      enabled: !!selectedCompanyId,
+    });
 
   const { data: heartbeatRuns, isLoading: isRunsLoading } = useQuery({
     queryKey: queryKeys.heartbeats(selectedCompanyId!),
@@ -386,21 +417,25 @@ export function Inbox() {
   });
 
   const staleIssues = useMemo(
-    () => (issues ? getStaleIssues(issues) : []).filter((i) => !dismissed.has(`stale:${i.id}`)),
-    [issues, dismissed],
+    () =>
+      (issues ? getStaleIssues(issues) : []).filter(
+        (i) => !dismissed.has(`stale:${i.id}`)
+      ),
+    [issues, dismissed]
   );
-  const sortByMostRecentActivity = useCallback(
-    (a: Issue, b: Issue) => {
-      const activityDiff = issueLastActivityTimestamp(b) - issueLastActivityTimestamp(a);
-      if (activityDiff !== 0) return activityDiff;
-      return normalizeTimestamp(b.updatedAt) - normalizeTimestamp(a.updatedAt);
-    },
-    [],
-  );
+  const sortByMostRecentActivity = useCallback((a: Issue, b: Issue) => {
+    const activityDiff =
+      issueLastActivityTimestamp(b) - issueLastActivityTimestamp(a);
+    if (activityDiff !== 0) return activityDiff;
+    return normalizeTimestamp(b.updatedAt) - normalizeTimestamp(a.updatedAt);
+  }, []);
 
   const touchedIssues = useMemo(
-    () => [...touchedIssuesRaw].sort(sortByMostRecentActivity).slice(0, RECENT_ISSUES_LIMIT),
-    [sortByMostRecentActivity, touchedIssuesRaw],
+    () =>
+      [...touchedIssuesRaw]
+        .sort(sortByMostRecentActivity)
+        .slice(0, RECENT_ISSUES_LIMIT),
+    [sortByMostRecentActivity, touchedIssuesRaw]
   );
 
   const agentById = useMemo(() => {
@@ -416,21 +451,28 @@ export function Inbox() {
   }, [issues]);
 
   const failedRuns = useMemo(
-    () => getLatestFailedRunsByAgent(heartbeatRuns ?? []).filter((r) => !dismissed.has(`run:${r.id}`)),
-    [heartbeatRuns, dismissed],
+    () =>
+      getLatestFailedRunsByAgent(heartbeatRuns ?? []).filter(
+        (r) => !r.dismissedAt && !dismissed.has(`run:${r.id}`)
+      ),
+    [heartbeatRuns, dismissed]
   );
 
   const allApprovals = useMemo(
     () =>
       [...(approvals ?? [])].sort(
-        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+        (a, b) =>
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
       ),
-    [approvals],
+    [approvals]
   );
 
   const actionableApprovals = useMemo(
-    () => allApprovals.filter((approval) => ACTIONABLE_APPROVAL_STATUSES.has(approval.status)),
-    [allApprovals],
+    () =>
+      allApprovals.filter((approval) =>
+        ACTIONABLE_APPROVAL_STATUSES.has(approval.status)
+      ),
+    [allApprovals]
   );
 
   const filteredAllApprovals = useMemo(() => {
@@ -451,7 +493,9 @@ export function Inbox() {
     mutationFn: (id: string) => approvalsApi.approve(id),
     onSuccess: (_approval, id) => {
       setActionError(null);
-      queryClient.invalidateQueries({ queryKey: queryKeys.approvals.list(selectedCompanyId!) });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.approvals.list(selectedCompanyId!),
+      });
       navigate(`/approvals/${id}?resolved=approved`);
     },
     onError: (err) => {
@@ -463,7 +507,9 @@ export function Inbox() {
     mutationFn: (id: string) => approvalsApi.reject(id),
     onSuccess: () => {
       setActionError(null);
-      queryClient.invalidateQueries({ queryKey: queryKeys.approvals.list(selectedCompanyId!) });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.approvals.list(selectedCompanyId!),
+      });
     },
     onError: (err) => {
       setActionError(err instanceof Error ? err.message : "Failed to reject");
@@ -475,13 +521,21 @@ export function Inbox() {
       accessApi.approveJoinRequest(selectedCompanyId!, joinRequest.id),
     onSuccess: () => {
       setActionError(null);
-      queryClient.invalidateQueries({ queryKey: queryKeys.access.joinRequests(selectedCompanyId!) });
-      queryClient.invalidateQueries({ queryKey: queryKeys.sidebarBadges(selectedCompanyId!) });
-      queryClient.invalidateQueries({ queryKey: queryKeys.agents.list(selectedCompanyId!) });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.access.joinRequests(selectedCompanyId!),
+      });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.sidebarBadges(selectedCompanyId!),
+      });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.agents.list(selectedCompanyId!),
+      });
       queryClient.invalidateQueries({ queryKey: queryKeys.companies.all });
     },
     onError: (err) => {
-      setActionError(err instanceof Error ? err.message : "Failed to approve join request");
+      setActionError(
+        err instanceof Error ? err.message : "Failed to approve join request"
+      );
     },
   });
 
@@ -490,15 +544,36 @@ export function Inbox() {
       accessApi.rejectJoinRequest(selectedCompanyId!, joinRequest.id),
     onSuccess: () => {
       setActionError(null);
-      queryClient.invalidateQueries({ queryKey: queryKeys.access.joinRequests(selectedCompanyId!) });
-      queryClient.invalidateQueries({ queryKey: queryKeys.sidebarBadges(selectedCompanyId!) });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.access.joinRequests(selectedCompanyId!),
+      });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.sidebarBadges(selectedCompanyId!),
+      });
     },
     onError: (err) => {
-      setActionError(err instanceof Error ? err.message : "Failed to reject join request");
+      setActionError(
+        err instanceof Error ? err.message : "Failed to reject join request"
+      );
     },
   });
 
-  const [fadingOutIssues, setFadingOutIssues] = useState<Set<string>>(new Set());
+  const dismissRunMutation = useMutation({
+    mutationFn: (runId: string) => heartbeatsApi.dismiss(runId),
+    onSuccess: (_run, runId) => {
+      dismiss(`run:${runId}`);
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.heartbeats(selectedCompanyId!),
+      });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.sidebarBadges(selectedCompanyId!),
+      });
+    },
+  });
+
+  const [fadingOutIssues, setFadingOutIssues] = useState<Set<string>>(
+    new Set()
+  );
 
   const markReadMutation = useMutation({
     mutationFn: (id: string) => issuesApi.markRead(id),
@@ -507,9 +582,15 @@ export function Inbox() {
     },
     onSuccess: () => {
       if (selectedCompanyId) {
-        queryClient.invalidateQueries({ queryKey: queryKeys.issues.listTouchedByMe(selectedCompanyId) });
-        queryClient.invalidateQueries({ queryKey: queryKeys.issues.listUnreadTouchedByMe(selectedCompanyId) });
-        queryClient.invalidateQueries({ queryKey: queryKeys.sidebarBadges(selectedCompanyId) });
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.issues.listTouchedByMe(selectedCompanyId),
+        });
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.issues.listUnreadTouchedByMe(selectedCompanyId),
+        });
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.sidebarBadges(selectedCompanyId),
+        });
       }
     },
     onSettled: (_data, _error, id) => {
@@ -524,11 +605,17 @@ export function Inbox() {
   });
 
   if (!selectedCompanyId) {
-    return <EmptyState icon={InboxIcon} message="Select a company to view inbox." />;
+    return (
+      <EmptyState icon={InboxIcon} message="Select a company to view inbox." />
+    );
   }
 
   const hasRunFailures = failedRuns.length > 0;
-  const showAggregateAgentError = !!dashboard && dashboard.agents.error > 0 && !hasRunFailures && !dismissed.has("alert:agent-errors");
+  const showAggregateAgentError =
+    !!dashboard &&
+    dashboard.agents.error > 0 &&
+    !hasRunFailures &&
+    !dismissed.has("alert:agent-errors");
   const showBudgetAlert =
     !!dashboard &&
     dashboard.costs.monthBudgetCents > 0 &&
@@ -548,25 +635,35 @@ export function Inbox() {
   const showJoinRequestsCategory =
     allCategoryFilter === "everything" || allCategoryFilter === "join_requests";
   const showTouchedCategory =
-    allCategoryFilter === "everything" || allCategoryFilter === "issues_i_touched";
-  const showApprovalsCategory = allCategoryFilter === "everything" || allCategoryFilter === "approvals";
+    allCategoryFilter === "everything" ||
+    allCategoryFilter === "issues_i_touched";
+  const showApprovalsCategory =
+    allCategoryFilter === "everything" || allCategoryFilter === "approvals";
   const showFailedRunsCategory =
     allCategoryFilter === "everything" || allCategoryFilter === "failed_runs";
-  const showAlertsCategory = allCategoryFilter === "everything" || allCategoryFilter === "alerts";
-  const showStaleCategory = allCategoryFilter === "everything" || allCategoryFilter === "stale_work";
+  const showAlertsCategory =
+    allCategoryFilter === "everything" || allCategoryFilter === "alerts";
+  const showStaleCategory =
+    allCategoryFilter === "everything" || allCategoryFilter === "stale_work";
 
-  const approvalsToRender = tab === "new" ? actionableApprovals : filteredAllApprovals;
-  const showTouchedSection = tab === "new" ? hasTouchedIssues : showTouchedCategory && hasTouchedIssues;
+  const approvalsToRender =
+    tab === "new" ? actionableApprovals : filteredAllApprovals;
+  const showTouchedSection =
+    tab === "new" ? hasTouchedIssues : showTouchedCategory && hasTouchedIssues;
   const showJoinRequestsSection =
-    tab === "new" ? hasJoinRequests : showJoinRequestsCategory && hasJoinRequests;
+    tab === "new"
+      ? hasJoinRequests
+      : showJoinRequestsCategory && hasJoinRequests;
   const showApprovalsSection =
     tab === "new"
       ? actionableApprovals.length > 0
       : showApprovalsCategory && filteredAllApprovals.length > 0;
   const showFailedRunsSection =
     tab === "new" ? hasRunFailures : showFailedRunsCategory && hasRunFailures;
-  const showAlertsSection = tab === "new" ? hasAlerts : showAlertsCategory && hasAlerts;
-  const showStaleSection = tab === "new" ? hasStale : showStaleCategory && hasStale;
+  const showAlertsSection =
+    tab === "new" ? hasAlerts : showAlertsCategory && hasAlerts;
+  const showStaleSection =
+    tab === "new" ? hasStale : showStaleCategory && hasStale;
 
   const visibleSections = [
     showFailedRunsSection ? "failed_runs" : null,
@@ -585,12 +682,18 @@ export function Inbox() {
     !isTouchedIssuesLoading &&
     !isRunsLoading;
 
-  const showSeparatorBefore = (key: SectionKey) => visibleSections.indexOf(key) > 0;
+  const showSeparatorBefore = (key: SectionKey) =>
+    visibleSections.indexOf(key) > 0;
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <Tabs value={tab} onValueChange={(value) => navigate(`/inbox/${value === "all" ? "all" : "new"}`)}>
+        <Tabs
+          value={tab}
+          onValueChange={(value) =>
+            navigate(`/inbox/${value === "all" ? "all" : "new"}`)
+          }
+        >
           <PageTabBar
             items={[
               {
@@ -615,14 +718,18 @@ export function Inbox() {
           <div className="flex flex-wrap items-center gap-2">
             <Select
               value={allCategoryFilter}
-              onValueChange={(value) => setAllCategoryFilter(value as InboxCategoryFilter)}
+              onValueChange={(value) =>
+                setAllCategoryFilter(value as InboxCategoryFilter)
+              }
             >
               <SelectTrigger className="h-8 w-[170px] text-xs">
                 <SelectValue placeholder="Category" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="everything">All categories</SelectItem>
-                <SelectItem value="issues_i_touched">My recent issues</SelectItem>
+                <SelectItem value="issues_i_touched">
+                  My recent issues
+                </SelectItem>
                 <SelectItem value="join_requests">Join requests</SelectItem>
                 <SelectItem value="approvals">Approvals</SelectItem>
                 <SelectItem value="failed_runs">Failed runs</SelectItem>
@@ -634,7 +741,9 @@ export function Inbox() {
             {showApprovalsCategory && (
               <Select
                 value={allApprovalFilter}
-                onValueChange={(value) => setAllApprovalFilter(value as InboxApprovalFilter)}
+                onValueChange={(value) =>
+                  setAllApprovalFilter(value as InboxApprovalFilter)
+                }
               >
                 <SelectTrigger className="h-8 w-[170px] text-xs">
                   <SelectValue placeholder="Approval status" />
@@ -650,7 +759,9 @@ export function Inbox() {
         )}
       </div>
 
-      {approvalsError && <p className="text-sm text-destructive">{approvalsError.message}</p>}
+      {approvalsError && (
+        <p className="text-sm text-destructive">{approvalsError.message}</p>
+      )}
       {actionError && <p className="text-sm text-destructive">{actionError}</p>}
 
       {!allLoaded && visibleSections.length === 0 && (
@@ -682,13 +793,17 @@ export function Inbox() {
                   approval={approval}
                   requesterAgent={
                     approval.requestedByAgentId
-                      ? (agents ?? []).find((a) => a.id === approval.requestedByAgentId) ?? null
+                      ? (agents ?? []).find(
+                          (a) => a.id === approval.requestedByAgentId
+                        ) ?? null
                       : null
                   }
                   onApprove={() => approveMutation.mutate(approval.id)}
                   onReject={() => rejectMutation.mutate(approval.id)}
                   detailLink={`/approvals/${approval.id}`}
-                  isPending={approveMutation.isPending || rejectMutation.isPending}
+                  isPending={
+                    approveMutation.isPending || rejectMutation.isPending
+                  }
                 />
               ))}
             </div>
@@ -705,16 +820,24 @@ export function Inbox() {
             </h3>
             <div className="grid gap-3">
               {joinRequests.map((joinRequest) => (
-                <div key={joinRequest.id} className="rounded-xl border border-border bg-card p-4">
+                <div
+                  key={joinRequest.id}
+                  className="rounded-xl border border-border bg-card p-4"
+                >
                   <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                     <div className="space-y-1">
                       <p className="text-sm font-medium">
                         {joinRequest.requestType === "human"
                           ? "Human join request"
-                          : `Agent join request${joinRequest.agentName ? `: ${joinRequest.agentName}` : ""}`}
+                          : `Agent join request${
+                              joinRequest.agentName
+                                ? `: ${joinRequest.agentName}`
+                                : ""
+                            }`}
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        requested {timeAgo(joinRequest.createdAt)} from IP {joinRequest.requestIp}
+                        requested {timeAgo(joinRequest.createdAt)} from IP{" "}
+                        {joinRequest.requestIp}
                       </p>
                       {joinRequest.requestEmailSnapshot && (
                         <p className="text-xs text-muted-foreground">
@@ -722,21 +845,29 @@ export function Inbox() {
                         </p>
                       )}
                       {joinRequest.adapterType && (
-                        <p className="text-xs text-muted-foreground">adapter: {joinRequest.adapterType}</p>
+                        <p className="text-xs text-muted-foreground">
+                          adapter: {joinRequest.adapterType}
+                        </p>
                       )}
                     </div>
                     <div className="flex items-center gap-2">
                       <Button
                         size="sm"
                         variant="outline"
-                        disabled={approveJoinMutation.isPending || rejectJoinMutation.isPending}
+                        disabled={
+                          approveJoinMutation.isPending ||
+                          rejectJoinMutation.isPending
+                        }
                         onClick={() => rejectJoinMutation.mutate(joinRequest)}
                       >
                         Reject
                       </Button>
                       <Button
                         size="sm"
-                        disabled={approveJoinMutation.isPending || rejectJoinMutation.isPending}
+                        disabled={
+                          approveJoinMutation.isPending ||
+                          rejectJoinMutation.isPending
+                        }
                         onClick={() => approveJoinMutation.mutate(joinRequest)}
                       >
                         Approve
@@ -764,7 +895,7 @@ export function Inbox() {
                   run={run}
                   issueById={issueById}
                   agentName={agentName(run.agentId)}
-                  onDismiss={() => dismiss(`run:${run.id}`)}
+                  onDismiss={() => dismissRunMutation.mutate(run.id)}
                 />
               ))}
             </div>
@@ -788,8 +919,13 @@ export function Inbox() {
                   >
                     <AlertTriangle className="h-4 w-4 shrink-0 text-red-600 dark:text-red-400" />
                     <span className="text-sm">
-                      <span className="font-medium">{dashboard!.agents.error}</span>{" "}
-                      {dashboard!.agents.error === 1 ? "agent has" : "agents have"} errors
+                      <span className="font-medium">
+                        {dashboard!.agents.error}
+                      </span>{" "}
+                      {dashboard!.agents.error === 1
+                        ? "agent has"
+                        : "agents have"}{" "}
+                      errors
                     </span>
                   </Link>
                   <button
@@ -811,7 +947,9 @@ export function Inbox() {
                     <AlertTriangle className="h-4 w-4 shrink-0 text-yellow-400" />
                     <span className="text-sm">
                       Budget at{" "}
-                      <span className="font-medium">{dashboard!.costs.monthUtilizationPercent}%</span>{" "}
+                      <span className="font-medium">
+                        {dashboard!.costs.monthUtilizationPercent}%
+                      </span>{" "}
                       utilization this month
                     </span>
                   </Link>
@@ -853,7 +991,9 @@ export function Inbox() {
                     <span className="text-xs font-mono text-muted-foreground">
                       {issue.identifier ?? issue.id.slice(0, 8)}
                     </span>
-                    <span className="flex-1 truncate text-sm">{issue.title}</span>
+                    <span className="flex-1 truncate text-sm">
+                      {issue.title}
+                    </span>
                     {issue.assigneeAgentId &&
                       (() => {
                         const name = agentName(issue.assigneeAgentId);
@@ -893,7 +1033,8 @@ export function Inbox() {
             </h3>
             <div className="divide-y divide-border border border-border">
               {touchedIssues.map((issue) => {
-                const isUnread = issue.isUnreadForMe && !fadingOutIssues.has(issue.id);
+                const isUnread =
+                  issue.isUnreadForMe && !fadingOutIssues.has(issue.id);
                 const isFading = fadingOutIssues.has(issue.id);
                 return (
                   <div
@@ -929,7 +1070,9 @@ export function Inbox() {
                       <span className="text-xs font-mono text-muted-foreground">
                         {issue.identifier ?? issue.id.slice(0, 8)}
                       </span>
-                      <span className="flex-1 truncate text-sm">{issue.title}</span>
+                      <span className="flex-1 truncate text-sm">
+                        {issue.title}
+                      </span>
                       <span className="shrink-0 text-xs text-muted-foreground">
                         {issue.lastExternalCommentAt
                           ? `commented ${timeAgo(issue.lastExternalCommentAt)}`

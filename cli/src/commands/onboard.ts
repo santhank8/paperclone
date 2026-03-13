@@ -13,7 +13,12 @@ import {
   type SecretProvider,
   type StorageProvider,
 } from "@paperclipai/shared";
-import { configExists, readConfig, resolveConfigPath, writeConfig } from "../config/store.js";
+import {
+  configExists,
+  readConfig,
+  resolveConfigPath,
+  writeConfig,
+} from "../config/store.js";
 import type { PaperclipConfig } from "../config/schema.js";
 import { ensureAgentJwtSecret, resolveAgentJwtEnvFile } from "../config/env.js";
 import { ensureLocalSecretsKeyFile } from "../config/secrets-key.js";
@@ -43,7 +48,10 @@ type OnboardOptions = {
   invokedByRun?: boolean;
 };
 
-type OnboardDefaults = Pick<PaperclipConfig, "database" | "logging" | "server" | "auth" | "storage" | "secrets">;
+type OnboardDefaults = Pick<
+  PaperclipConfig,
+  "database" | "logging" | "server" | "auth" | "storage" | "secrets"
+>;
 
 const ONBOARD_ENV_KEYS = [
   "PAPERCLIP_PUBLIC_URL",
@@ -89,7 +97,10 @@ function parseNumberFromEnv(rawValue: string | undefined): number | null {
   return parsed;
 }
 
-function parseEnumFromEnv<T extends string>(rawValue: string | undefined, allowedValues: readonly T[]): T | null {
+function parseEnumFromEnv<T extends string>(
+  rawValue: string | undefined,
+  allowedValues: readonly T[]
+): T | null {
   if (!rawValue) return null;
   return allowedValues.includes(rawValue as T) ? (rawValue as T) : null;
 }
@@ -115,48 +126,58 @@ function quickstartDefaultsFromEnv(): {
     process.env.BETTER_AUTH_BASE_URL?.trim() ||
     undefined;
   const deploymentMode =
-    parseEnumFromEnv<DeploymentMode>(process.env.PAPERCLIP_DEPLOYMENT_MODE, DEPLOYMENT_MODES) ?? "local_trusted";
+    parseEnumFromEnv<DeploymentMode>(
+      process.env.PAPERCLIP_DEPLOYMENT_MODE,
+      DEPLOYMENT_MODES
+    ) ?? "local_trusted";
   const deploymentExposureFromEnv = parseEnumFromEnv<DeploymentExposure>(
     process.env.PAPERCLIP_DEPLOYMENT_EXPOSURE,
-    DEPLOYMENT_EXPOSURES,
+    DEPLOYMENT_EXPOSURES
   );
   const deploymentExposure =
-    deploymentMode === "local_trusted" ? "private" : (deploymentExposureFromEnv ?? "private");
+    deploymentMode === "local_trusted"
+      ? "private"
+      : deploymentExposureFromEnv ?? "private";
   const authPublicBaseUrl = publicUrl;
   const authBaseUrlModeFromEnv = parseEnumFromEnv<AuthBaseUrlMode>(
     process.env.PAPERCLIP_AUTH_BASE_URL_MODE,
-    AUTH_BASE_URL_MODES,
+    AUTH_BASE_URL_MODES
   );
-  const authBaseUrlMode = authBaseUrlModeFromEnv ?? (authPublicBaseUrl ? "explicit" : "auto");
+  const authBaseUrlMode =
+    authBaseUrlModeFromEnv ?? (authPublicBaseUrl ? "explicit" : "auto");
   const allowedHostnamesFromEnv = process.env.PAPERCLIP_ALLOWED_HOSTNAMES
-    ? process.env.PAPERCLIP_ALLOWED_HOSTNAMES
-      .split(",")
-      .map((value) => value.trim().toLowerCase())
-      .filter((value) => value.length > 0)
+    ? process.env.PAPERCLIP_ALLOWED_HOSTNAMES.split(",")
+        .map((value) => value.trim().toLowerCase())
+        .filter((value) => value.length > 0)
     : [];
   const hostnameFromPublicUrl = publicUrl
     ? (() => {
-      try {
-        return new URL(publicUrl).hostname.trim().toLowerCase();
-      } catch {
-        return null;
-      }
-    })()
+        try {
+          return new URL(publicUrl).hostname.trim().toLowerCase();
+        } catch {
+          return null;
+        }
+      })()
     : null;
   const storageProvider =
-    parseEnumFromEnv<StorageProvider>(process.env.PAPERCLIP_STORAGE_PROVIDER, STORAGE_PROVIDERS) ??
-    defaultStorage.provider;
+    parseEnumFromEnv<StorageProvider>(
+      process.env.PAPERCLIP_STORAGE_PROVIDER,
+      STORAGE_PROVIDERS
+    ) ?? defaultStorage.provider;
   const secretsProvider =
-    parseEnumFromEnv<SecretProvider>(process.env.PAPERCLIP_SECRETS_PROVIDER, SECRET_PROVIDERS) ??
-    defaultSecrets.provider;
-  const databaseBackupEnabled = parseBooleanFromEnv(process.env.PAPERCLIP_DB_BACKUP_ENABLED) ?? true;
+    parseEnumFromEnv<SecretProvider>(
+      process.env.PAPERCLIP_SECRETS_PROVIDER,
+      SECRET_PROVIDERS
+    ) ?? defaultSecrets.provider;
+  const databaseBackupEnabled =
+    parseBooleanFromEnv(process.env.PAPERCLIP_DB_BACKUP_ENABLED) ?? true;
   const databaseBackupIntervalMinutes = Math.max(
     1,
-    parseNumberFromEnv(process.env.PAPERCLIP_DB_BACKUP_INTERVAL_MINUTES) ?? 60,
+    parseNumberFromEnv(process.env.PAPERCLIP_DB_BACKUP_INTERVAL_MINUTES) ?? 60
   );
   const databaseBackupRetentionDays = Math.max(
     1,
-    parseNumberFromEnv(process.env.PAPERCLIP_DB_BACKUP_RETENTION_DAYS) ?? 30,
+    parseNumberFromEnv(process.env.PAPERCLIP_DB_BACKUP_RETENTION_DAYS) ?? 30
   );
   const defaults: OnboardDefaults = {
     database: {
@@ -168,7 +189,9 @@ function quickstartDefaultsFromEnv(): {
         enabled: databaseBackupEnabled,
         intervalMinutes: databaseBackupIntervalMinutes,
         retentionDays: databaseBackupRetentionDays,
-        dir: resolvePathFromEnv(process.env.PAPERCLIP_DB_BACKUP_DIR) ?? resolveDefaultBackupDir(instanceId),
+        dir:
+          resolvePathFromEnv(process.env.PAPERCLIP_DB_BACKUP_DIR) ??
+          resolveDefaultBackupDir(instanceId),
       },
     },
     logging: {
@@ -180,32 +203,47 @@ function quickstartDefaultsFromEnv(): {
       exposure: deploymentExposure,
       host: process.env.HOST ?? "127.0.0.1",
       port: Number(process.env.PORT) || 3100,
-      allowedHostnames: Array.from(new Set([...allowedHostnamesFromEnv, ...(hostnameFromPublicUrl ? [hostnameFromPublicUrl] : [])])),
+      allowedHostnames: Array.from(
+        new Set([
+          ...allowedHostnamesFromEnv,
+          ...(hostnameFromPublicUrl ? [hostnameFromPublicUrl] : []),
+        ])
+      ),
       serveUi: parseBooleanFromEnv(process.env.SERVE_UI) ?? true,
     },
     auth: {
       baseUrlMode: authBaseUrlMode,
+      disableSignUp: false,
       ...(authPublicBaseUrl ? { publicBaseUrl: authPublicBaseUrl } : {}),
     },
     storage: {
       provider: storageProvider,
       localDisk: {
         baseDir:
-          resolvePathFromEnv(process.env.PAPERCLIP_STORAGE_LOCAL_DIR) ?? defaultStorage.localDisk.baseDir,
+          resolvePathFromEnv(process.env.PAPERCLIP_STORAGE_LOCAL_DIR) ??
+          defaultStorage.localDisk.baseDir,
       },
       s3: {
-        bucket: process.env.PAPERCLIP_STORAGE_S3_BUCKET ?? defaultStorage.s3.bucket,
-        region: process.env.PAPERCLIP_STORAGE_S3_REGION ?? defaultStorage.s3.region,
-        endpoint: process.env.PAPERCLIP_STORAGE_S3_ENDPOINT ?? defaultStorage.s3.endpoint,
-        prefix: process.env.PAPERCLIP_STORAGE_S3_PREFIX ?? defaultStorage.s3.prefix,
+        bucket:
+          process.env.PAPERCLIP_STORAGE_S3_BUCKET ?? defaultStorage.s3.bucket,
+        region:
+          process.env.PAPERCLIP_STORAGE_S3_REGION ?? defaultStorage.s3.region,
+        endpoint:
+          process.env.PAPERCLIP_STORAGE_S3_ENDPOINT ??
+          defaultStorage.s3.endpoint,
+        prefix:
+          process.env.PAPERCLIP_STORAGE_S3_PREFIX ?? defaultStorage.s3.prefix,
         forcePathStyle:
-          parseBooleanFromEnv(process.env.PAPERCLIP_STORAGE_S3_FORCE_PATH_STYLE) ??
-          defaultStorage.s3.forcePathStyle,
+          parseBooleanFromEnv(
+            process.env.PAPERCLIP_STORAGE_S3_FORCE_PATH_STYLE
+          ) ?? defaultStorage.s3.forcePathStyle,
       },
     },
     secrets: {
       provider: secretsProvider,
-      strictMode: parseBooleanFromEnv(process.env.PAPERCLIP_SECRETS_STRICT_MODE) ?? defaultSecrets.strictMode,
+      strictMode:
+        parseBooleanFromEnv(process.env.PAPERCLIP_SECRETS_STRICT_MODE) ??
+        defaultSecrets.strictMode,
       localEncrypted: {
         keyFilePath:
           resolvePathFromEnv(process.env.PAPERCLIP_SECRETS_MASTER_KEY_FILE) ??
@@ -214,16 +252,20 @@ function quickstartDefaultsFromEnv(): {
     },
   };
   const ignoredEnvKeys: Array<{ key: string; reason: string }> = [];
-  if (deploymentMode === "local_trusted" && process.env.PAPERCLIP_DEPLOYMENT_EXPOSURE !== undefined) {
+  if (
+    deploymentMode === "local_trusted" &&
+    process.env.PAPERCLIP_DEPLOYMENT_EXPOSURE !== undefined
+  ) {
     ignoredEnvKeys.push({
       key: "PAPERCLIP_DEPLOYMENT_EXPOSURE",
-      reason: "Ignored because deployment mode local_trusted always forces private exposure",
+      reason:
+        "Ignored because deployment mode local_trusted always forces private exposure",
     });
   }
 
   const ignoredKeySet = new Set(ignoredEnvKeys.map((entry) => entry.key));
   const usedEnvKeys = ONBOARD_ENV_KEYS.filter(
-    (key) => process.env[key] !== undefined && !ignoredKeySet.has(key),
+    (key) => process.env[key] !== undefined && !ignoredKeySet.has(key)
   );
   return { defaults, usedEnvKeys, ignoredEnvKeys };
 }
@@ -235,8 +277,8 @@ export async function onboard(opts: OnboardOptions): Promise<void> {
   const instance = describeLocalInstancePaths(resolvePaperclipInstanceId());
   p.log.message(
     pc.dim(
-      `Local home: ${instance.homeDir} | instance: ${instance.instanceId} | config: ${configPath}`,
-    ),
+      `Local home: ${instance.homeDir} | instance: ${instance.instanceId} | config: ${configPath}`
+    )
   );
 
   if (configExists(opts.config)) {
@@ -247,8 +289,10 @@ export async function onboard(opts: OnboardOptions): Promise<void> {
     } catch (err) {
       p.log.message(
         pc.yellow(
-          `Existing config appears invalid and will be updated.\n${err instanceof Error ? err.message : String(err)}`,
-        ),
+          `Existing config appears invalid and will be updated.\n${
+            err instanceof Error ? err.message : String(err)
+          }`
+        )
       );
     }
   }
@@ -281,15 +325,12 @@ export async function onboard(opts: OnboardOptions): Promise<void> {
   }
 
   let llm: PaperclipConfig["llm"] | undefined;
-  const { defaults: derivedDefaults, usedEnvKeys, ignoredEnvKeys } = quickstartDefaultsFromEnv();
-  let {
-    database,
-    logging,
-    server,
-    auth,
-    storage,
-    secrets,
-  } = derivedDefaults;
+  const {
+    defaults: derivedDefaults,
+    usedEnvKeys,
+    ignoredEnvKeys,
+  } = quickstartDefaultsFromEnv();
+  let { database, logging, server, auth, storage, secrets } = derivedDefaults;
 
   if (setupMode === "advanced") {
     p.log.step(pc.bold("Database"));
@@ -304,7 +345,11 @@ export async function onboard(opts: OnboardOptions): Promise<void> {
         await db.execute("SELECT 1");
         s.stop("Database connection successful");
       } catch {
-        s.stop(pc.yellow("Could not connect to database — you can fix this later with `paperclipai doctor`"));
+        s.stop(
+          pc.yellow(
+            "Could not connect to database — you can fix this later with `paperclipai doctor`"
+          )
+        );
       }
     }
 
@@ -332,7 +377,9 @@ export async function onboard(opts: OnboardOptions): Promise<void> {
           if (res.ok || res.status === 400) {
             s.stop("API key is valid");
           } else if (res.status === 401) {
-            s.stop(pc.yellow("API key appears invalid — you can update it later"));
+            s.stop(
+              pc.yellow("API key appears invalid — you can update it later")
+            );
           } else {
             s.stop(pc.yellow("Could not validate API key — continuing anyway"));
           }
@@ -343,7 +390,9 @@ export async function onboard(opts: OnboardOptions): Promise<void> {
           if (res.ok) {
             s.stop("API key is valid");
           } else if (res.status === 401) {
-            s.stop(pc.yellow("API key appears invalid — you can update it later"));
+            s.stop(
+              pc.yellow("API key appears invalid — you can update it later")
+            );
           } else {
             s.stop(pc.yellow("Could not validate API key — continuing anyway"));
           }
@@ -357,7 +406,10 @@ export async function onboard(opts: OnboardOptions): Promise<void> {
     logging = await promptLogging();
 
     p.log.step(pc.bold("Server"));
-    ({ server, auth } = await promptServer({ currentServer: server, currentAuth: auth }));
+    ({ server, auth } = await promptServer({
+      currentServer: server,
+      currentAuth: auth,
+    }));
 
     p.log.step(pc.bold("Storage"));
     storage = await promptStorage(storage);
@@ -368,22 +420,30 @@ export async function onboard(opts: OnboardOptions): Promise<void> {
       provider: secrets.provider ?? secretsDefaults.provider,
       strictMode: secrets.strictMode ?? secretsDefaults.strictMode,
       localEncrypted: {
-        keyFilePath: secrets.localEncrypted?.keyFilePath ?? secretsDefaults.localEncrypted.keyFilePath,
+        keyFilePath:
+          secrets.localEncrypted?.keyFilePath ??
+          secretsDefaults.localEncrypted.keyFilePath,
       },
     };
     p.log.message(
       pc.dim(
-        `Using defaults: provider=${secrets.provider}, strictMode=${secrets.strictMode}, keyFile=${secrets.localEncrypted.keyFilePath}`,
-      ),
+        `Using defaults: provider=${secrets.provider}, strictMode=${secrets.strictMode}, keyFile=${secrets.localEncrypted.keyFilePath}`
+      )
     );
   } else {
     p.log.step(pc.bold("Quickstart"));
     p.log.message(pc.dim("Using quickstart defaults."));
     if (usedEnvKeys.length > 0) {
-      p.log.message(pc.dim(`Environment-aware defaults active (${usedEnvKeys.length} env var(s) detected).`));
+      p.log.message(
+        pc.dim(
+          `Environment-aware defaults active (${usedEnvKeys.length} env var(s) detected).`
+        )
+      );
     } else {
       p.log.message(
-        pc.dim("No environment overrides detected: embedded database, file storage, local encrypted secrets."),
+        pc.dim(
+          "No environment overrides detected: embedded database, file storage, local encrypted secrets."
+        )
       );
     }
     for (const ignored of ignoredEnvKeys) {
@@ -394,11 +454,21 @@ export async function onboard(opts: OnboardOptions): Promise<void> {
   const jwtSecret = ensureAgentJwtSecret(configPath);
   const envFilePath = resolveAgentJwtEnvFile(configPath);
   if (jwtSecret.created) {
-    p.log.success(`Created ${pc.cyan("PAPERCLIP_AGENT_JWT_SECRET")} in ${pc.dim(envFilePath)}`);
+    p.log.success(
+      `Created ${pc.cyan("PAPERCLIP_AGENT_JWT_SECRET")} in ${pc.dim(
+        envFilePath
+      )}`
+    );
   } else if (process.env.PAPERCLIP_AGENT_JWT_SECRET?.trim()) {
-    p.log.info(`Using existing ${pc.cyan("PAPERCLIP_AGENT_JWT_SECRET")} from environment`);
+    p.log.info(
+      `Using existing ${pc.cyan("PAPERCLIP_AGENT_JWT_SECRET")} from environment`
+    );
   } else {
-    p.log.info(`Using existing ${pc.cyan("PAPERCLIP_AGENT_JWT_SECRET")} in ${pc.dim(envFilePath)}`);
+    p.log.info(
+      `Using existing ${pc.cyan("PAPERCLIP_AGENT_JWT_SECRET")} in ${pc.dim(
+        envFilePath
+      )}`
+    );
   }
 
   const config: PaperclipConfig = {
@@ -418,9 +488,13 @@ export async function onboard(opts: OnboardOptions): Promise<void> {
 
   const keyResult = ensureLocalSecretsKeyFile(config, configPath);
   if (keyResult.status === "created") {
-    p.log.success(`Created local secrets key file at ${pc.dim(keyResult.path)}`);
+    p.log.success(
+      `Created local secrets key file at ${pc.dim(keyResult.path)}`
+    );
   } else if (keyResult.status === "existing") {
-    p.log.message(pc.dim(`Using existing local secrets key file at ${keyResult.path}`));
+    p.log.message(
+      pc.dim(`Using existing local secrets key file at ${keyResult.path}`)
+    );
   }
 
   writeConfig(config, opts.config);
@@ -431,13 +505,21 @@ export async function onboard(opts: OnboardOptions): Promise<void> {
       llm ? `LLM: ${llm.provider}` : "LLM: not configured",
       `Logging: ${logging.mode} -> ${logging.logDir}`,
       `Server: ${server.deploymentMode}/${server.exposure} @ ${server.host}:${server.port}`,
-      `Allowed hosts: ${server.allowedHostnames.length > 0 ? server.allowedHostnames.join(", ") : "(loopback only)"}`,
-      `Auth URL mode: ${auth.baseUrlMode}${auth.publicBaseUrl ? ` (${auth.publicBaseUrl})` : ""}`,
+      `Allowed hosts: ${
+        server.allowedHostnames.length > 0
+          ? server.allowedHostnames.join(", ")
+          : "(loopback only)"
+      }`,
+      `Auth URL mode: ${auth.baseUrlMode}${
+        auth.publicBaseUrl ? ` (${auth.publicBaseUrl})` : ""
+      }`,
       `Storage: ${storage.provider}`,
-      `Secrets: ${secrets.provider} (strict mode ${secrets.strictMode ? "on" : "off"})`,
+      `Secrets: ${secrets.provider} (strict mode ${
+        secrets.strictMode ? "on" : "off"
+      })`,
       "Agent auth: PAPERCLIP_AGENT_JWT_SECRET configured",
     ].join("\n"),
-    "Configuration saved",
+    "Configuration saved"
   );
 
   p.note(
@@ -446,7 +528,7 @@ export async function onboard(opts: OnboardOptions): Promise<void> {
       `Reconfigure later: ${pc.cyan("paperclipai configure")}`,
       `Diagnose setup: ${pc.cyan("paperclipai doctor")}`,
     ].join("\n"),
-    "Next commands",
+    "Next commands"
   );
 
   if (server.deploymentMode === "authenticated") {
@@ -455,7 +537,12 @@ export async function onboard(opts: OnboardOptions): Promise<void> {
   }
 
   let shouldRunNow = opts.run === true || opts.yes === true;
-  if (!shouldRunNow && !opts.invokedByRun && process.stdin.isTTY && process.stdout.isTTY) {
+  if (
+    !shouldRunNow &&
+    !opts.invokedByRun &&
+    process.stdin.isTTY &&
+    process.stdout.isTTY
+  ) {
     const answer = await p.confirm({
       message: "Start Paperclip now?",
       initialValue: true,
