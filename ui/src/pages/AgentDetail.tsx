@@ -241,7 +241,6 @@ export function AgentDetail() {
   const { openNewIssue } = useDialog();
   const { setBreadcrumbs } = useBreadcrumbs();
   const queryClient = useQueryClient();
-  const { pushToast } = useToast();
   const navigate = useNavigate();
   const [actionError, setActionError] = useState<string | null>(null);
   const [moreOpen, setMoreOpen] = useState(false);
@@ -1046,6 +1045,7 @@ function ConfigurationTab({
   updatePermissions: { mutate: (canCreate: boolean) => void; isPending: boolean };
 }) {
   const queryClient = useQueryClient();
+  const { pushToast } = useToast();
   const [awaitingRefreshAfterSave, setAwaitingRefreshAfterSave] = useState(false);
   const lastAgentRef = useRef(agent);
 
@@ -1076,8 +1076,7 @@ function ConfigurationTab({
       if (error instanceof ApiError) {
         if (error.status === 422) {
           // Unprocessable entity - validation error
-          errorMessage = "Validation error: " + 
-            ((error.body as any)?.error || "Invalid configuration");
+          errorMessage = "Validation error: " + error.message;
         } else if (error.status >= 400 && error.status < 500) {
           errorMessage = `Error: ${error.message}`;
         }
