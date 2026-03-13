@@ -56,6 +56,7 @@ type AdapterType =
   | "gemini_local"
   | "opencode_local"
   | "pi_local"
+  | "picoclaw_local"
   | "cursor"
   | "process"
   | "http"
@@ -172,6 +173,7 @@ export function OnboardingWizard() {
     adapterType === "codex_local" ||
     adapterType === "gemini_local" ||
     adapterType === "opencode_local" ||
+    adapterType === "picoclaw_local" ||
     adapterType === "cursor";
   const effectiveAdapterCommand =
     command.trim() ||
@@ -179,6 +181,8 @@ export function OnboardingWizard() {
       ? "codex"
       : adapterType === "gemini_local"
         ? "gemini"
+      : adapterType === "picoclaw_local"
+        ? "picoclaw"
       : adapterType === "cursor"
         ? "agent"
         : adapterType === "opencode_local"
@@ -685,6 +689,12 @@ export function OnboardingWizard() {
                           desc: "Local Pi agent"
                         },
                         {
+                          value: "picoclaw_local" as const,
+                          label: "PicoClaw",
+                          icon: Terminal,
+                          desc: "Local PicoClaw agent"
+                        },
+                        {
                           value: "openclaw_gateway" as const,
                           label: "OpenClaw Gateway",
                           icon: Bot,
@@ -754,6 +764,7 @@ export function OnboardingWizard() {
                     adapterType === "gemini_local" ||
                     adapterType === "opencode_local" ||
                     adapterType === "pi_local" ||
+                    adapterType === "picoclaw_local" ||
                     adapterType === "cursor") && (
                     <div className="space-y-3">
                       <div>
@@ -926,6 +937,8 @@ export function OnboardingWizard() {
                             ? `${effectiveAdapterCommand} exec --json -`
                             : adapterType === "gemini_local"
                               ? `${effectiveAdapterCommand} --output-format json \"Respond with hello.\"`
+                            : adapterType === "picoclaw_local"
+                              ? `${effectiveAdapterCommand} agent --message "Respond with hello." --session paperclip:debug`
                             : adapterType === "opencode_local"
                               ? `${effectiveAdapterCommand} run --format json "Respond with hello."`
                             : `${effectiveAdapterCommand} --print - --output-format stream-json --verbose`}
@@ -956,11 +969,15 @@ export function OnboardingWizard() {
                                   : "opencode auth login"}
                             </span>.
                           </p>
+                        ) : adapterType === "picoclaw_local" ? (
+                          <p className="text-muted-foreground">
+                            If setup fails, run <span className="font-mono">picoclaw onboard</span> and verify your
+                            <span className="font-mono"> ~/.picoclaw/config.json</span>.
+                          </p>
                         ) : (
                           <p className="text-muted-foreground">
                             If login is required, run{" "}
-                            <span className="font-mono">claude login</span> and
-                            retry.
+                            <span className="font-mono">claude login</span> and retry.
                           </p>
                         )}
                       </div>

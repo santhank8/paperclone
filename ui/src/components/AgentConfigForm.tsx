@@ -285,6 +285,7 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
     adapterType === "codex_local" ||
     adapterType === "gemini_local" ||
     adapterType === "opencode_local" ||
+    adapterType === "picoclaw_local" ||
     adapterType === "cursor";
   const uiAdapter = useMemo(() => getUIAdapter(adapterType), [adapterType]);
 
@@ -379,7 +380,8 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
       : adapterType === "opencode_local"
         ? eff("adapterConfig", "variant", String(config.variant ?? ""))
       : eff("adapterConfig", "effort", String(config.effort ?? ""));
-  const showThinkingEffort = adapterType !== "gemini_local";
+  const showThinkingEffort =
+    adapterType !== "gemini_local" && adapterType !== "picoclaw_local";
   const codexSearchEnabled = adapterType === "codex_local"
     ? (isCreate ? Boolean(val!.search) : eff("adapterConfig", "search", Boolean(config.search)))
     : false;
@@ -626,6 +628,8 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
                         ? "gemini"
                       : adapterType === "cursor"
                         ? "agent"
+                        : adapterType === "picoclaw_local"
+                          ? "picoclaw"
                         : adapterType === "opencode_local"
                           ? "opencode"
                           : "claude"

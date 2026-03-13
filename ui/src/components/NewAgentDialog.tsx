@@ -28,6 +28,7 @@ type AdvancedAdapterType =
   | "gemini_local"
   | "opencode_local"
   | "pi_local"
+  | "picoclaw_local"
   | "cursor"
   | "openclaw_gateway";
 
@@ -69,6 +70,12 @@ const ADVANCED_ADAPTER_OPTIONS: Array<{
     label: "Pi",
     icon: Terminal,
     desc: "Local Pi agent",
+  },
+  {
+    value: "picoclaw_local",
+    label: "PicoClaw",
+    icon: Terminal,
+    desc: "Local PicoClaw agent",
   },
   {
     value: "cursor",
