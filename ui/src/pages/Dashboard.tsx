@@ -97,7 +97,7 @@ export function Dashboard() {
       }
     }
     return [...projects]
-      .filter((p) => !p.archivedAt)
+      .filter((p) => !p.archivedAt && (projectIssueCounts.get(p.id) ?? 0) > 0)
       .sort((a, b) => {
         const aTime = projectLastUpdate.get(a.id)?.getTime() ?? 0;
         const bTime = projectLastUpdate.get(b.id)?.getTime() ?? 0;
