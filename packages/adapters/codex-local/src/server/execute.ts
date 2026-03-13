@@ -14,6 +14,7 @@ import {
   ensureCommandResolvable,
   ensurePaperclipSkillSymlink,
   ensurePathInEnv,
+  resolveLocalAdapterExecutionCwd,
   listPaperclipSkillEntries,
   removeMaintainerOnlySkillSymlinks,
   renderTemplate,
@@ -204,10 +205,9 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
       )
     : [];
   const runtimePrimaryUrl = asString(context.paperclipRuntimePrimaryUrl, "");
-  const configuredCwd = asString(config.cwd, "");
-  const useConfiguredInsteadOfAgentHome = workspaceSource === "agent_home" && configuredCwd.length > 0;
-  const effectiveWorkspaceCwd = useConfiguredInsteadOfAgentHome ? "" : workspaceCwd;
-  const cwd = effectiveWorkspaceCwd || configuredCwd || process.cwd();
+  const cwdResolution = resolveLocalAdapterExecutionCwd(workspaceContext, config.cwd, process.cwd());
+  const effectiveWorkspaceCwd = cwdResolution.effectiveWorkspaceCwd;
+  const cwd = cwdResolution.effectiveCwd;
   const envConfig = parseObject(config.env);
   const configuredCodexHome =
     typeof envConfig.CODEX_HOME === "string" && envConfig.CODEX_HOME.trim().length > 0
@@ -361,16 +361,22 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     }
   }
   const commandNotes = (() => {
-    if (!instructionsFilePath) return [] as string[];
+    const notes: string[] = [];
+    if (cwdResolution.commandNote) {
+      notes.push(cwdResolution.commandNote);
+    }
+    if (!instructionsFilePath) return notes;
     if (instructionsPrefix.length > 0) {
-      return [
+      notes.push(
         `Loaded agent instructions from ${instructionsFilePath}`,
         `Prepended instructions + path directive to stdin prompt (relative references from ${instructionsDir}).`,
-      ];
+      );
+      return notes;
     }
-    return [
+    notes.push(
       `Configured instructionsFilePath ${instructionsFilePath}, but file could not be read; continuing without injected instructions.`,
-    ];
+    );
+    return notes;
   })();
   const bootstrapPromptTemplate = asString(config.bootstrapPromptTemplate, "");
   const templateData = {

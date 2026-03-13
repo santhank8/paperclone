@@ -14,6 +14,7 @@ import {
   ensureAbsoluteDirectory,
   ensureCommandResolvable,
   ensurePathInEnv,
+  resolveLocalAdapterExecutionCwd,
   renderTemplate,
   runChildProcess,
 } from "@paperclipai/adapter-utils/server-utils";
@@ -119,10 +120,9 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
       )
     : [];
   const runtimePrimaryUrl = asString(context.paperclipRuntimePrimaryUrl, "");
-  const configuredCwd = asString(config.cwd, "");
-  const useConfiguredInsteadOfAgentHome = workspaceSource === "agent_home" && configuredCwd.length > 0;
-  const effectiveWorkspaceCwd = useConfiguredInsteadOfAgentHome ? "" : workspaceCwd;
-  const cwd = effectiveWorkspaceCwd || configuredCwd || process.cwd();
+  const cwdResolution = resolveLocalAdapterExecutionCwd(workspaceContext, config.cwd, process.cwd());
+  const effectiveWorkspaceCwd = cwdResolution.effectiveWorkspaceCwd;
+  const cwd = cwdResolution.effectiveCwd;
   await ensureAbsoluteDirectory(cwd, { createIfMissing: true });
   await ensureOpenCodeSkillsInjected(onLog);
 
@@ -248,16 +248,22 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
   }
 
   const commandNotes = (() => {
-    if (!resolvedInstructionsFilePath) return [] as string[];
+    const notes: string[] = [];
+    if (cwdResolution.commandNote) {
+      notes.push(cwdResolution.commandNote);
+    }
+    if (!resolvedInstructionsFilePath) return notes;
     if (instructionsPrefix.length > 0) {
-      return [
+      notes.push(
         `Loaded agent instructions from ${resolvedInstructionsFilePath}`,
         `Prepended instructions + path directive to stdin prompt (relative references from ${instructionsDir}).`,
-      ];
+      );
+      return notes;
     }
-    return [
+    notes.push(
       `Configured instructionsFilePath ${resolvedInstructionsFilePath}, but file could not be read; continuing without injected instructions.`,
-    ];
+    );
+    return notes;
   })();
 
   const bootstrapPromptTemplate = asString(config.bootstrapPromptTemplate, "");

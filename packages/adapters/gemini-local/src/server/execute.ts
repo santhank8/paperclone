@@ -15,6 +15,7 @@ import {
   ensurePaperclipSkillSymlink,
   joinPromptSections,
   ensurePathInEnv,
+  resolveLocalAdapterExecutionCwd,
   listPaperclipSkillEntries,
   removeMaintainerOnlySkillSymlinks,
   parseObject,
@@ -164,10 +165,9 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     )
     : [];
   const runtimePrimaryUrl = asString(context.paperclipRuntimePrimaryUrl, "");
-  const configuredCwd = asString(config.cwd, "");
-  const useConfiguredInsteadOfAgentHome = workspaceSource === "agent_home" && configuredCwd.length > 0;
-  const effectiveWorkspaceCwd = useConfiguredInsteadOfAgentHome ? "" : workspaceCwd;
-  const cwd = effectiveWorkspaceCwd || configuredCwd || process.cwd();
+  const cwdResolution = resolveLocalAdapterExecutionCwd(workspaceContext, config.cwd, process.cwd());
+  const effectiveWorkspaceCwd = cwdResolution.effectiveWorkspaceCwd;
+  const cwd = cwdResolution.effectiveCwd;
   await ensureAbsoluteDirectory(cwd, { createIfMissing: true });
   await ensureGeminiSkillsInjected(onLog);
 
@@ -279,7 +279,11 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     }
   }
   const commandNotes = (() => {
-    const notes: string[] = ["Prompt is passed to Gemini as the final positional argument."];
+    const notes: string[] = [];
+    if (cwdResolution.commandNote) {
+      notes.push(cwdResolution.commandNote);
+    }
+    notes.push("Prompt is passed to Gemini as the final positional argument.");
     notes.push("Added --approval-mode yolo for unattended execution.");
     if (!instructionsFilePath) return notes;
     if (instructionsPrefix.length > 0) {

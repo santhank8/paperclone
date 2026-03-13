@@ -12,6 +12,7 @@ type RunOptions = {
 type MetaSummary = {
   cwd?: string;
   commandArgs?: string[];
+  commandNotes?: string[];
 };
 
 export function defineLocalAdapterExecuteContract(input: {
@@ -93,6 +94,7 @@ export function defineLocalAdapterExecuteContract(input: {
     it("uses configured cwd instead of agent_home fallback without exporting fallback workspace cwd", async () => {
       const configuredCwd = path.join(tempDir, "configured-workspace");
       await fs.mkdir(configuredCwd, { recursive: true });
+      const onMeta = vi.fn(async () => {});
 
       await input.execute(
         input.buildContext({
@@ -103,6 +105,7 @@ export function defineLocalAdapterExecuteContract(input: {
               source: "agent_home",
             },
           },
+          onMeta,
         }),
       );
 
@@ -110,6 +113,14 @@ export function defineLocalAdapterExecuteContract(input: {
       expect(runOpts.cwd).toBe(configuredCwd);
       expect(runOpts.env.PAPERCLIP_WORKSPACE_SOURCE).toBe("agent_home");
       expect(runOpts.env.PAPERCLIP_WORKSPACE_CWD).toBeUndefined();
+
+      const meta = input.getMeta?.(onMeta);
+      if (meta) {
+        expect(meta.cwd).toBe(configuredCwd);
+        expect(meta.commandNotes).toContain(
+          `Using configured cwd "${configuredCwd}" instead of fallback agent_home workspace "/Users/example/.paperclip/instances/default/workspaces/agent-123".`,
+        );
+      }
     });
   });
 }

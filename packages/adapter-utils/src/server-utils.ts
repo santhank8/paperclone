@@ -61,6 +61,43 @@ export function asString(value: unknown, fallback: string): string {
   return typeof value === "string" && value.length > 0 ? value : fallback;
 }
 
+export interface LocalAdapterExecutionCwdResolution {
+  workspaceSource: string;
+  workspaceCwd: string;
+  configuredCwd: string;
+  effectiveWorkspaceCwd: string;
+  effectiveCwd: string;
+  usedConfiguredCwdOverride: boolean;
+  commandNote: string | null;
+}
+
+export function resolveLocalAdapterExecutionCwd(
+  workspaceValue: unknown,
+  configuredCwdValue: unknown,
+  fallbackCwd = process.cwd(),
+): LocalAdapterExecutionCwdResolution {
+  const workspace = parseObject(workspaceValue);
+  const workspaceSource = asString(workspace.source, "");
+  const workspaceCwd = asString(workspace.cwd, "");
+  const configuredCwd = asString(configuredCwdValue, "").trim();
+  const usedConfiguredCwdOverride =
+    workspaceSource === "agent_home" && configuredCwd.length > 0;
+  const effectiveWorkspaceCwd = usedConfiguredCwdOverride ? "" : workspaceCwd;
+  const effectiveCwd = effectiveWorkspaceCwd || configuredCwd || fallbackCwd;
+
+  return {
+    workspaceSource,
+    workspaceCwd,
+    configuredCwd,
+    effectiveWorkspaceCwd,
+    effectiveCwd,
+    usedConfiguredCwdOverride,
+    commandNote: usedConfiguredCwdOverride
+      ? `Using configured cwd "${effectiveCwd}" instead of fallback agent_home workspace "${workspaceCwd}".`
+      : null,
+  };
+}
+
 export function asNumber(value: unknown, fallback: number): number {
   return typeof value === "number" && Number.isFinite(value) ? value : fallback;
 }

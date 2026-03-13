@@ -14,6 +14,7 @@ import {
   ensureCommandResolvable,
   ensurePaperclipSkillSymlink,
   ensurePathInEnv,
+  resolveLocalAdapterExecutionCwd,
   listPaperclipSkillEntries,
   removeMaintainerOnlySkillSymlinks,
   renderTemplate,
@@ -176,10 +177,9 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
       )
     : [];
   const runtimePrimaryUrl = asString(context.paperclipRuntimePrimaryUrl, "");
-  const configuredCwd = asString(config.cwd, "");
-  const useConfiguredInsteadOfAgentHome = workspaceSource === "agent_home" && configuredCwd.length > 0;
-  const effectiveWorkspaceCwd = useConfiguredInsteadOfAgentHome ? "" : workspaceCwd;
-  const cwd = effectiveWorkspaceCwd || configuredCwd || process.cwd();
+  const cwdResolution = resolveLocalAdapterExecutionCwd(workspaceContext, config.cwd, process.cwd());
+  const effectiveWorkspaceCwd = cwdResolution.effectiveWorkspaceCwd;
+  const cwd = cwdResolution.effectiveCwd;
   await ensureAbsoluteDirectory(cwd, { createIfMissing: true });
   await ensureCursorSkillsInjected(onLog);
 
@@ -324,6 +324,9 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
   }
   const commandNotes = (() => {
     const notes: string[] = [];
+    if (cwdResolution.commandNote) {
+      notes.push(cwdResolution.commandNote);
+    }
     if (autoTrustEnabled) {
       notes.push("Auto-added --yolo to bypass interactive prompts.");
     }

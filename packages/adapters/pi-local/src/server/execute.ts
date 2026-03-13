@@ -15,6 +15,7 @@ import {
   ensureCommandResolvable,
   ensurePaperclipSkillSymlink,
   ensurePathInEnv,
+  resolveLocalAdapterExecutionCwd,
   listPaperclipSkillEntries,
   removeMaintainerOnlySkillSymlinks,
   renderTemplate,
@@ -136,10 +137,9 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
       )
     : [];
   const runtimePrimaryUrl = asString(context.paperclipRuntimePrimaryUrl, "");
-  const configuredCwd = asString(config.cwd, "");
-  const useConfiguredInsteadOfAgentHome = workspaceSource === "agent_home" && configuredCwd.length > 0;
-  const effectiveWorkspaceCwd = useConfiguredInsteadOfAgentHome ? "" : workspaceCwd;
-  const cwd = effectiveWorkspaceCwd || configuredCwd || process.cwd();
+  const cwdResolution = resolveLocalAdapterExecutionCwd(workspaceContext, config.cwd, process.cwd());
+  const effectiveWorkspaceCwd = cwdResolution.effectiveWorkspaceCwd;
+  const cwd = cwdResolution.effectiveCwd;
   await ensureAbsoluteDirectory(cwd, { createIfMissing: true });
   
   // Ensure sessions directory exists inside the active workspace
@@ -327,16 +327,22 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
   };
 
   const commandNotes = (() => {
-    if (!instructionsFilePath) return [] as string[];
-    if (instructionsReadFailed) {
-      return [
-        `Configured instructionsFilePath ${instructionsFilePath}, but file could not be read; continuing without injected instructions.`,
-      ];
+    const notes: string[] = [];
+    if (cwdResolution.commandNote) {
+      notes.push(cwdResolution.commandNote);
     }
-    return [
-        `Loaded agent instructions from ${instructionsFilePath}`,
+    if (!instructionsFilePath) return notes;
+    if (instructionsReadFailed) {
+      notes.push(
+        `Configured instructionsFilePath ${instructionsFilePath}, but file could not be read; continuing without injected instructions.`,
+      );
+      return notes;
+    }
+    notes.push(
+      `Loaded agent instructions from ${instructionsFilePath}`,
       `Appended instructions + path directive to system prompt (relative references from ${instructionsFileDir}).`,
-    ];
+    );
+    return notes;
   })();
 
   const buildArgs = (sessionFile: string): string[] => {

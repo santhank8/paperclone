@@ -17,6 +17,7 @@ import {
   ensureAbsoluteDirectory,
   ensureCommandResolvable,
   ensurePathInEnv,
+  resolveLocalAdapterExecutionCwd,
   renderTemplate,
   runChildProcess,
 } from "@paperclipai/adapter-utils/server-utils";
@@ -76,6 +77,7 @@ interface ClaudeExecutionInput {
 interface ClaudeRuntimeConfig {
   command: string;
   cwd: string;
+  cwdCommandNote: string | null;
   workspaceId: string | null;
   workspaceRepoUrl: string | null;
   workspaceRepoRef: string | null;
@@ -138,10 +140,9 @@ async function buildClaudeRuntimeConfig(input: ClaudeExecutionInput): Promise<Cl
       )
     : [];
   const runtimePrimaryUrl = asString(context.paperclipRuntimePrimaryUrl, "");
-  const configuredCwd = asString(config.cwd, "");
-  const useConfiguredInsteadOfAgentHome = workspaceSource === "agent_home" && configuredCwd.length > 0;
-  const effectiveWorkspaceCwd = useConfiguredInsteadOfAgentHome ? "" : workspaceCwd;
-  const cwd = effectiveWorkspaceCwd || configuredCwd || process.cwd();
+  const cwdResolution = resolveLocalAdapterExecutionCwd(workspaceContext, config.cwd, process.cwd());
+  const effectiveWorkspaceCwd = cwdResolution.effectiveWorkspaceCwd;
+  const cwd = cwdResolution.effectiveCwd;
   await ensureAbsoluteDirectory(cwd, { createIfMissing: true });
 
   const envConfig = parseObject(config.env);
@@ -251,6 +252,7 @@ async function buildClaudeRuntimeConfig(input: ClaudeExecutionInput): Promise<Cl
   return {
     command,
     cwd,
+    cwdCommandNote: cwdResolution.commandNote,
     workspaceId,
     workspaceRepoUrl,
     workspaceRepoRef,
@@ -312,11 +314,6 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
   const dangerouslySkipPermissions = asBoolean(config.dangerouslySkipPermissions, false);
   const instructionsFilePath = asString(config.instructionsFilePath, "").trim();
   const instructionsFileDir = instructionsFilePath ? `${path.dirname(instructionsFilePath)}/` : "";
-  const commandNotes = instructionsFilePath
-    ? [
-        `Injected agent instructions via --append-system-prompt-file ${instructionsFilePath} (with path directive appended)`,
-      ]
-    : [];
 
   const runtimeConfig = await buildClaudeRuntimeConfig({
     runId,
@@ -328,6 +325,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
   const {
     command,
     cwd,
+    cwdCommandNote,
     workspaceId,
     workspaceRepoUrl,
     workspaceRepoRef,
@@ -336,6 +334,14 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     graceSec,
     extraArgs,
   } = runtimeConfig;
+  const commandNotes = [
+    ...(cwdCommandNote ? [cwdCommandNote] : []),
+    ...(instructionsFilePath
+      ? [
+          `Injected agent instructions via --append-system-prompt-file ${instructionsFilePath} (with path directive appended)`,
+        ]
+      : []),
+  ];
   const billingType = resolveClaudeBillingType(env);
   const skillsDir = await buildSkillsDir();
 
