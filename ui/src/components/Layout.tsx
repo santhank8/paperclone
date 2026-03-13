@@ -10,6 +10,7 @@ import { PropertiesPanel } from "./PropertiesPanel";
 import { CommandPalette } from "./CommandPalette";
 import { NewIssueDialog } from "./NewIssueDialog";
 import { NewProjectDialog } from "./NewProjectDialog";
+import { DeleteProjectDialog } from "./DeleteProjectDialog";
 import { NewGoalDialog } from "./NewGoalDialog";
 import { NewAgentDialog } from "./NewAgentDialog";
 import { ToastViewport } from "./ToastViewport";
@@ -381,6 +382,7 @@ export function Layout() {
       <CommandPalette />
       <NewIssueDialog />
       <NewProjectDialog />
+      <DeleteProjectDialog />
       <NewGoalDialog />
       <NewAgentDialog />
       <ToastViewport />

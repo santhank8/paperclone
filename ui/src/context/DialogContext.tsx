@@ -19,6 +19,12 @@ interface OnboardingOptions {
   companyId?: string;
 }
 
+interface DeleteProjectDialogDefaults {
+  projectId: string;
+  projectName: string;
+  companyName: string;
+}
+
 interface DialogContextValue {
   newIssueOpen: boolean;
   newIssueDefaults: NewIssueDefaults;
@@ -38,6 +44,10 @@ interface DialogContextValue {
   onboardingOptions: OnboardingOptions;
   openOnboarding: (options?: OnboardingOptions) => void;
   closeOnboarding: () => void;
+  deleteProjectOpen: boolean;
+  deleteProjectDefaults: DeleteProjectDialogDefaults | null;
+  openDeleteProject: (defaults: DeleteProjectDialogDefaults) => void;
+  closeDeleteProject: () => void;
 }
 
 const DialogContext = createContext<DialogContextValue | null>(null);
@@ -51,6 +61,8 @@ export function DialogProvider({ children }: { children: ReactNode }) {
   const [newAgentOpen, setNewAgentOpen] = useState(false);
   const [onboardingOpen, setOnboardingOpen] = useState(false);
   const [onboardingOptions, setOnboardingOptions] = useState<OnboardingOptions>({});
+  const [deleteProjectOpen, setDeleteProjectOpen] = useState(false);
+  const [deleteProjectDefaults, setDeleteProjectDefaults] = useState<DeleteProjectDialogDefaults | null>(null);
 
   const openNewIssue = useCallback((defaults: NewIssueDefaults = {}) => {
     setNewIssueDefaults(defaults);
@@ -98,6 +110,16 @@ export function DialogProvider({ children }: { children: ReactNode }) {
     setOnboardingOptions({});
   }, []);
 
+  const openDeleteProject = useCallback((defaults: DeleteProjectDialogDefaults) => {
+    setDeleteProjectDefaults(defaults);
+    setDeleteProjectOpen(true);
+  }, []);
+
+  const closeDeleteProject = useCallback(() => {
+    setDeleteProjectOpen(false);
+    setDeleteProjectDefaults(null);
+  }, []);
+
   return (
     <DialogContext.Provider
       value={{
@@ -119,6 +141,10 @@ export function DialogProvider({ children }: { children: ReactNode }) {
         onboardingOptions,
         openOnboarding,
         closeOnboarding,
+        deleteProjectOpen,
+        deleteProjectDefaults,
+        openDeleteProject,
+        closeDeleteProject,
       }}
     >
       {children}

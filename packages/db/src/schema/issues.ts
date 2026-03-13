@@ -22,7 +22,7 @@ export const issues = pgTable(
     companyId: uuid("company_id").notNull().references(() => companies.id),
     projectId: uuid("project_id").references(() => projects.id),
     goalId: uuid("goal_id").references(() => goals.id),
-    parentId: uuid("parent_id").references((): AnyPgColumn => issues.id),
+    parentId: uuid("parent_id").references((): AnyPgColumn => issues.id, { onDelete: "cascade" }),
     title: text("title").notNull(),
     description: text("description"),
     status: text("status").notNull().default("backlog"),

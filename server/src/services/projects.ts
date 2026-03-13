@@ -1,6 +1,16 @@
 import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import type { Db } from "@paperclipai/db";
-import { projects, projectGoals, goals, projectWorkspaces, workspaceRuntimeServices } from "@paperclipai/db";
+import {
+  projects,
+  projectGoals,
+  goals,
+  projectWorkspaces,
+  workspaceRuntimeServices,
+  issues,
+  issueComments,
+  issueReadStates,
+  costEvents,
+} from "@paperclipai/db";
 import {
   PROJECT_COLORS,
   deriveProjectUrlKey,
@@ -447,16 +457,48 @@ export function projectService(db: Db) {
       return enriched ?? null;
     },
 
-    remove: (id: string) =>
-      db
-        .delete(projects)
-        .where(eq(projects.id, id))
-        .returning()
-        .then((rows) => {
-          const row = rows[0] ?? null;
-          if (!row) return null;
-          return { ...row, urlKey: deriveProjectUrlKey(row.name, row.id) };
-        }),
+    remove: async (id: string) => {
+      // Perform cascade delete in a transaction
+      return db.transaction(async (tx) => {
+        // First, fetch the project to return later
+        const projectRows = await tx.select().from(projects).where(eq(projects.id, id));
+        if (projectRows.length === 0) return null;
+        const project = projectRows[0]!;
+
+        // Get all issues for this project
+        const issueRows = await tx
+          .select({ id: issues.id })
+          .from(issues)
+          .where(eq(issues.projectId, id));
+        const issueIds = issueRows.map((r) => r.id);
+
+        if (issueIds.length > 0) {
+          // Delete issue_read_states and issue_comments for these issues.
+          // ON DELETE CASCADE is set on both FK constraints, but we pre-delete
+          // explicitly here so the transaction is safe regardless of migration
+          // state on older instances.
+          await tx.delete(issueReadStates).where(inArray(issueReadStates.issueId, issueIds));
+          await tx.delete(issueComments).where(inArray(issueComments.issueId, issueIds));
+
+          // Orphan cost_events by setting issue_id to NULL (preserve billing data)
+          await tx.update(costEvents).set({ issueId: null }).where(inArray(costEvents.issueId, issueIds));
+
+          // Delete the issues (issue_approvals, issue_labels, issue_attachments cascade automatically)
+          await tx.delete(issues).where(inArray(issues.id, issueIds));
+        }
+
+        // Orphan cost_events by setting project_id to NULL (preserve billing data)
+        await tx.update(costEvents).set({ projectId: null }).where(eq(costEvents.projectId, id));
+
+        // Delete workspace_runtime_services that reference this project directly
+        await tx.delete(workspaceRuntimeServices).where(eq(workspaceRuntimeServices.projectId, id));
+
+        // Finally delete the project (project_goals and project_workspaces cascade automatically)
+        await tx.delete(projects).where(eq(projects.id, id));
+
+        return { ...project, urlKey: deriveProjectUrlKey(project.name, project.id) };
+      });
+    },
 
     listWorkspaces: async (projectId: string): Promise<ProjectWorkspace[]> => {
       const rows = await db
