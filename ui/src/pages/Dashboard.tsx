@@ -19,7 +19,7 @@ import { ActivityRow } from "../components/ActivityRow";
 import { Identity } from "../components/Identity";
 import { timeAgo } from "../lib/timeAgo";
 import { cn, formatCents } from "../lib/utils";
-import { Bot, CircleDot, DollarSign, ShieldCheck, LayoutDashboard, Hexagon } from "lucide-react";
+import { Bot, CircleDot, DollarSign, ShieldCheck, LayoutDashboard } from "lucide-react";
 import { ActiveAgentsPanel } from "../components/ActiveAgentsPanel";
 import { ChartCard, RunActivityChart, PriorityChart, IssueStatusChart, SuccessRateChart } from "../components/ActivityCharts";
 import { PageSkeleton } from "../components/PageSkeleton";
