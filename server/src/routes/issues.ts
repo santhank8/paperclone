@@ -26,7 +26,7 @@ import { logger } from "../middleware/logger.js";
 import { forbidden, HttpError, unauthorized } from "../errors.js";
 import { assertCompanyAccess, getActorInfo } from "./authz.js";
 import { shouldWakeAssigneeOnCheckout } from "./issues-checkout-wakeup.js";
-import { isAllowedContentType, MAX_ATTACHMENT_BYTES } from "../attachment-types.js";
+import { isAllowedFile, MAX_ATTACHMENT_BYTES } from "../attachment-types.js";
 
 export function issueRoutes(db: Db, storage: StorageService) {
   const router = Router();
@@ -1071,7 +1071,7 @@ export function issueRoutes(db: Db, storage: StorageService) {
       return;
     }
     const contentType = (file.mimetype || "").toLowerCase();
-    if (!isAllowedContentType(contentType)) {
+    if (!isAllowedFile(contentType, file.originalname || null)) {
       res.status(422).json({ error: `Unsupported attachment type: ${contentType || "unknown"}` });
       return;
     }

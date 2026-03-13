@@ -21,6 +21,9 @@ export const DEFAULT_ALLOWED_TYPES: readonly string[] = [
   "image/jpg",
   "image/webp",
   "image/gif",
+  "text/markdown",
+  "text/x-markdown",
+  "text/plain",
 ];
 
 /**
@@ -62,6 +65,50 @@ const allowedPatterns: string[] = parseAllowedTypes(
 /** Convenience wrapper using the process-level allowed list. */
 export function isAllowedContentType(contentType: string): boolean {
   return matchesContentType(contentType, allowedPatterns);
+}
+
+/**
+ * Infer MIME type from filename when contentType is generic octet-stream.
+ * This helps browsers that don't send proper MIME types for text files.
+ */
+export function inferContentType(contentType: string, filename: string | null): string {
+  const ct = contentType.toLowerCase();
+  if (ct !== "application/octet-stream" && ct !== "application/x-unknown") {
+    return contentType;
+  }
+  
+  if (!filename) {
+    return contentType;
+  }
+  
+  const ext = filename.toLowerCase().split(".").pop() || "";
+  switch (ext) {
+    case "md":
+    case "markdown":
+      return "text/markdown";
+    case "txt":
+      return "text/plain";
+    case "csv":
+      return "text/csv";
+    case "html":
+    case "htm":
+      return "text/html";
+    case "json":
+      return "application/json";
+    case "pdf":
+      return "application/pdf";
+    default:
+      return contentType;
+  }
+}
+
+/**
+ * Check if a file is allowed based on its MIME type and filename.
+ * Uses inferContentType to handle generic octet-stream types.
+ */
+export function isAllowedFile(contentType: string, filename: string | null): boolean {
+  const inferred = inferContentType(contentType, filename);
+  return isAllowedContentType(inferred);
 }
 
 export const MAX_ATTACHMENT_BYTES =
