@@ -1,7 +1,21 @@
 export const type = "opencode_local";
 export const label = "OpenCode (local)";
 
-export const models: Array<{ id: string; label: string }> = [];
+export const models: Array<{ id: string; label: string }> = [
+  { id: "anthropic/claude-3-opus", label: "Claude 3 Opus (Anthropic)" },
+  { id: "anthropic/claude-3-sonnet", label: "Claude 3 Sonnet (Anthropic)" },
+  { id: "anthropic/claude-3-haiku", label: "Claude 3 Haiku (Anthropic)" },
+  { id: "openai/gpt-4", label: "GPT-4 (OpenAI)" },
+  { id: "openai/gpt-4-turbo", label: "GPT-4 Turbo (OpenAI)" },
+  { id: "openai/gpt-4o", label: "GPT-4o (OpenAI)" },
+  { id: "openai/gpt-3.5-turbo", label: "GPT-3.5 Turbo (OpenAI)" },
+  { id: "deepseek/deepseek-chat", label: "DeepSeek Chat" },
+  { id: "deepseek/deepseek-coder", label: "DeepSeek Coder" },
+  { id: "google/gemini-1.5-pro", label: "Gemini 1.5 Pro (Google)" },
+  { id: "google/gemini-1.5-flash", label: "Gemini 1.5 Flash (Google)" },
+  { id: "mistral/mistral-large", label: "Mistral Large" },
+  { id: "meta/llama-3.1-70b", label: "Llama 3.1 70B (Meta)" },
+];
 
 export const agentConfigurationDoc = `# opencode_local agent configuration
 
