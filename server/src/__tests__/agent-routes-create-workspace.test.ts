@@ -60,12 +60,22 @@ vi.mock("../services/index.js", () => ({
 }));
 
 function createDbStub(projectPrimaryWorkspaceCwd: string) {
+  return createQueuedDbStub([[{ cwd: projectPrimaryWorkspaceCwd }]]);
+}
+
+function createQueuedDbStub(results: unknown[][]) {
+  const queue = [...results];
   return {
     select: vi.fn(() => ({
       from: vi.fn(() => ({
-        where: vi.fn(() => ({
-          orderBy: vi.fn().mockResolvedValue([{ cwd: projectPrimaryWorkspaceCwd }]),
-        })),
+        where: vi.fn(() => {
+          const nextResult = queue.shift() ?? [];
+          const query = {
+            orderBy: vi.fn().mockResolvedValue(nextResult),
+            then: (resolve: (value: unknown[]) => unknown) => Promise.resolve(resolve(nextResult)),
+          };
+          return query;
+        }),
       })),
     })),
   };
@@ -134,6 +144,129 @@ describe("POST /companies/:companyId/agents workspace normalization", () => {
           ),
         }),
       }),
+    );
+  });
+
+  it("does not rewrite wrapper cwd during agent creation when the company has multiple project primaries", async () => {
+    const wrapperWorkspaceCwd = path.resolve(
+      resolvePaperclipInstanceRoot(),
+      "workspaces",
+      "wrapper-workspace",
+    );
+    const app = createApp(
+      createQueuedDbStub([
+        [
+          { projectId: "11111111-1111-4111-8111-111111111111", cwd: "/Users/test/code/alpha" },
+          { projectId: "22222222-2222-4222-8222-222222222222", cwd: "/Users/test/code/beta" },
+        ],
+      ]),
+    );
+
+    const res = await request(app)
+      .post("/api/companies/company-1/agents")
+      .send({
+        name: "CTO",
+        role: "engineer",
+        adapterType: "codex_local",
+        adapterConfig: {
+          cwd: wrapperWorkspaceCwd,
+        },
+      });
+
+    expect(res.status).toBe(201);
+    expect(mockAgentService.create).toHaveBeenCalledWith(
+      "company-1",
+      expect.objectContaining({
+        adapterConfig: expect.objectContaining({
+          cwd: wrapperWorkspaceCwd,
+        }),
+      }),
+    );
+  });
+
+  it("uses the source issue project primary workspace during agent hire", async () => {
+    const wrapperWorkspaceCwd = path.resolve(
+      resolvePaperclipInstanceRoot(),
+      "workspaces",
+      "wrapper-workspace",
+    );
+    const projectPrimaryWorkspaceCwd = "/Users/test/code/polybot-beta";
+    const app = createApp(
+      createQueuedDbStub([
+        [{ projectId: "22222222-2222-4222-8222-222222222222" }],
+        [{ cwd: projectPrimaryWorkspaceCwd }],
+        [{ id: "company-1", requireBoardApprovalForNewAgents: false }],
+      ]),
+    );
+
+    const res = await request(app)
+      .post("/api/companies/company-1/agent-hires")
+      .send({
+        name: "CTO",
+        role: "engineer",
+        adapterType: "codex_local",
+        adapterConfig: {
+          cwd: wrapperWorkspaceCwd,
+        },
+        sourceIssueIds: ["33333333-3333-4333-8333-333333333333"],
+      });
+
+    expect(res.status).toBe(201);
+    expect(mockAgentService.create).toHaveBeenCalledWith(
+      "company-1",
+      expect.objectContaining({
+        adapterConfig: expect.objectContaining({
+          cwd: projectPrimaryWorkspaceCwd,
+        }),
+      }),
+    );
+  });
+
+  it("keeps update normalization pinned to the agent's existing project workspace", async () => {
+    const wrapperWorkspaceCwd = path.resolve(
+      resolvePaperclipInstanceRoot(),
+      "workspaces",
+      "wrapper-workspace",
+    );
+    mockAgentService.getById.mockResolvedValue({
+      id: "44444444-4444-4444-8444-444444444444",
+      companyId: "company-1",
+      name: "CTO",
+      role: "engineer",
+      adapterType: "codex_local",
+      adapterConfig: {
+        cwd: "/Users/test/code/project-beta",
+      },
+    });
+    mockAgentService.update.mockImplementation(async (_id, patch) => ({
+      id: "44444444-4444-4444-8444-444444444444",
+      companyId: "company-1",
+      ...patch,
+    }));
+    const app = createApp(
+      createQueuedDbStub([
+        [{ projectId: "22222222-2222-4222-8222-222222222222" }],
+        [{ cwd: "/Users/test/code/project-beta" }],
+      ]),
+    );
+
+    const res = await request(app)
+      .patch("/api/agents/44444444-4444-4444-8444-444444444444")
+      .send({
+        adapterConfig: {
+          cwd: wrapperWorkspaceCwd,
+        },
+      });
+
+    expect(res.status).toBe(200);
+    expect(mockAgentService.update).toHaveBeenCalledWith(
+      "44444444-4444-4444-8444-444444444444",
+      expect.objectContaining({
+        adapterConfig: expect.objectContaining({
+          cwd: "/Users/test/code/project-beta",
+        }),
+      }),
+      expect.anything(),
     );
   });
 });

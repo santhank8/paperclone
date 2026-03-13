@@ -2,7 +2,7 @@ import { Router, type Request } from "express";
 import { generateKeyPairSync, randomUUID } from "node:crypto";
 import path from "node:path";
 import type { Db } from "@paperclipai/db";
-import { agents as agentsTable, companies, heartbeatRuns } from "@paperclipai/db";
+import { agents as agentsTable, companies, heartbeatRuns, issues } from "@paperclipai/db";
 import { and, desc, eq, inArray, not, sql } from "drizzle-orm";
 import {
   createAgentKeySchema,
@@ -267,9 +267,81 @@ export function agentRoutes(db: Db) {
 
   async function resolveCompanyPrimaryWorkspaceCwd(companyId: string): Promise<string | null> {
     const rows = await db
-      .select({ cwd: projectWorkspaces.cwd })
+      .select({ projectId: projectWorkspaces.projectId, cwd: projectWorkspaces.cwd })
       .from(projectWorkspaces)
       .where(and(eq(projectWorkspaces.companyId, companyId), eq(projectWorkspaces.isPrimary, true)))
+      .orderBy(projectWorkspaces.createdAt, projectWorkspaces.id);
+    const usableRows = rows.filter((row) => {
+      const cwd = asNonEmptyString(row.cwd);
+      return Boolean(cwd && cwd !== "/__paperclip_repo_only__");
+    });
+    const projectIds = Array.from(new Set(usableRows.map((row) => row.projectId)));
+    if (projectIds.length !== 1) {
+      return null;
+    }
+    return asNonEmptyString(usableRows[0]?.cwd);
+  }
+
+  async function resolveProjectIdFromSourceIssues(companyId: string, sourceIssueIds: string[]): Promise<string | null> {
+    if (sourceIssueIds.length === 0) return null;
+    const rows = await db
+      .select({ projectId: issues.projectId })
+      .from(issues)
+      .where(and(eq(issues.companyId, companyId), inArray(issues.id, sourceIssueIds)))
+      .then((results) => results.filter((row) => asNonEmptyString(row.projectId)));
+    const projectIds = Array.from(new Set(rows.map((row) => row.projectId)));
+    if (projectIds.length !== 1) {
+      return null;
+    }
+    return projectIds[0] ?? null;
+  }
+
+  async function resolveProjectIdFromAgentWorkspace(
+    companyId: string,
+    adapterConfig: Record<string, unknown>,
+  ): Promise<string | null> {
+    const currentCwd = asNonEmptyString(adapterConfig.cwd);
+    if (!currentCwd) return null;
+    const rows = await db
+      .select({ projectId: projectWorkspaces.projectId })
+      .from(projectWorkspaces)
+      .where(and(eq(projectWorkspaces.companyId, companyId), eq(projectWorkspaces.cwd, currentCwd)))
+      .then((results) => results.filter((row) => asNonEmptyString(row.projectId)));
+    const projectIds = Array.from(new Set(rows.map((row) => row.projectId)));
+    if (projectIds.length !== 1) {
+      return null;
+    }
+    return projectIds[0] ?? null;
+  }
+
+  async function resolveProjectPrimaryWorkspaceCwd(input: {
+    companyId: string;
+    sourceIssueIds?: string[];
+    existingAdapterConfig?: Record<string, unknown>;
+  }): Promise<string | null> {
+    const projectIdFromSourceIssues = await resolveProjectIdFromSourceIssues(
+      input.companyId,
+      input.sourceIssueIds ?? [],
+    );
+    const projectIdFromExistingWorkspace =
+      projectIdFromSourceIssues === null && input.existingAdapterConfig
+        ? await resolveProjectIdFromAgentWorkspace(input.companyId, input.existingAdapterConfig)
+        : null;
+    const targetProjectId = projectIdFromSourceIssues ?? projectIdFromExistingWorkspace;
+    if (!targetProjectId) {
+      return resolveCompanyPrimaryWorkspaceCwd(input.companyId);
+    }
+
+    const rows = await db
+      .select({ cwd: projectWorkspaces.cwd })
+      .from(projectWorkspaces)
+      .where(
+        and(
+          eq(projectWorkspaces.companyId, input.companyId),
+          eq(projectWorkspaces.projectId, targetProjectId),
+          eq(projectWorkspaces.isPrimary, true),
+        ),
+      )
       .orderBy(projectWorkspaces.createdAt, projectWorkspaces.id);
     for (const row of rows) {
       const cwd = asNonEmptyString(row.cwd);
@@ -759,7 +831,10 @@ export function agentRoutes(db: Db) {
     const requestedAdapterConfig = preferProjectPrimaryWorkspaceCwd({
       adapterType: hireInput.adapterType,
       adapterConfig: createDefaultedAdapterConfig,
-      projectPrimaryWorkspaceCwd: await resolveCompanyPrimaryWorkspaceCwd(companyId),
+      projectPrimaryWorkspaceCwd: await resolveProjectPrimaryWorkspaceCwd({
+        companyId,
+        sourceIssueIds,
+      }),
     });
     const normalizedAdapterConfig = await secretsSvc.normalizeAdapterConfigForPersistence(
       companyId,
@@ -904,7 +979,9 @@ export function agentRoutes(db: Db) {
     const requestedAdapterConfig = preferProjectPrimaryWorkspaceCwd({
       adapterType: req.body.adapterType,
       adapterConfig: createDefaultedAdapterConfig,
-      projectPrimaryWorkspaceCwd: await resolveCompanyPrimaryWorkspaceCwd(companyId),
+      projectPrimaryWorkspaceCwd: await resolveProjectPrimaryWorkspaceCwd({
+        companyId,
+      }),
     });
     const normalizedAdapterConfig = await secretsSvc.normalizeAdapterConfigForPersistence(
       companyId,
@@ -1104,7 +1181,10 @@ export function agentRoutes(db: Db) {
         requestedAdapterType,
         rawEffectiveAdapterConfig,
       );
-      const projectPrimaryWorkspaceCwd = await resolveCompanyPrimaryWorkspaceCwd(existing.companyId);
+      const projectPrimaryWorkspaceCwd = await resolveProjectPrimaryWorkspaceCwd({
+        companyId: existing.companyId,
+        existingAdapterConfig: asRecord(existing.adapterConfig) ?? {},
+      });
       const normalizedWorkspaceAdapterConfig = preferProjectPrimaryWorkspaceCwd({
         adapterType: requestedAdapterType,
         adapterConfig: effectiveAdapterConfig,
