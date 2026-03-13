@@ -171,6 +171,10 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     (typeof context.wakeCommentId === "string" && context.wakeCommentId.trim().length > 0 && context.wakeCommentId.trim()) ||
     (typeof context.commentId === "string" && context.commentId.trim().length > 0 && context.commentId.trim()) ||
     null;
+  const wakeCommentBody =
+    typeof context.wakeCommentBody === "string" && context.wakeCommentBody.trim().length > 0
+      ? context.wakeCommentBody.trim()
+      : null;
   const approvalId =
     typeof context.approvalId === "string" && context.approvalId.trim().length > 0
       ? context.approvalId.trim()
@@ -310,7 +314,10 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     run: { id: runId, source: "on_demand" },
     context,
   });
-  const prompt = `${instructionsPrefix}${renderedPrompt}`;
+  const commentNote = wakeCommentBody
+    ? `\n\n<user_comment>\n${wakeCommentBody}\n</user_comment>\n`
+    : "";
+  const prompt = `${instructionsPrefix}${renderedPrompt}${commentNote}`;
 
   const buildArgs = (resumeSessionId: string | null) => {
     const args = ["exec", "--json"];
