@@ -114,14 +114,28 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
   const workspaceContext = parseObject(context.paperclipWorkspace);
   const workspaceCwd = asString(workspaceContext.cwd, "");
   const workspaceSource = asString(workspaceContext.source, "");
+  const workspaceStrategy = asString(workspaceContext.strategy, "");
   const workspaceId = asString(workspaceContext.workspaceId, "");
   const workspaceRepoUrl = asString(workspaceContext.repoUrl, "");
   const workspaceRepoRef = asString(workspaceContext.repoRef, "");
+  const workspaceBranch = asString(workspaceContext.branchName, "");
+  const workspaceWorktreePath = asString(workspaceContext.worktreePath, "");
   const workspaceHints = Array.isArray(context.paperclipWorkspaces)
     ? context.paperclipWorkspaces.filter(
         (value): value is Record<string, unknown> => typeof value === "object" && value !== null,
       )
     : [];
+  const runtimeServiceIntents = Array.isArray(context.paperclipRuntimeServiceIntents)
+    ? context.paperclipRuntimeServiceIntents.filter(
+        (value): value is Record<string, unknown> => typeof value === "object" && value !== null,
+      )
+    : [];
+  const runtimeServices = Array.isArray(context.paperclipRuntimeServices)
+    ? context.paperclipRuntimeServices.filter(
+        (value): value is Record<string, unknown> => typeof value === "object" && value !== null,
+      )
+    : [];
+  const runtimePrimaryUrl = asString(context.paperclipRuntimePrimaryUrl, "");
   const configuredCwd = asString(config.cwd, "");
   const useConfiguredInsteadOfAgentHome = workspaceSource === "agent_home" && configuredCwd.length > 0;
   const effectiveWorkspaceCwd = useConfiguredInsteadOfAgentHome ? "" : workspaceCwd;
@@ -171,12 +185,24 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
   if (approvalId) env.PAPERCLIP_APPROVAL_ID = approvalId;
   if (approvalStatus) env.PAPERCLIP_APPROVAL_STATUS = approvalStatus;
   if (linkedIssueIds.length > 0) env.PAPERCLIP_LINKED_ISSUE_IDS = linkedIssueIds.join(",");
-  if (workspaceCwd) env.PAPERCLIP_WORKSPACE_CWD = workspaceCwd;
+  if (effectiveWorkspaceCwd) env.PAPERCLIP_WORKSPACE_CWD = effectiveWorkspaceCwd;
   if (workspaceSource) env.PAPERCLIP_WORKSPACE_SOURCE = workspaceSource;
+  if (workspaceStrategy) env.PAPERCLIP_WORKSPACE_STRATEGY = workspaceStrategy;
   if (workspaceId) env.PAPERCLIP_WORKSPACE_ID = workspaceId;
   if (workspaceRepoUrl) env.PAPERCLIP_WORKSPACE_REPO_URL = workspaceRepoUrl;
   if (workspaceRepoRef) env.PAPERCLIP_WORKSPACE_REPO_REF = workspaceRepoRef;
+  if (workspaceBranch) env.PAPERCLIP_WORKSPACE_BRANCH = workspaceBranch;
+  if (workspaceWorktreePath) env.PAPERCLIP_WORKSPACE_WORKTREE_PATH = workspaceWorktreePath;
   if (workspaceHints.length > 0) env.PAPERCLIP_WORKSPACES_JSON = JSON.stringify(workspaceHints);
+  if (runtimeServiceIntents.length > 0) {
+    env.PAPERCLIP_RUNTIME_SERVICE_INTENTS_JSON = JSON.stringify(runtimeServiceIntents);
+  }
+  if (runtimeServices.length > 0) {
+    env.PAPERCLIP_RUNTIME_SERVICES_JSON = JSON.stringify(runtimeServices);
+  }
+  if (runtimePrimaryUrl) {
+    env.PAPERCLIP_RUNTIME_PRIMARY_URL = runtimePrimaryUrl;
+  }
 
   for (const [key, value] of Object.entries(envConfig)) {
     if (typeof value === "string") env[key] = value;
@@ -238,31 +264,28 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
 
   // Handle instructions file and build system prompt extension
   const instructionsFilePath = asString(config.instructionsFilePath, "").trim();
-  const resolvedInstructionsFilePath = instructionsFilePath
-    ? path.resolve(cwd, instructionsFilePath)
-    : "";
   const instructionsFileDir = instructionsFilePath ? `${path.dirname(instructionsFilePath)}/` : "";
   
   let systemPromptExtension = "";
   let instructionsReadFailed = false;
-  if (resolvedInstructionsFilePath) {
+  if (instructionsFilePath) {
     try {
-      const instructionsContents = await fs.readFile(resolvedInstructionsFilePath, "utf8");
+      const instructionsContents = await fs.readFile(instructionsFilePath, "utf8");
       systemPromptExtension =
         `${instructionsContents}\n\n` +
-        `The above agent instructions were loaded from ${resolvedInstructionsFilePath}. ` +
+        `The above agent instructions were loaded from ${instructionsFilePath}. ` +
         `Resolve any relative file references from ${instructionsFileDir}.\n\n` +
         `You are agent {{agent.id}} ({{agent.name}}). Continue your Paperclip work.`;
       await onLog(
         "stderr",
-        `[paperclip] Loaded agent instructions file: ${resolvedInstructionsFilePath}\n`,
+        `[paperclip] Loaded agent instructions file: ${instructionsFilePath}\n`,
       );
     } catch (err) {
       instructionsReadFailed = true;
       const reason = err instanceof Error ? err.message : String(err);
       await onLog(
         "stderr",
-        `[paperclip] Warning: could not read agent instructions file "${resolvedInstructionsFilePath}": ${reason}\n`,
+        `[paperclip] Warning: could not read agent instructions file "${instructionsFilePath}": ${reason}\n`,
       );
       // Fall back to base prompt template
       systemPromptExtension = promptTemplate;
@@ -302,14 +325,14 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
   };
 
   const commandNotes = (() => {
-    if (!resolvedInstructionsFilePath) return [] as string[];
+    if (!instructionsFilePath) return [] as string[];
     if (instructionsReadFailed) {
       return [
-        `Configured instructionsFilePath ${resolvedInstructionsFilePath}, but file could not be read; continuing without injected instructions.`,
+        `Configured instructionsFilePath ${instructionsFilePath}, but file could not be read; continuing without injected instructions.`,
       ];
     }
     return [
-      `Loaded agent instructions from ${resolvedInstructionsFilePath}`,
+        `Loaded agent instructions from ${instructionsFilePath}`,
       `Appended instructions + path directive to system prompt (relative references from ${instructionsFileDir}).`,
     ];
   })();
