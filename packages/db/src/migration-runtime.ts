@@ -16,7 +16,11 @@ type EmbeddedPostgresCtor = new (opts: {
   user: string;
   password: string;
   port: number;
+  authMethod?: "scram-sha-256" | "password" | "md5";
   persistent: boolean;
+  initdbFlags?: string[];
+  postgresFlags?: string[];
+  createPostgresUser?: boolean;
   onLog?: (message: unknown) => void;
   onError?: (message: unknown) => void;
 }) => EmbeddedPostgresInstance;
