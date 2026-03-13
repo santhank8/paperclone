@@ -1,6 +1,6 @@
 import { memo, useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import { Link, useLocation } from "react-router-dom";
-import type { IssueComment, Agent } from "@paperclipai/shared";
+import type { IssueComment, IssueAttachment, Agent } from "@paperclipai/shared";
 import { Button } from "@/components/ui/button";
 import { Check, Copy, Paperclip } from "lucide-react";
 import { Identity } from "./Identity";
@@ -38,6 +38,8 @@ interface CommentThreadProps {
   imageUploadHandler?: (file: File) => Promise<string>;
   /** Callback to attach an image file to the parent issue (not inline in a comment). */
   onAttachImage?: (file: File) => Promise<void>;
+  /** All attachments for the issue – used to render comment-linked images inline. */
+  attachments?: IssueAttachment[];
   draftKey?: string;
   liveRunSlot?: React.ReactNode;
   enableReassign?: boolean;
@@ -119,10 +121,12 @@ const TimelineList = memo(function TimelineList({
   timeline,
   agentMap,
   highlightCommentId,
+  attachmentsByCommentId,
 }: {
   timeline: TimelineItem[];
   agentMap?: Map<string, Agent>;
   highlightCommentId?: string | null;
+  attachmentsByCommentId?: Map<string, IssueAttachment[]>;
 }) {
   if (timeline.length === 0) {
     return <p className="text-sm text-muted-foreground">No comments or runs yet.</p>;
@@ -190,6 +194,24 @@ const TimelineList = memo(function TimelineList({
               </span>
             </div>
             <MarkdownBody className="text-sm">{comment.body}</MarkdownBody>
+            {(() => {
+              const commentAttachments = attachmentsByCommentId?.get(comment.id);
+              if (!commentAttachments || commentAttachments.length === 0) return null;
+              return (
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {commentAttachments.filter((a) => a.contentType.startsWith("image/")).map((a) => (
+                    <a key={a.id} href={a.contentPath} target="_blank" rel="noreferrer">
+                      <img
+                        src={a.contentPath}
+                        alt={a.originalFilename ?? "attachment"}
+                        className="max-h-48 rounded border border-border object-contain bg-accent/10"
+                        loading="lazy"
+                      />
+                    </a>
+                  ))}
+                </div>
+              );
+            })()}
             {comment.runId && (
               <div className="mt-2 pt-2 border-t border-border/60">
                 {comment.runAgentId ? (
@@ -221,6 +243,7 @@ export function CommentThread({
   agentMap,
   imageUploadHandler,
   onAttachImage,
+  attachments = [],
   draftKey,
   liveRunSlot,
   enableReassign = false,
@@ -261,6 +284,18 @@ export function CommentThread({
       return a.kind === "comment" ? -1 : 1;
     });
   }, [comments, linkedRuns]);
+
+  // Build a map from commentId -> attachments for rendering inline images in comments
+  const attachmentsByCommentId = useMemo(() => {
+    const map = new Map<string, IssueAttachment[]>();
+    for (const a of attachments) {
+      if (!a.issueCommentId) continue;
+      const list = map.get(a.issueCommentId);
+      if (list) list.push(a);
+      else map.set(a.issueCommentId, [a]);
+    }
+    return map;
+  }, [attachments]);
 
   // Build mention options from agent map (exclude terminated agents)
   const mentions = useMemo<MentionOption[]>(() => {
@@ -335,10 +370,18 @@ export function CommentThread({
 
   async function handleAttachFile(evt: ChangeEvent<HTMLInputElement>) {
     const file = evt.target.files?.[0];
-    if (!file || !onAttachImage) return;
+    if (!file) return;
     setAttaching(true);
     try {
-      await onAttachImage(file);
+      // Prefer inserting the image inline in the comment via imageUploadHandler
+      if (imageUploadHandler) {
+        const url = await imageUploadHandler(file);
+        const imgMarkdown = `![${file.name}](${url})`;
+        setBody((prev) => (prev ? `${prev}\n${imgMarkdown}` : imgMarkdown));
+      } else if (onAttachImage) {
+        // Fallback: attach at issue level
+        await onAttachImage(file);
+      }
     } finally {
       setAttaching(false);
       if (attachInputRef.current) attachInputRef.current.value = "";
@@ -351,7 +394,7 @@ export function CommentThread({
     <div className="space-y-4">
       <h3 className="text-sm font-semibold">Comments &amp; Runs ({timeline.length})</h3>
 
-      <TimelineList timeline={timeline} agentMap={agentMap} highlightCommentId={highlightCommentId} />
+      <TimelineList timeline={timeline} agentMap={agentMap} highlightCommentId={highlightCommentId} attachmentsByCommentId={attachmentsByCommentId} />
 
       {liveRunSlot}
 
@@ -367,7 +410,7 @@ export function CommentThread({
           contentClassName="min-h-[60px] text-sm"
         />
         <div className="flex items-center justify-end gap-3">
-          {onAttachImage && (
+          {(imageUploadHandler || onAttachImage) && (
             <div className="mr-auto flex items-center gap-3">
               <input
                 ref={attachInputRef}

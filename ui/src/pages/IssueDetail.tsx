@@ -520,6 +520,9 @@ export function IssueDetail() {
 
   const isImageAttachment = (attachment: IssueAttachment) => attachment.contentType.startsWith("image/");
 
+  // Issue-level attachments (not linked to any comment) for the top Attachments section
+  const issueAttachments = (attachments ?? []).filter((a) => !a.issueCommentId);
+
   return (
     <div className="max-w-2xl space-y-6">
       {/* Parent chain breadcrumb */}
@@ -706,11 +709,11 @@ export function IssueDetail() {
           <p className="text-xs text-destructive">{attachmentError}</p>
         )}
 
-        {(!attachments || attachments.length === 0) ? (
+        {issueAttachments.length === 0 ? (
           <p className="text-xs text-muted-foreground">No attachments yet.</p>
         ) : (
           <div className="space-y-2">
-            {attachments.map((attachment) => (
+            {issueAttachments.map((attachment) => (
               <div key={attachment.id} className="border border-border rounded-md p-2">
                 <div className="flex items-center justify-between gap-2">
                   <a
@@ -775,6 +778,7 @@ export function IssueDetail() {
             linkedRuns={timelineRuns}
             issueStatus={issue.status}
             agentMap={agentMap}
+            attachments={attachments ?? []}
             draftKey={`paperclip:issue-comment-draft:${issue.id}`}
             enableReassign
             reassignOptions={commentReassignOptions}
