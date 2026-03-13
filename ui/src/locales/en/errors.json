@@ -1,0 +1,12 @@
+{
+  "notFound": "Not Found",
+  "companyNotFound": "Company not found",
+  "pageNotFound": "Page not found",
+  "noCompanyPrefix": "No company matches prefix \"{{prefix}}\".",
+  "routeNotExist": "This route does not exist.",
+  "requestedPath": "Requested path:",
+  "openDashboard": "Open dashboard",
+  "goHome": "Go home",
+  "failedToLoad": "Failed to load app state",
+  "requestFailed": "Request failed: {{status}}"
+}

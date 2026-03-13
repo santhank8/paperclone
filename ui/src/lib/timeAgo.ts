@@ -1,3 +1,5 @@
+import i18n from "../i18n";
+
 const MINUTE = 60;
 const HOUR = 60 * MINUTE;
 const DAY = 24 * HOUR;
@@ -5,27 +7,30 @@ const WEEK = 7 * DAY;
 const MONTH = 30 * DAY;
 
 export function timeAgo(date: Date | string): string {
+  const t = (key: string, opts?: Record<string, unknown>) =>
+    i18n.t(key, { ns: "common", ...opts });
+
   const now = Date.now();
   const then = new Date(date).getTime();
   const seconds = Math.round((now - then) / 1000);
 
-  if (seconds < MINUTE) return "just now";
+  if (seconds < MINUTE) return t("time.justNow");
   if (seconds < HOUR) {
     const m = Math.floor(seconds / MINUTE);
-    return `${m}m ago`;
+    return t("time.mAgo", { m });
   }
   if (seconds < DAY) {
     const h = Math.floor(seconds / HOUR);
-    return `${h}h ago`;
+    return t("time.hAgo", { h });
   }
   if (seconds < WEEK) {
     const d = Math.floor(seconds / DAY);
-    return `${d}d ago`;
+    return t("time.dAgo", { d });
   }
   if (seconds < MONTH) {
     const w = Math.floor(seconds / WEEK);
-    return `${w}w ago`;
+    return t("time.wAgo", { w });
   }
   const mo = Math.floor(seconds / MONTH);
-  return `${mo}mo ago`;
+  return t("time.moAgo", { mo });
 }

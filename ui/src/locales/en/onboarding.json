@@ -1,0 +1,56 @@
+{
+  "getStarted": "Get Started",
+  "stepOf": "Step {{current}} of {{total}}",
+  "close": "Close",
+  "back": "Back",
+  "next": "Next",
+  "creating": "Creating...",
+  "openIssue": "Open Issue",
+  "opening": "Opening...",
+
+  "step1.title": "Name your company",
+  "step1.description": "This is the organization your agents will work for.",
+  "step1.companyName": "Company name",
+  "step1.companyPlaceholder": "Acme Corp",
+  "step1.mission": "Mission / goal (optional)",
+  "step1.missionPlaceholder": "What is this company trying to achieve?",
+
+  "step2.title": "Create your first agent",
+  "step2.description": "Choose how this agent will run tasks.",
+  "step2.agentName": "Agent name",
+  "step2.agentNamePlaceholder": "CEO",
+  "step2.adapterType": "Adapter type",
+  "step2.workingDirectory": "Working directory",
+  "step2.model": "Model",
+  "step2.selectModel": "Select model (required)",
+  "step2.searchModels": "Search models...",
+  "step2.noModels": "No models discovered.",
+
+  "step2.adapterDesc.claude_local": "Local Claude agent",
+  "step2.adapterDesc.codex_local": "Local Codex agent",
+  "step2.adapterDesc.gemini_local": "Local Gemini agent",
+  "step2.adapterDesc.opencode_local": "Local multi-provider agent",
+  "step2.adapterDesc.pi_local": "Local Pi agent",
+  "step2.adapterDesc.openclaw_gateway": "Invoke OpenClaw via gateway protocol",
+  "step2.adapterDesc.cursor": "Local Cursor agent",
+
+  "step2.envTestFailed": "Adapter environment test failed",
+  "step2.testNow": "Test now",
+  "step2.hint": "Hint: {{hint}}",
+
+  "step3.title": "Give it something to do",
+  "step3.taskTitle": "Task title",
+  "step3.description": "Description (optional)",
+
+  "step4.title": "Ready to launch",
+  "step4.company": "Company",
+  "step4.task": "Task",
+
+  "errors.createCompany": "Failed to create company",
+  "errors.createOrSelect": "Create or select a company...",
+
+  "tabs.company": "Company",
+  "tabs.agent": "Agent",
+  "tabs.task": "Task",
+  "tabs.launch": "Launch"
+}

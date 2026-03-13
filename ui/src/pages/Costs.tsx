@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
 import { costsApi } from "../api/costs";
 import { useCompany } from "../context/CompanyContext";
@@ -14,15 +15,6 @@ import { Button } from "@/components/ui/button";
 import { DollarSign } from "lucide-react";
 
 type DatePreset = "mtd" | "7d" | "30d" | "ytd" | "all" | "custom";
-
-const PRESET_LABELS: Record<DatePreset, string> = {
-  mtd: "Month to Date",
-  "7d": "Last 7 Days",
-  "30d": "Last 30 Days",
-  ytd: "Year to Date",
-  all: "All Time",
-  custom: "Custom",
-};
 
 function computeRange(preset: DatePreset): { from: string; to: string } {
   const now = new Date();
@@ -52,16 +44,29 @@ function computeRange(preset: DatePreset): { from: string; to: string } {
 }
 
 export function Costs() {
+  const { t } = useTranslation("costs");
   const { selectedCompanyId } = useCompany();
   const { setBreadcrumbs } = useBreadcrumbs();
+
+  const presetLabel = (key: DatePreset) => {
+    const labels: Record<DatePreset, string> = {
+      mtd: t("preset.monthToDate"),
+      "7d": t("preset.last7Days"),
+      "30d": t("preset.last30Days"),
+      ytd: t("preset.yearToDate"),
+      all: t("preset.allTime"),
+      custom: t("preset.custom"),
+    };
+    return labels[key];
+  };
 
   const [preset, setPreset] = useState<DatePreset>("mtd");
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
 
   useEffect(() => {
-    setBreadcrumbs([{ label: "Costs" }]);
-  }, [setBreadcrumbs]);
+    setBreadcrumbs([{ label: t("title") }]);
+  }, [setBreadcrumbs, t]);
 
   const { from, to } = useMemo(() => {
     if (preset === "custom") {
@@ -87,7 +92,7 @@ export function Costs() {
   });
 
   if (!selectedCompanyId) {
-    return <EmptyState icon={DollarSign} message="Select a company to view costs." />;
+    return <EmptyState icon={DollarSign} message={t("selectCompany")} />;
   }
 
   if (isLoading) {
@@ -107,7 +112,7 @@ export function Costs() {
             size="sm"
             onClick={() => setPreset(p)}
           >
-            {PRESET_LABELS[p]}
+            {presetLabel(p)}
           </Button>
         ))}
         {preset === "custom" && (
@@ -118,7 +123,7 @@ export function Costs() {
               onChange={(e) => setCustomFrom(e.target.value)}
               className="h-8 rounded-md border border-input bg-background px-2 text-sm text-foreground"
             />
-            <span className="text-sm text-muted-foreground">to</span>
+            <span className="text-sm text-muted-foreground">{t("to", { ns: "common" })}</span>
             <input
               type="date"
               value={customTo}
@@ -137,10 +142,10 @@ export function Costs() {
           <Card>
             <CardContent className="p-4 space-y-3">
               <div className="flex items-center justify-between">
-                <p className="text-sm text-muted-foreground">{PRESET_LABELS[preset]}</p>
+                <p className="text-sm text-muted-foreground">{presetLabel(preset)}</p>
                 {data.summary.budgetCents > 0 && (
                   <p className="text-sm text-muted-foreground">
-                    {data.summary.utilizationPercent}% utilized
+                    {t("utilizationPct", { pct: data.summary.utilizationPercent })}
                   </p>
                 )}
               </div>
@@ -149,7 +154,7 @@ export function Costs() {
                 <span className="text-base font-normal text-muted-foreground">
                   {data.summary.budgetCents > 0
                     ? `/ ${formatCents(data.summary.budgetCents)}`
-                    : "Unlimited budget"}
+                    : t("unlimitedBudget", { ns: "common" })}
                 </span>
               </p>
               {data.summary.budgetCents > 0 && (
@@ -173,9 +178,9 @@ export function Costs() {
           <div className="grid md:grid-cols-2 gap-4">
             <Card>
               <CardContent className="p-4">
-                <h3 className="text-sm font-semibold mb-3">By Agent</h3>
+                <h3 className="text-sm font-semibold mb-3">{t("byAgent")}</h3>
                 {data.byAgent.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No cost events yet.</p>
+                  <p className="text-sm text-muted-foreground">{t("noCostEvents")}</p>
                 ) : (
                   <div className="space-y-2">
                     {data.byAgent.map((row) => (
@@ -195,7 +200,7 @@ export function Costs() {
                         <div className="text-right shrink-0 ml-2 tabular-nums">
                           <span className="font-medium block">{formatCents(row.costCents)}</span>
                           <span className="text-xs text-muted-foreground block">
-                            in {formatTokens(row.inputTokens)} / out {formatTokens(row.outputTokens)} tok
+                            {t("inOutTok", { input: formatTokens(row.inputTokens), output: formatTokens(row.outputTokens) })}
                           </span>
                           {(row.apiRunCount > 0 || row.subscriptionRunCount > 0) && (
                             <span className="text-xs text-muted-foreground block">
@@ -216,9 +221,9 @@ export function Costs() {
 
             <Card>
               <CardContent className="p-4">
-                <h3 className="text-sm font-semibold mb-3">By Project</h3>
+                <h3 className="text-sm font-semibold mb-3">{t("byProject")}</h3>
                 {data.byProject.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No project-attributed run costs yet.</p>
+                  <p className="text-sm text-muted-foreground">{t("noProjectCosts")}</p>
                 ) : (
                   <div className="space-y-2">
                     {data.byProject.map((row) => (

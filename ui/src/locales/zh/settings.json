@@ -1,0 +1,20 @@
+{
+  "companySettings": "公司设置",
+  "instanceSettings": "实例设置",
+  "heartbeats": "心跳",
+  "noSchedulerHeartbeats": "没有匹配当前条件的定时心跳。",
+  "companyName": "公司名称",
+  "companyDescription": "公司描述（可选）",
+  "issuePrefix": "任务前缀",
+  "brandColor": "品牌颜色",
+  "auto": "自动",
+  "save": "保存",
+  "saving": "保存中...",
+  "deleteCompany": "删除公司",
+  "deleteConfirm": "确定要删除此公司吗？此操作无法撤销。",
+  "dangerZone": "危险区域",
+  "general": "常规",
+  "budget": "预算",
+  "monthlyBudget": "月度预算（美分）",
+  "companyBudget": "公司预算"
+}

@@ -1,0 +1,26 @@
+{
+  "title": "审批",
+  "selectCompany": "选择一个公司以查看审批。",
+  "pending": "待处理",
+  "all": "全部",
+  "noApprovals": "暂无审批。",
+
+  "detail.notFound": "未找到审批",
+  "detail.approve": "批准",
+  "detail.reject": "拒绝",
+  "detail.approving": "批准中...",
+  "detail.rejecting": "拒绝中...",
+  "detail.decisionNote": "决策备注",
+  "detail.notePlaceholder": "可选备注...",
+  "detail.requestedBy": "发起人",
+  "detail.decidedBy": "决策人",
+  "detail.decidedAt": "决策时间",
+  "detail.payload": "详情",
+
+  "payload.name": "名称",
+  "payload.role": "角色",
+  "payload.title": "职务",
+  "payload.icon": "图标",
+  "payload.capabilities": "能力",
+  "payload.adapter": "适配器"
+}

@@ -19,6 +19,7 @@ import { PageSkeleton } from "../components/PageSkeleton";
 import { PageTabBar } from "../components/PageTabBar";
 import { projectRouteRef, cn } from "../lib/utils";
 import { Tabs } from "@/components/ui/tabs";
+import { useTranslation } from "react-i18next";
 
 /* ── Top-level tab types ── */
 
@@ -191,6 +192,7 @@ function ProjectIssuesList({ projectId, companyId }: { projectId: string; compan
 /* ── Main project page ── */
 
 export function ProjectDetail() {
+  const { t } = useTranslation("projects");
   const { companyPrefix, projectId, filter } = useParams<{
     companyPrefix?: string;
     projectId: string;
@@ -253,8 +255,8 @@ export function ProjectDetail() {
 
   useEffect(() => {
     setBreadcrumbs([
-      { label: "Projects", href: "/projects" },
-      { label: project?.name ?? routeProjectRef ?? "Project" },
+      { label: t("title"), href: "/projects" },
+      { label: project?.name ?? routeProjectRef ?? t("title") },
     ]);
   }, [setBreadcrumbs, project, routeProjectRef]);
 
@@ -367,9 +369,9 @@ export function ProjectDetail() {
       <Tabs value={activeTab ?? "list"} onValueChange={(value) => handleTabChange(value as ProjectTab)}>
         <PageTabBar
           items={[
-            { value: "overview", label: "Overview" },
-            { value: "list", label: "List" },
-            { value: "configuration", label: "Configuration" },
+            { value: "overview", label: t("detail.overview") },
+            { value: "list", label: t("detail.issues") },
+            { value: "configuration", label: t("detail.configuration") },
           ]}
           align="start"
           value={activeTab ?? "list"}

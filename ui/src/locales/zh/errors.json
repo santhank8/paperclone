@@ -1,0 +1,12 @@
+{
+  "notFound": "未找到",
+  "companyNotFound": "未找到公司",
+  "pageNotFound": "页面未找到",
+  "noCompanyPrefix": "没有匹配前缀\"{{prefix}}\"的公司。",
+  "routeNotExist": "此路径不存在。",
+  "requestedPath": "请求路径：",
+  "openDashboard": "打开仪表盘",
+  "goHome": "返回首页",
+  "failedToLoad": "加载应用状态失败",
+  "requestFailed": "请求失败：{{status}}"
+}

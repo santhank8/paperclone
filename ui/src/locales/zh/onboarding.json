@@ -1,0 +1,56 @@
+{
+  "getStarted": "开始使用",
+  "stepOf": "第 {{current}} 步，共 {{total}} 步",
+  "close": "关闭",
+  "back": "返回",
+  "next": "下一步",
+  "creating": "创建中...",
+  "openIssue": "打开任务",
+  "opening": "打开中...",
+
+  "step1.title": "为您的公司命名",
+  "step1.description": "这是您的智能体将为之工作的组织。",
+  "step1.companyName": "公司名称",
+  "step1.companyPlaceholder": "Acme Corp",
+  "step1.mission": "使命 / 目标（可选）",
+  "step1.missionPlaceholder": "这家公司想要实现什么？",
+
+  "step2.title": "创建您的第一个智能体",
+  "step2.description": "选择此智能体运行任务的方式。",
+  "step2.agentName": "智能体名称",
+  "step2.agentNamePlaceholder": "CEO",
+  "step2.adapterType": "适配器类型",
+  "step2.workingDirectory": "工作目录",
+  "step2.model": "模型",
+  "step2.selectModel": "选择模型（必填）",
+  "step2.searchModels": "搜索模型...",
+  "step2.noModels": "未发现可用模型。",
+
+  "step2.adapterDesc.claude_local": "本地 Claude 智能体",
+  "step2.adapterDesc.codex_local": "本地 Codex 智能体",
+  "step2.adapterDesc.gemini_local": "本地 Gemini 智能体",
+  "step2.adapterDesc.opencode_local": "本地多提供商智能体",
+  "step2.adapterDesc.pi_local": "本地 Pi 智能体",
+  "step2.adapterDesc.openclaw_gateway": "通过网关协议调用 OpenClaw",
+  "step2.adapterDesc.cursor": "本地 Cursor 智能体",
+
+  "step2.envTestFailed": "适配器环境测试失败",
+  "step2.testNow": "立即测试",
+  "step2.hint": "提示：{{hint}}",
+
+  "step3.title": "给它一些工作",
+  "step3.taskTitle": "任务标题",
+  "step3.description": "描述（可选）",
+
+  "step4.title": "准备启动",
+  "step4.company": "公司",
+  "step4.task": "任务",
+
+  "errors.createCompany": "创建公司失败",
+  "errors.createOrSelect": "创建或选择一个公司...",
+
+  "tabs.company": "公司",
+  "tabs.agent": "智能体",
+  "tabs.task": "任务",
+  "tabs.launch": "启动"
+}

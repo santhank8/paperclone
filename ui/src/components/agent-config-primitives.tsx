@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
+import { Trans, useTranslation } from "react-i18next";
 import {
   Tooltip,
   TooltipTrigger,
@@ -16,9 +17,10 @@ import { Button } from "@/components/ui/button";
 import { HelpCircle, ChevronDown, ChevronRight } from "lucide-react";
 import { cn } from "../lib/utils";
 import { AGENT_ROLE_LABELS } from "@paperclipai/shared";
+import i18n from "../i18n";
 
 /* ---- Help text for (?) tooltips ---- */
-export const help: Record<string, string> = {
+const helpFallback: Record<string, string> = {
   name: "Display name for this agent.",
   title: "Job title shown in the org chart.",
   role: "Organizational role. Determines position and capabilities.",
@@ -56,6 +58,14 @@ export const help: Record<string, string> = {
   maxConcurrentRuns: "Maximum number of heartbeat runs that can execute simultaneously for this agent.",
   budgetMonthlyCents: "Monthly spending limit in cents. 0 means no limit.",
 };
+
+export function getHelp(key: string): string {
+  const translated = i18n.t(`config.${key}`, { ns: "agents" });
+  return translated !== `config.${key}` ? translated : (helpFallback[key] ?? key);
+}
+
+/** @deprecated Use getHelp(key) for i18n-aware help text */
+export const help = helpFallback;
 
 export const adapterLabels: Record<string, string> = {
   claude_local: "Claude (local)",
@@ -394,6 +404,7 @@ export function DraftNumberInput({
  */
 export function ChoosePathButton() {
   const [open, setOpen] = useState(false);
+  const { t } = useTranslation(["agents", "common"]);
   return (
     <>
       <button
@@ -401,54 +412,53 @@ export function ChoosePathButton() {
         className="inline-flex items-center rounded-md border border-border px-2 py-0.5 text-xs text-muted-foreground hover:bg-accent/50 transition-colors shrink-0"
         onClick={() => setOpen(true)}
       >
-        Choose
+        {t("common:choose")}
       </button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Specify path manually</DialogTitle>
+            <DialogTitle>{t("agents:config.specifyPathManually")}</DialogTitle>
             <DialogDescription>
-              Browser security blocks apps from reading full local paths via a file picker.
-              Copy the absolute path and paste it into the input.
+              {t("agents:config.browserSecurityNote")}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 text-sm">
             <section className="space-y-1.5">
-              <p className="font-medium">macOS (Finder)</p>
+              <p className="font-medium">{t("agents:config.pathInstructions.macOS")}</p>
               <ol className="list-decimal space-y-1 pl-5 text-muted-foreground">
-                <li>Find the folder in Finder.</li>
-                <li>Hold <kbd>Option</kbd> and right-click the folder.</li>
-                <li>Click "Copy &lt;folder name&gt; as Pathname".</li>
-                <li>Paste the result into the path input.</li>
+                <li>{t("agents:config.pathInstructions.macOSStep1")}</li>
+                <li><Trans i18nKey="agents:config.pathInstructions.macOSStep2" components={{ kbd: <kbd /> }} /></li>
+                <li>{t("agents:config.pathInstructions.macOSStep3")}</li>
+                <li>{t("agents:config.pathInstructions.macOSStep4")}</li>
               </ol>
               <p className="rounded-md bg-muted px-2 py-1 font-mono text-xs">
-                /Users/yourname/Documents/project
+                {t("agents:config.pathInstructions.macOSExample")}
               </p>
             </section>
             <section className="space-y-1.5">
-              <p className="font-medium">Windows (File Explorer)</p>
+              <p className="font-medium">{t("agents:config.pathInstructions.windows")}</p>
               <ol className="list-decimal space-y-1 pl-5 text-muted-foreground">
-                <li>Find the folder in File Explorer.</li>
-                <li>Hold <kbd>Shift</kbd> and right-click the folder.</li>
-                <li>Click "Copy as path".</li>
-                <li>Paste the result into the path input.</li>
+                <li>{t("agents:config.pathInstructions.windowsStep1")}</li>
+                <li><Trans i18nKey="agents:config.pathInstructions.windowsStep2" components={{ kbd: <kbd /> }} /></li>
+                <li>{t("agents:config.pathInstructions.windowsStep3")}</li>
+                <li>{t("agents:config.pathInstructions.windowsStep4")}</li>
               </ol>
               <p className="rounded-md bg-muted px-2 py-1 font-mono text-xs">
-                C:\Users\yourname\Documents\project
+                {t("agents:config.pathInstructions.windowsExample")}
               </p>
             </section>
             <section className="space-y-1.5">
-              <p className="font-medium">Terminal fallback (macOS/Linux)</p>
+              <p className="font-medium">{t("agents:config.pathInstructions.terminal")}</p>
               <ol className="list-decimal space-y-1 pl-5 text-muted-foreground">
-                <li>Run <code>cd /path/to/folder</code>.</li>
-                <li>Run <code>pwd</code>.</li>
-                <li>Copy the output and paste it into the path input.</li>
+                <li><Trans i18nKey="agents:config.pathInstructions.terminalStep1" components={{ code: <code /> }} /></li>
+                <li><Trans i18nKey="agents:config.pathInstructions.terminalStep2" components={{ code: <code /> }} /></li>
+                <li>{t("agents:config.pathInstructions.terminalStep3")}</li>
               </ol>
             </section>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)}>
-              OK
+              {t("common:ok")}
             </Button>
           </DialogFooter>
         </DialogContent>

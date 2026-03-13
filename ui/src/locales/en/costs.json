@@ -1,0 +1,19 @@
+{
+  "title": "Costs",
+  "selectCompany": "Select a company to view costs.",
+  "noCostEvents": "No cost events yet.",
+  "noProjectCosts": "No project-attributed run costs yet.",
+  "byAgent": "By Agent",
+  "byProject": "By Project",
+  "inOutTok": "in {{input}} / out {{output}} tok",
+  "totalSpend": "Total Spend",
+  "budget": "Budget",
+  "utilizationPct": "{{pct}}% utilized",
+
+  "preset.monthToDate": "Month to Date",
+  "preset.last7Days": "Last 7 Days",
+  "preset.last30Days": "Last 30 Days",
+  "preset.yearToDate": "Year to Date",
+  "preset.allTime": "All Time",
+  "preset.custom": "Custom"
+}

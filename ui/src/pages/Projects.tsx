@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
 import { projectsApi } from "../api/projects";
 import { useCompany } from "../context/CompanyContext";
@@ -9,18 +10,20 @@ import { EntityRow } from "../components/EntityRow";
 import { StatusBadge } from "../components/StatusBadge";
 import { EmptyState } from "../components/EmptyState";
 import { PageSkeleton } from "../components/PageSkeleton";
-import { formatDate, projectUrl } from "../lib/utils";
+import { projectUrl } from "../lib/utils";
+import { localizedDate } from "../lib/i18n-utils";
 import { Button } from "@/components/ui/button";
 import { Hexagon, Plus } from "lucide-react";
 
 export function Projects() {
+  const { t } = useTranslation("projects");
   const { selectedCompanyId } = useCompany();
   const { openNewProject } = useDialog();
   const { setBreadcrumbs } = useBreadcrumbs();
 
   useEffect(() => {
-    setBreadcrumbs([{ label: "Projects" }]);
-  }, [setBreadcrumbs]);
+    setBreadcrumbs([{ label: t("title") }]);
+  }, [setBreadcrumbs, t]);
 
   const { data: projects, isLoading, error } = useQuery({
     queryKey: queryKeys.projects.list(selectedCompanyId!),
@@ -29,7 +32,7 @@ export function Projects() {
   });
 
   if (!selectedCompanyId) {
-    return <EmptyState icon={Hexagon} message="Select a company to view projects." />;
+    return <EmptyState icon={Hexagon} message={t("selectCompany")} />;
   }
 
   if (isLoading) {
@@ -41,7 +44,7 @@ export function Projects() {
       <div className="flex items-center justify-end">
         <Button size="sm" variant="outline" onClick={openNewProject}>
           <Plus className="h-4 w-4 mr-1" />
-          Add Project
+          {t("addProject")}
         </Button>
       </div>
 
@@ -50,8 +53,8 @@ export function Projects() {
       {projects && projects.length === 0 && (
         <EmptyState
           icon={Hexagon}
-          message="No projects yet."
-          action="Add Project"
+          message={t("noProjects")}
+          action={t("addProject")}
           onAction={openNewProject}
         />
       )}
@@ -68,7 +71,7 @@ export function Projects() {
                 <div className="flex items-center gap-3">
                   {project.targetDate && (
                     <span className="text-xs text-muted-foreground">
-                      {formatDate(project.targetDate)}
+                      {localizedDate(project.targetDate)}
                     </span>
                   )}
                   <StatusBadge status={project.status} />

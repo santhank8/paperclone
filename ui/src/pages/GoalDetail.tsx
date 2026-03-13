@@ -1,6 +1,8 @@
 import { useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { useParams } from "@/lib/router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { goalLevelLabel } from "../lib/i18n-utils";
 import { goalsApi } from "../api/goals";
 import { projectsApi } from "../api/projects";
 import { assetsApi } from "../api/assets";
@@ -22,6 +24,7 @@ import { Plus } from "lucide-react";
 import type { Goal, Project } from "@paperclipai/shared";
 
 export function GoalDetail() {
+  const { t } = useTranslation("goals");
   const { goalId } = useParams<{ goalId: string }>();
   const { selectedCompanyId, setSelectedCompanyId } = useCompany();
   const { openNewGoal } = useDialog();
@@ -93,8 +96,8 @@ export function GoalDetail() {
 
   useEffect(() => {
     setBreadcrumbs([
-      { label: "Goals", href: "/goals" },
-      { label: goal?.title ?? goalId ?? "Goal" }
+      { label: t("title"), href: "/goals" },
+      { label: goal?.title ?? goalId ?? t("title") }
     ]);
   }, [setBreadcrumbs, goal, goalId]);
 
@@ -119,7 +122,7 @@ export function GoalDetail() {
       <div className="space-y-3">
         <div className="flex items-center gap-2">
           <span className="text-xs uppercase text-muted-foreground">
-            {goal.level}
+            {goalLevelLabel(goal.level)}
           </span>
           <StatusBadge status={goal.status} />
         </div>
@@ -148,10 +151,10 @@ export function GoalDetail() {
       <Tabs defaultValue="children">
         <TabsList>
           <TabsTrigger value="children">
-            Sub-Goals ({childGoals.length})
+            {t("detail.subGoals")} ({childGoals.length})
           </TabsTrigger>
           <TabsTrigger value="projects">
-            Projects ({linkedProjects.length})
+            {t("title", { ns: "projects" })} ({linkedProjects.length})
           </TabsTrigger>
         </TabsList>
 
@@ -163,7 +166,7 @@ export function GoalDetail() {
               onClick={() => openNewGoal({ parentId: goalId })}
             >
               <Plus className="h-3.5 w-3.5 mr-1.5" />
-              Sub Goal
+              {t("detail.addSubGoal")}
             </Button>
           </div>
           {childGoals.length === 0 ? (

@@ -1,0 +1,27 @@
+{
+  "title": "目标",
+  "selectCompany": "选择一个公司以查看目标。",
+  "noGoals": "暂无目标。",
+  "addGoal": "添加目标",
+
+  "new.title": "新建目标",
+  "new.newSubGoal": "新建子目标",
+  "new.titlePlaceholder": "目标标题",
+  "new.descriptionPlaceholder": "添加描述...",
+  "new.level": "层级",
+  "new.status": "状态",
+  "new.parentGoal": "父目标",
+  "new.noParent": "无父目标",
+  "new.create": "创建目标",
+  "new.createSubGoal": "创建子目标",
+  "new.creating": "创建中…",
+
+  "detail.notFound": "未找到目标",
+  "detail.subGoals": "子目标",
+  "detail.addSubGoal": "添加子目标",
+  "detail.level": "层级",
+  "detail.owner": "负责人",
+  "detail.parent": "父目标",
+  "detail.noOwner": "无负责人",
+  "detail.noParent": "无父目标"
+}

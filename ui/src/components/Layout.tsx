@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { BookOpen, Moon, Settings, Sun } from "lucide-react";
+import { LanguageSwitcher } from "./LanguageSwitcher";
 import { Link, Outlet, useLocation, useNavigate, useParams } from "@/lib/router";
 import { CompanyRail } from "./CompanyRail";
 import { Sidebar } from "./Sidebar";
@@ -266,6 +267,7 @@ export function Layout() {
                   <Settings className="h-4 w-4" />
                 </Link>
               </Button>
+              <LanguageSwitcher />
               <Button
                 type="button"
                 variant="ghost"
@@ -313,6 +315,7 @@ export function Layout() {
                   <Settings className="h-4 w-4" />
                 </Link>
               </Button>
+              <LanguageSwitcher />
               <Button
                 type="button"
                 variant="ghost"

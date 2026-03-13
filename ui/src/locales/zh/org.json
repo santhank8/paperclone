@@ -1,0 +1,7 @@
+{
+  "title": "组织架构",
+  "selectCompany": "选择一个公司以查看组织架构。",
+  "noHierarchy": "尚未定义组织层级。",
+  "noAgents": "组织中暂无智能体。创建智能体以构建组织架构。",
+  "fitToScreen": "适应屏幕"
+}

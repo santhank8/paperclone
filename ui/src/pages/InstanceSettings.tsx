@@ -11,7 +11,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { queryKeys } from "../lib/queryKeys";
-import { formatDateTime, relativeTime } from "../lib/utils";
+import { useTranslation } from "react-i18next";
+import { formatTimeAgo, localizedDateTime } from "../lib/i18n-utils";
 
 function asRecord(value: unknown): Record<string, unknown> | null {
   if (typeof value !== "object" || value === null || Array.isArray(value)) return null;
@@ -27,14 +28,15 @@ function buildAgentHref(agent: InstanceSchedulerHeartbeatAgent) {
 }
 
 export function InstanceSettings() {
+  const { t } = useTranslation("settings");
   const { setBreadcrumbs } = useBreadcrumbs();
   const queryClient = useQueryClient();
   const [actionError, setActionError] = useState<string | null>(null);
 
   useEffect(() => {
     setBreadcrumbs([
-      { label: "Instance Settings" },
-      { label: "Heartbeats" },
+      { label: t("instanceSettings") },
+      { label: t("heartbeats") },
     ]);
   }, [setBreadcrumbs]);
 
@@ -113,7 +115,7 @@ export function InstanceSettings() {
       <div className="space-y-2">
         <div className="flex items-center gap-2">
           <Settings className="h-5 w-5 text-muted-foreground" />
-          <h1 className="text-lg font-semibold">Scheduler Heartbeats</h1>
+          <h1 className="text-lg font-semibold">{t("heartbeats")}</h1>
         </div>
         <p className="text-sm text-muted-foreground">
           Agents with a timer heartbeat enabled across all of your companies.
@@ -135,7 +137,7 @@ export function InstanceSettings() {
       {agents.length === 0 ? (
         <EmptyState
           icon={Clock3}
-          message="No scheduler heartbeats match the current criteria."
+          message={t("noSchedulerHeartbeats")}
         />
       ) : (
         <div className="space-y-4">
@@ -173,17 +175,17 @@ export function InstanceSettings() {
                         </span>
                         <span
                           className="hidden md:inline text-muted-foreground truncate"
-                          title={agent.lastHeartbeatAt ? formatDateTime(agent.lastHeartbeatAt) : undefined}
+                          title={agent.lastHeartbeatAt ? localizedDateTime(agent.lastHeartbeatAt) : undefined}
                         >
                           {agent.lastHeartbeatAt
-                            ? relativeTime(agent.lastHeartbeatAt)
+                            ? formatTimeAgo(agent.lastHeartbeatAt)
                             : "never"}
                         </span>
                         <span className="ml-auto flex items-center gap-1.5 shrink-0">
                           <Link
                             to={buildAgentHref(agent)}
                             className="text-muted-foreground hover:text-foreground"
-                            title="Full agent config"
+                            title={t("detail.agentConfig", { ns: "agents" })}
                           >
                             <ExternalLink className="h-3.5 w-3.5" />
                           </Link>

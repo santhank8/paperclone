@@ -1,0 +1,27 @@
+{
+  "title": "Goals",
+  "selectCompany": "Select a company to view goals.",
+  "noGoals": "No goals yet.",
+  "addGoal": "Add Goal",
+
+  "new.title": "New goal",
+  "new.newSubGoal": "New sub-goal",
+  "new.titlePlaceholder": "Goal title",
+  "new.descriptionPlaceholder": "Add description...",
+  "new.level": "Level",
+  "new.status": "Status",
+  "new.parentGoal": "Parent goal",
+  "new.noParent": "No parent",
+  "new.create": "Create goal",
+  "new.createSubGoal": "Create sub-goal",
+  "new.creating": "Creating…",
+
+  "detail.notFound": "Goal not found",
+  "detail.subGoals": "Sub-goals",
+  "detail.addSubGoal": "Add sub-goal",
+  "detail.level": "Level",
+  "detail.owner": "Owner",
+  "detail.parent": "Parent",
+  "detail.noOwner": "No owner",
+  "detail.noParent": "No parent"
+}

@@ -1,0 +1,31 @@
+{
+  "title": "Dashboard",
+  "welcome": "Welcome to Paperclip. Set up your first company and agent to get started.",
+  "getStarted": "Get Started",
+  "selectCompany": "Create or select a company to view the dashboard.",
+  "agentsEnabled": "Agents Enabled",
+  "tasksInProgress": "Tasks In Progress",
+  "monthToDateSpend": "Month-to-Date Spend",
+  "pendingApprovals": "Pending Approvals",
+  "recentActivity": "Recent Activity",
+  "noTasksYet": "No tasks yet.",
+  "noAgents": "You have no agents.",
+  "createOneHere": "Create one here",
+  "createFirstCompany": "Create your first company",
+  "getStartedByCreating": "Get started by creating a company.",
+  "newCompany": "New Company",
+  "instanceSetupRequired": "Instance setup required",
+  "noInstanceAdmin": "No instance admin exists yet. A bootstrap invite is already active. Check your Paperclip startup logs for the first admin invite URL, or run this command to rotate it:",
+  "noInstanceAdminCreate": "No instance admin exists yet. Run this command in your Paperclip environment to generate the first admin invite URL:",
+
+  "charts.runActivity": "Run Activity",
+  "charts.issuesByPriority": "Issues by Priority",
+  "charts.issuesByStatus": "Issues by Status",
+  "charts.successRate": "Success Rate",
+  "charts.last14Days": "Last 14 days",
+  "charts.noRuns": "No runs yet",
+  "charts.noIssues": "No issues",
+
+  "recentIssues": "Recent Issues",
+  "viewAll": "View all"
+}

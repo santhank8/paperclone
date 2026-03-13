@@ -1,0 +1,7 @@
+{
+  "title": "Org Chart",
+  "selectCompany": "Select a company to view the org chart.",
+  "noHierarchy": "No organizational hierarchy defined.",
+  "noAgents": "No agents in the organization. Create agents to build your org chart.",
+  "fitToScreen": "Fit to screen"
+}

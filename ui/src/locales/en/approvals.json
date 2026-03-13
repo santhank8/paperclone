@@ -1,0 +1,26 @@
+{
+  "title": "Approvals",
+  "selectCompany": "Select a company to view approvals.",
+  "pending": "Pending",
+  "all": "All",
+  "noApprovals": "No approvals yet.",
+
+  "detail.notFound": "Approval not found",
+  "detail.approve": "Approve",
+  "detail.reject": "Reject",
+  "detail.approving": "Approving...",
+  "detail.rejecting": "Rejecting...",
+  "detail.decisionNote": "Decision note",
+  "detail.notePlaceholder": "Optional note...",
+  "detail.requestedBy": "Requested by",
+  "detail.decidedBy": "Decided by",
+  "detail.decidedAt": "Decided at",
+  "detail.payload": "Payload",
+
+  "payload.name": "Name",
+  "payload.role": "Role",
+  "payload.title": "Title",
+  "payload.icon": "Icon",
+  "payload.capabilities": "Capabilities",
+  "payload.adapter": "Adapter"
+}

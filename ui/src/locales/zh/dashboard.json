@@ -1,0 +1,31 @@
+{
+  "title": "仪表盘",
+  "welcome": "欢迎使用 Paperclip。创建您的第一个公司和智能体以开始使用。",
+  "getStarted": "开始使用",
+  "selectCompany": "创建或选择一个公司以查看仪表盘。",
+  "agentsEnabled": "已启用智能体",
+  "tasksInProgress": "进行中的任务",
+  "monthToDateSpend": "本月支出",
+  "pendingApprovals": "待审批",
+  "recentActivity": "最近动态",
+  "noTasksYet": "暂无任务。",
+  "noAgents": "暂无智能体。",
+  "createOneHere": "在此创建",
+  "createFirstCompany": "创建您的第一个公司",
+  "getStartedByCreating": "通过创建公司开始使用。",
+  "newCompany": "新建公司",
+  "instanceSetupRequired": "需要初始化实例",
+  "noInstanceAdmin": "尚无实例管理员。引导邀请已激活，请查看 Paperclip 启动日志获取首个管理员邀请链接，或运行以下命令重新生成：",
+  "noInstanceAdminCreate": "尚无实例管理员。在您的 Paperclip 环境中运行以下命令以生成首个管理员邀请链接：",
+
+  "charts.runActivity": "运行活动",
+  "charts.issuesByPriority": "按优先级分类的任务",
+  "charts.issuesByStatus": "按状态分类的任务",
+  "charts.successRate": "成功率",
+  "charts.last14Days": "近 14 天",
+  "charts.noRuns": "暂无运行记录",
+  "charts.noIssues": "暂无任务",
+
+  "recentIssues": "最近的任务",
+  "viewAll": "查看全部"
+}
