@@ -343,16 +343,24 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
 
   // Append wake context so the agent sees why it was woken, even on --resume
   const wakeContextParts: string[] = [];
-  if (wakeCommentId && typeof context.wakeCommentBody === "string" && context.wakeCommentBody.trim()) {
+  const ctxWakeCommentId =
+    (typeof context.wakeCommentId === "string" && context.wakeCommentId.trim()) ||
+    (typeof context.commentId === "string" && context.commentId.trim()) ||
+    null;
+  const ctxWakeTaskId =
+    (typeof context.taskId === "string" && context.taskId.trim()) ||
+    (typeof context.issueId === "string" && context.issueId.trim()) ||
+    null;
+  if (ctxWakeCommentId && typeof context.wakeCommentBody === "string" && context.wakeCommentBody.trim()) {
     const authorLabel = context.wakeCommentAuthorType === "user" ? "a board user" : "another agent";
     wakeContextParts.push(
-      `\n\n---\n**Wake context:** You were woken because ${authorLabel} posted a new comment (id: ${wakeCommentId}) on your assigned task (${wakeTaskId ?? "unknown"}).`,
+      `\n\n---\n**Wake context:** You were woken because ${authorLabel} posted a new comment (id: ${ctxWakeCommentId}) on your assigned task (${ctxWakeTaskId ?? "unknown"}).`,
       `\n**Comment:**\n> ${context.wakeCommentBody.trim().replace(/\n/g, "\n> ")}`,
       `\nYou MUST read and respond to this comment. Follow the Heartbeat Procedure starting from Step 5 (checkout). Do NOT skip this comment.`,
     );
   } else if (typeof context.wakeReason === "string" && context.wakeReason.trim()) {
     wakeContextParts.push(
-      `\n\n---\n**Wake context:** You were woken with reason: ${context.wakeReason}. Task: ${wakeTaskId ?? "none"}.`,
+      `\n\n---\n**Wake context:** You were woken with reason: ${context.wakeReason}. Task: ${ctxWakeTaskId ?? "none"}.`,
       `\nFollow the Heartbeat Procedure. Check for new comments on your assigned tasks.`,
     );
   }
