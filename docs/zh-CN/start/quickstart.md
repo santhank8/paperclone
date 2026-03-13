@@ -46,5 +46,4 @@ pnpm paperclipai run
 6. 点击确认开始 — 静静看着智能体们进入他们各自的节律心跳脉冲区间，您的“全自动 AI 公司”就彻底运转起来了
 
 <Card title="核心概念 (Core Concepts)" href="/start/core-concepts">
-  深入学习支撑着整个 Paperclip 系统运作背后的四大关键概念
-</Card>
+<Card title="核心概念 (Core Concepts)" href="/zh-CN/start/core-concepts">
