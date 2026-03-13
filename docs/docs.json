@@ -148,10 +148,10 @@
               {
                 "group": "入门介绍",
                 "pages": [
-                  "cn/start/what-is-paperclip",
-                  "cn/start/quickstart",
-                  "cn/start/core-concepts",
-                  "cn/start/architecture"
+                  "zh-CN/start/what-is-paperclip",
+                  "zh-CN/start/quickstart",
+                  "zh-CN/start/core-concepts",
+                  "zh-CN/start/architecture"
                 ]
               }
             ]
