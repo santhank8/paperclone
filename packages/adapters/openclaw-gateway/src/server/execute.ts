@@ -336,9 +336,16 @@ function buildPaperclipEnvForWake(ctx: AdapterExecutionContext, wakePayload: Wak
 }
 
 function resolveClaimedApiKeyPath(value: unknown): string {
+  const fallback = "~/.openclaw/workspace/paperclip-claimed-api-key.json";
   const raw = nonEmpty(value);
-  if (!raw) return "~/.openclaw/workspace/paperclip-claimed-api-key.json";
-  return raw;
+  if (!raw) return fallback;
+  // Keep path hints shell-safe for instruction text rendered to remote agents.
+  const safePath = /^[~./A-Za-z0-9_\- ]+$/.test(raw);
+  return safePath ? raw : fallback;
+}
+
+function shellQuote(value: string): string {
+  return `'${value.replace(/'/g, `'"'"'`)}'`;
 }
 
 function buildWakeText(
@@ -368,6 +375,7 @@ function buildWakeText(
 
   const issueIdHint = payload.taskId ?? payload.issueId ?? "";
   const apiBaseHint = paperclipEnv.PAPERCLIP_API_URL ?? "<set PAPERCLIP_API_URL>";
+  const quotedClaimedApiKeyPath = shellQuote(claimedApiKeyPath);
 
   const lines = [
     "Paperclip wake event for a cloud adapter.",
@@ -380,8 +388,8 @@ function buildWakeText(
     "",
     `Load PAPERCLIP_API_KEY from ${claimedApiKeyPath} (the token you saved after claim-api-key).`,
     "Preflight key checks (must pass before API calls):",
-    `- test -f ${claimedApiKeyPath}`,
-    `- parse token from ${claimedApiKeyPath} JSON: {\"token\":\"pcp_...\"}`,
+    `- test -f ${quotedClaimedApiKeyPath}`,
+    `- parse token from ${quotedClaimedApiKeyPath} JSON: {\"token\":\"pcp_...\"}`,
     "- export PAPERCLIP_API_KEY to run context and verify non-empty",
     "",
     `api_base=${apiBaseHint}`,
