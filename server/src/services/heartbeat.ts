@@ -21,6 +21,7 @@ import { getServerAdapter, runningProcesses } from "../adapters/index.js";
 import type { AdapterExecutionResult, AdapterInvocationMeta, AdapterSessionCodec, UsageSummary } from "../adapters/index.js";
 import { createLocalAgentJwt } from "../agent-auth-jwt.js";
 import { parseObject, asBoolean, asNumber, appendWithCap, MAX_EXCERPT_BYTES } from "../adapters/utils.js";
+import { CronExpressionParser } from "cron-parser";
 import { costService } from "./costs.js";
 import { secretService } from "./secrets.js";
 import { resolveDefaultAgentWorkspaceDir } from "../home-paths.js";
@@ -1121,9 +1122,17 @@ export function heartbeatService(db: Db) {
     const runtimeConfig = parseObject(agent.runtimeConfig);
     const heartbeat = parseObject(runtimeConfig.heartbeat);
 
+    const rawCron = typeof heartbeat.cronSchedule === "string" ? heartbeat.cronSchedule.trim() : "";
+    const cronTimezone = typeof heartbeat.cronTimezone === "string" ? heartbeat.cronTimezone.trim() : "";
+    let validCron = "";
+    if (rawCron) {
+      try { CronExpressionParser.parse(rawCron); validCron = rawCron; } catch { /* invalid - treat as unset */ }
+    }
     return {
       enabled: asBoolean(heartbeat.enabled, true),
       intervalSec: Math.max(0, asNumber(heartbeat.intervalSec, 0)),
+      cronSchedule: validCron,
+      cronTimezone,
       wakeOnDemand: asBoolean(heartbeat.wakeOnDemand ?? heartbeat.wakeOnAssignment ?? heartbeat.wakeOnOnDemand ?? heartbeat.wakeOnAutomation, true),
       maxConcurrentRuns: normalizeMaxConcurrentRuns(heartbeat.maxConcurrentRuns),
     };
@@ -2804,12 +2813,35 @@ export function heartbeatService(db: Db) {
       for (const agent of allAgents) {
         if (agent.status === "paused" || agent.status === "terminated" || agent.status === "pending_approval") continue;
         const policy = parseHeartbeatPolicy(agent);
-        if (!policy.enabled || policy.intervalSec <= 0) continue;
+        if (!policy.enabled || (policy.intervalSec <= 0 && !policy.cronSchedule)) continue;
 
         checked += 1;
         const baseline = new Date(agent.lastHeartbeatAt ?? agent.createdAt).getTime();
-        const elapsedMs = now.getTime() - baseline;
-        if (elapsedMs < policy.intervalSec * 1000) continue;
+
+        let shouldFire = false;
+        let fireReason = "interval_elapsed";
+
+        if (policy.intervalSec > 0) {
+          const elapsedMs = now.getTime() - baseline;
+          if (elapsedMs >= policy.intervalSec * 1000) shouldFire = true;
+        }
+
+        if (!shouldFire && policy.cronSchedule) {
+          const cronOpts: { currentDate: Date; tz?: string } = { currentDate: new Date(baseline) };
+          if (policy.cronTimezone) cronOpts.tz = policy.cronTimezone;
+          try {
+            const cron = CronExpressionParser.parse(policy.cronSchedule, cronOpts);
+            const nextFire = cron.next().toDate();
+            if (nextFire.getTime() <= now.getTime()) {
+              shouldFire = true;
+              fireReason = "cron_schedule";
+            }
+          } catch {
+            // Invalid cron expression - already filtered in parseHeartbeatPolicy
+          }
+        }
+
+        if (!shouldFire) continue;
 
         const run = await enqueueWakeup(agent.id, {
           source: "timer",
@@ -2819,7 +2851,7 @@ export function heartbeatService(db: Db) {
           requestedByActorId: "heartbeat_scheduler",
           contextSnapshot: {
             source: "scheduler",
-            reason: "interval_elapsed",
+            reason: fireReason,
             now: now.toISOString(),
           },
         });
