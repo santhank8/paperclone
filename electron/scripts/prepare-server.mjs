@@ -8,7 +8,7 @@
  */
 
 import { execSync } from "node:child_process";
-import { rmSync, existsSync, readdirSync, readFileSync, writeFileSync, cpSync } from "node:fs";
+import { rmSync, existsSync, readdirSync, readFileSync, writeFileSync, lstatSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -36,6 +36,12 @@ if (existsSync(scopeDir)) {
   for (const pkg of readdirSync(scopeDir)) {
     const pkgJsonPath = path.join(scopeDir, pkg, "package.json");
     if (!existsSync(pkgJsonPath)) continue;
+
+    // Skip symlinks — writing through them would modify source files in the monorepo
+    if (lstatSync(pkgJsonPath).isSymbolicLink()) {
+      console.log(`[prepare-server] Skipping symlinked @paperclipai/${pkg}`);
+      continue;
+    }
 
     const pkgJson = JSON.parse(readFileSync(pkgJsonPath, "utf8"));
     if (pkgJson.publishConfig?.exports) {
