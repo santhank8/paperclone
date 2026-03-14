@@ -137,6 +137,7 @@ describe("cursor execute", () => {
     const previousHome = process.env.HOME;
     process.env.HOME = root;
 
+    let invocationPrompt = "";
     try {
       const result = await execute({
         runId: "run-default-prompt",
@@ -165,15 +166,29 @@ describe("cursor execute", () => {
         context: {},
         authToken: "run-jwt-token",
         onLog: async () => {},
+        onMeta: async (meta) => {
+          invocationPrompt = meta.prompt ?? "";
+        },
       });
 
       expect(result.exitCode).toBe(0);
       expect(result.errorMessage).toBeNull();
 
       const capture = JSON.parse(await fs.readFile(capturePath, "utf8")) as CapturePayload;
-      expect(capture.prompt).toContain("Custom prefix.");
-      expect(capture.prompt).toContain("You are agent agent-1 (Cursor Coder). Continue your Paperclip work.");
-      expect(capture.prompt).toContain("Custom suffix.");
+      const defaultPrompt = "You are agent agent-1 (Cursor Coder). Continue your Paperclip work.";
+      const prefixIdx = capture.prompt.indexOf("Custom prefix.");
+      const defaultIdx = capture.prompt.indexOf(defaultPrompt);
+      const suffixIdx = capture.prompt.indexOf("Custom suffix.");
+      expect(prefixIdx).toBeGreaterThanOrEqual(0);
+      expect(defaultIdx).toBeGreaterThan(prefixIdx);
+      expect(suffixIdx).toBeGreaterThan(defaultIdx);
+
+      const metaPrefixIdx = invocationPrompt.indexOf("Custom prefix.");
+      const metaDefaultIdx = invocationPrompt.indexOf(defaultPrompt);
+      const metaSuffixIdx = invocationPrompt.indexOf("Custom suffix.");
+      expect(metaPrefixIdx).toBeGreaterThanOrEqual(0);
+      expect(metaDefaultIdx).toBeGreaterThan(metaPrefixIdx);
+      expect(metaSuffixIdx).toBeGreaterThan(metaDefaultIdx);
     } finally {
       if (previousHome === undefined) {
         delete process.env.HOME;
