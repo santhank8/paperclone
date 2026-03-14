@@ -57,10 +57,14 @@ async function buildSkillsDir(): Promise<string> {
   const entries = await fs.readdir(skillsDir, { withFileTypes: true });
   for (const entry of entries) {
     if (entry.isDirectory()) {
-      await symlinkOrJunction(
-        path.join(skillsDir, entry.name),
-        path.join(target, entry.name),
-      );
+      try {
+        await symlinkOrJunction(
+          path.join(skillsDir, entry.name),
+          path.join(target, entry.name),
+        );
+      } catch {
+        // Skill link failure is non-fatal; continue with remaining skills.
+      }
     }
   }
   return tmp;

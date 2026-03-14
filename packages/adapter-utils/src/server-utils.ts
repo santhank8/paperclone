@@ -338,7 +338,9 @@ export async function readPaperclipSkillMarkdown(
 export async function symlinkOrJunction(source: string, target: string): Promise<void> {
   try {
     await fs.symlink(source, target);
-  } catch {
+  } catch (err: unknown) {
+    if ((err as NodeJS.ErrnoException).code !== "EPERM") throw err;
+    // Windows: directory symlinks need admin; junctions don't.
     await fs.symlink(source, target, "junction");
   }
 }
