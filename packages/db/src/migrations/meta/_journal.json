@@ -218,6 +218,13 @@
       "when": 1773421200000,
       "tag": "0030_green_mad_thinker",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1773476000000,
+      "tag": "0031_chat_messages",
+      "breakpoints": true
     }
   ]
 }

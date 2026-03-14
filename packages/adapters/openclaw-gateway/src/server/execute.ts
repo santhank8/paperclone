@@ -17,6 +17,7 @@ type WakePayload = {
   issueId: string | null;
   wakeReason: string | null;
   wakeCommentId: string | null;
+  chatMessageId: string | null;
   approvalId: string | null;
   approvalStatus: string | null;
   issueIds: string[];
@@ -291,6 +292,7 @@ function buildWakePayload(ctx: AdapterExecutionContext): WakePayload {
     issueId: nonEmpty(context.issueId),
     wakeReason: nonEmpty(context.wakeReason),
     wakeCommentId: nonEmpty(context.wakeCommentId) ?? nonEmpty(context.commentId),
+    chatMessageId: nonEmpty(context.chatMessageId),
     approvalId: nonEmpty(context.approvalId),
     approvalStatus: nonEmpty(context.approvalStatus),
     issueIds: Array.isArray(context.issueIds)
@@ -326,6 +328,9 @@ function buildPaperclipEnvForWake(ctx: AdapterExecutionContext, wakePayload: Wak
   if (wakePayload.taskId) paperclipEnv.PAPERCLIP_TASK_ID = wakePayload.taskId;
   if (wakePayload.wakeReason) paperclipEnv.PAPERCLIP_WAKE_REASON = wakePayload.wakeReason;
   if (wakePayload.wakeCommentId) paperclipEnv.PAPERCLIP_WAKE_COMMENT_ID = wakePayload.wakeCommentId;
+  if (wakePayload.chatMessageId) {
+    paperclipEnv.PAPERCLIP_CHAT_MESSAGE_ID = wakePayload.chatMessageId;
+  }
   if (wakePayload.approvalId) paperclipEnv.PAPERCLIP_APPROVAL_ID = wakePayload.approvalId;
   if (wakePayload.approvalStatus) paperclipEnv.PAPERCLIP_APPROVAL_STATUS = wakePayload.approvalStatus;
   if (wakePayload.issueIds.length > 0) {
@@ -345,6 +350,7 @@ function buildWakeText(payload: WakePayload, paperclipEnv: Record<string, string
     "PAPERCLIP_TASK_ID",
     "PAPERCLIP_WAKE_REASON",
     "PAPERCLIP_WAKE_COMMENT_ID",
+    "PAPERCLIP_CHAT_MESSAGE_ID",
     "PAPERCLIP_APPROVAL_ID",
     "PAPERCLIP_APPROVAL_STATUS",
     "PAPERCLIP_LINKED_ISSUE_IDS",
@@ -376,6 +382,7 @@ function buildWakeText(payload: WakePayload, paperclipEnv: Record<string, string
     `issue_id=${payload.issueId ?? ""}`,
     `wake_reason=${payload.wakeReason ?? ""}`,
     `wake_comment_id=${payload.wakeCommentId ?? ""}`,
+    `chat_message_id=${payload.chatMessageId ?? ""}`,
     `approval_id=${payload.approvalId ?? ""}`,
     `approval_status=${payload.approvalStatus ?? ""}`,
     `linked_issue_ids=${payload.issueIds.join(",")}`,

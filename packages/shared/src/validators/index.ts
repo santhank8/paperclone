@@ -97,6 +97,13 @@ export {
 } from "./approval.js";
 
 export {
+  chatMessageRoleSchema,
+  addChatMessageSchema,
+  type ChatMessageRole,
+  type AddChatMessage,
+} from "./chat.js";
+
+export {
   envBindingPlainSchema,
   envBindingSecretRefSchema,
   envBindingSchema,

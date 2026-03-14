@@ -26,6 +26,7 @@ import { EntityRow } from "../components/EntityRow";
 import { Identity } from "../components/Identity";
 import { PageSkeleton } from "../components/PageSkeleton";
 import { ScrollToBottom } from "../components/ScrollToBottom";
+import { AgentChatTab } from "../components/AgentChatTab";
 import { formatCents, formatDate, relativeTime, formatTokens } from "../lib/utils";
 import { cn } from "../lib/utils";
 import { Button } from "@/components/ui/button";
@@ -174,11 +175,12 @@ function scrollToContainerBottom(container: ScrollContainer, behavior: ScrollBeh
   container.scrollTo({ top: container.scrollHeight, behavior });
 }
 
-type AgentDetailView = "dashboard" | "configuration" | "runs";
+type AgentDetailView = "dashboard" | "configuration" | "runs" | "chat";
 
 function parseAgentDetailView(value: string | null): AgentDetailView {
   if (value === "configure" || value === "configuration") return "configuration";
   if (value === "runs") return value;
+  if (value === "chat") return value;
   return "dashboard";
 }
 
@@ -316,6 +318,8 @@ export function AgentDetail() {
         ? "configuration"
         : activeView === "runs"
           ? "runs"
+          : activeView === "chat"
+            ? "chat"
           : "dashboard";
     if (routeAgentRef !== canonicalAgentRef || urlTab !== canonicalTab) {
       navigate(`/agents/${canonicalAgentRef}/${canonicalTab}`, { replace: true });
@@ -413,6 +417,8 @@ export function AgentDetail() {
         crumbs.push({ label: `Run ${urlRunId.slice(0, 8)}` });
       } else if (activeView === "configuration") {
         crumbs.push({ label: "Configuration" });
+      } else if (activeView === "chat") {
+        crumbs.push({ label: "Chat" });
       } else if (activeView === "runs") {
         crumbs.push({ label: "Runs" });
       } else {
@@ -569,6 +575,7 @@ export function AgentDetail() {
           <PageTabBar
             items={[
               { value: "dashboard", label: "Dashboard" },
+              { value: "chat", label: "Chat" },
               { value: "configuration", label: "Configuration" },
               { value: "runs", label: "Runs" },
             ]}
@@ -663,6 +670,14 @@ export function AgentDetail() {
           onCancelActionChange={setCancelConfigAction}
           onSavingChange={setConfigSaving}
           updatePermissions={updatePermissions}
+        />
+      )}
+
+      {activeView === "chat" && (
+        <AgentChatTab
+          agentId={agent.id}
+          adapterType={agent.adapterType}
+          agentName={agent.name}
         />
       )}
 
