@@ -1,12 +1,17 @@
 /**
  * Relay tunnel client. Maintains an outbound WebSocket connection to the relay
  * server and dispatches incoming messages to the HTTP forwarder and WS bridge.
+ *
+ * The tunnel WebSocket carries two frame types:
+ *   - Text frames: JSON control + HTTP messages (parsed and dispatched)
+ *   - Binary frames: raw WS data with a 37-byte header (forwarded without inspection)
  */
 
 import { createRequire } from "node:module";
 import { forwardHttpRequest } from "./http-forwarder.js";
-import { handleWsOpen, handleWsMessage, handleWsClose, closeAllBridges } from "./ws-bridge.js";
+import { handleWsOpen, handleWsData, handleWsClose, closeAllBridges } from "./ws-bridge.js";
 import type { TunnelMessage } from "./protocol.js";
+import { decodeDataFrame } from "./protocol.js";
 import { logger } from "../middleware/logger.js";
 
 const require = createRequire(import.meta.url);
@@ -15,7 +20,7 @@ const WS = require("ws") as { new (url: string, opts?: { headers?: Record<string
 interface WsInstance {
   readyState: number;
   on(event: string, cb: (...args: any[]) => void): void;
-  send(data: string): void;
+  send(data: string | Buffer): void;
   close(code?: number): void;
 }
 
@@ -34,9 +39,17 @@ export function startRelayClient(opts: RelayClientOptions): { close: () => void 
   let reconnectAttempt = 0;
   let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 
-  function send(msg: TunnelMessage): void {
+  /** Send a JSON control/HTTP message as a text frame. */
+  function sendJson(msg: TunnelMessage): void {
     if (ws && ws.readyState === WS.OPEN) {
       ws.send(JSON.stringify(msg));
+    }
+  }
+
+  /** Send a pre-encoded binary data frame. */
+  function sendBinary(frame: Buffer): void {
+    if (ws && ws.readyState === WS.OPEN) {
+      ws.send(frame);
     }
   }
 
@@ -53,18 +66,26 @@ export function startRelayClient(opts: RelayClientOptions): { close: () => void 
       logger.info("Relay tunnel WebSocket connected");
     });
 
-    ws.on("message", (data: { toString(): string }) => {
+    ws.on("message", (data: Buffer | string, isBinary: boolean) => {
+      // Binary frames = raw WS data with stream ID header
+      if (isBinary) {
+        const buf = Buffer.isBuffer(data) ? data : Buffer.from(data as string);
+        const { streamId, payload, isBinary: originalIsBinary } = decodeDataFrame(buf);
+        handleWsData(streamId, payload, originalIsBinary);
+        return;
+      }
+
+      // Text frames = JSON control + HTTP messages
       let msg: TunnelMessage;
       try {
-        msg = JSON.parse(data.toString()) as TunnelMessage;
+        msg = JSON.parse(typeof data === "string" ? data : data.toString()) as TunnelMessage;
       } catch {
-        logger.warn("Relay: received unparseable message");
+        logger.warn("Relay: received unparseable text message");
         return;
       }
 
       switch (msg.type) {
         case "tunnel-ready": {
-          // Construct the public URL from the relay base URL (wss:// → https://)
           const relayOrigin = opts.relayUrl.replace(/^wss:\/\//, "https://").replace(/^ws:\/\//, "http://");
           const publicUrl = msg.publicUrl || relayOrigin;
           logger.info({ instanceId: msg.instanceId, publicUrl }, "Relay tunnel ready");
@@ -74,10 +95,10 @@ export function startRelayClient(opts: RelayClientOptions): { close: () => void 
 
         case "http-request":
           forwardHttpRequest(msg, opts.localPort)
-            .then((res) => send(res))
+            .then((res) => sendJson(res))
             .catch((err) => {
               logger.error({ err, requestId: msg.id }, "Relay: failed to forward HTTP request");
-              send({
+              sendJson({
                 id: msg.id,
                 type: "http-response",
                 status: 502,
@@ -88,11 +109,7 @@ export function startRelayClient(opts: RelayClientOptions): { close: () => void 
           break;
 
         case "ws-open":
-          handleWsOpen(msg, opts.localPort, send);
-          break;
-
-        case "ws-message":
-          handleWsMessage(msg);
+          handleWsOpen(msg, opts.localPort, sendJson, sendBinary);
           break;
 
         case "ws-close":
