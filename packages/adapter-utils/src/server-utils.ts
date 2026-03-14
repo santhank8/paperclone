@@ -234,17 +234,32 @@ async function resolveSpawnTarget(
   return { command: executable, args };
 }
 
-export function ensurePathInEnv(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+export function ensurePathInEnv(
+  env: NodeJS.ProcessEnv,
+  platform: NodeJS.Platform = process.platform,
+): NodeJS.ProcessEnv {
   if (typeof env.PATH === "string" && env.PATH.length > 0) return env;
   if (typeof env.Path === "string" && env.Path.length > 0) return env;
-  return { ...env, PATH: defaultPathForPlatform() };
+
+  // Derive a deterministic default PATH based on the requested platform,
+  // falling back to common conventional values when the current process
+  // environment does not provide one.
+  const defaultPath =
+    platform === "win32"
+      ? (process.env.Path ??
+         process.env.PATH ??
+         "C:\\Windows\\System32;C:\\Windows")
+      : (process.env.PATH ??
+         "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin");
+
+  return { ...env, PATH: defaultPath };
 }
 
 export function buildChildProcessEnv(
   env: NodeJS.ProcessEnv,
   platform: NodeJS.Platform = process.platform,
 ): NodeJS.ProcessEnv {
-  const next = ensurePathInEnv({ ...env });
+  const next = ensurePathInEnv({ ...env }, platform);
   if (platform !== "win32") return next;
   if (!hasNonEmptyEnvValue(next, "PYTHONUTF8")) {
     next.PYTHONUTF8 = "1";
