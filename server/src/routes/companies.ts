@@ -168,12 +168,12 @@ export function companyRoutes(db: Db, opts: { companyDeletionEnabled: boolean } 
 
   router.delete("/:companyId", async (req, res) => {
     assertBoard(req);
+    const companyId = req.params.companyId as string;
+    assertCompanyAccess(req, companyId);
     if (!opts.companyDeletionEnabled) {
       res.status(403).json({ error: "Company deletion is disabled on this instance" });
       return;
     }
-    const companyId = req.params.companyId as string;
-    assertCompanyAccess(req, companyId);
     const company = await svc.remove(companyId);
     if (!company) {
       res.status(404).json({ error: "Company not found" });
