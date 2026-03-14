@@ -31,7 +31,12 @@
     "test:e2e": "npx playwright test --config tests/e2e/playwright.config.ts",
     "test:e2e:headed": "npx playwright test --config tests/e2e/playwright.config.ts --headed",
     "test:release-smoke": "npx playwright test --config tests/release-smoke/playwright.config.ts",
-    "test:release-smoke:headed": "npx playwright test --config tests/release-smoke/playwright.config.ts --headed"
+    "test:release-smoke:headed": "npx playwright test --config tests/release-smoke/playwright.config.ts --headed",
+    "electron:dev": "pnpm --filter @paperclipai/electron dev",
+    "electron:pack": "pnpm build && pnpm --filter @paperclipai/electron pack",
+    "electron:dist": "pnpm build && pnpm --filter @paperclipai/electron dist",
+    "electron:dist:mac": "pnpm build && pnpm --filter @paperclipai/electron dist:mac",
+    "electron:dist:win": "pnpm build && pnpm --filter @paperclipai/electron dist:win"
   },
   "devDependencies": {
     "cross-env": "^10.1.0",
