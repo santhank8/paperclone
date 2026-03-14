@@ -2239,6 +2239,17 @@ export function heartbeatService(db: Db) {
       agent.budgetMonthlyCents > 0 &&
       agent.spentMonthlyCents >= agent.budgetMonthlyCents
     ) {
+      logger.warn(
+        {
+          agentId,
+          companyId: agent.companyId,
+          budgetCents: agent.budgetMonthlyCents,
+          spentCents: agent.spentMonthlyCents,
+          source,
+          triggerDetail,
+        },
+        "Agent wakeup rejected: exceeded monthly budget",
+      );
       throw conflict("Agent has exceeded its monthly budget", {
         budgetCents: agent.budgetMonthlyCents,
         spentCents: agent.spentMonthlyCents,
@@ -2257,6 +2268,17 @@ export function heartbeatService(db: Db) {
       company.budgetMonthlyCents > 0 &&
       company.spentMonthlyCents >= company.budgetMonthlyCents
     ) {
+      logger.warn(
+        {
+          agentId,
+          companyId: company.id,
+          budgetCents: company.budgetMonthlyCents,
+          spentCents: company.spentMonthlyCents,
+          source,
+          triggerDetail,
+        },
+        "Agent wakeup rejected: company exceeded monthly budget",
+      );
       throw conflict("Company has exceeded its monthly budget", {
         budgetCents: company.budgetMonthlyCents,
         spentCents: company.spentMonthlyCents,

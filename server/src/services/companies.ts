@@ -1,5 +1,6 @@
 import { and, eq, ne, count } from "drizzle-orm";
 import type { Db } from "@paperclipai/db";
+import { logger } from "../middleware/logger.js";
 import {
   companies,
   agents,
@@ -96,7 +97,7 @@ export function companyService(db: Db) {
 
         if (shouldPauseAgents) {
           // Pause all non-terminated agents
-          await db
+          const result = await db
             .update(agents)
             .set({ status: "paused", updatedAt: new Date() })
             .where(
@@ -104,7 +105,18 @@ export function companyService(db: Db) {
                 eq(agents.companyId, id),
                 ne(agents.status, "terminated"),
               ),
-            );
+            )
+            .returning({ id: agents.id, name: agents.name });
+          logger.warn(
+            {
+              companyId: id,
+              budgetCents: updated.budgetMonthlyCents,
+              spentCents: updated.spentMonthlyCents,
+              pausedAgentCount: result.length,
+              pausedAgents: result,
+            },
+            "Company budget exceeded: auto-paused agents",
+          );
         }
       }
 
