@@ -32,8 +32,12 @@ server/src/**/*.d.ts
 server/src/**/*.d.ts.map
 tmp/
 
-# DeerFlow cloned subrepo (managed separately)
-/deerflow/
+# DeerFlow build artifacts (source is tracked)
+/deerflow/.deer-flow/
+/deerflow/node_modules/
+/deerflow/frontend/.next/
+/deerflow/backend/.venv/
+/deerflow/**/__pycache__/
 
 # Editor / tool temp files
 *.tmp
