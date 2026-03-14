@@ -71,6 +71,7 @@ interface IssueDraft {
   assigneeValue: string;
   assigneeId?: string;
   projectId: string;
+  parentId?: string;
   assigneeModelOverride: string;
   assigneeThinkingEffort: string;
   assigneeChrome: boolean;
@@ -181,6 +182,7 @@ export function NewIssueDialog() {
   const [priority, setPriority] = useState("");
   const [assigneeValue, setAssigneeValue] = useState("");
   const [projectId, setProjectId] = useState("");
+  const [parentId, setParentId] = useState("");
   const [assigneeOptionsOpen, setAssigneeOptionsOpen] = useState(false);
   const [assigneeModelOverride, setAssigneeModelOverride] = useState("");
   const [assigneeThinkingEffort, setAssigneeThinkingEffort] = useState("");
@@ -406,6 +408,7 @@ export function NewIssueDialog() {
     setPriority("");
     setAssigneeValue("");
     setProjectId("");
+    setParentId("");
     setAssigneeOptionsOpen(false);
     setAssigneeModelOverride("");
     setAssigneeThinkingEffort("");
@@ -422,6 +425,7 @@ export function NewIssueDialog() {
     setDialogCompanyId(companyId);
     setAssigneeValue("");
     setProjectId("");
+    setParentId("");
     setAssigneeModelOverride("");
     setAssigneeThinkingEffort("");
     setAssigneeChrome(false);
