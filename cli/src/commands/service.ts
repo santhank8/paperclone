@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { execFileSync, execSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import * as p from "@clack/prompts";
 import pc from "picocolors";
 import type { Command } from "commander";
@@ -20,17 +20,52 @@ type ServiceLogsOptions = { follow?: boolean; lines?: number };
 const PAPERCLIP_LOG_DIR = path.join(os.homedir(), ".paperclip", "logs");
 const SERVICE_LOG_PATH = path.join(PAPERCLIP_LOG_DIR, "service.log");
 
+export function findPackageRoot(startDir: string): string {
+  let dir = startDir;
+  while (dir !== path.parse(dir).root) {
+    const pkgPath = path.join(dir, "package.json");
+    if (existsSync(pkgPath)) {
+      const pkg = JSON.parse(readFileSync(pkgPath, "utf8"));
+      if (pkg.name === "paperclipai" || pkg.name === "paperclip") return dir;
+    }
+    dir = path.dirname(dir);
+  }
+  throw new Error("Could not find paperclipai package root from " + startDir);
+}
+
 function paperclipRootDir(): string {
-  // Walk up from cli/src/commands/service.ts → repo root
-  return path.resolve(import.meta.dirname, "..", "..", "..");
+  return findPackageRoot(import.meta.dirname);
 }
 
 function nodeExecPath(): string {
   return process.execPath;
 }
 
-function devRunnerPath(): string {
-  return path.join(paperclipRootDir(), "scripts", "dev-runner.mjs");
+function serverEntryPath(): string {
+  const root = paperclipRootDir();
+  // In the published npm package, the CLI package is the root and it bundles
+  // the server. In the monorepo, the server lives at server/dist/index.js.
+  const monorepoServer = path.join(root, "server", "dist", "index.js");
+  if (existsSync(monorepoServer)) return monorepoServer;
+  // Fallback: if running from the CLI package directly (npm global install),
+  // the server dependency is in node_modules.
+  const nmServer = path.join(root, "node_modules", "@paperclipai", "server", "dist", "index.js");
+  if (existsSync(nmServer)) return nmServer;
+  throw new Error(
+    "Could not find server entrypoint. Ensure the server is built (pnpm run build).",
+  );
+}
+
+// ---------------------------------------------------------------------------
+// XML / shell helpers
+// ---------------------------------------------------------------------------
+
+export function xmlEscape(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }
 
 // ---------------------------------------------------------------------------
@@ -43,7 +78,7 @@ const LAUNCHD_PLIST_PATH = path.join(LAUNCHD_PLIST_DIR, `${LAUNCHD_LABEL}.plist`
 
 export function generateLaunchdPlist(): string {
   const node = nodeExecPath();
-  const runner = devRunnerPath();
+  const server = serverEntryPath();
   const workDir = paperclipRootDir();
 
   return `<?xml version="1.0" encoding="UTF-8"?>
@@ -52,17 +87,16 @@ export function generateLaunchdPlist(): string {
 <plist version="1.0">
 <dict>
   <key>Label</key>
-  <string>${LAUNCHD_LABEL}</string>
+  <string>${xmlEscape(LAUNCHD_LABEL)}</string>
 
   <key>ProgramArguments</key>
   <array>
-    <string>${node}</string>
-    <string>${runner}</string>
-    <string>watch</string>
+    <string>${xmlEscape(node)}</string>
+    <string>${xmlEscape(server)}</string>
   </array>
 
   <key>WorkingDirectory</key>
-  <string>${workDir}</string>
+  <string>${xmlEscape(workDir)}</string>
 
   <key>KeepAlive</key>
   <true/>
@@ -74,10 +108,10 @@ export function generateLaunchdPlist(): string {
   <integer>10</integer>
 
   <key>StandardOutPath</key>
-  <string>${SERVICE_LOG_PATH}</string>
+  <string>${xmlEscape(SERVICE_LOG_PATH)}</string>
 
   <key>StandardErrorPath</key>
-  <string>${SERVICE_LOG_PATH}</string>
+  <string>${xmlEscape(SERVICE_LOG_PATH)}</string>
 </dict>
 </plist>
 `;
@@ -92,7 +126,7 @@ const SYSTEMD_UNIT_PATH = path.join(SYSTEMD_UNIT_DIR, "paperclip.service");
 
 export function generateSystemdUnit(): string {
   const node = nodeExecPath();
-  const runner = devRunnerPath();
+  const server = serverEntryPath();
   const workDir = paperclipRootDir();
 
   return `[Unit]
@@ -101,7 +135,7 @@ After=network.target
 
 [Service]
 Type=simple
-ExecStart=${node} ${runner} watch
+ExecStart="${node}" "${server}"
 WorkingDirectory=${workDir}
 Restart=always
 RestartSec=10
@@ -123,11 +157,22 @@ export function detectPlatform(): SupportedPlatform {
   const plat = process.platform;
   if (plat === "darwin") return "darwin";
   if (plat === "linux") return "linux";
-  p.log.error(
-    `Platform ${pc.bold(plat)} is not supported. ` +
-      `Paperclip service management is available on macOS (launchd) and Linux (systemd).`,
+  throw new Error(
+    `Platform ${plat} is not supported. Paperclip service management is available on macOS (launchd) and Linux (systemd).`,
   );
-  process.exit(1);
+}
+
+// ---------------------------------------------------------------------------
+// UID helper
+// ---------------------------------------------------------------------------
+
+function getUid(): number {
+  const uid = typeof process.getuid === "function" ? process.getuid() : null;
+  if (uid === null) {
+    p.log.error("Cannot determine user ID on this platform.");
+    process.exit(1);
+  }
+  return uid;
 }
 
 // ---------------------------------------------------------------------------
@@ -144,8 +189,14 @@ function ensureLogDir(): void {
 // Install
 // ---------------------------------------------------------------------------
 
-async function serviceInstall(): Promise<void> {
-  const platform = detectPlatform();
+function serviceInstall(): void {
+  let platform: SupportedPlatform;
+  try {
+    platform = detectPlatform();
+  } catch (err) {
+    p.log.error((err as Error).message);
+    process.exit(1);
+  }
   ensureLogDir();
 
   p.intro(pc.bgCyan(pc.black(" paperclipai service install ")));
@@ -154,21 +205,26 @@ async function serviceInstall(): Promise<void> {
     if (!existsSync(LAUNCHD_PLIST_DIR)) {
       mkdirSync(LAUNCHD_PLIST_DIR, { recursive: true });
     }
+
+    const uid = getUid();
+
+    // Unload any existing service before re-installing
+    try {
+      execFileSync("launchctl", ["bootout", `gui/${uid}`, LAUNCHD_PLIST_PATH], { stdio: "pipe" });
+    } catch {
+      // Not loaded — that's fine
+    }
+
     const plist = generateLaunchdPlist();
     writeFileSync(LAUNCHD_PLIST_PATH, plist, "utf8");
     p.log.success(`Wrote plist to ${pc.dim(LAUNCHD_PLIST_PATH)}`);
 
     try {
-      execFileSync("launchctl", ["load", "-w", LAUNCHD_PLIST_PATH], { stdio: "pipe" });
+      execFileSync("launchctl", ["bootstrap", `gui/${uid}`, LAUNCHD_PLIST_PATH], {
+        stdio: "pipe",
+      });
     } catch {
-      // May already be loaded — try bootstrap instead
-      try {
-        execFileSync("launchctl", ["bootstrap", `gui/${process.getuid!()}`, LAUNCHD_PLIST_PATH], {
-          stdio: "pipe",
-        });
-      } catch {
-        // Already bootstrapped is fine
-      }
+      // Already bootstrapped is fine
     }
     p.log.success("Service loaded via launchd");
   } else {
@@ -191,22 +247,25 @@ async function serviceInstall(): Promise<void> {
 // Uninstall
 // ---------------------------------------------------------------------------
 
-async function serviceUninstall(): Promise<void> {
-  const platform = detectPlatform();
+function serviceUninstall(): void {
+  let platform: SupportedPlatform;
+  try {
+    platform = detectPlatform();
+  } catch (err) {
+    p.log.error((err as Error).message);
+    process.exit(1);
+  }
 
   p.intro(pc.bgCyan(pc.black(" paperclipai service uninstall ")));
 
   if (platform === "darwin") {
+    const uid = getUid();
     try {
-      execFileSync("launchctl", ["unload", "-w", LAUNCHD_PLIST_PATH], { stdio: "pipe" });
+      execFileSync("launchctl", ["bootout", `gui/${uid}`, LAUNCHD_PLIST_PATH], {
+        stdio: "pipe",
+      });
     } catch {
-      try {
-        execFileSync("launchctl", ["bootout", `gui/${process.getuid!()}`, LAUNCHD_PLIST_PATH], {
-          stdio: "pipe",
-        });
-      } catch {
-        // Already removed
-      }
+      // Already removed
     }
     if (existsSync(LAUNCHD_PLIST_PATH)) {
       unlinkSync(LAUNCHD_PLIST_PATH);
@@ -232,43 +291,82 @@ async function serviceUninstall(): Promise<void> {
 // Start / Stop / Restart
 // ---------------------------------------------------------------------------
 
-async function serviceStart(): Promise<void> {
-  const platform = detectPlatform();
-  if (platform === "darwin") {
-    execFileSync("launchctl", ["start", LAUNCHD_LABEL], { stdio: "pipe" });
-  } else {
-    execFileSync("systemctl", ["--user", "start", "paperclip.service"], { stdio: "pipe" });
+function serviceStart(): void {
+  let platform: SupportedPlatform;
+  try {
+    platform = detectPlatform();
+  } catch (err) {
+    p.log.error((err as Error).message);
+    process.exit(1);
   }
-  p.log.success("Paperclip service started.");
+  try {
+    if (platform === "darwin") {
+      execFileSync("launchctl", ["start", LAUNCHD_LABEL], { stdio: "pipe" });
+    } else {
+      execFileSync("systemctl", ["--user", "start", "paperclip.service"], { stdio: "pipe" });
+    }
+    p.log.success("Paperclip service started.");
+  } catch {
+    p.log.error("Failed to start service. Is it installed? Run `paperclipai service install` first.");
+    process.exit(1);
+  }
 }
 
-async function serviceStop(): Promise<void> {
-  const platform = detectPlatform();
-  if (platform === "darwin") {
-    execFileSync("launchctl", ["stop", LAUNCHD_LABEL], { stdio: "pipe" });
-  } else {
-    execFileSync("systemctl", ["--user", "stop", "paperclip.service"], { stdio: "pipe" });
+function serviceStop(): void {
+  let platform: SupportedPlatform;
+  try {
+    platform = detectPlatform();
+  } catch (err) {
+    p.log.error((err as Error).message);
+    process.exit(1);
   }
-  p.log.success("Paperclip service stopped.");
+  try {
+    if (platform === "darwin") {
+      execFileSync("launchctl", ["stop", LAUNCHD_LABEL], { stdio: "pipe" });
+    } else {
+      execFileSync("systemctl", ["--user", "stop", "paperclip.service"], { stdio: "pipe" });
+    }
+    p.log.success("Paperclip service stopped.");
+  } catch {
+    p.log.error("Failed to stop service. Is it installed? Run `paperclipai service install` first.");
+    process.exit(1);
+  }
 }
 
-async function serviceRestart(): Promise<void> {
-  const platform = detectPlatform();
-  if (platform === "darwin") {
-    execFileSync("launchctl", ["stop", LAUNCHD_LABEL], { stdio: "pipe" });
-    execFileSync("launchctl", ["start", LAUNCHD_LABEL], { stdio: "pipe" });
-  } else {
-    execFileSync("systemctl", ["--user", "restart", "paperclip.service"], { stdio: "pipe" });
+function serviceRestart(): void {
+  let platform: SupportedPlatform;
+  try {
+    platform = detectPlatform();
+  } catch (err) {
+    p.log.error((err as Error).message);
+    process.exit(1);
   }
-  p.log.success("Paperclip service restarted.");
+  try {
+    if (platform === "darwin") {
+      execFileSync("launchctl", ["stop", LAUNCHD_LABEL], { stdio: "pipe" });
+      execFileSync("launchctl", ["start", LAUNCHD_LABEL], { stdio: "pipe" });
+    } else {
+      execFileSync("systemctl", ["--user", "restart", "paperclip.service"], { stdio: "pipe" });
+    }
+    p.log.success("Paperclip service restarted.");
+  } catch {
+    p.log.error("Failed to restart service. Is it installed? Run `paperclipai service install` first.");
+    process.exit(1);
+  }
 }
 
 // ---------------------------------------------------------------------------
 // Status
 // ---------------------------------------------------------------------------
 
-async function serviceStatus(opts: ServiceStatusOptions): Promise<void> {
-  const platform = detectPlatform();
+function serviceStatus(opts: ServiceStatusOptions): void {
+  let platform: SupportedPlatform;
+  try {
+    platform = detectPlatform();
+  } catch (err) {
+    p.log.error((err as Error).message);
+    process.exit(1);
+  }
 
   if (platform === "darwin") {
     try {
@@ -327,29 +425,46 @@ async function serviceStatus(opts: ServiceStatusOptions): Promise<void> {
 // Logs
 // ---------------------------------------------------------------------------
 
-async function serviceLogs(opts: ServiceLogsOptions): Promise<void> {
-  const lines = opts.lines ?? 50;
-
-  if (!existsSync(SERVICE_LOG_PATH)) {
-    p.log.warn(`No log file found at ${pc.dim(SERVICE_LOG_PATH)}`);
-    return;
+function serviceLogs(opts: ServiceLogsOptions): void {
+  let platform: SupportedPlatform;
+  try {
+    platform = detectPlatform();
+  } catch (err) {
+    p.log.error((err as Error).message);
+    process.exit(1);
   }
 
-  if (opts.follow) {
-    // Stream live — hand off to tail -f (inherits stdio)
+  const lines = opts.lines ?? 50;
+
+  if (platform === "linux") {
+    const args = ["--user", "-u", "paperclip.service", "-n", String(lines)];
+    if (opts.follow) args.push("-f");
     try {
-      execFileSync("tail", ["-n", String(lines), "-f", SERVICE_LOG_PATH], {
-        stdio: "inherit",
-      });
+      execFileSync("journalctl", args, { stdio: "inherit" });
     } catch {
-      // User hit Ctrl-C
+      // User hit Ctrl-C or journalctl not available
     }
   } else {
-    const output = execFileSync("tail", ["-n", String(lines), SERVICE_LOG_PATH], {
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", "pipe"],
-    });
-    console.log(output);
+    if (!existsSync(SERVICE_LOG_PATH)) {
+      p.log.warn(`No log file found at ${pc.dim(SERVICE_LOG_PATH)}`);
+      return;
+    }
+
+    if (opts.follow) {
+      try {
+        execFileSync("tail", ["-n", String(lines), "-f", SERVICE_LOG_PATH], {
+          stdio: "inherit",
+        });
+      } catch {
+        // User hit Ctrl-C
+      }
+    } else {
+      const output = execFileSync("tail", ["-n", String(lines), SERVICE_LOG_PATH], {
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "pipe"],
+      });
+      console.log(output);
+    }
   }
 }
 

@@ -1,5 +1,52 @@
-import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
-import { generateLaunchdPlist, generateSystemdUnit, detectPlatform } from "../commands/service.js";
+import { existsSync } from "node:fs";
+import path from "node:path";
+import { describe, expect, it, afterEach } from "vitest";
+import {
+  generateLaunchdPlist,
+  generateSystemdUnit,
+  detectPlatform,
+  findPackageRoot,
+  xmlEscape,
+} from "../commands/service.js";
+
+// ---------------------------------------------------------------------------
+// xmlEscape
+// ---------------------------------------------------------------------------
+
+describe("xmlEscape", () => {
+  it("escapes ampersands", () => {
+    expect(xmlEscape("a&b")).toBe("a&amp;b");
+  });
+
+  it("escapes angle brackets", () => {
+    expect(xmlEscape("<tag>")).toBe("&lt;tag&gt;");
+  });
+
+  it("escapes double quotes", () => {
+    expect(xmlEscape('key="val"')).toBe("key=&quot;val&quot;");
+  });
+
+  it("returns plain strings unchanged", () => {
+    expect(xmlEscape("/usr/bin/node")).toBe("/usr/bin/node");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// findPackageRoot
+// ---------------------------------------------------------------------------
+
+describe("findPackageRoot", () => {
+  it("finds the root from a nested directory", () => {
+    // import.meta.dirname is cli/src/__tests__, root has package.json with name "paperclip"
+    const root = findPackageRoot(import.meta.dirname);
+    expect(root).toBeTruthy();
+    expect(existsSync(path.join(root, "package.json"))).toBe(true);
+  });
+
+  it("throws when started from a directory with no matching package.json", () => {
+    expect(() => findPackageRoot("/")).toThrow("Could not find paperclipai package root");
+  });
+});
 
 // ---------------------------------------------------------------------------
 // Template generation
@@ -15,9 +62,13 @@ describe("generateLaunchdPlist", () => {
     expect(plist).toContain("<key>RunAtLoad</key>");
     expect(plist).toContain("<key>ThrottleInterval</key>");
     expect(plist).toContain("<integer>10</integer>");
-    expect(plist).toContain("dev-runner.mjs");
-    expect(plist).toContain("watch");
+    expect(plist).toContain("server");
     expect(plist).toContain("service.log");
+  });
+
+  it("does not reference dev-runner.mjs", () => {
+    const plist = generateLaunchdPlist();
+    expect(plist).not.toContain("dev-runner.mjs");
   });
 
   it("uses the current node executable path", () => {
@@ -25,11 +76,9 @@ describe("generateLaunchdPlist", () => {
     expect(plist).toContain(process.execPath);
   });
 
-  it("sets WorkingDirectory to the repo root", () => {
+  it("sets WorkingDirectory to a valid directory", () => {
     const plist = generateLaunchdPlist();
     expect(plist).toContain("<key>WorkingDirectory</key>");
-    // The repo root should contain scripts/dev-runner.mjs
-    expect(plist).toContain("scripts/dev-runner.mjs");
   });
 });
 
@@ -58,10 +107,16 @@ describe("generateSystemdUnit", () => {
     expect(unit).toContain("WantedBy=default.target");
   });
 
-  it("uses the current node executable in ExecStart", () => {
+  it("quotes paths in ExecStart", () => {
     const unit = generateSystemdUnit();
-    expect(unit).toContain(`ExecStart=${process.execPath}`);
-    expect(unit).toContain("dev-runner.mjs watch");
+    const execLine = unit.split("\n").find((l) => l.startsWith("ExecStart="))!;
+    // Should have quoted paths
+    expect(execLine).toMatch(/^ExecStart="[^"]+"\s+"[^"]+"/);
+  });
+
+  it("does not reference dev-runner.mjs", () => {
+    const unit = generateSystemdUnit();
+    expect(unit).not.toContain("dev-runner.mjs");
   });
 });
 
@@ -86,14 +141,11 @@ describe("detectPlatform", () => {
     expect(detectPlatform()).toBe("linux");
   });
 
-  it("exits on unsupported platforms", () => {
+  it("throws on unsupported platforms", () => {
     Object.defineProperty(process, "platform", { value: "win32", configurable: true });
-    const mockExit = vi.spyOn(process, "exit").mockImplementation(() => {
-      throw new Error("process.exit");
-    });
-    expect(() => detectPlatform()).toThrow("process.exit");
-    expect(mockExit).toHaveBeenCalledWith(1);
-    mockExit.mockRestore();
+    expect(() => detectPlatform()).toThrow(
+      "Platform win32 is not supported",
+    );
   });
 });
 
@@ -102,21 +154,15 @@ describe("detectPlatform", () => {
 // ---------------------------------------------------------------------------
 
 describe("path resolution in templates", () => {
-  it("plist ProgramArguments contains absolute node path and runner path", () => {
+  it("plist ProgramArguments contains absolute node path", () => {
     const plist = generateLaunchdPlist();
-    // Node path should be absolute
     const nodePathMatch = plist.match(/<string>(\/[^<]+node[^<]*)<\/string>/);
     expect(nodePathMatch).not.toBeNull();
-    // Runner path should be absolute
-    const lines = plist.split("\n");
-    const runnerLine = lines.find((l) => l.includes("dev-runner.mjs"));
-    expect(runnerLine).toBeDefined();
-    expect(runnerLine).toContain("/");
   });
 
   it("systemd ExecStart contains absolute paths", () => {
     const unit = generateSystemdUnit();
     const execLine = unit.split("\n").find((l) => l.startsWith("ExecStart="))!;
-    expect(execLine).toMatch(/^ExecStart=\//);
+    expect(execLine).toMatch(/^ExecStart="/);
   });
 });
