@@ -2,6 +2,13 @@ import { memo, useEffect, useMemo, useRef, useState, type ChangeEvent } from "re
 import { Link, useLocation } from "react-router-dom";
 import type { IssueComment, Agent } from "@paperclipai/shared";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Check, Copy, Paperclip } from "lucide-react";
 import { Identity } from "./Identity";
 import { InlineEntitySelector, type InlineEntityOption } from "./InlineEntitySelector";
@@ -45,6 +52,8 @@ interface CommentThreadProps {
   currentAssigneeValue?: string;
   mentions?: MentionOption[];
 }
+
+type TimelineFilter = "all" | "comments" | "runs";
 
 const CLOSED_STATUSES = new Set(["done", "cancelled"]);
 const DRAFT_DEBOUNCE_MS = 800;
@@ -234,6 +243,7 @@ export function CommentThread({
   const [attaching, setAttaching] = useState(false);
   const [reassignTarget, setReassignTarget] = useState(currentAssigneeValue);
   const [highlightCommentId, setHighlightCommentId] = useState<string | null>(null);
+  const [timelineFilter, setTimelineFilter] = useState<TimelineFilter>("all");
   const editorRef = useRef<MarkdownEditorRef>(null);
   const attachInputRef = useRef<HTMLInputElement | null>(null);
   const draftTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -261,6 +271,11 @@ export function CommentThread({
       return a.kind === "comment" ? -1 : 1;
     });
   }, [comments, linkedRuns]);
+
+  const filteredTimeline = useMemo(() => {
+    if (timelineFilter === "all") return timeline;
+    return timeline.filter((item) => item.kind === (timelineFilter === "comments" ? "comment" : "run"));
+  }, [timeline, timelineFilter]);
 
   // Build mention options from agent map (exclude terminated agents)
   const mentions = useMemo<MentionOption[]>(() => {
@@ -349,9 +364,29 @@ export function CommentThread({
 
   return (
     <div className="space-y-4">
-      <h3 className="text-sm font-semibold">Comments &amp; Runs ({timeline.length})</h3>
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="text-sm font-semibold">
+          Comments &amp; Runs ({timelineFilter === "all" ? timeline.length : `${filteredTimeline.length}/${timeline.length}`})
+        </h3>
+        <Select value={timelineFilter} onValueChange={(v) => setTimelineFilter(v as TimelineFilter)}>
+          <SelectTrigger className="h-7 w-[140px] text-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All</SelectItem>
+            <SelectItem value="comments">Comments only</SelectItem>
+            <SelectItem value="runs">Runs only</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
 
-      <TimelineList timeline={timeline} agentMap={agentMap} highlightCommentId={highlightCommentId} />
+      {filteredTimeline.length === 0 && timeline.length > 0 ? (
+        <p className="text-sm text-muted-foreground">
+          No {timelineFilter === "comments" ? "comments" : "runs"} found.
+        </p>
+      ) : (
+        <TimelineList timeline={filteredTimeline} agentMap={agentMap} highlightCommentId={highlightCommentId} />
+      )}
 
       {liveRunSlot}
 
