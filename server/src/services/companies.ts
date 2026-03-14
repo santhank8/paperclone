@@ -1,4 +1,4 @@
-import { eq, count } from "drizzle-orm";
+import { and, eq, ne, count } from "drizzle-orm";
 import type { Db } from "@paperclipai/db";
 import {
   companies,
@@ -81,13 +81,35 @@ export function companyService(db: Db) {
 
     create: async (data: typeof companies.$inferInsert) => createCompanyWithUniquePrefix(data),
 
-    update: (id: string, data: Partial<typeof companies.$inferInsert>) =>
-      db
+    update: async (id: string, data: Partial<typeof companies.$inferInsert>) => {
+      const updated = await db
         .update(companies)
         .set({ ...data, updatedAt: new Date() })
         .where(eq(companies.id, id))
         .returning()
-        .then((rows) => rows[0] ?? null),
+        .then((rows) => rows[0] ?? null);
+
+      // Auto-pause agents if company budget is reduced below total spend
+      if (updated && updated.budgetMonthlyCents > 0) {
+        const shouldPauseAgents =
+          updated.spentMonthlyCents >= updated.budgetMonthlyCents;
+
+        if (shouldPauseAgents) {
+          // Pause all non-terminated agents
+          await db
+            .update(agents)
+            .set({ status: "paused", updatedAt: new Date() })
+            .where(
+              and(
+                eq(agents.companyId, id),
+                ne(agents.status, "terminated"),
+              ),
+            );
+        }
+      }
+
+      return updated;
+    },
 
     archive: (id: string) =>
       db

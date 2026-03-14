@@ -7,6 +7,7 @@ import {
   agentRuntimeState,
   agentTaskSessions,
   agentWakeupRequests,
+  companies,
   heartbeatRunEvents,
   heartbeatRuns,
   issues,
@@ -2231,6 +2232,35 @@ export function heartbeatService(db: Db) {
       agent.status === "pending_approval"
     ) {
       throw conflict("Agent is not invokable in its current state", { status: agent.status });
+    }
+
+    // Check agent monthly budget before waking up
+    if (
+      agent.budgetMonthlyCents > 0 &&
+      agent.spentMonthlyCents >= agent.budgetMonthlyCents
+    ) {
+      throw conflict("Agent has exceeded its monthly budget", {
+        budgetCents: agent.budgetMonthlyCents,
+        spentCents: agent.spentMonthlyCents,
+      });
+    }
+
+    // Check company monthly budget before waking up
+    const company = await db
+      .select()
+      .from(companies)
+      .where(eq(companies.id, agent.companyId))
+      .then((rows) => rows[0] ?? null);
+
+    if (
+      company &&
+      company.budgetMonthlyCents > 0 &&
+      company.spentMonthlyCents >= company.budgetMonthlyCents
+    ) {
+      throw conflict("Company has exceeded its monthly budget", {
+        budgetCents: company.budgetMonthlyCents,
+        spentCents: company.spentMonthlyCents,
+      });
     }
 
     const policy = parseHeartbeatPolicy(agent);
