@@ -39,6 +39,13 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
+      - name: Clean working tree (self-hosted runner may have leftovers)
+        run: |
+          git checkout master 2>/dev/null || true
+          git rebase --abort 2>/dev/null || true
+          git reset --hard HEAD
+          git clean -fd
+
       - name: Add upstream remote
         run: |
           git remote get-url upstream 2>/dev/null || \
