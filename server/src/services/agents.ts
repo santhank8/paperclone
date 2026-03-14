@@ -303,7 +303,6 @@ export function agentService(db: Db) {
       .then((rows) => rows[0] ?? null);
     const normalizedUpdated = updated ? normalizeAgentRow(updated) : null;
 
-    // Auto-pause agent if budget is reduced below current spend
     if (normalizedUpdated && normalizedUpdated.budgetMonthlyCents > 0) {
       const shouldPause =
         normalizedUpdated.spentMonthlyCents >= normalizedUpdated.budgetMonthlyCents &&

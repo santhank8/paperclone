@@ -1,6 +1,5 @@
 import { and, eq, ne, count } from "drizzle-orm";
 import type { Db } from "@paperclipai/db";
-import { logger } from "../middleware/logger.js";
 import {
   companies,
   agents,
@@ -90,36 +89,18 @@ export function companyService(db: Db) {
         .returning()
         .then((rows) => rows[0] ?? null);
 
-      // Auto-pause agents if company budget is reduced below total spend
-      if (updated && updated.budgetMonthlyCents > 0) {
-        const shouldPauseAgents =
-          updated.spentMonthlyCents >= updated.budgetMonthlyCents;
-
-        if (shouldPauseAgents) {
-          // Pause all active/idle agents (skip already-paused, pending_approval, terminated)
-          const result = await db
-            .update(agents)
-            .set({ status: "paused", updatedAt: new Date() })
-            .where(
-              and(
-                eq(agents.companyId, id),
-                ne(agents.status, "terminated"),
-                ne(agents.status, "paused"),
-                ne(agents.status, "pending_approval"),
-              ),
-            )
-            .returning({ id: agents.id, name: agents.name });
-          logger.warn(
-            {
-              companyId: id,
-              budgetCents: updated.budgetMonthlyCents,
-              spentCents: updated.spentMonthlyCents,
-              pausedAgentCount: result.length,
-              pausedAgents: result,
-            },
-            "Company budget exceeded: auto-paused agents",
+      if (updated && updated.budgetMonthlyCents > 0 && updated.spentMonthlyCents >= updated.budgetMonthlyCents) {
+        await db
+          .update(agents)
+          .set({ status: "paused", updatedAt: new Date() })
+          .where(
+            and(
+              eq(agents.companyId, id),
+              ne(agents.status, "terminated"),
+              ne(agents.status, "paused"),
+              ne(agents.status, "pending_approval"),
+            ),
           );
-        }
       }
 
       return updated;
