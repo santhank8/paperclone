@@ -897,6 +897,49 @@ export function agentRoutes(db: Db) {
     res.status(201).json({ agent, approval });
   });
 
+  router.post("/companies/:companyId/agents/bulk-heartbeat", async (req, res) => {
+    const companyId = req.params.companyId as string;
+    assertBoard(req);
+    assertCompanyAccess(req, companyId);
+
+    const enabled = typeof req.body?.enabled === "boolean" ? req.body.enabled : false;
+
+    const allAgents = await db
+      .select()
+      .from(agentsTable)
+      .where(and(eq(agentsTable.companyId, companyId), not(eq(agentsTable.status, "terminated"))));
+
+    const toUpdate = allAgents.filter((agent) => {
+      const rc = asRecord(agent.runtimeConfig) ?? {};
+      const hb = asRecord(rc.heartbeat) ?? {};
+      const currentEnabled = typeof hb.enabled === "boolean" ? hb.enabled : true;
+      return currentEnabled !== enabled;
+    });
+
+    await Promise.all(
+      toUpdate.map((agent) => {
+        const rc = asRecord(agent.runtimeConfig) ?? {};
+        const hb = asRecord(rc.heartbeat) ?? {};
+        return svc.update(agent.id, {
+          runtimeConfig: { ...rc, heartbeat: { ...hb, enabled } },
+        });
+      }),
+    );
+    const updated = toUpdate.length;
+
+    await logActivity(db, {
+      companyId,
+      actorType: "user",
+      actorId: req.actor.userId ?? "board",
+      action: enabled ? "agents.heartbeats_enabled_all" : "agents.heartbeats_disabled_all",
+      entityType: "company",
+      entityId: companyId,
+      details: { updated, total: allAgents.length },
+    });
+
+    res.json({ updated, total: allAgents.length, enabled });
+  });
+
   router.post("/companies/:companyId/agents", validate(createAgentSchema), async (req, res) => {
     const companyId = req.params.companyId as string;
     assertCompanyAccess(req, companyId);

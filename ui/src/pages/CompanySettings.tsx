@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCompany } from "../context/CompanyContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
 import { companiesApi } from "../api/companies";
+import { agentsApi } from "../api/agents";
 import { accessApi } from "../api/access";
 import { queryKeys } from "../lib/queryKeys";
 import { Button } from "@/components/ui/button";
@@ -307,6 +308,9 @@ export function CompanySettings() {
         </div>
       </div>
 
+      {/* Heartbeats */}
+      <HeartbeatSection companyId={selectedCompanyId!} />
+
       {/* Invites */}
       <div className="space-y-4">
         <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
@@ -430,6 +434,86 @@ export function CompanySettings() {
             )}
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function HeartbeatSection({ companyId }: { companyId: string }) {
+  const queryClient = useQueryClient();
+
+  const agentsQuery = useQuery({
+    queryKey: queryKeys.agents.list(companyId),
+    queryFn: () => agentsApi.list(companyId),
+  });
+
+  const agents = agentsQuery.data ?? [];
+  const nonTerminated = agents.filter((a) => a.status !== "terminated");
+  const enabledCount = nonTerminated.filter((a) => {
+    const rc = a.runtimeConfig as Record<string, unknown> | null;
+    if (!rc) return true; // default is enabled
+    const hb = rc.heartbeat as Record<string, unknown> | null;
+    if (!hb) return true;
+    return typeof hb.enabled === "boolean" ? hb.enabled : true;
+  }).length;
+  const anyEnabled = enabledCount > 0;
+
+  const bulkMutation = useMutation({
+    mutationFn: (enabled: boolean) => agentsApi.bulkHeartbeat(companyId, enabled),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.agents.list(companyId) });
+    },
+  });
+
+  return (
+    <div className="space-y-4">
+      <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+        Heartbeats
+      </div>
+      <div className="space-y-3 rounded-md border border-border px-4 py-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="text-sm font-medium">Agent heartbeats</div>
+            <div className="text-xs text-muted-foreground">
+              {nonTerminated.length === 0
+                ? "No agents"
+                : `${enabledCount} of ${nonTerminated.length} agents have heartbeats enabled`}
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {anyEnabled ? (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => bulkMutation.mutate(false)}
+                disabled={bulkMutation.isPending || nonTerminated.length === 0}
+              >
+                {bulkMutation.isPending ? "Disabling..." : "Disable all heartbeats"}
+              </Button>
+            ) : (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => bulkMutation.mutate(true)}
+                disabled={bulkMutation.isPending || nonTerminated.length === 0}
+              >
+                {bulkMutation.isPending ? "Enabling..." : "Enable all heartbeats"}
+              </Button>
+            )}
+          </div>
+        </div>
+        {bulkMutation.isSuccess && (
+          <div className="text-xs text-muted-foreground">
+            Updated {bulkMutation.data.updated} of {bulkMutation.data.total} agents.
+          </div>
+        )}
+        {bulkMutation.isError && (
+          <div className="text-xs text-destructive">
+            {bulkMutation.error instanceof Error
+              ? bulkMutation.error.message
+              : "Failed to update heartbeats"}
+          </div>
+        )}
       </div>
     </div>
   );
