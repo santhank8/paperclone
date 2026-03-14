@@ -1123,10 +1123,16 @@ export function heartbeatService(db: Db) {
     const heartbeat = parseObject(runtimeConfig.heartbeat);
 
     const rawCron = typeof heartbeat.cronSchedule === "string" ? heartbeat.cronSchedule.trim() : "";
+    const cronTimezone = typeof heartbeat.cronTimezone === "string" ? heartbeat.cronTimezone.trim() : "";
+    let validCron = "";
+    if (rawCron) {
+      try { CronExpressionParser.parse(rawCron); validCron = rawCron; } catch { /* invalid - treat as unset */ }
+    }
     return {
       enabled: asBoolean(heartbeat.enabled, true),
       intervalSec: Math.max(0, asNumber(heartbeat.intervalSec, 0)),
-      cronSchedule: rawCron,
+      cronSchedule: validCron,
+      cronTimezone,
       wakeOnDemand: asBoolean(heartbeat.wakeOnDemand ?? heartbeat.wakeOnAssignment ?? heartbeat.wakeOnOnDemand ?? heartbeat.wakeOnAutomation, true),
       maxConcurrentRuns: normalizeMaxConcurrentRuns(heartbeat.maxConcurrentRuns),
     };
@@ -2813,6 +2819,7 @@ export function heartbeatService(db: Db) {
         const baseline = new Date(agent.lastHeartbeatAt ?? agent.createdAt).getTime();
 
         let shouldFire = false;
+        let fireReason = "interval_elapsed";
 
         if (policy.intervalSec > 0) {
           const elapsedMs = now.getTime() - baseline;
@@ -2820,12 +2827,17 @@ export function heartbeatService(db: Db) {
         }
 
         if (!shouldFire && policy.cronSchedule) {
+          const cronOpts: { currentDate: Date; tz?: string } = { currentDate: new Date(baseline) };
+          if (policy.cronTimezone) cronOpts.tz = policy.cronTimezone;
           try {
-            const cron = CronExpressionParser.parse(policy.cronSchedule, { currentDate: new Date(baseline) });
+            const cron = CronExpressionParser.parse(policy.cronSchedule, cronOpts);
             const nextFire = cron.next().toDate();
-            if (nextFire.getTime() <= now.getTime()) shouldFire = true;
+            if (nextFire.getTime() <= now.getTime()) {
+              shouldFire = true;
+              fireReason = "cron_schedule";
+            }
           } catch {
-            // Invalid cron expression - skip silently
+            // Invalid cron expression - already filtered in parseHeartbeatPolicy
           }
         }
 
@@ -2839,7 +2851,7 @@ export function heartbeatService(db: Db) {
           requestedByActorId: "heartbeat_scheduler",
           contextSnapshot: {
             source: "scheduler",
-            reason: "interval_elapsed",
+            reason: fireReason,
             now: now.toISOString(),
           },
         });

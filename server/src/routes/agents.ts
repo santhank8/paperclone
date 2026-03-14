@@ -1,6 +1,7 @@
 import { Router, type Request } from "express";
 import { generateKeyPairSync, randomUUID } from "node:crypto";
 import path from "node:path";
+import { CronExpressionParser } from "cron-parser";
 import type { Db } from "@paperclipai/db";
 import { agents as agentsTable, companies, heartbeatRuns } from "@paperclipai/db";
 import { and, desc, eq, inArray, not, sql } from "drizzle-orm";
@@ -214,10 +215,14 @@ export function agentRoutes(db: Db) {
   function parseSchedulerHeartbeatPolicy(runtimeConfig: unknown) {
     const heartbeat = asRecord(asRecord(runtimeConfig)?.heartbeat) ?? {};
     const rawCron = typeof heartbeat.cronSchedule === "string" ? heartbeat.cronSchedule.trim() : "";
+    let validCron = "";
+    if (rawCron) {
+      try { CronExpressionParser.parse(rawCron); validCron = rawCron; } catch { /* invalid */ }
+    }
     return {
       enabled: parseBooleanLike(heartbeat.enabled) ?? true,
       intervalSec: Math.max(0, parseNumberLike(heartbeat.intervalSec) ?? 0),
-      cronSchedule: rawCron,
+      cronSchedule: validCron,
     };
   }
 
