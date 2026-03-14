@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { resolveDefaultAgentWorkspaceDir } from "../home-paths.js";
 import {
+  describeSessionResetReason,
+  formatFallbackWorkspaceWarning,
   resolveRuntimeSessionParamsForWorkspace,
   shouldResetTaskSessionForWake,
   type ResolvedWorkspaceForRun,
@@ -149,5 +151,54 @@ describe("shouldResetTaskSessionForWake", () => {
         wakeTriggerDetail: "callback",
       }),
     ).toBe(false);
+  });
+});
+
+describe("describeSessionResetReason", () => {
+  it("explains assignment wakes as intentional fresh-session boundaries", () => {
+    expect(describeSessionResetReason({ wakeReason: "issue_assigned" })).toContain(
+      "assignment wakes start a fresh task session",
+    );
+  });
+});
+
+describe("formatFallbackWorkspaceWarning", () => {
+  it("mentions configured cwd when agent_home fallback is only a bookkeeping workspace", () => {
+    const fallbackCwd = resolveDefaultAgentWorkspaceDir("agent-123");
+
+    expect(
+      formatFallbackWorkspaceWarning({
+        fallbackCwd,
+        resolvedProjectId: null,
+        sessionCwd: null,
+        configuredCwd: "/tmp/repo",
+      }),
+    ).toContain('Using configured cwd "/tmp/repo" instead of fallback agent_home workspace');
+  });
+
+  it("keeps the plain fallback message when no configured cwd is available", () => {
+    const fallbackCwd = resolveDefaultAgentWorkspaceDir("agent-123");
+
+    expect(
+      formatFallbackWorkspaceWarning({
+        fallbackCwd,
+        resolvedProjectId: null,
+        sessionCwd: null,
+      }),
+    ).toBe(`No project or prior session workspace was available. Using fallback workspace "${fallbackCwd}" for this run.`);
+  });
+
+  it("does not claim no prior session was available when one was intentionally skipped", () => {
+    const fallbackCwd = resolveDefaultAgentWorkspaceDir("agent-123");
+
+    expect(
+      formatFallbackWorkspaceWarning({
+        fallbackCwd,
+        resolvedProjectId: null,
+        sessionCwd: null,
+        skippedSessionCwd: "/tmp/old-session",
+        configuredCwd: "/tmp/repo",
+      }),
+    ).toContain('after intentionally skipping saved task session workspace "/tmp/old-session"');
   });
 });

@@ -209,6 +209,34 @@ describe("parsePiJsonl", () => {
     expect(parsed.usage.cachedInputTokens).toBe(25);
     expect(parsed.usage.costUsd).toBe(0.003);
   });
+
+  it("captures logical agent errors even when Pi exits cleanly", () => {
+    const stdout = [
+      JSON.stringify({
+        type: "turn_end",
+        message: {
+          role: "assistant",
+          content: "",
+          stopReason: "error",
+          errorMessage: "Failed to extract accountId from token",
+        },
+      }),
+      JSON.stringify({
+        type: "agent_end",
+        messages: [
+          {
+            role: "assistant",
+            content: "",
+            stopReason: "error",
+            errorMessage: "Failed to extract accountId from token",
+          },
+        ],
+      }),
+    ].join("\n");
+
+    const parsed = parsePiJsonl(stdout);
+    expect(parsed.errors).toContain("Failed to extract accountId from token");
+  });
 });
 
 describe("isPiUnknownSessionError", () => {

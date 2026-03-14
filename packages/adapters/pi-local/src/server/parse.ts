@@ -71,6 +71,11 @@ export function parsePiJsonl(stdout: string): ParsedPiOutput {
         if (lastMessage?.role === "assistant") {
           const content = lastMessage.content as string | Array<{ type: string; text?: string }>;
           result.finalMessage = extractTextContent(content);
+          const stopReason = asString(lastMessage.stopReason, "").trim().toLowerCase();
+          const errorMessage = asString(lastMessage.errorMessage, "").trim();
+          if (stopReason === "error" && errorMessage) {
+            result.errors.push(errorMessage);
+          }
         }
       }
       continue;
@@ -89,6 +94,11 @@ export function parsePiJsonl(stdout: string): ParsedPiOutput {
         if (text) {
           result.finalMessage = text;
           result.messages.push(text);
+        }
+        const stopReason = asString(message.stopReason, "").trim().toLowerCase();
+        const errorMessage = asString(message.errorMessage, "").trim();
+        if (stopReason === "error" && errorMessage) {
+          result.errors.push(errorMessage);
         }
         
         // Extract usage and cost from assistant message

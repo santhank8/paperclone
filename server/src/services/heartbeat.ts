@@ -13,6 +13,7 @@ import {
   projects,
   projectWorkspaces,
 } from "@paperclipai/db";
+import { resolveLocalAdapterExecutionCwd } from "@paperclipai/adapter-utils/server-utils";
 import { conflict, notFound } from "../errors.js";
 import { logger } from "../middleware/logger.js";
 import { publishLiveEvent } from "./live-events.js";
@@ -363,14 +364,44 @@ export function shouldResetTaskSessionForWake(
   return false;
 }
 
-function describeSessionResetReason(
+export function describeSessionResetReason(
   contextSnapshot: Record<string, unknown> | null | undefined,
 ) {
   if (contextSnapshot?.forceFreshSession === true) return "forceFreshSession was requested";
 
   const wakeReason = readNonEmptyString(contextSnapshot?.wakeReason);
-  if (wakeReason === "issue_assigned") return "wake reason is issue_assigned";
+  if (wakeReason === "issue_assigned") {
+    return 'wake reason is "issue_assigned" (assignment wakes start a fresh task session)';
+  }
   return null;
+}
+
+export function formatFallbackWorkspaceWarning(input: {
+  fallbackCwd: string;
+  resolvedProjectId: string | null;
+  sessionCwd: string | null;
+  skippedSessionCwd?: string | null;
+  configuredCwd?: string | null;
+}) {
+  const cwdResolution = resolveLocalAdapterExecutionCwd(
+    { cwd: input.fallbackCwd, source: "agent_home" },
+    input.configuredCwd,
+    input.fallbackCwd,
+  );
+  const target = cwdResolution.commandNote
+    ? `Paperclip recorded fallback workspace "${input.fallbackCwd}" for this run. ${cwdResolution.commandNote}`
+    : `Using fallback workspace "${input.fallbackCwd}" for this run.`;
+
+  if (input.sessionCwd) {
+    return `Saved session workspace "${input.sessionCwd}" is not available. ${target}`;
+  }
+  if (input.skippedSessionCwd) {
+    return `No reusable project workspace directory is currently available for this run after intentionally skipping saved task session workspace "${input.skippedSessionCwd}". ${target}`;
+  }
+  if (input.resolvedProjectId) {
+    return `No project workspace directory is currently available for this issue. ${target}`;
+  }
+  return `No project or prior session workspace was available. ${target}`;
 }
 
 function deriveCommentId(
@@ -802,7 +833,11 @@ export function heartbeatService(db: Db) {
     agent: typeof agents.$inferSelect,
     context: Record<string, unknown>,
     previousSessionParams: Record<string, unknown> | null,
-    opts?: { useProjectWorkspace?: boolean | null },
+    opts?: {
+      useProjectWorkspace?: boolean | null;
+      configuredCwd?: string | null;
+      skippedSessionCwd?: string | null;
+    },
   ): Promise<ResolvedWorkspaceForRun> {
     const issueId = readNonEmptyString(context.issueId);
     const contextProjectId = readNonEmptyString(context.projectId);
@@ -894,6 +929,7 @@ export function heartbeatService(db: Db) {
     }
 
     const sessionCwd = readNonEmptyString(previousSessionParams?.cwd);
+    const skippedSessionCwd = readNonEmptyString(opts?.skippedSessionCwd);
     if (sessionCwd) {
       const sessionCwdExists = await fs
         .stat(sessionCwd)
@@ -916,19 +952,15 @@ export function heartbeatService(db: Db) {
     const cwd = resolveDefaultAgentWorkspaceDir(agent.id);
     await fs.mkdir(cwd, { recursive: true });
     const warnings: string[] = [];
-    if (sessionCwd) {
-      warnings.push(
-        `Saved session workspace "${sessionCwd}" is not available. Using fallback workspace "${cwd}" for this run.`,
-      );
-    } else if (resolvedProjectId) {
-      warnings.push(
-        `No project workspace directory is currently available for this issue. Using fallback workspace "${cwd}" for this run.`,
-      );
-    } else {
-      warnings.push(
-        `No project or prior session workspace was available. Using fallback workspace "${cwd}" for this run.`,
-      );
-    }
+    warnings.push(
+      formatFallbackWorkspaceWarning({
+        fallbackCwd: cwd,
+        resolvedProjectId,
+        sessionCwd,
+        skippedSessionCwd,
+        configuredCwd: readNonEmptyString(opts?.configuredCwd),
+      }),
+    );
     return {
       cwd,
       source: "agent_home" as const,
@@ -1434,6 +1466,9 @@ export function heartbeatService(db: Db) {
     const resetTaskSession = shouldResetTaskSessionForWake(context);
     const sessionResetReason = describeSessionResetReason(context);
     const taskSessionForRun = resetTaskSession ? null : taskSession;
+    const taskSessionParams = normalizeSessionParams(
+      sessionCodec.deserialize(taskSession?.sessionParamsJson ?? null),
+    );
     const previousSessionParams = normalizeSessionParams(
       sessionCodec.deserialize(taskSessionForRun?.sessionParamsJson ?? null),
     );
@@ -1443,12 +1478,6 @@ export function heartbeatService(db: Db) {
       issueSettings: issueExecutionWorkspaceSettings,
       legacyUseProjectWorkspace: issueAssigneeOverrides?.useProjectWorkspace ?? null,
     });
-    const resolvedWorkspace = await resolveWorkspaceForRun(
-      agent,
-      context,
-      previousSessionParams,
-      { useProjectWorkspace: executionWorkspaceMode !== "agent_default" },
-    );
     const workspaceManagedConfig = buildExecutionWorkspaceAdapterConfig({
       agentConfig: config,
       projectPolicy: projectExecutionWorkspacePolicy,
@@ -1459,6 +1488,18 @@ export function heartbeatService(db: Db) {
     const mergedConfig = issueAssigneeOverrides?.adapterConfig
       ? { ...workspaceManagedConfig, ...issueAssigneeOverrides.adapterConfig }
       : workspaceManagedConfig;
+    const configuredExecutionCwd = readNonEmptyString(mergedConfig.cwd);
+    const skippedSessionCwd = resetTaskSession ? readNonEmptyString(taskSessionParams?.cwd) : null;
+    const resolvedWorkspace = await resolveWorkspaceForRun(
+      agent,
+      context,
+      previousSessionParams,
+      {
+        useProjectWorkspace: executionWorkspaceMode !== "agent_default",
+        configuredCwd: configuredExecutionCwd,
+        skippedSessionCwd,
+      },
+    );
     const { config: resolvedConfig, secretKeys } = await secretsSvc.resolveAdapterConfigForRuntime(
       agent.companyId,
       mergedConfig,
