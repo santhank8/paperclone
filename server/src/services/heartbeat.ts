@@ -2234,54 +2234,75 @@ export function heartbeatService(db: Db) {
       throw conflict("Agent is not invokable in its current state", { status: agent.status });
     }
 
-    // Check agent monthly budget before waking up
-    if (
-      agent.budgetMonthlyCents > 0 &&
-      agent.spentMonthlyCents >= agent.budgetMonthlyCents
-    ) {
+    // Check agent and company budgets with row-level lock to prevent race conditions
+    // This ensures the budget values can't change between check and wakeup
+    const budgetCheck = await db.transaction(async (tx) => {
+      // Lock agent row for update to get latest spentMonthlyCents
+      const lockedAgent = await tx
+        .select()
+        .from(agents)
+        .where(eq(agents.id, agentId))
+        .for("update")
+        .execute()
+        .then((rows) => rows[0] ?? null);
+
+      if (!lockedAgent) return { agentExceeded: false, companyExceeded: false, company: null, lockedAgent: null };
+
+      // Check agent monthly budget
+      const agentExceeded =
+        lockedAgent.budgetMonthlyCents > 0 &&
+        lockedAgent.spentMonthlyCents >= lockedAgent.budgetMonthlyCents;
+
+      // Lock company row for update to get latest spentMonthlyCents
+      const company = await tx
+        .select()
+        .from(companies)
+        .where(eq(companies.id, lockedAgent.companyId))
+        .for("update")
+        .execute()
+        .then((rows) => rows[0] ?? null);
+
+      const companyExceeded =
+        company &&
+        company.budgetMonthlyCents > 0 &&
+        company.spentMonthlyCents >= company.budgetMonthlyCents;
+
+      return { agentExceeded, companyExceeded, company, lockedAgent };
+    });
+
+    if (budgetCheck.agentExceeded) {
       logger.warn(
         {
           agentId,
-          companyId: agent.companyId,
-          budgetCents: agent.budgetMonthlyCents,
-          spentCents: agent.spentMonthlyCents,
+          companyId: budgetCheck.lockedAgent?.companyId,
+          budgetCents: budgetCheck.lockedAgent?.budgetMonthlyCents,
+          spentCents: budgetCheck.lockedAgent?.spentMonthlyCents,
           source,
           triggerDetail,
         },
         "Agent wakeup rejected: exceeded monthly budget",
       );
       throw conflict("Agent has exceeded its monthly budget", {
-        budgetCents: agent.budgetMonthlyCents,
-        spentCents: agent.spentMonthlyCents,
+        budgetCents: budgetCheck.lockedAgent!.budgetMonthlyCents,
+        spentCents: budgetCheck.lockedAgent!.spentMonthlyCents,
       });
     }
 
-    // Check company monthly budget before waking up
-    const company = await db
-      .select()
-      .from(companies)
-      .where(eq(companies.id, agent.companyId))
-      .then((rows) => rows[0] ?? null);
-
-    if (
-      company &&
-      company.budgetMonthlyCents > 0 &&
-      company.spentMonthlyCents >= company.budgetMonthlyCents
-    ) {
+    if (budgetCheck.companyExceeded) {
       logger.warn(
         {
           agentId,
-          companyId: company.id,
-          budgetCents: company.budgetMonthlyCents,
-          spentCents: company.spentMonthlyCents,
+          companyId: budgetCheck.company!.id,
+          budgetCents: budgetCheck.company!.budgetMonthlyCents,
+          spentCents: budgetCheck.company!.spentMonthlyCents,
           source,
           triggerDetail,
         },
         "Agent wakeup rejected: company exceeded monthly budget",
       );
       throw conflict("Company has exceeded its monthly budget", {
-        budgetCents: company.budgetMonthlyCents,
-        spentCents: company.spentMonthlyCents,
+        budgetCents: budgetCheck.company!.budgetMonthlyCents,
+        spentCents: budgetCheck.company!.spentMonthlyCents,
       });
     }
 
