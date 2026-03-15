@@ -130,14 +130,14 @@ Plugin-owned entity records for tracking external mappings.
 | Method | Signature | Capability |
 |--------|-----------|-----------|
 | `list(params)` | `(params: { limit, offset }) => Promise<Company[]>` | `companies.read` |
-| `get(companyId)` | `(companyId: string) => Promise<Company>` | `companies.read` |
+| `get(companyId)` | `(companyId: string) => Promise<Company | null>` | `companies.read` |
 
 ### `ctx.projects`
 
 | Method | Signature | Capability |
 |--------|-----------|-----------|
 | `list(params)` | `(params: { companyId, limit, offset }) => Promise<Project[]>` | `projects.read` |
-| `get(projectId, companyId)` | `(projectId: string, companyId: string) => Promise<Project>` | `projects.read` |
+| `get(projectId, companyId)` | `(projectId: string, companyId: string) => Promise<Project | null>` | `projects.read` |
 | `listWorkspaces(projectId, companyId)` | `(projectId: string, companyId: string) => Promise<PluginWorkspace[]>` | `project.workspaces.read` |
 
 ### `ctx.issues`
@@ -145,21 +145,21 @@ Plugin-owned entity records for tracking external mappings.
 | Method | Signature | Capability |
 |--------|-----------|-----------|
 | `list(params)` | `(params: { companyId, limit, offset }) => Promise<Issue[]>` | `issues.read` |
-| `get(issueId, companyId)` | `(issueId: string, companyId: string) => Promise<Issue>` | `issues.read` |
+| `get(issueId, companyId)` | `(issueId: string, companyId: string) => Promise<Issue | null>` | `issues.read` |
 | `create(params)` | `(params: { companyId, projectId?, title, description? }) => Promise<Issue>` | `issues.create` |
 | `update(issueId, params, companyId)` | `(issueId: string, params: { status? }, companyId: string) => Promise<Issue>` | `issues.update` |
 | `listComments(issueId, companyId)` | `(issueId: string, companyId: string) => Promise<IssueComment[]>` | `issue.comments.read` |
-| `createComment(issueId, companyId, params)` | `(issueId: string, companyId: string, params: { body }) => Promise<IssueComment>` | `issue.comments.create` |
+| `createComment(issueId, body, companyId)` | `(issueId: string, body: string, companyId: string) => Promise<IssueComment>` | `issue.comments.create` |
 
 ### `ctx.agents`
 
 | Method | Signature | Capability |
 |--------|-----------|-----------|
 | `list(params)` | `(params: { companyId, limit, offset }) => Promise<Agent[]>` | `agents.read` |
-| `get(agentId, companyId)` | `(agentId: string, companyId: string) => Promise<Agent>` | `agents.read` |
+| `get(agentId, companyId)` | `(agentId: string, companyId: string) => Promise<Agent | null>` | `agents.read` |
 | `pause(agentId, companyId)` | `(agentId: string, companyId: string) => Promise<Agent>` | `agents.pause` |
 | `resume(agentId, companyId)` | `(agentId: string, companyId: string) => Promise<Agent>` | `agents.resume` |
-| `invoke(agentId, companyId, params)` | `(agentId: string, companyId: string, params: { prompt, reason }) => Promise<unknown>` | `agents.invoke` |
+| `invoke(agentId, companyId, params)` | `(agentId: string, companyId: string, params: { prompt, reason? }) => Promise<{ runId: string }>` | `agents.invoke` |
 
 ### `ctx.agents.sessions`
 
@@ -175,7 +175,7 @@ Plugin-owned entity records for tracking external mappings.
 | Method | Signature | Capability |
 |--------|-----------|-----------|
 | `list(params)` | `(params: { companyId, limit, offset }) => Promise<Goal[]>` | `goals.read` |
-| `get(goalId, companyId)` | `(goalId: string, companyId: string) => Promise<Goal>` | `goals.read` |
+| `get(goalId, companyId)` | `(goalId: string, companyId: string) => Promise<Goal | null>` | `goals.read` |
 | `create(params)` | `(params: { companyId, title, description?, level, status }) => Promise<Goal>` | `goals.create` |
 | `update(goalId, params, companyId)` | `(goalId: string, params: { status? }, companyId: string) => Promise<Goal>` | `goals.update` |
 

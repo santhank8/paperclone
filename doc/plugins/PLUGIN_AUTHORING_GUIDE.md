@@ -229,7 +229,7 @@ Each `ctx.*` method requires a declared capability. The host rejects calls witho
 | `companies.read` | `ctx.companies.list()`, `ctx.companies.get()` |
 | `projects.read` | `ctx.projects.list()`, `ctx.projects.get()` |
 | `project.workspaces.read` | `ctx.projects.listWorkspaces()` |
-| `issues.read` | `ctx.issues.list()`, `ctx.issues.get()`, `ctx.issues.listComments()` |
+| `issues.read` | `ctx.issues.list()`, `ctx.issues.get()` |
 | `issues.create` | `ctx.issues.create()` |
 | `issues.update` | `ctx.issues.update()` |
 | `issue.comments.read` | `ctx.issues.listComments()` |
@@ -522,17 +522,18 @@ The SDK provides a test harness for unit testing plugins without running the ful
 ```typescript
 import { createTestHarness } from "@paperclipai/plugin-sdk/testing";
 import plugin from "../src/worker.js";
+import manifest from "../src/manifest.js";
 
-const harness = createTestHarness(plugin);
+const harness = createTestHarness({ manifest });
 
 test("getData returns count", async () => {
-  await harness.setup();
+  await plugin.definition.setup(harness.ctx);
   const result = await harness.getData("count", {});
   expect(result.count).toBe(0);
 });
 
 test("increment action works", async () => {
-  await harness.setup();
+  await plugin.definition.setup(harness.ctx);
   await harness.performAction("increment", {});
   const result = await harness.getData("count", {});
   expect(result.count).toBe(1);
