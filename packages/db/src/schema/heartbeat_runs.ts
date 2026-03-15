@@ -42,5 +42,6 @@ export const heartbeatRuns = pgTable(
       table.agentId,
       table.startedAt,
     ),
+    dismissedAtIdx: index("heartbeat_runs_dismissed_at_idx").on(table.dismissedAt),
   }),
 );

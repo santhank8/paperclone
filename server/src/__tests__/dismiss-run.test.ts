@@ -17,6 +17,11 @@ const mockDismissedRun = {
   dismissedAt: new Date("2026-03-08T00:00:00Z"),
 };
 
+const mockSuccessfulRun = {
+  ...mockRun,
+  status: "success",
+};
+
 const mockHeartbeat = vi.hoisted(() => ({
   getRun: vi.fn(),
   dismissRun: vi.fn(),
@@ -128,9 +133,20 @@ describe("POST /heartbeat-runs/:runId/dismiss", () => {
     expect(mockHeartbeat.dismissRun).not.toHaveBeenCalled();
   });
 
+  it("rejects dismissing non-failed runs", async () => {
+    mockHeartbeat.getRun.mockResolvedValue(mockSuccessfulRun);
+    const app = createApp(boardActor);
+
+    const res = await request(app).post("/heartbeat-runs/run-1/dismiss").send({});
+
+    expect(res.status).toBe(422);
+    expect(res.body.error).toContain("Only failed or timed-out runs can be dismissed");
+    expect(mockHeartbeat.dismissRun).not.toHaveBeenCalled();
+  });
+
   it("dismisses run for authorized board user", async () => {
     mockHeartbeat.getRun.mockResolvedValue(mockRun);
-    mockHeartbeat.dismissRun.mockResolvedValue(mockDismissedRun);
+    mockHeartbeat.dismissRun.mockResolvedValue({ run: mockDismissedRun, wasNewlyDismissed: true });
     mockLogActivity.mockResolvedValue(undefined);
     const app = createApp(boardActor);
 
@@ -144,7 +160,7 @@ describe("POST /heartbeat-runs/:runId/dismiss", () => {
 
   it("is idempotent for already-dismissed runs", async () => {
     mockHeartbeat.getRun.mockResolvedValue(mockDismissedRun);
-    mockHeartbeat.dismissRun.mockResolvedValue(mockDismissedRun);
+    mockHeartbeat.dismissRun.mockResolvedValue({ run: mockDismissedRun, wasNewlyDismissed: false });
     mockLogActivity.mockResolvedValue(undefined);
     const app = createApp(boardActor);
 
@@ -154,9 +170,21 @@ describe("POST /heartbeat-runs/:runId/dismiss", () => {
     expect(mockLogActivity).not.toHaveBeenCalled();
   });
 
-  it("logs activity on successful dismiss", async () => {
+  it("does not log when another request already dismissed the run", async () => {
     mockHeartbeat.getRun.mockResolvedValue(mockRun);
-    mockHeartbeat.dismissRun.mockResolvedValue(mockDismissedRun);
+    mockHeartbeat.dismissRun.mockResolvedValue({ run: mockDismissedRun, wasNewlyDismissed: false });
+    mockLogActivity.mockResolvedValue(undefined);
+    const app = createApp(boardActor);
+
+    const res = await request(app).post("/heartbeat-runs/run-1/dismiss").send({});
+
+    expect(res.status).toBe(200);
+    expect(mockLogActivity).not.toHaveBeenCalled();
+  });
+
+  it("logs activity only when the dismiss is newly persisted", async () => {
+    mockHeartbeat.getRun.mockResolvedValue(mockRun);
+    mockHeartbeat.dismissRun.mockResolvedValue({ run: mockDismissedRun, wasNewlyDismissed: true });
     mockLogActivity.mockResolvedValue(undefined);
     const app = createApp(boardActor);
 

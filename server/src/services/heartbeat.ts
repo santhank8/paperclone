@@ -2880,7 +2880,10 @@ export function heartbeatService(db: Db) {
         .set({ dismissedAt: new Date(), updatedAt: new Date() })
         .where(and(eq(heartbeatRuns.id, runId), isNull(heartbeatRuns.dismissedAt)))
         .returning();
-      return updated ?? (await getRun(runId));
+      return {
+        run: updated ?? (await getRun(runId)),
+        wasNewlyDismissed: !!updated,
+      };
     },
 
     cancelActiveForAgent: async (agentId: string) => {

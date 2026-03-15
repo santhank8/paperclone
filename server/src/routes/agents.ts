@@ -1514,8 +1514,12 @@ export function agentRoutes(db: Db) {
       return;
     }
     assertCompanyAccess(req, existing.companyId);
-    const run = await heartbeat.dismissRun(runId);
-    if (!existing.dismissedAt) {
+    if (!existing.dismissedAt && !["failed", "timed_out"].includes(existing.status)) {
+      res.status(422).json({ error: "Only failed or timed-out runs can be dismissed" });
+      return;
+    }
+    const { run, wasNewlyDismissed } = await heartbeat.dismissRun(runId);
+    if (wasNewlyDismissed) {
       await logActivity(db, {
         companyId: existing.companyId,
         actorType: "user",

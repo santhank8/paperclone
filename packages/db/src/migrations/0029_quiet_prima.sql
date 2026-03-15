@@ -1,0 +1,1 @@
+CREATE INDEX "heartbeat_runs_dismissed_at_idx" ON "heartbeat_runs" USING btree ("dismissed_at");
