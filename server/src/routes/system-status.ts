@@ -1,7 +1,7 @@
 import { Router } from "express";
 import type { Db } from "@paperclipai/db";
 import { sql } from "drizzle-orm";
-import { forbidden } from "../errors.js";
+import { unauthorized } from "../errors.js";
 
 interface ServiceStatus {
   name: string;
@@ -25,8 +25,12 @@ export function systemStatusRoutes(db: Db) {
 
   router.get("/", async (req, res) => {
     if (req.actor.type === "none") {
-      throw forbidden();
+      throw unauthorized();
     }
+
+    const vllmUrl = process.env.VLLM_API_URL ?? "http://host.docker.internal:8000/v1";
+    const langgraphUrl = process.env.DEERFLOW_LANGGRAPH_URL ?? "http://deerflow-langgraph:2024";
+    const gatewayUrl = process.env.DEERFLOW_GATEWAY_URL ?? "http://deerflow-gateway:8001";
 
     const [postgres, vllm, deerflowLanggraph, deerflowGateway] = await Promise.all([
       (async (): Promise<ServiceStatus> => {
@@ -38,9 +42,9 @@ export function systemStatusRoutes(db: Db) {
           return { name: "PostgreSQL", status: "unhealthy", responseTimeMs: Date.now() - start };
         }
       })(),
-      checkHttp("vLLM", "http://host.docker.internal:8000/v1/models"),
-      checkHttp("DeerFlow LangGraph", "http://deerflow-langgraph:2024/ok"),
-      checkHttp("DeerFlow Gateway", "http://deerflow-gateway:8001/health"),
+      checkHttp("vLLM", `${vllmUrl}/models`),
+      checkHttp("DeerFlow LangGraph", `${langgraphUrl}/ok`),
+      checkHttp("DeerFlow Gateway", `${gatewayUrl}/health`),
     ]);
 
     res.json([postgres, vllm, deerflowLanggraph, deerflowGateway]);

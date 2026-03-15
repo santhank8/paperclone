@@ -29,7 +29,7 @@ export function SystemStatus() {
   }, []);
 
   const { data, isLoading, error, refetch, isFetching } = useQuery({
-    queryKey: queryKeys.systemStatus(selectedCompanyId!),
+    queryKey: queryKeys.systemStatus(),
     queryFn: () => systemStatusApi.getAll(),
     enabled: !!selectedCompanyId,
   });
@@ -101,11 +101,6 @@ export function SystemStatus() {
                 <p className="text-xs text-muted-foreground mt-1.5">
                   Response time: {service.responseTimeMs}ms
                 </p>
-                {lastChecked && (
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    Last checked: {timeAgo(lastChecked)}
-                  </p>
-                )}
               </CardContent>
             </Card>
           ))}
