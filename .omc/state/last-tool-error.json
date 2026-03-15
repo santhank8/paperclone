@@ -1,0 +1,7 @@
+{
+  "tool_name": "Bash",
+  "tool_input_preview": "{\"command\":\"pkill -f \\\"tsx src/index.ts\\\"\",\"description\":\"停止临时进程\"}",
+  "error": "Exit code 1",
+  "timestamp": "2026-03-14T10:57:00.712Z",
+  "retry_count": 1
+}
