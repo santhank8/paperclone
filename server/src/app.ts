@@ -67,7 +67,6 @@ export async function createApp(
     localPluginDir?: string;
     betterAuthHandler?: express.RequestHandler;
     resolveSession?: (req: ExpressRequest) => Promise<BetterAuthSessionResult | null>;
-    httpServer?: import("node:http").Server;
   },
 ) {
   const app = express();
@@ -258,22 +257,16 @@ export async function createApp(
     const uiRoot = path.resolve(__dirname, "../../ui");
     const hmrPort = opts.serverPort + 10000;
     const { createServer: createViteServer } = await import("vite");
-    // Detect TLS-terminating reverse proxy: must be private hostname gate
-    // with a real domain name (not an IP or localhost). LAN users accessing
-    // via IP (e.g., 192.168.1.50:3100) keep the default HMR behavior.
-    const isDomain = (h: string) => /^[a-z].*\.[a-z]/i.test(h);
-    const proxyHostname = privateHostnameGateEnabled
-      ? Array.from(privateHostnameAllowSet).find(h => isDomain(h))
-      : null;
-    const hmrConfig = proxyHostname && opts.httpServer
-      ? { server: opts.httpServer, clientPort: 443, protocol: "wss" as const }
-      : { host: opts.bindHost, port: hmrPort, clientPort: hmrPort };
     const vite = await createViteServer({
       root: uiRoot,
       appType: "spa",
       server: {
         middlewareMode: true,
-        hmr: hmrConfig,
+        hmr: {
+          host: opts.bindHost,
+          port: hmrPort,
+          clientPort: hmrPort,
+        },
         allowedHosts: privateHostnameGateEnabled ? Array.from(privateHostnameAllowSet) : undefined,
       },
     });
