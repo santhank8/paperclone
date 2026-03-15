@@ -61,6 +61,11 @@ import { RunTranscriptView, type TranscriptMode } from "../components/transcript
 import { isUuidLike, type Agent, type HeartbeatRun, type HeartbeatRunEvent, type AgentRuntimeState, type LiveEvent } from "@paperclipai/shared";
 import { redactHomePathUserSegments, redactHomePathUserSegmentsInValue } from "@paperclipai/adapter-utils";
 import { agentRouteRef } from "../lib/utils";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 
 const runStatusIcons: Record<string, { icon: typeof CheckCircle2; color: string }> = {
   succeeded: { icon: CheckCircle2, color: "text-green-600 dark:text-green-400" },
@@ -1668,6 +1673,7 @@ function RunDetail({ run: initialRun, agentRouteId, adapterType }: { run: Heartb
 /* ---- Log Viewer ---- */
 
 function LogViewer({ run, adapterType }: { run: HeartbeatRun; adapterType: string }) {
+  const [open, setOpen] = useState(true);
   const [events, setEvents] = useState<HeartbeatRunEvent[]>([]);
   const [logLines, setLogLines] = useState<Array<{ ts: string; stream: "stdout" | "stderr" | "system"; chunk: string }>>([]);
   const [loading, setLoading] = useState(true);
@@ -2185,39 +2191,49 @@ function LogViewer({ run, adapterType }: { run: HeartbeatRun; adapterType: strin
       </div>
 
       {(run.status === "failed" || run.status === "timed_out") && (
-        <div className="rounded-lg border border-red-300 dark:border-red-500/30 bg-red-50 dark:bg-red-950/20 p-3 space-y-2">
-          <div className="text-xs font-medium text-red-700 dark:text-red-300">Failure details</div>
-          {run.error && (
-            <div className="text-xs text-red-600 dark:text-red-200">
-              <span className="text-red-700 dark:text-red-300">Error: </span>
-              {redactHomePathUserSegments(run.error)}
-            </div>
-          )}
-          {run.stderrExcerpt && run.stderrExcerpt.trim() && (
-            <div>
-              <div className="text-xs text-red-700 dark:text-red-300 mb-1">stderr excerpt</div>
-              <pre className="bg-red-50 dark:bg-neutral-950 rounded-md p-2 text-xs overflow-x-auto whitespace-pre-wrap text-red-800 dark:text-red-100">
-                {redactHomePathUserSegments(run.stderrExcerpt)}
-              </pre>
-            </div>
-          )}
-          {run.resultJson && (
-            <div>
-              <div className="text-xs text-red-700 dark:text-red-300 mb-1">adapter result JSON</div>
-              <pre className="bg-red-50 dark:bg-neutral-950 rounded-md p-2 text-xs overflow-x-auto whitespace-pre-wrap text-red-800 dark:text-red-100">
-                {JSON.stringify(redactHomePathUserSegmentsInValue(run.resultJson), null, 2)}
-              </pre>
-            </div>
-          )}
-          {run.stdoutExcerpt && run.stdoutExcerpt.trim() && !run.resultJson && (
-            <div>
-              <div className="text-xs text-red-700 dark:text-red-300 mb-1">stdout excerpt</div>
-              <pre className="bg-red-50 dark:bg-neutral-950 rounded-md p-2 text-xs overflow-x-auto whitespace-pre-wrap text-red-800 dark:text-red-100">
-                {redactHomePathUserSegments(run.stdoutExcerpt)}
-              </pre>
-            </div>
-          )}
-        </div>
+        <Collapsible open={open} onOpenChange={setOpen}>
+          <CollapsibleTrigger className={cn("group w-full flex items-center gap-2 px-3 py-2 text-xs fontgroup flex items-center gap-2 px-3 py-2 text-xs font-medium text-red-700 dark:text-red-300 bg-red-100 dark:bg-red-950/40 cursor-pointer rounded-t-lg border-x border-t border-red-300 dark:border-red-500/30", !open && "border-b")}>
+            <ChevronRight
+              className={cn(
+                "h-3 w-3 text-red-700 dark:text-red-300 transition-transform",
+                open && "rotate-90"
+              )}
+            />
+            Failure details
+          </CollapsibleTrigger>
+          <CollapsibleContent className="px-3 pb-3 pt-1 space-y-2 max-h-[75vh] overflow-y-auto border-x border-b border-red-300 dark:border-red-500/30 bg-red-50 dark:bg-red-950/20">
+            {run.error && (
+              <div className="text-xs text-red-600 dark:text-red-200">
+                <span className="text-red-700 dark:text-red-300">Error: </span>
+                {redactHomePathUserSegments(run.error)}
+              </div>
+            )}
+            {run.stderrExcerpt && run.stderrExcerpt.trim() && run.stderrExcerpt.trim().length > 0 && (
+              <div>
+                <div className="text-xs text-red-700 dark:text-red-300 mb-1">stderr excerpt</div>
+                <pre className="bg-red-50 dark:bg-neutral-950 rounded-md p-2 text-xs overflow-x-auto whitespace-pre-wrap text-red-800 dark:text-red-100">
+                  {redactHomePathUserSegments(run.stderrExcerpt)}
+                </pre>
+              </div>
+            )}
+            {run.resultJson &&  (
+              <div>
+                <div className="text-xs text-red-700 dark:text-red-300 mb-1">adapter result JSON</div>
+                <pre className="bg-red-50 dark:bg-neutral-950 rounded-md p-2 text-xs overflow-x-auto whitespace-pre-wrap text-red-800 dark:text-red-100">
+                  {JSON.stringify(redactHomePathUserSegmentsInValue(run.resultJson), null, 2)}
+                </pre>
+              </div>
+            )}
+            {run.stdoutExcerpt && run.stdoutExcerpt.trim() && !run.resultJson && (
+              <div>
+                <div className="text-xs text-red-700 dark:text-red-300 mb-1">stdout excerpt</div>
+                <pre className="bg-red-50 dark:bg-neutral-950 rounded-md p-2 text-xs overflow-x-auto whitespace-pre-wrap text-red-800 dark:text-red-100">
+                  {redactHomePathUserSegments(run.stdoutExcerpt)}
+                </pre>
+              </div>
+            )}
+          </CollapsibleContent>
+        </Collapsible>
       )}
 
       {events.length > 0 && (
