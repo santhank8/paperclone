@@ -24,6 +24,8 @@ import { sidebarBadgeRoutes } from "./routes/sidebar-badges.js";
 import { llmRoutes } from "./routes/llms.js";
 import { assetRoutes } from "./routes/assets.js";
 import { accessRoutes } from "./routes/access.js";
+import { pluginRoutes } from "./routes/plugins.js";
+import { pluginUiStaticRoutes } from "./routes/plugin-ui-static.js";
 import { applyUiBranding } from "./ui-branding.js";
 import { templateRoutes } from "./routes/templates.js";
 import type { BetterAuthSessionResult } from "./auth/better-auth.js";
@@ -42,13 +44,20 @@ export async function createApp(
     bindHost: string;
     authReady: boolean;
     companyDeletionEnabled: boolean;
+    instanceId?: string;
+    hostVersion?: string;
+    localPluginDir?: string;
     betterAuthHandler?: express.RequestHandler;
     resolveSession?: (req: ExpressRequest) => Promise<BetterAuthSessionResult | null>;
   },
 ) {
   const app = express();
 
-  app.use(express.json());
+  app.use(express.json({
+    verify: (req, _res, buf) => {
+      (req as unknown as { rawBody: Buffer }).rawBody = buf;
+    },
+  }));
   app.use(httpLogger);
   const privateHostnameGateEnabled =
     opts.deploymentMode === "authenticated" && opts.deploymentExposure === "private";
@@ -128,6 +137,9 @@ export async function createApp(
   app.use("/api", (_req, res) => {
     res.status(404).json({ error: "API route not found" });
   });
+  app.use(pluginUiStaticRoutes(db, {
+    localPluginDir: opts.localPluginDir ?? DEFAULT_LOCAL_PLUGIN_DIR,
+  }));
 
   const __dirname = path.dirname(fileURLToPath(import.meta.url));
   if (opts.uiMode === "static") {
@@ -180,6 +192,36 @@ export async function createApp(
   }
 
   app.use(errorHandler);
+
+  jobCoordinator.start();
+  scheduler.start();
+  void toolDispatcher.initialize().catch((err) => {
+    logger.error({ err }, "Failed to initialize plugin tool dispatcher");
+  });
+  const devWatcher = opts.uiMode === "vite-dev"
+    ? createPluginDevWatcher(
+      lifecycle,
+      async (pluginId) => (await pluginRegistry.getById(pluginId))?.packagePath ?? null,
+    )
+    : null;
+  void loader.loadAll().then((result) => {
+    if (!result) return;
+    for (const loaded of result.results) {
+      if (devWatcher && loaded.success && loaded.plugin.packagePath) {
+        devWatcher.watch(loaded.plugin.id, loaded.plugin.packagePath);
+      }
+    }
+  }).catch((err) => {
+    logger.error({ err }, "Failed to load ready plugins on startup");
+  });
+  process.once("exit", () => {
+    devWatcher?.close();
+    hostServiceCleanup.disposeAll();
+    hostServiceCleanup.teardown();
+  });
+  process.once("beforeExit", () => {
+    void flushPluginLogBuffer();
+  });
 
   return app;
 }
