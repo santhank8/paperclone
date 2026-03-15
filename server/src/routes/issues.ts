@@ -877,7 +877,9 @@ export function issueRoutes(db: Db, storage: StorageService) {
       ) {
         try {
           const parent = await svc.getById(issue.parentId);
-          if (parent?.assigneeAgentId && !wakeups.has(parent.assigneeAgentId)) {
+          if (parent && parent.companyId !== issue.companyId) {
+            logger.warn({ issueId: issue.id, parentId: issue.parentId }, "parent issue belongs to different company, skipping wakeup");
+          } else if (parent?.assigneeAgentId && !wakeups.has(parent.assigneeAgentId)) {
             wakeups.set(parent.assigneeAgentId, {
               source: "automation",
               triggerDetail: "system",
