@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { createHash, timingSafeEqual } from "node:crypto";
 import type { Request, RequestHandler } from "express";
 import { and, eq, isNull } from "drizzle-orm";
 import type { Db } from "@paperclipai/db";
@@ -22,8 +22,13 @@ export function actorMiddleware(db: Db, opts: ActorMiddlewareOptions): RequestHa
   return async (req, _res, next) => {
     // Managed-mode: trust instance identity from management proxy
     const instanceIdHeader = req.header("x-paperclip-instance-id");
-    if (instanceIdHeader && opts.managedSecret && req.header("x-paperclip-management-secret") === opts.managedSecret) {
-      (req as unknown as Record<string, unknown>).managedInstanceId = instanceIdHeader;
+    if (instanceIdHeader && opts.managedSecret) {
+      const incoming = req.header("x-paperclip-management-secret") ?? "";
+      const a = Buffer.from(incoming);
+      const b = Buffer.from(opts.managedSecret);
+      if (a.length === b.length && timingSafeEqual(a, b)) {
+        (req as unknown as Record<string, unknown>).managedInstanceId = instanceIdHeader;
+      }
     }
 
     req.actor =

@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { timingSafeEqual } from "node:crypto";
 import type { Db } from "@paperclipai/db";
 import { and, count, eq, gt, isNull, sql } from "drizzle-orm";
 import { agents, heartbeatRuns, instanceUserRoles, invites } from "@paperclipai/db";
@@ -71,10 +72,11 @@ export function healthRoutes(
   });
 
   router.get("/detailed", async (req, res) => {
-    if (!db || !opts.managedSecret || req.header("x-paperclip-management-secret") !== opts.managedSecret) {
-      res.status(404).json({ error: "not_found" });
-      return;
-    }
+    if (!db || !opts.managedSecret) { res.status(404).json({ error: "not_found" }); return; }
+    const incoming = req.header("x-paperclip-management-secret") ?? "";
+    const a = Buffer.from(incoming);
+    const b = Buffer.from(opts.managedSecret);
+    if (a.length !== b.length || !timingSafeEqual(a, b)) { res.status(404).json({ error: "not_found" }); return; }
     const [agentCount, runningCount] = await Promise.all([
       db.select({ count: count() }).from(agents).where(eq(agents.status, "active")).then((r) => Number(r[0]?.count ?? 0)),
       db.select({ count: count() }).from(heartbeatRuns).where(eq(heartbeatRuns.status, "running")).then((r) => Number(r[0]?.count ?? 0)),
