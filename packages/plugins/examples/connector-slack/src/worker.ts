@@ -259,7 +259,6 @@ async function handleSlackCommand(ctx: PluginContext, input: PluginWebhookInput)
     const companyId = companies[0]?.id;
     if (!companyId) return;
 
-    markAsOwnChange("pending"); // Will be replaced with real ID
     const issue = await ctx.issues.create({ companyId, title: args });
     markAsOwnChange(issue.id);
 
@@ -330,9 +329,22 @@ async function handleSlackEvent(ctx: PluginContext, input: PluginWebhookInput): 
   if (!body) return;
 
   // Handle Slack URL verification challenge
+  // NOTE: The Paperclip plugin webhook system returns { deliveryId, status }
+  // rather than passing through the plugin's response body. Slack requires
+  // { challenge: "..." } to be echoed back for URL verification.
+  //
+  // WORKAROUND: Before enabling Event Subscriptions in your Slack App, you must
+  // verify the URL manually. Use the Slack API's "Request URL" retry mechanism:
+  // Slack will retry the verification until it succeeds. The first attempt will
+  // fail (Paperclip returns its standard response), but you can set up a
+  // temporary proxy that echoes the challenge, then switch to the Paperclip URL.
+  //
+  // Alternatively, use Slack's Socket Mode which doesn't require URL verification.
   if (body.type === "url_verification") {
-    // The plugin webhook system will use the return, but we log it
-    ctx.logger.info("Slack URL verification challenge received");
+    ctx.logger.info("Slack URL verification challenge received", {
+      challenge: body.challenge,
+      note: "Plugin SDK does not support custom webhook response bodies. Use Socket Mode or verify URL manually.",
+    });
     return;
   }
 
@@ -427,11 +439,22 @@ async function handleSlackInteractive(ctx: PluginContext, input: PluginWebhookIn
     await ctx.metrics.write("slack.inbound.button_status", 1);
   }
 
-  // Approval buttons
+  // Approval buttons — SDK does not yet expose ctx.approvals, so we use HTTP API
   if (actionId === "paperclip_approve" || actionId === "paperclip_reject") {
-    // TODO: wire to ctx.approvals when available in SDK
-    ctx.logger.info("Approval action from Slack", { actionId, approvalId: issueId });
-    await ctx.metrics.write("slack.inbound.approval_action", 1);
+    const decision = actionId === "paperclip_approve" ? "approved" : "rejected";
+    const approvalId = issueId; // value field carries the approval ID
+    try {
+      await ctx.http.fetch(`/api/approvals/${approvalId}/resolve`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ decision }),
+      });
+      ctx.logger.info("Resolved approval from Slack", { approvalId, decision });
+      await ctx.metrics.write("slack.inbound.approval_resolved", 1);
+    } catch (err) {
+      ctx.logger.error("Failed to resolve approval from Slack", { approvalId, error: String(err) });
+      await ctx.metrics.write("slack.inbound.approval_error", 1);
+    }
   }
 }
 
@@ -497,6 +520,35 @@ async function registerActionHandlers(ctx: PluginContext): Promise<void> {
   });
 }
 
+async function registerJobHandlers(ctx: PluginContext): Promise<void> {
+  ctx.jobs.register(JOB_KEYS.healthCheck, async () => {
+    if (!slack) {
+      ctx.logger.warn("Slack health check: no Slack client configured");
+      return;
+    }
+    try {
+      const config = await getConfig(ctx);
+      if (!config.botToken) return;
+      const token = await ctx.secrets.resolve(config.botToken);
+      const response = await ctx.http.fetch("https://slack.com/api/auth.test", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = (await response.json()) as Record<string, unknown>;
+      if (data.ok) {
+        ctx.logger.info("Slack health check passed", { team: data.team, user: data.user });
+        await ctx.metrics.write("slack.health.ok", 1);
+      } else {
+        ctx.logger.error("Slack health check failed", { error: data.error });
+        await ctx.metrics.write("slack.health.error", 1);
+      }
+    } catch (err) {
+      ctx.logger.error("Slack health check error", { error: String(err) });
+      await ctx.metrics.write("slack.health.error", 1);
+    }
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Plugin definition
 // ---------------------------------------------------------------------------
@@ -539,6 +591,7 @@ const plugin: PaperclipPlugin = definePlugin({
     // Register bridge handlers
     await registerDataHandlers(ctx);
     await registerActionHandlers(ctx);
+    await registerJobHandlers(ctx);
 
     // Periodic echo cleanup
     setInterval(cleanupExpired, 30_000);
@@ -575,9 +628,14 @@ const plugin: PaperclipPlugin = definePlugin({
     const ctx = currentCtx;
     if (!ctx) return;
 
-    // Verify Slack signature if signing secret is configured
+    // Verify Slack signature — reject all requests without a signing secret
     const config = await getConfig(ctx);
-    if (config.signingSecret) {
+    if (!config.signingSecret) {
+      ctx.logger.error("Slack signing secret not configured — rejecting webhook");
+      await ctx.metrics.write("slack.inbound.signature_failed", 1);
+      return;
+    }
+    {
       const headers = (input as unknown as Record<string, unknown>).headers as Record<string, string> | undefined;
       const signature = headers?.["x-slack-signature"] ?? "";
       const timestamp = headers?.["x-slack-request-timestamp"] ?? "";

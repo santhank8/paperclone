@@ -19,6 +19,8 @@ export function SettingsPage() {
       <ul>
         <li><code>/paperclip create [title]</code> — Create a new issue</li>
         <li><code>/paperclip status</code> — Show active issues</li>
+        <li><code>/paperclip agents</code> — List agents and their status</li>
+        <li><code>/paperclip help</code> — Show all commands</li>
       </ul>
       <h3>Emoji Reactions</h3>
       <ul>

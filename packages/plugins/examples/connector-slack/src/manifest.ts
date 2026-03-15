@@ -45,6 +45,8 @@ const manifest: PaperclipPluginManifestV1 = {
     "activity.log.write",
     // Metrics
     "metrics.write",
+    // Scheduled jobs
+    "jobs.schedule",
     // UI surfaces
     "ui.page.register",
   ],
@@ -73,7 +75,7 @@ const manifest: PaperclipPluginManifestV1 = {
         format: "secret-ref",
       },
     },
-    required: ["botToken"],
+    required: ["botToken", "signingSecret"],
   },
   webhooks: [
     {
