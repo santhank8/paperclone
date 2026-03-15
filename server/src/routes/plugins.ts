@@ -17,7 +17,7 @@
  * @see doc/plugins/PLUGIN_SPEC.md for the full plugin specification
  */
 
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { fileURLToPath } from "node:url";
@@ -94,6 +94,15 @@ interface AvailablePluginExample {
   tag: "example";
 }
 
+interface DirectoryPlugin {
+  name: string;
+  packageName: string;
+  description: string;
+  author: string;
+  category: string;
+  source?: string;
+}
+
 /** Response body for GET /api/plugins/:pluginId/health */
 interface PluginHealthCheckResult {
   pluginId: string;
@@ -147,6 +156,22 @@ function listBundledPluginExamples(): AvailablePluginExample[] {
     if (!existsSync(absoluteLocalPath)) return [];
     return [{ ...plugin, localPath: absoluteLocalPath }];
   });
+}
+
+const DIRECTORY_PATH = path.resolve(REPO_ROOT, "doc/plugins/directory.json");
+
+let directoryCache: DirectoryPlugin[] | null = null;
+
+function loadPluginDirectory(): DirectoryPlugin[] {
+  if (directoryCache) return directoryCache;
+  try {
+    const raw = readFileSync(DIRECTORY_PATH, "utf-8");
+    const parsed = JSON.parse(raw) as { plugins?: DirectoryPlugin[] };
+    directoryCache = parsed.plugins ?? [];
+    return directoryCache;
+  } catch {
+    return [];
+  }
 }
 
 /**
@@ -397,6 +422,17 @@ export function pluginRoutes(
   router.get("/plugins/examples", async (req, res) => {
     assertBoard(req);
     res.json(listBundledPluginExamples());
+  });
+
+  /**
+   * GET /api/plugins/directory
+   *
+   * Return the community plugin directory for browsing and one-click install.
+   * Reads from doc/plugins/directory.json (cached in memory after first read).
+   */
+  router.get("/plugins/directory", async (req, res) => {
+    assertBoard(req);
+    res.json(loadPluginDirectory());
   });
 
   // IMPORTANT: Static routes must come before parameterized routes
