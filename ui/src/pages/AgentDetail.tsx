@@ -2208,7 +2208,7 @@ function LogViewer({ run, adapterType }: { run: HeartbeatRun; adapterType: strin
                 {redactHomePathUserSegments(run.error)}
               </div>
             )}
-            {run.stderrExcerpt && run.stderrExcerpt.trim() && run.stderrExcerpt.trim().length > 0 && (
+            {run.stderrExcerpt && run.stderrExcerpt.trim() && (
               <div>
                 <div className="text-xs text-red-700 dark:text-red-300 mb-1">stderr excerpt</div>
                 <pre className="bg-red-50 dark:bg-neutral-950 rounded-md p-2 text-xs overflow-x-auto whitespace-pre-wrap text-red-800 dark:text-red-100">
