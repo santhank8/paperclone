@@ -2,7 +2,7 @@
 
 import { describe, expect, it } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
-import { I18nProvider, normalizeLocale, resolvePreferredLocale, translate, useI18n } from "./index";
+import { I18nProvider, getCurrentIntlLocale, getIntlLocale, normalizeLocale, resolvePreferredLocale, translate, useI18n } from "./index";
 
 function Probe({ messageKey }: { messageKey: string }) {
   const { t } = useI18n();
@@ -27,6 +27,11 @@ describe("i18n", () => {
     expect(translate("zh-CN", "missing.key")).toBe("missing.key");
   });
 
+  it("derives Intl locale codes for supported locales", () => {
+    expect(getIntlLocale("en")).toBe("en-US");
+    expect(getIntlLocale("zh-CN")).toBe("zh-CN");
+  });
+
   it("renders translated content for the selected locale", () => {
     const html = renderToStaticMarkup(
       <I18nProvider initialLocale="zh-CN">
@@ -35,5 +40,6 @@ describe("i18n", () => {
     );
 
     expect(html).toContain("添加项目");
+    expect(getCurrentIntlLocale()).toBe("zh-CN");
   });
 });

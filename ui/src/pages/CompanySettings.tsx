@@ -280,7 +280,7 @@ export function CompanySettings() {
             <select
               className="w-full rounded-md border border-border bg-transparent px-2.5 py-1.5 text-sm outline-none"
               value={locale}
-              onChange={(event) => setLocale(event.target.value)}
+              onChange={(event) => setLocale(event.target.value === "zh-CN" ? "zh-CN" : "en")}
             >
               {supportedLocales.map((supportedLocale) => (
                 <option key={supportedLocale} value={supportedLocale}>

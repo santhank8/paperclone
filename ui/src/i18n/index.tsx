@@ -32,7 +32,8 @@ let currentLocale: SupportedLocale = DEFAULT_LOCALE;
 
 interface I18nContextValue {
   locale: SupportedLocale;
-  setLocale: (locale: string) => void;
+  intlLocale: string;
+  setLocale: (locale: SupportedLocale) => void;
   t: (key: string, params?: TranslationParams) => string;
   supportedLocales: readonly SupportedLocale[];
 }
@@ -76,6 +77,10 @@ export function getCurrentIntlLocale(): string {
   return INTL_LOCALES[currentLocale] ?? INTL_LOCALES[DEFAULT_LOCALE];
 }
 
+export function getIntlLocale(locale: SupportedLocale): string {
+  return INTL_LOCALES[locale] ?? INTL_LOCALES[DEFAULT_LOCALE];
+}
+
 function readStoredLocale(): string | null {
   if (typeof window === "undefined") return null;
   try {
@@ -87,13 +92,26 @@ function readStoredLocale(): string | null {
 
 export function I18nProvider({ children, initialLocale }: { children: ReactNode; initialLocale?: SupportedLocale }) {
   const [locale, setLocaleState] = useState<SupportedLocale>(() => {
-    if (initialLocale) return initialLocale;
-    const browserLanguage = typeof navigator === "undefined" ? null : navigator.language;
-    return resolvePreferredLocale({ storedLocale: readStoredLocale(), browserLanguage });
+    let initialLocaleValue: SupportedLocale;
+    if (initialLocale) {
+      initialLocaleValue = initialLocale;
+    } else {
+      const browserLanguage = typeof navigator === "undefined" ? null : navigator.language;
+      initialLocaleValue = resolvePreferredLocale({ storedLocale: readStoredLocale(), browserLanguage });
+    }
+
+    currentLocale = initialLocaleValue;
+    if (typeof document !== "undefined") {
+      document.documentElement.lang = initialLocaleValue;
+    }
+
+    return initialLocaleValue;
   });
 
-  const setLocale = useCallback((nextLocale: string) => {
-    setLocaleState(normalizeLocale(nextLocale));
+  const setLocale = useCallback((nextLocale: SupportedLocale) => {
+    const normalizedLocale = normalizeLocale(nextLocale);
+    currentLocale = normalizedLocale;
+    setLocaleState(normalizedLocale);
   }, []);
 
   useEffect(() => {
@@ -110,15 +128,17 @@ export function I18nProvider({ children, initialLocale }: { children: ReactNode;
   }, [locale]);
 
   const t = useCallback((key: string, params?: TranslationParams) => translate(locale, key, params), [locale]);
+  const intlLocale = useMemo(() => getIntlLocale(locale), [locale]);
 
   const value = useMemo<I18nContextValue>(
     () => ({
       locale,
+      intlLocale,
       setLocale,
       t,
       supportedLocales: SUPPORTED_LOCALES,
     }),
-    [locale, setLocale, t],
+    [locale, intlLocale, setLocale, t],
   );
 
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;

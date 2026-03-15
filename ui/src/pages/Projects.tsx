@@ -18,7 +18,7 @@ export function Projects() {
   const { selectedCompanyId } = useCompany();
   const { openNewProject } = useDialog();
   const { setBreadcrumbs } = useBreadcrumbs();
-  const { t } = useI18n();
+  const { t, intlLocale } = useI18n();
 
   useEffect(() => {
     setBreadcrumbs([{ label: t("projects.breadcrumb") }]);
@@ -70,7 +70,7 @@ export function Projects() {
                 <div className="flex items-center gap-3">
                   {project.targetDate && (
                     <span className="text-xs text-muted-foreground">
-                      {formatDate(project.targetDate)}
+                      {formatDate(project.targetDate, intlLocale)}
                     </span>
                   )}
                   <StatusBadge status={project.status} />
