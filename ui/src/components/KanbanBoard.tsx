@@ -17,24 +17,13 @@ import {
   useSortable,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
+import { ISSUE_STATUS_ORDER, issueStatusLabel } from "../lib/issue-status";
 import { StatusIcon } from "./StatusIcon";
 import { PriorityIcon } from "./PriorityIcon";
 import { Identity } from "./Identity";
 import type { Issue } from "@paperclipai/shared";
 
-const boardStatuses = [
-  "backlog",
-  "todo",
-  "in_progress",
-  "in_review",
-  "blocked",
-  "done",
-  "cancelled",
-];
-
-function statusLabel(status: string): string {
-  return status.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-}
+const boardStatuses = [...ISSUE_STATUS_ORDER];
 
 interface Agent {
   id: string;
@@ -46,6 +35,7 @@ interface KanbanBoardProps {
   agents?: Agent[];
   liveIssueIds?: Set<string>;
   onUpdateIssue: (id: string, data: Record<string, unknown>) => void;
+  onCheckoutIssue?: (id: string, agentId: string) => void;
 }
 
 /* ── Droppable Column ── */
@@ -68,7 +58,7 @@ function KanbanColumn({
       <div className="flex items-center gap-2 px-2 py-2 mb-1">
         <StatusIcon status={status} />
         <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          {statusLabel(status)}
+          {issueStatusLabel(status)}
         </span>
         <span className="text-xs text-muted-foreground/60 ml-auto tabular-nums">
           {issues.length}
@@ -154,7 +144,7 @@ function KanbanCard({
           </span>
           {isLive && (
             <span className="relative flex h-2 w-2 shrink-0 mt-0.5">
-              <span className="animate-pulse absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75" />
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75" />
               <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500" />
             </span>
           )}
@@ -185,6 +175,7 @@ export function KanbanBoard({
   agents,
   liveIssueIds,
   onUpdateIssue,
+  onCheckoutIssue,
 }: KanbanBoardProps) {
   const [activeId, setActiveId] = useState<string | null>(null);
 
@@ -227,7 +218,7 @@ export function KanbanBoard({
     // or another card's id. Find which column the "over" belongs to.
     let targetStatus: string | null = null;
 
-    if (boardStatuses.includes(over.id as string)) {
+    if (boardStatuses.includes(over.id as (typeof boardStatuses)[number])) {
       targetStatus = over.id as string;
     } else {
       // It's a card - find which column it's in
@@ -238,6 +229,10 @@ export function KanbanBoard({
     }
 
     if (targetStatus && targetStatus !== issue.status) {
+      if (targetStatus === "active" && issue.assigneeAgentId && onCheckoutIssue) {
+        onCheckoutIssue(issueId, issue.assigneeAgentId);
+        return;
+      }
       onUpdateIssue(issueId, { status: targetStatus });
     }
   }
