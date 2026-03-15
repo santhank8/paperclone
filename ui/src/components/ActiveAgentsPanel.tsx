@@ -23,7 +23,9 @@ function useElapsedTime(since: string | Date, enabled: boolean): string {
     return () => window.clearInterval(id);
   }, [enabled]);
 
-  const seconds = Math.max(0, Math.floor((Date.now() - new Date(since).getTime()) / 1000));
+  const seconds = enabled
+    ? Math.max(0, Math.floor((Date.now() - new Date(since).getTime()) / 1000))
+    : 0;
   const minutes = Math.floor(seconds / 60);
   const remainingSeconds = seconds % 60;
   return minutes > 0 ? `${minutes}m ${remainingSeconds}s` : `${remainingSeconds}s`;
