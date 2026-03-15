@@ -854,6 +854,7 @@ export function heartbeatService(db: Db) {
       intervalSec: Math.max(0, asNumber(heartbeat.intervalSec, 0)),
       wakeOnDemand: asBoolean(heartbeat.wakeOnDemand ?? heartbeat.wakeOnAssignment ?? heartbeat.wakeOnOnDemand ?? heartbeat.wakeOnAutomation, true),
       maxConcurrentRuns: normalizeMaxConcurrentRuns(heartbeat.maxConcurrentRuns),
+      skipWhenIdle: asBoolean(heartbeat.skipWhenIdle, false),
     };
   }
 
@@ -2437,6 +2438,25 @@ export function heartbeatService(db: Db) {
         if (!policy.enabled || policy.intervalSec <= 0) continue;
 
         checked += 1;
+
+        // When skipWhenIdle is enabled, skip timer wakeup if agent has no actionable
+        // assigned issues — avoids wasting tokens on empty heartbeat runs.
+        if (policy.skipWhenIdle) {
+          const [{ count: assignedCount }] = await db
+            .select({ count: sql<number>`count(*)` })
+            .from(issues)
+            .where(
+              and(
+                eq(issues.assigneeAgentId, agent.id),
+                inArray(issues.status, ["todo", "in_progress", "in_review", "blocked"]),
+              ),
+            );
+          if (Number(assignedCount) === 0) {
+            skipped += 1;
+            continue;
+          }
+        }
+
         const baseline = new Date(agent.lastHeartbeatAt ?? agent.createdAt).getTime();
         const elapsedMs = now.getTime() - baseline;
         if (elapsedMs < policy.intervalSec * 1000) continue;
