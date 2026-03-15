@@ -733,6 +733,7 @@ export async function applyPendingMigrations(url: string): Promise<void> {
   }
 
   if (migratorError && finalState.status === "upToDate") {
+    console.warn("[migrations] drizzle migrator error recovered by manual repair:", migratorError);
     return;
   }
 }

@@ -93,10 +93,10 @@ export function KnowledgeBase() {
     if (selectedDocument) {
       setDraft(buildDraft(selectedDocument));
     }
-  }, [isCreatingNew, selectedDocumentId]);
+  }, [isCreatingNew, selectedDocument]);
 
   const invalidateKnowledge = async () => {
-    await queryClient.invalidateQueries({ queryKey: queryKeys.knowledge.list(selectedCompanyId!, search.trim()) });
+    await queryClient.invalidateQueries({ queryKey: ["knowledge", selectedCompanyId!] });
   };
 
   const createDocument = useMutation({

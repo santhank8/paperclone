@@ -273,7 +273,9 @@ function resolveShellCommand(command: string, env: NodeJS.ProcessEnv): { shell: 
     return { shell, args: ["/d", "/s", "/c", command] };
   }
   const shell = env.SHELL?.trim() || process.env.SHELL?.trim() || "/bin/sh";
-  return { shell, args: ["-lc", command] };
+  const shellName = path.basename(shell).toLowerCase();
+  const prefersLoginShell = shellName === "bash" || shellName === "zsh";
+  return { shell, args: [prefersLoginShell ? "-lc" : "-c", command] };
 }
 
 async function runWorkspaceCommand(input: {

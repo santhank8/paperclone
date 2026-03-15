@@ -64,6 +64,7 @@ import { Bot, CircleDot, DollarSign, ShieldCheck, LayoutDashboard } from "lucide
 import { ActiveAgentsPanel } from "../components/ActiveAgentsPanel";
 import { ChartCard, RunActivityChart, PriorityChart, IssueStatusChart, SuccessRateChart } from "../components/ActivityCharts";
 import { PageSkeleton } from "../components/PageSkeleton";
+import { PluginSlotOutlet } from "@/plugins/slots";
 import type { Agent, Issue } from "@paperclipai/shared";
 
 function getRecentIssues(issues: Issue[]): Issue[] {
@@ -316,6 +317,13 @@ export function Dashboard() {
               <SuccessRateChart stats={runStats ?? []} />
             </ChartCard>
           </div>
+
+          <PluginSlotOutlet
+            slotTypes={["dashboardWidget"]}
+            context={{ companyId: selectedCompanyId! }}
+            className="grid gap-4 md:grid-cols-2"
+            itemClassName="rounded-lg border bg-card p-4 shadow-sm"
+          />
 
           <div className="grid md:grid-cols-2 gap-4">
             {/* Recent Activity */}

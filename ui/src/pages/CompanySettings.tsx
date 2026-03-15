@@ -5,7 +5,7 @@ import { useBreadcrumbs } from "../context/BreadcrumbContext";
 import { companiesApi } from "../api/companies";
 import { accessApi } from "../api/access";
 import { queryKeys } from "../lib/queryKeys";
-import { useI18n } from "../i18n";
+import { normalizeLocale, useI18n } from "../i18n";
 import { Button } from "@/components/ui/button";
 import { Settings, Check } from "lucide-react";
 import { CompanyPatternIcon } from "../components/CompanyPatternIcon";
@@ -280,7 +280,7 @@ export function CompanySettings() {
             <select
               className="w-full rounded-md border border-border bg-transparent px-2.5 py-1.5 text-sm outline-none"
               value={locale}
-              onChange={(event) => setLocale(event.target.value === "zh-CN" ? "zh-CN" : "en")}
+              onChange={(event) => setLocale(normalizeLocale(event.target.value))}
             >
               {supportedLocales.map((supportedLocale) => (
                 <option key={supportedLocale} value={supportedLocale}>

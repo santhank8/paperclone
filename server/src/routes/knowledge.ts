@@ -13,6 +13,16 @@ export function knowledgeRoutes(db: Db) {
   const router = Router();
   const svc = knowledgeService(db);
 
+  function buildKnowledgeUpdateActivityDetails(body: Record<string, unknown>) {
+    return {
+      updatedFields: Object.keys(body),
+      titlePreview: typeof body.title === "string" ? body.title.slice(0, 80) : undefined,
+      category: typeof body.category === "string" ? body.category : undefined,
+      tagCount: Array.isArray(body.tags) ? body.tags.length : undefined,
+      contentLength: typeof body.content === "string" ? body.content.length : undefined,
+    };
+  }
+
   router.get("/companies/:companyId/knowledge-documents", async (req, res) => {
     const companyId = req.params.companyId as string;
     assertCompanyAccess(req, companyId);
@@ -73,6 +83,10 @@ export function knowledgeRoutes(db: Db) {
     assertCompanyAccess(req, existing.companyId);
     const actor = getActorInfo(req);
     const document = await svc.update(documentId, existing.companyId, req.body);
+    if (!document) {
+      res.status(404).json({ error: "Knowledge document not found" });
+      return;
+    }
     await logActivity(db, {
       companyId: existing.companyId,
       actorType: actor.actorType,
@@ -82,7 +96,7 @@ export function knowledgeRoutes(db: Db) {
       action: "knowledge_document.updated",
       entityType: "knowledge_document",
       entityId: documentId,
-      details: req.body,
+      details: buildKnowledgeUpdateActivityDetails(req.body as Record<string, unknown>),
     });
     res.json(document);
   });

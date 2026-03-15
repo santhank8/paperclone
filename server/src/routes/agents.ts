@@ -59,9 +59,6 @@ function applyCreateDefaultsByAdapterTypeInternal(
 ): Record<string, unknown> {
   const next = { ...adapterConfig };
   if (adapterType === "claude_local") {
-    if (typeof next.dangerouslySkipPermissions !== "boolean") {
-      next.dangerouslySkipPermissions = true;
-    }
     return ensureGatewayDeviceKey(adapterType, next);
   }
   if (adapterType === "codex_local") {

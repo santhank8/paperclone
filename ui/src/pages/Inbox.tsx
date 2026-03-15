@@ -46,7 +46,6 @@ import {
   getRecentTouchedIssues,
   type InboxTab,
   saveLastInboxTab,
-  normalizeTimestamp,
 } from "../lib/inbox";
 import { useDismissedInboxItems } from "../hooks/useInboxBadge";
 

@@ -4,6 +4,7 @@ import { knowledgeDocuments } from "@paperclipai/db";
 import type { KnowledgeContextDocument } from "@paperclipai/shared";
 
 type KnowledgeDocumentRow = typeof knowledgeDocuments.$inferSelect;
+const RELEVANCE_CANDIDATE_LIMIT = 200;
 
 export interface KnowledgeListFilters {
   q?: string;
@@ -77,6 +78,11 @@ export function knowledgeService(db: Db) {
           ${knowledgeDocuments.title} ILIKE ${pattern} ESCAPE '\\'
           OR COALESCE(${knowledgeDocuments.category}, '') ILIKE ${pattern} ESCAPE '\\'
           OR ${knowledgeDocuments.content} ILIKE ${pattern} ESCAPE '\\'
+          OR EXISTS (
+            SELECT 1
+            FROM jsonb_array_elements_text(COALESCE(${knowledgeDocuments.tags}, '[]'::jsonb)) AS _tag
+            WHERE _tag ILIKE ${pattern} ESCAPE '\\'
+          )
         )`);
       }
       return db
@@ -135,7 +141,8 @@ export function knowledgeService(db: Db) {
         .select()
         .from(knowledgeDocuments)
         .where(eq(knowledgeDocuments.companyId, companyId))
-        .orderBy(desc(knowledgeDocuments.updatedAt));
+        .orderBy(desc(knowledgeDocuments.updatedAt))
+        .limit(RELEVANCE_CANDIDATE_LIMIT);
 
       return candidates
         .map((document) => ({ document, score: scoreKnowledgeDocument(document, terms) }))

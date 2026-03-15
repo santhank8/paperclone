@@ -89,4 +89,63 @@ describe("knowledge routes", () => {
       entityId: "doc-2",
     }));
   });
+
+  it("logs a lightweight PATCH activity summary instead of the full request body", async () => {
+    mockKnowledgeService.getById.mockResolvedValue({
+      id: "doc-3",
+      companyId: "company-1",
+      title: "Ops guide",
+      category: "operations",
+      tags: ["runtime"],
+      content: "old content",
+    });
+    mockKnowledgeService.update.mockResolvedValue({
+      id: "doc-3",
+      companyId: "company-1",
+      title: "Ops guide revised",
+      category: "operations",
+      tags: ["runtime", "postgres"],
+      content: "new content",
+    });
+
+    const res = await request(createApp())
+      .patch("/api/knowledge-documents/doc-3")
+      .send({
+        title: "Ops guide revised",
+        tags: ["runtime", "postgres"],
+        content: "new content",
+      });
+
+    expect(res.status).toBe(200);
+    expect(mockLogActivity).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
+      action: "knowledge_document.updated",
+      entityId: "doc-3",
+      details: {
+        updatedFields: ["title", "tags", "content"],
+        titlePreview: "Ops guide revised",
+        category: undefined,
+        tagCount: 2,
+        contentLength: 11,
+      },
+    }));
+  });
+
+  it("returns 404 when the document disappears before update completes", async () => {
+    mockKnowledgeService.getById.mockResolvedValue({
+      id: "doc-4",
+      companyId: "company-1",
+      title: "Racey doc",
+      category: null,
+      tags: [],
+      content: "content",
+    });
+    mockKnowledgeService.update.mockResolvedValue(null);
+
+    const res = await request(createApp())
+      .patch("/api/knowledge-documents/doc-4")
+      .send({ title: "Still here?" });
+
+    expect(res.status).toBe(404);
+    expect(mockLogActivity).not.toHaveBeenCalled();
+  });
 });
