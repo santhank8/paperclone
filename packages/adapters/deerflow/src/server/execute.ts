@@ -124,6 +124,7 @@ async function* parseSSE(
 ): AsyncGenerator<SSEEvent> {
   const decoder = new TextDecoder();
   let buffer = "";
+  let currentEvent: SSEEvent = {};
 
   while (true) {
     const { done, value } = await reader.read();
@@ -133,7 +134,6 @@ async function* parseSSE(
     const lines = buffer.split("\n");
     buffer = lines.pop() ?? "";
 
-    let currentEvent: SSEEvent = {};
     for (const line of lines) {
       if (line.startsWith("event: ")) {
         currentEvent.event = line.slice(7).trim();
@@ -249,6 +249,9 @@ export async function execute(
         ...(skill ? { skill_name: skill } : {}),
         paperclip_api_url: PAPERCLIP_BASE_URL,
         paperclip_company_id: ctx.agent.companyId,
+        // Auth token is forwarded so DeerFlow agents can call back into the
+        // Paperclip API (e.g. update issue status). This is safe because DeerFlow
+        // runs on an isolated Docker network (agent-core-net) with no external access.
         ...(authToken ? { paperclip_auth_token: authToken } : {}),
       },
       stream_mode: ["messages-tuple", "values"],
@@ -273,6 +276,7 @@ export async function execute(
     // 4. Parse SSE stream
     const reader = runRes.body.getReader();
     let lastAiContent = "";
+    let lastAiMessageId = "";
 
     for await (const sse of parseSSE(reader)) {
       if (!sse.data) continue;
@@ -296,7 +300,13 @@ export async function execute(
           if (content) {
             await onLog("stdout", content);
             stdout = appendWithCap(stdout, content);
-            lastAiContent = content;
+            // Accumulate chunks per message ID; reset when a new AI message starts
+            const msgId = asString(msgData.id as unknown, "");
+            if (msgId && msgId !== lastAiMessageId) {
+              lastAiContent = "";
+              lastAiMessageId = msgId;
+            }
+            lastAiContent += content;
           }
 
           // Tool calls in AI message
