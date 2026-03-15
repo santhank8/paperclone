@@ -34,6 +34,31 @@ const env = {
   PAPERCLIP_UI_DEV_MIDDLEWARE: "true",
 };
 
+function resolvePackageManagerCommand() {
+  const npmExecPath = process.env.npm_execpath;
+  if (npmExecPath) {
+    return {
+      command: process.execPath,
+      argsPrefix: [npmExecPath],
+      shell: false,
+    };
+  }
+
+  if (process.platform === "win32") {
+    return {
+      command: "corepack",
+      argsPrefix: ["pnpm"],
+      shell: true,
+    };
+  }
+
+  return {
+    command: "pnpm",
+    argsPrefix: [],
+    shell: false,
+  };
+}
+
 if (tailscaleAuth) {
   env.PAPERCLIP_DEPLOYMENT_MODE = "authenticated";
   env.PAPERCLIP_DEPLOYMENT_EXPOSURE = "private";
@@ -44,7 +69,7 @@ if (tailscaleAuth) {
   console.log("[paperclip] dev mode: local_trusted (default)");
 }
 
-const pnpmBin = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
+const packageManager = resolvePackageManagerCommand();
 
 function formatPendingMigrationSummary(migrations) {
   if (migrations.length === 0) return "none";
@@ -55,10 +80,10 @@ function formatPendingMigrationSummary(migrations) {
 
 async function runPnpm(args, options = {}) {
   return await new Promise((resolve, reject) => {
-    const child = spawn(pnpmBin, args, {
+    const child = spawn(packageManager.command, [...packageManager.argsPrefix, ...args], {
       stdio: options.stdio ?? ["ignore", "pipe", "pipe"],
       env: options.env ?? process.env,
-      shell: process.platform === "win32",
+      shell: options.shell ?? packageManager.shell,
     });
 
     let stdoutBuffer = "";
@@ -137,10 +162,10 @@ async function maybePreflightMigrations() {
 
   if (!shouldApply) return;
 
-  const migrate = spawn(pnpmBin, ["db:migrate"], {
+  const migrate = spawn(packageManager.command, [...packageManager.argsPrefix, "db:migrate"], {
     stdio: "inherit",
     env,
-    shell: process.platform === "win32",
+    shell: packageManager.shell,
   });
   const exit = await new Promise((resolve) => {
     migrate.on("exit", (code, signal) => resolve({ code: code ?? 0, signal }));
@@ -180,9 +205,9 @@ if (mode === "watch") {
 
 const serverScript = mode === "watch" ? "dev:watch" : "dev";
 const child = spawn(
-  pnpmBin,
-  ["--filter", "@paperclipai/server", serverScript, ...forwardedArgs],
-  { stdio: "inherit", env, shell: process.platform === "win32" },
+  packageManager.command,
+  [...packageManager.argsPrefix, "--filter", "@paperclipai/server", serverScript, ...forwardedArgs],
+  { stdio: "inherit", env, shell: packageManager.shell },
 );
 
 child.on("exit", (code, signal) => {
