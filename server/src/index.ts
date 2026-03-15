@@ -653,26 +653,44 @@ export async function startServer(): Promise<StartedServer> {
       resolveListen();
     });
   });
-  
-  if (embeddedPostgres && embeddedPostgresStartedByThisProcess) {
-    const shutdown = async (signal: "SIGINT" | "SIGTERM") => {
-      logger.info({ signal }, "Stopping embedded PostgreSQL");
-      try {
-        await embeddedPostgres?.stop();
-      } catch (err) {
-        logger.error({ err }, "Failed to stop embedded PostgreSQL cleanly");
-      } finally {
-        process.exit(0);
-      }
-    };
-  
-    process.once("SIGINT", () => {
-      void shutdown("SIGINT");
-    });
-    process.once("SIGTERM", () => {
-      void shutdown("SIGTERM");
-    });
+
+  // Managed-mode lifecycle & usage reporting
+  const lifecycleOpts = config.managedLifecycleUrl && config.managedInstanceId && config.managedSecret
+    ? { url: config.managedLifecycleUrl, instanceId: config.managedInstanceId, secret: config.managedSecret }
+    : null;
+  let usageStop: (() => void) | undefined;
+  let notifyShutdownFn: ((opts: NonNullable<typeof lifecycleOpts>) => Promise<void>) | undefined;
+  if (lifecycleOpts) {
+    const { notifyReady, notifyShutdown } = await import("./services/lifecycle-hooks.js");
+    void notifyReady(lifecycleOpts);
+    notifyShutdownFn = notifyShutdown;
   }
+  if (config.managedUsageReportUrl && config.managedInstanceId && config.managedSecret) {
+    const { startUsageReporter } = await import("./services/usage-reporter.js");
+    const reporter = startUsageReporter(db, {
+      url: config.managedUsageReportUrl,
+      instanceId: config.managedInstanceId,
+      secret: config.managedSecret,
+    });
+    usageStop = reporter.stop;
+  }
+
+  const gracefulShutdown = async (signal: "SIGINT" | "SIGTERM") => {
+    usageStop?.();
+    if (lifecycleOpts && notifyShutdownFn) {
+      await notifyShutdownFn(lifecycleOpts);
+    }
+    if (embeddedPostgres && embeddedPostgresStartedByThisProcess) {
+      logger.info({ signal }, "Stopping embedded PostgreSQL");
+      try { await embeddedPostgres.stop(); } catch (err) {
+        logger.error({ err }, "Failed to stop embedded PostgreSQL cleanly");
+      }
+    }
+    process.exit(0);
+  };
+
+  process.once("SIGINT", () => void gracefulShutdown("SIGINT"));
+  process.once("SIGTERM", () => void gracefulShutdown("SIGTERM"));
 
   return {
     server,

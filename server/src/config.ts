@@ -87,7 +87,11 @@ export function loadConfig(): Config {
       }
     } catch { /* ignore malformed managed config */ }
   }
-  const env = (key: string) => managedOverrides[key] ?? process.env[key];
+  // Write managed overrides into process.env so all code (not just config.ts) sees them
+  for (const [k, v] of Object.entries(managedOverrides)) {
+    process.env[k] = v;
+  }
+  const env = (key: string) => process.env[key];
 
   const fileConfig = readConfigFile();
   const fileDatabaseMode =
@@ -150,17 +154,17 @@ export function loadConfig(): Config {
     deploymentMode === "local_trusted"
       ? "private"
       : (deploymentExposureFromEnv ?? fileConfig?.server.exposure ?? "private");
-  const authBaseUrlModeFromEnvRaw = process.env.PAPERCLIP_AUTH_BASE_URL_MODE;
+  const authBaseUrlModeFromEnvRaw = env("PAPERCLIP_AUTH_BASE_URL_MODE");
   const authBaseUrlModeFromEnv =
     authBaseUrlModeFromEnvRaw &&
     AUTH_BASE_URL_MODES.includes(authBaseUrlModeFromEnvRaw as AuthBaseUrlMode)
       ? (authBaseUrlModeFromEnvRaw as AuthBaseUrlMode)
       : null;
-  const publicUrlFromEnv = process.env.PAPERCLIP_PUBLIC_URL;
+  const publicUrlFromEnv = env("PAPERCLIP_PUBLIC_URL");
   const authPublicBaseUrlRaw =
-    process.env.PAPERCLIP_AUTH_PUBLIC_BASE_URL ??
-    process.env.BETTER_AUTH_URL ??
-    process.env.BETTER_AUTH_BASE_URL ??
+    env("PAPERCLIP_AUTH_PUBLIC_BASE_URL") ??
+    env("BETTER_AUTH_URL") ??
+    env("BETTER_AUTH_BASE_URL") ??
     publicUrlFromEnv ??
     fileConfig?.auth?.publicBaseUrl;
   const authPublicBaseUrl = authPublicBaseUrlRaw?.trim() || undefined;
