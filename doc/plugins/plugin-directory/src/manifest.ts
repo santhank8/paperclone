@@ -19,8 +19,6 @@ const manifest = {
     "ui.page.register",
     "ui.sidebar.register",
     "http.outbound",
-    "plugin.state.read",
-    "plugin.state.write",
   ] as const,
   entrypoints: {
     worker: "./dist/worker.js",

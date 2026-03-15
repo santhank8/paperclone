@@ -1,4 +1,4 @@
-export const PLUGIN_ID = "paperclip-plugin-directory";
+export const PLUGIN_ID = "@paperclipai/plugin-directory";
 export const PLUGIN_VERSION = "0.1.0";
 export const PAGE_ROUTE = "plugin-directory";
 
