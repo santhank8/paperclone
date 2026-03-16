@@ -22,7 +22,7 @@ export function actorMiddleware(db: Db, opts: ActorMiddlewareOptions): RequestHa
   return async (req, _res, next) => {
     // Managed-mode: trust instance identity from management proxy
     const instanceIdHeader = req.header("x-paperclip-instance-id");
-    if (instanceIdHeader && opts.managedSecret) {
+    if (opts.deploymentMode === "managed" && instanceIdHeader && opts.managedSecret) {
       const incoming = req.header("x-paperclip-management-secret") ?? "";
       const a = Buffer.from(incoming);
       const b = Buffer.from(opts.managedSecret);
