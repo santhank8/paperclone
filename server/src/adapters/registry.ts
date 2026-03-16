@@ -55,11 +55,11 @@ import {
   execute as hermesExecute,
   testEnvironment as hermesTestEnvironment,
   sessionCodec as hermesSessionCodec,
-} from "hermes-paperclip-adapter/server";
+} from "@paperclipai/adapter-hermes-local/server";
 import {
   agentConfigurationDoc as hermesAgentConfigurationDoc,
   models as hermesModels,
-} from "hermes-paperclip-adapter";
+} from "@paperclipai/adapter-hermes-local";
 import { processAdapter } from "./process/index.js";
 import { httpAdapter } from "./http/index.js";
 
