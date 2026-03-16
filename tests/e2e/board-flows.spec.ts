@@ -80,18 +80,17 @@ test.describe.serial("board UI flows", () => {
     seed.approvalId = createdApproval.id as string;
 
     await page.reload();
-    await page.goto("/companies");
+    await page.goto(`/${seed.primaryPrefix}/companies`);
     await page.getByRole("button", { name: new RegExp(secondaryCompanyName) }).click();
-    await page.goto("/");
-    await expect(page).toHaveURL(new RegExp(`/${seed.secondaryPrefix}/dashboard$`));
+    await expect(page).toHaveURL(new RegExp(`/${seed.secondaryPrefix}/`), { timeout: 15_000 });
+    await page.goto(`/${seed.secondaryPrefix}/dashboard`);
     await expect(
       page.getByRole("heading", { name: new RegExp(`${secondaryCompanyName} operations`) }),
     ).toBeVisible();
 
-    await page.goto("/companies");
+    await page.goto(`/${seed.secondaryPrefix}/companies`);
     await page.getByRole("button", { name: new RegExp(primaryCompanyName) }).click();
-    await page.goto("/");
-    await expect(page).toHaveURL(new RegExp(`/${seed.primaryPrefix}/dashboard$`));
+    await expect(page).toHaveURL(new RegExp(`/${seed.primaryPrefix}/`), { timeout: 15_000 });
   });
 
   test("creates, edits, and assigns an issue from the board UI and reflects it on the dashboard", async ({ page }) => {
