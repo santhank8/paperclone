@@ -7,13 +7,7 @@ description: Build proactive agents in Claude Code that act on their own schedul
 
 Reactive agents answer questions. Proactive agents anticipate needs.
 
-Claude Code ships three native primitives for autonomous action — no external frameworks, no separate daemons:
-
-| Mode | Primitive | When to Use |
-|------|-----------|-------------|
-| **Scheduled** | `CronCreate` | Fixed-interval jobs — daily digest, weekly retro, hourly PR scan |
-| **Polled** | `/loop` + heartbeat | Continuous monitoring — silent unless something changed |
-| **Hook-triggered** | `Stop` / `SessionStart` | State persistence, work queue drain on wake |
+Three native primitives: **CronCreate** (scheduled jobs), **/loop + heartbeat** (silent monitoring), **Stop/SessionStart hooks** (state persistence). No external daemons.
 
 ---
 
