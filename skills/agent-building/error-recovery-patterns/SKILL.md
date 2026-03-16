@@ -94,14 +94,7 @@ Never retry a failed operation in the same context. Accumulated error traces pol
 
 ## Human Escalation Protocol
 
-**Rule:** Retry once with a different approach. If it fails again, write a blocked comment and stop.
-
-Decision tree:
-1. First failure → log error, retry with a different approach
-2. Second failure → write blocked comment with full context, stop
-3. Never: retry the same call with identical arguments
-
-Silent failure that looks like success is the worst outcome. A blocked comment is a recoverable state.
+**Rule:** Retry once with a different approach. If it fails again, write a blocked comment and stop. Silent failure is the worst outcome — a blocked comment is a recoverable state.
 
 → Escalation comment template + when-to-give-up decision tree: `references/escalation-protocol.md`
 
