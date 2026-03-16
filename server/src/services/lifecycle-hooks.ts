@@ -8,12 +8,13 @@ interface LifecycleOpts {
 
 async function notify(opts: LifecycleOpts, event: string) {
   try {
-    await fetch(opts.url, {
+    const res = await fetch(opts.url, {
       method: "POST",
       headers: { "content-type": "application/json", "x-paperclip-instance-id": opts.instanceId, "x-paperclip-management-secret": opts.secret },
       body: JSON.stringify({ instanceId: opts.instanceId, event, timestamp: new Date().toISOString() }),
       signal: AbortSignal.timeout(5_000),
     });
+    if (!res.ok) logger.warn({ event, status: res.status }, "Lifecycle hook returned non-OK status");
   } catch (err) {
     logger.warn({ err, event }, "Lifecycle hook notification failed");
   }

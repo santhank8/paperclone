@@ -27,7 +27,9 @@ export function actorMiddleware(db: Db, opts: ActorMiddlewareOptions): RequestHa
       const a = Buffer.from(incoming);
       const b = Buffer.from(opts.managedSecret);
       if (a.length === b.length && timingSafeEqual(a, b)) {
-        (req as unknown as Record<string, unknown>).managedInstanceId = instanceIdHeader;
+        req.actor = { type: "board", userId: "managed", isInstanceAdmin: true, source: "managed" };
+        next();
+        return;
       }
     }
 

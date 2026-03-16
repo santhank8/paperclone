@@ -16,12 +16,13 @@ export function startUsageReporter(
         db.select({ count: count() }).from(heartbeatRuns).where(eq(heartbeatRuns.status, "running")).then((r) => Number(r[0]?.count ?? 0)),
         db.select({ total: sql<number>`coalesce(sum(${costEvents.inputTokens}) + sum(${costEvents.outputTokens}), 0)` }).from(costEvents).then((r) => Number(r[0]?.total ?? 0)),
       ]);
-      await fetch(opts.url, {
+      const res = await fetch(opts.url, {
         method: "POST",
         headers: { "content-type": "application/json", "x-paperclip-instance-id": opts.instanceId, "x-paperclip-management-secret": opts.secret },
         body: JSON.stringify({ instanceId: opts.instanceId, activeAgents: agentCount, runningRuns: runCount, totalTokens: tokenUsage, reportedAt: new Date().toISOString() }),
         signal: AbortSignal.timeout(10_000),
       });
+      if (!res.ok) logger.warn({ status: res.status }, "Usage report endpoint returned non-OK status");
     } catch (err) {
       logger.warn({ err }, "Usage report failed");
     }

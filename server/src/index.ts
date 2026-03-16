@@ -29,6 +29,7 @@ import { heartbeatService, reconcilePersistedRuntimeServicesOnStartup } from "./
 import { createStorageServiceFromConfig } from "./storage/index.js";
 import { printStartupBanner } from "./startup-banner.js";
 import { getBoardClaimWarningUrl, initializeBoardClaimChallenge } from "./board-claim.js";
+import { setStartedAt } from "./routes/health.js";
 
 type BetterAuthSessionUser = {
   id: string;
@@ -409,6 +410,10 @@ export async function startServer(): Promise<StartedServer> {
       }
     }
   }
+
+  if (config.deploymentMode === "managed" && !config.managedSecret) {
+    throw new Error("managed mode requires PAPERCLIP_MANAGEMENT_SECRET to be set");
+  }
   
   let authReady = config.deploymentMode === "local_trusted";
   let betterAuthHandler: RequestHandler | undefined;
@@ -603,6 +608,7 @@ export async function startServer(): Promise<StartedServer> {
     server.once("error", onError);
     server.listen(listenPort, config.host, () => {
       server.off("error", onError);
+      setStartedAt(Date.now());
       logger.info(`Server listening on ${config.host}:${listenPort}`);
       if (process.env.PAPERCLIP_OPEN_ON_LISTEN === "true") {
         const openHost = config.host === "0.0.0.0" || config.host === "::" ? "127.0.0.1" : config.host;

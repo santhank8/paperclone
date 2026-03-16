@@ -24,7 +24,8 @@ export const externalApiProvider: SecretProviderModule = {
       signal: AbortSignal.timeout(10_000),
     });
     if (!res.ok) throw new Error(`External secrets API returned ${res.status}`);
-    const body = (await res.json()) as { ref: string };
+    const body = (await res.json()) as { ref?: unknown };
+    if (typeof body.ref !== "string" || !body.ref) throw new Error("External secrets API returned an invalid or empty ref");
     return {
       material: { ref: body.ref },
       valueSha256: createHash("sha256").update(value).digest("hex"),

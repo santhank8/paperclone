@@ -5,7 +5,8 @@ import { and, count, eq, gt, isNull, sql } from "drizzle-orm";
 import { agents, heartbeatRuns, instanceUserRoles, invites } from "@paperclipai/db";
 import type { DeploymentExposure, DeploymentMode } from "@paperclipai/shared";
 
-const startedAt = Date.now();
+const startedAt = { value: Date.now() };
+export function setStartedAt(ts: number) { startedAt.value = ts; }
 
 export function healthRoutes(
   db?: Db,
@@ -81,7 +82,7 @@ export function healthRoutes(
       db.select({ count: count() }).from(agents).where(eq(agents.status, "active")).then((r) => Number(r[0]?.count ?? 0)),
       db.select({ count: count() }).from(heartbeatRuns).where(eq(heartbeatRuns.status, "running")).then((r) => Number(r[0]?.count ?? 0)),
     ]);
-    res.json({ status: "ok", uptimeMs: Date.now() - startedAt, activeAgents: agentCount, runningRuns: runningCount });
+    res.json({ status: "ok", uptimeMs: Date.now() - startedAt.value, activeAgents: agentCount, runningRuns: runningCount });
   });
 
   return router;
