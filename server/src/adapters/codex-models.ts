@@ -31,7 +31,7 @@ function mergedWithFallback(models: AdapterModel[]): AdapterModel[] {
   ]).sort((a, b) => a.id.localeCompare(b.id, "en", { numeric: true, sensitivity: "base" }));
 }
 
-function resolveLlmDetails(): { apiKey: string | null; endpoint: string } {
+function resolveLlmDetails(): { apiKey: string | null; endpoint: string; provider?: string } {
   const config = readConfigFile();
 
   if (config?.llm?.provider === "zai") {
@@ -39,13 +39,14 @@ function resolveLlmDetails(): { apiKey: string | null; endpoint: string } {
     const envEndpoint = process.env.ZAI_BASE_URL ? `${process.env.ZAI_BASE_URL.replace(/\/$/, "")}/models` : null;
     
     if (envKey) {
-      return { apiKey: envKey, endpoint: envEndpoint || "https://api.z.ai/api/paas/v4/models" };
+      return { apiKey: envKey, endpoint: envEndpoint || "https://api.z.ai/api/paas/v4/models", provider: "zai" };
     }
     
     const configKey = config.llm.apiKey?.trim();
     return {
       apiKey: configKey && configKey.length > 0 ? configKey : null,
       endpoint: envEndpoint || "https://api.z.ai/api/paas/v4/models",
+      provider: "zai",
     };
   }
 
@@ -53,7 +54,7 @@ function resolveLlmDetails(): { apiKey: string | null; endpoint: string } {
   const envEndpoint = process.env.OPENAI_BASE_URL ? `${process.env.OPENAI_BASE_URL.replace(/\/$/, "")}/models` : null;
 
   if (envKey) {
-    return { apiKey: envKey, endpoint: envEndpoint || OPENAI_MODELS_ENDPOINT };
+    return { apiKey: envKey, endpoint: envEndpoint || OPENAI_MODELS_ENDPOINT, provider: config?.llm?.provider };
   }
 
   if (config?.llm?.provider === "openai") {
@@ -61,10 +62,11 @@ function resolveLlmDetails(): { apiKey: string | null; endpoint: string } {
     return {
       apiKey: configKey && configKey.length > 0 ? configKey : null,
       endpoint: envEndpoint || OPENAI_MODELS_ENDPOINT,
+      provider: "openai",
     };
   }
 
-  return { apiKey: null, endpoint: OPENAI_MODELS_ENDPOINT };
+  return { apiKey: null, endpoint: OPENAI_MODELS_ENDPOINT, provider: config?.llm?.provider };
 }
 
 async function fetchModelsFromEndpoint(apiKey: string, endpoint: string): Promise<AdapterModel[]> {
@@ -97,10 +99,7 @@ async function fetchModelsFromEndpoint(apiKey: string, endpoint: string): Promis
 }
 
 export async function listCodexModels(): Promise<AdapterModel[]> {
-  const config = readConfigFile();
-  const provider = config?.llm?.provider;
-  
-  const { apiKey, endpoint } = resolveLlmDetails();
+  const { apiKey, endpoint, provider } = resolveLlmDetails();
   const fallback = dedupeModels(codexFallbackModels);
   if (!apiKey) return provider === "zai" ? [] : fallback;
 
