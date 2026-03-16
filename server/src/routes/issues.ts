@@ -453,6 +453,27 @@ export function issueRoutes(db: Db, storage: StorageService) {
         .catch((err) => logger.warn({ err, issueId: issue.id }, "failed to wake assignee on issue create"));
     }
 
+    // Auto-wake the CEO agent when any issue is created
+    void (async () => {
+      try {
+        const allAgents = await agentsSvc.list(companyId);
+        const ceo = allAgents.find((a) => a.role === "ceo" && a.status !== "paused" && a.status !== "terminated");
+        if (ceo && ceo.id !== issue.assigneeAgentId) {
+          await heartbeat.wakeup(ceo.id, {
+            source: "automation",
+            triggerDetail: "system",
+            reason: "issue_created",
+            payload: { issueId: issue.id, mutation: "create" },
+            requestedByActorType: actor.actorType,
+            requestedByActorId: actor.actorId,
+            contextSnapshot: { issueId: issue.id, source: "issue.create.ceo_notify" },
+          });
+        }
+      } catch (err) {
+        logger.warn({ err, issueId: issue.id }, "failed to wake CEO on issue create");
+      }
+    })();
+
     res.status(201).json(issue);
   });
 
