@@ -454,7 +454,7 @@ curl -X POST http://127.0.0.1:3100/api/plugins/install \\
 
 ## Publishing to npm
 
-> **Not ready to publish?** Add `"private": true` to `package.json` to prevent accidental releases. Remove it when you're ready to publish.
+> **Not ready to publish?** Add \`"private": true\` to \`package.json\` to prevent accidental releases. Remove it when you're ready to publish.
 
 Use the included release helper to bump versions and publish in one step:
 
