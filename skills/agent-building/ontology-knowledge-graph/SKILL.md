@@ -68,24 +68,6 @@ To read the graph: load all lines → group by `id` → last record per id is cu
 
 ---
 
-## Schema Definition
-
-Schema structure, field types, enums, cardinality rules, and a worked example (People, Tasks, Decisions, Dependencies for a software project) in `references/01-schema-format.md`.
-
----
-
-## CRUD Operations
-
-Exact JSON patterns for: create entity, add relation, update fields, soft-delete, and compaction (when JSONL grows large). See `references/02-crud-operations.md`.
-
----
-
-## Querying the Graph
-
-Filter by type, filter by field value, traverse relations, reverse lookups, aggregation. See `references/03-query-patterns.md`.
-
----
-
 ## Cross-Skill Composability Protocol
 
 Declare what entity types your skill reads and writes by adding an `ontology:` block to its SKILL.md frontmatter:
