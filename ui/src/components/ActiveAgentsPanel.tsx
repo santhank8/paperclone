@@ -195,6 +195,8 @@ interface ActiveAgentsPanelProps {
 
 export function ActiveAgentsPanel({ companyId }: ActiveAgentsPanelProps) {
   const [feedByRun, setFeedByRun] = useState<Map<string, FeedItem[]>>(new Map());
+  const [feedRevByRun, setFeedRevByRun] = useState<Map<string, number>>(new Map());
+  const feedRevByRunRef = useRef(new Map<string, number>());
   const seenKeysRef = useRef(new Set<string>());
   const pendingByRunRef = useRef(new Map<string, string>());
   const nextIdRef = useRef(1);
@@ -246,12 +248,14 @@ export function ActiveAgentsPanel({ companyId }: ActiveAgentsPanelProps) {
 
     const appendItems = (runId: string, items: FeedItem[]) => {
       if (items.length === 0) return;
+      let didChange = false;
       setFeedByRun((prev) => {
         const next = new Map(prev);
         const existing = [...(next.get(runId) ?? [])];
         for (const item of items) {
           if (seenKeysRef.current.has(item.dedupeKey)) continue;
           seenKeysRef.current.add(item.dedupeKey);
+          didChange = true;
 
           const last = existing[existing.length - 1];
           if (
@@ -279,9 +283,15 @@ export function ActiveAgentsPanel({ companyId }: ActiveAgentsPanelProps) {
         if (seenKeysRef.current.size > 6000) {
           seenKeysRef.current.clear();
         }
+        if (!didChange) return prev;
         next.set(runId, existing.slice(-MAX_FEED_ITEMS));
         return next;
       });
+      if (didChange) {
+        const rev = (feedRevByRunRef.current.get(runId) ?? 0) + 1;
+        feedRevByRunRef.current.set(runId, rev);
+        setFeedRevByRun(new Map(feedRevByRunRef.current));
+      }
     };
 
     const scheduleReconnect = () => {
@@ -393,6 +403,7 @@ export function ActiveAgentsPanel({ companyId }: ActiveAgentsPanelProps) {
                 run={run}
                 issue={run.issueId ? issueById.get(run.issueId) : undefined}
                 feed={feedByRun.get(run.id) ?? []}
+                feedRev={feedRevByRun.get(run.id) ?? 0}
                 isActive={isRunActive(run)}
               />
             ))}
@@ -407,11 +418,13 @@ function AgentRunCard({
   run,
   issue,
   feed,
+  feedRev,
   isActive,
 }: {
   run: LiveRunForIssue;
   issue?: Issue;
   feed: FeedItem[];
+  feedRev: number;
   isActive: boolean;
 }) {
   const bodyRef = useRef<HTMLDivElement>(null);
@@ -424,7 +437,7 @@ function AgentRunCard({
     requestAnimationFrame(() => {
       body.scrollTo({ top: body.scrollHeight, behavior: "auto" });
     });
-  }, [feed.length]);
+  }, [feedRev]);
 
   return (
     <div className={cn(

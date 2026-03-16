@@ -242,6 +242,8 @@ export function LiveRunWidget({ issueId, companyId }: LiveRunWidgetProps) {
   const runMetaByIdRef = useRef(new Map<string, { agentId: string; agentName: string }>());
   const nextIdRef = useRef(1);
   const bodyRef = useRef<HTMLDivElement>(null);
+  const feedRevRef = useRef(0);
+  const [feedRev, setFeedRev] = useState(0);
 
   const handleCancelRun = async (runId: string) => {
     setCancellingRunIds((prev) => new Set(prev).add(runId));
@@ -305,11 +307,13 @@ export function LiveRunWidget({ issueId, companyId }: LiveRunWidgetProps) {
   );
   const appendItems = (items: FeedItem[]) => {
     if (items.length === 0) return;
+    let didChange = false;
     setFeed((prev) => {
       const next = [...prev];
       for (const item of items) {
         if (seenKeysRef.current.has(item.dedupeKey)) continue;
         seenKeysRef.current.add(item.dedupeKey);
+        didChange = true;
 
         const last = next[next.length - 1];
         if (
@@ -337,9 +341,13 @@ export function LiveRunWidget({ issueId, companyId }: LiveRunWidgetProps) {
       if (seenKeysRef.current.size > 6000) {
         seenKeysRef.current.clear();
       }
-      if (next.length === prev.length) return prev;
+      if (!didChange) return prev;
       return next.slice(-MAX_FEED_ITEMS);
     });
+    if (didChange) {
+      feedRevRef.current += 1;
+      setFeedRev(feedRevRef.current);
+    }
   };
 
   useEffect(() => {
@@ -348,7 +356,7 @@ export function LiveRunWidget({ issueId, companyId }: LiveRunWidgetProps) {
     requestAnimationFrame(() => {
       body.scrollTo({ top: body.scrollHeight, behavior: "auto" });
     });
-  }, [feed.length]);
+  }, [feedRev]);
 
   useEffect(() => {
     for (const run of runs) {
