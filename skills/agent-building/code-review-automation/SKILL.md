@@ -20,23 +20,7 @@ Run parallel code reviews on any PR or diff using Claude Code's Agent tool and `
 
 ## Review Architecture
 
-Four parallel sub-reviewers, each focused on one domain:
-
-```python
-# Run all four in parallel
-security    = Agent(model="claude-sonnet-4-6", prompt=SECURITY_PROMPT + diff)
-performance = Agent(model="claude-sonnet-4-6", prompt=PERF_PROMPT + diff)
-correctness = Agent(model="claude-sonnet-4-6", prompt=CORRECTNESS_PROMPT + diff)
-style       = Agent(model="claude-haiku-4-5-20251001", prompt=STYLE_PROMPT + diff)  # cheaper
-```
-
-Each returns findings as: `file:line | severity | finding | suggestion`
-
-**Severity levels:** `critical` → `high` → `medium` → `low`
-- `critical` — blocks push (injection, data loss, broken auth, exposed secrets)
-- `high` — fix before merge
-- `medium` — fix before merge if time allows
-- `low` — consider fixing
+Four parallel sub-reviewers: Security and Performance on Sonnet, Correctness on Sonnet, Style on Haiku (cheaper). Each returns findings as `file:line | severity | finding | suggestion`. Severity: `critical` (blocks push) → `high` (fix before merge) → `medium` → `low`.
 
 → See [01-review-architecture.md](references/01-review-architecture.md) for full prompts, merge/dedup logic, and model tier rationale.
 
