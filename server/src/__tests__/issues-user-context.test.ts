@@ -3,6 +3,7 @@ import {
   deriveIssueUserContext,
   normalizeIssuePageFilters,
   shouldReleaseIssueCheckouts,
+  terminalAgeCondition,
 } from "../services/issues.ts";
 
 function makeIssue(overrides?: Partial<{
@@ -194,5 +195,26 @@ describe("normalizeIssuePageFilters", () => {
       pageSize: 100,
       terminalAgeHours: null,
     });
+  });
+});
+
+describe("terminalAgeCondition", () => {
+  it("serializes cutoff bindings as ISO strings for the terminal-age SQL fragment", () => {
+    const now = new Date("2026-03-16T12:00:00.000Z");
+    const condition = terminalAgeCondition(24, now);
+
+    expect(condition).not.toBeNull();
+
+    // The regression here was caused by passing raw Date bindings into postgres-js
+    // inside the SQL fragment; keep the bound cutoff text-only.
+    const params = (condition as { queryChunks: unknown[] }).queryChunks
+      .filter((chunk) => typeof chunk === "string");
+
+    expect(params).toContain("2026-03-15T12:00:00.000Z");
+    expect(params).not.toContainEqual(expect.any(Date));
+  });
+
+  it("returns null when terminal-age filtering is disabled", () => {
+    expect(terminalAgeCondition(null, new Date("2026-03-16T12:00:00.000Z"))).toBeNull();
   });
 });

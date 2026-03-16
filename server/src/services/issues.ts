@@ -365,7 +365,7 @@ function issueStatusOrderExpr() {
   `;
 }
 
-function terminalAgeCondition(terminalAgeHours: number | null | undefined, now: Date) {
+export function terminalAgeCondition(terminalAgeHours: number | null | undefined, now: Date) {
   if (terminalAgeHours == null) return null;
   const cutoff = new Date(now.getTime() - terminalAgeHours * 60 * 60 * 1000);
   // postgres-js expects text-compatible bindings inside this interpolated SQL
