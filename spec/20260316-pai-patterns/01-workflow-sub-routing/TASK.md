@@ -92,18 +92,67 @@ description: [triggers as before]
 
 The current skill has 7 sections (Token Audit, /compact, MCP Slimming, Model Routing, Rate Limits, Checkpointing, Diagnosing Regressions) plus an Anti-Rationalization table.
 
-**Refactor plan:**
-- SKILL.md becomes a router (~60-80 lines): frontmatter + overview + Quick Entry routing table + dispatch instructions + Anti-Rationalization table (stays in SKILL.md — it applies to all workflows)
-- Create 7 workflow files in `Workflows/`:
-  - `TokenAudit.md`
-  - `CompactGuide.md`
-  - `McpSlimming.md`
-  - `ModelRouting.md`
-  - `RateLimits.md`
-  - `SessionCheckpointing.md`
-  - `DiagnosingRegressions.md`
-- Each workflow file contains its current SKILL.md section content + pointer to its reference file
-- Reference files stay where they are (no changes to references/)
+**Step-by-step refactor process:**
+
+**2a. Extract each section into a Workflow file:**
+For each of the 7 sections in the current SKILL.md:
+1. Create `Workflows/[SectionName].md`
+2. Copy the section heading, content, and any inline code blocks into the workflow file
+3. Add a `## When to Use` section at the top listing the trigger phrases from the Quick Entry table
+4. Add a `## Reference` pointer at the bottom: `See ../references/[matching-ref].md for details.`
+5. Remove the section content from SKILL.md (leave only the routing table entry)
+
+Workflow files to create:
+  - `TokenAudit.md` (from ## Token Audit → refs: token-audit.md)
+  - `CompactGuide.md` (from ## The /compact Command → refs: compact-guide.md)
+  - `McpSlimming.md` (from ## MCP Slimming → refs: mcp-slimming.md)
+  - `ModelRouting.md` (from ## Model Routing by Cost Tier → refs: model-routing.md)
+  - `RateLimits.md` (from ## Rate Limit Mechanics → refs: rate-limits.md)
+  - `SessionCheckpointing.md` (from ## Session Checkpointing → refs: checkpointing.md)
+  - `DiagnosingRegressions.md` (from ## Diagnosing Regressions → refs: diagnose.md)
+
+**2b. Rewrite SKILL.md as a router:**
+After extracting all sections, SKILL.md should look like:
+```markdown
+---
+name: context-cost-management
+category: context-cost
+description: [keep existing description unchanged]
+---
+
+# Claude Code Context & Cost Management
+
+[Keep the 1-2 sentence overview paragraph]
+
+## Customization
+[Customization check block — added in Step 2 of this spec]
+
+## Workflow Routing
+
+| Symptom / Request | Route To |
+|---|---|
+| "What's eating my context budget?" | `Workflows/TokenAudit.md` |
+| "When should I run /compact?" | `Workflows/CompactGuide.md` |
+| "My MCP tools are consuming everything" | `Workflows/McpSlimming.md` |
+| "How do I cut my bill 10x?" | `Workflows/ModelRouting.md` |
+| "I'm hitting rate limits mid-session" | `Workflows/RateLimits.md` |
+| "I need to pause and resume a session" | `Workflows/SessionCheckpointing.md` |
+| "Did the model regress or did my config break?" | `Workflows/DiagnosingRegressions.md` |
+
+## Dispatch Rules
+- Match the user's symptom to the routing table above
+- Read the matched workflow file and follow its instructions
+- If no clear match, ask which symptom is closest
+- Workflows reference files in `references/` for supporting detail
+
+## Anti-Rationalization
+[Keep the existing anti-rationalization table HERE — it applies to all workflows]
+```
+
+**2c. Verify no content lost:**
+- Diff the original SKILL.md against (router SKILL.md + all 7 workflow files)
+- Every line of substantive content should exist in exactly one place
+- Reference files are untouched — no changes to references/
 
 ### 3. Update publish-skill.ts
 
@@ -192,3 +241,4 @@ bun run --bun tsc --noEmit scripts/publish-skill.ts 2>&1 || true
 - "I should retrofit more skills while I'm at it" → No. One proof-of-concept. Others adopt organically or get retrofitted in dedicated tasks.
 - "The routing table needs programmatic matching" → No. The LLM reads markdown. Pattern matching is natural language, not regex.
 - "Workflow files should have their own frontmatter" → No. Frontmatter is for SKILL.md (the routing target). Workflow files are instructions, not skills.
+- "Feeling productive? I'll retrofit highimpact-skill-builder to Workflows/ too" → No. Each skill refactor is a separate task. One proof-of-concept per step.

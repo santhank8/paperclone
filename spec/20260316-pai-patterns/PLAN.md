@@ -56,6 +56,10 @@ Step 4 (Traits) ── independent
 Step 5 (Evals) ── independent
 ```
 
+**Dependency notes:**
+- Step 1 retrofits context-cost-management as proof-of-concept. Step 3 applies the same sub-routing pattern to the Research agent (separate artifact, separate files). Step 6 is independent from Step 3's Research agent changes.
+- Steps 1 and 2 can run in parallel (no shared files). Steps 4 and 5 can also run in parallel.
+
 ## Steps Overview
 
 | # | Step | Status | Dependencies | Complexity |

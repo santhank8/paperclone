@@ -127,6 +127,12 @@ test -d ~/.claude/skill-customizations && echo "PASS" || echo "FAIL"
 
 # Verify skill-builder mentions customization
 grep -l "skill-customizations" skills/agent-building/highimpact-skill-builder/SKILL.md && echo "PASS" || echo "FAIL"
+
+# Verify at least one existing skill has the customization check block
+grep -q "skill-customizations" skills/agent-building/context-cost-management/SKILL.md && echo "PASS: context-cost-management has customization check" || echo "FAIL: missing customization check in context-cost-management"
+
+# Verify create.md template includes the customization snippet
+grep -q "PREFERENCES.md" skills/agent-building/highimpact-skill-builder/references/create.md && echo "PASS: create template has customization" || echo "FAIL: create template missing customization"
 ```
 
 ### Manual Verification

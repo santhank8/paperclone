@@ -187,6 +187,17 @@ bun run scripts/compose-agent.ts --expertise security --personality skeptical --
 
 # Verify multiple expertise works
 bun run scripts/compose-agent.ts --expertise security,frontend --personality analytical --approach systematic | head -5
+
+# Verify composed output contains keywords from all input traits
+OUTPUT=$(bun run scripts/compose-agent.ts --expertise security --personality skeptical --approach systematic)
+echo "$OUTPUT" | grep -qi "security" && echo "PASS: security trait present" || echo "FAIL: security trait missing"
+echo "$OUTPUT" | grep -qi "skeptical\|question\|challenge\|doubt" && echo "PASS: skeptical trait present" || echo "FAIL: skeptical trait missing"
+echo "$OUTPUT" | grep -qi "systematic\|methodical\|structured\|step" && echo "PASS: systematic trait present" || echo "FAIL: systematic trait missing"
+
+# Verify a second combination
+OUTPUT2=$(bun run scripts/compose-agent.ts --expertise research --personality creative --approach exploratory)
+echo "$OUTPUT2" | grep -qi "research" && echo "PASS: research trait present" || echo "FAIL: research trait missing"
+echo "$OUTPUT2" | grep -qi "creative\|imaginat\|novel\|divergent" && echo "PASS: creative trait present" || echo "FAIL: creative trait missing"
 ```
 
 ### Manual Verification
