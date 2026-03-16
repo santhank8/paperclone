@@ -29,16 +29,6 @@ Claude Code ships three native primitives for autonomous action — no external 
 
 ---
 
-## From Reactive to Proactive
-
-The shift requires two things:
-1. **A trigger** that fires without a user prompt (cron expression, poll interval, or hook)
-2. **A silence contract** — output nothing on quiet checks, alert only when something changed
-
-Without the silence contract, a polling agent becomes noise. The Paperclip CEO heartbeat is the canonical example: polls every 60 seconds, outputs nothing unless an issue changed status.
-
----
-
 ## CronCreate — Schedule a Task
 
 ```
