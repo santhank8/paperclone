@@ -24,7 +24,13 @@ import { PluginSlotMount, PluginSlotOutlet, usePluginSlots } from "@/plugins/slo
 
 /* ── Top-level tab types ── */
 
-type ProjectTab = "overview" | "list" | "configuration";
+type ProjectBaseTab = "overview" | "list" | "configuration";
+type ProjectPluginTab = `plugin:${string}`;
+type ProjectTab = ProjectBaseTab | ProjectPluginTab;
+
+function isProjectPluginTab(value: string | null): value is ProjectPluginTab {
+  return typeof value === "string" && value.startsWith("plugin:");
+}
 
 function resolveProjectTab(pathname: string, projectId: string): ProjectTab | null {
   const segments = pathname.split("/").filter(Boolean);
@@ -49,28 +55,28 @@ function OverviewContent({
   imageUploadHandler?: (file: File) => Promise<string>;
 }) {
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <InlineEditor
         value={project.description ?? ""}
         onSave={(description) => onUpdate({ description })}
         as="p"
-        className="paperclip-work-card rounded-[calc(var(--radius)+0.35rem)] px-4 py-4 text-sm text-muted-foreground"
+        className="text-sm text-muted-foreground"
         placeholder="Add a description..."
         multiline
         imageUploadHandler={imageUploadHandler}
       />
 
-      <div className="grid grid-cols-1 gap-4 text-sm sm:grid-cols-2">
-        <div className="paperclip-work-stat px-4 py-4">
-          <span className="paperclip-work-label">Status</span>
-          <div className="mt-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+        <div>
+          <span className="text-muted-foreground">Status</span>
+          <div className="mt-1">
             <StatusBadge status={project.status} />
           </div>
         </div>
         {project.targetDate && (
-          <div className="paperclip-work-stat px-4 py-4">
-            <span className="paperclip-work-label">Target Date</span>
-            <p className="mt-3 text-base font-medium">{project.targetDate}</p>
+          <div>
+            <span className="text-muted-foreground">Target Date</span>
+            <p>{project.targetDate}</p>
           </div>
         )}
       </div>
@@ -208,7 +214,6 @@ export function ProjectDetail() {
   const fieldSaveRequestIds = useRef<Partial<Record<ProjectConfigFieldKey, number>>>({});
   const fieldSaveTimers = useRef<Partial<Record<ProjectConfigFieldKey, ReturnType<typeof setTimeout>>>>({});
   const routeProjectRef = projectId ?? "";
-  const [projectConfigPatch, setProjectConfigPatch] = useState<Record<string, unknown>>({});
   const routeCompanyId = useMemo(() => {
     if (!companyPrefix) return null;
     const requestedPrefix = companyPrefix.toUpperCase();
@@ -266,9 +271,21 @@ export function ProjectDetail() {
   const updateProject = useMutation({
     mutationFn: (data: Record<string, unknown>) =>
       projectsApi.update(projectLookupRef, data, resolvedCompanyId ?? lookupCompanyId),
-    onSuccess: () => {
-      setProjectConfigPatch({});
+    onSuccess: invalidateProject,
+  });
+
+  const archiveProject = useMutation({
+    mutationFn: (archived: boolean) =>
+      projectsApi.update(
+        projectLookupRef,
+        { archivedAt: archived ? new Date().toISOString() : null },
+        resolvedCompanyId ?? lookupCompanyId,
+      ),
+    onSuccess: (_, archived) => {
       invalidateProject();
+      if (archived) {
+        navigate("/projects");
+      }
     },
   });
 
@@ -313,18 +330,56 @@ export function ProjectDetail() {
   }, [project, routeProjectRef, canonicalProjectRef, activeTab, filter, navigate]);
 
   useEffect(() => {
-    setProjectConfigPatch({});
-  }, [project?.id, project?.updatedAt]);
+    closePanel();
+    return () => closePanel();
+  }, [closePanel]);
 
   useEffect(() => {
-    if (!project) return;
-    if (activeTab === "configuration") {
-      closePanel();
-      return;
+    return () => {
+      Object.values(fieldSaveTimers.current).forEach((timer) => {
+        if (timer) clearTimeout(timer);
+      });
+    };
+  }, []);
+
+  const setFieldState = useCallback((field: ProjectConfigFieldKey, state: ProjectFieldSaveState) => {
+    setFieldSaveStates((current) => ({ ...current, [field]: state }));
+  }, []);
+
+  const scheduleFieldReset = useCallback((field: ProjectConfigFieldKey, delayMs: number) => {
+    const existing = fieldSaveTimers.current[field];
+    if (existing) clearTimeout(existing);
+    fieldSaveTimers.current[field] = setTimeout(() => {
+      setFieldSaveStates((current) => {
+        const next = { ...current };
+        delete next[field];
+        return next;
+      });
+      delete fieldSaveTimers.current[field];
+    }, delayMs);
+  }, []);
+
+  const updateProjectField = useCallback(async (field: ProjectConfigFieldKey, data: Record<string, unknown>) => {
+    const requestId = (fieldSaveRequestIds.current[field] ?? 0) + 1;
+    fieldSaveRequestIds.current[field] = requestId;
+    setFieldState(field, "saving");
+    try {
+      await projectsApi.update(projectLookupRef, data, resolvedCompanyId ?? lookupCompanyId);
+      invalidateProject();
+      if (fieldSaveRequestIds.current[field] !== requestId) return;
+      setFieldState(field, "saved");
+      scheduleFieldReset(field, 1800);
+    } catch (error) {
+      if (fieldSaveRequestIds.current[field] !== requestId) return;
+      setFieldState(field, "error");
+      scheduleFieldReset(field, 3000);
+      throw error;
     }
-    openPanel(<ProjectProperties project={project} onUpdate={(data) => updateProject.mutate(data)} />);
-    return () => closePanel();
-  }, [activeTab, project]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [invalidateProject, lookupCompanyId, projectLookupRef, resolvedCompanyId, scheduleFieldReset, setFieldState]);
+
+  if (pluginTabFromSearch && !pluginDetailSlotsLoading && !activePluginTab) {
+    return <Navigate to={`/projects/${canonicalProjectRef}/issues`} replace />;
+  }
 
   // Redirect bare /projects/:id to /projects/:id/issues
   if (routeProjectRef && activeTab === null) {
@@ -349,100 +404,70 @@ export function ProjectDetail() {
     }
   };
 
-  // Keep this as a plain derived object instead of another hook. ProjectDetail
-  // returns early while the project query is loading, so adding hooks below that
-  // guard can break hook ordering between the loading and loaded renders.
-  const configurationDraft = {
-    ...project,
-    ...projectConfigPatch,
-    ...(Object.prototype.hasOwnProperty.call(projectConfigPatch, "goalIds") ? { goals: [] } : null),
-  };
-  const hasConfigChanges = Object.keys(projectConfigPatch).length > 0;
   return (
     <div className="space-y-6">
-      <section className="paperclip-work-hero px-5 py-5 sm:px-6">
-        <div className="flex flex-wrap items-start gap-4">
-          <div className="paperclip-work-stat flex h-11 items-center px-3">
-            <ColorPicker
-              currentColor={project.color ?? "#6366f1"}
-              onSelect={(color) => updateProject.mutate({ color })}
-            />
-            <span className="paperclip-work-meta ml-3">Project Color</span>
-          </div>
-          <div className="min-w-0 flex-1 space-y-3">
-            <div className="flex flex-wrap items-center gap-2">
-              <p className="paperclip-work-kicker">Execution Lane</p>
-              <StatusBadge status={project.status} />
-              {project.targetDate ? <span className="paperclip-work-meta">Target {project.targetDate}</span> : null}
-            </div>
-            <InlineEditor
-              value={project.name}
-              onSave={(name) => updateProject.mutate({ name })}
-              as="h2"
-              className="paperclip-work-title"
-            />
-          </div>
-          {activeTab !== "configuration" ? (
-            <>
-              <Button
-                variant="ghost"
-                size="icon-xs"
-                className="paperclip-icon-button md:hidden shrink-0"
-                onClick={() => setMobilePropsOpen(true)}
-                title="Properties"
-              >
-                <SlidersHorizontal className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon-xs"
-                className={cn(
-                  "paperclip-icon-button hidden shrink-0 transition-opacity duration-200 md:flex",
-                  panelVisible ? "pointer-events-none w-0 overflow-hidden opacity-0" : "opacity-100",
-                )}
-                onClick={() => setPanelVisible(true)}
-                title="Show properties"
-              >
-                <SlidersHorizontal className="h-4 w-4" />
-              </Button>
-            </>
-          ) : null}
+      <div className="flex items-start gap-3">
+        <div className="h-7 flex items-center">
+          <ColorPicker
+            currentColor={project.color ?? "#6366f1"}
+            onSelect={(color) => updateProject.mutate({ color })}
+          />
         </div>
-      </section>
-
-      {/* Top-level project tabs */}
-      <div className="paperclip-work-tabs flex items-center gap-1">
-        <button
-          className={`px-3 py-2 text-sm font-medium transition-colors border-b-2 ${
-            activeTab === "overview"
-              ? "border-foreground text-foreground"
-              : "border-transparent text-muted-foreground hover:text-foreground"
-          }`}
-          onClick={() => handleTabChange("overview")}
-        >
-          Overview
-        </button>
-        <button
-          className={`px-3 py-2 text-sm font-medium transition-colors border-b-2 ${
-            activeTab === "list"
-              ? "border-foreground text-foreground"
-              : "border-transparent text-muted-foreground hover:text-foreground"
-          }`}
-          onClick={() => handleTabChange("list")}
-        >
-          List
-        </button>
-        <button
-          className={`px-3 py-2 text-sm font-medium transition-colors border-b-2 ${
-            activeTab === "configuration"
-              ? "border-foreground text-foreground"
-              : "border-transparent text-muted-foreground hover:text-foreground"
-          }`}
-          onClick={() => handleTabChange("configuration")}
-        >
-          Configuration
-        </button>
+        <InlineEditor
+          value={project.name}
+          onSave={(name) => updateProject.mutate({ name })}
+          as="h2"
+          className="text-xl font-bold"
+        />
       </div>
+
+      <PluginSlotOutlet
+        slotTypes={["toolbarButton", "contextMenuItem"]}
+        entityType="project"
+        context={{
+          companyId: resolvedCompanyId ?? null,
+          companyPrefix: companyPrefix ?? null,
+          projectId: project.id,
+          projectRef: canonicalProjectRef,
+          entityId: project.id,
+          entityType: "project",
+        }}
+        className="flex flex-wrap gap-2"
+        itemClassName="inline-flex"
+        missingBehavior="placeholder"
+      />
+
+      <PluginLauncherOutlet
+        placementZones={["toolbarButton"]}
+        entityType="project"
+        context={{
+          companyId: resolvedCompanyId ?? null,
+          companyPrefix: companyPrefix ?? null,
+          projectId: project.id,
+          projectRef: canonicalProjectRef,
+          entityId: project.id,
+          entityType: "project",
+        }}
+        className="flex flex-wrap gap-2"
+        itemClassName="inline-flex"
+      />
+
+      <Tabs value={activeTab ?? "list"} onValueChange={(value) => handleTabChange(value as ProjectTab)}>
+        <PageTabBar
+          items={[
+            { value: "overview", label: "Overview" },
+            { value: "list", label: "List" },
+            { value: "configuration", label: "Configuration" },
+            ...pluginTabItems.map((item) => ({
+              value: item.value,
+              label: item.label,
+            })),
+          ]}
+          align="start"
+          value={activeTab ?? "list"}
+          onValueChange={(value) => handleTabChange(value as ProjectTab)}
+        />
+      </Tabs>
 
       {activeTab === "overview" && (
         <OverviewContent
@@ -459,59 +484,33 @@ export function ProjectDetail() {
         <ProjectIssuesList projectId={project.id} companyId={resolvedCompanyId} />
       )}
 
-      {activeTab === "configuration" && configurationDraft && (
-        <div className="space-y-4">
-          <div className="paperclip-work-card-strong flex flex-wrap items-center justify-between gap-3 rounded-[calc(var(--radius)+0.45rem)] p-4">
-            <div>
-              <p className="paperclip-work-kicker">Control Surface</p>
-              <h3 className="mt-1 text-sm font-medium">Project Configuration</h3>
-              <p className="text-xs text-muted-foreground">
-                Save roadmap linkage and project settings deliberately so reviews stay easy to follow.
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                disabled={!hasConfigChanges}
-                onClick={() => setProjectConfigPatch({})}
-              >
-                Cancel
-              </Button>
-              <Button
-                size="sm"
-                disabled={!hasConfigChanges || updateProject.isPending}
-                onClick={() => updateProject.mutate(projectConfigPatch)}
-              >
-                {updateProject.isPending ? "Saving..." : "Save changes"}
-              </Button>
-            </div>
-          </div>
+      {activeTab === "configuration" && (
+        <div className="max-w-4xl">
           <ProjectProperties
-            project={configurationDraft}
-            onUpdate={(patch) =>
-              setProjectConfigPatch((current) => ({
-                ...current,
-                ...patch,
-              }))
-            }
+            project={project}
+            onUpdate={(data) => updateProject.mutate(data)}
+            onFieldUpdate={updateProjectField}
+            getFieldSaveState={(field) => fieldSaveStates[field] ?? "idle"}
+            onArchive={(archived) => archiveProject.mutate(archived)}
+            archivePending={archiveProject.isPending}
           />
         </div>
       )}
 
-      {/* Mobile properties drawer */}
-      <Sheet open={activeTab !== "configuration" && mobilePropsOpen} onOpenChange={setMobilePropsOpen}>
-        <SheetContent side="bottom" className="max-h-[85dvh] pb-[env(safe-area-inset-bottom)]">
-          <SheetHeader>
-            <SheetTitle className="text-sm">Properties</SheetTitle>
-          </SheetHeader>
-          <ScrollArea className="flex-1 overflow-y-auto">
-            <div className="px-4 pb-4">
-              <ProjectProperties project={project} onUpdate={(data) => updateProject.mutate(data)} />
-            </div>
-          </ScrollArea>
-        </SheetContent>
-      </Sheet>
+      {activePluginTab && (
+        <PluginSlotMount
+          slot={activePluginTab.slot}
+          context={{
+            companyId: resolvedCompanyId,
+            companyPrefix: companyPrefix ?? null,
+            projectId: project.id,
+            projectRef: canonicalProjectRef,
+            entityId: project.id,
+            entityType: "project",
+          }}
+          missingBehavior="placeholder"
+        />
+      )}
     </div>
   );
 }
