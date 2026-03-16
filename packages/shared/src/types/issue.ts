@@ -142,7 +142,7 @@ export interface Issue {
   requestDepth: number;
   billingCode: string | null;
   assigneeAdapterOverrides: IssueAssigneeAdapterOverrides | null;
-  executionWorkspaceSettings?: IssueExecutionWorkspaceSettings | null;
+  executionWorkspaceSettings: IssueExecutionWorkspaceSettings | null;
   startedAt: Date | null;
   completedAt: Date | null;
   cancelledAt: Date | null;

@@ -13,7 +13,7 @@ export interface ExecutionWorkspaceStrategy {
 
 export interface ProjectExecutionWorkspacePolicy {
   enabled: boolean;
-  defaultMode?: "project_primary" | "isolated";
+  defaultMode?: Extract<ExecutionWorkspaceMode, "project_primary" | "isolated">;
   allowIssueOverride?: boolean;
   workspaceStrategy?: ExecutionWorkspaceStrategy | null;
   workspaceRuntime?: Record<string, unknown> | null;

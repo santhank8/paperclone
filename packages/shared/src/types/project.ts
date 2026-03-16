@@ -72,7 +72,7 @@ export interface Project {
   leadAgentId: string | null;
   targetDate: string | null;
   color: string | null;
-  executionWorkspacePolicy?: ProjectExecutionWorkspacePolicy | null;
+  executionWorkspacePolicy: ProjectExecutionWorkspacePolicy | null;
   workspaces: ProjectWorkspace[];
   primaryWorkspace: ProjectWorkspace | null;
   milestones?: ProjectMilestone[];

@@ -26,6 +26,10 @@ function requireSeedValue<T>(value: T | undefined, label: string): T {
   return value as T;
 }
 
+function escapeForRegex(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 test.describe.serial("board UI flows", () => {
   test("creates the first company in onboarding and switches companies", async ({ page, request }) => {
     await page.goto("/");
@@ -79,18 +83,21 @@ test.describe.serial("board UI flows", () => {
     });
     seed.approvalId = createdApproval.id as string;
 
+    const primaryPrefix = requireSeedValue(seed.primaryPrefix, "primary company prefix");
+    const secondaryPrefix = requireSeedValue(seed.secondaryPrefix, "secondary company prefix");
+
     await page.reload();
-    await page.goto(`/${seed.primaryPrefix}/companies`);
-    await page.getByRole("button", { name: new RegExp(secondaryCompanyName) }).click();
-    await expect(page).toHaveURL(new RegExp(`/${seed.secondaryPrefix}/`), { timeout: 15_000 });
-    await page.goto(`/${seed.secondaryPrefix}/dashboard`);
+    await page.goto(`/${primaryPrefix}/companies`);
+    await page.getByRole("button", { name: secondaryCompanyName, exact: true }).click();
+    await expect(page).toHaveURL(new RegExp(`/${escapeForRegex(secondaryPrefix)}/`), { timeout: 15_000 });
+    await page.goto(`/${secondaryPrefix}/dashboard`);
     await expect(
-      page.getByRole("heading", { name: new RegExp(`${secondaryCompanyName} operations`) }),
+      page.getByRole("heading", { name: `${secondaryCompanyName} operations`, exact: true }),
     ).toBeVisible();
 
-    await page.goto(`/${seed.secondaryPrefix}/companies`);
-    await page.getByRole("button", { name: new RegExp(primaryCompanyName) }).click();
-    await expect(page).toHaveURL(new RegExp(`/${seed.primaryPrefix}/`), { timeout: 15_000 });
+    await page.goto(`/${secondaryPrefix}/companies`);
+    await page.getByRole("button", { name: primaryCompanyName, exact: true }).click();
+    await expect(page).toHaveURL(new RegExp(`/${escapeForRegex(primaryPrefix)}/`), { timeout: 15_000 });
   });
 
   test("creates, edits, and assigns an issue from the board UI and reflects it on the dashboard", async ({ page }) => {
@@ -103,7 +110,7 @@ test.describe.serial("board UI flows", () => {
 
     await expect(page.getByRole("dialog")).toBeHidden({ timeout: 15_000 });
 
-    const createdIssueLink = page.getByRole("link", { name: new RegExp(createdIssueTitle) });
+    const createdIssueLink = page.getByRole("link", { name: createdIssueTitle, exact: true });
     await expect(createdIssueLink).toBeVisible({ timeout: 15_000 });
     await createdIssueLink.click();
 
@@ -128,7 +135,7 @@ test.describe.serial("board UI flows", () => {
     await expect(page.getByRole("button", { name: "In Progress" }).first()).toBeVisible();
 
     await page.goto(`/${primaryPrefix}/dashboard`);
-    const tasksCard = page.getByRole("link", { name: /Tasks In Progress/ });
+    const tasksCard = page.getByRole("link", { name: "Tasks In Progress", exact: true });
     await expect(tasksCard).toContainText("1");
   });
 
@@ -140,7 +147,8 @@ test.describe.serial("board UI flows", () => {
     await page.goto(`/${primaryPrefix}/approvals/pending`);
     await expect(page.getByText(approvalTitle)).toBeVisible();
     await page.getByRole("button", { name: "Approve" }).click();
-    await expect(page).toHaveURL(new RegExp(`/approvals/${requireSeedValue(seed.approvalId, "approval id")}`));
+    const approvalId = requireSeedValue(seed.approvalId, "approval id");
+    await expect(page).toHaveURL(new RegExp(`/approvals/${escapeForRegex(approvalId)}`));
     await expect(page.getByText(/approved/i).first()).toBeVisible();
 
     await page.goto(`/${primaryPrefix}/company/settings`);
