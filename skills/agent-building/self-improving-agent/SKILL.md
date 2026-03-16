@@ -36,8 +36,6 @@ Every session starts cold. No memory of what broke last time. **Session amnesia*
 | Apply without verify | Rule changed without testing — scores drop silently |
 | Verify without iterate | Loop runs once — improvement never compounds |
 
-**The fix:** make all four phases mandatory. Skipping any one resets the loop to zero.
-
 ---
 
 ## The Four-Phase Loop {#the-four-phase-loop}
