@@ -9,6 +9,7 @@ import {
   agentWakeupRequests,
   issues,
   issueComments,
+  issueReadStates,
   projects,
   goals,
   heartbeatRuns,
@@ -100,6 +101,8 @@ export function companyService(db: Db) {
     remove: (id: string) =>
       db.transaction(async (tx) => {
         // Delete from child tables in dependency order
+        // activityLog has FK to heartbeatRuns — must delete first
+        await tx.delete(activityLog).where(eq(activityLog.companyId, id));
         await tx.delete(heartbeatRunEvents).where(eq(heartbeatRunEvents.companyId, id));
         await tx.delete(agentTaskSessions).where(eq(agentTaskSessions.companyId, id));
         await tx.delete(heartbeatRuns).where(eq(heartbeatRuns.companyId, id));
@@ -115,11 +118,12 @@ export function companyService(db: Db) {
         await tx.delete(invites).where(eq(invites.companyId, id));
         await tx.delete(principalPermissionGrants).where(eq(principalPermissionGrants.companyId, id));
         await tx.delete(companyMemberships).where(eq(companyMemberships.companyId, id));
+        // issueReadStates has FK to issues — must delete before issues
+        await tx.delete(issueReadStates).where(eq(issueReadStates.companyId, id));
         await tx.delete(issues).where(eq(issues.companyId, id));
         await tx.delete(goals).where(eq(goals.companyId, id));
         await tx.delete(projects).where(eq(projects.companyId, id));
         await tx.delete(agents).where(eq(agents.companyId, id));
-        await tx.delete(activityLog).where(eq(activityLog.companyId, id));
         const rows = await tx
           .delete(companies)
           .where(eq(companies.id, id))
