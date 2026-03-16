@@ -66,16 +66,7 @@ PostToolUse hook watches every tool call and classifies violations against `CLAU
 
 Threshold: **2+ occurrences** before creating an entry. One session = noise. Two = pattern.
 
-Entry format:
-```markdown
-## bash_instead_of_glob — 2026-03-10
-- **Frequency:** 3 in last 5 sessions
-- **Example:** Ran `ls -la` in Bash instead of Glob tool
-- **Rule at time:** "Use Glob for file discovery"
-- **Status:** active
-```
-
-→ Full structure, dedup logic, pruning schedule: [02-lessons-file.md](references/02-lessons-file.md)
+→ Entry format, dedup logic, pruning schedule: [02-lessons-file.md](references/02-lessons-file.md)
 
 ---
 
