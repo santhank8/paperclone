@@ -97,15 +97,6 @@ H2: [hypothesis] — TEST: [what to check]
 H3: [hypothesis] — TEST: [what to check]
 ```
 
-**Prompt Claude to run this loop:**
-
-```
-Debug [error] using a hypothesis-driven approach.
-Form 3 ranked hypotheses. Test H1 first — if disproved, move to H2.
-Do NOT attempt any fix until a hypothesis is confirmed as root cause.
-Record each hypothesis and result.
-```
-
 Prevents shotgun debugging: random changes, endless retries, Claude confidently "fixing" symptoms.
 
 → Full procedure + Agent tool delegation patterns: `references/hypothesis-loop.md`
