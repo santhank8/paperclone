@@ -46,11 +46,7 @@ See [01-glossary-template.md](references/01-glossary-template.md) for complete t
 
 ## Extracting Terms from an Existing Codebase
 
-Starting from scratch? Use the extraction workflow in [03-extraction-workflow.md](references/03-extraction-workflow.md) to:
-1. Parse code identifiers (class names, method names, DB columns)
-2. Scan docs and comments for domain language
-3. Run the extraction prompt to generate GLOSSARY.md candidates
-4. Prioritize: entities first, then actions, then statuses
+Starting from scratch? See [03-extraction-workflow.md](references/03-extraction-workflow.md) for a cold-start workflow: scan identifiers, scan docs, run the extraction prompt, prioritize by domain impact.
 
 ## Maintaining the Glossary
 
