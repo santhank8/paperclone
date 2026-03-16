@@ -40,21 +40,9 @@ Idea → Spec → Task Breakdown → Implementation Loop → Ship
 
 ## Core Files
 
-**CLAUDE.md** — The project brain. Invariants, architecture decisions, non-goals, anti-patterns. Claude reads this every session. If it's vague, Claude drifts.
+**CLAUDE.md** — Invariants, architecture decisions, anti-patterns. Claude reads this every session. Vague CLAUDE.md = drift.
 
-**TASK.md** — The backlog. Sequential spec steps with acceptance criteria, status tracking, and session state. Carries context across sessions so you never re-explain.
-
-```
-TASK.md structure:
-## Step N: [title]
-**Status:** todo | in_progress | done
-**Acceptance Criteria:**
-- [ ] Criterion 1
-- [ ] Criterion 2
-**Notes:** (what changed, blockers, decisions made)
-```
-
-Full templates: [03-phase2-spec-to-tasks.md](references/03-phase2-spec-to-tasks.md) and [07-claude-md-project-brain.md](references/07-claude-md-project-brain.md).
+**TASK.md** — Sequential spec steps with acceptance criteria and status. Carries context across sessions. Full templates in [03-phase2-spec-to-tasks.md](references/03-phase2-spec-to-tasks.md) and [07-claude-md-project-brain.md](references/07-claude-md-project-brain.md).
 
 ## Anti-Rationalization
 
