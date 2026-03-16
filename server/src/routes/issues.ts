@@ -81,10 +81,10 @@ export function issueRoutes(db: Db, storage: StorageService) {
     return false;
   }
 
-  function canCreateAgentsLegacy(agent: { permissions: Record<string, unknown> | null | undefined; role: string }) {
+  function canManageTasksLegacy(agent: { permissions: Record<string, unknown> | null | undefined; role: string }) {
     if (agent.role === "ceo") return true;
     if (!agent.permissions || typeof agent.permissions !== "object") return false;
-    return Boolean((agent.permissions as Record<string, unknown>).canCreateAgents);
+    return Boolean((agent.permissions as Record<string, unknown>).canManageTasks);
   }
 
   async function assertCanAssignTasks(req: Request, companyId: string) {
@@ -100,10 +100,141 @@ export function issueRoutes(db: Db, storage: StorageService) {
       const allowedByGrant = await access.hasPermission(companyId, "agent", req.actor.agentId, "tasks:assign");
       if (allowedByGrant) return;
       const actorAgent = await agentsSvc.getById(req.actor.agentId);
-      if (actorAgent && actorAgent.companyId === companyId && canCreateAgentsLegacy(actorAgent)) return;
+      if (actorAgent && actorAgent.companyId === companyId && canManageTasksLegacy(actorAgent)) return;
       throw forbidden("Missing permission: tasks:assign");
     }
     throw unauthorized();
+  }
+
+  function getIssueRunContextIssueId(contextSnapshot: unknown): string | null {
+    if (!contextSnapshot || typeof contextSnapshot !== "object") return null;
+    const issueId = (contextSnapshot as Record<string, unknown>).issueId;
+    return typeof issueId === "string" ? issueId : null;
+  }
+
+  async function resolveActiveRunForIssue(issue: {
+    id: string;
+    assigneeAgentId: string | null;
+    executionRunId: string | null;
+    status: string;
+  }) {
+    let run = issue.executionRunId ? await heartbeat.getRun(issue.executionRunId) : null;
+    if (run && run.status !== "queued" && run.status !== "running") {
+      run = null;
+    }
+    if (!run && issue.assigneeAgentId && issue.status === "in_progress") {
+      const candidateRun = await heartbeat.getActiveRunForAgent(issue.assigneeAgentId);
+      if (
+        candidateRun &&
+        (candidateRun.status === "queued" || candidateRun.status === "running") &&
+        getIssueRunContextIssueId(candidateRun.contextSnapshot) === issue.id
+      ) {
+        run = candidateRun;
+      }
+    }
+    return run;
+  }
+
+  async function logDeniedTaskControlAttempt(
+    req: Request,
+    issue: {
+      id: string;
+      companyId: string;
+      assigneeAgentId: string | null;
+      assigneeUserId: string | null;
+      status: string;
+      identifier: string | null;
+    },
+    details: Record<string, unknown>,
+  ) {
+    const actor = getActorInfo(req);
+    await logActivity(db, {
+      companyId: issue.companyId,
+      actorType: actor.actorType,
+      actorId: actor.actorId,
+      agentId: actor.agentId,
+      runId: actor.runId,
+      action: "issue.task_control_denied",
+      entityType: "issue",
+      entityId: issue.id,
+      details: {
+        identifier: issue.identifier,
+        issueStatus: issue.status,
+        currentAssigneeAgentId: issue.assigneeAgentId,
+        currentAssigneeUserId: issue.assigneeUserId,
+        ...details,
+      },
+    });
+  }
+
+  async function assertAgentCanManageTaskControl(
+    req: Request,
+    issue: {
+      id: string;
+      companyId: string;
+      assigneeAgentId: string | null;
+      assigneeUserId: string | null;
+      status: string;
+      identifier: string | null;
+    },
+    options: {
+      nextStatus: string;
+      nextAssigneeAgentId: string | null;
+      nextAssigneeUserId: string | null;
+    },
+  ) {
+    if (req.actor.type !== "agent") return;
+    const actorAgentId = req.actor.agentId;
+    if (!actorAgentId) throw forbidden("Agent authentication required");
+
+    const currentAssigneeAgentId = issue.assigneeAgentId;
+    const nextAssigneeAgentId = options.nextAssigneeAgentId;
+    const nextAssigneeUserId = options.nextAssigneeUserId;
+    const nextStatus = options.nextStatus;
+    const assigneeChanges =
+      currentAssigneeAgentId !== nextAssigneeAgentId || issue.assigneeUserId !== nextAssigneeUserId;
+    const cancelsTask = nextStatus === "cancelled";
+
+    const managedAgentId =
+      currentAssigneeAgentId && currentAssigneeAgentId !== actorAgentId && (assigneeChanges || cancelsTask)
+        ? currentAssigneeAgentId
+        : !currentAssigneeAgentId && nextAssigneeAgentId && nextAssigneeAgentId !== actorAgentId
+          ? nextAssigneeAgentId
+          : null;
+
+    if (!managedAgentId) return;
+
+    const allowedByGrant = await access.hasPermission(issue.companyId, "agent", actorAgentId, "tasks:assign");
+    const actorAgent = await agentsSvc.getById(actorAgentId);
+    const hasTaskManagementPermission =
+      !!actorAgent &&
+      actorAgent.companyId === issue.companyId &&
+      (allowedByGrant || canManageTasksLegacy(actorAgent));
+
+    if (!hasTaskManagementPermission) {
+      await logDeniedTaskControlAttempt(req, issue, {
+        source: "issue.update",
+        reason: "missing_permission",
+        managedAgentId,
+        requestedStatus: nextStatus,
+        requestedAssigneeAgentId: nextAssigneeAgentId,
+        requestedAssigneeUserId: nextAssigneeUserId,
+      });
+      throw forbidden("Missing permission: tasks:assign");
+    }
+
+    const chainOfCommand = await agentsSvc.getChainOfCommand(managedAgentId);
+    if (!chainOfCommand.some((manager) => manager.id === actorAgentId)) {
+      await logDeniedTaskControlAttempt(req, issue, {
+        source: "issue.update",
+        reason: "not_in_chain_of_command",
+        managedAgentId,
+        requestedStatus: nextStatus,
+        requestedAssigneeAgentId: nextAssigneeAgentId,
+        requestedAssigneeUserId: nextAssigneeUserId,
+      });
+      throw forbidden("Only an ancestor manager can cancel or reassign another agent's issue");
+    }
   }
 
   function requireAgentRunId(req: Request, res: Response) {
@@ -702,6 +833,16 @@ export function issueRoutes(db: Db, storage: StorageService) {
       !!existing.createdByUserId &&
       req.body.assigneeUserId === existing.createdByUserId;
 
+    const nextAssigneeAgentId =
+      req.body.assigneeAgentId !== undefined ? req.body.assigneeAgentId : existing.assigneeAgentId;
+    const nextAssigneeUserId =
+      req.body.assigneeUserId !== undefined ? req.body.assigneeUserId : existing.assigneeUserId;
+    const nextStatus = req.body.status ?? existing.status;
+    await assertAgentCanManageTaskControl(req, existing, {
+      nextStatus,
+      nextAssigneeAgentId,
+      nextAssigneeUserId,
+    });
     if (assigneeWillChange) {
       if (!isAgentReturningIssueToCreator) {
         await assertCanAssignTasks(req, existing.companyId);
@@ -772,6 +913,32 @@ export function issueRoutes(db: Db, storage: StorageService) {
       },
     });
 
+    const shouldInterruptManagedRun =
+      !!existing.assigneeAgentId &&
+      existing.assigneeAgentId !== actor.agentId &&
+      (req.body.status === "cancelled" || assigneeWillChange);
+    let interruptedRunId: string | null = null;
+    if (shouldInterruptManagedRun) {
+      const runToInterrupt = await resolveActiveRunForIssue(existing);
+      if (runToInterrupt && (runToInterrupt.status === "queued" || runToInterrupt.status === "running")) {
+        const cancelled = await heartbeat.cancelRun(runToInterrupt.id);
+        if (cancelled) {
+          interruptedRunId = cancelled.id;
+          await logActivity(db, {
+            companyId: cancelled.companyId,
+            actorType: actor.actorType,
+            actorId: actor.actorId,
+            agentId: actor.agentId,
+            runId: actor.runId,
+            action: "heartbeat.cancelled",
+            entityType: "heartbeat_run",
+            entityId: cancelled.id,
+            details: { agentId: cancelled.agentId, source: "issue_update_interrupt", issueId: existing.id },
+          });
+        }
+      }
+    }
+
     let comment = null;
     if (commentBody) {
       comment = await svc.addComment(id, commentBody, {
@@ -793,6 +960,7 @@ export function issueRoutes(db: Db, storage: StorageService) {
           bodySnippet: comment.body.slice(0, 120),
           identifier: issue.identifier,
           issueTitle: issue.title,
+          ...(interruptedRunId ? { interruptedRunId } : {}),
           ...(hasFieldChanges ? { updated: true } : {}),
         },
       });
