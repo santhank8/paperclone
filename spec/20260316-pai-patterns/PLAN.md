@@ -4,9 +4,9 @@
 Six patterns borrowed from danielmiessler/Personal_AI_Infrastructure (10K stars) adapted to our skill/agent ecosystem. These upgrade our skills from flat files to composable, testable, customizable, installable packages — and give our Research agent iterative depth.
 
 ## Status
-⬜ Not Started
+✅ Complete
 
-**Progress:** 5/6 steps
+**Progress:** 6/6 steps
 **Branch:** feat/pai-patterns
 **Depends on:** None
 
@@ -69,7 +69,7 @@ Step 5 (Evals) ── independent
 | 3 | Deep Investigation | ✅ | Step 1 | M |
 | 4 | Agent Composition from Traits | ✅ | None | M |
 | 5 | Evals Framework | ✅ | None | M |
-| 6 | Pack/Install Wizard | ⬜ | Steps 1, 2 | S |
+| 6 | Pack/Install Wizard | ✅ | Steps 1, 2 | S |
 
 ## Step Details
 
@@ -139,3 +139,4 @@ Step 5 (Evals) ── independent
 | 4 | 2026-03-16 | Agent Composition from Traits: 16 trait files (6 expertise + 6 personality + 4 approach), compose-agent.ts with --list/--task, README |
 | 3 | 2026-03-16 | Deep Investigation: 3-phase workflow (first/continuation/complete), vault convention, Research agent routing updated |
 | 5 | 2026-03-16 | Evals Framework: eval-runner.ts with trigger/output scoring, judge prompt, JSON results, /eval skill, 5 skills scored 80-89% |
+| 6 | 2026-03-16 | Pack/Install Wizard: publish-skill.ts generates INSTALL.md (5 phases) + VERIFY.md (trigger/no-fire/smoke), autonomous-agent re-published as proof |
