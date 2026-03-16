@@ -70,8 +70,6 @@ Before any destructive operation (file delete, git reset, database write), write
 
 A PostToolUse hook tracks consecutive tool failures via `error-count.txt`. After threshold (default: 3), it exits 1 — blocking further agent action — and writes a human-escalation comment.
 
-Three strikes: agent stops and asks for help instead of spiraling.
-
 → Full hook script + threshold config + error-count.txt format: `references/circuit-breaker-hook.md`
 
 ---
