@@ -13,8 +13,6 @@ Agents fail in three predictable ways. Each has a native hook that catches it:
 | Tool failures silently swallowed | PostToolUse | error-count.txt |
 | Risky operation with no rollback | PreToolUse | recovery.md checkpoint |
 
-Zero external dependencies. Three hooks, two files.
-
 ---
 
 ## Quick Setup
