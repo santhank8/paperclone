@@ -11,7 +11,11 @@ export async function llmCheck(config: PaperclipConfig): Promise<CheckResult> {
     };
   }
 
-  if (!config.llm.apiKey) {
+  const apiKey = config.llm.provider === "zai" && process.env.ZAI_API_KEY?.trim()
+    ? process.env.ZAI_API_KEY.trim()
+    : config.llm.apiKey;
+
+  if (!apiKey) {
     return {
       name: "LLM provider",
       status: "pass",
@@ -24,7 +28,7 @@ export async function llmCheck(config: PaperclipConfig): Promise<CheckResult> {
       const res = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
         headers: {
-          "x-api-key": config.llm.apiKey,
+          "x-api-key": apiKey,
           "anthropic-version": "2023-06-01",
           "content-type": "application/json",
         },
@@ -54,7 +58,7 @@ export async function llmCheck(config: PaperclipConfig): Promise<CheckResult> {
     } else if (config.llm.provider === "zai") {
       const endpoint = resolveZaiModelsEndpoint(process.env.ZAI_BASE_URL);
       const res = await fetch(endpoint, {
-        headers: { Authorization: `Bearer ${config.llm.apiKey}` },
+        headers: { Authorization: `Bearer ${apiKey}` },
       });
       if (res.ok) {
         return { name: "LLM provider", status: "pass", message: "Z.AI API key is valid" };
@@ -75,7 +79,7 @@ export async function llmCheck(config: PaperclipConfig): Promise<CheckResult> {
       };
     } else if (config.llm.provider === "openai") {
       const res = await fetch("https://api.openai.com/v1/models", {
-        headers: { Authorization: `Bearer ${config.llm.apiKey}` },
+        headers: { Authorization: `Bearer ${apiKey}` },
       });
       if (res.ok) {
         return { name: "LLM provider", status: "pass", message: "OpenAI API key is valid" };

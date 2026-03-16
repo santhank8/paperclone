@@ -7,16 +7,12 @@ import {
   DEPLOYMENT_MODES,
   SECRET_PROVIDERS,
   STORAGE_PROVIDERS,
+  resolveZaiModelsEndpoint,
   type AuthBaseUrlMode,
   type DeploymentExposure,
   type DeploymentMode,
   type SecretProvider,
   type StorageProvider,
-} from "@paperclipai/shared";
-import {
-  llmConfigSchema,
-  paperclipConfigSchema,
-  resolveZaiModelsEndpoint,
   type LlmConfig,
 } from "@paperclipai/shared";
 import { configExists, readConfig, resolveConfigPath, writeConfig } from "../config/store.js";
