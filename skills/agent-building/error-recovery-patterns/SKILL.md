@@ -52,13 +52,7 @@ Full hook scripts: `references/checkpoint-pattern.md`, `references/circuit-break
 
 ## The Three Failure Modes
 
-**State loss:** Agent crashes mid-task. No recovery manifest. Next session starts from scratch.
-
-**Tool failure:** Tool call fails silently, agent continues on corrupt state. Errors compound without detection.
-
-**Infinite retry:** Same failed call, same error, forever. Context fills with failure traces.
-
-Each failure mode has a distinct detection signal and a distinct hook response.
+State loss (crash), tool failure (silent), infinite retry (loop). Each has a distinct detection signal and hook response.
 
 → Full taxonomy + signal detection: `references/failure-modes.md`
 
