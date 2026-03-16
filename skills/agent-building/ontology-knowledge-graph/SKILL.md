@@ -38,33 +38,9 @@ The entity graph solves this with two files: `memory/ontology/graph.jsonl` (data
 
 ## The Data Model
 
-```typescript
-// Entity record — one JSON object per JSONL line
-interface EntityRecord {
-  _type: "entity";
-  id: string;           // stable, human-readable ("task-42", "alice-smith")
-  entityType: string;   // must match a type in schema.json
-  fields: Record<string, unknown>;
-  createdAt: string;    // ISO 8601
-  updatedAt: string;
-  deletedAt?: string;   // soft-delete only — never remove lines
-}
+Two record types in `graph.jsonl`: `EntityRecord` (typed node) and `RelationRecord` (typed edge). Full TypeScript interfaces in `references/01-schema-format.md`.
 
-// Relation record
-interface RelationRecord {
-  _type: "relation";
-  id: string;
-  relationName: string; // must match a relation in schema.json
-  sourceId: string;
-  targetId: string;
-  createdAt: string;
-  deletedAt?: string;
-}
-```
-
-**Append-only invariant:** Never delete or overwrite lines. Updates append a new record with the same `id` — last record wins when reading. Soft-delete via `deletedAt`. This gives concurrent-write safety and a full audit trail.
-
-To read the graph: load all lines → group by `id` → last record per id is current state.
+**Append-only invariant:** Never delete or overwrite lines. Updates append a new record with the same `id` — last record wins. Soft-delete via `deletedAt`. Full audit trail, concurrent-write safe.
 
 ---
 

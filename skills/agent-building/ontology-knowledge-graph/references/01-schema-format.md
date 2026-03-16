@@ -1,5 +1,31 @@
 # Schema Format
 
+## Record Interfaces
+
+```typescript
+interface EntityRecord {
+  _type: "entity";
+  id: string;           // stable, human-readable ("task-42", "alice-smith")
+  entityType: string;   // must match a type in schema.json
+  fields: Record<string, unknown>;
+  createdAt: string;    // ISO 8601
+  updatedAt: string;
+  deletedAt?: string;   // soft-delete only — never remove lines
+}
+
+interface RelationRecord {
+  _type: "relation";
+  id: string;
+  relationName: string; // must match a relation in schema.json
+  sourceId: string;
+  targetId: string;
+  createdAt: string;
+  deletedAt?: string;
+}
+```
+
+## Schema Structure
+
 The schema file defines valid entity types, their fields, and valid relation types between them.
 
 ## Schema JSON Structure
