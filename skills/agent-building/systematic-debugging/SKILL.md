@@ -115,15 +115,7 @@ Surface errors (`undefined`, `NullPointerException`, `500`) almost never describ
 
 A PostToolUse hook on Bash writes each debugging attempt to `debug-log.md` in your project root. Never repeat a dead end. Feed the self-improving loop.
 
-**Log format:**
-```
-[2026-03-16 14:23] H1 DISPROVED: checked state at line 42, X is populated
-[2026-03-16 14:31] H2 CONFIRMED: input validation returns false on empty string
-[2026-03-16 14:35] Root cause: empty string not handled in validateInput()
-[2026-03-16 14:40] Fix applied: added guard + regression test added
-```
-
-→ Full hook script + log maintenance: `references/debug-session-log.md`
+→ Full hook script + log format: `references/debug-session-log.md`
 
 ---
 
