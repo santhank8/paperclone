@@ -1,5 +1,6 @@
 ---
 name: eval
+context: fork
 description: Run skill evaluations. Triggers on: "/eval", "evaluate skill", "test skill quality", "benchmark skill", "run evals", "check skill score", "eval all skills". NOT for: writing test cases (use highimpact-skill-builder), QC review (use QC agent).
 ---
 

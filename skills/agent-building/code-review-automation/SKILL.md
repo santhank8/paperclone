@@ -1,6 +1,7 @@
 ---
 name: code-review-automation
 category: dev-workflow
+context: fork
 description: Use when running automated code reviews on PRs or diffs in Claude Code. Triggers on: "review my PR", "code review automation", "automated code review", "run a code review", "review this diff", "parallel code review", "security review before push", "pre-push review hook", "free alternative to Anthropic Code Review", "gh cli code review", "review PR #N", "set up automated PR reviews", "post review results to GitHub", "stack-specific code review". Also fires for: configuring review checklists, setting up PreToolUse auto-trigger, parallel sub-reviewer architecture. NOT for: general debugging, code explanation, writing unit tests (see tdd-workflow), or one-off file reading.
 ---
 

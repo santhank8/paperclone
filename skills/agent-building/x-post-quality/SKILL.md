@@ -1,6 +1,7 @@
 ---
 name: x-post-quality
 category: dev-workflow
+context: fork
 description: Review and fix X/Twitter post drafts before publishing. Checks for em dashes, AI-sounding language, engagement quality, character limits, and promotion-to-value ratio. Use when drafting tweets, reviewing a Notion marketing queue, or as a quality gate before posting. Triggers on: "review this tweet", "check my post", "fix this draft", "x post quality", "tweet review", "does this sound human", "marketing review", "post quality check". NOT for: writing tweets from scratch, scheduling posts, or X API configuration.
 ---
 
