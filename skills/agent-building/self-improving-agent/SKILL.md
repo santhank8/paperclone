@@ -66,8 +66,6 @@ Threshold: **2+ occurrences** before creating an entry. One session = noise. Two
 
 ## Phase 3 — Apply: Rule Refinement
 
-Group by violation type → find top 3 → diagnose why the rule failed → rewrite for specificity.
-
 **The rule test:** read it cold. Do you immediately know what to do? If ambiguous → the rule fails, regardless of how long it's been in `CLAUDE.md`.
 
 → Diagnosis patterns, before/after examples, update workflow: [03-rule-refinement.md](references/03-rule-refinement.md)
