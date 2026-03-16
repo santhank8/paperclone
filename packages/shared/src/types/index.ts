@@ -14,6 +14,14 @@ export type { AssetFile, AssetImage } from "./asset.js";
 export type { KnowledgeEntry } from "./knowledge.js";
 export type { Project, ProjectGoalRef, ProjectWorkspace, ProjectMilestone, WorkspaceCheckout } from "./project.js";
 export type {
+  WorkspaceRuntimeService,
+  ExecutionWorkspaceStrategyType,
+  ExecutionWorkspaceMode,
+  ExecutionWorkspaceStrategy,
+  ProjectExecutionWorkspacePolicy,
+  IssueExecutionWorkspaceSettings,
+} from "./workspace-runtime.js";
+export type {
   Issue,
   IssueActiveRun,
   IssuePageResult,
@@ -22,6 +30,11 @@ export type {
   IssueAssigneeAdapterOverrides,
   IssueReviewSubmission,
   IssueComment,
+  IssueDocument,
+  IssueDocumentSummary,
+  DocumentRevision,
+  DocumentFormat,
+  LegacyPlanDocument,
   IssueAncestor,
   IssueAncestorProject,
   IssueAncestorGoal,
