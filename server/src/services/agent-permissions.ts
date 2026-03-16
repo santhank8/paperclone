@@ -31,3 +31,19 @@ export function normalizeAgentPermissions(
         : defaults.canManageTasks,
   };
 }
+
+export function mergeAgentPermissions(
+  existingPermissions: unknown,
+  patch: { canCreateAgents: boolean; canManageTasks?: boolean },
+  role: string,
+): NormalizedAgentPermissions {
+  const existing = normalizeAgentPermissions(existingPermissions, role);
+  return normalizeAgentPermissions(
+    {
+      ...existing,
+      canCreateAgents: patch.canCreateAgents,
+      ...(typeof patch.canManageTasks === "boolean" ? { canManageTasks: patch.canManageTasks } : {}),
+    },
+    role,
+  );
+}

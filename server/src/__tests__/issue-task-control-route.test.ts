@@ -513,6 +513,37 @@ describe("PATCH /issues/:id task control", () => {
     expect(mockHeartbeatService.cancelRun).toHaveBeenCalledWith("run-1");
   });
 
+  it("does not look up or interrupt runs for idempotent done updates", async () => {
+    mockIssueService.getById.mockResolvedValue({
+      ...baseIssue,
+      status: "done",
+      completedAt: new Date("2026-03-16T18:30:00.000Z"),
+    });
+    mockAgentService.getById.mockResolvedValue({
+      id: "agent-ceo",
+      companyId: "company-1",
+      role: "ceo",
+      permissions: { canCreateAgents: true, canManageTasks: true },
+    });
+
+    const res = await request(
+      createApp({
+        type: "agent",
+        agentId: "agent-ceo",
+        companyId: "company-1",
+        runId: "run-ceo",
+        source: "agent_key",
+      }),
+    )
+      .patch("/api/issues/issue-1")
+      .send({ status: "done" });
+
+    expect(res.status).toBe(200);
+    expect(mockHeartbeatService.getRun).not.toHaveBeenCalled();
+    expect(mockHeartbeatService.getActiveRunForAgent).not.toHaveBeenCalled();
+    expect(mockHeartbeatService.cancelRun).not.toHaveBeenCalled();
+  });
+
   it("still updates the issue when cancelling the managed run throws", async () => {
     mockAgentService.getById.mockResolvedValue({
       id: "agent-ceo",

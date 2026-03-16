@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { defaultPermissionsForRole, normalizeAgentPermissions } from "../services/agent-permissions.js";
+import { defaultPermissionsForRole, mergeAgentPermissions, normalizeAgentPermissions } from "../services/agent-permissions.js";
 
 describe("agent task-management permissions", () => {
   it("defaults CEOs to task-management access", () => {
@@ -24,6 +24,19 @@ describe("agent task-management permissions", () => {
       ),
     ).toEqual({
       canCreateAgents: false,
+      canManageTasks: true,
+    });
+  });
+
+  it("preserves existing canManageTasks when omitted from an update patch", () => {
+    expect(
+      mergeAgentPermissions(
+        { canCreateAgents: false, canManageTasks: true },
+        { canCreateAgents: true },
+        "manager",
+      ),
+    ).toEqual({
+      canCreateAgents: true,
       canManageTasks: true,
     });
   });

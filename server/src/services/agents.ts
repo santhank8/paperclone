@@ -13,7 +13,7 @@ import {
 } from "@paperclipai/db";
 import { isUuidLike, normalizeAgentUrlKey } from "@paperclipai/shared";
 import { conflict, notFound, unprocessable } from "../errors.js";
-import { normalizeAgentPermissions } from "./agent-permissions.js";
+import { mergeAgentPermissions, normalizeAgentPermissions } from "./agent-permissions.js";
 import { REDACTED_EVENT_VALUE, sanitizeRecord } from "../redaction.js";
 
 function hashToken(token: string) {
@@ -444,14 +444,14 @@ export function agentService(db: Db) {
       return updated ? normalizeAgentRow(updated) : null;
     },
 
-    updatePermissions: async (id: string, permissions: { canCreateAgents: boolean; canManageTasks: boolean }) => {
+    updatePermissions: async (id: string, permissions: { canCreateAgents: boolean; canManageTasks?: boolean }) => {
       const existing = await getById(id);
       if (!existing) return null;
 
       const updated = await db
         .update(agents)
         .set({
-          permissions: normalizeAgentPermissions(permissions, existing.role),
+          permissions: mergeAgentPermissions(existing.permissions, permissions, existing.role),
           updatedAt: new Date(),
         })
         .where(eq(agents.id, id))

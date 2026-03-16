@@ -177,6 +177,13 @@ export function issueRoutes(db: Db, storage: StorageService) {
     });
   }
 
+  function isManagedTerminalStatusTransition(requestedStatus: string | undefined, currentStatus: string) {
+    return (
+      (requestedStatus === "cancelled" || requestedStatus === "done") &&
+      currentStatus !== requestedStatus
+    );
+  }
+
   async function assertAgentCanManageTaskControl(
     req: Request,
     issue: {
@@ -201,9 +208,7 @@ export function issueRoutes(db: Db, storage: StorageService) {
     const nextAssigneeAgentId = options.nextAssigneeAgentId;
     const nextAssigneeUserId = options.nextAssigneeUserId;
     const assigneeChanges = currentAssigneeAgentId !== nextAssigneeAgentId;
-    const terminatesTask =
-      (options.requestedStatus === "cancelled" || options.requestedStatus === "done") &&
-      issue.status !== options.requestedStatus;
+    const terminatesTask = isManagedTerminalStatusTransition(options.requestedStatus, issue.status);
 
     const managedAgentId =
       currentAssigneeAgentId && currentAssigneeAgentId !== actorAgentId && (assigneeChanges || terminatesTask)
@@ -925,7 +930,7 @@ export function issueRoutes(db: Db, storage: StorageService) {
     const shouldInterruptManagedRun =
       !!existing.assigneeAgentId &&
       existing.assigneeAgentId !== actor.agentId &&
-      ((req.body.status === "cancelled" || req.body.status === "done") || assigneeAgentWillChange);
+      (isManagedTerminalStatusTransition(req.body.status, existing.status) || assigneeAgentWillChange);
     let interruptedRunId: string | null = null;
     if (shouldInterruptManagedRun) {
       try {
