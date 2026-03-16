@@ -63,15 +63,10 @@ When you see drift:
 
 ## Unattended Execution (Autonomous Mode)
 
-For well-specified steps (M size, clear acceptance criteria, no ambiguity):
-> "Implement Step N through Step M autonomously. After each step: verify acceptance criteria are met, update TASK.md status, then proceed to the next step. Pause before Step N+3 for my review."
+For well-specified steps (M size, clear criteria, no ambiguity):
+> "Implement Step N through Step M autonomously. Verify criteria, update TASK.md, proceed. Pause at Step M+1 for review."
 
-Set a review checkpoint. Let Claude run the loop. Check in at the checkpoint.
-
-Only use autonomous mode when:
-- Acceptance criteria are explicit and testable
-- You trust the step is scoped correctly
-- You've reviewed the plan mode output
+Only use when criteria are explicit, step is correctly scoped, and you've reviewed plan mode output first.
 
 ## Checklist: Per Step Done
 
