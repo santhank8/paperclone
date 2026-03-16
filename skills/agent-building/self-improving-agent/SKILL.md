@@ -74,8 +74,6 @@ Threshold: **2+ occurrences** before creating an entry. One session = noise. Two
 
 ## Phase 4 — Verify: Keep/Discard Loop
 
-Run the same test cases before and after every change. Score on two dimensions:
-
 | Metric | Keep if... |
 |---|---|
 | Trigger test pass rate | ≥80% (no regression from baseline) |
