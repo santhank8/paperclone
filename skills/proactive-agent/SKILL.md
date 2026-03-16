@@ -91,14 +91,7 @@ Stop hook saves state before session ends. SessionStart hook restores it and dra
 
 ---
 
-## End-to-End Example
+## References
 
-PR + issue monitor: polls hourly, detects new items since last check, posts morning digest, silent otherwise.
-
-→ [04-end-to-end-monitor.md](references/04-end-to-end-monitor.md)
-
----
-
-## Anti-Patterns
-
-→ [05-anti-patterns.md](references/05-anti-patterns.md)
+- [04-end-to-end-monitor.md](references/04-end-to-end-monitor.md) — Complete PR + issue monitor: hourly collect, morning digest, Stop/SessionStart hooks
+- [05-anti-patterns.md](references/05-anti-patterns.md) — Over-polling, blocking loops, recursive hooks, noisy heartbeats + rate safety checklist
