@@ -938,7 +938,11 @@ export function heartbeatService(db: Db) {
     const cwd = resolveDefaultAgentWorkspaceDir(agent.id);
     await fs.mkdir(cwd, { recursive: true });
     const warnings: string[] = [];
-    if (sessionCwd) {
+    if (agentConfigCwd) {
+      warnings.push(
+        `Configured agent workspace path "${agentConfigCwd}" is not available. Using fallback workspace "${cwd}" for this run.`,
+      );
+    } else if (sessionCwd) {
       warnings.push(
         `Saved session workspace "${sessionCwd}" is not available. Using fallback workspace "${cwd}" for this run.`,
       );
