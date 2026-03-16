@@ -1,8 +1,10 @@
+import { PgDialect } from "drizzle-orm/pg-core";
 import { describe, expect, it } from "vitest";
 import {
   deriveIssueUserContext,
   normalizeIssuePageFilters,
   shouldReleaseIssueCheckouts,
+  terminalAgeCondition,
 } from "../services/issues.ts";
 
 function makeIssue(overrides?: Partial<{
@@ -194,5 +196,29 @@ describe("normalizeIssuePageFilters", () => {
       pageSize: 100,
       terminalAgeHours: null,
     });
+  });
+});
+
+describe("terminalAgeCondition", () => {
+  const dialect = new PgDialect();
+
+  it("serializes cutoff bindings as ISO strings for the terminal-age SQL fragment", () => {
+    const now = new Date("2026-03-16T12:00:00.000Z");
+    const condition = terminalAgeCondition(24, now);
+
+    expect(condition).not.toBeNull();
+
+    // The regression here was caused by passing raw Date bindings into postgres-js
+    // inside the SQL fragment; keep the bound cutoff text-only.
+    const { params } = dialect.sqlToQuery(condition!);
+
+    expect(params).toContain("2026-03-15T12:00:00.000Z");
+    expect(params.some((value) => value instanceof Date)).toBe(false);
+  });
+
+  it("returns null when terminal-age filtering is disabled", () => {
+    const now = new Date("2026-03-16T12:00:00.000Z");
+    expect(terminalAgeCondition(null, now)).toBeNull();
+    expect(terminalAgeCondition(undefined, now)).toBeNull();
   });
 });

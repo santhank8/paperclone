@@ -56,12 +56,25 @@ describe.sequential("governance integration", () => {
     expect(approved.body.status).toBe("approved");
 
     const wakeRun = await waitForCondition("approval wakeup run", async () => {
-      return harness.db
+      const runs = await harness.db
         .select()
         .from(heartbeatRuns)
         .where(and(eq(heartbeatRuns.companyId, company.id as string), eq(heartbeatRuns.agentId, manager.id as string)))
-        .orderBy(desc(heartbeatRuns.createdAt))
-        .then((rows) => rows[0] ?? null);
+        .orderBy(desc(heartbeatRuns.createdAt));
+
+      return (
+        runs.find((row) => {
+          const snapshot =
+            row.contextSnapshot && typeof row.contextSnapshot === "object"
+              ? (row.contextSnapshot as Record<string, unknown>)
+              : null;
+          return (
+            snapshot?.approvalId === approval.id &&
+            snapshot?.issueId === issue.id &&
+            snapshot?.wakeReason === "approval_approved"
+          );
+        }) ?? null
+      );
     });
     expect(wakeRun.contextSnapshot).toMatchObject({
       approvalId: approval.id,
