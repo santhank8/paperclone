@@ -147,4 +147,21 @@ export const agentsApi = {
     api.post<{ id: string; agentId: string; role: "user" | "assistant"; content: string; metadata?: Record<string, any>; createdAt: string }>(agentPath(id, companyId, "/chat"), { message }),
   generateAgentConfig: (data: { role: string; context?: string }) =>
     api.post<{ name: string; role: string; instructions: string; icon: string }>("/agents/ai-generate", data),
+  // Team member creation (CEO agent creates child agents)
+  createTeamMember: (
+    companyId: string,
+    ceoAgentId: string,
+    data: {
+      name: string;
+      role: string;
+      description?: string;
+      llmProvider: string;
+      llmModel: string;
+      adapterType?: string;
+      adapterConfig?: Record<string, unknown>;
+    },
+  ) =>
+    api.post<Agent>(`/companies/${companyId}/agents/${ceoAgentId}/create-team-member`, data),
+  listTeamMembers: (companyId: string, ceoAgentId: string) =>
+    api.get<Agent[]>(`/companies/${companyId}/agents/${ceoAgentId}/team-members`),
 };

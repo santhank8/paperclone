@@ -749,6 +749,123 @@ export function agentRoutes(db: Db) {
     res.status(201).json(agent);
   });
 
+  /**
+   * POST /companies/:companyId/agents/:ceoAgentId/create-team-member
+   * CEO agent creates a new team member agent
+   */
+  router.post("/companies/:companyId/agents/:ceoAgentId/create-team-member", async (req, res) => {
+    try {
+      const companyId = req.params.companyId as string;
+      const ceoAgentId = req.params.ceoAgentId as string;
+      assertCompanyAccess(req, companyId);
+
+      // Verify CEO agent exists and belongs to this company
+      const ceoAgent = await svc.getById(ceoAgentId);
+      if (!ceoAgent) {
+        res.status(404).json({ error: "CEO agent not found" });
+        return;
+      }
+      if (ceoAgent.companyId !== companyId) {
+        res.status(403).json({ error: "CEO agent does not belong to this company" });
+        return;
+      }
+      if (ceoAgent.role !== "ceo") {
+        res.status(403).json({ error: "Only CEO agents can create team members" });
+        return;
+      }
+
+      // Validate request body
+      const { name, role, description, llmProvider, llmModel, adapterType = "process", adapterConfig = {} } = req.body;
+      if (!name || !role || !llmProvider || !llmModel) {
+        res.status(400).json({ error: "name, role, llmProvider, and llmModel are required" });
+        return;
+      }
+
+      // Normalize adapter config for persistence (similar to main agent creation)
+      const requestedAdapterConfig = {
+        ...adapterConfig,
+        llmProvider,
+        llmModel,
+      } as Record<string, unknown>;
+      const normalizedAdapterConfig = await secretsSvc.normalizeAdapterConfigForPersistence(
+        companyId,
+        requestedAdapterConfig,
+        { strictMode: strictSecretsMode },
+      );
+
+      // Create the new team member agent
+      const teamMember = await svc.create(companyId, {
+        name,
+        role,
+        title: role,
+        adapterType,
+        adapterConfig: normalizedAdapterConfig,
+        status: "idle",
+        spentMonthlyCents: 0,
+        lastHeartbeatAt: null,
+        parentAgentId: ceoAgentId,
+        createdByAgent: 1,
+        runtimeConfig: {},
+        metadata: description ? { description } : {},
+      });
+
+      // Log activity
+      const actor = getActorInfo(req);
+      await logActivity(db, {
+        companyId,
+        actorType: actor.actorType,
+        actorId: actor.actorId,
+        agentId: actor.agentId,
+        runId: actor.runId,
+        action: "agent.team_member_created",
+        entityType: "agent",
+        entityId: teamMember.id,
+        details: {
+          name: teamMember.name,
+          role: teamMember.role,
+          parentAgentId: ceoAgentId,
+        },
+      });
+
+      res.status(201).json(teamMember);
+    } catch (error: any) {
+      res.status(500).json({ error: error?.message || "Failed to create team member" });
+    }
+  });
+
+  /**
+   * GET /companies/:companyId/agents/:ceoAgentId/team-members
+   * Get all team members created by a CEO agent
+   */
+  router.get("/companies/:companyId/agents/:ceoAgentId/team-members", async (req, res) => {
+    try {
+      const companyId = req.params.companyId as string;
+      const ceoAgentId = req.params.ceoAgentId as string;
+      assertCompanyAccess(req, companyId);
+
+      // Verify CEO agent exists
+      const ceoAgent = await svc.getById(ceoAgentId);
+      if (!ceoAgent) {
+        res.status(404).json({ error: "CEO agent not found" });
+        return;
+      }
+      if (ceoAgent.companyId !== companyId) {
+        res.status(403).json({ error: "CEO agent does not belong to this company" });
+        return;
+      }
+
+      // Get all team members (agents where parentAgentId matches)
+      const teamMembers = await db
+        .select()
+        .from(agentsTable)
+        .where(and(eq(agentsTable.parentAgentId, ceoAgentId), eq(agentsTable.companyId, companyId)));
+
+      res.json(teamMembers);
+    } catch (error: any) {
+      res.status(500).json({ error: error?.message || "Failed to fetch team members" });
+    }
+  });
+
   router.patch("/agents/:id/permissions", validate(updateAgentPermissionsSchema), async (req, res) => {
     const id = req.params.id as string;
     const existing = await svc.getById(id);

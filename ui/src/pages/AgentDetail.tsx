@@ -173,12 +173,13 @@ function scrollToContainerBottom(container: ScrollContainer, behavior: ScrollBeh
   container.scrollTo({ top: container.scrollHeight, behavior });
 }
 
-type AgentDetailView = "overview" | "configure" | "runs" | "chat";
+type AgentDetailView = "overview" | "configure" | "runs" | "chat" | "team-members";
 
 function parseAgentDetailView(value: string | null): AgentDetailView {
   if (value === "configure" || value === "configuration") return "configure";
   if (value === "runs") return value;
   if (value === "chat") return value;
+  if (value === "team-members") return value;
   return "overview";
 }
 
@@ -481,6 +482,16 @@ export function AgentDetail() {
             <MessageSquare className="h-3.5 w-3.5 sm:mr-1" />
             <span className="hidden sm:inline">Chat</span>
           </Button>
+          {agent.role === "ceo" && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigate(`/agents/${canonicalAgentRef}/team-members`)}
+            >
+              <Plus className="h-3.5 w-3.5 sm:mr-1" />
+              <span className="hidden sm:inline">Team</span>
+            </Button>
+          )}
           {agent.status === "paused" ? (
             <Button
               variant="outline"
@@ -682,6 +693,14 @@ export function AgentDetail() {
 
       {activeView === "chat" && (
         <AgentChat agentId={agent.id} />
+      )}
+
+      {activeView === "team-members" && agent.role === "ceo" && resolvedCompanyId && (
+        <TeamMembersTab
+          ceoAgentId={agent.id}
+          companyId={resolvedCompanyId}
+          agentRouteId={canonicalAgentRef}
+        />
       )}
     </div>
   );
@@ -2485,6 +2504,207 @@ function KeysTab({ agentId, companyId }: { agentId: string; companyId?: string }
               </div>
             ))}
           </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ---- Team Members Tab (CEO Agent) ---- */
+
+function TeamMembersTab({
+  ceoAgentId,
+  companyId,
+  agentRouteId,
+}: {
+  ceoAgentId: string;
+  companyId: string;
+  agentRouteId: string;
+}) {
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [formData, setFormData] = useState({
+    name: "",
+    role: "",
+    description: "",
+    llmProvider: "openrouter",
+    llmModel: "claude-3-5-sonnet",
+  });
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+
+  const { data: teamMembers, isLoading } = useQuery({
+    queryKey: queryKeys.agents.teamMembers(companyId, ceoAgentId),
+    queryFn: () => agentsApi.listTeamMembers(companyId, ceoAgentId),
+    enabled: !!ceoAgentId,
+  });
+
+  const createMember = useMutation({
+    mutationFn: (data: typeof formData) =>
+      agentsApi.createTeamMember(companyId, ceoAgentId, data),
+    onSuccess: (newAgent: Agent) => {
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.agents.teamMembers(companyId, ceoAgentId),
+      });
+      setShowCreateForm(false);
+      setFormData({
+        name: "",
+        role: "",
+        description: "",
+        llmProvider: "openrouter",
+        llmModel: "claude-3-5-sonnet",
+      });
+      navigate(`/agents/${newAgent.id}`);
+    },
+  });
+
+  const handleCreate = () => {
+    if (!formData.name || !formData.role || !formData.llmProvider || !formData.llmModel) {
+      alert("Please fill in all required fields");
+      return;
+    }
+    createMember.mutate(formData);
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <Loader2 className="h-8 w-8 text-muted-foreground animate-spin" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h2 className="text-xl font-bold">Team Members</h2>
+        <Button
+          variant="default"
+          size="sm"
+          onClick={() => setShowCreateForm(!showCreateForm)}
+        >
+          <Plus className="h-4 w-4 mr-2" />
+          Create Team Member
+        </Button>
+      </div>
+
+      {showCreateForm && (
+        <div className="border rounded-lg p-6 bg-muted/30 space-y-4">
+          <h3 className="font-semibold">New Team Member</h3>
+          <div className="space-y-3">
+            <div>
+              <label className="text-sm font-medium">Name</label>
+              <Input
+                placeholder="Team member name"
+                value={formData.name}
+                onChange={(e) =>
+                  setFormData({ ...formData, name: e.target.value })
+                }
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Role</label>
+              <Input
+                placeholder="e.g., Developer, Designer, Manager"
+                value={formData.role}
+                onChange={(e) =>
+                  setFormData({ ...formData, role: e.target.value })
+                }
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Description</label>
+              <Input
+                placeholder="What will this team member do?"
+                value={formData.description}
+                onChange={(e) =>
+                  setFormData({ ...formData, description: e.target.value })
+                }
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium">LLM Provider</label>
+              <select
+                value={formData.llmProvider}
+                onChange={(e) =>
+                  setFormData({ ...formData, llmProvider: e.target.value })
+                }
+                className="w-full px-3 py-2 border rounded-md text-sm bg-background"
+              >
+                <option value="openrouter">OpenRouter</option>
+                <option value="anthropic">Anthropic</option>
+                <option value="openai">OpenAI</option>
+                <option value="ollama">Ollama</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-sm font-medium">LLM Model</label>
+              <Input
+                placeholder="e.g., claude-3-5-sonnet, gpt-4"
+                value={formData.llmModel}
+                onChange={(e) =>
+                  setFormData({ ...formData, llmModel: e.target.value })
+                }
+              />
+            </div>
+          </div>
+          <div className="flex gap-2 pt-4">
+            <Button
+              onClick={handleCreate}
+              disabled={createMember.isPending}
+            >
+              {createMember.isPending ? "Creating..." : "Create"}
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => setShowCreateForm(false)}
+              disabled={createMember.isPending}
+            >
+              Cancel
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {teamMembers && teamMembers.length === 0 ? (
+        <div className="border rounded-lg p-12 text-center bg-muted/20">
+          <p className="text-muted-foreground">No team members created yet.</p>
+          <Button
+            variant="outline"
+            size="sm"
+            className="mt-4"
+            onClick={() => setShowCreateForm(true)}
+          >
+            Create your first team member
+          </Button>
+        </div>
+      ) : (
+        <div className="grid gap-4">
+          {teamMembers?.map((member) => (
+            <div
+              key={member.id}
+              className="border rounded-lg p-4 hover:bg-muted/50 cursor-pointer transition-colors"
+              onClick={() => navigate(`/agents/${member.id}`)}
+            >
+              <div className="flex items-start justify-between">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <AgentIcon icon={member.icon} className="h-5 w-5" />
+                    <h3 className="font-semibold truncate">{member.name}</h3>
+                    <StatusBadge status={member.status} />
+                  </div>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    {roleLabels[member.role] ?? member.role}
+                  </p>
+                  {member.metadata && typeof member.metadata === "object" && (member.metadata as any).description && (
+                    <p className="text-sm text-muted-foreground mt-2">
+                      {(member.metadata as any).description}
+                    </p>
+                  )}
+                </div>
+                <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+              </div>
+            </div>
+          ))}
         </div>
       )}
     </div>
