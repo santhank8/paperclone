@@ -2,7 +2,7 @@ import type { Db } from "@paperclipai/db";
 import { agents } from "@paperclipai/db";
 import { eq } from "drizzle-orm";
 import type { LiveEvent } from "@paperclipai/shared";
-import { subscribeAllLiveEvents } from "./live-events.js";
+import { subscribeGlobalLiveEvents } from "./live-events.js";
 import { pushNotificationService } from "./push-notifications.js";
 import { logger } from "../middleware/logger.js";
 
@@ -16,7 +16,7 @@ import { logger } from "../middleware/logger.js";
 export function startPushDispatcher(db: Db) {
   const pushSvc = pushNotificationService(db);
 
-  return subscribeAllLiveEvents((event) => {
+  return subscribeGlobalLiveEvents((event) => {
     handleEvent(db, pushSvc, event).catch((err) => {
       logger.warn({ err, eventType: event.type }, "push dispatcher error");
     });
