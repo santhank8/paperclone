@@ -1361,6 +1361,43 @@ export function heartbeatService(db: Db) {
     }
   }
 
+  async function setAgentStatusForPendingRetry(agentId: string) {
+    const existing = await getAgent(agentId);
+    if (!existing) return;
+
+    if (existing.status === "paused" || existing.status === "terminated") {
+      return;
+    }
+
+    const runningCount = await countRunningRunsForAgent(agentId);
+    const nextStatus = runningCount > 0 ? "running" : "active";
+    const updated = await db
+      .update(agents)
+      .set({
+        status: nextStatus,
+        lastHeartbeatAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(agents.id, agentId))
+      .returning()
+      .then((rows) => rows[0] ?? null);
+
+    if (updated) {
+      publishLiveEvent({
+        companyId: updated.companyId,
+        type: "agent.status",
+        payload: {
+          agentId: updated.id,
+          status: updated.status,
+          lastHeartbeatAt: updated.lastHeartbeatAt
+            ? new Date(updated.lastHeartbeatAt).toISOString()
+            : null,
+          outcome: "cancelled",
+        },
+      });
+    }
+  }
+
   async function reapOrphanedRuns(opts?: { staleThresholdMs?: number }) {
     const staleThresholdMs = opts?.staleThresholdMs ?? 0;
     const now = new Date();
@@ -1519,7 +1556,7 @@ export function heartbeatService(db: Db) {
           },
         });
 
-        await finalizeAgentStatus(run.agentId, "cancelled");
+        await setAgentStatusForPendingRetry(run.agentId);
         await startNextQueuedRunForAgent(run.agentId);
 
         const retryTimer = setTimeout(() => {
