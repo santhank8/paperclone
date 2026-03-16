@@ -1446,7 +1446,7 @@ export function agentRoutes(db: Db) {
       .where(
         and(
           eq(heartbeatRuns.companyId, companyId),
-          inArray(heartbeatRuns.status, ["queued", "running"]),
+          inArray(heartbeatRuns.status, ["queued", "running", "cancelling"]),
         ),
       )
       .orderBy(desc(heartbeatRuns.createdAt));
@@ -1460,7 +1460,7 @@ export function agentRoutes(db: Db) {
         .where(
           and(
             eq(heartbeatRuns.companyId, companyId),
-            not(inArray(heartbeatRuns.status, ["queued", "running"])),
+            not(inArray(heartbeatRuns.status, ["queued", "running", "cancelling"])),
             ...(activeIds.length > 0 ? [not(inArray(heartbeatRuns.id, activeIds))] : []),
           ),
         )
@@ -1498,7 +1498,11 @@ export function agentRoutes(db: Db) {
         action: "heartbeat.cancelled",
         entityType: "heartbeat_run",
         entityId: run.id,
-        details: { agentId: run.agentId },
+        details: {
+          agentId: run.agentId,
+          status: run.status,
+          outcome: run.status === "cancelled" ? "completed" : "requested",
+        },
       });
     }
 
@@ -1574,7 +1578,7 @@ export function agentRoutes(db: Db) {
       .where(
         and(
           eq(heartbeatRuns.companyId, issue.companyId),
-          inArray(heartbeatRuns.status, ["queued", "running"]),
+          inArray(heartbeatRuns.status, ["queued", "running", "cancelling"]),
           sql`${heartbeatRuns.contextSnapshot} ->> 'issueId' = ${issue.id}`,
         ),
       )
@@ -1595,7 +1599,7 @@ export function agentRoutes(db: Db) {
     assertCompanyAccess(req, issue.companyId);
 
     let run = issue.executionRunId ? await heartbeat.getRun(issue.executionRunId) : null;
-    if (run && run.status !== "queued" && run.status !== "running") {
+    if (run && run.status !== "queued" && run.status !== "running" && run.status !== "cancelling") {
       run = null;
     }
 

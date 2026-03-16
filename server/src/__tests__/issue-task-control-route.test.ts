@@ -17,6 +17,8 @@ const mockAgentService = vi.hoisted(() => ({
 const mockHeartbeatService = vi.hoisted(() => ({
   getRun: vi.fn(),
   getActiveRunForAgent: vi.fn(),
+  requestRunCancellation: vi.fn(),
+  dispatchRunCancellation: vi.fn(),
   cancelRun: vi.fn(),
   wakeup: vi.fn(),
 }));
@@ -121,6 +123,18 @@ describe("PATCH /issues/:id task control", () => {
       contextSnapshot: { issueId: "issue-1" },
     });
     mockHeartbeatService.getActiveRunForAgent.mockReset().mockResolvedValue(null);
+    mockHeartbeatService.requestRunCancellation.mockReset().mockResolvedValue({
+      runId: "run-1",
+      companyId: "company-1",
+      agentId: "agent-subordinate",
+      requestedStatus: "cancelling",
+    });
+    mockHeartbeatService.dispatchRunCancellation.mockReset().mockResolvedValue({
+      id: "run-1",
+      companyId: "company-1",
+      agentId: "agent-subordinate",
+      status: "cancelled",
+    });
     mockHeartbeatService.cancelRun.mockReset().mockResolvedValue({
       id: "run-1",
       companyId: "company-1",
@@ -130,13 +144,26 @@ describe("PATCH /issues/:id task control", () => {
     mockHeartbeatService.wakeup.mockReset().mockResolvedValue(null);
     mockIssueService.getById.mockReset().mockResolvedValue(baseIssue);
     mockIssueService.getByIdentifier.mockReset().mockResolvedValue(null);
-    mockIssueService.update.mockReset().mockImplementation(async (_id, patch) => ({
-      ...baseIssue,
-      ...patch,
-      assigneeAgentId: patch.assigneeAgentId ?? baseIssue.assigneeAgentId,
-      assigneeUserId: patch.assigneeUserId ?? baseIssue.assigneeUserId,
-      status: patch.status ?? baseIssue.status,
-    }));
+    mockIssueService.update.mockReset().mockImplementation(async (_id, patch, opts) => {
+      const updated = {
+        ...baseIssue,
+        ...patch,
+        assigneeAgentId: patch.assigneeAgentId ?? baseIssue.assigneeAgentId,
+        assigneeUserId: patch.assigneeUserId ?? baseIssue.assigneeUserId,
+        status: patch.status ?? baseIssue.status,
+      };
+      if (opts?.afterUpdateTx) {
+        await opts.afterUpdateTx({
+          tx: {} as any,
+          existing: baseIssue,
+          updated,
+          patch,
+          nextAssigneeAgentId: updated.assigneeAgentId,
+          nextAssigneeUserId: updated.assigneeUserId,
+        });
+      }
+      return updated;
+    });
     mockIssueService.addComment.mockReset().mockResolvedValue({
       id: "comment-1",
       body: "ok",
@@ -170,8 +197,26 @@ describe("PATCH /issues/:id task control", () => {
 
     expect(res.status).toBe(200);
     expect(res.body.status).toBe("cancelled");
-    expect(mockIssueService.update).toHaveBeenCalledWith("issue-1", { status: "cancelled" });
-    expect(mockHeartbeatService.cancelRun).toHaveBeenCalledWith("run-1");
+    expect(mockIssueService.update).toHaveBeenCalledWith("issue-1", { status: "cancelled" }, expect.anything());
+    expect(mockHeartbeatService.requestRunCancellation).toHaveBeenCalledWith("run-1", expect.objectContaining({ tx: expect.anything() }));
+    expect(mockHeartbeatService.dispatchRunCancellation).toHaveBeenCalledWith(
+      expect.objectContaining({ runId: "run-1", requestedStatus: "cancelling" }),
+    );
+    expect(mockLogActivity).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        action: "issue.updated",
+        entityType: "issue",
+        entityId: "issue-1",
+        details: expect.objectContaining({
+          managedRunInterruption: {
+            runId: "run-1",
+            requestedStatus: "cancelling",
+            outcome: "completed",
+          },
+        }),
+      }),
+    );
     expect(mockLogActivity).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({ action: "heartbeat.cancelled", entityType: "heartbeat_run", entityId: "run-1" }),
@@ -205,8 +250,11 @@ describe("PATCH /issues/:id task control", () => {
     expect(res.body.assigneeAgentId).toBe("00000000-0000-4000-8000-000000000002");
     expect(mockIssueService.update).toHaveBeenCalledWith("issue-1", {
       assigneeAgentId: "00000000-0000-4000-8000-000000000002",
-    });
-    expect(mockHeartbeatService.cancelRun).toHaveBeenCalledWith("run-1");
+    }, expect.anything());
+    expect(mockHeartbeatService.requestRunCancellation).toHaveBeenCalledWith("run-1", expect.objectContaining({ tx: expect.anything() }));
+    expect(mockHeartbeatService.dispatchRunCancellation).toHaveBeenCalledWith(
+      expect.objectContaining({ runId: "run-1", requestedStatus: "cancelling" }),
+    );
   });
 
   it("preserves legacy canCreateAgents-based task control for ancestor managers", async () => {
@@ -235,8 +283,11 @@ describe("PATCH /issues/:id task control", () => {
     expect(res.status).toBe(200);
     expect(mockIssueService.update).toHaveBeenCalledWith("issue-1", {
       assigneeAgentId: "00000000-0000-4000-8000-000000000003",
-    });
-    expect(mockHeartbeatService.cancelRun).toHaveBeenCalledWith("run-1");
+    }, expect.anything());
+    expect(mockHeartbeatService.requestRunCancellation).toHaveBeenCalledWith("run-1", expect.objectContaining({ tx: expect.anything() }));
+    expect(mockHeartbeatService.dispatchRunCancellation).toHaveBeenCalledWith(
+      expect.objectContaining({ runId: "run-1", requestedStatus: "cancelling" }),
+    );
   });
 
   it("does not require chain-of-command for first assignment of an unowned issue", async () => {
@@ -277,8 +328,9 @@ describe("PATCH /issues/:id task control", () => {
     expect(res.status).toBe(200);
     expect(mockIssueService.update).toHaveBeenCalledWith("issue-1", {
       assigneeAgentId: "00000000-0000-4000-8000-000000000004",
-    });
-    expect(mockHeartbeatService.cancelRun).not.toHaveBeenCalled();
+    }, expect.anything());
+    expect(mockHeartbeatService.requestRunCancellation).not.toHaveBeenCalled();
+    expect(mockHeartbeatService.dispatchRunCancellation).not.toHaveBeenCalled();
     expect(mockAgentService.getChainOfCommand).not.toHaveBeenCalled();
   });
 
@@ -385,6 +437,18 @@ describe("PATCH /issues/:id task control", () => {
       agentId: "agent-subordinate",
       status: "cancelled",
     });
+    mockHeartbeatService.requestRunCancellation.mockResolvedValue({
+      runId: "run-fallback",
+      companyId: "company-1",
+      agentId: "agent-subordinate",
+      requestedStatus: "cancelling",
+    });
+    mockHeartbeatService.dispatchRunCancellation.mockResolvedValue({
+      id: "run-fallback",
+      companyId: "company-1",
+      agentId: "agent-subordinate",
+      status: "cancelled",
+    });
 
     const res = await request(
       createApp({
@@ -399,8 +463,13 @@ describe("PATCH /issues/:id task control", () => {
       .send({ status: "cancelled" });
 
     expect(res.status).toBe(200);
-    expect(mockHeartbeatService.getActiveRunForAgent).toHaveBeenCalledWith("agent-subordinate");
-    expect(mockHeartbeatService.cancelRun).toHaveBeenCalledWith("run-fallback");
+    expect(mockHeartbeatService.requestRunCancellation).toHaveBeenCalledWith(
+      "run-fallback",
+      expect.objectContaining({ tx: expect.anything() }),
+    );
+    expect(mockHeartbeatService.dispatchRunCancellation).toHaveBeenCalledWith(
+      expect.objectContaining({ runId: "run-fallback", requestedStatus: "cancelling" }),
+    );
   });
 
   it("does not interrupt when an agent updates its own issue", async () => {
@@ -428,8 +497,9 @@ describe("PATCH /issues/:id task control", () => {
       .send({ status: "cancelled" });
 
     expect(res.status).toBe(200);
-    expect(mockIssueService.update).toHaveBeenCalledWith("issue-1", { status: "cancelled" });
-    expect(mockHeartbeatService.cancelRun).not.toHaveBeenCalled();
+    expect(mockIssueService.update).toHaveBeenCalledWith("issue-1", { status: "cancelled" }, expect.anything());
+    expect(mockHeartbeatService.requestRunCancellation).not.toHaveBeenCalled();
+    expect(mockHeartbeatService.dispatchRunCancellation).not.toHaveBeenCalled();
   });
 
   it("does not apply the manager-only cancellation gate to unrelated updates on already-cancelled issues", async () => {
@@ -452,7 +522,7 @@ describe("PATCH /issues/:id task control", () => {
       .send({ priority: "high" });
 
     expect(res.status).toBe(200);
-    expect(mockIssueService.update).toHaveBeenCalledWith("issue-1", { priority: "high" });
+    expect(mockIssueService.update).toHaveBeenCalledWith("issue-1", { priority: "high" }, expect.anything());
     expect(mockLogActivity).not.toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({ action: "issue.task_control_denied" }),
@@ -483,8 +553,9 @@ describe("PATCH /issues/:id task control", () => {
       .send({ status: "cancelled" });
 
     expect(res.status).toBe(200);
-    expect(mockIssueService.update).toHaveBeenCalledWith("issue-1", { status: "cancelled" });
-    expect(mockHeartbeatService.cancelRun).not.toHaveBeenCalled();
+    expect(mockIssueService.update).toHaveBeenCalledWith("issue-1", { status: "cancelled" }, expect.anything());
+    expect(mockHeartbeatService.requestRunCancellation).not.toHaveBeenCalled();
+    expect(mockHeartbeatService.dispatchRunCancellation).not.toHaveBeenCalled();
   });
 
   it("requires chain-of-command and interrupts the run when another agent marks the issue done", async () => {
@@ -509,8 +580,11 @@ describe("PATCH /issues/:id task control", () => {
       .send({ status: "done" });
 
     expect(res.status).toBe(200);
-    expect(mockIssueService.update).toHaveBeenCalledWith("issue-1", { status: "done" });
-    expect(mockHeartbeatService.cancelRun).toHaveBeenCalledWith("run-1");
+    expect(mockIssueService.update).toHaveBeenCalledWith("issue-1", { status: "done" }, expect.anything());
+    expect(mockHeartbeatService.requestRunCancellation).toHaveBeenCalledWith("run-1", expect.objectContaining({ tx: expect.anything() }));
+    expect(mockHeartbeatService.dispatchRunCancellation).toHaveBeenCalledWith(
+      expect.objectContaining({ runId: "run-1", requestedStatus: "cancelling" }),
+    );
   });
 
   it("does not look up or interrupt runs for idempotent done updates", async () => {
@@ -541,10 +615,11 @@ describe("PATCH /issues/:id task control", () => {
     expect(res.status).toBe(200);
     expect(mockHeartbeatService.getRun).not.toHaveBeenCalled();
     expect(mockHeartbeatService.getActiveRunForAgent).not.toHaveBeenCalled();
-    expect(mockHeartbeatService.cancelRun).not.toHaveBeenCalled();
+    expect(mockHeartbeatService.requestRunCancellation).not.toHaveBeenCalled();
+    expect(mockHeartbeatService.dispatchRunCancellation).not.toHaveBeenCalled();
   });
 
-  it("still updates the issue when cancelling the managed run throws", async () => {
+  it("records dispatch failure on the issue update when cancelling the managed run throws", async () => {
     mockAgentService.getById.mockResolvedValue({
       id: "agent-ceo",
       companyId: "company-1",
@@ -552,7 +627,7 @@ describe("PATCH /issues/:id task control", () => {
       permissions: { canCreateAgents: true, canManageTasks: true },
     });
     mockAgentService.getChainOfCommand.mockResolvedValue([{ id: "agent-ceo", name: "CEO", role: "ceo", title: null }]);
-    mockHeartbeatService.cancelRun.mockRejectedValue(new Error("db unavailable"));
+    mockHeartbeatService.dispatchRunCancellation.mockRejectedValue(new Error("db unavailable"));
 
     const res = await request(
       createApp({
@@ -567,10 +642,25 @@ describe("PATCH /issues/:id task control", () => {
       .send({ status: "cancelled" });
 
     expect(res.status).toBe(200);
-    expect(mockIssueService.update).toHaveBeenCalledWith("issue-1", { status: "cancelled" });
+    expect(mockIssueService.update).toHaveBeenCalledWith("issue-1", { status: "cancelled" }, expect.anything());
     expect(mockLogger.warn).toHaveBeenCalledWith(
-      expect.objectContaining({ issueId: "issue-1", err: expect.any(Error) }),
-      "failed to cancel managed run during issue update",
+      expect.objectContaining({ issueId: "issue-1", runId: "run-1", err: expect.any(Error) }),
+      "failed to dispatch managed run interruption",
+    );
+    expect(mockLogActivity).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        action: "issue.updated",
+        entityType: "issue",
+        entityId: "issue-1",
+        details: expect.objectContaining({
+          managedRunInterruption: {
+            runId: "run-1",
+            requestedStatus: "cancelling",
+            outcome: "dispatch_failed",
+          },
+        }),
+      }),
     );
   });
 
@@ -596,8 +686,9 @@ describe("PATCH /issues/:id task control", () => {
       .send({ assigneeUserId: "user-2" });
 
     expect(res.status).toBe(200);
-    expect(mockIssueService.update).toHaveBeenCalledWith("issue-1", { assigneeUserId: "user-2" });
-    expect(mockHeartbeatService.cancelRun).not.toHaveBeenCalled();
+    expect(mockIssueService.update).toHaveBeenCalledWith("issue-1", { assigneeUserId: "user-2" }, expect.anything());
+    expect(mockHeartbeatService.requestRunCancellation).not.toHaveBeenCalled();
+    expect(mockHeartbeatService.dispatchRunCancellation).not.toHaveBeenCalled();
     expect(mockLogActivity).not.toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({ action: "issue.task_control_denied" }),

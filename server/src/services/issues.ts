@@ -93,6 +93,14 @@ type IssueUserContextInput = {
   createdAt: Date | string;
   updatedAt: Date | string;
 };
+type IssueUpdateHookContext = {
+  tx: any;
+  existing: IssueRow;
+  updated: IssueRow;
+  patch: Partial<typeof issues.$inferInsert>;
+  nextAssigneeAgentId: string | null;
+  nextAssigneeUserId: string | null;
+};
 
 function redactIssueComment<T extends { body: string }>(comment: T): T {
   return {
@@ -267,7 +275,7 @@ async function withIssueLabels(dbOrTx: any, rows: IssueRow[]): Promise<IssueWith
   });
 }
 
-const ACTIVE_RUN_STATUSES = ["queued", "running"];
+const ACTIVE_RUN_STATUSES = ["queued", "running", "cancelling"];
 
 async function activeRunMapForIssues(
   dbOrTx: any,
@@ -708,61 +716,67 @@ export function issueService(db: Db) {
       });
     },
 
-    update: async (id: string, data: Partial<typeof issues.$inferInsert> & { labelIds?: string[] }) => {
-      const existing = await db
-        .select()
-        .from(issues)
-        .where(eq(issues.id, id))
-        .then((rows) => rows[0] ?? null);
-      if (!existing) return null;
+    update: async (
+      id: string,
+      data: Partial<typeof issues.$inferInsert> & { labelIds?: string[] },
+      opts?: { afterUpdateTx?: (context: IssueUpdateHookContext) => Promise<void> },
+    ) =>
+      db.transaction(async (tx) => {
+        await tx.execute(sql`select id from ${issues} where ${issues.id} = ${id} for update`);
 
-      const { labelIds: nextLabelIds, ...issueData } = data;
+        const existing = await tx
+          .select()
+          .from(issues)
+          .where(eq(issues.id, id))
+          .then((rows) => rows[0] ?? null);
+        if (!existing) return null;
 
-      if (issueData.status) {
-        assertTransition(existing.status, issueData.status);
-      }
+        const { labelIds: nextLabelIds, ...issueData } = data;
 
-      const patch: Partial<typeof issues.$inferInsert> = {
-        ...issueData,
-        updatedAt: new Date(),
-      };
+        if (issueData.status) {
+          assertTransition(existing.status, issueData.status);
+        }
 
-      const nextAssigneeAgentId =
-        issueData.assigneeAgentId !== undefined ? issueData.assigneeAgentId : existing.assigneeAgentId;
-      const nextAssigneeUserId =
-        issueData.assigneeUserId !== undefined ? issueData.assigneeUserId : existing.assigneeUserId;
+        const patch: Partial<typeof issues.$inferInsert> = {
+          ...issueData,
+          updatedAt: new Date(),
+        };
 
-      if (nextAssigneeAgentId && nextAssigneeUserId) {
-        throw unprocessable("Issue can only have one assignee");
-      }
-      if (patch.status === "in_progress" && !nextAssigneeAgentId && !nextAssigneeUserId) {
-        throw unprocessable("in_progress issues require an assignee");
-      }
-      if (issueData.assigneeAgentId) {
-        await assertAssignableAgent(existing.companyId, issueData.assigneeAgentId);
-      }
-      if (issueData.assigneeUserId) {
-        await assertAssignableUser(existing.companyId, issueData.assigneeUserId);
-      }
+        const nextAssigneeAgentId =
+          issueData.assigneeAgentId !== undefined ? issueData.assigneeAgentId : existing.assigneeAgentId;
+        const nextAssigneeUserId =
+          issueData.assigneeUserId !== undefined ? issueData.assigneeUserId : existing.assigneeUserId;
 
-      applyStatusSideEffects(issueData.status, patch);
-      if (issueData.status && issueData.status !== "done") {
-        patch.completedAt = null;
-      }
-      if (issueData.status && issueData.status !== "cancelled") {
-        patch.cancelledAt = null;
-      }
-      if (issueData.status && issueData.status !== "in_progress") {
-        patch.checkoutRunId = null;
-      }
-      if (
-        (issueData.assigneeAgentId !== undefined && issueData.assigneeAgentId !== existing.assigneeAgentId) ||
-        (issueData.assigneeUserId !== undefined && issueData.assigneeUserId !== existing.assigneeUserId)
-      ) {
-        patch.checkoutRunId = null;
-      }
+        if (nextAssigneeAgentId && nextAssigneeUserId) {
+          throw unprocessable("Issue can only have one assignee");
+        }
+        if (patch.status === "in_progress" && !nextAssigneeAgentId && !nextAssigneeUserId) {
+          throw unprocessable("in_progress issues require an assignee");
+        }
+        if (issueData.assigneeAgentId) {
+          await assertAssignableAgent(existing.companyId, issueData.assigneeAgentId);
+        }
+        if (issueData.assigneeUserId) {
+          await assertAssignableUser(existing.companyId, issueData.assigneeUserId);
+        }
 
-      return db.transaction(async (tx) => {
+        applyStatusSideEffects(issueData.status, patch);
+        if (issueData.status && issueData.status !== "done") {
+          patch.completedAt = null;
+        }
+        if (issueData.status && issueData.status !== "cancelled") {
+          patch.cancelledAt = null;
+        }
+        if (issueData.status && issueData.status !== "in_progress") {
+          patch.checkoutRunId = null;
+        }
+        if (
+          (issueData.assigneeAgentId !== undefined && issueData.assigneeAgentId !== existing.assigneeAgentId) ||
+          (issueData.assigneeUserId !== undefined && issueData.assigneeUserId !== existing.assigneeUserId)
+        ) {
+          patch.checkoutRunId = null;
+        }
+
         const defaultCompanyGoal = await getDefaultCompanyGoal(tx, existing.companyId);
         patch.goalId = resolveNextIssueGoalId({
           currentProjectId: existing.projectId,
@@ -778,13 +792,22 @@ export function issueService(db: Db) {
           .returning()
           .then((rows) => rows[0] ?? null);
         if (!updated) return null;
+        if (opts?.afterUpdateTx) {
+          await opts.afterUpdateTx({
+            tx,
+            existing,
+            updated,
+            patch,
+            nextAssigneeAgentId,
+            nextAssigneeUserId,
+          });
+        }
         if (nextLabelIds !== undefined) {
           await syncIssueLabels(updated.id, existing.companyId, nextLabelIds, tx);
         }
         const [enriched] = await withIssueLabels(tx, [updated]);
         return enriched;
-      });
-    },
+      }),
 
     remove: (id: string) =>
       db.transaction(async (tx) => {

@@ -1,6 +1,8 @@
 import { Router, type Request, type Response } from "express";
 import multer from "multer";
 import type { Db } from "@paperclipai/db";
+import { heartbeatRuns } from "@paperclipai/db";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import {
   addIssueCommentSchema,
   createIssueAttachmentMetadataSchema,
@@ -32,6 +34,7 @@ import { shouldWakeAssigneeOnCheckout } from "./issues-checkout-wakeup.js";
 import { isAllowedContentType, MAX_ATTACHMENT_BYTES } from "../attachment-types.js";
 
 const MAX_ISSUE_COMMENT_LIMIT = 500;
+const LIVE_HEARTBEAT_RUN_STATUSES = ["queued", "running", "cancelling"] as const;
 
 export function issueRoutes(db: Db, storage: StorageService) {
   const router = Router();
@@ -122,21 +125,60 @@ export function issueRoutes(db: Db, storage: StorageService) {
     return typeof issueId === "string" ? issueId : null;
   }
 
-  async function resolveActiveRunForIssue(issue: {
-    id: string;
-    assigneeAgentId: string | null;
-    executionRunId: string | null;
-    status: string;
-  }) {
-    let run = issue.executionRunId ? await heartbeat.getRun(issue.executionRunId) : null;
-    if (run && run.status !== "queued" && run.status !== "running") {
+  async function resolveActiveRunForIssue(
+    issue: {
+      id: string;
+      assigneeAgentId: string | null;
+      executionRunId: string | null;
+      status: string;
+    },
+    opts?: { tx?: any },
+  ) {
+    const executor = opts?.tx && typeof opts.tx.select === "function" ? opts.tx : null;
+
+    if (!executor) {
+      let run = issue.executionRunId ? await heartbeat.getRun(issue.executionRunId) : null;
+      if (run && !LIVE_HEARTBEAT_RUN_STATUSES.includes(run.status as (typeof LIVE_HEARTBEAT_RUN_STATUSES)[number])) {
+        run = null;
+      }
+      if (!run && issue.assigneeAgentId && issue.status === "in_progress") {
+        const candidateRun = await heartbeat.getActiveRunForAgent(issue.assigneeAgentId);
+        if (
+          candidateRun &&
+          LIVE_HEARTBEAT_RUN_STATUSES.includes(candidateRun.status as (typeof LIVE_HEARTBEAT_RUN_STATUSES)[number]) &&
+          getIssueRunContextIssueId(candidateRun.contextSnapshot) === issue.id
+        ) {
+          run = candidateRun;
+        }
+      }
+      return run;
+    }
+
+    let run = issue.executionRunId
+      ? await executor
+        .select()
+        .from(heartbeatRuns)
+        .where(eq(heartbeatRuns.id, issue.executionRunId))
+        .then((rows: Array<typeof heartbeatRuns.$inferSelect>) => rows[0] ?? null)
+      : null;
+    if (run && !LIVE_HEARTBEAT_RUN_STATUSES.includes(run.status as (typeof LIVE_HEARTBEAT_RUN_STATUSES)[number])) {
       run = null;
     }
     if (!run && issue.assigneeAgentId && issue.status === "in_progress") {
-      const candidateRun = await heartbeat.getActiveRunForAgent(issue.assigneeAgentId);
+      const [candidateRun] = await executor
+        .select()
+        .from(heartbeatRuns)
+        .where(
+          and(
+            eq(heartbeatRuns.agentId, issue.assigneeAgentId),
+            inArray(heartbeatRuns.status, ["running", "cancelling"]),
+            sql`${heartbeatRuns.contextSnapshot} ->> 'issueId' = ${issue.id}`,
+          ),
+        )
+        .orderBy(desc(heartbeatRuns.startedAt), desc(heartbeatRuns.createdAt))
+        .limit(1);
       if (
         candidateRun &&
-        (candidateRun.status === "queued" || candidateRun.status === "running") &&
         getIssueRunContextIssueId(candidateRun.contextSnapshot) === issue.id
       ) {
         run = candidateRun;
@@ -182,6 +224,71 @@ export function issueRoutes(db: Db, storage: StorageService) {
       (requestedStatus === "cancelled" || requestedStatus === "done") &&
       currentStatus !== requestedStatus
     );
+  }
+
+  async function dispatchIssueRunInterruption(
+    actor: ReturnType<typeof getActorInfo>,
+    issue: { id: string; companyId: string },
+    request:
+      | {
+        runId: string;
+        companyId: string;
+        agentId: string;
+        requestedStatus: "cancelling" | "cancelled";
+      }
+      | null,
+    source: "issue_update_interrupt" | "issue_comment_interrupt",
+  ) {
+    if (!request) {
+      return {
+        interruptedRunId: null as string | null,
+        managedRunInterruption: null as null | {
+          runId: string;
+          requestedStatus: "cancelling" | "cancelled";
+          outcome: "requested" | "completed" | "dispatch_failed";
+        },
+      };
+    }
+
+    try {
+      const dispatched = await heartbeat.dispatchRunCancellation(request);
+      const outcome = dispatched?.status === "cancelled" ? ("completed" as const) : ("requested" as const);
+      await logActivity(db, {
+        companyId: request.companyId,
+        actorType: actor.actorType,
+        actorId: actor.actorId,
+        agentId: actor.agentId,
+        runId: actor.runId,
+        action: "heartbeat.cancelled",
+        entityType: "heartbeat_run",
+        entityId: request.runId,
+        details: {
+          agentId: request.agentId,
+          source,
+          issueId: issue.id,
+          requestedStatus: request.requestedStatus,
+          outcome,
+        },
+      });
+      return {
+        interruptedRunId: request.runId,
+        managedRunInterruption: {
+          runId: request.runId,
+          requestedStatus: request.requestedStatus,
+          outcome,
+        },
+      };
+    } catch (err) {
+      logger.warn({ err, issueId: issue.id, runId: request.runId }, "failed to dispatch managed run interruption");
+      return {
+        interruptedRunId: null,
+        managedRunInterruption: {
+          runId: request.runId,
+          requestedStatus: request.requestedStatus,
+          outcome: "dispatch_failed" as const,
+        },
+      };
+    }
   }
 
   async function assertAgentCanManageTaskControl(
@@ -868,9 +975,24 @@ export function issueRoutes(db: Db, storage: StorageService) {
     if (hiddenAtRaw !== undefined) {
       updateFields.hiddenAt = hiddenAtRaw ? new Date(hiddenAtRaw) : null;
     }
+    const shouldInterruptManagedRun =
+      !!existing.assigneeAgentId &&
+      existing.assigneeAgentId !== req.actor.agentId &&
+      (isManagedTerminalStatusTransition(req.body.status, existing.status) || assigneeAgentWillChange);
+    let managedRunCancellationRequest: Awaited<ReturnType<typeof heartbeat.requestRunCancellation>> | null = null;
     let issue;
     try {
-      issue = await svc.update(id, updateFields);
+      issue = await svc.update(id, updateFields, {
+        afterUpdateTx: async ({ existing: lockedExisting, tx }) => {
+          if (!shouldInterruptManagedRun) return;
+          const runToInterrupt = await resolveActiveRunForIssue(lockedExisting, { tx });
+          if (!runToInterrupt) return;
+          managedRunCancellationRequest = await heartbeat.requestRunCancellation(runToInterrupt.id, {
+            tx,
+            error: "Cancelled by control plane",
+          });
+        },
+      });
     } catch (err) {
       if (err instanceof HttpError && err.status === 422) {
         logger.warn(
@@ -909,6 +1031,10 @@ export function issueRoutes(db: Db, storage: StorageService) {
     }
 
     const actor = getActorInfo(req);
+    const {
+      interruptedRunId,
+      managedRunInterruption,
+    } = await dispatchIssueRunInterruption(actor, issue, managedRunCancellationRequest, "issue_update_interrupt");
     const hasFieldChanges = Object.keys(previous).length > 0;
     await logActivity(db, {
       companyId: issue.companyId,
@@ -923,39 +1049,10 @@ export function issueRoutes(db: Db, storage: StorageService) {
         ...updateFields,
         identifier: issue.identifier,
         ...(commentBody ? { source: "comment" } : {}),
+        ...(managedRunInterruption ? { managedRunInterruption } : {}),
         _previous: hasFieldChanges ? previous : undefined,
       },
     });
-
-    const shouldInterruptManagedRun =
-      !!existing.assigneeAgentId &&
-      existing.assigneeAgentId !== actor.agentId &&
-      (isManagedTerminalStatusTransition(req.body.status, existing.status) || assigneeAgentWillChange);
-    let interruptedRunId: string | null = null;
-    if (shouldInterruptManagedRun) {
-      try {
-        const runToInterrupt = await resolveActiveRunForIssue(existing);
-        if (runToInterrupt && (runToInterrupt.status === "queued" || runToInterrupt.status === "running")) {
-          const cancelled = await heartbeat.cancelRun(runToInterrupt.id);
-          if (cancelled) {
-            interruptedRunId = cancelled.id;
-            await logActivity(db, {
-              companyId: cancelled.companyId,
-              actorType: actor.actorType,
-              actorId: actor.actorId,
-              agentId: actor.agentId,
-              runId: actor.runId,
-              action: "heartbeat.cancelled",
-              entityType: "heartbeat_run",
-              entityId: cancelled.id,
-              details: { agentId: cancelled.agentId, source: "issue_update_interrupt", issueId: existing.id },
-            });
-          }
-        }
-      } catch (err) {
-        logger.warn({ err, issueId: existing.id }, "failed to cancel managed run during issue update");
-      }
-    }
 
     let comment = null;
     if (commentBody) {
@@ -1258,6 +1355,11 @@ export function issueRoutes(db: Db, storage: StorageService) {
     let reopened = false;
     let reopenFromStatus: string | null = null;
     let interruptedRunId: string | null = null;
+    let managedRunInterruption: {
+      runId: string;
+      requestedStatus: "cancelling" | "cancelled";
+      outcome: "requested" | "completed" | "dispatch_failed";
+    } | null = null;
     let currentIssue = issue;
 
     if (reopenRequested && isClosed) {
@@ -1294,45 +1396,18 @@ export function issueRoutes(db: Db, storage: StorageService) {
         res.status(403).json({ error: "Only board users can interrupt active runs from issue comments" });
         return;
       }
-
-      let runToInterrupt = currentIssue.executionRunId
-        ? await heartbeat.getRun(currentIssue.executionRunId)
+      const runToInterrupt = await resolveActiveRunForIssue(currentIssue);
+      const interruptionRequest = runToInterrupt
+        ? await heartbeat.requestRunCancellation(runToInterrupt.id, { error: "Cancelled by control plane" })
         : null;
-
-      if (
-        (!runToInterrupt || runToInterrupt.status !== "running") &&
-        currentIssue.assigneeAgentId
-      ) {
-        const activeRun = await heartbeat.getActiveRunForAgent(currentIssue.assigneeAgentId);
-        const activeIssueId =
-          activeRun &&
-            activeRun.contextSnapshot &&
-            typeof activeRun.contextSnapshot === "object" &&
-            typeof (activeRun.contextSnapshot as Record<string, unknown>).issueId === "string"
-            ? ((activeRun.contextSnapshot as Record<string, unknown>).issueId as string)
-            : null;
-        if (activeRun && activeRun.status === "running" && activeIssueId === currentIssue.id) {
-          runToInterrupt = activeRun;
-        }
-      }
-
-      if (runToInterrupt && runToInterrupt.status === "running") {
-        const cancelled = await heartbeat.cancelRun(runToInterrupt.id);
-        if (cancelled) {
-          interruptedRunId = cancelled.id;
-          await logActivity(db, {
-            companyId: cancelled.companyId,
-            actorType: actor.actorType,
-            actorId: actor.actorId,
-            agentId: actor.agentId,
-            runId: actor.runId,
-            action: "heartbeat.cancelled",
-            entityType: "heartbeat_run",
-            entityId: cancelled.id,
-            details: { agentId: cancelled.agentId, source: "issue_comment_interrupt", issueId: currentIssue.id },
-          });
-        }
-      }
+      const interruptionResult = await dispatchIssueRunInterruption(
+        actor,
+        currentIssue,
+        interruptionRequest,
+        "issue_comment_interrupt",
+      );
+      interruptedRunId = interruptionResult.interruptedRunId;
+      managedRunInterruption = interruptionResult.managedRunInterruption;
     }
 
     const comment = await svc.addComment(id, req.body.body, {
@@ -1355,6 +1430,7 @@ export function issueRoutes(db: Db, storage: StorageService) {
         identifier: currentIssue.identifier,
         issueTitle: currentIssue.title,
         ...(reopened ? { reopened: true, reopenedFrom: reopenFromStatus, source: "comment" } : {}),
+        ...(managedRunInterruption ? { managedRunInterruption } : {}),
         ...(interruptedRunId ? { interruptedRunId } : {}),
       },
     });

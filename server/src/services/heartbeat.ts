@@ -45,6 +45,7 @@ const MAX_LIVE_LOG_CHUNK_BYTES = 8 * 1024;
 const HEARTBEAT_MAX_CONCURRENT_RUNS_DEFAULT = 1;
 const HEARTBEAT_MAX_CONCURRENT_RUNS_MAX = 10;
 const DEFERRED_WAKE_CONTEXT_KEY = "_paperclipWakeContext";
+const LIVE_HEARTBEAT_RUN_STATUSES = ["queued", "running", "cancelling"] as const;
 const startLocksByAgent = new Map<string, Promise<void>>();
 const REPO_ONLY_CWD_SENTINEL = "/__paperclip_repo_only__";
 const SESSIONED_LOCAL_ADAPTERS = new Set([
@@ -97,6 +98,10 @@ function normalizeMaxConcurrentRuns(value: unknown) {
   return Math.max(HEARTBEAT_MAX_CONCURRENT_RUNS_DEFAULT, Math.min(HEARTBEAT_MAX_CONCURRENT_RUNS_MAX, parsed));
 }
 
+function isLiveHeartbeatRunStatus(status: string | null | undefined) {
+  return status === "queued" || status === "running" || status === "cancelling";
+}
+
 async function withAgentStartLock<T>(agentId: string, fn: () => Promise<T>) {
   const previous = startLocksByAgent.get(agentId) ?? Promise.resolve();
   const run = previous.then(fn);
@@ -136,6 +141,13 @@ type SessionCompactionPolicy = {
   maxSessionRuns: number;
   maxRawInputTokens: number;
   maxSessionAgeHours: number;
+};
+
+type RunCancellationRequest = {
+  runId: string;
+  companyId: string;
+  agentId: string;
+  requestedStatus: "cancelling" | "cancelled";
 };
 
 type SessionCompactionDecision = {
@@ -1117,6 +1129,165 @@ export function heartbeatService(db: Db) {
     });
   }
 
+  async function nextRunEventSeq(runId: string) {
+    const [row] = await db
+      .select({ seq: sql<number>`coalesce(max(${heartbeatRunEvents.seq}), 0)` })
+      .from(heartbeatRunEvents)
+      .where(eq(heartbeatRunEvents.runId, runId));
+    return Number(row?.seq ?? 0) + 1;
+  }
+
+  async function completeRunCancellation(
+    runId: string,
+    opts?: { error?: string; logMessage?: string },
+  ) {
+    const run = await getRun(runId);
+    if (!run) throw notFound("Heartbeat run not found");
+    if (!isLiveHeartbeatRunStatus(run.status)) return run;
+
+    const cancelled = await setRunStatus(run.id, "cancelled", {
+      finishedAt: new Date(),
+      error: run.error ?? opts?.error ?? "Cancelled by control plane",
+      errorCode: "cancelled",
+    });
+
+    await setWakeupStatus(run.wakeupRequestId, "cancelled", {
+      finishedAt: new Date(),
+      error: cancelled?.error ?? run.error ?? opts?.error ?? "Cancelled by control plane",
+    });
+
+    if (cancelled) {
+      await appendRunEvent(cancelled, await nextRunEventSeq(cancelled.id), {
+        eventType: "lifecycle",
+        stream: "system",
+        level: "warn",
+        message: opts?.logMessage ?? "run cancelled",
+      });
+      await releaseIssueExecutionAndPromote(cancelled);
+    }
+
+    runningProcesses.delete(run.id);
+    await finalizeAgentStatus(run.agentId, "cancelled");
+    await startNextQueuedRunForAgent(run.agentId);
+    return cancelled;
+  }
+
+  async function requestRunCancellation(
+    runId: string,
+    opts?: { tx?: any; error?: string },
+  ): Promise<RunCancellationRequest | null> {
+    const executor = opts?.tx ?? db;
+    const run = await executor
+      .select()
+      .from(heartbeatRuns)
+      .where(eq(heartbeatRuns.id, runId))
+      .then((rows: Array<typeof heartbeatRuns.$inferSelect>) => rows[0] ?? null);
+    if (!run) throw notFound("Heartbeat run not found");
+
+    if (run.status === "queued") {
+      const cancelling = await executor
+        .update(heartbeatRuns)
+        .set({
+          status: "cancelling",
+          error: opts?.error ?? "Cancellation requested by control plane",
+          errorCode: "cancelled",
+          updatedAt: new Date(),
+        })
+        .where(and(eq(heartbeatRuns.id, run.id), eq(heartbeatRuns.status, "queued")))
+        .returning()
+        .then((rows: Array<typeof heartbeatRuns.$inferSelect>) => rows[0] ?? null);
+      if (cancelling) {
+        return {
+          runId: cancelling.id,
+          companyId: cancelling.companyId,
+          agentId: cancelling.agentId,
+          requestedStatus: "cancelling",
+        };
+      }
+    }
+
+    if (run.status === "running") {
+      const cancelling = await executor
+        .update(heartbeatRuns)
+        .set({
+          status: "cancelling",
+          error: opts?.error ?? "Cancellation requested by control plane",
+          errorCode: "cancelled",
+          updatedAt: new Date(),
+        })
+        .where(and(eq(heartbeatRuns.id, run.id), eq(heartbeatRuns.status, "running")))
+        .returning()
+        .then((rows: Array<typeof heartbeatRuns.$inferSelect>) => rows[0] ?? null);
+      if (cancelling) {
+        return {
+          runId: cancelling.id,
+          companyId: cancelling.companyId,
+          agentId: cancelling.agentId,
+          requestedStatus: "cancelling",
+        };
+      }
+    }
+
+    const latest = await getRun(runId);
+    if (!latest) return null;
+    if (latest.status === "cancelled") {
+      return {
+        runId: latest.id,
+        companyId: latest.companyId,
+        agentId: latest.agentId,
+        requestedStatus: "cancelled",
+      };
+    }
+    if (latest.status === "cancelling") {
+      return {
+        runId: latest.id,
+        companyId: latest.companyId,
+        agentId: latest.agentId,
+        requestedStatus: "cancelling",
+      };
+    }
+    return null;
+  }
+
+  async function dispatchRunCancellation(request: RunCancellationRequest) {
+    if (request.requestedStatus === "cancelled") {
+      return completeRunCancellation(request.runId);
+    }
+
+    const run = await getRun(request.runId);
+    if (!run) throw notFound("Heartbeat run not found");
+    if (run.status === "cancelled") return run;
+    if (run.status !== "cancelling") {
+      return isLiveHeartbeatRunStatus(run.status) ? completeRunCancellation(run.id) : run;
+    }
+
+    const running = runningProcesses.get(run.id);
+    if (!running) {
+      return completeRunCancellation(run.id);
+    }
+
+    running.child.kill("SIGTERM");
+    const graceMs = Math.max(1, running.graceSec) * 1000;
+    setTimeout(() => {
+      const current = runningProcesses.get(run.id);
+      if (current && !current.child.killed) {
+        current.child.kill("SIGKILL");
+      }
+      void (async () => {
+        try {
+          const latest = await getRun(run.id);
+          if (latest?.status === "cancelling") {
+            await completeRunCancellation(run.id);
+          }
+        } catch (err) {
+          logger.warn({ err, runId: run.id }, "failed to finalize cancelling heartbeat run");
+        }
+      })();
+    }, graceMs);
+
+    return run;
+  }
+
   function parseHeartbeatPolicy(agent: typeof agents.$inferSelect) {
     const runtimeConfig = parseObject(agent.runtimeConfig);
     const heartbeat = parseObject(runtimeConfig.heartbeat);
@@ -1133,7 +1304,7 @@ export function heartbeatService(db: Db) {
     const [{ count }] = await db
       .select({ count: sql<number>`count(*)` })
       .from(heartbeatRuns)
-      .where(and(eq(heartbeatRuns.agentId, agentId), eq(heartbeatRuns.status, "running")));
+      .where(and(eq(heartbeatRuns.agentId, agentId), inArray(heartbeatRuns.status, ["running", "cancelling"])));
     return Number(count ?? 0);
   }
 
@@ -1222,11 +1393,11 @@ export function heartbeatService(db: Db) {
     const staleThresholdMs = opts?.staleThresholdMs ?? 0;
     const now = new Date();
 
-    // Find all runs stuck in "running" state (queued runs are legitimately waiting; resumeQueuedRuns handles them)
+    // Find all runs stuck in execution without a tracked child process.
     const activeRuns = await db
       .select()
       .from(heartbeatRuns)
-      .where(eq(heartbeatRuns.status, "running"));
+      .where(inArray(heartbeatRuns.status, ["running", "cancelling"]));
 
     const reaped: string[] = [];
 
@@ -1239,27 +1410,34 @@ export function heartbeatService(db: Db) {
         if (now.getTime() - refTime < staleThresholdMs) continue;
       }
 
-      await setRunStatus(run.id, "failed", {
-        error: "Process lost -- server may have restarted",
-        errorCode: "process_lost",
-        finishedAt: now,
-      });
-      await setWakeupStatus(run.wakeupRequestId, "failed", {
-        finishedAt: now,
-        error: "Process lost -- server may have restarted",
-      });
-      const updatedRun = await getRun(run.id);
-      if (updatedRun) {
-        await appendRunEvent(updatedRun, 1, {
-          eventType: "lifecycle",
-          stream: "system",
-          level: "error",
-          message: "Process lost -- server may have restarted",
+      if (run.status === "cancelling") {
+        await completeRunCancellation(run.id, {
+          error: run.error ?? "Cancelled after losing the tracked process",
+          logMessage: "run cancelled after losing the tracked process",
         });
-        await releaseIssueExecutionAndPromote(updatedRun);
+      } else {
+        await setRunStatus(run.id, "failed", {
+          error: "Process lost -- server may have restarted",
+          errorCode: "process_lost",
+          finishedAt: now,
+        });
+        await setWakeupStatus(run.wakeupRequestId, "failed", {
+          finishedAt: now,
+          error: "Process lost -- server may have restarted",
+        });
+        const updatedRun = await getRun(run.id);
+        if (updatedRun) {
+          await appendRunEvent(updatedRun, 1, {
+            eventType: "lifecycle",
+            stream: "system",
+            level: "error",
+            message: "Process lost -- server may have restarted",
+          });
+          await releaseIssueExecutionAndPromote(updatedRun);
+        }
+        await finalizeAgentStatus(run.agentId, "failed");
+        await startNextQueuedRunForAgent(run.agentId);
       }
-      await finalizeAgentStatus(run.agentId, "failed");
-      await startNextQueuedRunForAgent(run.agentId);
       runningProcesses.delete(run.id);
       reaped.push(run.id);
     }
@@ -1833,7 +2011,7 @@ export function heartbeatService(db: Db) {
 
       let outcome: "succeeded" | "failed" | "cancelled" | "timed_out";
       const latestRun = await getRun(run.id);
-      if (latestRun?.status === "cancelled") {
+      if (latestRun?.status === "cancelled" || latestRun?.status === "cancelling") {
         outcome = "cancelled";
       } else if (adapterResult.timedOut) {
         outcome = "timed_out";
@@ -2309,7 +2487,7 @@ export function heartbeatService(db: Db) {
             .then((rows) => rows[0] ?? null)
           : null;
 
-        if (activeExecutionRun && activeExecutionRun.status !== "queued" && activeExecutionRun.status !== "running") {
+        if (activeExecutionRun && !isLiveHeartbeatRunStatus(activeExecutionRun.status)) {
           activeExecutionRun = null;
         }
 
@@ -2332,7 +2510,7 @@ export function heartbeatService(db: Db) {
             .where(
               and(
                 eq(heartbeatRuns.companyId, issue.companyId),
-                inArray(heartbeatRuns.status, ["queued", "running"]),
+                inArray(heartbeatRuns.status, LIVE_HEARTBEAT_RUN_STATUSES as unknown as string[]),
                 sql`${heartbeatRuns.contextSnapshot} ->> 'issueId' = ${issue.id}`,
               ),
             )
@@ -2551,7 +2729,7 @@ export function heartbeatService(db: Db) {
     const activeRuns = await db
       .select()
       .from(heartbeatRuns)
-      .where(and(eq(heartbeatRuns.agentId, agentId), inArray(heartbeatRuns.status, ["queued", "running"])))
+      .where(and(eq(heartbeatRuns.agentId, agentId), inArray(heartbeatRuns.status, LIVE_HEARTBEAT_RUN_STATUSES as unknown as string[])))
       .orderBy(desc(heartbeatRuns.createdAt));
 
     const sameScopeQueuedRun = activeRuns.find(
@@ -2834,70 +3012,29 @@ export function heartbeatService(db: Db) {
     cancelRun: async (runId: string) => {
       const run = await getRun(runId);
       if (!run) throw notFound("Heartbeat run not found");
-      if (run.status !== "running" && run.status !== "queued") return run;
+      if (!isLiveHeartbeatRunStatus(run.status)) return run;
 
-      const running = runningProcesses.get(run.id);
-      if (running) {
-        running.child.kill("SIGTERM");
-        const graceMs = Math.max(1, running.graceSec) * 1000;
-        setTimeout(() => {
-          if (!running.child.killed) {
-            running.child.kill("SIGKILL");
-          }
-        }, graceMs);
-      }
-
-      const cancelled = await setRunStatus(run.id, "cancelled", {
-        finishedAt: new Date(),
-        error: "Cancelled by control plane",
-        errorCode: "cancelled",
-      });
-
-      await setWakeupStatus(run.wakeupRequestId, "cancelled", {
-        finishedAt: new Date(),
-        error: "Cancelled by control plane",
-      });
-
-      if (cancelled) {
-        await appendRunEvent(cancelled, 1, {
-          eventType: "lifecycle",
-          stream: "system",
-          level: "warn",
-          message: "run cancelled",
-        });
-        await releaseIssueExecutionAndPromote(cancelled);
-      }
-
-      runningProcesses.delete(run.id);
-      await finalizeAgentStatus(run.agentId, "cancelled");
-      await startNextQueuedRunForAgent(run.agentId);
-      return cancelled;
+      const request = await requestRunCancellation(run.id, { error: "Cancelled by control plane" });
+      if (!request) return getRun(run.id);
+      return dispatchRunCancellation(request);
     },
 
     cancelActiveForAgent: async (agentId: string) => {
       const runs = await db
         .select()
         .from(heartbeatRuns)
-        .where(and(eq(heartbeatRuns.agentId, agentId), inArray(heartbeatRuns.status, ["queued", "running"])));
+        .where(
+          and(
+            eq(heartbeatRuns.agentId, agentId),
+            inArray(heartbeatRuns.status, LIVE_HEARTBEAT_RUN_STATUSES as unknown as string[]),
+          ),
+        );
 
       for (const run of runs) {
-        await setRunStatus(run.id, "cancelled", {
-          finishedAt: new Date(),
-          error: "Cancelled due to agent pause",
-          errorCode: "cancelled",
-        });
-
-        await setWakeupStatus(run.wakeupRequestId, "cancelled", {
-          finishedAt: new Date(),
-          error: "Cancelled due to agent pause",
-        });
-
-        const running = runningProcesses.get(run.id);
-        if (running) {
-          running.child.kill("SIGTERM");
-          runningProcesses.delete(run.id);
+        const request = await requestRunCancellation(run.id, { error: "Cancelled due to agent pause" });
+        if (request) {
+          await dispatchRunCancellation(request);
         }
-        await releaseIssueExecutionAndPromote(run);
       }
 
       return runs.length;
@@ -2910,12 +3047,16 @@ export function heartbeatService(db: Db) {
         .where(
           and(
             eq(heartbeatRuns.agentId, agentId),
-            eq(heartbeatRuns.status, "running"),
+            inArray(heartbeatRuns.status, ["running", "cancelling"]),
           ),
         )
         .orderBy(desc(heartbeatRuns.startedAt))
         .limit(1);
       return run ?? null;
     },
+
+    requestRunCancellation,
+
+    dispatchRunCancellation,
   };
 }

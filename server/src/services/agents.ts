@@ -596,7 +596,7 @@ export function agentService(db: Db) {
       db
         .select()
         .from(heartbeatRuns)
-        .where(and(eq(heartbeatRuns.agentId, agentId), inArray(heartbeatRuns.status, ["queued", "running"]))),
+        .where(and(eq(heartbeatRuns.agentId, agentId), inArray(heartbeatRuns.status, ["queued", "running", "cancelling"]))),
 
     resolveByReference: async (companyId: string, reference: string) => {
       const raw = reference.trim();
