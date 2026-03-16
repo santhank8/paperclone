@@ -1,2 +1,10 @@
 iteration	trigger_pct	nofire_pct	output_pct	lines	status	description
 0	100	100	100	88	baseline	Initial state before optimization
+1	100	100	100	83	kept	Remove Enforcement Hook section — duplicates Step 3 reference to 02-hooks.md
+2	100	100	100	79	kept	Compress Extracting Terms to single pointer line — workflow detail in reference file
+3	100	100	100	77	kept	Compress Composing with Ontology — merge 2 sentences into 1, remove example
+4	100	100	100	75	kept	Remove "Each entry has four fields" intro — redundant, code block is self-documenting
+5	100	100	100	73	kept	Trim Problem section — remove stats + fix sentence, both redundant with Quick Setup
+6	100	100	100	71	kept	Remove Step 2 explanation line — heading + code block is self-evident
+7	100	100	100	69	kept	Remove marketing tagline — not tested, no functional value
+8	100	100	100	69	kept	Fix anti-rationalization row 3 accuracy — "8 lines" was wrong, hook is a JS file
