@@ -70,9 +70,7 @@ Steps:
 3. Confirm the test fails — reproducer is valid
 4. Only then begin fixing
 
-**Why it works:** The bug lives in state, timing, or environment. Without a pinned reproducer, the fix is a guess. With one, the fix is measurable — the test goes from red to green.
-
-**Anti-pattern:** "I understand the bug, I don't need a test." That's confidence without evidence. The test proves understanding.
+**Why it works:** Without a pinned reproducer, the fix is a guess. With one, the test goes red → green and proves understanding.
 
 ---
 
