@@ -46,8 +46,6 @@ PostToolUse     lessons.md      CLAUDE.md     keep/discard
 hook fires      append entry    rewrite rule      ↺ 8x
 ```
 
-Runs *across* sessions. Each session produces violation data. The loop consumes it before the next session starts.
-
 ---
 
 ## Phase 1 — Detect: Violation Hooks
