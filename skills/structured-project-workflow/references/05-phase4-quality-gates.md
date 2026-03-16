@@ -28,27 +28,7 @@ Gates run as hooks. They catch issues at edit time, not review time.
 }
 ```
 
-### PreToolUse — Block Bad Patterns
-
-```json
-{
-  "hooks": {
-    "PreToolUse": [
-      {
-        "matcher": "Edit|Write",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "grep -rn 'console\\.log' $CLAUDE_TOOL_INPUT_PATH 2>/dev/null && echo 'WARNING: console.log detected' || true"
-          }
-        ]
-      }
-    ]
-  }
-}
-```
-
-Hooks go in `~/.claude/settings.json` (user-level, all projects) or `.claude/settings.json` (project-level, repo-scoped).
+Hooks go in `~/.claude/settings.json` (user-level) or `.claude/settings.json` (project-level, repo-scoped).
 
 ## What "Done" Means for a Step
 
