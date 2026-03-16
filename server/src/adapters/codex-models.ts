@@ -97,9 +97,12 @@ async function fetchOpenAiModels(apiKey: string, endpoint: string): Promise<Adap
 }
 
 export async function listCodexModels(): Promise<AdapterModel[]> {
+  const config = readConfigFile();
+  const provider = config?.llm?.provider;
+  
   const { apiKey, endpoint } = resolveLlmDetails();
   const fallback = dedupeModels(codexFallbackModels);
-  if (!apiKey) return fallback;
+  if (!apiKey) return provider === "zai" ? [] : fallback;
 
   const now = Date.now();
   const keyFingerprint = fingerprint(apiKey, endpoint);
@@ -109,7 +112,7 @@ export async function listCodexModels(): Promise<AdapterModel[]> {
 
   const fetched = await fetchOpenAiModels(apiKey, endpoint);
   if (fetched.length > 0) {
-    const merged = mergedWithFallback(fetched);
+    const merged = provider === "zai" ? dedupeModels(fetched) : mergedWithFallback(fetched);
     cached = {
       keyFingerprint,
       expiresAt: now + OPENAI_MODELS_CACHE_TTL_MS,
@@ -122,7 +125,7 @@ export async function listCodexModels(): Promise<AdapterModel[]> {
     return cached.models;
   }
 
-  return fallback;
+  return provider === "zai" ? dedupeModels(fetched) : fallback;
 }
 
 export function resetCodexModelsCacheForTests() {
