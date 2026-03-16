@@ -59,23 +59,9 @@ The silence contract is non-negotiable. A heartbeat that narrates every quiet ch
 
 ## State Management
 
-Stop hook saves state before session ends. SessionStart hook restores it and drains the work queue.
+`Stop` hook saves state before session ends. `SessionStart` hook restores it and drains the work queue.
 
-```json
-// ~/.claude/settings.json
-{
-  "hooks": {
-    "Stop": [{
-      "command": "node -e \"require('fs').writeFileSync('.claude/agent-state.json', JSON.stringify({lastCheck: Date.now(), queue: []}))\""
-    }],
-    "SessionStart": [{
-      "command": "cat .claude/agent-state.json 2>/dev/null || echo '{\"lastCheck\":0,\"queue\":[]}'"
-    }]
-  }
-}
-```
-
-→ Full reference with the `scheduled_tasks.lock` pattern: [03-state-management.md](references/03-state-management.md)
+→ Full reference with hooks + `scheduled_tasks.lock` pattern: [03-state-management.md](references/03-state-management.md)
 
 ---
 
