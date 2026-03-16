@@ -8,6 +8,13 @@ import { Router } from "express";
 export function copilotKitRoutes(): Router {
   const router = Router();
 
+  if (!process.env.OPENAI_API_KEY) {
+    router.all("/copilotkit", (_req, res) => {
+      res.status(503).json({ error: "CopilotKit is not configured (OPENAI_API_KEY not set)" });
+    });
+    return router;
+  }
+
   const serviceAdapter = new OpenAIAdapter({
     model: process.env.COPILOTKIT_MODEL ?? "gpt-5.4",
   });

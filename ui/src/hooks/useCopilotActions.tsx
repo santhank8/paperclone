@@ -245,12 +245,33 @@ export function useCopilotActions() {
 
   useCopilotAction({
     name: "deleteIssue",
-    description: "Delete an issue",
+    description: "Delete an issue (requires user confirmation)",
     parameters: [{ name: "issueId", type: "string", description: "Issue ID", required: true }],
-    handler: async ({ issueId }) => {
-      await issuesApi.remove(issueId);
-      queryClient.invalidateQueries({ queryKey: ["issues"] });
-      return "Issue deleted";
+    renderAndWaitForResponse: ({ args, respond, status }) => {
+      if (status === "complete") return <p className="text-sm text-muted-foreground">Issue deleted.</p>;
+      return (
+        <div className="flex flex-col gap-2 rounded-md border border-destructive/50 bg-destructive/5 p-3 text-sm">
+          <p>Delete issue <strong>{args.issueId}</strong>? This cannot be undone.</p>
+          <div className="flex gap-2">
+            <button
+              className="rounded-md bg-destructive px-3 py-1.5 text-xs font-medium text-destructive-foreground hover:bg-destructive/90"
+              onClick={async () => {
+                await issuesApi.remove(args.issueId);
+                queryClient.invalidateQueries({ queryKey: ["issues"] });
+                respond("Issue deleted");
+              }}
+            >
+              Delete
+            </button>
+            <button
+              className="rounded-md border border-border px-3 py-1.5 text-xs font-medium hover:bg-accent"
+              onClick={() => respond("Cancelled by user")}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      );
     },
   });
 
@@ -351,12 +372,33 @@ export function useCopilotActions() {
 
   useCopilotAction({
     name: "deleteProject",
-    description: "Delete a project",
+    description: "Delete a project (requires user confirmation)",
     parameters: [{ name: "projectId", type: "string", description: "Project ID", required: true }],
-    handler: async ({ projectId }) => {
-      await projectsApi.remove(projectId);
-      queryClient.invalidateQueries({ queryKey: ["projects"] });
-      return "Project deleted";
+    renderAndWaitForResponse: ({ args, respond, status }) => {
+      if (status === "complete") return <p className="text-sm text-muted-foreground">Project deleted.</p>;
+      return (
+        <div className="flex flex-col gap-2 rounded-md border border-destructive/50 bg-destructive/5 p-3 text-sm">
+          <p>Delete project <strong>{args.projectId}</strong>? This cannot be undone.</p>
+          <div className="flex gap-2">
+            <button
+              className="rounded-md bg-destructive px-3 py-1.5 text-xs font-medium text-destructive-foreground hover:bg-destructive/90"
+              onClick={async () => {
+                await projectsApi.remove(args.projectId);
+                queryClient.invalidateQueries({ queryKey: ["projects"] });
+                respond("Project deleted");
+              }}
+            >
+              Delete
+            </button>
+            <button
+              className="rounded-md border border-border px-3 py-1.5 text-xs font-medium hover:bg-accent"
+              onClick={() => respond("Cancelled by user")}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      );
     },
   });
 
@@ -486,12 +528,33 @@ export function useCopilotActions() {
 
   useCopilotAction({
     name: "terminateAgent",
-    description: "Terminate an agent permanently",
+    description: "Terminate an agent permanently (requires user confirmation)",
     parameters: [{ name: "agentId", type: "string", description: "Agent ID", required: true }],
-    handler: async ({ agentId }) => {
-      const result = await agentsApi.terminate(agentId);
-      queryClient.invalidateQueries({ queryKey: ["agents"] });
-      return { id: result.id, name: result.name, status: result.status };
+    renderAndWaitForResponse: ({ args, respond, status }) => {
+      if (status === "complete") return <p className="text-sm text-muted-foreground">Agent terminated.</p>;
+      return (
+        <div className="flex flex-col gap-2 rounded-md border border-destructive/50 bg-destructive/5 p-3 text-sm">
+          <p>Terminate agent <strong>{args.agentId}</strong>? This is permanent and cannot be undone.</p>
+          <div className="flex gap-2">
+            <button
+              className="rounded-md bg-destructive px-3 py-1.5 text-xs font-medium text-destructive-foreground hover:bg-destructive/90"
+              onClick={async () => {
+                const result = await agentsApi.terminate(args.agentId);
+                queryClient.invalidateQueries({ queryKey: ["agents"] });
+                respond(`Agent ${result.name} terminated`);
+              }}
+            >
+              Terminate
+            </button>
+            <button
+              className="rounded-md border border-border px-3 py-1.5 text-xs font-medium hover:bg-accent"
+              onClick={() => respond("Cancelled by user")}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      );
     },
   });
 
@@ -716,22 +779,6 @@ export function useCopilotActions() {
       if (!selectedCompanyId) return "No company selected";
       const result = await secretsApi.list(selectedCompanyId);
       return result.map((s) => ({ id: s.id, name: s.name, description: s.description, createdAt: s.createdAt }));
-    },
-  });
-
-  useCopilotAction({
-    name: "createSecret",
-    description: "Create a new secret (API key, token, etc.)",
-    parameters: [
-      { name: "name", type: "string", description: "Secret name (e.g. OPENAI_API_KEY)", required: true },
-      { name: "value", type: "string", description: "Secret value", required: true },
-      { name: "description", type: "string", description: "Description of what this secret is for" },
-    ],
-    handler: async ({ name, value, description }) => {
-      if (!selectedCompanyId) return "No company selected";
-      const result = await secretsApi.create(selectedCompanyId, { name, value, description });
-      queryClient.invalidateQueries({ queryKey: ["secrets"] });
-      return { id: result.id, name: result.name };
     },
   });
 
