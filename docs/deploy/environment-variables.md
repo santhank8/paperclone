@@ -47,7 +47,7 @@ These are set automatically by the server when invoking agents:
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `OPENAI_API_KEY` | — | OpenAI API key (enables the AI chat sidebar and Codex Local adapter) |
-| `COPILOTKIT_MODEL` | `gpt-4o-mini` | Model used by the CopilotKit runtime |
+| `COPILOTKIT_MODEL` | `gpt-5.4` | Model used by the CopilotKit runtime |
 
 ## LLM Provider Keys (for adapters)
 

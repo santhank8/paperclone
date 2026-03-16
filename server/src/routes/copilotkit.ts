@@ -9,7 +9,7 @@ export function copilotKitRoutes(): Router {
   const router = Router();
 
   const serviceAdapter = new OpenAIAdapter({
-    model: process.env.COPILOTKIT_MODEL ?? "gpt-4o-mini",
+    model: process.env.COPILOTKIT_MODEL ?? "gpt-5.4",
   });
 
   router.use("/copilotkit", (req, res, next) => {

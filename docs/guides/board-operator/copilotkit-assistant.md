@@ -15,7 +15,7 @@ Set the following environment variables on your Paperclip server:
 
 ```bash
 OPENAI_API_KEY=sk-...           # Required — any OpenAI-compatible key
-COPILOTKIT_MODEL=gpt-4o-mini    # Optional — defaults to gpt-4o-mini
+COPILOTKIT_MODEL=gpt-5.4        # Optional — defaults to gpt-5.4
 ```
 
 ### Opening the Assistant
