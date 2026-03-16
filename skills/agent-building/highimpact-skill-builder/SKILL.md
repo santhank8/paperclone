@@ -5,10 +5,6 @@ description: Use when creating, testing, improving, or benchmarking Claude Code 
 
 # High-Impact Skill Builder
 
-**Three phases:** Create → Test → Improve. Description optimization is a finishing step after the skill works.
-
----
-
 ## Phase Detection
 
 Before acting, locate where the user is:
