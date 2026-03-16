@@ -14,21 +14,24 @@ async function waitForCondition<T>(label: string, fn: () => Promise<T | null>, t
 }
 
 describe.sequential("governance integration", () => {
-  let harness: Awaited<ReturnType<typeof createIntegrationHarness>>;
+  let harness: Awaited<ReturnType<typeof createIntegrationHarness>> | null = null;
 
   beforeAll(async () => {
     harness = await createIntegrationHarness();
   });
 
   afterAll(async () => {
-    await harness.cleanup();
+    await harness?.cleanup();
   });
 
   it("wakes the requesting manager when a manager-plan approval is approved", async () => {
+    if (!harness) {
+      throw new Error("Integration harness not initialized");
+    }
     const company = await harness.createCompany({ name: "Governance Labs" });
     const manager = await harness.createAgent(company.id as string, {
       name: "Manager Bot",
-      role: "manager",
+      role: "pm",
       adapterConfig: {
         command: "node",
         args: ["-e", "setTimeout(() => process.exit(0), 25)"],
@@ -81,11 +84,14 @@ describe.sequential("governance integration", () => {
   });
 
   it("rejects cross-company reporting lines and keeps secret-backed approval payloads redacted", async () => {
+    if (!harness) {
+      throw new Error("Integration harness not initialized");
+    }
     const companyA = await harness.createCompany({ name: "Alpha Co" });
     const companyB = await harness.createCompany({ name: "Beta Co" });
     const foreignManager = await harness.createAgent(companyA.id as string, {
       name: "Foreign Manager",
-      role: "manager",
+      role: "pm",
     });
 
     const invalidAgent = await harness.board.post(`/companies/${companyB.id as string}/agents`).send({

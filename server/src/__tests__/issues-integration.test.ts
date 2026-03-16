@@ -14,17 +14,22 @@ async function waitForCondition<T>(label: string, fn: () => Promise<T | null>, t
 }
 
 describe.sequential("issue workflow integration", () => {
-  let harness: Awaited<ReturnType<typeof createIntegrationHarness>>;
+  let harness: Awaited<ReturnType<typeof createIntegrationHarness>> | null = null;
+  const primaryRunId = "11111111-1111-4111-8111-111111111111";
+  const competingRunId = "22222222-2222-4222-8222-222222222222";
 
   beforeAll(async () => {
     harness = await createIntegrationHarness();
   });
 
   afterAll(async () => {
-    await harness.cleanup();
+    await harness?.cleanup();
   });
 
   it("covers create, checkout conflict, review handoff, and activity auditing", async () => {
+    if (!harness) {
+      throw new Error("Integration harness not initialized");
+    }
     const company = await harness.createCompany({ name: "Blue Labs" });
     const goal = await harness.createGoal(company.id as string, {
       title: "Ship V1",
@@ -51,10 +56,18 @@ describe.sequential("issue workflow integration", () => {
     });
     const assigneeKey = await harness.createAgentKey(assignee.id as string);
     const competingKey = await harness.createAgentKey(competingAgent.id as string);
+    await harness.createHeartbeatRun(company.id as string, assignee.id as string, {
+      id: primaryRunId,
+      contextSnapshot: {
+        source: "issues-integration",
+        issuePhase: "checkout",
+      },
+    });
 
     const createdIssue = await harness.createIssue(company.id as string, {
       title: "Cover review handoffs",
       description: "Exercise issue lifecycle coverage.",
+      status: "backlog",
       projectId: project.id,
       goalId: goal.id,
       assigneeAgentId: assignee.id,
@@ -64,19 +77,19 @@ describe.sequential("issue workflow integration", () => {
     expect(createdIssue.projectId).toBe(project.id);
     expect(createdIssue.goalId).toBe(goal.id);
     expect(createdIssue.assigneeAgentId).toBe(assignee.id);
-    expect(createdIssue.status).toBe("todo");
+    expect(createdIssue.status).toBe("backlog");
 
-    const checkedOut = await harness.asAgent(assigneeKey.token as string, "run-issue-a")
+    const checkedOut = await harness.asAgent(assigneeKey.token as string, primaryRunId)
       .post(`/issues/${createdIssue.id as string}/checkout`)
       .send({
         agentId: assignee.id,
-        expectedStatuses: ["todo"],
+        expectedStatuses: ["backlog", "todo"],
       });
     expect(checkedOut.status).toBe(200);
     expect(checkedOut.body.status).toBe("in_progress");
-    expect(checkedOut.body.checkoutRunId).toBe("run-issue-a");
+    expect(checkedOut.body.checkoutRunId).toBe(primaryRunId);
 
-    const checkoutConflict = await harness.asAgent(competingKey.token as string, "run-issue-b")
+    const checkoutConflict = await harness.asAgent(competingKey.token as string, competingRunId)
       .post(`/issues/${createdIssue.id as string}/checkout`)
       .send({
         agentId: competingAgent.id,
@@ -85,7 +98,7 @@ describe.sequential("issue workflow integration", () => {
     expect(checkoutConflict.status).toBe(409);
     expect(checkoutConflict.body.error).toContain("conflict");
 
-    const handoff = await harness.asAgent(assigneeKey.token as string, "run-issue-a")
+    const handoff = await harness.asAgent(assigneeKey.token as string, primaryRunId)
       .patch(`/issues/${createdIssue.id as string}`)
       .send({
         status: "done",
@@ -125,6 +138,9 @@ describe.sequential("issue workflow integration", () => {
   });
 
   it("records terminal timestamps and reopens closed issues from comments", async () => {
+    if (!harness) {
+      throw new Error("Integration harness not initialized");
+    }
     const company = await harness.createCompany({ name: "Reopen Labs" });
     const issue = await harness.createIssue(company.id as string, {
       title: "Exercise reopen flow",

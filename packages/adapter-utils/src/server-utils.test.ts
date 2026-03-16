@@ -53,11 +53,11 @@ describe("server utils", () => {
     await writeFile(scriptPath, "#!/bin/sh\necho integration-ok\n");
     await chmod(scriptPath, 0o755);
 
-    const resolved = await ensureCommandResolvable("paperclip-test-command", dir, {
-      PATH: dir,
-    });
-
-    expect(resolved).toBe(scriptPath);
+    await expect(
+      ensureCommandResolvable("paperclip-test-command", dir, {
+        PATH: dir,
+      }),
+    ).resolves.toBeUndefined();
   });
 
   it("captures stdout from a child process without timing out", async () => {

@@ -1,14 +1,15 @@
 import { mkdtemp, rm } from "node:fs/promises";
+import { createServer } from "node:net";
 import os from "node:os";
 import path from "node:path";
 import type { Test } from "supertest";
 import request from "supertest";
-import detectPort from "detect-port";
 import EmbeddedPostgres from "embedded-postgres";
 import {
   applyPendingMigrations,
   createDb,
   ensurePostgresDatabase,
+  heartbeatRuns,
   type Db,
 } from "@paperclipai/db";
 import { createApp } from "../app.js";
@@ -37,6 +38,11 @@ type IntegrationHarness = {
   createIssue(companyId: string, input?: Record<string, unknown>): Promise<Record<string, unknown>>;
   createApproval(companyId: string, input: Record<string, unknown>): Promise<Record<string, unknown>>;
   createSecret(companyId: string, input?: Record<string, unknown>): Promise<Record<string, unknown>>;
+  createHeartbeatRun(
+    companyId: string,
+    agentId: string,
+    input?: Record<string, unknown>,
+  ): Promise<Record<string, unknown>>;
 };
 
 function withApiPrefix(pathname: string) {
@@ -72,11 +78,35 @@ async function expectStatus(
   return response.body as Record<string, unknown>;
 }
 
+async function reserveEphemeralPort(): Promise<number> {
+  return await new Promise<number>((resolve, reject) => {
+    const server = createServer();
+
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", () => {
+      const address = server.address();
+      if (!address || typeof address === "string") {
+        server.close(() => reject(new Error("Could not resolve ephemeral Postgres port")));
+        return;
+      }
+
+      const { port } = address;
+      server.close((closeError) => {
+        if (closeError) {
+          reject(closeError);
+          return;
+        }
+        resolve(port);
+      });
+    });
+  });
+}
+
 export async function createIntegrationHarness(): Promise<IntegrationHarness> {
   const rootDir = await mkdtemp(path.join(os.tmpdir(), "paperclip-integration-"));
   const storageDir = path.join(rootDir, "storage");
   const databaseDir = path.join(rootDir, "db");
-  const port = await detectPort(55432);
+  const port = await reserveEphemeralPort();
   const embedded = new EmbeddedPostgres({
     databaseDir,
     user: "postgres",
@@ -211,6 +241,24 @@ export async function createIntegrationHarness(): Promise<IntegrationHarness> {
         externalRef: input?.externalRef ?? null,
       });
       return expectStatus(response, 201, "create secret");
+    },
+    async createHeartbeatRun(companyId, agentId, input) {
+      const [run] = await db
+        .insert(heartbeatRuns)
+        .values({
+          id: (input?.id as string | undefined) ?? undefined,
+          companyId,
+          agentId,
+          invocationSource: (input?.invocationSource as string | undefined) ?? "assignment",
+          triggerDetail: (input?.triggerDetail as string | null | undefined) ?? "system",
+          status: (input?.status as string | undefined) ?? "running",
+          startedAt: (input?.startedAt as Date | undefined) ?? new Date(),
+          contextSnapshot: (input?.contextSnapshot as Record<string, unknown> | undefined) ?? {
+            source: "integration-harness",
+          },
+        })
+        .returning();
+      return run as Record<string, unknown>;
     },
   };
 }

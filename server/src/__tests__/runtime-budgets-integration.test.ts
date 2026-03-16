@@ -14,17 +14,20 @@ async function waitForCondition<T>(label: string, fn: () => Promise<T | null>, t
 }
 
 describe.sequential("runtime and budget integration", () => {
-  let harness: Awaited<ReturnType<typeof createIntegrationHarness>>;
+  let harness: Awaited<ReturnType<typeof createIntegrationHarness>> | null = null;
 
   beforeAll(async () => {
     harness = await createIntegrationHarness();
   });
 
   afterAll(async () => {
-    await harness.cleanup();
+    await harness?.cleanup();
   });
 
   it("persists heartbeat runs and supports cancellation through the real API", async () => {
+    if (!harness) {
+      throw new Error("Integration harness not initialized");
+    }
     const company = await harness.createCompany({ name: "Runtime Co" });
     const agent = await harness.createAgent(company.id as string, {
       name: "Long Runner",
@@ -73,6 +76,9 @@ describe.sequential("runtime and budget integration", () => {
   });
 
   it("auto-pauses agents at the hard budget limit and blocks new invocations", async () => {
+    if (!harness) {
+      throw new Error("Integration harness not initialized");
+    }
     const company = await harness.createCompany({
       name: "Budget Co",
       budgetMonthlyCents: 50,
