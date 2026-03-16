@@ -1412,6 +1412,31 @@ export function heartbeatService(db: Db) {
         }
       }
       await finalizeAgentStatus(agent.id, outcome);
+
+      // When an engineer's run completes, wake the CTO to review
+      if (outcome === "succeeded" && agent.role === "engineer") {
+        void (async () => {
+          try {
+            const allAgents = await db.select().from(agents).where(eq(agents.companyId, agent.companyId));
+            const cto = allAgents.find(
+              (a) => a.role === "general" && a.name === "CTO" && a.status !== "paused" && a.status !== "terminated",
+            );
+            if (cto) {
+              await enqueueWakeup(cto.id, {
+                source: "automation",
+                triggerDetail: "system",
+                reason: "engineer_run_completed",
+                payload: { agentId: agent.id, agentName: agent.name, runId: run.id },
+                requestedByActorType: "system",
+                requestedByActorId: null,
+                contextSnapshot: { source: "heartbeat.engineer_run_completed" },
+              });
+            }
+          } catch (err) {
+            logger.warn({ err, agentId: agent.id, runId: run.id }, "failed to wake CTO after engineer run");
+          }
+        })();
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown adapter failure";
       const isAuthError = /\b(401|403|Unauthorized|Forbidden)\b/i.test(message)
