@@ -1,0 +1,2 @@
+iteration	trigger_pct	nofire_pct	output_pct	lines	status	description
+0	83.3	100	100	197	baseline	Initial QC-passed state, T3+T10 miss
