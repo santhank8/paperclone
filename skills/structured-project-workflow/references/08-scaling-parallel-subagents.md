@@ -86,10 +86,8 @@ Rules:
 
 | Scenario | Why Not |
 |---|---|
-| Steps have dependencies on each other | Parallel work on dependent steps = merge conflicts and broken builds |
+| Steps have dependencies on each other | Parallel work = merge conflicts and broken builds |
 | Acceptance criteria are unclear | Subagent will drift. Specify first. |
-| First time using this workflow | Learn the loop manually before delegating it |
-| < 2 hour project total | Delegation overhead exceeds time saved |
 | CLAUDE.md invariants not written | Subagents have no guardrails — skip this until invariants exist |
 
 ## Checklist: Ready to Scale
