@@ -6,7 +6,7 @@ Six patterns borrowed from danielmiessler/Personal_AI_Infrastructure (10K stars)
 ## Status
 ⬜ Not Started
 
-**Progress:** 0/6 steps
+**Progress:** 1/6 steps
 **Branch:** feat/pai-patterns
 **Depends on:** None
 
@@ -64,7 +64,7 @@ Step 5 (Evals) ── independent
 
 | # | Step | Status | Dependencies | Complexity |
 |---|------|--------|--------------|------------|
-| 1 | Workflow Sub-Routing | ⬜ | None | M |
+| 1 | Workflow Sub-Routing | ✅ | None | M |
 | 2 | User Customization Layer | ⬜ | None | S |
 | 3 | Deep Investigation | ⬜ | Step 1 | M |
 | 4 | Agent Composition from Traits | ⬜ | None | M |
@@ -134,3 +134,4 @@ Step 5 (Evals) ── independent
 ## Completion Log
 | Step | Completed | Summary |
 |------|-----------|---------|
+| 1 | 2026-03-16 | Workflow Sub-Routing: convention doc, 7 workflow files for context-cost-management (202→38 lines), publish-skill.ts updated, skill-builder updated |

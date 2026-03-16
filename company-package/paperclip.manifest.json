@@ -1,0 +1,283 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-03-14T18:00:00Z",
+  "source": {
+    "companyId": "fbb0b988-13f1-4ade-b7cf-34bf6baa331b",
+    "companyName": "AI Skills Lab"
+  },
+  "includes": {
+    "company": true,
+    "agents": true
+  },
+  "company": {
+    "path": "COMPANY.md",
+    "name": "AI Skills Lab",
+    "description": "Automated AI skills factory — skills, tutorials, videos, community",
+    "brandColor": "#6366f1",
+    "requireBoardApprovalForNewAgents": true
+  },
+  "agents": [
+    {
+      "slug": "ceo",
+      "name": "CEO",
+      "path": "agents/ceo/AGENTS.md",
+      "role": "ceo",
+      "title": "Chief Executive Officer",
+      "icon": "🎯",
+      "capabilities": "Strategic planning, delegation, hiring, goal setting, budget management, unblocking",
+      "reportsToSlug": null,
+      "adapterType": "claude_local",
+      "adapterConfig": {
+        "cwd": "/Users/aialchemy/projects/business/high-impact-digital",
+        "model": "claude-opus-4-6",
+        "maxTurnsPerRun": 300,
+        "instructionsFilePath": "/Users/aialchemy/projects/business/paperclip/agents/ceo/AGENTS.md",
+        "timeoutSec": 0,
+        "graceSec": 20,
+        "env": {}
+      },
+      "runtimeConfig": {
+        "heartbeat": {
+          "intervalSec": 3600,
+          "cooldownSec": 10
+        }
+      },
+      "permissions": {},
+      "budgetMonthlyCents": 10000,
+      "metadata": null
+    },
+    {
+      "slug": "research",
+      "name": "Research",
+      "path": "agents/research/AGENTS.md",
+      "role": "researcher",
+      "title": "Ecosystem Research Analyst",
+      "icon": "🔍",
+      "capabilities": "Changelog monitoring, API tracking, trend analysis, developer pain point discovery, competitive analysis",
+      "reportsToSlug": "ceo",
+      "adapterType": "claude_local",
+      "adapterConfig": {
+        "cwd": "/Users/aialchemy/projects/business/high-impact-digital",
+        "model": "claude-sonnet-4-6",
+        "maxTurnsPerRun": 200,
+        "instructionsFilePath": "/Users/aialchemy/projects/business/paperclip/agents/research/AGENTS.md",
+        "timeoutSec": 0,
+        "graceSec": 20,
+        "env": {}
+      },
+      "runtimeConfig": {
+        "heartbeat": {
+          "intervalSec": 7200,
+          "cooldownSec": 10
+        }
+      },
+      "permissions": {},
+      "budgetMonthlyCents": 5000,
+      "metadata": null
+    },
+    {
+      "slug": "skill-builder",
+      "name": "SkillBuilder",
+      "path": "agents/skill-builder/AGENTS.md",
+      "role": "engineer",
+      "title": "Skill Builder",
+      "icon": "🛠️",
+      "capabilities": "Claude Code skill creation, SKILL.md authoring, skill testing, prompt engineering, Claude API integration",
+      "reportsToSlug": "ceo",
+      "adapterType": "claude_local",
+      "adapterConfig": {
+        "cwd": "/Users/aialchemy/projects/business/high-impact-digital",
+        "model": "claude-sonnet-4-6",
+        "maxTurnsPerRun": 300,
+        "instructionsFilePath": "/Users/aialchemy/projects/business/paperclip/agents/skill-builder/AGENTS.md",
+        "timeoutSec": 0,
+        "graceSec": 20,
+        "env": {}
+      },
+      "runtimeConfig": {
+        "heartbeat": {
+          "intervalSec": 3600,
+          "cooldownSec": 10
+        }
+      },
+      "permissions": {},
+      "budgetMonthlyCents": 8000,
+      "metadata": null
+    },
+    {
+      "slug": "tutorial-writer",
+      "name": "TutorialWriter",
+      "path": "agents/tutorial-writer/AGENTS.md",
+      "role": "content",
+      "title": "Tutorial & Script Writer",
+      "icon": "✍️",
+      "capabilities": "Technical writing, tutorial creation, video script writing, markdown authoring, developer education",
+      "reportsToSlug": "ceo",
+      "adapterType": "claude_local",
+      "adapterConfig": {
+        "cwd": "/Users/aialchemy/projects/business/high-impact-digital",
+        "model": "claude-sonnet-4-6",
+        "maxTurnsPerRun": 200,
+        "instructionsFilePath": "/Users/aialchemy/projects/business/paperclip/agents/tutorial-writer/AGENTS.md",
+        "timeoutSec": 0,
+        "graceSec": 20,
+        "env": {}
+      },
+      "runtimeConfig": {
+        "heartbeat": {
+          "intervalSec": 3600,
+          "cooldownSec": 10
+        }
+      },
+      "permissions": {},
+      "budgetMonthlyCents": 5000,
+      "metadata": null
+    },
+    {
+      "slug": "video-producer",
+      "name": "VideoProducer",
+      "path": "agents/video-producer/AGENTS.md",
+      "role": "content",
+      "title": "Video Producer",
+      "icon": "🎬",
+      "capabilities": "Excalidraw slide creation, TTS scripting, ffmpeg video assembly, YouTube upload, thumbnail generation",
+      "reportsToSlug": "ceo",
+      "adapterType": "claude_local",
+      "adapterConfig": {
+        "cwd": "/Users/aialchemy/projects/business/high-impact-digital",
+        "model": "claude-sonnet-4-6",
+        "maxTurnsPerRun": 300,
+        "instructionsFilePath": "/Users/aialchemy/projects/business/paperclip/agents/video-producer/AGENTS.md",
+        "timeoutSec": 0,
+        "graceSec": 20,
+        "env": {}
+      },
+      "runtimeConfig": {
+        "heartbeat": {
+          "intervalSec": 3600,
+          "cooldownSec": 10
+        }
+      },
+      "permissions": {},
+      "budgetMonthlyCents": 5000,
+      "metadata": null
+    },
+    {
+      "slug": "website-engineer",
+      "name": "WebsiteEngineer",
+      "path": "agents/website-engineer/AGENTS.md",
+      "role": "engineer",
+      "title": "Website Engineer",
+      "icon": "🌐",
+      "capabilities": "Next.js, React, Tailwind CSS, Vercel deployment, SEO, responsive design, lead capture forms",
+      "reportsToSlug": "ceo",
+      "adapterType": "claude_local",
+      "adapterConfig": {
+        "cwd": "/Users/aialchemy/projects/business/high-impact-digital",
+        "model": "claude-sonnet-4-6",
+        "maxTurnsPerRun": 300,
+        "instructionsFilePath": "/Users/aialchemy/projects/business/paperclip/agents/website-engineer/AGENTS.md",
+        "timeoutSec": 0,
+        "graceSec": 20,
+        "env": {}
+      },
+      "runtimeConfig": {
+        "heartbeat": {
+          "intervalSec": 3600,
+          "cooldownSec": 10
+        }
+      },
+      "permissions": {},
+      "budgetMonthlyCents": 5000,
+      "metadata": null
+    },
+    {
+      "slug": "ops",
+      "name": "Ops",
+      "path": "agents/ops/AGENTS.md",
+      "role": "engineer",
+      "title": "Operations Engineer",
+      "icon": "⚙️",
+      "capabilities": "Pipeline automation, deployment, CI/CD, distribution, scheduling, infrastructure management",
+      "reportsToSlug": "ceo",
+      "adapterType": "claude_local",
+      "adapterConfig": {
+        "cwd": "/Users/aialchemy/projects/business/high-impact-digital",
+        "model": "claude-sonnet-4-6",
+        "maxTurnsPerRun": 200,
+        "instructionsFilePath": "/Users/aialchemy/projects/business/paperclip/agents/ops/AGENTS.md",
+        "timeoutSec": 0,
+        "graceSec": 20,
+        "env": {}
+      },
+      "runtimeConfig": {
+        "heartbeat": {
+          "intervalSec": 3600,
+          "cooldownSec": 10
+        }
+      },
+      "permissions": {},
+      "budgetMonthlyCents": 3000,
+      "metadata": null
+    },
+    {
+      "slug": "qc",
+      "name": "QC",
+      "path": "agents/qc/AGENTS.md",
+      "role": "reviewer",
+      "title": "Quality Control",
+      "icon": "✅",
+      "capabilities": "Content review, skill testing, tutorial accuracy verification, brand consistency, publish approval",
+      "reportsToSlug": "ceo",
+      "adapterType": "claude_local",
+      "adapterConfig": {
+        "cwd": "/Users/aialchemy/projects/business/high-impact-digital",
+        "model": "claude-sonnet-4-6",
+        "maxTurnsPerRun": 200,
+        "instructionsFilePath": "/Users/aialchemy/projects/business/paperclip/agents/qc/AGENTS.md",
+        "timeoutSec": 0,
+        "graceSec": 20,
+        "env": {}
+      },
+      "runtimeConfig": {
+        "heartbeat": {
+          "intervalSec": 3600,
+          "cooldownSec": 10
+        }
+      },
+      "permissions": {},
+      "budgetMonthlyCents": 3000,
+      "metadata": null
+    },
+    {
+      "slug": "opal",
+      "name": "Opal",
+      "path": "agents/opal/AGENTS.md",
+      "role": "analyst",
+      "title": "Institutional Memory & Analytics",
+      "icon": "💎",
+      "capabilities": "Performance tracking, content analytics, institutional memory via Hindsight, trend reporting, ROI analysis",
+      "reportsToSlug": "ceo",
+      "adapterType": "claude_local",
+      "adapterConfig": {
+        "cwd": "/Users/aialchemy/projects/business/high-impact-digital",
+        "model": "claude-sonnet-4-6",
+        "maxTurnsPerRun": 200,
+        "instructionsFilePath": "/Users/aialchemy/projects/business/paperclip/agents/opal/AGENTS.md",
+        "timeoutSec": 0,
+        "graceSec": 20,
+        "env": {}
+      },
+      "runtimeConfig": {
+        "heartbeat": {
+          "intervalSec": 7200,
+          "cooldownSec": 10
+        }
+      },
+      "permissions": {},
+      "budgetMonthlyCents": 3000,
+      "metadata": null
+    }
+  ],
+  "requiredSecrets": []
+}

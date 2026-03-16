@@ -1,5 +1,6 @@
 ---
 name: highimpact-skill-builder
+category: dev-workflow
 description: Use when creating, testing, improving, or benchmarking Claude Code skills. Triggers on: "create a skill", "make a skill for X", "turn this into a skill", "improve this skill", "test this skill", "benchmark this skill", "optimize skill description", "skill performance", "skill quality", "write a skill that does X", "skill triggering", "skill isn't working well", "quick skill". Skills are the highest-leverage artifact in Claude Code — one good skill multiplies across every future invocation. This skill guides the full lifecycle.
 ---
 
@@ -19,6 +20,8 @@ Before acting, locate where the user is:
 
 **If ambiguous:** Ask one question — "Do you have an existing SKILL.md to work with, or are we starting fresh?"
 
+**If the skill has a `Workflows/` directory:** Read the routing table in SKILL.md first, then load the matched workflow file before proceeding.
+
 ---
 
 ## Phase 1: Create
@@ -31,12 +34,17 @@ Before acting, locate where the user is:
    - What does success look like?
    - Any gotchas or non-obvious requirements?
 
-2. **Write SKILL.md** to `skills/[skill-name]/SKILL.md`:
+2. **Decide structure before writing:**
+   - 1-2 modes → flat SKILL.md (no sub-routing)
+   - 3+ modes OR expected to exceed 150 lines → use sub-routing: create `Workflows/[Name].md` per mode, SKILL.md becomes router
+   - See `references/create.md` for the sub-routing template and decision criteria
+
+3. **Write SKILL.md** to `skills/[skill-name]/SKILL.md`:
    - Frontmatter: `name`, `description` (triggering-optimized — see "Skill Writing Guide" below)
    - Body: phase detection if the skill has multiple modes, then reference files for details
-   - Keep under 200 lines — use `references/` for depth
+   - Keep under 200 lines — use `references/` for depth (or `Workflows/` for distinct modes)
 
-3. **Stage test cases immediately** — don't wait. Draft 3-5 prompts that should trigger this skill and 2-3 that should NOT. Save to `references/test-cases.md`.
+4. **Stage test cases immediately** — don't wait. Draft 3-5 prompts that should trigger this skill and 2-3 that should NOT. Save to `references/test-cases.md`.
 
 See `references/create.md` for: interview question bank, SKILL.md templates, naming conventions, common anti-patterns.
 
@@ -124,6 +132,17 @@ See `references/optimize.md` for: description A/B testing procedure, trigger phr
 ---
 
 ## Skill Writing Guide
+
+### When to Use Sub-Routing
+
+| Condition | Decision |
+|-----------|----------|
+| Skill has 1-2 modes | Keep flat — SKILL.md handles everything |
+| Skill has 3+ distinct modes | Use sub-routing — create `Workflows/[Name].md` per mode |
+| SKILL.md exceeds 150 lines | Extract modes to Workflows/ |
+| Modes share significant setup/context | Consider keeping flat with clear section headers |
+
+Sub-routing pattern: SKILL.md becomes a router with a routing table and dispatch rules. Each workflow file is self-contained with its own When to Use, Steps, and Verification sections. See `docs/conventions/workflow-sub-routing.md` for the full convention.
 
 ### Writing Style
 

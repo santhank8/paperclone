@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+@font-face {
+  font-family: 'Geist Mono';
+  src: url('/Users/aialchemy/projects/business/aiskillslab.dev/node_modules/next/dist/next-devtools/server/font/geist-mono-latin.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body {
+  width: 2560px;
+  height: 1440px;
+  background: #0f172a;
+  font-family: 'Geist Mono', monospace;
+  overflow: hidden;
+}
+
+.banner {
+  width: 100%;
+  height: 100%;
+  position: relative;
+}
+
+/* Subtle grid */
+.grid-bg {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background-image:
+    linear-gradient(rgba(56, 189, 248, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(56, 189, 248, 0.03) 1px, transparent 1px);
+  background-size: 48px 48px;
+}
+
+/* Center glow */
+.glow {
+  position: absolute;
+  width: 800px;
+  height: 500px;
+  background: radial-gradient(circle, rgba(56, 189, 248, 0.06) 0%, transparent 70%);
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+/*
+  Safe zones on 2560x1440:
+  All devices: 1546x423 centered = x:507,y:508 to x:2053,y:931
+  Desktop:     full width x 423h centered vertically
+*/
+
+/* === SAFE ZONE: title + tagline only === */
+.safe-zone {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 1546px;
+  height: 423px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  z-index: 2;
+}
+
+.ascii-title {
+  color: #38bdf8;
+  font-size: 20px;
+  line-height: 1.15;
+  letter-spacing: 1px;
+  white-space: pre;
+  text-align: center;
+  text-shadow: 0 0 40px rgba(56, 189, 248, 0.3);
+}
+
+.tagline {
+  color: #64748b;
+  font-size: 20px;
+  letter-spacing: 4px;
+  text-transform: uppercase;
+}
+
+/* === DESKTOP ZONE: atmospheric terminals === */
+.desktop-decor {
+  position: absolute;
+  z-index: 1;
+}
+
+.terminal {
+  background: rgba(18, 18, 26, 0.8);
+  border: 1px solid #1e293b;
+  padding: 16px 20px;
+  border-radius: 6px;
+}
+
+.term-dots {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+.term-dots span {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+.dot-red { background: #ef4444; opacity: 0.6; }
+.dot-yellow { background: #fbbf24; opacity: 0.6; }
+.dot-green { background: #4ade80; opacity: 0.6; }
+
+.term-line {
+  color: #38bdf8;
+  font-size: 17px;
+  opacity: 0.85;
+  line-height: 1.9;
+}
+.term-dim {
+  color: #64748b;
+  font-size: 16px;
+  line-height: 1.9;
+}
+.term-success {
+  color: #4ade80;
+  font-size: 16px;
+  opacity: 0.75;
+  line-height: 1.9;
+}
+
+/* Left terminal */
+.decor-left {
+  left: 200px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+/* Right bullet list */
+.decor-right {
+  right: 200px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+/* Bullet list */
+.bullet-list {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.bullet-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.bullet-dot {
+  color: #38bdf8;
+  font-size: 20px;
+  opacity: 0.85;
+}
+.bullet-text {
+  color: #94a3b8;
+  font-size: 18px;
+  letter-spacing: 1px;
+}
+</style>
+</head>
+<body>
+<div class="banner">
+  <div class="grid-bg"></div>
+  <div class="glow"></div>
+
+  <!-- Desktop decor: LEFT terminal -->
+  <div class="desktop-decor decor-left">
+    <div class="terminal">
+      <div class="term-dots">
+        <span class="dot-red"></span>
+        <span class="dot-yellow"></span>
+        <span class="dot-green"></span>
+      </div>
+      <div class="term-line">$ npx aiskillslab install</div>
+      <div class="term-dim">  context-management</div>
+      <div class="term-dim">  mcp-elicitation</div>
+      <div class="term-dim">  prompt-chaining</div>
+      <div class="term-success">  ✓ 3 skills installed</div>
+    </div>
+  </div>
+
+  <!-- Desktop decor: RIGHT bullet list -->
+  <div class="desktop-decor decor-right">
+    <div class="bullet-list">
+      <div class="bullet-item"><span class="bullet-dot">▸</span><span class="bullet-text">Skills &amp; Workflows</span></div>
+      <div class="bullet-item"><span class="bullet-dot">▸</span><span class="bullet-text">MCP Deep Dives</span></div>
+      <div class="bullet-item"><span class="bullet-dot">▸</span><span class="bullet-text">Agent Architecture</span></div>
+      <div class="bullet-item"><span class="bullet-dot">▸</span><span class="bullet-text">Context Engineering</span></div>
+      <div class="bullet-item"><span class="bullet-dot">▸</span><span class="bullet-text">Tool Comparisons</span></div>
+    </div>
+  </div>
+
+  <!-- SAFE ZONE: mobile-visible content -->
+  <div class="safe-zone">
+    <pre class="ascii-title"> █████╗ ██╗    ███████╗██╗  ██╗██╗██╗     ██╗         ██████╗ ██╗   ██╗████████╗███████╗███████╗
+██╔══██╗██║    ██╔════╝██║ ██╔╝██║██║     ██║         ██╔══██╗╚██╗ ██╔╝╚══██╔══╝██╔════╝██╔════╝
+███████║██║    ███████╗█████╔╝ ██║██║     ██║         ██████╔╝ ╚████╔╝    ██║   █████╗  ███████╗
+██╔══██║██║    ╚════██║██╔═██╗ ██║██║     ██║         ██╔══██╗  ╚██╔╝     ██║   ██╔══╝  ╚════██║
+██║  ██║██║    ███████║██║  ██╗██║███████╗███████╗    ██████╔╝   ██║      ██║   ███████╗███████║
+╚═╝  ╚═╝╚═╝    ╚══════╝╚═╝  ╚═╝╚═╝╚══════╝╚══════╝    ╚═════╝    ╚═╝      ╚═╝   ╚══════╝╚══════╝</pre>
+    <p class="tagline">Brought to you by AI Skills Lab.</p>
+  </div>
+</div>
+</body>
+</html>

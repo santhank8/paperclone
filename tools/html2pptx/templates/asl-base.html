@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+/* ============================================
+   AI SKILLS LAB — Slide Template
+   ============================================
+   DO NOT MODIFY above the PLAYGROUND section.
+   Brand colors, typography, spacing, and layout
+   are locked. Build your slide content inside
+   the playground div.
+   ============================================ */
+
+/* --- Reset & Slide Dimensions (16:9) --- */
+html { background: #ffffff; }
+body {
+  width: 720pt; height: 405pt; margin: 0; padding: 0;
+  background: var(--bg);
+  font-family: Arial, sans-serif;
+  display: flex;
+}
+
+/* --- Brand Palette --- */
+:root {
+  /* Backgrounds */
+  --bg:           #1a1a1e;
+  --bg-surface:   #22222e;
+  --bg-terminal:  #12121a;
+  --bg-badge:     #2a2a3e;
+
+  /* Text */
+  --text-primary:   #f0f0f4;
+  --text-secondary: #8888a0;
+  --text-muted:     #6a6a80;
+  --text-dim:       #4a4a60;
+
+  /* Accent */
+  --accent:       #5b7eff;
+  --accent-glow:  #7b9aff;
+  --success:      #4ade80;
+  --warning:      #fbbf24;
+  --destructive:  #ef4444;
+
+  /* Borders */
+  --border:       #2a2a3e;
+  --border-light: #3a3a4e;
+
+  /* Spacing (slide padding) */
+  --pad:          48pt;
+  --pad-sm:       24pt;
+  --pad-xs:       12pt;
+}
+
+/* --- Typography Scale --- */
+.t-hero    { font-size: 40pt; color: var(--text-primary); margin: 0; font-weight: bold; }
+.t-title   { font-size: 32pt; color: var(--text-primary); margin: 0; font-weight: bold; }
+.t-heading { font-size: 24pt; color: var(--text-primary); margin: 0; font-weight: bold; }
+.t-sub     { font-size: 18pt; color: var(--text-secondary); margin: 0; }
+.t-body    { font-size: 14pt; color: var(--text-secondary); margin: 0; line-height: 1.5; }
+.t-small   { font-size: 11pt; color: var(--text-muted); margin: 0; }
+.t-caption { font-size: 9pt;  color: var(--text-muted); margin: 0; letter-spacing: 1pt; }
+.t-mono    { font-family: Courier New, monospace; }
+.t-accent  { color: var(--accent); }
+.t-success { color: var(--success); }
+.t-warning { color: var(--warning); }
+
+/* --- Badge (top label) --- */
+.badge {
+  background: var(--bg-badge);
+  padding: 6pt 14pt;
+  margin-bottom: 16pt;
+  display: inline-block;
+  width: fit-content;
+}
+.badge p {
+  color: var(--accent);
+  font-size: 10pt;
+  letter-spacing: 2pt;
+  margin: 0;
+}
+
+/* --- Stat Row --- */
+.stats {
+  display: flex;
+  flex-direction: row;
+  gap: 32pt;
+}
+.stat p:first-child  { color: var(--accent); font-size: 28pt; margin: 0; }
+.stat p:last-child   { color: var(--text-muted); font-size: 9pt; margin: 4pt 0 0 0; letter-spacing: 1pt; }
+
+/* --- Terminal Block --- */
+.terminal {
+  background: var(--bg-terminal);
+  padding: var(--pad-sm);
+  border: 1pt solid var(--border);
+}
+.term-dots {
+  display: flex;
+  gap: 6pt;
+  margin-bottom: 16pt;
+}
+.term-dots div {
+  width: 8pt; height: 8pt;
+  background: var(--border-light);
+  border-radius: 50%;
+}
+
+/* --- Card --- */
+.card {
+  background: var(--bg-surface);
+  border: 1pt solid var(--border);
+  padding: var(--pad-sm);
+}
+
+/* --- Divider --- */
+.divider {
+  background: var(--border);
+  height: 1pt;
+  width: 100%;
+  margin: var(--pad-xs) 0;
+}
+
+/* --- Layout Helpers --- */
+.playground {
+  padding: var(--pad);
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+}
+.row     { display: flex; flex-direction: row; }
+.col     { display: flex; flex-direction: column; }
+.center  { align-items: center; justify-content: center; }
+.between { justify-content: space-between; }
+.grow    { flex: 1; }
+.gap-xs  { gap: 8pt; }
+.gap-sm  { gap: 16pt; }
+.gap-md  { gap: 24pt; }
+.gap-lg  { gap: 32pt; }
+.gap-xl  { gap: 48pt; }
+.w-half  { width: 50%; }
+.w-third { width: 33.3%; }
+.w-two-thirds { width: 66.6%; }
+.w-40    { width: 40%; }
+.w-60    { width: 60%; }
+
+</style>
+</head>
+<body>
+
+<!-- ============================================
+     PLAYGROUND — Build your slide here.
+
+     Available classes:
+
+     LAYOUT:
+       .playground  — full-slide padded container (already applied)
+       .row / .col  — flex direction
+       .center      — center both axes
+       .between     — space-between
+       .grow        — flex: 1
+       .gap-xs/sm/md/lg/xl — spacing
+       .w-half / .w-third / .w-two-thirds / .w-40 / .w-60
+
+     TYPOGRAPHY:
+       .t-hero (40pt) / .t-title (32pt) / .t-heading (24pt)
+       .t-sub (18pt) / .t-body (14pt) / .t-small (11pt) / .t-caption (9pt)
+       .t-mono — monospace
+       .t-accent / .t-success / .t-warning — color overrides
+
+     COMPONENTS:
+       .badge       — branded top label (wrap a <p>)
+       .stats       — horizontal stat row
+         .stat      — single stat (two <p>: number + label)
+       .terminal    — code/terminal block
+         .term-dots — three dot header (three empty <div>s)
+       .card        — surface card with border
+       .divider     — horizontal line
+
+     RULES:
+       - ALL text must be in <p>, <h1>-<h6>, <ul>, or <ol>
+       - NO <br> tags — use separate elements
+       - NO CSS gradients — pre-render as PNG with Sharp
+       - NO custom fonts — web-safe only (Arial, Courier New, etc.)
+       - Backgrounds/borders only on <div>, not on text elements
+     ============================================ -->
+
+<div class="playground">
+  <!-- YOUR SLIDE CONTENT HERE -->
+</div>
+
+</body>
+</html>

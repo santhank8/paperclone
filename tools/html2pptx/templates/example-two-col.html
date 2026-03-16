@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+html { background: #ffffff; }
+body {
+  width: 720pt; height: 405pt; margin: 0; padding: 0;
+  background: var(--bg);
+  font-family: Arial, sans-serif;
+  display: flex;
+}
+:root {
+  --bg:           #1a1a1e;
+  --bg-surface:   #22222e;
+  --bg-terminal:  #12121a;
+  --bg-badge:     #2a2a3e;
+  --text-primary:   #f0f0f4;
+  --text-secondary: #8888a0;
+  --text-muted:     #6a6a80;
+  --text-dim:       #4a4a60;
+  --accent:       #5b7eff;
+  --accent-glow:  #7b9aff;
+  --success:      #4ade80;
+  --warning:      #fbbf24;
+  --destructive:  #ef4444;
+  --border:       #2a2a3e;
+  --border-light: #3a3a4e;
+  --pad:          48pt;
+  --pad-sm:       24pt;
+  --pad-xs:       12pt;
+}
+.t-title   { font-size: 32pt; color: var(--text-primary); margin: 0; font-weight: bold; }
+.t-body    { font-size: 14pt; color: var(--text-secondary); margin: 0; line-height: 1.5; }
+.t-small   { font-size: 11pt; color: var(--text-muted); margin: 0; }
+.t-caption { font-size: 9pt;  color: var(--text-muted); margin: 0; letter-spacing: 1pt; }
+.t-mono    { font-family: Courier New, monospace; }
+.t-accent  { color: var(--accent); }
+.t-success { color: var(--success); }
+.badge { background: var(--bg-badge); padding: 6pt 14pt; margin-bottom: 16pt; display: inline-block; width: fit-content; }
+.badge p { color: var(--accent); font-size: 10pt; letter-spacing: 2pt; margin: 0; }
+.card { background: var(--bg-surface); border: 1pt solid var(--border); padding: var(--pad-sm); }
+.playground { padding: var(--pad); width: 100%; height: 100%; box-sizing: border-box; display: flex; flex-direction: column; }
+.row     { display: flex; flex-direction: row; }
+.col     { display: flex; flex-direction: column; }
+.grow    { flex: 1; }
+.gap-sm  { gap: 16pt; }
+.gap-md  { gap: 24pt; }
+.gap-lg  { gap: 32pt; }
+.w-half  { width: 50%; }
+</style>
+</head>
+<body>
+
+<div class="playground">
+  <div class="badge"><p>MCP ELICITATION</p></div>
+  <h1 class="t-title" style="margin-bottom: 24pt;">Get Better Answers from Any MCP Server</h1>
+
+  <div class="row gap-lg grow">
+    <div class="col gap-md w-half">
+      <div class="card">
+        <p class="t-caption" style="margin-bottom: 8pt;">THE PROBLEM</p>
+        <p class="t-body">Most developers send one-shot prompts and accept whatever comes back.</p>
+        <p class="t-body" style="margin-top: 8pt;">MCP servers have hidden capabilities that only surface through structured elicitation.</p>
+      </div>
+    </div>
+    <div class="col gap-md w-half">
+      <div class="card">
+        <p class="t-caption" style="margin-bottom: 8pt;">THE SKILL</p>
+        <p class="t-body">A systematic 4-step elicitation framework:</p>
+        <ul style="color: #8888a0; font-size: 14pt; margin: 8pt 0 0 0; padding-left: 20pt;">
+          <li>Capability discovery</li>
+          <li>Schema introspection</li>
+          <li>Iterative refinement</li>
+          <li>Response validation</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

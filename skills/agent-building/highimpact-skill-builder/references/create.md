@@ -78,12 +78,80 @@ Output: Either extend existing theme system or note there isn't one
 skill-name/
 ├── SKILL.md              # Required — entry point, loaded first
 └── Bundled Resources     # Optional
+    ├── Workflows/        # Sub-routing targets (for skills with 3+ modes)
     ├── scripts/          # Executable code for deterministic tasks
     ├── references/       # Docs loaded on demand (this file is one)
     └── assets/           # Templates, icons, fonts
 ```
 
 Keep SKILL.md as the coordinator. References are overflow — loaded when a specific phase or domain needs depth. Scripts are for tasks where code is more reliable than prose instructions.
+
+---
+
+## 4a. Sub-Routing: When and How
+
+Use sub-routing when the skill has 3+ distinct modes or SKILL.md would exceed 150 lines.
+
+**Decision criteria:**
+
+| Condition | Action |
+|-----------|--------|
+| 1-2 modes | Keep flat |
+| 3+ modes OR >150 lines | Sub-routing |
+| Modes share significant setup | Keep flat with clear section headers |
+
+**SKILL.md router template (sub-routed skill):**
+
+```markdown
+---
+name: skill-name
+description: [triggers as before]
+---
+
+# Skill Name
+
+[1-2 sentence overview]
+
+## Workflow Routing
+
+| Request Pattern | Route To |
+|---|---|
+| [trigger phrases] | `Workflows/WorkflowA.md` |
+| [trigger phrases] | `Workflows/WorkflowB.md` |
+
+## Dispatch Rules
+- Match the user's request to the routing table above
+- Read the matched workflow file and follow its instructions
+- If no clear match, ask which symptom is closest
+- Workflows may reference files in `references/` for supporting content
+
+## Anti-Rationalization
+[Keep here — applies to all workflows]
+```
+
+**Workflow file template:**
+
+```markdown
+# [Workflow Name]
+
+## When to Use
+[Specific triggers and context for this workflow]
+
+## Steps
+[Self-contained implementation steps]
+
+## Verification
+[How to verify this workflow completed correctly]
+
+## Reference
+See `../references/[file].md` for: [what's in that file].
+```
+
+**Rules:**
+- Frontmatter stays in SKILL.md only — workflow files are instructions, not skills
+- Workflow files are the single source of truth for their domain — no duplicate content in SKILL.md
+- Workflow files can reference `../references/` content
+- Anti-Rationalization table stays in SKILL.md — it applies across all workflows
 
 ---
 

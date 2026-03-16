@@ -1,0 +1,14 @@
+{
+  "name": "html2pptx",
+  "version": "1.0.0",
+  "private": true,
+  "description": "HTML-to-PPTX slide conversion for VideoProducer agent",
+  "dependencies": {
+    "pptxgenjs": "^4.0.1",
+    "playwright": "^1.49.0",
+    "sharp": "^0.33.5"
+  },
+  "scripts": {
+    "postinstall": "playwright install chromium"
+  }
+}

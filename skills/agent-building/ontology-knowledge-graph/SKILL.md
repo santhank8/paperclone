@@ -1,5 +1,6 @@
 ---
 name: ontology-knowledge-graph
+category: dev-workflow
 description: Use when you need typed entity tracking across sessions, structured queryable memory, or shared state between skills. Triggers on: "entity graph", "knowledge graph", "ontology", "structured memory", "JSONL memory", "track entities", "cross-skill state", "composability protocol", "outgrown MEMORY.md", "shared entity state", "typed queryable memory", "entity relations", "query entities". NOT for: Neo4j/graph database setup, vector/semantic search, visual graph UIs, or pure ontology concept explanations.
 ---
 

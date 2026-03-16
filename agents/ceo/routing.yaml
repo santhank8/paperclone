@@ -1,0 +1,90 @@
+# Context-Based Routing Table
+# CEO agent reads this to auto-route issues to the right agent based on content.
+# Pattern: keyword/phrase in issue title or description → agent + workflow
+#
+# Inspired by PAI's Skill System (danielmiessler/Personal_AI_Infrastructure):
+# - Keyword-based route triggers map content → workflows
+# - Dynamic context loading per agent type
+# - Composable routing that doesn't require instruction rewrites
+#
+# Priority: first match wins. More specific patterns go first.
+# Fallback: if no pattern matches, CEO decides manually.
+
+routes:
+  # === Pipeline Stage: Research ===
+  - pattern: "research|scout|find.*opportunity|trending|demand|gap analysis|market scan"
+    agent: research
+    agentId: "4e882a53-60be-4ab0-9072-db82b91cfe32"
+    workflow: research
+    description: "Skill opportunity research, market scanning, trend analysis"
+
+  # === Pipeline Stage: Build ===
+  - pattern: "build skill|create skill|implement skill|skill #\\d+"
+    agent: skill-builder
+    agentId: "2dde30cb-ed29-42d7-b6cf-e75d8e92d29b"
+    workflow: build
+    description: "Skill implementation from briefs"
+
+  - pattern: "fix skill|resubmit|QC fail|revision"
+    agent: skill-builder
+    agentId: "2dde30cb-ed29-42d7-b6cf-e75d8e92d29b"
+    workflow: fix
+    description: "Skill fixes after QC rejection"
+
+  # === Pipeline Stage: Quality ===
+  - pattern: "QC review|quality check|review skill|QC:|quality gate"
+    agent: qc
+    agentId: "b2198547-9153-4dad-9faf-691f22731b08"
+    workflow: review
+    description: "Quality review before publish"
+
+  # === Pipeline Stage: Optimize ===
+  - pattern: "optimize skill|optimization|improve skill|shrink|compress"
+    agent: optimizer
+    agentId: "67eabf9c-40ca-4e16-a78a-6d09f3a7f5b4"
+    workflow: optimize
+    description: "Post-QC iterative improvement (8 iterations, keep/discard)"
+
+  # === Pipeline Stage: Marketing ===
+  - pattern: "daily scout|X post|tweet|reply target|marketing|announce|promote"
+    agent: marketing
+    agentId: "f224b38f-fcf4-47f5-9491-d71e59d6db32"
+    workflow: marketing
+    description: "X/Twitter posting, skill announcements, community engagement"
+
+  # === Pipeline Stage: Customer Relations ===
+  - pattern: "email|incoming mail|support request|business inquiry|customer"
+    agent: customer-relations
+    agentId: "e623f014-907b-4302-8782-b1ad22167a5d"
+    workflow: email
+    description: "Email triage and response via Resend/Convex"
+
+  # === Cross-cutting ===
+  - pattern: "tutorial|video script|written guide|walkthrough"
+    agent: tutorial-writer
+    agentId: null
+    workflow: content
+    description: "Written tutorials and video scripts"
+
+  - pattern: "video|TTS|slides|YouTube|ffmpeg|render"
+    agent: video-producer
+    agentId: null
+    workflow: video
+    description: "Video production pipeline"
+
+  - pattern: "website|frontend|landing page|aiskillslab.dev|deploy"
+    agent: website-engineer
+    agentId: null
+    workflow: web
+    description: "Website development and deployment"
+
+  - pattern: "infra|pipeline|automation|CI|CD|distribution|publish script"
+    agent: ops
+    agentId: null
+    workflow: ops
+    description: "Infrastructure and pipeline automation"
+
+# Fallback behavior when no pattern matches
+fallback:
+  action: ceo_decides
+  description: "CEO analyzes issue content and makes a judgment call on routing"
