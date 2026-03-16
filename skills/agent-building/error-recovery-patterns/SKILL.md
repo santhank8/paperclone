@@ -98,8 +98,6 @@ Never retry a failed operation in the same context. Accumulated error traces pol
 
 ## Resilient Agent Checklist
 
-Before running any long autonomous task:
-
 - [ ] PreToolUse checkpoint hook wired (recovery.md will be written before risky operations)
 - [ ] Circuit breaker configured (threshold set, error-count.txt path defined)
 - [ ] Stop hook wired (recovery manifest written on every exit)
