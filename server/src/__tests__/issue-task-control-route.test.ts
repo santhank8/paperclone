@@ -209,6 +209,36 @@ describe("PATCH /issues/:id task control", () => {
     expect(mockHeartbeatService.cancelRun).toHaveBeenCalledWith("run-1");
   });
 
+  it("preserves legacy canCreateAgents-based task control for ancestor managers", async () => {
+    mockAgentService.getById.mockResolvedValue({
+      id: "agent-manager",
+      companyId: "company-1",
+      role: "manager",
+      permissions: { canCreateAgents: true, canManageTasks: false },
+    });
+    mockAgentService.getChainOfCommand.mockResolvedValue([
+      { id: "agent-manager", name: "Manager", role: "manager", title: null },
+    ]);
+
+    const res = await request(
+      createApp({
+        type: "agent",
+        agentId: "agent-manager",
+        companyId: "company-1",
+        runId: "run-manager",
+        source: "agent_key",
+      }),
+    )
+      .patch("/api/issues/issue-1")
+      .send({ assigneeAgentId: "00000000-0000-4000-8000-000000000003" });
+
+    expect(res.status).toBe(200);
+    expect(mockIssueService.update).toHaveBeenCalledWith("issue-1", {
+      assigneeAgentId: "00000000-0000-4000-8000-000000000003",
+    });
+    expect(mockHeartbeatService.cancelRun).toHaveBeenCalledWith("run-1");
+  });
+
   it("rejects reassignment attempts when the acting agent lacks task-management permission", async () => {
     mockAgentService.getById.mockResolvedValue({
       id: "agent-manager",
@@ -238,7 +268,11 @@ describe("PATCH /issues/:id task control", () => {
         action: "issue.task_control_denied",
         entityType: "issue",
         entityId: "issue-1",
-        details: expect.objectContaining({ reason: "missing_permission", managedAgentId: "agent-subordinate" }),
+        details: expect.objectContaining({
+          reason: "missing_permission",
+          managedAgentId: "agent-subordinate",
+          requestedStatus: undefined,
+        }),
       }),
     );
   });
@@ -276,6 +310,7 @@ describe("PATCH /issues/:id task control", () => {
         details: expect.objectContaining({
           reason: "not_in_chain_of_command",
           managedAgentId: "agent-subordinate",
+          requestedStatus: "cancelled",
         }),
       }),
     );

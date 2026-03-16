@@ -84,7 +84,8 @@ export function issueRoutes(db: Db, storage: StorageService) {
   function canManageTasksLegacy(agent: { permissions: Record<string, unknown> | null | undefined; role: string }) {
     if (agent.role === "ceo") return true;
     if (!agent.permissions || typeof agent.permissions !== "object") return false;
-    return Boolean((agent.permissions as Record<string, unknown>).canManageTasks);
+    const permissions = agent.permissions as Record<string, unknown>;
+    return Boolean(permissions.canManageTasks) || Boolean(permissions.canCreateAgents);
   }
 
   async function assertCanAssignTasks(req: Request, companyId: string) {
@@ -217,7 +218,7 @@ export function issueRoutes(db: Db, storage: StorageService) {
         source: "issue.update",
         reason: "missing_permission",
         managedAgentId,
-        requestedStatus: nextStatus,
+        requestedStatus: options.requestedStatus,
         requestedAssigneeAgentId: nextAssigneeAgentId,
         requestedAssigneeUserId: nextAssigneeUserId,
       });
@@ -230,7 +231,7 @@ export function issueRoutes(db: Db, storage: StorageService) {
         source: "issue.update",
         reason: "not_in_chain_of_command",
         managedAgentId,
-        requestedStatus: nextStatus,
+        requestedStatus: options.requestedStatus,
         requestedAssigneeAgentId: nextAssigneeAgentId,
         requestedAssigneeUserId: nextAssigneeUserId,
       });
