@@ -35,13 +35,6 @@ git diff main...HEAD           # all commits on this branch
 git diff HEAD~1                # last commit only
 ```
 
-**The orchestrator flow:**
-1. Fetch diff — exclude `*.lock`, `*generated*`, `vendor/`, `dist/`
-2. Load `~/.claude/review-checklist.md` if it exists
-3. Spawn 4 parallel Agent sub-reviewers
-4. Merge findings, deduplicate, sort by severity
-5. Output markdown table — optionally post to PR
-
 **Output format:**
 ```
 | File | Line | Severity | Finding | Suggestion |
