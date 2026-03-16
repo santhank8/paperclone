@@ -202,6 +202,8 @@ export type {
   Project,
   Issue,
   IssueComment,
+  IssueDocument,
+  DocumentRevision,
   Agent,
   Goal,
 } from "./types.js";
