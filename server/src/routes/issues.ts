@@ -55,6 +55,15 @@ export function issueRoutes(db: Db, storage: StorageService) {
     };
   }
 
+  async function getActorAgent(req: Request) {
+    if (req.actor.type !== "agent" || !req.actor.agentId) return null;
+    const cached = (req as Request & { _actorAgent?: Awaited<ReturnType<typeof agentsSvc.getById>> | null })._actorAgent;
+    if (cached !== undefined) return cached;
+    const actorAgent = await agentsSvc.getById(req.actor.agentId);
+    (req as Request & { _actorAgent?: Awaited<ReturnType<typeof agentsSvc.getById>> | null })._actorAgent = actorAgent;
+    return actorAgent;
+  }
+
   async function runSingleFileUpload(req: Request, res: Response) {
     await new Promise<void>((resolve, reject) => {
       upload.single("file")(req, res, (err: unknown) => {
@@ -71,7 +80,7 @@ export function issueRoutes(db: Db, storage: StorageService) {
       res.status(403).json({ error: "Agent authentication required" });
       return false;
     }
-    const actorAgent = await agentsSvc.getById(req.actor.agentId);
+    const actorAgent = await getActorAgent(req);
     if (!actorAgent || actorAgent.companyId !== companyId) {
       res.status(403).json({ error: "Forbidden" });
       return false;
@@ -100,7 +109,7 @@ export function issueRoutes(db: Db, storage: StorageService) {
       if (!req.actor.agentId) throw forbidden("Agent authentication required");
       const allowedByGrant = await access.hasPermission(companyId, "agent", req.actor.agentId, "tasks:assign");
       if (allowedByGrant) return;
-      const actorAgent = await agentsSvc.getById(req.actor.agentId);
+      const actorAgent = await getActorAgent(req);
       if (actorAgent && actorAgent.companyId === companyId && canManageTasksLegacy(actorAgent)) return;
       throw forbidden("Missing permission: tasks:assign");
     }
@@ -192,19 +201,19 @@ export function issueRoutes(db: Db, storage: StorageService) {
     const nextAssigneeAgentId = options.nextAssigneeAgentId;
     const nextAssigneeUserId = options.nextAssigneeUserId;
     const assigneeChanges = currentAssigneeAgentId !== nextAssigneeAgentId;
-    const cancelsTask = options.requestedStatus === "cancelled" && issue.status !== "cancelled";
+    const terminatesTask =
+      (options.requestedStatus === "cancelled" || options.requestedStatus === "done") &&
+      issue.status !== options.requestedStatus;
 
     const managedAgentId =
-      currentAssigneeAgentId && currentAssigneeAgentId !== actorAgentId && (assigneeChanges || cancelsTask)
+      currentAssigneeAgentId && currentAssigneeAgentId !== actorAgentId && (assigneeChanges || terminatesTask)
         ? currentAssigneeAgentId
-        : !currentAssigneeAgentId && nextAssigneeAgentId && nextAssigneeAgentId !== actorAgentId
-          ? nextAssigneeAgentId
-          : null;
+        : null;
 
     if (!managedAgentId) return;
 
     const allowedByGrant = await access.hasPermission(issue.companyId, "agent", actorAgentId, "tasks:assign");
-    const actorAgent = await agentsSvc.getById(actorAgentId);
+    const actorAgent = await getActorAgent(req);
     const hasTaskManagementPermission =
       !!actorAgent &&
       actorAgent.companyId === issue.companyId &&
@@ -232,7 +241,7 @@ export function issueRoutes(db: Db, storage: StorageService) {
         requestedAssigneeAgentId: nextAssigneeAgentId,
         requestedAssigneeUserId: nextAssigneeUserId,
       });
-      throw forbidden("Only an ancestor manager can cancel or reassign another agent's issue");
+      throw forbidden("Only an ancestor manager can cancel, complete, or reassign another agent's issue");
     }
   }
 
@@ -916,7 +925,7 @@ export function issueRoutes(db: Db, storage: StorageService) {
     const shouldInterruptManagedRun =
       !!existing.assigneeAgentId &&
       existing.assigneeAgentId !== actor.agentId &&
-      (req.body.status === "cancelled" || assigneeAgentWillChange);
+      ((req.body.status === "cancelled" || req.body.status === "done") || assigneeAgentWillChange);
     let interruptedRunId: string | null = null;
     if (shouldInterruptManagedRun) {
       try {

@@ -239,6 +239,49 @@ describe("PATCH /issues/:id task control", () => {
     expect(mockHeartbeatService.cancelRun).toHaveBeenCalledWith("run-1");
   });
 
+  it("does not require chain-of-command for first assignment of an unowned issue", async () => {
+    const unownedBaseIssue = {
+      ...baseIssue,
+      assigneeAgentId: null,
+      executionRunId: null,
+      status: "backlog",
+    };
+    mockIssueService.getById.mockResolvedValue(unownedBaseIssue);
+    mockIssueService.update.mockImplementation(async (_id, patch) => ({
+      ...unownedBaseIssue,
+      ...patch,
+      assigneeAgentId: patch.assigneeAgentId ?? null,
+      assigneeUserId: patch.assigneeUserId ?? unownedBaseIssue.assigneeUserId,
+      status: patch.status ?? "backlog",
+    }));
+    mockAgentService.getById.mockResolvedValue({
+      id: "agent-manager",
+      companyId: "company-1",
+      role: "manager",
+      permissions: { canCreateAgents: false, canManageTasks: true },
+    });
+    mockAgentService.getChainOfCommand.mockResolvedValue([{ id: "agent-other-manager", name: "Other", role: "manager", title: null }]);
+
+    const res = await request(
+      createApp({
+        type: "agent",
+        agentId: "agent-manager",
+        companyId: "company-1",
+        runId: "run-manager",
+        source: "agent_key",
+      }),
+    )
+      .patch("/api/issues/issue-1")
+      .send({ assigneeAgentId: "00000000-0000-4000-8000-000000000004" });
+
+    expect(res.status).toBe(200);
+    expect(mockIssueService.update).toHaveBeenCalledWith("issue-1", {
+      assigneeAgentId: "00000000-0000-4000-8000-000000000004",
+    });
+    expect(mockHeartbeatService.cancelRun).not.toHaveBeenCalled();
+    expect(mockAgentService.getChainOfCommand).not.toHaveBeenCalled();
+  });
+
   it("rejects reassignment attempts when the acting agent lacks task-management permission", async () => {
     mockAgentService.getById.mockResolvedValue({
       id: "agent-manager",
@@ -299,7 +342,7 @@ describe("PATCH /issues/:id task control", () => {
       .send({ status: "cancelled" });
 
     expect(res.status).toBe(403);
-    expect(res.body.error).toBe("Only an ancestor manager can cancel or reassign another agent's issue");
+    expect(res.body.error).toBe("Only an ancestor manager can cancel, complete, or reassign another agent's issue");
     expect(mockIssueService.update).not.toHaveBeenCalled();
     expect(mockLogActivity).toHaveBeenCalledWith(
       expect.anything(),
@@ -442,6 +485,32 @@ describe("PATCH /issues/:id task control", () => {
     expect(res.status).toBe(200);
     expect(mockIssueService.update).toHaveBeenCalledWith("issue-1", { status: "cancelled" });
     expect(mockHeartbeatService.cancelRun).not.toHaveBeenCalled();
+  });
+
+  it("requires chain-of-command and interrupts the run when another agent marks the issue done", async () => {
+    mockAgentService.getById.mockResolvedValue({
+      id: "agent-ceo",
+      companyId: "company-1",
+      role: "ceo",
+      permissions: { canCreateAgents: true, canManageTasks: true },
+    });
+    mockAgentService.getChainOfCommand.mockResolvedValue([{ id: "agent-ceo", name: "CEO", role: "ceo", title: null }]);
+
+    const res = await request(
+      createApp({
+        type: "agent",
+        agentId: "agent-ceo",
+        companyId: "company-1",
+        runId: "run-ceo",
+        source: "agent_key",
+      }),
+    )
+      .patch("/api/issues/issue-1")
+      .send({ status: "done" });
+
+    expect(res.status).toBe(200);
+    expect(mockIssueService.update).toHaveBeenCalledWith("issue-1", { status: "done" });
+    expect(mockHeartbeatService.cancelRun).toHaveBeenCalledWith("run-1");
   });
 
   it("still updates the issue when cancelling the managed run throws", async () => {
