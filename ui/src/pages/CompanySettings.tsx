@@ -37,6 +37,7 @@ export function CompanySettings() {
   const [brandColor, setBrandColor] = useState("");
   const [logoUrl, setLogoUrl] = useState("");
   const [logoUploadError, setLogoUploadError] = useState<string | null>(null);
+  const [requiredApprovals, setRequiredApprovals] = useState("1");
 
   // Sync local state from selected company
   useEffect(() => {
@@ -45,6 +46,7 @@ export function CompanySettings() {
     setDescription(selectedCompany.description ?? "");
     setBrandColor(selectedCompany.brandColor ?? "");
     setLogoUrl(selectedCompany.logoUrl ?? "");
+    setRequiredApprovals(String(selectedCompany.requiredApprovalCount));
   }, [selectedCompany]);
 
   const [inviteError, setInviteError] = useState<string | null>(null);
@@ -76,6 +78,17 @@ export function CompanySettings() {
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.companies.all });
+    }
+  });
+
+  const approvalCountMutation = useMutation({
+    mutationFn: (count: number) =>
+      companiesApi.update(selectedCompanyId!, { requiredApprovalCount: count }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.companies.all });
+    },
+    onError: () => {
+      setRequiredApprovals(String(selectedCompany?.requiredApprovalCount ?? 1));
     }
   });
 
@@ -379,13 +392,49 @@ export function CompanySettings() {
         <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
           Hiring
         </div>
-        <div className="rounded-md border border-border px-4 py-3">
+        <div className="space-y-3 rounded-md border border-border px-4 py-3">
           <ToggleField
             label="Require board approval for new hires"
             hint="New agent hires stay pending until approved by board."
             checked={!!selectedCompany.requireBoardApprovalForNewAgents}
             onChange={(v) => settingsMutation.mutate(v)}
           />
+          {selectedCompany.requireBoardApprovalForNewAgents && (
+            <Field
+              label="Required approvals"
+              hint="Number of board members that must approve before a request is granted."
+            >
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  min={1}
+                  max={10}
+                  className="w-24 rounded-md border border-border bg-transparent px-2.5 py-1.5 text-sm outline-none"
+                  value={requiredApprovals}
+                  onChange={(e) => setRequiredApprovals(e.target.value)}
+                  onBlur={() => {
+                    const parsed = parseInt(requiredApprovals, 10);
+                    const clamped = Math.max(1, Math.min(10, isNaN(parsed) ? 1 : parsed));
+                    setRequiredApprovals(String(clamped));
+                    if (clamped !== selectedCompany.requiredApprovalCount) {
+                      approvalCountMutation.mutate(clamped);
+                    }
+                  }}
+                  disabled={approvalCountMutation.isPending}
+                />
+                {approvalCountMutation.isPending && (
+                  <span className="text-xs text-muted-foreground">Saving...</span>
+                )}
+                {approvalCountMutation.isError && (
+                  <span className="text-xs text-destructive">
+                    {approvalCountMutation.error instanceof Error
+                      ? approvalCountMutation.error.message
+                      : "Failed to save"}
+                  </span>
+                )}
+              </div>
+            </Field>
+          )}
         </div>
       </div>
 
