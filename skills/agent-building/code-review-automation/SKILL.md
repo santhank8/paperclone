@@ -95,23 +95,7 @@ Create `~/.claude/review-checklist.md` with stack-specific rules. The orchestrat
 
 ## Auto-Triggering
 
-A PreToolUse hook fires a review before any `git push` to a feature branch. Blocks the push if critical findings exist.
-
-```json
-{
-  "hooks": {
-    "PreToolUse": [{
-      "matcher": "Bash",
-      "hooks": [{
-        "type": "command",
-        "command": "node ~/.claude/hooks/pre-push-review.js"
-      }]
-    }]
-  }
-}
-```
-
-The hook script checks if the command is `git push` to a non-main branch, runs the review with `--check-only`, and exits 1 to block if criticals exist. Escape hatch: `git push --no-verify`.
+A PreToolUse hook on `Bash` fires a review before any `git push` to a feature branch. The script checks for a non-main push, runs the review with `--check-only`, and exits 1 to block if criticals exist. Escape hatch: `git push --no-verify`.
 
 → See [05-auto-trigger-hook.md](references/05-auto-trigger-hook.md) for the full hook script, branch scope filter, and override mechanism.
 
