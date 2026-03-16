@@ -252,6 +252,8 @@ export function NewIssueDialog() {
   const [assigneeThinkingEffort, setAssigneeThinkingEffort] = useState("");
   const [assigneeChrome, setAssigneeChrome] = useState(false);
   const [useIsolatedExecutionWorkspace, setUseIsolatedExecutionWorkspace] = useState(false);
+  const [parentId, setParentId] = useState("");
+  const [goalId, setGoalId] = useState("");
   const [expanded, setExpanded] = useState(false);
   const [dialogCompanyId, setDialogCompanyId] = useState<string | null>(null);
   const [stagedFiles, setStagedFiles] = useState<StagedIssueFile[]>([]);
@@ -443,6 +445,10 @@ export function NewIssueDialog() {
     setDialogCompanyId(selectedCompanyId);
     executionWorkspaceDefaultProjectId.current = null;
 
+    // parentId/goalId are ephemeral — never restored from draft
+    setParentId(newIssueDefaults.parentId ?? "");
+    setGoalId(newIssueDefaults.goalId ?? "");
+
     const draft = loadDraft();
     if (newIssueDefaults.title) {
       setTitle(newIssueDefaults.title);
@@ -455,7 +461,7 @@ export function NewIssueDialog() {
       setAssigneeThinkingEffort("");
       setAssigneeChrome(false);
       setUseIsolatedExecutionWorkspace(false);
-    } else if (draft && draft.title.trim()) {
+    } else if (draft && draft.title.trim() && !newIssueDefaults.parentId) {
       setTitle(draft.title);
       setDescription(draft.description);
       setStatus(draft.status || "todo");
@@ -573,6 +579,8 @@ export function NewIssueDialog() {
       ...(selectedAssigneeAgentId ? { assigneeAgentId: selectedAssigneeAgentId } : {}),
       ...(selectedAssigneeUserId ? { assigneeUserId: selectedAssigneeUserId } : {}),
       ...(projectId ? { projectId } : {}),
+      ...(parentId ? { parentId } : {}),
+      ...(goalId ? { goalId } : {}),
       ...(assigneeAdapterOverrides ? { assigneeAdapterOverrides } : {}),
       ...(executionWorkspaceSettings ? { executionWorkspaceSettings } : {}),
     });
@@ -843,7 +851,7 @@ export function NewIssueDialog() {
               </PopoverContent>
             </Popover>
             <span className="text-muted-foreground/60">&rsaquo;</span>
-            <span>New issue</span>
+            <span>{parentId ? "New sub-issue" : "New issue"}</span>
           </div>
           <div className="flex items-center gap-1">
             <Button
