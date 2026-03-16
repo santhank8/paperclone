@@ -17,6 +17,13 @@ import {
   parseAssigneeValue,
 } from "../lib/assignees";
 import {
+  clearIssueDraft,
+  ISSUE_DRAFT_DEBOUNCE_MS,
+  loadIssueDraft,
+  saveIssueDraft,
+  type StoredIssueDraft,
+} from "../lib/issue-draft";
+import {
   Dialog,
   DialogContent,
 } from "@/components/ui/dialog";
@@ -51,8 +58,7 @@ import { MarkdownEditor, type MarkdownEditorRef, type MentionOption } from "./Ma
 import { AgentIcon } from "./AgentIconPicker";
 import { InlineEntitySelector, type InlineEntityOption } from "./InlineEntitySelector";
 
-const DRAFT_KEY = "paperclip:issue-draft";
-const DEBOUNCE_MS = 800;
+const DEBOUNCE_MS = ISSUE_DRAFT_DEBOUNCE_MS;
 // TODO(issue-worktree-support): re-enable this UI once the workflow is ready to ship.
 const SHOW_EXPERIMENTAL_ISSUE_WORKTREE_UI = false;
 
@@ -64,20 +70,6 @@ function getContrastTextColor(hexColor: string): string {
   const b = parseInt(hex.substring(4, 6), 16);
   const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
   return luminance > 0.5 ? "#000000" : "#ffffff";
-}
-
-interface IssueDraft {
-  title: string;
-  description: string;
-  status: string;
-  priority: string;
-  assigneeValue: string;
-  assigneeId?: string;
-  projectId: string;
-  assigneeModelOverride: string;
-  assigneeThinkingEffort: string;
-  assigneeChrome: boolean;
-  useIsolatedExecutionWorkspace: boolean;
 }
 
 type StagedIssueFile = {
@@ -148,24 +140,6 @@ function buildAssigneeAdapterOverrides(input: {
     overrides.adapterConfig = adapterConfig;
   }
   return Object.keys(overrides).length > 0 ? overrides : null;
-}
-
-function loadDraft(): IssueDraft | null {
-  try {
-    const raw = localStorage.getItem(DRAFT_KEY);
-    if (!raw) return null;
-    return JSON.parse(raw) as IssueDraft;
-  } catch {
-    return null;
-  }
-}
-
-function saveDraft(draft: IssueDraft) {
-  localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
-}
-
-function clearDraft() {
-  localStorage.removeItem(DRAFT_KEY);
 }
 
 function isTextDocumentFile(file: File) {
@@ -379,7 +353,7 @@ export function NewIssueDialog() {
             : undefined,
         });
       }
-      clearDraft();
+      clearIssueDraft(companyId);
       reset();
       closeNewIssue();
     },
@@ -394,10 +368,10 @@ export function NewIssueDialog() {
 
   // Debounced draft saving
   const scheduleSave = useCallback(
-    (draft: IssueDraft) => {
+    (companyId: string | null | undefined, draft: StoredIssueDraft) => {
       if (draftTimer.current) clearTimeout(draftTimer.current);
       draftTimer.current = setTimeout(() => {
-        if (draft.title.trim()) saveDraft(draft);
+        if (draft.title.trim()) saveIssueDraft(companyId, draft);
       }, DEBOUNCE_MS);
     },
     [],
@@ -406,7 +380,7 @@ export function NewIssueDialog() {
   // Save draft on meaningful changes
   useEffect(() => {
     if (!newIssueOpen) return;
-    scheduleSave({
+    scheduleSave(effectiveCompanyId, {
       title,
       description,
       status,
@@ -419,6 +393,7 @@ export function NewIssueDialog() {
       useIsolatedExecutionWorkspace,
     });
   }, [
+    effectiveCompanyId,
     title,
     description,
     status,
@@ -439,7 +414,7 @@ export function NewIssueDialog() {
     setDialogCompanyId(selectedCompanyId);
     executionWorkspaceDefaultProjectId.current = null;
 
-    const draft = loadDraft();
+    const draft = loadIssueDraft(selectedCompanyId);
     if (newIssueDefaults.title) {
       setTitle(newIssueDefaults.title);
       setDescription(newIssueDefaults.description ?? "");
@@ -537,7 +512,7 @@ export function NewIssueDialog() {
   }
 
   function discardDraft() {
-    clearDraft();
+    clearIssueDraft(effectiveCompanyId);
     reset();
     closeNewIssue();
   }
@@ -669,7 +644,10 @@ export function NewIssueDialog() {
       : assigneeAdapterType === "opencode_local"
         ? ISSUE_THINKING_EFFORT_OPTIONS.opencode_local
       : ISSUE_THINKING_EFFORT_OPTIONS.claude_local;
-  const recentAssigneeIds = useMemo(() => getRecentAssigneeIds(), [newIssueOpen]);
+  const recentAssigneeIds = useMemo(
+    () => getRecentAssigneeIds(effectiveCompanyId),
+    [effectiveCompanyId, newIssueOpen],
+  );
   const assigneeOptions = useMemo<InlineEntityOption[]>(
     () => [
       ...currentUserAssigneeOption(currentUserId),
@@ -693,7 +671,7 @@ export function NewIssueDialog() {
       })),
     [orderedProjects],
   );
-  const savedDraft = loadDraft();
+  const savedDraft = loadIssueDraft(effectiveCompanyId);
   const hasSavedDraft = Boolean(savedDraft?.title.trim() || savedDraft?.description.trim());
   const canDiscardDraft = hasDraft || hasSavedDraft;
   const createIssueErrorMessage =
@@ -920,7 +898,7 @@ export function NewIssueDialog() {
                 onChange={(value) => {
                   const nextAssignee = parseAssigneeValue(value);
                   if (nextAssignee.assigneeAgentId) {
-                    trackRecentAssignee(nextAssignee.assigneeAgentId);
+                    trackRecentAssignee(nextAssignee.assigneeAgentId, effectiveCompanyId);
                   }
                   setAssigneeValue(value);
                 }}
