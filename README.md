@@ -330,7 +330,7 @@ If you need to reselect which local instance this checkout starts against, use `
 - ⚪ ClipMart - buy and sell entire agent companies
 - ⚪ Easy agent configurations / easier to understand
 - ⚪ Better support for harness engineering
-- ⚪ Plugin system (e.g. if you want to add a knowledgebase, custom tracing, queues, etc)
+- 🟢 Plugin system (e.g. if you want to add a knowledgebase, custom tracing, queues, etc)
 - ⚪ Better docs
 
 <br/>
@@ -338,8 +338,6 @@ If you need to reselect which local instance this checkout starts against, use `
 ## Contributing
 
 We welcome contributions. See the [contributing guide](CONTRIBUTING.md) for details.
-
-<!-- TODO: add CONTRIBUTING.md -->
 
 <br/>
 
