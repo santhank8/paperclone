@@ -312,7 +312,9 @@ pnpm dev:once         # Full dev without file watching
 pnpm dev:server       # Server only
 pnpm build            # Build all
 pnpm typecheck        # Type checking
-pnpm test:run         # Run tests
+pnpm test:unit        # Run the full Vitest matrix
+pnpm test:coverage    # Run unit tests with per-project coverage gates
+pnpm test:e2e         # Run the Playwright board-flow gate
 pnpm db:generate      # Generate DB migration
 pnpm db:migrate       # Apply migrations
 ```

@@ -14,14 +14,14 @@ async function waitForCondition<T>(label: string, fn: () => Promise<T | null>, t
 }
 
 describe.sequential("runtime and budget integration", () => {
-  let harness: Awaited<ReturnType<typeof createIntegrationHarness>>;
+  let harness: Awaited<ReturnType<typeof createIntegrationHarness>> | undefined;
 
   beforeAll(async () => {
     harness = await createIntegrationHarness();
   });
 
   afterAll(async () => {
-    await harness.cleanup();
+    await harness?.cleanup();
   });
 
   it("persists heartbeat runs and supports cancellation through the real API", async () => {

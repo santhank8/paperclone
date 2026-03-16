@@ -1,15 +1,16 @@
+import net from "node:net";
 import { mkdtemp, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import type { Test } from "supertest";
+import type { Response, Test } from "supertest";
 import request from "supertest";
-import detectPort from "detect-port";
 import EmbeddedPostgres from "embedded-postgres";
 import {
   applyPendingMigrations,
   createDb,
   ensurePostgresDatabase,
   type Db,
+  heartbeatRuns,
 } from "@paperclipai/db";
 import { createApp } from "../app.js";
 import { createLocalDiskStorageProvider } from "../storage/local-disk-provider.js";
@@ -37,6 +38,14 @@ type IntegrationHarness = {
   createIssue(companyId: string, input?: Record<string, unknown>): Promise<Record<string, unknown>>;
   createApproval(companyId: string, input: Record<string, unknown>): Promise<Record<string, unknown>>;
   createSecret(companyId: string, input?: Record<string, unknown>): Promise<Record<string, unknown>>;
+  createHeartbeatRun(input: {
+    companyId: string;
+    agentId: string;
+    status?: string;
+    invocationSource?: string;
+    triggerDetail?: string | null;
+    contextSnapshot?: Record<string, unknown> | null;
+  }): Promise<Record<string, unknown>>;
 };
 
 function withApiPrefix(pathname: string) {
@@ -62,7 +71,7 @@ function createApiClient(app: ReturnType<typeof request>, defaultHeaders: Record
 }
 
 async function expectStatus(
-  response: Awaited<ReturnType<Test["then"]>>,
+  response: Response,
   expectedStatus: number,
   label: string,
 ) {
@@ -72,11 +81,36 @@ async function expectStatus(
   return response.body as Record<string, unknown>;
 }
 
+async function reserveTcpPort(): Promise<number> {
+  return await new Promise<number>((resolve, reject) => {
+    // Bind a socket first so concurrent harnesses do not all "discover" the
+    // same apparently-free port before Postgres starts listening on it.
+    const reservation = net.createServer();
+    reservation.unref();
+    reservation.on("error", reject);
+    reservation.listen(0, "127.0.0.1", () => {
+      const address = reservation.address();
+      if (!address || typeof address === "string") {
+        reservation.close(() => reject(new Error("Failed to reserve an ephemeral TCP port")));
+        return;
+      }
+      const { port } = address;
+      reservation.close((error) => {
+        if (error) {
+          reject(error);
+          return;
+        }
+        resolve(port);
+      });
+    });
+  });
+}
+
 export async function createIntegrationHarness(): Promise<IntegrationHarness> {
   const rootDir = await mkdtemp(path.join(os.tmpdir(), "paperclip-integration-"));
   const storageDir = path.join(rootDir, "storage");
   const databaseDir = path.join(rootDir, "db");
-  const port = await detectPort(55432);
+  const port = await reserveTcpPort();
   const embedded = new EmbeddedPostgres({
     databaseDir,
     user: "postgres",
@@ -211,6 +245,18 @@ export async function createIntegrationHarness(): Promise<IntegrationHarness> {
         externalRef: input?.externalRef ?? null,
       });
       return expectStatus(response, 201, "create secret");
+    },
+    async createHeartbeatRun(input) {
+      const [run] = await db.insert(heartbeatRuns).values({
+        companyId: input.companyId,
+        agentId: input.agentId,
+        status: input.status ?? "running",
+        invocationSource: input.invocationSource ?? "issue_checkout",
+        triggerDetail: input.triggerDetail ?? null,
+        startedAt: new Date(),
+        contextSnapshot: input.contextSnapshot ?? undefined,
+      }).returning();
+      return run as Record<string, unknown>;
     },
   };
 }

@@ -14,14 +14,14 @@ async function waitForCondition<T>(label: string, fn: () => Promise<T | null>, t
 }
 
 describe.sequential("issue workflow integration", () => {
-  let harness: Awaited<ReturnType<typeof createIntegrationHarness>>;
+  let harness: Awaited<ReturnType<typeof createIntegrationHarness>> | undefined;
 
   beforeAll(async () => {
     harness = await createIntegrationHarness();
   });
 
   afterAll(async () => {
-    await harness.cleanup();
+    await harness?.cleanup();
   });
 
   it("covers create, checkout conflict, review handoff, and activity auditing", async () => {
@@ -52,9 +52,19 @@ describe.sequential("issue workflow integration", () => {
     const assigneeKey = await harness.createAgentKey(assignee.id as string);
     const competingKey = await harness.createAgentKey(competingAgent.id as string);
 
+    const checkoutRun = await harness.createHeartbeatRun({
+      companyId: company.id as string,
+      agentId: assignee.id as string,
+      status: "running",
+      invocationSource: "issue_checkout",
+      triggerDetail: "integration-checkout",
+      contextSnapshot: { issueId: "pending" },
+    });
+
     const createdIssue = await harness.createIssue(company.id as string, {
       title: "Cover review handoffs",
       description: "Exercise issue lifecycle coverage.",
+      status: "backlog",
       projectId: project.id,
       goalId: goal.id,
       assigneeAgentId: assignee.id,
@@ -64,28 +74,37 @@ describe.sequential("issue workflow integration", () => {
     expect(createdIssue.projectId).toBe(project.id);
     expect(createdIssue.goalId).toBe(goal.id);
     expect(createdIssue.assigneeAgentId).toBe(assignee.id);
-    expect(createdIssue.status).toBe("todo");
+    expect(createdIssue.status).toBe("backlog");
 
-    const checkedOut = await harness.asAgent(assigneeKey.token as string, "run-issue-a")
+    const checkedOut = await harness.asAgent(assigneeKey.token as string, checkoutRun.id as string)
       .post(`/issues/${createdIssue.id as string}/checkout`)
       .send({
         agentId: assignee.id,
-        expectedStatuses: ["todo"],
+        expectedStatuses: ["backlog"],
       });
     expect(checkedOut.status).toBe(200);
     expect(checkedOut.body.status).toBe("in_progress");
-    expect(checkedOut.body.checkoutRunId).toBe("run-issue-a");
+    expect(checkedOut.body.checkoutRunId).toBe(checkoutRun.id);
 
-    const checkoutConflict = await harness.asAgent(competingKey.token as string, "run-issue-b")
+    const competingRun = await harness.createHeartbeatRun({
+      companyId: company.id as string,
+      agentId: competingAgent.id as string,
+      status: "running",
+      invocationSource: "issue_checkout",
+      triggerDetail: "integration-conflict",
+      contextSnapshot: { issueId: createdIssue.id as string },
+    });
+
+    const checkoutConflict = await harness.asAgent(competingKey.token as string, competingRun.id as string)
       .post(`/issues/${createdIssue.id as string}/checkout`)
       .send({
         agentId: competingAgent.id,
-        expectedStatuses: ["todo", "in_progress"],
+        expectedStatuses: ["backlog", "in_progress"],
       });
     expect(checkoutConflict.status).toBe(409);
     expect(checkoutConflict.body.error).toContain("conflict");
 
-    const handoff = await harness.asAgent(assigneeKey.token as string, "run-issue-a")
+    const handoff = await harness.asAgent(assigneeKey.token as string, checkoutRun.id as string)
       .patch(`/issues/${createdIssue.id as string}`)
       .send({
         status: "done",

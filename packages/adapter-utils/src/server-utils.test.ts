@@ -49,15 +49,13 @@ describe("server utils", () => {
 
   it("resolves commands from the provided PATH instead of relying on the parent shell", async () => {
     const dir = await createTempDir();
-    const scriptPath = path.join(dir, "paperclip-test-command");
-    await writeFile(scriptPath, "#!/bin/sh\necho integration-ok\n");
-    await chmod(scriptPath, 0o755);
+    const commandPath = path.join(dir, "paperclip-test-command");
+    await writeFile(commandPath, "#!/bin/sh\necho integration-ok\n");
+    await chmod(commandPath, 0o755);
 
-    const resolved = await ensureCommandResolvable("paperclip-test-command", dir, {
+    await expect(ensureCommandResolvable("paperclip-test-command", dir, {
       PATH: dir,
-    });
-
-    expect(resolved).toBe(scriptPath);
+    })).resolves.toBeUndefined();
   });
 
   it("captures stdout from a child process without timing out", async () => {
