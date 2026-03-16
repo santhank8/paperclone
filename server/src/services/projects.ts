@@ -13,6 +13,7 @@ import {
 } from "@paperclipai/shared";
 import { listWorkspaceRuntimeServicesForProjectWorkspaces } from "./workspace-runtime.js";
 import { parseProjectExecutionWorkspacePolicy } from "./execution-workspace-policy.js";
+import { attachWorkspaceHealth, withPrimaryWorkspaceHealth } from "./project-workspace-health.js";
 
 type ProjectRow = typeof projects.$inferSelect;
 type ProjectWorkspaceRow = typeof projectWorkspaces.$inferSelect;
@@ -178,20 +179,20 @@ async function attachWorkspaces(db: Db, rows: ProjectWithGoals[]): Promise<Proje
     arr.push(row);
   }
 
-  return rows.map((row) => {
+  return Promise.all(rows.map(async (row) => {
     const projectWorkspaceRows = map.get(row.id) ?? [];
-    const workspaces = projectWorkspaceRows.map((workspace) =>
+    const workspaces = await attachWorkspaceHealth(projectWorkspaceRows.map((workspace) =>
       toWorkspace(
         workspace,
         sharedRuntimeServicesByWorkspaceId.get(workspace.id) ?? [],
       ),
-    );
-    return {
+    ));
+    return withPrimaryWorkspaceHealth({
       ...row,
       workspaces,
       primaryWorkspace: pickPrimaryWorkspace(projectWorkspaceRows, sharedRuntimeServicesByWorkspaceId),
-    };
-  });
+    });
+  }));
 }
 
 /** Sync the project_goals join table for a single project. */
@@ -470,12 +471,12 @@ export function projectService(db: Db) {
         rows[0]!.companyId,
         rows.map((workspace) => workspace.id),
       );
-      return rows.map((row) =>
+      return attachWorkspaceHealth(rows.map((row) =>
         toWorkspace(
           row,
           (runtimeServicesByWorkspaceId.get(row.id) ?? []).map(toRuntimeService),
         ),
-      );
+      ));
     },
 
     createWorkspace: async (
@@ -536,7 +537,9 @@ export function projectService(db: Db) {
         return row;
       });
 
-      return created ? toWorkspace(created) : null;
+      if (!created) return null;
+      const [workspace] = await attachWorkspaceHealth([toWorkspace(created)]);
+      return workspace ?? null;
     },
 
     updateWorkspace: async (
@@ -656,7 +659,9 @@ export function projectService(db: Db) {
         return row;
       });
 
-      return updated ? toWorkspace(updated) : null;
+      if (!updated) return null;
+      const [workspace] = await attachWorkspaceHealth([toWorkspace(updated)]);
+      return workspace ?? null;
     },
 
     removeWorkspace: async (projectId: string, workspaceId: string): Promise<ProjectWorkspace | null> => {
@@ -706,7 +711,9 @@ export function projectService(db: Db) {
         return row;
       });
 
-      return removed ? toWorkspace(removed) : null;
+      if (!removed) return null;
+      const [workspace] = await attachWorkspaceHealth([toWorkspace(removed)]);
+      return workspace ?? null;
     },
 
     resolveByReference: async (companyId: string, reference: string) => {

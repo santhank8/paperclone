@@ -15,9 +15,16 @@ import { PriorityIcon } from "./PriorityIcon";
 import { Identity } from "./Identity";
 import { formatDate, cn, projectUrl } from "../lib/utils";
 import { timeAgo } from "../lib/timeAgo";
+import {
+  getWorkspaceDisplayTarget,
+  getWorkspaceExecutionWarning,
+  getWorkspaceHealthLabel,
+  getWorkspaceHealthTone,
+} from "../lib/workspace-health";
 import { Separator } from "@/components/ui/separator";
+import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { User, Hexagon, ArrowUpRight, Tag, Plus, Trash2 } from "lucide-react";
+import { User, Hexagon, ArrowUpRight, Tag, Plus, Trash2, AlertCircle } from "lucide-react";
 import { AgentIcon } from "./AgentIconPicker";
 
 // TODO(issue-worktree-support): re-enable this UI once the workflow is ready to ship.
@@ -36,6 +43,12 @@ function PropertyRow({ label, children }: { label: string; children: React.React
       <div className="flex items-center gap-1.5 min-w-0 flex-1">{children}</div>
     </div>
   );
+}
+
+function workspaceHealthBadgeClassName(tone: "healthy" | "warning" | "muted") {
+  if (tone === "healthy") return "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300";
+  if (tone === "warning") return "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300";
+  return "border-border bg-muted text-muted-foreground";
 }
 
 /** Renders a Popover on desktop, or an inline collapsible section on mobile (inline mode). */
@@ -182,6 +195,8 @@ export function IssueProperties({ issue, onUpdate, inline }: IssuePropertiesProp
   const currentProject = issue.projectId
     ? orderedProjects.find((project) => project.id === issue.projectId) ?? null
     : null;
+  const currentPrimaryWorkspace = currentProject?.primaryWorkspace ?? null;
+  const currentWorkspaceWarning = getWorkspaceExecutionWarning(currentPrimaryWorkspace);
   const currentProjectExecutionWorkspacePolicy = SHOW_EXPERIMENTAL_ISSUE_WORKTREE_UI
     ? currentProject?.executionWorkspacePolicy ?? null
     : null;
@@ -529,6 +544,40 @@ export function IssueProperties({ issue, onUpdate, inline }: IssuePropertiesProp
         >
           {projectContent}
         </PropertyPicker>
+
+        {currentProject && (
+          <PropertyRow label="Execution">
+            <div className="w-full space-y-2 rounded-md border border-border px-2 py-2">
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className="truncate text-sm">{getWorkspaceDisplayTarget(currentPrimaryWorkspace)}</span>
+                <Badge variant="outline" className="border-sky-500/30 bg-sky-500/10 text-[10px] text-sky-700 dark:text-sky-300">
+                  Primary target
+                </Badge>
+                <Badge
+                  variant="outline"
+                  className={cn("text-[10px]", workspaceHealthBadgeClassName(getWorkspaceHealthTone(currentPrimaryWorkspace)))}
+                >
+                  {getWorkspaceHealthLabel(currentPrimaryWorkspace)}
+                </Badge>
+              </div>
+              {currentPrimaryWorkspace?.cwd ? (
+                <div className="truncate font-mono text-[11px] text-muted-foreground">
+                  {currentPrimaryWorkspace.cwd}
+                </div>
+              ) : null}
+              {currentWorkspaceWarning ? (
+                <div className="flex items-start gap-2 rounded-md border border-amber-500/20 bg-amber-500/5 px-2 py-1.5 text-[11px] text-amber-800 dark:text-amber-200">
+                  <AlertCircle className="mt-0.5 h-3 w-3 shrink-0" />
+                  <span>{currentWorkspaceWarning}</span>
+                </div>
+              ) : (
+                <div className="text-[11px] text-muted-foreground">
+                  This issue will execute against the project’s primary workspace by default.
+                </div>
+              )}
+            </div>
+          </PropertyRow>
+        )}
 
         {currentProjectSupportsExecutionWorkspace && (
           <PropertyRow label="Workspace">

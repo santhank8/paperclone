@@ -25,6 +25,7 @@ import {
 import { redactCurrentUserText } from "../log-redaction.js";
 import { resolveIssueGoalId, resolveNextIssueGoalId } from "./issue-goal-fallback.js";
 import { getDefaultCompanyGoal } from "./goals.js";
+import { attachWorkspaceHealth, withPrimaryWorkspaceHealth } from "./project-workspace-health.js";
 
 const ALL_ISSUE_STATUSES = ["backlog", "todo", "in_progress", "in_review", "blocked", "done", "cancelled"];
 
@@ -1402,7 +1403,7 @@ export function issueService(db: Db) {
         }).from(projects).where(inArray(projects.id, projectIds));
         for (const r of rows) {
           const projectWorkspaceRows = workspaceMap.get(r.id) ?? [];
-          const workspaces = projectWorkspaceRows.map((workspace) => ({
+          const workspaces = await attachWorkspaceHealth(projectWorkspaceRows.map((workspace) => ({
             id: workspace.id,
             companyId: workspace.companyId,
             projectId: workspace.projectId,
@@ -1414,13 +1415,13 @@ export function issueService(db: Db) {
             isPrimary: workspace.isPrimary,
             createdAt: workspace.createdAt,
             updatedAt: workspace.updatedAt,
-          }));
+          })));
           const primaryWorkspace = workspaces.find((workspace) => workspace.isPrimary) ?? workspaces[0] ?? null;
-          projectMap.set(r.id, {
+          projectMap.set(r.id, withPrimaryWorkspaceHealth({
             ...r,
             workspaces,
             primaryWorkspace,
-          });
+          }));
           // Also collect goalIds from projects
           if (r.goalId && !goalIds.includes(r.goalId)) goalIds.push(r.goalId);
         }

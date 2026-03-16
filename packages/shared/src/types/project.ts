@@ -6,6 +6,13 @@ export interface ProjectGoalRef {
   title: string;
 }
 
+export interface ProjectWorkspaceHealth {
+  cwdConfigured: boolean;
+  cwdExists: boolean;
+  cwdIsDirectory: boolean;
+  gitRepo: boolean | null;
+}
+
 export interface ProjectWorkspace {
   id: string;
   companyId: string;
@@ -16,6 +23,7 @@ export interface ProjectWorkspace {
   repoRef: string | null;
   metadata: Record<string, unknown> | null;
   isPrimary: boolean;
+  health?: ProjectWorkspaceHealth;
   runtimeServices?: WorkspaceRuntimeService[];
   createdAt: Date;
   updatedAt: Date;

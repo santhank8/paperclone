@@ -9,8 +9,15 @@ import { projectsApi } from "../api/projects";
 import { useCompany } from "../context/CompanyContext";
 import { queryKeys } from "../lib/queryKeys";
 import { statusBadge, statusBadgeDefault } from "../lib/status-colors";
+import {
+  getWorkspaceExecutionWarning,
+  getWorkspaceHealthLabel,
+  getWorkspaceHealthTone,
+  hasWorkspaceLocalFolder,
+} from "../lib/workspace-health";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { AlertCircle, Check, ExternalLink, Github, Loader2, Plus, Trash2, X } from "lucide-react";
@@ -114,6 +121,12 @@ function PropertyRow({
       </div>
     </div>
   );
+}
+
+function workspaceHealthBadgeClassName(tone: "healthy" | "warning" | "muted") {
+  if (tone === "healthy") return "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300";
+  if (tone === "warning") return "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300";
+  return "border-border bg-muted text-muted-foreground";
 }
 
 function ProjectStatusPicker({ status, onChange }: { status: string; onChange: (status: string) => void }) {
@@ -517,21 +530,47 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
             </p>
           ) : (
             <div className="space-y-1">
-              {workspaces.map((workspace) => (
-                <div key={workspace.id} className="space-y-1">
-                  {workspace.cwd && workspace.cwd !== REPO_ONLY_CWD_SENTINEL ? (
-                    <div className="flex items-center justify-between gap-2 py-1">
-                      <span className="min-w-0 truncate font-mono text-xs text-muted-foreground">{workspace.cwd}</span>
-                      <Button
-                        variant="ghost"
-                        size="icon-xs"
-                        onClick={() => clearLocalWorkspace(workspace)}
-                        aria-label="Delete local folder"
+              {workspaces.map((workspace) => {
+                const healthTone = getWorkspaceHealthTone(workspace);
+                const executionWarning = getWorkspaceExecutionWarning(workspace.isPrimary ? workspace : null);
+                return (
+                  <div key={workspace.id} className="space-y-2 rounded-md border border-border/70 px-2 py-2">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="text-xs font-medium">{workspace.name}</span>
+                      {workspace.isPrimary ? (
+                        <Badge variant="outline" className="border-sky-500/30 bg-sky-500/10 text-[10px] text-sky-700 dark:text-sky-300">
+                          Primary
+                        </Badge>
+                      ) : null}
+                      <Badge
+                        variant="outline"
+                        className={cn("text-[10px]", workspaceHealthBadgeClassName(healthTone))}
                       >
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
+                        {getWorkspaceHealthLabel(workspace)}
+                      </Badge>
+                      {workspace.repoUrl ? (
+                        <Badge variant="outline" className="text-[10px]">
+                          GitHub linked
+                        </Badge>
+                      ) : null}
                     </div>
-                  ) : null}
+                    {workspace.cwd && workspace.cwd !== REPO_ONLY_CWD_SENTINEL ? (
+                      <div className="flex items-center justify-between gap-2 py-1">
+                        <span className="min-w-0 truncate font-mono text-xs text-muted-foreground">{workspace.cwd}</span>
+                        <Button
+                          variant="ghost"
+                          size="icon-xs"
+                          onClick={() => clearLocalWorkspace(workspace)}
+                          aria-label="Delete local folder"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">
+                        {workspace.repoUrl ? "No local folder attached." : "No local folder configured."}
+                      </p>
+                    )}
                   {workspace.repoUrl ? (
                     <div className="flex items-center justify-between gap-2 py-1">
                       <a
@@ -599,8 +638,20 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
                       ))}
                     </div>
                   ) : null}
-                </div>
-              ))}
+                    {workspace.isPrimary && executionWarning ? (
+                      <div className="flex items-start gap-2 rounded-md border border-amber-500/20 bg-amber-500/5 px-2 py-1.5 text-xs text-amber-800 dark:text-amber-200">
+                        <AlertCircle className="mt-0.5 h-3 w-3 shrink-0" />
+                        <span>{executionWarning}</span>
+                      </div>
+                    ) : null}
+                    {!workspace.isPrimary && !hasWorkspaceLocalFolder(workspace) && workspace.repoUrl ? (
+                      <p className="text-xs text-muted-foreground">
+                        Repo reference only. It will not be used as the primary local execution target.
+                      </p>
+                    ) : null}
+                  </div>
+                );
+              })}
             </div>
           )}
           <div className="flex flex-col items-start gap-2">
