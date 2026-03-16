@@ -1,3 +1,5 @@
+import type { ActivityListFilters } from "@paperclipai/shared";
+
 export const queryKeys = {
   companies: {
     all: ["companies"] as const,
@@ -68,7 +70,14 @@ export const queryKeys = {
   },
   dashboard: (companyId: string) => ["dashboard", companyId] as const,
   sidebarBadges: (companyId: string) => ["sidebar-badges", companyId] as const,
-  activity: (companyId: string) => ["activity", companyId] as const,
+  activity: (companyId: string, filters?: ActivityListFilters) => [
+    "activity",
+    companyId,
+    filters?.agentId ?? "",
+    filters?.entityType ?? "",
+    filters?.entityId ?? "",
+    filters?.action ?? "",
+  ] as const,
   costs: (companyId: string, from?: string, to?: string) =>
     ["costs", companyId, from, to] as const,
   heartbeats: (companyId: string, agentId?: string) =>

@@ -70,8 +70,11 @@ const boardActor = {
   isInstanceAdmin: false,
 } as const;
 
+const AGENT_ONE_ID = "11111111-1111-4111-8111-111111111111";
+const AGENT_TWO_ID = "22222222-2222-4222-8222-222222222222";
+
 const foreignAgent = {
-  id: "agent-2",
+  id: AGENT_TWO_ID,
   companyId: "company-2",
   name: "Foreign Agent",
 } as const;
@@ -85,13 +88,13 @@ describe("agent route company scoping", () => {
   });
 
   it.each([
-    ["post", "/api/agents/agent-2/pause", "pause"],
-    ["post", "/api/agents/agent-2/resume", "resume"],
-    ["post", "/api/agents/agent-2/terminate", "terminate"],
-    ["delete", "/api/agents/agent-2", "remove"],
-    ["get", "/api/agents/agent-2/keys", "listKeys"],
-    ["post", "/api/agents/agent-2/keys", "createApiKey"],
-    ["delete", "/api/agents/agent-2/keys/key-1", "revokeKey"],
+    ["post", `/api/agents/${AGENT_TWO_ID}/pause`, "pause"],
+    ["post", `/api/agents/${AGENT_TWO_ID}/resume`, "resume"],
+    ["post", `/api/agents/${AGENT_TWO_ID}/terminate`, "terminate"],
+    ["delete", `/api/agents/${AGENT_TWO_ID}`, "remove"],
+    ["get", `/api/agents/${AGENT_TWO_ID}/keys`, "listKeys"],
+    ["post", `/api/agents/${AGENT_TWO_ID}/keys`, "createApiKey"],
+    ["delete", `/api/agents/${AGENT_TWO_ID}/keys/key-1`, "revokeKey"],
   ])("rejects cross-company board access for %s %s", async (method, path, serviceMethod) => {
     const app = createApp(boardActor);
     const req = sendRequest(app, method as "get" | "post" | "delete", path);
@@ -108,7 +111,7 @@ describe("agent route company scoping", () => {
     mockAgentService.getById.mockResolvedValueOnce(null);
     const app = createApp(boardActor);
 
-    const res = await request(app).get("/api/agents/missing/keys");
+    const res = await request(app).get("/api/agents/33333333-3333-4333-8333-333333333333/keys");
 
     expect(res.status).toBe(404);
     expect(res.body).toEqual({ error: "Agent not found" });
@@ -117,19 +120,19 @@ describe("agent route company scoping", () => {
 
   it("logs key revocation when the key belongs to the managed agent", async () => {
     mockAgentService.getById.mockResolvedValueOnce({
-      id: "agent-1",
+      id: AGENT_ONE_ID,
       companyId: "company-1",
       name: "Scoped Agent",
     });
     mockAgentService.revokeKey.mockResolvedValueOnce({
       id: "key-1",
-      agentId: "agent-1",
+      agentId: AGENT_ONE_ID,
       companyId: "company-1",
       name: "Primary",
     });
     const app = createApp(boardActor);
 
-    const res = await request(app).delete("/api/agents/agent-1/keys/key-1");
+    const res = await request(app).delete(`/api/agents/${AGENT_ONE_ID}/keys/key-1`);
 
     expect(res.status).toBe(200);
     expect(res.body).toEqual({ ok: true });
@@ -138,7 +141,7 @@ describe("agent route company scoping", () => {
       expect.objectContaining({
         companyId: "company-1",
         action: "agent.key_revoked",
-        entityId: "agent-1",
+        entityId: AGENT_ONE_ID,
         details: { keyId: "key-1", name: "Primary" },
       }),
     );
@@ -146,7 +149,7 @@ describe("agent route company scoping", () => {
 
   it("returns 404 when the revoked key does not belong to the requested agent", async () => {
     mockAgentService.getById.mockResolvedValueOnce({
-      id: "agent-1",
+      id: AGENT_ONE_ID,
       companyId: "company-1",
       name: "Scoped Agent",
     });
@@ -158,7 +161,7 @@ describe("agent route company scoping", () => {
     });
     const app = createApp(boardActor);
 
-    const res = await request(app).delete("/api/agents/agent-1/keys/key-1");
+    const res = await request(app).delete(`/api/agents/${AGENT_ONE_ID}/keys/key-1`);
 
     expect(res.status).toBe(404);
     expect(res.body).toEqual({ error: "Key not found" });

@@ -141,6 +141,7 @@ export type {
   LiveEvent,
   DashboardSummary,
   ActivityEvent,
+  ActivityListFilters,
   SidebarBadges,
   CompanyMembership,
   PrincipalPermissionGrant,
