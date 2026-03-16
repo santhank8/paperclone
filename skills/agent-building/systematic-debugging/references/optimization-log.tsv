@@ -1,2 +1,10 @@
 iteration	trigger_pct	nofire_pct	output_pct	lines	status	description
 0	83.3	100	100	197	baseline	Initial QC-passed state, T3+T10 miss
+1	100	100	100	196	kept	Fix T3/T10 trigger misses — added spend/spending hours + 55% of my time phrasing
+2	100	100	100	187	kept	Remove redundant hypothesis prompt code block — H1/H2/H3 format retained
+3	100	100	100	179	kept	Inline 5 Whys example — remove numbered list, keep concept with reference pointer
+4	100	100	100	171	kept	Remove debug log format code block — duplicates debug-session-log.md reference
+5	100	100	100	160	kept	Remove multi-runner table, inline as one-liner — duplicates pre-commit-stop-hook.md
+6	100	100	100	158	kept	Tighten Reproduce First — remove duplicate Anti-pattern note, covered by table below
+7	100	100	100	152	kept	Remove regression table — duplicates regression-prevention.md, Rule line covers O4
+8	100	100	100	148	kept	Compress Why 55% section — 3 paragraphs to 1, same content
