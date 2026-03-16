@@ -1,3 +1,4 @@
+import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -146,15 +147,42 @@ function maybeEnableUiDevMiddleware(entrypoint: string): void {
   }
 }
 
-async function ensurePluginSdkBuilt(projectRoot: string): Promise<void> {
-  const sdkDist = path.resolve(projectRoot, "packages/plugins/sdk/dist/index.js");
-  if (fs.existsSync(sdkDist)) return;
+function newestMtimeMs(dir: string): number {
+  let newest = 0;
+  for (const name of fs.readdirSync(dir)) {
+    const full = path.join(dir, name);
+    const stat = fs.statSync(full);
+    const mtime = stat.isDirectory() ? newestMtimeMs(full) : stat.mtimeMs;
+    if (mtime > newest) newest = mtime;
+  }
+  return newest;
+}
 
-  p.log.step("Building plugin SDK...");
+function ensurePluginSdkBuilt(projectRoot: string): void {
+  const sdkDist = path.resolve(projectRoot, "packages/plugins/sdk/dist/index.js");
+  if (fs.existsSync(sdkDist)) {
+    const sdkSrc = path.resolve(projectRoot, "packages/plugins/sdk/src");
+    if (fs.existsSync(sdkSrc)) {
+      const srcNewest = newestMtimeMs(sdkSrc);
+      const distMtime = fs.statSync(sdkDist).mtimeMs;
+      if (srcNewest > distMtime) {
+        p.log.warn("Plugin SDK source is newer than the dist. The server may load stale SDK code. Run `pnpm --filter @paperclipai/plugin-sdk build` to rebuild.");
+      }
+    }
+    return;
+  }
+
   const tscBin = path.resolve(projectRoot, "node_modules/typescript/bin/tsc");
   const tsconfig = path.resolve(projectRoot, "packages/plugins/sdk/tsconfig.json");
 
-  const { spawnSync } = await import("node:child_process");
+  if (!fs.existsSync(tscBin)) {
+    throw new Error(`TypeScript compiler not found at ${tscBin}. Run \`pnpm install\` in the project root.`);
+  }
+  if (!fs.existsSync(tsconfig)) {
+    throw new Error(`Plugin SDK tsconfig not found at ${tsconfig}.`);
+  }
+
+  p.log.step("Building plugin SDK...");
   const result = spawnSync(process.execPath, [tscBin, "-p", tsconfig], {
     cwd: projectRoot,
     stdio: "inherit",
@@ -172,7 +200,7 @@ async function importServerEntry(): Promise<StartedServer> {
   const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
   const devEntry = path.resolve(projectRoot, "server/src/index.ts");
   if (fs.existsSync(devEntry)) {
-    await ensurePluginSdkBuilt(projectRoot);
+    ensurePluginSdkBuilt(projectRoot);
     maybeEnableUiDevMiddleware(devEntry);
     const mod = await import(pathToFileURL(devEntry).href);
     return await startServerFromModule(mod, devEntry);
