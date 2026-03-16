@@ -5,17 +5,8 @@
  * object stored in the agent record.
  */
 
+import type { CreateConfigValues } from "@paperclipai/adapter-utils";
 import { DEFAULT_TIMEOUT_SEC } from "../server/constants.js";
-
-export interface CreateConfigValues {
-  model?: string;
-  command?: string;
-  cwd?: string;
-  extraArgs?: string;
-  thinkingEffort?: string;
-  promptTemplate?: string;
-  args?: string; // Provider is stored in args field (CreateConfigValues convention)
-}
 
 /**
  * Build a Hermes Agent adapter config from the Paperclip UI form values.
