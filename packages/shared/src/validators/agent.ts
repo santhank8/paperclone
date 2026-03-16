@@ -57,7 +57,7 @@ export const createAgentSchema = z.object({
     const strategy = value.workspaceStrategy;
     if (strategy === undefined) return;
     const valid = ["git_worktree", "project_primary"];
-    if (!valid.includes(strategy as string)) {
+    if (typeof strategy !== "string" || !valid.includes(strategy)) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: `runtimeConfig.workspaceStrategy must be "git_worktree" or "project_primary"`,
@@ -87,7 +87,6 @@ export const updateAgentSchema = createAgentSchema
     replaceAdapterConfig: z.boolean().optional(),
     status: z.enum(AGENT_STATUSES).optional(),
     spentMonthlyCents: z.number().int().nonnegative().optional(),
-    projectId: z.string().uuid().optional().nullable(),
   });
 
 export type UpdateAgent = z.infer<typeof updateAgentSchema>;
