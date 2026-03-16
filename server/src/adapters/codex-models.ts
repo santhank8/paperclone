@@ -8,8 +8,8 @@ const OPENAI_MODELS_CACHE_TTL_MS = 60_000;
 
 let cached: { keyFingerprint: string; expiresAt: number; models: AdapterModel[] } | null = null;
 
-function fingerprint(apiKey: string): string {
-  return `${apiKey.length}:${apiKey.slice(-6)}`;
+function fingerprint(apiKey: string, endpoint: string): string {
+  return `${endpoint}|${apiKey.length}:${apiKey.slice(-6)}`;
 }
 
 function dedupeModels(models: AdapterModel[]): AdapterModel[] {
@@ -31,21 +31,39 @@ function mergedWithFallback(models: AdapterModel[]): AdapterModel[] {
   ]).sort((a, b) => a.id.localeCompare(b.id, "en", { numeric: true, sensitivity: "base" }));
 }
 
-function resolveOpenAiApiKey(): string | null {
+function resolveLlmDetails(): { apiKey: string | null; endpoint: string } {
   const envKey = process.env.OPENAI_API_KEY?.trim();
-  if (envKey) return envKey;
+  const envEndpoint = process.env.OPENAI_BASE_URL ? `${process.env.OPENAI_BASE_URL.replace(/\/$/, "")}/models` : null;
+
+  if (envKey) {
+    return { apiKey: envKey, endpoint: envEndpoint || OPENAI_MODELS_ENDPOINT };
+  }
 
   const config = readConfigFile();
-  if (config?.llm?.provider !== "openai") return null;
-  const configKey = config.llm.apiKey?.trim();
-  return configKey && configKey.length > 0 ? configKey : null;
+  if (config?.llm?.provider === "openai") {
+    const configKey = config.llm.apiKey?.trim();
+    return {
+      apiKey: configKey && configKey.length > 0 ? configKey : null,
+      endpoint: envEndpoint || OPENAI_MODELS_ENDPOINT,
+    };
+  }
+
+  if (config?.llm?.provider === "zai") {
+    const configKey = config.llm.apiKey?.trim();
+    return {
+      apiKey: configKey && configKey.length > 0 ? configKey : null,
+      endpoint: envEndpoint || "https://api.z.ai/api/paas/v4/models",
+    };
+  }
+
+  return { apiKey: null, endpoint: OPENAI_MODELS_ENDPOINT };
 }
 
-async function fetchOpenAiModels(apiKey: string): Promise<AdapterModel[]> {
+async function fetchOpenAiModels(apiKey: string, endpoint: string): Promise<AdapterModel[]> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), OPENAI_MODELS_TIMEOUT_MS);
   try {
-    const response = await fetch(OPENAI_MODELS_ENDPOINT, {
+    const response = await fetch(endpoint, {
       headers: {
         Authorization: `Bearer ${apiKey}`,
       },
@@ -71,17 +89,17 @@ async function fetchOpenAiModels(apiKey: string): Promise<AdapterModel[]> {
 }
 
 export async function listCodexModels(): Promise<AdapterModel[]> {
-  const apiKey = resolveOpenAiApiKey();
+  const { apiKey, endpoint } = resolveLlmDetails();
   const fallback = dedupeModels(codexFallbackModels);
   if (!apiKey) return fallback;
 
   const now = Date.now();
-  const keyFingerprint = fingerprint(apiKey);
+  const keyFingerprint = fingerprint(apiKey, endpoint);
   if (cached && cached.keyFingerprint === keyFingerprint && cached.expiresAt > now) {
     return cached.models;
   }
 
-  const fetched = await fetchOpenAiModels(apiKey);
+  const fetched = await fetchOpenAiModels(apiKey, endpoint);
   if (fetched.length > 0) {
     const merged = mergedWithFallback(fetched);
     cached = {

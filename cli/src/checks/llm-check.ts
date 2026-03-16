@@ -71,7 +71,7 @@ export async function llmCheck(config: PaperclipConfig): Promise<CheckResult> {
         status: "warn",
         message: `Z.AI API returned status ${res.status}`,
       };
-    } else {
+    } else if (config.llm.provider === "openai") {
       const res = await fetch("https://api.openai.com/v1/models", {
         headers: { Authorization: `Bearer ${config.llm.apiKey}` },
       });
