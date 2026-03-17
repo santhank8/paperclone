@@ -1095,6 +1095,9 @@ export function agentRoutes(db: Db) {
         priority: issue.priority,
         projectId: issue.projectId,
         goalId: issue.goalId,
+        goalTitle: "goal" in issue && issue.goal != null
+          ? (issue.goal as { title: string }).title
+          : null,
         parentId: issue.parentId,
         updatedAt: issue.updatedAt,
         activeRun: issue.activeRun,

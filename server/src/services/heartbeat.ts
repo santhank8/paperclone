@@ -10,6 +10,7 @@ import {
   agentRuntimeState,
   agentTaskSessions,
   agentWakeupRequests,
+  goals,
   heartbeatRunEvents,
   heartbeatRuns,
   issueComments,
@@ -2315,6 +2316,7 @@ export function heartbeatService(db: Db) {
             title: issues.title,
             status: issues.status,
             priority: issues.priority,
+            goalId: issues.goalId,
             projectId: issues.projectId,
             projectWorkspaceId: issues.projectWorkspaceId,
             executionWorkspaceId: issues.executionWorkspaceId,
@@ -2384,12 +2386,13 @@ export function heartbeatService(db: Db) {
       { useProjectWorkspace: requestedExecutionWorkspaceMode !== "agent_default" },
     );
     const issueRef = issueContext
-      ? {
+        ? {
           id: issueContext.id,
           identifier: issueContext.identifier,
           title: issueContext.title,
           status: issueContext.status,
           priority: issueContext.priority,
+          goalId: issueContext.goalId,
           projectId: issueContext.projectId,
           projectWorkspaceId: issueContext.projectWorkspaceId,
           executionWorkspaceId: issueContext.executionWorkspaceId,
@@ -2455,6 +2458,19 @@ export function heartbeatService(db: Db) {
       projectEnv: projectContext?.env ?? null,
       secretsSvc,
     });
+    const issueGoal = issueRef?.goalId
+      ? await db
+          .select({
+            id: goals.id,
+            title: goals.title,
+            description: goals.description,
+            level: goals.level,
+            status: goals.status,
+          })
+          .from(goals)
+          .where(and(eq(goals.id, issueRef.goalId), eq(goals.companyId, agent.companyId)))
+          .then((rows) => rows[0] ?? null)
+      : null;
     const runtimeSkillEntries = await companySkills.listRuntimeSkillEntries(agent.companyId);
     const runtimeConfig = {
       ...resolvedConfig,
@@ -2686,6 +2702,16 @@ export function heartbeatService(db: Db) {
     }
     if (executionWorkspace.projectId && !readNonEmptyString(context.projectId)) {
       context.projectId = executionWorkspace.projectId;
+    }
+
+    // Inject goal context so adapters (and prompt templates) can reference
+    // the strategic goal this issue is aligned to.
+    if (issueGoal) {
+      context.goalId = issueGoal.id;
+      context.goalTitle = issueGoal.title;
+      context.goalDescription = issueGoal.description ?? null;
+      context.goalLevel = issueGoal.level;
+      context.goalStatus = issueGoal.status;
     }
     const runtimeSessionFallback = taskKey || resetTaskSession ? null : runtime.sessionId;
     let previousSessionDisplayId = truncateDisplayId(
