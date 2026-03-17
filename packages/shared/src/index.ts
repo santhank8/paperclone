@@ -122,7 +122,16 @@ export type {
   AgentEnvConfig,
   CompanySecret,
   SecretProviderDescriptor,
+  UnifiedScheduledJob,
+  RunHistoryEntry,
 } from "./types/index.js";
+
+export {
+  getCronOccurrences,
+  getNextCronOccurrence,
+  buildDayKey,
+  type CronOccurrence,
+} from "./cron-occurrences.js";
 
 export {
   createCompanySchema,
