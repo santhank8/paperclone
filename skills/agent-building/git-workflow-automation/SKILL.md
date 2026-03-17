@@ -40,21 +40,6 @@ gh pr create --title "feat: task-a" --body "..." --base main
 git worktree remove /tmp/worktree-agent-a
 ```
 
-**Stop hook for WIP commits** (add to `.claude/settings.json`):
-```json
-{
-  "hooks": {
-    "Stop": [{
-      "matcher": "",
-      "hooks": [{
-        "type": "command",
-        "command": "git diff --quiet && git diff --staged --quiet || (git add -A && git commit -m 'wip: checkpoint [auto-stop]' --no-verify)"
-      }]
-    }]
-  }
-}
-```
-
 ## Anti-Rationalization
 
 | What you'll tell yourself | The truth |
