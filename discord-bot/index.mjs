@@ -54,11 +54,13 @@ async function discoverCompanies() {
 
     companyData.set(company.id, data);
 
-    // Map channel names to companies
+    // Map channel names to companies — only if they have a CEO
     // Channels: #moqcai-ceo, #palantir-ceo, #morenada-ceo, etc.
     const slug = company.name.toLowerCase().replace(/[^a-z0-9]/g, "");
-    companyMap.set(`${slug}-ceo`, data);
-    companyMap.set(`${slug}`, data);
+    if (ceo && !companyMap.has(`${slug}-ceo`)) {
+      companyMap.set(`${slug}-ceo`, data);
+      companyMap.set(`${slug}`, data);
+    }
 
     if (ceo) {
       console.log(`[bot] ${company.name} → CEO: ${ceo.name} (${ceo.id}) | channel: #${slug}-ceo`);
@@ -73,6 +75,7 @@ async function discoverCompanies() {
 function resolveCompany(channel) {
   if (!channel) return null;
   const name = channel.name?.toLowerCase() || "";
+  console.log(`[bot] Resolving channel "${name}" against ${companyMap.size} mappings: [${[...companyMap.keys()].join(", ")}]`);
   // Try exact match first: #moqcai-ceo → moqcai
   if (companyMap.has(name)) return companyMap.get(name);
   // Try prefix match: #moqcai-ceo → moqcai-ceo
@@ -100,16 +103,32 @@ async function wakeAgent(agentId, message, discordContext) {
   });
 }
 
-async function getRunResult(runId, timeoutMs = 300000) {
+async function getRunResult(companyId, agentId, startTime, timeoutMs = 300000) {
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
     try {
-      const run = await api("GET", `/heartbeat-runs/${runId}`);
-      if (["completed", "failed", "error"].includes(run.status)) return run;
+      const runs = await api("GET", `/companies/${companyId}/heartbeat-runs?agentId=${agentId}&limit=3`);
+      if (Array.isArray(runs)) {
+        // Find the most recent completed run that started after our request
+        const run = runs.find(r =>
+          ["completed", "failed", "error"].includes(r.status) &&
+          new Date(r.createdAt).getTime() >= startTime - 5000
+        );
+        if (run) return run;
+      }
     } catch { /* keep polling */ }
     await new Promise(r => setTimeout(r, 3000));
   }
   return null;
+}
+
+function extractRunResponse(run) {
+  // Try multiple places where the agent response might be
+  if (run.resultJson?.summary) return run.resultJson.summary;
+  if (run.resultJson?.resultJson?.stdout) return run.resultJson.resultJson.stdout.slice(0, 1900);
+  if (run.summary) return run.summary;
+  if (run.errorMessage) return `Error: ${run.errorMessage}`;
+  return "Run completed but no response text found.";
 }
 
 async function getAgentStatus(agentId) {
@@ -186,6 +205,7 @@ client.on("interactionCreate", async (interaction) => {
         return;
       }
 
+      const wakeTime = Date.now();
       const result = await wakeAgent(data.ceoAgent.id, message, {
         channelId: interaction.channelId,
         userId: interaction.user.id,
@@ -196,18 +216,15 @@ client.on("interactionCreate", async (interaction) => {
         return;
       }
 
-      const runId = result?.id || result?.runId;
-      await interaction.editReply(`📨 Sent to **${data.companyName} ${data.ceoAgent.name}**. ${runId ? `Run \`${runId.slice(0, 8)}\` started.` : ""} Waiting...`);
+      await interaction.editReply(`📨 Sent to **${data.companyName} ${data.ceoAgent.name}**. Waiting for response...`);
 
-      if (runId) {
-        const run = await getRunResult(runId);
-        if (run) {
-          const summary = run.resultSummary || run.summary || "Run completed.";
-          const icon = run.status === "completed" ? "✅" : "❌";
-          await interaction.followUp(`${icon} **${data.ceoAgent.name}** (${data.companyName}):\n\n${summary.slice(0, 1900)}`);
-        } else {
-          await interaction.followUp(`⏱️ Still working. Check Paperclip for the full response.`);
-        }
+      const run = await getRunResult(data.companyId, data.ceoAgent.id, wakeTime);
+      if (run) {
+        const response = extractRunResponse(run);
+        const icon = run.status === "completed" ? "✅" : "❌";
+        await interaction.followUp(`${icon} **${data.ceoAgent.name}** (${data.companyName}):\n\n${response.slice(0, 1900)}`);
+      } else {
+        await interaction.followUp(`⏱️ Still working. Check Paperclip for the full response.`);
       }
     } catch (err) {
       await interaction.editReply(`❌ Error: ${err.message}`);
@@ -315,19 +332,17 @@ client.on("messageCreate", async (message) => {
     }
 
     await message.react("📨");
-    const result = await wakeAgent(data.ceoAgent.id, content, {
+    const wakeTime = Date.now();
+    await wakeAgent(data.ceoAgent.id, content, {
       channelId: message.channelId,
       userId: message.author.id,
     });
 
-    const runId = result?.id || result?.runId;
-    if (!runId) { await message.reply(`Sent to **${data.companyName} CEO**. Couldn't track the run.`); return; }
-
-    const run = await getRunResult(runId, 180000);
+    const run = await getRunResult(data.companyId, data.ceoAgent.id, wakeTime, 180000);
     if (run) {
-      const summary = run.resultSummary || run.summary || "Done.";
+      const response = extractRunResponse(run);
       const icon = run.status === "completed" ? "✅" : "❌";
-      await message.reply(`${icon} **${data.ceoAgent.name}** (${data.companyName}): ${summary.slice(0, 1900)}`);
+      await message.reply(`${icon} **${data.ceoAgent.name}** (${data.companyName}): ${response.slice(0, 1900)}`);
     } else {
       await message.reply(`⏱️ ${data.companyName} CEO is still working. Check Paperclip.`);
     }

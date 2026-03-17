@@ -227,6 +227,11 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
   if (wakeReason) {
     env.PAPERCLIP_WAKE_REASON = wakeReason;
   }
+  // Pass Discord/external message payload to agent
+  const discordMessage = typeof context.message === "string" ? context.message.trim() : "";
+  if (discordMessage) {
+    env.PAPERCLIP_DISCORD_MESSAGE = discordMessage;
+  }
   if (wakeCommentId) {
     env.PAPERCLIP_WAKE_COMMENT_ID = wakeCommentId;
   }
