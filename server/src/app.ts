@@ -126,6 +126,8 @@ export async function createApp(
       deploymentExposure: opts.deploymentExposure,
       authReady: opts.authReady,
       companyDeletionEnabled: opts.companyDeletionEnabled,
+      embedAuthEnabled: Boolean(process.env.PAPERCLIP_EMBED_BUCKGURU_SECRET),
+      embedParentOrigin: process.env.PAPERCLIP_EMBED_PARENT_ORIGIN ?? undefined,
     }),
   );
   api.use("/companies", companyRoutes(db));
