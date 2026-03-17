@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import type { AdapterConfigFieldsProps } from "../types";
 import {
   Field,
@@ -139,7 +139,13 @@ export function ClaudeLocalAdvancedFields({
       : "default";
 
   const [mode, setMode] = useState<ToolAccessMode>(initialMode);
-  useEffect(() => { setMode(initialMode); }, [initialMode]);
+  const prevInitialMode = useRef(initialMode);
+  useEffect(() => {
+    if (prevInitialMode.current !== initialMode) {
+      prevInitialMode.current = initialMode;
+      setMode(initialMode);
+    }
+  }, [initialMode]);
 
   const skipPerms = isCreate
     ? values!.dangerouslySkipPermissions
