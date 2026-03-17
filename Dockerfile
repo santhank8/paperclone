@@ -64,21 +64,6 @@ COPY <<'ENTRYPOINT' /entrypoint.sh
 #!/bin/sh
 chown -R node:node /paperclip
 
-# Start SSH tunnel to OpenClaw gateway if key exists
-OPENCLAW_SSH_KEY="/paperclip/.ssh/clawdbot-key.pem"
-if [ -f "$OPENCLAW_SSH_KEY" ]; then
-  echo "[entrypoint] Starting SSH tunnel to OpenClaw gateway (127.0.0.1:18789 -> 3.130.67.249:18789)"
-  gosu node ssh -f -N -L 18789:127.0.0.1:18789 \
-    -i "$OPENCLAW_SSH_KEY" \
-    -o StrictHostKeyChecking=no \
-    -o ServerAliveInterval=30 \
-    -o ServerAliveCountMax=3 \
-    -o ConnectTimeout=10 \
-    -o ExitOnForwardFailure=yes \
-    clawd@3.130.67.249 &
-  echo "[entrypoint] SSH tunnel starting in background (PID: $!)"
-fi
-
 exec gosu node node --import ./server/node_modules/tsx/dist/loader.mjs server/dist/index.js
 ENTRYPOINT
 RUN chmod +x /entrypoint.sh
