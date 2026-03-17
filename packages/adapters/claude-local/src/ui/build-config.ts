@@ -83,6 +83,8 @@ export function buildClaudeLocalConfig(v: CreateConfigValues): Record<string, un
   if (Object.keys(env).length > 0) ac.env = env;
   ac.maxTurnsPerRun = v.maxTurnsPerRun;
   ac.dangerouslySkipPermissions = v.dangerouslySkipPermissions;
+  if (v.allowedTools) ac.allowedTools = parseCommaArgs(v.allowedTools);
+  if (v.disallowedTools) ac.disallowedTools = parseCommaArgs(v.disallowedTools);
   if (v.workspaceStrategyType === "git_worktree") {
     ac.workspaceStrategy = {
       type: "git_worktree",

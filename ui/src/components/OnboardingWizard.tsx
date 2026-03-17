@@ -291,7 +291,7 @@ export function OnboardingWizard() {
       command,
       args,
       url,
-      dangerouslySkipPermissions: adapterType === "claude_local",
+      dangerouslySkipPermissions: false,
       dangerouslyBypassSandbox:
         adapterType === "codex_local"
           ? DEFAULT_CODEX_LOCAL_BYPASS_APPROVALS_AND_SANDBOX
