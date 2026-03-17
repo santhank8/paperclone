@@ -151,6 +151,7 @@ function boardRoutes() {
 			<Route path="inbox/new" element={<Inbox />} />
 			<Route path="inbox/all" element={<Inbox />} />
 			<Route path="design-guide" element={<DesignGuide />} />
+			<Route path="files" element={<Files />} />
 		</>
 	);
 }

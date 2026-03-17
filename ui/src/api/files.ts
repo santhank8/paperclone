@@ -1,6 +1,8 @@
 export type Workspace = {
 	id: string;
+	label: string;
 	path: string;
+	source: "project" | "internal";
 };
 
 export type FileEntry = {
@@ -24,52 +26,46 @@ export const filesApi = {
 			headers: { Accept: "application/json" },
 		});
 		if (!res.ok) {
-			const payload = (await res.json().catch(() => null)) as {
-				error?: string;
-			} | null;
-			throw new Error(
-				payload?.error ?? `Failed to list workspaces (${res.status})`,
-			);
+			const payload = (await res.json().catch(() => null)) as { error?: string } | null;
+			throw new Error(payload?.error ?? `Failed to list workspaces (${res.status})`);
 		}
 		return res.json();
 	},
 
 	listFiles: async (workspaceId: string): Promise<FileEntry[]> => {
-		const res = await fetch(
-			`/api/files/workspaces/${encodeURIComponent(workspaceId)}/files`,
-			{
-				credentials: "include",
-				headers: { Accept: "application/json" },
-			},
-		);
+		const res = await fetch(`/api/files/workspaces/${encodeURIComponent(workspaceId)}/files`, {
+			credentials: "include",
+			headers: { Accept: "application/json" },
+		});
 		if (!res.ok) {
-			const payload = (await res.json().catch(() => null)) as {
-				error?: string;
-			} | null;
+			const payload = (await res.json().catch(() => null)) as { error?: string } | null;
 			throw new Error(payload?.error ?? `Failed to list files (${res.status})`);
 		}
 		return res.json();
 	},
 
-	getFileContent: async (
-		workspaceId: string,
-		filePath: string,
-	): Promise<FileContent> => {
+	getFileContent: async (workspaceId: string, filePath: string): Promise<FileContent> => {
 		const res = await fetch(
 			`/api/files/workspaces/${encodeURIComponent(workspaceId)}/content?path=${encodeURIComponent(filePath)}`,
-			{
-				credentials: "include",
-				headers: { Accept: "application/json" },
-			},
+			{ credentials: "include", headers: { Accept: "application/json" } },
 		);
 		if (!res.ok) {
-			const payload = (await res.json().catch(() => null)) as {
-				error?: string;
-			} | null;
-			throw new Error(
-				payload?.error ?? `Failed to get file content (${res.status})`,
-			);
+			const payload = (await res.json().catch(() => null)) as { error?: string } | null;
+			throw new Error(payload?.error ?? `Failed to get file content (${res.status})`);
 		}
 		return res.json();
+	},
+
+	saveFileContent: async (workspaceId: string, filePath: string, content: string): Promise<void> => {
+		const res = await fetch(`/api/files/workspaces/${encodeURIComponent(workspaceId)}/content`, {
+			method: "PUT",
+			credentials: "include",
+			headers: { "Content-Type": "application/json", Accept: "application/json" },
+			body: JSON.stringify({ path: filePath, content }),
+		});
+		if (!res.ok) {
+			const payload = (await res.json().catch(() => null)) as { error?: string } | null;
+			throw new Error(payload?.error ?? `Failed to save file (${res.status})`);
+		}
 	},
 };
