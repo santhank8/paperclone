@@ -1,2 +1,10 @@
 iteration	trigger_pct	nofire_pct	output_pct	lines	status	description
 0	100	100	100	149	baseline	Baseline measurement
+1	100	100	100	134	kept	Remove Reference Files index table — 15 lines saved
+2	100	100	100	124	kept	Remove 5 section dividers (---) — cosmetic chrome, 10 lines saved
+3	100	100	100	118	kept	Replace Three-modes table with inline compact line — 6 lines saved
+4	100	100	100	117	kept	Remove Layer 5 redundant intro sentence — 1 line saved
+5	100	100	100	115	kept	Remove Quick Vet subtext (Run all 5 layers...) — 2 lines saved
+6	100	100	100	114	kept	Trim Anti-Rationalization from 5 to 4 entries — 1 line saved
+7	100	100	100	112	kept	Remove Comparison Vet closing sentence (restates bullet logic) — 2 lines saved
+8	100	100	100	110	kept	Remove Layer 1 Red flags restatement (bullets already cover it) — 2 lines saved

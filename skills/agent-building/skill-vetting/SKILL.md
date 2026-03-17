@@ -19,8 +19,6 @@ Read the `description:` frontmatter. Flag if:
 - Overlaps with your installed skills (mentally scan your skill list)
 - Ambiguous intent markers that match unrelated conversations
 
-Red flags: `use when X` with no `NOT for:` anywhere in the description.
-
 See → `references/trigger-analysis.md`
 
 ### Layer 2: Hook Command Audit
@@ -89,8 +87,6 @@ For upgrades or PR skill reviews. Run Layers 1-5 on both versions, then:
 - Flag any new permissions requested
 - Flag any new external URLs
 
-Security can only get worse in an upgrade. Treat any expansion as a finding.
-
 ## Policy Setup
 
 Set trust tiers once, apply forever.
@@ -109,7 +105,6 @@ See → `references/trust-tiers.md`
 |---|---|
 | "It's popular on ClawHub, must be safe" | 110K downloads exist for a skill-vetter because trust-by-popularity fails. Downloads ≠ audited. |
 | "I'll just look at SKILL.md, hooks aren't that risky" | Hooks are the only layer that actually runs code. SKILL.md is instructions — hooks are execution. |
-| "The skill author seems reputable" | Reputable authors get compromised. Supply chain attacks target popular tools. |
 | "I'll vet it after I test it out" | Once installed, it's running on every session. Vet before install, not after. |
 | "It's just a read-only analysis skill, low risk" | The least suspicious-looking skills are the best exfiltration vectors. |
 
