@@ -5,9 +5,7 @@ description: Use when developers want persistent codebase understanding, auto-ge
 
 # Codebase Summarization & Navigation
 
-Claude Code auto-generates a navigable codebase map using PostToolUse hooks — every file read becomes a summary entry, every session ends with an updated `CODEBASE.md` that loads next session instead of re-reading source files. Zero extra effort. No external tools. No paid APIs.
-
-**Problem:** Without a persistent map, agents re-read the same files every session. A 30-file project burns 40% of context on content already seen last week.
+Without a persistent map, agents re-read the same files every session — a 30-file project burns 40% of context on content already seen last week. Claude Code auto-generates a navigable `CODEBASE.md` using PostToolUse hooks: every file read becomes a summary entry, every session end rebuilds the index. Zero extra effort. No external tools.
 
 ## Quick Setup (3 steps)
 
