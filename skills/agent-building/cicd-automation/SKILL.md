@@ -89,8 +89,6 @@ gh run watch <run-id>                          # Wait for completion
 gh run view <run-id> --log-failed              # Pull failure log into context
 ```
 
-Claude reads the failure → identifies the file and line → patches the code → pushes a fixup commit → watches CI again.
-
 → Full loop pattern + escalation rule (max 3 auto-fix attempts): `references/ci-failure-loop.md`
 
 ---
