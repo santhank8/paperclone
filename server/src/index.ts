@@ -303,8 +303,17 @@ export async function startServer(): Promise<StartedServer> {
         { dataDir, backupDir },
         "Database directory is not empty but missing PG_VERSION. Backing up and starting fresh.",
       );
-      renameSync(dataDir, backupDir);
-      mkdirSync(dataDir, { recursive: true });
+      try {
+        renameSync(dataDir, backupDir);
+        mkdirSync(dataDir, { recursive: true });
+        logger.warn({ dataDir, backupDir }, "Backup complete; proceeding with fresh initialisation.");
+      } catch (backupErr) {
+        logger.error(
+          { dataDir, backupDir, err: backupErr },
+          "Failed to back up corrupted database directory; manual intervention may be required.",
+        );
+        throw backupErr;
+      }
     }
     const postmasterPidFile = resolve(dataDir, "postmaster.pid");
     const isPidRunning = (pid: number): boolean => {
