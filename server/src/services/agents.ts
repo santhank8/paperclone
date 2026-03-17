@@ -333,7 +333,11 @@ export function agentService(db: Db) {
     const normalizedPatch = { ...data } as Partial<typeof agents.$inferInsert>;
     if (data.permissions !== undefined) {
       const role = (data.role ?? existing.role) as string;
-      normalizedPatch.permissions = normalizeAgentPermissions(data.permissions, role);
+      normalizedPatch.permissions = mergeAgentPermissions(
+        existing.permissions,
+        data.permissions as { canCreateAgents: boolean; canManageTasks?: boolean },
+        role,
+      );
     }
 
     const shouldRecordRevision = Boolean(options?.recordRevision) && hasConfigPatchFields(normalizedPatch);
