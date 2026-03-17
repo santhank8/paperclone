@@ -40,6 +40,7 @@ import { issueStatusText, issueStatusTextDefault, priorityColor, priorityColorDe
 import { MarkdownEditor, type MarkdownEditorRef, type MentionOption } from "./MarkdownEditor";
 import { AgentIcon } from "./AgentIconPicker";
 import { InlineEntitySelector, type InlineEntityOption } from "./InlineEntitySelector";
+import { useFileMentions } from "../hooks/useFileMentions";
 
 const DRAFT_KEY = "paperclip:issue-draft";
 const DEBOUNCE_MS = 800;
@@ -222,6 +223,7 @@ export function NewIssueDialog() {
   const supportsAssigneeOverrides = Boolean(
     assigneeAdapterType && ISSUE_OVERRIDE_ADAPTER_TYPES.has(assigneeAdapterType),
   );
+  const fileMentions = useFileMentions();
   const mentionOptions = useMemo<MentionOption[]>(() => {
     const options: MentionOption[] = [];
     const activeAgents = [...(agents ?? [])]
@@ -243,8 +245,9 @@ export function NewIssueDialog() {
         projectColor: project.color,
       });
     }
+    options.push(...fileMentions);
     return options;
-  }, [agents, orderedProjects]);
+  }, [agents, orderedProjects, fileMentions]);
 
   const { data: assigneeAdapterModels } = useQuery({
     queryKey: ["adapter-models", assigneeAdapterType],

@@ -27,7 +27,7 @@ import {
   thematicBreakPlugin,
   type RealmPlugin,
 } from "@mdxeditor/editor";
-import { buildProjectMentionHref, parseProjectMentionHref } from "@paperclipai/shared";
+import { buildProjectMentionHref, parseProjectMentionHref, buildFileMentionHref, parseFileMentionHref } from "@paperclipai/shared";
 import { cn } from "../lib/utils";
 
 /* ---- Mention types ---- */
@@ -35,9 +35,13 @@ import { cn } from "../lib/utils";
 export interface MentionOption {
   id: string;
   name: string;
-  kind?: "agent" | "project";
+  kind?: "agent" | "project" | "file";
   projectId?: string;
   projectColor?: string | null;
+  /** For file mentions: workspace ID */
+  fileWorkspaceId?: string;
+  /** For file mentions: relative path within workspace */
+  filePath?: string;
 }
 
 /* ---- Editor props ---- */
@@ -149,6 +153,9 @@ function detectMention(container: HTMLElement): MentionState | null {
 function mentionMarkdown(option: MentionOption): string {
   if (option.kind === "project" && option.projectId) {
     return `[@${option.name}](${buildProjectMentionHref(option.projectId, option.projectColor ?? null)}) `;
+  }
+  if (option.kind === "file" && option.fileWorkspaceId && option.filePath) {
+    return `[@${option.name}](${buildFileMentionHref(option.fileWorkspaceId, option.filePath)}) `;
   }
   return `@${option.name} `;
 }
@@ -293,28 +300,46 @@ export const MarkdownEditor = forwardRef<MarkdownEditorRef, MarkdownEditorProps>
     const links = editable.querySelectorAll("a");
     for (const node of links) {
       const link = node as HTMLAnchorElement;
-      const parsed = parseProjectMentionHref(link.getAttribute("href") ?? "");
-      if (!parsed) {
-        if (link.dataset.projectMention === "true") {
-          link.dataset.projectMention = "false";
-          link.classList.remove("paperclip-project-mention-chip");
-          link.removeAttribute("contenteditable");
-          link.style.removeProperty("border-color");
-          link.style.removeProperty("background-color");
-          link.style.removeProperty("color");
+      const href = link.getAttribute("href") ?? "";
+
+      // Project mentions
+      const parsed = parseProjectMentionHref(href);
+      if (parsed) {
+        const color = parsed.color ?? projectColorById.get(parsed.projectId) ?? null;
+        link.dataset.projectMention = "true";
+        link.classList.add("paperclip-project-mention-chip");
+        link.setAttribute("contenteditable", "false");
+        const style = mentionChipStyle(color);
+        if (style) {
+          link.style.borderColor = style.borderColor ?? "";
+          link.style.backgroundColor = style.backgroundColor ?? "";
+          link.style.color = style.color ?? "";
         }
         continue;
       }
 
-      const color = parsed.color ?? projectColorById.get(parsed.projectId) ?? null;
-      link.dataset.projectMention = "true";
-      link.classList.add("paperclip-project-mention-chip");
-      link.setAttribute("contenteditable", "false");
-      const style = mentionChipStyle(color);
-      if (style) {
-        link.style.borderColor = style.borderColor ?? "";
-        link.style.backgroundColor = style.backgroundColor ?? "";
-        link.style.color = style.color ?? "";
+      // File mentions
+      const fileParsed = parseFileMentionHref(href);
+      if (fileParsed) {
+        link.dataset.fileMention = "true";
+        link.classList.add("paperclip-file-mention-chip");
+        link.setAttribute("contenteditable", "false");
+        continue;
+      }
+
+      // Clean up stale decorations
+      if (link.dataset.projectMention === "true") {
+        link.dataset.projectMention = "false";
+        link.classList.remove("paperclip-project-mention-chip");
+        link.removeAttribute("contenteditable");
+        link.style.removeProperty("border-color");
+        link.style.removeProperty("background-color");
+        link.style.removeProperty("color");
+      }
+      if (link.dataset.fileMention === "true") {
+        link.dataset.fileMention = "false";
+        link.classList.remove("paperclip-file-mention-chip");
+        link.removeAttribute("contenteditable");
       }
     }
   }, [projectColorById]);
@@ -594,13 +619,20 @@ export const MarkdownEditor = forwardRef<MarkdownEditorRef, MarkdownEditorProps>
                   className="inline-flex h-2 w-2 rounded-full border border-border/50"
                   style={{ backgroundColor: option.projectColor ?? "#64748b" }}
                 />
+              ) : option.kind === "file" ? (
+                <span className="text-muted-foreground text-xs">📄</span>
               ) : (
                 <span className="text-muted-foreground">@</span>
               )}
-              <span>{option.name}</span>
-              {option.kind === "project" && option.projectId && (
-                <span className="ml-auto text-[10px] uppercase tracking-wide text-muted-foreground">
+              <span className="truncate">{option.name}</span>
+              {option.kind === "project" && (
+                <span className="ml-auto text-[10px] uppercase tracking-wide text-muted-foreground shrink-0">
                   Project
+                </span>
+              )}
+              {option.kind === "file" && (
+                <span className="ml-auto text-[10px] uppercase tracking-wide text-muted-foreground shrink-0">
+                  File
                 </span>
               )}
             </button>

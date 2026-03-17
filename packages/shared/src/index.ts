@@ -240,6 +240,13 @@ export {
 } from "./project-mentions.js";
 
 export {
+  FILE_MENTION_SCHEME,
+  buildFileMentionHref,
+  parseFileMentionHref,
+  type ParsedFileMention,
+} from "./file-mentions.js";
+
+export {
   paperclipConfigSchema,
   configMetaSchema,
   llmConfigSchema,

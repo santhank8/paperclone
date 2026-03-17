@@ -1,7 +1,7 @@
 import type { CSSProperties } from "react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { parseProjectMentionHref } from "@paperclipai/shared";
+import { parseProjectMentionHref, parseFileMentionHref } from "@paperclipai/shared";
 import { cn } from "../lib/utils";
 import { useTheme } from "../context/ThemeContext";
 
@@ -47,19 +47,34 @@ export function MarkdownBody({ children, className }: MarkdownBodyProps) {
         remarkPlugins={[remarkGfm]}
         components={{
           a: ({ href, children: linkChildren }) => {
-            const parsed = href ? parseProjectMentionHref(href) : null;
-            if (parsed) {
-              const label = linkChildren;
+            // Project mentions: project://id?c=color
+            const projectMention = href ? parseProjectMentionHref(href) : null;
+            if (projectMention) {
               return (
                 <a
-                  href={`/projects/${parsed.projectId}`}
+                  href={`/projects/${projectMention.projectId}`}
                   className="paperclip-project-mention-chip"
-                  style={mentionChipStyle(parsed.color)}
+                  style={mentionChipStyle(projectMention.color)}
                 >
-                  {label}
+                  {linkChildren}
                 </a>
               );
             }
+
+            // File mentions: paperclip-file://workspaceId/path/to/file.md
+            const fileMention = href ? parseFileMentionHref(href) : null;
+            if (fileMention) {
+              return (
+                <a
+                  href={`files?workspace=${encodeURIComponent(fileMention.workspaceId)}&file=${encodeURIComponent(fileMention.filePath)}`}
+                  className="paperclip-file-mention-chip"
+                  title={fileMention.filePath}
+                >
+                  {linkChildren}
+                </a>
+              );
+            }
+
             return (
               <a href={href} rel="noreferrer">
                 {linkChildren}

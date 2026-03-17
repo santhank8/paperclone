@@ -19,6 +19,7 @@ import { CommentThread } from "../components/CommentThread";
 import { IssueProperties } from "../components/IssueProperties";
 import { LiveRunWidget } from "../components/LiveRunWidget";
 import type { MentionOption } from "../components/MarkdownEditor";
+import { useFileMentions } from "../hooks/useFileMentions";
 import { StatusIcon } from "../components/StatusIcon";
 import { PriorityIcon } from "../components/PriorityIcon";
 import { StatusBadge } from "../components/StatusBadge";
@@ -258,6 +259,7 @@ export function IssueDetail() {
     return map;
   }, [agents]);
 
+  const fileMentions = useFileMentions();
   const mentionOptions = useMemo<MentionOption[]>(() => {
     const options: MentionOption[] = [];
     const activeAgents = [...(agents ?? [])]
@@ -279,8 +281,9 @@ export function IssueDetail() {
         projectColor: project.color,
       });
     }
+    options.push(...fileMentions);
     return options;
-  }, [agents, orderedProjects]);
+  }, [agents, orderedProjects, fileMentions]);
 
   const childIssues = useMemo(() => {
     if (!allIssues || !issue) return [];
