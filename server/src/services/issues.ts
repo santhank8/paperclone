@@ -112,6 +112,18 @@ function escapeLikePattern(value: string): string {
   return value.replace(/[\\%_]/g, "\\$&");
 }
 
+function isIdentifierConstraintConflict(error: unknown): boolean {
+  if (!error || typeof error !== "object" || !("code" in error)) return false;
+  if ((error as { code?: string }).code !== "23505") return false;
+  const constraint =
+    "constraint_name" in error
+      ? (error as { constraint_name?: string }).constraint_name
+      : "constraint" in error
+        ? (error as { constraint?: string }).constraint
+        : undefined;
+  return constraint === "issues_identifier_idx";
+}
+
 function touchedByUserCondition(companyId: string, userId: string) {
   return sql<boolean>`
     (
@@ -653,59 +665,79 @@ export function issueService(db: Db) {
       if (data.status === "in_progress" && !data.assigneeAgentId && !data.assigneeUserId) {
         throw unprocessable("in_progress issues require an assignee");
       }
-      return db.transaction(async (tx) => {
-        const defaultCompanyGoal = await getDefaultCompanyGoal(tx, companyId);
-        let executionWorkspaceSettings =
-          (issueData.executionWorkspaceSettings as Record<string, unknown> | null | undefined) ?? null;
-        if (executionWorkspaceSettings == null && issueData.projectId) {
-          const project = await tx
-            .select({ executionWorkspacePolicy: projects.executionWorkspacePolicy })
-            .from(projects)
-            .where(and(eq(projects.id, issueData.projectId), eq(projects.companyId, companyId)))
-            .then((rows) => rows[0] ?? null);
-          executionWorkspaceSettings =
-            defaultIssueExecutionWorkspaceSettingsForProject(
-              parseProjectExecutionWorkspacePolicy(project?.executionWorkspacePolicy),
-            ) as Record<string, unknown> | null;
-        }
-        const [company] = await tx
-          .update(companies)
-          .set({ issueCounter: sql`${companies.issueCounter} + 1` })
-          .where(eq(companies.id, companyId))
-          .returning({ issueCounter: companies.issueCounter, issuePrefix: companies.issuePrefix });
+      for (let attempt = 0; attempt < 5; attempt++) {
+        try {
+          return await db.transaction(async (tx) => {
+            const defaultCompanyGoal = await getDefaultCompanyGoal(tx, companyId);
+            let executionWorkspaceSettings =
+              (issueData.executionWorkspaceSettings as Record<string, unknown> | null | undefined) ?? null;
+            if (executionWorkspaceSettings == null && issueData.projectId) {
+              const project = await tx
+                .select({ executionWorkspacePolicy: projects.executionWorkspacePolicy })
+                .from(projects)
+                .where(and(eq(projects.id, issueData.projectId), eq(projects.companyId, companyId)))
+                .then((rows) => rows[0] ?? null);
+              executionWorkspaceSettings =
+                defaultIssueExecutionWorkspaceSettingsForProject(
+                  parseProjectExecutionWorkspacePolicy(project?.executionWorkspacePolicy),
+                ) as Record<string, unknown> | null;
+            }
+            const [company] = await tx
+              .update(companies)
+              .set({ issueCounter: sql`${companies.issueCounter} + 1` })
+              .where(eq(companies.id, companyId))
+              .returning({ issueCounter: companies.issueCounter, issuePrefix: companies.issuePrefix });
 
-        const issueNumber = company.issueCounter;
-        const identifier = `${company.issuePrefix}-${issueNumber}`;
+            const issueNumber = company.issueCounter;
+            const identifier = `${company.issuePrefix}-${issueNumber}`;
 
-        const values = {
-          ...issueData,
-          goalId: resolveIssueGoalId({
-            projectId: issueData.projectId,
-            goalId: issueData.goalId,
-            defaultGoalId: defaultCompanyGoal?.id ?? null,
-          }),
-          ...(executionWorkspaceSettings ? { executionWorkspaceSettings } : {}),
-          companyId,
-          issueNumber,
-          identifier,
-        } as typeof issues.$inferInsert;
-        if (values.status === "in_progress" && !values.startedAt) {
-          values.startedAt = new Date();
-        }
-        if (values.status === "done") {
-          values.completedAt = new Date();
-        }
-        if (values.status === "cancelled") {
-          values.cancelledAt = new Date();
-        }
+            const values = {
+              ...issueData,
+              goalId: resolveIssueGoalId({
+                projectId: issueData.projectId,
+                goalId: issueData.goalId,
+                defaultGoalId: defaultCompanyGoal?.id ?? null,
+              }),
+              ...(executionWorkspaceSettings ? { executionWorkspaceSettings } : {}),
+              companyId,
+              issueNumber,
+              identifier,
+            } as typeof issues.$inferInsert;
+            if (values.status === "in_progress" && !values.startedAt) {
+              values.startedAt = new Date();
+            }
+            if (values.status === "done") {
+              values.completedAt = new Date();
+            }
+            if (values.status === "cancelled") {
+              values.cancelledAt = new Date();
+            }
 
-        const [issue] = await tx.insert(issues).values(values).returning();
-        if (inputLabelIds) {
-          await syncIssueLabels(issue.id, companyId, inputLabelIds, tx);
+            const [issue] = await tx.insert(issues).values(values).returning();
+            if (inputLabelIds) {
+              await syncIssueLabels(issue.id, companyId, inputLabelIds, tx);
+            }
+            const [enriched] = await withIssueLabels(tx, [issue]);
+            return enriched;
+          });
+        } catch (e) {
+          if (isIdentifierConstraintConflict(e) && attempt < 4) {
+            // issue_counter is behind the actual max issue number (e.g. after a data
+            // import or direct DB write that bypassed the normal creation path).
+            // Resync the counter to the real max, then retry.
+            await db
+              .update(companies)
+              .set({
+                issueCounter: sql`(SELECT COALESCE(MAX(${issues.issueNumber}), 0) FROM ${issues} WHERE ${issues.companyId} = ${companyId})`,
+              })
+              .where(eq(companies.id, companyId));
+            continue;
+          }
+          throw e;
         }
-        const [enriched] = await withIssueLabels(tx, [issue]);
-        return enriched;
-      });
+      }
+      // Unreachable — the loop either returns or throws.
+      throw new Error("Unexpected exit from issue creation retry loop");
     },
 
     update: async (id: string, data: Partial<typeof issues.$inferInsert> & { labelIds?: string[] }) => {
