@@ -210,6 +210,44 @@ describe("PATCH /issues/:id task control", () => {
     expect(mockAccessService.hasPermission).toHaveBeenCalledTimes(1);
   });
 
+  it("interrupts the active run when an ancestor manager explicitly unassigns a subordinate issue", async () => {
+    mockIssueService.update.mockImplementation(async (_id, patch) => ({
+      ...baseIssue,
+      ...patch,
+      assigneeAgentId: patch.assigneeAgentId !== undefined ? patch.assigneeAgentId : baseIssue.assigneeAgentId,
+      assigneeUserId: patch.assigneeUserId !== undefined ? patch.assigneeUserId : baseIssue.assigneeUserId,
+      status: patch.status ?? baseIssue.status,
+    }));
+    mockAgentService.getById.mockResolvedValue({
+      id: "agent-manager",
+      companyId: "company-1",
+      role: "manager",
+      permissions: { canCreateAgents: false, canManageTasks: true },
+    });
+    mockAgentService.getChainOfCommand.mockResolvedValue([
+      { id: "agent-manager", name: "Manager", role: "manager", title: null },
+    ]);
+
+    const res = await request(
+      createApp({
+        type: "agent",
+        agentId: "agent-manager",
+        companyId: "company-1",
+        runId: "run-manager",
+        source: "agent_key",
+      }),
+    )
+      .patch("/api/issues/issue-1")
+      .send({ assigneeAgentId: null });
+
+    expect(res.status).toBe(200);
+    expect(res.body.assigneeAgentId).toBeNull();
+    expect(mockIssueService.update).toHaveBeenCalledWith("issue-1", {
+      assigneeAgentId: null,
+    });
+    expect(mockHeartbeatService.cancelRun).toHaveBeenCalledWith("run-1");
+  });
+
   it("preserves legacy canCreateAgents-based task control for ancestor managers", async () => {
     mockAgentService.getById.mockResolvedValue({
       id: "agent-manager",

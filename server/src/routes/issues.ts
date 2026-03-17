@@ -143,6 +143,9 @@ export function issueRoutes(db: Db, storage: StorageService) {
     if (run && run.status !== "queued" && run.status !== "running") {
       run = null;
     }
+    // Fallback to the agent's active run only for in-progress issues. If the
+    // system starts allowing active execution runs on other statuses, relax
+    // this guard to match that lifecycle.
     if (!run && issue.assigneeAgentId && issue.status === "in_progress") {
       const candidateRun = await heartbeat.getActiveRunForAgent(issue.assigneeAgentId);
       if (
@@ -883,8 +886,6 @@ export function issueRoutes(db: Db, storage: StorageService) {
     const assigneeWillChange =
       (req.body.assigneeAgentId !== undefined && req.body.assigneeAgentId !== existing.assigneeAgentId) ||
       (req.body.assigneeUserId !== undefined && req.body.assigneeUserId !== existing.assigneeUserId);
-    const assigneeAgentWillChange =
-      req.body.assigneeAgentId !== undefined && req.body.assigneeAgentId !== existing.assigneeAgentId;
 
     const isAgentReturningIssueToCreator =
       req.actor.type === "agent" &&
@@ -979,7 +980,9 @@ export function issueRoutes(db: Db, storage: StorageService) {
       actorAgentId: actor.agentId,
       requestedStatus: req.body.status,
       currentStatus: existing.status,
-      nextAssigneeAgentId: updateFields.assigneeAgentId ?? existing.assigneeAgentId,
+      nextAssigneeAgentId: updateFields.assigneeAgentId !== undefined
+        ? updateFields.assigneeAgentId
+        : existing.assigneeAgentId,
     });
     const shouldInterruptManagedRun = managedAgentId !== null;
     let interruptedRunId: string | null = null;
