@@ -49,9 +49,7 @@ bash ~/.claude/hooks/detect-test-command.sh
 
 ## Why Checklists Fail and Hooks Don't
 
-CLAUDE.md rules, memory notes, and task checklists live inside the model's reasoning loop. Under agentic pace, they get skipped. Hooks execute outside the reasoning loop — the model cannot rationalize around them.
-
-The shift: from "Claude should remember to run tests" → "Claude physically cannot commit without tests passing."
+CLAUDE.md rules and task checklists live inside the reasoning loop — under agentic pace, they get skipped. Hooks execute outside the reasoning loop: Claude physically cannot commit without tests passing.
 
 → Evidence from GitHub #35042 + failure taxonomy: `references/why-hooks-not-checklists.md`
 
