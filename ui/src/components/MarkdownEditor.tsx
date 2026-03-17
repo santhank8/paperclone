@@ -552,6 +552,10 @@ export const MarkdownEditor = forwardRef<MarkdownEditorRef, MarkdownEditorProps>
         if (mentionActive) {
           // Space dismisses the popup (let the character be typed normally)
           if (e.key === " ") {
+            if (pendingClearRef.current !== null) {
+              cancelAnimationFrame(pendingClearRef.current);
+              pendingClearRef.current = null;
+            }
             mentionStateRef.current = null;
             setMentionState(null);
             return;
@@ -560,6 +564,10 @@ export const MarkdownEditor = forwardRef<MarkdownEditorRef, MarkdownEditorProps>
           if (e.key === "Escape") {
             e.preventDefault();
             e.stopPropagation();
+            if (pendingClearRef.current !== null) {
+              cancelAnimationFrame(pendingClearRef.current);
+              pendingClearRef.current = null;
+            }
             mentionStateRef.current = null;
             setMentionState(null);
             return;
