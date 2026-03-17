@@ -19,7 +19,7 @@ COPY <<'ENTRYPOINT' /entrypoint.sh
 # Fix ownership of volume data
 chown -R clawd:clawd /home/clawd
 
-exec su clawd -c "openclaw gateway --port 18789 --bind 0.0.0.0"
+exec su clawd -c "openclaw gateway --port 18789 --bind 0.0.0.0 --allow-unconfigured"
 ENTRYPOINT
 RUN chmod +x /entrypoint.sh
 
