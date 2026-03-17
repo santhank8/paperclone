@@ -44,7 +44,9 @@ function getWeekStart(date: Date): Date {
 
 function getMonthStartGrid(date: Date): Date {
   const first = new Date(date.getFullYear(), date.getMonth(), 1);
-  return addDays(first, -first.getDay());
+  // Start on Monday (consistent with week view)
+  const day = first.getDay();
+  return addDays(first, -((day + 6) % 7));
 }
 
 function formatDateLabel(date: Date): string {
@@ -627,7 +629,7 @@ function MonthView({
   const gridStart = getMonthStartGrid(date);
   const cells = Array.from({ length: 42 }, (_, i) => addDays(gridStart, i));
   const currentMonth = date.getMonth();
-  const dayLabels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const dayLabels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
   return (
     <div>

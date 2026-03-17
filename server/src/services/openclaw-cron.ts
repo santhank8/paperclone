@@ -54,6 +54,15 @@ interface OpenClawRunEntry {
   error?: string;
 }
 
+// Simple async mutex to serialize file writes and prevent race conditions
+let writeLock: Promise<unknown> = Promise.resolve();
+function toggleMutex<T>(fn: () => Promise<T>): Promise<T> {
+  const prev = writeLock;
+  let resolve: () => void;
+  writeLock = new Promise((r) => { resolve = r; });
+  return prev.then(fn).finally(() => resolve!());
+}
+
 function getOpenClawStateDir(): string {
   return process.env.OPENCLAW_STATE_DIR ?? join(homedir(), ".openclaw");
 }
@@ -98,19 +107,22 @@ export function openclawCronService() {
     },
 
     async toggleJob(jobId: string, enabled: boolean): Promise<boolean> {
-      try {
-        const raw = await readFile(getCronFilePath(), "utf-8");
-        const data: OpenClawCronFile = JSON.parse(raw);
-        const job = data.jobs.find((j) => j.id === jobId);
-        if (!job) return false;
-        job.enabled = enabled;
-        job.updatedAtMs = Date.now();
-        await writeFile(getCronFilePath(), JSON.stringify(data, null, 2));
-        return true;
-      } catch (err) {
-        logger.error({ err }, "Failed to toggle OpenClaw cron job");
-        return false;
-      }
+      // Serialize file writes to prevent concurrent read-modify-write corruption
+      return toggleMutex(async () => {
+        try {
+          const raw = await readFile(getCronFilePath(), "utf-8");
+          const data: OpenClawCronFile = JSON.parse(raw);
+          const job = data.jobs.find((j) => j.id === jobId);
+          if (!job) return false;
+          job.enabled = enabled;
+          job.updatedAtMs = Date.now();
+          await writeFile(getCronFilePath(), JSON.stringify(data, null, 2));
+          return true;
+        } catch (err) {
+          logger.error({ err }, "Failed to toggle OpenClaw cron job");
+          return false;
+        }
+      });
     },
   };
 }

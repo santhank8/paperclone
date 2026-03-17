@@ -4,9 +4,10 @@ import { issues, agents, projects } from "@paperclipai/db";
 import { eq, and } from "drizzle-orm";
 import { describeCron } from "@paperclipai/shared";
 import { getNextCronOccurrence } from "@paperclipai/shared";
-import type { UnifiedScheduledJob, RunHistoryEntry } from "@paperclipai/shared";
+import type { UnifiedScheduledJob } from "@paperclipai/shared";
 import { openclawCronService, type OpenClawCronJob } from "../services/openclaw-cron.js";
-import { assertCompanyAccess, getActorInfo } from "./authz.js";
+import { assertCompanyAccess } from "./authz.js";
+import { logger } from "../middleware/logger.js";
 
 function mapLastStatus(status?: string): "success" | "error" | "running" | undefined {
   if (!status) return undefined;
@@ -14,11 +15,28 @@ function mapLastStatus(status?: string): "success" | "error" | "running" | undef
   if (s === "success" || s === "completed" || s === "updated") return "success";
   if (s === "error" || s === "failed") return "error";
   if (s === "running" || s === "pending") return "running";
-  return "success";
+  // Unknown status — return undefined rather than falsely claiming success
+  return undefined;
 }
 
-function mapOpenClawJob(job: OpenClawCronJob): UnifiedScheduledJob {
-  // Handle different schedule kinds: "cron" has expr, "at" has at (one-time date)
+/**
+ * Build an agent name lookup from Paperclip agents table.
+ * Used to resolve OpenClaw agentId strings to human-readable names.
+ */
+async function buildAgentNameMap(db: Db): Promise<Map<string, string>> {
+  const allAgents = await db.select({ id: agents.id, name: agents.name }).from(agents);
+  const map = new Map<string, string>();
+  for (const a of allAgents) map.set(a.id, a.name);
+  // Also index by name (OpenClaw uses name-based IDs like "sdr", "diego")
+  for (const a of allAgents) map.set(a.name.toLowerCase(), a.name);
+  return map;
+}
+
+function resolveAgentName(agentId: string, nameMap: Map<string, string>): string {
+  return nameMap.get(agentId) ?? nameMap.get(agentId.toLowerCase()) ?? agentId;
+}
+
+function mapOpenClawJob(job: OpenClawCronJob, agentNameMap: Map<string, string>): UnifiedScheduledJob {
   const cronExpr = job.schedule.expr ?? "";
   const atDate = (job.schedule as any).at as string | undefined;
 
@@ -48,7 +66,7 @@ function mapOpenClawJob(job: OpenClawCronJob): UnifiedScheduledJob {
     cronExpr,
     scheduleText,
     agentId: job.agentId,
-    agentName: job.agentId,
+    agentName: resolveAgentName(job.agentId, agentNameMap),
     lastRunAt: job.state?.lastRunAtMs,
     nextRunAt,
     lastStatus: mapLastStatus(job.state?.lastStatus),
@@ -76,50 +94,60 @@ export function schedulingRoutes(db: Db) {
     const companyId = req.params.companyId as string;
     assertCompanyAccess(req, companyId);
 
-    // 1. Load OpenClaw cron jobs
-    const openclawJobs = await cronSvc.loadCronJobs();
-    const mappedOcJobs = openclawJobs.map(mapOpenClawJob);
+    try {
+      // Build agent name lookup for resolving OpenClaw agent IDs
+      const agentNameMap = await buildAgentNameMap(db);
 
-    // 2. Load Paperclip recurring issues
-    const recurringIssues = await db
-      .select({
-        issue: issues,
-        agent: agents,
-        project: projects,
-      })
-      .from(issues)
-      .leftJoin(agents, eq(issues.assigneeAgentId, agents.id))
-      .leftJoin(projects, eq(issues.projectId, projects.id))
-      .where(
-        and(
-          eq(issues.companyId, companyId),
-          eq(issues.recurrenceEnabled, true),
-        ),
-      );
+      // 1. Load OpenClaw cron jobs
+      // Note: OpenClaw jobs are not company-scoped (single-tenant file).
+      // In a multi-tenant deployment, this should be filtered or gated.
+      const openclawJobs = await cronSvc.loadCronJobs();
+      const mappedOcJobs = openclawJobs.map((j) => mapOpenClawJob(j, agentNameMap));
 
-    const paperclipJobs: UnifiedScheduledJob[] = recurringIssues.map(({ issue, agent, project }) => {
-      const cronExpr = issue.recurrenceCronExpr ?? "";
-      return {
-        id: `paperclip:${issue.id}`,
-        name: issue.title,
-        source: "paperclip" as const,
-        enabled: issue.recurrenceEnabled,
-        cronExpr,
-        scheduleText: issue.recurrenceText ?? (cronExpr ? describeCron(cronExpr) : ""),
-        agentId: agent?.id ?? undefined,
-        agentName: agent?.name ?? undefined,
-        lastRunAt: issue.recurrenceLastSpawnedAt?.getTime() ?? undefined,
-        nextRunAt: cronExpr ? getNextCronOccurrence(cronExpr, Date.now()) ?? undefined : undefined,
-        issueId: issue.id,
-        issueIdentifier: issue.identifier ?? undefined,
-        issueStatus: issue.status,
-        priority: issue.priority,
-        projectName: project?.name ?? undefined,
-      };
-    });
+      // 2. Load Paperclip recurring issues (company-scoped)
+      const recurringIssues = await db
+        .select({
+          issue: issues,
+          agent: agents,
+          project: projects,
+        })
+        .from(issues)
+        .leftJoin(agents, eq(issues.assigneeAgentId, agents.id))
+        .leftJoin(projects, eq(issues.projectId, projects.id))
+        .where(
+          and(
+            eq(issues.companyId, companyId),
+            eq(issues.recurrenceEnabled, true),
+          ),
+        );
 
-    const jobs = [...mappedOcJobs, ...paperclipJobs];
-    res.json({ jobs });
+      const paperclipJobs: UnifiedScheduledJob[] = recurringIssues.map(({ issue, agent, project }) => {
+        const cronExpr = issue.recurrenceCronExpr ?? "";
+        return {
+          id: `paperclip:${issue.id}`,
+          name: issue.title,
+          source: "paperclip" as const,
+          enabled: issue.recurrenceEnabled,
+          cronExpr,
+          scheduleText: issue.recurrenceText ?? (cronExpr ? describeCron(cronExpr) : ""),
+          agentId: agent?.id ?? undefined,
+          agentName: agent?.name ?? undefined,
+          lastRunAt: issue.recurrenceLastSpawnedAt?.getTime() ?? undefined,
+          nextRunAt: cronExpr ? getNextCronOccurrence(cronExpr, Date.now()) ?? undefined : undefined,
+          issueId: issue.id,
+          issueIdentifier: issue.identifier ?? undefined,
+          issueStatus: issue.status,
+          priority: issue.priority,
+          projectName: project?.name ?? undefined,
+        };
+      });
+
+      const jobs = [...mappedOcJobs, ...paperclipJobs];
+      res.json({ jobs });
+    } catch (err) {
+      logger.error({ err }, "Failed to load scheduling jobs");
+      res.status(500).json({ error: "Failed to load scheduling data" });
+    }
   });
 
   // Run history for an OpenClaw job
