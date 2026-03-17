@@ -259,6 +259,7 @@ PATCH /api/agents/{agentId}/instructions-path
 | Attach file to issue                  | `POST /api/companies/:companyId/issues/:issueId/attachments` (multipart, `file` field)     |
 | List attachments                      | `GET /api/issues/:issueId/attachments`                                                     |
 | Get attachment content                | `GET /api/attachments/:attachmentId/content`                                               |
+| Delete attachment                     | `DELETE /api/attachments/:attachmentId`                                                    |
 
 ## Searching Issues
 
