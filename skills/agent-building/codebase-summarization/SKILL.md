@@ -27,15 +27,11 @@ Trigger phrases and prompt patterns at `references/on-demand-summarization.md`.
 
 ## Stale Detection
 
-The Stop hook compares source file mtime against last-summary date. Changed files are flagged `[STALE]` in `CODEBASE.md` — never silently wrong.
-
-Detection logic and re-summarization triggers at `references/stale-detection.md`.
+Changed files are flagged `[STALE]` in `CODEBASE.md` — never silently wrong. Logic at `references/stale-detection.md`.
 
 ## Large Repos (50+ files)
 
-The Stop hook groups summaries by directory into sections. A 100-file repo becomes 8-10 domain groups instead of a flat list.
-
-Grouping strategy and example at `references/per-directory-groups.md`.
+Summaries group by directory — a 100-file repo becomes 8-10 domain sections. Strategy at `references/per-directory-groups.md`.
 
 ## Composability
 
