@@ -1,2 +1,10 @@
 iteration	trigger_pct	nofire_pct	output_pct	lines	status	description
 0	100	100	100	122	baseline	Initial build score
+1	100	100	100	116	kept	Remove inline routing table example — duplicates 03-workflow-routing.md
+2	100	100	100	109	kept	Collapse Templates Gallery table to 1 line — 4 types listed inline
+3	100	100	100	105	kept	Collapse composability bullets to single line
+4	100	100	100	103	kept	Merge What is AGENTS.md + mental model paragraph
+5	100	100	100	88	kept	Remove Anti-Patterns section — no test case validates it (15 lines)
+6	100	100	100	74	kept	Remove Reference Index — all refs already inline in each section (14 lines)
+7	100	100	100	63	kept	Remove component table + What is AGENTS.md section, merge mental model to opener
+8	100	100	100	61	kept	Merge tool access principle into first sentence
