@@ -1,5 +1,11 @@
 import type { AdapterModel } from "./types.js";
+
+// Fallback declarations for the IDE (unbuilt workspace)
+declare var process: { env: Record<string, string | undefined> };
+
+// @ts-ignore
 import { resolveZaiModelsEndpoint } from "@paperclipai/shared";
+// @ts-ignore
 import { models as codexFallbackModels } from "@paperclipai/adapter-codex-local";
 import { readConfigFile } from "../config-file.js";
 
