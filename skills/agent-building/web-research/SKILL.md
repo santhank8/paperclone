@@ -75,9 +75,7 @@ Every deliverable: Findings table (Claim / Confidence / Sources / Gaps) → Gaps
 
 For large tasks, spawn a subagent with restricted tools (WebSearch + WebFetch only). It cannot edit files or run code — research and report only.
 
-**When to use inline vs. subagent:**
-- Inline: quick fact-check, single topic, < 5 sources
-- Subagent: competitive research, multi-topic, > 10 sources, or high hallucination risk
+Use inline for quick fact-checks (< 5 sources); subagent for competitive research, multi-topic, or > 10 sources.
 
 → AGENTS.md config, tool restrictions, handoff protocol: `references/research-agent-pattern.md`
 
