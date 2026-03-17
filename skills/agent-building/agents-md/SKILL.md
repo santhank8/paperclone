@@ -24,9 +24,7 @@ Bootstrap any agent type in under 10 minutes using the copy-paste templates in `
 
 ## What is AGENTS.md
 
-AGENTS.md separates agent-specific configuration from shared project context. An agent's identity, routing logic, and permission boundaries travel with it — not buried in CLAUDE.md.
-
-**Mental model:** CLAUDE.md answers "how does this project work?" AGENTS.md answers "who am I and what do I do?"
+AGENTS.md is the agent's declarative manifest — identity, routing, and permission boundaries in one file, version-controlled alongside the code. CLAUDE.md answers "how does this project work?" AGENTS.md answers "who am I and what do I do?"
 
 ## The Split Rule: CLAUDE.md vs AGENTS.md
 
