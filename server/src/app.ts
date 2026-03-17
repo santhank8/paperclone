@@ -6,6 +6,7 @@ import type { Db } from "@paperclipai/db";
 import type { DeploymentExposure, DeploymentMode } from "@paperclipai/shared";
 import type { StorageService } from "./storage/types.js";
 import { httpLogger, errorHandler } from "./middleware/index.js";
+import { rateLimitMiddleware } from "./middleware/rate-limit.js";
 import { actorMiddleware } from "./middleware/auth.js";
 import { boardMutationGuard } from "./middleware/board-mutation-guard.js";
 import { privateHostnameGuard, resolvePrivateHostnameAllowSet } from "./middleware/private-hostname-guard.js";
@@ -117,6 +118,8 @@ export async function createApp(
 
   // Mount API routes
   const api = Router();
+  // Global rate limit: 200 requests per minute per IP
+  api.use(rateLimitMiddleware({ max: 200, windowMs: 60_000 }));
   api.use(boardMutationGuard());
   api.use(
     "/health",

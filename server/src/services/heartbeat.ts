@@ -1331,6 +1331,8 @@ export function heartbeatService(db: Db) {
     return withAgentStartLock(agentId, async () => {
       const agent = await getAgent(agentId);
       if (!agent) return [];
+      // Do not drain queue for paused or terminated agents (#1063)
+      if (agent.status === "paused" || agent.status === "terminated") return [];
       const policy = parseHeartbeatPolicy(agent);
       const runningCount = await countRunningRunsForAgent(agentId);
       const availableSlots = Math.max(0, policy.maxConcurrentRuns - runningCount);
@@ -1838,7 +1840,22 @@ export function heartbeatService(db: Db) {
       } else if (adapterResult.timedOut) {
         outcome = "timed_out";
       } else if ((adapterResult.exitCode ?? 0) === 0 && !adapterResult.errorMessage) {
-        outcome = "succeeded";
+        // Check if the agent's result text indicates it couldn't actually do work (#1117)
+        const resultText =
+          typeof adapterResult.resultJson?.result === "string" ? adapterResult.resultJson.result : "";
+        const silentFailurePatterns = [
+          "unable to proceed",
+          "cannot proceed",
+          "need approval",
+          "being blocked",
+          "permission denied",
+          "I couldn't",
+          "I was unable",
+        ];
+        const looksLikeFailure = silentFailurePatterns.some((p) =>
+          resultText.toLowerCase().includes(p.toLowerCase()),
+        );
+        outcome = looksLikeFailure ? "failed" : "succeeded";
       } else {
         outcome = "failed";
       }

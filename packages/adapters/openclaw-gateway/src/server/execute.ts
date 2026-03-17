@@ -605,6 +605,8 @@ class GatewayWsClient {
       this.resolveChallenge = resolve;
       this.rejectChallenge = reject;
     });
+    // Prevent unhandled rejection if challenge is rejected after close (#1088)
+    this.challengePromise.catch(() => {});
   }
 
   async connect(
@@ -625,8 +627,13 @@ class GatewayWsClient {
     ws.on("close", (code, reason) => {
       const reasonText = rawDataToString(reason);
       const err = new Error(`gateway closed (${code}): ${reasonText}`);
-      this.failPending(err);
-      this.rejectChallenge(err);
+      try {
+        this.failPending(err);
+        this.rejectChallenge(err);
+      } catch (e) {
+        // Swallow — pending promises may already be settled; avoid crashing the server (#1088)
+        void this.opts.onLog("stderr", `[openclaw-gateway] close cleanup error: ${e}\n`);
+      }
     });
 
     ws.on("error", (err) => {

@@ -668,9 +668,17 @@ export function issueService(db: Db) {
               parseProjectExecutionWorkspacePolicy(project?.executionWorkspacePolicy),
             ) as Record<string, unknown> | null;
         }
+        // Atomically compute next issue number as MAX(existing) + 1 to stay in sync,
+        // then update the company counter to match. This fixes #1127 (counter out-of-sync)
+        // and #1078 (race condition) by using a single atomic SQL expression with FOR UPDATE lock.
         const [company] = await tx
           .update(companies)
-          .set({ issueCounter: sql`${companies.issueCounter} + 1` })
+          .set({
+            issueCounter: sql`GREATEST(
+              ${companies.issueCounter},
+              COALESCE((SELECT MAX(${issues.issueNumber}) FROM ${issues} WHERE ${issues.companyId} = ${companyId}), 0)
+            ) + 1`,
+          })
           .where(eq(companies.id, companyId))
           .returning({ issueCounter: companies.issueCounter, issuePrefix: companies.issuePrefix });
 
@@ -760,6 +768,9 @@ export function issueService(db: Db) {
         (issueData.assigneeUserId !== undefined && issueData.assigneeUserId !== existing.assigneeUserId)
       ) {
         patch.checkoutRunId = null;
+        // Also clear executionRunId so the new assignee can check out (#1007)
+        patch.executionRunId = null;
+        patch.executionLockedAt = null;
       }
 
       return db.transaction(async (tx) => {
