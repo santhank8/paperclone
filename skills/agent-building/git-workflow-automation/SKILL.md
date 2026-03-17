@@ -29,9 +29,7 @@ The fix is two commands: `git worktree add` and `gh pr create`. The pattern is a
 git worktree add /tmp/worktree-agent-a feat/task-a
 git worktree add /tmp/worktree-agent-b feat/task-b
 
-# 2. Each agent works in its directory — zero contention
-# Agent A: cd /tmp/worktree-agent-a && implement → commit → push
-# Agent B: cd /tmp/worktree-agent-b && implement → commit → push
+# 2. Each agent works in its own directory — zero contention
 
 # 3. Both create PRs with gh CLI
 gh pr create --title "feat: task-a" --body "..." --base main

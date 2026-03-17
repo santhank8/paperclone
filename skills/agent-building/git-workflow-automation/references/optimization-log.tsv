@@ -2,3 +2,4 @@ iteration	trigger_pct	nofire_pct	output_pct	lines	status	description
 0	100	100	100	84	baseline	Baseline — all scores 100%, 84 lines, 7 content ref files
 1	100	100	100	73	kept	Remove Minimum Viable Setup section (11 lines) — duplicates Core Pattern, no test coverage
 2	100	100	100	58	kept	Remove inline Stop hook (15 lines) — 05-hooks.md has full coverage, Quick Entry points there
+3	100	100	100	53	kept	Remove Prerequisites section (5 lines) — already in 03-gh-cli-loop.md, no test validates in SKILL.md
