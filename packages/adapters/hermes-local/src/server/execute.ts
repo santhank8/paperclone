@@ -67,6 +67,49 @@ function cfgStringArray(v: unknown): string[] | undefined {
 // ---------------------------------------------------------------------------
 
 /**
+ * Detect HERMES_HOME from a wrapper script.
+ * Checks common locations (/usr/local/bin, ~/.local/bin, ~/bin) for the script
+ * and extracts HERMES_HOME from its contents.
+ */
+function detectHermesHome(hermesCmd: string): string | null {
+  // If hermesCmd is just "hermes", use default ~/.hermes
+  if (hermesCmd === "hermes" || hermesCmd === HERMES_CLI) {
+    return null; // Signal to use default
+  }
+
+  // Common script locations to check
+  const searchPaths = [
+    "/usr/local/bin",
+    resolve(homedir(), ".local/bin"),
+    resolve(homedir(), "bin"),
+  ];
+
+  for (const searchPath of searchPaths) {
+    const scriptPath = resolve(searchPath, hermesCmd);
+    if (existsSync(scriptPath)) {
+      try {
+        const content = readFileSync(scriptPath, "utf8");
+        // Look for HERMES_HOME= pattern in the script
+        const match = content.match(/HERMES_HOME\s*=\s*["']?([^"'\n]+)["']?/);
+        if (match?.[1]) {
+          return match[1].trim();
+        }
+        // Also check for HERMES_HOME assignment with tilde expansion
+        const tildeMatch = content.match(/HERMES_HOME\s*=\s*(~[^"'\n]*)/);
+        if (tildeMatch?.[1]) {
+          // Expand tilde to home directory
+          return tildeMatch[1].trim().replace(/^~/, homedir());
+        }
+      } catch {
+        // Ignore read errors
+      }
+    }
+  }
+
+  return null;
+}
+
+/**
  * Simple YAML parser for Hermes config.yaml model section.
  * Handles nested model: block with default, provider, base_url.
  */
@@ -120,11 +163,20 @@ interface DetectedHermesConfig {
 /**
  * Detect current model/provider/base_url from Hermes config.
  * Priority: config.yaml (new format) > .env (legacy LLM_MODEL)
+ * 
+ * @param hermesCmd - Optional custom Hermes command (e.g., "hermes-qwen")
+ *                    If provided, attempts to detect HERMES_HOME from wrapper script
  */
-function detectCurrentModel(): DetectedHermesConfig {
+function detectCurrentModel(hermesCmd?: string): DetectedHermesConfig {
   try {
+    // Determine Hermes home directory
+    // If a custom command is provided, try to detect its HERMES_HOME
+    const hermesHome = hermesCmd 
+      ? (detectHermesHome(hermesCmd) || resolve(homedir(), ".hermes"))
+      : resolve(homedir(), ".hermes");
+
     // Try config.yaml first (new format)
-    const configPath = resolve(homedir(), ".hermes", "config.yaml");
+    const configPath = resolve(hermesHome, "config.yaml");
     if (existsSync(configPath)) {
       const content = readFileSync(configPath, "utf8");
       const modelCfg = parseYamlModelSection(content);
@@ -138,7 +190,7 @@ function detectCurrentModel(): DetectedHermesConfig {
     }
 
     // Fallback to .env (legacy format)
-    const envPath = resolve(homedir(), ".hermes", ".env");
+    const envPath = resolve(hermesHome, ".env");
     if (existsSync(envPath)) {
       const content = readFileSync(envPath, "utf8");
       const match = content.match(/^LLM_MODEL\s*=\s*(.+)$/m);
@@ -386,7 +438,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
   const configuredProvider = cfgString(config.provider);
 
   // Auto-detect from Hermes config.yaml if model/provider not explicitly set
-  const detected = detectCurrentModel();
+  const detected = detectCurrentModel(hermesCmd);
   const model =
     configuredModel === AUTO_MODEL || !configuredModel
       ? detected.model || DEFAULT_MODEL

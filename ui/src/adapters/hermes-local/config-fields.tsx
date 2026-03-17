@@ -56,17 +56,21 @@ export function HermesLocalConfigFields({
   const [modelOpen, setModelOpen] = useState(false);
   const [providerOpen, setProviderOpen] = useState(false);
 
+  // In edit mode, use eff() for reactive updates (overlay pattern)
+  // In create mode, use values directly
   const currentModel = isCreate
     ? (values?.model ?? "")
-    : String(config.model ?? "");
+    : eff("adapterConfig", "model", String(config.model ?? ""));
 
   // Provider is stored in `args` field per CreateConfigValues convention
   const currentProvider = isCreate
     ? (values?.args ?? "")
-    : String(config.provider ?? "");
+    : eff("adapterConfig", "provider", String(config.provider ?? ""));
 
+  // Check if model is a custom value (not in predefined options, or explicitly "custom")
   const isCustomModel =
-    currentModel && !HERMES_MODEL_OPTIONS.some((o) => o.value === currentModel);
+    currentModel === "custom" ||
+    (currentModel && !HERMES_MODEL_OPTIONS.some((o) => o.value === currentModel));
 
   const selectedModelLabel = isCustomModel
     ? currentModel
@@ -112,16 +116,12 @@ export function HermesLocalConfigFields({
                   )}
                   onClick={() => {
                     if (isCreate) {
-                      set!(
-                        opt.value === "custom"
-                          ? { model: "" }
-                          : { model: opt.value },
-                      );
+                      set!({ model: opt.value });
                     } else {
                       mark(
                         "adapterConfig",
                         "model",
-                        opt.value === "custom" ? "" : opt.value,
+                        opt.value || undefined,
                       );
                     }
                     setModelOpen(false);
@@ -135,14 +135,14 @@ export function HermesLocalConfigFields({
             </PopoverContent>
           </Popover>
 
-          {(currentModel === "" || isCustomModel) && (
+          {(currentModel === "custom" || (currentModel === "" || isCustomModel)) && (
             <DraftInput
-              value={currentModel}
+              value={currentModel === "custom" ? "" : currentModel}
               onCommit={(v) => {
                 if (isCreate) {
-                  set!({ model: v });
+                  set!({ model: v || "custom" });
                 } else {
-                  mark("adapterConfig", "model", v || undefined);
+                  mark("adapterConfig", "model", v || "custom");
                 }
               }}
               immediate
@@ -212,7 +212,7 @@ export function HermesLocalConfigFields({
               : eff(
                   "adapterConfig",
                   "hermesCommand",
-                  String(config.command ?? "hermes"),
+                  String(config.hermesCommand ?? "hermes"),
                 )
           }
           onCommit={(v) =>
