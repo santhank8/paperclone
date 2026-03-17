@@ -64,25 +64,7 @@ Never skip Phase 4. Uncorroborated claims are opinions, not findings.
 
 ## Structured Output Contract
 
-Every research deliverable uses this schema:
-
-```markdown
-## Research Report: [Topic]
-**Query:** [original question]  **Retrieved:** [date]
-
-### Findings
-| Claim | Confidence | Sources | Gaps |
-|---|---|---|---|
-| [claim] | high/medium/low | [URLs] | [what's missing] |
-
-### Gaps & Unknowns
-[Unanswered questions remaining after research]
-
-### Source Log
-[Every URL fetched this session — auto-appended by hook]
-```
-
-**Confidence:** high = 3+ independent primary sources; medium = 2 sources or 1 primary; low = 1 secondary or inferred.
+Every deliverable: Findings table (Claim / Confidence / Sources / Gaps) → Gaps & Unknowns → Source Log. Confidence: high = 3+ primary; medium = 2 sources or 1 primary; low = 1 secondary.
 
 → Full template and confidence calibration guide: `references/output-contracts.md`
 
