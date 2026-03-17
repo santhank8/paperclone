@@ -13,7 +13,7 @@ import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { AlertCircle, Archive, ArchiveRestore, Check, ExternalLink, Github, Loader2, Plus, Trash2, X } from "lucide-react";
+import { AlertCircle, Archive, ArchiveRestore, Check, ExternalLink, GitFork, Loader2, Plus, Trash2, X } from "lucide-react";
 import { ChoosePathButton } from "./PathInstructionsModal";
 import { DraftInput } from "./agent-config-primitives";
 import { InlineEditor } from "./InlineEditor";
@@ -324,11 +324,10 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
 
   const isAbsolutePath = (value: string) => value.startsWith("/") || /^[A-Za-z]:[\\/]/.test(value);
 
-  const isGitHubRepoUrl = (value: string) => {
+  const isValidGitRepoUrl = (value: string) => {
     try {
       const parsed = new URL(value);
-      const host = parsed.hostname.toLowerCase();
-      if (host !== "github.com" && host !== "www.github.com") return false;
+      if (parsed.protocol !== "https:" && parsed.protocol !== "http:") return false;
       const segments = parsed.pathname.split("/").filter(Boolean);
       return segments.length >= 2;
     } catch {
@@ -347,19 +346,19 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
       const parsed = new URL(value);
       const segments = parsed.pathname.split("/").filter(Boolean);
       const repo = segments[segments.length - 1]?.replace(/\.git$/i, "") ?? "";
-      return repo || "GitHub repo";
+      return repo || "Git repo";
     } catch {
-      return "GitHub repo";
+      return "Git repo";
     }
   };
 
-  const formatGitHubRepo = (value: string) => {
+  const formatRepoShortName = (value: string) => {
     try {
       const parsed = new URL(value);
       const segments = parsed.pathname.split("/").filter(Boolean);
       if (segments.length < 2) return value;
-      const owner = segments[0];
-      const repo = segments[1]?.replace(/\.git$/i, "");
+      const owner = segments[segments.length - 2];
+      const repo = segments[segments.length - 1]?.replace(/\.git$/i, "");
       if (!owner || !repo) return value;
       return `${owner}/${repo}`;
     } catch {
@@ -382,8 +381,8 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
 
   const submitRepoWorkspace = () => {
     const repoUrl = workspaceRepoUrl.trim();
-    if (!isGitHubRepoUrl(repoUrl)) {
-      setWorkspaceError("Repo workspace must use a valid GitHub repo URL.");
+    if (!isValidGitRepoUrl(repoUrl)) {
+      setWorkspaceError("Repo workspace must use a valid git repo URL.");
       return;
     }
     setWorkspaceError(null);
@@ -415,7 +414,7 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
     const hasLocalFolder = Boolean(workspace.cwd && workspace.cwd !== REPO_ONLY_CWD_SENTINEL);
     const confirmed = window.confirm(
       hasLocalFolder
-        ? "Clear GitHub repo from this workspace?"
+        ? "Clear git repo from this workspace?"
         : "Delete this workspace repo?",
     );
     if (!confirmed) return;
@@ -605,8 +604,8 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
                         rel="noreferrer"
                         className="inline-flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground hover:underline"
                       >
-                        <Github className="h-3 w-3 shrink-0" />
-                        <span className="truncate">{formatGitHubRepo(workspace.repoUrl)}</span>
+                        <GitFork className="h-3 w-3 shrink-0" />
+                        <span className="truncate">{formatRepoShortName(workspace.repoUrl)}</span>
                         <ExternalLink className="h-3 w-3 shrink-0" />
                       </a>
                       <Button
@@ -734,7 +733,7 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
                 className="w-full rounded border border-border bg-transparent px-2 py-1 text-xs outline-none"
                 value={workspaceRepoUrl}
                 onChange={(e) => setWorkspaceRepoUrl(e.target.value)}
-                placeholder="https://github.com/org/repo"
+                placeholder="https://github.com/org/repo or any git host"
               />
               <div className="flex items-center gap-2">
                 <Button
