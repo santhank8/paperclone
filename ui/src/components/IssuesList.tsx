@@ -18,7 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
-import { CircleDot, Plus, Filter, ArrowUpDown, Layers, Check, X, ChevronRight, List, Columns3, User, Search } from "lucide-react";
+import { CircleDot, Plus, Filter, ArrowUpDown, Layers, Check, X, ChevronRight, List, Columns3, User, Search, EyeOff } from "lucide-react";
 import { KanbanBoard } from "./KanbanBoard";
 import type { Issue } from "@paperclipai/shared";
 
@@ -43,6 +43,7 @@ export type IssueViewState = {
   groupBy: "status" | "priority" | "assignee" | "none";
   viewMode: "list" | "board";
   collapsedGroups: string[];
+  showHidden: boolean;
 };
 
 const defaultViewState: IssueViewState = {
@@ -55,6 +56,7 @@ const defaultViewState: IssueViewState = {
   groupBy: "none",
   viewMode: "list",
   collapsedGroups: [],
+  showHidden: false,
 };
 
 const quickFilterPresets = [
@@ -124,6 +126,7 @@ function countActiveFilters(state: IssueViewState): number {
   if (state.priorities.length > 0) count++;
   if (state.assignees.length > 0) count++;
   if (state.labels.length > 0) count++;
+  if (state.showHidden) count++;
   return count;
 }
 
@@ -213,8 +216,14 @@ export function IssuesList({
 
   const { data: searchedIssues = [] } = useQuery({
     queryKey: queryKeys.issues.search(selectedCompanyId!, normalizedIssueSearch, projectId),
-    queryFn: () => issuesApi.list(selectedCompanyId!, { q: normalizedIssueSearch, projectId }),
+    queryFn: () => issuesApi.list(selectedCompanyId!, { q: normalizedIssueSearch, projectId, includeHidden: viewState.showHidden || undefined }),
     enabled: !!selectedCompanyId && normalizedIssueSearch.length > 0,
+  });
+
+  const { data: allIssuesIncludingHidden } = useQuery({
+    queryKey: [...queryKeys.issues.list(selectedCompanyId!), "includeHidden"],
+    queryFn: () => issuesApi.list(selectedCompanyId!, { includeHidden: true, projectId }),
+    enabled: !!selectedCompanyId && viewState.showHidden,
   });
 
   const agentName = useCallback((id: string | null) => {
@@ -223,10 +232,17 @@ export function IssuesList({
   }, [agents]);
 
   const filtered = useMemo(() => {
-    const sourceIssues = normalizedIssueSearch.length > 0 ? searchedIssues : issues;
+    let sourceIssues: Issue[];
+    if (normalizedIssueSearch.length > 0) {
+      sourceIssues = searchedIssues;
+    } else if (viewState.showHidden && allIssuesIncludingHidden) {
+      sourceIssues = allIssuesIncludingHidden;
+    } else {
+      sourceIssues = issues;
+    }
     const filteredByControls = applyFilters(sourceIssues, viewState);
     return sortIssues(filteredByControls, viewState);
-  }, [issues, searchedIssues, viewState, normalizedIssueSearch]);
+  }, [issues, searchedIssues, allIssuesIncludingHidden, viewState, normalizedIssueSearch]);
 
   const { data: labels } = useQuery({
     queryKey: queryKeys.issues.labels(selectedCompanyId!),
@@ -335,7 +351,7 @@ export function IssuesList({
                     className="h-3 w-3 ml-1 hidden sm:block"
                     onClick={(e) => {
                       e.stopPropagation();
-                      updateView({ statuses: [], priorities: [], assignees: [], labels: [] });
+                      updateView({ statuses: [], priorities: [], assignees: [], labels: [], showHidden: false });
                     }}
                   />
                 )}
@@ -348,7 +364,7 @@ export function IssuesList({
                   {activeFilterCount > 0 && (
                     <button
                       className="text-xs text-muted-foreground hover:text-foreground"
-                      onClick={() => updateView({ statuses: [], priorities: [], assignees: [], labels: [] })}
+                      onClick={() => updateView({ statuses: [], priorities: [], assignees: [], labels: [], showHidden: false })}
                     >
                       Clear
                     </button>
@@ -455,6 +471,18 @@ export function IssuesList({
                     )}
                   </div>
                 </div>
+
+                <div className="border-t border-border" />
+
+                {/* Show hidden toggle */}
+                <label className="flex items-center gap-2 px-2 py-1 rounded-sm hover:bg-accent/50 cursor-pointer">
+                  <Checkbox
+                    checked={viewState.showHidden}
+                    onCheckedChange={(checked) => updateView({ showHidden: !!checked })}
+                  />
+                  <EyeOff className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span className="text-sm">Show hidden issues</span>
+                </label>
               </div>
             </PopoverContent>
           </Popover>

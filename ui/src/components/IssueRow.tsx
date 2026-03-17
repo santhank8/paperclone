@@ -4,6 +4,7 @@ import { Link } from "@/lib/router";
 import { cn } from "../lib/utils";
 import { PriorityIcon } from "./PriorityIcon";
 import { StatusIcon } from "./StatusIcon";
+import { EyeOff } from "lucide-react";
 
 type UnreadState = "hidden" | "visible" | "fading";
 
@@ -52,7 +53,8 @@ export function IssueRow({
         {mobileLeading ?? <StatusIcon status={issue.status} />}
       </span>
       <span className="flex min-w-0 flex-1 flex-col gap-1 sm:contents">
-        <span className="line-clamp-2 text-sm sm:order-2 sm:min-w-0 sm:flex-1 sm:truncate sm:line-clamp-none">
+        <span className={cn("line-clamp-2 text-sm sm:order-2 sm:min-w-0 sm:flex-1 sm:truncate sm:line-clamp-none", issue.hiddenAt && "opacity-50")}>
+          {issue.hiddenAt && <EyeOff className="mr-1 inline h-3 w-3 text-muted-foreground" />}
           {issue.title}
         </span>
         <span className="flex items-center gap-2 sm:order-1 sm:shrink-0">

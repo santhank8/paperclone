@@ -35,6 +35,7 @@ import {
   Activity as ActivityIcon,
   ChevronDown,
   ChevronRight,
+  Eye,
   EyeOff,
   Hexagon,
   ListTree,
@@ -639,19 +640,34 @@ export function IssueDetail() {
                 </Button>
               </PopoverTrigger>
             <PopoverContent className="w-44 p-1" align="end">
-              <button
-                className="flex items-center gap-2 w-full px-2 py-1.5 text-xs rounded hover:bg-accent/50 text-destructive"
-                onClick={() => {
-                  updateIssue.mutate(
-                    { hiddenAt: new Date().toISOString() },
-                    { onSuccess: () => navigate("/issues/all") },
-                  );
-                  setMoreOpen(false);
-                }}
-              >
-                <EyeOff className="h-3 w-3" />
-                Hide this Issue
-              </button>
+              {issue.hiddenAt ? (
+                <button
+                  className="flex items-center gap-2 w-full px-2 py-1.5 text-xs rounded hover:bg-accent/50"
+                  onClick={() => {
+                    updateIssue.mutate(
+                      { hiddenAt: null },
+                    );
+                    setMoreOpen(false);
+                  }}
+                >
+                  <Eye className="h-3 w-3" />
+                  Unhide this Issue
+                </button>
+              ) : (
+                <button
+                  className="flex items-center gap-2 w-full px-2 py-1.5 text-xs rounded hover:bg-accent/50 text-destructive"
+                  onClick={() => {
+                    updateIssue.mutate(
+                      { hiddenAt: new Date().toISOString() },
+                      { onSuccess: () => navigate("/issues/all") },
+                    );
+                    setMoreOpen(false);
+                  }}
+                >
+                  <EyeOff className="h-3 w-3" />
+                  Hide this Issue
+                </button>
+              )}
             </PopoverContent>
             </Popover>
           </div>
