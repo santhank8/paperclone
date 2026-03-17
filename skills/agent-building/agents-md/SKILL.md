@@ -42,15 +42,9 @@ Full annotated template → `references/02-core-structure.md`
 
 ## Workflow Routing Tables
 
-The most underused pattern. A routing table makes agent behavior explicit and auditable:
+The most underused pattern. A routing table makes agent behavior explicit and auditable — trigger patterns mapped to named workflows, no ambiguity.
 
-| When the request... | Route to workflow... |
-|---|---|
-| Mentions a bug or error | Systematic Debugging |
-| Asks for a new feature | Spec Creation |
-| Asks to review code | Code Review |
-
-How to write trigger patterns that fire reliably → `references/03-workflow-routing.md`
+How to write patterns that fire reliably → `references/03-workflow-routing.md`
 
 ## Tool Access Design
 
