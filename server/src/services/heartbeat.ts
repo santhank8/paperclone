@@ -12,6 +12,7 @@ import {
   agentWakeupRequests,
   heartbeatRunEvents,
   heartbeatRuns,
+  issueComments,
   issues,
   projects,
   projectWorkspaces,
@@ -564,6 +565,40 @@ function enrichWakeContextSnapshot(input: {
     taskKey,
     wakeCommentId,
   };
+}
+
+/**
+ * Enrich context snapshot with issue description and comment body from the
+ * database.  This closes silent-context-loss bugs #848 and #799 where task-
+ * triggered and comment-triggered wakes only passed IDs without the actual
+ * text content agents need to act on.
+ */
+async function enrichContextWithDbContent(
+  dbRef: Db,
+  contextSnapshot: Record<string, unknown>,
+  issueId: string | null,
+  commentId: string | null,
+) {
+  if (issueId && !readNonEmptyString(contextSnapshot["issueDescription"])) {
+    const row = await dbRef
+      .select({ description: issues.description })
+      .from(issues)
+      .where(eq(issues.id, issueId))
+      .then((rows: { description: string | null }[]) => rows[0] ?? null);
+    if (row?.description) {
+      contextSnapshot.issueDescription = row.description;
+    }
+  }
+  if (commentId && !readNonEmptyString(contextSnapshot["commentBody"])) {
+    const row = await dbRef
+      .select({ body: issueComments.body })
+      .from(issueComments)
+      .where(eq(issueComments.id, commentId))
+      .then((rows: { body: string | null }[]) => rows[0] ?? null);
+    if (row?.body) {
+      contextSnapshot.commentBody = row.body;
+    }
+  }
 }
 
 function mergeCoalescedContextSnapshot(
@@ -2239,7 +2274,13 @@ export function heartbeatService(db: Db) {
       } else if (adapterResult.timedOut) {
         outcome = "timed_out";
       } else if ((adapterResult.exitCode ?? 0) === 0 && !adapterResult.errorMessage) {
-        outcome = "succeeded";
+        // Validate that the run actually produced output (#1117, #849).
+        // A run with exit code 0 but empty/missing resultJson is suspicious —
+        // mark as failed to surface silent failures instead of hiding them.
+        const hasOutput =
+          adapterResult.resultJson != null &&
+          Object.keys(adapterResult.resultJson).length > 0;
+        outcome = hasOutput ? "succeeded" : "failed";
       } else {
         outcome = "failed";
       }
@@ -2537,6 +2578,8 @@ export function heartbeatService(db: Db) {
 
         const {
           contextSnapshot: promotedContextSnapshot,
+          issueIdFromPayload: promotedIssueId,
+          wakeCommentId: promotedCommentId,
           taskKey: promotedTaskKey,
         } = enrichWakeContextSnapshot({
           contextSnapshot: promotedContextSeed,
@@ -2545,6 +2588,7 @@ export function heartbeatService(db: Db) {
           triggerDetail: promotedTriggerDetail,
           payload: promotedPayload,
         });
+        await enrichContextWithDbContent(db, promotedContextSnapshot, promotedIssueId ?? null, promotedCommentId ?? null);
 
         const sessionBefore = await resolveSessionBeforeForWakeup(deferredAgent, promotedTaskKey);
         const now = new Date();
@@ -2625,6 +2669,7 @@ export function heartbeatService(db: Db) {
       triggerDetail,
       payload,
     });
+    await enrichContextWithDbContent(db, enrichedContextSnapshot, issueIdFromPayload ?? null, wakeCommentId ?? null);
     const issueId = readNonEmptyString(enrichedContextSnapshot.issueId) ?? issueIdFromPayload;
 
     const agent = await getAgent(agentId);

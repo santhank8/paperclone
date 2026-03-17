@@ -376,7 +376,12 @@ export async function startServer(): Promise<StartedServer> {
           password: "paperclip",
           port,
           persistent: true,
-          initdbFlags: ["--encoding=UTF8", "--locale=C.UTF-8", "--username=paperclip"],
+          initdbFlags: [
+            "--encoding=UTF8",
+            // C.UTF-8 is not available on Windows; fall back to C locale (#1026)
+            `--locale=${process.platform === "win32" ? "C" : "C.UTF-8"}`,
+            "--username=paperclip",
+          ],
           onLog: appendEmbeddedPostgresLog,
           onError: appendEmbeddedPostgresLog,
         });

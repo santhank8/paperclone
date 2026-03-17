@@ -417,6 +417,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     agent,
     run: { id: runId, source: "on_demand" },
     context,
+    env,
   };
   const renderedPrompt = renderTemplate(promptTemplate, templateData);
   const renderedBootstrapPrompt =
