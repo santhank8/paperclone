@@ -1,0 +1,15 @@
+{
+  "workerId": "paperclip-multiuser-g5-impl",
+  "messages": [
+    {
+      "id": "msg-450ba9b3-ab6f-4bb9-90b1-a063daba90c7",
+      "from": "team-lead",
+      "to": "paperclip-multiuser-g5-impl",
+      "body": "# Group 5: Agents Recognize People\n\nYou are in an ISOLATED WORKTREE at /tmp/paperclip-g5 on branch feat/g5-people-recognition.\nYou are already on the correct branch — do NOT switch branches or checkout dev.\n\n## CONTEXT\nRead `.genie/wishes/complete-multiuser/WISH.md` (Group 5 section).\n\n## DELIVERABLES\n\n### 1. Enriched issue API responses\nIn `server/src/routes/issues.ts`, modify issue list and detail queries to add LEFT JOIN on `authUsers` table:\n- Add `createdByUserName` — resolve from `authUsers` using `createdByUserId`\n- Add `assigneeUserName` — resolve from `authUsers` using `assigneeUserId`\n- For list queries, use aliases: `const creatorUser = alias(authUsers, 'creatorUser')` etc.\n\n### 2. Enriched comment responses\nIn comment queries (same file), add LEFT JOIN to include:\n- `authorUserName` — for comments where `actorType === 'user'`, resolve name from `authUsers` using `actorId`\n\n### 3. Activity log enrichment\nIn `server/src/services/activity.ts`, add `actorName` for user actors.\n\n### 4. Heartbeat context enrichment\nIn `server/src/services/heartbeat.ts`, when building contextSnapshot:\n- Include `assigneeUser: { id, name, email }` if assigneeUserId is set\n- Include `createdByUser: { id, name }` if created by a user\n- Query authUsers table to resolve these\n\n## IMPORTANT NOTES\n- Import `authUsers` from `@paperclipai/db`\n- Use `alias()` from drizzle-orm when you need to join the same table multiple times\n- The issues table has `assigneeUserId` and `createdByUserId` columns (check schema)\n- Keep existing query structure, just add LEFT JOINs\n\n## VALIDATION\n```bash\npnpm -r typecheck && pnpm test:run && pnpm build\n```\n\nPush when done:\n```bash\ngit add -A && git commit -m \"feat: enrich API responses with user names (Group 5)\" && git push -u origin feat/g5-people-recognition\n```",
+      "createdAt": "2026-03-13T05:28:56.959Z",
+      "read": false,
+      "deliveredAt": "2026-03-13T05:28:56.962Z"
+    }
+  ],
+  "lastUpdated": "2026-03-13T05:28:56.962Z"
+}

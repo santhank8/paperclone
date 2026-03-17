@@ -8,13 +8,20 @@ function makeCompany(overrides: Partial<Company>): Company {
     name: "Alpha",
     description: null,
     status: "active",
+    pauseReason: null,
+    pausedAt: null,
     issuePrefix: "ALP",
     issueCounter: 1,
     budgetMonthlyCents: 0,
     spentMonthlyCents: 0,
     requireBoardApprovalForNewAgents: false,
     brandColor: null,
+<<<<<<< HEAD
     image: null,
+=======
+    logoAssetId: null,
+    logoUrl: null,
+>>>>>>> upstream/master
     createdAt: new Date(),
     updatedAt: new Date(),
     ...overrides,

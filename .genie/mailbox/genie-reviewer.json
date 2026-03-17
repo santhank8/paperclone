@@ -1,0 +1,24 @@
+{
+  "workerId": "genie-reviewer",
+  "messages": [
+    {
+      "id": "msg-105a17f5-c377-438f-ae0e-00e21d513bd3",
+      "from": "cli",
+      "to": "genie-reviewer",
+      "body": "Review the wish plan at .genie/wishes/dependency-modernization/WISH.md using the Plan Review checklist:\n\n- [ ] Problem statement is one sentence and testable\n- [ ] Scope IN has concrete deliverables\n- [ ] Scope OUT is explicit — boundaries stated\n- [ ] Every task has testable acceptance criteria\n- [ ] Tasks are bite-sized and independently shippable\n- [ ] Dependencies tagged (depends-on / blocks)\n- [ ] Validation commands exist for each execution group\n\nCheck every group (G1-G5) against the acceptance criteria. Verify the dependency graph makes sense. Flag any gaps with severity (CRITICAL/HIGH/MEDIUM/LOW). Return a verdict: SHIP, FIX-FIRST, or BLOCKED.\n\nImportant context from the trace report:\n- drizzle-orm 0.38.4 → 0.45.1 (89 importing files in packages/db + server)\n- zod 3.25.76 → 4.3.6 (17 importing files in packages/shared, server, plugins/sdk)\n- better-auth 1.4.18 → 1.5.5 (depends on drizzle-orm >=0.41 + zod >=4)\n- vitest 3.2.4 → 4.x (fixes glob@10.5.0 deprecation)\n- @esbuild-kit/* and intersection-observer are upstream-only deprecations\n\nDo NOT modify any files. Read-only review only.",
+      "createdAt": "2026-03-15T21:45:12.186Z",
+      "read": false,
+      "deliveredAt": "2026-03-15T21:45:12.188Z"
+    },
+    {
+      "id": "msg-764967da-fe46-42d6-958d-e844e7963171",
+      "from": "cli",
+      "to": "genie-reviewer",
+      "body": "Plan review of .genie/wishes/upstream-pr-strategy/WISH.md\n\nUse the Plan Review checklist:\n- [ ] Problem statement is one sentence and testable\n- [ ] Scope IN has concrete deliverables\n- [ ] Scope OUT is explicit — boundaries stated\n- [ ] Every task has testable acceptance criteria\n- [ ] Tasks are bite-sized and independently shippable\n- [ ] Dependencies tagged (depends-on / blocks)\n- [ ] Validation commands exist for each execution group\n\nAlso verify:\n1. G2 claims test harness has no multiuser imports — verify by reading server/src/__tests__/helpers/test-app.ts and checking if any imported route/service requires multiuser-only code (userRoutes, email service, etc.)\n2. G3 migration renumbering — verify the journal update logic is complete (snapshot copy from 0029 for data-only backfill is correct?)\n3. G4 file scope — verify ~70 files claim by checking git diff upstream/master origin/master --name-only count minus test files minus HMR files\n4. Check that PR descriptions mention the backfill migration purpose (owners losing permissions)\n\nReturn verdict: SHIP, FIX-FIRST, or BLOCKED with severity-tagged gaps.\nDo NOT modify any files. Read-only review only.",
+      "createdAt": "2026-03-15T23:08:13.511Z",
+      "read": false,
+      "deliveredAt": "2026-03-15T23:08:13.513Z"
+    }
+  ],
+  "lastUpdated": "2026-03-15T23:08:13.513Z"
+}

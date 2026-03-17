@@ -1,0 +1,15 @@
+{
+  "workerId": "paperclip-council-ergonomist",
+  "messages": [
+    {
+      "id": "msg-09a65a65-aeef-434c-ad95-5d7ceb4a2351",
+      "from": "team-lead",
+      "to": "paperclip-council-ergonomist",
+      "body": "You are the ERGONOMIST (DX/UX reviewer, Sindre Sorhus perspective) for PR #8 on namastexlabs/paperclip.\n\n## Your Mission\nReview the multiuser feature PR for developer experience, API usability, error clarity, and user-facing UX quality.\n\n## Greptile Findings to Evaluate\n\n### FINDING 1 — HIGH: revoke-all UX bug\n**File:** `server/src/routes/users.ts` + `ui/src/pages/Account.tsx`\n`POST /users/me/sessions/revoke-all` kills the current session but the UI does not redirect to login. User stays on Account page with a dead cookie.\n\n### FINDING 2 — LOW: Duplicated mention-notification logic\n**File:** `server/src/routes/issues.ts`\nThe ~40-line block that logs activity and sends mention emails is copy-pasted between update-issue and add-comment handlers.\n\n## What To Do\n1. Read these files: `ui/src/pages/Account.tsx`, `ui/src/pages/Auth.tsx`, `ui/src/pages/InviteLanding.tsx`, `ui/src/components/UserMenu.tsx`, `ui/src/components/IssueProperties.tsx`, `ui/src/hooks/useMyPermissions.ts`, `ui/src/components/MarkdownBody.tsx`\n2. Evaluate each finding for UX impact\n3. Look for additional UX/DX issues:\n   - Error handling: are API errors surfaced clearly to the user?\n   - Loading states: are there missing loading/skeleton states?\n   - Edge cases: empty states, long text truncation, mobile responsiveness\n   - Form validation: client-side validation before server round-trips?\n   - Accessibility: keyboard navigation, ARIA labels, focus management\n   - Consistency: do new components follow existing UI patterns?\n4. Check the onboarding flow: `ui/src/components/OnboardingWizard.tsx` email config step\n\n## Output Format\nReturn a structured verdict:\n```\nVERDICT: SHIP | FIX-FIRST | BLOCKED\nCRITICAL findings: [list]\nHIGH findings: [list]\nMEDIUM findings: [list]\nLOW findings: [list]\nRecommended fixes: [actionable list with file:line references]\n```",
+      "createdAt": "2026-03-13T06:06:34.403Z",
+      "read": false,
+      "deliveredAt": "2026-03-13T06:06:34.406Z"
+    }
+  ],
+  "lastUpdated": "2026-03-13T06:06:34.406Z"
+}

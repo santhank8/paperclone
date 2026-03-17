@@ -14,8 +14,18 @@ import {
 } from "@paperclipai/shared";
 import { forbidden } from "../errors.js";
 import { validate } from "../middleware/validate.js";
+<<<<<<< HEAD
 import { accessService, companyPortabilityService, companyService, logActivity } from "../services/index.js";
 import type { StorageService } from "../storage/types.js";
+=======
+import {
+  accessService,
+  budgetService,
+  companyPortabilityService,
+  companyService,
+  logActivity,
+} from "../services/index.js";
+>>>>>>> upstream/master
 import { assertBoard, assertCompanyAccess, getActorInfo } from "./authz.js";
 
 const MAX_LOGO_BYTES = 2 * 1024 * 1024; // 2MB
@@ -26,6 +36,7 @@ export function companyRoutes(db: Db, storageService?: StorageService) {
   const svc = companyService(db);
   const portability = companyPortabilityService(db);
   const access = accessService(db);
+  const budgets = budgetService(db);
 
   const upload = multer({
     storage: multer.memoryStorage(),
@@ -152,6 +163,18 @@ export function companyRoutes(db: Db, storageService?: StorageService) {
       entityId: company.id,
       details: { name: company.name },
     });
+    if (company.budgetMonthlyCents > 0) {
+      await budgets.upsertPolicy(
+        company.id,
+        {
+          scopeType: "company",
+          scopeId: company.id,
+          amount: company.budgetMonthlyCents,
+          windowKind: "calendar_month_utc",
+        },
+        req.actor.userId ?? "board",
+      );
+    }
     res.status(201).json(company);
   });
 

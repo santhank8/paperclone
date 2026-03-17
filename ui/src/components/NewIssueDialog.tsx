@@ -291,8 +291,12 @@ export function NewIssueDialog() {
     queryFn: () => authApi.getSession(),
   });
   const currentUserId = session?.user?.id ?? session?.session?.userId ?? null;
+  const activeProjects = useMemo(
+    () => (projects ?? []).filter((p) => !p.archivedAt),
+    [projects],
+  );
   const { orderedProjects } = useProjectOrder({
-    projects: projects ?? [],
+    projects: activeProjects,
     companyId: effectiveCompanyId,
     userId: currentUserId,
   });
@@ -1019,8 +1023,8 @@ export function NewIssueDialog() {
         </div>
 
         {currentProjectSupportsExecutionWorkspace && (
-          <div className="px-4 pb-2 shrink-0">
-            <div className="flex items-center justify-between rounded-md border border-border px-3 py-2">
+          <div className="px-4 py-3 shrink-0">
+            <div className="flex items-center justify-between">
               <div className="space-y-0.5">
                 <div className="text-xs font-medium">Use isolated issue checkout</div>
                 <div className="text-[11px] text-muted-foreground">

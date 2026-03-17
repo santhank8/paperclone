@@ -1,0 +1,15 @@
+{
+  "workerId": "paperclip-council-reviewer",
+  "messages": [
+    {
+      "id": "msg-8a62c872-7101-4872-a77f-89b83f17e0b0",
+      "from": "team-lead",
+      "to": "paperclip-council-reviewer",
+      "body": "You are a REVIEWER re-validating fixes for PR #8. The fixer agent applied fixes on branch `fix/pr8-security-ux-gaps`. Checkout that branch first:\n\n```bash\ngit checkout fix/pr8-security-ux-gaps && git pull\n```\n\n## Gaps That Were Fixed\n\n### CRITICAL Fix #1 — HTML injection in email templates\n**File:** `server/src/services/email.ts`\n**Expected fix:** An `escHtml()` helper added and applied to ALL user-controlled interpolated values in every email template.\n**Verify:** Read the file. Confirm every `${...}` inside HTML strings is wrapped in `escHtml()`. Check that `escHtml` properly escapes `&`, `<`, `>`, `\"`, `'`.\n\n### CRITICAL Fix #2 — Revoke-all session handling\n**Files:** `server/src/routes/users.ts` + `ui/src/pages/Account.tsx`\n**Expected fix (server):** Either current session is filtered out from deletion, OR all sessions are deleted and the response signals this.\n**Expected fix (client):** Account.tsx \"Sign Out Everywhere\" `onSuccess` redirects to `/auth` (hard redirect).\n**Verify:** Read both files. Confirm the redirect happens on success.\n\n### HIGH Fix #3 — Host header injection in password reset URL\n**File:** `server/src/routes/users.ts`\n**Expected fix:** Password reset URL uses a trusted source (config/env/origin header) instead of blindly trusting Host header.\n**Verify:** Read the forgot-password handler. Confirm it does NOT use `req.headers.host` or `requestBaseUrl(req)` without safeguards.\n\n### HIGH Fix #4 — Account page accessibility\n**File:** `ui/src/pages/Account.tsx`\n**Expected fix:** All form inputs have `id`, labels have `htmlFor`, inputs have `autoComplete` attributes.\n**Verify:** Read the file. Check that every `<label>` has `htmlFor` matching an input `id`, and all password/name/email inputs have appropriate `autoComplete` values.\n\n## Review Checklist\n1. Read the 3 fixed files\n2. Verify each fix addresses the gap completely (not partially)\n3. Check no new issues were introduced by the fixes\n4. Run validation: `pnpm -r typecheck && pnpm test:run && pnpm build`\n\n## Output Format\n```\nVERDICT: SHIP | FIX-FIRST | BLOCKED\nGap #1 (HTML injection): PASS | FAIL — evidence\nGap #2 (Revoke-all): PASS | FAIL — evidence\nGap #3 (Host header): PASS | FAIL — evidence\nGap #4 (Accessibility): PASS | FAIL — evidence\nNew issues introduced: [list or \"none\"]\n```\n\nSend your verdict to the team-lead when done.",
+      "createdAt": "2026-03-13T06:24:45.134Z",
+      "read": false,
+      "deliveredAt": "2026-03-13T06:24:45.138Z"
+    }
+  ],
+  "lastUpdated": "2026-03-13T06:24:45.138Z"
+}

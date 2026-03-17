@@ -1,0 +1,15 @@
+{
+  "workerId": "paperclip-multiuser-g6-impl",
+  "messages": [
+    {
+      "id": "msg-54097f7e-072c-41b1-aed2-90d1c86b5244",
+      "from": "team-lead",
+      "to": "paperclip-multiuser-g6-impl",
+      "body": "# Group 6: @Mention Humans + Inbox Mentions\n\nYou are in an ISOLATED WORKTREE at /tmp/paperclip-g6 on branch feat/g6-mentions.\nYou are already on the correct branch — do NOT switch branches or checkout dev.\n\n## CONTEXT\nRead `.genie/wishes/complete-multiuser/WISH.md` (Group 6 section + UI Design Specs for Inbox Mentions, MarkdownEditor, MarkdownBody).\n\n## DELIVERABLES\n\n### 1. Rename findMentionedAgents → findMentions\nIn `server/src/routes/issues.ts` (or wherever findMentionedAgents is):\n- Change to `findMentions()` returning `{ agentIds: string[], userIds: string[] }`\n- Match @name against both agent names AND user names from companyMemberships+authUsers\n\n### 2. User mention activity + email\nWhen human mentioned in comment:\n- Log activity `\"issue.user_mentioned\"` with `{ userId, issueId, commentId }`\n- Send mention email via emailService (if configured)\n\n### 3. Mentions API endpoint\nAdd `GET /companies/:companyId/mentions?userId=me` — returns issues where user was mentioned\n\n### 4. Inbox Mentions section (`ui/src/pages/Inbox.tsx`)\n- Add \"Mentions\" to InboxCategoryFilter type\n- Query and display mentions using existing inbox card patterns\n\n### 5. MarkdownEditor user autocomplete\nIn `ui/src/components/MarkdownEditor.tsx`:\n- Add `kind: \"user\"` to MentionOption type\n- Show company members in @autocomplete dropdown alongside agents/projects\n- Group by kind with section headers\n\n### 6. IssueDetail mentionOptions\nIn `ui/src/pages/IssueDetail.tsx`:\n- Include company members from /people endpoint in mentionOptions\n\n### 7. MarkdownBody @mention highlighting\nIn `ui/src/components/MarkdownBody.tsx`:\n- Detect @\\w+ patterns and wrap in `<span className=\"font-medium text-primary\">@name</span>`\n\n### 8. Inbox badge count\nIn `ui/src/lib/inbox.ts`: add mentions to badge count\n\n## VALIDATION\n```bash\npnpm -r typecheck && pnpm test:run && pnpm build\n```\n\nPush when done:\n```bash\ngit add -A && git commit -m \"feat: add @mention humans + inbox mentions (Group 6)\" && git push -u origin feat/g6-mentions\n```",
+      "createdAt": "2026-03-13T05:29:08.778Z",
+      "read": false,
+      "deliveredAt": "2026-03-13T05:29:08.783Z"
+    }
+  ],
+  "lastUpdated": "2026-03-13T05:29:08.783Z"
+}

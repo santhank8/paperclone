@@ -1,0 +1,46 @@
+{
+  "wish": "mentions-inbox-live-updates",
+  "groups": {
+    "1": {
+      "status": "done",
+      "assignee": "implementor",
+      "dependsOn": [],
+      "startedAt": "2026-03-15T16:52:11.208Z",
+      "completedAt": "2026-03-15T17:01:48.450Z"
+    },
+    "2": {
+      "status": "in_progress",
+      "dependsOn": [
+        "1"
+      ],
+      "assignee": "implementor",
+      "startedAt": "2026-03-15T17:01:52.086Z"
+    },
+    "3": {
+      "status": "blocked",
+      "dependsOn": [
+        "2"
+      ]
+    },
+    "4": {
+      "status": "ready",
+      "dependsOn": []
+    },
+    "5": {
+      "status": "ready",
+      "dependsOn": []
+    },
+    "6": {
+      "status": "blocked",
+      "dependsOn": [
+        "1",
+        "2",
+        "3",
+        "4",
+        "5"
+      ]
+    }
+  },
+  "createdAt": "2026-03-15T16:52:11.203Z",
+  "updatedAt": "2026-03-15T17:01:52.086Z"
+}

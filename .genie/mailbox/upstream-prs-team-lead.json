@@ -1,0 +1,15 @@
+{
+  "workerId": "upstream-prs-team-lead",
+  "messages": [
+    {
+      "id": "msg-bf72a29a-32a1-4eef-8860-0c07022979de",
+      "from": "paperclip",
+      "to": "upstream-prs-team-lead",
+      "body": "CONTEXT FROM YOUR BOSS:\n\n## Current State\nG1-G4 are DONE. All 3 PR branches exist and PRs are open:\n- PR1 (HMR fix): https://github.com/paperclipai/paperclip/pull/1001 — branch: fix/hmr-websocket-reverse-proxy\n- PR2 (Test infra): https://github.com/paperclipai/paperclip/pull/1002 — branch: test/server-coverage-harness  \n- PR3 (Multiuser): https://github.com/paperclipai/paperclip/pull/1112 — branch: feat/multiuser-support\n\n## YOUR MISSION: Execute G5 and G6\nYou need to:\n\n### G5: QA All PR Branches\n1. Check out each branch, run pnpm install, typecheck, tests, build\n2. Fix any failures\n3. Use agent-browser to take screenshots of the running app on our dev server at https://felipe.genie.namastex.io for PR3:\n   - Login page, user menu, account settings, company settings with members, invite flow, @mention autocomplete, inbox mentions, avatars, company logo\n4. Save screenshots to .genie/wishes/upstream-pr-strategy/screenshots/\n\n### G6: Write Rich PR Descriptions\n1. Update ALL 3 PRs with rich descriptions using gh pr edit\n2. Each PR must explain \"This is PR X/3 in our multiuser contribution series\" and link the others\n3. PR3 needs FULL Path 2 treatment: summary, backend section, frontend section, migrations section, screenshots, testing evidence, review guide\n4. Each PR explains WHY 3 PRs: reviewability, independence, test-infra-first strategy\n\n## IMPORTANT\n- The PR branches are on origin (namastexlabs/paperclip), PRs target upstream (paperclipai/paperclip)\n- Use `gh pr edit <number> --repo paperclipai/paperclip --body \"...\"` to update descriptions\n- The owner wants to wake up with everything polished. Make it excellent.\n- Do NOT merge anything. Only create/update PRs.",
+      "createdAt": "2026-03-17T09:23:09.281Z",
+      "read": false,
+      "deliveredAt": "2026-03-17T09:23:09.284Z"
+    }
+  ],
+  "lastUpdated": "2026-03-17T09:23:09.285Z"
+}

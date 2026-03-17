@@ -1,0 +1,15 @@
+{
+  "workerId": "paperclip-multiuser-g3-impl",
+  "messages": [
+    {
+      "id": "msg-4ce08796-c18b-4f36-adfa-7864e0daabe9",
+      "from": "team-lead",
+      "to": "paperclip-multiuser-g3-impl",
+      "body": "# Group 3: Fix Auth UX + Invite Flow + Password Reset\n\nYou are in an ISOLATED WORKTREE at /tmp/paperclip-g3 on branch feat/g3-auth-invite.\nYou are already on the correct branch — do NOT switch branches or checkout dev.\n\n## CONTEXT\nRead `.genie/wishes/complete-multiuser/WISH.md` (Group 3 section + UI Design Specs for Auth and InviteLanding).\n\n## DELIVERABLES\n\n### 1. Health endpoint — add `hasUsers: boolean`\nIn `server/src/routes/health.ts`:\n- Add `hasUsers: boolean` to response: `SELECT EXISTS(SELECT 1 FROM \"user\")` — import `authUsers` from `@paperclipai/db`\n- Add to the JSON response alongside existing fields\n\n### 2. Auth.tsx — smart mode detection\nIn `ui/src/pages/Auth.tsx`:\n- Query health API for `hasUsers`\n- Add `type AuthMode = \"sign_in\" | \"sign_up\" | \"forgot\"`\n- If `!hasUsers`: show \"Welcome to Paperclip\" + signup form default\n- If `hasUsers`: show \"Sign in to Paperclip\" + signin form default + \"Forgot password?\" link\n- Add forgot password mode: email input → \"Send Reset Link\" → success state\n- Keep existing layout (left=form, right=AsciiArtAnimation)\n\n### 3. Invite URL fix\nIn `server/src/routes/access.ts`:\n- Find where invite URL is generated and make it include full domain using `requestBaseUrl(req)`\n\n### 4. InviteLanding.tsx — inline auth\nIn `ui/src/pages/InviteLanding.tsx`:\n- If unauthenticated: show inline signup/signin form directly (NOT redirect to /auth)\n- After signup: auto-submit join request with `{ requestType: \"human\" }`\n- Show \"Request sent, waiting for approval\" state\n\n### 5. Password reset endpoints\nIn `server/src/routes/access.ts` (or new users routes):\n- `POST /users/forgot-password` — generates reset token, stores in DB, sends email via emailService\n- `POST /users/reset-password` — validates token, sets new password\n\n### 6. CompanySettings invite email\nIn `ui/src/pages/CompanySettings.tsx`:\n- Show full invite URL (not relative path)\n- If Resend configured, show email input + \"Send Invite Email\" button\nAdd endpoint: `POST /companies/:companyId/invites/:inviteId/send-email`\n\n## VALIDATION\n```bash\npnpm -r typecheck && pnpm test:run && pnpm build\n```\n\nPush when done:\n```bash\ngit add -A && git commit -m \"feat: fix auth UX, invite flow, password reset (Group 3)\" && git push -u origin feat/g3-auth-invite\n```",
+      "createdAt": "2026-03-13T05:28:46.365Z",
+      "read": false,
+      "deliveredAt": "2026-03-13T05:28:46.368Z"
+    }
+  ],
+  "lastUpdated": "2026-03-13T05:28:46.368Z"
+}

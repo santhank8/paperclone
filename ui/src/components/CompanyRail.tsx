@@ -132,6 +132,7 @@ function SortableCompanyItem({
             >
               <CompanyPatternIcon
                 companyName={company.name}
+                logoUrl={company.logoUrl}
                 brandColor={company.brandColor}
                 imageUrl={company.image}
                 className={cn(

@@ -1,0 +1,15 @@
+{
+  "workerId": "paperclip-engineer",
+  "messages": [
+    {
+      "id": "msg-1390577e-4423-45b0-b1c0-2f233e3396b5",
+      "from": "paperclip",
+      "to": "paperclip-engineer",
+      "body": "YOUR MISSION: Capture screenshots of the Paperclip multiuser features and update PR #1112 on paperclipai/paperclip.\n\n## Step 1: Capture Screenshots\n\nUse agent-browser to navigate https://felipe.genie.namastex.io and capture these screens:\n\n1. **Login page** — the auth/login screen\n2. **User menu** — click the user avatar in the top/bottom of sidebar to show dropdown\n3. **Account settings** — navigate to account settings page\n4. **Company settings + members** — show the members section with role management\n5. **Invite flow** — show the invite dialog or invite landing page\n6. **@mention autocomplete** — open new issue dialog, type @ to show mention suggestions\n7. **Inbox with mentions** — show inbox page with mention notifications\n8. **User avatar in CompanyRail** — show the avatar at bottom of the company rail\n9. **Company logo** — show company settings with logo upload/crop\n\nLogin credentials: use email felipe@namastex.io — if you need a password try the signup flow or check if there is a session already.\n\nSave all screenshots to /home/genie/prod/paperclip/.genie/wishes/upstream-pr-strategy/screenshots/\n\n## Step 2: Upload to GitHub and Update PR\n\n1. For each screenshot, upload it to GitHub using:\n   ```\n   gh api repos/paperclipai/paperclip/issues/1112/comments -f body=\"![description](url)\" \n   ```\n   Or better: upload images by attaching them to the PR body.\n\n2. The simplest approach: upload each image to a GitHub issue comment on PR #1112, then grab the URLs, then update the PR body to embed them.\n\n   To upload an image to GitHub:\n   ```bash\n   # Use gh to create a comment with the image, then extract the URL\n   ```\n   \n   Alternative: Use imgur or another image host, or base64 encode small screenshots.\n\n3. Once you have image URLs, update PR #1112 description using:\n   ```bash\n   gh pr edit 1112 --repo paperclipai/paperclip --body \"$(updated body with ![screenshots](urls))\"\n   ```\n\n## IMPORTANT\n- Take REAL screenshots of the RUNNING app, not placeholder text\n- The app is live at https://felipe.genie.namastex.io\n- Make the PR description look professional with properly labeled screenshots\n- Read the current PR body first: gh pr view 1112 --repo paperclipai/paperclip --json body",
+      "createdAt": "2026-03-17T09:47:34.433Z",
+      "read": false,
+      "deliveredAt": "2026-03-17T09:47:34.436Z"
+    }
+  ],
+  "lastUpdated": "2026-03-17T09:47:34.436Z"
+}

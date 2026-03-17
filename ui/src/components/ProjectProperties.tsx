@@ -13,7 +13,7 @@ import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { AlertCircle, Check, ExternalLink, Github, Loader2, Plus, Trash2, X } from "lucide-react";
+import { AlertCircle, Archive, ArchiveRestore, Check, ExternalLink, Github, Loader2, Plus, Trash2, X } from "lucide-react";
 import { ChoosePathButton } from "./PathInstructionsModal";
 import { DraftInput } from "./agent-config-primitives";
 import { InlineEditor } from "./InlineEditor";
@@ -34,6 +34,8 @@ interface ProjectPropertiesProps {
   onUpdate?: (data: Record<string, unknown>) => void;
   onFieldUpdate?: (field: ProjectConfigFieldKey, data: Record<string, unknown>) => void;
   getFieldSaveState?: (field: ProjectConfigFieldKey) => ProjectFieldSaveState;
+  onArchive?: (archived: boolean) => void;
+  archivePending?: boolean;
 }
 
 export type ProjectFieldSaveState = "idle" | "saving" | "saved" | "error";
@@ -152,7 +154,72 @@ function ProjectStatusPicker({ status, onChange }: { status: string; onChange: (
   );
 }
 
-export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSaveState }: ProjectPropertiesProps) {
+function ArchiveDangerZone({
+  project,
+  onArchive,
+  archivePending,
+}: {
+  project: Project;
+  onArchive: (archived: boolean) => void;
+  archivePending?: boolean;
+}) {
+  const [confirming, setConfirming] = useState(false);
+  const isArchive = !project.archivedAt;
+  const action = isArchive ? "Archive" : "Unarchive";
+
+  return (
+    <div className="space-y-3 rounded-md border border-destructive/40 bg-destructive/5 px-4 py-4">
+      <p className="text-sm text-muted-foreground">
+        {isArchive
+          ? "Archive this project to hide it from the sidebar and project selectors."
+          : "Unarchive this project to restore it in the sidebar and project selectors."}
+      </p>
+      {archivePending ? (
+        <Button size="sm" variant="destructive" disabled>
+          <Loader2 className="h-3 w-3 animate-spin mr-1" />
+          {isArchive ? "Archiving..." : "Unarchiving..."}
+        </Button>
+      ) : confirming ? (
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-destructive font-medium">
+            {action} &ldquo;{project.name}&rdquo;?
+          </span>
+          <Button
+            size="sm"
+            variant="destructive"
+            onClick={() => {
+              setConfirming(false);
+              onArchive(isArchive);
+            }}
+          >
+            Confirm
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setConfirming(false)}
+          >
+            Cancel
+          </Button>
+        </div>
+      ) : (
+        <Button
+          size="sm"
+          variant="destructive"
+          onClick={() => setConfirming(true)}
+        >
+          {isArchive ? (
+            <><Archive className="h-3 w-3 mr-1" />{action} project</>
+          ) : (
+            <><ArchiveRestore className="h-3 w-3 mr-1" />{action} project</>
+          )}
+        </Button>
+      )}
+    </div>
+  );
+}
+
+export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSaveState, onArchive, archivePending }: ProjectPropertiesProps) {
   const { selectedCompanyId } = useCompany();
   const queryClient = useQueryClient();
   const [goalOpen, setGoalOpen] = useState(false);
@@ -418,9 +485,7 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
           alignStart
           valueClassName="space-y-2"
         >
-          {linkedGoals.length === 0 ? (
-            <span className="text-sm text-muted-foreground">None</span>
-          ) : (
+          {linkedGoals.length > 0 && (
             <div className="flex flex-wrap gap-1.5">
               {linkedGoals.map((goal) => (
                 <span
@@ -450,7 +515,7 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
                 <Button
                   variant="outline"
                   size="xs"
-                  className="h-6 w-fit px-2"
+                  className={cn("h-6 w-fit px-2", linkedGoals.length > 0 && "ml-1")}
                   disabled={availableGoals.length === 0}
                 >
                   <Plus className="h-3 w-3 mr-1" />
@@ -954,6 +1019,22 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
         )}
 
       </div>
+
+      {onArchive && (
+        <>
+          <Separator className="my-4" />
+          <div className="space-y-4 py-4">
+            <div className="text-xs font-medium text-destructive uppercase tracking-wide">
+              Danger Zone
+            </div>
+            <ArchiveDangerZone
+              project={project}
+              onArchive={onArchive}
+              archivePending={archivePending}
+            />
+          </div>
+        </>
+      )}
     </div>
   );
 }
