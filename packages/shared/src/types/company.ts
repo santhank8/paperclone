@@ -1,4 +1,5 @@
 import type { CompanyStatus } from "../constants.js";
+import type { OfficeConfig } from "./office.js";
 
 export interface Company {
   id: string;
@@ -11,6 +12,7 @@ export interface Company {
   spentMonthlyCents: number;
   requireBoardApprovalForNewAgents: boolean;
   brandColor: string | null;
+  officeConfig: OfficeConfig | null;
   createdAt: Date;
   updatedAt: Date;
 }

@@ -122,7 +122,13 @@ export type {
   AgentEnvConfig,
   CompanySecret,
   SecretProviderDescriptor,
+  OfficeArea,
+  OfficeMovementRule,
+  OfficeConfig,
+  OfficeAgentPosition,
 } from "./types/index.js";
+
+export { DEFAULT_OFFICE_CONFIG } from "./types/index.js";
 
 export {
   createCompanySchema,

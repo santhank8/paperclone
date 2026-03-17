@@ -6,7 +6,9 @@ import {
   companyPortabilityPreviewSchema,
   createCompanySchema,
   updateCompanySchema,
+  DEFAULT_OFFICE_CONFIG,
 } from "@paperclipai/shared";
+import type { OfficeConfig } from "@paperclipai/shared";
 import { forbidden } from "../errors.js";
 import { validate } from "../middleware/validate.js";
 import { accessService, companyPortabilityService, companyService, logActivity } from "../services/index.js";
@@ -176,6 +178,35 @@ export function companyRoutes(db: Db) {
       return;
     }
     res.json({ ok: true });
+  });
+
+  // ── Office Config endpoints ──────────────────────────────────────────────
+
+  router.get("/:companyId/office-config", async (req, res) => {
+    assertBoard(req);
+    const companyId = req.params.companyId as string;
+    assertCompanyAccess(req, companyId);
+    const company = await svc.getById(companyId);
+    if (!company) {
+      res.status(404).json({ error: "Company not found" });
+      return;
+    }
+    const config = (company.officeConfig as OfficeConfig | null) ?? DEFAULT_OFFICE_CONFIG;
+    res.json(config);
+  });
+
+  router.patch("/:companyId/office-config", async (req, res) => {
+    assertBoard(req);
+    const companyId = req.params.companyId as string;
+    assertCompanyAccess(req, companyId);
+    const company = await svc.update(companyId, {
+      officeConfig: req.body as Record<string, unknown>,
+    });
+    if (!company) {
+      res.status(404).json({ error: "Company not found" });
+      return;
+    }
+    res.json(company.officeConfig ?? DEFAULT_OFFICE_CONFIG);
   });
 
   return router;
