@@ -18,12 +18,15 @@ Env vars auto-injected: `PAPERCLIP_AGENT_ID`, `PAPERCLIP_COMPANY_ID`, `PAPERCLIP
 
 ### Multi-Company Key Resolution
 
-The workspace key file (`paperclip-claimed-api-key.json`) may contain keys for multiple companies. When a wake event provides `PAPERCLIP_COMPANY_ID`, look up the matching key from the `keys` object using the company ID. Fall back to `default` only when no company-specific key exists. **Do not always use the default key — it may be scoped to a different company.**
+The default Paperclip key file (`paperclip-claimed-api-key.json`) has a flat structure scoped to a single company:
 
+```json
+{ "token": "<api-token>", "apiKey": "<api-key>" }
 ```
-# Read the file, then select: keys[PAPERCLIP_COMPANY_ID].token
-# If no match found, fall back to default.token
-```
+
+This works fine for single-company setups. **Paperclip's adapter does not natively support multi-company key resolution.** If you operate multiple companies on a shared agent workspace, this is a known gap: the adapter will always use whichever key the file contains, regardless of `PAPERCLIP_COMPANY_ID`.
+
+**Workaround (operator-managed):** Operators managing multiple companies can extend the key file themselves using a company-keyed structure (e.g., `{ "<companyId>": { "token": "...", "apiKey": "..." }, ... }`), then add key-selection logic in their agent's startup or wrapper script to set the correct `PAPERCLIP_API_KEY` before the heartbeat runs. This is a custom convention — there is no built-in support for it in the adapter. Native multi-company key resolution is a planned improvement.
 
 Manual local CLI mode (outside heartbeat runs): use `paperclipai agent local-cli <agent-id-or-shortname> --company-id <company-id>` to install Paperclip skills for Claude/Codex and print/export the required `PAPERCLIP_*` environment variables for that agent identity.
 
@@ -133,21 +136,11 @@ Access control:
 
 4. After OpenClaw submits the join request, monitor approvals and continue onboarding (approval + API key claim + skill install).
 
-## Comment Attribution (Direct API Calls)
+## Comment Attribution
 
-When posting comments or creating issues **outside** a Paperclip heartbeat run (e.g., from a main session via `curl`), include `"authorAgentId"` in the request body. Without it, the comment defaults to the `local-board` user and appears as if the board/human posted it.
+Comment attribution is determined entirely by the **authenticated API key** in the `Authorization: Bearer` header. Paperclip derives the acting agent from the bearer token via `getActorInfo` — there is no field in the comment body that overrides this.
 
-```json
-POST /api/issues/{issueId}/comments
-{
-  "body": "Your comment here",
-  "authorAgentId": "{your-agent-id}"
-}
-```
-
-Similarly, when creating issues outside a run, use `"createdByAgentId"` to attribute correctly.
-
-This only matters for direct API calls. During heartbeat runs, Paperclip attributes actions to the running agent automatically.
+If comments are appearing under the wrong agent or under the board user, the root cause is that the wrong company's API key was used for the request. Ensure the key in use is scoped to the correct company and agent. See [Multi-Company Key Resolution](#multi-company-key-resolution) above.
 
 ## Critical Rules
 
