@@ -5,7 +5,7 @@ description: Systematic debugging methodology for Claude Code. Installs three di
 
 # Systematic Debugging
 
-Claude Code generates code fast. Debugging it eats back all the time you saved — because no methodology means every bug is a fresh hunt. This skill installs three disciplines:
+Claude Code generates code fast — debugging it eats back all the time you saved because no methodology means every bug is a fresh hunt. This skill installs three disciplines:
 
 1. **Pre-commit Stop hook** — blocks the session from ending until tests pass
 2. **Reproduce-first protocol** — never touch an error without a failing test that pins it
@@ -17,70 +17,31 @@ All native Claude Code primitives. No external tools. Composes with TDD Workflow
 
 ## Quick Setup
 
-Two hooks in `~/.claude/settings.json`:
-
-```json
-{
-  "hooks": {
-    "Stop": [
-      {
-        "matcher": "",
-        "hooks": [{"type": "command", "command": "bash ~/.claude/hooks/debug-gate.sh"}]
-      }
-    ],
-    "PostToolUse": [
-      {
-        "matcher": "Bash",
-        "hooks": [{"type": "command", "command": "bash ~/.claude/hooks/debug-log.sh"}]
-      }
-    ]
-  }
-}
-```
-
-Full hook scripts → `references/pre-commit-stop-hook.md` and `references/debug-session-log.md`
+Two hooks in `~/.claude/settings.json` — full scripts and config: `references/pre-commit-stop-hook.md` and `references/debug-session-log.md`
 
 ---
 
 ## Why Debugging Eats 55% of Your Time
 
-AI-generated code is opaque and not written to be traced. "Just paste the error and ask Claude to fix it" creates fix-break-fix loops: no reproducer = guessing, no hypothesis = random changes, no root cause = same bug resurfaces. Three disciplines eliminate each failure mode.
+"Just paste the error and ask Claude to fix it" creates fix-break-fix loops: no reproducer = guessing, no hypothesis = random changes, no root cause = same bug resurfaces. Each discipline below eliminates one failure mode.
 
 ---
 
 ## The Pre-Commit Stop Hook
 
-A Stop hook runs your test suite before every Claude session exits. Exit 1 = session blocked. Claude sees the test output and must fix before it can finish. Auto-detects bun/npm/pytest/cargo from project root.
-
-→ Complete hook script with detection logic: `references/pre-commit-stop-hook.md`
+Runs your test suite before every Claude session exits. Exit 1 = blocked. Claude sees the output and must fix before it can finish. Auto-detects bun/npm/pytest/cargo from project root. → `references/pre-commit-stop-hook.md`
 
 ---
 
 ## Reproduce First
 
-**Rule:** Never attempt a fix without a failing test that reproduces the issue.
-
-Steps:
-1. Get the error message and stack trace
-2. Ask Claude: *"Write a minimal test that triggers this exact error"*
-3. Confirm the test fails — reproducer is valid
-4. Only then begin fixing
-
-**Why it works:** Without a pinned reproducer, the fix is a guess. With one, the test goes red → green and proves understanding.
+**Rule:** Never attempt a fix without a failing test that reproduces the issue. Ask Claude: *"Write a minimal test that triggers this exact error"* — confirm it fails, then fix. Without a pinned reproducer, the fix is a guess.
 
 ---
 
 ## The Hypothesis Loop
 
-Form 3 hypotheses ranked by likelihood. Test each in order. Cross off eliminated paths.
-
-```
-H1 (most likely): [hypothesis] — TEST: [what to check]
-H2: [hypothesis] — TEST: [what to check]
-H3: [hypothesis] — TEST: [what to check]
-```
-
-Prevents shotgun debugging: random changes, endless retries, Claude confidently "fixing" symptoms.
+Form 3 hypotheses ranked by likelihood, test each in order, cross off eliminated paths. Prevents shotgun debugging: random changes, endless retries, Claude confidently "fixing" symptoms.
 
 → Full procedure + Agent tool delegation patterns: `references/hypothesis-loop.md`
 
@@ -88,27 +49,23 @@ Prevents shotgun debugging: random changes, endless retries, Claude confidently 
 
 ## Root Cause vs. Symptom
 
-Surface errors (`undefined`, `NullPointerException`, `500`) almost never describe the actual problem. Apply the 5 Whys — ask "why" five times to trace from symptom to root cause. Fix the root cause. Everything else is symptom treatment.
+Surface errors (`undefined`, `NullPointerException`, `500`) almost never describe the actual problem. Apply the 5 Whys to trace from symptom to root cause — fix that, not the symptom.
 
-→ Error chain tracing patterns + 5 Whys templates: `references/root-cause-tracing.md`
+→ Error chain tracing + 5 Whys templates: `references/root-cause-tracing.md`
 
 ---
 
 ## Debug Session Log
 
-A PostToolUse hook on Bash writes each debugging attempt to `debug-log.md` in your project root. Never repeat a dead end. Feed the self-improving loop.
-
-→ Full hook script + log format: `references/debug-session-log.md`
+PostToolUse hook on Bash writes each debugging attempt to `debug-log.md`. Never repeat a dead end. Feeds the self-improving loop. → `references/debug-session-log.md`
 
 ---
 
 ## Regression Prevention
 
-Every bug fix ships with a test that would have caught the bug. The pre-commit gate grows more protective with each fix.
+Every fix ships with a test that would have caught the bug. **Rule:** No regression test = bug is temporarily absent, not fixed. The pre-commit gate grows more protective with each fix.
 
-**Rule:** If your fix doesn't include a regression test, the bug isn't fixed — it's temporarily absent.
-
-→ Regression test templates by failure type: `references/regression-prevention.md`
+→ Regression test templates: `references/regression-prevention.md`
 
 ---
 
@@ -116,9 +73,7 @@ Every bug fix ships with a test that would have caught the bug. The pre-commit g
 
 **Pre-commit catches it → reproduce → hypothesize → root cause → fix → regression test → commit passes**
 
-Typical bug: < 30 minutes. The Stop hook doesn't let you leave until it does.
-
-→ End-to-end real debugging session walkthrough: `references/full-workflow-walkthrough.md`
+Typical bug: < 30 min. → End-to-end walkthrough: `references/full-workflow-walkthrough.md`
 
 ---
 
@@ -131,18 +86,3 @@ Typical bug: < 30 minutes. The Stop hook doesn't let you leave until it does.
 | "The Stop hook will slow me down" | It blocks you for 30 seconds when tests fail. The alternative is debugging broken commits for 30 minutes. |
 | "I found the problem, no need to trace root cause" | You found a symptom. The root cause is why the symptom exists. Skip it and the bug comes back. |
 | "I'll skip the regression test this time" | That bug is the one you debug again in three weeks without a test protecting it. |
-
----
-
-## Reference Index
-
-| File | Contents |
-|---|---|
-| `references/pre-commit-stop-hook.md` | Stop hook script, multi-runner detection, git pre-commit alternative |
-| `references/hypothesis-loop.md` | Full loop procedure, Agent tool prompts, loop templates |
-| `references/root-cause-tracing.md` | 5 Whys for code, error chain tracing, state inspection |
-| `references/debug-session-log.md` | PostToolUse hook script, log format, integration with #010 |
-| `references/regression-prevention.md` | Regression test templates by failure type |
-| `references/full-workflow-walkthrough.md` | Real end-to-end debugging session (< 30 min) |
-| `references/test-cases.md` | Trigger, no-trigger, and output test cases |
-| `references/test-log.md` | Iteration history and scores |

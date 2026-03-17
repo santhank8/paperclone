@@ -17,34 +17,9 @@ Agents fail in three predictable ways. Each has a native hook that catches it:
 
 ## Quick Setup
 
-Three hooks in `~/.claude/settings.json`:
+Three hooks in `~/.claude/settings.json`: `checkpoint.sh` (PreToolUse → Bash|Write|Edit|MultiEdit), `circuit-breaker.sh` (PostToolUse), `state-serializer.sh` (Stop).
 
-```json
-{
-  "hooks": {
-    "PreToolUse": [
-      {
-        "matcher": "Bash|Write|Edit|MultiEdit",
-        "hooks": [{"type": "command", "command": "bash ~/.claude/hooks/checkpoint.sh"}]
-      }
-    ],
-    "PostToolUse": [
-      {
-        "matcher": "",
-        "hooks": [{"type": "command", "command": "bash ~/.claude/hooks/circuit-breaker.sh"}]
-      }
-    ],
-    "Stop": [
-      {
-        "matcher": "",
-        "hooks": [{"type": "command", "command": "bash ~/.claude/hooks/state-serializer.sh"}]
-      }
-    ]
-  }
-}
-```
-
-Full hook scripts: `references/checkpoint-pattern.md`, `references/circuit-breaker-hook.md`, `references/stop-hook-state.md`
+→ Full JSON config + hook scripts: `references/checkpoint-pattern.md`, `references/circuit-breaker-hook.md`, `references/stop-hook-state.md`
 
 ---
 
@@ -98,14 +73,7 @@ Never retry a failed operation in the same context. Accumulated error traces pol
 
 ## Resilient Agent Checklist
 
-- [ ] PreToolUse checkpoint hook wired (recovery.md will be written before risky operations)
-- [ ] Circuit breaker configured (threshold set, error-count.txt path defined)
-- [ ] Stop hook wired (recovery manifest written on every exit)
-- [ ] Escalation threshold set (default: 3 consecutive failures)
-- [ ] Resume path documented (SessionStart hook reads recovery.md)
-- [ ] Test: intentionally trigger a failure and verify the circuit breaker fires
-
-→ Extended checklist + test-failure procedure + composition with #013 and #010: `references/resilient-agent-checklist.md`
+→ Pre-flight checklist + test-failure procedure + composition with #013 and #010: `references/resilient-agent-checklist.md`
 
 ---
 
@@ -118,19 +86,3 @@ Never retry a failed operation in the same context. Accumulated error traces pol
 | "Retrying will eventually work" | Same call, same error, same result. Retry with a different approach or escalate. |
 | "The error message is clear enough, I don't need a checkpoint" | The next session won't have that error message. The checkpoint will. |
 | "Sub-agent retry is complex, I'll just retry inline" | Inline retry accumulates failure traces that corrupt reasoning. Sub-agent starts clean. |
-
----
-
-## Reference Index
-
-| File | Contents |
-|---|---|
-| `references/failure-modes.md` | Three failure mode taxonomy, hook-to-failure mapping, detection signals |
-| `references/checkpoint-pattern.md` | PreToolUse hook script, recovery.md template, SessionStart reader |
-| `references/circuit-breaker-hook.md` | PostToolUse hook script, error-count.txt format, threshold config |
-| `references/stop-hook-state.md` | Stop hook serializer, recovery manifest format, SessionStart reader |
-| `references/sub-agent-retry.md` | Sub-agent retry pattern, checkpoint manifest schema, context rot explanation |
-| `references/escalation-protocol.md` | Decision tree, blocked comment template, when to give up |
-| `references/resilient-agent-checklist.md` | Pre-flight checklist, test-failure procedure, integration with #013/#010 |
-| `references/test-cases.md` | Trigger, no-trigger, and output test cases |
-| `references/test-log.md` | Iteration history and scores |

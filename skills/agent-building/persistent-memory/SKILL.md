@@ -32,55 +32,13 @@ mkdir -p ~/.claude/memory
 echo "# Memory Index" > ~/.claude/memory/MEMORY.md
 ```
 
-**Step 2 — Add SessionStart hook** (`~/.claude/settings.json`):
-
-```json
-{
-  "hooks": {
-    "SessionStart": [{
-      "matcher": "",
-      "hooks": [{
-        "type": "command",
-        "command": "cat ~/.claude/memory/MEMORY.md 2>/dev/null && echo '---MEMORY-LOADED---' || echo 'No memory index found'"
-      }]
-    }]
-  }
-}
-```
-
-**Step 3 — Add Stop hook** (review before exit):
-
-```json
-"Stop": [{
-  "matcher": "",
-  "hooks": [{
-    "type": "command",
-    "command": "echo 'SESSION ENDING: Save decisions, gotchas, or breakthroughs to ~/.claude/memory/ before exiting.'"
-  }]
-}]
-```
-
-That's it. Persistent memory is live. See `references/hooks.md` for PostToolUse capture and advanced patterns.
+**Step 2 — Add hooks** (`~/.claude/settings.json`): SessionStart loads the index; Stop prompts review before exit. See `references/hooks.md` for full JSON + PostToolUse capture hook.
 
 ---
 
 ## Memory File Format
 
-```markdown
----
-name: gotcha_stripe_429
-description: Prod Stripe 429s omit Retry-After header — test env always includes it
-type: gotcha
----
-
-Stripe 429 behavior differs:
-- **Test:** Returns `Retry-After: 0`
-- **Production:** No header — use exponential backoff, never depend on the header
-
-**Why:** Discovered when testing rate limit logic — test passed but would have broken in prod.
-```
-
-**The four types:**
+Each file: frontmatter (`name`, `description`, `type`) + body explaining the decision and how to apply it. **The four types:**
 
 | Type | Stores | Example |
 |------|--------|---------|
@@ -94,14 +52,6 @@ Full type examples with real entries: `references/memory-types.md`
 ---
 
 ## MEMORY.md: The Index
-
-```markdown
-# Memory Index
-
-- [feedback_terse.md](feedback_terse.md) — Keep responses short; user hates padding
-- [project_auth.md](project_auth.md) — Auth rewrite is compliance-driven, not tech debt
-- [gotcha_stripe_429.md](gotcha_stripe_429.md) — Prod Stripe 429s omit Retry-After header
-```
 
 Rules:
 - **Links + one-line description only.** Never write memory content inline.
@@ -143,13 +93,3 @@ Full anti-patterns + decay management: `references/anti-patterns.md`
 
 `references/walkthrough.md` — Session 1 hits a gotcha → captures it → Session 2 opens → learning visible before first message. Full working code.
 
----
-
-## Reference Files
-
-| File | Contents |
-|------|----------|
-| `references/hooks.md` | SessionStart, Stop, PostToolUse implementations + full settings.json template |
-| `references/memory-types.md` | Four types with body structure, real entries, choosing the right type |
-| `references/anti-patterns.md` | What not to save, decay management, deduplication, memory vs. handoff |
-| `references/walkthrough.md` | End-to-end: capture → survive compaction → recover in new session |

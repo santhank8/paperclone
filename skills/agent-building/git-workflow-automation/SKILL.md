@@ -30,3 +30,13 @@ git worktree add /tmp/worktree-agent-b feat/task-b
 gh pr create --title "feat: task-a" --body "..." --base main
 git worktree remove /tmp/worktree-agent-a
 ```
+
+## Anti-Rationalization
+
+| What you'll tell yourself | The truth |
+|---|---|
+| "It's a small change, I'll just commit to main." | Every agent committing to main is one race condition away from a corrupted history. |
+| "Worktrees are overkill for parallel agents." | They're the only thing that prevents lock errors — not an optimization, a requirement. |
+| "I don't need a branch for a one-file change." | The branch isn't for the diff, it's for the review gate and the clean revert path. |
+| "I'll skip the pre-commit hook just this once." | Hooks exist because "just this once" is the exact moment the bad commit lands. |
+| "The commit message doesn't matter for this quick fix." | It matters the moment you need to bisect, revert, or explain what broke production. |

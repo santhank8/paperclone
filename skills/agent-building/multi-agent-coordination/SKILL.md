@@ -20,42 +20,9 @@ Parallel agents deliver real leverage — but only after you've solved three pro
 
 If you're parallelizing to feel productive: don't. The 887k-token/minute case happened because someone naively spawned 49 agents.
 
-## Entry Points
-
-| Goal | Section |
-|------|---------|
-| Set up isolated parallel agents | [Isolation: Git Worktrees](#isolation-git-worktrees) |
-| Coordinate agents without shared memory | [Coordination Without Shared Memory](#coordination-without-shared-memory) |
-| Use SendMessage without it stalling | [SendMessage: Stable Pattern](#sendmessage-stable-pattern) |
-| Control costs with model tiering | [Tiered Models + Cost Control](#tiered-models--cost-control) |
-| Prevent parent context bloat | [Context Budget Management](#context-budget-management) |
-| Pass rules to subagents | [CLAUDE.md Inheritance Gap](#claudemd-inheritance-gap) |
-| Build a working pipeline | [Complete Example: 3-Agent Code Review](#complete-example-3-agent-code-review) |
-
----
-
 ## Isolation: Git Worktrees
 
-Naive parallel agents corrupt each other. Two agents modifying the same branch = merge conflicts, git config lock contention, build collisions.
-
-**Fix: one worktree per agent.** Each gets its own branch and working directory.
-
-```bash
-# Before spawning agents
-git worktree add /tmp/agent-review-logic -b agent/review-logic
-git worktree add /tmp/agent-review-security -b agent/review-security
-
-# After agents complete, merge results
-git merge agent/review-logic
-git merge agent/review-security
-
-# Cleanup
-git worktree remove /tmp/agent-review-logic
-git worktree remove /tmp/agent-review-security
-git branch -d agent/review-logic agent/review-security
-```
-
-Spawn each agent with its worktree path in the prompt. They never touch the same files.
+Naive parallel agents corrupt each other — git lock contention, build collisions, merge conflicts. Fix: one worktree per agent, each on its own branch. Spawn each agent with its worktree path in the prompt.
 
 See `references/worktrees.md` for: full lifecycle, conflict patterns, and cleanup automation.
 
@@ -63,25 +30,7 @@ See `references/worktrees.md` for: full lifecycle, conflict patterns, and cleanu
 
 ## Coordination Without Shared Memory
 
-Agents don't share in-context state. The stable primitives are files.
-
-**Task manifest** (`coordination/tasks.json`): what exists, who owns what.
-**Status files** (`coordination/status-[agent].json`): agent writes `done` when complete.
-**Result files** (`coordination/result-[agent].md`): structured output the orchestrator reads.
-
-```json
-// coordination/status-logic.json
-{
-  "agent": "logic-reviewer",
-  "status": "done",
-  "completedAt": "2026-03-15T18:00:00Z",
-  "resultFile": "coordination/result-logic.md"
-}
-```
-
-Orchestrator polls status files. When all are `done`, it reads results and aggregates.
-
-**File-based vs. SendMessage:** Use files for result hand-off. Use SendMessage only for real-time control signals between a named orchestrator and named teammate. If you just need results, files are simpler and more reliable.
+Agents don't share in-context state. Three file primitives: **task manifest** (`coordination/tasks.json`) defines scope, **status files** (`coordination/status-[agent].json`) signal `done`/`blocked`/`failed`, **result files** (`coordination/result-[agent].md`) carry structured output. Orchestrator polls status files; when all are `done`, reads results and aggregates. Use files for results, SendMessage only for real-time control signals.
 
 See `references/coordination.md` for: full task manifest format, polling patterns, and result aggregation.
 
@@ -89,24 +38,7 @@ See `references/coordination.md` for: full task manifest format, polling pattern
 
 ## SendMessage: Stable Pattern
 
-SendMessage is async. It's not a synchronous call. The known failure: stop polling → teammate stalls indefinitely (requires Esc to recover).
-
-**Stable pattern:**
-```
-// Don't do this — bash sleep loop
-while (!done) { sleep 5; check status }
-
-// Do this — CronCreate for polling
-CronCreate({ interval: "30s", command: "check coordination/status-*.json" })
-```
-
-**When to use SendMessage:**
-- You need real-time control (pause/resume an agent mid-run)
-- Long-running teammate needs orchestrator decisions during execution
-
-**When to skip it:**
-- Result hand-off — use result files instead
-- Fire-and-forget agents — just wait for completion
+SendMessage is async — the known failure: teammate exits its polling loop, messages pile up, no error surfaced (requires Esc to recover). Use CronCreate for polling instead of bash sleep loops. Skip SendMessage entirely for result hand-off or fire-and-forget agents — files are simpler and don't stall.
 
 See `references/coordination.md` for polling examples.
 
@@ -114,67 +46,29 @@ See `references/coordination.md` for polling examples.
 
 ## Tiered Models + Cost Control
 
-Don't spawn Opus for everything. Cascade by task complexity:
+Cascade by task complexity: Haiku (1×) for discovery/filtering, Sonnet (~4×) for analysis/implementation, Opus (~15×) for architecture/high-stakes validation only. **Enforce model in the spawn prompt** — subagents don't inherit your model preference. Tiered approach is ~9× cheaper than naive all-Opus parallel (real example: $0.10 vs $0.90 per PR review).
 
-| Tier | Model | Use For | Relative Cost |
-|------|-------|---------|---------------|
-| Scout | Haiku | File discovery, classification, filtering | 1× |
-| Implement | Sonnet | Feature work, analysis, structured output | ~4× |
-| Validate | Opus | Architecture review, high-stakes decisions | ~15× |
-
-**Enforce model choice in the spawn prompt** — subagents don't inherit your model preference.
-
-```markdown
-// In the subagent spawn prompt
-You are running as claude-haiku-4-5. Only scan for changed files and classify
-risk by area. Do NOT implement anything. Return a JSON summary under 500 tokens.
-```
-
-**Real cost comparison (4-file PR review):**
-- All-Opus: ~$0.80 per review
-- Tiered (Haiku scout + Sonnet×2 review): ~$0.12 per review
-
-See `references/cost-control.md` for model selection rubric and cascade patterns.
+See `references/cost-control.md` for model selection rubric, spawn prompt template, and cascade patterns.
 
 ---
 
 ## Context Budget Management
 
-Every subagent result injected into the orchestrator burns parent context. This causes the 887k token/minute trap.
+Every subagent result injected into the orchestrator burns parent context — this causes the 887k token/minute trap. Enforce a JSON summary contract in every spawn prompt: `status`, `findings` (max 10), `files_modified`, `blockers` — no diffs, no full file contents. Use `run_in_background: true` for long tasks. Target under 500 tokens per agent result.
 
-**The contract:** enforce in every subagent spawn prompt:
-```
-Return ONLY a JSON summary: status, findings (max 10), files_modified, blockers.
-No diffs, no full file contents, no explanations.
-```
-
-Use `run_in_background: true` for long tasks where the orchestrator can do other work while waiting. See `references/cost-control.md` for templates and cost comparison tables.
+See `references/cost-control.md` for the full summary contract template and cost comparison tables.
 
 ---
 
 ## CLAUDE.md Inheritance Gap
 
-**Subagents don't load your CLAUDE.md.** Encode critical rules directly in the spawn prompt — not as a reminder, as a hard requirement:
-
-```
-RULES: Use LSP not grep. Use bun not npm. Edit existing files.
-Return structured JSON summary (see template).
-```
-
-Encode: tool selection rules, output format, model instructions. Skip: style preferences, session context.
+**Subagents don't load your CLAUDE.md.** Encode critical rules directly in the spawn prompt as hard requirements: tool selection (LSP not grep, bun not npm), output format (JSON summary contract), model instructions. Skip style preferences and session context.
 
 ---
 
 ## Complete Example: 3-Agent Code Review
 
-Full working implementation in `references/pipeline-example.md`.
-
-```
-Scout (Haiku) → classifies changed files by risk
-Logic Reviewer (Sonnet) → correctness, N+1s, null checks
-Security Reviewer (Sonnet) → auth, injection, validation
-Orchestrator → merges results → report.md
-```
+Full working implementation (spawn prompts, aggregation, cleanup) in `references/pipeline-example.md`. Pattern: Scout (Haiku) classifies files → Logic + Security Reviewers (Sonnet) run in parallel → Orchestrator merges results → `report.md`.
 
 ---
 

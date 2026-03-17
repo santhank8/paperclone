@@ -19,31 +19,11 @@ Three deterministic gates that prevent Claude from shipping broken code:
 
 ### 1. Detect and cache the test command
 
-```bash
-bash ~/.claude/hooks/detect-test-command.sh
-# Writes: .claude/test-command.txt
-```
-
-→ Auto-detection logic for 6 runtimes: `references/test-command-discovery.md`
+→ Run `detect-test-command.sh` to write `.claude/test-command.txt`. Auto-detection logic for 6 runtimes: `references/test-command-discovery.md`
 
 ### 2. Wire the Stop hook (pre-commit gate)
 
-```json
-{
-  "hooks": {
-    "Stop": [{
-      "matcher": "",
-      "hooks": [{"type": "command", "command": "bash ~/.claude/hooks/pre-commit-gate.sh"}]
-    }],
-    "PreToolUse": [{
-      "matcher": "Bash",
-      "hooks": [{"type": "command", "command": "bash ~/.claude/hooks/pre-push-guard.sh"}]
-    }]
-  }
-}
-```
-
-→ Full hook scripts: `references/pre-commit-stop-hook.md`, `references/pre-push-hook.md`
+→ Full hook scripts + settings.json registration: `references/pre-commit-stop-hook.md`, `references/pre-push-hook.md`
 
 ---
 
@@ -55,61 +35,21 @@ CLAUDE.md rules and task checklists live inside the reasoning loop — under age
 
 ---
 
-## Test Command Discovery
-
-Scans project root in order: `package.json` → `bun test`/`jest`/`vitest`, `pyproject.toml` → `pytest`, `Cargo.toml` → `cargo test`, `go.mod` → `go test ./...`, `mix.exs` → `mix test`, `Makefile` → `make test`. Result cached in `.claude/test-command.txt`.
-
-→ Full detection script + override instructions: `references/test-command-discovery.md`
-
----
-
-## Pre-commit Stop Hook
-
-→ Full hook script + settings.json registration + failure output format: `references/pre-commit-stop-hook.md`
-
----
-
-## Pre-push PreToolUse Hook
-
-→ Full hook script + push detection pattern + last-exit-code optimization: `references/pre-push-hook.md`
-
----
-
 ## CI Failure Analysis Loop
 
-```bash
-gh run list --limit 1                          # Get latest run ID
-gh run watch <run-id>                          # Wait for completion
-gh run view <run-id> --log-failed              # Pull failure log into context
-```
-
-→ Full loop pattern + escalation rule (max 3 auto-fix attempts): `references/ci-failure-loop.md`
+→ `gh run list`, `gh run watch`, `gh run view --log-failed` pull failure logs directly into context. Full loop + escalation rule (max 3 attempts): `references/ci-failure-loop.md`
 
 ---
 
 ## PR Gate Integration
 
-```bash
-gh pr checks <pr-number> --watch
-```
-
-Exits non-zero if any check fails — wire as a required merge step.
-
-→ Integration with structured-project-workflow (#008) + merge block pattern: `references/pr-gate.md`
+→ `gh pr checks <pr-number> --watch` exits non-zero if any check fails. Integration with structured-project-workflow (#008) + merge block pattern: `references/pr-gate.md`
 
 ---
 
 ## CLAUDE.md Configuration
 
-```
-## Quality Gates (NON-NEGOTIABLE)
-- Never run `git commit` directly — the Stop hook runs tests first. If tests fail, fix them.
-- Never run `git push` if tests are red — the PreToolUse hook will block it anyway.
-- After a push, run `gh run watch` to monitor CI. Do not mark a task done until CI is green.
-- If CI auto-fix fails after 3 attempts, write a blocked comment and stop.
-```
-
-→ Full CLAUDE.md template + escalation rules: `references/claude-md-config.md`
+→ Full template + escalation rules: `references/claude-md-config.md`
 
 ---
 
@@ -122,16 +62,3 @@ Exits non-zero if any check fails — wire as a required merge step.
 | "CI will catch it" | CI catches it after the push. The Stop hook catches it before. Pre-commit is always cheaper. |
 | "I'll fix the CI failure manually later" | Later never comes. Wire the auto-fix loop now and it runs itself. |
 
----
-
-## Reference Index
-
-| File | Contents |
-|---|---|
-| `references/why-hooks-not-checklists.md` | GitHub #35042 evidence, failure taxonomy, philosophy |
-| `references/test-command-discovery.md` | Detection script, 6-runtime priority order, cache format, override |
-| `references/pre-commit-stop-hook.md` | Stop hook script, settings.json registration, failure output format |
-| `references/pre-push-hook.md` | PreToolUse hook script, push detection pattern, last-exit optimization |
-| `references/ci-failure-loop.md` | gh run commands, auto-fix loop pattern, 3-attempt escalation rule |
-| `references/pr-gate.md` | gh pr checks integration, spec loop wiring, merge block pattern |
-| `references/claude-md-config.md` | CLAUDE.md template, escalation rules, override documentation |

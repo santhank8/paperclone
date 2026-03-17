@@ -28,7 +28,7 @@ Claude Code has native MCP support. You don't need McPorter, API Gateway, or any
 {
   "mcpServers": {
     "github": {
-      "command": "npx",
+      "command": "bunx",
       "args": ["-y", "@modelcontextprotocol/server-github"],
       "env": {
         "GITHUB_TOKEN": "${GITHUB_TOKEN}"
@@ -81,8 +81,8 @@ export GITHUB_TOKEN=ghp_your_token_here
 
 ## Prerequisites
 
-- **Node.js / npx** — required for `@modelcontextprotocol/*` server packages
-- **bun** (optional) — can replace npx for local custom MCP servers
+- **bun / bunx** — required for `@modelcontextprotocol/*` server packages
+- **Node.js / npx** — also works if bun is not installed
 - GitHub MCP: personal access token (classic or fine-grained)
 - Postgres MCP: connection string with appropriate permissions
 - Brave Search MCP: free API key from Brave Search API dashboard
