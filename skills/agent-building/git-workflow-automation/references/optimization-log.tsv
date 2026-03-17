@@ -1,0 +1,2 @@
+iteration	trigger_pct	nofire_pct	output_pct	lines	status	description
+0	100	100	100	84	baseline	Baseline — all scores 100%, 84 lines, 7 content ref files

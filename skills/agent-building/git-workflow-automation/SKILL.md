@@ -40,17 +40,6 @@ gh pr create --title "feat: task-a" --body "..." --base main
 git worktree remove /tmp/worktree-agent-a
 ```
 
-## Minimum Viable Setup
-
-**For a single Claude Code session:**
-```bash
-# Before starting: create a branch + worktree
-git worktree add /tmp/wt-$(git rev-parse --short HEAD) feat/my-task
-# Work happens in /tmp/wt-...
-# After: create PR and clean up
-gh pr create && git worktree remove /tmp/wt-...
-```
-
 **Stop hook for WIP commits** (add to `.claude/settings.json`):
 ```json
 {
