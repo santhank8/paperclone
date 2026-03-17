@@ -280,10 +280,13 @@ curl -X POST \
   -H "X-Paperclip-Run-Id: $PAPERCLIP_RUN_ID" \
   -F "file=@/path/to/screenshot.png" \
   "$PAPERCLIP_API_URL/api/companies/$PAPERCLIP_COMPANY_ID/issues/$PAPERCLIP_TASK_ID/attachments"
+# Note: $PAPERCLIP_TASK_ID is only set when this heartbeat was triggered for a specific task.
+# Replace it with the target issueId when attaching to a different issue.
 ```
 
 - The upload endpoint is **company-scoped**: `/api/companies/{companyId}/issues/{issueId}/attachments`
 - Default accepted types: `image/png`, `image/jpeg`, `image/jpg`, `image/webp`, `image/gif`, `application/pdf`, `text/markdown`, `text/plain`, `application/json`, `text/csv`, `text/html` — operators can expand via `PAPERCLIP_ALLOWED_ATTACHMENT_TYPES`
+- Default maximum file size is **10 MB**; operators can override via `PAPERCLIP_ATTACHMENT_MAX_BYTES`
 - Each attachment response includes a `contentPath` for downloading (e.g. `/api/attachments/{id}/content`)
 - List all attachments on an issue: `GET /api/issues/{issueId}/attachments`
 
