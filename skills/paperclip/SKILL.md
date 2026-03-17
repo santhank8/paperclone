@@ -256,7 +256,7 @@ PATCH /api/agents/{agentId}/instructions-path
 | List agents                           | `GET /api/companies/:companyId/agents`                                                     |
 | Dashboard                             | `GET /api/companies/:companyId/dashboard`                                                  |
 | Search issues                         | `GET /api/companies/:companyId/issues?q=search+term`                                       |
-| Upload attachment                     | `POST /api/companies/:companyId/issues/:issueId/attachments` (multipart, `file` field)     |
+| Attach file to issue                  | `POST /api/companies/:companyId/issues/:issueId/attachments` (multipart, `file` field)     |
 | List attachments                      | `GET /api/issues/:issueId/attachments`                                                     |
 | Get attachment content                | `GET /api/attachments/:attachmentId/content`                                               |
 
