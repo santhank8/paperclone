@@ -372,6 +372,35 @@ describe("PATCH /issues/:id task control", () => {
     );
   });
 
+  it("still returns 403 when denial logging fails for a missing-permission rejection", async () => {
+    mockAgentService.getById.mockResolvedValue({
+      id: "agent-manager",
+      companyId: "company-1",
+      role: "manager",
+      permissions: { canCreateAgents: false, canManageTasks: false },
+    });
+    mockLogActivity.mockRejectedValueOnce(new Error("activity db unavailable"));
+
+    const res = await request(
+      createApp({
+        type: "agent",
+        agentId: "agent-manager",
+        companyId: "company-1",
+        runId: "run-manager",
+        source: "agent_key",
+      }),
+    )
+      .patch("/api/issues/issue-1")
+      .send({ assigneeAgentId: "00000000-0000-4000-8000-000000000002" });
+
+    expect(res.status).toBe(403);
+    expect(res.body.error).toBe("Missing permission: tasks:assign");
+    expect(mockLogger.warn).toHaveBeenCalledWith(
+      expect.objectContaining({ issueId: "issue-1", logErr: expect.any(Error) }),
+      "failed to log task control denial",
+    );
+  });
+
   it("rejects reassignment attempts outside the acting agent's chain of command", async () => {
     mockAgentService.getById.mockResolvedValue({
       id: "agent-manager",
@@ -408,6 +437,36 @@ describe("PATCH /issues/:id task control", () => {
           requestedStatus: "cancelled",
         }),
       }),
+    );
+  });
+
+  it("still returns 403 when denial logging fails for an out-of-chain rejection", async () => {
+    mockAgentService.getById.mockResolvedValue({
+      id: "agent-manager",
+      companyId: "company-1",
+      role: "manager",
+      permissions: { canCreateAgents: false, canManageTasks: true },
+    });
+    mockAgentService.getChainOfCommand.mockResolvedValue([{ id: "agent-ceo", name: "CEO", role: "ceo", title: null }]);
+    mockLogActivity.mockRejectedValueOnce(new Error("activity db unavailable"));
+
+    const res = await request(
+      createApp({
+        type: "agent",
+        agentId: "agent-manager",
+        companyId: "company-1",
+        runId: "run-manager",
+        source: "agent_key",
+      }),
+    )
+      .patch("/api/issues/issue-1")
+      .send({ status: "cancelled" });
+
+    expect(res.status).toBe(403);
+    expect(res.body.error).toBe("Only an ancestor manager can cancel, complete, or reassign another agent's issue");
+    expect(mockLogger.warn).toHaveBeenCalledWith(
+      expect.objectContaining({ issueId: "issue-1", logErr: expect.any(Error) }),
+      "failed to log task control denial",
     );
   });
 
@@ -469,6 +528,96 @@ describe("PATCH /issues/:id task control", () => {
     );
     expect(mockHeartbeatService.dispatchRunCancellation).toHaveBeenCalledWith(
       expect.objectContaining({ runId: "run-fallback", requestedStatus: "cancelling" }),
+    );
+  });
+
+  it("uses the tx-path fallback to cancel queued runs when executionRunId is missing", async () => {
+    const queuedRun = {
+      id: "run-queued",
+      companyId: "company-1",
+      agentId: "agent-subordinate",
+      status: "queued",
+      contextSnapshot: { issueId: "issue-1" },
+      startedAt: null,
+      createdAt: new Date("2026-03-16T18:05:00.000Z"),
+    };
+
+    mockIssueService.getById.mockResolvedValue({
+      ...baseIssue,
+      executionRunId: null,
+    });
+    mockIssueService.update.mockImplementation(async (_id, patch, opts) => {
+      const updated = {
+        ...baseIssue,
+        executionRunId: null,
+        ...patch,
+        assigneeAgentId: patch.assigneeAgentId ?? baseIssue.assigneeAgentId,
+        assigneeUserId: patch.assigneeUserId ?? baseIssue.assigneeUserId,
+        status: patch.status ?? baseIssue.status,
+      };
+      if (opts?.afterUpdateTx) {
+        const tx = {
+          select: () => ({
+            from: () => ({
+              where: () => ({
+                orderBy: () => ({
+                  limit: async () => [queuedRun],
+                }),
+              }),
+            }),
+          }),
+        } as any;
+        await opts.afterUpdateTx({
+          tx,
+          existing: { ...baseIssue, executionRunId: null },
+          updated,
+          patch,
+          nextAssigneeAgentId: updated.assigneeAgentId,
+          nextAssigneeUserId: updated.assigneeUserId,
+        });
+      }
+      return updated;
+    });
+    mockAgentService.getById.mockResolvedValue({
+      id: "agent-ceo",
+      companyId: "company-1",
+      role: "ceo",
+      permissions: { canCreateAgents: true, canManageTasks: true },
+    });
+    mockAgentService.getChainOfCommand.mockResolvedValue([{ id: "agent-ceo", name: "CEO", role: "ceo", title: null }]);
+    mockHeartbeatService.requestRunCancellation.mockResolvedValue({
+      runId: "run-queued",
+      companyId: "company-1",
+      agentId: "agent-subordinate",
+      requestedStatus: "cancelling",
+    });
+    mockHeartbeatService.dispatchRunCancellation.mockResolvedValue({
+      id: "run-queued",
+      companyId: "company-1",
+      agentId: "agent-subordinate",
+      status: "cancelled",
+    });
+
+    const res = await request(
+      createApp({
+        type: "agent",
+        agentId: "agent-ceo",
+        companyId: "company-1",
+        runId: "run-ceo",
+        source: "agent_key",
+      }),
+    )
+      .patch("/api/issues/issue-1")
+      .send({ status: "cancelled" });
+
+    expect(res.status).toBe(200);
+    expect(mockHeartbeatService.getActiveRunForAgent).not.toHaveBeenCalled();
+    expect(mockHeartbeatService.requestRunCancellation).toHaveBeenCalledWith(
+      "run-queued",
+      expect.objectContaining({ tx: expect.anything() }),
+    );
+    expect(mockHeartbeatService.dispatchRunCancellation).toHaveBeenCalledWith(
+      expect.objectContaining({ runId: "run-queued", requestedStatus: "cancelling" }),
     );
   });
 

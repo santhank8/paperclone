@@ -171,7 +171,7 @@ export function issueRoutes(db: Db, storage: StorageService) {
         .where(
           and(
             eq(heartbeatRuns.agentId, issue.assigneeAgentId),
-            inArray(heartbeatRuns.status, ["running", "cancelling"]),
+            inArray(heartbeatRuns.status, ["queued", "running", "cancelling"]),
             sql`${heartbeatRuns.contextSnapshot} ->> 'issueId' = ${issue.id}`,
           ),
         )
@@ -217,6 +217,25 @@ export function issueRoutes(db: Db, storage: StorageService) {
         ...details,
       },
     });
+  }
+
+  async function logDeniedTaskControlAttemptSafely(
+    req: Request,
+    issue: {
+      id: string;
+      companyId: string;
+      assigneeAgentId: string | null;
+      assigneeUserId: string | null;
+      status: string;
+      identifier: string | null;
+    },
+    details: Record<string, unknown>,
+  ) {
+    try {
+      await logDeniedTaskControlAttempt(req, issue, details);
+    } catch (logErr) {
+      logger.warn({ logErr, issueId: issue.id }, "failed to log task control denial");
+    }
   }
 
   function isManagedTerminalStatusTransition(requestedStatus: string | undefined, currentStatus: string) {
@@ -332,7 +351,7 @@ export function issueRoutes(db: Db, storage: StorageService) {
       (allowedByGrant || canManageTasksLegacy(actorAgent));
 
     if (!hasTaskManagementPermission) {
-      await logDeniedTaskControlAttempt(req, issue, {
+      await logDeniedTaskControlAttemptSafely(req, issue, {
         source: "issue.update",
         reason: "missing_permission",
         managedAgentId,
@@ -345,7 +364,7 @@ export function issueRoutes(db: Db, storage: StorageService) {
 
     const chainOfCommand = await agentsSvc.getChainOfCommand(managedAgentId);
     if (!chainOfCommand.some((manager) => manager.id === actorAgentId)) {
-      await logDeniedTaskControlAttempt(req, issue, {
+      await logDeniedTaskControlAttemptSafely(req, issue, {
         source: "issue.update",
         reason: "not_in_chain_of_command",
         managedAgentId,
