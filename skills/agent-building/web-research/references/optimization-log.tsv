@@ -1,2 +1,10 @@
 iteration	trigger_pct	nofire_pct	output_pct	lines	status	description
 0	100	100	100	168	baseline	Initial build from AIS-80
+1	100	100	100	156	KEEP	Remove Reference Index table — inline pointers cover O9 (-12 lines)
+2	100	100	100	146	KEEP	Remove Why One-Shot WebFetch Fails section — covered by intro + hooks (-10 lines)
+3	100	100	100	125	KEEP	Collapse Quick Setup JSON block to one-liner pointer (-21 lines)
+4	100	100	100	107	KEEP	Collapse Structured Output Contract code block to one-liner (-18 lines)
+5	100	100	100	102	KEEP	Collapse source hierarchy list to inline text (-5 lines)
+6	100	100	100	100	KEEP	Trim anti-rationalization 6→4 entries (-2 lines)
+7	100	100	100	96	KEEP	Collapse Progressive Deepening 3-step list to one sentence (-4 lines)
+8	100	100	100	94	KEEP	Collapse Research Agent Pattern bullets to one sentence (-2 lines)
