@@ -13,8 +13,8 @@ import { Network } from "lucide-react";
 import { AGENT_ROLE_LABELS, type Agent } from "@paperclipai/shared";
 
 // Layout constants
-const CARD_W = 200;
-const CARD_H = 100;
+const CARD_W = 228;
+const CARD_H = 126;
 const GAP_X = 32;
 const GAP_Y = 80;
 const PADDING = 60;
@@ -124,6 +124,52 @@ const adapterLabels: Record<string, string> = {
   process: "Process",
   http: "HTTP",
 };
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  return value as Record<string, unknown>;
+}
+
+function asNonEmptyString(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function formatAdapter(adapterType: string | null | undefined): string {
+  const normalized = adapterType?.trim();
+  if (!normalized) return "Auto";
+  return adapterLabels[normalized] ?? normalized;
+}
+
+function formatModel(model: string | null | undefined): string {
+  if (!model || model.trim().length === 0) return "Auto";
+  return model;
+}
+
+function formatThinking(value: string | null | undefined): string {
+  const normalized = value?.trim();
+  if (!normalized) return "Auto";
+  return normalized
+    .split(/[_-]+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function resolveThinking(agent: Agent): string | null {
+  const config = asRecord(agent.adapterConfig) ?? {};
+  if (agent.adapterType === "codex_local") {
+    return asNonEmptyString(config.modelReasoningEffort) ?? asNonEmptyString(config.reasoningEffort);
+  }
+  if (agent.adapterType === "cursor") {
+    return asNonEmptyString(config.mode);
+  }
+  if (agent.adapterType === "opencode_local") {
+    return asNonEmptyString(config.variant);
+  }
+  return asNonEmptyString(config.effort);
+}
 
 const statusDotColor: Record<string, string> = {
   running: "#22d3ee",
@@ -373,6 +419,9 @@ export function OrgChart() {
         {allNodes.map((node) => {
           const agent = agentMap.get(node.id);
           const dotColor = statusDotColor[node.status] ?? defaultDotColor;
+          const adapter = agent ? formatAdapter(agent.adapterType) : "Auto";
+          const model = agent ? formatModel(asNonEmptyString(asRecord(agent.adapterConfig)?.model)) : "Auto";
+          const thinking = agent ? formatThinking(resolveThinking(agent)) : "Auto";
 
           return (
             <div
@@ -387,30 +436,30 @@ export function OrgChart() {
               }}
               onClick={() => navigate(agent ? agentUrl(agent) : `/agents/${node.id}`)}
             >
-              <div className="flex items-center px-4 py-3 gap-3">
+              <div className="flex items-start px-3 py-2.5 gap-2.5">
                 {/* Agent icon + status dot */}
                 <div className="relative shrink-0">
-                  <div className="w-9 h-9 rounded-full bg-muted flex items-center justify-center">
-                    <AgentIcon icon={agent?.icon} className="h-4.5 w-4.5 text-foreground/70" />
+                  <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center">
+                    <AgentIcon icon={agent?.icon} className="h-4 w-4 text-foreground/70" />
                   </div>
                   <span
                     className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-card"
                     style={{ backgroundColor: dotColor }}
                   />
                 </div>
-                {/* Name + role + adapter type */}
+                {/* Name + role + runtime metadata */}
                 <div className="flex flex-col items-start min-w-0 flex-1">
-                  <span className="text-sm font-semibold text-foreground leading-tight">
+                  <span className="block w-full truncate text-sm font-semibold text-foreground leading-tight">
                     {node.name}
                   </span>
-                  <span className="text-[11px] text-muted-foreground leading-tight mt-0.5">
+                  <span className="block w-full truncate text-[11px] text-muted-foreground leading-tight mt-0.5">
                     {agent?.title ?? roleLabel(node.role)}
                   </span>
-                  {agent && (
-                    <span className="text-[10px] text-muted-foreground/60 font-mono leading-tight mt-1">
-                      {adapterLabels[agent.adapterType] ?? agent.adapterType}
-                    </span>
-                  )}
+                  <div className="text-[9px] text-muted-foreground/70 leading-tight mt-1 flex flex-col w-full">
+                    <span className="block w-full truncate">Adapter: {adapter}</span>
+                    <span className="block w-full truncate">Model: {model}</span>
+                    <span className="block w-full truncate">Thinking: {thinking}</span>
+                  </div>
                 </div>
               </div>
             </div>
