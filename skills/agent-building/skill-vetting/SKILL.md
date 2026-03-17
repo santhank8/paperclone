@@ -7,19 +7,9 @@ description: Use when vetting, auditing, or reviewing a Claude Code skill for se
 
 A SKILL.md can do anything a shell command can do. Hooks run arbitrary code. Permissions expand your blast radius. Before you trust a skill you didn't write, vet it.
 
-**Three modes:**
-
-| Signal | Mode |
-|--------|------|
-| Single skill to check | Quick Vet (5-layer audit → verdict) |
-| Two versions / upgrade PR | Comparison Vet (diff audit → regression check) |
-| "Set up my trust policy" | Policy Setup |
-
----
+**Modes:** Quick Vet (single skill, 5-layer audit) · Comparison Vet (two versions / upgrade) · Policy Setup (trust tiers)
 
 ## Quick Vet
-
-Run all 5 layers in order. Each layer builds on the last. Takes 3 minutes.
 
 ### Layer 1: Trigger Phrase Analysis
 
@@ -67,13 +57,10 @@ Scan SKILL.md body and all reference files for:
 
 ### Layer 5: Quality Signals
 
-Non-security signals that indicate trustworthiness:
 - `references/test-cases.md` exists with real scenarios?
 - Reference files are substantive (>10 lines) vs empty stubs?
 - Trigger set is 3-12 phrases? (under 3 = too narrow, over 12 = too broad)
 - NOT-for exclusions present?
-
----
 
 ## Verdict Format
 
@@ -94,8 +81,6 @@ Recommendation: [install / do not install / install after remediation: X]
 **CONDITIONAL** = High findings with a clear remediation path (e.g., remove a hook, narrow a permission).
 **PASS** = No Critical/High findings, or all High findings have documented justification.
 
----
-
 ## Comparison Vet
 
 For upgrades or PR skill reviews. Run Layers 1-5 on both versions, then:
@@ -105,8 +90,6 @@ For upgrades or PR skill reviews. Run Layers 1-5 on both versions, then:
 - Flag any new external URLs
 
 Security can only get worse in an upgrade. Treat any expansion as a finding.
-
----
 
 ## Policy Setup
 
@@ -119,8 +102,6 @@ Set trust tiers once, apply forever.
 | Untrusted | Anonymous GitHub, unknown sources | Layers 1-5 + manual read every hook |
 
 See → `references/trust-tiers.md`
-
----
 
 ## Anti-Rationalization
 
