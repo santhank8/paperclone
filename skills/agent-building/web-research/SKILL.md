@@ -51,12 +51,7 @@ Never skip Phase 4. Uncorroborated claims are opinions, not findings.
 
 **What counts as independent:** Different publishers. TechCrunch + Ars Technica + The Verge = 3 sources. Three TechCrunch articles = 1 source.
 
-**Source hierarchy:**
-1. Primary — official docs, original research, direct statements
-2. Secondary — analysis, reputable journalism
-3. Aggregators — use only to find primary sources, never as a source itself
-
-**Conflicting sources:** Record the conflict explicitly. Never silently resolve it with a judgment call.
+**Source hierarchy:** Primary (official docs, original research) > Secondary (reputable journalism) > Aggregators (find-only, never cite). **Conflicting sources:** Record the conflict explicitly. Never silently resolve it.
 
 → Full hierarchy, conflict protocol, credibility rubric: `references/source-corroboration.md`
 
