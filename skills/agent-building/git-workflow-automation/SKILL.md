@@ -51,8 +51,3 @@ git worktree remove /tmp/worktree-agent-a
 | "I don't need a Stop hook — I'll commit at the end" | Sessions end without warning. A Stop hook is insurance. Without it, half-built work lives only in an open terminal. |
 | "I'll clean up the worktree and branch later" | Later never comes. Cleanup is step 8 of the loop, not a separate todo. |
 
-## Prerequisites
-
-- `git` (built-in)
-- `gh` CLI: `brew install gh && gh auth login`
-- Verify: `gh auth status` → should show authenticated user
