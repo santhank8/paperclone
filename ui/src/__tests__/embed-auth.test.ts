@@ -45,5 +45,59 @@ describe("embed-auth", () => {
     it("should return null when token is missing", () => {
       expect(parseEmbedMessage({ type: "BUCKGURU_OPERATIONS_AUTH" })).toBeNull();
     });
+
+    it("should parse auth message with theme", () => {
+      const msg = parseEmbedMessage({
+        type: "BUCKGURU_OPERATIONS_AUTH",
+        token: "jwt-123",
+        theme: "light",
+      });
+      expect(msg).toEqual({
+        type: "BUCKGURU_OPERATIONS_AUTH",
+        token: "jwt-123",
+        theme: "light",
+      });
+    });
+
+    it("should parse auth message without theme", () => {
+      const msg = parseEmbedMessage({
+        type: "BUCKGURU_OPERATIONS_AUTH",
+        token: "jwt-123",
+      });
+      expect(msg).toEqual({
+        type: "BUCKGURU_OPERATIONS_AUTH",
+        token: "jwt-123",
+        theme: undefined,
+      });
+    });
+
+    it("should ignore invalid theme values in auth messages", () => {
+      const msg = parseEmbedMessage({
+        type: "BUCKGURU_OPERATIONS_AUTH",
+        token: "jwt-123",
+        theme: "neon",
+      });
+      expect(msg).toEqual({
+        type: "BUCKGURU_OPERATIONS_AUTH",
+        token: "jwt-123",
+        theme: undefined,
+      });
+    });
+
+    it("should parse BUCKGURU_OPERATIONS_THEME", () => {
+      const msg = parseEmbedMessage({
+        type: "BUCKGURU_OPERATIONS_THEME",
+        theme: "dark",
+      });
+      expect(msg).toEqual({
+        type: "BUCKGURU_OPERATIONS_THEME",
+        theme: "dark",
+      });
+    });
+
+    it("should reject BUCKGURU_OPERATIONS_THEME without valid theme", () => {
+      expect(parseEmbedMessage({ type: "BUCKGURU_OPERATIONS_THEME" })).toBeNull();
+      expect(parseEmbedMessage({ type: "BUCKGURU_OPERATIONS_THEME", theme: "neon" })).toBeNull();
+    });
   });
 });

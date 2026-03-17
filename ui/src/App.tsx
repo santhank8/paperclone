@@ -39,6 +39,7 @@ import { useCompany } from "./context/CompanyContext";
 import { useDialog } from "./context/DialogContext";
 import { loadLastInboxTab } from "./lib/inbox";
 import { isEmbedded, getEmbedAuthState, onEmbedAuthChange, setTrustedParentOrigin } from "./lib/embed-auth";
+import { useTheme } from "./context/ThemeContext";
 
 function BootstrapPendingPage({ hasActiveInvite = false }: { hasActiveInvite?: boolean }) {
   return (
@@ -62,11 +63,19 @@ function CloudAccessGate() {
   const location = useLocation();
   const [embedAuth, setEmbedAuth] = useState(getEmbedAuthState);
   const embedded = isEmbedded();
+  const { setTheme } = useTheme();
 
   useEffect(() => {
     if (!embedded) return;
     return onEmbedAuthChange(setEmbedAuth);
   }, [embedded]);
+
+  // Apply theme from embed auth (initial + dynamic changes)
+  useEffect(() => {
+    if (embedAuth.theme) {
+      setTheme(embedAuth.theme);
+    }
+  }, [embedAuth.theme, setTheme]);
 
   const healthQuery = useQuery({
     queryKey: queryKeys.health,

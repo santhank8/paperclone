@@ -3,13 +3,17 @@ import { setEmbedToken } from "../api/client";
 
 // --- Types ---
 
+export type EmbedTheme = "light" | "dark";
+
 export type EmbedAuthMessage =
-  | { type: "BUCKGURU_OPERATIONS_AUTH"; token: string }
-  | { type: "BUCKGURU_OPERATIONS_TOKEN_REFRESH"; token: string };
+  | { type: "BUCKGURU_OPERATIONS_AUTH"; token: string; theme?: EmbedTheme }
+  | { type: "BUCKGURU_OPERATIONS_TOKEN_REFRESH"; token: string; theme?: EmbedTheme }
+  | { type: "BUCKGURU_OPERATIONS_THEME"; theme: EmbedTheme };
 
 type EmbedAuthState = {
   authenticated: boolean;
   user: { id: string; email: string; name: string } | null;
+  theme: EmbedTheme | null;
 };
 
 type EmbedAuthListener = (state: EmbedAuthState) => void;
@@ -24,17 +28,29 @@ export function isEmbedded(): boolean {
   }
 }
 
+function parseTheme(value: unknown): EmbedTheme | undefined {
+  return value === "light" || value === "dark" ? value : undefined;
+}
+
 export function parseEmbedMessage(data: unknown): EmbedAuthMessage | null {
   if (!data || typeof data !== "object") return null;
   const msg = data as Record<string, unknown>;
   if (typeof msg.type !== "string") return null;
+
+  if (msg.type === "BUCKGURU_OPERATIONS_THEME") {
+    const theme = parseTheme(msg.theme);
+    if (!theme) return null;
+    return { type: "BUCKGURU_OPERATIONS_THEME", theme };
+  }
+
   if (typeof msg.token !== "string") return null;
+  const theme = parseTheme(msg.theme);
 
   if (msg.type === "BUCKGURU_OPERATIONS_AUTH") {
-    return { type: "BUCKGURU_OPERATIONS_AUTH", token: msg.token };
+    return { type: "BUCKGURU_OPERATIONS_AUTH", token: msg.token, theme };
   }
   if (msg.type === "BUCKGURU_OPERATIONS_TOKEN_REFRESH") {
-    return { type: "BUCKGURU_OPERATIONS_TOKEN_REFRESH", token: msg.token };
+    return { type: "BUCKGURU_OPERATIONS_TOKEN_REFRESH", token: msg.token, theme };
   }
   return null;
 }
@@ -89,7 +105,7 @@ export function sendTokenExpired() {
 let initialized = false;
 let listeners: EmbedAuthListener[] = [];
 let trustedParentOrigin: string | null = null;
-let currentState: EmbedAuthState = { authenticated: false, user: null };
+let currentState: EmbedAuthState = { authenticated: false, user: null, theme: null };
 
 function notifyListeners() {
   for (const listener of listeners) {
@@ -97,19 +113,24 @@ function notifyListeners() {
   }
 }
 
-async function handleBuckguruToken(buckguruJwt: string): Promise<boolean> {
+async function handleBuckguruToken(buckguruJwt: string, theme?: EmbedTheme): Promise<boolean> {
   const result = await exchangeToken(buckguruJwt);
   if (!result) {
-    currentState = { authenticated: false, user: null };
+    currentState = { authenticated: false, user: null, theme: theme ?? currentState.theme };
     setEmbedToken(null);
     notifyListeners();
     return false;
   }
 
   setEmbedToken(result.embedToken);
-  currentState = { authenticated: true, user: result.user };
+  currentState = { authenticated: true, user: result.user, theme: theme ?? currentState.theme };
   notifyListeners();
   return true;
+}
+
+function handleThemeChange(theme: EmbedTheme) {
+  currentState = { ...currentState, theme };
+  notifyListeners();
 }
 
 export function setTrustedParentOrigin(origin: string) {
@@ -133,17 +154,21 @@ export function initEmbedAuth(): () => void {
     }
 
     if (msg.type === "BUCKGURU_OPERATIONS_AUTH") {
-      const ok = await handleBuckguruToken(msg.token);
+      const ok = await handleBuckguruToken(msg.token, msg.theme);
       if (ok) {
         sendReady();
       }
     }
 
     if (msg.type === "BUCKGURU_OPERATIONS_TOKEN_REFRESH") {
-      const ok = await handleBuckguruToken(msg.token);
+      const ok = await handleBuckguruToken(msg.token, msg.theme);
       if (!ok) {
         sendTokenExpired();
       }
+    }
+
+    if (msg.type === "BUCKGURU_OPERATIONS_THEME") {
+      handleThemeChange(msg.theme);
     }
   };
 
