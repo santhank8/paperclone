@@ -35,6 +35,7 @@ import { AsciiArtAnimation } from "./AsciiArtAnimation";
 import { ChoosePathButton } from "./PathInstructionsModal";
 import { HintIcon } from "./agent-config-primitives";
 import { OpenCodeLogoIcon } from "./OpenCodeLogoIcon";
+import { KiroLogoIcon } from "./KiroLogoIcon";
 import {
   Building2,
   Bot,
@@ -60,6 +61,7 @@ type AdapterType =
   | "codex_local"
   | "gemini_local"
   | "opencode_local"
+  | "kiro_local"
   | "pi_local"
   | "cursor"
   | "process"
@@ -200,6 +202,7 @@ export function OnboardingWizard() {
     adapterType === "codex_local" ||
     adapterType === "gemini_local" ||
     adapterType === "opencode_local" ||
+    adapterType === "kiro_local" ||
     adapterType === "cursor";
   const effectiveAdapterCommand =
     command.trim() ||
@@ -211,6 +214,8 @@ export function OnboardingWizard() {
       ? "agent"
       : adapterType === "opencode_local"
       ? "opencode"
+      : adapterType === "kiro_local"
+      ? "kiro-cli"
       : "claude");
 
   useEffect(() => {
@@ -800,6 +805,12 @@ export function OnboardingWizard() {
                             desc: "Local multi-provider agent"
                           },
                           {
+                            value: "kiro_local" as const,
+                            label: "Kiro CLI",
+                            icon: KiroLogoIcon,
+                            desc: "Local Kiro agent"
+                          },
+                          {
                             value: "pi_local" as const,
                             label: "Pi",
                             icon: Terminal,
@@ -871,6 +882,7 @@ export function OnboardingWizard() {
                     adapterType === "codex_local" ||
                     adapterType === "gemini_local" ||
                     adapterType === "opencode_local" ||
+                    adapterType === "kiro_local" ||
                     adapterType === "pi_local" ||
                     adapterType === "cursor") && (
                     <div className="space-y-3">
@@ -1067,6 +1079,8 @@ export function OnboardingWizard() {
                                 ? `${effectiveAdapterCommand} --output-format json "Respond with hello."`
                               : adapterType === "opencode_local"
                                 ? `${effectiveAdapterCommand} run --format json "Respond with hello."`
+                              : adapterType === "kiro_local"
+                                ? `${effectiveAdapterCommand} chat --no-interactive "Respond with hello."`
                               : `${effectiveAdapterCommand} --print - --output-format stream-json --verbose`}
                           </p>
                           <p className="text-muted-foreground">
@@ -1097,6 +1111,12 @@ export function OnboardingWizard() {
                                       : "opencode auth login"}
                               </span>
                               .
+                            </p>
+                          ) : adapterType === "kiro_local" ? (
+                            <p className="text-muted-foreground">
+                              If login is required, run{" "}
+                              <span className="font-mono">kiro-cli login</span>{" "}
+                              and retry.
                             </p>
                           ) : (
                             <p className="text-muted-foreground">
