@@ -499,6 +499,17 @@ export function normalizeTranscript(entries: TranscriptEntry[], streaming: boole
       continue;
     }
 
+    if (isPaperclipNotice(entry.text)) {
+      blocks.push({
+        type: "event",
+        ts: entry.ts,
+        label: "notice",
+        tone: "neutral",
+        text: entry.text.replace(/^\[paperclip\]\s*/i, ""),
+      });
+      continue;
+    }
+
     const activeCommandBlock = [...blocks].reverse().find(
       (block): block is Extract<TranscriptBlock, { type: "tool" }> =>
         block.type === "tool" && block.status === "running" && isCommandTool(block.name, block.input),
