@@ -71,13 +71,14 @@ Runs on every pull request:
 Set these in your GitHub repository settings under **Settings → Secrets and variables → Actions**:
 
 ```
-VERCEL_TOKEN           # Vercel API token (personal or team)
-VERCEL_PROJECT_ID      # DIYBrand project ID in Vercel
-VERCEL_ORG_ID          # Vercel organization ID
-SLACK_WEBHOOK          # Slack webhook for deployment notifications (optional)
-SENTRY_DSN             # Sentry error tracking (production)
-STRIPE_SECRET_KEY      # Stripe API secret (production only)
-DATABASE_URL           # PostgreSQL connection string (staging/prod)
+VERCEL_TOKEN                   # Vercel API token (personal or team)
+VERCEL_PROJECT_ID              # DIYBrand project ID in Vercel
+VERCEL_ORG_ID                  # Vercel organization ID
+SLACK_WEBHOOK                  # Slack webhook for deployment notifications (optional)
+SENTRY_DSN                     # Sentry server-side error tracking DSN
+NEXT_PUBLIC_SENTRY_DSN         # Sentry client-side error tracking DSN (can be same as SENTRY_DSN)
+STRIPE_SECRET_KEY              # Stripe API secret (production only)
+DATABASE_URL                   # PostgreSQL connection string (staging/prod)
 ```
 
 ### Environment Variables
@@ -204,28 +205,44 @@ async headers() {
 
 ### Error Tracking (Sentry)
 
-1. **Setup**
-   ```bash
-   npm install @sentry/nextjs
-   ```
+**Status**: ✅ Integrated
 
-2. **Configuration** (`sentry.config.js`)
-   ```javascript
-   import * as Sentry from '@sentry/nextjs';
+**Configuration Files:**
+- `sentry.server.config.ts` — Server-side error tracking
+- `sentry.client.config.ts` — Client-side error tracking
+- `src/instrumentation.ts` — Automatic initialization
+- `next.config.ts` — withSentryConfig wrapper
 
-   Sentry.init({
-     dsn: process.env.SENTRY_DSN,
-     tracesSampleRate: 0.1,
-     environment: process.env.NODE_ENV,
-   });
-   ```
+**Environment Variables (Required):**
+```env
+SENTRY_DSN=https://[key]@[domain].ingest.sentry.io/[project-id]
+NEXT_PUBLIC_SENTRY_DSN=[same as above, for client errors]
+```
 
-3. **Dashboard**: https://sentry.io/organizations/diybrand/issues/
+**Features:**
+- ✅ Automatic error capturing on server and client
+- ✅ Performance monitoring (10% sample rate in production)
+- ✅ Request tunneling via /monitoring endpoint (circumvents ad-blockers)
+- ✅ Source map uploads for readable stack traces
+- ✅ Error filtering for non-actionable errors (network, extensions)
+- ✅ Breadcrumb collection for error context
 
-**Alerting Rules:**
+**Testing Error Capture:**
+```bash
+# Once deployed to production with SENTRY_DSN configured:
+curl https://diybrand.app/api/test-error?type=exception
+curl https://diybrand.app/api/test-error?type=message
+curl https://diybrand.app/api/test-error?type=performance
+```
+
+**Dashboard**: https://sentry.io/organizations/diybrand/issues/
+
+**Recommended Alerting Rules:**
 - Alert on error rate > 1% within 5 minutes
-- Alert on new error patterns
-- Daily digest of issues
+- Alert on new error patterns (not seen before)
+- Alert on errors in critical API routes (/api/checkout, /api/webhooks/stripe)
+- Daily digest of top errors
+- Notify on-call when > 10 errors in 1 minute
 
 ### Database Monitoring
 
