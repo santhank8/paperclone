@@ -42,6 +42,7 @@ import {
   ChevronDown,
   ChevronRight,
   Copy,
+  Eye,
   EyeOff,
   Hexagon,
   ListTree,
@@ -815,7 +816,7 @@ export function IssueDetail() {
                 )}
                 onClick={() => {
                   updateIssue.mutate(
-                    { hiddenAt: visibilityAction.hiddenAt },
+                    { hiddenAt: visibilityAction.isHidden ? null : new Date().toISOString() },
                     {
                       onSuccess: () => {
                         if (!visibilityAction.isHidden) navigate("/issues/all");
@@ -825,7 +826,11 @@ export function IssueDetail() {
                   setMoreOpen(false);
                 }}
               >
-                <EyeOff className="h-3 w-3" />
+                {visibilityAction.isHidden ? (
+                  <Eye className="h-3 w-3" />
+                ) : (
+                  <EyeOff className="h-3 w-3" />
+                )}
                 {visibilityAction.label}
               </button>
             </PopoverContent>
