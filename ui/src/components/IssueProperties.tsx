@@ -108,6 +108,9 @@ export function IssueProperties({ issue, onUpdate, inline }: IssuePropertiesProp
   const [labelsOpen, setLabelsOpen] = useState(false);
   const [labelSearch, setLabelSearch] = useState("");
   const [dueOpen, setDueOpen] = useState(false);
+  const [localDueAt, setLocalDueAt] = useState(
+    issue.dueAt ? new Date(new Date(issue.dueAt).getTime() - new Date(issue.dueAt).getTimezoneOffset() * 60000).toISOString().slice(0, 16) : "",
+  );
   const [newLabelName, setNewLabelName] = useState("");
   const [newLabelColor, setNewLabelColor] = useState("#6366f1");
 
@@ -511,29 +514,24 @@ export function IssueProperties({ issue, onUpdate, inline }: IssuePropertiesProp
           open={dueOpen}
           onOpenChange={setDueOpen}
           triggerContent={
-            issue.dueAt ? (
-              <>
-                <Calendar className={cn(
-                  "h-3.5 w-3.5",
-                  new Date(issue.dueAt) < new Date() && !["done", "cancelled"].includes(issue.status)
-                    ? "text-red-500"
-                    : "text-orange-500",
-                )} />
-                <span className={cn(
-                  "text-sm",
-                  new Date(issue.dueAt) < new Date() && !["done", "cancelled"].includes(issue.status)
-                    ? "text-red-500"
-                    : "text-foreground",
-                )}>
-                  {new Date(issue.dueAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
-                </span>
-              </>
-            ) : (
-              <>
-                <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
-                <span className="text-sm text-muted-foreground">No due date</span>
-              </>
-            )
+            (() => {
+              if (!issue.dueAt) return (
+                <>
+                  <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span className="text-sm text-muted-foreground">No due date</span>
+                </>
+              );
+              const dueDate = new Date(issue.dueAt);
+              const isOverdue = dueDate < new Date() && !["done", "cancelled"].includes(issue.status);
+              return (
+                <>
+                  <Calendar className={cn("h-3.5 w-3.5", isOverdue ? "text-red-500" : "text-orange-500")} />
+                  <span className={cn("text-sm", isOverdue ? "text-red-500" : "text-foreground")}>
+                    {dueDate.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
+                  </span>
+                </>
+              );
+            })()
           }
           popoverClassName="w-56"
         >
@@ -541,21 +539,30 @@ export function IssueProperties({ issue, onUpdate, inline }: IssuePropertiesProp
             <input
               type="datetime-local"
               className="w-full px-2 py-1.5 text-xs bg-transparent outline-none rounded border border-border"
-              value={issue.dueAt ? new Date(new Date(issue.dueAt).getTime() - new Date(issue.dueAt).getTimezoneOffset() * 60000).toISOString().slice(0, 16) : ""}
-              onChange={(e) => {
-                onUpdate({ dueAt: e.target.value ? new Date(e.target.value).toISOString() : null });
-                setDueOpen(false);
-              }}
+              value={localDueAt}
+              onChange={(e) => setLocalDueAt(e.target.value)}
               autoFocus={!inline}
             />
-            {issue.dueAt && (
+            <div className="flex items-center gap-2">
               <button
-                className="text-[11px] text-destructive hover:underline"
-                onClick={() => { onUpdate({ dueAt: null }); setDueOpen(false); }}
+                className="flex-1 px-2 py-1.5 text-xs rounded border border-border hover:bg-accent/50 disabled:opacity-50"
+                disabled={!localDueAt}
+                onClick={() => {
+                  onUpdate({ dueAt: localDueAt ? new Date(localDueAt).toISOString() : null });
+                  setDueOpen(false);
+                }}
               >
-                Clear due date
+                Apply
               </button>
-            )}
+              {issue.dueAt && (
+                <button
+                  className="text-[11px] text-destructive hover:underline"
+                  onClick={() => { onUpdate({ dueAt: null }); setLocalDueAt(""); setDueOpen(false); }}
+                >
+                  Clear
+                </button>
+              )}
+            </div>
           </div>
         </PropertyPicker>
 
