@@ -881,6 +881,7 @@ export function issueRoutes(db: Db, storage: StorageService) {
         ...(commentBody ? { source: "comment" } : {}),
         _previous: hasFieldChanges ? previous : undefined,
       },
+      suppressAgentWake: actor.actorType === "agent",
     });
 
     let comment = null;
@@ -906,6 +907,7 @@ export function issueRoutes(db: Db, storage: StorageService) {
           issueTitle: issue.title,
           ...(hasFieldChanges ? { updated: true } : {}),
         },
+        suppressAgentWake: actor.actorType === "agent",
       });
 
     }
@@ -1278,6 +1280,8 @@ export function issueRoutes(db: Db, storage: StorageService) {
       userId: actor.actorType === "user" ? actor.actorId : undefined,
     });
 
+    const actorIsAgent = actor.actorType === "agent";
+
     await logActivity(db, {
       companyId: currentIssue.companyId,
       actorType: actor.actorType,
@@ -1295,6 +1299,9 @@ export function issueRoutes(db: Db, storage: StorageService) {
         ...(reopened ? { reopened: true, reopenedFrom: reopenFromStatus, source: "comment" } : {}),
         ...(interruptedRunId ? { interruptedRunId } : {}),
       },
+      // Prevent event-loop: when an agent comments, suppress live-event wake
+      // so Hermes (or other subscribers) don't re-wake the same agent.
+      suppressAgentWake: actorIsAgent,
     });
 
     // Merge all wakeups from this comment into one enqueue per agent to avoid duplicate runs.

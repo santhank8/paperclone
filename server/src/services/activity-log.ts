@@ -31,6 +31,13 @@ export interface LogActivityInput {
   agentId?: string | null;
   runId?: string | null;
   details?: Record<string, unknown> | null;
+  /**
+   * When true the live-event payload includes `suppressAgentWake: true` so
+   * subscribers (e.g. Hermes adapter) know NOT to re-wake the acting agent.
+   * This breaks the feedback loop where an agent's own comment triggers
+   * another wakeup for the same agent.
+   */
+  suppressAgentWake?: boolean;
 }
 
 export async function logActivity(db: Db, input: LogActivityInput) {
@@ -60,6 +67,7 @@ export async function logActivity(db: Db, input: LogActivityInput) {
       agentId: input.agentId ?? null,
       runId: input.runId ?? null,
       details: redactedDetails,
+      ...(input.suppressAgentWake ? { suppressAgentWake: true } : {}),
     },
   });
 

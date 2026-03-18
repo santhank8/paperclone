@@ -472,11 +472,13 @@ export async function runChildProcess(
           opts.timeoutSec > 0
             ? setTimeout(() => {
                 timedOut = true;
-                child.kill("SIGTERM");
+                try { child.kill("SIGTERM"); } catch { /* process may have already exited */ }
                 setTimeout(() => {
-                  if (!child.killed) {
-                    child.kill("SIGKILL");
-                  }
+                  try {
+                    if (!child.killed) {
+                      child.kill("SIGKILL");
+                    }
+                  } catch { /* process may have already exited */ }
                 }, Math.max(1, opts.graceSec) * 1000);
               }, opts.timeoutSec * 1000)
             : null;

@@ -725,7 +725,13 @@ class GatewayWsClient {
 
   close() {
     if (!this.ws) return;
-    this.ws.close(1000, "paperclip-complete");
+    try {
+      if (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === WebSocket.CONNECTING) {
+        this.ws.close(1000, "paperclip-complete");
+      }
+    } catch {
+      // Suppress close errors — the connection is being torn down anyway.
+    }
     this.ws = null;
   }
 
@@ -878,7 +884,7 @@ async function autoApproveDevicePairing(params: {
   } catch (err) {
     return { ok: false, reason: err instanceof Error ? err.message : String(err) };
   } finally {
-    client.close();
+    try { client.close(); } catch { /* suppress */ }
   }
 }
 
@@ -1442,7 +1448,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
         resultJson: asRecord(latestResultPayload),
       };
     } finally {
-      client.close();
+      try { client.close(); } catch { /* suppress */ }
     }
   }
 }
