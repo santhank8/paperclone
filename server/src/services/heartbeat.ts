@@ -1413,8 +1413,9 @@ export function heartbeatService(db: Db) {
       }
       await finalizeAgentStatus(agent.id, outcome);
 
-      // When an engineer's run completes, wake the CTO to review
-      if (outcome === "succeeded" && agent.role === "engineer") {
+      // When an engineer's run completes with real work, wake the CTO to review.
+      // Skip for timer-only heartbeats (idle inbox checks) to avoid cascading wakes.
+      if (outcome === "succeeded" && agent.role === "engineer" && run.invocationSource !== "timer") {
         void (async () => {
           try {
             const allAgents = await db.select().from(agents).where(eq(agents.companyId, agent.companyId));
