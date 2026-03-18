@@ -5,15 +5,43 @@ import {
   brandPalette,
   brandTypography,
   brandLogos,
+  orders,
 } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import JSZip from "jszip";
 
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
+
+  // Verify payment
+  const sessionId = req.nextUrl.searchParams.get("session_id");
+  if (!sessionId) {
+    return NextResponse.json(
+      { error: "Payment required" },
+      { status: 402 }
+    );
+  }
+
+  const [order] = await db
+    .select()
+    .from(orders)
+    .where(
+      and(
+        eq(orders.stripeSessionId, sessionId),
+        eq(orders.questionnaireId, id)
+      )
+    )
+    .limit(1);
+
+  if (!order || !order.paidAt) {
+    return NextResponse.json(
+      { error: "Payment not found or not completed" },
+      { status: 402 }
+    );
+  }
 
   // Fetch questionnaire
   const [questionnaire] = await db

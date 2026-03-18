@@ -69,3 +69,15 @@ export const brandLogos = pgTable("brand_logos", {
   selected: boolean("selected").default(false).notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
+
+export const orders = pgTable("orders", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  email: varchar("email", { length: 320 }).notNull(),
+  stripeSessionId: varchar("stripe_session_id", { length: 255 }).notNull().unique(),
+  tier: varchar("tier", { length: 20 }).notNull(), // "basic" | "premium"
+  paidAt: timestamp("paid_at", { withTimezone: true }),
+  questionnaireId: uuid("questionnaire_id")
+    .notNull()
+    .references(() => brandQuestionnaire.id),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
