@@ -63,9 +63,21 @@ export const createIssueLabelSchema = z.object({
 
 export type CreateIssueLabel = z.infer<typeof createIssueLabelSchema>;
 
+export const issueVerificationSchema = z.object({
+  specComplete: z.boolean(),
+  tested: z.boolean(),
+  matchesPlan: z.boolean(),
+  knowledgeSaved: z.boolean(),
+  bestSolutionCheck: z.boolean(),
+  notes: z.string().optional(),
+});
+
+export type IssueVerification = z.infer<typeof issueVerificationSchema>;
+
 export const updateIssueSchema = createIssueSchema.partial().extend({
   comment: z.string().min(1).optional(),
   hiddenAt: z.string().datetime().nullable().optional(),
+  verification: issueVerificationSchema.optional(),
 });
 
 export type UpdateIssue = z.infer<typeof updateIssueSchema>;
