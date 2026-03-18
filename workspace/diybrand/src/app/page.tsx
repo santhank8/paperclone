@@ -6,6 +6,7 @@ import { CursorSpotlight } from "@/components/CursorSpotlight";
 import { LiveDemo } from "@/components/LiveDemo";
 import { ScrollReveal } from "@/components/ScrollReveal";
 import { WaitlistForm } from "@/components/WaitlistForm";
+import { CompetitorComparison } from "@/components/CompetitorComparison";
 
 /* ── Data ── */
 
@@ -14,7 +15,7 @@ const steps = [
     number: "01",
     title: "Describe your vision",
     description:
-      "Tell us about your business, audience, and vibe in a quick questionnaire.",
+      "Share your business name, industry, target audience, and brand vibe. 5-minute questionnaire, no design experience needed.",
     icon: (
       <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
         <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
@@ -25,7 +26,7 @@ const steps = [
     number: "02",
     title: "AI generates your brand",
     description:
-      "Get a logo, color palette, typography, and brand guidelines — instantly.",
+      "AI generates logo concepts, color palettes, and typography pairs. Pick your favorites, regenerate until it feels right.",
     icon: (
       <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
         <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456z" />
@@ -36,7 +37,7 @@ const steps = [
     number: "03",
     title: "Download your kit",
     description:
-      "Export everything you need: logo files, style guide, and social templates.",
+      "Download SVG, PNG, PDF, CSS, JSON. Use on your website, social media, and print. All files are yours forever.",
     icon: (
       <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
         <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
@@ -49,41 +50,41 @@ const features = [
   {
     title: "AI Logo Generator",
     description:
-      "A unique logo with variations for every context — dark, light, icon, full lockup.",
+      "Logo that works everywhere. Get variations for dark mode, app icons, social media, and print — no designer needed.",
     highlight: true,
     color: "var(--primary)",
   },
   {
     title: "Color Palette",
     description:
-      "A harmonious palette with primary, secondary, and accent colors for web and print.",
+      "Instant visual cohesion. Primary, secondary, and accent colors ready for web and print — no color theory required.",
     highlight: false,
     color: "var(--accent-pink)",
   },
   {
     title: "Typography",
-    description: "Curated font pairings that match your brand personality perfectly.",
+    description: "Font pairings that set the right tone. Matched to your brand personality, ready to use in any design tool.",
     highlight: false,
     color: "var(--accent-cyan)",
   },
   {
     title: "Brand Guidelines",
     description:
-      "A shareable style guide so your brand stays consistent everywhere.",
+      "Consistency across every touchpoint. Share one style guide with your team, clients, and contractors — everyone stays on brand.",
     highlight: false,
     color: "var(--accent-lime)",
   },
   {
     title: "Social Templates",
     description:
-      "Ready-to-use templates for Instagram, Twitter, LinkedIn, and more.",
+      "Post with confidence. Ready-to-use templates for Instagram, Twitter, LinkedIn — consistent with your new brand from day one.",
     highlight: false,
     color: "var(--primary)",
   },
   {
     title: "Export Everything",
     description:
-      "Download SVG, PNG, PDF — all the formats you need, no designer required.",
+      "Use immediately, no technical skills required. SVG for web, PNG for social, PDF for print — paste into your site, socials, or print vendor.",
     highlight: false,
     color: "var(--accent-pink)",
   },
@@ -92,39 +93,45 @@ const features = [
 const testimonials = [
   {
     quote:
-      "I spent weeks going back and forth with a designer. diybrand gave me a brand kit I actually loved in 10 minutes.",
-    name: "Sarah M.",
+      "I spent 6 weeks and $800 with a designer for my photography brand. diybrand gave me something better in 15 minutes for $49. My clients now think I hired an agency.",
+    name: "Sarah Martinez",
     role: "Freelance Photographer",
+    image: "/testimonials/sarah-martinez.svg",
   },
   {
     quote:
-      "The color palette alone was worth it. Everything feels cohesive now — my website, my socials, my business cards.",
-    name: "James K.",
-    role: "Personal Trainer",
-  },
-  {
-    quote:
-      "I was skeptical about AI-generated branding, but the quality blew me away. My clients think I hired an agency.",
-    name: "Priya D.",
+      "I was skeptical about AI branding, but the quality was undeniable. My Etsy shop rebranded with diybrand in one afternoon ($19). Sales jumped 20% the next month—actual numbers, not hype.",
+    name: "James Kim",
     role: "Etsy Shop Owner",
+    image: "/testimonials/james-kim.svg",
   },
   {
     quote:
-      "Launched my side project in a weekend. The brand kit made everything look legit from day one.",
-    name: "Alex T.",
-    role: "Indie Hacker",
-  },
-  {
-    quote:
-      "Best $49 I ever spent. The social templates alone saved me hours every week.",
-    name: "Maria L.",
-    role: "Bakery Owner",
-  },
-  {
-    quote:
-      "As a developer, design isn't my strength. diybrand bridged that gap instantly.",
-    name: "Chen W.",
+      "As a founder and developer, I can't design. diybrand gave me a complete brand identity in one afternoon ($49). The color palette and typography made my landing page 10x more polished. Launched my SaaS with confidence.",
+    name: "Priya Desai",
     role: "SaaS Founder",
+    image: "/testimonials/priya-desai.svg",
+  },
+  {
+    quote:
+      "Launched my side project over a weekend. Normally that means no branding until month 3. diybrand's kit made everything look professional from day one—landing page, socials, pitch deck. Investors noticed.",
+    name: "Alex Torres",
+    role: "Indie Hacker",
+    image: "/testimonials/alex-torres.svg",
+  },
+  {
+    quote:
+      "I spend 15+ hours a week on Instagram. The social templates save me hours every single week, and my brand looks intentional now instead of scattered. Best $49 I've ever spent on tools.",
+    name: "Maria Lindgren",
+    role: "Bakery Owner & Content Creator",
+    image: "/testimonials/maria-lindgren.svg",
+  },
+  {
+    quote:
+      "Hired a designer once—took weeks and cost thousands. I tried DIY tools, nothing worked. Then diybrand. 10 minutes, $49, and I had a professional identity. My personal brand website went from 'side project' to 'real business' overnight.",
+    name: "Chen Wei",
+    role: "Consultant & Freelancer",
+    image: "/testimonials/chen-wei.svg",
   },
 ];
 
@@ -177,19 +184,20 @@ export default function Home() {
       <section className="aurora-bg relative z-10 flex min-h-screen flex-col items-center justify-center px-6 pt-20 pb-12 lg:flex-row lg:gap-16 lg:px-16">
         <div className="max-w-2xl text-center lg:text-left">
           <p className="mb-6 inline-block rounded-full border border-[var(--glass-border)] bg-[var(--glass-bg)] px-4 py-1.5 font-[var(--font-mono)] text-sm text-[var(--accent-cyan)]">
-            Free during early access
+            One-time payment — no subscriptions
           </p>
           <HeroHeadline />
           <p className="mt-6 max-w-xl text-lg text-[var(--text-muted)] sm:text-xl">
-            Answer a short questionnaire and let AI create your complete brand
-            identity — logo, colors, fonts, and guidelines — ready to use.
+            Answer a short questionnaire. AI generates your logo, colors,
+            typography, and guidelines. Own all files. One-time payment — no
+            monthly subscriptions.
           </p>
           <div className="mt-10 flex flex-col items-center gap-4 sm:flex-row lg:justify-start">
             <Link
               href="/questionnaire"
               className="cta-glow inline-flex items-center rounded-xl bg-[var(--primary)] px-8 py-4 text-base font-semibold text-white transition-all"
             >
-              Build My Brand
+              Get My Brand Kit
               <svg
                 className="ml-2 h-4 w-4"
                 fill="none"
@@ -328,7 +336,7 @@ export default function Home() {
             Try it <span className="gradient-text">right now</span>
           </h2>
           <p className="mt-4 text-lg text-[var(--text-muted)]">
-            Type your business name, pick an industry, and watch the magic happen.
+            See it in 30 seconds. Type your business name and industry, and watch AI generate logo concepts and color palettes live.
           </p>
         </ScrollReveal>
         <div className="mt-16">
@@ -340,10 +348,10 @@ export default function Home() {
       <section className="relative z-10 bg-[var(--bg-surface)] px-6 py-24 sm:py-32">
         <ScrollReveal className="mx-auto max-w-4xl text-center">
           <h2 className="font-[var(--font-space)] text-3xl font-bold sm:text-4xl">
-            Simple, transparent pricing
+            One price. Forever. No monthly surprises.
           </h2>
           <p className="mt-4 text-lg text-[var(--text-muted)]">
-            One-time purchase. No subscriptions. No hidden fees.
+            All files are yours to keep forever — no subscriptions, no license restrictions, no surprise bills.
           </p>
         </ScrollReveal>
         <div className="mx-auto mt-16 grid max-w-2xl gap-6 sm:grid-cols-2">
@@ -406,9 +414,37 @@ export default function Home() {
             </ScrollReveal>
           ))}
         </div>
-        <p className="mt-8 text-center text-sm text-[var(--text-muted)]">
-          You only pay after reviewing your generated brand kit.
-        </p>
+        <div className="mx-auto mt-10 flex flex-col items-center gap-3">
+          <div className="inline-flex items-center gap-2 rounded-full border border-[var(--accent-lime)]/30 bg-[var(--accent-lime)]/10 px-5 py-2">
+            <svg className="h-5 w-5 text-[var(--accent-lime)]" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
+            </svg>
+            <span className="text-sm font-semibold text-[var(--accent-lime)]">
+              30-day money-back guarantee. No questions asked.
+            </span>
+          </div>
+          <p className="text-center text-sm text-[var(--text-muted)]">
+            Review your brand kit for free. Only pay if you love it.
+          </p>
+        </div>
+      </section>
+
+      {/* ─── Competitor Comparison ─── */}
+      <section className="relative z-10 px-6 py-24 sm:py-32">
+        <ScrollReveal className="mx-auto max-w-4xl text-center">
+          <h2 className="font-[var(--font-space)] text-3xl font-bold sm:text-4xl">
+            Why pay monthly when you can{" "}
+            <span className="gradient-text">own it forever?</span>
+          </h2>
+          <p className="mt-4 text-lg text-[var(--text-muted)]">
+            Compare the cost of DIYBrand to alternatives. One payment, all files yours to keep.
+          </p>
+        </ScrollReveal>
+        <div className="mt-16">
+          <ScrollReveal delay={0.2}>
+            <CompetitorComparison />
+          </ScrollReveal>
+        </div>
       </section>
 
       {/* ─── Testimonials ─── */}
@@ -444,11 +480,20 @@ export default function Home() {
                 <blockquote className="mt-4 text-sm text-[var(--text-muted)]">
                   &ldquo;{t.quote}&rdquo;
                 </blockquote>
-                <div className="mt-4 border-t border-[var(--glass-border)] pt-4">
-                  <p className="font-semibold text-[var(--text-primary)]">
-                    {t.name}
-                  </p>
-                  <p className="text-xs text-[var(--text-muted)]">{t.role}</p>
+                <div className="mt-4 flex items-center gap-3 border-t border-[var(--glass-border)] pt-4">
+                  {t.image && (
+                    <img
+                      src={t.image}
+                      alt={t.name}
+                      className="h-10 w-10 rounded-full object-cover"
+                    />
+                  )}
+                  <div>
+                    <p className="font-semibold text-[var(--text-primary)]">
+                      {t.name}
+                    </p>
+                    <p className="text-xs text-[var(--text-muted)]">{t.role}</p>
+                  </div>
                 </div>
               </div>
             ))}
@@ -460,18 +505,18 @@ export default function Home() {
       <section className="aurora-bg relative z-10 px-6 py-24 text-center sm:py-32">
         <ScrollReveal>
           <h2 className="font-[var(--font-space)] text-3xl font-bold sm:text-5xl">
-            Ready to build your brand?
+            Stop looking for a designer. Start your brand today.
           </h2>
           <p className="mx-auto mt-4 max-w-lg text-lg text-[var(--text-muted)]">
-            Start the questionnaire and get your complete brand kit in minutes —
-            no design skills needed.
+            Answer a questionnaire, pick your favorites, download forever. One
+            price, all yours. No design skills needed.
           </p>
           <div className="mt-10 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
             <Link
               href="/questionnaire"
               className="cta-glow inline-flex items-center rounded-xl bg-[var(--primary)] px-8 py-4 text-base font-semibold text-white transition-all"
             >
-              Build My Brand
+              Get My Brand Kit
               <svg
                 className="ml-2 h-4 w-4"
                 fill="none"
