@@ -9,6 +9,7 @@ import { StepInspiration } from "./steps/StepInspiration";
 import { StepReview } from "./steps/StepReview";
 import { StepPalette } from "./steps/StepPalette";
 import { StepTypography } from "./steps/StepTypography";
+import { StepLogo } from "./steps/StepLogo";
 
 export type QuestionnaireData = {
   id?: string;
@@ -39,6 +40,7 @@ const STEP_LABELS = [
   "Review",
   "Colors",
   "Typography",
+  "Logo",
 ];
 
 export function BrandWizard() {
@@ -193,7 +195,16 @@ export function BrandWizard() {
           <StepTypography
             questionnaireId={data.id}
             onComplete={() => {
-              saveProgress(7, true);
+              saveProgress(8);
+              setStep(8);
+            }}
+          />
+        )}
+        {step === 8 && data.id && (
+          <StepLogo
+            questionnaireId={data.id}
+            onComplete={() => {
+              saveProgress(8, true);
               setSubmitted(true);
             }}
           />

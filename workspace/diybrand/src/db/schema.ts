@@ -56,3 +56,16 @@ export const brandTypography = pgTable("brand_typography", {
   selected: boolean("selected").default(false).notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
+
+export const brandLogos = pgTable("brand_logos", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  questionnaireId: uuid("questionnaire_id")
+    .notNull()
+    .references(() => brandQuestionnaire.id),
+  name: varchar("name", { length: 100 }).notNull(),
+  variant: varchar("variant", { length: 50 }).notNull(), // "wordmark" | "icon"
+  imageData: text("image_data").notNull(), // base64 data URI
+  prompt: text("prompt").notNull(),
+  selected: boolean("selected").default(false).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
