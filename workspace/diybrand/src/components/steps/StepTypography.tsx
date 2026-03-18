@@ -99,23 +99,23 @@ export function StepTypography({ questionnaireId, onComplete }: Props) {
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center py-16" role="status" aria-busy="true" aria-live="polite">
-        <div className="h-10 w-10 animate-spin rounded-full border-4 border-violet-200 border-t-violet-600" aria-hidden="true" />
-        <p className="mt-4 text-sm text-gray-500">Finding the perfect font pairs...</p>
+        <div className="h-10 w-10 animate-spin rounded-full border-4 border-white/10 border-t-[var(--accent-cyan)]" aria-hidden="true" />
+        <p className="mt-4 text-sm" style={{ color: "var(--text-muted)" }}>Finding the perfect font pairs...</p>
       </div>
     );
   }
 
   if (error && pairs.length === 0) {
     return (
-      <div className="rounded-lg bg-red-50 p-6 text-center" role="alert">
-        <p className="text-sm text-red-700">{error}</p>
+      <div className="rounded-lg bg-red-500/10 border border-red-500/20 p-6 text-center" role="alert">
+        <p className="text-sm text-red-400">{error}</p>
         <button
           type="button"
           onClick={() => {
             generateCalled.current = false;
             generate();
           }}
-          className="mt-4 rounded-lg bg-violet-600 px-5 py-2 text-sm font-semibold text-white hover:bg-violet-700"
+          className="cta-glow mt-4 rounded-lg bg-[var(--primary)] px-5 py-2 text-sm font-semibold text-white hover:brightness-110"
         >
           Retry
         </button>
@@ -128,8 +128,8 @@ export function StepTypography({ questionnaireId, onComplete }: Props) {
   return (
     <div className="space-y-6">
       <div>
-        <h3 className="text-lg font-semibold text-gray-900">Choose your typography</h3>
-        <p className="mt-1 text-sm text-gray-500">
+        <h3 className="text-lg font-semibold text-[var(--text-primary)]">Choose your typography</h3>
+        <p className="mt-1 text-sm" style={{ color: "var(--text-muted)" }}>
           We paired heading and body fonts based on your brand personality.
           Pick the combination that feels right.
         </p>
@@ -148,16 +148,16 @@ export function StepTypography({ questionnaireId, onComplete }: Props) {
               onClick={() => handleSelect(pair.id)}
               className={`group rounded-xl border-2 p-5 text-left transition-all ${
                 isSelected
-                  ? "border-violet-600 ring-2 ring-violet-200"
-                  : "border-gray-200 hover:border-gray-300"
+                  ? "border-[var(--primary)] shadow-[0_0_30px_var(--primary)30]"
+                  : "border-white/10 hover:border-white/20 hover:bg-white/5"
               }`}
             >
               <div className="mb-4 flex items-center justify-between">
-                <span className="text-sm font-semibold text-gray-900">
+                <span className="text-sm font-semibold text-[var(--text-primary)]">
                   {pair.name}
                 </span>
                 {isSelected && (
-                  <span className="rounded-full bg-violet-100 px-2 py-0.5 text-xs font-medium text-violet-700">
+                  <span className="rounded-full bg-[var(--primary)]/20 border border-[var(--primary)]/30 px-2 py-0.5 text-xs font-medium text-[var(--primary)]">
                     ✓ Selected
                   </span>
                 )}
@@ -165,11 +165,11 @@ export function StepTypography({ questionnaireId, onComplete }: Props) {
 
               {/* Font preview */}
               <div
-                className="rounded-lg bg-gray-50 p-4"
+                className="rounded-lg bg-white/5 p-4"
                 style={{ opacity: fontsLoaded ? 1 : 0.6, transition: "opacity 0.3s" }}
               >
                 <p
-                  className="text-2xl leading-tight text-gray-900"
+                  className="text-2xl leading-tight text-[var(--text-primary)]"
                   style={{
                     fontFamily: `"${pair.heading.family}", ${pair.heading.category}`,
                     fontWeight: pair.heading.weight,
@@ -178,10 +178,11 @@ export function StepTypography({ questionnaireId, onComplete }: Props) {
                   The quick brown fox
                 </p>
                 <p
-                  className="mt-2 text-sm leading-relaxed text-gray-600"
+                  className="mt-2 text-sm leading-relaxed"
                   style={{
                     fontFamily: `"${pair.body.family}", ${pair.body.category}`,
                     fontWeight: pair.body.weight,
+                    color: "var(--text-muted)",
                   }}
                 >
                   Pack my box with five dozen liquor jugs. The quick brown fox
@@ -191,20 +192,20 @@ export function StepTypography({ questionnaireId, onComplete }: Props) {
 
               {/* Font details */}
               <div className="mt-3 space-y-1">
-                <div className="flex items-center gap-2 text-xs text-gray-500">
-                  <span className="inline-block w-14 font-medium text-gray-700">Heading</span>
+                <div className="flex items-center gap-2 text-xs" style={{ color: "var(--text-muted)" }}>
+                  <span className="inline-block w-14 font-medium text-[var(--text-primary)]">Heading</span>
                   <span>{pair.heading.family}</span>
-                  <span className="text-gray-300">·</span>
+                  <span className="text-white/20">·</span>
                   <span>{pair.heading.weight}</span>
-                  <span className="text-gray-300">·</span>
+                  <span className="text-white/20">·</span>
                   <span>{pair.heading.category}</span>
                 </div>
-                <div className="flex items-center gap-2 text-xs text-gray-500">
-                  <span className="inline-block w-14 font-medium text-gray-700">Body</span>
+                <div className="flex items-center gap-2 text-xs" style={{ color: "var(--text-muted)" }}>
+                  <span className="inline-block w-14 font-medium text-[var(--text-primary)]">Body</span>
                   <span>{pair.body.family}</span>
-                  <span className="text-gray-300">·</span>
+                  <span className="text-white/20">·</span>
                   <span>{pair.body.weight}</span>
-                  <span className="text-gray-300">·</span>
+                  <span className="text-white/20">·</span>
                   <span>{pair.body.category}</span>
                 </div>
               </div>
@@ -218,7 +219,7 @@ export function StepTypography({ questionnaireId, onComplete }: Props) {
       </div>
 
       {error && pairs.length > 0 && (
-        <p className="text-sm text-red-600" role="alert">{error}</p>
+        <p className="text-sm text-red-400" role="alert">{error}</p>
       )}
 
       {selectedId && (
@@ -227,7 +228,7 @@ export function StepTypography({ questionnaireId, onComplete }: Props) {
             type="button"
             onClick={onComplete}
             disabled={saving}
-            className="rounded-lg bg-violet-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-violet-700 disabled:opacity-50"
+            className="cta-glow rounded-lg bg-[var(--primary)] px-6 py-2.5 text-sm font-semibold text-white hover:brightness-110 disabled:opacity-50 transition-all"
           >
             {saving ? "Saving..." : "Continue with this typography"}
           </button>

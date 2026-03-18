@@ -17,10 +17,10 @@ export function StepProgress({ currentStep, labels }: StepProgressProps) {
               key={i}
               className={`h-2 flex-1 rounded-full transition-colors ${
                 isComplete
-                  ? "bg-violet-600"
+                  ? "bg-[var(--primary)]"
                   : isActive
-                    ? "bg-violet-400"
-                    : "bg-gray-200"
+                    ? "bg-[var(--accent-cyan)]"
+                    : "bg-white/10"
               }`}
               aria-hidden="true"
             />
@@ -30,10 +30,10 @@ export function StepProgress({ currentStep, labels }: StepProgressProps) {
 
       {/* Step label */}
       <div className="flex items-center justify-between text-sm">
-        <span className="font-medium text-gray-900">
+        <span className="font-medium" style={{ color: "var(--text-primary)" }}>
           Step {currentStep}: {labels[currentStep - 1]}
         </span>
-        <span className="text-gray-400" aria-hidden="true">
+        <span style={{ color: "var(--text-muted)" }} aria-hidden="true">
           {currentStep} of {labels.length}
         </span>
       </div>

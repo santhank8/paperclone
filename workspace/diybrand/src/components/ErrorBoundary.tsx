@@ -35,10 +35,11 @@ export class ErrorBoundary extends Component<Props, State> {
       if (this.props.fallback) return this.props.fallback;
 
       return (
-        <div className="rounded-xl bg-white p-8 text-center shadow-sm ring-1 ring-gray-200">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-red-100">
+        <div className="glass neon-glow-pink rounded-2xl p-8 text-center">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full" style={{ background: "rgba(247, 37, 133, 0.15)" }}>
             <svg
-              className="h-7 w-7 text-red-600"
+              className="h-7 w-7"
+              style={{ color: "var(--accent-pink)" }}
               fill="none"
               viewBox="0 0 24 24"
               strokeWidth={2}
@@ -51,16 +52,16 @@ export class ErrorBoundary extends Component<Props, State> {
               />
             </svg>
           </div>
-          <h3 className="mt-4 text-lg font-semibold text-gray-900">
+          <h3 className="mt-4 text-lg font-semibold text-[var(--text-primary)]">
             Something went wrong
           </h3>
-          <p className="mt-2 text-sm text-gray-500">
+          <p className="mt-2 text-sm" style={{ color: "var(--text-muted)" }}>
             An unexpected error occurred. Your progress has been saved.
           </p>
           <button
             type="button"
             onClick={this.handleReset}
-            className="mt-6 rounded-lg bg-violet-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-violet-700"
+            className="cta-glow mt-6 rounded-lg bg-[var(--primary)] px-6 py-2.5 text-sm font-semibold text-white hover:brightness-110"
           >
             Try again
           </button>

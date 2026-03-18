@@ -23,11 +23,15 @@ const INDUSTRIES = [
   "Other",
 ];
 
+const inputBase =
+  "mt-1.5 block w-full rounded-lg border border-white/10 bg-white/5 px-3.5 py-2.5 text-sm text-[var(--text-primary)] shadow-sm placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-[var(--primary)] transition-colors";
+const inputError = "border-red-400/60";
+
 export function StepBusinessBasics({ data, updateData, errors }: Props) {
   return (
     <div className="space-y-5">
       <div>
-        <label htmlFor="businessName" className="block text-sm font-medium text-gray-900">
+        <label htmlFor="businessName" className="block text-sm font-medium text-[var(--text-primary)]">
           Business name
         </label>
         <input
@@ -38,17 +42,15 @@ export function StepBusinessBasics({ data, updateData, errors }: Props) {
           placeholder="e.g. Sunrise Coffee Co."
           aria-invalid={!!errors.businessName}
           aria-describedby={errors.businessName ? "businessName-error" : undefined}
-          className={`mt-1.5 block w-full rounded-lg border px-3.5 py-2.5 text-sm shadow-sm placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-violet-500 ${
-            errors.businessName ? "border-red-300" : "border-gray-300"
-          }`}
+          className={`${inputBase} ${errors.businessName ? inputError : ""}`}
         />
         {errors.businessName && (
-          <p id="businessName-error" className="mt-1 text-sm text-red-600" role="alert">{errors.businessName}</p>
+          <p id="businessName-error" className="mt-1 text-sm text-[var(--accent-pink)]" role="alert">{errors.businessName}</p>
         )}
       </div>
 
       <div>
-        <label htmlFor="industry" className="block text-sm font-medium text-gray-900">
+        <label htmlFor="industry" className="block text-sm font-medium text-[var(--text-primary)]">
           Industry
         </label>
         <select
@@ -57,9 +59,7 @@ export function StepBusinessBasics({ data, updateData, errors }: Props) {
           onChange={(e) => updateData({ industry: e.target.value })}
           aria-invalid={!!errors.industry}
           aria-describedby={errors.industry ? "industry-error" : undefined}
-          className={`mt-1.5 block w-full rounded-lg border px-3.5 py-2.5 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-violet-500 ${
-            errors.industry ? "border-red-300" : "border-gray-300"
-          } ${!data.industry ? "text-gray-400" : ""}`}
+          className={`${inputBase} ${errors.industry ? inputError : ""} ${!data.industry ? "text-white/30" : ""}`}
         >
           <option value="">Select an industry</option>
           {INDUSTRIES.map((ind) => (
@@ -69,12 +69,12 @@ export function StepBusinessBasics({ data, updateData, errors }: Props) {
           ))}
         </select>
         {errors.industry && (
-          <p id="industry-error" className="mt-1 text-sm text-red-600" role="alert">{errors.industry}</p>
+          <p id="industry-error" className="mt-1 text-sm text-[var(--accent-pink)]" role="alert">{errors.industry}</p>
         )}
       </div>
 
       <div>
-        <label htmlFor="businessDescription" className="block text-sm font-medium text-gray-900">
+        <label htmlFor="businessDescription" className="block text-sm font-medium text-[var(--text-primary)]">
           Describe your business in a few sentences
         </label>
         <textarea
@@ -85,12 +85,10 @@ export function StepBusinessBasics({ data, updateData, errors }: Props) {
           placeholder="What do you do? What makes you different?"
           aria-invalid={!!errors.businessDescription}
           aria-describedby={errors.businessDescription ? "businessDescription-error" : undefined}
-          className={`mt-1.5 block w-full rounded-lg border px-3.5 py-2.5 text-sm shadow-sm placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-violet-500 ${
-            errors.businessDescription ? "border-red-300" : "border-gray-300"
-          }`}
+          className={`${inputBase} ${errors.businessDescription ? inputError : ""}`}
         />
         {errors.businessDescription && (
-          <p id="businessDescription-error" className="mt-1 text-sm text-red-600" role="alert">{errors.businessDescription}</p>
+          <p id="businessDescription-error" className="mt-1 text-sm text-[var(--accent-pink)]" role="alert">{errors.businessDescription}</p>
         )}
       </div>
     </div>

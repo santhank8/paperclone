@@ -83,23 +83,23 @@ export function StepPalette({ questionnaireId, onComplete }: Props) {
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center py-16" role="status" aria-busy="true" aria-live="polite">
-        <div className="h-10 w-10 animate-spin rounded-full border-4 border-violet-200 border-t-violet-600" aria-hidden="true" />
-        <p className="mt-4 text-sm text-gray-500">Generating your color palettes...</p>
+        <div className="h-10 w-10 animate-spin rounded-full border-4 border-white/10 border-t-[var(--accent-cyan)]" aria-hidden="true" />
+        <p className="mt-4 text-sm" style={{ color: "var(--text-muted)" }}>Generating your color palettes...</p>
       </div>
     );
   }
 
   if (error && palettes.length === 0) {
     return (
-      <div className="rounded-lg bg-red-50 p-6 text-center" role="alert">
-        <p className="text-sm text-red-700">{error}</p>
+      <div className="rounded-lg bg-red-500/10 border border-red-500/20 p-6 text-center" role="alert">
+        <p className="text-sm text-red-400">{error}</p>
         <button
           type="button"
           onClick={() => {
             generateCalled.current = false;
             generate();
           }}
-          className="mt-4 rounded-lg bg-violet-600 px-5 py-2 text-sm font-semibold text-white hover:bg-violet-700"
+          className="cta-glow mt-4 rounded-lg bg-[var(--primary)] px-5 py-2 text-sm font-semibold text-white hover:brightness-110"
         >
           Retry
         </button>
@@ -112,8 +112,8 @@ export function StepPalette({ questionnaireId, onComplete }: Props) {
   return (
     <div className="space-y-6">
       <div>
-        <h3 className="text-lg font-semibold text-gray-900">Choose your color palette</h3>
-        <p className="mt-1 text-sm text-gray-500">
+        <h3 className="text-lg font-semibold text-[var(--text-primary)]">Choose your color palette</h3>
+        <p className="mt-1 text-sm" style={{ color: "var(--text-muted)" }}>
           We generated these palettes based on your industry and brand personality.
           Pick the one that feels right.
         </p>
@@ -132,16 +132,16 @@ export function StepPalette({ questionnaireId, onComplete }: Props) {
               onClick={() => handleSelect(palette.id)}
               className={`group rounded-xl border-2 p-4 text-left transition-all ${
                 isSelected
-                  ? "border-violet-600 ring-2 ring-violet-200"
-                  : "border-gray-200 hover:border-gray-300"
+                  ? "border-[var(--primary)] shadow-[0_0_30px_var(--primary)30]"
+                  : "border-white/10 hover:border-white/20 hover:bg-white/5"
               }`}
             >
               <div className="mb-3 flex items-center justify-between">
-                <span className="text-sm font-semibold text-gray-900">
+                <span className="text-sm font-semibold text-[var(--text-primary)]">
                   {palette.name}
                 </span>
                 {isSelected && (
-                  <span className="rounded-full bg-violet-100 px-2 py-0.5 text-xs font-medium text-violet-700">
+                  <span className="rounded-full bg-[var(--primary)]/20 border border-[var(--primary)]/30 px-2 py-0.5 text-xs font-medium text-[var(--primary)]">
                     ✓ Selected
                   </span>
                 )}
@@ -167,14 +167,14 @@ export function StepPalette({ questionnaireId, onComplete }: Props) {
                 {palette.colors.map((c) => (
                   <div key={c.role} className="flex items-center gap-1.5">
                     <span
-                      className="inline-block h-4 w-4 rounded-full border border-gray-200"
+                      className="inline-block h-4 w-4 rounded-full border border-white/20"
                       style={{ backgroundColor: c.hex }}
                       aria-hidden="true"
                     />
-                    <span className="text-xs text-gray-500">
+                    <span className="text-xs" style={{ color: "var(--text-muted)" }}>
                       {ROLE_LABELS[c.role] ?? c.role}
                     </span>
-                    <span className="font-mono text-xs text-gray-400">
+                    <span className="font-mono text-xs text-white/30">
                       {c.hex}
                     </span>
                   </div>
@@ -211,7 +211,7 @@ export function StepPalette({ questionnaireId, onComplete }: Props) {
       </div>
 
       {error && palettes.length > 0 && (
-        <p className="text-sm text-red-600" role="alert">{error}</p>
+        <p className="text-sm text-red-400" role="alert">{error}</p>
       )}
 
       {selectedId && (
@@ -220,7 +220,7 @@ export function StepPalette({ questionnaireId, onComplete }: Props) {
             type="button"
             onClick={onComplete}
             disabled={saving}
-            className="rounded-lg bg-violet-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-violet-700 disabled:opacity-50"
+            className="cta-glow rounded-lg bg-[var(--primary)] px-6 py-2.5 text-sm font-semibold text-white hover:brightness-110 disabled:opacity-50 transition-all"
           >
             {saving ? "Saving..." : "Continue with this palette"}
           </button>

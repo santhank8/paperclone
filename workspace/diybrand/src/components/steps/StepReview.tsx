@@ -7,8 +7,8 @@ type Props = {
 function ReviewSection({ label, value }: { label: string; value: string | undefined }) {
   return (
     <div>
-      <dt className="text-sm font-medium text-gray-500">{label}</dt>
-      <dd className="mt-1 text-sm text-gray-900">{value || "—"}</dd>
+      <dt className="text-sm font-medium" style={{ color: "var(--text-muted)" }}>{label}</dt>
+      <dd className="mt-1 text-sm text-[var(--text-primary)]">{value || "—"}</dd>
     </div>
   );
 }
@@ -17,13 +17,13 @@ export function StepReview({ data }: Props) {
   return (
     <div className="space-y-5">
       <div>
-        <h3 className="text-lg font-semibold text-gray-900">Review your answers</h3>
-        <p className="mt-1 text-sm text-gray-500">
+        <h3 className="text-lg font-semibold text-[var(--text-primary)]">Review your answers</h3>
+        <p className="mt-1 text-sm" style={{ color: "var(--text-muted)" }}>
           Make sure everything looks good before submitting. You can go back to edit any step.
         </p>
       </div>
 
-      <dl className="divide-y divide-gray-100 rounded-lg bg-gray-50 px-5 py-1">
+      <dl className="divide-y divide-white/10 rounded-lg bg-white/5 px-5 py-1">
         <div className="py-4">
           <ReviewSection label="Business name" value={data.businessName} />
         </div>
@@ -37,19 +37,19 @@ export function StepReview({ data }: Props) {
           <ReviewSection label="Target audience" value={data.targetAudience} />
         </div>
         <div className="py-4">
-          <dt className="text-sm font-medium text-gray-500">Brand personality</dt>
+          <dt className="text-sm font-medium" style={{ color: "var(--text-muted)" }}>Brand personality</dt>
           <dd className="mt-2 flex flex-wrap gap-2">
             {data.brandPersonality.length > 0 ? (
               data.brandPersonality.map((adj) => (
                 <span
                   key={adj}
-                  className="rounded-full bg-violet-100 px-3 py-1 text-sm font-medium text-violet-700"
+                  className="rounded-full border border-[var(--primary)]/30 bg-[var(--primary)]/20 px-3 py-1 text-sm font-medium text-[var(--primary)]"
                 >
                   {adj}
                 </span>
               ))
             ) : (
-              <span className="text-sm text-gray-900">—</span>
+              <span className="text-sm text-[var(--text-primary)]">—</span>
             )}
           </dd>
         </div>

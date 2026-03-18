@@ -42,8 +42,8 @@ export function StepBrandPersonality({ data, updateData, errors }: Props) {
   return (
     <div className="space-y-5">
       <div>
-        <h3 className="text-lg font-semibold text-gray-900">Brand personality</h3>
-        <p className="mt-1 text-sm text-gray-500">
+        <h3 className="text-lg font-semibold text-[var(--text-primary)]">Brand personality</h3>
+        <p className="mt-1 text-sm" style={{ color: "var(--text-muted)" }}>
           Select 3 to 5 adjectives that best describe how your brand should feel.
         </p>
       </div>
@@ -57,10 +57,10 @@ export function StepBrandPersonality({ data, updateData, errors }: Props) {
               type="button"
               onClick={() => toggle(adj)}
               aria-pressed={selected}
-              className={`rounded-full border px-4 py-2 text-sm font-medium transition-colors ${
+              className={`rounded-full border px-4 py-2 text-sm font-medium transition-all ${
                 selected
-                  ? "border-violet-600 bg-violet-600 text-white"
-                  : "border-gray-300 bg-white text-gray-700 hover:border-violet-300 hover:bg-violet-50"
+                  ? "border-[var(--primary)] bg-[var(--primary)] text-white shadow-[0_0_20px_var(--primary)]"
+                  : "border-white/15 bg-white/5 text-[var(--text-primary)] hover:border-[var(--primary)]/50 hover:bg-white/10"
               }`}
             >
               {selected ? `✓ ${adj}` : adj}
@@ -70,11 +70,11 @@ export function StepBrandPersonality({ data, updateData, errors }: Props) {
       </div>
 
       {errors.brandPersonality && (
-        <p className="text-sm text-red-600" role="alert">{errors.brandPersonality}</p>
+        <p className="text-sm text-[var(--accent-pink)]" role="alert">{errors.brandPersonality}</p>
       )}
 
       {data.brandPersonality.length > 0 && (
-        <p className="text-sm text-gray-500">
+        <p className="text-sm" style={{ color: "var(--text-muted)" }}>
           Selected: {data.brandPersonality.join(", ")} ({data.brandPersonality.length}/5)
         </p>
       )}

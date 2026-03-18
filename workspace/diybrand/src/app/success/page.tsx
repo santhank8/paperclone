@@ -7,10 +7,11 @@ export default function SuccessPage() {
   return (
     <Suspense
       fallback={
-        <main id="main-content" className="flex min-h-screen items-center justify-center bg-gray-50">
-          <div className="text-center">
-            <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-violet-300 border-t-violet-600" />
-            <p className="mt-4 text-sm text-gray-500">Loading...</p>
+        <main id="main-content" className="relative flex min-h-screen items-center justify-center overflow-hidden" style={{ background: "var(--bg-void)" }}>
+          <div className="aurora-bg pointer-events-none fixed inset-0 opacity-60" />
+          <div className="relative z-10 text-center">
+            <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-white/10 border-t-[var(--accent-cyan)]" />
+            <p className="mt-4 text-sm" style={{ color: "var(--text-muted)" }}>Loading...</p>
           </div>
         </main>
       }
@@ -83,10 +84,11 @@ function SuccessContent() {
 
   if (state === "loading") {
     return (
-      <main id="main-content" className="flex min-h-screen items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-violet-300 border-t-violet-600" />
-          <p className="mt-4 text-sm text-gray-500">
+      <main id="main-content" className="relative flex min-h-screen items-center justify-center overflow-hidden" style={{ background: "var(--bg-void)" }}>
+        <div className="aurora-bg pointer-events-none fixed inset-0 opacity-60" />
+        <div className="relative z-10 text-center">
+          <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-white/10 border-t-[var(--accent-cyan)]" />
+          <p className="mt-4 text-sm" style={{ color: "var(--text-muted)" }}>
             Verifying your payment...
           </p>
         </div>
@@ -96,11 +98,13 @@ function SuccessContent() {
 
   if (state === "error") {
     return (
-      <main id="main-content" className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
-        <div className="max-w-sm text-center">
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-red-100">
+      <main id="main-content" className="relative flex min-h-screen items-center justify-center overflow-hidden px-4" style={{ background: "var(--bg-void)" }}>
+        <div className="aurora-bg pointer-events-none fixed inset-0 opacity-60" />
+        <div className="relative z-10 max-w-sm text-center">
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full" style={{ background: "rgba(247, 37, 133, 0.15)", boxShadow: "0 0 30px rgba(247, 37, 133, 0.2)" }}>
             <svg
-              className="h-8 w-8 text-red-600"
+              className="h-8 w-8"
+              style={{ color: "var(--accent-pink)" }}
               fill="none"
               viewBox="0 0 24 24"
               strokeWidth={2}
@@ -113,16 +117,17 @@ function SuccessContent() {
               />
             </svg>
           </div>
-          <h1 className="mt-4 text-xl font-bold text-gray-900">
+          <h1 className="mt-4 text-xl font-bold text-[var(--text-primary)]">
             Payment not confirmed
           </h1>
-          <p className="mt-2 text-sm text-gray-500">
+          <p className="mt-2 text-sm" style={{ color: "var(--text-muted)" }}>
             We couldn&apos;t verify your payment. If you were charged, please
             contact support.
           </p>
           <a
             href="/"
-            className="mt-6 inline-block text-sm text-violet-600 underline hover:text-violet-700"
+            className="mt-6 inline-block text-sm underline transition-colors hover:text-[var(--text-primary)]"
+            style={{ color: "var(--primary)" }}
           >
             Back to home
           </a>
@@ -132,11 +137,13 @@ function SuccessContent() {
   }
 
   return (
-    <main id="main-content" className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
-      <div className="max-w-md text-center">
-        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100">
+    <main id="main-content" className="relative flex min-h-screen items-center justify-center overflow-hidden px-4" style={{ background: "var(--bg-void)" }}>
+      <div className="aurora-bg pointer-events-none fixed inset-0 opacity-60" />
+      <div className="relative z-10 max-w-md text-center">
+        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full" style={{ background: "rgba(0, 245, 255, 0.1)", boxShadow: "0 0 30px rgba(0, 245, 255, 0.25)" }}>
           <svg
-            className="h-8 w-8 text-emerald-600"
+            className="h-8 w-8"
+            style={{ color: "var(--accent-cyan)" }}
             fill="none"
             viewBox="0 0 24 24"
             strokeWidth={2}
@@ -149,10 +156,10 @@ function SuccessContent() {
             />
           </svg>
         </div>
-        <h1 className="mt-4 text-xl font-bold text-gray-900">
+        <h1 className="mt-4 text-xl font-bold text-[var(--text-primary)]">
           Payment successful!
         </h1>
-        <p className="mt-2 text-sm text-gray-500">
+        <p className="mt-2 text-sm" style={{ color: "var(--text-muted)" }}>
           Your {data?.tier === "premium" ? "Premium" : "Basic"} Brand Kit is
           ready to download.
         </p>
@@ -161,7 +168,7 @@ function SuccessContent() {
           type="button"
           onClick={handleDownload}
           disabled={downloading}
-          className="mt-6 inline-flex items-center gap-2 rounded-lg bg-violet-600 px-8 py-3 text-sm font-semibold text-white hover:bg-violet-700 disabled:opacity-50"
+          className="cta-glow mt-6 inline-flex items-center gap-2 rounded-lg bg-[var(--primary)] px-8 py-3 text-sm font-semibold text-white hover:brightness-110 disabled:opacity-50 transition-all"
         >
           {downloading ? (
             <>
@@ -191,7 +198,8 @@ function SuccessContent() {
         <div className="mt-6">
           <a
             href="/"
-            className="text-sm text-gray-500 underline hover:text-gray-700"
+            className="text-sm underline transition-colors hover:text-[var(--text-primary)]"
+            style={{ color: "var(--text-muted)" }}
           >
             Back to home
           </a>

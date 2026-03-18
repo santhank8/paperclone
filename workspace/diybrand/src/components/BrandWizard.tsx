@@ -225,17 +225,17 @@ export function BrandWizard() {
 
   if (recovering) {
     return (
-      <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-gray-200 sm:p-8">
+      <div className="glass neon-glow rounded-2xl p-6 sm:p-8">
         <div className="flex flex-col items-center justify-center py-12" role="status" aria-busy="true">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-violet-200 border-t-violet-600" aria-hidden="true" />
-          <p className="mt-3 text-sm text-gray-500">Restoring your session...</p>
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-white/10 border-t-[var(--accent-cyan)]" aria-hidden="true" />
+          <p className="mt-3 text-sm" style={{ color: "var(--text-muted)" }}>Restoring your session...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-gray-200 sm:p-8">
+    <div className="glass neon-glow rounded-2xl p-6 sm:p-8">
       <StepProgress currentStep={step} labels={STEP_LABELS} />
 
       <div className="mt-8" aria-live="polite" aria-atomic="true">
@@ -288,12 +288,12 @@ export function BrandWizard() {
       </div>
 
       {step <= 5 && (
-        <div className="mt-8 flex items-center justify-between border-t border-gray-100 pt-6">
+        <div className="mt-8 flex items-center justify-between border-t border-white/10 pt-6">
           {step > 1 ? (
             <button
               type="button"
               onClick={goBack}
-              className="rounded-lg border border-gray-300 px-5 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              className="rounded-lg border border-white/20 px-5 py-2.5 text-sm font-medium text-[var(--text-primary)] hover:border-white/40 hover:bg-white/5 transition-all"
             >
               Back
             </button>
@@ -306,7 +306,7 @@ export function BrandWizard() {
               type="button"
               onClick={goNext}
               disabled={saving}
-              className="rounded-lg bg-violet-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-violet-700 disabled:opacity-50"
+              className="cta-glow rounded-lg bg-[var(--primary)] px-6 py-2.5 text-sm font-semibold text-white hover:brightness-110 disabled:opacity-50 transition-all"
             >
               {saving ? "Saving..." : "Continue"}
             </button>
@@ -315,7 +315,7 @@ export function BrandWizard() {
               type="button"
               onClick={handleSubmit}
               disabled={saving}
-              className="rounded-lg bg-violet-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-violet-700 disabled:opacity-50"
+              className="cta-glow rounded-lg bg-[var(--primary)] px-6 py-2.5 text-sm font-semibold text-white hover:brightness-110 disabled:opacity-50 transition-all"
             >
               {saving ? "Submitting..." : "Generate palettes"}
             </button>

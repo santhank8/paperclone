@@ -107,11 +107,11 @@ export function StepLogo({ questionnaireId, onComplete }: Props) {
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center py-16" role="status" aria-busy="true" aria-live="polite">
-        <div className="h-10 w-10 animate-spin rounded-full border-4 border-violet-200 border-t-violet-600" aria-hidden="true" />
-        <p className="mt-4 text-sm text-gray-500">
+        <div className="h-10 w-10 animate-spin rounded-full border-4 border-white/10 border-t-[var(--accent-cyan)]" aria-hidden="true" />
+        <p className="mt-4 text-sm" style={{ color: "var(--text-muted)" }}>
           Generating your logo concepts...
         </p>
-        <p className="mt-2 text-xs text-gray-400">
+        <p className="mt-2 text-xs text-white/30">
           This may take a minute while our AI creates unique designs for your
           brand.
         </p>
@@ -121,17 +121,17 @@ export function StepLogo({ questionnaireId, onComplete }: Props) {
 
   if (error && logos.length === 0) {
     return (
-      <div className="rounded-lg bg-red-50 p-6 text-center" role="alert">
-        <p className="text-sm text-red-700">{error}</p>
+      <div className="rounded-lg bg-red-500/10 border border-red-500/20 p-6 text-center" role="alert">
+        <p className="text-sm text-red-400">{error}</p>
         {timedOut && (
-          <p className="mt-1 text-xs text-red-500">
+          <p className="mt-1 text-xs text-red-400/70">
             The AI took too long to respond. This can happen during peak hours.
           </p>
         )}
         <button
           type="button"
           onClick={handleRetry}
-          className="mt-4 rounded-lg bg-violet-600 px-5 py-2 text-sm font-semibold text-white hover:bg-violet-700"
+          className="cta-glow mt-4 rounded-lg bg-[var(--primary)] px-5 py-2 text-sm font-semibold text-white hover:brightness-110"
         >
           Retry
         </button>
@@ -144,10 +144,10 @@ export function StepLogo({ questionnaireId, onComplete }: Props) {
   return (
     <div className="space-y-6">
       <div>
-        <h3 className="text-lg font-semibold text-gray-900">
+        <h3 className="text-lg font-semibold text-[var(--text-primary)]">
           Choose your logo
         </h3>
-        <p className="mt-1 text-sm text-gray-500">
+        <p className="mt-1 text-sm" style={{ color: "var(--text-muted)" }}>
           We generated these logo concepts based on your brand identity. Pick
           the one that resonates most with your vision.
         </p>
@@ -166,27 +166,27 @@ export function StepLogo({ questionnaireId, onComplete }: Props) {
               onClick={() => handleSelect(logo.id)}
               className={`group rounded-xl border-2 p-4 text-left transition-all ${
                 isSelected
-                  ? "border-violet-600 ring-2 ring-violet-200"
-                  : "border-gray-200 hover:border-gray-300"
+                  ? "border-[var(--primary)] shadow-[0_0_30px_var(--primary)30]"
+                  : "border-white/10 hover:border-white/20 hover:bg-white/5"
               }`}
             >
               <div className="mb-3 flex items-center justify-between">
                 <div>
-                  <span className="text-sm font-semibold text-gray-900">
+                  <span className="text-sm font-semibold text-[var(--text-primary)]">
                     {logo.name}
                   </span>
-                  <span className="ml-2 rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-500">
+                  <span className="ml-2 rounded-full bg-white/10 px-2 py-0.5 text-xs text-white/50">
                     {logo.variant}
                   </span>
                 </div>
                 {isSelected && (
-                  <span className="rounded-full bg-violet-100 px-2 py-0.5 text-xs font-medium text-violet-700">
+                  <span className="rounded-full bg-[var(--primary)]/20 border border-[var(--primary)]/30 px-2 py-0.5 text-xs font-medium text-[var(--primary)]">
                     ✓ Selected
                   </span>
                 )}
               </div>
 
-              {/* Logo image */}
+              {/* Logo image — light bg */}
               <div className="flex items-center justify-center rounded-lg bg-white p-4">
                 <img
                   src={logo.imageUrl}
@@ -196,7 +196,7 @@ export function StepLogo({ questionnaireId, onComplete }: Props) {
               </div>
 
               {/* Dark background preview */}
-              <div className="mt-2 flex items-center justify-center rounded-lg bg-gray-900 p-4">
+              <div className="mt-2 flex items-center justify-center rounded-lg p-4" style={{ background: "var(--bg-card)" }}>
                 <img
                   src={logo.imageUrl}
                   alt={`${logo.name} on dark background`}
@@ -214,7 +214,7 @@ export function StepLogo({ questionnaireId, onComplete }: Props) {
       </div>
 
       {error && logos.length > 0 && (
-        <p className="text-sm text-red-600" role="alert">{error}</p>
+        <p className="text-sm text-red-400" role="alert">{error}</p>
       )}
 
       {selectedId && (
@@ -223,7 +223,7 @@ export function StepLogo({ questionnaireId, onComplete }: Props) {
             type="button"
             onClick={onComplete}
             disabled={saving}
-            className="rounded-lg bg-violet-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-violet-700 disabled:opacity-50"
+            className="cta-glow rounded-lg bg-[var(--primary)] px-6 py-2.5 text-sm font-semibold text-white hover:brightness-110 disabled:opacity-50 transition-all"
           >
             {saving ? "Saving..." : "Continue with this logo"}
           </button>
