@@ -14,7 +14,10 @@
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
+    "@tsparticles/react": "^3.0.0",
+    "@tsparticles/slim": "^3.9.1",
     "drizzle-orm": "^0.45.1",
+    "framer-motion": "^12.38.0",
     "jszip": "^3.10.1",
     "next": "^16.1.7",
     "postgres": "^3.4.8",

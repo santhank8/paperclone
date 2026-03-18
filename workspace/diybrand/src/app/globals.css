@@ -1,1 +1,197 @@
 @import "tailwindcss";
+
+/* ── Design Tokens ── */
+:root {
+  --bg-void: #0a0a0f;
+  --bg-surface: #12121a;
+  --bg-card: #1a1a2e;
+  --primary: #8b5cf6;
+  --accent-pink: #f72585;
+  --accent-cyan: #00f5ff;
+  --accent-lime: #a8ff3e;
+  --text-primary: #f0f0ff;
+  --text-muted: #6b7280;
+  --glow-purple: 0 0 40px #8b5cf640, 0 0 60px #f7258520;
+  --glass-bg: rgba(255, 255, 255, 0.05);
+  --glass-border: rgba(255, 255, 255, 0.08);
+}
+
+/* ── Base ── */
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--bg-void);
+  color: var(--text-primary);
+}
+
+::selection {
+  background: #8b5cf680;
+  color: #fff;
+}
+
+/* ── Aurora Gradient Animation ── */
+@keyframes aurora {
+  0%, 100% {
+    background-position: 0% 50%;
+  }
+  25% {
+    background-position: 50% 100%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  75% {
+    background-position: 50% 0%;
+  }
+}
+
+.aurora-bg {
+  background: radial-gradient(ellipse at 20% 50%, #8b5cf640 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 20%, #f7258530 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 80%, #00f5ff25 0%, transparent 50%);
+  background-size: 200% 200%;
+  animation: aurora 8s ease-in-out infinite;
+}
+
+/* ── Glassmorphism ── */
+.glass {
+  background: var(--glass-bg);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--glass-border);
+}
+
+.glass-strong {
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+/* ── Neon Glow Hover ── */
+.neon-glow {
+  transition: box-shadow 300ms ease, border-color 300ms ease;
+}
+
+.neon-glow:hover {
+  box-shadow: 0 0 30px #8b5cf650, 0 0 60px #8b5cf620;
+  border-color: rgba(139, 92, 246, 0.4);
+}
+
+.neon-glow-pink:hover {
+  box-shadow: 0 0 30px #f7258540, 0 0 60px #f7258520;
+  border-color: rgba(247, 37, 133, 0.4);
+}
+
+.neon-glow-cyan:hover {
+  box-shadow: 0 0 30px #00f5ff40, 0 0 60px #00f5ff20;
+  border-color: rgba(0, 245, 255, 0.4);
+}
+
+/* ── CTA Button Glow ── */
+.cta-glow {
+  box-shadow: 0 0 20px #8b5cf650, 0 0 40px #8b5cf630;
+  transition: box-shadow 300ms ease, transform 200ms ease;
+}
+
+.cta-glow:hover {
+  box-shadow: 0 0 30px #8b5cf670, 0 0 60px #8b5cf650, 0 0 80px #f7258530;
+  transform: translateY(-1px);
+}
+
+/* ── Logo Ticker ── */
+@keyframes ticker {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.ticker-track {
+  animation: ticker 30s linear infinite;
+}
+
+/* ── Animated gradient text ── */
+@keyframes gradient-shift {
+  0%, 100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+.gradient-text {
+  background: linear-gradient(135deg, #8b5cf6, #f72585, #00f5ff, #8b5cf6);
+  background-size: 300% 300%;
+  animation: gradient-shift 4s ease infinite;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* ── Cursor spotlight (applied via JS) ── */
+.cursor-spotlight {
+  position: fixed;
+  pointer-events: none;
+  width: 600px;
+  height: 600px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(139, 92, 246, 0.06) 0%, transparent 70%);
+  transform: translate(-50%, -50%);
+  z-index: 0;
+  transition: opacity 300ms;
+}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-void);
+}
+
+::-webkit-scrollbar-thumb {
+  background: #2a2a3e;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #3a3a5e;
+}
+
+/* ── Star rating neon ── */
+.star-neon {
+  color: #f59e0b;
+  filter: drop-shadow(0 0 4px #f59e0b80);
+}
+
+/* ── Testimonial auto-scroll ── */
+@keyframes scroll-x {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.testimonial-scroll {
+  animation: scroll-x 40s linear infinite;
+}
+
+.testimonial-scroll:hover {
+  animation-play-state: paused;
+}
+
+/* ── Mobile: disable heavy effects ── */
+@media (max-width: 768px) {
+  .cursor-spotlight {
+    display: none;
+  }
+}

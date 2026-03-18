@@ -34,7 +34,7 @@ export function WaitlistForm() {
 
   if (status === "success") {
     return (
-      <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-6 py-4 text-center text-emerald-800">
+      <div className="rounded-xl border border-[var(--accent-lime)]/30 bg-[var(--accent-lime)]/10 px-6 py-4 text-center text-sm text-[var(--accent-lime)]">
         You&apos;re on the list! We&apos;ll be in touch soon.
       </div>
     );
@@ -48,17 +48,17 @@ export function WaitlistForm() {
         placeholder="you@example.com"
         value={email}
         onChange={(e) => setEmail(e.target.value)}
-        className="flex-1 rounded-lg border border-gray-300 px-4 py-3 text-base outline-none transition-colors focus:border-violet-500 focus:ring-2 focus:ring-violet-200"
+        className="flex-1 rounded-xl border border-[var(--glass-border)] bg-[var(--bg-card)] px-4 py-3 text-base text-[var(--text-primary)] placeholder:text-[var(--text-muted)] outline-none transition-all focus:border-[var(--primary)] focus:shadow-[0_0_20px_#8b5cf630]"
       />
       <button
         type="submit"
         disabled={status === "loading"}
-        className="rounded-lg bg-violet-600 px-6 py-3 text-base font-semibold text-white transition-colors hover:bg-violet-700 disabled:opacity-60"
+        className="rounded-xl bg-[var(--bg-card)] border border-[var(--glass-border)] px-6 py-3 text-base font-semibold text-[var(--text-primary)] transition-all hover:border-[var(--primary)] hover:shadow-[0_0_20px_#8b5cf630] disabled:opacity-60"
       >
         {status === "loading" ? "Joining..." : "Join waitlist"}
       </button>
       {status === "error" && (
-        <p className="text-sm text-red-600 sm:absolute sm:mt-14">{errorMsg}</p>
+        <p className="text-sm text-[var(--accent-pink)]">{errorMsg}</p>
       )}
     </form>
   );
