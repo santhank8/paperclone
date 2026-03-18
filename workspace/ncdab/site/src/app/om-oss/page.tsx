@@ -4,6 +4,9 @@ export const metadata: Metadata = {
   title: "Om oss",
   description:
     "Lär känna NCD AB — ett svenskt byggkonsultföretag med expertis inom BIM, ritningar, projektledning och drönardokumentation.",
+  alternates: {
+    canonical: "/om-oss",
+  },
 };
 
 const team = [

@@ -1,14 +1,24 @@
 import type { Metadata } from "next";
 import ServicePageLayout from "@/components/ServicePageLayout";
+import { ServiceJsonLd } from "@/components/JsonLd";
 
 export const metadata: Metadata = {
-  title: "BIM/Revit-modellering",
+  title: "BIM/Revit-modellering — BIM-modellering Sverige",
   description:
-    "Professionell BIM-modellering i Autodesk Revit. NCD AB skapar detaljerade 3D-modeller för arkitekter, konstruktörer och entreprenörer.",
+    "Professionell BIM-modellering i Autodesk Revit. NCD AB skapar detaljerade 3D-modeller för arkitekter, konstruktörer och entreprenörer i Sverige.",
+  alternates: {
+    canonical: "/tjanster/bim-modellering",
+  },
 };
 
 export default function BimModelleringPage() {
   return (
+    <>
+    <ServiceJsonLd
+      name="BIM/Revit-modellering"
+      description="Professionell BIM-modellering i Autodesk Revit. NCD AB skapar detaljerade 3D-modeller för arkitekter, konstruktörer och entreprenörer i Sverige."
+      url="https://ncdab.se/tjanster/bim-modellering"
+    />
     <ServicePageLayout
       title="BIM/Revit-modellering"
       subtitle="Detaljerade 3D-modeller som ger full kontroll och bättre beslutsunderlag genom hela projektet."
@@ -44,5 +54,6 @@ export default function BimModelleringPage() {
         },
       ]}
     />
+    </>
   );
 }

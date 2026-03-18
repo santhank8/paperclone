@@ -5,6 +5,9 @@ export const metadata: Metadata = {
   title: "Tjänster",
   description:
     "NCD AB erbjuder BIM/Revit-modellering, byggritningar, projektledning och drönardokumentation för bygg- och fastighetsprojekt i Sverige.",
+  alternates: {
+    canonical: "/tjanster",
+  },
 };
 
 const services = [

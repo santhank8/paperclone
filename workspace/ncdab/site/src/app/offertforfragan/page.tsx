@@ -5,6 +5,9 @@ export const metadata: Metadata = {
   title: "Begär offert",
   description:
     "Begär en kostnadsfri offert för BIM-modellering, byggritningar, projektledning eller drönardokumentation från NCD AB.",
+  alternates: {
+    canonical: "/offertforfragan",
+  },
 };
 
 export default function OffertPage() {

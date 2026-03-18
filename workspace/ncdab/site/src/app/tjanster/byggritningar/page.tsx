@@ -1,14 +1,24 @@
 import type { Metadata } from "next";
 import ServicePageLayout from "@/components/ServicePageLayout";
+import { ServiceJsonLd } from "@/components/JsonLd";
 
 export const metadata: Metadata = {
-  title: "Byggritningar",
+  title: "Byggritningar — Byggritningar konsult",
   description:
-    "Professionella byggritningar och teknisk dokumentation. NCD AB levererar allt från konceptskisser till produktionsritningar.",
+    "Professionella byggritningar och teknisk dokumentation. NCD AB levererar allt från konceptskisser till produktionsritningar för byggprojekt i Sverige.",
+  alternates: {
+    canonical: "/tjanster/byggritningar",
+  },
 };
 
 export default function ByggritningarPage() {
   return (
+    <>
+    <ServiceJsonLd
+      name="Byggritningar"
+      description="Professionella byggritningar och teknisk dokumentation. NCD AB levererar allt från konceptskisser till produktionsritningar för byggprojekt i Sverige."
+      url="https://ncdab.se/tjanster/byggritningar"
+    />
     <ServicePageLayout
       title="Byggritningar"
       subtitle="Teknisk dokumentation som uppfyller alla krav — från konceptskisser till produktionsritningar."
@@ -44,5 +54,6 @@ export default function ByggritningarPage() {
         },
       ]}
     />
+    </>
   );
 }

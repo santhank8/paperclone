@@ -6,6 +6,9 @@ export const metadata: Metadata = {
   title: "Projekt — Referensprojekt",
   description:
     "Se våra genomförda projekt inom BIM-modellering, byggritningar, projektledning och drönardokumentation. NCD AB levererar kvalitet i varje uppdrag.",
+  alternates: {
+    canonical: "/projekt",
+  },
 };
 
 export default function ProjektPage() {

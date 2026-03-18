@@ -1,14 +1,24 @@
 import type { Metadata } from "next";
 import ServicePageLayout from "@/components/ServicePageLayout";
+import { ServiceJsonLd } from "@/components/JsonLd";
 
 export const metadata: Metadata = {
-  title: "Projektledning",
+  title: "Projektledning — Projektledning bygg",
   description:
-    "Professionell projektledning för byggprojekt. NCD AB samordnar tidsplaner, budget och kvalitet genom hela processen.",
+    "Professionell projektledning för byggprojekt i Sverige. NCD AB samordnar tidsplaner, budget och kvalitet genom hela processen.",
+  alternates: {
+    canonical: "/tjanster/projektledning",
+  },
 };
 
 export default function ProjektledningPage() {
   return (
+    <>
+    <ServiceJsonLd
+      name="Projektledning"
+      description="Professionell projektledning för byggprojekt i Sverige. NCD AB samordnar tidsplaner, budget och kvalitet genom hela processen."
+      url="https://ncdab.se/tjanster/projektledning"
+    />
     <ServicePageLayout
       title="Projektledning"
       subtitle="Professionell samordning som håller ert projekt på rätt spår — i tid, inom budget och med rätt kvalitet."
@@ -44,5 +54,6 @@ export default function ProjektledningPage() {
         },
       ]}
     />
+    </>
   );
 }

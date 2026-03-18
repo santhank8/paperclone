@@ -1,14 +1,24 @@
 import type { Metadata } from "next";
 import ServicePageLayout from "@/components/ServicePageLayout";
+import { ServiceJsonLd } from "@/components/JsonLd";
 
 export const metadata: Metadata = {
-  title: "Drönardokumentation",
+  title: "Drönardokumentation — Drönarfotografering bygg",
   description:
-    "Drönardokumentation och flygfotografering för byggprojekt. NCD AB erbjuder flygbilder, inspektioner och framstegsdokumentation.",
+    "Drönardokumentation och flygfotografering för byggprojekt i Sverige. NCD AB erbjuder flygbilder, inspektioner och framstegsdokumentation.",
+  alternates: {
+    canonical: "/tjanster/dronarfotografering",
+  },
 };
 
 export default function DronarfotograferingPage() {
   return (
+    <>
+    <ServiceJsonLd
+      name="Drönardokumentation"
+      description="Drönardokumentation och flygfotografering för byggprojekt i Sverige. NCD AB erbjuder flygbilder, inspektioner och framstegsdokumentation."
+      url="https://ncdab.se/tjanster/dronarfotografering"
+    />
     <ServicePageLayout
       title="Drönardokumentation"
       subtitle="Flygfotografering och inspektioner som ger överblick och detaljkontroll av era byggprojekt."
@@ -44,5 +54,6 @@ export default function DronarfotograferingPage() {
         },
       ]}
     />
+    </>
   );
 }
