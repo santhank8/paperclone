@@ -406,10 +406,23 @@ export async function onboard(opts: OnboardOptions): Promise<void> {
     p.log.info(`Using existing ${pc.cyan("PAPERCLIP_AGENT_JWT_SECRET")} in ${pc.dim(envFilePath)}`);
   }
 
-  const existingConfig = configExists(opts.config) ? readConfig(opts.config) : null;
+  let existingConfig: PaperclipConfig | null = null;
+  if (configExists(opts.config)) {
+    try {
+      existingConfig = readConfig(opts.config);
+    } catch {
+      // Invalid or corrupted config — skip merging, fall back to defaults
+    }
+  }
 
   if (existingConfig && setupMode === "quickstart") {
-    database = { ...database, ...(existingConfig.database ?? {}) };
+    database = {
+      ...database,
+      ...(existingConfig.database ?? {}),
+      ...(existingConfig.database?.backup != null
+        ? { backup: { ...database.backup, ...existingConfig.database.backup } }
+        : {}),
+    };
     logging = { ...logging, ...(existingConfig.logging ?? {}) };
     server = { ...server, ...(existingConfig.server ?? {}) };
     auth = { ...auth, ...(existingConfig.auth ?? {}) };
