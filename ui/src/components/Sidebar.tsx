@@ -15,6 +15,7 @@ import { SidebarSection } from "./SidebarSection";
 import { SidebarNavItem } from "./SidebarNavItem";
 import { SidebarProjects } from "./SidebarProjects";
 import { SidebarAgents } from "./SidebarAgents";
+import { SidebarHumans } from "./SidebarHumans";
 import { useDialog } from "../context/DialogContext";
 import { useCompany } from "../context/CompanyContext";
 import { heartbeatsApi } from "../api/heartbeats";
@@ -103,6 +104,8 @@ export function Sidebar() {
         <SidebarProjects />
 
         <SidebarAgents />
+
+        <SidebarHumans />
 
         <SidebarSection label="Company">
           <SidebarNavItem to="/org" label="Org" icon={Network} />

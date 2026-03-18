@@ -107,6 +107,42 @@ export const accessApi = {
       input,
     ),
 
+  listHumanMembers: (companyId: string) =>
+    api.get<Array<{
+      id: string;
+      name: string | null;
+      email: string | null;
+      membershipRole: string | null;
+      jobTitle: string | null;
+      supervisorUserId: string | null;
+      supervisorAgentId: string | null;
+      hourlyRateCents: number | null;
+    }>>(`/companies/${companyId}/human-members`),
+
+  getHumanMemberConfig: (companyId: string) =>
+    api.get<{ canManageMembers: boolean }>(`/companies/${companyId}/human-member-config`),
+
+  updateHumanMemberProfile: (
+    companyId: string,
+    userId: string,
+    input: {
+      jobTitle?: string | null;
+      supervisorUserId?: string | null;
+      supervisorAgentId?: string | null;
+      hourlyRateCents?: number | null;
+    },
+  ) =>
+    api.patch<{
+      id: string;
+      jobTitle: string | null;
+      supervisorUserId: string | null;
+      supervisorAgentId: string | null;
+      hourlyRateCents: number | null;
+    }>(
+      `/companies/${companyId}/human-members/${userId}`,
+      input,
+    ),
+
   listJoinRequests: (companyId: string, status: "pending_approval" | "approved" | "rejected" = "pending_approval") =>
     api.get<JoinRequest[]>(`/companies/${companyId}/join-requests?status=${status}`),
 

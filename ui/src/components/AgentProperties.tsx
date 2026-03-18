@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "@/lib/router";
 import { AGENT_ROLE_LABELS, type Agent, type AgentRuntimeState } from "@paperclipai/shared";
 import { agentsApi } from "../api/agents";
+import { accessApi } from "../api/access";
 import { useCompany } from "../context/CompanyContext";
 import { queryKeys } from "../lib/queryKeys";
 import { StatusBadge } from "./StatusBadge";
@@ -45,7 +46,16 @@ export function AgentProperties({ agent, runtimeState }: AgentPropertiesProps) {
     enabled: !!selectedCompanyId && !!agent.reportsTo,
   });
 
+  const { data: humanMembers } = useQuery({
+    queryKey: queryKeys.access.humanMembers(selectedCompanyId!),
+    queryFn: () => accessApi.listHumanMembers(selectedCompanyId!),
+    enabled: !!selectedCompanyId && !!agent.reportsToUserId,
+  });
+
   const reportsToAgent = agent.reportsTo ? agents?.find((a) => a.id === agent.reportsTo) : null;
+  const reportsToHuman = agent.reportsToUserId
+    ? humanMembers?.find((m) => m.id === agent.reportsToUserId) ?? null
+    : null;
 
   return (
     <div className="space-y-4">
@@ -86,14 +96,22 @@ export function AgentProperties({ agent, runtimeState }: AgentPropertiesProps) {
             <span className="text-sm">{formatDate(agent.lastHeartbeatAt)}</span>
           </PropertyRow>
         )}
-        {agent.reportsTo && (
+        {(agent.reportsTo || agent.reportsToUserId) && (
           <PropertyRow label="Reports To">
-            {reportsToAgent ? (
+            {agent.reportsToUserId ? (
+              reportsToHuman ? (
+                <Link to={`/humans/${reportsToHuman.id}/dashboard`} className="hover:underline">
+                  <Identity name={reportsToHuman.name ?? reportsToHuman.email ?? reportsToHuman.id} size="sm" />
+                </Link>
+              ) : (
+                <span className="text-sm font-mono">{agent.reportsToUserId.slice(0, 8)}</span>
+              )
+            ) : reportsToAgent ? (
               <Link to={agentUrl(reportsToAgent)} className="hover:underline">
                 <Identity name={reportsToAgent.name} size="sm" />
               </Link>
             ) : (
-              <span className="text-sm font-mono">{agent.reportsTo.slice(0, 8)}</span>
+              <span className="text-sm font-mono">{agent.reportsTo!.slice(0, 8)}</span>
             )}
           </PropertyRow>
         )}

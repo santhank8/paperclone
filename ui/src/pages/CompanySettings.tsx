@@ -52,6 +52,11 @@ export function CompanySettings() {
   const [snippetCopied, setSnippetCopied] = useState(false);
   const [snippetCopyDelightId, setSnippetCopyDelightId] = useState(0);
 
+  const [humanInviteLink, setHumanInviteLink] = useState<string | null>(null);
+  const [humanInviteError, setHumanInviteError] = useState<string | null>(null);
+  const [humanInviteLinkCopied, setHumanInviteLinkCopied] = useState(false);
+  const [humanInviteRole, setHumanInviteRole] = useState<"member" | "board">("member");
+
   const generalDirty =
     !!selectedCompany &&
     (companyName !== selectedCompany.name ||
@@ -132,6 +137,32 @@ export function CompanySettings() {
     }
   });
 
+  const humanInviteMutation = useMutation({
+    mutationFn: () =>
+      accessApi.createCompanyInvite(selectedCompanyId!, {
+        allowedJoinTypes: "human",
+        defaultsPayload: {
+          human: {
+            grants: humanInviteRole === "board"
+              ? [
+                  { permissionKey: "tasks:assign", scope: null },
+                  { permissionKey: "users:manage_permissions", scope: null },
+                ]
+              : [{ permissionKey: "tasks:assign", scope: null }],
+          },
+        },
+      }),
+    onSuccess: (invite) => {
+      const base = window.location.origin.replace(/\/+$/, "");
+      setHumanInviteLink(`${base}/invite/${invite.token}`);
+      setHumanInviteError(null);
+      setHumanInviteLinkCopied(false);
+    },
+    onError: (err) => {
+      setHumanInviteError(err instanceof Error ? err.message : "Failed to create invite");
+    },
+  });
+
   const syncLogoState = (nextLogoUrl: string | null) => {
     setLogoUrl(nextLogoUrl ?? "");
     void queryClient.invalidateQueries({ queryKey: queryKeys.companies.all });
@@ -173,6 +204,10 @@ export function CompanySettings() {
     setInviteSnippet(null);
     setSnippetCopied(false);
     setSnippetCopyDelightId(0);
+    setHumanInviteLink(null);
+    setHumanInviteError(null);
+    setHumanInviteLinkCopied(false);
+    setHumanInviteRole("member");
   }, [selectedCompanyId]);
   const archiveMutation = useMutation({
     mutationFn: ({
@@ -453,6 +488,99 @@ export function CompanySettings() {
                     }}
                   >
                     {snippetCopied ? "Copied snippet" : "Copy snippet"}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="space-y-3 rounded-md border border-border px-4 py-4">
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs text-muted-foreground">
+              Invite a human member to this company.
+            </span>
+            <HintIcon text="Generates a short-lived invite link. Share it with the person you want to add — they will join as pending until approved." />
+          </div>
+          <div className="space-y-2">
+            <div className="text-xs font-medium text-foreground">Role</div>
+            <div className="flex gap-2">
+              <label className="flex items-start gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="humanInviteRole"
+                  value="member"
+                  checked={humanInviteRole === "member"}
+                  onChange={() => { setHumanInviteRole("member"); setHumanInviteLink(null); }}
+                  className="mt-0.5"
+                />
+                <div>
+                  <div className="text-sm font-medium">Team Member</div>
+                  <div className="text-xs text-muted-foreground">Can be assigned issues and comment. Cannot manage approvals or other members.</div>
+                </div>
+              </label>
+            </div>
+            <div className="flex gap-2">
+              <label className="flex items-start gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="humanInviteRole"
+                  value="board"
+                  checked={humanInviteRole === "board"}
+                  onChange={() => { setHumanInviteRole("board"); setHumanInviteLink(null); }}
+                  className="mt-0.5"
+                />
+                <div>
+                  <div className="text-sm font-medium">Board Member</div>
+                  <div className="text-xs text-muted-foreground">Full access: can manage approvals, join requests, and other members.</div>
+                </div>
+              </label>
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              size="sm"
+              onClick={() => humanInviteMutation.mutate()}
+              disabled={humanInviteMutation.isPending}
+            >
+              {humanInviteMutation.isPending ? "Generating..." : "Generate Human Invite Link"}
+            </Button>
+          </div>
+          {humanInviteError && (
+            <p className="text-sm text-destructive">{humanInviteError}</p>
+          )}
+          {humanInviteLink && (
+            <div className="rounded-md border border-border bg-muted/30 p-2">
+              <div className="flex items-center justify-between gap-2">
+                <div className="text-xs text-muted-foreground">Invite link (expires in 10 minutes)</div>
+                {humanInviteLinkCopied && (
+                  <span className="flex items-center gap-1 text-xs text-green-600 animate-pulse">
+                    <Check className="h-3 w-3" />
+                    Copied
+                  </span>
+                )}
+              </div>
+              <div className="mt-1 space-y-1.5">
+                <input
+                  className="w-full rounded-md border border-border bg-background px-2 py-1.5 font-mono text-xs outline-none"
+                  value={humanInviteLink}
+                  readOnly
+                />
+                <div className="flex justify-end">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={async () => {
+                      try {
+                        await navigator.clipboard.writeText(humanInviteLink);
+                        setHumanInviteLinkCopied(true);
+                        setTimeout(() => setHumanInviteLinkCopied(false), 2000);
+                      } catch {
+                        /* clipboard may not be available */
+                      }
+                    }}
+                  >
+                    {humanInviteLinkCopied ? "Copied" : "Copy link"}
                   </Button>
                 </div>
               </div>

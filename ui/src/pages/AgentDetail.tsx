@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import { useParams, useNavigate, Link, Navigate, useBeforeUnload } from "@/lib/router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { agentsApi, type AgentKey, type ClaudeLoginResult, type AvailableSkill } from "../api/agents";
+import { accessApi } from "../api/access";
 import { budgetsApi } from "../api/budgets";
 import { heartbeatsApi } from "../api/heartbeats";
 import { ApiError } from "../api/client";
@@ -1389,6 +1390,49 @@ function ConfigurationTab({
     onSavingChange(isConfigSaving);
   }, [onSavingChange, isConfigSaving]);
 
+  // ---- Hierarchy (Reports To) ----
+
+  const { data: allAgents = [] } = useQuery({
+    queryKey: queryKeys.agents.list(agent.companyId),
+    queryFn: () => agentsApi.list(agent.companyId),
+  });
+
+  const { data: humanMembers = [] } = useQuery({
+    queryKey: queryKeys.access.humanMembers(agent.companyId),
+    queryFn: () => accessApi.listHumanMembers(agent.companyId),
+  });
+
+  function encodeReportsTo(a: Agent): string {
+    if (a.reportsToUserId) return `user:${a.reportsToUserId}`;
+    if (a.reportsTo) return `agent:${a.reportsTo}`;
+    return "";
+  }
+
+  const [supervisorRef, setSupervisorRef] = useState(() => encodeReportsTo(agent));
+
+  // Sync if agent data refreshes (after save or external change)
+  useEffect(() => {
+    setSupervisorRef(encodeReportsTo(agent));
+  }, [agent.reportsTo, agent.reportsToUserId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const savedSupervisorRef = encodeReportsTo(agent);
+  const hierarchyDirty = supervisorRef !== savedSupervisorRef;
+
+  const updateHierarchy = useMutation({
+    mutationFn: () => {
+      const reportsTo = supervisorRef.startsWith("agent:") ? supervisorRef.slice(6) : null;
+      const reportsToUserId = supervisorRef.startsWith("user:") ? supervisorRef.slice(5) : null;
+      return agentsApi.update(agent.id, { reportsTo, reportsToUserId }, companyId);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.agents.detail(agent.id) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.agents.detail(agent.urlKey) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.org(agent.companyId) });
+    },
+  });
+
+  const otherAgents = allAgents.filter((a) => a.id !== agent.id && a.status !== "terminated");
+
   return (
     <div className="space-y-6">
       <AgentConfigForm
@@ -1403,6 +1447,68 @@ function ConfigurationTab({
         hideInlineSave
         sectionLayout="cards"
       />
+
+      <div>
+        <h3 className="text-sm font-medium mb-3">Hierarchy</h3>
+        <div className="border border-border rounded-lg p-4 space-y-3">
+          <div className="flex items-end gap-3">
+            <div className="flex-1 space-y-1.5">
+              <label className="text-xs text-muted-foreground">Reports To</label>
+              <select
+                value={supervisorRef}
+                onChange={(e) => setSupervisorRef(e.target.value)}
+                className="w-full h-8 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+              >
+                <option value="">— None —</option>
+                {otherAgents.length > 0 && (
+                  <optgroup label="Agents">
+                    {otherAgents.map((a) => (
+                      <option key={a.id} value={`agent:${a.id}`}>
+                        {a.name}
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
+                {humanMembers.length > 0 && (
+                  <optgroup label="Humans">
+                    {humanMembers.map((m) => (
+                      <option key={m.id} value={`user:${m.id}`}>
+                        {m.name ?? m.email ?? m.id.slice(0, 8)}
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
+              </select>
+            </div>
+            {hierarchyDirty && (
+              <div className="flex gap-2 shrink-0">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8"
+                  onClick={() => setSupervisorRef(savedSupervisorRef)}
+                  disabled={updateHierarchy.isPending}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  size="sm"
+                  className="h-8"
+                  onClick={() => updateHierarchy.mutate()}
+                  disabled={updateHierarchy.isPending}
+                >
+                  {updateHierarchy.isPending ? "Saving…" : "Save"}
+                </Button>
+              </div>
+            )}
+          </div>
+          {updateHierarchy.isError && (
+            <p className="text-xs text-destructive">
+              {updateHierarchy.error instanceof Error ? updateHierarchy.error.message : "Failed to save"}
+            </p>
+          )}
+        </div>
+      </div>
 
       <div>
         <h3 className="text-sm font-medium mb-3">Permissions</h3>

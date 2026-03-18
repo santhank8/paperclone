@@ -35,7 +35,7 @@ import { cn } from "../lib/utils";
 export interface MentionOption {
   id: string;
   name: string;
-  kind?: "agent" | "project";
+  kind?: "agent" | "human" | "project";
   projectId?: string;
   projectColor?: string | null;
 }

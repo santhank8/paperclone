@@ -53,6 +53,7 @@ import { useDismissedInboxItems } from "../hooks/useInboxBadge";
 type InboxCategoryFilter =
   | "everything"
   | "issues_i_touched"
+  | "assigned_issues"
   | "join_requests"
   | "approvals"
   | "failed_runs"
@@ -60,6 +61,7 @@ type InboxCategoryFilter =
 type InboxApprovalFilter = "all" | "actionable" | "resolved";
 type SectionKey =
   | "issues_i_touched"
+  | "assigned_issues"
   | "join_requests"
   | "approvals"
   | "failed_runs"
@@ -283,21 +285,19 @@ export function Inbox() {
   const {
     data: joinRequests = [],
     isLoading: isJoinRequestsLoading,
+    error: joinRequestsError,
   } = useQuery({
     queryKey: queryKeys.access.joinRequests(selectedCompanyId!),
-    queryFn: async () => {
-      try {
-        return await accessApi.listJoinRequests(selectedCompanyId!, "pending_approval");
-      } catch (err) {
-        if (err instanceof ApiError && (err.status === 403 || err.status === 401)) {
-          return [];
-        }
-        throw err;
-      }
-    },
+    queryFn: () => accessApi.listJoinRequests(selectedCompanyId!, "pending_approval"),
     enabled: !!selectedCompanyId,
     retry: false,
   });
+
+  // 403/401 on join requests = regular human member, not a board-level admin
+  const isAdminUser = !(
+    joinRequestsError instanceof ApiError &&
+    (joinRequestsError.status === 403 || joinRequestsError.status === 401)
+  );
 
   const { data: dashboard, isLoading: isDashboardLoading } = useQuery({
     queryKey: queryKeys.dashboard(selectedCompanyId!),
@@ -310,6 +310,12 @@ export function Inbox() {
     queryFn: () => issuesApi.list(selectedCompanyId!),
     enabled: !!selectedCompanyId,
   });
+  const { data: assignedIssues = [], isLoading: isAssignedLoading } = useQuery({
+    queryKey: queryKeys.issues.listAssignedToMe(selectedCompanyId!),
+    queryFn: () => issuesApi.list(selectedCompanyId!, { assigneeUserId: "me" }),
+    enabled: !!selectedCompanyId,
+  });
+
   const {
     data: touchedIssuesRaw = [],
     isLoading: isTouchedIssuesLoading,
@@ -329,7 +335,14 @@ export function Inbox() {
     enabled: !!selectedCompanyId,
   });
 
-  const touchedIssues = useMemo(() => getRecentTouchedIssues(touchedIssuesRaw), [touchedIssuesRaw]);
+  const assignedIssueIds = useMemo(
+    () => new Set(assignedIssues.map((i) => i.id)),
+    [assignedIssues],
+  );
+  const touchedIssues = useMemo(
+    () => getRecentTouchedIssues(touchedIssuesRaw).filter((i) => !assignedIssueIds.has(i.id)),
+    [touchedIssuesRaw, assignedIssueIds],
+  );
   const unreadTouchedIssues = useMemo(
     () => touchedIssues.filter((issue) => issue.isUnreadForMe),
     [touchedIssues],
@@ -511,12 +524,18 @@ export function Inbox() {
     allCategoryFilter === "everything" || allCategoryFilter === "join_requests";
   const showTouchedCategory =
     allCategoryFilter === "everything" || allCategoryFilter === "issues_i_touched";
+  const showAssignedCategory =
+    allCategoryFilter === "everything" || allCategoryFilter === "assigned_issues";
   const showApprovalsCategory = allCategoryFilter === "everything" || allCategoryFilter === "approvals";
   const showFailedRunsCategory =
     allCategoryFilter === "everything" || allCategoryFilter === "failed_runs";
   const showAlertsCategory = allCategoryFilter === "everything" || allCategoryFilter === "alerts";
 
   const approvalsToRender = tab === "all" ? filteredAllApprovals : actionableApprovals;
+  const showAssignedSection =
+    tab === "all"
+      ? showAssignedCategory && assignedIssues.length > 0
+      : assignedIssues.length > 0;
   const showTouchedSection =
     tab === "all"
       ? showTouchedCategory && hasTouchedIssues
@@ -524,29 +543,30 @@ export function Inbox() {
         ? unreadTouchedIssues.length > 0
         : hasTouchedIssues;
   const showJoinRequestsSection =
-    tab === "all" ? showJoinRequestsCategory && hasJoinRequests : tab === "unread" && hasJoinRequests;
-  const showApprovalsSection = tab === "all"
+    isAdminUser && (tab === "all" ? showJoinRequestsCategory && hasJoinRequests : hasJoinRequests);
+  const showApprovalsSection = isAdminUser && (tab === "all"
     ? showApprovalsCategory && filteredAllApprovals.length > 0
-    : actionableApprovals.length > 0;
+    : actionableApprovals.length > 0);
   const showFailedRunsSection =
-    tab === "all" ? showFailedRunsCategory && hasRunFailures : tab === "unread" && hasRunFailures;
-  const showAlertsSection = tab === "all" ? showAlertsCategory && hasAlerts : tab === "unread" && hasAlerts;
+    isAdminUser && (tab === "all" ? showFailedRunsCategory && hasRunFailures : tab === "unread" && hasRunFailures);
+  const showAlertsSection = isAdminUser && (tab === "all" ? showAlertsCategory && hasAlerts : tab === "unread" && hasAlerts);
 
   const visibleSections = [
     showFailedRunsSection ? "failed_runs" : null,
     showAlertsSection ? "alerts" : null,
     showApprovalsSection ? "approvals" : null,
     showJoinRequestsSection ? "join_requests" : null,
+    showAssignedSection ? "assigned_issues" : null,
     showTouchedSection ? "issues_i_touched" : null,
   ].filter((key): key is SectionKey => key !== null);
 
   const allLoaded =
     !isJoinRequestsLoading &&
-    !isApprovalsLoading &&
-    !isDashboardLoading &&
-    !isIssuesLoading &&
+    (isAdminUser
+      ? !isApprovalsLoading && !isDashboardLoading && !isIssuesLoading && !isRunsLoading
+      : true) &&
     !isTouchedIssuesLoading &&
-    !isRunsLoading;
+    !isAssignedLoading;
 
   const showSeparatorBefore = (key: SectionKey) => visibleSections.indexOf(key) > 0;
   const unreadIssueIds = unreadTouchedIssues
@@ -597,14 +617,15 @@ export function Inbox() {
               <SelectContent>
                 <SelectItem value="everything">All categories</SelectItem>
                 <SelectItem value="issues_i_touched">My recent issues</SelectItem>
-                <SelectItem value="join_requests">Join requests</SelectItem>
-                <SelectItem value="approvals">Approvals</SelectItem>
-                <SelectItem value="failed_runs">Failed runs</SelectItem>
-                <SelectItem value="alerts">Alerts</SelectItem>
+                <SelectItem value="assigned_issues">Assigned to me</SelectItem>
+                {isAdminUser && <SelectItem value="join_requests">Join requests</SelectItem>}
+                {isAdminUser && <SelectItem value="approvals">Approvals</SelectItem>}
+                {isAdminUser && <SelectItem value="failed_runs">Failed runs</SelectItem>}
+                {isAdminUser && <SelectItem value="alerts">Alerts</SelectItem>}
               </SelectContent>
             </Select>
 
-            {showApprovalsCategory && (
+            {isAdminUser && showApprovalsCategory && (
               <Select
                 value={allApprovalFilter}
                 onValueChange={(value) => setAllApprovalFilter(value as InboxApprovalFilter)}
@@ -623,7 +644,7 @@ export function Inbox() {
         )}
       </div>
 
-      {approvalsError && <p className="text-sm text-destructive">{approvalsError.message}</p>}
+      {isAdminUser && approvalsError && <p className="text-sm text-destructive">{approvalsError.message}</p>}
       {actionError && <p className="text-sm text-destructive">{actionError}</p>}
 
       {!allLoaded && visibleSections.length === 0 && (
@@ -806,10 +827,48 @@ export function Inbox() {
         </>
       )}
 
+      {showAssignedSection && (
+        <>
+          {showSeparatorBefore("assigned_issues") && <Separator />}
+          <div>
+            <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+              Assigned to Me
+            </h3>
+            <div>
+              {assignedIssues.map((issue) => (
+                <IssueRow
+                  key={issue.id}
+                  issue={issue}
+                  issueLinkState={issueLinkState}
+                  desktopMetaLeading={(
+                    <>
+                      <span className="hidden sm:inline-flex">
+                        <PriorityIcon priority={issue.priority} />
+                      </span>
+                      <span className="hidden shrink-0 sm:inline-flex">
+                        <StatusIcon status={issue.status} />
+                      </span>
+                      <span className="shrink-0 font-mono text-xs text-muted-foreground">
+                        {issue.identifier ?? issue.id.slice(0, 8)}
+                      </span>
+                    </>
+                  )}
+                  mobileMeta={`updated ${timeAgo(issue.updatedAt)}`}
+                  trailingMeta={`updated ${timeAgo(issue.updatedAt)}`}
+                />
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+
       {showTouchedSection && (
         <>
           {showSeparatorBefore("issues_i_touched") && <Separator />}
           <div>
+            <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+              {tab === "unread" ? "Unread" : "My Recent Issues"}
+            </h3>
             <div>
               {(tab === "unread" ? unreadTouchedIssues : touchedIssues).map((issue) => {
                 const isUnread = issue.isUnreadForMe && !fadingOutIssues.has(issue.id);

@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, timestamp, uniqueIndex, index } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, integer, timestamp, uniqueIndex, index } from "drizzle-orm/pg-core";
 import { companies } from "./companies.js";
 
 export const companyMemberships = pgTable(
@@ -10,6 +10,10 @@ export const companyMemberships = pgTable(
     principalId: text("principal_id").notNull(),
     status: text("status").notNull().default("active"),
     membershipRole: text("membership_role"),
+    jobTitle: text("job_title"),
+    supervisorUserId: text("supervisor_user_id"),
+    supervisorAgentId: text("supervisor_agent_id"),
+    hourlyRateCents: integer("hourly_rate_cents"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },

@@ -1,6 +1,7 @@
 import { and, eq, inArray, sql } from "drizzle-orm";
 import type { Db } from "@paperclipai/db";
 import {
+  agents,
   companyMemberships,
   instanceUserRoles,
   principalPermissionGrants,
@@ -12,6 +13,56 @@ type GrantInput = {
   permissionKey: PermissionKey;
   scope?: Record<string, unknown> | null;
 };
+
+export type AssignmentScopeRule =
+  | { type: "subtree"; anchorId: string }
+  | { type: "exclude"; targetId: string };
+
+export function parseAssignmentScope(
+  raw: Record<string, unknown> | null | undefined,
+): AssignmentScopeRule[] {
+  try {
+    if (raw == null) return [];
+    const rules = raw["rules"];
+    if (!Array.isArray(rules)) return [];
+    const parsed: AssignmentScopeRule[] = [];
+    for (const item of rules) {
+      if (item == null || typeof item !== "object") continue;
+      const r = item as Record<string, unknown>;
+      if (r["type"] === "subtree" && typeof r["anchorId"] === "string") {
+        parsed.push({ type: "subtree", anchorId: r["anchorId"] });
+      } else if (r["type"] === "exclude" && typeof r["targetId"] === "string") {
+        parsed.push({ type: "exclude", targetId: r["targetId"] });
+      }
+    }
+    return parsed;
+  } catch {
+    return [];
+  }
+}
+
+export function evaluateAssignmentScope(
+  rules: AssignmentScopeRule[],
+  assigneeId: string,
+  ancestors: string[],
+): { allowed: boolean; reason?: string } {
+  if (rules.length === 0) return { allowed: true };
+  for (const rule of rules) {
+    if (rule.type === "subtree") {
+      if (rule.anchorId !== assigneeId && !ancestors.includes(rule.anchorId)) {
+        return { allowed: false, reason: `assignee is outside permitted subtree (anchor: ${rule.anchorId})` };
+      }
+    } else if (rule.type === "exclude") {
+      if (rule.targetId === assigneeId) {
+        return { allowed: false, reason: `assignee is explicitly excluded (target: ${rule.targetId})` };
+      }
+    } else {
+      const _exhaustive: never = rule;
+      void _exhaustive;
+    }
+  }
+  return { allowed: true };
+}
 
 export function accessService(db: Db) {
   async function isInstanceAdmin(userId: string | null | undefined): Promise<boolean> {
@@ -218,6 +269,92 @@ export function accessService(db: Db) {
       .then((rows) => rows[0]);
   }
 
+  async function resolveAssigneeAncestors(
+    companyId: string,
+    assigneeType: "agent" | "user",
+    assigneeId: string,
+  ): Promise<string[]> {
+    const MAX_HOPS = 20;
+    const ancestors: string[] = [];
+    const visited = new Set<string>();
+    let currentId = assigneeId;
+
+    for (let hop = 0; hop < MAX_HOPS; hop++) {
+      if (visited.has(currentId)) break;
+      visited.add(currentId);
+
+      if (assigneeType === "agent") {
+        const row = await db
+          .select({ reportsTo: agents.reportsTo, reportsToUserId: agents.reportsToUserId })
+          .from(agents)
+          .where(and(eq(agents.id, currentId), eq(agents.companyId, companyId)))
+          .then((rows) => rows[0] ?? null);
+        if (!row) break;
+        // Agent hierarchy: reportsTo is another agent, reportsToUserId is a user
+        if (row.reportsTo) {
+          ancestors.push(row.reportsTo);
+          currentId = row.reportsTo;
+        } else if (row.reportsToUserId) {
+          ancestors.push(row.reportsToUserId);
+          // Switch to user walk so we continue up the user's supervisor chain
+          assigneeType = "user";
+          currentId = row.reportsToUserId;
+        } else {
+          break;
+        }
+      } else {
+        const row = await db
+          .select({
+            supervisorAgentId: companyMemberships.supervisorAgentId,
+            supervisorUserId: companyMemberships.supervisorUserId,
+          })
+          .from(companyMemberships)
+          .where(
+            and(
+              eq(companyMemberships.companyId, companyId),
+              eq(companyMemberships.principalType, "user"),
+              eq(companyMemberships.principalId, currentId),
+            ),
+          )
+          .then((rows) => rows[0] ?? null);
+        if (!row) break;
+        if (row.supervisorAgentId) {
+          ancestors.push(row.supervisorAgentId);
+          // Supervisor is an agent — switch to agent walk
+          assigneeType = "agent";
+          currentId = row.supervisorAgentId;
+        } else if (row.supervisorUserId) {
+          ancestors.push(row.supervisorUserId);
+          currentId = row.supervisorUserId;
+        } else {
+          break;
+        }
+      }
+    }
+
+    return ancestors;
+  }
+
+  async function getPermissionGrant(
+    companyId: string,
+    principalType: PrincipalType,
+    principalId: string,
+    permissionKey: PermissionKey,
+  ) {
+    return db
+      .select()
+      .from(principalPermissionGrants)
+      .where(
+        and(
+          eq(principalPermissionGrants.companyId, companyId),
+          eq(principalPermissionGrants.principalType, principalType),
+          eq(principalPermissionGrants.principalId, principalId),
+          eq(principalPermissionGrants.permissionKey, permissionKey),
+        ),
+      )
+      .then((rows) => rows[0] ?? null);
+  }
+
   async function setPrincipalGrants(
     companyId: string,
     principalType: PrincipalType,
@@ -264,5 +401,7 @@ export function accessService(db: Db) {
     listUserCompanyAccess,
     setUserCompanyAccess,
     setPrincipalGrants,
+    resolveAssigneeAncestors,
+    getPermissionGrant,
   };
 }

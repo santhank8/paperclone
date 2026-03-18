@@ -19,6 +19,7 @@ import { validate } from "../middleware/validate.js";
 import {
   accessService,
   agentService,
+  evaluateAssignmentScope,
   executionWorkspaceService,
   goalService,
   heartbeatService,
@@ -26,6 +27,7 @@ import {
   issueService,
   documentService,
   logActivity,
+  parseAssignmentScope,
   projectService,
   workProductService,
 } from "../services/index.js";
@@ -93,18 +95,42 @@ export function issueRoutes(db: Db, storage: StorageService) {
     return Boolean((agent.permissions as Record<string, unknown>).canCreateAgents);
   }
 
-  async function assertCanAssignTasks(req: Request, companyId: string) {
+  async function assertCanAssignTasks(
+    req: Request,
+    companyId: string,
+    assignee: { type: "agent" | "user"; id: string } | null,
+  ) {
     assertCompanyAccess(req, companyId);
     if (req.actor.type === "board") {
       if (req.actor.source === "local_implicit" || req.actor.isInstanceAdmin) return;
       const allowed = await access.canUser(companyId, req.actor.userId, "tasks:assign");
       if (!allowed) throw forbidden("Missing permission: tasks:assign");
+      if (assignee) {
+        const grant = await access.getPermissionGrant(companyId, "user", req.actor.userId!, "tasks:assign");
+        if (grant?.scope != null) {
+          const rules = parseAssignmentScope(grant.scope as Record<string, unknown>);
+          const ancestors = await access.resolveAssigneeAncestors(companyId, assignee.type, assignee.id);
+          const result = evaluateAssignmentScope(rules, assignee.id, ancestors);
+          if (!result.allowed) throw forbidden(result.reason ?? "Assignment outside permitted scope");
+        }
+      }
       return;
     }
     if (req.actor.type === "agent") {
       if (!req.actor.agentId) throw forbidden("Agent authentication required");
       const allowedByGrant = await access.hasPermission(companyId, "agent", req.actor.agentId, "tasks:assign");
-      if (allowedByGrant) return;
+      if (allowedByGrant) {
+        if (assignee) {
+          const grant = await access.getPermissionGrant(companyId, "agent", req.actor.agentId, "tasks:assign");
+          if (grant?.scope != null) {
+            const rules = parseAssignmentScope(grant.scope as Record<string, unknown>);
+            const ancestors = await access.resolveAssigneeAncestors(companyId, assignee.type, assignee.id);
+            const result = evaluateAssignmentScope(rules, assignee.id, ancestors);
+            if (!result.allowed) throw forbidden(result.reason ?? "Assignment outside permitted scope");
+          }
+        }
+        return;
+      }
       const actorAgent = await agentsSvc.getById(req.actor.agentId);
       if (actorAgent && actorAgent.companyId === companyId && canCreateAgentsLegacy(actorAgent)) return;
       throw forbidden("Missing permission: tasks:assign");
@@ -753,7 +779,10 @@ export function issueRoutes(db: Db, storage: StorageService) {
     const companyId = req.params.companyId as string;
     assertCompanyAccess(req, companyId);
     if (req.body.assigneeAgentId || req.body.assigneeUserId) {
-      await assertCanAssignTasks(req, companyId);
+      const assignee = req.body.assigneeAgentId
+        ? { type: "agent" as const, id: req.body.assigneeAgentId as string }
+        : { type: "user" as const, id: req.body.assigneeUserId as string };
+      await assertCanAssignTasks(req, companyId, assignee);
     }
 
     const actor = getActorInfo(req);
@@ -815,7 +844,13 @@ export function issueRoutes(db: Db, storage: StorageService) {
 
     if (assigneeWillChange) {
       if (!isAgentReturningIssueToCreator) {
-        await assertCanAssignTasks(req, existing.companyId);
+        const assignee =
+          req.body.assigneeAgentId != null
+            ? { type: "agent" as const, id: req.body.assigneeAgentId as string }
+            : req.body.assigneeUserId != null
+              ? { type: "user" as const, id: req.body.assigneeUserId as string }
+              : null;
+        await assertCanAssignTasks(req, existing.companyId, assignee);
       }
     }
     if (!(await assertAgentRunCheckoutOwnership(req, res, existing))) return;

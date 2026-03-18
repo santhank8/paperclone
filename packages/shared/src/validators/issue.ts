@@ -27,7 +27,20 @@ export const issueAssigneeAdapterOverridesSchema = z
   })
   .strict();
 
-export const createIssueSchema = z.object({
+function assigneeXorCheck(
+  data: { assigneeAgentId?: string | null | undefined; assigneeUserId?: string | null | undefined },
+  ctx: z.RefinementCtx,
+) {
+  if (data.assigneeAgentId != null && data.assigneeUserId != null) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["assigneeUserId"],
+      message: "assigneeAgentId and assigneeUserId are mutually exclusive",
+    });
+  }
+}
+
+const issueBaseObject = z.object({
   projectId: z.string().uuid().optional().nullable(),
   projectWorkspaceId: z.string().uuid().optional().nullable(),
   goalId: z.string().uuid().optional().nullable(),
@@ -54,6 +67,8 @@ export const createIssueSchema = z.object({
   labelIds: z.array(z.string().uuid()).optional(),
 });
 
+export const createIssueSchema = issueBaseObject.superRefine(assigneeXorCheck);
+
 export type CreateIssue = z.infer<typeof createIssueSchema>;
 
 export const createIssueLabelSchema = z.object({
@@ -63,10 +78,10 @@ export const createIssueLabelSchema = z.object({
 
 export type CreateIssueLabel = z.infer<typeof createIssueLabelSchema>;
 
-export const updateIssueSchema = createIssueSchema.partial().extend({
+export const updateIssueSchema = issueBaseObject.partial().extend({
   comment: z.string().min(1).optional(),
   hiddenAt: z.string().datetime().nullable().optional(),
-});
+}).superRefine(assigneeXorCheck);
 
 export type UpdateIssue = z.infer<typeof updateIssueSchema>;
 export type IssueExecutionWorkspaceSettings = z.infer<typeof issueExecutionWorkspaceSettingsSchema>;

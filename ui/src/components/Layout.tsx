@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { BookOpen, Moon, Settings, Sun } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { BookOpen, LogOut, Moon, Settings, Sun } from "lucide-react";
 import { Link, Outlet, useLocation, useNavigate, useParams } from "@/lib/router";
 import { CompanyRail } from "./CompanyRail";
 import { Sidebar } from "./Sidebar";
@@ -23,6 +23,7 @@ import { useTheme } from "../context/ThemeContext";
 import { useKeyboardShortcuts } from "../hooks/useKeyboardShortcuts";
 import { useCompanyPageMemory } from "../hooks/useCompanyPageMemory";
 import { healthApi } from "../api/health";
+import { authApi } from "../api/auth";
 import { shouldSyncCompanySelectionFromRoute } from "../lib/company-selection";
 import {
   DEFAULT_INSTANCE_SETTINGS_PATH,
@@ -32,6 +33,15 @@ import { queryKeys } from "../lib/queryKeys";
 import { cn } from "../lib/utils";
 import { NotFoundPage } from "../pages/NotFound";
 import { Button } from "@/components/ui/button";
+import { Identity } from "./Identity";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const INSTANCE_SETTINGS_MEMORY_KEY = "paperclip.lastInstanceSettingsPath";
 
@@ -78,6 +88,20 @@ export function Layout() {
     queryFn: () => healthApi.get(),
     retry: false,
   });
+  const queryClient = useQueryClient();
+  const { data: session } = useQuery({
+    queryKey: queryKeys.auth.session,
+    queryFn: () => authApi.getSession(),
+    enabled: health?.deploymentMode === "authenticated",
+    retry: false,
+  });
+  const isAuthenticated = health?.deploymentMode === "authenticated";
+
+  async function handleSignOut() {
+    await authApi.signOut();
+    await queryClient.invalidateQueries({ queryKey: queryKeys.auth.session });
+    navigate("/auth");
+  }
 
   useEffect(() => {
     if (companiesLoading || onboardingTriggered.current) return;
@@ -287,6 +311,14 @@ export function Layout() {
               {isInstanceSettingsRoute ? <InstanceSidebar /> : <Sidebar />}
             </div>
             <div className="border-t border-r border-border px-3 py-2 bg-background">
+              {health?.deploymentMode === "local_trusted" && (
+                <div className="mb-1.5">
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-green-500/10 px-2 py-0.5 text-xs font-medium text-green-600 dark:text-green-400">
+                    <span className="h-1.5 w-1.5 rounded-full bg-green-500 shrink-0" />
+                    Local trusted mode
+                  </span>
+                </div>
+              )}
               <div className="flex items-center gap-1">
                 <a
                   href="https://docs.paperclip.ing/"
@@ -299,6 +331,31 @@ export function Layout() {
                 </a>
                 {health?.version && (
                   <span className="px-2 text-xs text-muted-foreground shrink-0">v{health.version}</span>
+                )}
+                {isAuthenticated && session?.user && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon-sm" className="shrink-0" aria-label="User menu">
+                        <Identity
+                          name={session.user.name ?? session.user.email ?? "User"}
+                          size="xs"
+                        />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent side="top" align="end" className="w-52">
+                      <DropdownMenuLabel className="font-normal">
+                        <p className="text-sm font-medium leading-none truncate">{session.user.name ?? session.user.email ?? "User"}</p>
+                        {session.user.name && session.user.email && (
+                          <p className="text-xs text-muted-foreground truncate mt-1">{session.user.email}</p>
+                        )}
+                      </DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={handleSignOut}>
+                        <LogOut className="h-4 w-4 mr-2" />
+                        Sign out
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 )}
                 <Button variant="ghost" size="icon-sm" className="text-muted-foreground shrink-0" asChild>
                   <Link
@@ -340,6 +397,14 @@ export function Layout() {
               </div>
             </div>
             <div className="border-t border-r border-border px-3 py-2">
+              {health?.deploymentMode === "local_trusted" && (
+                <div className="mb-1.5">
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-green-500/10 px-2 py-0.5 text-xs font-medium text-green-600 dark:text-green-400">
+                    <span className="h-1.5 w-1.5 rounded-full bg-green-500 shrink-0" />
+                    Local trusted mode
+                  </span>
+                </div>
+              )}
               <div className="flex items-center gap-1">
                 <a
                   href="https://docs.paperclip.ing/"
@@ -352,6 +417,31 @@ export function Layout() {
                 </a>
                 {health?.version && (
                   <span className="px-2 text-xs text-muted-foreground shrink-0">v{health.version}</span>
+                )}
+                {isAuthenticated && session?.user && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon-sm" className="shrink-0" aria-label="User menu">
+                        <Identity
+                          name={session.user.name ?? session.user.email ?? "User"}
+                          size="xs"
+                        />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent side="top" align="end" className="w-52">
+                      <DropdownMenuLabel className="font-normal">
+                        <p className="text-sm font-medium leading-none truncate">{session.user.name ?? session.user.email ?? "User"}</p>
+                        {session.user.name && session.user.email && (
+                          <p className="text-xs text-muted-foreground truncate mt-1">{session.user.email}</p>
+                        )}
+                      </DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={handleSignOut}>
+                        <LogOut className="h-4 w-4 mr-2" />
+                        Sign out
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 )}
                 <Button variant="ghost" size="icon-sm" className="text-muted-foreground shrink-0" asChild>
                   <Link

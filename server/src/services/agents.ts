@@ -8,6 +8,8 @@ import {
   agentRuntimeState,
   agentTaskSessions,
   agentWakeupRequests,
+  authUsers,
+  companyMemberships,
   costEvents,
   heartbeatRunEvents,
   heartbeatRuns,
@@ -613,24 +615,97 @@ export function agentService(db: Db) {
     },
 
     orgForCompany: async (companyId: string) => {
-      const rows = await db
+      const agentRows = await db
         .select()
         .from(agents)
         .where(and(eq(agents.companyId, companyId), ne(agents.status, "terminated")));
-      const normalizedRows = rows.map(normalizeAgentRow);
-      const byManager = new Map<string | null, typeof normalizedRows>();
-      for (const row of normalizedRows) {
-        const key = row.reportsTo ?? null;
-        const group = byManager.get(key) ?? [];
-        group.push(row);
-        byManager.set(key, group);
+
+      const humanRows = await db
+        .select({
+          id: companyMemberships.principalId,
+          name: authUsers.name,
+          jobTitle: companyMemberships.jobTitle,
+          supervisorUserId: companyMemberships.supervisorUserId,
+          supervisorAgentId: companyMemberships.supervisorAgentId,
+        })
+        .from(companyMemberships)
+        .innerJoin(authUsers, eq(authUsers.id, companyMemberships.principalId))
+        .where(
+          and(
+            eq(companyMemberships.companyId, companyId),
+            eq(companyMemberships.principalType, "user"),
+            eq(companyMemberships.status, "active"),
+          ),
+        );
+
+      const validAgentIds = new Set(agentRows.map((a) => a.id));
+      const validUserIds = new Set(humanRows.map((h) => h.id));
+
+      type OrgEntry = {
+        key: string;
+        parentKey: string | null;
+        id: string;
+        name: string;
+        role: string;
+        status: string;
+        kind: "agent" | "human";
+      };
+
+      const entries: OrgEntry[] = [];
+
+      for (const row of agentRows) {
+        const normalized = normalizeAgentRow(row);
+        let parentKey: string | null = null;
+        if (normalized.reportsToUserId && validUserIds.has(normalized.reportsToUserId)) {
+          parentKey = `user:${normalized.reportsToUserId}`;
+        } else if (normalized.reportsTo && validAgentIds.has(normalized.reportsTo)) {
+          parentKey = `agent:${normalized.reportsTo}`;
+        }
+        entries.push({
+          key: `agent:${normalized.id}`,
+          parentKey,
+          id: normalized.id,
+          name: normalized.name,
+          role: normalized.role,
+          status: normalized.status,
+          kind: "agent",
+        });
       }
 
-      const build = (managerId: string | null): Array<Record<string, unknown>> => {
-        const members = byManager.get(managerId) ?? [];
-        return members.map((member) => ({
-          ...member,
-          reports: build(member.id),
+      for (const row of humanRows) {
+        let parentKey: string | null = null;
+        if (row.supervisorAgentId && validAgentIds.has(row.supervisorAgentId)) {
+          parentKey = `agent:${row.supervisorAgentId}`;
+        } else if (row.supervisorUserId && validUserIds.has(row.supervisorUserId)) {
+          parentKey = `user:${row.supervisorUserId}`;
+        }
+        entries.push({
+          key: `user:${row.id}`,
+          parentKey,
+          id: row.id,
+          name: row.name ?? "",
+          role: row.jobTitle ?? "Human",
+          status: "active",
+          kind: "human",
+        });
+      }
+
+      const byParent = new Map<string | null, OrgEntry[]>();
+      for (const entry of entries) {
+        const group = byParent.get(entry.parentKey) ?? [];
+        group.push(entry);
+        byParent.set(entry.parentKey, group);
+      }
+
+      const build = (parentKey: string | null): Array<Record<string, unknown>> => {
+        const children = byParent.get(parentKey) ?? [];
+        return children.map((child) => ({
+          id: child.id,
+          name: child.name,
+          role: child.role,
+          status: child.status,
+          kind: child.kind,
+          reports: build(child.key),
         }));
       };
 

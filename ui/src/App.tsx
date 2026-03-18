@@ -32,6 +32,8 @@ import { PluginPage } from "./pages/PluginPage";
 import { RunTranscriptUxLab } from "./pages/RunTranscriptUxLab";
 import { OrgChart } from "./pages/OrgChart";
 import { NewAgent } from "./pages/NewAgent";
+import { Humans } from "./pages/Humans";
+import { HumanDetail } from "./pages/HumanDetail";
 import { AuthPage } from "./pages/Auth";
 import { BoardClaimPage } from "./pages/BoardClaim";
 import { InviteLandingPage } from "./pages/InviteLanding";
@@ -129,6 +131,9 @@ function boardRoutes() {
       <Route path="agents/:agentId" element={<AgentDetail />} />
       <Route path="agents/:agentId/:tab" element={<AgentDetail />} />
       <Route path="agents/:agentId/runs/:runId" element={<AgentDetail />} />
+      <Route path="humans" element={<Humans />} />
+      <Route path="humans/:userId" element={<HumanDetail />} />
+      <Route path="humans/:userId/:tab" element={<HumanDetail />} />
       <Route path="projects" element={<Projects />} />
       <Route path="projects/:projectId" element={<ProjectDetail />} />
       <Route path="projects/:projectId/overview" element={<ProjectDetail />} />
@@ -322,6 +327,9 @@ export function App() {
           <Route path="agents/:agentId" element={<UnprefixedBoardRedirect />} />
           <Route path="agents/:agentId/:tab" element={<UnprefixedBoardRedirect />} />
           <Route path="agents/:agentId/runs/:runId" element={<UnprefixedBoardRedirect />} />
+          <Route path="humans" element={<UnprefixedBoardRedirect />} />
+          <Route path="humans/:userId" element={<UnprefixedBoardRedirect />} />
+          <Route path="humans/:userId/:tab" element={<UnprefixedBoardRedirect />} />
           <Route path="projects" element={<UnprefixedBoardRedirect />} />
           <Route path="projects/:projectId" element={<UnprefixedBoardRedirect />} />
           <Route path="projects/:projectId/overview" element={<UnprefixedBoardRedirect />} />

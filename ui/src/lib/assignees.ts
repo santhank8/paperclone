@@ -40,12 +40,28 @@ export function currentUserAssigneeOption(currentUserId: string | null | undefin
   }];
 }
 
+export function humanMemberAssigneeOptions(
+  members: Array<{ id: string; name: string | null; email: string | null }>,
+  currentUserId: string | null | undefined,
+): AssigneeOption[] {
+  return members
+    .filter((m) => m.id !== currentUserId)
+    .map((m) => ({
+      id: assigneeValueFromSelection({ assigneeUserId: m.id }),
+      label: m.name ?? m.email ?? m.id.slice(0, 8),
+      searchText: `${m.name ?? ""} ${m.email ?? ""} human`,
+    }));
+}
+
 export function formatAssigneeUserLabel(
   userId: string | null | undefined,
   currentUserId: string | null | undefined,
+  members?: Array<{ id: string; name: string | null; email: string | null }>,
 ): string | null {
   if (!userId) return null;
   if (currentUserId && userId === currentUserId) return "Me";
   if (userId === "local-board") return "Board";
+  const member = members?.find((m) => m.id === userId);
+  if (member) return member.name ?? member.email ?? userId.slice(0, 5);
   return userId.slice(0, 5);
 }

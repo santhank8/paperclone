@@ -16,8 +16,10 @@ import { useToast } from "../context/ToastContext";
 import {
   assigneeValueFromSelection,
   currentUserAssigneeOption,
+  humanMemberAssigneeOptions,
   parseAssigneeValue,
 } from "../lib/assignees";
+import { accessApi } from "../api/access";
 import {
   Dialog,
   DialogContent,
@@ -348,6 +350,11 @@ export function NewIssueDialog() {
     enabled: newIssueOpen,
   });
   const currentUserId = session?.user?.id ?? session?.session?.userId ?? null;
+  const { data: humanMembers = [] } = useQuery({
+    queryKey: queryKeys.access.humanMembers(effectiveCompanyId!),
+    queryFn: () => accessApi.listHumanMembers(effectiveCompanyId!),
+    enabled: !!effectiveCompanyId,
+  });
   const activeProjects = useMemo(
     () => (projects ?? []).filter((p) => !p.archivedAt),
     [projects],
@@ -672,6 +679,7 @@ export function NewIssueDialog() {
         ? { executionWorkspaceId: selectedExecutionWorkspaceId }
         : {}),
       ...(executionWorkspaceSettings ? { executionWorkspaceSettings } : {}),
+      ...(newIssueDefaults.parentId ? { parentId: newIssueDefaults.parentId } : {}),
     });
   }
 
@@ -790,6 +798,7 @@ export function NewIssueDialog() {
   const assigneeOptions = useMemo<InlineEntityOption[]>(
     () => [
       ...currentUserAssigneeOption(currentUserId),
+      ...humanMemberAssigneeOptions(humanMembers, currentUserId),
       ...sortAgentsByRecency(
         (agents ?? []).filter((agent) => agent.status !== "terminated"),
         recentAssigneeIds,
@@ -799,7 +808,7 @@ export function NewIssueDialog() {
         searchText: `${agent.name} ${agent.role} ${agent.title ?? ""}`,
       })),
     ],
-    [agents, currentUserId, recentAssigneeIds],
+    [agents, currentUserId, humanMembers, recentAssigneeIds],
   );
   const projectOptions = useMemo<InlineEntityOption[]>(
     () =>
@@ -953,7 +962,7 @@ export function NewIssueDialog() {
               </PopoverContent>
             </Popover>
             <span className="text-muted-foreground/60">&rsaquo;</span>
-            <span>New issue</span>
+            <span>{newIssueDefaults.parentId ? "New sub-issue" : "New issue"}</span>
           </div>
           <div className="flex items-center gap-1">
             <Button

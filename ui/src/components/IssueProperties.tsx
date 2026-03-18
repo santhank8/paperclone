@@ -3,6 +3,7 @@ import { Link } from "@/lib/router";
 import type { Issue } from "@paperclipai/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { agentsApi } from "../api/agents";
+import { accessApi } from "../api/access";
 import { authApi } from "../api/auth";
 import { executionWorkspacesApi } from "../api/execution-workspaces";
 import { instanceSettingsApi } from "../api/instanceSettings";
@@ -12,7 +13,7 @@ import { useCompany } from "../context/CompanyContext";
 import { queryKeys } from "../lib/queryKeys";
 import { useProjectOrder } from "../hooks/useProjectOrder";
 import { getRecentAssigneeIds, sortAgentsByRecency, trackRecentAssignee } from "../lib/recent-assignees";
-import { formatAssigneeUserLabel } from "../lib/assignees";
+import { formatAssigneeUserLabel, humanMemberAssigneeOptions, parseAssigneeValue } from "../lib/assignees";
 import { StatusIcon } from "./StatusIcon";
 import { PriorityIcon } from "./PriorityIcon";
 import { Identity } from "./Identity";
@@ -202,6 +203,12 @@ export function IssueProperties({ issue, onUpdate, inline }: IssuePropertiesProp
     enabled: !!companyId,
   });
 
+  const { data: humanMembers = [] } = useQuery({
+    queryKey: queryKeys.access.humanMembers(companyId!),
+    queryFn: () => accessApi.listHumanMembers(companyId!),
+    enabled: !!companyId,
+  });
+
   const { data: projects } = useQuery({
     queryKey: queryKeys.projects.list(companyId!),
     queryFn: () => projectsApi.list(companyId!),
@@ -316,7 +323,7 @@ export function IssueProperties({ issue, onUpdate, inline }: IssuePropertiesProp
   const assignee = issue.assigneeAgentId
     ? agents?.find((a) => a.id === issue.assigneeAgentId)
     : null;
-  const userLabel = (userId: string | null | undefined) => formatAssigneeUserLabel(userId, currentUserId);
+  const userLabel = (userId: string | null | undefined) => formatAssigneeUserLabel(userId, currentUserId, humanMembers);
   const assigneeUserLabel = userLabel(issue.assigneeUserId);
   const creatorUserLabel = userLabel(issue.createdByUserId);
 
@@ -482,6 +489,25 @@ export function IssueProperties({ issue, onUpdate, inline }: IssuePropertiesProp
             {creatorUserLabel ? `Assign to ${creatorUserLabel}` : "Assign to requester"}
           </button>
         )}
+        {humanMemberAssigneeOptions(humanMembers, currentUserId)
+          .filter((m) => {
+            if (!assigneeSearch.trim()) return true;
+            const q = assigneeSearch.toLowerCase();
+            return m.label.toLowerCase().includes(q) || (m.searchText ?? "").toLowerCase().includes(q);
+          })
+          .map((m) => (
+            <button
+              key={m.id}
+              className={cn(
+                "flex items-center gap-2 w-full px-2 py-1.5 text-xs rounded hover:bg-accent/50",
+                issue.assigneeUserId === parseAssigneeValue(m.id).assigneeUserId && "bg-accent",
+              )}
+              onClick={() => { onUpdate({ ...parseAssigneeValue(m.id), assigneeAgentId: null }); setAssigneeOpen(false); }}
+            >
+              <User className="h-3 w-3 shrink-0 text-muted-foreground" />
+              {m.label}
+            </button>
+          ))}
         {sortedAgents
           .filter((a) => {
             if (!assigneeSearch.trim()) return true;

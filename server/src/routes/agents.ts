@@ -2,7 +2,7 @@ import { Router, type Request } from "express";
 import { generateKeyPairSync, randomUUID } from "node:crypto";
 import path from "node:path";
 import type { Db } from "@paperclipai/db";
-import { agents as agentsTable, companies, heartbeatRuns } from "@paperclipai/db";
+import { agents as agentsTable, companies, companyMemberships, heartbeatRuns } from "@paperclipai/db";
 import { and, desc, eq, inArray, not, sql } from "drizzle-orm";
 import {
   createAgentKeySchema,
@@ -406,6 +406,7 @@ export function agentRoutes(db: Db) {
       name: String(node.name),
       role: String(node.role),
       status: String(node.status),
+      kind: node.kind === "human" ? "human" : "agent",
       reports,
     };
   }
@@ -783,7 +784,7 @@ export function agentRoutes(db: Db) {
       hireInput.adapterType,
       normalizedAdapterConfig,
     );
-    const normalizedHireInput = {
+    let normalizedHireInput = {
       ...hireInput,
       adapterConfig: normalizedAdapterConfig,
     };
@@ -796,6 +797,33 @@ export function agentRoutes(db: Db) {
     if (!company) {
       res.status(404).json({ error: "Company not found" });
       return;
+    }
+
+    // If no manager is specified and this is the first agent for the company,
+    // auto-assign it to the company owner so it appears under them in the org chart.
+    const explicitManager = normalizedHireInput.reportsTo || normalizedHireInput.reportsToUserId;
+    if (!explicitManager) {
+      const existingAgents = await db
+        .select({ id: agentsTable.id })
+        .from(agentsTable)
+        .where(and(eq(agentsTable.companyId, companyId), not(eq(agentsTable.status, "terminated"))));
+      if (existingAgents.length === 0) {
+        const owner = await db
+          .select({ principalId: companyMemberships.principalId })
+          .from(companyMemberships)
+          .where(
+            and(
+              eq(companyMemberships.companyId, companyId),
+              eq(companyMemberships.principalType, "user"),
+              eq(companyMemberships.status, "active"),
+              eq(companyMemberships.membershipRole, "owner"),
+            ),
+          )
+          .then((rows) => rows[0] ?? null);
+        if (owner) {
+          normalizedHireInput = { ...normalizedHireInput, reportsToUserId: owner.principalId };
+        }
+      }
     }
 
     const requiresApproval = company.requireBoardApprovalForNewAgents;

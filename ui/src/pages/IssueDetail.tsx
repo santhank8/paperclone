@@ -5,9 +5,11 @@ import { issuesApi } from "../api/issues";
 import { activityApi } from "../api/activity";
 import { heartbeatsApi } from "../api/heartbeats";
 import { agentsApi } from "../api/agents";
+import { accessApi } from "../api/access";
 import { authApi } from "../api/auth";
 import { projectsApi } from "../api/projects";
 import { useCompany } from "../context/CompanyContext";
+import { useDialog } from "../context/DialogContext";
 import { usePanel } from "../context/PanelContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
 import { queryKeys } from "../lib/queryKeys";
@@ -44,6 +46,7 @@ import {
   MessageSquare,
   MoreHorizontal,
   Paperclip,
+  Plus,
   SlidersHorizontal,
   Trash2,
 } from "lucide-react";
@@ -191,6 +194,7 @@ function ActorIdentity({ evt, agentMap }: { evt: ActivityEvent; agentMap: Map<st
 export function IssueDetail() {
   const { issueId } = useParams<{ issueId: string }>();
   const { selectedCompanyId } = useCompany();
+  const { openNewIssue } = useDialog();
   const { openPanel, closePanel, panelVisible, setPanelVisible } = usePanel();
   const { setBreadcrumbs } = useBreadcrumbs();
   const queryClient = useQueryClient();
@@ -287,6 +291,12 @@ export function IssueDetail() {
     enabled: !!selectedCompanyId,
   });
 
+  const { data: humanMembers = [] } = useQuery({
+    queryKey: queryKeys.access.humanMembers(selectedCompanyId!),
+    queryFn: () => accessApi.listHumanMembers(selectedCompanyId!),
+    enabled: !!selectedCompanyId,
+  });
+
   const { data: session } = useQuery({
     queryKey: queryKeys.auth.session,
     queryFn: () => authApi.getSession(),
@@ -337,6 +347,13 @@ export function IssueDetail() {
         kind: "agent",
       });
     }
+    for (const member of [...humanMembers].sort((a, b) => (a.name ?? "").localeCompare(b.name ?? ""))) {
+      options.push({
+        id: `user:${member.id}`,
+        name: member.name ?? member.email ?? member.id.slice(0, 8),
+        kind: "human",
+      });
+    }
     for (const project of orderedProjects) {
       options.push({
         id: `project:${project.id}`,
@@ -347,7 +364,7 @@ export function IssueDetail() {
       });
     }
     return options;
-  }, [agents, orderedProjects]);
+  }, [agents, humanMembers, orderedProjects]);
 
   const childIssues = useMemo(() => {
     if (!allIssues || !issue) return [];
@@ -367,8 +384,16 @@ export function IssueDetail() {
     if (currentUserId) {
       options.push({ id: `user:${currentUserId}`, label: "Me" });
     }
+    for (const member of humanMembers) {
+      if (member.id === currentUserId) continue;
+      options.push({
+        id: `user:${member.id}`,
+        label: member.name ?? member.email ?? member.id.slice(0, 8),
+        searchText: `${member.name ?? ""} ${member.email ?? ""} human`,
+      });
+    }
     return options;
-  }, [agents, currentUserId]);
+  }, [agents, currentUserId, humanMembers]);
 
   const currentAssigneeValue = useMemo(() => {
     if (issue?.assigneeAgentId) return `agent:${issue.assigneeAgentId}`;
@@ -985,6 +1010,17 @@ export function IssueDetail() {
         </TabsContent>
 
         <TabsContent value="subissues">
+          <div className="flex justify-end mb-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5"
+              onClick={() => openNewIssue({ parentId: issue.id })}
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Create sub-issue
+            </Button>
+          </div>
           {childIssues.length === 0 ? (
             <p className="text-xs text-muted-foreground">No sub-issues.</p>
           ) : (
