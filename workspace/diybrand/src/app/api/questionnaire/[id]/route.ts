@@ -20,7 +20,11 @@ export async function GET(
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 
-    return NextResponse.json(row);
+    return NextResponse.json(row, {
+      headers: {
+        "Cache-Control": "private, max-age=300",
+      },
+    });
   } catch {
     return NextResponse.json({ error: "Something went wrong" }, { status: 500 });
   }

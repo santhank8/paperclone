@@ -10,6 +10,7 @@ import {
 import { eq, and } from "drizzle-orm";
 import JSZip from "jszip";
 import { readLogo } from "@/lib/storage";
+import crypto from "crypto";
 
 export async function GET(
   req: NextRequest,
@@ -97,6 +98,30 @@ export async function GET(
       { error: "No brand assets selected yet" },
       { status: 400 }
     );
+  }
+
+  // Generate ETag from brand data for efficient revalidation
+  const etagData = JSON.stringify({
+    questionnaireId: questionnaire.id,
+    questionnaireUpdated: questionnaire.updatedAt,
+    paletteId: palette?.id,
+    paletteCreated: palette?.createdAt,
+    typographyId: typography?.id,
+    typographyCreated: typography?.createdAt,
+    logoIds: selectedLogos.map((l) => l.id).sort(),
+  });
+  const etag = `"${crypto.createHash("sha256").update(etagData).digest("hex").substring(0, 16)}"`;
+
+  // Check If-None-Match for 304 response
+  const clientEtag = req.headers.get("if-none-match");
+  if (clientEtag === etag) {
+    return new NextResponse(null, {
+      status: 304,
+      headers: {
+        "Cache-Control": "private, no-cache",
+        ETag: etag,
+      },
+    });
   }
 
   const brandName = questionnaire.businessName || "Brand";
@@ -345,6 +370,8 @@ body, p, li, span {
       "Content-Type": "application/zip",
       "Content-Disposition": `attachment; filename="${safeFilename}-brand-kit.zip"`,
       "Content-Length": String(zipBuffer.length),
+      "Cache-Control": "private, no-cache",
+      ETag: etag,
       "Server-Timing": `db;dur=${queryDuration.toFixed(2)};desc="Database queries"`,
     },
   });
