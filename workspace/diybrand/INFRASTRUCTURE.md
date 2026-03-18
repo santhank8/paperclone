@@ -514,25 +514,428 @@ res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
 - **Level 2** (Major): Emergency hotfix (< 4 hours)
 - **Level 3** (Critical): Immediate rollback + investigation
 
+## Monitoring & Observability
+
+### Overview
+
+Production observability is built on three pillars: uptime monitoring, error tracking, and performance monitoring.
+
+**Stack:**
+- **Uptime Monitoring**: UptimeRobot or similar (detects downtime)
+- **Error Tracking**: Sentry (captures and alerts on errors)
+- **Performance Monitoring**: Vercel Analytics + Core Web Vitals
+- **Logging**: Application logs via Sentry, database via Vercel Postgres
+
+### Uptime Monitoring
+
+**Goal**: Detect when production is unreachable (target: 99.9% uptime)
+
+**Setup:**
+1. Use UptimeRobot, Healthchecks.io, or Vercel's built-in monitoring
+2. Configure HTTP GET check: `https://diybrand.app`
+3. Expected response: 200 status code within 30 seconds
+4. Check frequency: Every 5 minutes (12x per hour)
+
+**Alerts:**
+```
+If status code != 200 for 2+ consecutive checks:
+  → Alert via email + SMS
+  → Notify Slack channel #infrastructure
+  → Trigger PagerDuty (if available)
+```
+
+**Dashboard:**
+- Check status at: uptime monitoring service dashboard
+- Public status page (optional): status.diybrand.app
+- SLA target: 99.9% (allow 8.64 hours downtime per year)
+
+**Alert Response:**
+1. **Receive alert** → Check #infrastructure Slack
+2. **Verify issue** → Test `https://diybrand.app` manually
+3. **Check status** → Vercel dashboard, Sentry, database
+4. **Investigate logs** → Sentry, GitHub Actions, Vercel logs
+5. **Mitigate** → Rollback, hotfix, or restore database
+6. **Communicate** → Post in Slack with status updates
+7. **Post-mortem** → Document incident in GitHub issue
+
+### Error Rate Monitoring
+
+**Goal**: Alert on unexpected error spikes before users report issues
+
+**Sentry Alerts:**
+
+| Condition | Threshold | Action |
+|-----------|-----------|--------|
+| Error rate spike | > 1% within 5 min | 🔴 Critical alert |
+| New error pattern | Never seen before | 🟡 Warning alert |
+| Critical routes | /api/checkout > 0 errors | 🔴 Immediate alert |
+| Stripe webhooks | Any failures | 🔴 Immediate alert |
+
+**Configuration (in Sentry):**
+1. Go to **Project Settings → Alerts**
+2. Create alert rule:
+   ```
+   IF: Error rate increases by 50% within 5 min
+   THEN: Alert via Slack + Email
+   ```
+3. Create rule:
+   ```
+   IF: New error in: /api/checkout, /api/webhooks/stripe
+   THEN: Alert via Slack + PagerDuty
+   ```
+4. Configure team notification: #infrastructure Slack channel
+
+**Alert Response:**
+1. Click Sentry link in alert
+2. Review stack trace and affected users
+3. Check recent deployments (GitHub Actions)
+4. If bug introduced in recent deployment: **Rollback immediately**
+5. If data issue: **Check database backups**
+6. If external service: **Check service status pages**
+7. Fix and redeploy
+
+### Performance Monitoring
+
+**Goal**: Detect performance degradation before it impacts users
+
+**Core Web Vitals Targets:**
+| Metric | Target | Alert |
+|--------|--------|-------|
+| Largest Contentful Paint (LCP) | < 2.5s | > 4s |
+| First Input Delay (FID) | < 100ms | > 300ms |
+| Cumulative Layout Shift (CLS) | < 0.1 | > 0.3 |
+
+**Monitoring via Vercel Analytics:**
+1. Go to Vercel dashboard → **Analytics**
+2. View real-time metrics:
+   - Page load times by route
+   - Edge cache hit rate
+   - Time to First Byte (TTFB)
+3. Compare with baselines from previous week
+4. Alert if metrics degrade > 20%
+
+**Response to Performance Degradation:**
+1. Check Vercel build logs
+2. Review recent code changes (git log)
+3. Check database query performance (slow logs)
+4. Check bundle size (GitHub Actions reports)
+5. If image-heavy page: Verify Next.js Image optimization
+6. If API slow: Check database indexes and query plans
+7. If layout shift: Find CSS causing shift (DevTools)
+8. Fix and measure improvement
+
+### Database Monitoring
+
+**Goal**: Maintain database health and catch issues early
+
+**Metrics to Monitor:**
+
+| Metric | Check Frequency | Alert Threshold |
+|--------|-----------------|-----------------|
+| Connection pool usage | Real-time | > 80% |
+| Active connections | Real-time | > 900 |
+| Storage size | Daily | > 80% of plan |
+| Slow queries | Daily | > 1 second execution |
+| Backup status | Daily | No backup in 48h |
+
+**Setup Connection Pool Monitoring:**
+
+```typescript
+// Add to API route health check
+import { sql } from 'drizzle-orm';
+
+export async function GET() {
+  try {
+    const result = await db.execute(sql`SELECT COUNT(*) as connections FROM pg_stat_activity;`);
+    const connections = result[0].connections;
+    const poolUsage = (connections / 900) * 100; // Max 900 connections
+
+    if (poolUsage > 80) {
+      // Alert via Sentry
+      Sentry.captureMessage(`High connection pool usage: ${poolUsage}%`, 'warning');
+    }
+
+    return Response.json({ poolUsage });
+  } catch (error) {
+    Sentry.captureException(error);
+    return Response.json({ error: 'DB health check failed' }, { status: 500 });
+  }
+}
+```
+
+**Check Storage Size:**
+1. Vercel dashboard → **Storage → Postgres → Usage**
+2. Monitor growth rate (bytes per day)
+3. If > 100MB/week: Investigate large tables
+4. Archive old data if necessary
+
+**Slow Query Log:**
+```sql
+-- Find slow queries
+SELECT
+  query,
+  calls,
+  total_time,
+  mean_time
+FROM pg_stat_statements
+WHERE mean_time > 1000  -- > 1 second
+ORDER BY mean_time DESC;
+```
+
+### Logging Strategy
+
+**Application Logs:**
+- Sent to Sentry (via SDK)
+- Breadcrumbs capture context
+- Retention: 90 days (free tier)
+
+**API Request Logs:**
+- Vercel automatically logs all requests
+- Accessible via Vercel dashboard
+- Retention: Last 30 deployments
+
+**Database Logs:**
+- Connection logs in Vercel dashboard
+- Slow query logs available
+- Query performance tracked
+
+**Accessing Logs:**
+```bash
+# Pull recent Vercel logs
+vercel logs --prod
+
+# Pull specific deployment logs
+vercel logs https://[deployment-url]
+
+# View in browser
+# Vercel dashboard → Deployments → [deployment] → Logs
+```
+
+### Alerting Channels
+
+**Configure notifications for:**
+1. **Sentry**: Project Settings → Integrations → Slack
+2. **Uptime**: UptimeRobot → Alert contacts
+3. **Vercel**: Project Settings → Notifications
+4. **GitHub**: Actions → Secrets (webhook URLs)
+
+**Alert Recipients:**
+- **Slack channel**: #infrastructure (critical + warnings)
+- **Email**: on-call rotation
+- **PagerDuty**: escalation for P1 incidents (optional)
+
+### Monitoring Dashboard
+
+**Create unified dashboard (optional):**
+- Vercel Analytics: Core Web Vitals + request metrics
+- Sentry Dashboard: Error rates + new issues
+- UptimeRobot: Uptime percentage + downtime events
+- Cost tracking: Monthly spend trends
+
+**Access Points:**
+- Vercel: https://vercel.com/dashboard/project/analytics
+- Sentry: https://sentry.io/organizations/diybrand/
+- UptimeRobot: https://uptimerobot.com/dashboard
+- GitHub Actions: https://github.com/[org]/[repo]/actions
+
+### Monitoring Checklist
+
+**Daily:**
+- [ ] Check Sentry for critical errors
+- [ ] Review uptime status (target: > 99.9%)
+- [ ] Verify last backup completed
+
+**Weekly:**
+- [ ] Review error trends in Sentry
+- [ ] Check Core Web Vitals from Vercel Analytics
+- [ ] Review slow query logs
+- [ ] Test database restore
+
+**Monthly:**
+- [ ] Analyze performance trends
+- [ ] Review cost breakdown
+- [ ] Capacity planning (storage growth)
+- [ ] Security audit of access logs
+
+**Quarterly:**
+- [ ] Disaster recovery drill
+- [ ] Review and optimize alerting rules
+- [ ] Update runbooks
+- [ ] Team training on incident response
+
 ## Cost Management
 
-### Vercel
+### Vercel Compute & Hosting
 
-- Monitor usage at https://vercel.com/settings/usage
-- Alert threshold: $500/month
-- Optimize: Image resizing, edge caching
+**Billing Model:**
+- Pro plan: $20/month base
+- Pay-as-you-go: $0.50 per 1M Function Invocations (API routes)
+- Bandwidth: $0.15 per GB (except cached content)
+- Image optimization: Included
 
-### Database (Postgres)
+**Cost Drivers:**
+1. **Build minutes**: Each deployment uses build minutes
+2. **Function invocations**: API route calls
+3. **Bandwidth**: Data transfer (images, API responses)
+4. **Edge Middleware**: Runs on every request
 
-- Monitor: Active connections, storage size
-- Alert threshold: 100GB or > 900 active connections
-- Optimize: Delete old logs, archive unused data
+**Optimization Strategies:**
+- Enable Vercel Image Optimization (automatic caching)
+- Use Vercel Edge Middleware for routing (cheaper than functions)
+- Cache static assets with 1-year TTL
+- Compress API responses (gzip enabled by default)
+- Limit preview environment deployments (create separate project if needed)
 
-### Stripe
+**Monitoring:**
+```
+Vercel Dashboard → Settings → Usage
+- View current month spend
+- Breakdown by function invocations, bandwidth, etc.
+- Set spending alerts at $100, $200, $300
+```
 
-- Monitor: Payment processing volume
-- Alert threshold: > $10k/month
-- Review: Refunds, failed payments weekly
+**Cost Target & Alerts:**
+- **Baseline**: ~$50-100/month (small app, low traffic)
+- **Alert threshold**: $300/month (investigate if exceeded)
+- **Escalation**: >$500/month requires approval
+
+**Cost Reduction Actions:**
+1. Remove unused preview deployments
+2. Optimize images (use Next.js Image component)
+3. Cache API responses (30s+ for non-critical data)
+4. Bundle size optimization (< 150KB gzipped)
+5. Archive old deployments
+
+### Database (Vercel Postgres)
+
+**Billing Model (Vercel Postgres):**
+- Free plan: 4GB storage, 50 concurrent connections
+- Pro plans: $15-150/month based on storage/connections
+- Storage: Primary $0.25/GB, Backup $0.10/GB
+
+**Cost Drivers:**
+1. **Storage size**: Larger databases cost more
+2. **Connection pool**: Higher concurrency = higher tier
+3. **Compute**: Query execution time (small, medium, large instances)
+
+**Monitoring:**
+```
+Vercel Dashboard → Storage → Postgres
+- Check storage size growth
+- Monitor active connections
+- Review compute usage
+```
+
+**Optimization & Cost Reduction:**
+```sql
+-- Check largest tables
+SELECT schemaname, tablename, pg_size_pretty(pg_total_relation_size(schemaname||'.'||tablename)) as size
+FROM pg_tables
+WHERE schemaname NOT IN ('pg_catalog', 'information_schema')
+ORDER BY pg_total_relation_size(schemaname||'.'||tablename) DESC;
+
+-- Archive old data (e.g., logs older than 90 days)
+DELETE FROM event_logs WHERE created_at < NOW() - INTERVAL '90 days';
+
+-- Reindex to recover space
+REINDEX DATABASE diybrand_prod;
+
+-- Analyze for query optimization
+ANALYZE;
+```
+
+**Alert Threshold:**
+- Storage: Alert when > 80% of plan limit
+- Connections: Alert when > 80% of max (900)
+- Backups: Alert if backup size > 50% of main DB
+
+### Stripe Payment Processing
+
+**Billing Model:**
+- Transaction fees: 2.9% + 30¢ per successful transaction
+- No monthly fee for standard processing
+- ACH transfers: Free (1-2 days)
+- Instant payouts: $0.25 per payout
+
+**Cost Drivers:**
+1. **Transaction volume**: % of total payment amount
+2. **Payment method**: Card, ACH, etc. (all same rate)
+3. **Refunds**: Credited back to merchant, no reverse fee
+
+**Monitoring:**
+```
+Stripe Dashboard → Reports → Revenue
+- View monthly transaction volume
+- Track refund rate
+- Monitor failed payment attempts
+```
+
+**Cost Target & Alerts:**
+- **Typical rate**: 2.9% + $0.30 per transaction
+- **At $10k volume**: ~$300/month in fees
+- **Alert threshold**: >$10k/month volume (track for revenue milestone)
+
+**Cost Reduction:**
+- Encourage ACH payments for large orders (instant payout)
+- Monitor failed payments (retry logic in webhooks)
+- Track refund rate (high rate = fraud or UX issue)
+- Negotiate volume discounts at $100k+/month revenue
+
+### Total Cost & Budget
+
+**Estimated Monthly Costs (Small Scale):**
+```
+Vercel Compute:        $20-50
+Vercel Postgres:       $15-30
+Stripe Processing:     $100-500 (2.9% + 30¢/transaction)
+Uptime Monitoring:     $10 (UptimeRobot free tier)
+Sentry Error Tracking: $0 (free tier, 10k errors/month)
+Domain/Email:          $10-20
+─────────────────────────────────
+Total Monthly:         $155-630
+```
+
+**Budget Allocation:**
+- **Development**: < $50/month (Vercel)
+- **Production**: < $200/month (Vercel + Database)
+- **Payment processing**: 2.9% + $0.30/transaction
+- **Monitoring**: < $20/month
+
+**Cost Alerts & Escalation:**
+| Cost Level | Action |
+|-----------|--------|
+| < $100/month | ✅ Green - No action |
+| $100-$300/month | 🟡 Yellow - Monitor trends |
+| $300-$500/month | 🟠 Orange - Optimize & review |
+| > $500/month | 🔴 Red - Escalate & investigate |
+
+**Weekly Cost Review:**
+1. Check Vercel dashboard for current month estimate
+2. Review Stripe transaction volume
+3. Check Sentry for error rate (impacts quotas)
+4. Identify cost optimization opportunities
+
+**Monthly Cost Report (send to team):**
+```
+Current Month Cost: $XXX
+vs. Last Month: ±XX%
+vs. Budget: ±XX%
+
+Breakdown:
+- Vercel Compute: $X
+- Database: $X
+- Stripe Fees: $X
+- Other: $X
+
+Trends:
+- Bandwidth: ↑↓X% (reason?)
+- Function calls: ↑↓X% (reason?)
+- Storage: ↑↓X% (reason?)
+
+Recommendations:
+- [Optimization #1]
+- [Optimization #2]
+```
 
 ## Compliance & Security
 
