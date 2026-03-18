@@ -1,5 +1,6 @@
 export interface InstanceExperimentalSettings {
   enableIsolatedWorkspaces: boolean;
+  enableAutoMode: boolean;
 }
 
 export interface InstanceSettings {

@@ -31,6 +31,7 @@ import {
   secretService,
   workspaceOperationService,
 } from "../services/index.js";
+import { tokenAnalyticsService } from "../services/token-analytics.js";
 import { conflict, forbidden, notFound, unprocessable } from "../errors.js";
 import { assertBoard, assertCompanyAccess, getActorInfo } from "./authz.js";
 import { findServerAdapter, listAdapterModels } from "../adapters/index.js";
@@ -64,6 +65,7 @@ export function agentRoutes(db: Db) {
   const issueApprovalsSvc = issueApprovalService(db);
   const secretsSvc = secretService(db);
   const workspaceOperations = workspaceOperationService(db);
+  const tokenAnalytics = tokenAnalyticsService(db);
   const strictSecretsMode = process.env.PAPERCLIP_SECRETS_STRICT_MODE === "true";
 
   function canCreateAgents(agent: { role: string; permissions: Record<string, unknown> | null | undefined }) {
@@ -1712,6 +1714,48 @@ export function agentRoutes(db: Db) {
       agentName: agent.name,
       adapterType: agent.adapterType,
     });
+  });
+
+  // ── Token Analytics ──
+
+  router.get("/agents/:id/token-summary", async (req, res) => {
+    assertBoard(req);
+    const id = req.params.id as string;
+    const agent = await svc.getById(id);
+    if (!agent) {
+      res.status(404).json({ error: "Agent not found" });
+      return;
+    }
+    assertCompanyAccess(req, agent.companyId);
+
+    const sinceHours = req.query.sinceHours ? Number(req.query.sinceHours) : 24;
+    const summary = await tokenAnalytics.getAgentTokenSummary(id, agent.companyId, { sinceHours });
+    res.json(summary);
+  });
+
+  router.get("/agents/:id/token-deltas", async (req, res) => {
+    assertBoard(req);
+    const id = req.params.id as string;
+    const agent = await svc.getById(id);
+    if (!agent) {
+      res.status(404).json({ error: "Agent not found" });
+      return;
+    }
+    assertCompanyAccess(req, agent.companyId);
+
+    const limit = req.query.limit ? Math.min(Number(req.query.limit), 200) : 50;
+    const offset = req.query.offset ? Number(req.query.offset) : 0;
+    const deltas = await tokenAnalytics.getAgentTokenDeltas(id, agent.companyId, { limit, offset });
+    res.json(deltas);
+  });
+
+  router.get("/companies/:companyId/token-summary", async (req, res) => {
+    const companyId = req.params.companyId as string;
+    assertCompanyAccess(req, companyId);
+
+    const sinceHours = req.query.sinceHours ? Number(req.query.sinceHours) : 24;
+    const summary = await tokenAnalytics.getCompanyTokenSummary(companyId, { sinceHours });
+    res.json(summary);
   });
 
   return router;

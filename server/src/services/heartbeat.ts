@@ -31,6 +31,11 @@ import { secretService } from "./secrets.js";
 import { resolveDefaultAgentWorkspaceDir, resolveManagedProjectWorkspaceDir } from "../home-paths.js";
 import { summarizeHeartbeatRunResultJson } from "./heartbeat-run-summary.js";
 import {
+  evaluateCircuitBreaker,
+  resolveCircuitBreakerConfig,
+  tripCircuitBreaker,
+} from "./circuit-breaker.js";
+import {
   buildWorkspaceReadyComment,
   cleanupExecutionWorkspaceArtifacts,
   ensureRuntimeServicesForRun,
@@ -2402,6 +2407,19 @@ export function heartbeatService(db: Db) {
         }
       }
       await finalizeAgentStatus(agent.id, outcome);
+
+      // Circuit breaker evaluation after run completes
+      try {
+        const cbConfig = resolveCircuitBreakerConfig(agent.circuitBreakerConfig as Record<string, unknown> | null);
+        if (cbConfig.enabled) {
+          const cbEval = await evaluateCircuitBreaker(db, agent.id, cbConfig);
+          if (cbEval.tripped) {
+            await tripCircuitBreaker(db, agent.id, agent.companyId, cbEval.reason!);
+          }
+        }
+      } catch (cbErr) {
+        logger.warn({ err: cbErr, agentId: agent.id, runId }, "circuit breaker evaluation failed (non-fatal)");
+      }
     } catch (err) {
       const message = redactCurrentUserText(err instanceof Error ? err.message : "Unknown adapter failure");
       logger.error({ err, runId }, "heartbeat execution failed");
@@ -2463,6 +2481,19 @@ export function heartbeatService(db: Db) {
       }
 
       await finalizeAgentStatus(agent.id, "failed");
+
+      // Circuit breaker evaluation after failure
+      try {
+        const cbConfig = resolveCircuitBreakerConfig(agent.circuitBreakerConfig as Record<string, unknown> | null);
+        if (cbConfig.enabled) {
+          const cbEval = await evaluateCircuitBreaker(db, agent.id, cbConfig);
+          if (cbEval.tripped) {
+            await tripCircuitBreaker(db, agent.id, agent.companyId, cbEval.reason!);
+          }
+        }
+      } catch (cbErr) {
+        logger.warn({ err: cbErr, agentId: agent.id, runId }, "circuit breaker evaluation failed (non-fatal)");
+      }
     }
     } catch (outerErr) {
           // Setup code before adapter.execute threw (e.g. ensureRuntimeState, resolveWorkspaceForRun).

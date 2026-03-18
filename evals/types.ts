@@ -48,3 +48,47 @@ export interface EvalResult {
   totalPassed: number;
   totalFailed: number;
 }
+
+// --- Phase 2: Rubric Scorer + Efficiency Metrics ---
+
+export interface RubricDimension {
+  name: string;
+  weight: number; // 0-1
+  description: string;
+}
+
+export interface RubricScore {
+  dimension: string;
+  score: number; // 0-1
+  reasoning: string;
+}
+
+export interface RubricResult {
+  caseId: string;
+  bundleId: string;
+  scores: RubricScore[];
+  weightedTotal: number; // weighted avg 0-1
+  pass: boolean; // weightedTotal >= threshold
+}
+
+export interface EfficiencyMetrics {
+  caseId: string;
+  bundleId: string;
+  durationMs: number;
+  outputLengthChars: number;
+  checksPassed: number;
+  checksTotal: number;
+  passRate: number; // 0-1
+  efficiency: number; // passRate / max(1, durationMs/1000) — passes per second
+}
+
+// --- Phase 3: Pairwise Judge ---
+
+export interface PairwiseComparison {
+  caseId: string;
+  bundleA: string;
+  bundleB: string;
+  winner: "A" | "B" | "tie";
+  reasoning: string;
+  dimensions: Record<string, "A" | "B" | "tie">;
+}

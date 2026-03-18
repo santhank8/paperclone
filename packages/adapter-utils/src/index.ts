@@ -45,3 +45,10 @@ export {
   redactTranscriptEntryPaths,
 } from "./log-redaction.js";
 export { inferOpenAiCompatibleBiller } from "./billing.js";
+export type { SkillAllowlistPolicy } from "./skill-allowlist.js";
+export {
+  DEFAULT_SKILL_ALLOWLIST,
+  resolveSkillAllowlist,
+  filterSkills,
+  computeSkillSetHash,
+} from "./skill-allowlist.js";

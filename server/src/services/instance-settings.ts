@@ -15,10 +15,12 @@ function normalizeExperimentalSettings(raw: unknown): InstanceExperimentalSettin
   if (parsed.success) {
     return {
       enableIsolatedWorkspaces: parsed.data.enableIsolatedWorkspaces ?? false,
+      enableAutoMode: parsed.data.enableAutoMode ?? false,
     };
   }
   return {
     enableIsolatedWorkspaces: false,
+    enableAutoMode: false,
   };
 }
 
