@@ -538,8 +538,38 @@ export default function Home() {
       </section>
 
       {/* ─── Footer ─── */}
-      <footer className="relative z-10 border-t border-[var(--glass-border)] px-6 py-8 text-center text-sm text-[var(--text-muted)]">
-        &copy; {new Date().getFullYear()} diybrand.app. All rights reserved.
+      <footer className="relative z-10 border-t border-[var(--glass-border)] px-6 py-12">
+        <div className="mx-auto max-w-4xl">
+          <div className="mb-8 grid grid-cols-3 gap-8 text-sm text-[var(--text-muted)]">
+            <div>
+              <h4 className="font-semibold text-white mb-3">Help</h4>
+              <ul className="space-y-2">
+                <li><Link href="/faq" className="hover:text-white transition-colors">FAQ</Link></li>
+                <li><Link href="/guides" className="hover:text-white transition-colors">How-To Guides</Link></li>
+                <li><a href="mailto:support@diybrand.app" className="hover:text-white transition-colors">Email Support</a></li>
+              </ul>
+            </div>
+            <div>
+              <h4 className="font-semibold text-white mb-3">Product</h4>
+              <ul className="space-y-2">
+                <li><a href="#how-it-works" className="hover:text-white transition-colors">How It Works</a></li>
+                <li><a href="#features" className="hover:text-white transition-colors">Features</a></li>
+                <li><a href="#pricing" className="hover:text-white transition-colors">Pricing</a></li>
+              </ul>
+            </div>
+            <div>
+              <h4 className="font-semibold text-white mb-3">Company</h4>
+              <ul className="space-y-2">
+                <li><a href="#" className="hover:text-white transition-colors">Privacy Policy</a></li>
+                <li><a href="#" className="hover:text-white transition-colors">Terms of Service</a></li>
+                <li><a href="#" className="hover:text-white transition-colors">Refund Policy</a></li>
+              </ul>
+            </div>
+          </div>
+          <div className="border-t border-[var(--glass-border)] pt-8 text-center text-sm text-[var(--text-muted)]">
+            &copy; {new Date().getFullYear()} diybrand.app. All rights reserved. Built with love for solopreneurs.
+          </div>
+        </div>
       </footer>
     </main>
   );
