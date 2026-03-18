@@ -127,7 +127,7 @@ afterEach(async () => {
   delete process.env.DATABASE_URL;
 });
 
-describe("realizeExecutionWorkspace", () => {
+describe.skipIf(process.platform === "win32")("realizeExecutionWorkspace", () => {
   it("creates and reuses a git worktree for an issue-scoped branch", async () => {
     const repoRoot = await createTempRepo();
 
@@ -581,7 +581,7 @@ describe("realizeExecutionWorkspace", () => {
   });
 });
 
-describe("ensureRuntimeServicesForRun", () => {
+describe.skipIf(process.platform === "win32")("ensureRuntimeServicesForRun", () => {
   it("reuses shared runtime services across runs and starts a new service after release", async () => {
     const workspaceRoot = await fs.mkdtemp(path.join(os.tmpdir(), "paperclip-runtime-workspace-"));
     const workspace = buildWorkspace(workspaceRoot);

@@ -33,6 +33,7 @@ import { DEFAULT_GEMINI_LOCAL_MODEL } from "@paperclipai/adapter-gemini-local";
 import { AsciiArtAnimation } from "./AsciiArtAnimation";
 import { ChoosePathButton } from "./PathInstructionsModal";
 import { HintIcon } from "./agent-config-primitives";
+import { PlatformCapabilitiesPanel } from "./PlatformCapabilitiesPanel";
 import { OpenCodeLogoIcon } from "./OpenCodeLogoIcon";
 import {
   Building2,
@@ -46,6 +47,7 @@ import {
   Terminal,
   Sparkles,
   MousePointer2,
+  TrendingUp,
   Check,
   Loader2,
   FolderOpen,
@@ -62,6 +64,7 @@ type AdapterType =
   | "pi_local"
   | "cursor"
   | "process"
+  | "crca_q"
   | "http"
   | "openclaw_gateway";
 
@@ -99,6 +102,9 @@ export function OnboardingWizard() {
   const [model, setModel] = useState("");
   const [command, setCommand] = useState("");
   const [args, setArgs] = useState("");
+  const [crcaExecutionMode, setCrcaExecutionMode] = useState<
+    "disabled" | "paper" | "live"
+  >("disabled");
   const [url, setUrl] = useState("");
   const [adapterEnvResult, setAdapterEnvResult] =
     useState<AdapterEnvironmentTestResult | null>(null);
@@ -179,6 +185,7 @@ export function OnboardingWizard() {
     adapterType === "gemini_local" ||
     adapterType === "opencode_local" ||
     adapterType === "cursor";
+  const needsEnvProbe = isLocalAdapter || adapterType === "crca_q";
   const effectiveAdapterCommand =
     command.trim() ||
     (adapterType === "codex_local"
@@ -195,7 +202,7 @@ export function OnboardingWizard() {
     if (step !== 2) return;
     setAdapterEnvResult(null);
     setAdapterEnvError(null);
-  }, [step, adapterType, cwd, model, command, args, url]);
+  }, [step, adapterType, cwd, model, command, args, url, crcaExecutionMode]);
 
   const selectedModel = (adapterModels ?? []).find((m) => m.id === model);
   const hasAnthropicApiKeyOverrideCheck =
@@ -295,7 +302,8 @@ export function OnboardingWizard() {
       dangerouslyBypassSandbox:
         adapterType === "codex_local"
           ? DEFAULT_CODEX_LOCAL_BYPASS_APPROVALS_AND_SANDBOX
-          : defaultCreateValues.dangerouslyBypassSandbox
+          : defaultCreateValues.dangerouslyBypassSandbox,
+      crcaExecutionMode
     });
     if (adapterType === "claude_local" && forceUnsetAnthropicApiKey) {
       const env =
@@ -412,7 +420,13 @@ export function OnboardingWizard() {
         }
       }
 
-      if (isLocalAdapter) {
+      if (adapterType === "crca_q" && !cwd.trim()) {
+        setError("Set working directory to your Intellitrade-CRCA folder (contains CR-CA/).");
+        setLoading(false);
+        return;
+      }
+
+      if (needsEnvProbe) {
         const result = adapterEnvResult ?? (await runAdapterEnvironmentTest());
         if (!result) return;
       }
@@ -781,6 +795,12 @@ export function OnboardingWizard() {
                             desc: "Local Cursor agent"
                           },
                           {
+                            value: "crca_q" as const,
+                            label: "CRCA-Q",
+                            icon: TrendingUp,
+                            desc: "Quant / causal runner (install crca_q)",
+                          },
+                          {
                             value: "openclaw_gateway" as const,
                             label: "OpenClaw Gateway",
                             icon: Bot,
@@ -804,6 +824,10 @@ export function OnboardingWizard() {
                               if (opt.comingSoon) return;
                               const nextType = opt.value as AdapterType;
                               setAdapterType(nextType);
+                              if (nextType === "crca_q") {
+                                setCrcaExecutionMode("disabled");
+                                return;
+                              }
                               if (nextType === "gemini_local" && !model) {
                                 setModel(DEFAULT_GEMINI_LOCAL_MODEL);
                                 return;
@@ -836,6 +860,47 @@ export function OnboardingWizard() {
                   </div>
 
                   {/* Conditional adapter fields */}
+                  {adapterType === "crca_q" && (
+                    <div className="space-y-3">
+                      <div>
+                        <div className="flex items-center gap-1.5 mb-1">
+                          <label className="text-xs text-muted-foreground">
+                            Working directory
+                          </label>
+                          <HintIcon text="Path to Intellitrade-CRCA (folder must contain CR-CA/). Install: cd Intellitrade-CRCA/crca_q then pip install -e . (not the inner crca_q/crca_q folder)" />
+                        </div>
+                        <div className="flex items-center gap-2 rounded-md border border-border px-2.5 py-1.5">
+                          <FolderOpen className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                          <input
+                            className="w-full bg-transparent outline-none text-sm font-mono placeholder:text-muted-foreground/50"
+                            placeholder="/path/to/Intellitrade-CRCA"
+                            value={cwd}
+                            onChange={(e) => setCwd(e.target.value)}
+                          />
+                          <ChoosePathButton />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="text-xs text-muted-foreground mb-1 block">
+                          Execution mode
+                        </label>
+                        <select
+                          className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+                          value={crcaExecutionMode}
+                          onChange={(e) =>
+                            setCrcaExecutionMode(
+                              e.target.value as "disabled" | "paper" | "live"
+                            )
+                          }
+                        >
+                          <option value="disabled">disabled (safest)</option>
+                          <option value="paper">paper</option>
+                          <option value="live">live</option>
+                        </select>
+                      </div>
+                    </div>
+                  )}
+
                   {(adapterType === "claude_local" ||
                     adapterType === "codex_local" ||
                     adapterType === "gemini_local" ||
@@ -961,7 +1026,7 @@ export function OnboardingWizard() {
                     </div>
                   )}
 
-                  {isLocalAdapter && (
+                  {needsEnvProbe && (
                     <div className="space-y-2 rounded-md border border-border p-3">
                       <div className="flex items-center justify-between gap-2">
                         <div>
@@ -969,8 +1034,9 @@ export function OnboardingWizard() {
                             Adapter environment check
                           </p>
                           <p className="text-[11px] text-muted-foreground">
-                            Runs a live probe that asks the adapter CLI to
-                            respond with hello.
+                            {adapterType === "crca_q"
+                              ? "Checks that crca-q is on PATH and cwd is valid."
+                              : "Runs a live probe that asks the adapter CLI to respond with hello."}
                           </p>
                         </div>
                         <Button
@@ -1024,7 +1090,25 @@ export function OnboardingWizard() {
                         </div>
                       )}
 
-                      {adapterEnvResult && adapterEnvResult.status === "fail" && (
+                      {adapterType === "crca_q" &&
+                        adapterEnvResult &&
+                        adapterEnvResult.status === "fail" && (
+                          <div className="rounded-md border border-border/70 bg-muted/20 px-2.5 py-2 text-[11px] space-y-1.5">
+                            <p className="font-medium">CRCA-Q setup</p>
+                            <p className="text-muted-foreground">
+                              From <code className="text-[10px]">Intellitrade-CRCA</code>,{" "}
+                              <code className="text-[10px]">cd crca_q</code> then{" "}
+                              <code className="text-[10px]">pip install -e .</code>{" "}
+                              and ensure <code className="text-[10px]">crca-q</code> is on{" "}
+                              <code className="text-[10px]">PATH</code>. Cwd must contain{" "}
+                              <code className="text-[10px]">CR-CA/</code>.
+                            </p>
+                          </div>
+                        )}
+
+                      {isLocalAdapter &&
+                        adapterEnvResult &&
+                        adapterEnvResult.status === "fail" && (
                         <div className="rounded-md border border-border/70 bg-muted/20 px-2.5 py-2 text-[11px] space-y-1.5">
                           <p className="font-medium">Manual debug</p>
                           <p className="text-muted-foreground font-mono break-all">
@@ -1218,6 +1302,9 @@ export function OnboardingWizard() {
                       <Check className="h-4 w-4 text-green-500 shrink-0" />
                     </div>
                   </div>
+                  <div className="mt-4">
+                    <PlatformCapabilitiesPanel variant="compact" />
+                  </div>
                 </div>
               )}
 
@@ -1262,7 +1349,12 @@ export function OnboardingWizard() {
                     <Button
                       size="sm"
                       disabled={
-                        !agentName.trim() || loading || adapterEnvLoading
+                        !agentName.trim() ||
+                        loading ||
+                        adapterEnvLoading ||
+                        (adapterType === "crca_q" &&
+                          (!cwd.trim() ||
+                            adapterEnvResult?.status !== "pass"))
                       }
                       onClick={handleStep2Next}
                     >

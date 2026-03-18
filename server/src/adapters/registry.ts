@@ -64,6 +64,7 @@ import {
   models as hermesModels,
 } from "hermes-paperclip-adapter";
 import { processAdapter } from "./process/index.js";
+import { crcaQAdapter } from "./crca-q/index.js";
 import { httpAdapter } from "./http/index.js";
 
 const claudeLocalAdapter: ServerAdapterModule = {
@@ -168,6 +169,7 @@ const adaptersByType = new Map<string, ServerAdapterModule>(
     openclawGatewayAdapter,
     hermesLocalAdapter,
     processAdapter,
+    crcaQAdapter,
     httpAdapter,
   ].map((a) => [a.type, a]),
 );

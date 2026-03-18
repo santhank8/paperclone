@@ -30,7 +30,7 @@ async function createCustomSkill(root: string, skillName: string) {
   );
 }
 
-describe("codex local adapter skill injection", () => {
+describe.skipIf(process.platform === "win32")("codex local adapter skill injection", () => {
   const cleanupDirs = new Set<string>();
 
   afterEach(async () => {

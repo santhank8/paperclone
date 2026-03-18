@@ -48,3 +48,8 @@ tests/e2e/test-results/
 tests/e2e/playwright-report/
 .superset/
 .claude/worktrees/
+
+# Nested repo backup (CR-CA was vendored into tree; keep local git metadata out of index)
+Intellitrade-CRCA/CR-CA/.git_nested_backup/
+Intellitrade-CRCA/**/__pycache__/
+*.pyc

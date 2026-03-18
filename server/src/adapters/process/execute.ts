@@ -10,7 +10,7 @@ import {
 } from "../utils.js";
 
 export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExecutionResult> {
-  const { runId, agent, config, onLog, onMeta } = ctx;
+  const { runId, agent, config, onLog, onMeta, context, authToken } = ctx;
   const command = asString(config.command, "");
   if (!command) throw new Error("Process adapter missing command");
 
@@ -20,6 +20,17 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
   const env: Record<string, string> = { ...buildPaperclipEnv(agent) };
   for (const [k, v] of Object.entries(envConfig)) {
     if (typeof v === "string") env[k] = v;
+  }
+
+  const paperclipContext: Record<string, unknown> = {
+    companyId: agent.companyId,
+    agentId: agent.id,
+    heartbeatRunId: runId,
+    ...(context && typeof context === "object" && !Array.isArray(context) ? context : {}),
+  };
+  env.PAPERCLIP_CONTEXT_JSON = JSON.stringify(paperclipContext);
+  if (authToken) {
+    env.PAPERCLIP_AGENT_JWT = authToken;
   }
 
   const timeoutSec = asNumber(config.timeoutSec, 0);

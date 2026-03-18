@@ -10,10 +10,30 @@ Current implementation status:
 
 - canonical model: `local_trusted` and `authenticated` (with `private/public` exposure)
 
+## Platform capabilities
+
+The server exposes what the instance can do (core domains + installed agent adapter types):
+
+- `GET /api/platform/capabilities` — board or agent auth in `authenticated` mode; open in `local_trusted`.
+- The board UI shows this under **Instance settings**; onboarding step 4 includes a short summary.
+
+Source of truth for copy: `packages/shared/src/platform-abilities.ts`.
+
 ## Prerequisites
 
 - Node.js 20+
 - pnpm 9+
+
+### Tests on Windows
+
+`pnpm test:run` is supported on Windows. Some suites are **skipped** there because they depend on Unix-only behavior (unprivileged symlinks, `/bin/sh`, path semantics):
+
+- Codex/Cursor skill symlink injection tests
+- One Codex execute test (worktree `CODEX_HOME` symlinks)
+- Paperclip skill symlink cleanup test
+- `realizeExecutionWorkspace` / `ensureRuntimeServicesForRun` in `workspace-runtime.test.ts`
+
+CI and full coverage should still be run on Linux/macOS. On Windows, adapter execute/env tests use `.cmd` + Node stubs instead of shebang scripts.
 
 ## Dependency Lockfile Policy
 

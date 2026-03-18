@@ -25,7 +25,7 @@ Before making changes, read in this order:
 - `server/`: Express REST API and orchestration services
 - `ui/`: React + Vite board UI
 - `packages/db/`: Drizzle schema, migrations, DB clients
-- `packages/shared/`: shared types, constants, validators, API path constants
+- `packages/shared/`: shared types, constants, validators, API path constants (`platform-abilities.ts` lists what the host can do; exposed at `GET /api/platform/capabilities`)
 - `doc/`: operational and product docs
 
 ## 4. Dev Setup (Auto DB)

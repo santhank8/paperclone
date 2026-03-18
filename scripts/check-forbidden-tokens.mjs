@@ -1,6 +1,6 @@
-#!/usr/bin/env node
 /**
  * check-forbidden-tokens.mjs
+ * Run via: node scripts/check-forbidden-tokens.mjs (no shebang — Vitest ESM import).
  *
  * Scans the codebase for forbidden tokens before publishing to npm.
  * Mirrors the git pre-commit hook logic, but runs against the full

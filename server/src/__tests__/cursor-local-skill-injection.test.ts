@@ -12,7 +12,7 @@ async function createSkillDir(root: string, name: string) {
   await fs.mkdir(path.join(root, name), { recursive: true });
 }
 
-describe("cursor local adapter skill injection", () => {
+describe.skipIf(process.platform === "win32")("cursor local adapter skill injection", () => {
   const cleanupDirs = new Set<string>();
 
   afterEach(async () => {

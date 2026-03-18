@@ -360,29 +360,39 @@ describe("worktree helpers", () => {
   });
 
   it("rebinds same-repo workspace paths onto the current worktree root", () => {
-    expect(
-      rebindWorkspaceCwd({
-        sourceRepoRoot: "/Users/example/paperclip",
-        targetRepoRoot: "/Users/example/paperclip-pr-432",
-        workspaceCwd: "/Users/example/paperclip",
-      }),
-    ).toBe("/Users/example/paperclip-pr-432");
+    const src = process.platform === "win32" ? "C:\\Users\\example\\paperclip" : "/Users/example/paperclip";
+    const tgt =
+      process.platform === "win32" ? "C:\\Users\\example\\paperclip-pr-432" : "/Users/example/paperclip-pr-432";
 
     expect(
       rebindWorkspaceCwd({
-        sourceRepoRoot: "/Users/example/paperclip",
-        targetRepoRoot: "/Users/example/paperclip-pr-432",
-        workspaceCwd: "/Users/example/paperclip/packages/db",
+        sourceRepoRoot: src,
+        targetRepoRoot: tgt,
+        workspaceCwd: src,
       }),
-    ).toBe("/Users/example/paperclip-pr-432/packages/db");
+    ).toBe(tgt);
+
+    expect(
+      rebindWorkspaceCwd({
+        sourceRepoRoot: src,
+        targetRepoRoot: tgt,
+        workspaceCwd: path.join(src, "packages", "db"),
+      }),
+    ).toBe(path.join(tgt, "packages", "db"));
   });
 
   it("does not rebind paths outside the source repo root", () => {
+    const src = process.platform === "win32" ? "C:\\Users\\example\\paperclip" : "/Users/example/paperclip";
+    const tgt =
+      process.platform === "win32" ? "C:\\Users\\example\\paperclip-pr-432" : "/Users/example/paperclip-pr-432";
+    const outside =
+      process.platform === "win32" ? "C:\\Users\\example\\other-project" : "/Users/example/other-project";
+
     expect(
       rebindWorkspaceCwd({
-        sourceRepoRoot: "/Users/example/paperclip",
-        targetRepoRoot: "/Users/example/paperclip-pr-432",
-        workspaceCwd: "/Users/example/other-project",
+        sourceRepoRoot: src,
+        targetRepoRoot: tgt,
+        workspaceCwd: outside,
       }),
     ).toBeNull();
   });
@@ -427,7 +437,9 @@ describe("worktree helpers", () => {
         copied: true,
       });
       expect(fs.readFileSync(targetHookPath, "utf8")).toBe("#!/usr/bin/env bash\nexit 0\n");
-      expect(fs.statSync(targetHookPath).mode & 0o111).not.toBe(0);
+      if (process.platform !== "win32") {
+        expect(fs.statSync(targetHookPath).mode & 0o111).not.toBe(0);
+      }
       expect(fs.readFileSync(targetTokensPath, "utf8")).toBe("secret-token\n");
     } finally {
       execFileSync("git", ["worktree", "remove", "--force", worktreePath], { cwd: repoRoot, stdio: "ignore" });

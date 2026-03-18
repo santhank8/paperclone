@@ -425,6 +425,13 @@ export {
 } from "./project-mentions.js";
 
 export {
+  PLATFORM_CAPABILITY_DOMAINS,
+  type PlatformCapabilityDomain,
+  type InstalledAgentAdapterInfo,
+  type PlatformCapabilitiesPayload,
+} from "./platform-abilities.js";
+
+export {
   paperclipConfigSchema,
   configMetaSchema,
   llmConfigSchema,

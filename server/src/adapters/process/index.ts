@@ -7,6 +7,7 @@ export const processAdapter: ServerAdapterModule = {
   execute,
   testEnvironment,
   models: [],
+  supportsLocalAgentJwt: true,
   agentConfigurationDoc: `# process agent configuration
 
 Adapter: process
@@ -20,5 +21,9 @@ Core fields:
 Operational fields:
 - timeoutSec (number, optional): run timeout in seconds
 - graceSec (number, optional): SIGTERM grace period in seconds
+
+Injected by the host (do not set manually in adapterConfig.env):
+- PAPERCLIP_CONTEXT_JSON: JSON with companyId, agentId, heartbeatRunId, plus heartbeat contextSnapshot (e.g. issueId)
+- PAPERCLIP_AGENT_JWT: short-lived bearer JWT for the current run (when local agent JWT is enabled)
 `,
 };

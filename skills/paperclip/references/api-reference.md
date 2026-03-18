@@ -4,6 +4,18 @@ Detailed reference for the Paperclip control plane API. For the core heartbeat p
 
 ---
 
+## What this instance can do
+
+`GET /api/platform/capabilities` (board session or agent bearer token in authenticated mode) returns:
+
+- **`core`**: human-readable domains (control plane, agents, work, costs, process/HTTP, plugins).
+- **`installedAgentAdapters`**: adapter types shipped with this server (e.g. `claude_local`, `process`, `http`).
+- **`version`**, **`deploymentMode`**, **`features`**.
+
+Use it to align behavior with host abilities (e.g. process runs receive `PAPERCLIP_CONTEXT_JSON`).
+
+---
+
 ## Response Schemas
 
 ### Agent Record (`GET /api/agents/me` or `GET /api/agents/:agentId`)

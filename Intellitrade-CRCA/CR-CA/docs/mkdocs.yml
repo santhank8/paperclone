@@ -1,0 +1,148 @@
+site_name: CR-CA Documentation
+site_description: Causal Reasoning and Counterfactual Analysis Framework
+site_author: CR-CA Contributors
+site_url: https://github.com/IlumCI/CR-CA
+
+repo_name: IlumCI/CR-CA
+repo_url: https://github.com/IlumCI/CR-CA
+edit_uri: edit/main/docs/
+
+copyright: Copyright &copy; 2024-2026 CR-CA Contributors
+
+theme:
+  name: material
+  palette:
+    - scheme: default
+      primary: blue grey
+      accent: grey
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: blue grey
+      accent: grey
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  font:
+    text: "Source Sans 3"
+    code: "JetBrains Mono"
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.code.annotate
+    - content.tabs.link
+    - content.code.copy
+  icon:
+    repo: fontawesome/brands/github
+
+markdown_extensions:
+  - pymdownx.arithmatex:
+      generic: true
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.tabbed:
+      alternate_style: true
+  - admonition
+  - pymdownx.details
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - attr_list
+  - md_in_html
+  - toc:
+      permalink: true
+      toc_depth: 3
+
+plugins:
+  - search:
+      lang: en
+  - minify:
+      minify_html: true
+  - git-revision-date-localized:
+      enable_creation_date: true
+      type: date
+  - mermaid2
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [..]
+          selection:
+            docstring_style: google
+          rendering:
+            show_source: true
+            show_root_heading: true
+            show_root_toc_entry: true
+
+extra_javascript:
+  - javascripts/mathjax.js
+  - https://polyfill.io/v3/polyfill.min.js?features=es6
+  - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js
+
+extra_css:
+  - css/custom.css
+  - stylesheets/extra.css
+
+extra:
+  # Load Google Fonts for European editorial look
+  head:
+    - link:
+        href: "https://fonts.googleapis.com/css2?family=Crimson+Text:ital,wght@0,400;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500&family=Source+Sans+3:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap"
+        rel: "stylesheet"
+
+nav:
+  - Home: index.md
+  - Introduction:
+    - Installation: getting-started/installation.md
+    - Quickstart: getting-started/quickstart.md
+    - Configuration: getting-started/configuration.md
+    - First Agent: getting-started/first-agent.md
+  - Causal core (crca_core):
+    - Specs and lifecycle: causal-core/specs-lifecycle.md
+    - Identification and estimation: causal-core/identification-estimation.md
+    - Counterfactuals and SCM: causal-core/counterfactuals-scm.md
+    - Discovery: causal-core/discovery.md
+    - Intervention design: causal-core/intervention-design.md
+    - Refusals and validation: causal-core/refusals-validation.md
+  - LLM layer (crca_llm):
+    - Equation extraction and parser: llm/equation-extraction-parser.md
+    - Orchestrator: llm/orchestrator.md
+  - Agents (branches):
+    - GeneralAgent: agents/general-agent.md
+    - CRCA-Q: agents/crca-q.md
+    - CRCA-SD: agents/crca-sd.md
+    - CRCA-CG: agents/crca-cg.md
+  - Templates and policy:
+    - Overview: templates-policy/index.md
+  - Utils and tools:
+    - Agent discovery and router: utils-tools/agent-discovery-router.md
+    - Conversation and ledger: utils-tools/conversation-ledger.md
+    - Tools: utils-tools/tools.md
+  - Schemas and contracts:
+    - Overview: core/schemas/overview.md
+    - Core schemas: core/schemas/core-schemas.md
+    - Policy: core/schemas/policy.md
+    - Annotation: core/schemas/annotation.md
+  - Features:
+    - Image annotation: features-consolidated/image-annotation.md
+    - Hybrid agent: features-consolidated/hybrid-agent.md
+    - Policy engine: features-consolidated/policy-engine.md
+  - API Gateway (crca-api): api-gateway/index.md
+  - Reference:
+    - Causal reasoning (theory): features/causal-reasoning/overview.md
+    - Examples: examples/overview.md
+    - Architecture: architecture/overview.md
+  - Changelog: changelog/index.md
+  - Contributing: contributing/overview.md

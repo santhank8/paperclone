@@ -295,4 +295,6 @@ export interface CreateConfigValues {
   maxTurnsPerRun: number;
   heartbeatEnabled: boolean;
   intervalSec: number;
+  /** crca_q: disabled | paper | live */
+  crcaExecutionMode?: string;
 }

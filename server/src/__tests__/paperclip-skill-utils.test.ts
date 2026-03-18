@@ -34,7 +34,7 @@ describe("paperclip skill utils", () => {
     expect(entries[0]?.source).toBe(path.join(root, "skills", "paperclip"));
   });
 
-  it("removes stale maintainer-only symlinks from a shared skills home", async () => {
+  it.skipIf(process.platform === "win32")("removes stale maintainer-only symlinks from a shared skills home", async () => {
     const root = await makeTempDir("paperclip-skill-cleanup-");
     cleanupDirs.add(root);
 

@@ -7,6 +7,7 @@ import { openCodeLocalUIAdapter } from "./opencode-local";
 import { piLocalUIAdapter } from "./pi-local";
 import { openClawGatewayUIAdapter } from "./openclaw-gateway";
 import { processUIAdapter } from "./process";
+import { crcaQUIAdapter } from "./crca-q";
 import { httpUIAdapter } from "./http";
 
 const adaptersByType = new Map<string, UIAdapterModule>(
@@ -19,6 +20,7 @@ const adaptersByType = new Map<string, UIAdapterModule>(
     cursorLocalUIAdapter,
     openClawGatewayUIAdapter,
     processUIAdapter,
+    crcaQUIAdapter,
     httpUIAdapter,
   ].map((a) => [a.type, a]),
 );

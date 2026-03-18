@@ -152,6 +152,7 @@ describe("applyPendingMigrations", () => {
         await verifySql.end();
       }
     },
-    20_000,
+    /** PGlite + full migration graph can exceed 20s on slow Windows disks / AV. */
+    60_000,
   );
 });
