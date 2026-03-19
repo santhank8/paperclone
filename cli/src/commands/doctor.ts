@@ -16,6 +16,11 @@ import {
 } from "../checks/index.js";
 import { loadPaperclipEnvFile } from "../config/env.js";
 import { printPaperclipCliBanner } from "../utils/banner.js";
+import {
+  resolveEffectiveDeploymentConfig,
+  hasCompleteEnvConfig,
+  type EffectiveDeploymentConfig,
+} from "../config/effective.js";
 
 const STATUS_ICON = {
   pass: pc.green("✓"),
@@ -35,23 +40,33 @@ export async function doctor(opts: {
   loadPaperclipEnvFile(configPath);
   const results: CheckResult[] = [];
 
-  // 1. Config check (must pass before others)
+  // 1. Config check (may warn instead of fail in env-driven mode)
   const cfgResult = configCheck(opts.config);
   results.push(cfgResult);
   printResult(cfgResult);
 
+  // If config check failed hard (no config and no complete env), stop here
   if (cfgResult.status === "fail") {
     return printSummary(results);
   }
 
-  let config: PaperclipConfig;
-  try {
-    config = readConfig(opts.config)!;
-  } catch (err) {
+  // Get effective config (from env and/or file)
+  const effectiveConfig = resolveEffectiveDeploymentConfig(configPath);
+  const config = effectiveConfig.config;
+
+  // In env-only mode, we can still run some checks
+  if (!config && effectiveConfig.databaseUrl) {
+    // Run checks that work with env-only config
+    results.push(...await runEnvOnlyChecks(effectiveConfig, configPath, opts));
+    return printSummary(results);
+  }
+
+  // Standard flow with config file
+  if (!config) {
     const readResult: CheckResult = {
       name: "Config file",
       status: "fail",
-      message: `Could not read config: ${err instanceof Error ? err.message : String(err)}`,
+      message: "Could not read config and env vars are incomplete",
       canRepair: false,
       repairHint: "Run `paperclipai configure --section database` or `paperclipai onboard`",
     };
@@ -122,6 +137,73 @@ export async function doctor(opts: {
 
   // Summary
   return printSummary(results);
+}
+
+/**
+ * Run checks that work in env-only mode (no config file).
+ */
+async function runEnvOnlyChecks(
+  effectiveConfig: EffectiveDeploymentConfig,
+  configPath: string,
+  opts: { repair?: boolean; yes?: boolean },
+): Promise<CheckResult[]> {
+  const results: CheckResult[] = [];
+
+  // Deployment mode check from env
+  const deploymentModeResult: CheckResult = {
+    name: "Deployment mode",
+    status: "pass",
+    message: `Running in ${effectiveConfig.deploymentMode} mode (from environment)`,
+  };
+  results.push(deploymentModeResult);
+  printResult(deploymentModeResult);
+
+  // Database URL check
+  const dbUrlResult: CheckResult = effectiveConfig.databaseUrl
+    ? {
+        name: "Database",
+        status: "pass",
+        message: "DATABASE_URL is set",
+      }
+    : {
+        name: "Database",
+        status: "fail",
+        message: "DATABASE_URL is not set",
+        canRepair: false,
+        repairHint: "Set DATABASE_URL environment variable",
+      };
+  results.push(dbUrlResult);
+  printResult(dbUrlResult);
+
+  // Public URL check (warning if missing in authenticated mode)
+  if (effectiveConfig.deploymentMode === "authenticated") {
+    const publicUrlResult: CheckResult = effectiveConfig.publicBaseUrl
+      ? {
+          name: "Public URL",
+          status: "pass",
+          message: `Public URL: ${effectiveConfig.publicBaseUrl}`,
+        }
+      : {
+          name: "Public URL",
+          status: "warn",
+          message: "No public URL configured (PAPERCLIP_PUBLIC_URL not set)",
+          canRepair: false,
+          repairHint: "Set PAPERCLIP_PUBLIC_URL for proper invite links and auth redirects",
+        };
+    results.push(publicUrlResult);
+    printResult(publicUrlResult);
+  }
+
+  // Agent JWT check (works in env-only mode)
+  results.push(
+    await runRepairableCheck({
+      run: () => agentJwtSecretCheck(configPath),
+      configPath,
+      opts,
+    }),
+  );
+
+  return results;
 }
 
 function printResult(result: CheckResult): void {
