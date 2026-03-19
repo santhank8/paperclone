@@ -526,36 +526,48 @@ export async function startServer(): Promise<StartedServer> {
   
   if (config.heartbeatSchedulerEnabled) {
     const heartbeat = heartbeatService(db as any);
-  
+
+    const startHeartbeatScheduler = () => {
+      setInterval(() => {
+        void heartbeat
+          .tickTimers(new Date())
+          .then((result) => {
+            if (result.enqueued > 0) {
+              logger.info({ ...result }, "heartbeat timer tick enqueued runs");
+            }
+          })
+          .catch((err) => {
+            logger.error({ err }, "heartbeat timer tick failed");
+          });
+
+        // Periodically reap orphaned runs (5-min staleness threshold) and make sure
+        // persisted queued work is still being driven forward.
+        void heartbeat
+          .reapOrphanedRuns({ staleThresholdMs: 5 * 60 * 1000 })
+          .then(() => heartbeat.resumeQueuedRuns())
+          .catch((err) => {
+            logger.error({ err }, "periodic heartbeat recovery failed");
+          });
+      }, config.heartbeatSchedulerIntervalMs);
+    };
+
     // Reap orphaned running runs at startup while in-memory execution state is empty,
     // then resume any persisted queued runs that were waiting on the previous process.
+    // The scheduler interval is deferred until startup recovery completes so that
+    // tickTimers does not coalesce new wakeups into orphaned "running" runs from the
+    // previous process — those ghost runs would absorb all timer wakeups and never
+    // execute, effectively stopping the scheduler.
     void heartbeat
       .reapOrphanedRuns()
       .then(() => heartbeat.resumeQueuedRuns())
+      .then(() => {
+        startHeartbeatScheduler();
+        logger.info("heartbeat scheduler started after startup recovery");
+      })
       .catch((err) => {
-        logger.error({ err }, "startup heartbeat recovery failed");
+        logger.error({ err }, "startup heartbeat recovery failed — starting scheduler anyway");
+        startHeartbeatScheduler();
       });
-    setInterval(() => {
-      void heartbeat
-        .tickTimers(new Date())
-        .then((result) => {
-          if (result.enqueued > 0) {
-            logger.info({ ...result }, "heartbeat timer tick enqueued runs");
-          }
-        })
-        .catch((err) => {
-          logger.error({ err }, "heartbeat timer tick failed");
-        });
-  
-      // Periodically reap orphaned runs (5-min staleness threshold) and make sure
-      // persisted queued work is still being driven forward.
-      void heartbeat
-        .reapOrphanedRuns({ staleThresholdMs: 5 * 60 * 1000 })
-        .then(() => heartbeat.resumeQueuedRuns())
-        .catch((err) => {
-          logger.error({ err }, "periodic heartbeat recovery failed");
-        });
-    }, config.heartbeatSchedulerIntervalMs);
   }
   
   if (config.databaseBackupEnabled) {
