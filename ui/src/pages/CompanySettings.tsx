@@ -410,49 +410,30 @@ export function CompanySettings() {
           Execution
         </div>
         <div className="space-y-3 rounded-md border border-border px-4 py-4">
-          <div className="flex items-center gap-3">
-            <input
-              type="checkbox"
-              id="max-parallel-runs-enabled"
-              checked={maxParallelRunsEnabled}
-              onChange={(e) => setMaxParallelRunsEnabled(e.target.checked)}
-            />
-            <label htmlFor="max-parallel-runs-enabled" className="text-sm">
-              Limit company-wide parallel agent runs
-            </label>
-            <HintIcon text="When enabled, caps the total number of agent runs that can execute simultaneously across all agents in this company. Queued runs are promoted FIFO when a slot opens." />
-          </div>
-          {maxParallelRunsEnabled && (
-            <div className="flex items-center gap-2">
-              <input
-                type="number"
-                min={1}
-                value={maxParallelRuns}
-                onChange={(e) => setMaxParallelRuns(Math.max(1, parseInt(e.target.value, 10) || 1))}
-                className="w-24 rounded-md border border-border bg-transparent px-2.5 py-1.5 text-sm outline-none"
-              />
-              <span className="text-sm text-muted-foreground">max parallel runs</span>
-            </div>
-          )}
-          <div className="flex items-center gap-2">
-            <Button
-              size="sm"
-              onClick={() => parallelRunsMutation.mutate(maxParallelRunsEnabled ? maxParallelRuns : null)}
-              disabled={parallelRunsMutation.isPending}
-            >
-              {parallelRunsMutation.isPending ? "Saving..." : "Save"}
-            </Button>
-            {parallelRunsMutation.isSuccess && (
-              <span className="text-xs text-muted-foreground">Saved</span>
-            )}
-            {parallelRunsMutation.isError && (
-              <span className="text-xs text-destructive">
-                {parallelRunsMutation.error instanceof Error
-                  ? parallelRunsMutation.error.message
-                  : "Failed to save"}
-              </span>
-            )}
-          </div>
+           <div className="flex items-center gap-3">
+             <input
+               type="checkbox"
+               id="max-parallel-runs-enabled"
+               checked={maxParallelRunsEnabled}
+               onChange={(e) => parallelRunsMutation.mutate(e.target.checked ? maxParallelRuns : null)}
+             />
+             <label htmlFor="max-parallel-runs-enabled" className="text-sm">
+               Limit company-wide parallel agent runs
+             </label>
+             <HintIcon text="When enabled, caps the total number of agent runs that can execute simultaneously across all agents in this company. Queued runs are promoted FIFO when a slot opens." />
+           </div>
+           {maxParallelRunsEnabled && (
+             <div className="flex items-center gap-2">
+               <input
+                 type="number"
+                 min={1}
+                 value={maxParallelRuns}
+                 onChange={(e) => parallelRunsMutation.mutate(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                 className="w-24 rounded-md border border-border bg-transparent px-2.5 py-1.5 text-sm outline-none"
+               />
+               <span className="text-sm text-muted-foreground">max parallel runs</span>
+             </div>
+           )}
         </div>
       </div>
 

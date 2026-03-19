@@ -62,6 +62,7 @@ const HEARTBEAT_MAX_CONCURRENT_RUNS_DEFAULT = 1;
 const HEARTBEAT_MAX_CONCURRENT_RUNS_MAX = 10;
 const DEFERRED_WAKE_CONTEXT_KEY = "_paperclipWakeContext";
 const startLocksByAgent = new Map<string, Promise<void>>();
+const startLocksByCompany = new Map<string, Promise<void>>();
 const REPO_ONLY_CWD_SENTINEL = "/__paperclip_repo_only__";
 const MANAGED_WORKSPACE_GIT_CLONE_TIMEOUT_MS = 10 * 60 * 1000;
 const execFile = promisify(execFileCallback);
@@ -180,21 +181,38 @@ function normalizeMaxConcurrentRuns(value: unknown) {
 }
 
 async function withAgentStartLock<T>(agentId: string, fn: () => Promise<T>) {
-  const previous = startLocksByAgent.get(agentId) ?? Promise.resolve();
-  const run = previous.then(fn);
-  const marker = run.then(
-    () => undefined,
-    () => undefined,
-  );
-  startLocksByAgent.set(agentId, marker);
-  try {
-    return await run;
-  } finally {
-    if (startLocksByAgent.get(agentId) === marker) {
-      startLocksByAgent.delete(agentId);
-    }
-  }
-}
+   const previous = startLocksByAgent.get(agentId) ?? Promise.resolve();
+   const run = previous.then(fn);
+   const marker = run.then(
+     () => undefined,
+     () => undefined,
+   );
+   startLocksByAgent.set(agentId, marker);
+   try {
+     return await run;
+   } finally {
+     if (startLocksByAgent.get(agentId) === marker) {
+       startLocksByAgent.delete(agentId);
+     }
+   }
+ }
+
+async function withCompanyStartLock<T>(companyId: string, fn: () => Promise<T>) {
+   const previous = startLocksByCompany.get(companyId) ?? Promise.resolve();
+   const run = previous.then(fn);
+   const marker = run.then(
+     () => undefined,
+     () => undefined,
+   );
+   startLocksByCompany.set(companyId, marker);
+   try {
+     return await run;
+   } finally {
+     if (startLocksByCompany.get(companyId) === marker) {
+       startLocksByCompany.delete(companyId);
+     }
+   }
+ }
 
 interface WakeupOptions {
   source?: "timer" | "assignment" | "on_demand" | "automation";
@@ -1584,49 +1602,49 @@ export function heartbeatService(db: Db) {
     }
   }
 
-  async function startNextQueuedRunForAgent(agentId: string) {
-    return withAgentStartLock(agentId, async () => {
-      const agent = await getAgent(agentId);
-      if (!agent) return [];
-      if (agent.status === "paused" || agent.status === "terminated" || agent.status === "pending_approval") {
-        return [];
-      }
-      const policy = parseHeartbeatPolicy(agent);
-      const runningCount = await countRunningRunsForAgent(agentId);
-      let availableSlots = Math.max(0, policy.maxConcurrentRuns - runningCount);
-      if (availableSlots <= 0) return [];
+   async function startNextQueuedRunForAgent(agentId: string) {
+     const agent = await getAgent(agentId);
+     if (!agent) return [];
+     return withCompanyStartLock(agent.companyId, async () => {
+       if (agent.status === "paused" || agent.status === "terminated" || agent.status === "pending_approval") {
+         return [];
+       }
+       const policy = parseHeartbeatPolicy(agent);
+       const runningCount = await countRunningRunsForAgent(agentId);
+       let availableSlots = Math.max(0, policy.maxConcurrentRuns - runningCount);
+       if (availableSlots <= 0) return [];
 
-      // Company-wide cap
-      const companyLimit = await getCompanyParallelLimit(agent.companyId);
-      if (companyLimit !== null) {
-        const companyRunning = await countRunningRunsForCompany(agent.companyId);
-        if (companyRunning >= companyLimit) return [];
-        availableSlots = Math.min(availableSlots, companyLimit - companyRunning);
-      }
+       // Company-wide cap
+       const companyLimit = await getCompanyParallelLimit(agent.companyId);
+       if (companyLimit !== null) {
+         const companyRunning = await countRunningRunsForCompany(agent.companyId);
+         if (companyRunning >= companyLimit) return [];
+         availableSlots = Math.min(availableSlots, companyLimit - companyRunning);
+       }
 
-      const queuedRuns = await db
-        .select()
-        .from(heartbeatRuns)
-        .where(and(eq(heartbeatRuns.agentId, agentId), eq(heartbeatRuns.status, "queued")))
-        .orderBy(asc(heartbeatRuns.createdAt))
-        .limit(availableSlots);
-      if (queuedRuns.length === 0) return [];
+       const queuedRuns = await db
+         .select()
+         .from(heartbeatRuns)
+         .where(and(eq(heartbeatRuns.agentId, agentId), eq(heartbeatRuns.status, "queued")))
+         .orderBy(asc(heartbeatRuns.createdAt))
+         .limit(availableSlots);
+       if (queuedRuns.length === 0) return [];
 
-      const claimedRuns: Array<typeof heartbeatRuns.$inferSelect> = [];
-      for (const queuedRun of queuedRuns) {
-        const claimed = await claimQueuedRun(queuedRun);
-        if (claimed) claimedRuns.push(claimed);
-      }
-      if (claimedRuns.length === 0) return [];
+       const claimedRuns: Array<typeof heartbeatRuns.$inferSelect> = [];
+       for (const queuedRun of queuedRuns) {
+         const claimed = await claimQueuedRun(queuedRun);
+         if (claimed) claimedRuns.push(claimed);
+       }
+       if (claimedRuns.length === 0) return [];
 
-      for (const claimedRun of claimedRuns) {
-        void executeRun(claimedRun.id).catch((err) => {
-          logger.error({ err, runId: claimedRun.id }, "queued heartbeat execution failed");
-        });
-      }
-      return claimedRuns;
-    });
-  }
+       for (const claimedRun of claimedRuns) {
+         void executeRun(claimedRun.id).catch((err) => {
+           logger.error({ err, runId: claimedRun.id }, "queued heartbeat execution failed");
+         });
+       }
+       return claimedRuns;
+     });
+   }
 
   async function startNextQueuedRunsForCompany(companyId: string) {
     const agentsWithQueue = await db
