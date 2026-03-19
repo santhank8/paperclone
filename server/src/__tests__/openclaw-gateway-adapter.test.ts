@@ -420,6 +420,7 @@ describe("openclaw gateway adapter execute", () => {
             context: {
               taskId: "task-123",
               issueId: "issue-123",
+              projectId: "project-456",
               wakeReason: "issue_assigned",
               issueIds: ["issue-123"],
               paperclipWorkspace: {
@@ -452,7 +453,7 @@ describe("openclaw gateway adapter execute", () => {
       const payload = gateway.getAgentPayload();
       expect(payload).toBeTruthy();
       expect(payload?.idempotencyKey).toBe("run-123");
-      expect(payload?.sessionKey).toBe("paperclip:issue:issue-123");
+      expect(payload?.sessionKey).toBe("paperclip:project:project-456");
       expect(String(payload?.message ?? "")).toContain("wake now");
       expect(String(payload?.message ?? "")).toContain("PAPERCLIP_RUN_ID=run-123");
       expect(String(payload?.message ?? "")).toContain("PAPERCLIP_TASK_ID=task-123");
