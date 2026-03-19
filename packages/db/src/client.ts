@@ -401,6 +401,19 @@ async function migrationStatementAlreadyApplied(
     return constraintExists(sql, addConstraintMatch[2]);
   }
 
+  const alterColumnMatch = normalized.match(/^ALTER TABLE "([^"]+)" ALTER COLUMN "([^"]+)"/i);
+  if (alterColumnMatch) {
+    // If the column exists the ALTER COLUMN was already applied (we can't cheaply verify the exact effect).
+    return columnExists(sql, alterColumnMatch[1], alterColumnMatch[2]);
+  }
+
+  const dropIndexMatch = normalized.match(/^DROP INDEX(?: IF EXISTS)? "([^"]+)"/i);
+  if (dropIndexMatch) {
+    // If the index no longer exists it was already dropped.
+    const exists = await indexExists(sql, dropIndexMatch[1]);
+    return !exists;
+  }
+
   // If we cannot reason about a statement safely, require manual migration.
   return false;
 }
