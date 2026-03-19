@@ -1,4 +1,4 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import type { Db } from "@paperclipai/db";
 import { issueWorkProducts } from "@paperclipai/db";
 import type { IssueWorkProduct } from "@paperclipai/shared";
@@ -39,6 +39,37 @@ export function workProductService(db: Db) {
         .where(eq(issueWorkProducts.issueId, issueId))
         .orderBy(desc(issueWorkProducts.isPrimary), desc(issueWorkProducts.updatedAt));
       return rows.map(toIssueWorkProduct);
+    },
+
+    listPrWorkProductsForIssues: async (
+      issueIds: string[],
+      companyId: string,
+    ): Promise<Map<string, IssueWorkProduct[]>> => {
+      const map = new Map<string, IssueWorkProduct[]>();
+      if (issueIds.length === 0) return map;
+
+      const rows = await db
+        .select()
+        .from(issueWorkProducts)
+        .where(
+          and(
+            eq(issueWorkProducts.companyId, companyId),
+            inArray(issueWorkProducts.issueId, issueIds),
+            eq(issueWorkProducts.type, "pull_request"),
+          ),
+        )
+        .orderBy(
+          desc(issueWorkProducts.isPrimary),
+          desc(issueWorkProducts.updatedAt),
+        );
+
+      for (const row of rows) {
+        const product = toIssueWorkProduct(row);
+        const existing = map.get(row.issueId);
+        if (existing) existing.push(product);
+        else map.set(row.issueId, [product]);
+      }
+      return map;
     },
 
     getById: async (id: string) => {
