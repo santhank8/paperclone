@@ -440,7 +440,8 @@ export function OpenClawGatewayConfigFields({
     ? (values?.url ?? "")
     : String(eff("adapterConfig", "url", String(config.url ?? "")));
   const wsUrl = rawUrl.replace(/^http/, "ws");
-  const wsToken = isCreate ? "" : effectiveGatewayToken;
+  const [createToken, setCreateToken] = useState("");
+  const wsToken = isCreate ? createToken : effectiveGatewayToken;
 
   // Agent ID: in create mode stored as extra form value, in edit mode in adapterConfig
   const currentAgentId = isCreate
@@ -477,7 +478,20 @@ export function OpenClawGatewayConfigFields({
         />
       </Field>
 
-      {!isCreate && (
+      {isCreate ? (
+        <Field label="Gateway auth token (x-openclaw-token)">
+          <input
+            type="password"
+            value={createToken}
+            onChange={(e) => {
+              setCreateToken(e.target.value);
+              set!({ token: e.target.value } as Partial<typeof values & { token: string }>);
+            }}
+            placeholder="OpenClaw gateway token"
+            className={selectClass}
+          />
+        </Field>
+      ) : (
         <SecretField
           label="Gateway auth token (x-openclaw-token)"
           value={effectiveGatewayToken}

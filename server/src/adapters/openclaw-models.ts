@@ -11,7 +11,7 @@ import WebSocket from "ws";
 const CACHE_TTL_MS = 60_000;
 const CONNECT_TIMEOUT_MS = 8_000;
 
-let cached: { expiresAt: number; models: AdapterModel[] } | null = null;
+const cacheByUrl = new Map<string, { expiresAt: number; models: AdapterModel[] }>();
 
 function resolveWsUrl(): string {
   return (
@@ -117,18 +117,19 @@ function fetchModelsViaWs(wsUrl: string, token: string | null): Promise<AdapterM
 }
 
 export async function listOpenClawModels(): Promise<AdapterModel[]> {
-  if (cached && Date.now() < cached.expiresAt) return cached.models;
-
   const wsUrl = resolveWsUrl();
+  const entry = cacheByUrl.get(wsUrl);
+  if (entry && Date.now() < entry.expiresAt) return entry.models;
+
   const token = resolveToken();
   const models = await fetchModelsViaWs(wsUrl, token);
 
   if (models.length > 0) {
-    cached = { expiresAt: Date.now() + CACHE_TTL_MS, models };
+    cacheByUrl.set(wsUrl, { expiresAt: Date.now() + CACHE_TTL_MS, models });
   }
   return models;
 }
 
 export function resetOpenClawModelsCacheForTests(): void {
-  cached = null;
+  cacheByUrl.clear();
 }
