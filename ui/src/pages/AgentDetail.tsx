@@ -1489,7 +1489,7 @@ function SkillRow({ skill }: { skill: AvailableSkill }) {
       <div className="flex items-center gap-2">
         <span className="font-mono text-sm">{skill.name}</span>
         <Badge variant={skill.isPaperclipManaged ? "secondary" : "outline"}>
-          {skill.isPaperclipManaged ? "Paperclip" : "Local"}
+          {skill.isPaperclipManaged ? "Managed" : "Local"}
         </Badge>
       </div>
       <p className="text-sm text-muted-foreground">

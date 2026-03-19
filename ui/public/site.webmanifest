@@ -1,8 +1,8 @@
 {
   "id": "/",
-  "name": "Paperclip",
-  "short_name": "Paperclip",
-  "description": "AI-powered project management and agent coordination platform",
+  "name": "ValCtrl Command",
+  "short_name": "Command",
+  "description": "Internal agent orchestration dashboard",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
