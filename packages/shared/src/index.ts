@@ -164,6 +164,7 @@ export type {
   LegacyPlanDocument,
   IssueAttachment,
   IssueLabel,
+  CompanyDocumentListItem,
   Goal,
   Approval,
   ApprovalComment,

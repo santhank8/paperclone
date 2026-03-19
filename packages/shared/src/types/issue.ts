@@ -88,6 +88,19 @@ export interface DocumentRevision {
   createdAt: Date;
 }
 
+export interface CompanyDocumentListItem {
+  id: string;
+  companyId: string;
+  issueId: string;
+  issueIdentifier: string | null;
+  issueTitle: string;
+  key: string;
+  title: string | null;
+  format: DocumentFormat;
+  latestRevisionNumber: number;
+  updatedAt: Date;
+}
+
 export interface LegacyPlanDocument {
   key: "plan";
   body: string;

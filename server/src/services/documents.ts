@@ -66,6 +66,28 @@ function mapIssueDocumentRow(
 
 export function documentService(db: Db) {
   return {
+    listCompanyDocuments: async (companyId: string) => {
+      const rows = await db
+        .select({
+          id: documents.id,
+          companyId: documents.companyId,
+          issueId: issueDocuments.issueId,
+          issueIdentifier: issues.identifier,
+          issueTitle: issues.title,
+          key: issueDocuments.key,
+          title: documents.title,
+          format: documents.format,
+          latestRevisionNumber: documents.latestRevisionNumber,
+          updatedAt: documents.updatedAt,
+        })
+        .from(issueDocuments)
+        .innerJoin(documents, eq(issueDocuments.documentId, documents.id))
+        .innerJoin(issues, eq(issueDocuments.issueId, issues.id))
+        .where(eq(issueDocuments.companyId, companyId))
+        .orderBy(desc(documents.updatedAt));
+      return rows;
+    },
+
     getIssueDocumentPayload: async (issue: { id: string; description: string | null }) => {
       const [planDocument, documentSummaries] = await Promise.all([
         db
