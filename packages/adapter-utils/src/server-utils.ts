@@ -461,6 +461,9 @@ export async function runChildProcess(
           child.stdin.end();
         }
 
+        child.stdout?.setEncoding("utf8");
+        child.stderr?.setEncoding("utf8");
+
         runningProcesses.set(runId, { child, graceSec: opts.graceSec });
 
         let timedOut = false;

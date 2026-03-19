@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import type { Issue } from "@paperclipai/shared";
 import { Link } from "@/lib/router";
+import { useTranslation } from "react-i18next";
 import { cn } from "../lib/utils";
 import { PriorityIcon } from "./PriorityIcon";
 import { StatusIcon } from "./StatusIcon";
@@ -34,6 +35,7 @@ export function IssueRow({
   onMarkRead,
   className,
 }: IssueRowProps) {
+  const { t } = useTranslation();
   const issuePathId = issue.identifier ?? issue.id;
   const identifier = issue.identifier ?? issue.id.slice(0, 8);
   const showUnreadSlot = unreadState !== null;
@@ -108,7 +110,7 @@ export function IssueRow({
                 }
               }}
               className="inline-flex h-4 w-4 items-center justify-center rounded-full transition-colors hover:bg-blue-500/20"
-              aria-label="Mark as read"
+              aria-label={t("issueRow.markAsRead")}
             >
               <span
                 className={cn(

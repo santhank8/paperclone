@@ -47,7 +47,7 @@ export function InstanceExperimentalSettings() {
       await queryClient.invalidateQueries({ queryKey: queryKeys.instance.experimentalSettings });
     },
     onError: (error) => {
-      setActionError(error instanceof Error ? error.message : "Failed to update experimental settings.");
+      setActionError(error instanceof Error ? error.message : t("pages.instanceExperimentalSettings.failedToUpdate"));
     },
   });
 
@@ -60,7 +60,7 @@ export function InstanceExperimentalSettings() {
       <div className="text-sm text-destructive">
         {experimentalQuery.error instanceof Error
           ? experimentalQuery.error.message
-          : "Failed to load experimental settings."}
+          : t("pages.instanceExperimentalSettings.failedToLoad")}
       </div>
     );
   }
@@ -75,7 +75,7 @@ export function InstanceExperimentalSettings() {
           <h1 className="text-lg font-semibold">{t("pages.instanceExperimentalSettings.title")}</h1>
         </div>
         <p className="text-sm text-muted-foreground">
-          Opt into features that are still being evaluated before they become default behavior.
+          {t("pages.instanceExperimentalSettings.optInDescription")}
         </p>
       </div>
 
@@ -117,10 +117,9 @@ export function InstanceExperimentalSettings() {
       <section className="rounded-xl border border-border bg-card p-5">
         <div className="flex items-start justify-between gap-4">
           <div className="space-y-1.5">
-            <h2 className="text-sm font-semibold">Enabled Isolated Workspaces</h2>
+            <h2 className="text-sm font-semibold">{t("pages.instanceExperimentalSettings.isolatedWorkspaces")}</h2>
             <p className="max-w-2xl text-sm text-muted-foreground">
-              Show execution workspace controls in project configuration and allow isolated workspace behavior for new
-              and existing issue runs.
+              {t("pages.instanceExperimentalSettings.isolatedWorkspacesDescription")}
             </p>
           </div>
           <button

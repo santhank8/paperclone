@@ -10,6 +10,7 @@ import {
   Network,
   Settings,
 } from "lucide-react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
 import { SidebarSection } from "./SidebarSection";
@@ -23,12 +24,27 @@ import { queryKeys } from "../lib/queryKeys";
 import { useInboxBadge } from "../hooks/useInboxBadge";
 import { Button } from "@/components/ui/button";
 import { PluginSlotOutlet } from "@/plugins/slots";
+import { cn } from "../lib/utils";
+import { i18n, LANGUAGE_STORAGE_KEY, SUPPORTED_LANGUAGES, type SupportedLanguage } from "../i18n/config";
 
 export function Sidebar() {
   const { openNewIssue } = useDialog();
   const { selectedCompanyId, selectedCompany } = useCompany();
   const { t } = useTranslation();
+  const [currentLang, setCurrentLang] = useState<SupportedLanguage>(
+    (i18n.language as SupportedLanguage) ?? "en",
+  );
   const inboxBadge = useInboxBadge(selectedCompanyId);
+
+  function handleLanguageChange(lang: SupportedLanguage) {
+    setCurrentLang(lang);
+    i18n.changeLanguage(lang);
+    try {
+      localStorage.setItem(LANGUAGE_STORAGE_KEY, lang);
+    } catch {
+      // Ignore localStorage errors.
+    }
+  }
   const { data: liveRuns } = useQuery({
     queryKey: queryKeys.liveRuns(selectedCompanyId!),
     queryFn: () => heartbeatsApi.liveRunsForCompany(selectedCompanyId!),
@@ -97,7 +113,7 @@ export function Sidebar() {
           />
         </div>
 
-        <SidebarSection label="Work">
+        <SidebarSection label={t("sidebar.sectionWork")}>
           <SidebarNavItem to="/issues" label={t("sidebar.issues")} icon={CircleDot} />
           <SidebarNavItem to="/goals" label={t("sidebar.goals")} icon={Target} />
         </SidebarSection>
@@ -106,7 +122,7 @@ export function Sidebar() {
 
         <SidebarAgents />
 
-        <SidebarSection label="Company">
+        <SidebarSection label={t("sidebar.sectionCompany")}>
           <SidebarNavItem to="/org" label={t("sidebar.org")} icon={Network} />
           <SidebarNavItem to="/costs" label={t("sidebar.costs")} icon={DollarSign} />
           <SidebarNavItem to="/activity" label={t("sidebar.activity")} icon={History} />
@@ -121,6 +137,27 @@ export function Sidebar() {
           missingBehavior="placeholder"
         />
       </nav>
+
+      {/* Language switcher */}
+      <div className="border-t border-border px-3 py-2 shrink-0">
+        <div className="flex items-center gap-1">
+          {SUPPORTED_LANGUAGES.map((lang) => (
+            <button
+              key={lang.value}
+              type="button"
+              onClick={() => handleLanguageChange(lang.value)}
+              className={cn(
+                "flex-1 text-[10px] font-medium py-1 rounded transition-colors",
+                currentLang === lang.value
+                  ? "bg-accent text-foreground"
+                  : "text-muted-foreground/60 hover:text-foreground hover:bg-accent/50",
+              )}
+            >
+              {lang.value === "en" ? "EN" : "PT"}
+            </button>
+          ))}
+        </div>
+      </div>
     </aside>
   );
 }
