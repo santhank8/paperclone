@@ -1292,6 +1292,14 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
       }
     };
 
+    const RETRY_DELAYS_MS = [5_000, 30_000, 60_000, 150_000, 300_000];
+    const RETRYABLE_CODES = new Set([1006, 1011, 1012, 1013, 1014]);
+    let attemptNumber = 0;
+
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+    attemptNumber++;
+
     const client = new GatewayWsClient({
       url: parsedUrl.toString(),
       headers,
@@ -1310,7 +1318,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
         await ctx.onLog("stdout", "[openclaw-gateway] device auth disabled\n");
       }
 
-      await ctx.onLog("stdout", `[openclaw-gateway] connecting to ${parsedUrl.toString()}\n`);
+      await ctx.onLog("stdout", `[openclaw-gateway] connecting to ${parsedUrl.toString()}${attemptNumber > 1 ? ` (attempt ${attemptNumber})` : ""}\n`);
 
       const hello = await client.connect((nonce) => {
         const signedAtMs = Date.now();
@@ -1556,6 +1564,25 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
 
       await ctx.onLog("stderr", `[openclaw-gateway] request failed: ${detailedMessage}\n`);
 
+      // Retry on transient WS close codes (event loop pressure, proxy drops)
+      const wsCloseMatch = message.match(/gateway closed \((\d+)\)/);
+      const wsCloseCode = wsCloseMatch ? parseInt(wsCloseMatch[1], 10) : 0;
+      const isEconnReset = lower.includes("econnreset") || lower.includes("econnrefused");
+      const isRetryable = RETRYABLE_CODES.has(wsCloseCode) || isEconnReset || lower.includes("websocket open timeout");
+
+      if (isRetryable && attemptNumber <= RETRY_DELAYS_MS.length) {
+        const delayMs = RETRY_DELAYS_MS[attemptNumber - 1]!;
+        const jitterMs = Math.floor(Math.random() * Math.min(delayMs * 0.3, 5_000));
+        const totalDelayMs = delayMs + jitterMs;
+        await ctx.onLog(
+          "stdout",
+          `[openclaw-gateway] transient failure (code=${wsCloseCode || "none"}), retrying in ${Math.round(totalDelayMs / 1000)}s (attempt ${attemptNumber}/${RETRY_DELAYS_MS.length + 1})\n`,
+        );
+        client.close();
+        await new Promise((r) => setTimeout(r, totalDelayMs));
+        continue;
+      }
+
       return {
         exitCode: 1,
         signal: null,
@@ -1571,5 +1598,6 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     } finally {
       client.close();
     }
+    } // end while(true) retry loop
   }
 }

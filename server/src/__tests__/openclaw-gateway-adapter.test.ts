@@ -86,6 +86,18 @@ async function createMockGatewayServer(options?: {
         return;
       }
 
+      if (frame.method === "sessions.list" || frame.method === "sessions.patch") {
+        socket.send(
+          JSON.stringify({
+            type: "res",
+            id: frame.id,
+            ok: true,
+            payload: frame.method === "sessions.list" ? [] : { ok: true },
+          }),
+        );
+        return;
+      }
+
       if (frame.method === "agent") {
         agentPayload = frame.params ?? null;
         const runId =
@@ -245,6 +257,18 @@ async function createMockGatewayServerWithPairing() {
               snapshot: { version: 1, ts: Date.now() },
               policy: { maxPayload: 1_000_000, maxBufferedBytes: 1_000_000, tickIntervalMs: 30_000 },
             },
+          }),
+        );
+        return;
+      }
+
+      if (frame.method === "sessions.list" || frame.method === "sessions.patch") {
+        socket.send(
+          JSON.stringify({
+            type: "res",
+            id: frame.id,
+            ok: true,
+            payload: frame.method === "sessions.list" ? [] : { ok: true },
           }),
         );
         return;
