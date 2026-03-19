@@ -863,6 +863,50 @@ export function issueService(db: Db) {
           goalId: issueData.goalId,
           defaultGoalId: defaultCompanyGoal?.id ?? null,
         });
+        // When projectId changes, default executionWorkspaceSettings and projectWorkspaceId
+        // from the new project (matching the create path logic). This ensures project
+        // workspaces are respected when issues are moved between projects (GH #1164).
+        const projectChanged = issueData.projectId !== undefined && issueData.projectId !== existing.projectId;
+        if (projectChanged && nextProjectId && isolatedWorkspacesEnabled) {
+          const hasExplicitWorkspaceSettings =
+            issueData.executionWorkspaceSettings !== undefined && issueData.executionWorkspaceSettings !== null;
+          if (!hasExplicitWorkspaceSettings && !existing.executionWorkspaceSettings) {
+            const project = await tx
+              .select({ executionWorkspacePolicy: projects.executionWorkspacePolicy })
+              .from(projects)
+              .where(and(eq(projects.id, nextProjectId), eq(projects.companyId, existing.companyId)))
+              .then((rows) => rows[0] ?? null);
+            const defaultSettings = defaultIssueExecutionWorkspaceSettingsForProject(
+              gateProjectExecutionWorkspacePolicy(
+                parseProjectExecutionWorkspacePolicy(project?.executionWorkspacePolicy),
+                isolatedWorkspacesEnabled,
+              ),
+            );
+            if (defaultSettings) {
+              patch.executionWorkspaceSettings = defaultSettings as Record<string, unknown>;
+            }
+          }
+        }
+        if (projectChanged && nextProjectId && issueData.projectWorkspaceId === undefined) {
+          const project = await tx
+            .select({ executionWorkspacePolicy: projects.executionWorkspacePolicy })
+            .from(projects)
+            .where(and(eq(projects.id, nextProjectId), eq(projects.companyId, existing.companyId)))
+            .then((rows) => rows[0] ?? null);
+          const projectPolicy = parseProjectExecutionWorkspacePolicy(project?.executionWorkspacePolicy);
+          let defaultWorkspaceId = projectPolicy?.defaultProjectWorkspaceId ?? null;
+          if (!defaultWorkspaceId) {
+            defaultWorkspaceId = await tx
+              .select({ id: projectWorkspaces.id })
+              .from(projectWorkspaces)
+              .where(and(eq(projectWorkspaces.projectId, nextProjectId), eq(projectWorkspaces.companyId, existing.companyId)))
+              .orderBy(desc(projectWorkspaces.isPrimary), asc(projectWorkspaces.createdAt), asc(projectWorkspaces.id))
+              .then((rows) => rows[0]?.id ?? null);
+          }
+          if (defaultWorkspaceId) {
+            patch.projectWorkspaceId = defaultWorkspaceId;
+          }
+        }
         const updated = await tx
           .update(issues)
           .set(patch)
