@@ -1291,10 +1291,27 @@ export function issueRoutes(db: Db, storage: StorageService) {
         }
       }
     }
-    const comment = await svc.addComment(id, req.body.body, {
-      agentId: resolvedAgentId,
-      userId: resolvedAgentId ? undefined : (actor.actorType === "user" ? actor.actorId : undefined),
-    });
+    let comment: Awaited<ReturnType<typeof svc.addComment>>;
+    try {
+      comment = await svc.addComment(id, req.body.body, {
+        agentId: resolvedAgentId,
+        userId: resolvedAgentId ? undefined : (actor.actorType === "user" ? actor.actorId : undefined),
+      });
+    } catch (commentErr: unknown) {
+      // FK violation (23503) = LLM sent a wrong agentId that doesn't exist in agents table.
+      // Local LLMs sometimes mix up digits between issue ID and agent ID.
+      // Retry with the issue's assignee agent ID as fallback.
+      const pgErr = commentErr as { code?: string };
+      if (pgErr.code === "23503" && req.body.agentId && currentIssue.assigneeAgentId) {
+        resolvedAgentId = currentIssue.assigneeAgentId;
+        comment = await svc.addComment(id, req.body.body, {
+          agentId: resolvedAgentId,
+          userId: undefined,
+        });
+      } else {
+        throw commentErr;
+      }
+    }
 
     await logActivity(db, {
       companyId: currentIssue.companyId,
