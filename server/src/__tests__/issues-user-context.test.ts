@@ -92,6 +92,51 @@ describe("deriveIssueUserContext", () => {
     expect(context.isUnreadForMe).toBe(false);
   });
 
+  it("agent-created issue with no user interaction returns myLastTouchAt null and not unread", () => {
+    const context = deriveIssueUserContext(
+      makeIssue(), // createdByUserId=null, assigneeUserId=null
+      "user-1",
+      {
+        myLastCommentAt: null,
+        myLastReadAt: null,
+        lastExternalCommentAt: new Date("2026-03-06T12:00:00.000Z"),
+      },
+    );
+
+    expect(context.myLastTouchAt).toBeNull();
+    expect(context.isUnreadForMe).toBe(false);
+  });
+
+  it("agent-created issue marked as read clears unread state", () => {
+    const context = deriveIssueUserContext(
+      makeIssue(), // createdByUserId=null, assigneeUserId=null
+      "user-1",
+      {
+        myLastCommentAt: null,
+        myLastReadAt: new Date("2026-03-06T14:00:00.000Z"),
+        lastExternalCommentAt: new Date("2026-03-06T12:00:00.000Z"),
+      },
+    );
+
+    expect(context.myLastTouchAt?.toISOString()).toBe("2026-03-06T14:00:00.000Z");
+    expect(context.isUnreadForMe).toBe(false);
+  });
+
+  it("agent-created issue with new comment after mark-read shows unread", () => {
+    const context = deriveIssueUserContext(
+      makeIssue(), // createdByUserId=null, assigneeUserId=null
+      "user-1",
+      {
+        myLastCommentAt: null,
+        myLastReadAt: new Date("2026-03-06T14:00:00.000Z"),
+        lastExternalCommentAt: new Date("2026-03-06T15:00:00.000Z"),
+      },
+    );
+
+    expect(context.myLastTouchAt?.toISOString()).toBe("2026-03-06T14:00:00.000Z");
+    expect(context.isUnreadForMe).toBe(true);
+  });
+
   it("handles SQL timestamp strings without throwing", () => {
     const context = deriveIssueUserContext(
       makeIssue({

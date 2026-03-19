@@ -167,10 +167,10 @@ function myLastTouchAtExpr(companyId: string, userId: string) {
   const myLastReadAt = myLastReadAtExpr(companyId, userId);
   return sql<Date | null>`
     GREATEST(
-      COALESCE(${myLastCommentAt}, to_timestamp(0)),
-      COALESCE(${myLastReadAt}, to_timestamp(0)),
-      COALESCE(CASE WHEN ${issues.createdByUserId} = ${userId} THEN ${issues.createdAt} ELSE NULL END, to_timestamp(0)),
-      COALESCE(CASE WHEN ${issues.assigneeUserId} = ${userId} THEN ${issues.updatedAt} ELSE NULL END, to_timestamp(0))
+      ${myLastCommentAt},
+      ${myLastReadAt},
+      CASE WHEN ${issues.createdByUserId} = ${userId} THEN ${issues.createdAt} ELSE NULL END,
+      CASE WHEN ${issues.assigneeUserId} = ${userId} THEN ${issues.updatedAt} ELSE NULL END
     )
   `;
 }
