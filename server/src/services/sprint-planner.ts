@@ -44,24 +44,23 @@ export function sprintPlannerService(config: SprintPlannerConfig) {
       ),
 
     getSprintTasks: (sprintId: string, filters?: { status?: string; assigneeId?: string }) => {
-      const params = new URLSearchParams();
+      const params = new URLSearchParams({ sprintId });
       if (filters?.status) params.set("status", filters.status);
       if (filters?.assigneeId) params.set("assigneeId", filters.assigneeId);
-      const qs = params.toString();
-      return request<SprintPlannerTask[]>(`/api/sprints/${encodeURIComponent(sprintId)}/tasks${qs ? `?${qs}` : ""}`);
+      return request<SprintPlannerTask[]>(`/api/tasks?${params}`);
     },
 
     getTask: (taskId: string) =>
       request<SprintPlannerTask>(`/api/tasks/${encodeURIComponent(taskId)}`),
 
-    getBacklog: () => request<SprintPlannerTask[]>("/api/backlog"),
+    getBacklog: () => request<SprintPlannerTask[]>("/api/tasks/backlog"),
 
     getSprintStats: (sprintId: string) =>
       request<SprintPlannerStats>(`/api/sprints/${encodeURIComponent(sprintId)}/stats`),
 
     searchKnowledge: (query: string) =>
       request<SprintPlannerKnowledgeItem[]>(
-        `/api/knowledge?q=${encodeURIComponent(query)}`,
+        `/api/knowledge?search=${encodeURIComponent(query)}`,
       ),
 
     getRetroNotes: (sprintId: string) =>
@@ -69,9 +68,9 @@ export function sprintPlannerService(config: SprintPlannerConfig) {
         `/api/sprints/${encodeURIComponent(sprintId)}/retro`,
       ),
 
-    getCapacity: (sprintId: string) =>
+    getCapacity: (teamId: string) =>
       request<SprintPlannerCapacity>(
-        `/api/sprints/${encodeURIComponent(sprintId)}/capacity`,
+        `/api/teams/${encodeURIComponent(teamId)}/capacity`,
       ),
 
     getTickets: (filters?: { status?: string; priority?: string; category?: string }) => {
@@ -86,12 +85,14 @@ export function sprintPlannerService(config: SprintPlannerConfig) {
     getTicket: (ticketId: string) =>
       request<SprintPlannerTicket>(`/api/tickets/${encodeURIComponent(ticketId)}`),
 
-    getActivityLog: (filters?: { entityType?: string; limit?: number }) => {
+    getActivityLog: (filters?: { userId?: string; action?: string; taskId?: string; pageSize?: number }) => {
       const params = new URLSearchParams();
-      if (filters?.entityType) params.set("entityType", filters.entityType);
-      if (filters?.limit) params.set("limit", String(filters.limit));
+      if (filters?.userId) params.set("userId", filters.userId);
+      if (filters?.action) params.set("action", filters.action);
+      if (filters?.taskId) params.set("taskId", filters.taskId);
+      if (filters?.pageSize) params.set("pageSize", String(filters.pageSize));
       const qs = params.toString();
-      return request<SprintPlannerActivityEntry[]>(`/api/activity${qs ? `?${qs}` : ""}`);
+      return request<SprintPlannerActivityEntry[]>(`/api/activitylogs${qs ? `?${qs}` : ""}`);
     },
 
     // ── WRITE (AI team only) ──────────────────────────────────────
@@ -147,7 +148,11 @@ export function sprintPlannerService(config: SprintPlannerConfig) {
     }) =>
       request<SprintPlannerKnowledgeItem>("/api/knowledge", {
         method: "POST",
-        body: JSON.stringify({ ...item, teamId: aiTeamId }),
+        body: JSON.stringify({
+          ...item,
+          // Sprint planner stores tags as comma-separated string
+          tags: item.tags?.join(",") ?? "",
+        }),
       }),
   };
 }

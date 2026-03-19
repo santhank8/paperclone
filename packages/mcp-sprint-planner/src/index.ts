@@ -105,14 +105,8 @@ server.tool(
     if (query) params.set("q", query);
     const qs = params.toString();
 
-    let tasks: SprintPlannerTask[];
-    if (sprintId) {
-      tasks = await apiRequest<SprintPlannerTask[]>(
-        `/api/sprints/${encodeURIComponent(sprintId)}/tasks${qs ? `?${qs}` : ""}`,
-      );
-    } else {
-      tasks = await apiRequest<SprintPlannerTask[]>(`/api/tasks${qs ? `?${qs}` : ""}`);
-    }
+    if (sprintId) params.set("sprintId", sprintId);
+    const tasks = await apiRequest<SprintPlannerTask[]>(`/api/tasks?${params}`);
 
     return {
       content: [
