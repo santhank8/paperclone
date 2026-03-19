@@ -10,6 +10,19 @@ const AGENT_HOME_DIRECTORIES = [
 
 const AGENT_HOME_FILES: Array<{ relativePath: string; contents: string }> = [
   {
+    relativePath: "AGENTS.md",
+    contents: `# AGENTS.md
+
+This is the durable instructions file for this agent's fallback home workspace.
+
+Update it with the agent's:
+- role and intent
+- priorities
+- working style
+- boundaries
+`,
+  },
+  {
     relativePath: path.join(".omx", "notepad.md"),
     contents: `# Notepad
 

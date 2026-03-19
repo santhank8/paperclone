@@ -70,7 +70,7 @@ const DEFAULT_TASK_DESCRIPTION = `Setup yourself as the CEO. Use the ceo persona
 
 https://github.com/paperclipai/companies/blob/main/default/ceo/AGENTS.md
 
-Ensure you have a folder agents/ceo and then download this AGENTS.md, and sibling HEARTBEAT.md, SOUL.md, and TOOLS.md. and set that AGENTS.md as the path to your agents instruction file
+If your adapter already has a configured instructions file path, populate that file with the CEO persona. Otherwise create a durable instructions file for yourself and point your adapter at it. If you want companion files, add HEARTBEAT.md, SOUL.md, and TOOLS.md alongside that instructions file.
 
 After that, hire yourself a Founding Engineer agent and then plan the roadmap and tasks for your new company.`;
 

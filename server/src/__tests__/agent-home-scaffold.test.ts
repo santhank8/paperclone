@@ -27,6 +27,9 @@ describe("ensureAgentHomeScaffold", () => {
 
     await ensureAgentHomeScaffold(dir);
 
+    await expect(fs.readFile(path.join(dir, "AGENTS.md"), "utf8")).resolves.toContain(
+      "durable instructions file",
+    );
     await expect(fs.stat(path.join(dir, ".omx"))).resolves.toMatchObject({ isDirectory: expect.any(Function) });
     await expect(fs.stat(path.join(dir, ".omx", "logs"))).resolves.toMatchObject({
       isDirectory: expect.any(Function),
@@ -45,12 +48,14 @@ describe("ensureAgentHomeScaffold", () => {
 
   it("does not overwrite existing memory files", async () => {
     const dir = await makeTempDir();
+    await fs.writeFile(path.join(dir, "AGENTS.md"), "custom agents\n");
     await fs.mkdir(path.join(dir, ".omx"), { recursive: true });
     await fs.writeFile(path.join(dir, ".omx", "notepad.md"), "custom notepad\n");
     await fs.writeFile(path.join(dir, ".omx", "project-memory.json"), "{\"saved\":true}\n");
 
     await ensureAgentHomeScaffold(dir);
 
+    await expect(fs.readFile(path.join(dir, "AGENTS.md"), "utf8")).resolves.toBe("custom agents\n");
     await expect(fs.readFile(path.join(dir, ".omx", "notepad.md"), "utf8")).resolves.toBe("custom notepad\n");
     await expect(fs.readFile(path.join(dir, ".omx", "project-memory.json"), "utf8")).resolves.toBe(
       "{\"saved\":true}\n",
