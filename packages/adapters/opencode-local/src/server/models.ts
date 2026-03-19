@@ -9,6 +9,21 @@ import {
 
 const MODELS_CACHE_TTL_MS = 60_000;
 const MODELS_DISCOVERY_TIMEOUT_MS = 20_000;
+const ANSI_ESCAPE_PATTERN = /\x1B\[[0-?]*[ -/]*[@-~]/g;
+const TABLE_SEPARATOR_PATTERN = /^[\s|:-]+$/;
+const PLAIN_MODEL_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:+-]*$/;
+const NON_MODEL_TOKENS = new Set([
+  "model",
+  "models",
+  "id",
+  "name",
+  "provider",
+  "providers",
+  "description",
+  "status",
+  "default",
+  "available",
+]);
 
 function resolveOpenCodeCommand(input: unknown): string {
   const envOverride =
@@ -50,17 +65,58 @@ function firstNonEmptyLine(text: string): string {
   );
 }
 
+function stripAnsi(text: string): string {
+  return text.replace(ANSI_ESCAPE_PATTERN, "");
+}
+
+function normalizeModelToken(value: string): string {
+  return value
+    .trim()
+    .replace(/^[*\-•]+\s*/, "")
+    .replace(/^[`'"]+/, "")
+    .replace(/[`'"]+$/, "")
+    .replace(/[,:;]+$/, "")
+    .trim();
+}
+
+function parseModelIdFromToken(token: string): string | null {
+  const value = normalizeModelToken(token);
+  if (!value) return null;
+  if (TABLE_SEPARATOR_PATTERN.test(value)) return null;
+
+  if (value.includes("/")) {
+    const provider = value.slice(0, value.indexOf("/")).trim();
+    const model = value.slice(value.indexOf("/") + 1).trim();
+    if (!provider || !model) return null;
+    return `${provider}/${model}`;
+  }
+
+  if (!PLAIN_MODEL_ID_PATTERN.test(value)) return null;
+  if (NON_MODEL_TOKENS.has(value.toLowerCase())) return null;
+  return value;
+}
+
+function parseModelIdFromLine(line: string): string | null {
+  const cleanLine = stripAnsi(line).trim();
+  if (!cleanLine) return null;
+
+  if (cleanLine.includes("|")) {
+    for (const cell of cleanLine.split("|")) {
+      const modelId = parseModelIdFromToken(cell);
+      if (modelId) return modelId;
+    }
+  }
+
+  const firstToken = cleanLine.split(/\s+/)[0]?.trim() ?? "";
+  return parseModelIdFromToken(firstToken);
+}
+
 function parseModelsOutput(stdout: string): AdapterModel[] {
   const parsed: AdapterModel[] = [];
   for (const raw of stdout.split(/\r?\n/)) {
-    const line = raw.trim();
-    if (!line) continue;
-    const firstToken = line.split(/\s+/)[0]?.trim() ?? "";
-    if (!firstToken.includes("/")) continue;
-    const provider = firstToken.slice(0, firstToken.indexOf("/")).trim();
-    const model = firstToken.slice(firstToken.indexOf("/") + 1).trim();
-    if (!provider || !model) continue;
-    parsed.push({ id: `${provider}/${model}`, label: `${provider}/${model}` });
+    const modelId = parseModelIdFromLine(raw);
+    if (!modelId) continue;
+    parsed.push({ id: modelId, label: modelId });
   }
   return dedupeModels(parsed);
 }
@@ -173,7 +229,7 @@ export async function ensureOpenCodeModelConfiguredAndAvailable(input: {
 }): Promise<AdapterModel[]> {
   const model = asString(input.model, "").trim();
   if (!model) {
-    throw new Error("OpenCode requires `adapterConfig.model` in provider/model format.");
+    throw new Error("OpenCode requires `adapterConfig.model`.");
   }
 
   const models = await discoverOpenCodeModelsCached({
