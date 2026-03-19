@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 import { Link } from "@/lib/router";
-import type { Issue } from "@paperclipai/shared";
+import type { Issue, IssueWorkProduct } from "@paperclipai/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { agentsApi } from "../api/agents";
 import { authApi } from "../api/auth";
@@ -18,9 +18,10 @@ import { PriorityIcon } from "./PriorityIcon";
 import { Identity } from "./Identity";
 import { formatDate, cn, projectUrl } from "../lib/utils";
 import { timeAgo } from "../lib/timeAgo";
+import { extractPrNumber } from "../lib/pr-utils";
 import { Separator } from "@/components/ui/separator";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { User, Hexagon, ArrowUpRight, Tag, Plus, Trash2, Copy, Check } from "lucide-react";
+import { User, Hexagon, ArrowUpRight, Tag, Plus, Trash2, Copy, Check, GitPullRequest } from "lucide-react";
 import { AgentIcon } from "./AgentIconPicker";
 
 const EXECUTION_WORKSPACE_OPTIONS = [
@@ -657,6 +658,40 @@ export function IssueProperties({ issue, onUpdate, inline }: IssuePropertiesProp
         >
           {projectContent}
         </PropertyPicker>
+
+        {(issue.workProducts ?? []).some((wp) => wp.type === "pull_request") && (
+          <PropertyRow label="PR">
+            <div className="space-y-1">
+              {(issue.workProducts ?? [])
+                .filter((wp): wp is IssueWorkProduct => wp.type === "pull_request")
+                .map((pr) => {
+                  const prNumber = extractPrNumber(pr);
+                  return (
+                    <div key={pr.id} className="flex items-center gap-1.5 min-w-0">
+                      <GitPullRequest className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                      {pr.url ? (
+                        <a
+                          href={pr.url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-sm hover:underline truncate"
+                        >
+                          {prNumber ? `#${prNumber}` : pr.title}
+                        </a>
+                      ) : (
+                        <span className="text-sm truncate">
+                          {prNumber ? `#${prNumber}` : pr.title}
+                        </span>
+                      )}
+                      <span className="text-[10px] text-muted-foreground shrink-0">
+                        {pr.status.replace(/_/g, " ")}
+                      </span>
+                    </div>
+                  );
+                })}
+            </div>
+          </PropertyRow>
+        )}
 
         {currentProjectSupportsExecutionWorkspace && (
           <PropertyRow label="Workspace">
