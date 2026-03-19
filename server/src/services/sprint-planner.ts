@@ -32,6 +32,8 @@ export function sprintPlannerService(config: SprintPlannerConfig) {
       const body = await res.text().catch(() => "");
       throw new Error(`Sprint Planner API ${res.status}: ${body}`);
     }
+    // Handle 204 No Content (e.g., status updates)
+    if (res.status === 204) return undefined as T;
     return res.json() as Promise<T>;
   }
 
@@ -43,11 +45,12 @@ export function sprintPlannerService(config: SprintPlannerConfig) {
         `/api/sprints/current${teamId ? `?teamId=${encodeURIComponent(teamId)}` : ""}`,
       ),
 
-    getSprintTasks: (sprintId: string, filters?: { status?: string; assigneeId?: string }) => {
-      const params = new URLSearchParams({ sprintId });
+    getSprintTasks: async (sprintId: string, filters?: { status?: string; assigneeId?: string }) => {
+      const params = new URLSearchParams({ sprintId, pageSize: "100" });
       if (filters?.status) params.set("status", filters.status);
       if (filters?.assigneeId) params.set("assigneeId", filters.assigneeId);
-      return request<SprintPlannerTask[]>(`/api/tasks?${params}`);
+      const page = await request<{ items: SprintPlannerTask[] }>(`/api/tasks?${params}`);
+      return page.items;
     },
 
     getTask: (taskId: string) =>

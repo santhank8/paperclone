@@ -50,6 +50,7 @@ async function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {
     const body = await res.text().catch(() => "");
     throw new Error(`Sprint Planner API ${res.status}: ${body}`);
   }
+  if (res.status === 204) return undefined as T;
   return res.json() as Promise<T>;
 }
 
@@ -106,7 +107,9 @@ server.tool(
     const qs = params.toString();
 
     if (sprintId) params.set("sprintId", sprintId);
-    const tasks = await apiRequest<SprintPlannerTask[]>(`/api/tasks?${params}`);
+    params.set("pageSize", "100");
+    const page = await apiRequest<{ items: SprintPlannerTask[] }>(`/api/tasks?${params}`);
+    const tasks = page.items;
 
     return {
       content: [
