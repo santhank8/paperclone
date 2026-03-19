@@ -36,13 +36,6 @@ function firstNonEmptyLine(text: string): string {
   );
 }
 
-function parseModelProvider(model: string | null): string | null {
-  if (!model) return null;
-  const trimmed = model.trim();
-  if (!trimmed.includes("/")) return null;
-  return trimmed.slice(0, trimmed.indexOf("/")).trim() || null;
-}
-
 function resolveOpenCodeBiller(env: Record<string, string>, provider: string | null): string {
   return inferOpenAiCompatibleBiller(env, null) ?? provider ?? "unknown";
 }
