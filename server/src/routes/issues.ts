@@ -23,6 +23,7 @@ import {
   projectService,
 } from "../services/index.js";
 import { logger } from "../middleware/logger.js";
+import { publishLiveEvent } from "../services/live-events.js";
 import { forbidden, HttpError, unauthorized } from "../errors.js";
 import { assertCompanyAccess, getActorInfo } from "./authz.js";
 import { shouldWakeAssigneeOnCheckout } from "./issues-checkout-wakeup.js";
@@ -568,6 +569,19 @@ export function issueRoutes(db: Db, storage: StorageService) {
       },
     });
 
+    if (updateFields.status && updateFields.status !== existing.status) {
+      publishLiveEvent({
+        companyId: issue.companyId,
+        type: "issue.status_changed",
+        payload: {
+          issueId: issue.id,
+          status: updateFields.status,
+          previousStatus: existing.status,
+          assigneeAgentId: issue.assigneeAgentId,
+        },
+      });
+    }
+
     let comment = null;
     if (commentBody) {
       comment = await svc.addComment(id, commentBody, {
@@ -987,6 +1001,17 @@ export function issueRoutes(db: Db, storage: StorageService) {
           reopenedFrom: reopenFromStatus,
           source: "comment",
           identifier: currentIssue.identifier,
+        },
+      });
+
+      publishLiveEvent({
+        companyId: currentIssue.companyId,
+        type: "issue.status_changed",
+        payload: {
+          issueId: currentIssue.id,
+          status: "todo",
+          previousStatus: reopenFromStatus,
+          assigneeAgentId: currentIssue.assigneeAgentId,
         },
       });
     }

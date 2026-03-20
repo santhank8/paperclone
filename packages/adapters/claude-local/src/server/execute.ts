@@ -375,8 +375,29 @@ async function injectTaskContext(
 ): Promise<void> {
   const apiUrl = env.PAPERCLIP_API_URL;
   const apiKey = env.PAPERCLIP_API_KEY;
-  const taskId = env.PAPERCLIP_TASK_ID;
-  if (!apiUrl || !apiKey || !taskId) return;
+  let resolvedTaskId = env.PAPERCLIP_TASK_ID;
+
+  // When no explicit task ID, look up the agent's top assigned task
+  if (!resolvedTaskId && apiUrl && apiKey) {
+    const agentId = env.PAPERCLIP_AGENT_ID;
+    const companyId = env.PAPERCLIP_COMPANY_ID;
+    if (agentId && companyId) {
+      try {
+        const res = await fetch(
+          `${apiUrl}/api/companies/${companyId}/issues?assigneeAgentId=${agentId}&status=todo,in_progress,blocked`,
+          { headers: { authorization: `Bearer ${apiKey}` }, signal: AbortSignal.timeout(5000) },
+        );
+        if (res.ok) {
+          const issues = await res.json();
+          if (Array.isArray(issues) && issues.length > 0) {
+            resolvedTaskId = issues[0].id;
+            env.PAPERCLIP_TASK_ID = resolvedTaskId;
+          }
+        }
+      } catch { /* non-fatal */ }
+    }
+  }
+  if (!resolvedTaskId || !apiUrl || !apiKey) return;
 
   try {
     const headers = { authorization: `Bearer ${apiKey}` };
@@ -385,8 +406,8 @@ async function injectTaskContext(
 
     // Fetch task details + comments in parallel
     const [issueRes, commentsRes] = await Promise.all([
-      fetch(`${apiUrl}/api/issues/${taskId}`, { headers, signal: controller.signal }),
-      fetch(`${apiUrl}/api/issues/${taskId}/comments`, { headers, signal: controller.signal }),
+      fetch(`${apiUrl}/api/issues/${resolvedTaskId}`, { headers, signal: controller.signal }),
+      fetch(`${apiUrl}/api/issues/${resolvedTaskId}/comments`, { headers, signal: controller.signal }),
     ]);
     clearTimeout(timer);
 
@@ -405,7 +426,7 @@ async function injectTaskContext(
       ``,
       `## Wake Info`,
       `- Reason: ${wakeReason}`,
-      `- Task: ${issue.identifier ?? taskId}`,
+      `- Task: ${issue.identifier ?? resolvedTaskId}`,
       wakeCommentId ? `- Trigger comment: ${wakeCommentId}` : ``,
       ``,
       `## Your Identity`,
@@ -620,7 +641,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
 
   const promptTemplate = asString(
     config.promptTemplate,
-    "You are agent {{agent.id}} ({{agent.name}}). Continue your Paperclip work.",
+    "You are agent {{agent.id}} ({{agent.name}}). All PAPERCLIP_* env vars are already set in your process — never discover them via printenv/env/echo. Start by reading skills/paperclip/references/run-context.md for pre-loaded task context before making any API calls.",
   );
   const model = asString(config.model, "");
   const effort = asString(config.effort, "");
@@ -654,6 +675,26 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     extraArgs,
   } = runtimeConfig;
   const billingType = resolveClaudeBillingType(env);
+
+  // Build secret-value set for log redaction
+  const secretValues = new Set<string>();
+  for (const [key, value] of Object.entries(env)) {
+    if (/key|token|secret|password|passwd|authorization|cookie|jwt/i.test(key) && value && value.length > 8) {
+      secretValues.add(value);
+    }
+  }
+  const redactSecrets = (text: string): string => {
+    let result = text;
+    for (const secret of secretValues) {
+      if (result.includes(secret)) {
+        result = result.replaceAll(secret, "***REDACTED***");
+      }
+    }
+    return result;
+  };
+  const safeOnLog = async (stream: "stdout" | "stderr", chunk: string) => {
+    await onLog(stream, redactSecrets(chunk));
+  };
 
   // Determine which skill tags this agent needs.
   // Explicit skillTags in adapterConfig take priority, then title-based lookup.
@@ -703,7 +744,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     (runtimeSessionCwd.length === 0 || path.resolve(runtimeSessionCwd) === path.resolve(cwd));
   const sessionId = canResumeSession ? runtimeSessionId : null;
   if (runtimeSessionId && !canResumeSession) {
-    await onLog(
+    await safeOnLog(
       "stderr",
       `[paperclip] Claude session "${runtimeSessionId}" was saved for cwd "${runtimeSessionCwd}" and will not be resumed in "${cwd}".\n`,
     );
@@ -722,6 +763,10 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     const args = ["--print", "-", "--output-format", "stream-json", "--verbose"];
     if (resumeSessionId) args.push("--resume", resumeSessionId);
     if (dangerouslySkipPermissions) args.push("--dangerously-skip-permissions");
+    if (!dangerouslySkipPermissions) {
+      const permissionMode = asString(config.permissionMode, "acceptEdits");
+      if (permissionMode) args.push("--permission-mode", permissionMode);
+    }
     if (chrome) args.push("--chrome");
     if (model) args.push("--model", model);
     if (effort) args.push("--effort", effort);
@@ -771,7 +816,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
       stdin: prompt,
       timeoutSec,
       graceSec,
-      onLog,
+      onLog: safeOnLog,
     });
 
     const parsedStream = parseClaudeStreamJson(proc.stdout);
@@ -886,7 +931,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
       initial.parsed &&
       isClaudeUnknownSessionError(initial.parsed)
     ) {
-      await onLog(
+      await safeOnLog(
         "stderr",
         `[paperclip] Claude resume session "${sessionId}" is unavailable; retrying with a fresh session.\n`,
       );

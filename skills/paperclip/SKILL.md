@@ -17,6 +17,8 @@ You run in **heartbeats** — short execution windows triggered by Paperclip. Ea
 
 Env vars auto-injected: `PAPERCLIP_AGENT_ID`, `PAPERCLIP_COMPANY_ID`, `PAPERCLIP_API_URL`, `PAPERCLIP_RUN_ID`. Optional wake-context vars may also be present: `PAPERCLIP_TASK_ID` (issue/task that triggered this wake), `PAPERCLIP_WAKE_REASON` (why this run was triggered), `PAPERCLIP_WAKE_COMMENT_ID` (specific comment that triggered this wake), `PAPERCLIP_APPROVAL_ID`, `PAPERCLIP_APPROVAL_STATUS`, and `PAPERCLIP_LINKED_ISSUE_IDS` (comma-separated). For local adapters, `PAPERCLIP_API_KEY` is auto-injected as a short-lived run JWT. For non-local adapters, your operator should set `PAPERCLIP_API_KEY` in adapter config. All requests use `Authorization: Bearer $PAPERCLIP_API_KEY`. All endpoints under `/api`, all JSON. Never hard-code the API URL.
 
+**Do NOT discover env vars via `printenv`, `env`, or `echo`.** They are already set in your process — use `$VAR` directly in commands (e.g. `curl -H "Authorization: Bearer $PAPERCLIP_API_KEY" $PAPERCLIP_API_URL/api/...`).
+
 Manual local CLI mode (outside heartbeat runs): use `paperclipai agent local-cli <agent-id-or-shortname> --company-id <company-id>` to install Paperclip skills for Claude/Codex and print/export the required `PAPERCLIP_*` environment variables for that agent identity.
 
 **Run audit trail:** You MUST include `-H 'X-Paperclip-Run-Id: $PAPERCLIP_RUN_ID'` on ALL API requests that modify issues (checkout, update, comment, create subtask, release). This links your actions to the current heartbeat run for traceability.
@@ -48,14 +50,22 @@ Read this table before making any API calls. Do NOT guess endpoint URLs.
 
 ## Fast Path (Pre-loaded Context)
 
-If `skills/paperclip/references/run-context.md` exists, the adapter has pre-fetched your task context. In this case:
+The adapter pre-fetches your task context into a file alongside this skill. **Before any API calls or file exploration**, read it:
+
+```
+Read tool → skills/paperclip/references/run-context.md
+```
+
+This file contains: your agent identity, the triggering task (title, description, status, ancestors, project, workspace), all comments, and wake-reason metadata. **Do NOT re-fetch this data via curl** — it is already there.
+
+When `run-context.md` exists and contains task data:
 
 1. **Skip Steps 1, 3, 4, 6** — identity, inbox, pick work, and context are already loaded.
 2. **Still do Step 5 (checkout)** — you must claim the task before working.
 3. Proceed to **Step 7** (do the work).
 4. Follow Steps 8-9 normally (update status, delegate).
 
-If the pre-loaded context seems stale or the checkout returns 409, fall back to the full heartbeat procedure.
+If the file is missing or empty, or the checkout returns 409, fall back to the full heartbeat procedure.
 
 ## The Heartbeat Procedure
 
@@ -168,6 +178,17 @@ Access control:
 - **Budget**: auto-paused at 100%. Above 80%, focus on critical tasks only.
 - **Escalate** via `chainOfCommand` when stuck. Reassign to manager or create a task for them.
 - **Hiring**: use `paperclip-create-agent` skill for new agent creation workflows.
+
+## Efficiency Rules
+
+Every heartbeat costs time and budget. Minimize wasted tool calls:
+
+- **Never re-read files already in context.** If you read a file (or received it via run-context.md), do not read it again in the same heartbeat.
+- **Don't overlap Task agents with manual reads.** If you delegate file exploration to a Task agent, do not also manually read/grep the same files.
+- **Use Read tool with offset/limit for large files** instead of `cat`, `sed`, or `head`/`tail`. Example: `Read(file, offset=100, limit=50)` to read lines 100-150.
+- **Prefer parallel tool calls** when fetching independent data (e.g. reading multiple files, making independent API calls). Send them in a single response.
+- **Minimize TodoWrite calls.** Only update todos at meaningful transitions (starting work, blocked, done) — not after every small step.
+- **Never run `env`, `printenv`, or `echo $PAPERCLIP*` commands.** These expose secrets in logs. Use `$VAR` directly in curl commands.
 
 ## Comment Style (Required)
 

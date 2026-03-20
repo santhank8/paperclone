@@ -204,6 +204,7 @@ export function ActiveAgentsPanel({ companyId }: ActiveAgentsPanelProps) {
   const { data: liveRuns } = useQuery({
     queryKey: [...queryKeys.liveRuns(companyId), "dashboard"],
     queryFn: () => heartbeatsApi.liveRunsForCompany(companyId),
+    refetchInterval: 5_000,
   });
 
   const runs = liveRuns ?? [];
@@ -433,11 +434,13 @@ function AgentRunCard({
   useEffect(() => {
     const body = bodyRef.current;
     if (!body) return;
-    // Use rAF + instant scroll so rapid updates don't interrupt each other
+    // Double-rAF ensures React has committed the DOM update before scrolling
     requestAnimationFrame(() => {
-      body.scrollTo({ top: body.scrollHeight, behavior: "auto" });
+      requestAnimationFrame(() => {
+        body.scrollTo({ top: body.scrollHeight, behavior: "auto" });
+      });
     });
-  }, [feedRev]);
+  }, [feedRev, feed.length]);
 
   return (
     <div className={cn(

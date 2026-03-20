@@ -339,6 +339,7 @@ export function LiveRunWidget({ issueId, companyId }: LiveRunWidgetProps) {
             text: nextText,
             dedupeKey: last.dedupeKey,
           };
+          didChange = true;
           continue;
         }
 
