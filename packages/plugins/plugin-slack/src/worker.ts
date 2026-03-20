@@ -197,19 +197,23 @@ const plugin: PaperclipPlugin = definePlugin({
 
     const config = await getConfig(ctx);
 
-    // Signature verification — try per-agent secrets first, fall back to global signingSecret
+    // Signature verification — try per-agent secrets first, fall back to global signingSecret.
+    // When at least one secret is configured, the signature headers are REQUIRED.
+    // A request that omits them is rejected so the endpoint cannot be spoofed by an
+    // attacker who merely knows the webhook URL.
     const sig = (input.headers["x-slack-signature"] ?? input.headers["X-Slack-Signature"]) as string;
     const ts = (input.headers["x-slack-request-timestamp"] ?? input.headers["X-Slack-Request-Timestamp"]) as string;
-    if (sig && ts) {
-      const secrets = [
-        ...(config.agents ?? []).map((a) => a.signingSecret).filter(Boolean) as string[],
-        ...(config.signingSecret ? [config.signingSecret] : []),
-      ];
-      if (secrets.length > 0) {
-        const valid = secrets.some((secret) => verifySlackSignature(sig, ts, input.rawBody, secret));
-        if (!valid) {
-          throw new Error("Invalid Slack signature — request rejected");
-        }
+    const secrets = [
+      ...(config.agents ?? []).map((a) => a.signingSecret).filter(Boolean) as string[],
+      ...(config.signingSecret ? [config.signingSecret] : []),
+    ];
+    if (secrets.length > 0) {
+      if (!sig || !ts) {
+        throw new Error("Missing Slack signature headers — request rejected");
+      }
+      const valid = secrets.some((secret) => verifySlackSignature(sig, ts, input.rawBody, secret));
+      if (!valid) {
+        throw new Error("Invalid Slack signature — request rejected");
       }
     }
 

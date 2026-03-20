@@ -2,7 +2,7 @@ import type { PluginContext, PluginEvent } from "@paperclipai/plugin-sdk";
 import type { Issue, IssueComment } from "@paperclipai/plugin-sdk";
 import type { SlackConfig } from "../types.js";
 import { SlackClient } from "../slack-client.js";
-import { buildAgentMaps, resolveToken, findChannelMapping } from "../sync/agent-mapper.js";
+import { buildAgentMaps, resolveToken } from "../sync/agent-mapper.js";
 import {
   getThread,
   saveThread,
@@ -51,8 +51,7 @@ async function onIssueCreated(ctx: PluginContext, event: PluginEvent): Promise<v
   const config = await getConfig(ctx);
   const issue = event.payload as Issue;
 
-  const mapping = findChannelMapping(config, "") // no channel known yet — use project mapping
-    ?? config.channelMappings?.find((m) => m.paperclipProjectId === issue.projectId);
+  const mapping = config.channelMappings?.find((m) => m.paperclipProjectId === issue.projectId) ?? null;
 
   if (!mapping) return; // no channel configured for this project
 

@@ -22,6 +22,12 @@ import {
 import { EMOJI_TO_STATUS, PLUGIN_ID } from "../constants.js";
 
 // ---------------------------------------------------------------------------
+// Process-level in-flight guard (TOCTOU complement to persistent dedup store)
+// ---------------------------------------------------------------------------
+
+const inFlightEvents = new Set<string>();
+
+// ---------------------------------------------------------------------------
 // Main router
 // ---------------------------------------------------------------------------
 
@@ -30,10 +36,29 @@ export async function handleSlackEvent(
   config: SlackConfig,
   envelope: SlackEventEnvelope,
 ): Promise<void> {
-  // URL verification challenge — log the challenge so the operator can retrieve it
+  // URL verification challenge — the current plugin SDK's onWebhook() returns void,
+  // so we cannot write an HTTP response body from here. Slack's Events API setup
+  // therefore cannot be completed via the normal challenge handshake through this path.
+  //
+  // Workaround for Events API URL verification:
+  //   1. Send a manual HTTP POST to the webhook URL that returns {"challenge":"<value>"}.
+  //   2. Use Socket Mode instead (set appToken in the plugin config) — no URL
+  //      verification is needed and this limitation does not apply.
+  //
+  // We throw here (rather than silently returning) so the operator immediately sees
+  // the failure in logs and knows manual action is required.
   if (envelope.type === "url_verification") {
-    ctx.logger.info("Slack URL verification challenge received", { challenge: envelope.challenge });
-    return;
+    ctx.logger.error(
+      "Slack URL verification challenge received — the plugin SDK cannot return an HTTP " +
+      "response body, so the challenge handshake cannot complete automatically. " +
+      "Use Socket Mode (set appToken in plugin config) to avoid this requirement. " +
+      "Challenge value: " + envelope.challenge,
+    );
+    throw new Error(
+      "URL verification challenge cannot be completed via this SDK path. " +
+      "Enable Socket Mode (set appToken) or complete verification manually. " +
+      "See plugin logs for the challenge value.",
+    );
   }
 
   const event = envelope.event;
@@ -41,8 +66,16 @@ export async function handleSlackEvent(
 
   const eventId = (event as { event_id?: string }).event_id;
   if (eventId) {
-    if (await isEventProcessed(ctx, eventId)) return;
-    await markEventProcessed(ctx, eventId);
+    // Fast in-process guard prevents TOCTOU races when the same event arrives twice
+    // in quick succession before the first invocation has written to persistent state.
+    if (inFlightEvents.has(eventId)) return;
+    inFlightEvents.add(eventId);
+    try {
+      if (await isEventProcessed(ctx, eventId)) return;
+      await markEventProcessed(ctx, eventId);
+    } finally {
+      inFlightEvents.delete(eventId);
+    }
   }
 
   const maps = buildAgentMaps(config);
@@ -261,10 +294,7 @@ function buildIssueUrl(_companyId: string, _issueId: string): string {
   return `${base}/issues/${_issueId}`;
 }
 
-function buildSlackUrl(teamId: string | undefined, channelId: string, ts: string): string {
+function buildSlackUrl(_teamId: string | undefined, channelId: string, ts: string): string {
   const tsFormatted = ts.replace(".", "");
-  if (teamId) {
-    return `https://slack.com/archives/${channelId}/p${tsFormatted}`;
-  }
   return `https://slack.com/archives/${channelId}/p${tsFormatted}`;
 }

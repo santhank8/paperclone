@@ -87,6 +87,8 @@ export async function saveMessageTs(
 // Deduplication  (Slack event IDs — prevent double-processing)
 // ---------------------------------------------------------------------------
 
+const DEDUP_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+
 export async function isEventProcessed(
   ctx: PluginContext,
   eventId: string,
@@ -95,8 +97,9 @@ export async function isEventProcessed(
     scopeKind: "instance",
     namespace: `${NS}:dedup`,
     stateKey: eventId,
-  });
-  return val != null;
+  }) as { processedAt: number } | null;
+  if (!val) return false;
+  return Date.now() - val.processedAt < DEDUP_TTL_MS;
 }
 
 export async function markEventProcessed(
@@ -105,6 +108,6 @@ export async function markEventProcessed(
 ): Promise<void> {
   await ctx.state.set(
     { scopeKind: "instance", namespace: `${NS}:dedup`, stateKey: eventId },
-    Date.now(),
+    { processedAt: Date.now() },
   );
 }
