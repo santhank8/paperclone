@@ -10,6 +10,7 @@ import {
   createIssueSchema,
   linkIssueApprovalSchema,
   issueDocumentKeySchema,
+  issueVerificationSchema,
   updateIssueWorkProductSchema,
   upsertIssueDocumentSchema,
   updateIssueSchema,
@@ -820,9 +821,50 @@ export function issueRoutes(db: Db, storage: StorageService) {
     }
     if (!(await assertAgentRunCheckoutOwnership(req, res, existing))) return;
 
-    const { comment: commentBody, hiddenAt: hiddenAtRaw, ...updateFields } = req.body;
+    // Honesty Gate: agent-initiated transitions to "done" require a verification checklist.
+    const statusTransitioningToDone =
+      req.body.status === "done" && existing.status !== "done";
+    if (statusTransitioningToDone && req.actor.type === "agent") {
+      const verification = req.body.verification;
+      if (!verification) {
+        res.status(422).json({
+          statusCode: 422,
+          message: "Honesty Gate: verification checklist required to mark task as done",
+          error: "VerificationRequired",
+          missingChecks: ["specComplete", "tested", "matchesPlan", "knowledgeSaved", "bestSolutionCheck"],
+        });
+        return;
+      }
+      const parsed = issueVerificationSchema.safeParse(verification);
+      if (!parsed.success) {
+        res.status(422).json({
+          statusCode: 422,
+          message: "Honesty Gate: verification checklist required to mark task as done",
+          error: "VerificationRequired",
+          missingChecks: parsed.error.errors.map((e) => e.path.join(".")),
+        });
+        return;
+      }
+      const failing = (
+        ["specComplete", "tested", "matchesPlan", "knowledgeSaved", "bestSolutionCheck"] as const
+      ).filter((k) => !parsed.data[k]);
+      if (failing.length > 0) {
+        res.status(422).json({
+          statusCode: 422,
+          message: "Honesty Gate: verification checklist required to mark task as done",
+          error: "VerificationRequired",
+          missingChecks: failing,
+        });
+        return;
+      }
+    }
+
+    const { comment: commentBody, hiddenAt: hiddenAtRaw, verification: verificationData, ...updateFields } = req.body;
     if (hiddenAtRaw !== undefined) {
       updateFields.hiddenAt = hiddenAtRaw ? new Date(hiddenAtRaw) : null;
+    }
+    if (verificationData !== undefined) {
+      updateFields.verification = verificationData;
     }
     let issue;
     try {
