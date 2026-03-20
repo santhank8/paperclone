@@ -62,6 +62,14 @@ Customer success infrastructure is **100% complete and verified operational**. A
   - Thank you follow-up and week 1 check-in emails
   - Email rendering checklist and test procedures
   - Communication schedule and success metrics
+- **Customer Success Metrics Dashboard** (analytics specification)
+  - 6 core metrics (email volume, feedback rating, refund rate, FAQ engagement, response rate, time-to-logo)
+  - 4 secondary metrics (guide engagement, email performance, sentiment, response time)
+  - 3 operational metrics (FAQ gaps, guide clarity, product issues)
+  - 4-week implementation roadmap
+  - Google Analytics 4 events to implement
+  - Data sources and integration points
+  - Dashboard layout and success criteria
 
 ### Pricing & Product Alignment
 - ✅ All pages correctly show $19 Basic / $49 Premium tiers
@@ -96,15 +104,17 @@ Customer success infrastructure is **100% complete and verified operational**. A
 
 ### Analytics & Monitoring (Week 1-2) 📊
 - **Owner:** Analytics/Product Team
-- **Action:** Set up tracking for customer success metrics
-- **Goals:**
-  - FAQ searches per visitor
-  - Guide page views
-  - Feedback ratings (from `/api/feedback` endpoint)
-  - Support email volume
-  - Refund requests
-  - Time-to-first-logo metric
-- **Reference:** `CUSTOMER-SUCCESS-SUMMARY.md` has full metric definitions
+- **Action:** Build customer success metrics dashboard per specification
+- **What to track:**
+  - 6 core metrics (email volume, feedback, refunds, FAQ, response rate, time-to-logo)
+  - 4 secondary metrics (guides, email automation, sentiment, response time)
+  - 3 operational metrics (FAQ gaps, guide issues, product bugs)
+- **Reference:** `CUSTOMER-SUCCESS-METRICS-DASHBOARD.md` has full specification with:
+  - Measurement methodology for each metric
+  - Data sources and integration points
+  - Google Analytics 4 events to implement
+  - 4-week implementation roadmap
+  - Recommended dashboard layout
 
 ### Mobile Testing (Optional, In Progress) 📱
 - **Owner:** QA/Design Team
@@ -243,6 +253,7 @@ Customer Success:
 ├── src/components/FeedbackForm.tsx           (Feedback widget)
 ├── CUSTOMER-SUCCESS-STRATEGY.md              (Philosophy & workflow)
 ├── CUSTOMER-SUCCESS-OPERATIONS-GUIDE.md      (Launch day & first 30 days)
+├── CUSTOMER-SUCCESS-METRICS-DASHBOARD.md     (Analytics specification)
 ├── LAUNCH-COMMUNICATIONS.md                  (Customer & team communications)
 ├── SUPPORT-TEMPLATES.md                      (8 email templates)
 ├── ONBOARDING-EMAILS.md                      (10-email sequence)
@@ -265,6 +276,7 @@ Customer Success:
 - [x] All pages verified operational
 - [x] Customer success operations guide created (launch day procedures)
 - [x] Launch communications created (emails, social, messaging)
+- [x] Metrics dashboard specification created (for analytics team)
 
 ### ⏳ Other Teams - READY TO START
 - [ ] Email automation setup (Ops)
