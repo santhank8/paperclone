@@ -2,8 +2,6 @@ import { and, desc, eq, gte, isNotNull, lte, sql } from "drizzle-orm";
 import type { Db } from "@paperclipai/db";
 import { activityLog, agents, companies, costEvents, heartbeatRuns, issues, projects } from "@paperclipai/db";
 import { notFound, unprocessable } from "../errors.js";
-import { logger } from "../middleware/logger.js";
-import { verticalBudgetService } from "./vertical-budget.js";
 
 export interface CostDateRange {
   from?: Date;
@@ -11,8 +9,6 @@ export interface CostDateRange {
 }
 
 export function costService(db: Db) {
-  const vbs = verticalBudgetService(db);
-
   return {
     createEvent: async (companyId: string, data: Omit<typeof costEvents.$inferInsert, "companyId">) => {
       const agent = await db
@@ -25,8 +21,6 @@ export function costService(db: Db) {
       if (agent.companyId !== companyId) {
         throw unprocessable("Agent does not belong to company");
       }
-
-      const previousStatus = agent.status;
 
       const event = await db
         .insert(costEvents)
@@ -67,17 +61,6 @@ export function costService(db: Db) {
           .update(agents)
           .set({ status: "paused", updatedAt: new Date() })
           .where(eq(agents.id, updatedAgent.id));
-      }
-
-      // Trigger vertical budget reload workflow on transition to paused
-      if (
-        updatedAgent &&
-        updatedAgent.budgetMonthlyCents > 0 &&
-        updatedAgent.spentMonthlyCents >= updatedAgent.budgetMonthlyCents &&
-        previousStatus !== "paused"
-      ) {
-        void vbs.requestBudgetReload(updatedAgent.id)
-          .catch(err => logger.warn({ err, agentId: updatedAgent.id }, "budget reload request failed"));
       }
 
       return event;
