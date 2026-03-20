@@ -16,6 +16,9 @@ export const companies = pgTable(
     requireBoardApprovalForNewAgents: boolean("require_board_approval_for_new_agents")
       .notNull()
       .default(true),
+    issueLifecycleWebhookUrl: text("issue_lifecycle_webhook_url"),
+    notifyIssueCreator: boolean("notify_issue_creator").notNull().default(false),
+    notifyIssueAssigner: boolean("notify_issue_assigner").notNull().default(false),
     brandColor: text("brand_color"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
