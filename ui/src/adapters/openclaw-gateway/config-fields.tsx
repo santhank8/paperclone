@@ -207,6 +207,7 @@ function useGatewayAgents(
         if (frame.type === "res" && frame.id === "c1") {
           if (!frame.ok) {
             setError(frame.error?.message ?? "Connect failed");
+            setAgents([]); setDefaultId(null);
             setLoading(false);
             clearTimeout(timer);
             ws?.close();
@@ -221,6 +222,7 @@ function useGatewayAgents(
           clearTimeout(timer);
           if (!frame.ok) {
             setError(frame.error?.message ?? "agents.list failed");
+            setAgents([]); setDefaultId(null);
             setLoading(false);
             ws?.close();
             return;
@@ -239,6 +241,7 @@ function useGatewayAgents(
     ws.onerror = () => {
       if (!cancelled) {
         setError("WebSocket connection error");
+        setAgents([]); setDefaultId(null);
         setLoading(false);
         clearTimeout(timer);
       }

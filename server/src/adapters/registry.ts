@@ -121,7 +121,7 @@ const openclawGatewayAdapter: ServerAdapterModule = {
   testEnvironment: openclawGatewayTestEnvironment,
   models: openclawGatewayModels,
   listModels: listOpenClawModels,
-  supportsLocalAgentJwt: false,
+  supportsLocalAgentJwt: true,
   agentConfigurationDoc: openclawGatewayAgentConfigurationDoc,
 };
 
