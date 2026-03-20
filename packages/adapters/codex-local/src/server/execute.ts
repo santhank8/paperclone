@@ -18,6 +18,8 @@ import {
   removeMaintainerOnlySkillSymlinks,
   renderTemplate,
   joinPromptSections,
+  buildAgentOutputLanguagePrompt,
+  describeAgentOutputLanguage,
   runChildProcess,
 } from "@paperclipai/adapter-utils/server-utils";
 import { parseCodexJsonl, isCodexUnknownSessionError } from "./parse.js";
@@ -315,6 +317,9 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
   if (runtimePrimaryUrl) {
     env.PAPERCLIP_RUNTIME_PRIMARY_URL = runtimePrimaryUrl;
   }
+  const systemLanguage = describeAgentOutputLanguage(context.paperclipSystemLanguage);
+  env.PAPERCLIP_SYSTEM_LANGUAGE = systemLanguage.code;
+  env.PAPERCLIP_SYSTEM_LANGUAGE_NAME = systemLanguage.label;
   for (const [k, v] of Object.entries(envConfig)) {
     if (typeof v === "string") env[k] = v;
   }
@@ -403,10 +408,12 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
       ? renderTemplate(bootstrapPromptTemplate, templateData).trim()
       : "";
   const sessionHandoffNote = asString(context.paperclipSessionHandoffMarkdown, "").trim();
+  const languagePrompt = buildAgentOutputLanguagePrompt(systemLanguage.code);
   const prompt = joinPromptSections([
     instructionsPrefix,
     renderedBootstrapPrompt,
     sessionHandoffNote,
+    languagePrompt,
     renderedPrompt,
   ]);
   const promptMetrics = {

@@ -18,6 +18,8 @@ import {
   removeMaintainerOnlySkillSymlinks,
   renderTemplate,
   joinPromptSections,
+  buildAgentOutputLanguagePrompt,
+  describeAgentOutputLanguage,
   runChildProcess,
 } from "@paperclipai/adapter-utils/server-utils";
 import { DEFAULT_CURSOR_LOCAL_MODEL } from "../index.js";
@@ -248,6 +250,9 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
   if (workspaceHints.length > 0) {
     env.PAPERCLIP_WORKSPACES_JSON = JSON.stringify(workspaceHints);
   }
+  const systemLanguage = describeAgentOutputLanguage(context.paperclipSystemLanguage);
+  env.PAPERCLIP_SYSTEM_LANGUAGE = systemLanguage.code;
+  env.PAPERCLIP_SYSTEM_LANGUAGE_NAME = systemLanguage.label;
   for (const [k, v] of Object.entries(envConfig)) {
     if (typeof v === "string") env[k] = v;
   }
@@ -346,11 +351,13 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
       ? renderTemplate(bootstrapPromptTemplate, templateData).trim()
       : "";
   const sessionHandoffNote = asString(context.paperclipSessionHandoffMarkdown, "").trim();
+  const languagePrompt = buildAgentOutputLanguagePrompt(systemLanguage.code);
   const paperclipEnvNote = renderPaperclipEnvNote(env);
   const prompt = joinPromptSections([
     instructionsPrefix,
     renderedBootstrapPrompt,
     sessionHandoffNote,
+    languagePrompt,
     paperclipEnvNote,
     renderedPrompt,
   ]);

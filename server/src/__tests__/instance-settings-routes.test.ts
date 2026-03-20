@@ -5,6 +5,8 @@ import { errorHandler } from "../middleware/index.js";
 import { instanceSettingsRoutes } from "../routes/instance-settings.js";
 
 const mockInstanceSettingsService = vi.hoisted(() => ({
+  getGeneral: vi.fn(),
+  updateGeneral: vi.fn(),
   getExperimental: vi.fn(),
   updateExperimental: vi.fn(),
   listCompanyIds: vi.fn(),
@@ -31,6 +33,15 @@ function createApp(actor: any) {
 describe("instance settings routes", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockInstanceSettingsService.getGeneral.mockResolvedValue({
+      language: "en",
+    });
+    mockInstanceSettingsService.updateGeneral.mockResolvedValue({
+      id: "instance-settings-1",
+      general: {
+        language: "pt-BR",
+      },
+    });
     mockInstanceSettingsService.getExperimental.mockResolvedValue({
       enableIsolatedWorkspaces: false,
     });
@@ -62,6 +73,29 @@ describe("instance settings routes", () => {
     expect(patchRes.status).toBe(200);
     expect(mockInstanceSettingsService.updateExperimental).toHaveBeenCalledWith({
       enableIsolatedWorkspaces: true,
+    });
+    expect(mockLogActivity).toHaveBeenCalledTimes(2);
+  });
+
+  it("allows local board users to read and update general settings", async () => {
+    const app = createApp({
+      type: "board",
+      userId: "local-board",
+      source: "local_implicit",
+      isInstanceAdmin: true,
+    });
+
+    const getRes = await request(app).get("/api/instance/settings/general");
+    expect(getRes.status).toBe(200);
+    expect(getRes.body).toEqual({ language: "en" });
+
+    const patchRes = await request(app)
+      .patch("/api/instance/settings/general")
+      .send({ language: "pt-BR" });
+
+    expect(patchRes.status).toBe(200);
+    expect(mockInstanceSettingsService.updateGeneral).toHaveBeenCalledWith({
+      language: "pt-BR",
     });
     expect(mockLogActivity).toHaveBeenCalledTimes(2);
   });

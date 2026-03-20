@@ -88,6 +88,7 @@
     "title": "Painel",
     "overview": "Visão geral",
     "recentActivity": "Atividade recente",
+    "recentTasks": "Tarefas recentes",
     "activeRuns": "Execuções ativas",
     "issuesByStatus": "Issues por status",
     "agentPerformance": "Desempenho dos agentes",
@@ -97,7 +98,41 @@
     "avgCycleTime": "Tempo médio de ciclo",
     "noActiveRuns": "Nenhuma execução ativa",
     "runSetup": "Configurar execução",
-    "onboarding": "Primeiros passos"
+    "onboarding": "Primeiros passos",
+    "noAgents": "Você não tem agentes.",
+    "createOneHere": "Crie um aqui",
+    "agentsEnabled": "Agentes ativos",
+    "tasksInProgress": "Tarefas em andamento",
+    "monthSpend": "Gasto do mês",
+    "pendingApprovals": "Aprovações pendentes",
+    "runningPausedErrors": "{{running}} em execução, {{paused}} pausados, {{errors}} com erro",
+    "openBlocked": "{{open}} abertas, {{blocked}} bloqueadas",
+    "running": "em execução",
+    "paused": "pausados",
+    "errors": "com erro",
+    "openCount": "{{count}} abertas",
+    "blockedCount": "{{count}} bloqueadas",
+    "budgetPercent": "{{percent}}% do orçamento de {{budget}}",
+    "unlimitedBudget": "Orçamento ilimitado",
+    "budgetOverrides": "{{count}} overrides de orçamento aguardando revisão do board",
+    "awaitingReview": "Aguardando revisão do board",
+    "runActivity": "Atividade de execuções",
+    "issuesByPriority": "Issues por prioridade",
+    "successRate": "Taxa de sucesso",
+    "last14Days": "Últimos 14 dias",
+    "noTasksYet": "Ainda não há tarefas.",
+    "noIssues": "Nenhuma issue",
+    "noRecentAgentRuns": "Nenhuma execução recente de agente.",
+    "liveNow": "Ao vivo agora",
+    "finishedAgo": "Finalizado {{time}}",
+    "startedAgo": "Iniciado {{time}}",
+    "waitingForTranscriptParsing": "Aguardando processamento da transcrição...",
+    "waitingForOutput": "Aguardando saída...",
+    "noTranscriptCaptured": "Nenhuma transcrição capturada.",
+    "activeBudgetIncident": "{{count}} incidente de orçamento ativo",
+    "activeBudgetIncidents": "{{count}} incidentes de orçamento ativos",
+    "agentsPausedProjectsPausedApprovals": "{{agents}} agentes pausados · {{projects}} projetos pausados · {{approvals}} aprovações de orçamento pendentes",
+    "openBudgets": "Abrir orçamentos"
   },
   "inbox": {
     "title": "Caixa de entrada",
@@ -343,7 +378,109 @@
     "step4Description": "Seu espaço de trabalho está pronto. Comece criando issues e deixe seus agentes cuidarem delas.",
     "launch": "Iniciar",
     "skip": "Pular",
-    "failedToCreate": "Falha ao criar empresa"
+    "failedToCreate": "Falha ao criar empresa",
+    "tabs": {
+      "company": "Empresa",
+      "agent": "Agente",
+      "task": "Tarefa",
+      "launch": "Iniciar"
+    },
+    "wizard": {
+      "step1": {
+        "title": "Dê um nome à sua empresa",
+        "description": "Esta é a organização onde os seus agentes vão trabalhar.",
+        "companyNameLabel": "Nome da empresa",
+        "companyNamePlaceholder": "Acme Corp",
+        "companyGoalLabel": "Missão / objetivo (opcional)",
+        "companyGoalPlaceholder": "O que esta empresa está tentando alcançar?"
+      },
+      "step2": {
+        "title": "Crie o seu primeiro agente",
+        "description": "Escolha como esse agente vai executar tarefas.",
+        "agentNameLabel": "Nome do agente",
+        "agentNamePlaceholder": "CEO",
+        "adapterTypeLabel": "Tipo de adaptador",
+        "comingSoon": "Em breve",
+        "workingDirectoryLabel": "Diretorio de trabalho",
+        "workingDirectoryHint": "O Paperclip funciona melhor quando voce cria uma pasta nova para os seus agentes guardarem memorias e manterem organizacao. Crie uma pasta nova e informe o caminho aqui.",
+        "workingDirectoryPlaceholder": "/caminho/do/projeto",
+        "modelLabel": "Modelo",
+        "selectModelRequired": "Selecione um modelo (obrigatorio)",
+        "defaultModel": "Padrao",
+        "searchModelsPlaceholder": "Pesquisar modelos...",
+        "noModelsDiscovered": "Nenhum modelo encontrado.",
+        "adapterEnvironmentCheckTitle": "Verificacao de ambiente do adaptador",
+        "adapterEnvironmentCheckDescription": "Executa uma sondagem ao vivo pedindo para a CLI do adaptador responder com hello.",
+        "testing": "Testando...",
+        "testNow": "Testar agora",
+        "passed": "Aprovado",
+        "anthropicUnsetHint": "O Claude falhou com ANTHROPIC_API_KEY definido. Voce pode limpar isso na configuracao deste adaptador CEO e tentar a sondagem novamente.",
+        "retrying": "Tentando novamente...",
+        "unsetAnthropicApiKey": "Limpar ANTHROPIC_API_KEY",
+        "manualDebugTitle": "Depuracao manual",
+        "manualDebugPromptLabel": "Prompt:",
+        "manualDebugAuthHint": "Se a autenticacao falhar, defina",
+        "manualDebugInEnvOrRun": "no ambiente ou execute",
+        "manualDebugLoginHint": "Se for necessario login, execute",
+        "andRetry": "e tente novamente.",
+        "processCommandLabel": "Comando",
+        "processCommandPlaceholder": "ex: node, python",
+        "processArgsLabel": "Args (separados por virgula)",
+        "processArgsPlaceholder": "ex: script.js, --flag",
+        "gatewayUrlLabel": "URL do gateway",
+        "webhookUrlLabel": "URL do webhook",
+        "recommended": "Recomendado",
+        "moreAdapterTypes": "Mais tipos de adaptador de agente",
+        "configureOpenclawInApp": "Configure o OpenClaw dentro do app",
+        "adapterDescriptions": {
+          "claudeLocal": "Agente Claude local",
+          "codexLocal": "Agente Codex local",
+          "geminiLocal": "Agente Gemini local",
+          "process": "Executa um comando local",
+          "opencodeLocal": "Agente local com multiplos provedores",
+          "piLocal": "Agente Pi local",
+          "cursorLocal": "Agente Cursor local",
+          "openclawGateway": "Invoca o OpenClaw via protocolo de gateway"
+        },
+        "adapterResult": {
+          "passed": "Aprovado",
+          "warnings": "Avisos",
+          "failed": "Falhou",
+          "hintLabel": "Dica:"
+        }
+      },
+      "step3": {
+        "title": "Dê algo para ele fazer",
+        "description": "Dê ao seu agente uma pequena tarefa para começar — corrigir um bug, pesquisar algo ou escrever um script.",
+        "taskTitleLabel": "Título da tarefa",
+        "defaultTaskTitle": "Crie o seu CEO HEARTBEAT.md",
+        "taskTitlePlaceholder": "ex: Pesquisar preços de concorrentes",
+        "taskDescriptionLabel": "Descrição (opcional)",
+        "taskDescriptionPlaceholder": "Adicione mais detalhes sobre o que o agente deve fazer..."
+      },
+      "step4": {
+        "title": "Pronto para iniciar",
+        "description": "Está tudo configurado. Iniciar agora vai criar a tarefa inicial, acordar o agente e abrir a issue."
+      },
+      "actions": {
+        "creating": "Criando...",
+        "createAndOpenIssue": "Criar e abrir issue"
+      },
+      "errors": {
+        "createOrSelectCompanyBeforeTest": "Crie ou selecione uma empresa antes de testar o ambiente do adaptador.",
+        "adapterEnvironmentTestFailed": "Falha no teste de ambiente do adaptador",
+        "failedToCreateCompany": "Falha ao criar empresa",
+        "failedToCreateAgent": "Falha ao criar agente",
+        "failedToCreateTask": "Falha ao criar tarefa",
+        "opencodeModelRequired": "O OpenCode exige um modelo explicito no formato provedor/modelo.",
+        "failedToLoadOpencodeModels": "Falha ao carregar os modelos do OpenCode.",
+        "opencodeModelsStillLoading": "Os modelos do OpenCode ainda estao carregando. Aguarde e tente novamente.",
+        "noOpencodeModelsDiscovered": "Nenhum modelo do OpenCode encontrado. Rode `opencode models` e autentique os provedores.",
+        "opencodeModelUnavailable": "O modelo OpenCode configurado nao esta disponivel: {{model}}",
+        "unsetAnthropicRetryStillFailing": "Foi tentado novamente com ANTHROPIC_API_KEY limpo na configuracao do adaptador, mas o teste de ambiente ainda falha.",
+        "failedToUnsetAnthropicAndRetry": "Falha ao limpar ANTHROPIC_API_KEY e tentar novamente."
+      }
+    }
   },
   "newIssueDialog": {
     "title": "Criar Issue",
@@ -376,6 +513,181 @@
     "label": "Idioma",
     "en": "English",
     "ptBR": "Português (BR)"
+  },
+  "instanceSettings": {
+    "title": "Configurações da instância",
+    "general": "Geral",
+    "heartbeats": "Heartbeats",
+    "experimental": "Experimental",
+    "plugins": "Plugins",
+    "generalPage": {
+      "loading": "Carregando configurações gerais...",
+      "description": "Configure os padrões da instância usados pela interface do board e pelos adaptadores locais de agentes.",
+      "systemLanguageTitle": "Idioma do sistema",
+      "systemLanguageDescription": "Esse idioma é persistido no nível do sistema e injetado nas execuções locais dos agentes para que eles respondam e trabalhem no idioma selecionado por padrão.",
+      "languageOptions": {
+        "en": "Os agentes respondem e trabalham em inglês por padrão.",
+        "ptBR": "Os agentes respondem e trabalham em português por padrão."
+      },
+      "actions": {
+        "saving": "Salvando...",
+        "selected": "Selecionado",
+        "use": "Usar"
+      },
+      "errors": {
+        "load": "Falha ao carregar as configurações gerais.",
+        "updateLanguage": "Falha ao atualizar o idioma do sistema."
+      }
+    },
+    "heartbeatsPage": {
+      "title": "Heartbeats do scheduler",
+      "description": "Agentes com heartbeat por timer habilitado em todas as suas empresas.",
+      "loading": "Carregando heartbeats do scheduler...",
+      "stats": {
+        "active": "ativos",
+        "disabled": "desabilitados",
+        "company": "empresa",
+        "companies": "empresas"
+      },
+      "badges": {
+        "on": "Ligado",
+        "off": "Desligado"
+      },
+      "never": "nunca",
+      "fullAgentConfig": "Configuração completa do agente",
+      "actions": {
+        "enable": "Habilitar heartbeat por timer",
+        "disable": "Desabilitar heartbeat por timer"
+      },
+      "errors": {
+        "load": "Falha ao carregar os heartbeats do scheduler.",
+        "update": "Falha ao atualizar o heartbeat."
+      }
+    },
+    "experimentalPage": {
+      "loading": "Carregando configurações experimentais...",
+      "description": "Ative recursos que ainda estão sendo avaliados antes de virarem comportamento padrão.",
+      "isolatedWorkspaces": {
+        "title": "Habilitar workspaces isolados",
+        "description": "Mostra os controles de workspace de execução na configuração do projeto e permite comportamento de workspace isolado para execuções novas e existentes de issues.",
+        "ariaLabel": "Alternar configuração experimental de workspaces isolados"
+      },
+      "errors": {
+        "load": "Falha ao carregar as configurações experimentais.",
+        "update": "Falha ao atualizar as configurações experimentais."
+      }
+    },
+    "pluginsPage": {
+      "loading": "Carregando plugins...",
+      "title": "Gerenciador de plugins",
+      "installPlugin": "Instalar plugin",
+      "alpha": {
+        "title": "Plugins estão em alpha.",
+        "description": "O runtime de plugins e a superfície da API ainda estão mudando. Espere mudanças quebrando compatibilidade enquanto esse recurso amadurece."
+      },
+      "installDialog": {
+        "title": "Instalar plugin",
+        "description": "Informe o nome do pacote npm do plugin que você deseja instalar.",
+        "packageName": "Nome do pacote npm",
+        "install": "Instalar",
+        "installing": "Instalando..."
+      },
+      "available": {
+        "title": "Plugins disponíveis",
+        "examplesBadge": "Exemplos",
+        "loading": "Carregando exemplos incluídos...",
+        "loadError": "Falha ao carregar os exemplos incluídos.",
+        "empty": "Nenhum plugin de exemplo foi encontrado neste checkout.",
+        "example": "Exemplo",
+        "notInstalled": "Não instalado",
+        "openSettings": "Abrir configurações",
+        "review": "Revisar",
+        "installExample": "Instalar exemplo"
+      },
+      "examplesCatalog": {
+        "helloWorld": {
+          "title": "Widget Hello World",
+          "description": "Plugin de referência de UI que adiciona um widget simples de Hello World ao dashboard do Paperclip."
+        },
+        "fileBrowser": {
+          "title": "Navegador de arquivos",
+          "description": "Plugin de exemplo que adiciona um link de Arquivos na navegação do projeto e um navegador de arquivos na página de detalhe do projeto."
+        },
+        "kitchenSink": {
+          "title": "Kitchen Sink",
+          "description": "Plugin de referência que demonstra a superfície atual da API de plugins do Paperclip, fluxos de bridge, superfícies de extensão de UI, jobs, webhooks, tools, streams e demos confiáveis de workspace/processo local."
+        }
+      },
+      "installed": {
+        "title": "Plugins instalados",
+        "emptyTitle": "Nenhum plugin instalado",
+        "emptyDescription": "Instale um plugin para estender a funcionalidade.",
+        "noDescription": "Nenhuma descrição fornecida.",
+        "pluginError": "Erro do plugin",
+        "viewFullError": "Ver erro completo"
+      },
+      "actions": {
+        "enable": "Habilitar",
+        "disable": "Desabilitar",
+        "configure": "Configurar",
+        "uninstall": "Desinstalar"
+      },
+      "uninstallDialog": {
+        "title": "Desinstalar plugin",
+        "description": "Tem certeza de que deseja desinstalar {{name}}? Esta ação não pode ser desfeita.",
+        "uninstalling": "Desinstalando..."
+      },
+      "errorDialog": {
+        "title": "Detalhes do erro",
+        "description": "{{name}} entrou em estado de erro.",
+        "whatErrored": "O que falhou",
+        "noSummary": "Nenhum resumo de erro disponível.",
+        "fullOutput": "Saída completa do erro",
+        "noStoredMessage": "Nenhuma mensagem de erro armazenada."
+      },
+      "toasts": {
+        "installSuccess": "Plugin instalado com sucesso",
+        "installError": "Falha ao instalar o plugin",
+        "uninstallSuccess": "Plugin desinstalado com sucesso",
+        "uninstallError": "Falha ao desinstalar o plugin",
+        "enabled": "Plugin habilitado",
+        "enableError": "Falha ao habilitar o plugin",
+        "disabled": "Plugin desabilitado",
+        "disableError": "Falha ao desabilitar o plugin"
+      },
+      "errors": {
+        "load": "Falha ao carregar os plugins."
+      }
+    },
+    "pluginsDetailPage": {
+      "loading": "Carregando detalhes do plugin...",
+      "titleFallback": "Detalhes do plugin",
+      "tabs": {
+        "configuration": "Configuração",
+        "status": "Status"
+      },
+      "about": {
+        "title": "Sobre",
+        "author": "Autor",
+        "categories": "Categorias"
+      },
+      "noSettings": "Este plugin não exige nenhuma configuração.",
+      "form": {
+        "loading": "Carregando configuração...",
+        "save": "Salvar configuração",
+        "saving": "Salvando...",
+        "test": "Testar configuração",
+        "testing": "Testando...",
+        "saveSuccess": "Configuração salva.",
+        "saveError": "Falha ao salvar a configuração.",
+        "testSuccess": "O teste da configuração passou.",
+        "testError": "O teste da configuração falhou."
+      }
+    },
+    "pluginPage": {
+      "selectCompany": "Selecione uma empresa para ver esta página.",
+      "routeConflict": "Vários plugins declaram a rota {{route}}. Use a rota por plugin-id até que o conflito seja resolvido."
+    }
   },
   "auth": {
     "brand": "Paperclip",

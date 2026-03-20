@@ -13,6 +13,7 @@ const payload = {
   argv: process.argv.slice(2),
   prompt: fs.readFileSync(0, "utf8"),
   codexHome: process.env.CODEX_HOME || null,
+  systemLanguage: process.env.PAPERCLIP_SYSTEM_LANGUAGE || null,
   paperclipEnvKeys: Object.keys(process.env)
     .filter((key) => key.startsWith("PAPERCLIP_"))
     .sort(),
@@ -32,6 +33,7 @@ type CapturePayload = {
   argv: string[];
   prompt: string;
   codexHome: string | null;
+  systemLanguage: string | null;
   paperclipEnvKeys: string[];
 };
 
@@ -91,7 +93,9 @@ describe("codex execute", () => {
           },
           promptTemplate: "Follow the paperclip heartbeat.",
         },
-        context: {},
+        context: {
+          paperclipSystemLanguage: "pt-BR",
+        },
         authToken: "run-jwt-token",
         onLog: async (stream, chunk) => {
           logs.push({ stream, chunk });
@@ -104,7 +108,9 @@ describe("codex execute", () => {
       const capture = JSON.parse(await fs.readFile(capturePath, "utf8")) as CapturePayload;
       expect(capture.codexHome).toBe(isolatedCodexHome);
       expect(capture.argv).toEqual(expect.arrayContaining(["exec", "--json", "-"]));
+      expect(capture.systemLanguage).toBe("pt-BR");
       expect(capture.prompt).toContain("Follow the paperclip heartbeat.");
+      expect(capture.prompt).toContain("Respond to the user in Portuguese");
       expect(capture.paperclipEnvKeys).toEqual(
         expect.arrayContaining([
           "PAPERCLIP_AGENT_ID",
@@ -112,6 +118,8 @@ describe("codex execute", () => {
           "PAPERCLIP_API_URL",
           "PAPERCLIP_COMPANY_ID",
           "PAPERCLIP_RUN_ID",
+          "PAPERCLIP_SYSTEM_LANGUAGE",
+          "PAPERCLIP_SYSTEM_LANGUAGE_NAME",
         ]),
       );
 
@@ -200,7 +208,9 @@ describe("codex execute", () => {
           },
           promptTemplate: "Follow the paperclip heartbeat.",
         },
-        context: {},
+        context: {
+          paperclipSystemLanguage: "pt-BR",
+        },
         authToken: "run-jwt-token",
         onLog: async () => {},
       });

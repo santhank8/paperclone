@@ -1,6 +1,12 @@
 export {
+  instanceLanguageSchema,
+  instanceGeneralSettingsSchema,
+  patchInstanceGeneralSettingsSchema,
   instanceExperimentalSettingsSchema,
   patchInstanceExperimentalSettingsSchema,
+  type InstanceLanguage,
+  type InstanceGeneralSettings,
+  type PatchInstanceGeneralSettings,
   type InstanceExperimentalSettings,
   type PatchInstanceExperimentalSettings,
 } from "./instance.js";

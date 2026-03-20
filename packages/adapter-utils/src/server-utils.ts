@@ -124,6 +124,28 @@ export function joinPromptSections(
     .join(separator);
 }
 
+export function normalizeAgentOutputLanguage(value: unknown): "en" | "pt-BR" {
+  return value === "pt-BR" ? "pt-BR" : "en";
+}
+
+export function describeAgentOutputLanguage(language: unknown): {
+  code: "en" | "pt-BR";
+  label: string;
+} {
+  const code = normalizeAgentOutputLanguage(language);
+  return code === "pt-BR"
+    ? { code, label: "Portuguese (Brazil)" }
+    : { code, label: "English" };
+}
+
+export function buildAgentOutputLanguagePrompt(language: unknown): string {
+  const resolved = normalizeAgentOutputLanguage(language);
+  if (resolved === "pt-BR") {
+    return "System language policy: Portuguese (Brazil). Respond to the user in Portuguese and conduct your work in Portuguese unless the task explicitly requires another language.";
+  }
+  return "System language policy: English. Respond to the user in English and conduct your work in English unless the task explicitly requires another language.";
+}
+
 export function redactEnvForLogs(env: Record<string, string>): Record<string, string> {
   const redacted: Record<string, string> = {};
   for (const [key, value] of Object.entries(env)) {

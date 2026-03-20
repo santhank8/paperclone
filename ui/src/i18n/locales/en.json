@@ -105,6 +105,8 @@
     "tasksInProgress": "Tasks In Progress",
     "monthSpend": "Month Spend",
     "pendingApprovals": "Pending Approvals",
+    "runningPausedErrors": "{{running}} running, {{paused}} paused, {{errors}} errors",
+    "openBlocked": "{{open}} open, {{blocked}} blocked",
     "running": "running",
     "paused": "paused",
     "errors": "errors",
@@ -119,6 +121,14 @@
     "successRate": "Success Rate",
     "last14Days": "Last 14 days",
     "noTasksYet": "No tasks yet.",
+    "noIssues": "No issues",
+    "noRecentAgentRuns": "No recent agent runs.",
+    "liveNow": "Live now",
+    "finishedAgo": "Finished {{time}}",
+    "startedAgo": "Started {{time}}",
+    "waitingForTranscriptParsing": "Waiting for transcript parsing...",
+    "waitingForOutput": "Waiting for output...",
+    "noTranscriptCaptured": "No transcript captured.",
     "activeBudgetIncident": "{{count}} active budget incident",
     "activeBudgetIncidents": "{{count}} active budget incidents",
     "agentsPausedProjectsPausedApprovals": "{{agents}} agents paused · {{projects}} projects paused · {{approvals}} pending budget approvals",
@@ -398,7 +408,109 @@
     "step4Description": "Your workspace is ready. Start creating issues and let your agents handle them.",
     "launch": "Launch",
     "skip": "Skip",
-    "failedToCreate": "Failed to create company"
+    "failedToCreate": "Failed to create company",
+    "tabs": {
+      "company": "Company",
+      "agent": "Agent",
+      "task": "Task",
+      "launch": "Launch"
+    },
+    "wizard": {
+      "step1": {
+        "title": "Name your company",
+        "description": "This is the organization your agents will work for.",
+        "companyNameLabel": "Company name",
+        "companyNamePlaceholder": "Acme Corp",
+        "companyGoalLabel": "Mission / goal (optional)",
+        "companyGoalPlaceholder": "What is this company trying to achieve?"
+      },
+      "step2": {
+        "title": "Create your first agent",
+        "description": "Choose how this agent will run tasks.",
+        "agentNameLabel": "Agent name",
+        "agentNamePlaceholder": "CEO",
+        "adapterTypeLabel": "Adapter type",
+        "comingSoon": "Coming soon",
+        "workingDirectoryLabel": "Working directory",
+        "workingDirectoryHint": "Paperclip works best if you create a new folder for your agents to keep their memories and stay organized. Create a new folder and put the path here.",
+        "workingDirectoryPlaceholder": "/path/to/project",
+        "modelLabel": "Model",
+        "selectModelRequired": "Select model (required)",
+        "defaultModel": "Default",
+        "searchModelsPlaceholder": "Search models...",
+        "noModelsDiscovered": "No models discovered.",
+        "adapterEnvironmentCheckTitle": "Adapter environment check",
+        "adapterEnvironmentCheckDescription": "Runs a live probe that asks the adapter CLI to respond with hello.",
+        "testing": "Testing...",
+        "testNow": "Test now",
+        "passed": "Passed",
+        "anthropicUnsetHint": "Claude failed while ANTHROPIC_API_KEY is set. You can clear it in this CEO adapter config and retry the probe.",
+        "retrying": "Retrying...",
+        "unsetAnthropicApiKey": "Unset ANTHROPIC_API_KEY",
+        "manualDebugTitle": "Manual debug",
+        "manualDebugPromptLabel": "Prompt:",
+        "manualDebugAuthHint": "If auth fails, set",
+        "manualDebugInEnvOrRun": "in env or run",
+        "manualDebugLoginHint": "If login is required, run",
+        "andRetry": "and retry.",
+        "processCommandLabel": "Command",
+        "processCommandPlaceholder": "e.g. node, python",
+        "processArgsLabel": "Args (comma-separated)",
+        "processArgsPlaceholder": "e.g. script.js, --flag",
+        "gatewayUrlLabel": "Gateway URL",
+        "webhookUrlLabel": "Webhook URL",
+        "recommended": "Recommended",
+        "moreAdapterTypes": "More Agent Adapter Types",
+        "configureOpenclawInApp": "Configure OpenClaw within the App",
+        "adapterDescriptions": {
+          "claudeLocal": "Local Claude agent",
+          "codexLocal": "Local Codex agent",
+          "geminiLocal": "Local Gemini agent",
+          "process": "Run a local command",
+          "opencodeLocal": "Local multi-provider agent",
+          "piLocal": "Local Pi agent",
+          "cursorLocal": "Local Cursor agent",
+          "openclawGateway": "Invoke OpenClaw via gateway protocol"
+        },
+        "adapterResult": {
+          "passed": "Passed",
+          "warnings": "Warnings",
+          "failed": "Failed",
+          "hintLabel": "Hint:"
+        }
+      },
+      "step3": {
+        "title": "Give it something to do",
+        "description": "Give your agent a small task to start with — a bug fix, a research question, or writing a script.",
+        "defaultTaskTitle": "Create your CEO HEARTBEAT.md",
+        "taskTitleLabel": "Task title",
+        "taskTitlePlaceholder": "e.g. Research competitor pricing",
+        "taskDescriptionLabel": "Description (optional)",
+        "taskDescriptionPlaceholder": "Add more detail about what the agent should do..."
+      },
+      "step4": {
+        "title": "Ready to launch",
+        "description": "Everything is set up. Launching now will create the starter task, wake the agent, and open the issue."
+      },
+      "actions": {
+        "creating": "Creating...",
+        "createAndOpenIssue": "Create & Open Issue"
+      },
+      "errors": {
+        "createOrSelectCompanyBeforeTest": "Create or select a company before testing adapter environment.",
+        "adapterEnvironmentTestFailed": "Adapter environment test failed",
+        "failedToCreateCompany": "Failed to create company",
+        "failedToCreateAgent": "Failed to create agent",
+        "failedToCreateTask": "Failed to create task",
+        "opencodeModelRequired": "OpenCode requires an explicit model in provider/model format.",
+        "failedToLoadOpencodeModels": "Failed to load OpenCode models.",
+        "opencodeModelsStillLoading": "OpenCode models are still loading. Please wait and try again.",
+        "noOpencodeModelsDiscovered": "No OpenCode models discovered. Run `opencode models` and authenticate providers.",
+        "opencodeModelUnavailable": "Configured OpenCode model is unavailable: {{model}}",
+        "unsetAnthropicRetryStillFailing": "Retried with ANTHROPIC_API_KEY unset in adapter config, but the environment test is still failing.",
+        "failedToUnsetAnthropicAndRetry": "Failed to unset ANTHROPIC_API_KEY and retry."
+      }
+    }
   },
   "newIssueDialog": {
     "title": "Create Issue",
@@ -431,6 +543,181 @@
     "label": "Language",
     "en": "English",
     "ptBR": "Português (BR)"
+  },
+  "instanceSettings": {
+    "title": "Instance Settings",
+    "general": "General",
+    "heartbeats": "Heartbeats",
+    "experimental": "Experimental",
+    "plugins": "Plugins",
+    "generalPage": {
+      "loading": "Loading general settings...",
+      "description": "Configure instance-wide defaults used by the board UI and by local agent adapters.",
+      "systemLanguageTitle": "System Language",
+      "systemLanguageDescription": "This language is persisted at the system level and is injected into local agent runs so agents respond and work in the selected language by default.",
+      "languageOptions": {
+        "en": "Agents answer and work in English by default.",
+        "ptBR": "Agents answer and work in Portuguese by default."
+      },
+      "actions": {
+        "saving": "Saving...",
+        "selected": "Selected",
+        "use": "Use"
+      },
+      "errors": {
+        "load": "Failed to load general settings.",
+        "updateLanguage": "Failed to update system language."
+      }
+    },
+    "heartbeatsPage": {
+      "title": "Scheduler Heartbeats",
+      "description": "Agents with a timer heartbeat enabled across all of your companies.",
+      "loading": "Loading scheduler heartbeats...",
+      "stats": {
+        "active": "active",
+        "disabled": "disabled",
+        "company": "company",
+        "companies": "companies"
+      },
+      "badges": {
+        "on": "On",
+        "off": "Off"
+      },
+      "never": "never",
+      "fullAgentConfig": "Full agent config",
+      "actions": {
+        "enable": "Enable Timer Heartbeat",
+        "disable": "Disable Timer Heartbeat"
+      },
+      "errors": {
+        "load": "Failed to load scheduler heartbeats.",
+        "update": "Failed to update heartbeat."
+      }
+    },
+    "experimentalPage": {
+      "loading": "Loading experimental settings...",
+      "description": "Opt into features that are still being evaluated before they become default behavior.",
+      "isolatedWorkspaces": {
+        "title": "Enable Isolated Workspaces",
+        "description": "Show execution workspace controls in project configuration and allow isolated workspace behavior for new and existing issue runs.",
+        "ariaLabel": "Toggle isolated workspaces experimental setting"
+      },
+      "errors": {
+        "load": "Failed to load experimental settings.",
+        "update": "Failed to update experimental settings."
+      }
+    },
+    "pluginsPage": {
+      "loading": "Loading plugins...",
+      "title": "Plugin Manager",
+      "installPlugin": "Install Plugin",
+      "alpha": {
+        "title": "Plugins are alpha.",
+        "description": "The plugin runtime and API surface are still changing. Expect breaking changes while this feature settles."
+      },
+      "installDialog": {
+        "title": "Install Plugin",
+        "description": "Enter the npm package name of the plugin you wish to install.",
+        "packageName": "npm Package Name",
+        "install": "Install",
+        "installing": "Installing..."
+      },
+      "available": {
+        "title": "Available Plugins",
+        "examplesBadge": "Examples",
+        "loading": "Loading bundled examples...",
+        "loadError": "Failed to load bundled examples.",
+        "empty": "No bundled example plugins were found in this checkout.",
+        "example": "Example",
+        "notInstalled": "Not installed",
+        "openSettings": "Open Settings",
+        "review": "Review",
+        "installExample": "Install Example"
+      },
+      "examplesCatalog": {
+        "helloWorld": {
+          "title": "Hello World Widget",
+          "description": "Reference UI plugin that adds a simple Hello World widget to the Paperclip dashboard."
+        },
+        "fileBrowser": {
+          "title": "File Browser",
+          "description": "Example plugin that adds a Files link in project navigation plus a project detail file browser."
+        },
+        "kitchenSink": {
+          "title": "Kitchen Sink",
+          "description": "Reference plugin that demonstrates the current Paperclip plugin API surface, bridge flows, UI extension surfaces, jobs, webhooks, tools, streams, and trusted local workspace/process demos."
+        }
+      },
+      "installed": {
+        "title": "Installed Plugins",
+        "emptyTitle": "No plugins installed",
+        "emptyDescription": "Install a plugin to extend functionality.",
+        "noDescription": "No description provided.",
+        "pluginError": "Plugin error",
+        "viewFullError": "View full error"
+      },
+      "actions": {
+        "enable": "Enable",
+        "disable": "Disable",
+        "configure": "Configure",
+        "uninstall": "Uninstall"
+      },
+      "uninstallDialog": {
+        "title": "Uninstall Plugin",
+        "description": "Are you sure you want to uninstall {{name}}? This action cannot be undone.",
+        "uninstalling": "Uninstalling..."
+      },
+      "errorDialog": {
+        "title": "Error Details",
+        "description": "{{name}} hit an error state.",
+        "whatErrored": "What errored",
+        "noSummary": "No error summary available.",
+        "fullOutput": "Full error output",
+        "noStoredMessage": "No stored error message."
+      },
+      "toasts": {
+        "installSuccess": "Plugin installed successfully",
+        "installError": "Failed to install plugin",
+        "uninstallSuccess": "Plugin uninstalled successfully",
+        "uninstallError": "Failed to uninstall plugin",
+        "enabled": "Plugin enabled",
+        "enableError": "Failed to enable plugin",
+        "disabled": "Plugin disabled",
+        "disableError": "Failed to disable plugin"
+      },
+      "errors": {
+        "load": "Failed to load plugins."
+      }
+    },
+    "pluginsDetailPage": {
+      "loading": "Loading plugin details...",
+      "titleFallback": "Plugin Details",
+      "tabs": {
+        "configuration": "Configuration",
+        "status": "Status"
+      },
+      "about": {
+        "title": "About",
+        "author": "Author",
+        "categories": "Categories"
+      },
+      "noSettings": "This plugin does not require any settings.",
+      "form": {
+        "loading": "Loading configuration...",
+        "save": "Save Configuration",
+        "saving": "Saving...",
+        "test": "Test Configuration",
+        "testing": "Testing...",
+        "saveSuccess": "Configuration saved.",
+        "saveError": "Failed to save configuration.",
+        "testSuccess": "Configuration test passed.",
+        "testError": "Configuration test failed."
+      }
+    },
+    "pluginPage": {
+      "selectCompany": "Select a company to view this page.",
+      "routeConflict": "Multiple plugins declare the route {{route}}. Use the plugin-id route until the conflict is resolved."
+    }
   },
   "auth": {
     "brand": "Paperclip",

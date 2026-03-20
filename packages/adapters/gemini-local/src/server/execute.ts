@@ -20,6 +20,8 @@ import {
   parseObject,
   redactEnvForLogs,
   renderTemplate,
+  buildAgentOutputLanguagePrompt,
+  describeAgentOutputLanguage,
   runChildProcess,
 } from "@paperclipai/adapter-utils/server-utils";
 import { DEFAULT_GEMINI_LOCAL_MODEL } from "../index.js";
@@ -199,6 +201,9 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
   if (workspaceRepoRef) env.PAPERCLIP_WORKSPACE_REPO_REF = workspaceRepoRef;
   if (agentHome) env.AGENT_HOME = agentHome;
   if (workspaceHints.length > 0) env.PAPERCLIP_WORKSPACES_JSON = JSON.stringify(workspaceHints);
+  const systemLanguage = describeAgentOutputLanguage(context.paperclipSystemLanguage);
+  env.PAPERCLIP_SYSTEM_LANGUAGE = systemLanguage.code;
+  env.PAPERCLIP_SYSTEM_LANGUAGE_NAME = systemLanguage.label;
 
   for (const [key, value] of Object.entries(envConfig)) {
     if (typeof value === "string") env[key] = value;
@@ -292,12 +297,14 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
       ? renderTemplate(bootstrapPromptTemplate, templateData).trim()
       : "";
   const sessionHandoffNote = asString(context.paperclipSessionHandoffMarkdown, "").trim();
+  const languagePrompt = buildAgentOutputLanguagePrompt(systemLanguage.code);
   const paperclipEnvNote = renderPaperclipEnvNote(env);
   const apiAccessNote = renderApiAccessNote(env);
   const prompt = joinPromptSections([
     instructionsPrefix,
     renderedBootstrapPrompt,
     sessionHandoffNote,
+    languagePrompt,
     paperclipEnvNote,
     apiAccessNote,
     renderedPrompt,

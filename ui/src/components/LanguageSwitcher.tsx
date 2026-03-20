@@ -1,5 +1,8 @@
+import { useEffect } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { Globe } from "lucide-react";
+import { instanceSettingsApi } from "@/api/instanceSettings";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -7,6 +10,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
+import { queryKeys } from "@/lib/queryKeys";
 
 const LANGUAGES = [
   { code: "en", key: "languageSwitcher.en" },
@@ -15,10 +19,39 @@ const LANGUAGES = [
 
 export function LanguageSwitcher() {
   const { i18n, t } = useTranslation();
+  const queryClient = useQueryClient();
+  const generalSettingsQuery = useQuery({
+    queryKey: queryKeys.instance.generalSettings,
+    queryFn: () => instanceSettingsApi.getGeneral(),
+  });
+
+  const updateLanguageMutation = useMutation({
+    mutationFn: async (language: "en" | "pt-BR") =>
+      instanceSettingsApi.updateGeneral({ language }),
+    onSuccess: async (settings) => {
+      await queryClient.invalidateQueries({ queryKey: queryKeys.instance.generalSettings });
+      await i18n.changeLanguage(settings.language);
+    },
+  });
+
+  useEffect(() => {
+    const preferredLanguage = generalSettingsQuery.data?.language;
+    if (!preferredLanguage) return;
+    if (i18n.language === preferredLanguage) return;
+    void i18n.changeLanguage(preferredLanguage);
+  }, [generalSettingsQuery.data?.language, i18n]);
+
+  function handleLanguageSelect(language: "en" | "pt-BR") {
+    if (generalSettingsQuery.isError) {
+      void i18n.changeLanguage(language);
+      return;
+    }
+    updateLanguageMutation.mutate(language);
+  }
 
   const currentLanguage =
-    LANGUAGES.find((language) => language.code === i18n.language)
-    ?? LANGUAGES.find((language) => i18n.language.startsWith(language.code))
+    LANGUAGES.find((language) => language.code === (generalSettingsQuery.data?.language ?? i18n.language))
+    ?? LANGUAGES.find((language) => (generalSettingsQuery.data?.language ?? i18n.language).startsWith(language.code))
     ?? LANGUAGES[0];
 
   return (
@@ -38,9 +71,9 @@ export function LanguageSwitcher() {
         {LANGUAGES.map((language) => (
           <DropdownMenuItem
             key={language.code}
-            onClick={() => i18n.changeLanguage(language.code)}
+            onClick={() => handleLanguageSelect(language.code)}
             className={
-              i18n.language === language.code ? "font-semibold bg-accent/40" : ""
+              currentLanguage.code === language.code ? "font-semibold bg-accent/40" : ""
             }
           >
             {t(language.key)}

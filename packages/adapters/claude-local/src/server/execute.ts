@@ -19,6 +19,8 @@ import {
   ensurePathInEnv,
   renderTemplate,
   runChildProcess,
+  buildAgentOutputLanguagePrompt,
+  describeAgentOutputLanguage,
 } from "@paperclipai/adapter-utils/server-utils";
 import {
   parseClaudeStreamJson,
@@ -232,6 +234,9 @@ async function buildClaudeRuntimeConfig(input: ClaudeExecutionInput): Promise<Cl
   if (runtimePrimaryUrl) {
     env.PAPERCLIP_RUNTIME_PRIMARY_URL = runtimePrimaryUrl;
   }
+  const systemLanguage = describeAgentOutputLanguage(context.paperclipSystemLanguage);
+  env.PAPERCLIP_SYSTEM_LANGUAGE = systemLanguage.code;
+  env.PAPERCLIP_SYSTEM_LANGUAGE_NAME = systemLanguage.label;
 
   for (const [key, value] of Object.entries(envConfig)) {
     if (typeof value === "string") env[key] = value;
@@ -389,9 +394,11 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
       ? renderTemplate(bootstrapPromptTemplate, templateData).trim()
       : "";
   const sessionHandoffNote = asString(context.paperclipSessionHandoffMarkdown, "").trim();
+  const languagePrompt = buildAgentOutputLanguagePrompt(context.paperclipSystemLanguage);
   const prompt = joinPromptSections([
     renderedBootstrapPrompt,
     sessionHandoffNote,
+    languagePrompt,
     renderedPrompt,
   ]);
   const promptMetrics = {

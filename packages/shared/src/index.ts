@@ -120,6 +120,8 @@ export {
 
 export type {
   Company,
+  InstanceLanguage,
+  InstanceGeneralSettings,
   InstanceExperimentalSettings,
   InstanceSettings,
   Agent,
@@ -248,8 +250,12 @@ export type {
 } from "./types/index.js";
 
 export {
+  instanceLanguageSchema,
+  instanceGeneralSettingsSchema,
+  patchInstanceGeneralSettingsSchema,
   instanceExperimentalSettingsSchema,
   patchInstanceExperimentalSettingsSchema,
+  type PatchInstanceGeneralSettings,
   type PatchInstanceExperimentalSettings,
 } from "./validators/index.js";
 
