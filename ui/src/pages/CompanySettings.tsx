@@ -45,6 +45,8 @@ export function CompanySettings() {
     setDescription(selectedCompany.description ?? "");
     setBrandColor(selectedCompany.brandColor ?? "");
     setLogoUrl(selectedCompany.logoUrl ?? "");
+    setMaxParallelRunsEnabled(selectedCompany.maxParallelRuns !== null);
+    setMaxParallelRuns(selectedCompany.maxParallelRuns ?? 5);
   }, [selectedCompany]);
 
   const [inviteError, setInviteError] = useState<string | null>(null);
@@ -77,6 +79,19 @@ export function CompanySettings() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.companies.all });
     }
+  });
+
+  const [maxParallelRunsEnabled, setMaxParallelRunsEnabled] = useState(
+    selectedCompany?.maxParallelRuns != null
+  );
+  const [maxParallelRuns, setMaxParallelRuns] = useState<number>(
+    selectedCompany?.maxParallelRuns ?? 5
+  );
+
+  const parallelRunsMutation = useMutation({
+    mutationFn: (value: number | null) =>
+      companiesApi.update(selectedCompanyId!, { maxParallelRuns: value }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.companies.all }),
   });
 
   const inviteMutation = useMutation({
@@ -386,6 +401,39 @@ export function CompanySettings() {
             checked={!!selectedCompany.requireBoardApprovalForNewAgents}
             onChange={(v) => settingsMutation.mutate(v)}
           />
+        </div>
+      </div>
+
+      {/* Execution */}
+      <div className="space-y-4">
+        <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+          Execution
+        </div>
+        <div className="space-y-3 rounded-md border border-border px-4 py-4">
+           <div className="flex items-center gap-3">
+             <input
+               type="checkbox"
+               id="max-parallel-runs-enabled"
+               checked={maxParallelRunsEnabled}
+               onChange={(e) => parallelRunsMutation.mutate(e.target.checked ? maxParallelRuns : null)}
+             />
+             <label htmlFor="max-parallel-runs-enabled" className="text-sm">
+               Limit company-wide parallel agent runs
+             </label>
+             <HintIcon text="When enabled, caps the total number of agent runs that can execute simultaneously across all agents in this company. Queued runs are promoted FIFO when a slot opens." />
+           </div>
+           {maxParallelRunsEnabled && (
+             <div className="flex items-center gap-2">
+               <input
+                 type="number"
+                 min={1}
+                 value={maxParallelRuns}
+                 onChange={(e) => parallelRunsMutation.mutate(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                 className="w-24 rounded-md border border-border bg-transparent px-2.5 py-1.5 text-sm outline-none"
+               />
+               <span className="text-sm text-muted-foreground">max parallel runs</span>
+             </div>
+           )}
         </div>
       </div>
 

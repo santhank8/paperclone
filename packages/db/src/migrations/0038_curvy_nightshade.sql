@@ -1,0 +1,1 @@
+ALTER TABLE "companies" ADD COLUMN "max_parallel_runs" integer;
