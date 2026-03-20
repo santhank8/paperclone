@@ -128,6 +128,15 @@ When a local agent run has no resolved project/session workspace, Paperclip fall
 
 This path honors `PAPERCLIP_HOME` and `PAPERCLIP_INSTANCE_ID` in non-default setups.
 
+Paperclip also scaffolds a minimal durable workspace in that location, including:
+
+- `AGENTS.md` for agent-local instructions
+- `.omx/notepad.md`
+- `.omx/project-memory.json`
+- `.omx/{logs,plans,state}/`
+
+For local adapters that support instruction files, new agents default their `instructionsFilePath` to this agent-home `AGENTS.md` unless an explicit path is provided.
+
 ## Worktree-local Instances
 
 When developing from multiple git worktrees, do not point two Paperclip servers at the same embedded PostgreSQL data directory.

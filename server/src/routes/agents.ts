@@ -44,15 +44,49 @@ import {
 import { DEFAULT_CURSOR_LOCAL_MODEL } from "@paperclipai/adapter-cursor-local";
 import { DEFAULT_GEMINI_LOCAL_MODEL } from "@paperclipai/adapter-gemini-local";
 import { ensureOpenCodeModelConfiguredAndAvailable } from "@paperclipai/adapter-opencode-local/server";
+import { resolveDefaultAgentWorkspaceDir } from "../home-paths.js";
+
+const DEFAULT_INSTRUCTIONS_PATH_KEYS: Record<string, string> = {
+  claude_local: "instructionsFilePath",
+  codex_local: "instructionsFilePath",
+  gemini_local: "instructionsFilePath",
+  opencode_local: "instructionsFilePath",
+  pi_local: "instructionsFilePath",
+  cursor: "instructionsFilePath",
+};
+
+export function defaultInstructionsPathKeyForAdapter(adapterType: string): string | null {
+  return DEFAULT_INSTRUCTIONS_PATH_KEYS[adapterType] ?? null;
+}
+
+export function defaultInstructionsFilePathForNewAgent(
+  adapterType: string | null | undefined,
+  agentId: string,
+): string | null {
+  if (!adapterType) return null;
+  const key = defaultInstructionsPathKeyForAdapter(adapterType);
+  if (!key) return null;
+  return path.join(resolveDefaultAgentWorkspaceDir(agentId), "AGENTS.md");
+}
+
+function applyDefaultInstructionsPathForNewAgent(
+  adapterType: string | null | undefined,
+  agentId: string,
+  adapterConfig: Record<string, unknown>,
+): Record<string, unknown> {
+  const key = adapterType ? defaultInstructionsPathKeyForAdapter(adapterType) : null;
+  if (!key) return adapterConfig;
+  const existingPath = adapterConfig[key];
+  if (typeof existingPath === "string" && existingPath.trim().length > 0) return adapterConfig;
+  const instructionsFilePath = defaultInstructionsFilePathForNewAgent(adapterType, agentId);
+  if (!instructionsFilePath) return adapterConfig;
+  return {
+    ...adapterConfig,
+    [key]: instructionsFilePath,
+  };
+}
 
 export function agentRoutes(db: Db) {
-  const DEFAULT_INSTRUCTIONS_PATH_KEYS: Record<string, string> = {
-    claude_local: "instructionsFilePath",
-    codex_local: "instructionsFilePath",
-    gemini_local: "instructionsFilePath",
-    opencode_local: "instructionsFilePath",
-    cursor: "instructionsFilePath",
-  };
   const KNOWN_INSTRUCTIONS_PATH_KEYS = new Set(["instructionsFilePath", "agentsMdPath"]);
 
   const router = Router();
@@ -840,9 +874,14 @@ export function agentRoutes(db: Db) {
     await assertCanCreateAgentsForCompany(req, companyId);
     const sourceIssueIds = parseSourceIssueIds(req.body);
     const { sourceIssueId: _sourceIssueId, sourceIssueIds: _sourceIssueIds, ...hireInput } = req.body;
-    const requestedAdapterConfig = applyCreateDefaultsByAdapterType(
+    const agentId = randomUUID();
+    const requestedAdapterConfig = applyDefaultInstructionsPathForNewAgent(
       hireInput.adapterType,
-      ((hireInput.adapterConfig ?? {}) as Record<string, unknown>),
+      agentId,
+      applyCreateDefaultsByAdapterType(
+        hireInput.adapterType,
+        ((hireInput.adapterConfig ?? {}) as Record<string, unknown>),
+      ),
     );
     const normalizedAdapterConfig = await secretsSvc.normalizeAdapterConfigForPersistence(
       companyId,
@@ -872,6 +911,7 @@ export function agentRoutes(db: Db) {
     const requiresApproval = company.requireBoardApprovalForNewAgents;
     const status = requiresApproval ? "pending_approval" : "idle";
     const agent = await svc.create(companyId, {
+      id: agentId,
       ...normalizedHireInput,
       status,
       spentMonthlyCents: 0,
@@ -986,9 +1026,14 @@ export function agentRoutes(db: Db) {
       assertBoard(req);
     }
 
-    const requestedAdapterConfig = applyCreateDefaultsByAdapterType(
+    const agentId = randomUUID();
+    const requestedAdapterConfig = applyDefaultInstructionsPathForNewAgent(
       req.body.adapterType,
-      ((req.body.adapterConfig ?? {}) as Record<string, unknown>),
+      agentId,
+      applyCreateDefaultsByAdapterType(
+        req.body.adapterType,
+        ((req.body.adapterConfig ?? {}) as Record<string, unknown>),
+      ),
     );
     const normalizedAdapterConfig = await secretsSvc.normalizeAdapterConfigForPersistence(
       companyId,
@@ -1002,6 +1047,7 @@ export function agentRoutes(db: Db) {
     );
 
     const agent = await svc.create(companyId, {
+      id: agentId,
       ...req.body,
       adapterConfig: normalizedAdapterConfig,
       status: "idle",
@@ -1114,7 +1160,7 @@ export function agentRoutes(db: Db) {
 
     const existingAdapterConfig = asRecord(existing.adapterConfig) ?? {};
     const explicitKey = asNonEmptyString(req.body.adapterConfigKey);
-    const defaultKey = DEFAULT_INSTRUCTIONS_PATH_KEYS[existing.adapterType] ?? null;
+    const defaultKey = defaultInstructionsPathKeyForAdapter(existing.adapterType);
     const adapterConfigKey = explicitKey ?? defaultKey;
     if (!adapterConfigKey) {
       res.status(422).json({
