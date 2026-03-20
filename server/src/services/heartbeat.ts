@@ -23,7 +23,14 @@ import { getRunLogStore, type RunLogHandle } from "./run-log-store.js";
 import { getServerAdapter, runningProcesses } from "../adapters/index.js";
 import type { AdapterExecutionResult, AdapterInvocationMeta, AdapterSessionCodec, UsageSummary } from "../adapters/index.js";
 import { createLocalAgentJwt } from "../agent-auth-jwt.js";
-import { parseObject, asBoolean, asNumber, appendWithCap, MAX_EXCERPT_BYTES } from "../adapters/utils.js";
+import {
+  parseObject,
+  asBoolean,
+  asNumber,
+  appendWithCap,
+  ensureAbsoluteDirectory,
+  MAX_EXCERPT_BYTES,
+} from "../adapters/utils.js";
 import { costService } from "./costs.js";
 import { budgetService, type BudgetEnforcementScope } from "./budgets.js";
 import { secretService } from "./secrets.js";
@@ -261,6 +268,70 @@ export function prioritizeProjectWorkspaceCandidatesForRun<T extends ProjectWork
 
 function readNonEmptyString(value: unknown): string | null {
   return typeof value === "string" && value.trim().length > 0 ? value : null;
+}
+
+export async function resolveConfiguredAgentHomeWorkspaceForRun(input: {
+  adapterConfig: unknown;
+  resolvedProjectId: string | null;
+  sessionCwd: string | null;
+  workspaceHints: ResolvedWorkspaceForRun["workspaceHints"];
+}): Promise<ResolvedWorkspaceForRun | null> {
+  const configuredCwd = readNonEmptyString(parseObject(input.adapterConfig).cwd);
+  if (!configuredCwd || !path.isAbsolute(configuredCwd)) {
+    return null;
+  }
+
+  try {
+    await ensureAbsoluteDirectory(configuredCwd, { createIfMissing: true });
+  } catch {
+    return null;
+  }
+
+  const warnings: string[] = [];
+  if (input.sessionCwd) {
+    warnings.push(
+      `Saved session workspace "${input.sessionCwd}" is not available. Using configured agent home workspace "${configuredCwd}" for this run.`,
+    );
+  } else if (input.resolvedProjectId) {
+    warnings.push(
+      `No project workspace directory is currently available for this issue. Using configured agent home workspace "${configuredCwd}" for this run.`,
+    );
+  }
+
+  return {
+    cwd: configuredCwd,
+    source: "agent_home" as const,
+    projectId: input.resolvedProjectId,
+    workspaceId: null,
+    repoUrl: null,
+    repoRef: null,
+    workspaceHints: input.workspaceHints,
+    warnings,
+  };
+}
+
+export function resolveAgentHomePathForExecutionWorkspace(input: {
+  agentId: string;
+  executionWorkspaceSource: ResolvedWorkspaceForRun["source"];
+  executionWorkspaceCwd: string;
+}) {
+  if (
+    input.executionWorkspaceSource === "agent_home" &&
+    readNonEmptyString(input.executionWorkspaceCwd)
+  ) {
+    return input.executionWorkspaceCwd;
+  }
+  return resolveDefaultAgentWorkspaceDir(input.agentId);
+}
+
+export function applyExecutionWorkspaceCwdToAdapterConfig(
+  config: Record<string, unknown>,
+  executionWorkspaceCwd: string,
+): Record<string, unknown> {
+  return {
+    ...config,
+    cwd: executionWorkspaceCwd,
+  };
 }
 
 function normalizeLedgerBillingType(value: unknown): BillingType {
@@ -1145,6 +1216,16 @@ export function heartbeatService(db: Db) {
           warnings: [],
         };
       }
+    }
+
+    const configuredAgentHomeWorkspace = await resolveConfiguredAgentHomeWorkspaceForRun({
+      adapterConfig: agent.adapterConfig,
+      resolvedProjectId,
+      sessionCwd,
+      workspaceHints,
+    });
+    if (configuredAgentHomeWorkspace) {
+      return configuredAgentHomeWorkspace;
     }
 
     const cwd = resolveDefaultAgentWorkspaceDir(agent.id);
@@ -2131,7 +2212,11 @@ export function heartbeatService(db: Db) {
       repoRef: executionWorkspace.repoRef,
       branchName: executionWorkspace.branchName,
       worktreePath: executionWorkspace.worktreePath,
-      agentHome: resolveDefaultAgentWorkspaceDir(agent.id),
+      agentHome: resolveAgentHomePathForExecutionWorkspace({
+        agentId: agent.id,
+        executionWorkspaceSource: executionWorkspace.source,
+        executionWorkspaceCwd: executionWorkspace.cwd,
+      }),
     };
     context.paperclipWorkspaces = resolvedWorkspace.workspaceHints;
     const runtimeServiceIntents = (() => {
@@ -2367,11 +2452,15 @@ export function heartbeatService(db: Db) {
           "local agent jwt secret missing or invalid; running without injected PAPERCLIP_API_KEY",
         );
       }
+      const adapterConfigForExecution = applyExecutionWorkspaceCwdToAdapterConfig(
+        resolvedConfig,
+        executionWorkspace.cwd,
+      );
       const adapterResult = await adapter.execute({
         runId: run.id,
         agent,
         runtime: runtimeForAdapter,
-        config: resolvedConfig,
+        config: adapterConfigForExecution,
         context,
         onLog,
         onMeta: onAdapterMeta,

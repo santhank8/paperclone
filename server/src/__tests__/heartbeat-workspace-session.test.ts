@@ -1,10 +1,16 @@
 import { describe, expect, it } from "vitest";
+import fs from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
 import type { agents } from "@paperclipai/db";
 import { resolveDefaultAgentWorkspaceDir } from "../home-paths.js";
 import {
+  applyExecutionWorkspaceCwdToAdapterConfig,
   formatRuntimeWorkspaceWarningLog,
   prioritizeProjectWorkspaceCandidatesForRun,
   parseSessionCompactionPolicy,
+  resolveAgentHomePathForExecutionWorkspace,
+  resolveConfiguredAgentHomeWorkspaceForRun,
   resolveRuntimeSessionParamsForWorkspace,
   shouldResetTaskSessionForWake,
   type ResolvedWorkspaceForRun,
@@ -115,6 +121,105 @@ describe("resolveRuntimeSessionParamsForWorkspace", () => {
       workspaceId: "workspace-1",
     });
     expect(result.warning).toBeNull();
+  });
+});
+
+describe("resolveConfiguredAgentHomeWorkspaceForRun", () => {
+  it("uses adapterConfig.cwd as the agent-home fallback for timer runs and creates it if missing", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "paperclip-agent-home-fallback-"));
+    const configuredCwd = path.join(root, "agent-home");
+
+    try {
+      const result = await resolveConfiguredAgentHomeWorkspaceForRun({
+        adapterConfig: { cwd: configuredCwd },
+        resolvedProjectId: null,
+        sessionCwd: null,
+        workspaceHints: [],
+      });
+
+      expect(result).toEqual({
+        cwd: configuredCwd,
+        source: "agent_home",
+        projectId: null,
+        workspaceId: null,
+        repoUrl: null,
+        repoRef: null,
+        workspaceHints: [],
+        warnings: [],
+      });
+      const stats = await fs.stat(configuredCwd);
+      expect(stats.isDirectory()).toBe(true);
+    } finally {
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("warns when a saved session cwd is unavailable and falls back to configured agent home", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "paperclip-agent-home-session-fallback-"));
+    const configuredCwd = path.join(root, "agent-home");
+    const missingSessionCwd = path.join(root, "missing-session");
+
+    try {
+      const result = await resolveConfiguredAgentHomeWorkspaceForRun({
+        adapterConfig: { cwd: configuredCwd },
+        resolvedProjectId: null,
+        sessionCwd: missingSessionCwd,
+        workspaceHints: [],
+      });
+
+      expect(result?.warnings).toEqual([
+        `Saved session workspace "${missingSessionCwd}" is not available. Using configured agent home workspace "${configuredCwd}" for this run.`,
+      ]);
+    } finally {
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("returns null for non-absolute configured cwd values", async () => {
+    await expect(
+      resolveConfiguredAgentHomeWorkspaceForRun({
+        adapterConfig: { cwd: "relative/path" },
+        resolvedProjectId: null,
+        sessionCwd: null,
+        workspaceHints: [],
+      }),
+    ).resolves.toBeNull();
+  });
+});
+
+describe("resolveAgentHomePathForExecutionWorkspace", () => {
+  it("uses the execution workspace cwd for agent-home runs", () => {
+    expect(
+      resolveAgentHomePathForExecutionWorkspace({
+        agentId: "agent-1",
+        executionWorkspaceSource: "agent_home",
+        executionWorkspaceCwd: "/tmp/configured-agent-home",
+      }),
+    ).toBe("/tmp/configured-agent-home");
+  });
+
+  it("keeps the synthetic default agent home for project workspaces", () => {
+    expect(
+      resolveAgentHomePathForExecutionWorkspace({
+        agentId: "agent-1",
+        executionWorkspaceSource: "project_primary",
+        executionWorkspaceCwd: "/tmp/project-workspace",
+      }),
+    ).toBe(resolveDefaultAgentWorkspaceDir("agent-1"));
+  });
+});
+
+describe("applyExecutionWorkspaceCwdToAdapterConfig", () => {
+  it("overrides config.cwd with the execution workspace cwd", () => {
+    expect(
+      applyExecutionWorkspaceCwdToAdapterConfig(
+        { cwd: "/tmp/static-cwd", command: "echo" },
+        "/tmp/execution-workspace",
+      ),
+    ).toEqual({
+      cwd: "/tmp/execution-workspace",
+      command: "echo",
+    });
   });
 });
 
