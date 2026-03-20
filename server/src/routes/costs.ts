@@ -105,7 +105,7 @@ export function costRoutes(db: Db) {
     if (req.actor.type === "agent") {
       if (req.actor.agentId !== agentId) {
         const actorAgent = await agents.getById(req.actor.agentId!);
-        if (actorAgent?.role !== "cfo") {
+        if (actorAgent?.role !== "cfo" && actorAgent?.name !== "VP Finance") {
           res.status(403).json({ error: "Only self or VP Finance can change agent budgets" });
           return;
         }
@@ -176,7 +176,7 @@ export function costRoutes(db: Db) {
     // Restrict to board users or CFO-role agents
     if (req.actor.type === "agent") {
       const actorAgent = await agents.getById(req.actor.agentId!);
-      if (actorAgent?.role !== "cfo") {
+      if (actorAgent?.role !== "cfo" && actorAgent?.name !== "VP Finance") {
         res.status(403).json({ error: "Only VP Finance or board users can reload budgets" });
         return;
       }
