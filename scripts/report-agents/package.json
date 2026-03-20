@@ -1,0 +1,22 @@
+{
+  "name": "@paperclip/report-agents",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "platform": "tsx platform-collector.ts",
+    "ga": "tsx ga-collector.ts",
+    "report": "tsx report-manager.ts"
+  },
+  "dependencies": {
+    "googleapis": "^144.0.0",
+    "pg": "^8.13.0"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.0",
+    "typescript": "^5.5.0",
+    "@types/pg": "^8.11.0",
+    "@types/node": "^22.0.0"
+  }
+}
