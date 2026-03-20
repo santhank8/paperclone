@@ -34,6 +34,7 @@ import { logger } from "../middleware/logger.js";
 import { forbidden, HttpError, unauthorized } from "../errors.js";
 import { assertCompanyAccess, getActorInfo } from "./authz.js";
 import { shouldWakeAssigneeOnCheckout } from "./issues-checkout-wakeup.js";
+import { commentWakeConfig } from "./issues-comment-wakeup.js";
 import { isAllowedContentType, MAX_ATTACHMENT_BYTES } from "../attachment-types.js";
 import { queueIssueAssignmentWakeup } from "../services/issue-assignment-wakeup.js";
 
@@ -1357,10 +1358,11 @@ export function issueRoutes(db: Db, storage: StorageService) {
             },
           });
         } else {
+          const wakeConfig = commentWakeConfig(actorIsAgent);
           wakeups.set(assigneeId, {
             source: "automation",
             triggerDetail: "system",
-            reason: "issue_commented",
+            reason: wakeConfig.reason,
             payload: {
               issueId: currentIssue.id,
               commentId: comment.id,
@@ -1373,8 +1375,9 @@ export function issueRoutes(db: Db, storage: StorageService) {
               issueId: currentIssue.id,
               taskId: currentIssue.id,
               commentId: comment.id,
-              source: "issue.comment",
-              wakeReason: "issue_commented",
+              wakeCommentId: comment.id,
+              source: wakeConfig.source,
+              wakeReason: wakeConfig.wakeReason,
               ...(interruptedRunId ? { interruptedRunId } : {}),
             },
           });
