@@ -16,6 +16,7 @@ import {
   ensurePathInEnv,
   listPaperclipSkillEntries,
   removeMaintainerOnlySkillSymlinks,
+  robustLink,
   renderTemplate,
   joinPromptSections,
   runChildProcess,
@@ -131,7 +132,7 @@ export async function ensureCursorSkillsInjected(
       `[paperclip] Removed maintainer-only Cursor skill "${skillName}" from ${skillsHome}\n`,
     );
   }
-  const linkSkill = options.linkSkill ?? ((source: string, target: string) => fs.symlink(source, target));
+  const linkSkill = options.linkSkill ?? robustLink;
   for (const entry of skillsEntries) {
     const target = path.join(skillsHome, entry.name);
     try {

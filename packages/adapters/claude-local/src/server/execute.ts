@@ -19,6 +19,7 @@ import {
   ensurePathInEnv,
   renderTemplate,
   runChildProcess,
+  robustLink,
 } from "@paperclipai/adapter-utils/server-utils";
 import {
   parseClaudeStreamJson,
@@ -56,7 +57,7 @@ async function buildSkillsDir(): Promise<string> {
   const entries = await fs.readdir(skillsDir, { withFileTypes: true });
   for (const entry of entries) {
     if (entry.isDirectory()) {
-      await fs.symlink(
+      await robustLink(
         path.join(skillsDir, entry.name),
         path.join(target, entry.name),
       );

@@ -332,11 +332,32 @@ export async function readPaperclipSkillMarkdown(
   }
 }
 
+/**
+ * Creates a symlink, falling back to a directory junction on Windows when the
+ * caller lacks the SeCreateSymbolicLinkPrivilege (EPERM).  Junctions don't
+ * require elevated privileges and work for directory targets on NTFS.
+ */
+export async function robustLink(source: string, target: string): Promise<void> {
+  try {
+    await fs.symlink(source, target);
+  } catch (err: unknown) {
+    if (
+      process.platform === "win32" &&
+      err instanceof Error &&
+      "code" in err &&
+      (err as NodeJS.ErrnoException).code === "EPERM"
+    ) {
+      await fs.symlink(source, target, "junction");
+    } else {
+      throw err;
+    }
+  }
+}
+
 export async function ensurePaperclipSkillSymlink(
   source: string,
   target: string,
-  linkSkill: (source: string, target: string) => Promise<void> = (linkSource, linkTarget) =>
-    fs.symlink(linkSource, linkTarget),
+  linkSkill: (source: string, target: string) => Promise<void> = robustLink,
 ): Promise<"created" | "repaired" | "skipped"> {
   const existing = await fs.lstat(target).catch(() => null);
   if (!existing) {

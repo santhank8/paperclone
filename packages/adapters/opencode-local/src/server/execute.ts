@@ -16,6 +16,7 @@ import {
   ensurePathInEnv,
   renderTemplate,
   runChildProcess,
+  robustLink,
 } from "@paperclipai/adapter-utils/server-utils";
 import { isOpenCodeUnknownSessionError, parseOpenCodeJsonl } from "./parse.js";
 import { ensureOpenCodeModelConfiguredAndAvailable } from "./models.js";
@@ -73,7 +74,7 @@ async function ensureOpenCodeSkillsInjected(onLog: AdapterExecutionContext["onLo
     if (existing) continue;
 
     try {
-      await fs.symlink(source, target);
+      await robustLink(source, target);
       await onLog(
         "stderr",
         `[paperclip] Injected OpenCode skill "${entry.name}" into ${skillsHome}\n`,
