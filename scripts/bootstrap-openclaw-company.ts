@@ -99,7 +99,7 @@ function buildRoles(options: Options): RoleTemplate[] {
     },
     {
       name: "Research-01",
-      role: "research",
+      role: "researcher",
       title: "Research Analyst",
       capabilities: "Competitive and market research",
       budgetMonthlyCents: 6000,
