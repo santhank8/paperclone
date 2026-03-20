@@ -16,6 +16,7 @@ import type {
 } from "@paperclipai/shared";
 import { normalizeAgentUrlKey, portabilityManifestSchema } from "@paperclipai/shared";
 import { notFound, unprocessable } from "../errors.js";
+import { normalizeMsysDrivePath } from "../paths.js";
 import { accessService } from "./access.js";
 import { agentService } from "./agents.js";
 import { companyService } from "./companies.js";
@@ -435,7 +436,8 @@ function resolveRawGitHubUrl(owner: string, repo: string, ref: string, filePath:
 
 async function readAgentInstructions(agent: AgentLike): Promise<{ body: string; warning: string | null }> {
   const config = agent.adapterConfig as Record<string, unknown>;
-  const instructionsFilePath = asString(config.instructionsFilePath);
+  const rawPath = asString(config.instructionsFilePath);
+  const instructionsFilePath = rawPath ? normalizeMsysDrivePath(rawPath) : rawPath;
   if (instructionsFilePath) {
     const workspaceCwd = asString(process.env.PAPERCLIP_WORKSPACE_CWD);
     const candidates = new Set<string>();

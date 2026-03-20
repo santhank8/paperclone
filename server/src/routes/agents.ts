@@ -36,6 +36,7 @@ import { assertBoard, assertCompanyAccess, getActorInfo } from "./authz.js";
 import { findServerAdapter, listAdapterModels } from "../adapters/index.js";
 import { redactEventPayload } from "../redaction.js";
 import { redactCurrentUserValue } from "../log-redaction.js";
+import { normalizeMsysDrivePath } from "../paths.js";
 import { runClaudeLogin } from "@paperclipai/adapter-claude-local/server";
 import {
   DEFAULT_CODEX_LOCAL_BYPASS_APPROVALS_AND_SANDBOX,
@@ -289,15 +290,16 @@ export function agentRoutes(db: Db) {
   }
 
   function resolveInstructionsFilePath(candidatePath: string, adapterConfig: Record<string, unknown>) {
-    const trimmed = candidatePath.trim();
+    const trimmed = normalizeMsysDrivePath(candidatePath.trim());
     if (path.isAbsolute(trimmed)) return trimmed;
 
-    const cwd = asNonEmptyString(adapterConfig.cwd);
-    if (!cwd) {
+    const rawCwd = asNonEmptyString(adapterConfig.cwd);
+    if (!rawCwd) {
       throw unprocessable(
         "Relative instructions path requires adapterConfig.cwd to be set to an absolute path",
       );
     }
+    const cwd = normalizeMsysDrivePath(rawCwd);
     if (!path.isAbsolute(cwd)) {
       throw unprocessable("adapterConfig.cwd must be an absolute path to resolve relative instructions path");
     }
