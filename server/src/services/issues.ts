@@ -41,6 +41,12 @@ function assertTransition(from: string, to: string) {
   }
 }
 
+function assertSingleAssigner(input: { assignedByAgentId?: string | null; assignedByUserId?: string | null }) {
+  if (input.assignedByAgentId && input.assignedByUserId) {
+    throw unprocessable("Issue can only have one assigning actor");
+  }
+}
+
 function applyStatusSideEffects(
   status: string | undefined,
   patch: Partial<typeof issues.$inferInsert>,
@@ -689,11 +695,18 @@ export function issueService(db: Db) {
       if (data.assigneeAgentId && data.assigneeUserId) {
         throw unprocessable("Issue can only have one assignee");
       }
+      assertSingleAssigner(data);
       if (data.assigneeAgentId) {
         await assertAssignableAgent(companyId, data.assigneeAgentId);
       }
       if (data.assigneeUserId) {
         await assertAssignableUser(companyId, data.assigneeUserId);
+      }
+      if (data.assignedByAgentId) {
+        await assertAssignableAgent(companyId, data.assignedByAgentId);
+      }
+      if (data.assignedByUserId) {
+        await assertAssignableUser(companyId, data.assignedByUserId);
       }
       if (data.projectWorkspaceId) {
         await assertValidProjectWorkspace(companyId, data.projectId, data.projectWorkspaceId);
@@ -751,6 +764,7 @@ export function issueService(db: Db) {
         const issueNumber = company.issueCounter;
         const identifier = `${company.issuePrefix}-${issueNumber}`;
 
+        const hasAssignee = Boolean(issueData.assigneeAgentId || issueData.assigneeUserId);
         const values = {
           ...issueData,
           goalId: resolveIssueGoalId({
@@ -764,6 +778,16 @@ export function issueService(db: Db) {
           issueNumber,
           identifier,
         } as typeof issues.$inferInsert;
+        if (hasAssignee) {
+          if (values.assignedByAgentId === undefined && values.assignedByUserId === undefined) {
+            values.assignedByAgentId = values.createdByAgentId ?? null;
+            values.assignedByUserId = values.createdByUserId ?? null;
+          }
+        } else {
+          values.assignedByAgentId = null;
+          values.assignedByUserId = null;
+        }
+        assertSingleAssigner(values);
         if (values.status === "in_progress" && !values.startedAt) {
           values.startedAt = new Date();
         }
@@ -807,11 +831,15 @@ export function issueService(db: Db) {
         ...issueData,
         updatedAt: new Date(),
       };
+      assertSingleAssigner(issueData);
 
       const nextAssigneeAgentId =
         issueData.assigneeAgentId !== undefined ? issueData.assigneeAgentId : existing.assigneeAgentId;
       const nextAssigneeUserId =
         issueData.assigneeUserId !== undefined ? issueData.assigneeUserId : existing.assigneeUserId;
+      const assigneeChanged =
+        (issueData.assigneeAgentId !== undefined && issueData.assigneeAgentId !== existing.assigneeAgentId) ||
+        (issueData.assigneeUserId !== undefined && issueData.assigneeUserId !== existing.assigneeUserId);
 
       if (nextAssigneeAgentId && nextAssigneeUserId) {
         throw unprocessable("Issue can only have one assignee");
@@ -824,6 +852,12 @@ export function issueService(db: Db) {
       }
       if (issueData.assigneeUserId) {
         await assertAssignableUser(existing.companyId, issueData.assigneeUserId);
+      }
+      if (issueData.assignedByAgentId) {
+        await assertAssignableAgent(existing.companyId, issueData.assignedByAgentId);
+      }
+      if (issueData.assignedByUserId) {
+        await assertAssignableUser(existing.companyId, issueData.assignedByUserId);
       }
       const nextProjectId = issueData.projectId !== undefined ? issueData.projectId : existing.projectId;
       const nextProjectWorkspaceId =
@@ -847,12 +881,22 @@ export function issueService(db: Db) {
       if (issueData.status && issueData.status !== "in_progress") {
         patch.checkoutRunId = null;
       }
-      if (
-        (issueData.assigneeAgentId !== undefined && issueData.assigneeAgentId !== existing.assigneeAgentId) ||
-        (issueData.assigneeUserId !== undefined && issueData.assigneeUserId !== existing.assigneeUserId)
-      ) {
+      if (assigneeChanged) {
         patch.checkoutRunId = null;
+        if (patch.assignedByAgentId === undefined && patch.assignedByUserId === undefined) {
+          patch.assignedByAgentId = null;
+          patch.assignedByUserId = null;
+        }
       }
+      if (!nextAssigneeAgentId && !nextAssigneeUserId) {
+        if (patch.assignedByAgentId === undefined) {
+          patch.assignedByAgentId = null;
+        }
+        if (patch.assignedByUserId === undefined) {
+          patch.assignedByUserId = null;
+        }
+      }
+      assertSingleAssigner(patch);
 
       return db.transaction(async (tx) => {
         const defaultCompanyGoal = await getDefaultCompanyGoal(tx, existing.companyId);
@@ -936,6 +980,8 @@ export function issueService(db: Db) {
         .set({
           assigneeAgentId: agentId,
           assigneeUserId: null,
+          assignedByAgentId: agentId,
+          assignedByUserId: null,
           checkoutRunId,
           executionRunId: checkoutRunId,
           status: "in_progress",
@@ -1125,6 +1171,9 @@ export function issueService(db: Db) {
         .set({
           status: "todo",
           assigneeAgentId: null,
+          assigneeUserId: null,
+          assignedByAgentId: actorAgentId ?? null,
+          assignedByUserId: null,
           checkoutRunId: null,
           updatedAt: new Date(),
         })

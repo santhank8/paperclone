@@ -12,6 +12,9 @@ export interface Company {
   budgetMonthlyCents: number;
   spentMonthlyCents: number;
   requireBoardApprovalForNewAgents: boolean;
+  issueLifecycleWebhookUrl?: string | null;
+  notifyIssueCreator?: boolean;
+  notifyIssueAssigner?: boolean;
   brandColor: string | null;
   logoAssetId: string | null;
   logoUrl: string | null;

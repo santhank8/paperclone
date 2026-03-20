@@ -19,6 +19,7 @@ import { validate } from "../middleware/validate.js";
 import {
   accessService,
   agentService,
+  companyService,
   executionWorkspaceService,
   goalService,
   heartbeatService,
@@ -34,12 +35,19 @@ import { forbidden, HttpError, unauthorized } from "../errors.js";
 import { assertCompanyAccess, getActorInfo } from "./authz.js";
 import { shouldWakeAssigneeOnCheckout } from "./issues-checkout-wakeup.js";
 import { isAllowedContentType, MAX_ATTACHMENT_BYTES } from "../attachment-types.js";
+import {
+  buildIssueLifecycleWebhookPayload,
+  deliverIssueLifecycleWebhook,
+  isIssueLifecycleTerminalTransition,
+  resolveLifecycleWakeAgentIds,
+} from "./issues-lifecycle-notifications.js";
 
 const MAX_ISSUE_COMMENT_LIMIT = 500;
 
 export function issueRoutes(db: Db, storage: StorageService) {
   const router = Router();
   const svc = issueService(db);
+  const companiesSvc = companyService(db);
   const access = accessService(db);
   const heartbeat = heartbeatService(db);
   const agentsSvc = agentService(db);
@@ -757,8 +765,15 @@ export function issueRoutes(db: Db, storage: StorageService) {
     }
 
     const actor = getActorInfo(req);
+    const assignedByPatch = req.body.assigneeAgentId || req.body.assigneeUserId
+      ? {
+        assignedByAgentId: actor.agentId,
+        assignedByUserId: actor.actorType === "user" ? actor.actorId : null,
+      }
+      : {};
     const issue = await svc.create(companyId, {
       ...req.body,
+      ...assignedByPatch,
       createdByAgentId: actor.agentId,
       createdByUserId: actor.actorType === "user" ? actor.actorId : null,
     });
@@ -820,9 +835,14 @@ export function issueRoutes(db: Db, storage: StorageService) {
     }
     if (!(await assertAgentRunCheckoutOwnership(req, res, existing))) return;
 
+    const actor = getActorInfo(req);
     const { comment: commentBody, hiddenAt: hiddenAtRaw, ...updateFields } = req.body;
     if (hiddenAtRaw !== undefined) {
       updateFields.hiddenAt = hiddenAtRaw ? new Date(hiddenAtRaw) : null;
+    }
+    if (assigneeWillChange) {
+      updateFields.assignedByAgentId = actor.agentId;
+      updateFields.assignedByUserId = actor.actorType === "user" ? actor.actorId : null;
     }
     let issue;
     try {
@@ -864,7 +884,6 @@ export function issueRoutes(db: Db, storage: StorageService) {
       }
     }
 
-    const actor = getActorInfo(req);
     const hasFieldChanges = Object.keys(previous).length > 0;
     await logActivity(db, {
       companyId: issue.companyId,
@@ -915,6 +934,7 @@ export function issueRoutes(db: Db, storage: StorageService) {
       existing.status === "backlog" &&
       issue.status !== "backlog" &&
       req.body.status !== undefined;
+    const terminalLifecycleTransition = isIssueLifecycleTerminalTransition(existing.status, issue.status);
 
     // Merge all wakeups from this update into one enqueue per agent to avoid duplicate runs.
     void (async () => {
@@ -942,6 +962,66 @@ export function issueRoutes(db: Db, storage: StorageService) {
           requestedByActorId: actor.actorId,
           contextSnapshot: { issueId: issue.id, source: "issue.status_change" },
         });
+      }
+
+      if (terminalLifecycleTransition) {
+        try {
+          const company = await companiesSvc.getById(issue.companyId);
+          if (company) {
+            const lifecycleWakeTargets = resolveLifecycleWakeAgentIds({
+              issue,
+              company,
+              actor,
+            });
+            for (const targetAgentId of lifecycleWakeTargets) {
+              if (wakeups.has(targetAgentId)) continue;
+              wakeups.set(targetAgentId, {
+                source: "automation",
+                triggerDetail: "system",
+                reason: "issue_lifecycle_changed",
+                payload: {
+                  issueId: issue.id,
+                  mutation: "update",
+                  transition: {
+                    from: existing.status,
+                    to: issue.status,
+                  },
+                },
+                requestedByActorType: actor.actorType,
+                requestedByActorId: actor.actorId,
+                contextSnapshot: {
+                  issueId: issue.id,
+                  taskId: issue.id,
+                  wakeReason: "issue_lifecycle_changed",
+                  source: "issue.lifecycle",
+                  transitionFrom: existing.status,
+                  transitionTo: issue.status,
+                },
+              });
+            }
+
+            const payload = buildIssueLifecycleWebhookPayload({
+              issue,
+              previousStatus: existing.status,
+              actor,
+              summary: commentBody ?? null,
+            });
+            const webhookResult = await deliverIssueLifecycleWebhook(company.issueLifecycleWebhookUrl, payload);
+            if (webhookResult.attempted && !webhookResult.delivered) {
+              logger.warn(
+                {
+                  issueId: issue.id,
+                  companyId: issue.companyId,
+                  status: webhookResult.status,
+                  error: webhookResult.error,
+                },
+                "failed to deliver issue lifecycle webhook",
+              );
+            }
+          }
+        } catch (err) {
+          logger.warn({ err, issueId: issue.id }, "failed to dispatch issue lifecycle notifications");
+        }
       }
 
       if (commentBody && comment) {
