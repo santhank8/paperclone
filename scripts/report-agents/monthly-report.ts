@@ -175,51 +175,66 @@ async function main() {
   // 3. Feed to Claude CLI for analysis
   console.log("  → Claude analyzing...");
 
-  const prompt = `You are a senior crypto/DeFi analyst writing a monthly report for the Whales Market team (pre-market trading platform).
+  // Calculate timeframe label
+  const now = new Date();
+  const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const monthName = lastMonth.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+  const startDate = lastMonth.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" });
+  const endDate = new Date(now.getFullYear(), now.getMonth(), 0).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" });
 
-## Platform Trading Data (from database):
+  const prompt = `Bạn là senior crypto/DeFi analyst viết báo cáo tháng cho team Whales Market (nền tảng pre-market trading).
+
+## Dữ liệu Trading Platform (từ database):
 ${platformData}
 
-## Website Analytics (from GA4):
+## Dữ liệu Website (từ GA4):
 ${gaData}
 
-Write a comprehensive monthly report in HTML format for Telegram. Structure:
+Viết báo cáo tháng bằng HTML cho Telegram. Cấu trúc:
 
-<b>📊 Whales Market — Monthly Report</b>
+<b>📊 Whales Market — Báo Cáo Tháng</b>
+<b>Timeframe: ${monthName} (${startDate} - ${endDate})</b>
 
-<b>1. Executive Summary</b>
-- 2-3 bullet points: key highlights and overall health
+<b>1. Tổng Quan</b>
+- 2-3 điểm chính nổi bật nhất tháng vừa rồi
+- Đánh giá sức khỏe tổng thể của platform
 
-<b>2. Trading Performance</b>
-- Total volume (MoM change %)
-- Order count and avg order size
-- Top 3 tokens by volume with brief context
-- Settlement rate and what it means
+<b>2. Hiệu Suất Trading</b>
+- Total Order Volume (không tính exit position/resale) so với tháng trước (MoM %)
+- Giải thích: Order Volume = tổng giá trị các lệnh được khớp trên platform
+- Số lượng Orders và avg order size (trung bình mỗi lệnh bao nhiêu USD)
+- Top 3 tokens có volume lớn nhất — mỗi token giải thích ngắn gọn vì sao hot
+- Settlement Rate = % đơn hàng được giao token thành công sau TGE. Nêu con số và đánh giá tốt hay xấu
+- Exit Position Volume (resale) = giá trị các lệnh resale (bán lại vị thế trước khi token ra mắt). Nêu riêng biệt
 
-<b>3. User Growth</b>
-- New vs returning users ratio
-- Acquisition quality assessment
-- Notable trends
+<b>3. Người Dùng</b>
+- New Users vs Returning Users — bao nhiêu người mới, bao nhiêu quay lại
+- Giải thích: New User = ví lần đầu giao dịch trên platform trong tháng này
+- Acquisition Rate = New Users / Total Active Users (%)
+- Đánh giá chất lượng tăng trưởng
 
-<b>4. Website & Traffic</b>
-- Key GA4 metrics and what they indicate
-- Traffic quality assessment
+<b>4. Website & Traffic (GA4)</b>
+- Active Users, Sessions — so sánh MoM
+- Giải thích: Active Users = số người truy cập website, Sessions = số phiên truy cập
+- Top countries & traffic sources — traffic đến từ đâu
+- Top pre-market landing pages — token page nào được xem nhiều nhất
 
-<b>5. Weekly Trend</b>
-- Which weeks were strongest/weakest and why
+<b>5. Xu Hướng Theo Tuần</b>
+- Tuần nào mạnh nhất / yếu nhất trong tháng
+- Có pattern gì đáng chú ý không
 
-<b>6. Key Insights & Recommendations</b>
-- 3-5 actionable insights based on cross-platform data
-- What's working, what needs attention
-- Growth opportunities
+<b>6. Nhận Định & Đề Xuất</b>
+- 3-5 nhận định DỰA TRÊN SỐ LIỆU (không suy đoán)
+- Mỗi nhận định phải có số liệu đi kèm
+- Đề xuất hành động cụ thể
 
-Rules:
-- Use HTML tags only (<b>, <i>, <u>), no markdown
-- Use emoji sparingly for section headers
-- Be specific with numbers, percentages, comparisons
-- Write insights like a real analyst — not just data recitation
-- Keep total length under 3000 chars (Telegram limit)
-- Language: English with key terms`;
+QUY TẮC BẮT BUỘC:
+- Viết tiếng Việt, giữ nguyên tiếng Anh cho các metric/thuật ngữ: Volume, Order, Settlement Rate, Active Users, Sessions, Bounce Rate, Exit Position, New Users, Returning Users, MoM, Acquisition Rate, etc.
+- Chỉ dùng HTML tags (<b>, <i>), KHÔNG dùng markdown
+- Mỗi metric phải kèm giải thích ngắn gọn giúp ai cũng hiểu (vd: "Settlement Rate (% đơn được giao thành công): 85%")
+- CHỈ nói dựa trên dữ liệu thực, KHÔNG suy đoán hay bịa số
+- Nếu dữ liệu không đủ để kết luận, ghi rõ "chưa đủ dữ liệu"
+- Giữ dưới 3500 ký tự (giới hạn Telegram)`;
 
   try {
     const { stdout } = await execFileAsync("claude", [
