@@ -66,7 +66,16 @@ export function applyCompanyPrefix(path: string, companyPrefix: string | null | 
 
   const prefix = normalizeCompanyPrefix(companyPrefix);
   const activePrefix = extractCompanyPrefixFromPath(pathname);
-  if (activePrefix) return path;
+  if (activePrefix) {
+    // If the path after the detected prefix is a global route (e.g. /WD/instance/settings/...),
+    // strip the spurious company prefix and return the global path.
+    const segments = pathname.split("/").filter(Boolean);
+    const afterPrefix = "/" + segments.slice(1).join("/");
+    if (afterPrefix !== "/" && isGlobalPath(afterPrefix)) {
+      return `${afterPrefix}${search}${hash}`;
+    }
+    return path;
+  }
 
   return `/${prefix}${pathname}${search}${hash}`;
 }
