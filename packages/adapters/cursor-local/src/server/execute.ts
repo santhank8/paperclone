@@ -16,7 +16,9 @@ import {
   ensurePathInEnv,
   listPaperclipSkillEntries,
   removeMaintainerOnlySkillSymlinks,
+  injectStandingResponsibilitiesEnv,
   renderTemplate,
+  renderStandingResponsibilitiesNote,
   joinPromptSections,
   runChildProcess,
 } from "@paperclipai/adapter-utils/server-utils";
@@ -248,6 +250,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
   if (workspaceHints.length > 0) {
     env.PAPERCLIP_WORKSPACES_JSON = JSON.stringify(workspaceHints);
   }
+  injectStandingResponsibilitiesEnv(env, context);
   for (const [k, v] of Object.entries(envConfig)) {
     if (typeof v === "string") env[k] = v;
   }
@@ -347,10 +350,12 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
       : "";
   const sessionHandoffNote = asString(context.paperclipSessionHandoffMarkdown, "").trim();
   const paperclipEnvNote = renderPaperclipEnvNote(env);
+  const standingResponsibilitiesNote = renderStandingResponsibilitiesNote(context);
   const prompt = joinPromptSections([
     instructionsPrefix,
     renderedBootstrapPrompt,
     sessionHandoffNote,
+    standingResponsibilitiesNote,
     paperclipEnvNote,
     renderedPrompt,
   ]);
@@ -359,6 +364,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     instructionsChars,
     bootstrapPromptChars: renderedBootstrapPrompt.length,
     sessionHandoffChars: sessionHandoffNote.length,
+    standingResponsibilitiesChars: standingResponsibilitiesNote.length,
     runtimeNoteChars: paperclipEnvNote.length,
     heartbeatPromptChars: renderedPrompt.length,
   };

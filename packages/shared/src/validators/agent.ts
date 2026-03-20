@@ -11,6 +11,14 @@ export const agentPermissionsSchema = z.object({
   canCreateAgents: z.boolean().optional().default(false),
 });
 
+export const agentResponsibilitySchema = z.object({
+  name: z.string().trim().min(1),
+  description: z.string().trim().min(1),
+  enabled: z.boolean().optional().default(true),
+});
+
+export const agentResponsibilitiesSchema = z.array(agentResponsibilitySchema).max(50).default([]);
+
 const adapterConfigSchema = z.record(z.unknown()).superRefine((value, ctx) => {
   const envValue = value.env;
   if (envValue === undefined) return;
@@ -34,6 +42,7 @@ export const createAgentSchema = z.object({
   adapterType: z.enum(AGENT_ADAPTER_TYPES).optional().default("process"),
   adapterConfig: adapterConfigSchema.optional().default({}),
   runtimeConfig: z.record(z.unknown()).optional().default({}),
+  responsibilities: agentResponsibilitiesSchema.optional().default([]),
   budgetMonthlyCents: z.number().int().nonnegative().optional().default(0),
   permissions: agentPermissionsSchema.optional(),
   metadata: z.record(z.unknown()).optional().nullable(),
@@ -103,3 +112,9 @@ export const updateAgentPermissionsSchema = z.object({
 });
 
 export type UpdateAgentPermissions = z.infer<typeof updateAgentPermissionsSchema>;
+
+export const updateAgentResponsibilitiesSchema = z.object({
+  responsibilities: agentResponsibilitiesSchema,
+});
+
+export type UpdateAgentResponsibilities = z.infer<typeof updateAgentResponsibilitiesSchema>;

@@ -14,6 +14,7 @@ import {
   testAdapterEnvironmentSchema,
   type InstanceSchedulerHeartbeatAgent,
   updateAgentPermissionsSchema,
+  updateAgentResponsibilitiesSchema,
   updateAgentInstructionsPathSchema,
   wakeAgentSchema,
   updateAgentSchema,
@@ -37,6 +38,7 @@ import { findServerAdapter, listAdapterModels } from "../adapters/index.js";
 import { redactEventPayload } from "../redaction.js";
 import { redactCurrentUserValue } from "../log-redaction.js";
 import { runClaudeLogin } from "@paperclipai/adapter-claude-local/server";
+import { normalizeAgentResponsibilities } from "../services/agent-responsibilities.js";
 import {
   DEFAULT_CODEX_LOCAL_BYPASS_APPROVALS_AND_SANDBOX,
   DEFAULT_CODEX_LOCAL_MODEL,
@@ -335,6 +337,10 @@ export function agentRoutes(db: Db) {
       details.changedRuntimeConfigKeys = Object.keys(runtimeConfigPatch).sort();
     }
 
+    if (Object.prototype.hasOwnProperty.call(patch, "responsibilities")) {
+      details.responsibilityCount = normalizeAgentResponsibilities(patch.responsibilities).length;
+    }
+
     return details;
   }
 
@@ -360,6 +366,7 @@ export function agentRoutes(db: Db) {
       adapterType: agent.adapterType,
       adapterConfig: redactEventPayload(agent.adapterConfig),
       runtimeConfig: redactEventPayload(agent.runtimeConfig),
+      responsibilities: normalizeAgentResponsibilities(agent.responsibilities),
       permissions: agent.permissions,
       updatedAt: agent.updatedAt,
     };
@@ -380,6 +387,7 @@ export function agentRoutes(db: Db) {
           ? (record.runtimeConfig as Record<string, unknown>)
           : {},
       ),
+      responsibilities: normalizeAgentResponsibilities(record.responsibilities),
       metadata:
         typeof record.metadata === "object" && record.metadata !== null
           ? redactEventPayload(record.metadata as Record<string, unknown>)
@@ -636,6 +644,68 @@ export function agentRoutes(db: Db) {
     }
     await assertCanReadConfigurations(req, agent.companyId);
     res.json(redactAgentConfiguration(agent));
+  });
+
+  router.get("/agents/:id/responsibilities", async (req, res) => {
+    const id = req.params.id as string;
+    const agent = await svc.getById(id);
+    if (!agent) {
+      res.status(404).json({ error: "Agent not found" });
+      return;
+    }
+    assertCompanyAccess(req, agent.companyId);
+    res.json({
+      agentId: agent.id,
+      responsibilities: normalizeAgentResponsibilities(agent.responsibilities),
+    });
+  });
+
+  router.put("/agents/:id/responsibilities", validate(updateAgentResponsibilitiesSchema), async (req, res) => {
+    const id = req.params.id as string;
+    const existing = await svc.getById(id);
+    if (!existing) {
+      res.status(404).json({ error: "Agent not found" });
+      return;
+    }
+    await assertCanUpdateAgent(req, existing);
+
+    const actor = getActorInfo(req);
+    const responsibilities = normalizeAgentResponsibilities(req.body.responsibilities);
+    const updated = await svc.update(
+      id,
+      { responsibilities },
+      {
+        recordRevision: {
+          createdByAgentId: actor.agentId,
+          createdByUserId: actor.actorType === "user" ? actor.actorId : null,
+          source: "responsibilities_put",
+        },
+      },
+    );
+    if (!updated) {
+      res.status(404).json({ error: "Agent not found" });
+      return;
+    }
+
+    await logActivity(db, {
+      companyId: updated.companyId,
+      actorType: actor.actorType,
+      actorId: actor.actorId,
+      agentId: actor.agentId,
+      runId: actor.runId,
+      action: "agent.responsibilities_updated",
+      entityType: "agent",
+      entityId: updated.id,
+      details: {
+        responsibilityCount: responsibilities.length,
+        enabledResponsibilityCount: responsibilities.filter((entry) => entry.enabled).length,
+      },
+    });
+
+    res.json({
+      agentId: updated.id,
+      responsibilities,
+    });
   });
 
   router.get("/agents/:id/config-revisions", async (req, res) => {

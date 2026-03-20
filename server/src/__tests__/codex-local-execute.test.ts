@@ -13,6 +13,7 @@ const payload = {
   argv: process.argv.slice(2),
   prompt: fs.readFileSync(0, "utf8"),
   codexHome: process.env.CODEX_HOME || null,
+  responsibilitiesJson: process.env.PAPERCLIP_RESPONSIBILITIES_JSON || null,
   paperclipEnvKeys: Object.keys(process.env)
     .filter((key) => key.startsWith("PAPERCLIP_"))
     .sort(),
@@ -32,6 +33,7 @@ type CapturePayload = {
   argv: string[];
   prompt: string;
   codexHome: string | null;
+  responsibilitiesJson: string | null;
   paperclipEnvKeys: string[];
 };
 
@@ -91,7 +93,15 @@ describe("codex execute", () => {
           },
           promptTemplate: "Follow the paperclip heartbeat.",
         },
-        context: {},
+        context: {
+          paperclipResponsibilities: [
+            {
+              name: "Heartbeat hygiene",
+              description: "Review standing responsibilities before assignment triage.",
+              enabled: true,
+            },
+          ],
+        },
         authToken: "run-jwt-token",
         onLog: async (stream, chunk) => {
           logs.push({ stream, chunk });
@@ -111,9 +121,12 @@ describe("codex execute", () => {
           "PAPERCLIP_API_KEY",
           "PAPERCLIP_API_URL",
           "PAPERCLIP_COMPANY_ID",
+          "PAPERCLIP_RESPONSIBILITIES_JSON",
           "PAPERCLIP_RUN_ID",
         ]),
       );
+      expect(capture.responsibilitiesJson).toContain("Heartbeat hygiene");
+      expect(capture.prompt).toContain("Paperclip standing responsibilities");
 
       const isolatedAuth = path.join(isolatedCodexHome, "auth.json");
       const isolatedConfig = path.join(isolatedCodexHome, "config.toml");

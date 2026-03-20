@@ -11,6 +11,7 @@ const fs = require("node:fs");
 const capturePath = process.env.PAPERCLIP_TEST_CAPTURE_PATH;
 const payload = {
   argv: process.argv.slice(2),
+  responsibilitiesJson: process.env.PAPERCLIP_RESPONSIBILITIES_JSON || null,
   paperclipEnvKeys: Object.keys(process.env)
     .filter((key) => key.startsWith("PAPERCLIP_"))
     .sort(),
@@ -41,6 +42,7 @@ console.log(JSON.stringify({
 
 type CapturePayload = {
   argv: string[];
+  responsibilitiesJson: string | null;
   paperclipEnvKeys: string[];
 };
 
@@ -82,7 +84,15 @@ describe("gemini execute", () => {
           },
           promptTemplate: "Follow the paperclip heartbeat.",
         },
-        context: {},
+        context: {
+          paperclipResponsibilities: [
+            {
+              name: "Daily healthcheck",
+              description: "Run standing checks before issue triage.",
+              enabled: true,
+            },
+          ],
+        },
         authToken: "run-jwt-token",
         onLog: async () => {},
         onMeta: async (meta) => {
@@ -106,11 +116,14 @@ describe("gemini execute", () => {
           "PAPERCLIP_API_KEY",
           "PAPERCLIP_API_URL",
           "PAPERCLIP_COMPANY_ID",
+          "PAPERCLIP_RESPONSIBILITIES_JSON",
           "PAPERCLIP_RUN_ID",
         ]),
       );
+      expect(capture.responsibilitiesJson).toContain("Daily healthcheck");
       expect(invocationPrompt).toContain("Paperclip runtime note:");
       expect(invocationPrompt).toContain("PAPERCLIP_API_URL");
+      expect(invocationPrompt).toContain("Paperclip standing responsibilities");
       expect(invocationPrompt).toContain("Paperclip API access note:");
       expect(invocationPrompt).toContain("run_shell_command");
       expect(result.question).toBeNull();

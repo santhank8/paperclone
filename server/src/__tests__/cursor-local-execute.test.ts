@@ -12,6 +12,7 @@ const capturePath = process.env.PAPERCLIP_TEST_CAPTURE_PATH;
 const payload = {
   argv: process.argv.slice(2),
   prompt: fs.readFileSync(0, "utf8"),
+  responsibilitiesJson: process.env.PAPERCLIP_RESPONSIBILITIES_JSON || null,
   paperclipEnvKeys: Object.keys(process.env)
     .filter((key) => key.startsWith("PAPERCLIP_"))
     .sort(),
@@ -43,6 +44,7 @@ console.log(JSON.stringify({
 type CapturePayload = {
   argv: string[];
   prompt: string;
+  responsibilitiesJson: string | null;
   paperclipEnvKeys: string[];
 };
 
@@ -84,7 +86,15 @@ describe("cursor execute", () => {
           },
           promptTemplate: "Follow the paperclip heartbeat.",
         },
-        context: {},
+        context: {
+          paperclipResponsibilities: [
+            {
+              name: "Status audit",
+              description: "Review heartbeat responsibilities first.",
+              enabled: true,
+            },
+          ],
+        },
         authToken: "run-jwt-token",
         onLog: async () => {},
         onMeta: async (meta) => {
@@ -105,11 +115,14 @@ describe("cursor execute", () => {
           "PAPERCLIP_API_KEY",
           "PAPERCLIP_API_URL",
           "PAPERCLIP_COMPANY_ID",
+          "PAPERCLIP_RESPONSIBILITIES_JSON",
           "PAPERCLIP_RUN_ID",
         ]),
       );
+      expect(capture.responsibilitiesJson).toContain("Status audit");
       expect(capture.prompt).toContain("Paperclip runtime note:");
       expect(capture.prompt).toContain("PAPERCLIP_API_KEY");
+      expect(capture.prompt).toContain("Paperclip standing responsibilities");
       expect(invocationPrompt).toContain("Paperclip runtime note:");
       expect(invocationPrompt).toContain("PAPERCLIP_API_URL");
     } finally {

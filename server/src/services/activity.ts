@@ -68,6 +68,8 @@ export function activityService(db: Db) {
           agentId: heartbeatRuns.agentId,
           startedAt: heartbeatRuns.startedAt,
           finishedAt: heartbeatRuns.finishedAt,
+          runDurationMs: heartbeatRuns.runDurationMs,
+          actionCount: heartbeatRuns.actionCount,
           createdAt: heartbeatRuns.createdAt,
           invocationSource: heartbeatRuns.invocationSource,
           usageJson: heartbeatRuns.usageJson,

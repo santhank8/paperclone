@@ -16,6 +16,7 @@ import { isUuidLike, normalizeAgentUrlKey } from "@paperclipai/shared";
 import { conflict, notFound, unprocessable } from "../errors.js";
 import { normalizeAgentPermissions } from "./agent-permissions.js";
 import { REDACTED_EVENT_VALUE, sanitizeRecord } from "../redaction.js";
+import { normalizeAgentResponsibilities } from "./agent-responsibilities.js";
 
 function hashToken(token: string) {
   return createHash("sha256").update(token).digest("hex");
@@ -34,6 +35,7 @@ const CONFIG_REVISION_FIELDS = [
   "adapterType",
   "adapterConfig",
   "runtimeConfig",
+  "responsibilities",
   "budgetMonthlyCents",
   "metadata",
 ] as const;
@@ -94,6 +96,7 @@ function buildConfigSnapshot(
     adapterType: row.adapterType,
     adapterConfig,
     runtimeConfig,
+    responsibilities: normalizeAgentResponsibilities(row.responsibilities),
     budgetMonthlyCents: row.budgetMonthlyCents,
     metadata,
   };
@@ -146,6 +149,7 @@ function configPatchFromSnapshot(snapshot: unknown): Partial<typeof agents.$infe
     adapterType: snapshot.adapterType,
     adapterConfig: isPlainRecord(snapshot.adapterConfig) ? snapshot.adapterConfig : {},
     runtimeConfig: isPlainRecord(snapshot.runtimeConfig) ? snapshot.runtimeConfig : {},
+    responsibilities: normalizeAgentResponsibilities(snapshot.responsibilities),
     budgetMonthlyCents: Math.max(0, Math.floor(snapshot.budgetMonthlyCents)),
     metadata: isPlainRecord(snapshot.metadata) || snapshot.metadata === null ? snapshot.metadata : null,
   };
@@ -202,6 +206,7 @@ export function agentService(db: Db) {
   function normalizeAgentRow(row: typeof agents.$inferSelect) {
     return withUrlKey({
       ...row,
+      responsibilities: normalizeAgentResponsibilities(row.responsibilities),
       permissions: normalizeAgentPermissions(row.permissions, row.role),
     });
   }
@@ -335,6 +340,9 @@ export function agentService(db: Db) {
       const role = (data.role ?? existing.role) as string;
       normalizedPatch.permissions = normalizeAgentPermissions(data.permissions, role);
     }
+    if (Object.prototype.hasOwnProperty.call(data, "responsibilities")) {
+      normalizedPatch.responsibilities = normalizeAgentResponsibilities(data.responsibilities);
+    }
 
     const shouldRecordRevision = Boolean(options?.recordRevision) && hasConfigPatchFields(normalizedPatch);
     const beforeConfig = shouldRecordRevision ? buildConfigSnapshot(existing) : null;
@@ -394,9 +402,17 @@ export function agentService(db: Db) {
 
       const role = data.role ?? "general";
       const normalizedPermissions = normalizeAgentPermissions(data.permissions, role);
+      const normalizedResponsibilities = normalizeAgentResponsibilities(data.responsibilities);
       const created = await db
         .insert(agents)
-        .values({ ...data, name: uniqueName, companyId, role, permissions: normalizedPermissions })
+        .values({
+          ...data,
+          name: uniqueName,
+          companyId,
+          role,
+          permissions: normalizedPermissions,
+          responsibilities: normalizedResponsibilities,
+        })
         .returning()
         .then((rows) => rows[0]);
 

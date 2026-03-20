@@ -14,6 +14,8 @@ export const heartbeatRuns = pgTable(
     status: text("status").notNull().default("queued"),
     startedAt: timestamp("started_at", { withTimezone: true }),
     finishedAt: timestamp("finished_at", { withTimezone: true }),
+    runDurationMs: integer("run_duration_ms"),
+    actionCount: integer("action_count"),
     error: text("error"),
     wakeupRequestId: uuid("wakeup_request_id").references(() => agentWakeupRequests.id),
     exitCode: integer("exit_code"),

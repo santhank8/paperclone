@@ -37,6 +37,8 @@ export {
 } from "./company-portability.js";
 
 export {
+  agentResponsibilitySchema,
+  agentResponsibilitiesSchema,
   createAgentSchema,
   createAgentHireSchema,
   updateAgentSchema,
@@ -47,6 +49,7 @@ export {
   testAdapterEnvironmentSchema,
   agentPermissionsSchema,
   updateAgentPermissionsSchema,
+  updateAgentResponsibilitiesSchema,
   type CreateAgent,
   type CreateAgentHire,
   type UpdateAgent,
@@ -56,6 +59,7 @@ export {
   type ResetAgentSession,
   type TestAdapterEnvironment,
   type UpdateAgentPermissions,
+  type UpdateAgentResponsibilities,
 } from "./agent.js";
 
 export {

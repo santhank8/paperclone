@@ -4,7 +4,7 @@ import { execFile as execFileCallback } from "node:child_process";
 import { promisify } from "node:util";
 import { and, asc, desc, eq, gt, inArray, sql } from "drizzle-orm";
 import type { Db } from "@paperclipai/db";
-import type { BillingType } from "@paperclipai/shared";
+import type { AgentResponsibility, BillingType } from "@paperclipai/shared";
 import {
   agents,
   agentRuntimeState,
@@ -29,6 +29,7 @@ import { budgetService, type BudgetEnforcementScope } from "./budgets.js";
 import { secretService } from "./secrets.js";
 import { resolveDefaultAgentWorkspaceDir, resolveManagedProjectWorkspaceDir } from "../home-paths.js";
 import { summarizeHeartbeatRunResultJson } from "./heartbeat-run-summary.js";
+import { listEnabledAgentResponsibilities, normalizeAgentResponsibilities } from "./agent-responsibilities.js";
 import {
   buildWorkspaceReadyComment,
   cleanupExecutionWorkspaceArtifacts,
@@ -57,6 +58,7 @@ import {
 } from "@paperclipai/adapter-utils";
 
 const MAX_LIVE_LOG_CHUNK_BYTES = 8 * 1024;
+const MIN_RESPONSIBILITY_RUN_DURATION_MS = 30_000;
 const HEARTBEAT_MAX_CONCURRENT_RUNS_DEFAULT = 1;
 const HEARTBEAT_MAX_CONCURRENT_RUNS_MAX = 10;
 const DEFERRED_WAKE_CONTEXT_KEY = "_paperclipWakeContext";
@@ -146,6 +148,8 @@ const heartbeatRunListColumns = {
   status: heartbeatRuns.status,
   startedAt: heartbeatRuns.startedAt,
   finishedAt: heartbeatRuns.finishedAt,
+  runDurationMs: heartbeatRuns.runDurationMs,
+  actionCount: heartbeatRuns.actionCount,
   error: heartbeatRuns.error,
   wakeupRequestId: heartbeatRuns.wakeupRequestId,
   exitCode: heartbeatRuns.exitCode,
@@ -256,6 +260,30 @@ export function prioritizeProjectWorkspaceCandidatesForRun<T extends ProjectWork
 
 function readNonEmptyString(value: unknown): string | null {
   return typeof value === "string" && value.trim().length > 0 ? value : null;
+}
+
+export function resolveActiveResponsibilitiesFromContext(
+  context: Record<string, unknown> | null | undefined,
+): AgentResponsibility[] {
+  const active = listEnabledAgentResponsibilities(context?.paperclipActiveResponsibilities);
+  if (active.length > 0) return active;
+  return listEnabledAgentResponsibilities(context?.paperclipResponsibilities);
+}
+
+export function deriveRunDurationMs(
+  startedAt: Date | null | undefined,
+  finishedAt: Date | null | undefined,
+): number | null {
+  if (!startedAt || !finishedAt) return null;
+  const startedMs = new Date(startedAt).getTime();
+  const finishedMs = new Date(finishedAt).getTime();
+  if (!Number.isFinite(startedMs) || !Number.isFinite(finishedMs)) return null;
+  return Math.max(0, Math.floor(finishedMs - startedMs));
+}
+
+export function deriveActionCountFromSeq(seq: number): number {
+  // `seq` is the next event sequence index, and seq=2 means only "run started" was emitted.
+  return Math.max(0, seq - 2);
 }
 
 function normalizeLedgerBillingType(value: unknown): BillingType {
@@ -1472,6 +1500,8 @@ export function heartbeatService(db: Db) {
         error: "Process lost -- server may have restarted",
         errorCode: "process_lost",
         finishedAt: now,
+        runDurationMs: deriveRunDurationMs(run.startedAt, now),
+        actionCount: run.actionCount ?? 0,
       });
       await setWakeupStatus(run.wakeupRequestId, "failed", {
         finishedAt: now,
@@ -1621,13 +1651,16 @@ export function heartbeatService(db: Db) {
     try {
     const agent = await getAgent(run.agentId);
     if (!agent) {
+      const finishedAt = new Date();
       await setRunStatus(runId, "failed", {
         error: "Agent not found",
         errorCode: "agent_not_found",
-        finishedAt: new Date(),
+        finishedAt,
+        runDurationMs: deriveRunDurationMs(run.startedAt, finishedAt),
+        actionCount: run.actionCount ?? 0,
       });
       await setWakeupStatus(run.wakeupRequestId, "failed", {
-        finishedAt: new Date(),
+        finishedAt,
         error: "Agent not found",
       });
       const failedRun = await getRun(runId);
@@ -1637,6 +1670,14 @@ export function heartbeatService(db: Db) {
 
     const runtime = await ensureRuntimeState(agent);
     const context = parseObject(run.contextSnapshot);
+    const responsibilities = normalizeAgentResponsibilities(agent.responsibilities);
+    const activeResponsibilities = responsibilities.filter((entry) => entry.enabled);
+    context.paperclipResponsibilities = responsibilities;
+    if (activeResponsibilities.length > 0) {
+      context.paperclipActiveResponsibilities = activeResponsibilities;
+    } else {
+      delete context.paperclipActiveResponsibilities;
+    }
     const taskKey = deriveTaskKey(context, null);
     const sessionCodec = getAdapterSessionCodec(agent.adapterType);
     const issueId = readNonEmptyString(context.issueId);
@@ -2270,8 +2311,13 @@ export function heartbeatService(db: Db) {
             } as Record<string, unknown>)
           : null;
 
+      const finishedAt = new Date();
+      const runDurationMs = deriveRunDurationMs(run.startedAt ?? startedAt, finishedAt);
+      const actionCount = deriveActionCountFromSeq(seq);
       await setRunStatus(run.id, status, {
-        finishedAt: new Date(),
+        finishedAt,
+        runDurationMs,
+        actionCount,
         error:
           outcome === "succeeded"
             ? null
@@ -2299,7 +2345,7 @@ export function heartbeatService(db: Db) {
       });
 
       await setWakeupStatus(run.wakeupRequestId, outcome === "succeeded" ? "completed" : status, {
-        finishedAt: new Date(),
+        finishedAt,
         error: adapterResult.errorMessage ?? null,
       });
 
@@ -2315,6 +2361,35 @@ export function heartbeatService(db: Db) {
             exitCode: adapterResult.exitCode,
           },
         });
+        const hasActiveResponsibilities = resolveActiveResponsibilitiesFromContext(context).length > 0;
+        if (
+          hasActiveResponsibilities &&
+          typeof runDurationMs === "number" &&
+          runDurationMs < MIN_RESPONSIBILITY_RUN_DURATION_MS
+        ) {
+          logger.warn(
+            {
+              runId: finalizedRun.id,
+              agentId: finalizedRun.agentId,
+              runDurationMs,
+              actionCount,
+              responsibilityCount: resolveActiveResponsibilitiesFromContext(context).length,
+            },
+            "heartbeat run finished quickly with active standing responsibilities",
+          );
+          await appendRunEvent(finalizedRun, seq++, {
+            eventType: "responsibilities.warning",
+            stream: "system",
+            level: "warn",
+            message:
+              `run finished in ${runDurationMs}ms with active standing responsibilities; ` +
+              "verify responsibility execution before assignment triage",
+            payload: {
+              runDurationMs,
+              actionCount,
+            },
+          });
+        }
         await releaseIssueExecutionAndPromote(finalizedRun);
       }
 
@@ -2356,10 +2431,15 @@ export function heartbeatService(db: Db) {
         }
       }
 
+      const finishedAt = new Date();
+      const runDurationMs = deriveRunDurationMs(run.startedAt, finishedAt);
+      const actionCount = deriveActionCountFromSeq(seq);
       const failedRun = await setRunStatus(run.id, "failed", {
         error: message,
         errorCode: "adapter_failed",
-        finishedAt: new Date(),
+        finishedAt,
+        runDurationMs,
+        actionCount,
         stdoutExcerpt,
         stderrExcerpt,
         logBytes: logSummary?.bytes,
@@ -2367,7 +2447,7 @@ export function heartbeatService(db: Db) {
         logCompressed: logSummary?.compressed ?? false,
       });
       await setWakeupStatus(run.wakeupRequestId, "failed", {
-        finishedAt: new Date(),
+        finishedAt,
         error: message,
       });
 
@@ -2378,6 +2458,35 @@ export function heartbeatService(db: Db) {
           level: "error",
           message,
         });
+        const activeResponsibilities = resolveActiveResponsibilitiesFromContext(context);
+        if (
+          activeResponsibilities.length > 0 &&
+          typeof runDurationMs === "number" &&
+          runDurationMs < MIN_RESPONSIBILITY_RUN_DURATION_MS
+        ) {
+          logger.warn(
+            {
+              runId: failedRun.id,
+              agentId: failedRun.agentId,
+              runDurationMs,
+              actionCount,
+              responsibilityCount: activeResponsibilities.length,
+            },
+            "failed heartbeat run finished quickly with active standing responsibilities",
+          );
+          await appendRunEvent(failedRun, seq++, {
+            eventType: "responsibilities.warning",
+            stream: "system",
+            level: "warn",
+            message:
+              `run failed in ${runDurationMs}ms with active standing responsibilities; ` +
+              "verify responsibility execution before assignment triage",
+            payload: {
+              runDurationMs,
+              actionCount,
+            },
+          });
+        }
         await releaseIssueExecutionAndPromote(failedRun);
 
         await updateRuntimeState(agent, failedRun, {
@@ -2409,14 +2518,18 @@ export function heartbeatService(db: Db) {
           // Setup code before adapter.execute threw (e.g. ensureRuntimeState, resolveWorkspaceForRun).
           // The inner catch did not fire, so we must record the failure here.
           const message = outerErr instanceof Error ? outerErr.message : "Unknown setup failure";
+          const finishedAt = new Date();
+          const runDurationMs = deriveRunDurationMs(run.startedAt, finishedAt);
           logger.error({ err: outerErr, runId }, "heartbeat execution setup failed");
           await setRunStatus(runId, "failed", {
             error: message,
             errorCode: "adapter_failed",
-            finishedAt: new Date(),
+            finishedAt,
+            runDurationMs,
+            actionCount: 0,
           }).catch(() => undefined);
           await setWakeupStatus(run.wakeupRequestId, "failed", {
-            finishedAt: new Date(),
+            finishedAt,
             error: message,
           }).catch(() => undefined);
           const failedRun = await getRun(runId).catch(() => null);
@@ -3186,14 +3299,17 @@ export function heartbeatService(db: Db) {
       }, graceMs);
     }
 
+    const finishedAt = new Date();
     const cancelled = await setRunStatus(run.id, "cancelled", {
-      finishedAt: new Date(),
+      finishedAt,
+      runDurationMs: deriveRunDurationMs(run.startedAt, finishedAt),
+      actionCount: run.actionCount ?? 0,
       error: reason,
       errorCode: "cancelled",
     });
 
     await setWakeupStatus(run.wakeupRequestId, "cancelled", {
-      finishedAt: new Date(),
+      finishedAt,
       error: reason,
     });
 
@@ -3220,14 +3336,17 @@ export function heartbeatService(db: Db) {
       .where(and(eq(heartbeatRuns.agentId, agentId), inArray(heartbeatRuns.status, ["queued", "running"])));
 
     for (const run of runs) {
+      const finishedAt = new Date();
       await setRunStatus(run.id, "cancelled", {
-        finishedAt: new Date(),
+        finishedAt,
+        runDurationMs: deriveRunDurationMs(run.startedAt, finishedAt),
+        actionCount: run.actionCount ?? 0,
         error: reason,
         errorCode: "cancelled",
       });
 
       await setWakeupStatus(run.wakeupRequestId, "cancelled", {
-        finishedAt: new Date(),
+        finishedAt,
         error: reason,
       });
 

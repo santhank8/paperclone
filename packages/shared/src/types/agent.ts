@@ -9,6 +9,12 @@ export interface AgentPermissions {
   canCreateAgents: boolean;
 }
 
+export interface AgentResponsibility {
+  name: string;
+  description: string;
+  enabled: boolean;
+}
+
 export interface Agent {
   id: string;
   companyId: string;
@@ -23,6 +29,7 @@ export interface Agent {
   adapterType: AgentAdapterType;
   adapterConfig: Record<string, unknown>;
   runtimeConfig: Record<string, unknown>;
+  responsibilities: AgentResponsibility[];
   budgetMonthlyCents: number;
   spentMonthlyCents: number;
   pauseReason: PauseReason | null;

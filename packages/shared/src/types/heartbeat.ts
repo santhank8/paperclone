@@ -16,6 +16,8 @@ export interface HeartbeatRun {
   status: HeartbeatRunStatus;
   startedAt: Date | null;
   finishedAt: Date | null;
+  runDurationMs: number | null;
+  actionCount: number | null;
   error: string | null;
   wakeupRequestId: string | null;
   exitCode: number | null;

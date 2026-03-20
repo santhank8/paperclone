@@ -16,7 +16,9 @@ import {
   ensurePathInEnv,
   listPaperclipSkillEntries,
   removeMaintainerOnlySkillSymlinks,
+  injectStandingResponsibilitiesEnv,
   renderTemplate,
+  renderStandingResponsibilitiesNote,
   joinPromptSections,
   runChildProcess,
 } from "@paperclipai/adapter-utils/server-utils";
@@ -315,6 +317,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
   if (runtimePrimaryUrl) {
     env.PAPERCLIP_RUNTIME_PRIMARY_URL = runtimePrimaryUrl;
   }
+  injectStandingResponsibilitiesEnv(env, context);
   for (const [k, v] of Object.entries(envConfig)) {
     if (typeof v === "string") env[k] = v;
   }
@@ -403,10 +406,12 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
       ? renderTemplate(bootstrapPromptTemplate, templateData).trim()
       : "";
   const sessionHandoffNote = asString(context.paperclipSessionHandoffMarkdown, "").trim();
+  const standingResponsibilitiesNote = renderStandingResponsibilitiesNote(context);
   const prompt = joinPromptSections([
     instructionsPrefix,
     renderedBootstrapPrompt,
     sessionHandoffNote,
+    standingResponsibilitiesNote,
     renderedPrompt,
   ]);
   const promptMetrics = {
@@ -414,6 +419,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     instructionsChars,
     bootstrapPromptChars: renderedBootstrapPrompt.length,
     sessionHandoffChars: sessionHandoffNote.length,
+    standingResponsibilitiesChars: standingResponsibilitiesNote.length,
     heartbeatPromptChars: renderedPrompt.length,
   };
 

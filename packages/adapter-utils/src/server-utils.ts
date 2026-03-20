@@ -81,6 +81,67 @@ export function parseJson(value: string): Record<string, unknown> | null {
   }
 }
 
+export interface StandingResponsibility {
+  name: string;
+  description: string;
+  enabled: boolean;
+}
+
+function parseStandingResponsibilities(value: unknown): StandingResponsibility[] {
+  if (!Array.isArray(value)) return [];
+  const entries: StandingResponsibility[] = [];
+  for (const raw of value) {
+    if (typeof raw !== "object" || raw === null || Array.isArray(raw)) continue;
+    const record = raw as Record<string, unknown>;
+    const name =
+      typeof record.name === "string" && record.name.trim().length > 0 ? record.name.trim() : null;
+    const description =
+      typeof record.description === "string" && record.description.trim().length > 0
+        ? record.description.trim()
+        : null;
+    const enabled = typeof record.enabled === "boolean" ? record.enabled : true;
+    if (!name || !description) continue;
+    entries.push({ name, description, enabled });
+  }
+  return entries;
+}
+
+export function extractStandingResponsibilitiesFromContext(
+  context: Record<string, unknown>,
+): StandingResponsibility[] {
+  const active = parseStandingResponsibilities(context.paperclipActiveResponsibilities);
+  if (active.length > 0) return active.filter((entry) => entry.enabled);
+  return parseStandingResponsibilities(context.paperclipResponsibilities).filter(
+    (entry) => entry.enabled,
+  );
+}
+
+export function injectStandingResponsibilitiesEnv(
+  env: Record<string, string>,
+  context: Record<string, unknown>,
+): StandingResponsibility[] {
+  const activeResponsibilities = extractStandingResponsibilitiesFromContext(context);
+  if (activeResponsibilities.length > 0) {
+    env.PAPERCLIP_RESPONSIBILITIES_JSON = JSON.stringify(activeResponsibilities);
+  } else {
+    delete env.PAPERCLIP_RESPONSIBILITIES_JSON;
+  }
+  return activeResponsibilities;
+}
+
+export function renderStandingResponsibilitiesNote(context: Record<string, unknown>): string {
+  const activeResponsibilities = extractStandingResponsibilitiesFromContext(context);
+  if (activeResponsibilities.length === 0) return "";
+  const lines = [
+    "Paperclip standing responsibilities:",
+    "Execute these before assignment triage in this heartbeat:",
+    ...activeResponsibilities.map((entry) => `- ${entry.name}: ${entry.description}`),
+    "",
+    "",
+  ];
+  return lines.join("\n");
+}
+
 export function appendWithCap(prev: string, chunk: string, cap = MAX_CAPTURE_BYTES) {
   const combined = prev + chunk;
   return combined.length > cap ? combined.slice(combined.length - cap) : combined;
