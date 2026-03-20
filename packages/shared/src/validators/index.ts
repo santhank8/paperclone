@@ -1,4 +1,8 @@
 export {
+  instanceGeneralSettingsSchema,
+  patchInstanceGeneralSettingsSchema,
+  type InstanceGeneralSettings,
+  type PatchInstanceGeneralSettings,
   instanceExperimentalSettingsSchema,
   patchInstanceExperimentalSettingsSchema,
   type InstanceExperimentalSettings,
@@ -15,8 +19,10 @@ export {
 export {
   createCompanySchema,
   updateCompanySchema,
+  updateCompanyBrandingSchema,
   type CreateCompany,
   type UpdateCompany,
+  type UpdateCompanyBranding,
 } from "./company.js";
 export {
   portabilityIncludeSchema,

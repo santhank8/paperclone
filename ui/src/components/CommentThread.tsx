@@ -47,6 +47,7 @@ interface CommentThreadProps {
   enableReassign?: boolean;
   reassignOptions?: InlineEntityOption[];
   currentAssigneeValue?: string;
+  suggestedAssigneeValue?: string;
   mentions?: MentionOption[];
 }
 
@@ -272,6 +273,7 @@ export function CommentThread({
   enableReassign = false,
   reassignOptions = [],
   currentAssigneeValue = "",
+  suggestedAssigneeValue,
   mentions: providedMentions,
 }: CommentThreadProps) {
   const [body, setBody] = useState("");
@@ -280,6 +282,8 @@ export function CommentThread({
   const [attaching, setAttaching] = useState(false);
   const [reassignTarget, setReassignTarget] = useState(currentAssigneeValue);
   const { t } = useTranslation();
+  const effectiveSuggestedAssigneeValue = suggestedAssigneeValue ?? currentAssigneeValue;
+  const [reassignTarget, setReassignTarget] = useState(effectiveSuggestedAssigneeValue);
   const [highlightCommentId, setHighlightCommentId] = useState<string | null>(null);
   const editorRef = useRef<MarkdownEditorRef>(null);
   const attachInputRef = useRef<HTMLInputElement | null>(null);
@@ -341,8 +345,8 @@ export function CommentThread({
   }, []);
 
   useEffect(() => {
-    setReassignTarget(currentAssigneeValue);
-  }, [currentAssigneeValue]);
+    setReassignTarget(effectiveSuggestedAssigneeValue);
+  }, [effectiveSuggestedAssigneeValue]);
 
   // Scroll to comment when URL hash matches #comment-{id}
   useEffect(() => {
@@ -374,7 +378,7 @@ export function CommentThread({
       setBody("");
       if (draftKey) clearDraft(draftKey);
       setReopen(false);
-      setReassignTarget(currentAssigneeValue);
+      setReassignTarget(effectiveSuggestedAssigneeValue);
     } finally {
       setSubmitting(false);
     }

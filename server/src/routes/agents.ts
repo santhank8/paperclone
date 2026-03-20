@@ -36,6 +36,7 @@ import { assertBoard, assertCompanyAccess, getActorInfo } from "./authz.js";
 import { findServerAdapter, listAdapterModels } from "../adapters/index.js";
 import { redactEventPayload } from "../redaction.js";
 import { redactCurrentUserValue } from "../log-redaction.js";
+import { instanceSettingsService } from "../services/instance-settings.js";
 import { runClaudeLogin } from "@paperclipai/adapter-claude-local/server";
 import {
   DEFAULT_CODEX_LOCAL_BYPASS_APPROVALS_AND_SANDBOX,
@@ -64,11 +65,92 @@ export function agentRoutes(db: Db) {
   const issueApprovalsSvc = issueApprovalService(db);
   const secretsSvc = secretService(db);
   const workspaceOperations = workspaceOperationService(db);
+  const instanceSettings = instanceSettingsService(db);
   const strictSecretsMode = process.env.PAPERCLIP_SECRETS_STRICT_MODE === "true";
+
+  async function getCurrentUserRedactionOptions() {
+    return {
+      enabled: (await instanceSettings.getGeneral()).censorUsernameInLogs,
+    };
+  }
 
   function canCreateAgents(agent: { role: string; permissions: Record<string, unknown> | null | undefined }) {
     if (!agent.permissions || typeof agent.permissions !== "object") return false;
     return Boolean((agent.permissions as Record<string, unknown>).canCreateAgents);
+  }
+
+  async function buildAgentAccessState(agent: NonNullable<Awaited<ReturnType<typeof svc.getById>>>) {
+    const membership = await access.getMembership(agent.companyId, "agent", agent.id);
+    const grants = membership
+      ? await access.listPrincipalGrants(agent.companyId, "agent", agent.id)
+      : [];
+    const hasExplicitTaskAssignGrant = grants.some((grant) => grant.permissionKey === "tasks:assign");
+
+    if (agent.role === "ceo") {
+      return {
+        canAssignTasks: true,
+        taskAssignSource: "ceo_role" as const,
+        membership,
+        grants,
+      };
+    }
+
+    if (canCreateAgents(agent)) {
+      return {
+        canAssignTasks: true,
+        taskAssignSource: "agent_creator" as const,
+        membership,
+        grants,
+      };
+    }
+
+    if (hasExplicitTaskAssignGrant) {
+      return {
+        canAssignTasks: true,
+        taskAssignSource: "explicit_grant" as const,
+        membership,
+        grants,
+      };
+    }
+
+    return {
+      canAssignTasks: false,
+      taskAssignSource: "none" as const,
+      membership,
+      grants,
+    };
+  }
+
+  async function buildAgentDetail(
+    agent: NonNullable<Awaited<ReturnType<typeof svc.getById>>>,
+    options?: { restricted?: boolean },
+  ) {
+    const [chainOfCommand, accessState] = await Promise.all([
+      svc.getChainOfCommand(agent.id),
+      buildAgentAccessState(agent),
+    ]);
+
+    return {
+      ...(options?.restricted ? redactForRestrictedAgentView(agent) : agent),
+      chainOfCommand,
+      access: accessState,
+    };
+  }
+
+  async function applyDefaultAgentTaskAssignGrant(
+    companyId: string,
+    agentId: string,
+    grantedByUserId: string | null,
+  ) {
+    await access.ensureMembership(companyId, "agent", agentId, "member", "active");
+    await access.setPrincipalPermission(
+      companyId,
+      "agent",
+      agentId,
+      "tasks:assign",
+      true,
+      grantedByUserId,
+    );
   }
 
   async function assertCanCreateAgentsForCompany(req: Request, companyId: string) {
@@ -575,8 +657,7 @@ export function agentRoutes(db: Db) {
       res.status(404).json({ error: "Agent not found" });
       return;
     }
-    const chainOfCommand = await svc.getChainOfCommand(agent.id);
-    res.json({ ...agent, chainOfCommand });
+    res.json(await buildAgentDetail(agent));
   });
 
   router.get("/agents/me/inbox-lite", async (req, res) => {
@@ -618,13 +699,11 @@ export function agentRoutes(db: Db) {
     if (req.actor.type === "agent" && req.actor.agentId !== id) {
       const canRead = await actorCanReadConfigurationsForCompany(req, agent.companyId);
       if (!canRead) {
-        const chainOfCommand = await svc.getChainOfCommand(agent.id);
-        res.json({ ...redactForRestrictedAgentView(agent), chainOfCommand });
+        res.json(await buildAgentDetail(agent, { restricted: true }));
         return;
       }
     }
-    const chainOfCommand = await svc.getChainOfCommand(agent.id);
-    res.json({ ...agent, chainOfCommand });
+    res.json(await buildAgentDetail(agent));
   });
 
   router.get("/agents/:id/configuration", async (req, res) => {
@@ -884,6 +963,12 @@ export function agentRoutes(db: Db) {
       },
     });
 
+    await applyDefaultAgentTaskAssignGrant(
+      companyId,
+      agent.id,
+      actor.actorType === "user" ? actor.actorId : null,
+    );
+
     if (approval) {
       await logActivity(db, {
         companyId,
@@ -945,6 +1030,12 @@ export function agentRoutes(db: Db) {
       details: { name: agent.name, role: agent.role },
     });
 
+    await applyDefaultAgentTaskAssignGrant(
+      companyId,
+      agent.id,
+      req.actor.type === "board" ? (req.actor.userId ?? null) : null,
+    );
+
     if (agent.budgetMonthlyCents > 0) {
       await budgets.upsertPolicy(
         companyId,
@@ -988,6 +1079,18 @@ export function agentRoutes(db: Db) {
       return;
     }
 
+    const effectiveCanAssignTasks =
+      agent.role === "ceo" || Boolean(agent.permissions?.canCreateAgents) || req.body.canAssignTasks;
+    await access.ensureMembership(agent.companyId, "agent", agent.id, "member", "active");
+    await access.setPrincipalPermission(
+      agent.companyId,
+      "agent",
+      agent.id,
+      "tasks:assign",
+      effectiveCanAssignTasks,
+      req.actor.type === "board" ? (req.actor.userId ?? null) : null,
+    );
+
     const actor = getActorInfo(req);
     await logActivity(db, {
       companyId: agent.companyId,
@@ -998,10 +1101,13 @@ export function agentRoutes(db: Db) {
       action: "agent.permissions_updated",
       entityType: "agent",
       entityId: agent.id,
-      details: req.body,
+      details: {
+        canCreateAgents: agent.permissions?.canCreateAgents ?? false,
+        canAssignTasks: effectiveCanAssignTasks,
+      },
     });
 
-    res.json(agent);
+    res.json(await buildAgentDetail(agent));
   });
 
   router.patch("/agents/:id/instructions-path", validate(updateAgentInstructionsPathSchema), async (req, res) => {
@@ -1499,7 +1605,7 @@ export function agentRoutes(db: Db) {
       return;
     }
     assertCompanyAccess(req, run.companyId);
-    res.json(redactCurrentUserValue(run));
+    res.json(redactCurrentUserValue(run, await getCurrentUserRedactionOptions()));
   });
 
   router.post("/heartbeat-runs/:runId/cancel", async (req, res) => {
@@ -1534,11 +1640,12 @@ export function agentRoutes(db: Db) {
     const afterSeq = Number(req.query.afterSeq ?? 0);
     const limit = Number(req.query.limit ?? 200);
     const events = await heartbeat.listEvents(runId, Number.isFinite(afterSeq) ? afterSeq : 0, Number.isFinite(limit) ? limit : 200);
+    const currentUserRedactionOptions = await getCurrentUserRedactionOptions();
     const redactedEvents = events.map((event) =>
       redactCurrentUserValue({
         ...event,
         payload: redactEventPayload(event.payload),
-      }),
+      }, currentUserRedactionOptions),
     );
     res.json(redactedEvents);
   });
@@ -1574,7 +1681,7 @@ export function agentRoutes(db: Db) {
     const context = asRecord(run.contextSnapshot);
     const executionWorkspaceId = asNonEmptyString(context?.executionWorkspaceId);
     const operations = await workspaceOperations.listForRun(runId, executionWorkspaceId);
-    res.json(redactCurrentUserValue(operations));
+    res.json(redactCurrentUserValue(operations, await getCurrentUserRedactionOptions()));
   });
 
   router.get("/workspace-operations/:operationId/log", async (req, res) => {
@@ -1670,7 +1777,7 @@ export function agentRoutes(db: Db) {
     }
 
     res.json({
-      ...redactCurrentUserValue(run),
+      ...redactCurrentUserValue(run, await getCurrentUserRedactionOptions()),
       agentId: agent.id,
       agentName: agent.name,
       adapterType: agent.adapterType,

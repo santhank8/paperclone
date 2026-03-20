@@ -121,8 +121,12 @@ export {
 export type {
   Company,
   InstanceExperimentalSettings,
+  InstanceGeneralSettings,
   InstanceSettings,
   Agent,
+  AgentAccessState,
+  AgentChainOfCommandEntry,
+  AgentDetail,
   AgentPermissions,
   AgentKeyCreated,
   AgentConfigRevision,
@@ -245,6 +249,9 @@ export type {
 } from "./types/index.js";
 
 export {
+  instanceGeneralSettingsSchema,
+  patchInstanceGeneralSettingsSchema,
+  type PatchInstanceGeneralSettings,
   instanceExperimentalSettingsSchema,
   patchInstanceExperimentalSettingsSchema,
   type PatchInstanceExperimentalSettings,
@@ -253,8 +260,10 @@ export {
 export {
   createCompanySchema,
   updateCompanySchema,
+  updateCompanyBrandingSchema,
   type CreateCompany,
   type UpdateCompany,
+  type UpdateCompanyBranding,
   createAgentSchema,
   createAgentHireSchema,
   updateAgentSchema,

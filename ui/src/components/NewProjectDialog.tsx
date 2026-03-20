@@ -24,10 +24,13 @@ import {
   Calendar,
   Plus,
   X,
-  FolderOpen,
-  Github,
-  GitBranch,
+  HelpCircle,
 } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { PROJECT_COLORS } from "@paperclipai/shared";
 import { cn } from "../lib/utils";
 import { MarkdownEditor, type MarkdownEditorRef } from "./MarkdownEditor";
@@ -35,6 +38,13 @@ import { StatusBadge } from "./StatusBadge";
 import { ChoosePathButton } from "./PathInstructionsModal";
 
 type WorkspaceSetup = "none" | "local" | "repo" | "both";
+const projectStatuses = [
+  { value: "backlog", label: "Backlog" },
+  { value: "planned", label: "Planned" },
+  { value: "in_progress", label: "In Progress" },
+  { value: "completed", label: "Completed" },
+  { value: "cancelled", label: "Cancelled" },
+];
 
 export function NewProjectDialog() {
   const { t } = useTranslation();
@@ -47,7 +57,6 @@ export function NewProjectDialog() {
   const [goalIds, setGoalIds] = useState<string[]>([]);
   const [targetDate, setTargetDate] = useState("");
   const [expanded, setExpanded] = useState(false);
-  const [workspaceSetup, setWorkspaceSetup] = useState<WorkspaceSetup>("none");
   const [workspaceLocalPath, setWorkspaceLocalPath] = useState("");
   const [workspaceRepoUrl, setWorkspaceRepoUrl] = useState("");
   const [workspaceError, setWorkspaceError] = useState<string | null>(null);
@@ -89,7 +98,6 @@ export function NewProjectDialog() {
     setGoalIds([]);
     setTargetDate("");
     setExpanded(false);
-    setWorkspaceSetup("none");
     setWorkspaceLocalPath("");
     setWorkspaceRepoUrl("");
     setWorkspaceError(null);
@@ -126,15 +134,8 @@ export function NewProjectDialog() {
     }
   };
 
-  const toggleWorkspaceSetup = (next: WorkspaceSetup) => {
-    setWorkspaceSetup((prev) => (prev === next ? "none" : next));
-    setWorkspaceError(null);
-  };
-
   async function handleSubmit() {
     if (!selectedCompanyId || !name.trim()) return;
-    const localRequired = workspaceSetup === "local" || workspaceSetup === "both";
-    const repoRequired = workspaceSetup === "repo" || workspaceSetup === "both";
     const localPath = workspaceLocalPath.trim();
     const repoUrl = workspaceRepoUrl.trim();
 
@@ -159,28 +160,15 @@ export function NewProjectDialog() {
         ...(targetDate ? { targetDate } : {}),
       });
 
-      const workspacePayloads: Array<Record<string, unknown>> = [];
-      if (localRequired && repoRequired) {
-        workspacePayloads.push({
-          name: deriveWorkspaceNameFromPath(localPath),
-          cwd: localPath,
-          repoUrl,
-        });
-      } else if (localRequired) {
-        workspacePayloads.push({
-          name: deriveWorkspaceNameFromPath(localPath),
-          cwd: localPath,
-        });
-      } else if (repoRequired) {
-        workspacePayloads.push({
-          name: deriveWorkspaceNameFromRepo(repoUrl),
-          repoUrl,
-        });
-      }
-      for (const workspacePayload of workspacePayloads) {
-        await projectsApi.createWorkspace(created.id, {
-          ...workspacePayload,
-        });
+      if (localPath || repoUrl) {
+        const workspacePayload: Record<string, unknown> = {
+          name: localPath
+            ? deriveWorkspaceNameFromPath(localPath)
+            : deriveWorkspaceNameFromRepo(repoUrl),
+          ...(localPath ? { cwd: localPath } : {}),
+          ...(repoUrl ? { repoUrl } : {}),
+        };
+        await projectsApi.createWorkspace(created.id, workspacePayload);
       }
 
       queryClient.invalidateQueries({ queryKey: queryKeys.projects.list(selectedCompanyId) });
@@ -349,13 +337,15 @@ export function NewProjectDialog() {
             <div className="rounded-md border border-border p-2">
               <label className="mb-1 block text-xs text-muted-foreground">{t("newProjectDialog.repoUrlLabel")}</label>
               <input
-                className="w-full rounded border border-border bg-transparent px-2 py-1 text-xs outline-none"
-                value={workspaceRepoUrl}
-                onChange={(e) => setWorkspaceRepoUrl(e.target.value)}
-                placeholder="https://github.com/org/repo"
+                className="w-full rounded border border-border bg-transparent px-2 py-1 text-xs font-mono outline-none"
+                value={workspaceLocalPath}
+                onChange={(e) => { setWorkspaceLocalPath(e.target.value); setWorkspaceError(null); }}
+                placeholder="/absolute/path/to/workspace"
               />
+              <ChoosePathButton />
             </div>
-          )}
+          </div>
+
           {workspaceError && (
             <p className="text-xs text-destructive">{workspaceError}</p>
           )}

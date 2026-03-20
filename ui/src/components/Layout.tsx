@@ -16,6 +16,7 @@ import { NewAgentDialog } from "./NewAgentDialog";
 import { ToastViewport } from "./ToastViewport";
 import { MobileBottomNav } from "./MobileBottomNav";
 import { WorktreeBanner } from "./WorktreeBanner";
+import { DevRestartBanner } from "./DevRestartBanner";
 import { useDialog } from "../context/DialogContext";
 import { usePanel } from "../context/PanelContext";
 import { useCompany } from "../context/CompanyContext";
@@ -80,6 +81,11 @@ export function Layout() {
     queryKey: queryKeys.health,
     queryFn: () => healthApi.get(),
     retry: false,
+    refetchInterval: (query) => {
+      const data = query.state.data as { devServer?: { enabled?: boolean } } | undefined;
+      return data?.devServer?.enabled ? 2000 : false;
+    },
+    refetchIntervalInBackground: true,
   });
 
   useEffect(() => {
@@ -268,6 +274,7 @@ export function Layout() {
         {t("layout.skipToMainContent")}
       </a>
       <WorktreeBanner />
+      <DevRestartBanner devServer={health?.devServer} />
       <div className={cn("min-h-0 flex-1", isMobile ? "w-full" : "flex overflow-hidden")}>
         {isMobile && sidebarOpen && (
           <button

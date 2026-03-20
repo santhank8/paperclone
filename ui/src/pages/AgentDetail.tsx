@@ -2,9 +2,16 @@ import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { useParams, useNavigate, Link, Navigate, useBeforeUnload } from "@/lib/router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { agentsApi, type AgentKey, type ClaudeLoginResult, type AvailableSkill } from "../api/agents";
+import {
+  agentsApi,
+  type AgentKey,
+  type ClaudeLoginResult,
+  type AvailableSkill,
+  type AgentPermissionUpdate,
+} from "../api/agents";
 import { budgetsApi } from "../api/budgets";
 import { heartbeatsApi } from "../api/heartbeats";
+import { instanceSettingsApi } from "../api/instanceSettings";
 import { ApiError } from "../api/client";
 import { ChartCard, RunActivityChart, PriorityChart, IssueStatusChart, SuccessRateChart } from "../components/ActivityCharts";
 import { activityApi } from "../api/activity";
@@ -65,6 +72,7 @@ import { RunTranscriptView, type TranscriptMode } from "../components/transcript
 import {
   isUuidLike,
   type Agent,
+  type AgentDetail as AgentDetailRecord,
   type BudgetPolicySummary,
   type HeartbeatRun,
   type HeartbeatRunEvent,
@@ -89,13 +97,21 @@ const SECRET_ENV_KEY_RE =
   /(api[-_]?key|access[-_]?token|auth(?:_?token)?|authorization|bearer|secret|passwd|password|credential|jwt|private[-_]?key|cookie|connectionstring)/i;
 const JWT_VALUE_RE = /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)?$/;
 
+function redactPathText(value: string, censorUsernameInLogs: boolean) {
+  return redactHomePathUserSegments(value, { enabled: censorUsernameInLogs });
+}
+
+function redactPathValue<T>(value: T, censorUsernameInLogs: boolean): T {
+  return redactHomePathUserSegmentsInValue(value, { enabled: censorUsernameInLogs });
+}
+
 function shouldRedactSecretValue(key: string, value: unknown): boolean {
   if (SECRET_ENV_KEY_RE.test(key)) return true;
   if (typeof value !== "string") return false;
   return JWT_VALUE_RE.test(value);
 }
 
-function redactEnvValue(key: string, value: unknown): string {
+function redactEnvValue(key: string, value: unknown, censorUsernameInLogs: boolean): string {
   if (
     typeof value === "object" &&
     value !== null &&
@@ -106,15 +122,15 @@ function redactEnvValue(key: string, value: unknown): string {
   }
   if (shouldRedactSecretValue(key, value)) return REDACTED_ENV_VALUE;
   if (value === null || value === undefined) return "";
-  if (typeof value === "string") return redactHomePathUserSegments(value);
+  if (typeof value === "string") return redactPathText(value, censorUsernameInLogs);
   try {
-    return JSON.stringify(redactHomePathUserSegmentsInValue(value));
+    return JSON.stringify(redactPathValue(value, censorUsernameInLogs));
   } catch {
-    return redactHomePathUserSegments(String(value));
+    return redactPathText(String(value), censorUsernameInLogs);
   }
 }
 
-function formatEnvForDisplay(envValue: unknown): string {
+function formatEnvForDisplay(envValue: unknown, censorUsernameInLogs: boolean): string {
   const env = asRecord(envValue);
   if (!env) return "<unable-to-parse>";
 
@@ -123,7 +139,7 @@ function formatEnvForDisplay(envValue: unknown): string {
 
   return keys
     .sort()
-    .map((key) => `${key}=${redactEnvValue(key, env[key])}`)
+    .map((key) => `${key}=${redactEnvValue(key, env[key], censorUsernameInLogs)}`)
     .join("\n");
 }
 
@@ -349,7 +365,7 @@ function WorkspaceOperationLogViewer({ operation }: { operation: WorkspaceOperat
                   >
                     [{chunk.stream}]
                   </span>
-                  <span className="whitespace-pre-wrap break-all">{redactHomePathUserSegments(chunk.chunk)}</span>
+                  <span className="whitespace-pre-wrap break-all">{redactPathText(chunk.chunk, censorUsernameInLogs)}</span>
                 </div>
               ))}
             </div>
@@ -426,7 +442,7 @@ function WorkspaceOperationsSection({ operations }: { operations: WorkspaceOpera
                 <div>
                   <div className="mb-1 text-xs text-red-700 dark:text-red-300">{t("pages.agentDetail.stderrExcerpt")}</div>
                   <pre className="rounded-md bg-red-50 p-2 text-xs whitespace-pre-wrap break-all text-red-800 dark:bg-neutral-950 dark:text-red-100">
-                    {redactHomePathUserSegments(operation.stderrExcerpt)}
+                    {redactPathText(operation.stderrExcerpt, censorUsernameInLogs)}
                   </pre>
                 </div>
               )}
@@ -434,11 +450,16 @@ function WorkspaceOperationsSection({ operations }: { operations: WorkspaceOpera
                 <div>
                   <div className="mb-1 text-xs text-muted-foreground">{t("pages.agentDetail.stdoutExcerpt")}</div>
                   <pre className="rounded-md bg-neutral-100 p-2 text-xs whitespace-pre-wrap break-all dark:bg-neutral-950">
-                    {redactHomePathUserSegments(operation.stdoutExcerpt)}
+                    {redactPathText(operation.stdoutExcerpt, censorUsernameInLogs)}
                   </pre>
                 </div>
               )}
-              {operation.logRef && <WorkspaceOperationLogViewer operation={operation} />}
+              {operation.logRef && (
+                <WorkspaceOperationLogViewer
+                  operation={operation}
+                  censorUsernameInLogs={censorUsernameInLogs}
+                />
+              )}
             </div>
           );
         })}
@@ -480,7 +501,7 @@ export function AgentDetail() {
   const setSaveConfigAction = useCallback((fn: (() => void) | null) => { saveConfigActionRef.current = fn; }, []);
   const setCancelConfigAction = useCallback((fn: (() => void) | null) => { cancelConfigActionRef.current = fn; }, []);
 
-  const { data: agent, isLoading, error } = useQuery({
+  const { data: agent, isLoading, error } = useQuery<AgentDetailRecord>({
     queryKey: [...queryKeys.agents.detail(routeAgentRef), lookupCompanyId ?? null],
     queryFn: () => agentsApi.get(routeAgentRef, lookupCompanyId),
     enabled: canFetchAgent,
@@ -666,8 +687,8 @@ export function AgentDetail() {
   });
 
   const updatePermissions = useMutation({
-    mutationFn: (canCreateAgents: boolean) =>
-      agentsApi.updatePermissions(agentLookupRef, { canCreateAgents }, resolvedCompanyId ?? undefined),
+    mutationFn: (permissions: AgentPermissionUpdate) =>
+      agentsApi.updatePermissions(agentLookupRef, permissions, resolvedCompanyId ?? undefined),
     onSuccess: () => {
       setActionError(null);
       queryClient.invalidateQueries({ queryKey: queryKeys.agents.detail(routeAgentRef) });
@@ -1071,7 +1092,7 @@ function AgentOverview({
   agentId,
   agentRouteId,
 }: {
-  agent: Agent;
+  agent: AgentDetailRecord;
   runs: HeartbeatRun[];
   assignedIssues: { id: string; title: string; status: string; priority: string; identifier?: string | null; createdAt: Date }[];
   runtimeState?: AgentRuntimeState;
@@ -1230,14 +1251,14 @@ function AgentConfigurePage({
   onSavingChange,
   updatePermissions,
 }: {
-  agent: Agent;
+  agent: AgentDetailRecord;
   agentId: string;
   companyId?: string;
   onDirtyChange: (dirty: boolean) => void;
   onSaveActionChange: (save: (() => void) | null) => void;
   onCancelActionChange: (cancel: (() => void) | null) => void;
   onSavingChange: (saving: boolean) => void;
-  updatePermissions: { mutate: (canCreate: boolean) => void; isPending: boolean };
+  updatePermissions: { mutate: (permissions: AgentPermissionUpdate) => void; isPending: boolean };
 }) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
@@ -1338,13 +1359,13 @@ function ConfigurationTab({
   onSavingChange,
   updatePermissions,
 }: {
-  agent: Agent;
+  agent: AgentDetailRecord;
   companyId?: string;
   onDirtyChange: (dirty: boolean) => void;
   onSaveActionChange: (save: (() => void) | null) => void;
   onCancelActionChange: (cancel: (() => void) | null) => void;
   onSavingChange: (saving: boolean) => void;
-  updatePermissions: { mutate: (canCreate: boolean) => void; isPending: boolean };
+  updatePermissions: { mutate: (permissions: AgentPermissionUpdate) => void; isPending: boolean };
 }) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
@@ -1388,6 +1409,19 @@ function ConfigurationTab({
     onSavingChange(isConfigSaving);
   }, [onSavingChange, isConfigSaving]);
 
+  const canCreateAgents = Boolean(agent.permissions?.canCreateAgents);
+  const canAssignTasks = Boolean(agent.access?.canAssignTasks);
+  const taskAssignSource = agent.access?.taskAssignSource ?? "none";
+  const taskAssignLocked = agent.role === "ceo" || canCreateAgents;
+  const taskAssignHint =
+    taskAssignSource === "ceo_role"
+      ? "Enabled automatically for CEO agents."
+      : taskAssignSource === "agent_creator"
+        ? "Enabled automatically while this agent can create new agents."
+        : taskAssignSource === "explicit_grant"
+          ? "Enabled via explicit company permission grant."
+          : "Disabled unless explicitly granted.";
+
   return (
     <div className="space-y-6">
       <AgentConfigForm
@@ -1413,7 +1447,10 @@ function ConfigurationTab({
               size="sm"
               className="h-7 px-2.5 text-xs"
               onClick={() =>
-                updatePermissions.mutate(!Boolean(agent.permissions?.canCreateAgents))
+                updatePermissions.mutate({
+                  canCreateAgents: !canCreateAgents,
+                  canAssignTasks: !canCreateAgents ? true : canAssignTasks,
+                })
               }
               disabled={updatePermissions.isPending}
             >
@@ -2407,13 +2444,21 @@ function LogViewer({ run, adapterType }: { run: HeartbeatRun; adapterType: strin
     };
   }, [isLive, run.companyId, run.id, run.agentId]);
 
+  const censorUsernameInLogs = useQuery({
+    queryKey: queryKeys.instance.generalSettings,
+    queryFn: () => instanceSettingsApi.getGeneral(),
+  }).data?.censorUsernameInLogs === true;
+
   const adapterInvokePayload = useMemo(() => {
     const evt = events.find((e) => e.eventType === "adapter.invoke");
-    return redactHomePathUserSegmentsInValue(asRecord(evt?.payload ?? null));
-  }, [events]);
+    return redactPathValue(asRecord(evt?.payload ?? null), censorUsernameInLogs);
+  }, [censorUsernameInLogs, events]);
 
   const adapter = useMemo(() => getUIAdapter(adapterType), [adapterType]);
-  const transcript = useMemo(() => buildTranscript(logLines, adapter.parseStdoutLine), [logLines, adapter]);
+  const transcript = useMemo(
+    () => buildTranscript(logLines, adapter.parseStdoutLine, { censorUsernameInLogs }),
+    [adapter, censorUsernameInLogs, logLines],
+  );
 
   useEffect(() => {
     setTranscriptMode("nice");
@@ -2441,7 +2486,10 @@ function LogViewer({ run, adapterType }: { run: HeartbeatRun; adapterType: strin
 
   return (
     <div className="space-y-3">
-      <WorkspaceOperationsSection operations={workspaceOperations} />
+      <WorkspaceOperationsSection
+        operations={workspaceOperations}
+        censorUsernameInLogs={censorUsernameInLogs}
+      />
       {adapterInvokePayload && (
         <div className="rounded-lg border border-border bg-background/60 p-3 space-y-2">
           <div className="text-xs font-medium text-muted-foreground">{t("pages.agentDetail.invocation")}</div>
@@ -2483,8 +2531,8 @@ function LogViewer({ run, adapterType }: { run: HeartbeatRun; adapterType: strin
               <div className="text-xs text-muted-foreground mb-1">{t("pages.agentDetail.prompt")}</div>
               <pre className="bg-neutral-100 dark:bg-neutral-950 rounded-md p-2 text-xs overflow-x-auto whitespace-pre-wrap">
                 {typeof adapterInvokePayload.prompt === "string"
-                  ? redactHomePathUserSegments(adapterInvokePayload.prompt)
-                  : JSON.stringify(redactHomePathUserSegmentsInValue(adapterInvokePayload.prompt), null, 2)}
+                  ? redactPathText(adapterInvokePayload.prompt, censorUsernameInLogs)
+                  : JSON.stringify(redactPathValue(adapterInvokePayload.prompt, censorUsernameInLogs), null, 2)}
               </pre>
             </div>
           )}
@@ -2492,7 +2540,7 @@ function LogViewer({ run, adapterType }: { run: HeartbeatRun; adapterType: strin
             <div>
               <div className="text-xs text-muted-foreground mb-1">{t("pages.agentDetail.context")}</div>
               <pre className="bg-neutral-100 dark:bg-neutral-950 rounded-md p-2 text-xs overflow-x-auto whitespace-pre-wrap">
-                {JSON.stringify(redactHomePathUserSegmentsInValue(adapterInvokePayload.context), null, 2)}
+                {JSON.stringify(redactPathValue(adapterInvokePayload.context, censorUsernameInLogs), null, 2)}
               </pre>
             </div>
           )}
@@ -2500,7 +2548,7 @@ function LogViewer({ run, adapterType }: { run: HeartbeatRun; adapterType: strin
             <div>
               <div className="text-xs text-muted-foreground mb-1">{t("pages.agentDetail.environment")}</div>
               <pre className="bg-neutral-100 dark:bg-neutral-950 rounded-md p-2 text-xs overflow-x-auto whitespace-pre-wrap font-mono">
-                {formatEnvForDisplay(adapterInvokePayload.env)}
+                {formatEnvForDisplay(adapterInvokePayload.env, censorUsernameInLogs)}
               </pre>
             </div>
           )}
@@ -2583,7 +2631,7 @@ function LogViewer({ run, adapterType }: { run: HeartbeatRun; adapterType: strin
             <div>
               <div className="text-xs text-red-700 dark:text-red-300 mb-1">{t("pages.agentDetail.stderrExcerpt")}</div>
               <pre className="bg-red-50 dark:bg-neutral-950 rounded-md p-2 text-xs overflow-x-auto whitespace-pre-wrap text-red-800 dark:text-red-100">
-                {redactHomePathUserSegments(run.stderrExcerpt)}
+                {redactPathText(run.stderrExcerpt, censorUsernameInLogs)}
               </pre>
             </div>
           )}
@@ -2591,7 +2639,7 @@ function LogViewer({ run, adapterType }: { run: HeartbeatRun; adapterType: strin
             <div>
               <div className="text-xs text-red-700 dark:text-red-300 mb-1">{t("pages.agentDetail.adapterResultJson")}</div>
               <pre className="bg-red-50 dark:bg-neutral-950 rounded-md p-2 text-xs overflow-x-auto whitespace-pre-wrap text-red-800 dark:text-red-100">
-                {JSON.stringify(redactHomePathUserSegmentsInValue(run.resultJson), null, 2)}
+                {JSON.stringify(redactPathValue(run.resultJson, censorUsernameInLogs), null, 2)}
               </pre>
             </div>
           )}
@@ -2599,7 +2647,7 @@ function LogViewer({ run, adapterType }: { run: HeartbeatRun; adapterType: strin
             <div>
               <div className="text-xs text-red-700 dark:text-red-300 mb-1">{t("pages.agentDetail.stdoutExcerpt")}</div>
               <pre className="bg-red-50 dark:bg-neutral-950 rounded-md p-2 text-xs overflow-x-auto whitespace-pre-wrap text-red-800 dark:text-red-100">
-                {redactHomePathUserSegments(run.stdoutExcerpt)}
+                {redactPathText(run.stdoutExcerpt, censorUsernameInLogs)}
               </pre>
             </div>
           )}
@@ -2626,9 +2674,9 @@ function LogViewer({ run, adapterType }: { run: HeartbeatRun; adapterType: strin
                   </span>
                   <span className={cn("break-all", color)}>
                     {evt.message
-                      ? redactHomePathUserSegments(evt.message)
+                      ? redactPathText(evt.message, censorUsernameInLogs)
                       : evt.payload
-                        ? JSON.stringify(redactHomePathUserSegmentsInValue(evt.payload))
+                        ? JSON.stringify(redactPathValue(evt.payload, censorUsernameInLogs))
                         : ""}
                   </span>
                 </div>
