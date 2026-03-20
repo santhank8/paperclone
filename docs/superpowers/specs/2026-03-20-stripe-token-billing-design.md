@@ -120,6 +120,7 @@ Agent run completes
       POST /v2/billing/meter_events
       {
         event_name: "llm_token_usage",
+        timestamp: "<cost_event_occurred_at ISO 8601>",
         payload: {
           stripe_customer_id: "cus_xxx",
           value: "<token_count>",
@@ -130,7 +131,9 @@ Agent run completes
       }
   → Send two events: one for input tokens, one for output tokens
   → identifier = cost_event.id + "-" + token_type (idempotency key, safe to retry)
-  → On success: update last-synced-event-timestamp in plugin state
+  → On success: update last-synced-event-timestamp in plugin state (best-effort cursor;
+    concurrent events may cause out-of-order writes, which is acceptable since individual
+    event delivery is tracked via idempotent identifiers and failed-meter-event entities)
   → On failure: store as failed-meter-event plugin entity for retry
 ```
 
@@ -172,18 +175,17 @@ Stripe sends webhook → POST /api/plugins/paperclip.stripe-billing/webhooks/str
 Scheduled job runs (default: 2 AM UTC daily)
   → For each billing account with status "active":
     → Query failed-meter-event entities with status "pending"
-      → Re-attempt each failed meter event
+      → Re-attempt each failed meter event (include original timestamp)
       → If still failing after 5 attempts: set status to "exhausted", alert via health
       → On success: delete the failed-meter-event entity
-    → Query Paperclip cost_events since last-synced-event-timestamp
-      → For any events without a corresponding successful meter push, report them
-    → Update last-reconciliation-timestamp in plugin state
-  → Report job metrics (accounts processed, events reconciled, errors)
+  → Report job metrics (accounts processed, events retried, errors)
 
-Note: The reconciliation job relies on the timestamp cursor and failed-meter-event
-entities for gap detection. The plugin does not have direct DB query access to
-cost_events — it must derive reconciliation data from events it has received
-and stored in plugin state during real-time processing.
+Note: The reconciliation job's scope is limited to retrying failed-meter-event
+entities. The plugin does not have direct DB query access to cost_events — gap
+detection relies entirely on the real-time event handler storing failures as
+plugin entities. If a cost_event.created event is never delivered to the plugin
+(host-level failure), it will not be caught by reconciliation. This is an
+acceptable trade-off given the event bus's at-least-once delivery guarantee.
 ```
 
 ## Plugin Configuration
@@ -203,7 +205,7 @@ and stored in plugin state during real-time processing.
 - `stripeSecretKey` and `stripeWebhookSecret` are secret references resolved via `ctx.secrets.resolve()`
 - `defaultMarkupPercent` is the default markup applied to new billing accounts (can be overridden per account)
 - `autoSuspendOnPaymentFailure` controls whether agents are auto-paused on payment failure
-- `reconciliationSchedule` is a cron expression for the daily reconciliation job
+- `reconciliationSchedule` is a cron expression for the daily reconciliation job. Overrides the manifest's default schedule at runtime.
 
 ### Plugin Manifest
 
