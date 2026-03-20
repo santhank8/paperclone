@@ -66,7 +66,7 @@ Per-company plugin state linking to the billing account (`scopeKind: "company"`,
 ```
 "billing-account-id": string         — which billing account owns this company
 "stripe-customer-id": string         — denormalized for fast lookup
-"last-synced-event-id": string       — last cost_event successfully sent to Stripe
+"last-synced-event-timestamp": string — ISO 8601 timestamp of last cost_event successfully sent to Stripe
 ```
 
 ### Invoice Records
@@ -76,7 +76,7 @@ Stripe invoices stored as plugin entities for UI display (`entityType: "stripe-i
 ```
 stripe-invoice (plugin_entities)
 ├── externalId: Stripe Invoice ID (in_xxx)
-├── scopeKind: "company" (scoped to billing account's primary company)
+├── scopeKind: "instance" (filtered by billing account externalId)
 ├── data:
 │   ├── amountCents: number
 │   ├── status: "draft" | "open" | "paid" | "uncollectible" | "void"
@@ -86,18 +86,23 @@ stripe-invoice (plugin_entities)
 │   └── lineItems: Array<{ model, inputTokens, outputTokens, amountCents }>
 ```
 
-### Failed Meter Events (Retry Queue)
+### Failed Meter Events (Retry)
 
-When a Stripe Meter API call fails, the event is stored for retry (`scopeKind: "company"`, `namespace: "stripe-billing"`):
+When a Stripe Meter API call fails, the event is stored as an individual plugin entity for retry. This avoids race conditions from concurrent read-modify-write on a shared array.
 
 ```
-"retry-queue": Array<{
-  costEventId: string,
-  payload: MeterEventPayload,
-  failedAt: string,
-  attempts: number,
-  lastError: string
-}>
+failed-meter-event (plugin_entities)
+├── externalId: "<cost_event_id>-<token_type>" (matches the Stripe identifier)
+├── entityType: "failed-meter-event"
+├── scopeKind: "company"
+├── scopeId: <company_id>
+├── status: "pending" | "exhausted"
+├── data:
+│   ├── costEventId: string
+│   ├── payload: MeterEventPayload
+│   ├── failedAt: string (ISO 8601)
+│   ├── attempts: number
+│   └── lastError: string
 ```
 
 ## Event Flows
@@ -106,28 +111,27 @@ When a Stripe Meter API call fails, the event is stored for retry (`scopeKind: "
 
 ```
 Agent run completes
-  → Adapter extracts tokens (input/output/cached) + provider + model
+  → Adapter extracts tokens (input/output) + provider + model
   → Heartbeat service creates cost_event in Paperclip DB
   → Plugin receives cost_event.created event
   → Plugin looks up billing account for the company
     → If no billing account linked: skip (company is unlinked/unbilled)
-  → Plugin formats Stripe meter event:
+  → Plugin formats Stripe meter events (one per token type):
+      POST /v2/billing/meter_events
       {
         event_name: "llm_token_usage",
         payload: {
           stripe_customer_id: "cus_xxx",
-          value: <token_count>,
-          timestamp: <ISO 8601>
-        },
-        identifier: {
+          value: "<token_count>",
           model: "claude-opus-4-6",
-          token_type: "input" | "output"
-        }
+          token_type: "input"
+        },
+        identifier: "<cost_event_id>-input"
       }
-  → Send to Stripe Meter API (one event per token type)
-  → Use cost_event.id as idempotency key (safe to retry)
-  → On success: update last-synced-event-id in plugin state
-  → On failure: add to retry queue in plugin state
+  → Send two events: one for input tokens, one for output tokens
+  → identifier = cost_event.id + "-" + token_type (idempotency key, safe to retry)
+  → On success: update last-synced-event-timestamp in plugin state
+  → On failure: store as failed-meter-event plugin entity for retry
 ```
 
 ### Flow 2: Credit Controls (Payment Enforcement)
@@ -167,13 +171,19 @@ Stripe sends webhook → POST /api/plugins/paperclip.stripe-billing/webhooks/str
 ```
 Scheduled job runs (default: 2 AM UTC daily)
   → For each billing account with status "active":
-    → Process retry queue: re-attempt failed meter events
-      → If still failing after 5 attempts: log error, skip, alert via health
-    → Query Paperclip cost_events since last reconciliation
-    → Compare against expected meter events sent
-    → Report any missed events as corrective meter events
-    → Update reconciliation timestamp in plugin state
+    → Query failed-meter-event entities with status "pending"
+      → Re-attempt each failed meter event
+      → If still failing after 5 attempts: set status to "exhausted", alert via health
+      → On success: delete the failed-meter-event entity
+    → Query Paperclip cost_events since last-synced-event-timestamp
+      → For any events without a corresponding successful meter push, report them
+    → Update last-reconciliation-timestamp in plugin state
   → Report job metrics (accounts processed, events reconciled, errors)
+
+Note: The reconciliation job relies on the timestamp cursor and failed-meter-event
+entities for gap detection. The plugin does not have direct DB query access to
+cost_events — it must derive reconciliation data from events it has received
+and stored in plugin state during real-time processing.
 ```
 
 ## Plugin Configuration
@@ -205,20 +215,20 @@ Scheduled job runs (default: 2 AM UTC daily)
   displayName: "Stripe Token Billing",
   description: "Bill customers for LLM token usage via Stripe",
   author: "Paperclip",
-  categories: ["billing"],
+  categories: ["connector"],
   capabilities: [
     "events.subscribe",
     "companies.read",
     "agents.read",
-    "agents.manage",
+    "agents.pause",
+    "agents.resume",
     "plugin.state.read",
     "plugin.state.write",
-    "plugin.entities.read",
-    "plugin.entities.write",
     "http.outbound",
     "secrets.read-ref",
     "jobs.schedule",
     "activity.log.write",
+    "webhooks.receive",
     "ui.page.register",
     "ui.dashboardWidget.register",
     "ui.detailTab.register"
@@ -383,21 +393,25 @@ A tab on company detail views:
 - Optional token allowance (included tokens before overage kicks in)
 - No structural changes needed — just additional Stripe price items on the subscription
 
-### Markup Resolution Order
+### Markup Application
 
-When determining markup for a given billing event:
+Markup is applied at the **Stripe Price layer**, not to meter event values. Meter events always report raw token counts. When creating a billing account's Stripe Subscription, the plugin configures Stripe Prices with the appropriate markup built into the per-token rate.
+
+**Markup resolution order** (used when creating/updating Stripe Prices):
 
 1. Billing account's `modelMarkupOverrides[model]` (most specific)
 2. Billing account's `markupPercent` (account-level default)
 3. Plugin config `defaultMarkupPercent` (global default)
 
+When markup settings change on a billing account, the plugin updates the corresponding Stripe Prices for the next billing period.
+
 ## Key Design Decisions
 
 1. **No direct Stripe SDK** — use `ctx.http.fetch()` for Stripe REST API calls. Keeps the plugin lightweight, avoids SDK version coupling, and stays within plugin SDK constraints.
 
-2. **Idempotent meter events** — use `cost_event.id` as the Stripe meter event idempotency key. Safe to retry without double-billing.
+2. **Idempotent meter events** — use `cost_event.id + "-" + token_type` as the Stripe meter event `identifier` (idempotency key). Safe to retry without double-billing.
 
-3. **Retry via plugin state** — failed meter events are stored in company-scoped plugin state. The reconciliation job retries them. Max 5 attempts before alerting.
+3. **Retry via plugin entities** — failed meter events are stored as individual `failed-meter-event` plugin entities (not a shared JSON array) to avoid concurrency issues. The reconciliation job retries them. Max 5 attempts before marking as exhausted and alerting.
 
 4. **Webhook signature verification** — `onWebhook` verifies the `stripe-signature` header using the webhook secret before processing any event. Invalid signatures are rejected.
 
@@ -406,6 +420,10 @@ When determining markup for a given billing event:
 6. **Agent pause/resume for credit controls** — leverages existing `ctx.agents` SDK to pause agents on payment failure. Agents are tagged with pause reason so they can be selectively resumed.
 
 7. **Unlinked companies are unbilled** — companies not assigned to a billing account have their usage tracked internally (existing cost_events) but nothing is reported to Stripe. This allows gradual rollout.
+
+8. **Health checks** — `onHealth()` verifies Stripe API reachability, reports pending failed-meter-event count, and time since last successful meter event. Returns `degraded` if retry queue is growing or Stripe is unreachable.
+
+9. **Graceful shutdown** — `onShutdown()` allows in-flight meter event HTTP calls to complete (up to 10s timeout). Any events that can't complete are stored as failed-meter-event entities for the reconciliation job to pick up.
 
 ## Phase 2: Gateway Support (Future)
 
