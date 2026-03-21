@@ -70,6 +70,14 @@ Customer success infrastructure is **100% complete and verified operational**. A
   - Google Analytics 4 events to implement
   - Data sources and integration points
   - Dashboard layout and success criteria
+- **Support Team Training & Onboarding Guide** (staff manual)
+  - First day quick start (access, reading, practice)
+  - Daily workflow procedures (standup, email response, escalation)
+  - How to use all 8 support email templates with examples
+  - Refund process (eligibility, 5-step procedure, edge cases)
+  - Weekly workflow (FAQ gaps, metrics, product issues)
+  - Best practices and philosophy (tone, response times, handling issues)
+  - First week checklist and success criteria
 
 ### Pricing & Product Alignment
 - ✅ All pages correctly show $19 Basic / $49 Premium tiers
@@ -254,6 +262,7 @@ Customer Success:
 ├── CUSTOMER-SUCCESS-STRATEGY.md              (Philosophy & workflow)
 ├── CUSTOMER-SUCCESS-OPERATIONS-GUIDE.md      (Launch day & first 30 days)
 ├── CUSTOMER-SUCCESS-METRICS-DASHBOARD.md     (Analytics specification)
+├── SUPPORT-TEAM-TRAINING-GUIDE.md            (Staff onboarding manual)
 ├── LAUNCH-COMMUNICATIONS.md                  (Customer & team communications)
 ├── SUPPORT-TEMPLATES.md                      (8 email templates)
 ├── ONBOARDING-EMAILS.md                      (10-email sequence)
@@ -277,6 +286,7 @@ Customer Success:
 - [x] Customer success operations guide created (launch day procedures)
 - [x] Launch communications created (emails, social, messaging)
 - [x] Metrics dashboard specification created (for analytics team)
+- [x] Support team training guide created (staff onboarding manual)
 
 ### ⏳ Other Teams - READY TO START
 - [ ] Email automation setup (Ops)
