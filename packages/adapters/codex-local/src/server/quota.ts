@@ -425,6 +425,13 @@ class CodexRpcClient {
     this.proc.stderr.on("data", (chunk: string) => {
       this.stderr += chunk;
     });
+    this.proc.on("error", (err) => {
+      for (const request of this.pending.values()) {
+        clearTimeout(request.timer);
+        request.reject(err);
+      }
+      this.pending.clear();
+    });
     this.proc.on("exit", () => {
       for (const request of this.pending.values()) {
         clearTimeout(request.timer);
