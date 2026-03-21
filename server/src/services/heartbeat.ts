@@ -731,7 +731,9 @@ export function heartbeatService(db: Db) {
   const issuesSvc = issueService(db);
   const executionWorkspacesSvc = executionWorkspaceService(db);
   const workspaceOperationsSvc = workspaceOperationService(db);
-  const activeRunExecutions = new Set<string>();
+  /** Maps run ID → epoch ms when execution started. Allows TTL-based eviction of leaked entries. */
+  const activeRunExecutions = new Map<string, number>();
+  const ACTIVE_RUN_MAX_AGE_MS = 2 * 60 * 60 * 1000; // 2 hours — any entry older is considered leaked
   const budgetHooks = {
     cancelWorkForScope: cancelBudgetScopeWork,
   };
@@ -1635,6 +1637,16 @@ export function heartbeatService(db: Db) {
   async function reapOrphanedRuns(opts?: { staleThresholdMs?: number }) {
     const staleThresholdMs = opts?.staleThresholdMs ?? 0;
     const now = new Date();
+    const nowMs = now.getTime();
+
+    // Evict leaked activeRunExecutions entries that exceed the max age.
+    // This prevents unbounded growth if executeRun hangs or the finally block never fires.
+    for (const [runId, startedAt] of activeRunExecutions) {
+      if (nowMs - startedAt > ACTIVE_RUN_MAX_AGE_MS) {
+        activeRunExecutions.delete(runId);
+        logger.warn({ runId, ageMs: nowMs - startedAt }, "evicted stale activeRunExecutions entry");
+      }
+    }
 
     // Find all runs stuck in "running" state (queued runs are legitimately waiting; resumeQueuedRuns handles them)
     const activeRuns = await db
@@ -1849,9 +1861,8 @@ export function heartbeatService(db: Db) {
       run = claimed;
     }
 
-    activeRunExecutions.add(run.id);
-
     try {
+    activeRunExecutions.set(run.id, Date.now());
     const agent = await getAgent(run.agentId);
     if (!agent) {
       await setRunStatus(runId, "failed", {
