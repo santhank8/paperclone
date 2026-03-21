@@ -1,0 +1,83 @@
+{
+  "types": [
+    {
+      "id": "slutbesiktning",
+      "name": "Slutbesiktning",
+      "description": "Ska hållas när entreprenadarbetena är färdigställda. Beställaren begär slutbesiktning genom att kontakta besiktningsmannen. Besiktningsmannen kallar sedan parterna till besiktningen. Slutbesiktningen avgör om entreprenaden är godkänd eller inte godkänd. Vid godkänd slutbesiktning övergår ansvaret för entreprenaden till beställaren.",
+      "payment": "Beställaren betalar",
+      "legalBasis": "ABS 09 kap 7, Konsumenttjänstlagen 55–58 §§",
+      "steps": ["grunduppgifter", "parter", "handlingar", "startmote", "rum-wizard", "slutsammanstrade"],
+      "hasApproval": true
+    },
+    {
+      "id": "59-besiktning",
+      "name": "§59-besiktning (Tvåårsbesiktning)",
+      "description": "Ska hållas tidigast 24 månader och senast 25 månader efter godkänd slutbesiktning. Beställaren kallar med hjälp av besiktningsman. Syftet är att kontrollera om det framkommit fel efter slutbesiktningen. Fel som beställaren borde ha upptäckt vid slutbesiktningen och som inte påtalades kan inte göras gällande vid §59-besiktningen.",
+      "payment": "Beställaren betalar",
+      "legalBasis": "Konsumenttjänstlagen §59",
+      "steps": ["grunduppgifter", "parter", "startmote", "rum-wizard", "slutsammanstrade"],
+      "hasApproval": false
+    },
+    {
+      "id": "forbesiktning",
+      "name": "Förbesiktning",
+      "description": "Kan hållas under pågående arbete för att besiktiga en viss del av entreprenaden som annars blir svåråtkomlig eller döljs av efterföljande arbete. Begärs av endera parten. Vanligt för grund, stomme, tätskikt i våtrum och andra delar som döljs.",
+      "payment": "Den som begär förbesiktningen betalar",
+      "legalBasis": "ABS 09 kap 7",
+      "steps": ["grunduppgifter", "parter", "startmote", "rum-wizard", "slutsammanstrade"],
+      "hasApproval": false
+    },
+    {
+      "id": "sarskild-besiktning",
+      "name": "Särskild besiktning",
+      "description": "Kan hållas efter entreprenadtidens utgång om parterna inte kan enas om ett visst förhållande utgör ett fel. Begärs av endera parten. Används ofta för tvistiga frågor som behöver avgöras separat.",
+      "payment": "Parterna betalar enligt besiktningsmannens beslut",
+      "legalBasis": "ABS 09 kap 7",
+      "steps": ["grunduppgifter", "parter", "startmote", "rum-wizard", "slutsammanstrade"],
+      "hasApproval": false
+    },
+    {
+      "id": "efterbesiktning",
+      "name": "Efterbesiktning",
+      "description": "Hålls för att kontrollera att fel som noterats vid en tidigare besiktning har avhjälpts. Begärs av endera parten. Besiktningsmannen kontrollerar enbart de fel som noterats vid den föregående besiktningen.",
+      "payment": "Entreprenören betalar om felen inte är avhjälpta",
+      "legalBasis": "ABS 09 kap 7",
+      "steps": ["grunduppgifter", "parter", "startmote", "rum-wizard", "slutsammanstrade"],
+      "hasApproval": false
+    },
+    {
+      "id": "overbesiktning",
+      "name": "Överbesiktning",
+      "description": "Kan begäras av part som inte godtar resultatet av en tidigare besiktning. Överbesiktningen överprövar den tidigare besiktningen. Överbesiktningsmannen utses normalt av Byggingenjörernas Riksförbund (SBR).",
+      "payment": "Parterna betalar enligt besiktningsmannens beslut",
+      "legalBasis": "ABS 09 kap 7, Konsumenttjänstlagen §60",
+      "steps": ["grunduppgifter", "parter", "startmote", "rum-wizard", "slutsammanstrade"],
+      "hasApproval": false
+    },
+    {
+      "id": "kontrollbesiktning",
+      "name": "Kontrollbesiktning",
+      "description": "En informell besiktning som kan hållas cirka 2 veckor före slutbesiktningen. Ger entreprenören möjlighet att åtgärda eventuella brister innan den formella slutbesiktningen. Har ingen juridisk verkan.",
+      "payment": "Beställaren betalar vanligtvis",
+      "legalBasis": "Ingen formell juridisk grund — praxis",
+      "steps": ["grunduppgifter", "parter", "startmote", "rum-wizard", "slutsammanstrade"],
+      "hasApproval": false
+    },
+    {
+      "id": "statusbesiktning",
+      "name": "Statusbesiktning",
+      "description": "Kan begäras av endera part för att göra en opartisk bedömning av den aktuella färdigställandegraden. Används t.ex. vid tvister om huruvida arbetet fortskrider enligt plan.",
+      "payment": "Den som begär besiktningen betalar",
+      "legalBasis": "ABS 09 kap 7",
+      "steps": ["grunduppgifter", "parter", "startmote", "rum-wizard", "slutsammanstrade"],
+      "hasApproval": false
+    }
+  ],
+  "faultCategories": [
+    { "id": "E", "name": "Entreprenörens ansvar", "description": "Avvikelse från avtal eller fackmässighet. Entreprenören ska avhjälpa." },
+    { "id": "B", "name": "Beställarens anmärkning", "description": "Beställaren framför synpunkt, besiktningsmannen bedömer att det inte är ett fel." },
+    { "id": "A", "name": "Anmärkning", "description": "Beställaren har påtalat, men besiktningsmannen anser inte att det utgör fel." },
+    { "id": "S", "name": "Skjuts upp", "description": "Kan inte besiktigas nu. Överlämnas till kompletterande besiktning." },
+    { "id": "U", "name": "Utredning", "description": "Kräver vidare utredning för att avgöra om det är ett fel." }
+  ]
+}

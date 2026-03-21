@@ -1,0 +1,4 @@
+node_modules/
+.backup-*/
+reference-docs/*.pdf
+reference-docs/*.txt

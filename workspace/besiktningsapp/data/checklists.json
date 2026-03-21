@@ -1,0 +1,360 @@
+{
+  "rooms": [
+    {
+      "id": "generellt",
+      "name": "Generellt",
+      "category": "invändigt",
+      "checkpoints": [
+        {
+          "text": "att golv, väggar och tak har rätt toleranser och rätt ytbehandling.",
+          "toleranceRef": "fackmasigt.golv-torra"
+        },
+        {
+          "text": "att listverk har rätt behandling och är monterade.",
+          "toleranceRef": "fackmasigt.snickerier"
+        },
+        {
+          "text": "att dörrar och fönster, med beslag och lås, har rätt utförande och funktion.",
+          "toleranceRef": "fackmasigt.snickerier"
+        },
+        "att inredning enligt handlingarna är monterad.",
+        "att belysning enligt handlingarna är monterad och i funktion.",
+        "att brandvarnare är monterade (minst 1 per våningsplan, minst 1 per påbörjat 60 m²). (BFS 2024:7)",
+        "att spisfläktens kanal är brandisolerad. (BFS 2024:7)"
+      ]
+    },
+    {
+      "id": "entre",
+      "name": "Entré",
+      "category": "invändigt",
+      "checkpoints": [
+        "att dörrbroms är monterad och i funktion.",
+        "att entrédörren har fri bredd minst 0,8 m (netto). (BFS 2024:12)",
+        "att trösklar vid entré är max 25 mm höga. (BFS 2024:12)"
+      ]
+    },
+    {
+      "id": "kok",
+      "name": "Kök",
+      "category": "invändigt",
+      "checkpoints": [
+        {
+          "text": "att snickerier, bänkskivor och övriga inredningsdetaljer är monterade.",
+          "toleranceRef": "fackmasigt.kok-snickerier"
+        },
+        "att lådor och annan utrustning fungerar.",
+        {
+          "text": "att luckor och lådfronter sitter med jämna springor.",
+          "toleranceRef": "fackmasigt.kok-snickerier"
+        },
+        "att knivlådor och diskbänkskåp är barnsäkrade.",
+        {
+          "text": "att beslag är rakt monterade.",
+          "toleranceRef": "fackmasigt.kok-snickerier"
+        },
+        "att alla vitvaror är monterade och oskadade.",
+        "att spisfläkt/spiskåpa är rätt monterad och har kallrasskydd.",
+        "att det finns ”balja” under diskmaskin och kyl/frys.",
+        "att det är tätat runt rör i diskbänkskåp.",
+        {
+          "text": "att vatten är anslutet och att blandare inte går att vrida utanför diskbänk.",
+          "toleranceRef": "fackmasigt.rorinstallationer"
+        },
+        "att kallt och varmt vatten finns.",
+        "att anslutning från bräddavlopp är monterad och tät.",
+        {
+          "text": "att avstängningsventil för diskmaskin och andra vattenanslutna apparater är lättåtkomlig. Ska vara placerad ovan bänk, om inte elektronisk avstängningsventil med förinställd öppningstid samt golvskydd med golvavlopp och vattenlarm installeras, eller om installationerna skyddas av detektorstyrd läckagebrytare.",
+          "toleranceRef": "fackmasigt.rorinstallationer"
+        },
+        {
+          "text": "att vattenanslutna apparater är placerade på vattentätt underlag med uppvikta kanter och fuktsensor kopplad till läckage- eller vattenfelsbrytare.",
+          "toleranceRef": "fackmasigt.rorinstallationer"
+        }
+      ]
+    },
+    {
+      "id": "rum",
+      "name": "Rum och vardagsrum",
+      "category": "invändigt",
+      "checkpoints": [
+        "att fönsterbänkar är korrekt monterade.",
+        "att det finns tilluftsventil."
+      ]
+    },
+    {
+      "id": "vatrum",
+      "name": "Våtrum (bad/duschrum/WC)",
+      "category": "invändigt",
+      "checkpoints": [
+        {
+          "text": "att golv och väggar med plattor är utförda enligt branschreglerna och följer riktlinjer för färdigt utförande.",
+          "toleranceRef": "fackmasigt.golv-vata"
+        },
+        {
+          "text": "att golv har rätt fall mot golvbrunn. Provspola eller väg av.",
+          "toleranceRef": "fackmasigt.golv-vata"
+        },
+        "att det finns klämring över förseglingsduken i golvbrunn och att fästmassa är tillstruken under klinkerram.",
+        "att golvbrunnar är rengjorda.",
+        {
+          "text": "att väggar har rätt behandling efter våtzoner.",
+          "toleranceRef": "fackmasigt.vaggar-vata"
+        },
+        {
+          "text": "att tätskikt är uppdraget på tröskel eller blindtröskel.",
+          "toleranceRef": "fackmasigt.vaggar-vata"
+        },
+        "att porslin och blandare är rätt monterat.",
+        "att avstängningsventiler finns i den utsträckning som är nödvändigt.",
+        "att inbyggd spolcistern för vägghängd WC är försedd med en lätt åtkomlig avstängningsventil.",
+        "att inredningar och spegel är rätt monterade och på rätt höjder.",
+        {
+          "text": "att tillräcklig överluftarea finns.",
+          "toleranceRef": "fackmasigt.ventilation"
+        },
+        "avstånd till vägg vid genomföringar och golvbrunnar."
+      ]
+    },
+    {
+      "id": "tvatt-teknik",
+      "name": "Tvätt- och teknikrum",
+      "category": "invändigt",
+      "checkpoints": [
+        "att tvättbänk är fast monterad.",
+        "att värmeanläggning är monterad och ansluten.",
+        "att tvättmaskin är inkopplad och har avstängningsventil synligt placerad och lätt åtkomlig.",
+        "att inkommande vatten är inkopplat och vattenmätare lätt åtkomlig.",
+        {
+          "text": "att rörfördelare är inkopplad och dränerad.",
+          "toleranceRef": "fackmasigt.rorinstallationer"
+        },
+        "att elcentral är färdigmonterad och att gruppförteckning och säkringsmärkning finns.",
+        "att kondensisolering finns runt avluftskanal och kalla vätskeledande rör.",
+        "att fördelarskåp är täta och att dess underkant är placerad minst 500 mm ovan golv.",
+        {
+          "text": "att skvallerrör (läckageindikering) mynnar i ett rum där man normalt vistas och där ett läckage enkelt kan upptäckas (alternativt utrustat med larm om det inte mynnar ut väl synligt).",
+          "toleranceRef": "fackmasigt.rorinstallationer"
+        },
+        {
+          "text": "att skvallerrör från tappvatteninstallationer mynnar i rum med vattentätt golv och golvbrunn.",
+          "toleranceRef": "fackmasigt.rorinstallationer"
+        },
+        {
+          "text": "att utgående varmvatten är min 50°C och max 60°C vid tappstället (Legionella-skydd). (BFS 2024:8)",
+          "toleranceRef": "fackmasigt.rorinstallationer"
+        }
+      ]
+    },
+    {
+      "id": "forrad",
+      "name": "Förråd och biutrymmen",
+      "category": "invändigt",
+      "checkpoints": [
+        "att inredning enligt handlingar är monterad. 18"
+      ]
+    },
+    {
+      "id": "trappa",
+      "name": "Trappor",
+      "category": "invändigt",
+      "checkpoints": [
+        "att trappor och avsatser har handledare och räcken på rätt sidor.",
+        {
+          "text": "att räcket är minst 0,9 m högt och öppningarna är max 100 mm. (BFS 2024:9)",
+          "toleranceRef": "fackmasigt.balkonger-altaner"
+        },
+        "att trappstegens djup och höjd är enhetliga och enligt handlingar.",
+        "att trappans ytbehandling är jämn och utan sprickor eller lösa delar.",
+        "att infästning mot vägg och bärplan är säkrade enligt handlingar."
+      ]
+    },
+    {
+      "id": "vind",
+      "name": "Vind",
+      "category": "invändigt",
+      "checkpoints": [
+        {
+          "text": "att syllar, stolpverk, regelstommar och bjälklag har dimensioner, upplag och spikning enligt ritningarna.",
+          "toleranceRef": "fackmasigt.vindar"
+        },
+        {
+          "text": "att luftspalter finns med rätt storlek enligt ritningarna.",
+          "toleranceRef": "fackmasigt.vindar"
+        },
+        "att nockventilation är fuktsäkrad (t.ex. med plastfolie).",
+        "att vindslucka har rätt infästning och isolering enligt ritningarna, samt att drevning och fukttätning runt luckan är korrekt.",
+        {
+          "text": "att plastfolie med tjocklek 0,20 mm finns på bjälklaget under isoleringen, med täta genomföringar och minst 200 mm överlappning.",
+          "toleranceRef": "fackmasigt.vindar"
+        },
+        {
+          "text": "att termisk isolering (lösull) har jämn tjocklek enligt ritning och att ingen isolering finns i luftspalter.",
+          "toleranceRef": "fackmasigt.vindar"
+        },
+        {
+          "text": "att isolerskivor ansluter mot takstolar och genomföringar, att dubbla lager har förskjutna skarvar.",
+          "toleranceRef": "fackmasigt.vindar"
+        },
+        "att rökkanal är avskild från bjälklaget med luftspalt och att avstånd till brännbart material är enligt tillverkarens anvisningar.",
+        "att vindsutrymmet är ventilerat."
+      ]
+    },
+    {
+      "id": "grundlaggning",
+      "name": "Grundläggning",
+      "category": "utvändigt",
+      "checkpoints": [
+        "att all matjord är borttagen.",
+        {
+          "text": "att sulor, plintar och betongplatta är utförda med rätt mått: längd och krokighet ±15 mm, diagonalmått och höjdläge ±20 mm.",
+          "toleranceRef": "fackmasigt.grundlaggningar"
+        },
+        "att krypgrund är inspekterbar i sin helhet och att fuktprojektering finns om konstruktionen är känslig för fukt.",
+        "att eventuell isolering i krypgrund är monterad enligt anvisning.",
+        "att ledningar för vatten, avlopp och el i krypgrund är fastsatta och har rätt fall.",
+        "att ventiler finns i den omfattning som anges på ritning.",
+        "att driftinstruktion finns om grunden försetts med avfuktare.",
+        {
+          "text": "att betongplatta på mark har rätt buktighet: vid 0,25 m ±1,2 mm (klass A/B), vid 2,0 m ±3 mm (klass A) / ±5 mm (klass B).",
+          "toleranceRef": "fackmasigt.grundlaggningar"
+        },
+        {
+          "text": "att dräneringsledning i sin högsta punkt har vattengången under grundläggningens underkant och är ansluten till dagvattenbrunn.",
+          "toleranceRef": "fackmasigt.grundlaggningar"
+        },
+        "att spolbrunn finns och att dräneringsledningen är kringfylld med dränerande material.",
+        "att radondämpande åtgärder är utförda enligt kontrollplan (radonspärr, ventilation). (BFS 2024:8)"
+      ]
+    },
+    {
+      "id": "yttertak",
+      "name": "Yttertak",
+      "category": "utvändigt",
+      "checkpoints": [
+        {
+          "text": "att takpannor är rätt infästa.",
+          "toleranceRef": "fackmasigt.yttertak"
+        },
+        "att underbeslag är monterade under bland annat ståndskivor.",
+        "att ventilationshuvar finns.",
+        "att takfönster är rätt monterat.",
+        {
+          "text": "att hängrännor är korrekt monterade utan glipor i tvärskarvarna och har avloppshål utan vassa kanter.",
+          "toleranceRef": "fackmasigt.yttertak"
+        },
+        "att vindsutrymme är ventilerat.",
+        "att taksäkerhet finns när så krävs.",
+        {
+          "text": "att ränndalar är riktigt utförda.",
+          "toleranceRef": "fackmasigt.yttertak"
+        }
+      ]
+    },
+    {
+      "id": "fasader",
+      "name": "Fasader",
+      "category": "utvändigt",
+      "checkpoints": [
+        {
+          "text": "att inga paneler är spräckta.",
+          "toleranceRef": "fackmasigt.yttervaggar"
+        },
+        {
+          "text": "att målning är färdigställd.",
+          "toleranceRef": "fackmasigt.malning"
+        },
+        "att foder sitter rätt.",
+        {
+          "text": "att droppbleck och fönsterbleck är infästa och anslutna.",
+          "toleranceRef": "fackmasigt.yttervaggar"
+        },
+        {
+          "text": "att puts eller tegelmurning utförts fackmässigt.",
+          "toleranceRef": "fackmasigt.yttervaggar"
+        }
+      ]
+    },
+    {
+      "id": "fonster-dorrar",
+      "name": "Fönster och dörrar",
+      "category": "utvändigt",
+      "checkpoints": [
+        {
+          "text": "att fönster är hela och fria från färg och bruksstänk.",
+          "toleranceRef": "fackmasigt.snickerier"
+        },
+        {
+          "text": "att droppbleck och fönsterbleck är hela och rengjorda.",
+          "toleranceRef": "fackmasigt.snickerier"
+        },
+        {
+          "text": "repor och andra defekter på glaset.",
+          "toleranceRef": "fackmasigt.snickerier"
+        }
+      ]
+    },
+    {
+      "id": "balkonger",
+      "name": "Balkonger och altaner",
+      "category": "utvändigt",
+      "checkpoints": [
+        {
+          "text": "att tralläkt är oskadade.",
+          "toleranceRef": "fackmasigt.balkonger-altaner"
+        },
+        {
+          "text": "att räcke håller rätt höjd.",
+          "toleranceRef": "fackmasigt.balkonger-altaner"
+        },
+        {
+          "text": "att trappa med räcke/handledare finns.",
+          "toleranceRef": "fackmasigt.balkonger-altaner"
+        }
+      ]
+    },
+    {
+      "id": "stupror",
+      "name": "Stuprör",
+      "category": "utvändigt",
+      "checkpoints": [
+        "att stuprör är rätt monterade och oskadade."
+      ]
+    },
+    {
+      "id": "mark",
+      "name": "Mark",
+      "category": "utvändigt",
+      "checkpoints": [
+        {
+          "text": "att marken lutar från huset.",
+          "toleranceRef": "fackmasigt.markarbeten"
+        },
+        {
+          "text": "att dagvattenledningar är nedgrävda.",
+          "toleranceRef": "fackmasigt.markarbeten"
+        },
+        "att rensbrunnar och spolbrunnar har gjutjärnstäckningar.",
+        {
+          "text": "att dränering mynnar ut i fördelningsbrunn.",
+          "toleranceRef": "fackmasigt.markarbeten"
+        },
+        "att gångvägar har lutning max 1:20 och ramper max 1:12 med vilplan. (BFS 2024:12)",
+        "att hårdgjorda ytor vid entré är tillgängliga och halkskyddade. (BFS 2024:12)"
+      ]
+    },
+    {
+      "id": "garage",
+      "name": "Garage",
+      "category": "utvändigt",
+      "checkpoints": [
+        "att takpannor är rätt infästa.",
+        "att fasader är målade.",
+        "att garageport fungerar och sluter tätt mot golv.",
+        "att klämskydd fungerar i motordriven port.",
+        "att gångdörr fungerar.",
+        "att golv inte har fall mot väggarna.",
+        "att väggar och tak är utförda i rätt brandklass. 19"
+      ]
+    }
+  ]
+}
