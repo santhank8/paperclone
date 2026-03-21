@@ -1,4 +1,4 @@
-const CACHE_NAME = "paperclip-v2";
+const CACHE_NAME = "paperclip-v3";
 
 self.addEventListener("install", () => {
   self.skipWaiting();
@@ -34,9 +34,9 @@ self.addEventListener("fetch", (event) => {
       })
       .catch(() => {
         if (request.mode === "navigate") {
-          return caches.match("/") || new Response("Offline", { status: 503 });
+          return caches.match("/").then((r) => r || new Response("Offline", { status: 503 }));
         }
-        return caches.match(request);
+        return caches.match(request).then((r) => r || new Response("", { status: 504 }));
       })
   );
 });
