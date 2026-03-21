@@ -222,3 +222,17 @@ export function listServerAdapters(): ServerAdapterModule[] {
 export function findServerAdapter(type: string): ServerAdapterModule | null {
   return adaptersByType.get(type) ?? null;
 }
+
+/**
+ * Return the static models list for an adapter (no dynamic discovery).
+ * Returns null if the adapter is unknown or has no static models.
+ * Useful for fast, synchronous compatibility checks.
+ */
+export function getStaticAdapterModels(type: string): { id: string; label: string }[] | null {
+  const adapter = adaptersByType.get(type);
+  if (!adapter) return null;
+  const models = adapter.models ?? [];
+  // Adapters with empty static models AND dynamic discovery are treated as "any model allowed"
+  if (models.length === 0) return null;
+  return models;
+}

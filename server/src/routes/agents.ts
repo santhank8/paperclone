@@ -2,8 +2,8 @@ import { Router, type Request } from "express";
 import { generateKeyPairSync, randomUUID } from "node:crypto";
 import path from "node:path";
 import type { Db } from "@paperclipai/db";
-import { agents as agentsTable, companies, heartbeatRuns } from "@paperclipai/db";
-import { and, desc, eq, inArray, not, sql } from "drizzle-orm";
+import { agents as agentsTable, companies, heartbeatRuns, issues } from "@paperclipai/db";
+import { and, desc, eq, inArray, isNotNull, not, sql } from "drizzle-orm";
 import {
   agentSkillSyncSchema,
   createAgentKeySchema,
@@ -44,7 +44,7 @@ import {
 } from "../services/index.js";
 import { conflict, forbidden, notFound, unprocessable } from "../errors.js";
 import { assertBoard, assertCompanyAccess, getActorInfo } from "./authz.js";
-import { findServerAdapter, listAdapterModels } from "../adapters/index.js";
+import { findServerAdapter, listAdapterModels, getStaticAdapterModels } from "../adapters/index.js";
 import { redactEventPayload } from "../redaction.js";
 import { redactCurrentUserValue } from "../log-redaction.js";
 import { renderOrgChartSvg, renderOrgChartPng, type OrgNode, type OrgChartStyle, ORG_CHART_STYLES } from "./org-chart-svg.js";
@@ -399,6 +399,27 @@ export function agentRoutes(db: Db) {
       const reason = err instanceof Error ? err.message : String(err);
       throw unprocessable(`Invalid opencode_local adapterConfig: ${reason}`);
     }
+  }
+
+  function assertModelCompatibleWithAdapter(
+    adapterType: string | null | undefined,
+    adapterConfig: Record<string, unknown>,
+  ): void {
+    if (!adapterType) return;
+    const model = asNonEmptyString(adapterConfig.model as string);
+    if (!model) return; // no model specified — defaults will apply
+
+    const staticModels = getStaticAdapterModels(adapterType);
+    if (!staticModels) return; // adapter has no static model list (dynamic-only or model-less)
+
+    const validIds = staticModels.map((m) => m.id);
+    if (validIds.includes(model)) return;
+
+    throw unprocessable(
+      `Model '${model}' is not compatible with adapter '${adapterType}'. ` +
+      `Compatible models: ${validIds.join(", ")}. ` +
+      `Change the model or switch adapter_type.`,
+    );
   }
 
   function resolveInstructionsFilePath(candidatePath: string, adapterConfig: Record<string, unknown>) {
@@ -1169,6 +1190,7 @@ export function agentRoutes(db: Db) {
       hireInput.adapterType,
       normalizedAdapterConfig,
     );
+    assertModelCompatibleWithAdapter(hireInput.adapterType, normalizedAdapterConfig);
     const normalizedHireInput = {
       ...hireInput,
       adapterConfig: normalizedAdapterConfig,
@@ -1329,6 +1351,7 @@ export function agentRoutes(db: Db) {
       createInput.adapterType,
       normalizedAdapterConfig,
     );
+    assertModelCompatibleWithAdapter(createInput.adapterType, normalizedAdapterConfig);
 
     const createdAgent = await svc.create(companyId, {
       ...createInput,
@@ -1732,6 +1755,10 @@ export function agentRoutes(db: Db) {
         effectiveAdapterConfig,
       );
     }
+    if (touchesAdapterConfiguration) {
+      const effectiveAdapterConfig = asRecord(patchData.adapterConfig) ?? asRecord(existing.adapterConfig) ?? {};
+      assertModelCompatibleWithAdapter(requestedAdapterType, effectiveAdapterConfig);
+    }
 
     const actor = getActorInfo(req);
     const agent = await svc.update(id, patchData, {
@@ -1902,6 +1929,24 @@ export function agentRoutes(db: Db) {
       return;
     }
 
+    // Auto-resolve checked-out issue context so the run uses the correct workspace
+    const checkedOutIssue = await db
+      .select({
+        id: issues.id,
+        projectId: issues.projectId,
+        projectWorkspaceId: issues.projectWorkspaceId,
+      })
+      .from(issues)
+      .where(
+        and(
+          eq(issues.assigneeAgentId, id),
+          eq(issues.companyId, agent.companyId),
+          isNotNull(issues.executionLockedAt),
+        ),
+      )
+      .limit(1)
+      .then((rows) => rows[0] ?? null);
+
     const run = await heartbeat.wakeup(id, {
       source: req.body.source,
       triggerDetail: req.body.triggerDetail ?? "manual",
@@ -1914,6 +1959,11 @@ export function agentRoutes(db: Db) {
         triggeredBy: req.actor.type,
         actorId: req.actor.type === "agent" ? req.actor.agentId : req.actor.userId,
         forceFreshSession: req.body.forceFreshSession === true,
+        ...(checkedOutIssue && {
+          issueId: checkedOutIssue.id,
+          projectId: checkedOutIssue.projectId ?? undefined,
+          projectWorkspaceId: checkedOutIssue.projectWorkspaceId ?? undefined,
+        }),
       },
     });
 
