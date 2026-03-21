@@ -1347,7 +1347,7 @@ function ModelDropdown({
         <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-1" align="start">
           <input
             className="w-full px-2 py-1.5 text-xs bg-transparent outline-none border-b border-border mb-1 placeholder:text-muted-foreground/50"
-            placeholder="Search models..."
+            placeholder="Search or enter custom model..."
             value={modelSearch}
             onChange={(e) => setModelSearch(e.target.value)}
             autoFocus
@@ -1393,7 +1393,24 @@ function ModelDropdown({
                 ))}
               </div>
             ))}
-            {filteredModels.length === 0 && (
+            {modelSearch.trim() &&
+              !models.some((m) => m.id === modelSearch.trim()) && (
+                <button
+                  className={cn(
+                    "flex items-center gap-2 w-full px-2 py-1.5 text-sm rounded hover:bg-accent/50 text-left border-t border-border mt-1 pt-1.5",
+                    modelSearch.trim() === value && "bg-accent",
+                  )}
+                  onClick={() => {
+                    onChange(modelSearch.trim());
+                    onOpenChange(false);
+                  }}
+                >
+                  <span className="truncate text-muted-foreground">
+                    Use "<span className="font-medium text-foreground">{modelSearch.trim()}</span>"
+                  </span>
+                </button>
+              )}
+            {filteredModels.length === 0 && !modelSearch.trim() && (
               <p className="px-2 py-1.5 text-xs text-muted-foreground">No models found.</p>
             )}
           </div>
