@@ -10,6 +10,7 @@ import {
   agentRuntimeState,
   agentTaskSessions,
   agentWakeupRequests,
+  companies,
   heartbeatRunEvents,
   heartbeatRuns,
   issues,
@@ -1733,12 +1734,23 @@ export function heartbeatService(db: Db) {
   }
 
   async function resumeQueuedRuns() {
+    // Skip queued runs for agents in archived companies (#1348)
+    const archivedCompanyIds = await db
+      .select({ id: companies.id })
+      .from(companies)
+      .where(eq(companies.status, "archived"))
+      .then((rows) => new Set(rows.map((r) => r.id)));
+
     const queuedRuns = await db
-      .select({ agentId: heartbeatRuns.agentId })
+      .select({ agentId: heartbeatRuns.agentId, companyId: heartbeatRuns.companyId })
       .from(heartbeatRuns)
       .where(eq(heartbeatRuns.status, "queued"));
 
-    const agentIds = [...new Set(queuedRuns.map((r) => r.agentId))];
+    const agentIds = [...new Set(
+      queuedRuns
+        .filter((r) => !archivedCompanyIds.has(r.companyId))
+        .map((r) => r.agentId),
+    )];
     for (const agentId of agentIds) {
       await startNextQueuedRunForAgent(agentId);
     }
@@ -2866,6 +2878,16 @@ export function heartbeatService(db: Db) {
     const agent = await getAgent(agentId);
     if (!agent) throw notFound("Agent not found");
 
+    // Block wakeups for agents in archived companies (#1348)
+    const [company] = await db
+      .select({ status: companies.status })
+      .from(companies)
+      .where(eq(companies.id, agent.companyId));
+    if (company?.status === "archived") {
+      logger.info({ agentId, companyId: agent.companyId }, "skipping wakeup for archived company");
+      return null;
+    }
+
     const writeSkippedRequest = async (skipReason: string) => {
       await db.insert(agentWakeupRequests).values({
         companyId: agent.companyId,
@@ -3660,6 +3682,13 @@ export function heartbeatService(db: Db) {
     resumeQueuedRuns,
 
     tickTimers: async (now = new Date()) => {
+      // Exclude agents whose company is archived (#1348)
+      const archivedCompanyIds = await db
+        .select({ id: companies.id })
+        .from(companies)
+        .where(eq(companies.status, "archived"))
+        .then((rows) => new Set(rows.map((r) => r.id)));
+
       const allAgents = await db.select().from(agents);
       let checked = 0;
       let enqueued = 0;
@@ -3667,6 +3696,7 @@ export function heartbeatService(db: Db) {
 
       for (const agent of allAgents) {
         if (agent.status === "paused" || agent.status === "terminated" || agent.status === "pending_approval") continue;
+        if (archivedCompanyIds.has(agent.companyId)) continue;
         const policy = parseHeartbeatPolicy(agent);
         if (!policy.enabled || policy.intervalSec <= 0) continue;
 
