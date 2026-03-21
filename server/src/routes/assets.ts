@@ -127,13 +127,13 @@ export function assetRoutes(db: Db, storage: StorageService) {
 
     const file = (req as Request & { file?: { mimetype: string; buffer: Buffer; originalname: string } }).file;
     if (!file) {
-      res.status(400).json({ error: "Missing file field 'file'" });
+      res.status(400).json({ error: "缺少文件字段 'file'" });
       return;
     }
 
     const parsedMeta = createAssetImageMetadataSchema.safeParse(req.body ?? {});
     if (!parsedMeta.success) {
-      res.status(400).json({ error: "Invalid image metadata", details: parsedMeta.error.issues });
+      res.status(400).json({ error: "无效的图片元数据", details: parsedMeta.error.issues });
       return;
     }
 
@@ -147,13 +147,13 @@ export function assetRoutes(db: Db, storage: StorageService) {
     if (contentType === SVG_CONTENT_TYPE) {
       const sanitized = sanitizeSvgBuffer(file.buffer);
       if (!sanitized || sanitized.length <= 0) {
-        res.status(422).json({ error: "SVG could not be sanitized" });
+        res.status(422).json({ error: "SVG 无法进行安全净化" });
         return;
       }
       fileBody = sanitized;
     }
     if (fileBody.length <= 0) {
-      res.status(422).json({ error: "Image is empty" });
+      res.status(422).json({ error: "图片为空" });
       return;
     }
 
@@ -230,7 +230,7 @@ export function assetRoutes(db: Db, storage: StorageService) {
 
     const file = (req as Request & { file?: { mimetype: string; buffer: Buffer; originalname: string } }).file;
     if (!file) {
-      res.status(400).json({ error: "Missing file field 'file'" });
+      res.status(400).json({ error: "缺少文件字段 'file'" });
       return;
     }
 
@@ -244,14 +244,14 @@ export function assetRoutes(db: Db, storage: StorageService) {
     if (contentType === SVG_CONTENT_TYPE) {
       const sanitized = sanitizeSvgBuffer(file.buffer);
       if (!sanitized || sanitized.length <= 0) {
-        res.status(422).json({ error: "SVG could not be sanitized" });
+        res.status(422).json({ error: "SVG 无法进行安全净化" });
         return;
       }
       fileBody = sanitized;
     }
 
     if (fileBody.length <= 0) {
-      res.status(422).json({ error: "Image is empty" });
+      res.status(422).json({ error: "图片为空" });
       return;
     }
 
@@ -313,7 +313,7 @@ export function assetRoutes(db: Db, storage: StorageService) {
     const assetId = req.params.assetId as string;
     const asset = await svc.getById(assetId);
     if (!asset) {
-      res.status(404).json({ error: "Asset not found" });
+      res.status(404).json({ error: "资源未找到" });
       return;
     }
     assertCompanyAccess(req, asset.companyId);

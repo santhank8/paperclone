@@ -6,13 +6,13 @@ if (!url) throw new Error("DATABASE_URL is required");
 
 const db = createDb(url);
 
-console.log("Seeding database...");
+console.log("正在初始化数据库...");
 
 const [company] = await db
   .insert(companies)
   .values({
-    name: "Paperclip Demo Co",
-    description: "A demo autonomous company",
+    name: "Paperclip 演示公司",
+    description: "一个演示用自治公司",
     status: "active",
     budgetMonthlyCents: 50000,
   })
@@ -22,9 +22,9 @@ const [ceo] = await db
   .insert(agents)
   .values({
     companyId: company!.id,
-    name: "CEO Agent",
+    name: "CEO 智能体",
     role: "ceo",
-    title: "Chief Executive Officer",
+    title: "首席执行官",
     status: "idle",
     adapterType: "process",
     adapterConfig: { command: "echo", args: ["hello from ceo"] },
@@ -36,9 +36,9 @@ const [engineer] = await db
   .insert(agents)
   .values({
     companyId: company!.id,
-    name: "Engineer Agent",
+    name: "工程师智能体",
     role: "engineer",
-    title: "Software Engineer",
+    title: "软件工程师",
     status: "idle",
     reportsTo: ceo!.id,
     adapterType: "process",
@@ -51,8 +51,8 @@ const [goal] = await db
   .insert(goals)
   .values({
     companyId: company!.id,
-    title: "Ship V1",
-    description: "Deliver first control plane release",
+    title: "发布 V1",
+    description: "交付首个控制面板版本",
     level: "company",
     status: "active",
     ownerAgentId: ceo!.id,
@@ -64,8 +64,8 @@ const [project] = await db
   .values({
     companyId: company!.id,
     goalId: goal!.id,
-    name: "Control Plane MVP",
-    description: "Implement core board + agent loop",
+    name: "控制面板 MVP",
+    description: "实现核心管理面板 + 智能体循环",
     status: "in_progress",
     leadAgentId: ceo!.id,
   })
@@ -76,8 +76,8 @@ await db.insert(issues).values([
     companyId: company!.id,
     projectId: project!.id,
     goalId: goal!.id,
-    title: "Implement atomic task checkout",
-    description: "Ensure in_progress claiming is conflict-safe",
+    title: "实现原子任务检出",
+    description: "确保进行中状态的认领是无冲突的",
     status: "todo",
     priority: "high",
     assigneeAgentId: engineer!.id,
@@ -87,13 +87,13 @@ await db.insert(issues).values([
     companyId: company!.id,
     projectId: project!.id,
     goalId: goal!.id,
-    title: "Add budget auto-pause",
-    description: "Pause agent at hard budget ceiling",
+    title: "添加预算自动暂停",
+    description: "在硬性预算上限时暂停智能体",
     status: "backlog",
     priority: "medium",
     createdByAgentId: ceo!.id,
   },
 ]);
 
-console.log("Seed complete");
+console.log("数据库初始化完成");
 process.exit(0);

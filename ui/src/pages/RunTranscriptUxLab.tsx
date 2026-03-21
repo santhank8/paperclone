@@ -19,23 +19,23 @@ const surfaceOptions: Array<{
 }> = [
   {
     id: "detail",
-    label: "Run Detail",
-    eyebrow: "Full transcript",
-    description: "The long-form run page with the `Nice | Raw` toggle and the most inspectable transcript view.",
+    label: "运行详情",
+    eyebrow: "完整记录",
+    description: "包含 `Nice | Raw` 切换的完整运行页面，提供最可检查的记录视图。",
     icon: MonitorCog,
   },
   {
     id: "live",
-    label: "Issue Widget",
-    eyebrow: "Live stream",
-    description: "The issue-detail live run widget, optimized for following an active run without leaving the task page.",
+    label: "任务小部件",
+    eyebrow: "实时流",
+    description: "任务详情的实时运行小部件，优化了在不离开任务页面的情况下跟踪活跃运行的体验。",
     icon: RadioTower,
   },
   {
     id: "dashboard",
-    label: "Dashboard Card",
-    eyebrow: "Dense card",
-    description: "The active-agents dashboard card, tuned for compact scanning while keeping the same transcript language.",
+    label: "仪表盘卡片",
+    eyebrow: "紧凑卡片",
+    description: "活跃智能体仪表盘卡片，针对紧凑浏览进行了优化，同时保持相同的记录语言。",
     icon: PanelsTopLeft,
   },
 ];

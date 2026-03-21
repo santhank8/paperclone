@@ -1,120 +1,120 @@
-# Deployment Modes
+# 部署模式
 
-Status: Canonical deployment and auth mode model  
-Date: 2026-02-23
+状态：规范性部署和认证模式模型
+日期：2026-02-23
 
-## 1. Purpose
+## 1. 目的
 
-Paperclip supports two runtime modes:
+Paperclip 支持两种运行时模式：
 
 1. `local_trusted`
 2. `authenticated`
 
-`authenticated` supports two exposure policies:
+`authenticated` 支持两种暴露策略：
 
 1. `private`
 2. `public`
 
-This keeps one authenticated auth stack while still separating low-friction private-network defaults from internet-facing hardening requirements.
+这保持了单一的认证栈，同时区分了低摩擦的私有网络默认值和面向互联网的加固需求。
 
-## 2. Canonical Model
+## 2. 规范模型
 
-| Runtime Mode | Exposure | Human auth | Primary use |
+| 运行时模式 | 暴露 | 人类认证 | 主要用途 |
 |---|---|---|---|
-| `local_trusted` | n/a | No login required | Single-operator local machine workflow |
-| `authenticated` | `private` | Login required | Private-network access (for example Tailscale/VPN/LAN) |
-| `authenticated` | `public` | Login required | Internet-facing/cloud deployment |
+| `local_trusted` | 不适用 | 无需登录 | 单操作员本地机器工作流 |
+| `authenticated` | `private` | 需要登录 | 私有网络访问（例如 Tailscale/VPN/LAN） |
+| `authenticated` | `public` | 需要登录 | 面向互联网/云端部署 |
 
-## 3. Security Policy
+## 3. 安全策略
 
 ## `local_trusted`
 
-- loopback-only host binding
-- no human login flow
-- optimized for fastest local startup
+- 仅绑定回环地址
+- 无人类登录流程
+- 针对最快的本地启动进行优化
 
 ## `authenticated + private`
 
-- login required
-- low-friction URL handling (`auto` base URL mode)
-- private-host trust policy required
+- 需要登录
+- 低摩擦 URL 处理（`auto` 基础 URL 模式）
+- 需要私有主机信任策略
 
 ## `authenticated + public`
 
-- login required
-- explicit public URL required
-- stricter deployment checks and failures in doctor
+- 需要登录
+- 需要显式公共 URL
+- 更严格的部署检查，doctor 中出错即失败
 
-## 4. Onboarding UX Contract
+## 4. 入门 UX 合约
 
-Default onboarding remains interactive and flagless:
+默认入门保持交互式且无标志位：
 
 ```sh
 pnpm paperclipai onboard
 ```
 
-Server prompt behavior:
+服务端提示行为：
 
-1. ask mode, default `local_trusted`
-2. option copy:
-- `local_trusted`: "Easiest for local setup (no login, localhost-only)"
-- `authenticated`: "Login required; use for private network or public hosting"
-3. if `authenticated`, ask exposure:
-- `private`: "Private network access (for example Tailscale), lower setup friction"
-- `public`: "Internet-facing deployment, stricter security requirements"
-4. ask explicit public URL only for `authenticated + public`
+1. 询问模式，默认 `local_trusted`
+2. 选项文本：
+- `local_trusted`："最简单的本地设置（无需登录，仅 localhost）"
+- `authenticated`："需要登录；用于私有网络或公共托管"
+3. 如果选择 `authenticated`，询问暴露方式：
+- `private`："私有网络访问（例如 Tailscale），更低的设置摩擦"
+- `public`："面向互联网的部署，更严格的安全要求"
+4. 仅对 `authenticated + public` 询问显式公共 URL
 
-`configure --section server` follows the same interactive behavior.
+`configure --section server` 遵循相同的交互行为。
 
-## 5. Doctor UX Contract
+## 5. Doctor UX 合约
 
-Default doctor remains flagless:
+默认 doctor 保持无标志位：
 
 ```sh
 pnpm paperclipai doctor
 ```
 
-Doctor reads configured mode/exposure and applies mode-aware checks. Optional override flags are secondary.
+Doctor 读取已配置的模式/暴露方式并应用模式感知检查。可选的覆盖标志位是次要的。
 
-## 6. Board/User Integration Contract
+## 6. 董事会/用户集成合约
 
-Board identity must be represented by a real DB user principal for user-based features to work consistently.
+董事会身份必须由真实的数据库用户主体表示，以使基于用户的功能一致工作。
 
-Required integration points:
+所需集成点：
 
-- real user row in `authUsers` for Board identity
-- `instance_user_roles` entry for Board admin authority
-- `company_memberships` integration for user-level task assignment and access
+- 在 `authUsers` 中为董事会身份创建真实用户行
+- `instance_user_roles` 条目用于董事会管理员权限
+- `company_memberships` 集成用于用户级任务分配和访问
 
-This is required because user assignment paths validate active membership for `assigneeUserId`.
+这是必需的，因为用户分配路径会验证 `assigneeUserId` 的活跃成员资格。
 
-## 7. Local Trusted -> Authenticated Claim Flow
+## 7. 本地信任 -> 认证模式领取流程
 
-When running `authenticated` mode, if the only instance admin is `local-board`, Paperclip emits a startup warning with a one-time high-entropy claim URL.
+在运行 `authenticated` 模式时，如果唯一的实例管理员是 `local-board`，Paperclip 会发出启动警告并提供一次性高熵领取 URL。
 
-- URL format: `/board-claim/<token>?code=<code>`
-- intended use: signed-in human claims board ownership
-- claim action:
-  - promotes current signed-in user to `instance_admin`
-  - demotes `local-board` admin role
-  - ensures active owner membership for the claiming user across existing companies
+- URL 格式：`/board-claim/<token>?code=<code>`
+- 用途：已登录的人类领取董事会所有权
+- 领取操作：
+  - 将当前已登录用户提升为 `instance_admin`
+  - 降级 `local-board` 管理员角色
+  - 确保领取用户在现有公司中拥有活跃的所有者成员资格
 
-This prevents lockout when a user migrates from long-running local trusted usage to authenticated mode.
+这防止了用户从长期本地信任使用迁移到认证模式时被锁定。
 
-## 8. Current Code Reality (As Of 2026-02-23)
+## 8. 当前代码现状（截至 2026-02-23）
 
-- runtime values are `local_trusted | authenticated`
-- `authenticated` uses Better Auth sessions and bootstrap invite flow
-- `local_trusted` ensures a real local Board user principal in `authUsers` with `instance_user_roles` admin access
-- company creation ensures creator membership in `company_memberships` so user assignment/access flows remain consistent
+- 运行时值为 `local_trusted | authenticated`
+- `authenticated` 使用 Better Auth 会话和引导邀请流程
+- `local_trusted` 确保在 `authUsers` 中有一个真实的本地董事会用户主体，并在 `instance_user_roles` 中拥有管理员访问权限
+- 公司创建确保创建者在 `company_memberships` 中的成员资格，以使用户分配/访问流程保持一致
 
-## 9. Naming and Compatibility Policy
+## 9. 命名和兼容性策略
 
-- canonical naming is `local_trusted` and `authenticated` with `private/public` exposure
-- no long-term compatibility alias layer for discarded naming variants
+- 规范命名为 `local_trusted` 和 `authenticated`，暴露方式为 `private/public`
+- 对已弃用的命名变体不提供长期兼容别名层
 
-## 10. Relationship to Other Docs
+## 10. 与其他文档的关系
 
-- implementation plan: `doc/plans/deployment-auth-mode-consolidation.md`
-- V1 contract: `doc/SPEC-implementation.md`
-- operator workflows: `doc/DEVELOPING.md` and `doc/CLI.md`
+- 实施计划：`doc/plans/deployment-auth-mode-consolidation.md`
+- V1 合约：`doc/SPEC-implementation.md`
+- 操作员工作流：`doc/DEVELOPING.md` 和 `doc/CLI.md`

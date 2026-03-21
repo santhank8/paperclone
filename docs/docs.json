@@ -1,7 +1,7 @@
 {
   "$schema": "https://mintlify.com/docs.json",
   "name": "Paperclip",
-  "description": "The control plane for autonomous AI companies",
+  "description": "自主 AI 公司的控制平面",
   "theme": "mint",
   "colors": {
     "primary": "#2563EB",
@@ -22,10 +22,10 @@
   "navigation": {
     "tabs": [
       {
-        "tab": "Get Started",
+        "tab": "快速开始",
         "groups": [
           {
-            "group": "Introduction",
+            "group": "介绍",
             "pages": [
               "start/what-is-paperclip",
               "start/quickstart",
@@ -36,10 +36,10 @@
         ]
       },
       {
-        "tab": "Guides",
+        "tab": "指南",
         "groups": [
           {
-            "group": "Board Operator",
+            "group": "董事会操作员",
             "pages": [
               "guides/board-operator/dashboard",
               "guides/board-operator/creating-a-company",
@@ -52,7 +52,7 @@
             ]
           },
           {
-            "group": "Agent Developer",
+            "group": "智能体开发者",
             "pages": [
               "guides/agent-developer/how-agents-work",
               "guides/agent-developer/heartbeat-protocol",
@@ -66,10 +66,10 @@
         ]
       },
       {
-        "tab": "Deploy",
+        "tab": "部署",
         "groups": [
           {
-            "group": "Deployment",
+            "group": "部署",
             "pages": [
               "deploy/overview",
               "deploy/local-development",
@@ -85,10 +85,10 @@
         ]
       },
       {
-        "tab": "Adapters",
+        "tab": "适配器",
         "groups": [
           {
-            "group": "Agent Adapters",
+            "group": "智能体适配器",
             "pages": [
               "adapters/overview",
               "adapters/claude-local",
@@ -101,7 +101,7 @@
         ]
       },
       {
-        "tab": "API Reference",
+        "tab": "API 参考",
         "groups": [
           {
             "group": "REST API",
@@ -125,7 +125,7 @@
         "tab": "CLI",
         "groups": [
           {
-            "group": "CLI Reference",
+            "group": "CLI 参考",
             "pages": [
               "cli/overview",
               "cli/setup-commands",

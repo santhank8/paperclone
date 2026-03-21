@@ -1,175 +1,175 @@
-# Agent Runtime Guide
+# 智能体运行时指南
 
-Status: User-facing guide  
-Last updated: 2026-02-17  
-Audience: Operators setting up and running agents in Paperclip
+状态：面向用户的指南
+最后更新：2026-02-17
+受众：在 Paperclip 中设置和运行智能体的操作员
 
-## 1. What this system does
+## 1. 系统功能
 
-Agents in Paperclip do not run continuously.  
-They run in **heartbeats**: short execution windows triggered by a wakeup.
+Paperclip 中的智能体不持续运行。
+它们以**心跳**方式运行：由唤醒触发的短期执行窗口。
 
-Each heartbeat:
+每次心跳：
 
-1. Starts the configured agent adapter (for example, Claude CLI or Codex CLI)
-2. Gives it the current prompt/context
-3. Lets it work until it exits, times out, or is cancelled
-4. Stores results (status, token usage, errors, logs)
-5. Updates the UI live
+1. 启动配置的智能体适配器（例如 Claude CLI 或 Codex CLI）
+2. 给它当前的提示词/上下文
+3. 让它工作直到退出、超时或被取消
+4. 存储结果（状态、token 用量、错误、日志）
+5. 实时更新 UI
 
-## 2. When an agent wakes up
+## 2. 智能体何时被唤醒
 
-An agent can be woken up in four ways:
+智能体可以通过四种方式被唤醒：
 
-- `timer`: scheduled interval (for example every 5 minutes)
-- `assignment`: when work is assigned/checked out to that agent
-- `on_demand`: manual wakeup (button/API)
-- `automation`: system-triggered wakeup for future automations
+- `timer`：定时间隔（例如每 5 分钟）
+- `assignment`：当工作被分配/签出给该智能体时
+- `on_demand`：手动唤醒（按钮/API）
+- `automation`：系统触发的唤醒，用于未来的自动化
 
-If an agent is already running, new wakeups are merged (coalesced) instead of launching duplicate runs.
+如果智能体已在运行，新的唤醒会被合并（合并）而不是启动重复运行。
 
-## 3. What to configure per agent
+## 3. 每个智能体需要配置什么
 
-## 3.1 Adapter choice
+## 3.1 适配器选择
 
-Common choices:
+常用选择：
 
-- `claude_local`: runs your local `claude` CLI
-- `codex_local`: runs your local `codex` CLI
-- `process`: generic shell command adapter
-- `http`: calls an external HTTP endpoint
+- `claude_local`：运行你本地的 `claude` CLI
+- `codex_local`：运行你本地的 `codex` CLI
+- `process`：通用 shell 命令适配器
+- `http`：调用外部 HTTP 端点
 
-For `claude_local` and `codex_local`, Paperclip assumes the CLI is already installed and authenticated on the host machine.
+对于 `claude_local` 和 `codex_local`，Paperclip 假设 CLI 已在主机上安装并认证。
 
-## 3.2 Runtime behavior
+## 3.2 运行时行为
 
-In agent runtime settings, configure heartbeat policy:
+在智能体运行时设置中，配置心跳策略：
 
-- `enabled`: allow scheduled heartbeats
-- `intervalSec`: timer interval (0 = disabled)
-- `wakeOnAssignment`: wake when assigned work
-- `wakeOnOnDemand`: allow ping-style on-demand wakeups
-- `wakeOnAutomation`: allow system automation wakeups
+- `enabled`：允许定时心跳
+- `intervalSec`：定时器间隔（0 = 禁用）
+- `wakeOnAssignment`：分配工作时唤醒
+- `wakeOnOnDemand`：允许 ping 式按需唤醒
+- `wakeOnAutomation`：允许系统自动化唤醒
 
-## 3.3 Working directory and execution limits
+## 3.3 工作目录和执行限制
 
-For local adapters, set:
+对于本地适配器，设置：
 
-- `cwd` (working directory)
-- `timeoutSec` (max runtime per heartbeat)
-- `graceSec` (time before force-kill after timeout/cancel)
-- optional env vars and extra CLI args
-- use **Test environment** in agent configuration to run adapter-specific diagnostics before saving
+- `cwd`（工作目录）
+- `timeoutSec`（每次心跳的最大运行时间）
+- `graceSec`（超时/取消后强制终止前的等待时间）
+- 可选的环境变量和额外 CLI 参数
+- 使用智能体配置中的**测试环境**在保存前运行适配器特定诊断
 
-## 3.4 Prompt templates
+## 3.4 提示词模板
 
-You can set:
+你可以设置：
 
-- `promptTemplate`: used for every run (first run and resumed sessions)
+- `promptTemplate`：用于每次运行（首次运行和恢复的会话）
 
-Templates support variables like `{{agent.id}}`, `{{agent.name}}`, and run context values.
+模板支持 `{{agent.id}}`、`{{agent.name}}` 等变量和运行上下文值。
 
-## 4. Session resume behavior
+## 4. 会话恢复行为
 
-Paperclip stores session IDs for resumable adapters.
+Paperclip 为可恢复的适配器存储会话 ID。
 
-- Next heartbeat reuses the saved session automatically.
-- This gives continuity across heartbeats.
-- You can reset a session if context gets stale or confused.
+- 下次心跳自动复用保存的会话。
+- 这提供了心跳间的连续性。
+- 当上下文变得过期或混乱时，你可以重置会话。
 
-Use session reset when:
+在以下情况使用会话重置：
 
-- you significantly changed prompt strategy
-- the agent is stuck in a bad loop
-- you want a clean restart
+- 你显著改变了提示词策略
+- 智能体陷入了不良循环
+- 你想要全新开始
 
-## 5. Logs, status, and run history
+## 5. 日志、状态和运行历史
 
-For each heartbeat run you get:
+每次心跳运行你可以获取：
 
-- run status (`queued`, `running`, `succeeded`, `failed`, `timed_out`, `cancelled`)
-- error text and stderr/stdout excerpts
-- token usage/cost when available from the adapter
-- full logs (stored outside core run rows, optimized for large output)
+- 运行状态（`queued`、`running`、`succeeded`、`failed`、`timed_out`、`cancelled`）
+- 错误文本和 stderr/stdout 摘录
+- 适配器可提供时的 token 使用量/成本
+- 完整日志（存储在核心运行行之外，为大量输出优化）
 
-In local/dev setups, full logs are stored on disk under the configured run-log path.
+在本地/开发环境中，完整日志存储在配置的运行日志路径的磁盘上。
 
-## 6. Live updates in the UI
+## 6. UI 中的实时更新
 
-Paperclip pushes runtime/activity updates to the browser in real time.
+Paperclip 将运行时/活动更新实时推送到浏览器。
 
-You should see live changes for:
+你应该能看到以下内容的实时变化：
 
-- agent status
-- heartbeat run status
-- task/activity updates caused by agent work
-- dashboard/cost/activity panels as relevant
+- 智能体状态
+- 心跳运行状态
+- 智能体工作导致的任务/活动更新
+- 仪表盘/成本/活动面板的相关变化
 
-If the connection drops, the UI reconnects automatically.
+如果连接断开，UI 自动重连。
 
-## 7. Common operating patterns
+## 7. 常见操作模式
 
-## 7.1 Simple autonomous loop
+## 7.1 简单自主循环
 
-1. Enable timer wakeups (for example every 300s)
-2. Keep assignment wakeups on
-3. Use a focused prompt template
-4. Watch run logs and adjust prompt/config over time
+1. 启用定时唤醒（例如每 300 秒）
+2. 保持分配唤醒开启
+3. 使用聚焦的提示词模板
+4. 观察运行日志并随时间调整提示词/配置
 
-## 7.2 Event-driven loop (less constant polling)
+## 7.2 事件驱动循环（减少持续轮询）
 
-1. Disable timer or set a long interval
-2. Keep wake-on-assignment enabled
-3. Use on-demand wakeups for manual nudges
+1. 禁用定时器或设置较长间隔
+2. 保持分配时唤醒启用
+3. 使用按需唤醒进行手动推动
 
-## 7.3 Safety-first loop
+## 7.3 安全优先循环
 
-1. Short timeout
-2. Conservative prompt
-3. Monitor errors + cancel quickly when needed
-4. Reset sessions when drift appears
+1. 短超时
+2. 保守的提示词
+3. 监控错误 + 需要时快速取消
+4. 出现漂移时重置会话
 
-## 8. Troubleshooting
+## 8. 故障排除
 
-If runs fail repeatedly:
+如果运行反复失败：
 
-1. Check adapter command availability (`claude`/`codex` installed and logged in).
-2. Verify `cwd` exists and is accessible.
-3. Inspect run error + stderr excerpt, then full log.
-4. Confirm timeout is not too low.
-5. Reset session and retry.
-6. Pause agent if it is causing repeated bad updates.
+1. 检查适配器命令可用性（`claude`/`codex` 已安装并登录）。
+2. 验证 `cwd` 存在且可访问。
+3. 检查运行错误 + stderr 摘录，然后查看完整日志。
+4. 确认超时不会太短。
+5. 重置会话并重试。
+6. 如果导致反复错误更新，暂停智能体。
 
-Typical failure causes:
+典型失败原因：
 
-- CLI not installed/authenticated
-- bad working directory
-- malformed adapter args/env
-- prompt too broad or missing constraints
-- process timeout
+- CLI 未安装/未认证
+- 工作目录错误
+- 适配器参数/环境变量格式错误
+- 提示词太宽泛或缺少约束
+- 进程超时
 
-Claude-specific note:
+Claude 特定说明：
 
-- If `ANTHROPIC_API_KEY` is set in adapter env or host environment, Claude uses API-key auth instead of subscription login. Paperclip surfaces this as a warning in environment tests, not a hard error.
+- 如果在适配器环境或主机环境中设置了 `ANTHROPIC_API_KEY`，Claude 使用 API 密钥认证而非订阅登录。Paperclip 在环境测试中将此作为警告提示，而非硬错误。
 
-## 9. Security and risk notes
+## 9. 安全和风险说明
 
-Local CLI adapters run unsandboxed on the host machine.
+本地 CLI 适配器在主机上无沙箱运行。
 
-That means:
+这意味着：
 
-- prompt instructions matter
-- configured credentials/env vars are sensitive
-- working directory permissions matter
+- 提示词指令很重要
+- 配置的凭据/环境变量是敏感的
+- 工作目录权限很重要
 
-Start with least privilege where possible, and avoid exposing secrets in broad reusable prompts unless intentionally required.
+尽可能以最小权限开始，除非有意需要，否则避免在广泛的可复用提示词中暴露密钥。
 
-## 10. Minimal setup checklist
+## 10. 最小设置检查清单
 
-1. Choose adapter (`claude_local` or `codex_local`).
-2. Set `cwd` to the target workspace.
-3. Add bootstrap + normal prompt templates.
-4. Configure heartbeat policy (timer and/or assignment wakeups).
-5. Trigger a manual wakeup.
-6. Confirm run succeeds and session/token usage is recorded.
-7. Watch live updates and iterate prompt/config.
+1. 选择适配器（`claude_local` 或 `codex_local`）。
+2. 将 `cwd` 设为目标工作区。
+3. 添加引导 + 正常提示词模板。
+4. 配置心跳策略（定时和/或分配唤醒）。
+5. 触发手动唤醒。
+6. 确认运行成功且会话/token 使用量被记录。
+7. 观察实时更新并迭代提示词/配置。

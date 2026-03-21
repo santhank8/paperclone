@@ -1,78 +1,78 @@
-# Instructions for writing the README.md
+# 编写 README.md 的说明
 
-The readme should be visually interesting, to the point, not too long.
-Use the copy from the website in cases where we need some.
+README 应该视觉上有趣、直奔主题、不要太长。
+在需要时使用网站上的文案。
 
-- gives the pitch why, e.g. from the homepage.
+- 给出为什么的宣传语，例如来自首页。
 
-## Outline
+## 大纲
 
-- image header up top
+- 顶部图片头部
 - Paperclip
-- Manage autonomous AI Businesses
-- The open-source AI-agent orchestrator teams of agents that run companies
+- 管理自主 AI 企业
+- 开源的 AI 智能体编排器，管理运行公司的智能体团队
 
-- a video
+- 一段视频
 
-# What is it
+# 它是什么
 
-Paperclip is a node server & UI that orchestrates a team of agents to run businesses.
+Paperclip 是一个 node 服务器和 UI，编排一个智能体团队来运行企业。
 
-Bring-your-own agents, assign goals, and track your agent's work and costs.
+自带智能体、分配目标、追踪你的智能体工作和成本。
 
-It looks like a task manager but has specialized skills and agent coordination
+它看起来像一个任务管理器，但有专门的技能和智能体协调
 
-**It's high taste, and feels good to use**
+**品味高端，使用体验好**
 
-# Paperclip is right for you if:
+# Paperclip 适合你如果：
 
-- You want to build autonomous companies
-- You want to coordinate many different types agents (OpenClaw, Codex, Claude, Cursor, etc.) to collaborate towards a common goal
-- You have 20 simultaneous Claude Code terminals open (and lose track of what everyone is working on)
-- You want to let your agents run autonomously 24/7, but still audit their work and chime in when needed
-- You want to monitor costs
-- You want a process for managing your agents that feels like using a task manager
-- You want to manage your autonomous businesses from your phone
+- 你想构建自主公司
+- 你想协调多种不同类型的智能体（OpenClaw、Codex、Claude、Cursor 等）朝着共同目标协作
+- 你同时打开了 20 个 Claude Code 终端（并且记不清每个在做什么）
+- 你想让智能体 24/7 自主运行，但仍然审计它们的工作并在需要时介入
+- 你想监控成本
+- 你想要一个管理智能体的流程，感觉像使用任务管理器
+- 你想从手机上管理你的自主企业
 
-# What is not
+# 它不是什么
 
-Paperclip is not:
+Paperclip 不是：
 
-- a code review tool
-- opinionated about what agent you use
+- 代码审查工具
+- 对你使用什么智能体有预设
 
-# the problem
+# 问题
 
-If you want to be maximally effective with agents, you need to
+如果你想最大化利用智能体的效果，你需要
 
-# quickstart
+# 快速开始
 
-# faq
+# 常见问题
 
-# comparison
+# 对比
 
-# contributing
+# 贡献
 
-# community
+# 社区
 
-# license
+# 许可证
 
-# footer
+# 页脚
 
-## Examples:
+## 示例：
 
-- https://github.com/klawsh/klaw.sh - nice header, nice tables
-  - what is it
-  - the problem
-  - quickstart
-  - faq
-  - comparison
-  - contributing
-  - community
-  - license
-  - footer
-- https://github.com/nearai/ironclaw - nice header
-  - philosophy
-- https://github.com/TinyAGI/tinyclaw - nice header, nice video
-- https://github.com/ryoppippi/ccusage - nice header,
-- https://github.com/can1357/oh-my-pi - a little long
+- https://github.com/klawsh/klaw.sh - 好看的头部，好看的表格
+  - 它是什么
+  - 问题
+  - 快速开始
+  - 常见问题
+  - 对比
+  - 贡献
+  - 社区
+  - 许可证
+  - 页脚
+- https://github.com/nearai/ironclaw - 好看的头部
+  - 理念
+- https://github.com/TinyAGI/tinyclaw - 好看的头部，好看的视频
+- https://github.com/ryoppippi/ccusage - 好看的头部
+- https://github.com/can1357/oh-my-pi - 有点长

@@ -1,121 +1,121 @@
-# Paperclip V1 Implementation Spec
+# Paperclip V1 实现规范
 
-Status: Implementation contract for first release (V1)
-Date: 2026-02-17
-Audience: Product, engineering, and agent-integration authors
-Source inputs: `GOAL.md`, `PRODUCT.md`, `SPEC.md`, `DATABASE.md`, current monorepo code
+状态：第一版（V1）发布的实现合约
+日期：2026-02-17
+读者：产品、工程和智能体集成作者
+输入来源：`GOAL.md`、`PRODUCT.md`、`SPEC.md`、`DATABASE.md`、当前 monorepo 代码
 
-## 1. Document Role
+## 1. 文档角色
 
-`SPEC.md` remains the long-horizon product spec.
-This document is the concrete, build-ready V1 contract.
-When there is a conflict, `SPEC-implementation.md` controls V1 behavior.
+`SPEC.md` 仍然是长期产品规范。
+本文档是具体的、可构建的 V1 合约。
+当存在冲突时，`SPEC-implementation.md` 控制 V1 行为。
 
-## 2. V1 Outcomes
+## 2. V1 目标成果
 
-Paperclip V1 must provide a full control-plane loop for autonomous agents:
+Paperclip V1 必须为自治智能体提供完整的控制平面循环：
 
-1. A human board creates a company and defines goals.
-2. The board creates and manages agents in an org tree.
-3. Agents receive and execute tasks via heartbeat invocations.
-4. All work is tracked through tasks/comments with audit visibility.
-5. Token/cost usage is reported and budget limits can stop work.
-6. The board can intervene anywhere (pause agents/tasks, override decisions).
+1. 人类董事会创建公司并定义目标。
+2. 董事会在组织树中创建和管理智能体。
+3. 智能体通过心跳调用接收并执行任务。
+4. 所有工作通过任务/评论进行跟踪，具备审计可见性。
+5. Token/成本使用被报告，预算限制可以停止工作。
+6. 董事会可以在任何地方进行干预（暂停智能体/任务、覆盖决策）。
 
-Success means one operator can run a small AI-native company end-to-end with clear visibility and control.
+成功意味着一个运营者可以端到端运行一个小型 AI 原生公司，具有清晰的可见性和控制力。
 
-## 3. Explicit V1 Product Decisions
+## 3. 明确的 V1 产品决策
 
-These decisions close open questions from `SPEC.md` for V1.
+这些决策关闭了 `SPEC.md` 中 V1 的未决问题。
 
-| Topic | V1 Decision |
+| 主题 | V1 决策 |
 |---|---|
-| Tenancy | Single-tenant deployment, multi-company data model |
-| Company model | Company is first-order; all business entities are company-scoped |
-| Board | Single human board operator per deployment |
-| Org graph | Strict tree (`reports_to` nullable root); no multi-manager reporting |
-| Visibility | Full visibility to board and all agents in same company |
-| Communication | Tasks + comments only (no separate chat system) |
-| Task ownership | Single assignee; atomic checkout required for `in_progress` transition |
-| Recovery | No automatic reassignment; work recovery stays manual/explicit |
-| Agent adapters | Built-in `process` and `http` adapters |
-| Auth | Mode-dependent human auth (`local_trusted` implicit board in current code; authenticated mode uses sessions), API keys for agents |
-| Budget period | Monthly UTC calendar window |
-| Budget enforcement | Soft alerts + hard limit auto-pause |
-| Deployment modes | Canonical model is `local_trusted` + `authenticated` with `private/public` exposure policy (see `doc/DEPLOYMENT-MODES.md`) |
+| 租户模式 | 单租户部署，多公司数据模型 |
+| 公司模型 | 公司是一等实体；所有业务实体都在公司范围内 |
+| 董事会 | 每次部署一个人类董事会运营者 |
+| 组织图 | 严格树结构（`reports_to` 可为空的根节点）；不支持多管理者汇报 |
+| 可见性 | 董事会和同一公司的所有智能体具有完全可见性 |
+| 沟通 | 仅限任务 + 评论（无独立聊天系统） |
+| 任务归属 | 单一负责人；`in_progress` 转换需要原子签出 |
+| 恢复 | 不自动重新分配；工作恢复保持手动/显式 |
+| 智能体适配器 | 内置 `process` 和 `http` 适配器 |
+| 认证 | 模式相关的人类认证（当前代码中 `local_trusted` 隐式董事会；认证模式使用会话），智能体使用 API 密钥 |
+| 预算周期 | 月度 UTC 日历窗口 |
+| 预算执行 | 软告警 + 硬限制自动暂停 |
+| 部署模式 | 规范模型是 `local_trusted` + `authenticated`，带 `private/public` 暴露策略（参见 `doc/DEPLOYMENT-MODES.md`） |
 
-## 4. Current Baseline (Repo Snapshot)
+## 4. 当前基线（仓库快照）
 
-As of 2026-02-17, the repo already includes:
+截至 2026-02-17，仓库已包含：
 
-- Node + TypeScript backend with REST CRUD for `agents`, `projects`, `goals`, `issues`, `activity`
-- React UI pages for dashboard/agents/projects/goals/issues lists
-- PostgreSQL schema via Drizzle with embedded PostgreSQL fallback when `DATABASE_URL` is unset
+- Node + TypeScript 后端，REST CRUD 用于 `agents`、`projects`、`goals`、`issues`、`activity`
+- React UI 页面用于仪表盘/智能体/项目/目标/任务列表
+- 通过 Drizzle 的 PostgreSQL 模式，当 `DATABASE_URL` 未设置时使用嵌入式 PostgreSQL 回退
 
-V1 implementation extends this baseline into a company-centric, governance-aware control plane.
+V1 实现将此基线扩展为以公司为中心、治理感知的控制平面。
 
-## 5. V1 Scope
+## 5. V1 范围
 
-## 5.1 In Scope
+## 5.1 范围内
 
-- Company lifecycle (create/list/get/update/archive)
-- Goal hierarchy linked to company mission
-- Agent lifecycle with org structure and adapter configuration
-- Task lifecycle with parent/child hierarchy and comments
-- Atomic task checkout and explicit task status transitions
-- Board approvals for hires and CEO strategy proposal
-- Heartbeat invocation, status tracking, and cancellation
-- Cost event ingestion and rollups (agent/task/project/company)
-- Budget settings and hard-stop enforcement
-- Board web UI for dashboard, org chart, tasks, agents, approvals, costs
-- Agent-facing API contract (task read/write, heartbeat report, cost report)
-- Auditable activity log for all mutating actions
+- 公司生命周期（创建/列表/获取/更新/归档）
+- 与公司使命关联的目标层次结构
+- 具有组织结构和适配器配置的智能体生命周期
+- 具有父/子层次结构和评论的任务生命周期
+- 原子任务签出和显式任务状态转换
+- 招聘和 CEO 战略提案的董事会审批
+- 心跳调用、状态跟踪和取消
+- 成本事件摄取和汇总（智能体/任务/项目/公司）
+- 预算设置和硬停止执行
+- 董事会 Web UI 用于仪表盘、组织图、任务、智能体、审批、成本
+- 面向智能体的 API 合约（任务读/写、心跳报告、成本报告）
+- 所有变更操作的可审计活动日志
 
-## 5.2 Out of Scope (V1)
+## 5.2 范围外（V1）
 
-- Plugin framework and third-party extension SDK
-- Revenue/expense accounting beyond model/token costs
-- Knowledge base subsystem
-- Public marketplace (ClipHub)
-- Multi-board governance or role-based human permission granularity
-- Automatic self-healing orchestration (auto-reassign/retry planners)
+- 插件框架和第三方扩展 SDK
+- 超出模型/Token 成本的收入/费用核算
+- 知识库子系统
+- 公开市场（ClipHub）
+- 多董事会治理或基于角色的人类权限粒度
+- 自动自愈编排（自动重新分配/重试规划器）
 
-## 6. Architecture
+## 6. 架构
 
-## 6.1 Runtime Components
+## 6.1 运行时组件
 
-- `server/`: REST API, auth, orchestration services
-- `ui/`: Board operator interface
-- `packages/db/`: Drizzle schema, migrations, DB clients (Postgres)
-- `packages/shared/`: Shared API types, validators, constants
+- `server/`：REST API、认证、编排服务
+- `ui/`：董事会运营者界面
+- `packages/db/`：Drizzle 模式、迁移、数据库客户端（Postgres）
+- `packages/shared/`：共享 API 类型、验证器、常量
 
-## 6.2 Data Stores
+## 6.2 数据存储
 
-- Primary: PostgreSQL
-- Local default: embedded PostgreSQL at `~/.paperclip/instances/default/db`
-- Optional local prod-like: Docker Postgres
-- Optional hosted: Supabase/Postgres-compatible
-- File/object storage:
-  - local default: `~/.paperclip/instances/default/data/storage` (`local_disk`)
-  - cloud: S3-compatible object storage (`s3`)
+- 主要：PostgreSQL
+- 本地默认：嵌入式 PostgreSQL 在 `~/.paperclip/instances/default/db`
+- 可选本地生产级：Docker Postgres
+- 可选托管：Supabase/Postgres 兼容
+- 文件/对象存储：
+  - 本地默认：`~/.paperclip/instances/default/data/storage`（`local_disk`）
+  - 云：S3 兼容的对象存储（`s3`）
 
-## 6.3 Background Processing
+## 6.3 后台处理
 
-A lightweight scheduler/worker in the server process handles:
+服务器进程中的轻量级调度器/工作器处理：
 
-- heartbeat trigger checks
-- stuck run detection
-- budget threshold checks
+- 心跳触发检查
+- 卡住的运行检测
+- 预算阈值检查
 
-Separate queue infrastructure is not required for V1.
+V1 不需要独立的队列基础设施。
 
-## 7. Canonical Data Model (V1)
+## 7. 规范数据模型（V1）
 
-All core tables include `id`, `created_at`, `updated_at` unless noted.
+所有核心表包含 `id`、`created_at`、`updated_at`，除非另有说明。
 
-## 7.0 Auth Tables
+## 7.0 认证表
 
-Human auth tables (`users`, `sessions`, and provider-specific auth artifacts) are managed by the selected auth library. This spec treats them as required dependencies and references `users.id` where user attribution is needed.
+人类认证表（`users`、`sessions` 和提供商特定的认证工件）由所选认证库管理。本规范将它们视为必需依赖项，并在需要用户归属时引用 `users.id`。
 
 ## 7.1 `companies`
 
@@ -124,7 +124,7 @@ Human auth tables (`users`, `sessions`, and provider-specific auth artifacts) ar
 - `description` text null
 - `status` enum: `active | paused | archived`
 
-Invariant: every business record belongs to exactly one company.
+不变量：每条业务记录恰好属于一个公司。
 
 ## 7.2 `agents`
 
@@ -143,11 +143,11 @@ Invariant: every business record belongs to exactly one company.
 - `spent_monthly_cents` int not null default 0
 - `last_heartbeat_at` timestamptz null
 
-Invariants:
+不变量：
 
-- agent and manager must be in same company
-- no cycles in reporting tree
-- `terminated` agents cannot be resumed
+- 智能体和管理者必须在同一公司
+- 汇报树中不能有循环
+- `terminated` 智能体不能被恢复
 
 ## 7.3 `agent_api_keys`
 
@@ -159,7 +159,7 @@ Invariants:
 - `last_used_at` timestamptz null
 - `revoked_at` timestamptz null
 
-Invariant: plaintext key shown once at creation; only hash stored.
+不变量：明文密钥在创建时只显示一次；仅存储哈希值。
 
 ## 7.4 `goals`
 
@@ -172,7 +172,7 @@ Invariant: plaintext key shown once at creation; only hash stored.
 - `owner_agent_id` uuid fk `agents.id` null
 - `status` enum: `planned | active | achieved | cancelled`
 
-Invariant: at least one root `company` level goal per company.
+不变量：每个公司至少有一个根级别的 `company` 目标。
 
 ## 7.5 `projects`
 
@@ -185,7 +185,7 @@ Invariant: at least one root `company` level goal per company.
 - `lead_agent_id` uuid fk `agents.id` null
 - `target_date` date null
 
-## 7.6 `issues` (core task entity)
+## 7.6 `issues`（核心任务实体）
 
 - `id` uuid pk
 - `company_id` uuid fk not null
@@ -205,12 +205,12 @@ Invariant: at least one root `company` level goal per company.
 - `completed_at` timestamptz null
 - `cancelled_at` timestamptz null
 
-Invariants:
+不变量：
 
-- single assignee only
-- task must trace to company goal chain via `goal_id`, `parent_id`, or project-goal linkage
-- `in_progress` requires assignee
-- terminal states: `done | cancelled`
+- 仅单一负责人
+- 任务必须通过 `goal_id`、`parent_id` 或项目-目标关联追溯到公司目标链
+- `in_progress` 需要负责人
+- 终态：`done`、`cancelled`
 
 ## 7.7 `issue_comments`
 
@@ -250,7 +250,7 @@ Invariants:
 - `cost_cents` int not null
 - `occurred_at` timestamptz not null
 
-Invariant: each event must attach to agent and company; rollups are aggregation, never manually edited.
+不变量：每个事件必须关联到智能体和公司；汇总是聚合结果，不可手动编辑。
 
 ## 7.10 `approvals`
 
@@ -279,19 +279,19 @@ Invariant: each event must attach to agent and company; rollups are aggregation,
 
 ## 7.12 `company_secrets` + `company_secret_versions`
 
-- Secret values are not stored inline in `agents.adapter_config.env`.
-- Agent env entries should use secret refs for sensitive values.
-- `company_secrets` tracks identity/provider metadata per company.
-- `company_secret_versions` stores encrypted/reference material per version.
-- Default provider in local deployments: `local_encrypted`.
+- 密钥值不内联存储在 `agents.adapter_config.env` 中。
+- 智能体环境条目应为敏感值使用密钥引用。
+- `company_secrets` 按公司跟踪身份/提供商元数据。
+- `company_secret_versions` 按版本存储加密/引用材料。
+- 本地部署的默认提供商：`local_encrypted`。
 
-Operational policy:
+运营策略：
 
-- Config read APIs redact sensitive plain values.
-- Activity and approval payloads must not persist raw sensitive values.
-- Config revisions may include redacted placeholders; such revisions are non-restorable for redacted fields.
+- 配置读取 API 需脱敏处理敏感明文值。
+- 活动和审批负载中不得持久化原始敏感值。
+- 配置修订可包含脱敏占位符；此类修订的脱敏字段不可恢复。
 
-## 7.13 Required Indexes
+## 7.13 必需索引
 
 - `agents(company_id, status)`
 - `agents(company_id, reports_to)`
@@ -312,7 +312,7 @@ Operational policy:
 
 ## 7.14 `assets` + `issue_attachments`
 
-- `assets` stores provider-backed object metadata (not inline bytes):
+- `assets` 存储提供商支持的对象元数据（不是内联字节）：
   - `id` uuid pk
   - `company_id` uuid fk not null
   - `provider` enum/text (`local_disk | s3`)
@@ -323,7 +323,7 @@ Operational policy:
   - `original_filename` text null
   - `created_by_agent_id` uuid fk null
   - `created_by_user_id` uuid/text fk null
-- `issue_attachments` links assets to issues/comments:
+- `issue_attachments` 将资产关联到任务/评论：
   - `id` uuid pk
   - `company_id` uuid fk not null
   - `issue_id` uuid fk not null
@@ -332,7 +332,7 @@ Operational policy:
 
 ## 7.15 `documents` + `document_revisions` + `issue_documents`
 
-- `documents` stores editable text-first documents:
+- `documents` 存储可编辑的文本优先文档：
   - `id` uuid pk
   - `company_id` uuid fk not null
   - `title` text null
@@ -344,98 +344,98 @@ Operational policy:
   - `created_by_user_id` uuid/text fk null
   - `updated_by_agent_id` uuid fk null
   - `updated_by_user_id` uuid/text fk null
-- `document_revisions` stores append-only history:
+- `document_revisions` 存储仅追加的历史记录：
   - `id` uuid pk
   - `company_id` uuid fk not null
   - `document_id` uuid fk not null
   - `revision_number` int not null
   - `body` text not null
   - `change_summary` text null
-- `issue_documents` links documents to issues with a stable workflow key:
+- `issue_documents` 通过稳定的工作流键将文档关联到任务：
   - `id` uuid pk
   - `company_id` uuid fk not null
   - `issue_id` uuid fk not null
   - `document_id` uuid fk not null
-  - `key` text not null (`plan`, `design`, `notes`, etc.)
+  - `key` text not null (`plan`、`design`、`notes` 等)
 
-## 8. State Machines
+## 8. 状态机
 
-## 8.1 Agent Status
+## 8.1 智能体状态
 
-Allowed transitions:
+允许的转换：
 
 - `idle -> running`
 - `running -> idle`
 - `running -> error`
 - `error -> idle`
 - `idle -> paused`
-- `running -> paused` (requires cancel flow)
+- `running -> paused`（需要取消流程）
 - `paused -> idle`
-- `* -> terminated` (board only, irreversible)
+- `* -> terminated`（仅董事会，不可逆）
 
-## 8.2 Issue Status
+## 8.2 任务状态
 
-Allowed transitions:
+允许的转换：
 
 - `backlog -> todo | cancelled`
 - `todo -> in_progress | blocked | cancelled`
 - `in_progress -> in_review | blocked | done | cancelled`
 - `in_review -> in_progress | done | cancelled`
 - `blocked -> todo | in_progress | cancelled`
-- terminal: `done`, `cancelled`
+- 终态：`done`、`cancelled`
 
-Side effects:
+副作用：
 
-- entering `in_progress` sets `started_at` if null
-- entering `done` sets `completed_at`
-- entering `cancelled` sets `cancelled_at`
+- 进入 `in_progress` 时如果为空则设置 `started_at`
+- 进入 `done` 时设置 `completed_at`
+- 进入 `cancelled` 时设置 `cancelled_at`
 
-## 8.3 Approval Status
+## 8.3 审批状态
 
 - `pending -> approved | rejected | cancelled`
-- terminal after decision
+- 决策后为终态
 
-## 9. Auth and Permissions
+## 9. 认证和权限
 
-## 9.1 Board Auth
+## 9.1 董事会认证
 
-- Session-based auth for human operator
-- Board has full read/write across all companies in deployment
-- Every board mutation writes to `activity_log`
+- 人类运营者的基于会话的认证
+- 董事会对部署中所有公司具有完全读/写权限
+- 每次董事会变更写入 `activity_log`
 
-## 9.2 Agent Auth
+## 9.2 智能体认证
 
-- Bearer API key mapped to one agent and company
-- Agent key scope:
-  - read org/task/company context for own company
-  - read/write own assigned tasks and comments
-  - create tasks/comments for delegation
-  - report heartbeat status
-  - report cost events
-- Agent cannot:
-  - bypass approval gates
-  - modify company-wide budgets directly
-  - mutate auth/keys
+- Bearer API 密钥映射到一个智能体和一个公司
+- 智能体密钥范围：
+  - 读取本公司的组织/任务/公司上下文
+  - 读/写自己分配的任务和评论
+  - 为委派创建任务/评论
+  - 报告心跳状态
+  - 报告成本事件
+- 智能体不能：
+  - 绕过审批门
+  - 直接修改公司级预算
+  - 修改认证/密钥
 
-## 9.3 Permission Matrix (V1)
+## 9.3 权限矩阵（V1）
 
-| Action | Board | Agent |
+| 操作 | 董事会 | 智能体 |
 |---|---|---|
-| Create company | yes | no |
-| Hire/create agent | yes (direct) | request via approval |
-| Pause/resume agent | yes | no |
-| Create/update task | yes | yes |
-| Force reassign task | yes | limited |
-| Approve strategy/hire requests | yes | no |
-| Report cost | yes | yes |
-| Set company budget | yes | no |
-| Set subordinate budget | yes | yes (manager subtree only) |
+| 创建公司 | 是 | 否 |
+| 招聘/创建智能体 | 是（直接） | 通过审批请求 |
+| 暂停/恢复智能体 | 是 | 否 |
+| 创建/更新任务 | 是 | 是 |
+| 强制重新分配任务 | 是 | 有限 |
+| 审批战略/招聘请求 | 是 | 否 |
+| 报告成本 | 是 | 是 |
+| 设置公司预算 | 是 | 否 |
+| 设置下属预算 | 是 | 是（仅管理者子树） |
 
-## 10. API Contract (REST)
+## 10. API 合约（REST）
 
-All endpoints are under `/api` and return JSON.
+所有端点在 `/api` 下并返回 JSON。
 
-## 10.1 Companies
+## 10.1 公司
 
 - `GET /companies`
 - `POST /companies`
@@ -444,15 +444,15 @@ All endpoints are under `/api` and return JSON.
 - `PATCH /companies/:companyId/branding`
 - `POST /companies/:companyId/archive`
 
-## 10.2 Goals
+## 10.2 目标
 
 - `GET /companies/:companyId/goals`
 - `POST /companies/:companyId/goals`
 - `GET /goals/:goalId`
 - `PATCH /goals/:goalId`
-- `DELETE /goals/:goalId` (soft delete optional, hard delete board-only)
+- `DELETE /goals/:goalId`（可选软删除，硬删除仅董事会）
 
-## 10.3 Agents
+## 10.3 智能体
 
 - `GET /companies/:companyId/agents`
 - `POST /companies/:companyId/agents`
@@ -461,10 +461,10 @@ All endpoints are under `/api` and return JSON.
 - `POST /agents/:agentId/pause`
 - `POST /agents/:agentId/resume`
 - `POST /agents/:agentId/terminate`
-- `POST /agents/:agentId/keys` (create API key)
+- `POST /agents/:agentId/keys`（创建 API 密钥）
 - `POST /agents/:agentId/heartbeat/invoke`
 
-## 10.4 Tasks (Issues)
+## 10.4 任务（Issues）
 
 - `GET /companies/:companyId/issues`
 - `POST /companies/:companyId/issues`
@@ -479,14 +479,14 @@ All endpoints are under `/api` and return JSON.
 - `POST /issues/:issueId/release`
 - `POST /issues/:issueId/comments`
 - `GET /issues/:issueId/comments`
-- `POST /companies/:companyId/issues/:issueId/attachments` (multipart upload)
+- `POST /companies/:companyId/issues/:issueId/attachments`（多部分上传）
 - `GET /issues/:issueId/attachments`
 - `GET /attachments/:attachmentId/content`
 - `DELETE /attachments/:attachmentId`
 
-### 10.4.1 Atomic Checkout Contract
+### 10.4.1 原子签出合约
 
-`POST /issues/:issueId/checkout` request:
+`POST /issues/:issueId/checkout` 请求：
 
 ```json
 {
@@ -495,27 +495,27 @@ All endpoints are under `/api` and return JSON.
 }
 ```
 
-Server behavior:
+服务器行为：
 
-1. single SQL update with `WHERE id = ? AND status IN (?) AND (assignee_agent_id IS NULL OR assignee_agent_id = :agentId)`
-2. if updated row count is 0, return `409` with current owner/status
-3. successful checkout sets `assignee_agent_id`, `status = in_progress`, and `started_at`
+1. 单个 SQL 更新，带 `WHERE id = ? AND status IN (?) AND (assignee_agent_id IS NULL OR assignee_agent_id = :agentId)`
+2. 如果更新行数为 0，返回 `409` 及当前所有者/状态
+3. 成功签出设置 `assignee_agent_id`、`status = in_progress` 和 `started_at`
 
-## 10.5 Projects
+## 10.5 项目
 
 - `GET /companies/:companyId/projects`
 - `POST /companies/:companyId/projects`
 - `GET /projects/:projectId`
 - `PATCH /projects/:projectId`
 
-## 10.6 Approvals
+## 10.6 审批
 
 - `GET /companies/:companyId/approvals?status=pending`
 - `POST /companies/:companyId/approvals`
 - `POST /approvals/:approvalId/approve`
 - `POST /approvals/:approvalId/reject`
 
-## 10.7 Cost and Budgets
+## 10.7 成本和预算
 
 - `POST /companies/:companyId/cost-events`
 - `GET /companies/:companyId/costs/summary`
@@ -524,31 +524,31 @@ Server behavior:
 - `PATCH /companies/:companyId/budgets`
 - `PATCH /agents/:agentId/budgets`
 
-## 10.8 Activity and Dashboard
+## 10.8 活动和仪表盘
 
 - `GET /companies/:companyId/activity`
 - `GET /companies/:companyId/dashboard`
 
-Dashboard payload must include:
+仪表盘负载必须包含：
 
-- active/running/paused/error agent counts
-- open/in-progress/blocked/done issue counts
-- month-to-date spend and budget utilization
-- pending approvals count
+- 活跃/运行/暂停/错误智能体计数
+- 打开/进行中/阻塞/完成任务计数
+- 月初至今支出和预算使用率
+- 待处理审批计数
 
-## 10.9 Error Semantics
+## 10.9 错误语义
 
-- `400` validation error
-- `401` unauthenticated
-- `403` unauthorized
-- `404` not found
-- `409` state conflict (checkout conflict, invalid transition)
-- `422` semantic rule violation
-- `500` server error
+- `400` 验证错误
+- `401` 未认证
+- `403` 未授权
+- `404` 未找到
+- `409` 状态冲突（签出冲突、无效转换）
+- `422` 语义规则违反
+- `500` 服务器错误
 
-## 11. Heartbeat and Adapter Contract
+## 11. 心跳和适配器合约
 
-## 11.1 Adapter Interface
+## 11.1 适配器接口
 
 ```ts
 interface AgentAdapter {
@@ -558,9 +558,9 @@ interface AgentAdapter {
 }
 ```
 
-## 11.2 Process Adapter
+## 11.2 进程适配器
 
-Config shape:
+配置形状：
 
 ```json
 {
@@ -573,16 +573,16 @@ Config shape:
 }
 ```
 
-Behavior:
+行为：
 
-- spawn child process
-- stream stdout/stderr to run logs
-- mark run status on exit code/timeout
-- cancel sends SIGTERM then SIGKILL after grace
+- 生成子进程
+- 将 stdout/stderr 流式传输到运行日志
+- 在退出码/超时时标记运行状态
+- 取消先发送 SIGTERM 然后在宽限期后 SIGKILL
 
-## 11.3 HTTP Adapter
+## 11.3 HTTP 适配器
 
-Config shape:
+配置形状：
 
 ```json
 {
@@ -594,81 +594,81 @@ Config shape:
 }
 ```
 
-Behavior:
+行为：
 
-- invoke by outbound HTTP request
-- 2xx means accepted
-- non-2xx marks failed invocation
-- optional callback endpoint allows asynchronous completion updates
+- 通过出站 HTTP 请求调用
+- 2xx 表示已接受
+- 非 2xx 标记调用失败
+- 可选回调端点允许异步完成更新
 
-## 11.4 Context Delivery
+## 11.4 上下文传递
 
-- `thin`: send IDs and pointers only; agent fetches context via API
-- `fat`: include current assignments, goal summary, budget snapshot, and recent comments
+- `thin`：仅发送 ID 和指针；智能体通过 API 获取上下文
+- `fat`：包含当前分配、目标摘要、预算快照和最近评论
 
-## 11.5 Scheduler Rules
+## 11.5 调度器规则
 
-Per-agent schedule fields in `adapter_config`:
+`adapter_config` 中的每智能体调度字段：
 
 - `enabled` boolean
-- `intervalSec` integer (minimum 30)
-- `maxConcurrentRuns` fixed at `1` for V1
+- `intervalSec` integer（最小 30）
+- `maxConcurrentRuns` V1 固定为 `1`
 
-Scheduler must skip invocation when:
+调度器在以下情况下必须跳过调用：
 
-- agent is paused/terminated
-- an existing run is active
-- hard budget limit has been hit
+- 智能体被暂停/终止
+- 已有活跃运行
+- 硬预算限制已达到
 
-## 12. Governance and Approval Flows
+## 12. 治理和审批流程
 
-## 12.1 Hiring
+## 12.1 招聘
 
-1. Agent or board creates `approval(type=hire_agent, status=pending, payload=agent draft)`.
-2. Board approves or rejects.
-3. On approval, server creates agent row and initial API key (optional).
-4. Decision is logged in `activity_log`.
+1. 智能体或董事会创建 `approval(type=hire_agent, status=pending, payload=agent draft)`。
+2. 董事会批准或拒绝。
+3. 批准后，服务器创建智能体行和初始 API 密钥（可选）。
+4. 决策记录在 `activity_log` 中。
 
-Board can bypass request flow and create agents directly via UI; direct create is still logged as a governance action.
+董事会可以绕过请求流程直接通过 UI 创建智能体；直接创建仍然作为治理操作被记录。
 
-## 12.2 CEO Strategy Approval
+## 12.2 CEO 战略审批
 
-1. CEO posts strategy proposal as `approval(type=approve_ceo_strategy)`.
-2. Board reviews payload (plan text, initial structure, high-level tasks).
-3. Approval unlocks execution state for CEO-created delegated work.
+1. CEO 发布战略提案为 `approval(type=approve_ceo_strategy)`。
+2. 董事会审查负载（计划文本、初始结构、高级任务）。
+3. 审批解锁 CEO 创建的委派工作的执行状态。
 
-Before first strategy approval, CEO may only draft tasks, not transition them to active execution states.
+在首次战略审批之前，CEO 只能起草任务，不能将它们转换为活跃执行状态。
 
-## 12.3 Board Override
+## 12.3 董事会覆盖
 
-Board can at any time:
+董事会可以在任何时候：
 
-- pause/resume/terminate any agent
-- reassign or cancel any task
-- edit budgets and limits
-- approve/reject/cancel pending approvals
+- 暂停/恢复/终止任何智能体
+- 重新分配或取消任何任务
+- 编辑预算和限制
+- 批准/拒绝/取消待处理的审批
 
-## 13. Cost and Budget System
+## 13. 成本和预算系统
 
-## 13.1 Budget Layers
+## 13.1 预算层级
 
-- company monthly budget
-- agent monthly budget
-- optional project budget (if configured)
+- 公司月度预算
+- 智能体月度预算
+- 可选项目预算（如果配置）
 
-## 13.2 Enforcement Rules
+## 13.2 执行规则
 
-- soft alert default threshold: 80%
-- hard limit: at 100%, trigger:
-  - set agent status to `paused`
-  - block new checkout/invocation for that agent
-  - emit high-priority activity event
+- 软告警默认阈值：80%
+- 硬限制：在 100% 时触发：
+  - 将智能体状态设为 `paused`
+  - 阻止该智能体的新签出/调用
+  - 发出高优先级活动事件
 
-Board may override by raising budget or explicitly resuming agent.
+董事会可以通过提高预算或显式恢复智能体来覆盖。
 
-## 13.3 Cost Event Ingestion
+## 13.3 成本事件摄取
 
-`POST /companies/:companyId/cost-events` body:
+`POST /companies/:companyId/cost-events` 请求体：
 
 ```json
 {
@@ -684,171 +684,171 @@ Board may override by raising budget or explicitly resuming agent.
 }
 ```
 
-Validation:
+验证：
 
-- non-negative token counts
+- 非负 Token 计数
 - `costCents >= 0`
-- company ownership checks for all linked entities
+- 所有关联实体的公司所有权检查
 
-## 13.4 Rollups
+## 13.4 汇总
 
-Read-time aggregate queries are acceptable for V1.
-Materialized rollups can be added later if query latency exceeds targets.
+V1 可接受读取时聚合查询。
+如果查询延迟超过目标，可后续添加物化汇总。
 
-## 14. UI Requirements (Board App)
+## 14. UI 需求（董事会应用）
 
-V1 UI routes:
+V1 UI 路由：
 
-- `/` dashboard
-- `/companies` company list/create
-- `/companies/:id/org` org chart and agent status
-- `/companies/:id/tasks` task list/kanban
-- `/companies/:id/agents/:agentId` agent detail
-- `/companies/:id/costs` cost and budget dashboard
-- `/companies/:id/approvals` pending/history approvals
-- `/companies/:id/activity` audit/event stream
+- `/` 仪表盘
+- `/companies` 公司列表/创建
+- `/companies/:id/org` 组织图和智能体状态
+- `/companies/:id/tasks` 任务列表/看板
+- `/companies/:id/agents/:agentId` 智能体详情
+- `/companies/:id/costs` 成本和预算仪表盘
+- `/companies/:id/approvals` 待处理/历史审批
+- `/companies/:id/activity` 审计/事件流
 
-Required UX behaviors:
+必需的 UX 行为：
 
-- global company selector
-- quick actions: pause/resume agent, create task, approve/reject request
-- conflict toasts on atomic checkout failure
-- no silent background failures; every failed run visible in UI
+- 全局公司选择器
+- 快速操作：暂停/恢复智能体、创建任务、批准/拒绝请求
+- 原子签出失败时的冲突提示
+- 无静默后台失败；每次失败的运行在 UI 中可见
 
-## 15. Operational Requirements
+## 15. 运维需求
 
-## 15.1 Environment
+## 15.1 环境
 
 - Node 20+
-- `DATABASE_URL` optional
-- if unset, auto-use PGlite and push schema
+- `DATABASE_URL` 可选
+- 如果未设置，自动使用 PGlite 并推送模式
 
-## 15.2 Migrations
+## 15.2 迁移
 
-- Drizzle migrations are source of truth
-- no destructive migration in-place for V1 upgrade path
-- provide migration script from existing minimal tables to company-scoped schema
+- Drizzle 迁移是事实来源
+- V1 升级路径中没有破坏性就地迁移
+- 提供从现有最小表到公司范围模式的迁移脚本
 
-## 15.3 Logging and Audit
+## 15.3 日志和审计
 
-- structured logs (JSON in production)
-- request ID per API call
-- every mutation writes `activity_log`
+- 结构化日志（生产环境中为 JSON）
+- 每个 API 调用的请求 ID
+- 每次变更写入 `activity_log`
 
-## 15.4 Reliability Targets
+## 15.4 可靠性目标
 
-- API p95 latency under 250 ms for standard CRUD at 1k tasks/company
-- heartbeat invoke acknowledgement under 2 s for process adapter
-- no lost approval decisions (transactional writes)
+- 在 1k 任务/公司时标准 CRUD 的 API p95 延迟低于 250 ms
+- 进程适配器的心跳调用确认低于 2 秒
+- 不丢失审批决策（事务性写入）
 
-## 16. Security Requirements
+## 16. 安全需求
 
-- store only hashed agent API keys
-- redact secrets in logs (`adapter_config`, auth headers, env vars)
-- CSRF protection for board session endpoints
-- rate limit auth and key-management endpoints
-- strict company boundary checks on every entity fetch/mutation
+- 仅存储哈希的智能体 API 密钥
+- 日志中脱敏密钥（`adapter_config`、认证头、环境变量）
+- 董事会会话端点的 CSRF 保护
+- 认证和密钥管理端点的速率限制
+- 每次实体获取/变更时严格的公司边界检查
 
-## 17. Testing Strategy
+## 17. 测试策略
 
-## 17.1 Unit Tests
+## 17.1 单元测试
 
-- state transition guards (agent, issue, approval)
-- budget enforcement rules
-- adapter invocation/cancel semantics
+- 状态转换守卫（智能体、任务、审批）
+- 预算执行规则
+- 适配器调用/取消语义
 
-## 17.2 Integration Tests
+## 17.2 集成测试
 
-- atomic checkout conflict behavior
-- approval-to-agent creation flow
-- cost ingestion and rollup correctness
-- pause while run is active (graceful cancel then force kill)
+- 原子签出冲突行为
+- 审批到智能体创建流程
+- 成本摄取和汇总正确性
+- 运行活跃时暂停（优雅取消然后强制终止）
 
-## 17.3 End-to-End Tests
+## 17.3 端到端测试
 
-- board creates company -> hires CEO -> approves strategy -> CEO receives work
-- agent reports cost -> budget threshold reached -> auto-pause occurs
-- task delegation across teams with request depth increment
+- 董事会创建公司 -> 招聘 CEO -> 批准战略 -> CEO 接收工作
+- 智能体报告成本 -> 预算阈值达到 -> 自动暂停发生
+- 跨团队任务委派，请求深度递增
 
-## 17.4 Regression Suite Minimum
+## 17.4 最低回归套件
 
-A release candidate is blocked unless these pass:
+除非这些通过，否则发布候选被阻止：
 
-1. auth boundary tests
-2. checkout race test
-3. hard budget stop test
-4. agent pause/resume test
-5. dashboard summary consistency test
+1. 认证边界测试
+2. 签出竞争测试
+3. 硬预算停止测试
+4. 智能体暂停/恢复测试
+5. 仪表盘摘要一致性测试
 
-## 18. Delivery Plan
+## 18. 交付计划
 
-## Milestone 1: Company Core and Auth
+## 里程碑 1：公司核心和认证
 
-- add `companies` and company scoping to existing entities
-- add board session auth and agent API keys
-- migrate existing API routes to company-aware paths
+- 向现有实体添加 `companies` 和公司范围
+- 添加董事会会话认证和智能体 API 密钥
+- 将现有 API 路由迁移到公司感知路径
 
-## Milestone 2: Task and Governance Semantics
+## 里程碑 2：任务和治理语义
 
-- implement atomic checkout endpoint
-- implement issue comments and lifecycle guards
-- implement approvals table and hire/strategy workflows
+- 实现原子签出端点
+- 实现任务评论和生命周期守卫
+- 实现审批表和招聘/战略工作流
 
-## Milestone 3: Heartbeat and Adapter Runtime
+## 里程碑 3：心跳和适配器运行时
 
-- implement adapter interface
-- ship `process` adapter with cancel semantics
-- ship `http` adapter with timeout/error handling
-- persist heartbeat runs and statuses
+- 实现适配器接口
+- 交付带有取消语义的 `process` 适配器
+- 交付带有超时/错误处理的 `http` 适配器
+- 持久化心跳运行和状态
 
-## Milestone 4: Cost and Budget Controls
+## 里程碑 4：成本和预算控制
 
-- implement cost events ingestion
-- implement monthly rollups and dashboards
-- enforce hard limit auto-pause
+- 实现成本事件摄取
+- 实现月度汇总和仪表盘
+- 执行硬限制自动暂停
 
-## Milestone 5: Board UI Completion
+## 里程碑 5：董事会 UI 完成
 
-- add company selector and org chart view
-- add approvals and cost pages
+- 添加公司选择器和组织图视图
+- 添加审批和成本页面
 
-## Milestone 6: Hardening and Release
+## 里程碑 6：加固和发布
 
-- full integration/e2e suite
-- seed/demo company templates for local testing
-- release checklist and docs update
+- 完整的集成/端到端套件
+- 用于本地测试的种子/演示公司模板
+- 发布检查清单和文档更新
 
-## 19. Acceptance Criteria (Release Gate)
+## 19. 验收标准（发布门控）
 
-V1 is complete only when all criteria are true:
+V1 仅在所有标准为真时才算完成：
 
-1. A board user can create multiple companies and switch between them.
-2. A company can run at least one active heartbeat-enabled agent.
-3. Task checkout is conflict-safe with `409` on concurrent claims.
-4. Agents can update tasks/comments and report costs with API keys only.
-5. Board can approve/reject hire and CEO strategy requests in UI.
-6. Budget hard limit auto-pauses an agent and prevents new invocations.
-7. Dashboard shows accurate counts/spend from live DB data.
-8. Every mutation is auditable in activity log.
-9. App runs with embedded PostgreSQL by default and with external Postgres via `DATABASE_URL`.
+1. 董事会用户可以创建多个公司并在它们之间切换。
+2. 一个公司可以运行至少一个启用心跳的活跃智能体。
+3. 任务签出在并发争夺时是冲突安全的，返回 `409`。
+4. 智能体可以仅使用 API 密钥更新任务/评论并报告成本。
+5. 董事会可以在 UI 中批准/拒绝招聘和 CEO 战略请求。
+6. 预算硬限制自动暂停智能体并阻止新调用。
+7. 仪表盘从实时数据库数据显示准确的计数/支出。
+8. 每次变更在活动日志中可审计。
+9. 应用默认使用嵌入式 PostgreSQL 运行，通过 `DATABASE_URL` 使用外部 Postgres。
 
-## 20. Post-V1 Backlog (Explicitly Deferred)
+## 20. V1 后待办（明确延期）
 
-- plugin architecture
-- richer workflow-state customization per team
-- milestones/labels/dependency graph depth beyond V1 minimum
-- realtime transport optimization (SSE/WebSockets)
-- public template marketplace integration (ClipHub)
+- 插件架构
+- 更丰富的每团队工作流状态自定义
+- 超出 V1 最低要求的里程碑/标签/依赖图深度
+- 实时传输优化（SSE/WebSockets）
+- 公共模板市场集成（ClipHub）
 
-## 21. Company Portability Package (V1 Addendum)
+## 21. 公司可移植包（V1 附录）
 
-V1 supports company import/export using a portable package contract:
+V1 支持使用可移植包合约的公司导入/导出：
 
-- markdown-first package rooted at `COMPANY.md`
-- implicit folder discovery by convention
-- `.paperclip.yaml` sidecar for Paperclip-specific fidelity
-- canonical base package is vendor-neutral and aligned with `docs/companies/companies-spec.md`
-- common conventions:
+- 以 `COMPANY.md` 为根的 markdown 优先包
+- 按约定的隐式文件夹发现
+- `.paperclip.yaml` 附加文件用于 Paperclip 特定保真度
+- 规范基础包是厂商中立的，与 `docs/companies/companies-spec.md` 对齐
+- 通用约定：
   - `agents/<slug>/AGENTS.md`
   - `teams/<slug>/TEAM.md`
   - `projects/<slug>/PROJECT.md`
@@ -856,15 +856,15 @@ V1 supports company import/export using a portable package contract:
   - `tasks/<slug>/TASK.md`
   - `skills/<slug>/SKILL.md`
 
-Export/import behavior in V1:
+V1 中的导出/导入行为：
 
-- export emits a clean vendor-neutral markdown package plus `.paperclip.yaml`
-- projects and starter tasks are opt-in export content rather than default package content
-- export strips environment-specific paths (`cwd`, local instruction file paths, inline prompt duplication)
-- export never includes secret values; env inputs are reported as portable declarations instead
-- import supports target modes:
-  - create a new company
-  - import into an existing company
-- import supports collision strategies: `rename`, `skip`, `replace`
-- import supports preview (dry-run) before apply
-- GitHub imports warn on unpinned refs instead of blocking
+- 导出生成干净的厂商中立 markdown 包加 `.paperclip.yaml`
+- 项目和启动任务是可选的导出内容，而非默认包内容
+- 导出移除环境特定路径（`cwd`、本地指令文件路径、内联提示重复）
+- 导出永远不包含密钥值；环境输入被报告为可移植声明
+- 导入支持目标模式：
+  - 创建新公司
+  - 导入到现有公司
+- 导入支持冲突策略：`rename`、`skip`、`replace`
+- 导入支持预览（模拟运行）后再应用
+- GitHub 导入对未固定的引用发出警告而非阻止

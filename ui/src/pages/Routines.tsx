@@ -37,13 +37,13 @@ import {
 const concurrencyPolicies = ["coalesce_if_active", "always_enqueue", "skip_if_active"];
 const catchUpPolicies = ["skip_missed", "enqueue_missed_with_cap"];
 const concurrencyPolicyDescriptions: Record<string, string> = {
-  coalesce_if_active: "If a run is already active, keep just one follow-up run queued.",
-  always_enqueue: "Queue every trigger occurrence, even if the routine is already running.",
-  skip_if_active: "Drop new trigger occurrences while a run is still active.",
+  coalesce_if_active: "如果运行已在进行中，仅保留一个后续运行排队。",
+  always_enqueue: "即使例行任务已在运行，也排队每次触发。",
+  skip_if_active: "运行仍在进行时丢弃新的触发。",
 };
 const catchUpPolicyDescriptions: Record<string, string> = {
-  skip_missed: "Ignore windows that were missed while the scheduler or routine was paused.",
-  enqueue_missed_with_cap: "Catch up missed schedule windows in capped batches after recovery.",
+  skip_missed: "忽略在调度器或例行任务暂停期间错过的窗口。",
+  enqueue_missed_with_cap: "恢复后以有上限的批次补上错过的调度窗口。",
 };
 
 function autoResizeTextarea(element: HTMLTextAreaElement | null) {
@@ -53,7 +53,7 @@ function autoResizeTextarea(element: HTMLTextAreaElement | null) {
 }
 
 function formatLastRunTimestamp(value: Date | string | null | undefined) {
-  if (!value) return "Never";
+  if (!value) return "从未";
   return new Date(value).toLocaleString();
 }
 
@@ -87,7 +87,7 @@ export function Routines() {
   });
 
   useEffect(() => {
-    setBreadcrumbs([{ label: "Routines" }]);
+    setBreadcrumbs([{ label: "例行任务" }]);
   }, [setBreadcrumbs]);
 
   const { data: routines, isLoading, error } = useQuery({
@@ -130,8 +130,8 @@ export function Routines() {
       setAdvancedOpen(false);
       await queryClient.invalidateQueries({ queryKey: queryKeys.routines.list(selectedCompanyId!) });
       pushToast({
-        title: "Routine created",
-        body: "Add the first trigger to turn it into a live workflow.",
+        title: "例行任务已创建",
+        body: "添加第一个触发器将其转变为实时工作流。",
         tone: "success",
       });
       navigate(`/routines/${routine.id}?tab=triggers`);
@@ -154,8 +154,8 @@ export function Routines() {
     },
     onError: (mutationError) => {
       pushToast({
-        title: "Failed to update routine",
-        body: mutationError instanceof Error ? mutationError.message : "Paperclip could not update the routine.",
+        title: "更新例行任务失败",
+        body: mutationError instanceof Error ? mutationError.message : "Paperclip 无法更新例行任务。",
         tone: "error",
       });
     },
@@ -177,8 +177,8 @@ export function Routines() {
     },
     onError: (mutationError) => {
       pushToast({
-        title: "Routine run failed",
-        body: mutationError instanceof Error ? mutationError.message : "Paperclip could not start the routine run.",
+        title: "例行任务运行失败",
+        body: mutationError instanceof Error ? mutationError.message : "Paperclip 无法启动例行任务运行。",
         tone: "error",
       });
     },
@@ -218,7 +218,7 @@ export function Routines() {
   const currentProject = draft.projectId ? projectById.get(draft.projectId) ?? null : null;
 
   if (!selectedCompanyId) {
-    return <EmptyState icon={Repeat} message="Select a company to view routines." />;
+    return <EmptyState icon={Repeat} message="请选择一个公司以查看例行任务。" />;
   }
 
   if (isLoading) {
@@ -477,7 +477,7 @@ export function Routines() {
                 }
               >
                 <Plus className="mr-2 h-4 w-4" />
-                {createRoutine.isPending ? "Creating..." : "Create routine"}
+                {createRoutine.isPending ? "创建中..." : "创建例行任务"}
               </Button>
               {createRoutine.isError ? (
                 <p className="text-sm text-destructive">
@@ -502,7 +502,7 @@ export function Routines() {
           <div className="py-12">
             <EmptyState
               icon={Repeat}
-              message="No routines yet. Use Create routine to define the first recurring workflow."
+              message="暂无例行任务。使用创建例行任务来定义第一个循环工作流。"
             />
           </div>
         ) : (
@@ -600,7 +600,7 @@ export function Routines() {
                             />
                           </button>
                           <span className="text-xs text-muted-foreground">
-                            {isArchived ? "Archived" : enabled ? "On" : "Off"}
+                            {isArchived ? "已归档" : enabled ? "开启" : "关闭"}
                           </span>
                         </div>
                       </td>
@@ -619,7 +619,7 @@ export function Routines() {
                               disabled={runningRoutineId === routine.id || isArchived}
                               onClick={() => runRoutine.mutate(routine.id)}
                             >
-                              {runningRoutineId === routine.id ? "Running..." : "Run now"}
+                              {runningRoutineId === routine.id ? "运行中..." : "立即运行"}
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem
@@ -631,7 +631,7 @@ export function Routines() {
                               }
                               disabled={isStatusPending || isArchived}
                             >
-                              {enabled ? "Pause" : "Enable"}
+                              {enabled ? "暂停" : "启用"}
                             </DropdownMenuItem>
                             <DropdownMenuItem
                               onClick={() =>
@@ -642,7 +642,7 @@ export function Routines() {
                               }
                               disabled={isStatusPending}
                             >
-                              {routine.status === "archived" ? "Restore" : "Archive"}
+                              {routine.status === "archived" ? "恢复" : "归档"}
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>

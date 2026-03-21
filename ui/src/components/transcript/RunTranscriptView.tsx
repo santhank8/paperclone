@@ -966,7 +966,7 @@ export function RunTranscriptView({
   limit,
   streaming = false,
   collapseStdout = false,
-  emptyMessage = "No transcript yet.",
+  emptyMessage = "暂无转录。",
   className,
   thinkingClassName,
 }: RunTranscriptViewProps) {

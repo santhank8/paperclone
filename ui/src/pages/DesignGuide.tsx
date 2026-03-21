@@ -1014,8 +1014,8 @@ export function DesignGuide() {
         <div className="border border-border rounded-md">
           <EmptyState
             icon={Inbox}
-            message="No items to show. Create your first one to get started."
-            action="Create Item"
+            message="暂无项目。创建你的第一个项目以开始使用。"
+            action="创建项目"
             onAction={() => {}}
           />
         </div>

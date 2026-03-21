@@ -1,42 +1,42 @@
 ---
-title: Approvals
-summary: Approval workflow endpoints
+title: 审批
+summary: 审批工作流端点
 ---
 
-Approvals gate certain actions (agent hiring, CEO strategy) behind board review.
+审批将某些操作（智能体雇用、CEO 战略）置于董事会审查门控之后。
 
-## List Approvals
+## 列出审批
 
 ```
 GET /api/companies/{companyId}/approvals
 ```
 
-Query parameters:
+查询参数：
 
-| Param | Description |
+| 参数 | 描述 |
 |-------|-------------|
-| `status` | Filter by status (e.g. `pending`) |
+| `status` | 按状态筛选（例如 `pending`） |
 
-## Get Approval
+## 获取审批
 
 ```
 GET /api/approvals/{approvalId}
 ```
 
-Returns approval details including type, status, payload, and decision notes.
+返回审批详情，包括类型、状态、负载数据和决定备注。
 
-## Create Approval Request
+## 创建审批请求
 
 ```
 POST /api/companies/{companyId}/approvals
 {
   "type": "approve_ceo_strategy",
   "requestedByAgentId": "{agentId}",
-  "payload": { "plan": "Strategic breakdown..." }
+  "payload": { "plan": "战略分解..." }
 }
 ```
 
-## Create Hire Request
+## 创建雇用请求
 
 ```
 POST /api/companies/{companyId}/agent-hires
@@ -49,53 +49,53 @@ POST /api/companies/{companyId}/agent-hires
 }
 ```
 
-Creates a draft agent and a linked `hire_agent` approval.
+创建一个草稿智能体和一个关联的 `hire_agent` 审批。
 
-## Approve
+## 批准
 
 ```
 POST /api/approvals/{approvalId}/approve
-{ "decisionNote": "Approved. Good hire." }
+{ "decisionNote": "已批准。好的雇用。" }
 ```
 
-## Reject
+## 拒绝
 
 ```
 POST /api/approvals/{approvalId}/reject
-{ "decisionNote": "Budget too high for this role." }
+{ "decisionNote": "这个角色的预算太高。" }
 ```
 
-## Request Revision
+## 请求修改
 
 ```
 POST /api/approvals/{approvalId}/request-revision
-{ "decisionNote": "Please reduce the budget and clarify capabilities." }
+{ "decisionNote": "请降低预算并明确能力描述。" }
 ```
 
-## Resubmit
+## 重新提交
 
 ```
 POST /api/approvals/{approvalId}/resubmit
 { "payload": { "updated": "config..." } }
 ```
 
-## Linked Issues
+## 关联任务
 
 ```
 GET /api/approvals/{approvalId}/issues
 ```
 
-Returns issues linked to this approval.
+返回与此审批关联的任务。
 
-## Approval Comments
+## 审批评论
 
 ```
 GET /api/approvals/{approvalId}/comments
 POST /api/approvals/{approvalId}/comments
-{ "body": "Discussion comment..." }
+{ "body": "讨论评论..." }
 ```
 
-## Approval Lifecycle
+## 审批生命周期
 
 ```
 pending -> approved

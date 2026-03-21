@@ -54,7 +54,7 @@ function assertTimeZone(timeZone: string) {
   try {
     new Intl.DateTimeFormat("en-US", { timeZone }).format(new Date());
   } catch {
-    throw unprocessable(`Invalid timezone: ${timeZone}`);
+    throw unprocessable(`无效的时区：${timeZone}`);
   }
 }
 
@@ -161,8 +161,8 @@ export function routineService(db: Db, deps: { heartbeat?: IssueAssignmentWakeup
 
   async function assertRoutineAccess(companyId: string, routineId: string) {
     const routine = await getRoutineById(routineId);
-    if (!routine) throw notFound("Routine not found");
-    if (routine.companyId !== companyId) throw forbidden("Routine must belong to same company");
+    if (!routine) throw notFound("例行任务未找到");
+    if (routine.companyId !== companyId) throw forbidden("例行任务必须属于同一个公司");
     return routine;
   }
 
@@ -172,10 +172,10 @@ export function routineService(db: Db, deps: { heartbeat?: IssueAssignmentWakeup
       .from(agents)
       .where(eq(agents.id, agentId))
       .then((rows) => rows[0] ?? null);
-    if (!agent) throw notFound("Assignee agent not found");
-    if (agent.companyId !== companyId) throw unprocessable("Assignee must belong to same company");
-    if (agent.status === "pending_approval") throw conflict("Cannot assign routines to pending approval agents");
-    if (agent.status === "terminated") throw conflict("Cannot assign routines to terminated agents");
+    if (!agent) throw notFound("指派的智能体未找到");
+    if (agent.companyId !== companyId) throw unprocessable("被指派者必须属于同一个公司");
+    if (agent.status === "pending_approval") throw conflict("无法将例行任务分配给待审批的智能体");
+    if (agent.status === "terminated") throw conflict("无法将例行任务分配给已终止的智能体");
   }
 
   async function assertProject(companyId: string, projectId: string) {
@@ -184,8 +184,8 @@ export function routineService(db: Db, deps: { heartbeat?: IssueAssignmentWakeup
       .from(projects)
       .where(eq(projects.id, projectId))
       .then((rows) => rows[0] ?? null);
-    if (!project) throw notFound("Project not found");
-    if (project.companyId !== companyId) throw unprocessable("Project must belong to same company");
+    if (!project) throw notFound("项目未找到");
+    if (project.companyId !== companyId) throw unprocessable("项目必须属于同一个公司");
   }
 
   async function assertGoal(companyId: string, goalId: string) {
@@ -194,8 +194,8 @@ export function routineService(db: Db, deps: { heartbeat?: IssueAssignmentWakeup
       .from(goals)
       .where(eq(goals.id, goalId))
       .then((rows) => rows[0] ?? null);
-    if (!goal) throw notFound("Goal not found");
-    if (goal.companyId !== companyId) throw unprocessable("Goal must belong to same company");
+    if (!goal) throw notFound("目标未找到");
+    if (goal.companyId !== companyId) throw unprocessable("目标必须属于同一个公司");
   }
 
   async function assertParentIssue(companyId: string, issueId: string) {
@@ -204,8 +204,8 @@ export function routineService(db: Db, deps: { heartbeat?: IssueAssignmentWakeup
       .from(issues)
       .where(eq(issues.id, issueId))
       .then((rows) => rows[0] ?? null);
-    if (!parentIssue) throw notFound("Parent issue not found");
-    if (parentIssue.companyId !== companyId) throw unprocessable("Parent issue must belong to same company");
+    if (!parentIssue) throw notFound("父任务未找到");
+    if (parentIssue.companyId !== companyId) throw unprocessable("父任务必须属于同一个公司");
   }
 
   async function listTriggersForRoutineIds(companyId: string, routineIds: string[]) {
@@ -499,13 +499,13 @@ export function routineService(db: Db, deps: { heartbeat?: IssueAssignmentWakeup
   }
 
   async function resolveTriggerSecret(trigger: typeof routineTriggers.$inferSelect, companyId: string) {
-    if (!trigger.secretId) throw notFound("Routine trigger secret not found");
+    if (!trigger.secretId) throw notFound("例行任务触发器密钥未找到");
     const secret = await db
       .select()
       .from(companySecrets)
       .where(eq(companySecrets.id, trigger.secretId))
       .then((rows) => rows[0] ?? null);
-    if (!secret || secret.companyId !== companyId) throw notFound("Routine trigger secret not found");
+    if (!secret || secret.companyId !== companyId) throw notFound("例行任务触发器密钥未找到");
     const value = await secretsSvc.resolveSecretValue(companyId, trigger.secretId, "latest");
     return value;
   }
@@ -884,7 +884,7 @@ export function routineService(db: Db, deps: { heartbeat?: IssueAssignmentWakeup
       actor: Actor,
     ): Promise<{ trigger: RoutineTrigger; secretMaterial: RoutineTriggerSecretMaterial | null }> => {
       const routine = await getRoutineById(routineId);
-      if (!routine) throw notFound("Routine not found");
+      if (!routine) throw notFound("例行任务未找到");
 
       let secretMaterial: RoutineTriggerSecretMaterial | null = null;
       let secretId: string | null = null;
@@ -948,13 +948,13 @@ export function routineService(db: Db, deps: { heartbeat?: IssueAssignmentWakeup
 
       if (existing.kind === "schedule") {
         if (patch.cronExpression !== undefined) {
-          if (patch.cronExpression == null) throw unprocessable("Scheduled triggers require cronExpression");
+          if (patch.cronExpression == null) throw unprocessable("定时触发器需要 cronExpression");
           const error = validateCron(patch.cronExpression);
           if (error) throw unprocessable(error);
           cronExpression = patch.cronExpression;
         }
         if (patch.timezone !== undefined) {
-          if (patch.timezone == null) throw unprocessable("Scheduled triggers require timezone");
+          if (patch.timezone == null) throw unprocessable("定时触发器需要 timezone");
           assertTimeZone(patch.timezone);
           timezone = patch.timezone;
         }
@@ -995,9 +995,9 @@ export function routineService(db: Db, deps: { heartbeat?: IssueAssignmentWakeup
       actor: Actor,
     ): Promise<{ trigger: RoutineTrigger; secretMaterial: RoutineTriggerSecretMaterial }> => {
       const existing = await getTriggerById(id);
-      if (!existing) throw notFound("Routine trigger not found");
+      if (!existing) throw notFound("例行任务触发器未找到");
       if (existing.kind !== "webhook" || !existing.publicId || !existing.secretId) {
-        throw unprocessable("Only webhook triggers can rotate secrets");
+        throw unprocessable("只有 webhook 触发器可以轮换密钥");
       }
 
       const secretValue = crypto.randomBytes(24).toString("hex");
@@ -1024,11 +1024,11 @@ export function routineService(db: Db, deps: { heartbeat?: IssueAssignmentWakeup
 
     runRoutine: async (id: string, input: RunRoutine) => {
       const routine = await getRoutineById(id);
-      if (!routine) throw notFound("Routine not found");
-      if (routine.status === "archived") throw conflict("Routine is archived");
+      if (!routine) throw notFound("例行任务未找到");
+      if (routine.status === "archived") throw conflict("例行任务已归档");
       const trigger = input.triggerId ? await getTriggerById(input.triggerId) : null;
-      if (trigger && trigger.routineId !== routine.id) throw forbidden("Trigger does not belong to routine");
-      if (trigger && !trigger.enabled) throw conflict("Routine trigger is not active");
+      if (trigger && trigger.routineId !== routine.id) throw forbidden("触发器不属于此例行任务");
+      if (trigger && !trigger.enabled) throw conflict("例行任务触发器未激活");
       return dispatchRoutineRun({
         routine,
         trigger,
@@ -1051,10 +1051,10 @@ export function routineService(db: Db, deps: { heartbeat?: IssueAssignmentWakeup
         .from(routineTriggers)
         .where(and(eq(routineTriggers.publicId, publicId), eq(routineTriggers.kind, "webhook")))
         .then((rows) => rows[0] ?? null);
-      if (!trigger) throw notFound("Routine trigger not found");
+      if (!trigger) throw notFound("例行任务触发器未找到");
       const routine = await getRoutineById(trigger.routineId);
-      if (!routine) throw notFound("Routine not found");
-      if (!trigger.enabled || routine.status !== "active") throw conflict("Routine trigger is not active");
+      if (!routine) throw notFound("例行任务未找到");
+      if (!trigger.enabled || routine.status !== "active") throw conflict("例行任务触发器未激活");
 
       const secretValue = await resolveTriggerSecret(trigger, routine.companyId);
       if (trigger.signingMode === "bearer") {

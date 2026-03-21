@@ -3,7 +3,7 @@ import { forbidden, unauthorized } from "../errors.js";
 
 export function assertBoard(req: Request) {
   if (req.actor.type !== "board") {
-    throw forbidden("Board access required");
+    throw forbidden("需要管理面板访问权限");
   }
 }
 
@@ -12,12 +12,12 @@ export function assertCompanyAccess(req: Request, companyId: string) {
     throw unauthorized();
   }
   if (req.actor.type === "agent" && req.actor.companyId !== companyId) {
-    throw forbidden("Agent key cannot access another company");
+    throw forbidden("智能体密钥无法访问其他公司");
   }
   if (req.actor.type === "board" && req.actor.source !== "local_implicit" && !req.actor.isInstanceAdmin) {
     const allowedCompanies = req.actor.companyIds ?? [];
     if (!allowedCompanies.includes(companyId)) {
-      throw forbidden("User does not have access to this company");
+      throw forbidden("用户无权访问此公司");
     }
   }
 }

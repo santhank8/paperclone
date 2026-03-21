@@ -92,7 +92,7 @@ export function PluginPage() {
   useEffect(() => {
     if (pageSlot) {
       setBreadcrumbs([
-        { label: "Plugins", href: "/instance/settings/plugins" },
+        { label: "插件", href: "/instance/settings/plugins" },
         { label: pageSlot.pluginDisplayName },
       ]);
     }

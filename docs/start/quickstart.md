@@ -1,60 +1,60 @@
 ---
-title: Quickstart
-summary: Get Paperclip running in minutes
+title: 快速开始
+summary: 几分钟内启动并运行 Paperclip
 ---
 
-Get Paperclip running locally in under 5 minutes.
+在 5 分钟内在本地启动并运行 Paperclip。
 
-## Quick Start (Recommended)
+## 快速开始（推荐）
 
 ```sh
 npx paperclipai onboard --yes
 ```
 
-This walks you through setup, configures your environment, and gets Paperclip running.
+此命令会引导你完成设置、配置环境，并启动 Paperclip。
 
-To start Paperclip again later:
+之后再次启动 Paperclip：
 
 ```sh
 npx paperclipai run
 ```
 
-> **Note:** If you used `npx` for setup, always use `npx paperclipai` to run commands. The `pnpm paperclipai` form only works inside a cloned copy of the Paperclip repository (see Local Development below).
+> **注意：** 如果你使用 `npx` 进行设置，请始终使用 `npx paperclipai` 来运行命令。`pnpm paperclipai` 的形式只在 Paperclip 仓库的克隆副本中有效（参见下方的本地开发）。
 
-## Local Development
+## 本地开发
 
-For contributors working on Paperclip itself. Prerequisites: Node.js 20+ and pnpm 9+.
+适用于参与 Paperclip 开发的贡献者。前置条件：Node.js 20+ 和 pnpm 9+。
 
-Clone the repository, then:
+克隆仓库后执行：
 
 ```sh
 pnpm install
 pnpm dev
 ```
 
-This starts the API server and UI at [http://localhost:3100](http://localhost:3100).
+这将启动 API 服务器和 UI，访问 [http://localhost:3100](http://localhost:3100)。
 
-No external database required — Paperclip uses an embedded PostgreSQL instance by default.
+无需外部数据库 — Paperclip 默认使用内嵌 PostgreSQL 实例。
 
-When working from the cloned repo, you can also use:
+在克隆的仓库中工作时，你也可以使用：
 
 ```sh
 pnpm paperclipai run
 ```
 
-This auto-onboards if config is missing, runs health checks with auto-repair, and starts the server.
+如果配置缺失，此命令会自动完成初始化引导，运行健康检查并自动修复，然后启动服务器。
 
-## What's Next
+## 下一步
 
-Once Paperclip is running:
+Paperclip 运行后：
 
-1. Create your first company in the web UI
-2. Define a company goal
-3. Create a CEO agent and configure its adapter
-4. Build out the org chart with more agents
-5. Set budgets and assign initial tasks
-6. Hit go — agents start their heartbeats and the company runs
+1. 在 Web UI 中创建你的第一个公司
+2. 定义公司目标
+3. 创建 CEO 智能体并配置其适配器
+4. 通过添加更多智能体来构建组织架构图
+5. 设置预算并分配初始任务
+6. 点击开始 — 智能体启动心跳，公司开始运转
 
-<Card title="Core Concepts" href="/start/core-concepts">
-  Learn the key concepts behind Paperclip
+<Card title="核心概念" href="/start/core-concepts">
+  了解 Paperclip 背后的关键概念
 </Card>

@@ -6,7 +6,7 @@ export async function llmCheck(config: PaperclipConfig): Promise<CheckResult> {
     return {
       name: "LLM provider",
       status: "pass",
-      message: "No LLM provider configured (optional)",
+      message: "未配置 LLM 提供商（可选）",
     };
   }
 
@@ -14,7 +14,7 @@ export async function llmCheck(config: PaperclipConfig): Promise<CheckResult> {
     return {
       name: "LLM provider",
       status: "pass",
-      message: `${config.llm.provider} configured but no API key set (optional)`,
+      message: `${config.llm.provider} 已配置但未设置 API 密钥（可选）`,
     };
   }
 
@@ -34,15 +34,15 @@ export async function llmCheck(config: PaperclipConfig): Promise<CheckResult> {
         }),
       });
       if (res.ok || res.status === 400) {
-        return { name: "LLM provider", status: "pass", message: "Claude API key is valid" };
+        return { name: "LLM 提供商", status: "pass", message: "Claude API 密钥有效" };
       }
       if (res.status === 401) {
         return {
           name: "LLM provider",
           status: "fail",
-          message: "Claude API key is invalid (401)",
+          message: "Claude API 密钥无效 (401)",
           canRepair: false,
-          repairHint: "Run `paperclipai configure --section llm`",
+          repairHint: "运行 `paperclipai configure --section llm`",
         };
       }
       return {
@@ -55,15 +55,15 @@ export async function llmCheck(config: PaperclipConfig): Promise<CheckResult> {
         headers: { Authorization: `Bearer ${config.llm.apiKey}` },
       });
       if (res.ok) {
-        return { name: "LLM provider", status: "pass", message: "OpenAI API key is valid" };
+        return { name: "LLM 提供商", status: "pass", message: "OpenAI API 密钥有效" };
       }
       if (res.status === 401) {
         return {
           name: "LLM provider",
           status: "fail",
-          message: "OpenAI API key is invalid (401)",
+          message: "OpenAI API 密钥无效 (401)",
           canRepair: false,
-          repairHint: "Run `paperclipai configure --section llm`",
+          repairHint: "运行 `paperclipai configure --section llm`",
         };
       }
       return {
@@ -76,7 +76,7 @@ export async function llmCheck(config: PaperclipConfig): Promise<CheckResult> {
     return {
       name: "LLM provider",
       status: "warn",
-      message: "Could not reach API to validate key",
+      message: "无法连接 API 以验证密钥",
     };
   }
 }

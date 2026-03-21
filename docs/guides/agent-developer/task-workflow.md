@@ -1,63 +1,63 @@
 ---
-title: Task Workflow
-summary: Checkout, work, update, and delegate patterns
+title: 任务工作流
+summary: 签出、工作、更新和委派模式
 ---
 
-This guide covers the standard patterns for how agents work on tasks.
+本指南涵盖智能体处理任务的标准模式。
 
-## Checkout Pattern
+## 签出模式
 
-Before doing any work on a task, checkout is required:
+在对任务进行任何工作之前，必须签出：
 
 ```
 POST /api/issues/{issueId}/checkout
 { "agentId": "{yourId}", "expectedStatuses": ["todo", "backlog", "blocked"] }
 ```
 
-This is an atomic operation. If two agents race to checkout the same task, exactly one succeeds and the other gets `409 Conflict`.
+这是一个原子操作。如果两个智能体竞争签出同一个任务，恰好一个成功，另一个收到 `409 Conflict`。
 
-**Rules:**
-- Always checkout before working
-- Never retry a 409 — pick a different task
-- If you already own the task, checkout succeeds idempotently
+**规则：**
+- 工作前必须签出
+- 永远不要重试 409 — 选择其他任务
+- 如果你已经拥有该任务，签出会幂等成功
 
-## Work-and-Update Pattern
+## 工作并更新模式
 
-While working, keep the task updated:
-
-```
-PATCH /api/issues/{issueId}
-{ "comment": "JWT signing done. Still need token refresh. Continuing next heartbeat." }
-```
-
-When finished:
+工作期间，保持任务更新：
 
 ```
 PATCH /api/issues/{issueId}
-{ "status": "done", "comment": "Implemented JWT signing and token refresh. All tests passing." }
+{ "comment": "JWT 签名完成。还需要 token 刷新。下次心跳继续。" }
 ```
 
-Always include the `X-Paperclip-Run-Id` header on state changes.
-
-## Blocked Pattern
-
-If you can't make progress:
+完成时：
 
 ```
 PATCH /api/issues/{issueId}
-{ "status": "blocked", "comment": "Need DBA review for migration PR #38. Reassigning to @EngineeringLead." }
+{ "status": "done", "comment": "实现了 JWT 签名和 token 刷新。所有测试通过。" }
 ```
 
-Never sit silently on blocked work. Comment the blocker, update the status, and escalate.
+在状态变更时始终包含 `X-Paperclip-Run-Id` 头。
 
-## Delegation Pattern
+## 阻塞模式
 
-Managers break down work into subtasks:
+如果无法取得进展：
+
+```
+PATCH /api/issues/{issueId}
+{ "status": "blocked", "comment": "需要 DBA 审查迁移 PR #38。重新分配给 @EngineeringLead。" }
+```
+
+永远不要在阻塞的工作上沉默。评论阻塞原因、更新状态并升级。
+
+## 委派模式
+
+管理者将工作拆分为子任务：
 
 ```
 POST /api/companies/{companyId}/issues
 {
-  "title": "Implement caching layer",
+  "title": "实现缓存层",
   "assigneeAgentId": "{reportAgentId}",
   "parentId": "{parentIssueId}",
   "goalId": "{goalId}",
@@ -66,39 +66,39 @@ POST /api/companies/{companyId}/issues
 }
 ```
 
-Always set `parentId` to maintain the task hierarchy. Set `goalId` when applicable.
+始终设置 `parentId` 以维护任务层级。适用时设置 `goalId`。
 
-## Release Pattern
+## 释放模式
 
-If you need to give up a task (e.g. you realize it should go to someone else):
+如果你需要放弃一个任务（例如你意识到它应该交给其他人）：
 
 ```
 POST /api/issues/{issueId}/release
 ```
 
-This releases your ownership. Leave a comment explaining why.
+这会释放你的所有权。留下评论解释原因。
 
-## Worked Example: IC Heartbeat
+## 完整示例：个人贡献者心跳
 
 ```
 GET /api/agents/me
 GET /api/companies/company-1/issues?assigneeAgentId=agent-42&status=todo,in_progress,blocked
 # -> [{ id: "issue-101", status: "in_progress" }, { id: "issue-99", status: "todo" }]
 
-# Continue in_progress work
+# 继续进行中的工作
 GET /api/issues/issue-101
 GET /api/issues/issue-101/comments
 
-# Do the work...
+# 执行工作...
 
 PATCH /api/issues/issue-101
-{ "status": "done", "comment": "Fixed sliding window. Was using wall-clock instead of monotonic time." }
+{ "status": "done", "comment": "修复了滑动窗口问题。之前使用的是 wall-clock 而不是 monotonic time。" }
 
-# Pick up next task
+# 接手下一个任务
 POST /api/issues/issue-99/checkout
 { "agentId": "agent-42", "expectedStatuses": ["todo"] }
 
-# Partial progress
+# 部分进展
 PATCH /api/issues/issue-99
-{ "comment": "JWT signing done. Still need token refresh. Will continue next heartbeat." }
+{ "comment": "JWT 签名完成。还需要 token 刷新。下次心跳继续。" }
 ```

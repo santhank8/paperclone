@@ -1,56 +1,56 @@
 ---
-title: Authentication
-summary: API keys, JWTs, and auth modes
+title: 认证
+summary: API 密钥、JWT 和认证模式
 ---
 
-Paperclip supports multiple authentication methods depending on the deployment mode and caller type.
+Paperclip 根据部署模式和调用者类型支持多种认证方式。
 
-## Agent Authentication
+## 智能体认证
 
-### Run JWTs (Recommended for agents)
+### 运行 JWT（推荐用于智能体）
 
-During heartbeats, agents receive a short-lived JWT via the `PAPERCLIP_API_KEY` environment variable. Use it in the Authorization header:
+心跳期间，智能体通过 `PAPERCLIP_API_KEY` 环境变量接收短期 JWT。在 Authorization 头中使用它：
 
 ```
 Authorization: Bearer <PAPERCLIP_API_KEY>
 ```
 
-This JWT is scoped to the agent and the current run.
+此 JWT 限定在智能体和当前运行的作用域内。
 
-### Agent API Keys
+### 智能体 API 密钥
 
-Long-lived API keys can be created for agents that need persistent access:
+可以为需要持久访问的智能体创建长期 API 密钥：
 
 ```
 POST /api/agents/{agentId}/keys
 ```
 
-Returns a key that should be stored securely. The key is hashed at rest — you can only see the full value at creation time.
+返回的密钥应安全存储。密钥在存储时经过哈希 — 你只能在创建时看到完整值。
 
-### Agent Identity
+### 智能体身份
 
-Agents can verify their own identity:
+智能体可以验证自己的身份：
 
 ```
 GET /api/agents/me
 ```
 
-Returns the agent record including ID, company, role, chain of command, and budget.
+返回智能体记录，包括 ID、公司、角色、指挥链和预算。
 
-## Board Operator Authentication
+## 董事会操作员认证
 
-### Local Trusted Mode
+### 本地信任模式
 
-No authentication required. All requests are treated as the local board operator.
+无需认证。所有请求被视为本地董事会操作员。
 
-### Authenticated Mode
+### 认证模式
 
-Board operators authenticate via Better Auth sessions (cookie-based). The web UI handles login/logout flows automatically.
+董事会操作员通过 Better Auth 会话（基于 cookie）认证。Web UI 自动处理登录/登出流程。
 
-## Company Scoping
+## 公司作用域
 
-All entities belong to a company. The API enforces company boundaries:
+所有实体属于一个公司。API 强制执行公司边界：
 
-- Agents can only access entities in their own company
-- Board operators can access all companies they're members of
-- Cross-company access is denied with `403`
+- 智能体只能访问自己公司中的实体
+- 董事会操作员可以访问他们所属的所有公司
+- 跨公司访问被拒绝，返回 `403`

@@ -123,21 +123,21 @@ export function scaffoldPluginProject(options: ScaffoldPluginOptions): string {
   }
 
   if (!isValidPluginName(options.pluginName)) {
-    throw new Error("Invalid plugin name. Must be lowercase and may include scope, dots, underscores, or hyphens.");
+    throw new Error("无效的插件名称。必须为小写，可以包含作用域、点号、下划线或连字符。");
   }
 
   if (options.category && !VALID_CATEGORIES.has(options.category)) {
-    throw new Error(`Invalid category '${options.category}'. Expected one of: ${[...VALID_CATEGORIES].join(", ")}`);
+    throw new Error(`无效的分类 '${options.category}'。期望值为：${[...VALID_CATEGORIES].join("、")}`);
   }
 
   const outputDir = path.resolve(options.outputDir);
   if (fs.existsSync(outputDir)) {
-    throw new Error(`Directory already exists: ${outputDir}`);
+    throw new Error(`目录已存在：${outputDir}`);
   }
 
   const displayName = options.displayName ?? makeDisplayName(options.pluginName);
-  const description = options.description ?? "A Paperclip plugin";
-  const author = options.author ?? "Plugin Author";
+  const description = options.description ?? "一个 Paperclip 插件";
+  const author = options.author ?? "插件作者";
   const category = options.category ?? (template === "workspace" ? "workspace" : "connector");
   const manifestId = packageToManifestId(options.pluginName);
   const localSdkPath = path.resolve(options.sdkPath ?? getLocalSdkPackagePath());
@@ -468,7 +468,7 @@ function runCli() {
   const pluginName = process.argv[2];
   if (!pluginName) {
     // eslint-disable-next-line no-console
-    console.error("Usage: create-paperclip-plugin <name> [--template default|connector|workspace] [--output <dir>] [--sdk-path <paperclip-sdk-path>]");
+    console.error("用法：create-paperclip-plugin <名称> [--template default|connector|workspace] [--output <目录>] [--sdk-path <paperclip-sdk-路径>]");
     process.exit(1);
   }
 

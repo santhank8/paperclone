@@ -36,7 +36,7 @@ export function executionWorkspaceRoutes(db: Db) {
     const id = req.params.id as string;
     const workspace = await svc.getById(id);
     if (!workspace) {
-      res.status(404).json({ error: "Execution workspace not found" });
+      res.status(404).json({ error: "执行工作区未找到" });
       return;
     }
     assertCompanyAccess(req, workspace.companyId);
@@ -47,7 +47,7 @@ export function executionWorkspaceRoutes(db: Db) {
     const id = req.params.id as string;
     const existing = await svc.getById(id);
     if (!existing) {
-      res.status(404).json({ error: "Execution workspace not found" });
+      res.status(404).json({ error: "执行工作区未找到" });
       return;
     }
     assertCompanyAccess(req, existing.companyId);
@@ -83,7 +83,7 @@ export function executionWorkspaceRoutes(db: Db) {
         cleanupReason: null,
       });
       if (!archivedWorkspace) {
-        res.status(404).json({ error: "Execution workspace not found" });
+        res.status(404).json({ error: "执行工作区未找到" });
         return;
       }
       workspace = archivedWorkspace;
@@ -154,7 +154,7 @@ export function executionWorkspaceRoutes(db: Db) {
     } else {
       const updatedWorkspace = await svc.update(id, patch);
       if (!updatedWorkspace) {
-        res.status(404).json({ error: "Execution workspace not found" });
+        res.status(404).json({ error: "执行工作区未找到" });
         return;
       }
       workspace = updatedWorkspace;

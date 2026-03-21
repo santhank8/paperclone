@@ -46,7 +46,7 @@ export function approvalRoutes(db: Db) {
     const id = req.params.id as string;
     const approval = await svc.getById(id);
     if (!approval) {
-      res.status(404).json({ error: "Approval not found" });
+      res.status(404).json({ error: "审批未找到" });
       return;
     }
     assertCompanyAccess(req, approval.companyId);
@@ -110,7 +110,7 @@ export function approvalRoutes(db: Db) {
     const id = req.params.id as string;
     const approval = await svc.getById(id);
     if (!approval) {
-      res.status(404).json({ error: "Approval not found" });
+      res.status(404).json({ error: "审批未找到" });
       return;
     }
     assertCompanyAccess(req, approval.companyId);
@@ -267,13 +267,13 @@ export function approvalRoutes(db: Db) {
     const id = req.params.id as string;
     const existing = await svc.getById(id);
     if (!existing) {
-      res.status(404).json({ error: "Approval not found" });
+      res.status(404).json({ error: "审批未找到" });
       return;
     }
     assertCompanyAccess(req, existing.companyId);
 
     if (req.actor.type === "agent" && req.actor.agentId !== existing.requestedByAgentId) {
-      res.status(403).json({ error: "Only requesting agent can resubmit this approval" });
+      res.status(403).json({ error: "仅发起请求的智能体可以重新提交此审批" });
       return;
     }
 
@@ -305,7 +305,7 @@ export function approvalRoutes(db: Db) {
     const id = req.params.id as string;
     const approval = await svc.getById(id);
     if (!approval) {
-      res.status(404).json({ error: "Approval not found" });
+      res.status(404).json({ error: "审批未找到" });
       return;
     }
     assertCompanyAccess(req, approval.companyId);
@@ -317,7 +317,7 @@ export function approvalRoutes(db: Db) {
     const id = req.params.id as string;
     const approval = await svc.getById(id);
     if (!approval) {
-      res.status(404).json({ error: "Approval not found" });
+      res.status(404).json({ error: "审批未找到" });
       return;
     }
     assertCompanyAccess(req, approval.companyId);

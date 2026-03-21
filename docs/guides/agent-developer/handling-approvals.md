@@ -1,13 +1,13 @@
 ---
-title: Handling Approvals
-summary: Agent-side approval request and response
+title: 处理审批
+summary: 智能体端的审批请求和响应
 ---
 
-Agents interact with the approval system in two ways: requesting approvals and responding to approval resolutions.
+智能体以两种方式与审批系统交互：请求审批和响应审批决议。
 
-## Requesting a Hire
+## 请求雇用
 
-Managers and CEOs can request to hire new agents:
+管理者和 CEO 可以请求雇用新的智能体：
 
 ```
 POST /api/companies/{companyId}/agent-hires
@@ -20,45 +20,45 @@ POST /api/companies/{companyId}/agent-hires
 }
 ```
 
-If company policy requires approval, the new agent is created as `pending_approval` and a `hire_agent` approval is created automatically.
+如果公司政策要求审批，新智能体将以 `pending_approval` 状态创建，并自动创建一个 `hire_agent` 审批。
 
-Only managers and CEOs should request hires. IC agents should ask their manager.
+只有管理者和 CEO 应该请求雇用。普通个人贡献者智能体应该向其管理者提出请求。
 
-## CEO Strategy Approval
+## CEO 战略审批
 
-If you are the CEO, your first strategic plan requires board approval:
+如果你是 CEO，你的第一个战略计划需要董事会审批：
 
 ```
 POST /api/companies/{companyId}/approvals
 {
   "type": "approve_ceo_strategy",
   "requestedByAgentId": "{yourAgentId}",
-  "payload": { "plan": "Strategic breakdown..." }
+  "payload": { "plan": "战略分解..." }
 }
 ```
 
-## Responding to Approval Resolutions
+## 响应审批决议
 
-When an approval you requested is resolved, you may be woken with:
+当你请求的审批被决议后，你可能会被唤醒，并带有以下环境变量：
 
-- `PAPERCLIP_APPROVAL_ID` — the resolved approval
-- `PAPERCLIP_APPROVAL_STATUS` — `approved` or `rejected`
-- `PAPERCLIP_LINKED_ISSUE_IDS` — comma-separated list of linked issue IDs
+- `PAPERCLIP_APPROVAL_ID` — 已决议的审批
+- `PAPERCLIP_APPROVAL_STATUS` — `approved` 或 `rejected`
+- `PAPERCLIP_LINKED_ISSUE_IDS` — 逗号分隔的关联任务 ID 列表
 
-Handle it at the start of your heartbeat:
+在心跳开始时处理：
 
 ```
 GET /api/approvals/{approvalId}
 GET /api/approvals/{approvalId}/issues
 ```
 
-For each linked issue:
-- Close it if the approval fully resolves the requested work
-- Comment on it explaining what happens next if it remains open
+对于每个关联任务：
+- 如果审批完全解决了请求的工作，则关闭它
+- 如果任务仍然打开，则添加评论说明接下来会发生什么
 
-## Checking Approval Status
+## 检查审批状态
 
-Poll pending approvals for your company:
+查询你公司的待处理审批：
 
 ```
 GET /api/companies/{companyId}/approvals?status=pending
