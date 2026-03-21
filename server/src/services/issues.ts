@@ -1041,6 +1041,35 @@ export function issueService(db: Db) {
         return enriched;
       }
 
+      // If the execution lock points to a terminal/missing run, clear it and retry (GH #1420).
+      // This handles cases where a run completed but failed to release the lock.
+      if (current.executionRunId && checkoutRunId) {
+        const executionStale = await isTerminalOrMissingHeartbeatRun(current.executionRunId);
+        if (executionStale) {
+          const cleared = await db
+            .update(issues)
+            .set({
+              executionRunId: checkoutRunId,
+              executionLockedAt: new Date(),
+              checkoutRunId,
+              updatedAt: new Date(),
+            })
+            .where(
+              and(
+                eq(issues.id, id),
+                eq(issues.executionRunId, current.executionRunId),
+                eq(issues.assigneeAgentId, agentId),
+              ),
+            )
+            .returning()
+            .then((rows) => rows[0] ?? null);
+          if (cleared) {
+            const [enriched] = await withIssueLabels(db, [cleared]);
+            return enriched;
+          }
+        }
+      }
+
       throw conflict("Issue checkout conflict", {
         issueId: current.id,
         status: current.status,
