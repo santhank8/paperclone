@@ -141,6 +141,30 @@ const HandbookModule = (() => {
     // Fix #12: scroll active TOC item into view in sidebar
     const activeItem = document.querySelector('.toc-item.active');
     if (activeItem) activeItem.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    // K2: Update breadcrumb
+    _updateBreadcrumb(sectionId);
+  }
+
+  function _updateBreadcrumb(sectionId) {
+    const bcSection = document.getElementById('bc-section');
+    const bcEl = document.getElementById('handbook-breadcrumb');
+    if (!bcSection || !_data) return;
+
+    let title = '';
+    let color = null;
+    const allSections = _data.sections || [];
+
+    for (const sec of allSections) {
+      if (sec.id === sectionId) { title = sec.title; color = sec.color; break; }
+      if (sectionId.startsWith(sec.id + '-')) {
+        const sub = (sec.subsections || []).find(s => sec.id + '-' + s.id === sectionId);
+        if (sub) { title = sub.title; color = sec.color; break; }
+      }
+    }
+    if (sectionId === 'terms') { title = 'Byggtermer & ordlista'; color = 'red'; }
+
+    bcSection.textContent = title || sectionId;
+    if (bcEl && color) bcEl.dataset.bookColor = color;
   }
 
   function _scrollToSection(sectionId) {
