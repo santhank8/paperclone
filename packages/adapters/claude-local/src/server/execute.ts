@@ -406,6 +406,19 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
       args.push("--append-system-prompt-file", effectiveInstructionsFilePath);
     }
     args.push("--add-dir", skillsDir);
+    // When an agent instructions file lives outside the project cwd (e.g. in
+    // ~/.paperclip/instances/.../agents/), Claude CLI treats that directory as
+    // "external_directory" and auto-rejects permission requests. Adding it via
+    // --add-dir grants Claude read access to sibling files referenced by the
+    // instructions. We skip this when the instructions dir is already inside cwd
+    // or inside skillsDir to avoid redundant entries.
+    if (instructionsFileDir && !instructionsFileDir.startsWith(`${skillsDir}/`)) {
+      const resolvedInstrDir = path.resolve(instructionsFileDir);
+      const resolvedCwd = path.resolve(cwd);
+      if (!resolvedInstrDir.startsWith(resolvedCwd + path.sep) && resolvedInstrDir !== resolvedCwd) {
+        args.push("--add-dir", resolvedInstrDir);
+      }
+    }
     if (extraArgs.length > 0) args.push(...extraArgs);
     return args;
   };
