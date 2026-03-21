@@ -61,10 +61,8 @@ export async function handleSlackEvent(
     );
   }
 
-  const event = envelope.event;
-  if (!event) return;
-
-  const eventId = (event as { event_id?: string }).event_id;
+  // event_id is a top-level field on the envelope, not on the inner event object.
+  const eventId = envelope.event_id;
   if (eventId) {
     // Fast in-process guard prevents TOCTOU races when the same event arrives twice
     // in quick succession before the first invocation has written to persistent state.
@@ -77,6 +75,9 @@ export async function handleSlackEvent(
       inFlightEvents.delete(eventId);
     }
   }
+
+  const event = envelope.event;
+  if (!event) return;
 
   const maps = buildAgentMaps(config);
 
@@ -147,20 +148,24 @@ async function handleMention(
   // Post issue card as a reply in thread
   const url = buildIssueUrl(companyId, issue.id);
   const projectName = mapping?.channelName ?? "Slack";
-  const res = await client.postMessage(
+  // threadRoot is the original message's ts — this is what Slack sets as thread_ts on
+  // all subsequent replies, so we must key the reverse-index on it (not on res.ts which
+  // is the bot's reply and would cause all follow-up lookups to miss).
+  const threadRoot = event.thread_ts ?? event.ts;
+  await client.postMessage(
     event.channel,
     issueCreatedConfirmation(issue, url),
     issueToSlackBlocks(issue, projectName, url),
-    event.thread_ts ?? event.ts,
+    threadRoot,
   );
 
   await saveThread(ctx, issue.id, {
     channelId: event.channel,
-    threadTs: res.ts,
-    slackUrl: buildSlackUrl(teamId, event.channel, res.ts),
+    threadTs: threadRoot,
+    slackUrl: buildSlackUrl(teamId, event.channel, threadRoot),
     createdAt: new Date().toISOString(),
   });
-  await saveThreadReverse(ctx, event.channel, res.ts, issue.id);
+  await saveThreadReverse(ctx, event.channel, threadRoot, issue.id);
 
   await ctx.activity.log({
     companyId,
@@ -201,7 +206,17 @@ async function handleDM(
 
   const url = buildIssueUrl(companyId, issue.id);
   const client = new SlackClient(agentToken, ctx.http);
-  await client.postMessage(event.channel, issueCreatedConfirmation(issue, url));
+  const confirmRes = await client.postMessage(event.channel, issueCreatedConfirmation(issue, url));
+
+  // Register the DM conversation in the thread index so follow-up messages in
+  // the same DM channel are linked back to this issue as comments.
+  await saveThread(ctx, issue.id, {
+    channelId: event.channel,
+    threadTs: confirmRes.ts,
+    slackUrl: buildSlackUrl(undefined, event.channel, confirmRes.ts),
+    createdAt: new Date().toISOString(),
+  });
+  await saveThreadReverse(ctx, event.channel, confirmRes.ts, issue.id);
 
   await ctx.activity.log({
     companyId,

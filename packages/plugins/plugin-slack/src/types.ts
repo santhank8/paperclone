@@ -46,6 +46,8 @@ export interface SlackEventEnvelope {
   type: "event_callback" | "url_verification";
   /** Present for url_verification */
   challenge?: string;
+  /** Unique ID for this event delivery — used for deduplication */
+  event_id?: string;
   api_app_id?: string;
   team_id?: string;
   event?: SlackEvent;
