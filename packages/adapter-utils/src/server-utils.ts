@@ -633,14 +633,20 @@ export function writePaperclipSkillSyncPreference(
   return next;
 }
 
-async function symlinkOrCopy(source: string, target: string): Promise<void> {
+export async function symlinkOrCopy(source: string, target: string): Promise<void> {
   try {
     await fs.symlink(source, target);
   } catch (err: unknown) {
-    if ((err as NodeJS.ErrnoException).code === "EPERM") {
-      await fs.cp(source, target, { recursive: true });
-    } else {
+    if ((err as NodeJS.ErrnoException).code !== "EPERM") {
       throw err;
+    }
+    // Windows: symlink requires Developer Mode or admin.
+    // Try a junction first (no elevation needed, works for directories).
+    try {
+      await fs.symlink(source, target, "junction");
+    } catch {
+      // Junction failed too — fall back to a full recursive copy.
+      await fs.cp(source, target, { recursive: true });
     }
   }
 }
