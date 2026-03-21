@@ -115,6 +115,18 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
   const effectiveWorkspaceCwd = useConfiguredInsteadOfAgentHome ? "" : workspaceCwd;
   const cwd = effectiveWorkspaceCwd || configuredCwd || process.cwd();
   await ensureAbsoluteDirectory(cwd, { createIfMissing: true });
+  // Ensure opencode.json exists in cwd with permission: allow so OpenCode
+  // does not prompt for tool permissions during headbeat runs.
+  const opencodeConfigPath = path.join(cwd, "opencode.json");
+  try {
+    await fs.access(opencodeConfigPath);
+  } catch {
+    await fs.writeFile(
+      opencodeConfigPath,
+      JSON.stringify({ "$schema": "https://opencode.ai/config.json", permission: "allow" }, null, 2) + "\n",
+      "utf-8",
+    );
+  }
   await ensureOpenCodeSkillsInjected(onLog);
 
   const envConfig = parseObject(config.env);
