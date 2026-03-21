@@ -9,6 +9,7 @@ import {
   updateCompanyBrandingSchema,
 } from "@paperclipai/shared";
 import { forbidden } from "../errors.js";
+import { logger } from "../middleware/logger.js";
 import { validate } from "../middleware/validate.js";
 import {
   accessService,
@@ -206,7 +207,9 @@ export function companyRoutes(db: Db) {
     const heartbeat = heartbeatService(db);
     const companyAgents = await agentService(db).list(companyId);
     for (const agent of companyAgents) {
-      await heartbeat.cancelActiveForAgent(agent.id).catch(() => {});
+      await heartbeat.cancelActiveForAgent(agent.id).catch((err) => {
+        logger.warn({ err, agentId: agent.id }, "Failed to cancel heartbeat runs for agent during archive");
+      });
     }
 
     await logActivity(db, {
