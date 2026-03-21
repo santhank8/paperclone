@@ -5,12 +5,25 @@
  * POST /api/generate-pdf  →  tar emot inspection-objekt, returnerar PDF
  *
  * Använder pdfkit + LiberationSans för fullt stöd av svenska tecken (å ä ö Å Ä Ö)
+ * Stöder inline foton (base64 data URIs) per kontrollpunkt.
  */
 
 const express = require('express');
 const PDFDocument = require('pdfkit');
 const path = require('path');
 const router = express.Router();
+
+// ---------- Foto-hjälpare ----------
+// Konverterar en base64 data URI till en Buffer + format-sträng för PDFKit
+function parseDataUri(dataUri) {
+  const match = dataUri.match(/^data:(image\/\w+);base64,(.+)$/);
+  if (!match) return null;
+  const mimeType = match[1];  // "image/jpeg" | "image/png" | "image/webp"
+  const buffer   = Buffer.from(match[2], 'base64');
+  // PDFKit accepterar 'JPEG' | 'PNG' — konvertera
+  const fmt = mimeType === 'image/png' ? 'PNG' : 'JPEG';
+  return { buffer, fmt };
+}
 
 // LiberationSans — stöder latin extended (svenska tecken)
 const FONT_DIR = '/usr/share/fonts/truetype/liberation';
@@ -19,7 +32,7 @@ const FONT_BOLD    = path.join(FONT_DIR, 'LiberationSans-Bold.ttf');
 const FONT_ITALIC  = path.join(FONT_DIR, 'LiberationSans-Italic.ttf');
 
 // POST /api/generate-pdf
-router.post('/generate-pdf', express.json({ limit: '15mb' }), (req, res) => {
+router.post('/generate-pdf', express.json({ limit: '30mb' }), (req, res) => {
   const inspection = req.body;
 
   if (!inspection || typeof inspection !== 'object') {
@@ -43,7 +56,7 @@ router.post('/generate-pdf', express.json({ limit: '15mb' }), (req, res) => {
     margins: { top: 50, bottom: 50, left: 50, right: 50 },
     bufferPages: true,   // krävs för att kunna lägga sidnummer i efterhand
     info: {
-      Title:   'Besiktningsutlatande',
+      Title:   'Besiktningsutlåtande',
       Author:  inspection.underskriftNamn || 'Besiktningsman',
       Subject: inspection.typ || 'Besiktning',
       Creator: 'Besiktningsappen',
@@ -127,7 +140,7 @@ router.post('/generate-pdf', express.json({ limit: '15mb' }), (req, res) => {
   doc.rect(0, 0, pageW, 62).fill(C.blue);
 
   font('bold', 20, C.white)
-    .text('BESIKTNINGSUTLATANDE', 0, 10, { align: 'center', width: pageW, lineBreak: false });
+    .text('BESIKTNINGSUTLÅTANDE', 0, 10, { align: 'center', width: pageW, lineBreak: false });
 
   // Liten dekorativ linje
   doc.strokeColor('#3498db').lineWidth(1.5)
@@ -271,6 +284,48 @@ router.post('/generate-pdf', express.json({ limit: '15mb' }), (req, res) => {
           y += 9;
         }
         y += 2;
+      }
+
+      // --- Foton för detta rum (max 4 per rum, 2 per rad) ---
+      const fotoItems = [];
+      for (const pt of punkter) {
+        for (const foto of (pt.foton || []).slice(0, 2)) {
+          fotoItems.push({ foto, label: (pt.text || '').substring(0, 60) });
+          if (fotoItems.length >= 4) break;
+        }
+        if (fotoItems.length >= 4) break;
+      }
+
+      if (fotoItems.length) {
+        const imgW = (contentW - 10) / 2;
+        const imgH = 55;
+        let col = 0;
+        let rowY = y;
+
+        for (const { foto, label } of fotoItems) {
+          if (col === 0) {
+            checkPage(imgH + 18);
+            rowY = y;
+          }
+          const imgX = mL + col * (imgW + 10);
+          const parsed = parseDataUri(foto);
+          if (parsed) {
+            try {
+              doc.image(parsed.buffer, imgX, rowY, { width: imgW, height: imgH, fit: [imgW, imgH] });
+            } catch (_) {
+              // Ogiltig bild — hoppa över
+            }
+          }
+          font('italic', 6.5, C.grey)
+            .text(label, imgX, rowY + imgH + 1, { width: imgW, lineBreak: false });
+          col++;
+          if (col >= 2) {
+            y = rowY + imgH + 12;
+            col = 0;
+          }
+        }
+        if (col > 0) y = rowY + imgH + 12;
+        y += 4;
       }
 
       // Liten separator mellan rum

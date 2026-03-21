@@ -6,7 +6,7 @@
 
 'use strict';
 
-const CACHE_VERSION = 'v1.0.0';
+const CACHE_VERSION = 'v1.1.0'; // Fas 3: jsPDF removed, server-side PDFKit, handbook color-coding
 const CACHE_NAME    = 'besiktningsappen-' + CACHE_VERSION;
 
 // Files to cache on install

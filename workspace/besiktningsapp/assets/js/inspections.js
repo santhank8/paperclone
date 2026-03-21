@@ -1509,7 +1509,7 @@ const InspectionsModule = (() => {
   }
 
   // ============================================================
-  // PDF Export
+  // PDF Export — via server-side PDFKit (/api/generate-pdf)
   // ============================================================
   async function _exportPdf(inspection) {
     // Reload fresh from storage to get latest saved data
@@ -1519,293 +1519,35 @@ const InspectionsModule = (() => {
     window.showToast && showToast('Genererar PDF...', 'info');
 
     try {
-      const { jsPDF } = window.jspdf;
-      const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-
-      const pageW = 210;
-      const pageH = 297;
-      const margin = 15;
-      const contentW = pageW - margin * 2;
-      let y = margin;
-
-      // ---- Color palette ----
-      const colorBlue   = [26, 82, 118];
-      const colorRed    = [192, 57, 43];
-      const colorOrange = [211, 84, 0];
-      const colorGreen  = [39, 174, 96];
-      const colorGrey   = [120, 120, 120];
-      const colorLight  = [245, 247, 250];
-      const colorBorder = [200, 210, 220];
-
-      // ---- Helpers ----
-      function checkPageBreak(needed) {
-        if (y + needed > pageH - margin) {
-          doc.addPage();
-          y = margin;
-        }
-      }
-
-      function drawHRule(color) {
-        doc.setDrawColor(...(color || colorBorder));
-        doc.line(margin, y, pageW - margin, y);
-        y += 2;
-      }
-
-      function drawSectionHeader(title, bgColor) {
-        checkPageBreak(14);
-        doc.setFillColor(...(bgColor || colorBlue));
-        doc.roundedRect(margin, y, contentW, 10, 2, 2, 'F');
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(10);
-        doc.setTextColor(255, 255, 255);
-        doc.text(title, margin + 4, y + 6.5);
-        doc.setTextColor(0);
-        y += 14;
-      }
-
-      function drawInfoRow(label, value) {
-        checkPageBreak(7);
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(8.5);
-        doc.setTextColor(...colorGrey);
-        doc.text(label + ':', margin, y);
-        doc.setFont('helvetica', 'normal');
-        doc.setTextColor(30, 30, 30);
-        doc.text(String(value || '–'), margin + 55, y);
-        y += 6;
-      }
-
-      // ---- HEADER ----
-      doc.setFillColor(...colorBlue);
-      doc.rect(0, 0, pageW, 38, 'F');
-
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(20);
-      doc.setTextColor(255, 255, 255);
-      doc.text('BESIKTNINGSUTLÅTANDE', pageW / 2, 16, { align: 'center' });
-
-      doc.setFontSize(10);
-      doc.setFont('helvetica', 'normal');
-      doc.text(insp.typ || 'Besiktning', pageW / 2, 24, { align: 'center' });
-      doc.text(insp.objekt?.adress || '', pageW / 2, 31, { align: 'center' });
-
-      y = 46;
-
-      // ---- GRUNDUPPGIFTER ----
-      drawSectionHeader('GRUNDUPPGIFTER');
-      drawInfoRow('Adress', insp.objekt?.adress);
-      drawInfoRow('Fastighetsbeteckning', insp.objekt?.fastighetsbeteckning);
-      drawInfoRow('Kommun', insp.objekt?.kommun);
-      drawInfoRow('Besiktningstyp', insp.typ);
-      drawInfoRow('Datum', insp.datum);
-      drawInfoRow('Tid', insp.tid);
-      y += 2;
-
-      // ---- PARTER ----
-      checkPageBreak(10);
-      drawSectionHeader('PARTER');
-      const p = insp.parter || {};
-      if (p.bestallare?.namn) drawInfoRow('Beställare', p.bestallare.namn + (p.bestallare.telefon ? '  ' + p.bestallare.telefon : ''));
-      if (p.entreprenor?.foretag) drawInfoRow('Entreprenör', p.entreprenor.foretag + (p.entreprenor.kontakt ? ' / ' + p.entreprenor.kontakt : ''));
-      if (p.husleverantor?.foretag) drawInfoRow('Husleverantör', p.husleverantor.foretag);
-      if (p.ka?.namn) drawInfoRow('Kontrollansvarig', p.ka.namn);
-      y += 2;
-
-      // ---- FEL & ANMÄRKNINGAR per rum ----
-      const felPerRum = [];
-      const anmPerRum = [];
-      (insp.rum || []).forEach(room => {
-        const fel = (room.kontrollpunkter || []).filter(p => p.status === 'fel');
-        const anm = (room.kontrollpunkter || []).filter(p => p.status === 'anm');
-        if (fel.length) felPerRum.push({ room, punkter: fel });
-        if (anm.length) anmPerRum.push({ room, punkter: anm });
+      const response = await fetch('/api/generate-pdf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(insp),
       });
 
-      // ---- FEL ----
-      if (felPerRum.length) {
-        drawSectionHeader('FEL', colorRed);
-
-        for (const { room, punkter } of felPerRum) {
-          checkPageBreak(12);
-          // Room sub-header
-          doc.setFillColor(...colorLight);
-          doc.roundedRect(margin, y, contentW, 8, 1, 1, 'F');
-          doc.setFont('helvetica', 'bold');
-          doc.setFontSize(9);
-          doc.setTextColor(...colorRed);
-          doc.text(room.name, margin + 3, y + 5.5);
-          doc.setTextColor(0);
-          y += 10;
-
-          // Table for this room
-          const rows = punkter.map((pt, i) => [
-            String(i + 1),
-            pt.text || '',
-            pt.felkategori || '–',
-            pt.anteckning || '',
-          ]);
-
-          doc.autoTable({
-            startY: y,
-            head: [['#', 'Kontrollpunkt', 'Kat.', 'Anteckning']],
-            body: rows,
-            margin: { left: margin, right: margin },
-            styles: { fontSize: 8, cellPadding: 2.5, overflow: 'linebreak' },
-            headStyles: { fillColor: [220, 100, 80], textColor: 255, fontStyle: 'bold', fontSize: 8 },
-            columnStyles: {
-              0: { cellWidth: 8 },
-              1: { cellWidth: 75 },
-              2: { cellWidth: 14 },
-              3: { cellWidth: contentW - 97 },
-            },
-            alternateRowStyles: { fillColor: [255, 245, 245] },
-            tableLineColor: colorBorder,
-            tableLineWidth: 0.2,
-          });
-
-          y = doc.lastAutoTable.finalY + 4;
-
-          // Photos for this room (max 2 per page)
-          let photoCount = 0;
-          for (const pt of punkter) {
-            for (const foto of (pt.foton || []).slice(0, 2)) {
-              if (photoCount >= 2) { doc.addPage(); y = margin; photoCount = 0; }
-              checkPageBreak(70);
-              try {
-                const imgFormat = foto.startsWith('data:image/png') ? 'PNG' : 'JPEG';
-                // Scale image to fit width / 2
-                const imgW = contentW / 2 - 5;
-                const imgH = 50;
-                const xPos = margin + (photoCount % 2) * (imgW + 10);
-                doc.addImage(foto, imgFormat, xPos, y, imgW, imgH);
-                doc.setFontSize(7);
-                doc.setTextColor(...colorGrey);
-                doc.text(`${room.name}: ${pt.text.substring(0, 50)}`, xPos, y + imgH + 3, { maxWidth: imgW });
-                if (photoCount % 2 === 1) y += imgH + 10;
-                photoCount++;
-              } catch (e) {
-                console.warn('[PDF] Foto-fel:', e);
-              }
-            }
-          }
-          if (photoCount % 2 !== 0) y += 55;
-        }
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({ error: response.statusText }));
+        throw new Error(err.error || 'Server-fel');
       }
 
-      // ---- ANMÄRKNINGAR ----
-      if (anmPerRum.length) {
-        checkPageBreak(20);
-        drawSectionHeader('ANMÄRKNINGAR', colorOrange);
+      const blob = await response.blob();
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
 
-        for (const { room, punkter } of anmPerRum) {
-          checkPageBreak(12);
-          doc.setFillColor(...colorLight);
-          doc.roundedRect(margin, y, contentW, 8, 1, 1, 'F');
-          doc.setFont('helvetica', 'bold');
-          doc.setFontSize(9);
-          doc.setTextColor(...colorOrange);
-          doc.text(room.name, margin + 3, y + 5.5);
-          doc.setTextColor(0);
-          y += 10;
+      // Derive filename from Content-Disposition if available, else build it
+      const cd = response.headers.get('Content-Disposition') || '';
+      const fnMatch = cd.match(/filename\*?=(?:UTF-8'')?([^;]+)/i);
+      const adress  = (insp.objekt?.adress || 'besiktning').replace(/[^a-zA-Z0-9åäöÅÄÖ\s]/g, '').replace(/\s+/g, '_').substring(0, 40);
+      const datum   = (insp.datum || new Date().toISOString().split('T')[0]).replace(/-/g, '');
+      a.href     = url;
+      a.download = fnMatch ? decodeURIComponent(fnMatch[1].trim()) : `utlatande_${adress}_${datum}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
 
-          const rows = punkter.map((pt, i) => [
-            String(i + 1),
-            pt.text || '',
-            pt.anteckning || '',
-          ]);
-
-          doc.autoTable({
-            startY: y,
-            head: [['#', 'Kontrollpunkt', 'Anteckning']],
-            body: rows,
-            margin: { left: margin, right: margin },
-            styles: { fontSize: 8, cellPadding: 2.5, overflow: 'linebreak' },
-            headStyles: { fillColor: [211, 130, 50], textColor: 255, fontStyle: 'bold', fontSize: 8 },
-            columnStyles: {
-              0: { cellWidth: 8 },
-              1: { cellWidth: 90 },
-              2: { cellWidth: contentW - 98 },
-            },
-            alternateRowStyles: { fillColor: [255, 252, 245] },
-            tableLineColor: colorBorder,
-            tableLineWidth: 0.2,
-          });
-
-          y = doc.lastAutoTable.finalY + 4;
-        }
-      }
-
-      // ---- SAMMANFATTNING ----
-      if (insp.sammanfattning) {
-        checkPageBreak(30);
-        drawSectionHeader('SAMMANFATTNING');
-        const lines = doc.splitTextToSize(insp.sammanfattning, contentW);
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(9);
-        doc.setTextColor(30, 30, 30);
-        const linesNeeded = lines.length * 5;
-        checkPageBreak(linesNeeded + 4);
-        doc.text(lines, margin, y);
-        y += linesNeeded + 6;
-      }
-
-      // ---- UNDERSKRIFT ----
-      checkPageBreak(40);
-      drawSectionHeader('UNDERSKRIFT');
-
-      const ort = insp.ort || '';
-      const datum = insp.underskriftDatum || insp.datum || '';
-      const namn = insp.underskriftNamn || '';
-      const cert = insp.underskriftCert || '';
-
-      doc.setFontSize(9);
-      doc.setTextColor(50, 50, 50);
-      doc.text(`Ort och datum: ${ort ? ort + ', ' : ''}${datum}`, margin, y);
-      y += 14;
-
-      // Signature line
-      doc.setDrawColor(...colorGrey);
-      doc.line(margin, y, margin + 80, y);
-      doc.setFontSize(8);
-      doc.setTextColor(...colorGrey);
-      doc.text('Underskrift', margin, y + 4);
-      y += 10;
-
-      doc.setFontSize(9);
-      doc.setTextColor(30, 30, 30);
-      doc.setFont('helvetica', 'bold');
-      doc.text(namn, margin, y);
-      y += 5;
-      if (cert) {
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(8);
-        doc.setTextColor(...colorGrey);
-        doc.text('Certifiering: ' + cert, margin, y);
-        y += 5;
-      }
-
-      // ---- FOOTER on all pages ----
-      const totalPages = doc.internal.getNumberOfPages();
-      for (let pg = 1; pg <= totalPages; pg++) {
-        doc.setPage(pg);
-        doc.setFontSize(7);
-        doc.setTextColor(...colorGrey);
-        doc.text(
-          `${insp.objekt?.adress || 'Besiktningsutlåtande'} — ${insp.datum || ''} — Sida ${pg} / ${totalPages}`,
-          pageW / 2,
-          pageH - 7,
-          { align: 'center' }
-        );
-      }
-
-      // ---- Save ----
-      const adress = (insp.objekt?.adress || 'besiktning').replace(/[^a-zA-Z0-9åäöÅÄÖ\s]/g, '').replace(/\s+/g, '_').substring(0, 40);
-      const datumStr = (insp.datum || today).replace(/-/g, '');
-      doc.save(`utlatande_${adress}_${datumStr}.pdf`);
       window.showToast && showToast('PDF exporterad! ✓', 'success');
-
     } catch (err) {
-      console.error('[PDF] Export-fel:', err);
       window.showToast && showToast('PDF-export misslyckades: ' + err.message, 'error');
     }
   }
