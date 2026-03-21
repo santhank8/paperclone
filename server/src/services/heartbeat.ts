@@ -1732,6 +1732,59 @@ export function heartbeatService(db: Db) {
     return { reaped: reaped.length, runIds: reaped };
   }
 
+  /**
+   * Find issues whose executionRunId points to a terminal/missing run and
+   * release the stale lock. This handles cases where a run completed but
+   * failed to clear the execution lock due to a cleanup error (GH #1420).
+   */
+  async function releaseStaleExecutionLocks() {
+    const lockedIssues = await db
+      .select({
+        issueId: issues.id,
+        companyId: issues.companyId,
+        executionRunId: issues.executionRunId,
+      })
+      .from(issues)
+      .where(
+        and(
+          sql`${issues.executionRunId} IS NOT NULL`,
+          sql`${issues.executionLockedAt} < NOW() - INTERVAL '2 minutes'`,
+        ),
+      );
+
+    let released = 0;
+    for (const locked of lockedIssues) {
+      if (!locked.executionRunId) continue;
+      const run = await db
+        .select({ status: heartbeatRuns.status })
+        .from(heartbeatRuns)
+        .where(eq(heartbeatRuns.id, locked.executionRunId))
+        .then((rows) => rows[0] ?? null);
+
+      const terminalStatuses = new Set(["succeeded", "failed", "cancelled", "timed_out"]);
+      const isStale = !run || terminalStatuses.has(run.status);
+      if (!isStale) continue;
+
+      await db
+        .update(issues)
+        .set({
+          executionRunId: null,
+          executionAgentNameKey: null,
+          executionLockedAt: null,
+          updatedAt: new Date(),
+        })
+        .where(
+          and(eq(issues.id, locked.issueId), eq(issues.executionRunId, locked.executionRunId)),
+        );
+      released++;
+      logger.warn(
+        { issueId: locked.issueId, staleRunId: locked.executionRunId, runStatus: run?.status ?? "missing" },
+        "released stale execution lock from completed/missing run",
+      );
+    }
+    return { released };
+  }
+
   async function resumeQueuedRuns() {
     const queuedRuns = await db
       .select({ agentId: heartbeatRuns.agentId })
@@ -3656,6 +3709,8 @@ export function heartbeatService(db: Db) {
     reportRunActivity: clearDetachedRunWarning,
 
     reapOrphanedRuns,
+
+    releaseStaleExecutionLocks,
 
     resumeQueuedRuns,
 
