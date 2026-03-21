@@ -61,6 +61,7 @@ type AdapterType =
   | "opencode_local"
   | "pi_local"
   | "cursor"
+  | "ollama_local"
   | "http"
   | "openclaw_gateway";
 
@@ -198,6 +199,7 @@ export function OnboardingWizard() {
     adapterType === "codex_local" ||
     adapterType === "gemini_local" ||
     adapterType === "opencode_local" ||
+    adapterType === "ollama_local" ||
     adapterType === "cursor";
   const effectiveAdapterCommand =
     command.trim() ||
@@ -807,6 +809,12 @@ export function OnboardingWizard() {
                             desc: "Local Cursor agent"
                           },
                           {
+                            value: "ollama_local" as const,
+                            label: "Ollama",
+                            icon: Bot,
+                            desc: "Local Ollama models"
+                          },
+                          {
                             value: "openclaw_gateway" as const,
                             label: "OpenClaw Gateway",
                             icon: Bot,
@@ -867,7 +875,8 @@ export function OnboardingWizard() {
                     adapterType === "gemini_local" ||
                     adapterType === "opencode_local" ||
                     adapterType === "pi_local" ||
-                    adapterType === "cursor") && (
+                    adapterType === "cursor" ||
+                    adapterType === "ollama_local") && (
                     <div className="space-y-3">
                       <div>
                         <label className="text-xs text-muted-foreground mb-1 block">
@@ -1035,7 +1044,9 @@ export function OnboardingWizard() {
                         <div className="rounded-md border border-border/70 bg-muted/20 px-2.5 py-2 text-[11px] space-y-1.5">
                           <p className="font-medium">{t.onboarding.manualDebug}</p>
                           <p className="text-muted-foreground font-mono break-all">
-                            {adapterType === "cursor"
+                            {adapterType === "ollama_local"
+                              ? `curl http://localhost:11434/api/tags`
+                              : adapterType === "cursor"
                               ? `${effectiveAdapterCommand} -p --mode ask --output-format json \"Respond with hello.\"`
                               : adapterType === "codex_local"
                               ? `${effectiveAdapterCommand} exec --json -`
