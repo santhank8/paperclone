@@ -72,7 +72,7 @@ import {
   type WorkspaceOperation,
 } from "@paperclipai/shared";
 import { redactHomePathUserSegments, redactHomePathUserSegmentsInValue } from "@paperclipai/adapter-utils";
-import { agentRouteRef } from "../lib/utils";
+import { agentRouteRef, agentUrl } from "../lib/utils";
 
 const runStatusIcons: Record<string, { icon: typeof CheckCircle2; color: string }> = {
   succeeded: { icon: CheckCircle2, color: "text-green-600 dark:text-green-400" },
@@ -528,6 +528,21 @@ export function AgentDetail() {
     staleTime: 5_000,
   });
 
+  const { data: companyLiveRuns } = useQuery({
+    queryKey: queryKeys.liveRuns(resolvedCompanyId!),
+    queryFn: () => heartbeatsApi.liveRunsForCompany(resolvedCompanyId!),
+    enabled: !!resolvedCompanyId,
+    refetchInterval: 10_000,
+  });
+
+  const liveCountByAgent = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const run of companyLiveRuns ?? []) {
+      counts.set(run.agentId, (counts.get(run.agentId) ?? 0) + 1);
+    }
+    return counts;
+  }, [companyLiveRuns]);
+
   const assignedIssues = (allIssues ?? [])
     .filter((i) => i.assigneeAgentId === agent?.id)
     .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
@@ -939,6 +954,8 @@ export function AgentDetail() {
           runtimeState={runtimeState}
           agentId={agent.id}
           agentRouteId={canonicalAgentRef}
+          directReports={directReports}
+          liveCountByAgent={liveCountByAgent}
         />
       )}
 
@@ -1075,6 +1092,8 @@ function AgentOverview({
   runtimeState,
   agentId,
   agentRouteId,
+  directReports,
+  liveCountByAgent,
 }: {
   agent: Agent;
   runs: HeartbeatRun[];
@@ -1082,6 +1101,8 @@ function AgentOverview({
   runtimeState?: AgentRuntimeState;
   agentId: string;
   agentRouteId: string;
+  directReports: Agent[];
+  liveCountByAgent: Map<string, number>;
 }) {
   return (
     <div className="space-y-8">
@@ -1103,6 +1124,53 @@ function AgentOverview({
           <SuccessRateChart runs={runs} />
         </ChartCard>
       </div>
+
+      {/* Team — direct reports */}
+      {directReports.length > 0 && (
+        <div className="space-y-3">
+          <h3 className="text-sm font-medium">
+            Team
+            <span className="ml-1.5 text-xs text-muted-foreground font-normal">
+              {directReports.length} report{directReports.length !== 1 ? "s" : ""}
+            </span>
+          </h3>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+            {directReports.map((report) => {
+              const runCount = liveCountByAgent.get(report.id) ?? 0;
+              const dotClass = agentStatusDot[report.status] ?? agentStatusDotDefault;
+              return (
+                <Link
+                  key={report.id}
+                  to={agentUrl(report)}
+                  className="flex items-center gap-2.5 rounded-lg border border-border p-3 hover:bg-accent/50 transition-colors group"
+                >
+                  <AgentIcon icon={report.icon} className="shrink-0 h-5 w-5 text-muted-foreground group-hover:text-foreground transition-colors" />
+                  <div className="flex-1 min-w-0">
+                    <span className="text-sm font-medium truncate block">{report.name}</span>
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <span className={cn("inline-flex h-2 w-2 rounded-full shrink-0", dotClass)} />
+                      <span className="text-[11px] text-muted-foreground capitalize">
+                        {report.status.replace("_", " ")}
+                      </span>
+                    </div>
+                  </div>
+                  {runCount > 0 && (
+                    <span className="flex items-center gap-1 shrink-0">
+                      <span className="relative flex h-2 w-2">
+                        <span className="animate-pulse absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75" />
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-cyan-400" />
+                      </span>
+                      <span className="text-[11px] font-medium text-cyan-600 dark:text-cyan-400">
+                        {runCount}
+                      </span>
+                    </span>
+                  )}
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Recent Issues */}
       <div className="space-y-3">

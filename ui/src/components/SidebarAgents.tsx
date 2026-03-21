@@ -18,8 +18,15 @@ import {
 } from "@/components/ui/collapsible";
 import type { Agent } from "@paperclipai/shared";
 
-/** BFS sort: roots first (no reportsTo), then their direct reports, etc. */
-function sortByHierarchy(agents: Agent[]): Agent[] {
+/* ---- Tree data structure ---- */
+
+interface AgentTreeNode {
+  agent: Agent;
+  children: AgentTreeNode[];
+}
+
+/** Build a hierarchical tree from a flat list of agents using `reportsTo`. */
+function buildAgentTree(agents: Agent[]): AgentTreeNode[] {
   const byId = new Map(agents.map((a) => [a.id, a]));
   const childrenOf = new Map<string | null, Agent[]>();
   for (const a of agents) {
@@ -28,16 +35,147 @@ function sortByHierarchy(agents: Agent[]): Agent[] {
     list.push(a);
     childrenOf.set(parent, list);
   }
-  const sorted: Agent[] = [];
-  const queue = childrenOf.get(null) ?? [];
-  while (queue.length > 0) {
-    const agent = queue.shift()!;
-    sorted.push(agent);
-    const children = childrenOf.get(agent.id);
-    if (children) queue.push(...children);
+
+  function buildNode(agent: Agent): AgentTreeNode {
+    const children = (childrenOf.get(agent.id) ?? []).map(buildNode);
+    return { agent, children };
   }
-  return sorted;
+
+  return (childrenOf.get(null) ?? []).map(buildNode);
 }
+
+/** Walk the tree to aggregate live run counts from all descendants. */
+function aggregateLiveCounts(
+  nodes: AgentTreeNode[],
+  directCounts: Map<string, number>,
+): Map<string, number> {
+  const aggregated = new Map<string, number>();
+
+  function walk(node: AgentTreeNode): number {
+    let total = directCounts.get(node.agent.id) ?? 0;
+    for (const child of node.children) {
+      total += walk(child);
+    }
+    aggregated.set(node.agent.id, total);
+    return total;
+  }
+
+  for (const root of nodes) walk(root);
+  return aggregated;
+}
+
+/* ---- Recursive tree item ---- */
+
+function AgentTreeItem({
+  node,
+  depth,
+  activeAgentId,
+  liveCountByAgent,
+  aggregatedLiveCounts,
+  isMobile,
+  setSidebarOpen,
+}: {
+  node: AgentTreeNode;
+  depth: number;
+  activeAgentId: string | null;
+  liveCountByAgent: Map<string, number>;
+  aggregatedLiveCounts: Map<string, number>;
+  isMobile: boolean;
+  setSidebarOpen: (open: boolean) => void;
+}) {
+  const [expanded, setExpanded] = useState(true);
+  const { agent } = node;
+  const directCount = liveCountByAgent.get(agent.id) ?? 0;
+  const aggregatedCount = aggregatedLiveCounts.get(agent.id) ?? 0;
+  const hasChildren = node.children.length > 0;
+  // Cap visual indentation at 3 levels to prevent overflow in narrow sidebar
+  const visualDepth = Math.min(depth, 3);
+
+  return (
+    <div>
+      <div
+        className="flex items-center"
+        style={{ paddingLeft: `${12 + visualDepth * 14}px` }}
+      >
+        {hasChildren ? (
+          <button
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setExpanded(!expanded);
+            }}
+            className="flex items-center justify-center h-4 w-4 shrink-0 mr-0.5 rounded hover:bg-accent/50 transition-colors"
+            aria-label={expanded ? "Collapse" : "Expand"}
+          >
+            <ChevronRight
+              className={cn(
+                "h-2.5 w-2.5 text-muted-foreground/60 transition-transform duration-150",
+                expanded && "rotate-90"
+              )}
+            />
+          </button>
+        ) : (
+          <span className="w-4 mr-0.5 shrink-0" />
+        )}
+        <NavLink
+          to={agentUrl(agent)}
+          onClick={() => {
+            if (isMobile) setSidebarOpen(false);
+          }}
+          className={cn(
+            "flex items-center gap-2 flex-1 min-w-0 py-1.5 pr-3 text-[13px] font-medium transition-colors rounded-sm",
+            activeAgentId === agentRouteRef(agent)
+              ? "bg-accent text-foreground"
+              : "text-foreground/80 hover:bg-accent/50 hover:text-foreground"
+          )}
+        >
+          <AgentIcon icon={agent.icon} className="shrink-0 h-3.5 w-3.5 text-muted-foreground" />
+          <span className="flex-1 truncate">{agent.name}</span>
+          {(agent.pauseReason === "budget" || directCount > 0 || (!expanded && aggregatedCount > 0)) && (
+            <span className="ml-auto flex items-center gap-1.5 shrink-0">
+              {agent.pauseReason === "budget" && (
+                <BudgetSidebarMarker title="Agent paused by budget" />
+              )}
+              {directCount > 0 ? (
+                <>
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-pulse absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75" />
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-cyan-400" />
+                  </span>
+                  <span className="text-[11px] font-medium text-cyan-600 dark:text-cyan-400">
+                    {directCount} live
+                  </span>
+                </>
+              ) : !expanded && aggregatedCount > 0 ? (
+                <span className="text-[11px] font-medium text-cyan-600/60 dark:text-cyan-400/60">
+                  {aggregatedCount} active
+                </span>
+              ) : null}
+            </span>
+          )}
+        </NavLink>
+      </div>
+      {hasChildren && expanded && (
+        <div>
+          {node.children.map((child) => (
+            <AgentTreeItem
+              key={child.agent.id}
+              node={child}
+              depth={depth + 1}
+              activeAgentId={activeAgentId}
+              liveCountByAgent={liveCountByAgent}
+              aggregatedLiveCounts={aggregatedLiveCounts}
+              isMobile={isMobile}
+              setSidebarOpen={setSidebarOpen}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ---- Main sidebar section ---- */
 
 export function SidebarAgents() {
   const [open, setOpen] = useState(true);
@@ -67,12 +205,17 @@ export function SidebarAgents() {
     return counts;
   }, [liveRuns]);
 
-  const visibleAgents = useMemo(() => {
+  const agentTree = useMemo(() => {
     const filtered = (agents ?? []).filter(
       (a: Agent) => a.status !== "terminated"
     );
-    return sortByHierarchy(filtered);
+    return buildAgentTree(filtered);
   }, [agents]);
+
+  const aggregatedLiveCounts = useMemo(
+    () => aggregateLiveCounts(agentTree, liveCountByAgent),
+    [agentTree, liveCountByAgent],
+  );
 
   const agentMatch = location.pathname.match(/^\/(?:[^/]+\/)?agents\/([^/]+)/);
   const activeAgentId = agentMatch?.[1] ?? null;
@@ -107,45 +250,18 @@ export function SidebarAgents() {
 
       <CollapsibleContent>
         <div className="flex flex-col gap-0.5 mt-0.5">
-          {visibleAgents.map((agent: Agent) => {
-            const runCount = liveCountByAgent.get(agent.id) ?? 0;
-            return (
-              <NavLink
-                key={agent.id}
-                to={agentUrl(agent)}
-                onClick={() => {
-                  if (isMobile) setSidebarOpen(false);
-                }}
-                className={cn(
-                  "flex items-center gap-2.5 px-3 py-1.5 text-[13px] font-medium transition-colors",
-                  activeAgentId === agentRouteRef(agent)
-                    ? "bg-accent text-foreground"
-                    : "text-foreground/80 hover:bg-accent/50 hover:text-foreground"
-                )}
-              >
-                <AgentIcon icon={agent.icon} className="shrink-0 h-3.5 w-3.5 text-muted-foreground" />
-                <span className="flex-1 truncate">{agent.name}</span>
-                {(agent.pauseReason === "budget" || runCount > 0) && (
-                  <span className="ml-auto flex items-center gap-1.5 shrink-0">
-                    {agent.pauseReason === "budget" ? (
-                      <BudgetSidebarMarker title="Agent paused by budget" />
-                    ) : null}
-                    {runCount > 0 ? (
-                      <span className="relative flex h-2 w-2">
-                        <span className="animate-pulse absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75" />
-                        <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500" />
-                      </span>
-                    ) : null}
-                    {runCount > 0 ? (
-                      <span className="text-[11px] font-medium text-blue-600 dark:text-blue-400">
-                        {runCount} live
-                      </span>
-                    ) : null}
-                  </span>
-                )}
-              </NavLink>
-            );
-          })}
+          {agentTree.map((node) => (
+            <AgentTreeItem
+              key={node.agent.id}
+              node={node}
+              depth={0}
+              activeAgentId={activeAgentId}
+              liveCountByAgent={liveCountByAgent}
+              aggregatedLiveCounts={aggregatedLiveCounts}
+              isMobile={isMobile}
+              setSidebarOpen={setSidebarOpen}
+            />
+          ))}
         </div>
       </CollapsibleContent>
     </Collapsible>
