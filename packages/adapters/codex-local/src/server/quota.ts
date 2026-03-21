@@ -417,6 +417,7 @@ class CodexRpcClient {
   private buffer = "";
   private pending = new Map<number, PendingRequest>();
   private stderr = "";
+  private spawnError: Error | null = null;
 
   constructor() {
     this.proc.stdout.setEncoding("utf8");
@@ -424,6 +425,19 @@ class CodexRpcClient {
     this.proc.stdout.on("data", (chunk: string) => this.onStdout(chunk));
     this.proc.stderr.on("data", (chunk: string) => {
       this.stderr += chunk;
+    });
+    this.proc.on("error", (err: Error) => {
+      const errno = (err as NodeJS.ErrnoException).code;
+      const msg =
+        errno === "ENOENT"
+          ? "codex CLI is not installed or not on PATH"
+          : `codex app-server spawn failed: ${err.message}`;
+      for (const request of this.pending.values()) {
+        clearTimeout(request.timer);
+        request.reject(new Error(msg));
+      }
+      this.pending.clear();
+      this.spawnError = new Error(msg);
     });
     this.proc.on("exit", () => {
       for (const request of this.pending.values()) {
@@ -459,6 +473,7 @@ class CodexRpcClient {
   }
 
   private request(method: string, params: Record<string, unknown> = {}, timeoutMs = 6_000): Promise<Record<string, unknown>> {
+    if (this.spawnError) return Promise.reject(this.spawnError);
     const id = this.nextId++;
     const payload = JSON.stringify({ id, method, params }) + "\n";
     return new Promise<Record<string, unknown>>((resolve, reject) => {
@@ -472,6 +487,7 @@ class CodexRpcClient {
   }
 
   private notify(method: string, params: Record<string, unknown> = {}) {
+    if (this.spawnError) return;
     this.proc.stdin.write(JSON.stringify({ method, params }) + "\n");
   }
 
@@ -500,7 +516,7 @@ class CodexRpcClient {
   }
 
   async shutdown() {
-    this.proc.kill("SIGTERM");
+    try { this.proc.kill("SIGTERM"); } catch { /* already dead */ }
   }
 }
 
