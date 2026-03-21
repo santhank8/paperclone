@@ -2906,6 +2906,10 @@ export function heartbeatService(db: Db) {
       payload,
     });
     const issueId = readNonEmptyString(enrichedContextSnapshot.issueId) ?? issueIdFromPayload;
+    // Persist issueId from payload into contextSnapshot so executeRun can find it
+    if (issueId && !enrichedContextSnapshot.issueId) {
+      enrichedContextSnapshot.issueId = issueId;
+    }
 
     const agent = await getAgent(agentId);
     if (!agent) throw notFound("Agent not found");
@@ -2928,11 +2932,15 @@ export function heartbeatService(db: Db) {
 
     let projectId = readNonEmptyString(enrichedContextSnapshot.projectId);
     if (!projectId && issueId) {
-      projectId = await db
-        .select({ projectId: issues.projectId })
+      const issueRow = await db
+        .select({ projectId: issues.projectId, projectWorkspaceId: issues.projectWorkspaceId })
         .from(issues)
         .where(and(eq(issues.id, issueId), eq(issues.companyId, agent.companyId)))
-        .then((rows) => rows[0]?.projectId ?? null);
+        .then((rows) => rows[0] ?? null);
+      projectId = issueRow?.projectId ?? null;
+      // Persist resolved project context so executeRun can find the workspace
+      if (projectId) enrichedContextSnapshot.projectId = projectId;
+      if (issueRow?.projectWorkspaceId) enrichedContextSnapshot.projectWorkspaceId = issueRow.projectWorkspaceId;
     }
 
     const budgetBlock = await budgets.getInvocationBlock(agent.companyId, agentId, {
