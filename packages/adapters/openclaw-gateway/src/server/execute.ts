@@ -1208,7 +1208,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
   const wakeText = buildWakeText(wakePayload, paperclipEnv, ctx.authToken);
 
   const sessionKeyStrategy = normalizeSessionKeyStrategy(
-    ctx.config.sessionStrategy ?? ctx.config.sessionKeyStrategy,
+    ctx.config.sessionKeyStrategy,
   );
   const configuredSessionKey = nonEmpty(ctx.config.sessionKey);
   const configuredAgentId = nonEmpty(ctx.config.agentId);

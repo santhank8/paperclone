@@ -158,7 +158,7 @@ function buildAssigneeAdapterOverrides(input: {
     adapterConfig.chrome = true;
   }
   if (adapterType === "openclaw_gateway" && input.sessionStrategy) {
-    adapterConfig.sessionStrategy = input.sessionStrategy;
+    adapterConfig.sessionKeyStrategy = input.sessionStrategy;
   }
 
   const overrides: Record<string, unknown> = {};
