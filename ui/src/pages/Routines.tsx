@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@/lib/router";
-import { ChevronDown, ChevronRight, MoreHorizontal, Play, Plus, Repeat } from "lucide-react";
+import { AlertTriangle, ChevronDown, ChevronRight, MoreHorizontal, Play, Plus, Repeat, Zap } from "lucide-react";
 import { routinesApi } from "../api/routines";
 import { agentsApi } from "../api/agents";
 import { projectsApi } from "../api/projects";
@@ -85,6 +85,9 @@ export function Routines() {
   const [statusMutationRoutineId, setStatusMutationRoutineId] = useState<string | null>(null);
   const [composerOpen, setComposerOpen] = useState(false);
   const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<string>(
+    () => localStorage.getItem("routines:statusFilter") ?? "all",
+  );
   const [draft, setDraft] = useState({
     title: "",
     description: "",
@@ -225,6 +228,19 @@ export function Routines() {
   );
   const currentAssignee = draft.assigneeAgentId ? agentById.get(draft.assigneeAgentId) ?? null : null;
   const currentProject = draft.projectId ? projectById.get(draft.projectId) ?? null : null;
+
+  const statusCounts = useMemo(() => ({
+    all: routines?.length ?? 0,
+    active: routines?.filter((r) => r.status === "active").length ?? 0,
+    paused: routines?.filter((r) => r.status === "paused").length ?? 0,
+    archived: routines?.filter((r) => r.status === "archived").length ?? 0,
+  }), [routines]);
+
+  const filteredRoutines = useMemo(() => {
+    if (!routines) return [];
+    if (statusFilter === "all") return routines;
+    return routines.filter((r) => r.status === statusFilter);
+  }, [routines, statusFilter]);
 
   if (!selectedCompanyId) {
     return <EmptyState icon={Repeat} message="Select a company to view routines." />;
@@ -532,20 +548,53 @@ export function Routines() {
             />
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <>
+            <div className="flex flex-wrap gap-1 border-b border-border pb-3 mb-3">
+              {(["all", "active", "paused", "archived"] as const).map((filter) => (
+                <button
+                  key={filter}
+                  type="button"
+                  onClick={() => {
+                    setStatusFilter(filter);
+                    localStorage.setItem("routines:statusFilter", filter);
+                  }}
+                  className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+                    statusFilter === filter
+                      ? "bg-foreground text-background"
+                      : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                  }`}
+                >
+                  {filter.charAt(0).toUpperCase() + filter.slice(1)}
+                  <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${
+                    statusFilter === filter ? "bg-background/20 text-background" : "bg-muted text-muted-foreground"
+                  }`}>
+                    {statusCounts[filter]}
+                  </span>
+                </button>
+              ))}
+            </div>
+            <div className="overflow-x-auto">
             <table className="min-w-full text-sm">
               <thead>
                 <tr className="text-left text-xs text-muted-foreground border-b border-border">
                   <th className="px-3 py-2 font-medium">Name</th>
                   <th className="px-3 py-2 font-medium">Project</th>
                   <th className="px-3 py-2 font-medium">Agent</th>
+                  <th className="px-3 py-2 font-medium">Triggers</th>
                   <th className="px-3 py-2 font-medium">Last run</th>
                   <th className="px-3 py-2 font-medium">Enabled</th>
                   <th className="w-12 px-3 py-2" />
                 </tr>
               </thead>
               <tbody>
-                {(routines ?? []).map((routine) => {
+                {filteredRoutines.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="px-3 py-10 text-center text-sm text-muted-foreground">
+                      No {statusFilter === "all" ? "" : statusFilter} routines.
+                    </td>
+                  </tr>
+                ) : null}
+                {filteredRoutines.map((routine) => {
                   const enabled = routine.status === "active";
                   const isArchived = routine.status === "archived";
                   const isStatusPending = statusMutationRoutineId === routine.id;
@@ -594,6 +643,19 @@ export function Routines() {
                           );
                         })() : (
                           <span className="text-xs text-muted-foreground">—</span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2.5">
+                        {routine.triggers.length === 0 ? (
+                          <div className="flex items-center gap-1.5 text-amber-600 dark:text-amber-500">
+                            <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                            <span className="text-xs">No triggers</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1.5 text-muted-foreground">
+                            <Zap className="h-3.5 w-3.5 shrink-0" />
+                            <span className="text-xs">{routine.triggers.length} trigger{routine.triggers.length !== 1 ? "s" : ""}</span>
+                          </div>
                         )}
                       </td>
                       <td className="px-3 py-2.5 text-muted-foreground">
@@ -679,7 +741,8 @@ export function Routines() {
                 })}
               </tbody>
             </table>
-          </div>
+            </div>
+          </>
         )}
       </div>
     </div>
