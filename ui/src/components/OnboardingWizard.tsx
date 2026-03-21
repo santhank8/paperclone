@@ -33,8 +33,6 @@ import { DEFAULT_CURSOR_LOCAL_MODEL } from "@paperclipai/adapter-cursor-local";
 import { DEFAULT_GEMINI_LOCAL_MODEL } from "@paperclipai/adapter-gemini-local";
 import { resolveRouteOnboardingOptions } from "../lib/onboarding-route";
 import { AsciiArtAnimation } from "./AsciiArtAnimation";
-import { ChoosePathButton } from "./PathInstructionsModal";
-import { HintIcon } from "./agent-config-primitives";
 import { OpenCodeLogoIcon } from "./OpenCodeLogoIcon";
 import {
   Building2,
@@ -50,7 +48,6 @@ import {
   MousePointer2,
   Check,
   Loader2,
-  FolderOpen,
   ChevronDown,
   X
 } from "lucide-react";
@@ -63,17 +60,14 @@ type AdapterType =
   | "opencode_local"
   | "pi_local"
   | "cursor"
-  | "process"
   | "http"
   | "openclaw_gateway";
 
-const DEFAULT_TASK_DESCRIPTION = `Setup yourself as the CEO. Use the ceo persona found here: 
+const DEFAULT_TASK_DESCRIPTION = `You are the CEO. You set the direction for the company.
 
-https://github.com/paperclipai/companies/blob/main/default/ceo/AGENTS.md
-
-Ensure you have a folder agents/ceo and then download this AGENTS.md, and sibling HEARTBEAT.md, SOUL.md, and TOOLS.md. and set that AGENTS.md as the path to your agents instruction file
-
-After that, hire yourself a Founding Engineer agent and then plan the roadmap and tasks for your new company.`;
+- hire a founding engineer
+- write a hiring plan
+- break the roadmap into concrete tasks and start delegating work`;
 
 export function OnboardingWizard() {
   const { t } = useTranslation();
@@ -115,7 +109,6 @@ export function OnboardingWizard() {
   // Step 2
   const [agentName, setAgentName] = useState("CEO");
   const [adapterType, setAdapterType] = useState<AdapterType>("claude_local");
-  const [cwd, setCwd] = useState("");
   const [model, setModel] = useState("");
   const [command, setCommand] = useState("");
   const [args, setArgs] = useState("");
@@ -130,7 +123,9 @@ export function OnboardingWizard() {
   const [showMoreAdapters, setShowMoreAdapters] = useState(false);
 
   // Step 3
-  const [taskTitle, setTaskTitle] = useState("Create your CEO HEARTBEAT.md");
+  const [taskTitle, setTaskTitle] = useState(
+    "Hire your first engineer and create a hiring plan"
+  );
   const [taskDescription, setTaskDescription] = useState(
     DEFAULT_TASK_DESCRIPTION
   );
@@ -219,7 +214,7 @@ export function OnboardingWizard() {
     if (step !== 2) return;
     setAdapterEnvResult(null);
     setAdapterEnvError(null);
-  }, [step, adapterType, cwd, model, command, args, url]);
+  }, [step, adapterType, model, command, args, url]);
 
   const selectedModel = (adapterModels ?? []).find((m) => m.id === model);
   const hasAnthropicApiKeyOverrideCheck =
@@ -275,7 +270,6 @@ export function OnboardingWizard() {
     setCompanyGoal("");
     setAgentName("CEO");
     setAdapterType("claude_local");
-    setCwd("");
     setModel("");
     setCommand("");
     setArgs("");
@@ -285,7 +279,7 @@ export function OnboardingWizard() {
     setAdapterEnvLoading(false);
     setForceUnsetAnthropicApiKey(false);
     setUnsetAnthropicLoading(false);
-    setTaskTitle("Create your CEO HEARTBEAT.md");
+    setTaskTitle("Hire your first engineer and create a hiring plan");
     setTaskDescription(DEFAULT_TASK_DESCRIPTION);
     setCreatedCompanyId(null);
     setCreatedCompanyPrefix(null);
@@ -303,7 +297,6 @@ export function OnboardingWizard() {
     const config = adapter.buildAdapterConfig({
       ...defaultCreateValues,
       adapterType,
-      cwd,
       model:
         adapterType === "codex_local"
           ? model || DEFAULT_CODEX_LOCAL_MODEL
@@ -788,12 +781,6 @@ export function OnboardingWizard() {
                             label: "Gemini CLI",
                             icon: Gem,
                             desc: "Local Gemini agent"
-                          },
-                          {
-                            value: "process" as const,
-                            label: "Process",
-                            icon: Terminal,
-                            desc: "Run a local command"
                           },
                           {
                             value: "opencode_local" as const,

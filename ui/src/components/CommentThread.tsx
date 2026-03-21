@@ -51,7 +51,6 @@ interface CommentThreadProps {
   mentions?: MentionOption[];
 }
 
-const CLOSED_STATUSES = new Set(["done", "cancelled"]);
 const DRAFT_DEBOUNCE_MS = 800;
 
 function loadDraft(draftKey: string): string {
@@ -264,7 +263,6 @@ export function CommentThread({
   companyId,
   projectId,
   onAdd,
-  issueStatus,
   agentMap,
   imageUploadHandler,
   onAttachImage,
@@ -290,8 +288,6 @@ export function CommentThread({
   const draftTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const location = useLocation();
   const hasScrolledRef = useRef(false);
-
-  const isClosed = issueStatus ? CLOSED_STATUSES.has(issueStatus) : false;
 
   const timeline = useMemo<TimelineItem[]>(() => {
     const commentItems: TimelineItem[] = comments.map((comment) => ({
@@ -374,10 +370,10 @@ export function CommentThread({
 
     setSubmitting(true);
     try {
-      await onAdd(trimmed, isClosed && reopen ? true : undefined, reassignment ?? undefined);
+      await onAdd(trimmed, reopen ? true : undefined, reassignment ?? undefined);
       setBody("");
       if (draftKey) clearDraft(draftKey);
-      setReopen(false);
+      setReopen(true);
       setReassignTarget(effectiveSuggestedAssigneeValue);
     } finally {
       setSubmitting(false);

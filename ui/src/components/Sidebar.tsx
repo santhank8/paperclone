@@ -8,6 +8,8 @@ import {
   Search,
   SquarePen,
   Network,
+  Boxes,
+  Repeat,
   Settings,
 } from "lucide-react";
 import { useState } from "react";
