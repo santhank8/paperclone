@@ -1,7 +1,17 @@
 import { eq, and, asc } from "drizzle-orm";
 import type { Db } from "@paperclipai/db";
 import { savedViews } from "@paperclipai/db";
-import { notFound } from "../errors.js";
+import { notFound, badRequest } from "../errors.js";
+
+const FILTER_KEYS = ["statuses", "priorities", "assignees", "labels"] as const;
+
+function validateFilters(filters: unknown): filters is { statuses: string[]; priorities: string[]; assignees: string[]; labels: string[] } {
+  if (typeof filters !== "object" || filters === null || Array.isArray(filters)) return false;
+  const f = filters as Record<string, unknown>;
+  const keys = Object.keys(f);
+  if (keys.length !== FILTER_KEYS.length || !FILTER_KEYS.every((k) => k in f)) return false;
+  return FILTER_KEYS.every((k) => Array.isArray(f[k]) && (f[k] as unknown[]).every((v) => typeof v === "string"));
+}
 
 export function savedViewService(db: Db) {
   return {
@@ -20,6 +30,7 @@ export function savedViewService(db: Db) {
       sortField: string;
       sortDirection: string;
     }) {
+      if (!validateFilters(data.filters)) throw badRequest("filters must contain statuses, priorities, assignees, labels as arrays of strings");
       const [row] = await db
         .insert(savedViews)
         .values({
@@ -43,7 +54,10 @@ export function savedViewService(db: Db) {
     }) {
       const patch: Record<string, unknown> = { updatedAt: new Date() };
       if (data.name !== undefined) patch.name = data.name;
-      if (data.filters !== undefined) patch.filters = data.filters;
+      if (data.filters !== undefined) {
+        if (!validateFilters(data.filters)) throw badRequest("filters must contain statuses, priorities, assignees, labels as arrays of strings");
+        patch.filters = data.filters;
+      }
       if (data.groupBy !== undefined) patch.groupBy = data.groupBy;
       if (data.sortField !== undefined) patch.sortField = data.sortField;
       if (data.sortDirection !== undefined) patch.sortDirection = data.sortDirection;

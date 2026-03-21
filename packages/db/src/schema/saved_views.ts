@@ -1,12 +1,12 @@
-import { pgTable, uuid, text, timestamp, jsonb, index } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, varchar, timestamp, jsonb, index } from "drizzle-orm/pg-core";
 import { companies } from "./companies.js";
 
 export const savedViews = pgTable(
   "saved_views",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    companyId: uuid("company_id").notNull().references(() => companies.id),
-    name: text("name").notNull(),
+    companyId: uuid("company_id").notNull().references(() => companies.id, { onDelete: "cascade" }),
+    name: varchar("name", { length: 255 }).notNull(),
     filters: jsonb("filters").notNull().$type<{
       statuses: string[];
       priorities: string[];
