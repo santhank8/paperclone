@@ -12,11 +12,12 @@ import { projectsApi } from "../api/projects";
 import { useCompany } from "../context/CompanyContext";
 import { usePanel } from "../context/PanelContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
+import { WorkspaceFileProvider } from "../context/WorkspaceFileContext";
 import { queryKeys } from "../lib/queryKeys";
 import { readIssueDetailBreadcrumb } from "../lib/issueDetailBreadcrumb";
 import { cronPresetOptions } from "../lib/cron-presets";
 import { useProjectOrder } from "../hooks/useProjectOrder";
-import { relativeTime, cn, formatTokens } from "../lib/utils";
+import { relativeTime, cn, formatTokens, agentRouteRef } from "../lib/utils";
 import { resolveEffectiveReviewBundleMode } from "../lib/review-bundles";
 import { InlineEditor } from "../components/InlineEditor";
 import { CommentThread } from "../components/CommentThread";
@@ -26,6 +27,7 @@ import type { MentionOption } from "../components/MarkdownEditor";
 import { ScrollToBottom } from "../components/ScrollToBottom";
 import { StatusIcon } from "../components/StatusIcon";
 import { PriorityIcon } from "../components/PriorityIcon";
+import { RecurringScheduleCard } from "../components/RecurringScheduleCard";
 import { StatusBadge } from "../components/StatusBadge";
 import { Identity } from "../components/Identity";
 import { Separator } from "@/components/ui/separator";
@@ -39,7 +41,6 @@ import {
   Activity as ActivityIcon,
   ChevronDown,
   ChevronRight,
-  Clock3,
   EyeOff,
   Hexagon,
   ListTree,
@@ -590,12 +591,16 @@ export function IssueDetail() {
   });
 
   const updateRecurring = useMutation({
-    mutationFn: (input: { scheduleId: string; enabled: boolean }) =>
-      taskCronsApi.updateSchedule(
-        input.scheduleId,
-        { enabled: input.enabled },
-        selectedCompanyId ?? undefined,
-      ),
+    mutationFn: (input: { scheduleId: string } & Partial<{
+      name: string;
+      expression: string;
+      timezone: string;
+      enabled: boolean;
+      issueMode: "create_new" | "reuse_existing" | "reopen_existing";
+    }>) => {
+      const { scheduleId, ...fields } = input;
+      return taskCronsApi.updateSchedule(scheduleId, fields, selectedCompanyId ?? undefined);
+    },
     onSuccess: () => {
       setRecurringError(null);
       queryClient.invalidateQueries({ queryKey: queryKeys.taskCrons.byIssue(issueId!) });
@@ -702,8 +707,14 @@ export function IssueDetail() {
 
   const isImageAttachment = (attachment: IssueAttachment) => attachment.contentType.startsWith("image/");
 
-  return (
-    <div className="max-w-2xl space-y-6">
+  const assignedAgent = issue.assigneeAgentId ? agentMap.get(issue.assigneeAgentId) : null;
+  const wsAgentRouteId = assignedAgent ? agentRouteRef(assignedAgent) : null;
+  const wsAgentCwd = assignedAgent
+    ? (assignedAgent.adapterConfig as Record<string, unknown>)?.cwd as string | undefined
+    : undefined;
+
+  const issueContent = (
+    <div className="max-w-2xl space-y-6 animate-page-enter">
       {/* Parent chain breadcrumb */}
       {ancestors.length > 0 && (
         <nav className="flex items-center gap-1 text-xs text-muted-foreground flex-wrap">
@@ -1340,45 +1351,14 @@ export function IssueDetail() {
             {recurringSchedules && recurringSchedules.length > 0 ? (
               <div className="space-y-2">
                 {recurringSchedules.map((schedule) => (
-                  <div key={schedule.id} className="rounded border border-border p-2">
-                    <div className="flex items-center gap-2">
-                      <Clock3 className="h-3.5 w-3.5 text-muted-foreground" />
-                      <span className="text-xs font-medium">{schedule.name}</span>
-                      <span className="text-[10px] text-muted-foreground font-mono">
-                        {schedule.expression} ({schedule.timezone})
-                      </span>
-                      <span className="ml-auto">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-6 px-2 text-[10px]"
-                          onClick={() =>
-                            updateRecurring.mutate({
-                              scheduleId: schedule.id,
-                              enabled: !schedule.enabled,
-                            })
-                          }
-                          disabled={updateRecurring.isPending}
-                        >
-                          {schedule.enabled ? "Disable" : "Enable"}
-                        </Button>
-                      </span>
-                      <Button
-                        variant="ghost"
-                        size="icon-xs"
-                        className="text-destructive"
-                        onClick={() => deleteRecurring.mutate(schedule.id)}
-                        disabled={deleteRecurring.isPending}
-                        title="Delete schedule"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    </div>
-                    <div className="mt-1 text-[10px] text-muted-foreground">
-                      {schedule.enabled ? "Active" : "Disabled"} · next{" "}
-                      {schedule.nextTriggerAt ? relativeTime(schedule.nextTriggerAt) : "not scheduled"}
-                    </div>
-                  </div>
+                  <RecurringScheduleCard
+                    key={schedule.id}
+                    schedule={schedule}
+                    onUpdate={(scheduleId, fields) => updateRecurring.mutate({ scheduleId, ...fields })}
+                    onDelete={(scheduleId) => deleteRecurring.mutate(scheduleId)}
+                    updating={updateRecurring.isPending}
+                    deleting={deleteRecurring.isPending}
+                  />
                 ))}
               </div>
             ) : (
@@ -1404,4 +1384,14 @@ export function IssueDetail() {
       <ScrollToBottom />
     </div>
   );
+
+  if (wsAgentRouteId) {
+    return (
+      <WorkspaceFileProvider agentRouteId={wsAgentRouteId} workspaceCwd={wsAgentCwd}>
+        {issueContent}
+      </WorkspaceFileProvider>
+    );
+  }
+
+  return issueContent;
 }

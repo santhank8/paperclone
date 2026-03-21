@@ -5,6 +5,7 @@ import { approvalsApi } from "../api/approvals";
 import { agentsApi } from "../api/agents";
 import { useCompany } from "../context/CompanyContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
+import { WorkspaceFileProvider } from "../context/WorkspaceFileContext";
 import { queryKeys } from "../lib/queryKeys";
 import { StatusBadge } from "../components/StatusBadge";
 import { Identity } from "../components/Identity";
@@ -15,6 +16,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { CheckCircle2, ChevronRight, Sparkles } from "lucide-react";
 import type { ApprovalComment } from "@paperclipai/shared";
 import { MarkdownBody } from "../components/MarkdownBody";
+import { agentRouteRef } from "../lib/utils";
+import type { Agent } from "@paperclipai/shared";
 
 export function ApprovalDetail() {
   const { approvalId } = useParams<{ approvalId: string }>();
@@ -146,6 +149,11 @@ export function ApprovalDetail() {
 
   const payload = approval.payload as Record<string, unknown>;
   const linkedAgentId = typeof payload.agentId === "string" ? payload.agentId : null;
+  const linkedAgent = linkedAgentId ? (agents ?? []).find((a: Agent) => a.id === linkedAgentId) : null;
+  const wsAgentRouteId = linkedAgent ? agentRouteRef(linkedAgent) : null;
+  const wsAgentCwd = linkedAgent
+    ? (linkedAgent.adapterConfig as Record<string, unknown>)?.cwd as string | undefined
+    : undefined;
   const isActionable = approval.status === "pending" || approval.status === "revision_requested";
   const TypeIcon = typeIcon[approval.type] ?? defaultTypeIcon;
   const showApprovedBanner = searchParams.get("resolved") === "approved" && approval.status === "approved";
@@ -169,7 +177,7 @@ export function ApprovalDetail() {
             to: "/approvals",
           };
 
-  return (
+  const approvalContent = (
     <div className="space-y-6 max-w-3xl">
       {showApprovedBanner && (
         <div className="border border-green-300 dark:border-green-700/40 bg-green-50 dark:bg-green-900/20 rounded-lg px-4 py-3 animate-in fade-in zoom-in-95 duration-300">
@@ -359,4 +367,14 @@ export function ApprovalDetail() {
       </div>
     </div>
   );
+
+  if (wsAgentRouteId) {
+    return (
+      <WorkspaceFileProvider agentRouteId={wsAgentRouteId} workspaceCwd={wsAgentCwd}>
+        {approvalContent}
+      </WorkspaceFileProvider>
+    );
+  }
+
+  return approvalContent;
 }

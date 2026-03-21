@@ -94,6 +94,10 @@ export const queryKeys = {
     byAgent: (agentId: string) => ["task-crons", "agent", agentId] as const,
     byIssue: (issueId: string) => ["task-crons", "issue", issueId] as const,
   },
+  workspace: {
+    files: (agentId: string, path: string) => ["workspace", "files", agentId, path] as const,
+    content: (agentId: string, path: string) => ["workspace", "content", agentId, path] as const,
+  },
   inboxDismissals: (companyId: string) => ["inbox-dismissals", companyId] as const,
   org: (companyId: string) => ["org", companyId] as const,
 };

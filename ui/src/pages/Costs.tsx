@@ -97,7 +97,7 @@ export function Costs() {
   const presetKeys: DatePreset[] = ["mtd", "7d", "30d", "ytd", "all", "custom"];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-page-enter">
       {/* Date range selector */}
       <div className="flex flex-wrap items-center gap-2">
         {presetKeys.map((p) => (

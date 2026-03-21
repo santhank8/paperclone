@@ -105,13 +105,16 @@ export function approvalService(db: Db) {
 
       let hireApprovedAgentId: string | null = null;
       const now = new Date();
-      if (applied && updated.type === "hire_agent") {
+      if (updated.type === "hire_agent" && updated.status === "approved") {
         const payload = updated.payload as Record<string, unknown>;
         const payloadAgentId = typeof payload.agentId === "string" ? payload.agentId : null;
         if (payloadAgentId) {
+          // Idempotent: safe to call even on re-resolve if the agent is still
+          // pending (e.g. server crashed between approval update and activation).
           await agentsSvc.activatePendingApproval(payloadAgentId);
           hireApprovedAgentId = payloadAgentId;
-        } else {
+        } else if (applied) {
+          // Only create a brand-new agent on first resolution to avoid duplicates.
           const created = await agentsSvc.create(updated.companyId, {
             name: String(payload.name ?? "New Agent"),
             role: String(payload.role ?? "general"),
@@ -136,7 +139,7 @@ export function approvalService(db: Db) {
           });
           hireApprovedAgentId = created?.id ?? null;
         }
-        if (hireApprovedAgentId) {
+        if (applied && hireApprovedAgentId) {
           void notifyHireApproved(db, {
             companyId: updated.companyId,
             agentId: hireApprovedAgentId,

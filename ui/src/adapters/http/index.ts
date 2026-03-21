@@ -6,6 +6,7 @@ import { buildHttpConfig } from "./build-config";
 export const httpUIAdapter: UIAdapterModule = {
   type: "http",
   label: "HTTP Webhook",
+  mcpSupported: false,
   parseStdoutLine: parseHttpStdoutLine,
   ConfigFields: HttpConfigFields,
   buildAdapterConfig: buildHttpConfig,

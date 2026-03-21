@@ -205,7 +205,7 @@ export function ActiveAgentsPanel({ companyId }: ActiveAgentsPanelProps) {
     queryFn: () => heartbeatsApi.liveRunsForCompany(companyId, MIN_DASHBOARD_RUNS),
   });
 
-  const runs = liveRuns ?? [];
+  const runs = (liveRuns ?? []).filter((r): r is LiveRunForIssue => r != null);
   const { data: issues } = useQuery({
     queryKey: queryKeys.issues.list(companyId),
     queryFn: () => issuesApi.list(companyId),

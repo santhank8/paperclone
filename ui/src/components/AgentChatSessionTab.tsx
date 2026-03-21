@@ -277,9 +277,6 @@ export function AgentChatSessionTab({
     if (lastAttemptedStreamIdRef.current === pendingMessage.id && streamState && isTerminalStreamStatus(streamState.status)) {
       return;
     }
-    if (lastAttemptedStreamIdRef.current === pendingMessage.id && streamState && !isTerminalStreamStatus(streamState.status)) {
-      return;
-    }
     startStream(selectedSessionId, { message: pendingMessage, runId: pendingMessage.runId });
   }, [messages, selectedSessionId, startStream, streamState]);
 

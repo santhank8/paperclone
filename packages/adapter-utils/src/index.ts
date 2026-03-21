@@ -23,3 +23,14 @@ export type {
   CLIAdapterModule,
   CreateConfigValues,
 } from "./types.js";
+
+export type { McpServerEntry, McpServersMap } from "./mcp.js";
+export {
+  parseMcpServers,
+  expandMcpEnv,
+  toClaudeMcpJson,
+  toOpenCodeMcpJson,
+  toCodexToml,
+  writeMcpConfigFile,
+  writeMcpTempFile,
+} from "./mcp.js";

@@ -7,7 +7,7 @@ import { issuesApi } from "../api/issues";
 import { taskCronsApi } from "../api/taskCrons";
 import { queryKeys } from "../lib/queryKeys";
 import { groupBy } from "../lib/groupBy";
-import { formatDate, cn } from "../lib/utils";
+import { formatDate, formatDateTime, cn, timeUntil } from "../lib/utils";
 import { timeAgo } from "../lib/timeAgo";
 import { StatusIcon } from "./StatusIcon";
 import { PriorityIcon } from "./PriorityIcon";
@@ -39,10 +39,13 @@ import {
   Columns3,
   User,
   Search,
+  CalendarClock,
   Clock3,
   Pause,
   Play,
   Save,
+  History,
+  Zap,
 } from "lucide-react";
 import { KanbanBoard } from "./KanbanBoard";
 import type { Issue } from "@paperclipai/shared";
@@ -51,6 +54,7 @@ import type { TaskCronSchedule } from "@paperclipai/shared";
 /* ── Helpers ── */
 
 const statusOrder = ["in_progress", "todo", "backlog", "in_review", "blocked", "done", "cancelled"];
+const pastStatuses = new Set(["done", "cancelled"]);
 const priorityOrder = ["critical", "high", "medium", "low"];
 
 function statusLabel(status: string): string {
@@ -67,7 +71,7 @@ export type IssueViewState = {
   recurringFilter: "all" | "recurring_only";
   sortField: "status" | "priority" | "title" | "created" | "updated";
   sortDir: "asc" | "desc";
-  groupBy: "status" | "priority" | "assignee" | "none";
+  groupBy: "status" | "priority" | "assignee" | "recurring" | "none";
   viewMode: "list" | "board";
   collapsedGroups: string[];
 };
@@ -310,6 +314,17 @@ export function IssuesList({
 
   const activeFilterCount = countActiveFilters(viewState);
 
+  const upcomingSchedules = useMemo(() => {
+    const now = Date.now();
+    return recurringSchedules
+      .filter((s) => s.enabled && s.nextTriggerAt && new Date(s.nextTriggerAt).getTime() > now)
+      .sort((a, b) => new Date(a.nextTriggerAt!).getTime() - new Date(b.nextTriggerAt!).getTime())
+      .slice(0, 8);
+  }, [recurringSchedules]);
+
+  const activeIssues = useMemo(() => filtered.filter((i) => !pastStatuses.has(i.status)), [filtered]);
+  const pastIssues = useMemo(() => filtered.filter((i) => pastStatuses.has(i.status)), [filtered]);
+
   const groupedContent = useMemo(() => {
     if (viewState.groupBy === "none") {
       return [{ key: "__all", label: null as string | null, items: filtered }];
@@ -326,6 +341,14 @@ export function IssuesList({
         .filter((p) => groups[p]?.length)
         .map((p) => ({ key: p, label: statusLabel(p), items: groups[p]! }));
     }
+    if (viewState.groupBy === "recurring") {
+      const recurring = filtered.filter((i) => recurringIssueIds.has(i.id));
+      const oneOff = filtered.filter((i) => !recurringIssueIds.has(i.id));
+      const result: { key: string; label: string | null; items: typeof filtered }[] = [];
+      if (recurring.length) result.push({ key: "recurring", label: "Recurring", items: recurring });
+      if (oneOff.length) result.push({ key: "one-off", label: "One-off", items: oneOff });
+      return result;
+    }
     // assignee
     const groups = groupBy(filtered, (i) => i.assigneeAgentId ?? "__unassigned");
     return Object.keys(groups).map((key) => ({
@@ -333,7 +356,7 @@ export function IssuesList({
       label: key === "__unassigned" ? "Unassigned" : (agentName(key) ?? key.slice(0, 8)),
       items: groups[key]!,
     }));
-  }, [filtered, viewState.groupBy, agents]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [filtered, viewState.groupBy, agents, recurringIssueIds]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const newIssueDefaults = (groupKey?: string) => {
     const defaults: Record<string, string> = {};
@@ -354,6 +377,275 @@ export function IssuesList({
 
   const scheduleDraftValue = (schedule: TaskCronSchedule) =>
     recurringDrafts[schedule.id] ?? schedule.expression;
+
+  const renderIssueRow = useCallback((issue: Issue) => (
+    <Link
+      key={issue.id}
+      to={`/issues/${issue.identifier ?? issue.id}`}
+      state={issueLinkState}
+      className="flex items-start gap-2 py-2.5 pl-3 pr-3 text-sm last:border-b-0 cursor-pointer hover:bg-accent/50 transition-colors no-underline text-inherit sm:items-center sm:py-2"
+    >
+      <span className="shrink-0 pt-px sm:hidden" onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
+        <StatusIcon
+          status={issue.status}
+          onChange={(s) => onUpdateIssue(issue.id, { status: s })}
+        />
+      </span>
+
+      <span className="flex min-w-0 flex-1 flex-col gap-0.5 sm:contents">
+        <span className="sm:order-2 sm:flex-1 sm:min-w-0">
+          <span className="line-clamp-2 text-sm sm:line-clamp-1 sm:truncate block">
+            {issue.title}
+          </span>
+          {issue.description && (
+            <span className="line-clamp-1 text-[11px] text-muted-foreground mt-0.5 block">
+              {issue.description.replace(/[\n\r]+/g, " ").slice(0, 120)}
+            </span>
+          )}
+        </span>
+
+        <span className="flex items-center gap-2 sm:order-1 sm:shrink-0">
+          <span className="w-3.5 shrink-0 hidden sm:block" />
+          <span className="hidden sm:inline-flex"><PriorityIcon priority={issue.priority} /></span>
+          <span className="hidden shrink-0 sm:inline-flex" onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
+            <StatusIcon
+              status={issue.status}
+              onChange={(s) => onUpdateIssue(issue.id, { status: s })}
+            />
+          </span>
+          <span className="text-xs text-muted-foreground font-mono shrink-0">
+            {issue.identifier ?? issue.id.slice(0, 8)}
+          </span>
+          {recurringIssueIds.has(issue.id) && (
+            <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 text-[10px] text-amber-600 dark:text-amber-400">
+              <Clock3 className="h-2.5 w-2.5" />
+              Recurring
+            </span>
+          )}
+          {liveIssueIds?.has(issue.id) && (
+            <span className="inline-flex items-center gap-1 sm:gap-1.5 px-1.5 sm:px-2 py-0.5 rounded-full bg-blue-500/10">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-pulse absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500" />
+              </span>
+              <span className="text-[11px] font-medium text-blue-600 dark:text-blue-400 hidden sm:inline">Live</span>
+            </span>
+          )}
+          <span className="text-xs text-muted-foreground sm:hidden">&middot;</span>
+          <span className="text-xs text-muted-foreground sm:hidden">
+            {timeAgo(issue.updatedAt)}
+          </span>
+        </span>
+      </span>
+
+      <span className="hidden sm:flex sm:order-3 items-center gap-2 sm:gap-3 shrink-0 ml-auto">
+        {(() => {
+          const issueSchedules = recurringByIssueId.get(issue.id) ?? [];
+          if (issueSchedules.length === 0) return null;
+          const enabledCount = issueSchedules.filter((schedule) => schedule.enabled).length;
+          return (
+            <Popover
+              open={recurringPickerIssueId === issue.id}
+              onOpenChange={(open) => setRecurringPickerIssueId(open ? issue.id : null)}
+            >
+              <PopoverTrigger asChild>
+                <button
+                  className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs text-muted-foreground hover:bg-accent/50 transition-colors"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                  }}
+                >
+                  <Clock3 className="h-3.5 w-3.5" />
+                  {enabledCount}/{issueSchedules.length}
+                </button>
+              </PopoverTrigger>
+              <PopoverContent
+                className="w-80 p-2"
+                align="end"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="space-y-2">
+                  {issueSchedules.map((schedule) => (
+                    <div key={schedule.id} className="rounded border border-border p-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-medium truncate">{schedule.name}</span>
+                        <span className="ml-auto">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-6 px-2 text-[10px]"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              updateSchedule.mutate({
+                                scheduleId: schedule.id,
+                                patch: { enabled: !schedule.enabled },
+                              });
+                            }}
+                            disabled={updateSchedule.isPending}
+                          >
+                            {schedule.enabled ? (
+                              <>
+                                <Pause className="h-3 w-3 mr-1" />
+                                Stop
+                              </>
+                            ) : (
+                              <>
+                                <Play className="h-3 w-3 mr-1" />
+                                Start
+                              </>
+                            )}
+                          </Button>
+                        </span>
+                      </div>
+                      <div className="mt-2 flex items-center gap-1.5">
+                        <input
+                          className="w-full rounded-md border border-border bg-transparent px-2 py-1 text-[11px] font-mono"
+                          value={scheduleDraftValue(schedule)}
+                          onChange={(e) =>
+                            setRecurringDrafts((prev) => ({
+                              ...prev,
+                              [schedule.id]: e.target.value,
+                            }))
+                          }
+                        />
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-6 px-2 text-[10px]"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            updateSchedule.mutate({
+                              scheduleId: schedule.id,
+                              patch: { expression: scheduleDraftValue(schedule).trim() },
+                            });
+                          }}
+                          disabled={
+                            updateSchedule.isPending ||
+                            scheduleDraftValue(schedule).trim().length === 0
+                          }
+                        >
+                          <Save className="h-3 w-3 mr-1" />
+                          Save
+                        </Button>
+                      </div>
+                      <div className="mt-1 text-[10px] text-muted-foreground">
+                        {schedule.timezone} - {schedule.enabled ? "enabled" : "disabled"} - next{" "}
+                        {schedule.nextTriggerAt ? timeAgo(schedule.nextTriggerAt) : "not scheduled"}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </PopoverContent>
+            </Popover>
+          );
+        })()}
+        {(issue.labels ?? []).length > 0 && (
+          <span className="hidden md:flex items-center gap-1 max-w-[240px] overflow-hidden">
+            {(issue.labels ?? []).slice(0, 3).map((label) => (
+              <span
+                key={label.id}
+                className="inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] font-medium"
+                style={{
+                  borderColor: label.color,
+                  color: label.color,
+                  backgroundColor: `${label.color}1f`,
+                }}
+              >
+                {label.name}
+              </span>
+            ))}
+            {(issue.labels ?? []).length > 3 && (
+              <span className="text-[10px] text-muted-foreground">+{(issue.labels ?? []).length - 3}</span>
+            )}
+          </span>
+        )}
+        <Popover
+          open={assigneePickerIssueId === issue.id}
+          onOpenChange={(open) => {
+            setAssigneePickerIssueId(open ? issue.id : null);
+            if (!open) setAssigneeSearch("");
+          }}
+        >
+          <PopoverTrigger asChild>
+            <button
+              className="flex w-[180px] shrink-0 items-center rounded-md px-2 py-1 hover:bg-accent/50 transition-colors"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+              }}
+            >
+              {issue.assigneeAgentId && agentName(issue.assigneeAgentId) ? (
+                <Identity name={agentName(issue.assigneeAgentId)!} size="sm" />
+              ) : (
+                <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <span className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-dashed border-muted-foreground/35 bg-muted/30">
+                    <User className="h-3 w-3" />
+                  </span>
+                  Assignee
+                </span>
+              )}
+            </button>
+          </PopoverTrigger>
+          <PopoverContent
+            className="w-56 p-1"
+            align="end"
+            onClick={(e) => e.stopPropagation()}
+            onPointerDownOutside={() => setAssigneeSearch("")}
+          >
+            <input
+              className="w-full px-2 py-1.5 text-xs bg-transparent outline-none border-b border-border mb-1 placeholder:text-muted-foreground/50"
+              placeholder="Search agents..."
+              value={assigneeSearch}
+              onChange={(e) => setAssigneeSearch(e.target.value)}
+              autoFocus
+            />
+            <div className="max-h-48 overflow-y-auto overscroll-contain">
+              <button
+                className={cn(
+                  "flex items-center gap-2 w-full px-2 py-1.5 text-xs rounded hover:bg-accent/50",
+                  !issue.assigneeAgentId && "bg-accent"
+                )}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  assignIssue(issue.id, null);
+                }}
+              >
+                No assignee
+              </button>
+              {(agents ?? [])
+                .filter((agent) => {
+                  if (!assigneeSearch.trim()) return true;
+                  return agent.name.toLowerCase().includes(assigneeSearch.toLowerCase());
+                })
+                .map((agent) => (
+                  <button
+                    key={agent.id}
+                    className={cn(
+                      "flex items-center gap-2 w-full px-2 py-1.5 text-xs rounded hover:bg-accent/50 text-left",
+                      issue.assigneeAgentId === agent.id && "bg-accent"
+                    )}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      assignIssue(issue.id, agent.id);
+                    }}
+                  >
+                    <Identity name={agent.name} size="sm" className="min-w-0" />
+                  </button>
+                ))}
+            </div>
+          </PopoverContent>
+        </Popover>
+        <span className="text-xs text-muted-foreground tabular-nums whitespace-nowrap">
+          {formatDateTime(issue.updatedAt)}
+        </span>
+      </span>
+    </Link>
+  ), [issueLinkState, onUpdateIssue, recurringIssueIds, liveIssueIds, recurringByIssueId, recurringPickerIssueId, updateSchedule, scheduleDraftValue, recurringDrafts, assigneePickerIssueId, assigneeSearch, agentName, agents]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="space-y-4">
@@ -634,6 +926,7 @@ export function IssuesList({
                     ["status", "Status"],
                     ["priority", "Priority"],
                     ["assignee", "Assignee"],
+                    ["recurring", "Recurring"],
                     ["none", "None"],
                   ] as const).map(([value, label]) => (
                     <button
@@ -653,6 +946,75 @@ export function IssuesList({
           )}
         </div>
       </div>
+
+      {!isLoading && upcomingSchedules.length > 0 && (
+        <Collapsible defaultOpen>
+          <div className="flex items-center py-1.5 pl-1 pr-3">
+            <CollapsibleTrigger className="flex items-center gap-1.5">
+              <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform [[data-state=open]>&]:rotate-90" />
+              <CalendarClock className="h-3.5 w-3.5 text-muted-foreground" />
+              <span className="text-sm font-semibold uppercase tracking-wide">
+                Upcoming
+              </span>
+              <span className="text-xs text-muted-foreground font-normal normal-case ml-1">
+                ({upcomingSchedules.length})
+              </span>
+            </CollapsibleTrigger>
+          </div>
+          <CollapsibleContent>
+            <div className="border border-border rounded-lg mb-4 divide-y divide-border">
+              {upcomingSchedules.map((schedule) => {
+                const linkedIssue = schedule.issueId
+                  ? issues.find((i) => i.id === schedule.issueId)
+                  : null;
+                const assignedAgent = agents?.find((a) => a.id === schedule.agentId);
+                return (
+                  <div key={schedule.id} className="flex items-start gap-3 px-3 py-2.5 hover:bg-accent/50 transition-colors">
+                    <CalendarClock className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-0.5" />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium truncate">{schedule.name}</span>
+                        {linkedIssue && (
+                          <Link
+                            to={`/issues/${linkedIssue.identifier ?? linkedIssue.id}`}
+                            className="text-xs text-muted-foreground hover:text-foreground truncate font-mono"
+                          >
+                            {linkedIssue.identifier ?? linkedIssue.id.slice(0, 8)}
+                          </Link>
+                        )}
+                        <span className={cn(
+                          "inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] shrink-0",
+                          schedule.issueMode === "create_new"
+                            ? "border border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                            : "border border-sky-500/40 bg-sky-500/10 text-sky-600 dark:text-sky-400"
+                        )}>
+                          {schedule.issueMode === "create_new" ? "new" : schedule.issueMode === "reopen_existing" ? "reopen" : "reuse"}
+                        </span>
+                      </div>
+                      {linkedIssue?.description && (
+                        <span className="line-clamp-1 text-[11px] text-muted-foreground mt-0.5 block">
+                          {linkedIssue.description.replace(/[\n\r]+/g, " ").slice(0, 120)}
+                        </span>
+                      )}
+                      <div className="text-[10px] text-muted-foreground mt-0.5 flex items-center gap-1">
+                        {assignedAgent && <Identity name={assignedAgent.name} size="xs" />}
+                        {!assignedAgent && <span>{schedule.agentId.slice(0, 8)}</span>}
+                        <span>&middot;</span>
+                        <span className="font-mono">{schedule.expression}</span>
+                        <span>&middot;</span>
+                        <span className="tabular-nums">{formatDateTime(schedule.nextTriggerAt!)}</span>
+                      </div>
+                    </div>
+                    <span className="text-xs font-medium text-muted-foreground shrink-0 tabular-nums mt-0.5">
+                      {timeUntil(schedule.nextTriggerAt!)}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
+      )}
 
       {isLoading && <PageSkeleton variant="issues-list" />}
       {error && <p className="text-sm text-destructive">{error.message}</p>}
@@ -675,308 +1037,127 @@ export function IssuesList({
           onUpdateIssue={onUpdateIssue}
         />
       ) : (
-        groupedContent.map((group) => (
-          <Collapsible
-            key={group.key}
-            open={!viewState.collapsedGroups.includes(group.key)}
-            onOpenChange={(open) => {
-              updateView({
-                collapsedGroups: open
-                  ? viewState.collapsedGroups.filter((k) => k !== group.key)
-                  : [...viewState.collapsedGroups, group.key],
-              });
-            }}
-          >
-            {group.label && (
-              <div className="flex items-center py-1.5 pl-1 pr-3">
-                <CollapsibleTrigger className="flex items-center gap-1.5">
-                  <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform [[data-state=open]>&]:rotate-90" />
-                  <span className="text-sm font-semibold uppercase tracking-wide">
-                    {group.label}
-                  </span>
-                </CollapsibleTrigger>
-                <Button
-                  variant="ghost"
-                  size="icon-xs"
-                  className="ml-auto text-muted-foreground"
-                  onClick={() => openNewIssue(newIssueDefaults(group.key))}
-                >
-                  <Plus className="h-3 w-3" />
-                </Button>
-              </div>
-            )}
-            <CollapsibleContent>
-              {group.items.map((issue) => (
-                <Link
-                  key={issue.id}
-                  to={`/issues/${issue.identifier ?? issue.id}`}
-                  state={issueLinkState}
-                  className="flex items-start gap-2 py-2.5 pl-2 pr-3 text-sm border-b border-border last:border-b-0 cursor-pointer hover:bg-accent/50 transition-colors no-underline text-inherit sm:items-center sm:py-2 sm:pl-1"
-                >
-                  {/* Status icon - left column on mobile, inline on desktop */}
-                  <span className="shrink-0 pt-px sm:hidden" onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
-                    <StatusIcon
-                      status={issue.status}
-                      onChange={(s) => onUpdateIssue(issue.id, { status: s })}
-                    />
-                  </span>
-
-                  {/* Right column on mobile: title + metadata stacked */}
-                  <span className="flex min-w-0 flex-1 flex-col gap-1 sm:contents">
-                    {/* Title line */}
-                    <span className="line-clamp-2 text-sm sm:order-2 sm:flex-1 sm:min-w-0 sm:line-clamp-none sm:truncate">
-                      {issue.title}
-                    </span>
-
-                    {/* Metadata line */}
-                    <span className="flex items-center gap-2 sm:order-1 sm:shrink-0">
-                      {/* Spacer matching caret width so status icon aligns with group title (hidden on mobile) */}
-                      <span className="w-3.5 shrink-0 hidden sm:block" />
-                      <span className="hidden sm:inline-flex"><PriorityIcon priority={issue.priority} /></span>
-                      <span className="hidden shrink-0 sm:inline-flex" onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
-                        <StatusIcon
-                          status={issue.status}
-                          onChange={(s) => onUpdateIssue(issue.id, { status: s })}
-                        />
-                      </span>
-                      <span className="text-xs text-muted-foreground font-mono shrink-0">
-                        {issue.identifier ?? issue.id.slice(0, 8)}
-                      </span>
-                      {recurringIssueIds.has(issue.id) && (
-                        <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 text-[10px] text-amber-600 dark:text-amber-400">
-                          <Clock3 className="h-2.5 w-2.5" />
-                          Recurring
-                        </span>
-                      )}
-                      {liveIssueIds?.has(issue.id) && (
-                        <span className="inline-flex items-center gap-1 sm:gap-1.5 px-1.5 sm:px-2 py-0.5 rounded-full bg-blue-500/10">
-                          <span className="relative flex h-2 w-2">
-                            <span className="animate-pulse absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75" />
-                            <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500" />
-                          </span>
-                          <span className="text-[11px] font-medium text-blue-600 dark:text-blue-400 hidden sm:inline">Live</span>
-                        </span>
-                      )}
-                      <span className="text-xs text-muted-foreground sm:hidden">&middot;</span>
-                      <span className="text-xs text-muted-foreground sm:hidden">
-                        {timeAgo(issue.updatedAt)}
-                      </span>
-                    </span>
-                  </span>
-
-                  {/* Desktop-only trailing content */}
-                  <span className="hidden sm:flex sm:order-3 items-center gap-2 sm:gap-3 shrink-0 ml-auto">
-                    {(() => {
-                      const issueSchedules = recurringByIssueId.get(issue.id) ?? [];
-                      if (issueSchedules.length === 0) return null;
-                      const enabledCount = issueSchedules.filter((schedule) => schedule.enabled).length;
-                      return (
-                        <Popover
-                          open={recurringPickerIssueId === issue.id}
-                          onOpenChange={(open) => setRecurringPickerIssueId(open ? issue.id : null)}
-                        >
-                          <PopoverTrigger asChild>
-                            <button
-                              className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs text-muted-foreground hover:bg-accent/50 transition-colors"
-                              onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                              }}
-                            >
-                              <Clock3 className="h-3.5 w-3.5" />
-                              {enabledCount}/{issueSchedules.length}
-                            </button>
-                          </PopoverTrigger>
-                          <PopoverContent
-                            className="w-80 p-2"
-                            align="end"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <div className="space-y-2">
-                              {issueSchedules.map((schedule) => (
-                                <div key={schedule.id} className="rounded border border-border p-2">
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-xs font-medium truncate">{schedule.name}</span>
-                                    <span className="ml-auto">
-                                      <Button
-                                        variant="outline"
-                                        size="sm"
-                                        className="h-6 px-2 text-[10px]"
-                                        onClick={(e) => {
-                                          e.preventDefault();
-                                          e.stopPropagation();
-                                          updateSchedule.mutate({
-                                            scheduleId: schedule.id,
-                                            patch: { enabled: !schedule.enabled },
-                                          });
-                                        }}
-                                        disabled={updateSchedule.isPending}
-                                      >
-                                        {schedule.enabled ? (
-                                          <>
-                                            <Pause className="h-3 w-3 mr-1" />
-                                            Stop
-                                          </>
-                                        ) : (
-                                          <>
-                                            <Play className="h-3 w-3 mr-1" />
-                                            Start
-                                          </>
-                                        )}
-                                      </Button>
-                                    </span>
-                                  </div>
-                                  <div className="mt-2 flex items-center gap-1.5">
-                                    <input
-                                      className="w-full rounded-md border border-border bg-transparent px-2 py-1 text-[11px] font-mono"
-                                      value={scheduleDraftValue(schedule)}
-                                      onChange={(e) =>
-                                        setRecurringDrafts((prev) => ({
-                                          ...prev,
-                                          [schedule.id]: e.target.value,
-                                        }))
-                                      }
-                                    />
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      className="h-6 px-2 text-[10px]"
-                                      onClick={(e) => {
-                                        e.preventDefault();
-                                        e.stopPropagation();
-                                        updateSchedule.mutate({
-                                          scheduleId: schedule.id,
-                                          patch: { expression: scheduleDraftValue(schedule).trim() },
-                                        });
-                                      }}
-                                      disabled={
-                                        updateSchedule.isPending ||
-                                        scheduleDraftValue(schedule).trim().length === 0
-                                      }
-                                    >
-                                      <Save className="h-3 w-3 mr-1" />
-                                      Save
-                                    </Button>
-                                  </div>
-                                  <div className="mt-1 text-[10px] text-muted-foreground">
-                                    {schedule.timezone} - {schedule.enabled ? "enabled" : "disabled"} - next{" "}
-                                    {schedule.nextTriggerAt ? timeAgo(schedule.nextTriggerAt) : "not scheduled"}
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </PopoverContent>
-                        </Popover>
-                      );
-                    })()}
-                    {(issue.labels ?? []).length > 0 && (
-                      <span className="hidden md:flex items-center gap-1 max-w-[240px] overflow-hidden">
-                        {(issue.labels ?? []).slice(0, 3).map((label) => (
-                          <span
-                            key={label.id}
-                            className="inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] font-medium"
-                            style={{
-                              borderColor: label.color,
-                              color: label.color,
-                              backgroundColor: `${label.color}1f`,
-                            }}
-                          >
-                            {label.name}
-                          </span>
-                        ))}
-                        {(issue.labels ?? []).length > 3 && (
-                          <span className="text-[10px] text-muted-foreground">+{(issue.labels ?? []).length - 3}</span>
-                        )}
-                      </span>
-                    )}
-                    <Popover
-                      open={assigneePickerIssueId === issue.id}
-                      onOpenChange={(open) => {
-                        setAssigneePickerIssueId(open ? issue.id : null);
-                        if (!open) setAssigneeSearch("");
-                      }}
-                    >
-                      <PopoverTrigger asChild>
-                        <button
-                          className="flex w-[180px] shrink-0 items-center rounded-md px-2 py-1 hover:bg-accent/50 transition-colors"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                          }}
-                        >
-                          {issue.assigneeAgentId && agentName(issue.assigneeAgentId) ? (
-                            <Identity name={agentName(issue.assigneeAgentId)!} size="sm" />
-                          ) : (
-                            <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-                              <span className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-dashed border-muted-foreground/35 bg-muted/30">
-                                <User className="h-3 w-3" />
-                              </span>
-                              Assignee
-                            </span>
-                          )}
-                        </button>
-                      </PopoverTrigger>
-                      <PopoverContent
-                        className="w-56 p-1"
-                        align="end"
-                        onClick={(e) => e.stopPropagation()}
-                        onPointerDownOutside={() => setAssigneeSearch("")}
-                      >
-                        <input
-                          className="w-full px-2 py-1.5 text-xs bg-transparent outline-none border-b border-border mb-1 placeholder:text-muted-foreground/50"
-                          placeholder="Search agents..."
-                          value={assigneeSearch}
-                          onChange={(e) => setAssigneeSearch(e.target.value)}
-                          autoFocus
-                        />
-                        <div className="max-h-48 overflow-y-auto overscroll-contain">
-                          <button
-                            className={cn(
-                              "flex items-center gap-2 w-full px-2 py-1.5 text-xs rounded hover:bg-accent/50",
-                              !issue.assigneeAgentId && "bg-accent"
-                            )}
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              assignIssue(issue.id, null);
-                            }}
-                          >
-                            No assignee
-                          </button>
-                          {(agents ?? [])
-                            .filter((agent) => {
-                              if (!assigneeSearch.trim()) return true;
-                              return agent.name.toLowerCase().includes(assigneeSearch.toLowerCase());
-                            })
-                            .map((agent) => (
-                              <button
-                                key={agent.id}
-                                className={cn(
-                                  "flex items-center gap-2 w-full px-2 py-1.5 text-xs rounded hover:bg-accent/50 text-left",
-                                  issue.assigneeAgentId === agent.id && "bg-accent"
-                                )}
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  assignIssue(issue.id, agent.id);
-                                }}
-                              >
-                                <Identity name={agent.name} size="sm" className="min-w-0" />
-                              </button>
-                            ))}
-                        </div>
-                      </PopoverContent>
-                    </Popover>
-                    <span className="text-xs text-muted-foreground">
-                      {formatDate(issue.createdAt)}
-                    </span>
-                  </span>
-                </Link>
-              ))}
-            </CollapsibleContent>
-          </Collapsible>
-        ))
+        <>
+          {viewState.groupBy === "none" ? (
+            <>
+              {activeIssues.length > 0 && (
+                <IssueSection
+                  sectionKey="__active"
+                  label="Active"
+                  icon={<Zap className="h-3.5 w-3.5 text-muted-foreground" />}
+                  items={activeIssues}
+                  defaultOpen
+                  collapsedGroups={viewState.collapsedGroups}
+                  onToggle={(key, open) => updateView({
+                    collapsedGroups: open
+                      ? viewState.collapsedGroups.filter((k) => k !== key)
+                      : [...viewState.collapsedGroups, key],
+                  })}
+                  renderRow={renderIssueRow}
+                />
+              )}
+              {pastIssues.length > 0 && (
+                <IssueSection
+                  sectionKey="__past"
+                  label="Past"
+                  icon={<History className="h-3.5 w-3.5 text-muted-foreground" />}
+                  items={pastIssues}
+                  defaultOpen={false}
+                  collapsedGroups={viewState.collapsedGroups}
+                  onToggle={(key, open) => updateView({
+                    collapsedGroups: open
+                      ? [...viewState.collapsedGroups, key]
+                      : viewState.collapsedGroups.filter((k) => k !== key),
+                  })}
+                  renderRow={renderIssueRow}
+                />
+              )}
+            </>
+          ) : (
+            groupedContent.map((group) => (
+              <IssueSection
+                key={group.key}
+                sectionKey={group.key}
+                label={group.label}
+                items={group.items}
+                defaultOpen
+                collapsedGroups={viewState.collapsedGroups}
+                onToggle={(key, open) => updateView({
+                  collapsedGroups: open
+                    ? viewState.collapsedGroups.filter((k) => k !== key)
+                    : [...viewState.collapsedGroups, key],
+                })}
+                renderRow={renderIssueRow}
+                onAdd={() => openNewIssue(newIssueDefaults(group.key))}
+              />
+            ))
+          )}
+        </>
       )}
     </div>
+  );
+}
+
+/* ── Reusable collapsible section for issue groups ── */
+
+function IssueSection({
+  sectionKey,
+  label,
+  icon,
+  items,
+  defaultOpen = true,
+  collapsedGroups,
+  onToggle,
+  renderRow,
+  onAdd,
+}: {
+  sectionKey: string;
+  label: string | null;
+  icon?: React.ReactNode;
+  items: Issue[];
+  defaultOpen?: boolean;
+  collapsedGroups: string[];
+  onToggle: (key: string, open: boolean) => void;
+  renderRow: (issue: Issue) => React.ReactNode;
+  onAdd?: () => void;
+}) {
+  const inCollapsed = collapsedGroups.includes(sectionKey);
+  const effectiveOpen = defaultOpen ? !inCollapsed : inCollapsed;
+
+  return (
+    <Collapsible
+      open={effectiveOpen}
+      onOpenChange={(open) => onToggle(sectionKey, open)}
+    >
+      {label && (
+        <div className="flex items-center py-1.5 pl-1 pr-3">
+          <CollapsibleTrigger className="flex items-center gap-1.5">
+            <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform [[data-state=open]>&]:rotate-90" />
+            {icon}
+            <span className="text-sm font-semibold uppercase tracking-wide">
+              {label}
+            </span>
+            <span className="text-xs text-muted-foreground font-normal normal-case">
+              ({items.length})
+            </span>
+          </CollapsibleTrigger>
+          {onAdd && (
+            <Button
+              variant="ghost"
+              size="icon-xs"
+              className="ml-auto text-muted-foreground"
+              onClick={onAdd}
+            >
+              <Plus className="h-3 w-3" />
+            </Button>
+          )}
+        </div>
+      )}
+      <CollapsibleContent>
+        <div className="border border-border rounded-lg divide-y divide-border mb-4">
+          {items.map(renderRow)}
+        </div>
+      </CollapsibleContent>
+    </Collapsible>
   );
 }

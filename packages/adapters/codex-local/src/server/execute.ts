@@ -4,6 +4,13 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { AdapterExecutionContext, AdapterExecutionResult, AdapterSkill } from "@paperclipai/adapter-utils";
 import {
+  parseMcpServers,
+  expandMcpEnv,
+  toCodexToml,
+  writeMcpConfigFile,
+} from "@paperclipai/adapter-utils/mcp";
+import { formatSelfContextBlock } from "@paperclipai/adapter-utils/self-context";
+import {
   asString,
   asNumber,
   asBoolean,
@@ -265,6 +272,14 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
   if (skillsTmpDir) {
     env.CODEX_HOME = skillsTmpDir;
   }
+
+  const mcpServers = parseMcpServers(config);
+  if (mcpServers && skillsTmpDir) {
+    const expanded = expandMcpEnv(mcpServers, env);
+    const toml = toCodexToml(expanded);
+    await writeMcpConfigFile(skillsTmpDir, "config.toml", toml);
+  }
+
   const billingType = resolveCodexBillingType(env);
   const runtimeEnv = ensurePathInEnv({ ...process.env, ...env });
   await ensureCommandResolvable(command, cwd, runtimeEnv);
@@ -336,8 +351,12 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
   const paperclipChat = parseObject(context.paperclipChat);
   const chatMode = asString(paperclipChat.mode, "");
   const chatPrompt = asString(paperclipChat.promptText, "").trim();
-  const chatPrefix = chatMode === "interactive_chat" && chatPrompt ? `${chatPrompt}\n\n` : "";
-  const prompt = `${instructionsPrefix}${chatPrefix}${renderedPrompt}`;
+  const selfContextBlock = formatSelfContextBlock(ctx.selfContext);
+  const prompt =
+    selfContextBlock +
+    (chatMode === "interactive_chat" && chatPrompt
+      ? `${instructionsPrefix}${chatPrompt}`
+      : `${instructionsPrefix}${renderedPrompt}`);
 
   const buildArgs = (resumeSessionId: string | null) => {
     const args = ["exec", "--json"];
@@ -367,6 +386,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
         prompt,
         context,
         skillsInjected: ctx.skills?.map((s) => s.name),
+        mcpServers: mcpServers ?? undefined,
       });
     }
 

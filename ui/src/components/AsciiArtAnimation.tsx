@@ -1,292 +1,213 @@
 import { useEffect, useRef } from "react";
 
-const CHARS = [" ", ".", "·", "▪", "▫", "○"] as const;
-const TARGET_FPS = 24;
+const TARGET_FPS = 30;
 const FRAME_INTERVAL_MS = 1000 / TARGET_FPS;
 
-const PAPERCLIP_SPRITES = [
-  [
-    "  ╭────╮ ",
-    " ╭╯╭──╮│ ",
-    " │ │  ││ ",
-    " │ │  ││ ",
-    " │ │  ││ ",
-    " │ │  ││ ",
-    " │ ╰──╯│ ",
-    " ╰─────╯ ",
-  ],
-  [
-    " ╭─────╮ ",
-    " │╭──╮╰╮ ",
-    " ││  │ │ ",
-    " ││  │ │ ",
-    " ││  │ │ ",
-    " ││  │ │ ",
-    " │╰──╯ │ ",
-    " ╰────╯  ",
-  ],
-] as const;
+const AMBER = { r: 212, g: 160, b: 84 };
+const AMBER_DIM = { r: 140, g: 105, b: 55 };
+const BG = { r: 30, g: 32, b: 48 };
 
-type PaperclipSprite = (typeof PAPERCLIP_SPRITES)[number];
-
-interface Clip {
-  x: number;
-  y: number;
-  vx: number;
-  vy: number;
-  life: number;
-  maxLife: number;
-  drift: number;
-  sprite: PaperclipSprite;
-  width: number;
-  height: number;
-}
-
-function measureChar(container: HTMLElement): { w: number; h: number } {
-  const span = document.createElement("span");
-  span.textContent = "M";
-  span.style.cssText =
-    "position:absolute;visibility:hidden;white-space:pre;font-size:11px;font-family:monospace;line-height:1;";
-  container.appendChild(span);
-  const rect = span.getBoundingClientRect();
-  container.removeChild(span);
-  return { w: rect.width, h: rect.height };
-}
-
-function spriteSize(sprite: PaperclipSprite): { width: number; height: number } {
-  let width = 0;
-  for (const row of sprite) width = Math.max(width, row.length);
-  return { width, height: sprite.length };
+interface Pulse {
+  cx: number;
+  cy: number;
+  radius: number;
+  maxRadius: number;
+  speed: number;
+  opacity: number;
 }
 
 export function AsciiArtAnimation() {
-  const preRef = useRef<HTMLPreElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
   const frameRef = useRef<number | null>(null);
 
   useEffect(() => {
-    if (!preRef.current) return;
-    const preEl: HTMLPreElement = preRef.current;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
     const motionMedia = window.matchMedia("(prefers-reduced-motion: reduce)");
     let isVisible = document.visibilityState !== "hidden";
     let loopActive = false;
     let lastRenderAt = 0;
-    let tick = 0;
-    let cols = 0;
-    let rows = 0;
-    let charW = 7;
-    let charH = 11;
-    let trail = new Float32Array(0);
-    let colWave = new Float32Array(0);
-    let rowWave = new Float32Array(0);
-    let clipMask = new Uint16Array(0);
-    let clips: Clip[] = [];
-    let lastOutput = "";
+    let time = 0;
+    let width = 0;
+    let height = 0;
+    let dpr = 1;
+    let pulses: Pulse[] = [];
 
-    function toGlyph(value: number): string {
-      const clamped = Math.max(0, Math.min(0.999, value));
-      const idx = Math.floor(clamped * CHARS.length);
-      return CHARS[idx] ?? " ";
+    function resize() {
+      dpr = window.devicePixelRatio || 1;
+      const rect = canvas!.getBoundingClientRect();
+      width = rect.width;
+      height = rect.height;
+      canvas!.width = width * dpr;
+      canvas!.height = height * dpr;
+      ctx!.setTransform(dpr, 0, 0, dpr, 0, 0);
     }
 
-    function rebuildGrid() {
-      const nextCols = Math.max(0, Math.ceil(preEl.clientWidth / Math.max(1, charW)));
-      const nextRows = Math.max(0, Math.ceil(preEl.clientHeight / Math.max(1, charH)));
-      if (nextCols === cols && nextRows === rows) return;
-
-      cols = nextCols;
-      rows = nextRows;
-      const cellCount = cols * rows;
-      trail = new Float32Array(cellCount);
-      colWave = new Float32Array(cols);
-      rowWave = new Float32Array(rows);
-      clipMask = new Uint16Array(cellCount);
-      clips = clips.filter((clip) => {
-        return (
-          clip.x > -clip.width - 2 &&
-          clip.x < cols + 2 &&
-          clip.y > -clip.height - 2 &&
-          clip.y < rows + 2
-        );
-      });
-      lastOutput = "";
-    }
-
-    function drawStaticFrame() {
-      if (cols <= 0 || rows <= 0) {
-        preEl.textContent = "";
-        return;
-      }
-
-      const grid = Array.from({ length: rows }, () => Array.from({ length: cols }, () => " "));
-      for (let r = 0; r < rows; r++) {
-        for (let c = 0; c < cols; c++) {
-          const ambient = (Math.sin(c * 0.11 + r * 0.04) + Math.cos(r * 0.08 - c * 0.02)) * 0.18 + 0.22;
-          grid[r][c] = toGlyph(ambient);
-        }
-      }
-
-      const gapX = 18;
-      const gapY = 13;
-      for (let baseRow = 1; baseRow < rows - 9; baseRow += gapY) {
-        const startX = Math.floor(baseRow / gapY) % 2 === 0 ? 2 : 10;
-        for (let baseCol = startX; baseCol < cols - 10; baseCol += gapX) {
-          const sprite = PAPERCLIP_SPRITES[(baseCol + baseRow) % PAPERCLIP_SPRITES.length]!;
-          for (let sr = 0; sr < sprite.length; sr++) {
-            const line = sprite[sr]!;
-            for (let sc = 0; sc < line.length; sc++) {
-              const ch = line[sc] ?? " ";
-              if (ch === " ") continue;
-              const row = baseRow + sr;
-              const col = baseCol + sc;
-              if (row < 0 || row >= rows || col < 0 || col >= cols) continue;
-              grid[row]![col] = ch;
-            }
-          }
-        }
-      }
-
-      const output = grid.map((line) => line.join("")).join("\n");
-      preEl.textContent = output;
-      lastOutput = output;
-    }
-
-    function spawnClip() {
-      const sprite = PAPERCLIP_SPRITES[Math.floor(Math.random() * PAPERCLIP_SPRITES.length)]!;
-      const size = spriteSize(sprite);
-      const edge = Math.random();
-      let x = 0;
-      let y = 0;
-      let vx = 0;
-      let vy = 0;
-
-      if (edge < 0.68) {
-        x = Math.random() < 0.5 ? -size.width - 1 : cols + 1;
-        y = Math.random() * Math.max(1, rows - size.height);
-        vx = x < 0 ? 0.04 + Math.random() * 0.05 : -(0.04 + Math.random() * 0.05);
-        vy = (Math.random() - 0.5) * 0.014;
-      } else {
-        x = Math.random() * Math.max(1, cols - size.width);
-        y = Math.random() < 0.5 ? -size.height - 1 : rows + 1;
-        vx = (Math.random() - 0.5) * 0.014;
-        vy = y < 0 ? 0.028 + Math.random() * 0.034 : -(0.028 + Math.random() * 0.034);
-      }
-
-      clips.push({
-        x,
-        y,
-        vx,
-        vy,
-        life: 0,
-        maxLife: 260 + Math.random() * 220,
-        drift: (Math.random() - 0.5) * 1.2,
-        sprite,
-        width: size.width,
-        height: size.height,
+    function spawnPulse() {
+      const cx = width * (0.3 + Math.random() * 0.4);
+      const cy = height * (0.3 + Math.random() * 0.4);
+      pulses.push({
+        cx,
+        cy,
+        radius: 0,
+        maxRadius: Math.max(width, height) * 0.7,
+        speed: 0.6 + Math.random() * 0.4,
+        opacity: 0.4 + Math.random() * 0.3,
       });
     }
 
-    function stampClip(clip: Clip, alpha: number) {
-      const baseCol = Math.round(clip.x);
-      const baseRow = Math.round(clip.y);
-      for (let sr = 0; sr < clip.sprite.length; sr++) {
-        const line = clip.sprite[sr]!;
-        const row = baseRow + sr;
-        if (row < 0 || row >= rows) continue;
-        for (let sc = 0; sc < line.length; sc++) {
-          const ch = line[sc] ?? " ";
-          if (ch === " ") continue;
-          const col = baseCol + sc;
-          if (col < 0 || col >= cols) continue;
-          const idx = row * cols + col;
-          const stroke = ch === "│" || ch === "─" ? 0.8 : 0.92;
-          trail[idx] = Math.max(trail[idx] ?? 0, alpha * stroke);
-          clipMask[idx] = ch.charCodeAt(0);
+    function drawGrid(t: number) {
+      const spacing = 28;
+      const dotSize = 1;
+
+      for (let x = spacing / 2; x < width; x += spacing) {
+        for (let y = spacing / 2; y < height; y += spacing) {
+          const wave = Math.sin(x * 0.008 + t * 0.3) * Math.cos(y * 0.006 - t * 0.2);
+          const alpha = 0.06 + wave * 0.04;
+          ctx!.fillStyle = `rgba(${AMBER_DIM.r}, ${AMBER_DIM.g}, ${AMBER_DIM.b}, ${alpha})`;
+          ctx!.fillRect(x - dotSize / 2, y - dotSize / 2, dotSize, dotSize);
         }
       }
     }
 
-    function step(time: number) {
-      if (!loopActive) return;
-      frameRef.current = requestAnimationFrame(step);
-      if (time - lastRenderAt < FRAME_INTERVAL_MS || cols <= 0 || rows <= 0) return;
+    function drawContours(t: number) {
+      const cx = width * 0.5;
+      const cy = height * 0.5;
+      const maxR = Math.max(width, height) * 0.6;
+      const ringCount = 12;
 
-      const delta = Math.min(2, lastRenderAt === 0 ? 1 : (time - lastRenderAt) / 16.6667);
-      lastRenderAt = time;
-      tick += delta;
+      for (let i = 0; i < ringCount; i++) {
+        const baseR = (i / ringCount) * maxR;
+        const wobble = Math.sin(t * 0.15 + i * 0.8) * 8;
+        const r = baseR + wobble;
+        if (r <= 0) continue;
 
-      const cellCount = cols * rows;
-      const targetCount = Math.max(3, Math.floor(cellCount / 2200));
-      while (clips.length < targetCount) spawnClip();
+        const progress = i / ringCount;
+        const alpha = (1 - progress) * 0.12 + 0.02;
 
-      for (let i = 0; i < trail.length; i++) trail[i] *= 0.92;
-      clipMask.fill(0);
+        ctx!.beginPath();
+        for (let angle = 0; angle < Math.PI * 2; angle += 0.02) {
+          const noise = Math.sin(angle * 3 + t * 0.1 + i) * 6 +
+                       Math.sin(angle * 7 - t * 0.08) * 3;
+          const cr = r + noise;
+          const px = cx + Math.cos(angle) * cr;
+          const py = cy + Math.sin(angle) * cr;
+          if (angle === 0) ctx!.moveTo(px, py);
+          else ctx!.lineTo(px, py);
+        }
+        ctx!.closePath();
+        ctx!.strokeStyle = `rgba(${AMBER.r}, ${AMBER.g}, ${AMBER.b}, ${alpha})`;
+        ctx!.lineWidth = 0.8;
+        ctx!.stroke();
+      }
+    }
 
-      for (let i = clips.length - 1; i >= 0; i--) {
-        const clip = clips[i]!;
-        clip.life += delta;
+    function drawPulses(t: number) {
+      for (let i = pulses.length - 1; i >= 0; i--) {
+        const p = pulses[i]!;
+        p.radius += p.speed * 1.2;
 
-        const wobbleX = Math.sin((clip.y + clip.drift + tick * 0.12) * 0.09) * 0.0018;
-        const wobbleY = Math.cos((clip.x - clip.drift - tick * 0.09) * 0.08) * 0.0014;
-        clip.vx = (clip.vx + wobbleX) * 0.998;
-        clip.vy = (clip.vy + wobbleY) * 0.998;
-
-        clip.x += clip.vx * delta;
-        clip.y += clip.vy * delta;
-
-        if (
-          clip.life >= clip.maxLife ||
-          clip.x < -clip.width - 2 ||
-          clip.x > cols + 2 ||
-          clip.y < -clip.height - 2 ||
-          clip.y > rows + 2
-        ) {
-          clips.splice(i, 1);
+        const life = p.radius / p.maxRadius;
+        if (life >= 1) {
+          pulses.splice(i, 1);
           continue;
         }
 
-        const life = clip.life / clip.maxLife;
-        const alpha = life < 0.12 ? life / 0.12 : life > 0.88 ? (1 - life) / 0.12 : 1;
-        stampClip(clip, alpha);
-      }
+        const fadeIn = Math.min(1, life * 8);
+        const fadeOut = 1 - life;
+        const alpha = p.opacity * fadeIn * fadeOut * fadeOut;
 
-      for (let c = 0; c < cols; c++) colWave[c] = Math.sin(c * 0.08 + tick * 0.06);
-      for (let r = 0; r < rows; r++) rowWave[r] = Math.cos(r * 0.1 - tick * 0.05);
-
-      let output = "";
-      for (let r = 0; r < rows; r++) {
-        for (let c = 0; c < cols; c++) {
-          const idx = r * cols + c;
-          const clipChar = clipMask[idx];
-          if (clipChar > 0) {
-            output += String.fromCharCode(clipChar);
-            continue;
-          }
-          const ambient = (colWave[c] + rowWave[r]) * 0.08 + 0.1;
-          const intensity = Math.max(trail[idx] ?? 0, ambient * 0.45);
-          output += toGlyph(intensity);
-        }
-        if (r < rows - 1) output += "\n";
-      }
-
-      if (output !== lastOutput) {
-        preEl.textContent = output;
-        lastOutput = output;
+        ctx!.beginPath();
+        ctx!.arc(p.cx, p.cy, p.radius, 0, Math.PI * 2);
+        ctx!.strokeStyle = `rgba(${AMBER.r}, ${AMBER.g}, ${AMBER.b}, ${alpha})`;
+        ctx!.lineWidth = 1.5 * (1 - life * 0.5);
+        ctx!.stroke();
       }
     }
 
+    function drawCrosshair(t: number) {
+      const cx = width * 0.5;
+      const cy = height * 0.5;
+      const armLen = 18;
+      const alpha = 0.25 + Math.sin(t * 0.5) * 0.08;
+
+      ctx!.strokeStyle = `rgba(${AMBER.r}, ${AMBER.g}, ${AMBER.b}, ${alpha})`;
+      ctx!.lineWidth = 1;
+
+      ctx!.beginPath();
+      ctx!.moveTo(cx - armLen, cy);
+      ctx!.lineTo(cx - 5, cy);
+      ctx!.moveTo(cx + 5, cy);
+      ctx!.lineTo(cx + armLen, cy);
+      ctx!.moveTo(cx, cy - armLen);
+      ctx!.lineTo(cx, cy - 5);
+      ctx!.moveTo(cx, cy + 5);
+      ctx!.lineTo(cx, cy + armLen);
+      ctx!.stroke();
+
+      const beaconAlpha = 0.5 + Math.sin(t * 1.2) * 0.3;
+      ctx!.beginPath();
+      ctx!.arc(cx, cy, 3, 0, Math.PI * 2);
+      ctx!.fillStyle = `rgba(${AMBER.r}, ${AMBER.g}, ${AMBER.b}, ${beaconAlpha})`;
+      ctx!.fill();
+    }
+
+    function drawVignette() {
+      const gradient = ctx!.createRadialGradient(
+        width * 0.5, height * 0.5, Math.min(width, height) * 0.2,
+        width * 0.5, height * 0.5, Math.max(width, height) * 0.7,
+      );
+      gradient.addColorStop(0, "rgba(0, 0, 0, 0)");
+      gradient.addColorStop(1, `rgba(${BG.r}, ${BG.g}, ${BG.b}, 0.6)`);
+      ctx!.fillStyle = gradient;
+      ctx!.fillRect(0, 0, width, height);
+    }
+
+    function render(timestamp: number) {
+      if (!loopActive) return;
+      frameRef.current = requestAnimationFrame(render);
+      if (timestamp - lastRenderAt < FRAME_INTERVAL_MS) return;
+
+      const delta = lastRenderAt === 0 ? 1 / TARGET_FPS : (timestamp - lastRenderAt) / 1000;
+      lastRenderAt = timestamp;
+      time += Math.min(delta, 0.1);
+
+      if (Math.random() < 0.012) spawnPulse();
+
+      ctx!.fillStyle = `rgb(${BG.r}, ${BG.g}, ${BG.b})`;
+      ctx!.fillRect(0, 0, width, height);
+
+      drawGrid(time);
+      drawContours(time);
+      drawPulses(time);
+      drawCrosshair(time);
+      drawVignette();
+    }
+
+    function drawStatic() {
+      if (width <= 0 || height <= 0) return;
+      ctx!.fillStyle = `rgb(${BG.r}, ${BG.g}, ${BG.b})`;
+      ctx!.fillRect(0, 0, width, height);
+      drawGrid(0);
+      drawContours(0);
+      drawCrosshair(0);
+      drawVignette();
+    }
+
     function syncLoop() {
-      const canRender = cols > 0 && rows > 0;
       if (motionMedia.matches) {
         if (loopActive) {
           loopActive = false;
           if (frameRef.current !== null) cancelAnimationFrame(frameRef.current);
           frameRef.current = null;
         }
-        if (canRender) drawStaticFrame();
+        drawStatic();
         return;
       }
-
-      if (!isVisible || !canRender) {
+      if (!isVisible) {
         if (loopActive) {
           loopActive = false;
           if (frameRef.current !== null) cancelAnimationFrame(frameRef.current);
@@ -294,38 +215,27 @@ export function AsciiArtAnimation() {
         }
         return;
       }
-
       if (!loopActive) {
         loopActive = true;
         lastRenderAt = 0;
-        frameRef.current = requestAnimationFrame(step);
+        frameRef.current = requestAnimationFrame(render);
       }
     }
 
     const observer = new ResizeObserver(() => {
-      const size = measureChar(preEl);
-      charW = size.w;
-      charH = size.h;
-      rebuildGrid();
+      resize();
       syncLoop();
     });
-    observer.observe(preEl);
+    observer.observe(canvas);
 
     const onVisibilityChange = () => {
       isVisible = document.visibilityState !== "hidden";
       syncLoop();
     };
     document.addEventListener("visibilitychange", onVisibilityChange);
+    motionMedia.addEventListener("change", syncLoop);
 
-    const onMotionChange = () => {
-      syncLoop();
-    };
-    motionMedia.addEventListener("change", onMotionChange);
-
-    const charSize = measureChar(preEl);
-    charW = charSize.w;
-    charH = charSize.h;
-    rebuildGrid();
+    resize();
     syncLoop();
 
     return () => {
@@ -333,15 +243,14 @@ export function AsciiArtAnimation() {
       if (frameRef.current !== null) cancelAnimationFrame(frameRef.current);
       observer.disconnect();
       document.removeEventListener("visibilitychange", onVisibilityChange);
-      motionMedia.removeEventListener("change", onMotionChange);
+      motionMedia.removeEventListener("change", syncLoop);
     };
   }, []);
 
   return (
-    <pre
-      ref={preRef}
-      className="w-full h-full m-0 p-0 overflow-hidden text-muted-foreground/60 select-none leading-none"
-      style={{ fontSize: "11px", fontFamily: "monospace" }}
+    <canvas
+      ref={canvasRef}
+      className="w-full h-full"
       aria-hidden="true"
     />
   );

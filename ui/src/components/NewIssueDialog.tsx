@@ -420,6 +420,8 @@ export function NewIssueDialog() {
       setRecurringTimezone(draft.recurringTimezone ?? "UTC");
       setRecurringIssueMode(draft.recurringIssueMode ?? "reopen_existing");
     } else {
+      setTitle(newIssueDefaults.title ?? "");
+      setDescription(newIssueDefaults.description ?? "");
       setStatus(newIssueDefaults.status ?? "todo");
       setPriority(newIssueDefaults.priority ?? "");
       setProjectId(newIssueDefaults.projectId ?? "");
@@ -799,6 +801,16 @@ export function NewIssueDialog() {
             </Button>
           </div>
         </div>
+
+        {newIssueDefaults.attachedFile && (
+          <div className="mx-4 mt-3 flex items-center gap-2 rounded-md border border-primary/20 bg-primary/5 px-3 py-2">
+            <Paperclip className="h-3.5 w-3.5 text-primary shrink-0" />
+            <span className="text-xs font-medium text-primary">Workspace file attached</span>
+            <code className="ml-auto text-xs text-muted-foreground font-mono truncate max-w-[60%]">
+              {newIssueDefaults.attachedFile}
+            </code>
+          </div>
+        )}
 
         {/* Title */}
         <div className="px-4 pt-4 pb-2 shrink-0">

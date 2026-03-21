@@ -1,14 +1,14 @@
 {
   "id": "/",
-  "name": "Paperclip",
-  "short_name": "Paperclip",
-  "description": "AI-powered project management and agent coordination platform",
+  "name": "Outpost",
+  "short_name": "Outpost",
+  "description": "AI agent command post — manage, coordinate, and deploy autonomous agents",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "orientation": "any",
-  "theme_color": "#18181b",
-  "background_color": "#18181b",
+  "theme_color": "#1e2030",
+  "background_color": "#1e2030",
   "icons": [
     {
       "src": "/android-chrome-192x192.png",

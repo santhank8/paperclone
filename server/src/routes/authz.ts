@@ -7,6 +7,12 @@ export function assertBoard(req: Request) {
   }
 }
 
+export function assertBoardOrOwnAgent(req: Request, agentId: string) {
+  if (req.actor.type === "board") return;
+  if (req.actor.type === "agent" && req.actor.agentId === agentId) return;
+  throw forbidden("Board or owning agent required");
+}
+
 export function assertCompanyAccess(req: Request, companyId: string) {
   if (req.actor.type === "none") {
     throw unauthorized();

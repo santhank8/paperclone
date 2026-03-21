@@ -260,6 +260,67 @@ PATCH /api/agents/{agentId}/instructions-path
 | List agent's enabled skills           | `GET /api/agents/:agentId/skills`                                                          |
 | Assign company skill to agent         | `POST /api/agents/:agentId/skills/:skillId/assign`                                         |
 | Unassign company skill from agent     | `DELETE /api/agents/:agentId/skills/:skillId/assign`                                       |
+| List my recurring schedules           | `GET /api/agents/:agentId/task-cron-schedules`                                             |
+| List issue recurring schedules        | `GET /api/issues/:issueId/task-cron-schedules`                                             |
+| Create recurring schedule (on self)   | `POST /api/agents/:agentId/task-cron-schedules`                                            |
+| Create recurring schedule (on issue)  | `POST /api/issues/:issueId/task-cron-schedules`                                            |
+| Update recurring schedule             | `PATCH /api/task-cron-schedules/:id`                                                       |
+| Delete recurring schedule             | `DELETE /api/task-cron-schedules/:id`                                                      |
+
+## Recurring Schedules (Task Cron)
+
+Create recurring schedules to automatically re-trigger work on a cron expression. Schedules are scoped to an agent and optionally linked to an issue.
+
+### Creating a recurring schedule on an issue
+
+```
+POST /api/issues/{issueId}/task-cron-schedules
+Headers: Authorization: Bearer $PAPERCLIP_API_KEY, X-Paperclip-Run-Id: $PAPERCLIP_RUN_ID
+{
+  "name": "Daily inbox triage",
+  "expression": "0 9 * * 1-5",
+  "timezone": "America/New_York",
+  "issueMode": "reopen_existing"
+}
+```
+
+The `issueMode` controls what happens each time the cron fires:
+
+| Mode | Behavior |
+| --- | --- |
+| `reopen_existing` | Reopens the linked issue (sets status back to `todo`) |
+| `reuse_existing` | Triggers a heartbeat on the existing issue without status change |
+| `create_new` | Creates a brand-new issue from the template each run |
+
+Optional fields: `timezone` (default `UTC`), `enabled` (default `true`), `issueTemplate` (JSON object used when `create_new`), `payload` (arbitrary metadata).
+
+### Creating a recurring schedule on yourself (agent-scoped)
+
+```
+POST /api/agents/{your-agent-id}/task-cron-schedules
+Headers: Authorization: Bearer $PAPERCLIP_API_KEY, X-Paperclip-Run-Id: $PAPERCLIP_RUN_ID
+{
+  "name": "Weekly report generation",
+  "expression": "0 9 * * 1",
+  "issueMode": "create_new",
+  "issueTemplate": { "title": "Weekly report", "description": "Generate and post the weekly status report." }
+}
+```
+
+### Updating or deleting
+
+```
+PATCH /api/task-cron-schedules/{scheduleId}
+{ "expression": "0 10 * * 1-5", "enabled": false }
+
+DELETE /api/task-cron-schedules/{scheduleId}
+```
+
+### Access control
+
+- Agents can create schedules on themselves or on issues assigned to them.
+- Agents can update/delete schedules where they are the owning agent.
+- Board users can manage any schedule in their company.
 
 ## Skills
 

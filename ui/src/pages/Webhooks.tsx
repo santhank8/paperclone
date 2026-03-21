@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { EventRoutingRule, WebhookEndpoint, WebhookEvent } from "@paperclipai/shared";
 import { agentsApi } from "../api/agents";
@@ -22,16 +22,23 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Webhook, Plus, Trash2 } from "lucide-react";
+import { Webhook, Plus, Trash2, Radio, ArrowRight, Clock, Zap, Globe, Pencil, X } from "lucide-react";
 
 type Provider = "github" | "slack" | "email" | "generic";
 type ActionType = "wake_agent" | "create_issue" | "create_and_assign";
+type EndpointStatus = "active" | "paused" | "disabled";
 
 function ruleSummary(rule: EventRoutingRule) {
   const conditionEvent =
     typeof rule.condition?.event === "string" ? String(rule.condition.event) : "any event";
   const actionType = typeof rule.action?.type === "string" ? String(rule.action.type) : "unknown action";
   return `${conditionEvent} -> ${actionType}`;
+}
+
+function extractActionType(rule: EventRoutingRule): ActionType {
+  const t = typeof rule.action?.type === "string" ? String(rule.action.type) : "";
+  if (t === "wake_agent" || t === "create_issue" || t === "create_and_assign") return t;
+  return "wake_agent";
 }
 
 function createRulePayload(input: {
@@ -86,6 +93,18 @@ function createRulePayload(input: {
   };
 }
 
+const STATUS_LABELS: Record<EndpointStatus, string> = {
+  active: "Active",
+  paused: "Paused",
+  disabled: "Disabled",
+};
+
+const STATUS_COLORS: Record<EndpointStatus, string> = {
+  active: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400",
+  paused: "bg-amber-500/15 text-amber-600 dark:text-amber-400",
+  disabled: "bg-red-500/15 text-red-600 dark:text-red-400",
+};
+
 export function Webhooks() {
   const { selectedCompanyId } = useCompany();
   const { setBreadcrumbs } = useBreadcrumbs();
@@ -96,11 +115,19 @@ export function Webhooks() {
   const [showRuleForm, setShowRuleForm] = useState(false);
   const [showInternalRuleForm, setShowInternalRuleForm] = useState(false);
 
+  // Editing state
+  const [editingEndpoint, setEditingEndpoint] = useState(false);
+  const [editingRuleId, setEditingRuleId] = useState<string | null>(null);
+  const [editingInternalRuleId, setEditingInternalRuleId] = useState<string | null>(null);
+
+  // Endpoint form fields (shared for create + edit)
   const [endpointName, setEndpointName] = useState("");
   const [endpointSlug, setEndpointSlug] = useState("");
   const [endpointProvider, setEndpointProvider] = useState<Provider>("github");
   const [endpointSecret, setEndpointSecret] = useState("");
+  const [endpointStatus, setEndpointStatus] = useState<EndpointStatus>("active");
 
+  // Rule form fields (shared for create + edit, endpoint rules)
   const [ruleName, setRuleName] = useState("");
   const [ruleEventType, setRuleEventType] = useState("pull_request.opened");
   const [ruleActionType, setRuleActionType] = useState<ActionType>("wake_agent");
@@ -110,7 +137,9 @@ export function Webhooks() {
   const [ruleDescriptionTemplate, setRuleDescriptionTemplate] = useState(
     "Triggered by {{provider}} event {{eventType}}.",
   );
+  const [ruleEnabled, setRuleEnabled] = useState(true);
 
+  // Internal rule form fields (shared for create + edit)
   const [internalRuleName, setInternalRuleName] = useState("");
   const [internalEventType, setInternalEventType] = useState("paperclip.issue.status_changed");
   const [internalActionType, setInternalActionType] = useState<ActionType>("wake_agent");
@@ -120,10 +149,13 @@ export function Webhooks() {
   const [internalDescriptionTemplate, setInternalDescriptionTemplate] = useState(
     "Triggered by internal event {{eventType}}.",
   );
+  const [internalRuleEnabled, setInternalRuleEnabled] = useState(true);
 
   useEffect(() => {
     setBreadcrumbs([{ label: "Webhooks" }]);
   }, [setBreadcrumbs]);
+
+  // --- Queries ---
 
   const endpointsQuery = useQuery({
     queryKey: queryKeys.webhooks.endpoints(selectedCompanyId!),
@@ -179,6 +211,8 @@ export function Webhooks() {
   const agents = agentsQuery.data ?? [];
   const agentMap = useMemo(() => new Map(agents.map((agent) => [agent.id, agent.name])), [agents]);
 
+  // --- Invalidation ---
+
   const invalidateWebhookQueries = () => {
     if (!selectedCompanyId) return;
     queryClient.invalidateQueries({ queryKey: queryKeys.webhooks.endpoints(selectedCompanyId) });
@@ -189,6 +223,85 @@ export function Webhooks() {
       queryClient.invalidateQueries({ queryKey: queryKeys.webhooks.endpointEvents(selectedEndpointId) });
     }
   };
+
+  // --- Edit helpers ---
+
+  const resetRuleForm = useCallback(() => {
+    setRuleName("");
+    setRuleEventType("pull_request.opened");
+    setRuleActionType("wake_agent");
+    setRuleAgentId("");
+    setRuleReason("");
+    setRuleTitleTemplate("Automation task: {{eventType}}");
+    setRuleDescriptionTemplate("Triggered by {{provider}} event {{eventType}}.");
+    setRuleEnabled(true);
+  }, []);
+
+  const resetInternalRuleForm = useCallback(() => {
+    setInternalRuleName("");
+    setInternalEventType("paperclip.issue.status_changed");
+    setInternalActionType("wake_agent");
+    setInternalAgentId("");
+    setInternalReason("");
+    setInternalTitleTemplate("Internal automation: {{eventType}}");
+    setInternalDescriptionTemplate("Triggered by internal event {{eventType}}.");
+    setInternalRuleEnabled(true);
+  }, []);
+
+  const startEditEndpoint = useCallback((ep: WebhookEndpoint) => {
+    setEndpointName(ep.name);
+    setEndpointSlug(ep.slug);
+    setEndpointProvider(ep.provider);
+    setEndpointSecret("");
+    setEndpointStatus(ep.status);
+    setEditingEndpoint(true);
+    setShowEndpointForm(false);
+  }, []);
+
+  const cancelEditEndpoint = useCallback(() => {
+    setEditingEndpoint(false);
+    setEndpointName("");
+    setEndpointSlug("");
+    setEndpointSecret("");
+  }, []);
+
+  const startEditRule = useCallback((rule: EventRoutingRule) => {
+    setRuleName(rule.name);
+    setRuleEventType(typeof rule.condition?.event === "string" ? String(rule.condition.event) : "");
+    setRuleActionType(extractActionType(rule));
+    setRuleAgentId(typeof rule.action?.agentId === "string" ? String(rule.action.agentId) : "");
+    setRuleReason(typeof rule.action?.reason === "string" ? String(rule.action.reason) : "");
+    setRuleTitleTemplate(typeof rule.action?.title === "string" ? String(rule.action.title) : "");
+    setRuleDescriptionTemplate(typeof rule.action?.description === "string" ? String(rule.action.description) : "");
+    setRuleEnabled(rule.enabled);
+    setEditingRuleId(rule.id);
+    setShowRuleForm(false);
+  }, []);
+
+  const cancelEditRule = useCallback(() => {
+    setEditingRuleId(null);
+    resetRuleForm();
+  }, [resetRuleForm]);
+
+  const startEditInternalRule = useCallback((rule: EventRoutingRule) => {
+    setInternalRuleName(rule.name);
+    setInternalEventType(typeof rule.condition?.event === "string" ? String(rule.condition.event) : "");
+    setInternalActionType(extractActionType(rule));
+    setInternalAgentId(typeof rule.action?.agentId === "string" ? String(rule.action.agentId) : "");
+    setInternalReason(typeof rule.action?.reason === "string" ? String(rule.action.reason) : "");
+    setInternalTitleTemplate(typeof rule.action?.title === "string" ? String(rule.action.title) : "");
+    setInternalDescriptionTemplate(typeof rule.action?.description === "string" ? String(rule.action.description) : "");
+    setInternalRuleEnabled(rule.enabled);
+    setEditingInternalRuleId(rule.id);
+    setShowInternalRuleForm(false);
+  }, []);
+
+  const cancelEditInternalRule = useCallback(() => {
+    setEditingInternalRuleId(null);
+    resetInternalRuleForm();
+  }, [resetInternalRuleForm]);
+
+  // --- Mutations ---
 
   const createEndpointMutation = useMutation({
     mutationFn: () =>
@@ -205,6 +318,26 @@ export function Webhooks() {
       setEndpointSlug("");
       setEndpointSecret("");
       setSelectedEndpointId(created.id);
+    },
+  });
+
+  const updateEndpointMutation = useMutation({
+    mutationFn: () => {
+      if (!selectedEndpointId) throw new Error("No endpoint selected");
+      const data: Record<string, unknown> = {
+        name: endpointName.trim(),
+        slug: endpointSlug.trim(),
+        provider: endpointProvider,
+        status: endpointStatus,
+      };
+      if (endpointSecret.trim()) {
+        data.secret = endpointSecret.trim();
+      }
+      return webhooksApi.updateEndpoint(selectedEndpointId, data as Parameters<typeof webhooksApi.updateEndpoint>[1]);
+    },
+    onSuccess: () => {
+      invalidateWebhookQueries();
+      cancelEditEndpoint();
     },
   });
 
@@ -233,8 +366,36 @@ export function Webhooks() {
     onSuccess: () => {
       invalidateWebhookQueries();
       setShowRuleForm(false);
-      setRuleName("");
-      setRuleReason("");
+      resetRuleForm();
+    },
+  });
+
+  const updateRuleMutation = useMutation({
+    mutationFn: (ruleId: string) => {
+      const source: "webhook" | "internal" = editingInternalRuleId === ruleId ? "internal" : "webhook";
+      const isInternal = source === "internal";
+      const payload = createRulePayload({
+        name: isInternal ? internalRuleName : ruleName,
+        eventType: isInternal ? internalEventType : ruleEventType,
+        actionType: isInternal ? internalActionType : ruleActionType,
+        agentId: isInternal ? internalAgentId : ruleAgentId,
+        reason: isInternal ? internalReason : ruleReason,
+        titleTemplate: isInternal ? internalTitleTemplate : ruleTitleTemplate,
+        descriptionTemplate: isInternal ? internalDescriptionTemplate : ruleDescriptionTemplate,
+        source,
+      });
+      return webhooksApi.updateRule(ruleId, {
+        ...payload,
+        enabled: isInternal ? internalRuleEnabled : ruleEnabled,
+      });
+    },
+    onSuccess: (_data, ruleId) => {
+      invalidateWebhookQueries();
+      if (editingInternalRuleId === ruleId) {
+        cancelEditInternalRule();
+      } else {
+        cancelEditRule();
+      }
     },
   });
 
@@ -257,8 +418,7 @@ export function Webhooks() {
     onSuccess: () => {
       invalidateWebhookQueries();
       setShowInternalRuleForm(false);
-      setInternalRuleName("");
-      setInternalReason("");
+      resetInternalRuleForm();
     },
   });
 
@@ -266,6 +426,8 @@ export function Webhooks() {
     mutationFn: (ruleId: string) => webhooksApi.deleteRule(ruleId),
     onSuccess: () => invalidateWebhookQueries(),
   });
+
+  // --- Render ---
 
   if (!selectedCompanyId) {
     return <EmptyState icon={Webhook} message="Select a company to manage webhook automation." />;
@@ -279,28 +441,29 @@ export function Webhooks() {
   const endpointEvents = eventsQuery.data ?? [];
 
   return (
-    <div className="space-y-4">
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+    <div className="space-y-6 animate-page-enter">
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+        {/* ── Left column: Endpoint list ── */}
         <section className="space-y-3 xl:col-span-1">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Endpoints</h2>
-            <Button size="sm" variant="outline" onClick={() => setShowEndpointForm((v) => !v)}>
+            <Button size="sm" variant="outline" onClick={() => { setShowEndpointForm((v) => !v); setEditingEndpoint(false); }}>
               <Plus className="h-4 w-4 mr-1" />
               New
             </Button>
           </div>
 
           {showEndpointForm && (
-            <div className="border border-border rounded-md p-3 space-y-2 bg-muted/30">
-              <div className="space-y-1">
+            <div className="border border-border/60 rounded-md p-4 space-y-3 bg-muted/30">
+              <div className="space-y-1.5">
                 <Label>Name</Label>
                 <Input value={endpointName} onChange={(e) => setEndpointName(e.target.value)} placeholder="GitHub Main" />
               </div>
-              <div className="space-y-1">
+              <div className="space-y-1.5">
                 <Label>Slug</Label>
                 <Input value={endpointSlug} onChange={(e) => setEndpointSlug(e.target.value)} placeholder="github-main" />
               </div>
-              <div className="space-y-1">
+              <div className="space-y-1.5">
                 <Label>Provider</Label>
                 <Select value={endpointProvider} onValueChange={(value) => setEndpointProvider(value as Provider)}>
                   <SelectTrigger className="w-full">
@@ -314,11 +477,11 @@ export function Webhooks() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-1">
+              <div className="space-y-1.5">
                 <Label>Secret (optional)</Label>
                 <Input value={endpointSecret} onChange={(e) => setEndpointSecret(e.target.value)} placeholder="autogenerated when empty" />
               </div>
-              <div className="flex gap-2">
+              <div className="flex gap-2 pt-1">
                 <Button
                   size="sm"
                   onClick={() => createEndpointMutation.mutate()}
@@ -334,23 +497,29 @@ export function Webhooks() {
           {endpoints.length === 0 ? (
             <EmptyState icon={Webhook} message="No webhook endpoints yet." />
           ) : (
-            <div className="border border-border divide-y divide-border">
+            <div className="border border-border/60 rounded-md overflow-hidden divide-y divide-border/60">
               {endpoints.map((endpoint: WebhookEndpoint) => (
                 <EntityRow
                   key={endpoint.id}
                   title={endpoint.name}
                   subtitle={`/${endpoint.slug}/receive`}
-                  onClick={() => setSelectedEndpointId(endpoint.id)}
-                  className={selectedEndpointId === endpoint.id ? "bg-accent/40" : undefined}
+                  onClick={() => { setSelectedEndpointId(endpoint.id); setEditingEndpoint(false); }}
+                  leading={<Globe className="h-4 w-4 text-muted-foreground/60" />}
+                  className={selectedEndpointId === endpoint.id
+                    ? "bg-primary/5 border-l-2 border-l-primary"
+                    : "border-l-2 border-l-transparent"}
                   trailing={
                     <div className="flex items-center gap-2">
-                      <Badge variant="outline" className="capitalize">
+                      <span className={`inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium ${STATUS_COLORS[endpoint.status]}`}>
+                        {STATUS_LABELS[endpoint.status]}
+                      </span>
+                      <Badge variant="outline" className="capitalize text-[11px]">
                         {endpoint.provider}
                       </Badge>
                       <Button
                         size="icon-sm"
                         variant="ghost"
-                        className="text-destructive hover:text-destructive"
+                        className="text-destructive/70 hover:text-destructive"
                         onClick={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
@@ -358,7 +527,7 @@ export function Webhooks() {
                           deleteEndpointMutation.mutate(endpoint.id);
                         }}
                       >
-                        <Trash2 className="h-4 w-4" />
+                        <Trash2 className="h-3.5 w-3.5" />
                       </Button>
                     </div>
                   }
@@ -368,174 +537,249 @@ export function Webhooks() {
           )}
         </section>
 
-        <section className="space-y-3 xl:col-span-2">
+        {/* ── Right column: Endpoint detail + rules + events ── */}
+        <section className="space-y-4 xl:col-span-2">
           {!selectedEndpoint ? (
             <EmptyState icon={Webhook} message="Select an endpoint to view rules and events." />
           ) : (
             <>
-              <div className="border border-border rounded-md p-4 space-y-2">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <h3 className="text-base font-semibold">{selectedEndpoint.name}</h3>
-                    <p className="text-xs text-muted-foreground font-mono">
-                      /api/webhooks/{selectedEndpoint.slug}/receive
-                    </p>
+              {/* Endpoint detail / edit card */}
+              {editingEndpoint ? (
+                <div className="border border-primary/30 rounded-md p-5 space-y-3 bg-primary/[0.02]">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Edit Endpoint</h3>
+                    <Button size="icon-sm" variant="ghost" onClick={cancelEditEndpoint}>
+                      <X className="h-4 w-4" />
+                    </Button>
                   </div>
-                  <Badge variant="outline" className="capitalize">
-                    {selectedEndpoint.provider}
-                  </Badge>
+                  <div className="grid sm:grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <Label>Name</Label>
+                      <Input value={endpointName} onChange={(e) => setEndpointName(e.target.value)} />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Slug</Label>
+                      <Input value={endpointSlug} onChange={(e) => setEndpointSlug(e.target.value)} />
+                    </div>
+                  </div>
+                  <div className="grid sm:grid-cols-3 gap-3">
+                    <div className="space-y-1.5">
+                      <Label>Provider</Label>
+                      <Select value={endpointProvider} onValueChange={(value) => setEndpointProvider(value as Provider)}>
+                        <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="github">GitHub</SelectItem>
+                          <SelectItem value="slack">Slack</SelectItem>
+                          <SelectItem value="email">Email</SelectItem>
+                          <SelectItem value="generic">Generic</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Status</Label>
+                      <Select value={endpointStatus} onValueChange={(value) => setEndpointStatus(value as EndpointStatus)}>
+                        <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="active">Active</SelectItem>
+                          <SelectItem value="paused">Paused</SelectItem>
+                          <SelectItem value="disabled">Disabled</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Secret (leave blank to keep)</Label>
+                      <Input value={endpointSecret} onChange={(e) => setEndpointSecret(e.target.value)} placeholder="••••••••" />
+                    </div>
+                  </div>
+                  <div className="flex gap-2 pt-1">
+                    <Button
+                      size="sm"
+                      onClick={() => updateEndpointMutation.mutate()}
+                      disabled={!endpointName.trim() || !endpointSlug.trim() || updateEndpointMutation.isPending}
+                    >
+                      {updateEndpointMutation.isPending ? "Saving..." : "Save Changes"}
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={cancelEditEndpoint}>Cancel</Button>
+                  </div>
+                  {updateEndpointMutation.isError && (
+                    <p className="text-xs text-destructive">{(updateEndpointMutation.error as Error)?.message}</p>
+                  )}
                 </div>
-                <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
-                  <span>Events received: {selectedEndpoint.eventCount}</span>
-                  <span>
-                    Last event: {selectedEndpoint.lastEventAt ? new Date(selectedEndpoint.lastEventAt).toLocaleString() : "never"}
-                  </span>
+              ) : (
+                <div className="border border-border/60 rounded-md p-5 space-y-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <h3 className="text-base font-semibold" style={{ fontFamily: "var(--font-family-display)" }}>{selectedEndpoint.name}</h3>
+                      <p className="text-xs text-muted-foreground font-mono mt-0.5">
+                        /api/webhooks/{selectedEndpoint.slug}/receive
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className={`inline-flex items-center rounded px-1.5 py-0.5 text-[11px] font-medium ${STATUS_COLORS[selectedEndpoint.status]}`}>
+                        {STATUS_LABELS[selectedEndpoint.status]}
+                      </span>
+                      <Badge variant="outline" className="capitalize text-[11px]">
+                        {selectedEndpoint.provider}
+                      </Badge>
+                      <Button
+                        size="icon-sm"
+                        variant="ghost"
+                        className="text-muted-foreground hover:text-foreground"
+                        onClick={() => startEditEndpoint(selectedEndpoint)}
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-4 text-xs text-muted-foreground pt-1 border-t border-border/40">
+                    <span className="flex items-center gap-1.5 pt-2">
+                      <Radio className="h-3 w-3 text-primary/60" />
+                      {selectedEndpoint.eventCount} events received
+                    </span>
+                    <span className="flex items-center gap-1.5 pt-2">
+                      <Clock className="h-3 w-3 text-muted-foreground/60" />
+                      {selectedEndpoint.lastEventAt ? new Date(selectedEndpoint.lastEventAt).toLocaleString() : "No events yet"}
+                    </span>
+                  </div>
                 </div>
-              </div>
+              )}
 
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                {/* ── Routing Rules ── */}
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Routing Rules</h4>
-                    <Button size="sm" variant="outline" onClick={() => setShowRuleForm((v) => !v)}>
+                    <Button size="sm" variant="outline" onClick={() => { setShowRuleForm((v) => !v); cancelEditRule(); }}>
                       <Plus className="h-4 w-4 mr-1" />
                       Add Rule
                     </Button>
                   </div>
 
                   {showRuleForm && (
-                    <div className="border border-border rounded-md p-3 space-y-2 bg-muted/30">
-                      <div className="space-y-1">
-                        <Label>Rule name</Label>
-                        <Input value={ruleName} onChange={(e) => setRuleName(e.target.value)} placeholder="PR opened -> reviewer" />
-                      </div>
-                      <div className="space-y-1">
-                        <Label>Match event</Label>
-                        <Input value={ruleEventType} onChange={(e) => setRuleEventType(e.target.value)} placeholder="pull_request.opened" />
-                      </div>
-                      <div className="space-y-1">
-                        <Label>Action</Label>
-                        <Select value={ruleActionType} onValueChange={(value) => setRuleActionType(value as ActionType)}>
-                          <SelectTrigger className="w-full">
-                            <SelectValue placeholder="Select action" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="wake_agent">Wake Agent</SelectItem>
-                            <SelectItem value="create_issue">Create Issue</SelectItem>
-                            <SelectItem value="create_and_assign">Create + Assign + Wake</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      {(ruleActionType === "wake_agent" || ruleActionType === "create_and_assign") && (
-                        <div className="space-y-1">
-                          <Label>Agent</Label>
-                          <Select value={ruleAgentId || undefined} onValueChange={setRuleAgentId}>
-                            <SelectTrigger className="w-full">
-                              <SelectValue placeholder="Select an agent" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {agents.map((agent) => (
-                                <SelectItem key={agent.id} value={agent.id}>
-                                  {agent.name}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      )}
-                      <div className="space-y-1">
-                        <Label>Reason (optional)</Label>
-                        <Input value={ruleReason} onChange={(e) => setRuleReason(e.target.value)} placeholder="pr_review_requested" />
-                      </div>
-                      {(ruleActionType === "create_issue" || ruleActionType === "create_and_assign") && (
-                        <>
-                          <div className="space-y-1">
-                            <Label>Issue title template</Label>
-                            <Input value={ruleTitleTemplate} onChange={(e) => setRuleTitleTemplate(e.target.value)} />
-                          </div>
-                          <div className="space-y-1">
-                            <Label>Issue description template</Label>
-                            <Textarea value={ruleDescriptionTemplate} onChange={(e) => setRuleDescriptionTemplate(e.target.value)} rows={3} />
-                          </div>
-                        </>
-                      )}
-                      <div className="flex gap-2">
-                        <Button
-                          size="sm"
-                          onClick={() => createEndpointRuleMutation.mutate()}
-                          disabled={
-                            !ruleName.trim() ||
-                            !ruleEventType.trim() ||
-                            ((ruleActionType === "wake_agent" || ruleActionType === "create_and_assign") && !ruleAgentId) ||
-                            createEndpointRuleMutation.isPending
-                          }
-                        >
-                          {createEndpointRuleMutation.isPending ? "Saving..." : "Save Rule"}
-                        </Button>
-                        <Button size="sm" variant="ghost" onClick={() => setShowRuleForm(false)}>Cancel</Button>
-                      </div>
-                    </div>
+                    <RuleFormCard
+                      mode="create"
+                      name={ruleName} setName={setRuleName}
+                      eventType={ruleEventType} setEventType={setRuleEventType}
+                      actionType={ruleActionType} setActionType={setRuleActionType}
+                      agentId={ruleAgentId} setAgentId={setRuleAgentId}
+                      reason={ruleReason} setReason={setRuleReason}
+                      titleTemplate={ruleTitleTemplate} setTitleTemplate={setRuleTitleTemplate}
+                      descriptionTemplate={ruleDescriptionTemplate} setDescriptionTemplate={setRuleDescriptionTemplate}
+                      enabled={ruleEnabled} setEnabled={setRuleEnabled}
+                      agents={agents}
+                      isPending={createEndpointRuleMutation.isPending}
+                      isError={createEndpointRuleMutation.isError}
+                      error={createEndpointRuleMutation.error as Error | null}
+                      onSave={() => createEndpointRuleMutation.mutate()}
+                      onCancel={() => { setShowRuleForm(false); resetRuleForm(); }}
+                      disableSave={!ruleName.trim() || !ruleEventType.trim() || ((ruleActionType === "wake_agent" || ruleActionType === "create_and_assign") && !ruleAgentId)}
+                    />
                   )}
 
                   {rulesQuery.isLoading ? (
                     <PageSkeleton variant="list" />
                   ) : endpointRules.length === 0 ? (
-                    <div className="border border-border p-3 text-sm text-muted-foreground">No rules for this endpoint.</div>
+                    <div className="flex flex-col items-center justify-center py-8 border border-dashed border-border/60 rounded-md text-center">
+                      <ArrowRight className="h-5 w-5 text-muted-foreground/40 mb-2" />
+                      <p className="text-sm text-muted-foreground">No routing rules yet</p>
+                    </div>
                   ) : (
-                    <div className="border border-border divide-y divide-border">
+                    <div className="border border-border/60 rounded-md overflow-hidden divide-y divide-border/60">
                       {endpointRules.map((rule) => (
-                        <EntityRow
-                          key={rule.id}
-                          title={rule.name}
-                          subtitle={ruleSummary(rule)}
-                          trailing={
-                            <div className="flex items-center gap-2">
-                              <span className="text-xs text-muted-foreground">P{rule.priority}</span>
-                              <Button
-                                size="icon-sm"
-                                variant="ghost"
-                                className="text-destructive hover:text-destructive"
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  if (!window.confirm(`Delete rule "${rule.name}"?`)) return;
-                                  deleteRuleMutation.mutate(rule.id);
-                                }}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          }
-                        />
+                        <div key={rule.id}>
+                          {editingRuleId === rule.id ? (
+                            <RuleFormCard
+                              mode="edit"
+                              name={ruleName} setName={setRuleName}
+                              eventType={ruleEventType} setEventType={setRuleEventType}
+                              actionType={ruleActionType} setActionType={setRuleActionType}
+                              agentId={ruleAgentId} setAgentId={setRuleAgentId}
+                              reason={ruleReason} setReason={setRuleReason}
+                              titleTemplate={ruleTitleTemplate} setTitleTemplate={setRuleTitleTemplate}
+                              descriptionTemplate={ruleDescriptionTemplate} setDescriptionTemplate={setRuleDescriptionTemplate}
+                              enabled={ruleEnabled} setEnabled={setRuleEnabled}
+                              agents={agents}
+                              isPending={updateRuleMutation.isPending}
+                              isError={updateRuleMutation.isError}
+                              error={updateRuleMutation.error as Error | null}
+                              onSave={() => updateRuleMutation.mutate(rule.id)}
+                              onCancel={cancelEditRule}
+                              disableSave={!ruleName.trim() || !ruleEventType.trim() || ((ruleActionType === "wake_agent" || ruleActionType === "create_and_assign") && !ruleAgentId)}
+                            />
+                          ) : (
+                            <EntityRow
+                              title={rule.name}
+                              subtitle={ruleSummary(rule)}
+                              leading={<Zap className="h-3.5 w-3.5 text-primary/50" />}
+                              onClick={() => startEditRule(rule)}
+                              trailing={
+                                <div className="flex items-center gap-2">
+                                  {!rule.enabled && (
+                                    <Badge variant="outline" className="text-[10px] text-muted-foreground">Off</Badge>
+                                  )}
+                                  <Badge variant="outline" className="text-[11px] font-mono">P{rule.priority}</Badge>
+                                  <Button
+                                    size="icon-sm"
+                                    variant="ghost"
+                                    className="text-muted-foreground hover:text-foreground"
+                                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); startEditRule(rule); }}
+                                  >
+                                    <Pencil className="h-3 w-3" />
+                                  </Button>
+                                  <Button
+                                    size="icon-sm"
+                                    variant="ghost"
+                                    className="text-destructive/70 hover:text-destructive"
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      if (!window.confirm(`Delete rule "${rule.name}"?`)) return;
+                                      deleteRuleMutation.mutate(rule.id);
+                                    }}
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </Button>
+                                </div>
+                              }
+                            />
+                          )}
+                        </div>
                       ))}
                     </div>
                   )}
                 </div>
 
+                {/* ── Event Log ── */}
                 <div className="space-y-3">
                   <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Event Log</h4>
                   {eventsQuery.isLoading ? (
                     <PageSkeleton variant="list" />
                   ) : endpointEvents.length === 0 ? (
-                    <div className="border border-border p-3 text-sm text-muted-foreground">No events yet.</div>
+                    <div className="flex flex-col items-center justify-center py-8 border border-dashed border-border/60 rounded-md text-center">
+                      <Radio className="h-5 w-5 text-muted-foreground/40 mb-2" />
+                      <p className="text-sm text-muted-foreground">No events yet</p>
+                    </div>
                   ) : (
-                    <div className="border border-border divide-y divide-border max-h-[520px] overflow-y-auto">
+                    <div className="border border-border/60 rounded-md overflow-hidden divide-y divide-border/40 max-h-[520px] overflow-y-auto">
                       {endpointEvents.map((event: WebhookEvent) => (
-                        <div key={event.id} className="px-3 py-2 space-y-1">
+                        <div key={event.id} className="px-3.5 py-2.5 space-y-1 hover:bg-accent/30 transition-colors">
                           <div className="flex items-center justify-between gap-2">
                             <div className="truncate">
-                              <p className="text-sm font-medium truncate">{event.eventType}</p>
-                              <p className="text-[11px] text-muted-foreground">
+                              <p className="text-sm font-medium truncate font-mono">{event.eventType}</p>
+                              <p className="text-[11px] text-muted-foreground mt-0.5">
                                 {new Date(event.createdAt).toLocaleString()}
                               </p>
                             </div>
                             <StatusBadge status={event.status} />
                           </div>
                           {event.matchedRuleId && (
-                            <p className="text-[11px] text-muted-foreground font-mono">rule: {event.matchedRuleId}</p>
+                            <p className="text-[11px] text-muted-foreground/70 font-mono flex items-center gap-1">
+                              <ArrowRight className="h-2.5 w-2.5" />
+                              {event.matchedRuleId}
+                            </p>
                           )}
                           {event.error && (
-                            <p className="text-xs text-destructive">{event.error}</p>
+                            <p className="text-xs text-destructive mt-0.5">{event.error}</p>
                           )}
                         </div>
                       ))}
@@ -548,121 +792,104 @@ export function Webhooks() {
         </section>
       </div>
 
-      <section className="space-y-3">
+      {/* ── Internal Rules ── */}
+      <section className="space-y-3 border-t border-border/40 pt-6">
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Internal Rules</h2>
-          <Button size="sm" variant="outline" onClick={() => setShowInternalRuleForm((v) => !v)}>
+          <Button size="sm" variant="outline" onClick={() => { setShowInternalRuleForm((v) => !v); cancelEditInternalRule(); }}>
             <Plus className="h-4 w-4 mr-1" />
             New Internal Rule
           </Button>
         </div>
 
         {showInternalRuleForm && (
-          <div className="border border-border rounded-md p-3 space-y-2 bg-muted/30">
-            <div className="grid md:grid-cols-2 gap-2">
-              <div className="space-y-1">
-                <Label>Rule name</Label>
-                <Input value={internalRuleName} onChange={(e) => setInternalRuleName(e.target.value)} placeholder="Done issue -> wake QA" />
-              </div>
-              <div className="space-y-1">
-                <Label>Internal event</Label>
-                <Input value={internalEventType} onChange={(e) => setInternalEventType(e.target.value)} placeholder="paperclip.issue.status_changed" />
-              </div>
-            </div>
-            <div className="grid md:grid-cols-2 gap-2">
-              <div className="space-y-1">
-                <Label>Action</Label>
-                <Select
-                  value={internalActionType}
-                  onValueChange={(value) => setInternalActionType(value as ActionType)}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select action" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="wake_agent">Wake Agent</SelectItem>
-                    <SelectItem value="create_issue">Create Issue</SelectItem>
-                    <SelectItem value="create_and_assign">Create + Assign + Wake</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              {(internalActionType === "wake_agent" || internalActionType === "create_and_assign") && (
-                <div className="space-y-1">
-                  <Label>Agent</Label>
-                  <Select value={internalAgentId || undefined} onValueChange={setInternalAgentId}>
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select an agent" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {agents.map((agent) => (
-                        <SelectItem key={agent.id} value={agent.id}>
-                          {agent.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
-            </div>
-            <div className="space-y-1">
-              <Label>Reason (optional)</Label>
-              <Input value={internalReason} onChange={(e) => setInternalReason(e.target.value)} placeholder="qa_followup" />
-            </div>
-            {(internalActionType === "create_issue" || internalActionType === "create_and_assign") && (
-              <>
-                <div className="space-y-1">
-                  <Label>Issue title template</Label>
-                  <Input value={internalTitleTemplate} onChange={(e) => setInternalTitleTemplate(e.target.value)} />
-                </div>
-                <div className="space-y-1">
-                  <Label>Issue description template</Label>
-                  <Textarea value={internalDescriptionTemplate} onChange={(e) => setInternalDescriptionTemplate(e.target.value)} rows={3} />
-                </div>
-              </>
-            )}
-            <div className="flex gap-2">
-              <Button
-                size="sm"
-                onClick={() => createInternalRuleMutation.mutate()}
-                disabled={
-                  !internalRuleName.trim() ||
-                  !internalEventType.trim() ||
-                  ((internalActionType === "wake_agent" || internalActionType === "create_and_assign") && !internalAgentId) ||
-                  createInternalRuleMutation.isPending
-                }
-              >
-                {createInternalRuleMutation.isPending ? "Saving..." : "Save Internal Rule"}
-              </Button>
-              <Button size="sm" variant="ghost" onClick={() => setShowInternalRuleForm(false)}>Cancel</Button>
-            </div>
-          </div>
+          <RuleFormCard
+            mode="create"
+            name={internalRuleName} setName={setInternalRuleName}
+            eventType={internalEventType} setEventType={setInternalEventType}
+            actionType={internalActionType} setActionType={setInternalActionType}
+            agentId={internalAgentId} setAgentId={setInternalAgentId}
+            reason={internalReason} setReason={setInternalReason}
+            titleTemplate={internalTitleTemplate} setTitleTemplate={setInternalTitleTemplate}
+            descriptionTemplate={internalDescriptionTemplate} setDescriptionTemplate={setInternalDescriptionTemplate}
+            enabled={internalRuleEnabled} setEnabled={setInternalRuleEnabled}
+            agents={agents}
+            isPending={createInternalRuleMutation.isPending}
+            isError={createInternalRuleMutation.isError}
+            error={createInternalRuleMutation.error as Error | null}
+            onSave={() => createInternalRuleMutation.mutate()}
+            onCancel={() => { setShowInternalRuleForm(false); resetInternalRuleForm(); }}
+            disableSave={!internalRuleName.trim() || !internalEventType.trim() || ((internalActionType === "wake_agent" || internalActionType === "create_and_assign") && !internalAgentId)}
+            eventPlaceholder="paperclip.issue.status_changed"
+          />
         )}
 
         {internalRules.length === 0 ? (
-          <div className="border border-border p-3 text-sm text-muted-foreground">No internal rules yet.</div>
+          <div className="flex flex-col items-center justify-center py-8 border border-dashed border-border/60 rounded-md text-center">
+            <Zap className="h-5 w-5 text-muted-foreground/40 mb-2" />
+            <p className="text-sm text-muted-foreground">No internal rules yet</p>
+          </div>
         ) : (
-          <div className="border border-border divide-y divide-border">
+          <div className="border border-border/60 rounded-md overflow-hidden divide-y divide-border/60">
             {internalRules.map((rule) => (
-              <EntityRow
-                key={rule.id}
-                title={rule.name}
-                subtitle={`${ruleSummary(rule)}${typeof rule.action?.agentId === "string" ? ` · ${agentMap.get(String(rule.action.agentId)) ?? rule.action.agentId}` : ""}`}
-                trailing={
-                  <Button
-                    size="icon-sm"
-                    variant="ghost"
-                    className="text-destructive hover:text-destructive"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      if (!window.confirm(`Delete internal rule "${rule.name}"?`)) return;
-                      deleteRuleMutation.mutate(rule.id);
-                    }}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                }
-              />
+              <div key={rule.id}>
+                {editingInternalRuleId === rule.id ? (
+                  <RuleFormCard
+                    mode="edit"
+                    name={internalRuleName} setName={setInternalRuleName}
+                    eventType={internalEventType} setEventType={setInternalEventType}
+                    actionType={internalActionType} setActionType={setInternalActionType}
+                    agentId={internalAgentId} setAgentId={setInternalAgentId}
+                    reason={internalReason} setReason={setInternalReason}
+                    titleTemplate={internalTitleTemplate} setTitleTemplate={setInternalTitleTemplate}
+                    descriptionTemplate={internalDescriptionTemplate} setDescriptionTemplate={setInternalDescriptionTemplate}
+                    enabled={internalRuleEnabled} setEnabled={setInternalRuleEnabled}
+                    agents={agents}
+                    isPending={updateRuleMutation.isPending}
+                    isError={updateRuleMutation.isError}
+                    error={updateRuleMutation.error as Error | null}
+                    onSave={() => updateRuleMutation.mutate(rule.id)}
+                    onCancel={cancelEditInternalRule}
+                    disableSave={!internalRuleName.trim() || !internalEventType.trim() || ((internalActionType === "wake_agent" || internalActionType === "create_and_assign") && !internalAgentId)}
+                    eventPlaceholder="paperclip.issue.status_changed"
+                  />
+                ) : (
+                  <EntityRow
+                    title={rule.name}
+                    leading={<Zap className="h-3.5 w-3.5 text-primary/50" />}
+                    subtitle={`${ruleSummary(rule)}${typeof rule.action?.agentId === "string" ? ` · ${agentMap.get(String(rule.action.agentId)) ?? rule.action.agentId}` : ""}`}
+                    onClick={() => startEditInternalRule(rule)}
+                    trailing={
+                      <div className="flex items-center gap-2">
+                        {!rule.enabled && (
+                          <Badge variant="outline" className="text-[10px] text-muted-foreground">Off</Badge>
+                        )}
+                        <Button
+                          size="icon-sm"
+                          variant="ghost"
+                          className="text-muted-foreground hover:text-foreground"
+                          onClick={(e) => { e.preventDefault(); e.stopPropagation(); startEditInternalRule(rule); }}
+                        >
+                          <Pencil className="h-3 w-3" />
+                        </Button>
+                        <Button
+                          size="icon-sm"
+                          variant="ghost"
+                          className="text-destructive/70 hover:text-destructive"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            if (!window.confirm(`Delete internal rule "${rule.name}"?`)) return;
+                            deleteRuleMutation.mutate(rule.id);
+                          }}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    }
+                  />
+                )}
+              </div>
             ))}
           </div>
         )}
@@ -675,6 +902,124 @@ export function Webhooks() {
             (eventsQuery.error as Error)?.message ||
             (companyRulesQuery.error as Error)?.message}
         </p>
+      )}
+    </div>
+  );
+}
+
+// ── Shared rule form component ──
+
+interface RuleFormCardProps {
+  mode: "create" | "edit";
+  name: string; setName: (v: string) => void;
+  eventType: string; setEventType: (v: string) => void;
+  actionType: ActionType; setActionType: (v: ActionType) => void;
+  agentId: string; setAgentId: (v: string) => void;
+  reason: string; setReason: (v: string) => void;
+  titleTemplate: string; setTitleTemplate: (v: string) => void;
+  descriptionTemplate: string; setDescriptionTemplate: (v: string) => void;
+  enabled: boolean; setEnabled: (v: boolean) => void;
+  agents: { id: string; name: string }[];
+  isPending: boolean;
+  isError: boolean;
+  error: Error | null;
+  onSave: () => void;
+  onCancel: () => void;
+  disableSave: boolean;
+  eventPlaceholder?: string;
+}
+
+function RuleFormCard({
+  mode, name, setName, eventType, setEventType, actionType, setActionType,
+  agentId, setAgentId, reason, setReason, titleTemplate, setTitleTemplate,
+  descriptionTemplate, setDescriptionTemplate, enabled, setEnabled,
+  agents, isPending, isError, error, onSave, onCancel, disableSave,
+  eventPlaceholder = "pull_request.opened",
+}: RuleFormCardProps) {
+  const isEdit = mode === "edit";
+
+  return (
+    <div className={`border rounded-md p-4 space-y-3 ${isEdit ? "border-primary/30 bg-primary/[0.02]" : "border-border/60 bg-muted/30"}`}>
+      {isEdit && (
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Editing Rule</span>
+          <Button size="icon-sm" variant="ghost" onClick={onCancel}><X className="h-4 w-4" /></Button>
+        </div>
+      )}
+      <div className="grid sm:grid-cols-2 gap-3">
+        <div className="space-y-1.5">
+          <Label>Rule name</Label>
+          <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="PR opened -> reviewer" />
+        </div>
+        <div className="space-y-1.5">
+          <Label>Match event</Label>
+          <Input value={eventType} onChange={(e) => setEventType(e.target.value)} placeholder={eventPlaceholder} />
+        </div>
+      </div>
+      <div className="grid sm:grid-cols-2 gap-3">
+        <div className="space-y-1.5">
+          <Label>Action</Label>
+          <Select value={actionType} onValueChange={(value) => setActionType(value as ActionType)}>
+            <SelectTrigger className="w-full"><SelectValue placeholder="Select action" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="wake_agent">Wake Agent</SelectItem>
+              <SelectItem value="create_issue">Create Issue</SelectItem>
+              <SelectItem value="create_and_assign">Create + Assign + Wake</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        {(actionType === "wake_agent" || actionType === "create_and_assign") && (
+          <div className="space-y-1.5">
+            <Label>Agent</Label>
+            <Select value={agentId || undefined} onValueChange={setAgentId}>
+              <SelectTrigger className="w-full"><SelectValue placeholder="Select an agent" /></SelectTrigger>
+              <SelectContent>
+                {agents.map((agent) => (
+                  <SelectItem key={agent.id} value={agent.id}>{agent.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+      </div>
+      <div className="space-y-1.5">
+        <Label>Reason (optional)</Label>
+        <Input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="pr_review_requested" />
+      </div>
+      {(actionType === "create_issue" || actionType === "create_and_assign") && (
+        <>
+          <div className="space-y-1.5">
+            <Label>Issue title template</Label>
+            <Input value={titleTemplate} onChange={(e) => setTitleTemplate(e.target.value)} />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Issue description template</Label>
+            <Textarea value={descriptionTemplate} onChange={(e) => setDescriptionTemplate(e.target.value)} rows={3} />
+          </div>
+        </>
+      )}
+      {isEdit && (
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setEnabled(!enabled)}
+            className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${enabled ? "bg-primary" : "bg-muted-foreground/30"}`}
+          >
+            <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${enabled ? "translate-x-[18px]" : "translate-x-[3px]"}`} />
+          </button>
+          <Label className="text-sm cursor-pointer" onClick={() => setEnabled(!enabled)}>
+            {enabled ? "Enabled" : "Disabled"}
+          </Label>
+        </div>
+      )}
+      <div className="flex gap-2 pt-1">
+        <Button size="sm" onClick={onSave} disabled={disableSave || isPending}>
+          {isPending ? "Saving..." : isEdit ? "Update Rule" : "Save Rule"}
+        </Button>
+        <Button size="sm" variant="ghost" onClick={onCancel}>Cancel</Button>
+      </div>
+      {isError && error && (
+        <p className="text-xs text-destructive">{error.message}</p>
       )}
     </div>
   );

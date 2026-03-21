@@ -6,6 +6,7 @@ import { buildClaudeLocalConfig } from "@paperclipai/adapter-claude-local/ui";
 export const claudeLocalUIAdapter: UIAdapterModule = {
   type: "claude_local",
   label: "Claude Code (local)",
+  mcpSupported: true,
   parseStdoutLine: parseClaudeStdoutLine,
   ConfigFields: ClaudeLocalConfigFields,
   buildAdapterConfig: buildClaudeLocalConfig,

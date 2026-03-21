@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
-import { NavLink, useLocation } from "@/lib/router";
+import { NavLink, Link, useLocation } from "@/lib/router";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronRight, Plus } from "lucide-react";
 import {
@@ -139,17 +139,23 @@ export function SidebarProjects() {
     <Collapsible open={open} onOpenChange={setOpen}>
       <div className="group">
         <div className="flex items-center px-3 py-1.5">
-          <CollapsibleTrigger className="flex items-center gap-1 flex-1 min-w-0">
+          <CollapsibleTrigger className="flex items-center shrink-0">
             <ChevronRight
               className={cn(
                 "h-3 w-3 text-muted-foreground/60 transition-transform opacity-0 group-hover:opacity-100",
                 open && "rotate-90"
               )}
             />
-            <span className="text-[10px] font-medium uppercase tracking-widest font-mono text-muted-foreground/60">
+          </CollapsibleTrigger>
+          <Link
+            to="/projects"
+            onClick={() => { if (isMobile) setSidebarOpen(false); }}
+            className="flex-1 min-w-0 ml-1"
+          >
+            <span className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground/60 hover:text-foreground transition-colors" style={{ fontFamily: "var(--font-family-display)" }}>
               Projects
             </span>
-          </CollapsibleTrigger>
+          </Link>
           <button
             onClick={(e) => {
               e.stopPropagation();

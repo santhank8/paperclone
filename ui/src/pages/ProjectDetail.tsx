@@ -405,7 +405,7 @@ export function ProjectDetail() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-page-enter">
       <div className="flex items-start gap-3">
         <div className="h-7 flex items-center">
           <ColorPicker

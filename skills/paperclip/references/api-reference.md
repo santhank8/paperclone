@@ -540,6 +540,22 @@ Terminal states: `done`, `cancelled`
 
 Skill tiers: `built_in` (core: always injected; optional: togglable per agent), `company` (opt-in per agent), `agent` (auto-discovered from agent cwd). Built-in skills have a `defaultEnabled` flag — core skills (`paperclip`, `paperclip-create-agent`, `para-memory-files`) are always injected; optional built-ins (`create-agent-adapter`, `pr-report`, `release`, `release-changelog`) must be explicitly assigned like company skills. Agent-local skills are discovered from `.agents/skills/` and `.claude/skills/` within the agent's `adapterConfig.cwd` — no API registration needed.
 
+### Recurring Schedules (Task Cron)
+
+| Method | Path | Description |
+| ------ | --- | --- |
+| GET | `/api/agents/:agentId/task-cron-schedules` | List schedules for an agent |
+| GET | `/api/issues/:issueId/task-cron-schedules` | List schedules linked to an issue |
+| GET | `/api/companies/:companyId/task-cron-schedules` | List all schedules in company |
+| POST | `/api/agents/:agentId/task-cron-schedules` | Create schedule for agent (board or self) |
+| POST | `/api/issues/:issueId/task-cron-schedules` | Create schedule on issue (board or assigned agent) |
+| PATCH | `/api/task-cron-schedules/:id` | Update schedule (board or owning agent) |
+| DELETE | `/api/task-cron-schedules/:id` | Delete schedule (board or owning agent) |
+| POST | `/api/task-cron-schedules/:id/attach-issue` | Attach an issue to schedule |
+| POST | `/api/task-cron-schedules/:id/detach-issue` | Detach issue from schedule |
+
+Body for create: `{ name, expression, timezone?, enabled?, issueMode?, issueId?, issueTemplate?, payload? }`. `issueMode`: `create_new` (default), `reuse_existing`, `reopen_existing`.
+
 ### Approvals, Costs, Activity, Dashboard
 
 | Method | Path                                         | Description                        |

@@ -193,11 +193,37 @@ export function DesignGuide() {
     <div className="space-y-10 max-w-4xl">
       {/* Page header */}
       <div>
-        <h2 className="text-xl font-bold">Design Guide</h2>
+        <h2 className="text-xl font-bold" style={{ fontFamily: "var(--font-family-display)" }}>Design Guide</h2>
         <p className="text-sm text-muted-foreground mt-1">
-          Every component, style, and pattern used across Paperclip.
+          Every component, style, and pattern used across Outpost.
         </p>
       </div>
+
+      {/* Typography showcase */}
+      <Section title="Typography">
+        <div className="space-y-4 border border-border p-5">
+          <div>
+            <p className="text-[10px] uppercase tracking-widest text-muted-foreground/60 mb-2">Display — Bricolage Grotesque</p>
+            <p className="text-3xl font-bold" style={{ fontFamily: "var(--font-family-display)" }}>
+              The quick brown fox jumps
+            </p>
+          </div>
+          <Separator />
+          <div>
+            <p className="text-[10px] uppercase tracking-widest text-muted-foreground/60 mb-2">Body — Outfit</p>
+            <p className="text-sm" style={{ fontFamily: "var(--font-family-body)" }}>
+              The quick brown fox jumps over the lazy dog. Outpost is your AI agent command post.
+            </p>
+          </div>
+          <Separator />
+          <div>
+            <p className="text-[10px] uppercase tracking-widest text-muted-foreground/60 mb-2">Mono — JetBrains Mono</p>
+            <p className="text-sm" style={{ fontFamily: "var(--font-family-mono)" }}>
+              {"const agent = await outpost.deploy({ model: 'claude-4' });"}
+            </p>
+          </div>
+        </div>
+      </Section>
 
       {/* ============================================================ */}
       {/*  COVERAGE                                                     */}
@@ -737,7 +763,7 @@ export function DesignGuide() {
             </BreadcrumbItem>
             <BreadcrumbSeparator />
             <BreadcrumbItem>
-              <BreadcrumbLink href="#">Paperclip App</BreadcrumbLink>
+              <BreadcrumbLink href="#">Outpost</BreadcrumbLink>
             </BreadcrumbItem>
             <BreadcrumbSeparator />
             <BreadcrumbItem>

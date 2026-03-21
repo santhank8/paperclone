@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { BookOpen, Moon, Sun } from "lucide-react";
 import { Outlet, useLocation, useNavigate, useParams } from "@/lib/router";
@@ -25,7 +25,38 @@ import { healthApi } from "../api/health";
 import { queryKeys } from "../lib/queryKeys";
 import { cn } from "../lib/utils";
 import { NotFoundPage } from "../pages/NotFound";
+import { ErrorBoundary } from "./ErrorBoundary";
 import { Button } from "@/components/ui/button";
+
+type ContentWidth = "focused" | "full";
+const CONTENT_WIDTH_KEY = "outpost.contentWidth";
+const CONTENT_ZOOM_KEY = "outpost.contentZoom";
+const ZOOM_LEVELS = [100, 110, 125, 150] as const;
+type ZoomLevel = (typeof ZOOM_LEVELS)[number];
+
+interface ContentWidthContextValue {
+  contentWidth: ContentWidth;
+  toggleContentWidth: () => void;
+  forceFullWidth: () => void;
+  releaseFullWidth: () => void;
+  zoom: ZoomLevel;
+  cycleZoom: () => void;
+}
+
+const ContentWidthContext = createContext<ContentWidthContextValue>({
+  contentWidth: "focused",
+  toggleContentWidth: () => {},
+  forceFullWidth: () => {},
+  releaseFullWidth: () => {},
+  zoom: 100,
+  cycleZoom: () => {},
+});
+
+export function useContentWidth() {
+  return useContext(ContentWidthContext);
+}
+
+export { ZOOM_LEVELS };
 
 export function Layout() {
   const { sidebarOpen, setSidebarOpen, toggleSidebar, isMobile } = useSidebar();
@@ -46,6 +77,44 @@ export function Layout() {
   const lastMainScrollTop = useRef(0);
   const [mobileNavVisible, setMobileNavVisible] = useState(true);
   const nextTheme = theme === "dark" ? "light" : "dark";
+  const [contentWidth, setContentWidth] = useState<ContentWidth>(() => {
+    try {
+      const stored = localStorage.getItem(CONTENT_WIDTH_KEY);
+      return stored === "full" ? "full" : "focused";
+    } catch { return "focused"; }
+  });
+  const toggleContentWidth = useCallback(() => {
+    setContentWidth((prev) => {
+      const next = prev === "focused" ? "full" : "focused";
+      try { localStorage.setItem(CONTENT_WIDTH_KEY, next); } catch {}
+      return next;
+    });
+  }, []);
+  const [zoom, setZoom] = useState<ZoomLevel>(() => {
+    try {
+      const stored = Number(localStorage.getItem(CONTENT_ZOOM_KEY));
+      return (ZOOM_LEVELS as readonly number[]).includes(stored) ? (stored as ZoomLevel) : 100;
+    } catch { return 100; }
+  });
+  const cycleZoom = useCallback(() => {
+    setZoom((prev) => {
+      const idx = ZOOM_LEVELS.indexOf(prev);
+      const next = ZOOM_LEVELS[(idx + 1) % ZOOM_LEVELS.length]!;
+      try { localStorage.setItem(CONTENT_ZOOM_KEY, String(next)); } catch {}
+      return next;
+    });
+  }, []);
+  const fullWidthForceCount = useRef(0);
+  const [fullWidthForced, setFullWidthForced] = useState(false);
+  const forceFullWidth = useCallback(() => {
+    fullWidthForceCount.current += 1;
+    setFullWidthForced(true);
+  }, []);
+  const releaseFullWidth = useCallback(() => {
+    fullWidthForceCount.current = Math.max(0, fullWidthForceCount.current - 1);
+    if (fullWidthForceCount.current === 0) setFullWidthForced(false);
+  }, []);
+  const effectiveContentWidth: ContentWidth = fullWidthForced ? "full" : contentWidth;
   const matchedCompany = useMemo(() => {
     if (!companyPrefix) return null;
     const requestedPrefix = companyPrefix.toUpperCase();
@@ -120,6 +189,7 @@ export function Layout() {
     onNewIssue: () => openNewIssue(),
     onToggleSidebar: toggleSidebar,
     onTogglePanel: togglePanel,
+    onToggleContentWidth: toggleContentWidth,
     onSwitchCompany: switchCompany,
   });
 
@@ -220,7 +290,20 @@ export function Layout() {
     };
   }, [isMobile]);
 
+  useEffect(() => {
+    const root = document.documentElement;
+    if (zoom !== 100) {
+      root.style.zoom = String(zoom / 100);
+    } else {
+      root.style.removeProperty("zoom");
+    }
+    return () => {
+      root.style.removeProperty("zoom");
+    };
+  }, [zoom]);
+
   return (
+    <ContentWidthContext.Provider value={{ contentWidth: effectiveContentWidth, toggleContentWidth, forceFullWidth, releaseFullWidth, zoom, cycleZoom }}>
     <div
       className={cn(
         "bg-background text-foreground pt-[env(safe-area-inset-top)]",
@@ -328,18 +411,28 @@ export function Layout() {
             id="main-content"
             tabIndex={-1}
             className={cn(
-              "flex-1 p-4 md:p-6",
+              "flex-1",
+              fullWidthForced ? "p-0" : "p-4 md:p-6",
               isMobile ? "overflow-visible pb-[calc(5rem+env(safe-area-inset-bottom))]" : "overflow-auto",
             )}
           >
-            {hasUnknownCompanyPrefix ? (
-              <NotFoundPage
-                scope="invalid_company_prefix"
-                requestedPrefix={companyPrefix ?? selectedCompany?.issuePrefix}
-              />
-            ) : (
-              <Outlet />
-            )}
+            <ErrorBoundary>
+              <div
+                className={cn(
+                  "w-full transition-[max-width] duration-200",
+                  effectiveContentWidth === "focused" && "max-w-[1100px] mx-auto",
+                )}
+              >
+                {hasUnknownCompanyPrefix ? (
+                  <NotFoundPage
+                    scope="invalid_company_prefix"
+                    requestedPrefix={companyPrefix ?? selectedCompany?.issuePrefix}
+                  />
+                ) : (
+                  <Outlet />
+                )}
+              </div>
+            </ErrorBoundary>
           </main>
           <PropertiesPanel />
         </div>
@@ -352,5 +445,6 @@ export function Layout() {
       <NewAgentDialog />
       <ToastViewport />
     </div>
+    </ContentWidthContext.Provider>
   );
 }

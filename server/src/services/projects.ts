@@ -438,6 +438,13 @@ export function projectService(db: Db) {
         }
       }
 
+      if (projectData.archivedAt !== undefined && projectData.archivedAt !== null) {
+        projectData.archivedAt =
+          projectData.archivedAt instanceof Date
+            ? projectData.archivedAt
+            : new Date(projectData.archivedAt as unknown as string);
+      }
+
       // Keep legacy goalId column in sync
       const updates: Partial<typeof projects.$inferInsert> = {
         ...projectData,

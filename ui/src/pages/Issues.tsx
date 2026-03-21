@@ -97,6 +97,7 @@ export function Issues() {
   }
 
   return (
+    <div className="animate-page-enter">
     <IssuesList
       issues={issues ?? []}
       isLoading={isLoading}
@@ -110,5 +111,6 @@ export function Issues() {
       onSearchChange={handleSearchChange}
       onUpdateIssue={(id, data) => updateIssue.mutate({ id, data })}
     />
+    </div>
   );
 }

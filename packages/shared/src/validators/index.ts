@@ -215,3 +215,8 @@ export {
   type UpdateTaskCronSchedule,
   type AttachTaskCronIssue,
 } from "./task-cron.js";
+
+export {
+  mcpServerConfigSchema,
+  mcpServersConfigSchema,
+} from "./mcp.js";

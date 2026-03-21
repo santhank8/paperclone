@@ -79,12 +79,13 @@ export function costService(db: Db) {
       if (range?.from) conditions.push(gte(costEvents.occurredAt, range.from));
       if (range?.to) conditions.push(lte(costEvents.occurredAt, range.to));
 
-      const [{ total }] = await db
+      const totalRows = await db
         .select({
           total: sql<number>`coalesce(sum(${costEvents.costCents}), 0)::int`,
         })
         .from(costEvents)
         .where(and(...conditions));
+      const { total } = totalRows[0] ?? { total: 0 };
 
       const spendCents = Number(total);
       const utilization =

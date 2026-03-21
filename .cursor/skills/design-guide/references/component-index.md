@@ -1,4 +1,4 @@
-# Paperclip Component Index
+# Outpost Component Index
 
 Complete inventory of all UI components. Update this file when adding new reusable components.
 
@@ -43,7 +43,7 @@ These are shadcn/ui base components. Do not modify directly — extend via compo
 | Tooltip | `tooltip.tsx` | TooltipTrigger, TooltipContent | Hover tooltips. App is wrapped in TooltipProvider. |
 | ScrollArea | `scroll-area.tsx` | — | Custom scrollable container. |
 | Collapsible | `collapsible.tsx` | CollapsibleTrigger, CollapsibleContent | Expand/collapse sections. |
-| Skeleton | `skeleton.tsx` | className for sizing | Loading placeholder with shimmer. |
+| Skeleton | `skeleton.tsx` | className for sizing | Loading placeholder with amber shimmer (`animate-shimmer-amber`). |
 | Sheet | `sheet.tsx` | SheetTrigger, SheetContent, SheetHeader, etc. | Side panel overlay. |
 
 ---
@@ -51,6 +51,18 @@ These are shadcn/ui base components. Do not modify directly — extend via compo
 ## Custom Components
 
 Location: `ui/src/components/`
+
+### OutpostMark
+
+**File:** `OutpostMark.tsx`
+**Props:** `className?: string`, `size?: number` (default 24), `glow?: boolean`
+**Usage:** Brand mark SVG — signal beacon with concentric arcs, directional rays, and central dot.
+
+```tsx
+<OutpostMark size={22} className="text-primary" glow />
+```
+
+Use in CompanyRail header, Auth page, and anywhere the brand mark is needed. The `glow` prop adds amber drop-shadow.
 
 ### StatusBadge
 
@@ -97,32 +109,32 @@ Supports: critical, high, medium, low. Use alongside StatusIcon in entity row le
 ```tsx
 <EntityRow
   leading={<><StatusIcon status="todo" /><PriorityIcon priority="medium" /></>}
-  identifier="PAP-003"
+  identifier="COM-003"
   title="Write API documentation"
   trailing={<StatusBadge status="todo" />}
   onClick={() => navigate(`/issues/${id}`)}
 />
 ```
 
-Wrap multiple EntityRows in a `border border-border rounded-md` container.
+Wrap multiple EntityRows in a `border border-border` container.
 
 ### MetricCard
 
 **File:** `MetricCard.tsx`
 **Props:** `icon: LucideIcon`, `value: string | number`, `label: string`, `description?: string`
-**Usage:** Dashboard stat card with icon, large value, label, and optional description.
+**Usage:** Dashboard stat card with icon, large value (display font), label, and optional description.
 
 ```tsx
 <MetricCard icon={Bot} value={12} label="Active Agents" description="+3 this week" />
 ```
 
-Always use in a responsive grid: `grid md:grid-cols-2 xl:grid-cols-4 gap-4`.
+Features amber hover glow (`hover:border-primary/30 hover:shadow-[0_0_12px_oklch(0.78_0.155_70/0.08)]`), icon container uses `bg-primary/8 text-primary/70`. Always use in a responsive grid: `grid md:grid-cols-2 xl:grid-cols-4 gap-4`.
 
 ### EmptyState
 
 **File:** `EmptyState.tsx`
 **Props:** `icon: LucideIcon`, `message: string`, `action?: string`, `onAction?: () => void`
-**Usage:** Empty list placeholder with icon, message, and optional CTA button.
+**Usage:** Empty list placeholder with dashed-border icon container (`border-dashed border-border/80 text-primary/50`), message, and optional CTA button. Includes `animate-page-enter`.
 
 ```tsx
 <EmptyState icon={Inbox} message="No items yet." action="Create Item" onAction={handleCreate} />
@@ -147,8 +159,6 @@ Always use in a responsive grid: `grid md:grid-cols-2 xl:grid-cols-4 gap-4`.
 
 ```tsx
 <Identity name="Agent Alpha" size="sm" />
-<Identity name="CEO Agent" />
-<Identity name="Backend Service" size="lg" avatarUrl="/img/bot.png" />
 ```
 
 Use in property rows, comment headers, assignee displays, and anywhere a user/agent reference is shown.
@@ -167,7 +177,7 @@ Use in property rows, comment headers, assignee displays, and anywhere a user/ag
 
 **File:** `PageSkeleton.tsx`
 **Props:** `variant: "list" | "detail"`
-**Usage:** Full-page loading skeleton matching list or detail layout.
+**Usage:** Full-page loading skeleton matching list or detail layout. Uses `animate-shimmer-amber`.
 
 ```tsx
 <PageSkeleton variant="list" />
@@ -183,10 +193,10 @@ Use in property rows, comment headers, assignee displays, and anywhere a user/ag
 **File:** `GoalTree.tsx`
 **Usage:** Hierarchical goal tree with expand/collapse. Used on the goals page.
 
-### CompanySwitcher
+### AsciiArtAnimation
 
-**File:** `CompanySwitcher.tsx`
-**Usage:** Company selector dropdown in sidebar header.
+**File:** `AsciiArtAnimation.tsx`
+**Usage:** Canvas-based topographic radar/signal station animation. Used on the Auth page right panel. Renders dot grid, contour lines, expanding signal pulses, central crosshair, and radial vignette — all in amber/charcoal palette. Performance-optimized to 30fps with `requestAnimationFrame`.
 
 ---
 
@@ -195,28 +205,38 @@ Use in property rows, comment headers, assignee displays, and anywhere a user/ag
 ### Layout
 
 **File:** `Layout.tsx`
-**Usage:** Main app shell. Three-zone layout: Sidebar + Main content + Properties panel. Wraps all routes.
+**Usage:** Main app shell. Four-zone layout: Company Rail + Sidebar + Main content (with content width wrapper) + Properties panel. Wraps all routes. Exports `useContentWidth()` hook for focused/full width toggle.
+
+### CompanyRail
+
+**File:** `CompanyRail.tsx`
+**Usage:** Leftmost vertical rail (`w-[72px]`). OutpostMark at top with amber hover glow, company avatar buttons below, add company button at bottom.
 
 ### Sidebar
 
 **File:** `Sidebar.tsx`
-**Usage:** Left navigation sidebar (`w-60`). Contains CompanySwitcher, search button, new issue button, and SidebarSections.
+**Usage:** Left navigation sidebar (`w-60`). Contains company name (display font), search button, new issue button, and nav sections.
 
 ### SidebarSection
 
 **File:** `SidebarSection.tsx`
-**Usage:** Collapsible sidebar group with header label and chevron toggle.
+**Usage:** Sidebar group with header label (display font, `text-[10px] uppercase tracking-widest`).
 
 ### SidebarNavItem
 
 **File:** `SidebarNavItem.tsx`
-**Props:** Icon, label, optional badge count
-**Usage:** Individual nav item within a SidebarSection.
+**Props:** Icon, label, optional badge count, optional liveCount
+**Usage:** Individual nav item. Active state uses 2px amber bar on left edge (`before:bg-primary`). Live count badge uses `animate-pulse-amber` with primary color.
+
+### SidebarProjects / SidebarAgents
+
+**Files:** `SidebarProjects.tsx`, `SidebarAgents.tsx`
+**Usage:** Collapsible sections with clickable header links to `/projects` and `/agents` list pages. Chevron toggle is separate from the navigation link.
 
 ### BreadcrumbBar
 
 **File:** `BreadcrumbBar.tsx`
-**Usage:** Top breadcrumb navigation spanning main content + properties panel.
+**Usage:** Top breadcrumb navigation. Single crumb renders as page title (display font, uppercase). Includes content width toggle button (desktop only) — Maximize2/Minimize2 icons with tooltip.
 
 ### PropertiesPanel
 
@@ -227,6 +247,11 @@ Use in property rows, comment headers, assignee displays, and anywhere a user/ag
 
 **File:** `CommandPalette.tsx`
 **Usage:** Cmd+K global search modal. Searches issues, projects, agents.
+
+### MobileBottomNav
+
+**File:** `MobileBottomNav.tsx`
+**Usage:** Bottom navigation bar for mobile. Auto-hides on scroll down, shows on scroll up.
 
 ---
 
@@ -246,6 +271,11 @@ Use in property rows, comment headers, assignee displays, and anywhere a user/ag
 
 **File:** `NewAgentDialog.tsx`
 **Usage:** Create new agent dialog.
+
+### NewGoalDialog
+
+**File:** `NewGoalDialog.tsx`
+**Usage:** Create new goal dialog.
 
 ### OnboardingWizard
 
@@ -296,6 +326,12 @@ import { cn } from "@/lib/utils";
 <div className={cn("base-classes", conditional && "extra", className)} />
 ```
 
+### useContentWidth
+
+**File:** `ui/src/components/Layout.tsx` (exported)
+**Returns:** `{ contentWidth: "focused" | "full", toggleContentWidth: () => void }`
+**Usage:** Access or toggle the content width mode from any child component.
+
 ### Formatting Utilities
 
 **File:** `ui/src/lib/utils.ts`
@@ -310,7 +346,7 @@ import { cn } from "@/lib/utils";
 ### useKeyboardShortcuts
 
 **File:** `ui/src/hooks/useKeyboardShortcuts.ts`
-**Usage:** Global keyboard shortcut handler. Registers Cmd+K, C, [, ], Cmd+Enter.
+**Usage:** Global keyboard shortcut handler. Registers Cmd+K, C, [, ], \, Cmd+1..9.
 
 ### Query Keys
 
@@ -321,3 +357,8 @@ import { cn } from "@/lib/utils";
 
 **File:** `ui/src/lib/groupBy.ts`
 **Usage:** Generic array grouping utility.
+
+### Status Colors
+
+**File:** `ui/src/lib/status-colors.ts`
+**Usage:** Canonical status and priority color definitions. All status-rendering components import from here for consistency. Exports: `issueStatusIcon`, `statusBadge`, `agentStatusDot`, `priorityColor` (and their defaults).

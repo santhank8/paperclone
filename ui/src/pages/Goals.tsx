@@ -35,7 +35,7 @@ export function Goals() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 animate-page-enter">
       {error && <p className="text-sm text-destructive">{error.message}</p>}
 
       {goals && goals.length === 0 && (

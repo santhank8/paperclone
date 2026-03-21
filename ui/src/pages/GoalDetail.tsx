@@ -115,7 +115,7 @@ export function GoalDetail() {
   if (!goal) return null;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-page-enter">
       <div className="space-y-3">
         <div className="flex items-center gap-2">
           <span className="text-xs uppercase text-muted-foreground">

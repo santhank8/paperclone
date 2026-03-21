@@ -93,6 +93,7 @@ export interface AdapterInvocationMeta {
   prompt?: string;
   context?: Record<string, unknown>;
   skillsInjected?: string[];
+  mcpServers?: Record<string, unknown>;
 }
 
 export interface AdapterSkill {
@@ -111,6 +112,8 @@ export interface AdapterExecutionContext {
   onMeta?: (meta: AdapterInvocationMeta) => Promise<void>;
   authToken?: string;
   skills?: AdapterSkill[];
+  /** Pre-rendered agent identity / context block to inject into the prompt. */
+  selfContext?: string;
 }
 
 export interface AdapterModel {

@@ -9,7 +9,8 @@ import { MarkdownBody } from "./MarkdownBody";
 import { MarkdownEditor, type MarkdownEditorRef, type MentionOption } from "./MarkdownEditor";
 import { StatusBadge } from "./StatusBadge";
 import { AgentIcon } from "./AgentIconPicker";
-import { formatDateTime } from "../lib/utils";
+import { cn, formatDateTime } from "../lib/utils";
+import { invocationSourceLabel, invocationSourceBadge, invocationSourceBadgeDefault } from "../lib/status-colors";
 
 interface CommentWithRunMeta extends IssueComment {
   runId?: string | null;
@@ -22,6 +23,7 @@ interface LinkedRunItem {
   agentId: string;
   createdAt: Date | string;
   startedAt: Date | string | null;
+  invocationSource?: string;
 }
 
 interface CommentReassignment {
@@ -155,6 +157,14 @@ const TimelineList = memo(function TimelineList({
                   {run.runId.slice(0, 8)}
                 </Link>
                 <StatusBadge status={run.status} />
+                {run.invocationSource && (
+                  <span className={cn(
+                    "inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium",
+                    invocationSourceBadge[run.invocationSource] ?? invocationSourceBadgeDefault,
+                  )}>
+                    {invocationSourceLabel[run.invocationSource] ?? run.invocationSource}
+                  </span>
+                )}
               </div>
             </div>
           );

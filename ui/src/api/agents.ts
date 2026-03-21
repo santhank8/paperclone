@@ -48,6 +48,26 @@ export interface AgentHireResponse {
   approval: Approval | null;
 }
 
+export interface WorkspaceFileEntry {
+  name: string;
+  type: "file" | "directory";
+  size: number;
+  modified: string;
+}
+
+export interface WorkspaceDirectoryListing {
+  path: string;
+  entries: WorkspaceFileEntry[];
+}
+
+export interface WorkspaceFileContent {
+  path: string;
+  content: string;
+  mimeType: string;
+  size: number;
+  modified: string;
+}
+
 function withCompanyScope(path: string, companyId?: string) {
   if (!companyId) return path;
   const separator = path.includes("?") ? "&" : "?";
@@ -147,4 +167,23 @@ export const agentsApi = {
   ) => api.post<HeartbeatRun | { status: "skipped" }>(agentPath(id, companyId, "/wakeup"), data),
   loginWithClaude: (id: string, companyId?: string) =>
     api.post<ClaudeLoginResult>(agentPath(id, companyId, "/claude-login"), {}),
+  listFiles: (id: string, filePath?: string, companyId?: string) => {
+    const suffix = filePath ? `/files?path=${encodeURIComponent(filePath)}` : "/files";
+    return api.get<WorkspaceDirectoryListing>(agentPath(id, companyId, suffix));
+  },
+  getFileContent: (id: string, filePath: string, companyId?: string) =>
+    api.get<WorkspaceFileContent>(
+      agentPath(id, companyId, `/files/content?path=${encodeURIComponent(filePath)}`),
+    ),
+  uploadFile: (id: string, dirPath: string, file: File, companyId?: string) => {
+    const form = new FormData();
+    form.append("file", file);
+    const suffix = `/files?path=${encodeURIComponent(dirPath)}`;
+    return api.postForm<WorkspaceFileEntry>(agentPath(id, companyId, suffix), form);
+  },
+  writeFile: (id: string, filePath: string, content: string, companyId?: string) =>
+    api.put<{ path: string; size: number; modified: string }>(
+      agentPath(id, companyId, "/files/content"),
+      { path: filePath, content },
+    ),
 };

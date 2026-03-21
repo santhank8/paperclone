@@ -115,3 +115,4 @@ export type {
   WebhookEventStatus,
 } from "./webhook.js";
 export type { TaskCronSchedule, TaskCronIssueMode } from "./task-cron.js";
+export type { McpServerConfig, McpServersConfig } from "./mcp.js";

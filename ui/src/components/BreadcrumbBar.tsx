@@ -1,8 +1,14 @@
 import { Link } from "@/lib/router";
-import { Menu } from "lucide-react";
+import { Menu, Maximize2, Minimize2 } from "lucide-react";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
 import { useSidebar } from "../context/SidebarContext";
+import { useContentWidth, ZOOM_LEVELS } from "./Layout";
 import { Button } from "@/components/ui/button";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -12,6 +18,64 @@ import {
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
 import { Fragment } from "react";
+
+function ZoomControl() {
+  const { zoom, cycleZoom } = useContentWidth();
+
+  return (
+    <Tooltip delayDuration={400}>
+      <TooltipTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          className="text-muted-foreground/50 hover:text-foreground shrink-0 tabular-nums w-auto px-1.5"
+          onClick={cycleZoom}
+          aria-label={`Zoom: ${zoom}%`}
+        >
+          <span className="text-[10px] font-medium" style={{ fontFamily: "var(--font-family-mono)" }}>
+            {zoom}%
+          </span>
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent side="bottom" sideOffset={4}>
+        <p>Zoom ({ZOOM_LEVELS.join(" / ")}%)</p>
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
+function ContentWidthToggle() {
+  const { contentWidth, toggleContentWidth } = useContentWidth();
+  const isFocused = contentWidth === "focused";
+
+  return (
+    <Tooltip delayDuration={400}>
+      <TooltipTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          className="text-muted-foreground/50 hover:text-foreground shrink-0"
+          onClick={toggleContentWidth}
+          aria-label={isFocused ? "Expand to full width" : "Focus content"}
+        >
+          {isFocused ? <Maximize2 className="h-3.5 w-3.5" /> : <Minimize2 className="h-3.5 w-3.5" />}
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent side="bottom" sideOffset={4}>
+        <p>{isFocused ? "Full width" : "Focused width"}</p>
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
+function ViewControls() {
+  return (
+    <div className="flex items-center gap-0.5 ml-auto shrink-0">
+      <ZoomControl />
+      <ContentWidthToggle />
+    </div>
+  );
+}
 
 export function BreadcrumbBar() {
   const { breadcrumbs } = useBreadcrumbs();
@@ -31,19 +95,21 @@ export function BreadcrumbBar() {
     </Button>
   );
 
-  // Single breadcrumb = page title (uppercase)
   if (breadcrumbs.length === 1) {
     return (
       <div className="border-b border-border px-4 md:px-6 h-12 shrink-0 flex items-center min-w-0 overflow-hidden">
         {menuButton}
-        <h1 className="text-sm font-semibold uppercase tracking-wider truncate">
+        <h1
+          className="text-sm font-semibold uppercase tracking-wider truncate"
+          style={{ fontFamily: "var(--font-family-display)" }}
+        >
           {breadcrumbs[0].label}
         </h1>
+        {!isMobile && <ViewControls />}
       </div>
     );
   }
 
-  // Multiple breadcrumbs = breadcrumb trail
   return (
     <div className="border-b border-border px-4 md:px-6 h-12 shrink-0 flex items-center min-w-0 overflow-hidden">
       {menuButton}
@@ -68,6 +134,7 @@ export function BreadcrumbBar() {
           })}
         </BreadcrumbList>
       </Breadcrumb>
+      {!isMobile && <ViewControls />}
     </div>
   );
 }

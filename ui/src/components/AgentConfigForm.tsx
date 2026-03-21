@@ -43,6 +43,7 @@ import { ClaudeLocalAdvancedFields } from "../adapters/claude-local/config-field
 import { MarkdownEditor } from "./MarkdownEditor";
 import { ChoosePathButton } from "./PathInstructionsModal";
 import { AgentSkillsSection } from "./AgentSkillsSection";
+import { McpServersSection } from "./McpServersSection";
 import { OpenCodeLogoIcon } from "./OpenCodeLogoIcon";
 
 /* ---- Create mode values ---- */
@@ -814,6 +815,29 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
         </div>
       )}
 
+      {/* ---- MCP Servers ---- */}
+      {uiAdapter.mcpSupported && (
+        <div className={cn(!cards && "border-b border-border")}>
+          <div className={cn(cards ? "rounded-md border border-border p-4" : "px-4 py-3")}>
+            <McpServersSection
+              mode={isCreate ? "create" : "edit"}
+              servers={
+                isCreate
+                  ? {}
+                  : (eff("adapterConfig", "mcpServers", (config.mcpServers ?? {}) as Record<string, unknown>) as Record<string, { transport: "stdio" | "http"; command?: string; args?: string[]; url?: string; headers?: Record<string, string>; env?: Record<string, string>; enabled?: boolean }>)
+              }
+              onChange={(servers) => {
+                if (isCreate) {
+                  /* no-op for create mode, mcpServers not in create values */
+                } else {
+                  mark("adapterConfig", "mcpServers", Object.keys(servers).length > 0 ? servers : undefined);
+                }
+              }}
+            />
+          </div>
+        </div>
+      )}
+
       {/* ---- Run Policy ---- */}
       {isCreate ? (
         <div className={cn(!cards && "border-b border-border")}>
@@ -1381,7 +1405,7 @@ function EnvVarEditor({
       })}
       {sealError && <p className="text-[11px] text-destructive">{sealError}</p>}
       <p className="text-[11px] text-muted-foreground/60">
-        PAPERCLIP_* variables are injected automatically at runtime.
+        PAPERCLIP_* / OUTPOST_* variables are injected automatically at runtime.
       </p>
     </div>
   );

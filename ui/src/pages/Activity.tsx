@@ -99,7 +99,7 @@ export function Activity() {
     : [];
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 animate-page-enter">
       <div className="flex items-center justify-end">
         <Select value={filter} onValueChange={setFilter}>
           <SelectTrigger className="w-[140px] h-8 text-xs">

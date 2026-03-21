@@ -4,6 +4,13 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { AdapterExecutionContext, AdapterExecutionResult, AdapterSkill } from "@paperclipai/adapter-utils";
 import {
+  parseMcpServers,
+  expandMcpEnv,
+  toOpenCodeMcpJson,
+  writeMcpConfigFile,
+} from "@paperclipai/adapter-utils/mcp";
+import { formatSelfContextBlock } from "@paperclipai/adapter-utils/self-context";
+import {
   asString,
   asNumber,
   asStringArray,
@@ -179,6 +186,15 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
       (entry): entry is [string, string] => typeof entry[1] === "string",
     ),
   );
+
+  const mcpServers = parseMcpServers(config);
+  if (mcpServers) {
+    const expanded = expandMcpEnv(mcpServers, runtimeEnv);
+    const content = toOpenCodeMcpJson(expanded);
+    const configPath = await writeMcpConfigFile(skillsDir, "opencode.json", content);
+    runtimeEnv.OPENCODE_CONFIG = configPath;
+  }
+
   await ensureCommandResolvable(command, cwd, runtimeEnv);
 
   await ensureOpenCodeModelConfiguredAndAvailable({
@@ -261,8 +277,12 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
   const paperclipChat = parseObject(context.paperclipChat);
   const chatMode = asString(paperclipChat.mode, "");
   const chatPrompt = asString(paperclipChat.promptText, "").trim();
-  const chatPrefix = chatMode === "interactive_chat" && chatPrompt ? `${chatPrompt}\n\n` : "";
-  const prompt = `${instructionsPrefix}${chatPrefix}${renderedPrompt}`;
+  const selfContextBlock = formatSelfContextBlock(ctx.selfContext);
+  const prompt =
+    selfContextBlock +
+    (chatMode === "interactive_chat" && chatPrompt
+      ? `${instructionsPrefix}${chatPrompt}`
+      : `${instructionsPrefix}${renderedPrompt}`);
 
   const buildArgs = (resumeSessionId: string | null) => {
     const args = ["run", "--format", "json"];
@@ -286,6 +306,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
         prompt,
         context,
         skillsInjected: ctx.skills?.map((s) => s.name),
+        mcpServers: mcpServers ?? undefined,
       });
     }
 

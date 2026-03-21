@@ -3,6 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { AdapterExecutionContext, AdapterExecutionResult, AdapterSkill } from "@paperclipai/adapter-utils";
+import { formatSelfContextBlock } from "@paperclipai/adapter-utils/self-context";
 import {
   asString,
   asNumber,
@@ -323,10 +324,12 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
   const paperclipChat = parseObject(context.paperclipChat);
   const chatMode = asString(paperclipChat.mode, "");
   const chatPrompt = asString(paperclipChat.promptText, "").trim();
+  const selfContextBlock = formatSelfContextBlock(ctx.selfContext);
   const userPrompt =
-    chatMode === "interactive_chat" && chatPrompt
-      ? `${chatPrompt}\n\n${renderedUserPrompt}`
-      : renderedUserPrompt;
+    selfContextBlock +
+    (chatMode === "interactive_chat" && chatPrompt
+      ? chatPrompt
+      : renderedUserPrompt);
 
   const commandNotes = (() => {
     if (!resolvedInstructionsFilePath) return [] as string[];

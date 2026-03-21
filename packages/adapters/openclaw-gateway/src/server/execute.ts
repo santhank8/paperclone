@@ -4,6 +4,7 @@ import type {
   AdapterRuntimeServiceReport,
 } from "@paperclipai/adapter-utils";
 import { asNumber, asString, buildPaperclipEnv, parseObject } from "@paperclipai/adapter-utils/server-utils";
+import { formatSelfContextBlock } from "@paperclipai/adapter-utils/self-context";
 import crypto, { randomUUID } from "node:crypto";
 import { WebSocket } from "ws";
 
@@ -1094,9 +1095,13 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
   });
 
   const templateMessage = nonEmpty(payloadTemplate.message) ?? nonEmpty(payloadTemplate.text);
-  const chatPreface = chatMode === "interactive_chat" && chatPrompt ? `${chatPrompt}\n\n` : "";
   const baseMessage = templateMessage ? appendWakeText(templateMessage, wakeText) : wakeText;
-  const message = `${chatPreface}${baseMessage}`;
+  const selfContextBlock = formatSelfContextBlock(ctx.selfContext);
+  const message =
+    selfContextBlock +
+    (chatMode === "interactive_chat" && chatPrompt
+      ? chatPrompt
+      : baseMessage);
   const paperclipPayload = buildStandardPaperclipPayload(ctx, wakePayload, paperclipEnv, payloadTemplate);
 
   const agentParams: Record<string, unknown> = {

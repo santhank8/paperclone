@@ -4,6 +4,8 @@ import remarkGfm from "remark-gfm";
 import { parseProjectMentionHref } from "@paperclipai/shared";
 import { cn } from "../lib/utils";
 import { useTheme } from "../context/ThemeContext";
+import { useWorkspaceFile } from "../context/WorkspaceFileContext";
+import { Link } from "@/lib/router";
 
 interface MarkdownBodyProps {
   children: string;
@@ -76,7 +78,7 @@ function MermaidDiagramBlock({ source, darkMode }: { source: string; darkMode: b
           fontFamily: "inherit",
           suppressErrorRendering: true,
         });
-        const rendered = await mermaid.render(`paperclip-mermaid-${renderId}`, source);
+        const rendered = await mermaid.render(`outpost-mermaid-${renderId}`, source);
         if (!active) return;
         setSvg(rendered.svg);
       })
@@ -95,15 +97,15 @@ function MermaidDiagramBlock({ source, darkMode }: { source: string; darkMode: b
   }, [darkMode, renderId, source]);
 
   return (
-    <div className="paperclip-mermaid">
+    <div className="outpost-mermaid">
       {svg ? (
         <div dangerouslySetInnerHTML={{ __html: svg }} />
       ) : (
         <>
-          <p className={cn("paperclip-mermaid-status", error && "paperclip-mermaid-status-error")}>
+          <p className={cn("outpost-mermaid-status", error && "outpost-mermaid-status-error")}>
             {error ? `Unable to render Mermaid diagram: ${error}` : "Rendering Mermaid diagram..."}
           </p>
-          <pre className="paperclip-mermaid-source">
+          <pre className="outpost-mermaid-source">
             <code className="language-mermaid">{source}</code>
           </pre>
         </>
@@ -112,12 +114,78 @@ function MermaidDiagramBlock({ source, darkMode }: { source: string; darkMode: b
   );
 }
 
+const FILE_PATH_EXTENSIONS = /\.(?:md|mdx|txt|log|json|jsonl|yaml|yml|toml|ini|ts|tsx|js|jsx|mjs|cjs|py|rb|go|rs|java|sh|bash|html|htm|css|scss|svg|xml|sql|csv|env|cfg|conf|lock)$/i;
+
+function looksLikeFilePath(text: string): boolean {
+  if (!text.includes("/")) return false;
+  if (/^https?:\/\//i.test(text)) return false;
+  if (/^mailto:/i.test(text)) return false;
+  if (text.startsWith("#")) return false;
+  if (text.includes(" ") || text.includes("\n")) return false;
+  if (text.length > 300 || text.length < 3) return false;
+  return FILE_PATH_EXTENSIONS.test(text) || text.endsWith("/");
+}
+
+function resolveWorkspacePath(text: string, cwd: string | null): string | null {
+  const cleaned = text.replace(/^\.\//, "");
+
+  if (cwd) {
+    const normalizedCwd = cwd.endsWith("/") ? cwd : cwd + "/";
+
+    if (cleaned.startsWith(normalizedCwd)) {
+      return cleaned.slice(normalizedCwd.length);
+    }
+
+    const cwdSegments = normalizedCwd.replace(/\/$/, "").split("/");
+    for (let i = 1; i < cwdSegments.length; i++) {
+      const suffix = cwdSegments.slice(i).join("/") + "/";
+      if (cleaned.startsWith(suffix)) {
+        return cleaned.slice(suffix.length);
+      }
+    }
+  }
+
+  return cleaned;
+}
+
+function workspaceFileHref(agentRouteId: string, filePath: string): string {
+  return `/agents/${agentRouteId}/workspace?file=${encodeURIComponent(filePath)}`;
+}
+
+function WorkspaceFileLink({
+  agentRouteId,
+  filePath,
+  children,
+  inline,
+}: {
+  agentRouteId: string;
+  filePath: string;
+  children: ReactNode;
+  inline?: boolean;
+}) {
+  return (
+    <Link
+      to={workspaceFileHref(agentRouteId, filePath)}
+      className={cn(
+        "outpost-workspace-file-link",
+        inline
+          ? "font-mono text-[0.85em] px-1 py-0.5 rounded bg-primary/8 text-primary hover:bg-primary/15 transition-colors no-underline border border-primary/15"
+          : "text-primary hover:underline",
+      )}
+      title={`Open in workspace: ${filePath}`}
+    >
+      {children}
+    </Link>
+  );
+}
+
 export function MarkdownBody({ children, className }: MarkdownBodyProps) {
   const { theme } = useTheme();
+  const wsCtx = useWorkspaceFile();
   return (
     <div
       className={cn(
-        "paperclip-markdown prose prose-sm max-w-none prose-pre:whitespace-pre-wrap prose-pre:break-words prose-code:break-all",
+        "outpost-markdown prose prose-sm max-w-none prose-pre:whitespace-pre-wrap prose-pre:break-words prose-code:break-all",
         theme === "dark" && "prose-invert",
         className,
       )}
@@ -139,18 +207,46 @@ export function MarkdownBody({ children, className }: MarkdownBodyProps) {
               return (
                 <a
                   href={`/projects/${parsed.projectId}`}
-                  className="paperclip-project-mention-chip"
+                  className="outpost-project-mention-chip"
                   style={mentionChipStyle(parsed.color)}
                 >
                   {label}
                 </a>
               );
             }
+            if (wsCtx && href && looksLikeFilePath(href)) {
+              const resolved = resolveWorkspacePath(href, wsCtx.workspaceCwd);
+              if (resolved) {
+                return (
+                  <WorkspaceFileLink agentRouteId={wsCtx.agentRouteId} filePath={resolved}>
+                    {linkChildren}
+                  </WorkspaceFileLink>
+                );
+              }
+            }
             return (
               <a href={href} rel="noreferrer">
                 {linkChildren}
               </a>
             );
+          },
+          code: ({ node: _node, className: codeClassName, children: codeChildren, ...codeProps }) => {
+            const isBlock = codeClassName && /^language-/.test(codeClassName);
+            if (isBlock || !wsCtx) {
+              return <code className={codeClassName} {...codeProps}>{codeChildren}</code>;
+            }
+            const text = flattenText(codeChildren);
+            if (looksLikeFilePath(text)) {
+              const resolved = resolveWorkspacePath(text, wsCtx.workspaceCwd);
+              if (resolved) {
+                return (
+                  <WorkspaceFileLink agentRouteId={wsCtx.agentRouteId} filePath={resolved} inline>
+                    {text}
+                  </WorkspaceFileLink>
+                );
+              }
+            }
+            return <code className={codeClassName} {...codeProps}>{codeChildren}</code>;
           },
         }}
       >

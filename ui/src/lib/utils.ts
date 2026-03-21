@@ -43,6 +43,20 @@ export function relativeTime(date: Date | string): string {
   return formatDate(date);
 }
 
+export function timeUntil(date: Date | string): string {
+  const now = Date.now();
+  const then = new Date(date).getTime();
+  const diffSec = Math.round((then - now) / 1000);
+  if (diffSec <= 0) return "now";
+  const diffMin = Math.round(diffSec / 60);
+  if (diffMin < 60) return `in ${diffMin}m`;
+  const diffHr = Math.round(diffMin / 60);
+  if (diffHr < 24) return `in ${diffHr}h`;
+  const diffDay = Math.round(diffHr / 24);
+  if (diffDay < 30) return `in ${diffDay}d`;
+  return formatDate(date);
+}
+
 export function formatTokens(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
   if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`;
@@ -64,6 +78,8 @@ export function agentUrl(agent: { id: string; urlKey?: string | null; name?: str
   return `/agents/${agentRouteRef(agent)}`;
 }
 
+const PRESERVED_AGENT_TABS = new Set(["dashboard", "configuration", "runs", "chat", "workspace"]);
+
 /** Switch agents while preserving the current supported agent-detail tab. */
 export function agentSwitchUrl(
   currentPath: string,
@@ -77,25 +93,13 @@ export function agentSwitchUrl(
     return `/agents/${nextAgentRef}/dashboard`;
   }
 
-  const [, currentAgentRef, tab, detail] = match;
+  const [, currentAgentRef, tab] = match;
   if (!currentAgentRef || currentAgentRef === "all" || currentAgentRef === "active" || currentAgentRef === "paused" || currentAgentRef === "error" || currentAgentRef === "new") {
     return `/agents/${nextAgentRef}/dashboard`;
   }
 
-  if (tab === "dashboard" || tab === "configuration") {
+  if (tab && PRESERVED_AGENT_TABS.has(tab)) {
     return `/agents/${nextAgentRef}/${tab}`;
-  }
-
-  if (tab === "runs") {
-    return `/agents/${nextAgentRef}/runs`;
-  }
-
-  if (!tab) {
-    return `/agents/${nextAgentRef}/dashboard`;
-  }
-
-  if (detail && tab === "runs") {
-    return `/agents/${nextAgentRef}/runs`;
   }
 
   return `/agents/${nextAgentRef}/dashboard`;

@@ -7,6 +7,7 @@ import { ApiError } from "../api/client";
 import { ChartCard, RunActivityChart, PriorityChart, IssueStatusChart, SuccessRateChart } from "../components/ActivityCharts";
 import { activityApi } from "../api/activity";
 import { issuesApi } from "../api/issues";
+import { taskCronsApi } from "../api/taskCrons";
 import { usePanel } from "../context/PanelContext";
 import { useSidebar } from "../context/SidebarContext";
 import { useCompany } from "../context/CompanyContext";
@@ -19,7 +20,7 @@ import { adapterLabels, roleLabels } from "../components/agent-config-primitives
 import { getUIAdapter, buildTranscript } from "../adapters";
 import type { TranscriptEntry } from "../adapters";
 import { StatusBadge } from "../components/StatusBadge";
-import { agentStatusDot, agentStatusDotDefault } from "../lib/status-colors";
+import { agentStatusDot, agentStatusDotDefault, invocationSourceLabel, invocationSourceBadge, invocationSourceBadgeDefault } from "../lib/status-colors";
 import { MarkdownBody } from "../components/MarkdownBody";
 import { CopyText } from "../components/CopyText";
 import { EntityRow } from "../components/EntityRow";
@@ -27,7 +28,10 @@ import { Identity } from "../components/Identity";
 import { PageSkeleton } from "../components/PageSkeleton";
 import { ScrollToBottom } from "../components/ScrollToBottom";
 import { AgentChatSessionTab } from "../components/AgentChatSessionTab";
-import { formatCents, formatDate, relativeTime, formatTokens } from "../lib/utils";
+import { RecurringScheduleCard } from "../components/RecurringScheduleCard";
+import { AgentWorkspaceTab } from "../components/AgentWorkspaceTab";
+import { WorkspaceFileProvider } from "../context/WorkspaceFileContext";
+import { formatCents, formatDate, formatDateTime, relativeTime, formatTokens, timeUntil } from "../lib/utils";
 import { cn } from "../lib/utils";
 import { Button } from "@/components/ui/button";
 import { Tabs } from "@/components/ui/tabs";
@@ -56,10 +60,13 @@ import {
   ChevronRight,
   ChevronDown,
   ArrowLeft,
+  Clock3,
+  CalendarClock,
 } from "lucide-react";
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import { Input } from "@/components/ui/input";
 import { AgentIcon, AgentIconPicker } from "../components/AgentIconPicker";
-import { isUuidLike, type Agent, type HeartbeatRun, type HeartbeatRunEvent, type AgentRuntimeState, type LiveEvent } from "@paperclipai/shared";
+import { isUuidLike, type Agent, type HeartbeatRun, type HeartbeatRunEvent, type AgentRuntimeState, type LiveEvent, type TaskCronSchedule } from "@paperclipai/shared";
 import { agentRouteRef } from "../lib/utils";
 
 const runStatusIcons: Record<string, { icon: typeof CheckCircle2; color: string }> = {
@@ -114,12 +121,6 @@ function formatEnvForDisplay(envValue: unknown): string {
     .join("\n");
 }
 
-const sourceLabels: Record<string, string> = {
-  timer: "Timer",
-  assignment: "Assignment",
-  on_demand: "On-demand",
-  automation: "Automation",
-};
 
 const LIVE_SCROLL_BOTTOM_TOLERANCE_PX = 32;
 type ScrollContainer = Window | HTMLElement;
@@ -175,12 +176,13 @@ function scrollToContainerBottom(container: ScrollContainer, behavior: ScrollBeh
   container.scrollTo({ top: container.scrollHeight, behavior });
 }
 
-type AgentDetailView = "dashboard" | "configuration" | "runs" | "chat";
+type AgentDetailView = "dashboard" | "configuration" | "runs" | "chat" | "workspace";
 
 function parseAgentDetailView(value: string | null): AgentDetailView {
   if (value === "configure" || value === "configuration") return "configuration";
   if (value === "runs") return value;
   if (value === "chat") return value;
+  if (value === "workspace") return value;
   return "dashboard";
 }
 
@@ -282,7 +284,7 @@ export function AgentDetail() {
     queryFn: () => heartbeatsApi.list(resolvedCompanyId!, agent?.id ?? undefined),
     enabled: !!resolvedCompanyId && !!agent?.id,
   });
-  const heartbeats = heartbeatsResult?.runs ?? [];
+  const heartbeats = (heartbeatsResult?.runs ?? []).filter((r): r is HeartbeatRun => r != null);
   const heartbeatsDegraded = heartbeatsResult?.degraded ?? false;
 
   const { data: allIssues } = useQuery({
@@ -297,13 +299,43 @@ export function AgentDetail() {
     enabled: !!resolvedCompanyId,
   });
 
+  const { data: agentSchedules } = useQuery({
+    queryKey: queryKeys.taskCrons.byAgent(agent?.id ?? ""),
+    queryFn: () => taskCronsApi.listAgentSchedules(agent!.id, selectedCompanyId ?? undefined),
+    enabled: !!agent?.id && !!selectedCompanyId,
+  });
+
+  const updateAgentSchedule = useMutation({
+    mutationFn: (input: { scheduleId: string } & Partial<{
+      name: string;
+      expression: string;
+      timezone: string;
+      enabled: boolean;
+      issueMode: "create_new" | "reuse_existing" | "reopen_existing";
+    }>) => {
+      const { scheduleId, ...fields } = input;
+      return taskCronsApi.updateSchedule(scheduleId, fields, selectedCompanyId ?? undefined);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.taskCrons.byAgent(agent!.id) });
+    },
+  });
+
+  const deleteAgentSchedule = useMutation({
+    mutationFn: (scheduleId: string) =>
+      taskCronsApi.deleteSchedule(scheduleId, selectedCompanyId ?? undefined),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.taskCrons.byAgent(agent!.id) });
+    },
+  });
+
   const assignedIssues = (allIssues ?? [])
     .filter((i) => i.assigneeAgentId === agent?.id)
     .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
   const reportsToAgent = (allAgents ?? []).find((a) => a.id === agent?.reportsTo);
   const directReports = (allAgents ?? []).filter((a) => a.reportsTo === agent?.id && a.status !== "terminated");
   const mobileLiveRun = useMemo(
-    () => heartbeats.find((r) => r.status === "running" || r.status === "queued") ?? null,
+    () => heartbeats.find((r) => r && (r.status === "running" || r.status === "queued")) ?? null,
     [heartbeats],
   );
 
@@ -322,7 +354,9 @@ export function AgentDetail() {
           ? "runs"
           : activeView === "chat"
             ? "chat"
-          : "dashboard";
+            : activeView === "workspace"
+              ? "workspace"
+              : "dashboard";
     if (routeAgentRef !== canonicalAgentRef || urlTab !== canonicalTab) {
       navigate(`/agents/${canonicalAgentRef}/${canonicalTab}`, { replace: true });
       return;
@@ -453,7 +487,8 @@ export function AgentDetail() {
   const showConfigActionBar = activeView === "configuration" && (configDirty || configSaving);
 
   return (
-    <div className={cn("space-y-6", isMobile && showConfigActionBar && "pb-24")}>
+    <WorkspaceFileProvider agentRouteId={canonicalAgentRef} workspaceCwd={(agent.adapterConfig as Record<string, unknown>)?.cwd as string | undefined}>
+    <div className={cn("space-y-6 animate-page-enter", isMobile && showConfigActionBar && "pb-24")}>
       {/* Header */}
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-3 min-w-0">
@@ -578,6 +613,7 @@ export function AgentDetail() {
             items={[
               { value: "dashboard", label: "Dashboard" },
               { value: "chat", label: "Chat" },
+              { value: "workspace", label: "Workspace" },
               { value: "configuration", label: "Configuration" },
               { value: "runs", label: "Runs" },
             ]}
@@ -659,6 +695,11 @@ export function AgentDetail() {
           runtimeState={runtimeState}
           agentId={agent.id}
           agentRouteId={canonicalAgentRef}
+          schedules={agentSchedules ?? []}
+          onUpdateSchedule={(scheduleId, fields) => updateAgentSchedule.mutate({ scheduleId, ...fields })}
+          onDeleteSchedule={(scheduleId) => deleteAgentSchedule.mutate(scheduleId)}
+          updatingSchedule={updateAgentSchedule.isPending}
+          deletingSchedule={deleteAgentSchedule.isPending}
         />
       )}
 
@@ -684,6 +725,14 @@ export function AgentDetail() {
         />
       )}
 
+      {activeView === "workspace" && (
+        <AgentWorkspaceTab
+          agentId={agent.id}
+          agentRouteId={canonicalAgentRef}
+          hasCwd={Boolean((agent.adapterConfig as Record<string, unknown>)?.cwd)}
+        />
+      )}
+
       {activeView === "runs" && (
         <RunsTab
           runs={heartbeats}
@@ -693,9 +742,11 @@ export function AgentDetail() {
           agentRouteId={canonicalAgentRef}
           selectedRunId={urlRunId ?? null}
           adapterType={agent.adapterType}
+          schedules={agentSchedules ?? []}
         />
       )}
     </div>
+    </WorkspaceFileProvider>
   );
 }
 
@@ -711,14 +762,16 @@ function SummaryRow({ label, children }: { label: string; children: React.ReactN
 }
 
 function LatestRunCard({ runs, agentId }: { runs: HeartbeatRun[]; agentId: string }) {
-  if (runs.length === 0) return null;
+  const validRuns = runs.filter((r): r is HeartbeatRun => r != null);
+  if (validRuns.length === 0) return null;
 
-  const sorted = [...runs].sort(
+  const sorted = [...validRuns].sort(
     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
   );
 
   const liveRun = sorted.find((r) => r.status === "running" || r.status === "queued");
   const run = liveRun ?? sorted[0];
+  if (!run) return null;
   const isLive = run.status === "running" || run.status === "queued";
   const statusInfo = runStatusIcons[run.status] ?? { icon: Clock, color: "text-neutral-400" };
   const StatusIcon = statusInfo.icon;
@@ -759,12 +812,9 @@ function LatestRunCard({ runs, agentId }: { runs: HeartbeatRun[]; agentId: strin
           <span className="font-mono text-xs text-muted-foreground">{run.id.slice(0, 8)}</span>
           <span className={cn(
             "inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium",
-            run.invocationSource === "timer" ? "bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300"
-              : run.invocationSource === "assignment" ? "bg-violet-100 text-violet-700 dark:bg-violet-900/50 dark:text-violet-300"
-              : run.invocationSource === "on_demand" ? "bg-cyan-100 text-cyan-700 dark:bg-cyan-900/50 dark:text-cyan-300"
-              : "bg-muted text-muted-foreground"
+            invocationSourceBadge[run.invocationSource] ?? invocationSourceBadgeDefault,
           )}>
-            {sourceLabels[run.invocationSource] ?? run.invocationSource}
+            {invocationSourceLabel[run.invocationSource] ?? run.invocationSource}
           </span>
           <span className="ml-auto text-xs text-muted-foreground">{relativeTime(run.createdAt)}</span>
         </div>
@@ -788,6 +838,11 @@ function AgentOverview({
   runtimeState,
   agentId,
   agentRouteId,
+  schedules,
+  onUpdateSchedule,
+  onDeleteSchedule,
+  updatingSchedule,
+  deletingSchedule,
 }: {
   agent: Agent;
   runs: HeartbeatRun[];
@@ -795,6 +850,11 @@ function AgentOverview({
   runtimeState?: AgentRuntimeState;
   agentId: string;
   agentRouteId: string;
+  schedules: TaskCronSchedule[];
+  onUpdateSchedule: (scheduleId: string, fields: Partial<{ name: string; expression: string; timezone: string; enabled: boolean; issueMode: "create_new" | "reuse_existing" | "reopen_existing" }>) => void;
+  onDeleteSchedule: (scheduleId: string) => void;
+  updatingSchedule: boolean;
+  deletingSchedule: boolean;
 }) {
   return (
     <div className="space-y-8">
@@ -843,6 +903,33 @@ function AgentOverview({
                 +{assignedIssues.length - 10} more issues
               </div>
             )}
+          </div>
+        )}
+      </div>
+
+      {/* Recurring Schedules */}
+      <div className="space-y-3">
+        <h3 className="text-sm font-medium">Recurring Schedules</h3>
+        {schedules.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No recurring schedules.</p>
+        ) : (
+          <div className="space-y-2">
+            {schedules.map((schedule) => (
+              <div key={schedule.id}>
+                <RecurringScheduleCard
+                  schedule={schedule}
+                  onUpdate={onUpdateSchedule}
+                  onDelete={onDeleteSchedule}
+                  updating={updatingSchedule}
+                  deleting={deletingSchedule}
+                />
+                {schedule.issueId && (
+                  <div className="mt-1 ml-5 text-[10px] text-muted-foreground">
+                    Linked to issue <Link to={`/issues/${schedule.issueId}`} className="underline hover:text-foreground">{schedule.issueId.slice(0, 8)}</Link>
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
         )}
       </div>
@@ -1165,12 +1252,9 @@ function RunListItem({ run, isSelected, agentId }: { run: HeartbeatRun; isSelect
         </span>
         <span className={cn(
           "inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium shrink-0",
-          run.invocationSource === "timer" ? "bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300"
-            : run.invocationSource === "assignment" ? "bg-violet-100 text-violet-700 dark:bg-violet-900/50 dark:text-violet-300"
-            : run.invocationSource === "on_demand" ? "bg-cyan-100 text-cyan-700 dark:bg-cyan-900/50 dark:text-cyan-300"
-            : "bg-muted text-muted-foreground"
+          invocationSourceBadge[run.invocationSource] ?? invocationSourceBadgeDefault,
         )}>
-          {sourceLabels[run.invocationSource] ?? run.invocationSource}
+          {invocationSourceLabel[run.invocationSource] ?? run.invocationSource}
         </span>
         <span className="ml-auto text-[11px] text-muted-foreground shrink-0">
           {relativeTime(run.createdAt)}
@@ -1191,6 +1275,15 @@ function RunListItem({ run, isSelected, agentId }: { run: HeartbeatRun; isSelect
   );
 }
 
+const SOURCE_FILTER_OPTIONS = [
+  { value: "all", label: "All" },
+  { value: "timer", label: "Timer" },
+  { value: "assignment", label: "Assignment" },
+  { value: "on_demand", label: "On-demand" },
+  { value: "automation", label: "Automation" },
+  { value: "chat", label: "Chat" },
+] as const;
+
 function RunsTab({
   runs,
   degraded = false,
@@ -1199,6 +1292,7 @@ function RunsTab({
   agentRouteId,
   selectedRunId,
   adapterType,
+  schedules = [],
 }: {
   runs: HeartbeatRun[];
   degraded?: boolean;
@@ -1207,19 +1301,33 @@ function RunsTab({
   agentRouteId: string;
   selectedRunId: string | null;
   adapterType: string;
+  schedules?: TaskCronSchedule[];
 }) {
   const { isMobile } = useSidebar();
+  const [sourceFilter, setSourceFilter] = useState<string>("all");
 
-  if (runs.length === 0 && !degraded) {
+  const validRuns = runs.filter((r): r is HeartbeatRun => r != null);
+
+  const upcomingSchedules = useMemo(() => {
+    const now = Date.now();
+    return schedules
+      .filter((s) => s.enabled && s.nextTriggerAt && new Date(s.nextTriggerAt).getTime() > now)
+      .sort((a, b) => new Date(a.nextTriggerAt!).getTime() - new Date(b.nextTriggerAt!).getTime());
+  }, [schedules]);
+
+  const sorted = useMemo(() => {
+    const filtered = sourceFilter === "all"
+      ? validRuns
+      : validRuns.filter((r) => r.invocationSource === sourceFilter);
+    return [...filtered].sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+    );
+  }, [validRuns, sourceFilter]);
+
+  if (validRuns.length === 0 && !degraded) {
     return <p className="text-sm text-muted-foreground">No runs yet.</p>;
   }
 
-  // Sort by created descending
-  const sorted = [...runs].sort(
-    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-  );
-
-  // On mobile, don't auto-select so the list shows first; on desktop, auto-select latest
   const effectiveRunId = isMobile ? selectedRunId : (selectedRunId ?? sorted[0]?.id ?? null);
   const selectedRun = sorted.find((r) => r.id === effectiveRunId) ?? null;
 
@@ -1230,7 +1338,77 @@ function RunsTab({
     </div>
   ) : null;
 
-  // Mobile: show either run list OR run detail with back button
+  const upcomingSection = upcomingSchedules.length > 0 ? (
+    <Collapsible defaultOpen>
+      <div className="flex items-center py-1.5 pl-1 pr-3">
+        <CollapsibleTrigger className="flex items-center gap-1.5">
+          <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform [[data-state=open]>&]:rotate-90" />
+          <CalendarClock className="h-3.5 w-3.5 text-muted-foreground" />
+          <span className="text-sm font-semibold uppercase tracking-wide">Upcoming</span>
+          <span className="text-xs text-muted-foreground font-normal normal-case ml-1">
+            ({upcomingSchedules.length})
+          </span>
+        </CollapsibleTrigger>
+      </div>
+      <CollapsibleContent>
+        <div className="border border-border rounded-lg mb-4 divide-y divide-border">
+          {upcomingSchedules.map((schedule) => (
+            <div key={schedule.id} className="flex items-start gap-3 px-3 py-2.5 hover:bg-accent/50 transition-colors">
+              <CalendarClock className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-0.5" />
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium truncate">{schedule.name}</span>
+                  <span className={cn(
+                    "inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] shrink-0",
+                    schedule.issueMode === "create_new"
+                      ? "border border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                      : "border border-sky-500/40 bg-sky-500/10 text-sky-600 dark:text-sky-400"
+                  )}>
+                    {schedule.issueMode === "create_new" ? "new" : schedule.issueMode === "reopen_existing" ? "reopen" : "reuse"}
+                  </span>
+                </div>
+                <div className="text-[10px] text-muted-foreground mt-0.5 flex items-center gap-1">
+                  <span className="font-mono">{schedule.expression}</span>
+                  <span>&middot;</span>
+                  <span className="tabular-nums">{formatDateTime(schedule.nextTriggerAt!)}</span>
+                </div>
+              </div>
+              <span className="text-xs font-medium text-muted-foreground shrink-0 tabular-nums mt-0.5">
+                {timeUntil(schedule.nextTriggerAt!)}
+              </span>
+            </div>
+          ))}
+        </div>
+      </CollapsibleContent>
+    </Collapsible>
+  ) : null;
+
+  const sourceFilterBar = validRuns.length > 0 ? (
+    <div className="flex items-center gap-1 flex-wrap mb-2">
+      {SOURCE_FILTER_OPTIONS.map(({ value, label }) => (
+        <button
+          key={value}
+          onClick={() => setSourceFilter(value)}
+          className={cn(
+            "inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium transition-colors",
+            sourceFilter === value
+              ? value === "all"
+                ? "bg-foreground text-background"
+                : (invocationSourceBadge[value] ?? invocationSourceBadgeDefault)
+              : "bg-muted/60 text-muted-foreground hover:bg-muted",
+          )}
+        >
+          {label}
+          {value !== "all" && (
+            <span className="ml-1 opacity-70">
+              {validRuns.filter((r) => r.invocationSource === value).length}
+            </span>
+          )}
+        </button>
+      ))}
+    </div>
+  ) : null;
+
   if (isMobile) {
     if (selectedRun) {
       return (
@@ -1249,8 +1427,12 @@ function RunsTab({
     return (
       <div className="space-y-3">
         {degradedBanner}
+        {upcomingSection}
+        {sourceFilterBar}
         <div className="border border-border rounded-lg overflow-x-hidden">
-          {sorted.map((run) => (
+          {sorted.length === 0 ? (
+            <p className="text-sm text-muted-foreground px-3 py-4">No runs match this filter.</p>
+          ) : sorted.map((run) => (
             <RunListItem key={run.id} run={run} isSelected={false} agentId={agentRouteId} />
           ))}
         </div>
@@ -1258,24 +1440,25 @@ function RunsTab({
     );
   }
 
-  // Desktop: side-by-side layout
   return (
     <div className="flex flex-col gap-3">
       {degradedBanner}
+      {upcomingSection}
+      {sourceFilterBar}
     <div className="flex gap-0">
-      {/* Left: run list — border stretches full height, content sticks */}
       <div className={cn(
         "shrink-0 border border-border rounded-lg",
         selectedRun ? "w-72" : "w-full",
       )}>
         <div className="sticky top-4 overflow-y-auto" style={{ maxHeight: "calc(100vh - 2rem)" }}>
-        {sorted.map((run) => (
+        {sorted.length === 0 ? (
+          <p className="text-sm text-muted-foreground px-3 py-4">No runs match this filter.</p>
+        ) : sorted.map((run) => (
           <RunListItem key={run.id} run={run} isSelected={run.id === effectiveRunId} agentId={agentRouteId} />
         ))}
         </div>
       </div>
 
-      {/* Right: run detail — natural height, page scrolls */}
       {selectedRun && (
         <div className="flex-1 min-w-0 pl-4">
           <RunDetail key={selectedRun.id} run={selectedRun} agentRouteId={agentRouteId} adapterType={adapterType} />
@@ -2162,6 +2345,31 @@ function LogViewer({ run, adapterType }: { run: HeartbeatRun; adapterType: strin
           Transcript ({transcript.length})
         </span>
         <div className="flex items-center gap-2">
+          {transcript.length > 0 && (
+            <Button
+              variant="ghost"
+              size="xs"
+              className="text-muted-foreground"
+              onClick={() => {
+                const text = transcript
+                  .map((e) => {
+                    const time = new Date(e.ts).toLocaleTimeString("en-US", { hour12: false });
+                    let body: string;
+                    if (e.kind === "tool_call") body = `${e.name}(${typeof e.input === "string" ? e.input : JSON.stringify(e.input)})`;
+                    else if (e.kind === "tool_result") body = `[${e.isError ? "error" : "ok"}] ${e.content}`;
+                    else if (e.kind === "init") body = `model=${e.model} session=${e.sessionId}`;
+                    else if (e.kind === "result") body = `${e.subtype} tokens=${e.inputTokens}/${e.outputTokens} cost=$${e.costUsd.toFixed(4)}${e.text ? ` ${e.text}` : ""}`;
+                    else body = e.text;
+                    return `[${time}] [${e.kind}] ${body}`;
+                  })
+                  .join("\n");
+                navigator.clipboard.writeText(text);
+              }}
+            >
+              <Copy className="h-3 w-3 mr-1" />
+              Copy
+            </Button>
+          )}
           {isLive && !isFollowing && (
             <Button
               variant="ghost"
@@ -2464,7 +2672,7 @@ function KeysTab({ agentId, companyId }: { agentId: string; companyId?: string }
           Create API Key
         </h3>
         <p className="text-xs text-muted-foreground">
-          API keys allow this agent to authenticate calls to the Paperclip server.
+          API keys allow this agent to authenticate calls to the Outpost server.
         </p>
         <div className="flex items-center gap-2">
           <Input

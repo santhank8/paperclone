@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "@/lib/router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { App } from "./App";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import { CompanyProvider } from "./context/CompanyContext";
 import { LiveUpdatesProvider } from "./context/LiveUpdatesProvider";
 import { BreadcrumbProvider } from "./context/BreadcrumbContext";
@@ -43,7 +44,9 @@ createRoot(document.getElementById("root")!).render(
                     <SidebarProvider>
                       <PanelProvider>
                         <DialogProvider>
-                          <App />
+                          <ErrorBoundary>
+                            <App />
+                          </ErrorBoundary>
                         </DialogProvider>
                       </PanelProvider>
                     </SidebarProvider>

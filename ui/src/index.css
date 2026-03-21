@@ -40,78 +40,81 @@
   --radius-md: 0.5rem;
   --radius-lg: 0px;
   --radius-xl: 0px;
+  --font-family-display: "Bricolage Grotesque", system-ui, sans-serif;
+  --font-family-body: "Outfit", system-ui, sans-serif;
+  --font-family-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 }
 
 :root {
   color-scheme: light;
   --radius: 0;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --background: oklch(0.97 0.005 85);
+  --foreground: oklch(0.16 0.015 260);
+  --card: oklch(0.98 0.004 85);
+  --card-foreground: oklch(0.16 0.015 260);
+  --popover: oklch(0.98 0.004 85);
+  --popover-foreground: oklch(0.16 0.015 260);
+  --primary: oklch(0.62 0.19 65);
+  --primary-foreground: oklch(0.98 0.005 85);
+  --secondary: oklch(0.93 0.008 85);
+  --secondary-foreground: oklch(0.20 0.015 260);
+  --muted: oklch(0.93 0.006 85);
+  --muted-foreground: oklch(0.46 0.02 260);
+  --accent: oklch(0.94 0.008 85);
+  --accent-foreground: oklch(0.20 0.015 260);
+  --destructive: oklch(0.55 0.22 25);
+  --destructive-foreground: oklch(0.55 0.22 25);
+  --border: oklch(0.88 0.01 85);
+  --input: oklch(0.88 0.01 85);
+  --ring: oklch(0.62 0.19 65);
+  --chart-1: oklch(0.62 0.19 65);
+  --chart-2: oklch(0.60 0.12 185);
+  --chart-3: oklch(0.45 0.08 260);
+  --chart-4: oklch(0.70 0.14 145);
+  --chart-5: oklch(0.55 0.16 310);
+  --sidebar: oklch(0.96 0.005 85);
+  --sidebar-foreground: oklch(0.16 0.015 260);
+  --sidebar-primary: oklch(0.62 0.19 65);
+  --sidebar-primary-foreground: oklch(0.98 0.005 85);
+  --sidebar-accent: oklch(0.93 0.008 85);
+  --sidebar-accent-foreground: oklch(0.20 0.015 260);
+  --sidebar-border: oklch(0.88 0.01 85);
+  --sidebar-ring: oklch(0.62 0.19 65);
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.985 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.637 0.237 25.331);
-  --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(0.269 0 0);
-  --input: oklch(0.269 0 0);
-  --ring: oklch(0.439 0 0);
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.145 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(0.269 0 0);
-  --sidebar-ring: oklch(0.439 0 0);
+  --background: oklch(0.155 0.012 265);
+  --foreground: oklch(0.93 0.01 85);
+  --card: oklch(0.19 0.012 265);
+  --card-foreground: oklch(0.93 0.01 85);
+  --popover: oklch(0.19 0.012 265);
+  --popover-foreground: oklch(0.93 0.01 85);
+  --primary: oklch(0.78 0.155 70);
+  --primary-foreground: oklch(0.155 0.02 70);
+  --secondary: oklch(0.24 0.012 265);
+  --secondary-foreground: oklch(0.93 0.01 85);
+  --muted: oklch(0.22 0.01 265);
+  --muted-foreground: oklch(0.60 0.015 265);
+  --accent: oklch(0.22 0.01 265);
+  --accent-foreground: oklch(0.93 0.01 85);
+  --destructive: oklch(0.63 0.22 25);
+  --destructive-foreground: oklch(0.93 0.01 85);
+  --border: oklch(0.28 0.012 265);
+  --input: oklch(0.28 0.012 265);
+  --ring: oklch(0.78 0.155 70);
+  --chart-1: oklch(0.78 0.155 70);
+  --chart-2: oklch(0.68 0.14 175);
+  --chart-3: oklch(0.60 0.10 265);
+  --chart-4: oklch(0.72 0.16 145);
+  --chart-5: oklch(0.65 0.18 310);
+  --sidebar: oklch(0.14 0.012 265);
+  --sidebar-foreground: oklch(0.93 0.01 85);
+  --sidebar-primary: oklch(0.78 0.155 70);
+  --sidebar-primary-foreground: oklch(0.93 0.01 85);
+  --sidebar-accent: oklch(0.22 0.01 265);
+  --sidebar-accent-foreground: oklch(0.93 0.01 85);
+  --sidebar-border: oklch(0.28 0.012 265);
+  --sidebar-ring: oklch(0.78 0.155 70);
 }
 
 @layer base {
@@ -124,22 +127,18 @@
   }
   body {
     @apply bg-background text-foreground antialiased;
+    font-family: var(--font-family-body);
     height: 100%;
     overflow: hidden;
   }
-  h1,
-  h2,
-  h3 {
+  h1, h2, h3 {
+    font-family: var(--font-family-display);
     text-wrap: balance;
   }
-  /* Prevent double-tap-to-zoom on interactive elements for mobile */
-  a,
-  button,
-  [role="button"],
-  input,
-  select,
-  textarea,
-  label {
+  code, pre, kbd, samp {
+    font-family: var(--font-family-mono);
+  }
+  a, button, [role="button"], input, select, textarea, label {
     touch-action: manipulation;
   }
 }
@@ -166,30 +165,29 @@
 }
 
 .dark *::-webkit-scrollbar-track {
-  background: oklch(0.205 0 0);
+  background: oklch(0.19 0.012 265);
 }
 
 .dark *::-webkit-scrollbar-thumb {
-  background: oklch(0.4 0 0);
+  background: oklch(0.35 0.015 265);
   border-radius: 4px;
 }
 
 .dark *::-webkit-scrollbar-thumb:hover {
-  background: oklch(0.5 0 0);
+  background: oklch(0.45 0.015 265);
 }
 
-/* Auto-hide scrollbar: transparent by default, visible on container hover */
 .scrollbar-auto-hide::-webkit-scrollbar-thumb {
   background: transparent !important;
 }
 .scrollbar-auto-hide:hover::-webkit-scrollbar-thumb {
-  background: oklch(0.4 0 0) !important;
+  background: oklch(0.35 0.015 265) !important;
 }
 .scrollbar-auto-hide:hover::-webkit-scrollbar-thumb:hover {
-  background: oklch(0.5 0 0) !important;
+  background: oklch(0.45 0.015 265) !important;
 }
 
-/* Expandable dialog transition for max-width changes */
+/* Expandable dialog transition */
 [data-slot="dialog-content"] {
   transition: max-width 200ms cubic-bezier(0.16, 1, 0.3, 1);
 }
@@ -230,15 +228,107 @@
     dashboard-activity-highlight 920ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
+/* Staggered list entrance animation */
+@keyframes stagger-in {
+  0% {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Amber shimmer for loading states */
+@keyframes shimmer-amber {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+/* Amber pulse for live indicators */
+@keyframes pulse-amber {
+  0%, 100% {
+    opacity: 1;
+    box-shadow: 0 0 0 0 oklch(0.78 0.155 70 / 0.5);
+  }
+  50% {
+    opacity: 0.85;
+    box-shadow: 0 0 0 4px oklch(0.78 0.155 70 / 0);
+  }
+}
+
+/* Page entrance */
+@keyframes page-enter {
+  0% {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-page-enter {
+  animation: page-enter 280ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.animate-stagger-in {
+  animation: stagger-in 350ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.animate-shimmer-amber {
+  background: linear-gradient(
+    90deg,
+    var(--muted) 0%,
+    oklch(0.78 0.155 70 / 0.08) 50%,
+    var(--muted) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer-amber 1.8s ease-in-out infinite;
+}
+
+.animate-pulse-amber {
+  animation: pulse-amber 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Org chart canvas background */
+.org-chart-canvas {
+  background-color: color-mix(in oklab, var(--muted) 30%, var(--background));
+  background-image: radial-gradient(circle, color-mix(in oklab, var(--border) 50%, transparent) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+/* Org chart edge draw-in animation */
+@keyframes org-edge-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .activity-row-enter {
+  .activity-row-enter,
+  .animate-page-enter,
+  .animate-stagger-in,
+  .animate-shimmer-amber,
+  .animate-pulse-amber {
     animation: none;
+  }
+  .org-chart-canvas path {
+    animation: none !important;
+    stroke-dasharray: none !important;
+    stroke-dashoffset: 0 !important;
   }
 }
 
 /* MDXEditor theme integration */
-.paperclip-mdxeditor-scope,
-.paperclip-mdxeditor {
+.outpost-mdxeditor-scope,
+.outpost-mdxeditor {
   --baseBase: var(--background);
   --baseBg: transparent;
   --baseBgSubtle: color-mix(in oklab, var(--accent) 35%, transparent);
@@ -263,68 +353,68 @@
   --accentBgHover: color-mix(in oklab, var(--accent) 80%, var(--background));
   --accentBgActive: color-mix(in oklab, var(--accent) 72%, var(--background));
   --accentText: var(--accent-foreground);
-  font-family: inherit;
+  font-family: var(--font-family-body);
   font-size: 0.875rem;
   line-height: 1.5;
   color: var(--foreground);
 }
 
-.paperclip-mdxeditor-scope [class*="_iconButton_"],
-.paperclip-mdxeditor [class*="_iconButton_"] {
+.outpost-mdxeditor-scope [class*="_iconButton_"],
+.outpost-mdxeditor [class*="_iconButton_"] {
   color: var(--baseText);
 }
 
-.paperclip-mdxeditor-scope [class*="_iconButton_"]:hover,
-.paperclip-mdxeditor [class*="_iconButton_"]:hover {
+.outpost-mdxeditor-scope [class*="_iconButton_"]:hover,
+.outpost-mdxeditor [class*="_iconButton_"]:hover {
   color: var(--baseTextContrast);
 }
 
-.paperclip-mdxeditor .mdxeditor-root-contenteditable {
+.outpost-mdxeditor .mdxeditor-root-contenteditable {
   min-height: 2.5rem;
   padding: 0;
   line-height: 1.5;
 }
 
-.paperclip-mdxeditor [class*="_contentEditable_"] {
+.outpost-mdxeditor [class*="_contentEditable_"] {
   padding: 0.375rem 0.625rem !important;
 }
 
-.paperclip-mdxeditor--borderless [class*="_contentEditable_"] {
+.outpost-mdxeditor--borderless [class*="_contentEditable_"] {
   padding: 0 !important;
 }
 
-.paperclip-mdxeditor [class*="_placeholder_"] {
-  font-family: inherit;
+.outpost-mdxeditor [class*="_placeholder_"] {
+  font-family: var(--font-family-body);
   font-size: 0.875rem;
   line-height: 1.5;
   color: var(--muted-foreground);
 }
 
-.paperclip-mdxeditor-content {
+.outpost-mdxeditor-content {
   font-family: inherit;
   font-size: inherit;
   line-height: inherit;
   color: inherit;
 }
 
-.paperclip-mdxeditor-content > *:first-child {
+.outpost-mdxeditor-content > *:first-child {
   margin-top: 0;
 }
 
-.paperclip-mdxeditor-content > *:last-child {
+.outpost-mdxeditor-content > *:last-child {
   margin-bottom: 0;
 }
 
-.paperclip-mdxeditor-content p {
+.outpost-mdxeditor-content p {
   margin: 0;
   line-height: 1.4;
 }
 
-.paperclip-mdxeditor-content p + p {
+.outpost-mdxeditor-content p + p {
   margin-top: 0.6rem;
 }
 
-.paperclip-mdxeditor-content a.paperclip-project-mention-chip {
+.outpost-mdxeditor-content a.outpost-project-mention-chip {
   display: inline-flex;
   align-items: center;
   gap: 0.25rem;
@@ -340,43 +430,44 @@
   user-select: none;
 }
 
-.paperclip-mdxeditor-content ul,
-.paperclip-mdxeditor-content ol {
+.outpost-mdxeditor-content ul,
+.outpost-mdxeditor-content ol {
   margin: 0.35rem 0;
   padding-left: 1.1rem;
 }
 
-.paperclip-mdxeditor-content ul {
+.outpost-mdxeditor-content ul {
   list-style: disc;
 }
 
-.paperclip-mdxeditor-content ol {
+.outpost-mdxeditor-content ol {
   list-style: decimal;
 }
 
-.paperclip-mdxeditor-content li {
+.outpost-mdxeditor-content li {
   display: list-item;
   margin: 0.15rem 0;
   line-height: 1.4;
 }
 
-.paperclip-mdxeditor-content li::marker {
+.outpost-mdxeditor-content li::marker {
   color: var(--muted-foreground);
 }
 
-.paperclip-mdxeditor-content h1,
-.paperclip-mdxeditor-content h2,
-.paperclip-mdxeditor-content h3 {
+.outpost-mdxeditor-content h1,
+.outpost-mdxeditor-content h2,
+.outpost-mdxeditor-content h3 {
   margin: 0.4rem 0 0.25rem;
   line-height: 1.3;
+  font-family: var(--font-family-display);
 }
 
-.paperclip-mdxeditor-content img {
+.outpost-mdxeditor-content img {
   max-height: 18rem;
   border-radius: calc(var(--radius) - 2px);
 }
 
-.paperclip-mdxeditor-content blockquote {
+.outpost-mdxeditor-content blockquote {
   margin: 0.45rem 0;
   padding-left: 0.7rem;
   border-left: 2px solid var(--border);
@@ -384,12 +475,12 @@
   line-height: 1.4;
 }
 
-.paperclip-mdxeditor-content code {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+.outpost-mdxeditor-content code {
+  font-family: var(--font-family-mono);
   font-size: 0.84em;
 }
 
-.paperclip-mdxeditor-content pre {
+.outpost-mdxeditor-content pre {
   margin: 0.5rem 0;
   padding: 0.45rem 0.55rem;
   border: 1px solid var(--border);
@@ -398,8 +489,7 @@
   overflow-x: auto;
 }
 
-/* Rendered markdown code blocks & inline code (prose/MarkdownBody context).
-   Matches the editor theme so rendered code looks consistent. */
+/* Rendered markdown code blocks & inline code */
 .prose pre {
   border: 1px solid var(--border);
   border-radius: calc(var(--radius) - 3px);
@@ -408,17 +498,15 @@
 }
 
 .prose code {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-family: var(--font-family-mono);
   font-size: 0.84em;
 }
 
-/* Remove backtick pseudo-elements from inline code (prose default adds them) */
 .prose code::before,
 .prose code::after {
   content: none;
 }
 
-/* Inline code background (not inside a code block) */
 .prose :not(pre) > code {
   background-color: color-mix(in oklab, var(--accent) 60%, transparent);
   padding: 0.15em 0.35em;
@@ -426,122 +514,119 @@
   font-weight: 500;
 }
 
-.paperclip-markdown {
+.outpost-markdown {
   color: var(--foreground);
   font-size: 0.9375rem;
   line-height: 1.6;
 }
 
-.paperclip-markdown > :first-child {
+.outpost-markdown > :first-child {
   margin-top: 0;
 }
 
-.paperclip-markdown > :last-child {
+.outpost-markdown > :last-child {
   margin-bottom: 0;
 }
 
-.paperclip-markdown :where(p, ul, ol, blockquote, pre, table) {
+.outpost-markdown :where(p, ul, ol, blockquote, pre, table) {
   margin-top: 0.7rem;
   margin-bottom: 0.7rem;
 }
 
-.paperclip-markdown :where(ul, ol) {
+.outpost-markdown :where(ul, ol) {
   padding-left: 1.15rem;
 }
 
-.paperclip-markdown ul {
+.outpost-markdown ul {
   list-style-type: disc;
 }
 
-.paperclip-markdown ol {
+.outpost-markdown ol {
   list-style-type: decimal;
 }
 
-.paperclip-markdown li {
+.outpost-markdown li {
   margin: 0.14rem 0;
   padding-left: 0.2rem;
 }
 
-.paperclip-markdown li > :where(p, ul, ol) {
+.outpost-markdown li > :where(p, ul, ol) {
   margin-top: 0.3rem;
   margin-bottom: 0.3rem;
 }
 
-.paperclip-markdown li::marker {
+.outpost-markdown li::marker {
   color: var(--muted-foreground);
 }
 
-.paperclip-markdown :where(h1, h2, h3, h4) {
+.outpost-markdown :where(h1, h2, h3, h4) {
   margin-top: 1.15rem;
   margin-bottom: 0.45rem;
   color: var(--foreground);
+  font-family: var(--font-family-display);
   font-weight: 600;
   letter-spacing: -0.01em;
   line-height: 1.3;
 }
 
-.paperclip-markdown h1 {
+.outpost-markdown h1 {
   font-size: 1.5rem;
 }
 
-.paperclip-markdown h2 {
+.outpost-markdown h2 {
   font-size: 1.25rem;
 }
 
-.paperclip-markdown h3 {
+.outpost-markdown h3 {
   font-size: 1.05rem;
 }
 
-.paperclip-markdown h4 {
+.outpost-markdown h4 {
   font-size: 0.95rem;
 }
 
-.paperclip-markdown :where(strong, b) {
+.outpost-markdown :where(strong, b) {
   color: var(--foreground);
   font-weight: 600;
 }
 
-.paperclip-markdown a {
-  color: color-mix(in oklab, var(--foreground) 76%, #0969da 24%);
+.outpost-markdown a {
+  color: var(--primary);
   text-decoration: none;
 }
 
-.paperclip-markdown a:hover {
+.outpost-markdown a:hover {
   text-decoration: underline;
   text-underline-offset: 0.15em;
 }
 
-.dark .paperclip-markdown a {
-  color: color-mix(in oklab, var(--foreground) 80%, #58a6ff 20%);
-}
-
-.paperclip-markdown blockquote {
+.outpost-markdown blockquote {
   margin-left: 0;
   padding-left: 0.95rem;
   border-left: 0.24rem solid color-mix(in oklab, var(--border) 84%, var(--muted-foreground) 16%);
   color: var(--muted-foreground);
 }
 
-.paperclip-markdown hr {
+.outpost-markdown hr {
   margin: 1.25rem 0;
   border-color: var(--border);
 }
 
-.paperclip-markdown img {
+.outpost-markdown img {
   border-radius: calc(var(--radius) + 2px);
   box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--foreground) 10%, transparent);
 }
 
-.paperclip-markdown table {
+.outpost-markdown table {
   width: 100%;
 }
 
-.paperclip-markdown th {
+.outpost-markdown th {
   font-weight: 600;
   text-align: left;
 }
 
-.paperclip-mermaid {
+.outpost-mermaid {
   margin: 0.5rem 0;
   padding: 0.45rem 0.55rem;
   border: 1px solid var(--border);
@@ -550,7 +635,7 @@
   overflow-x: auto;
 }
 
-.paperclip-mermaid svg {
+.outpost-mermaid svg {
   display: block;
   width: max-content;
   max-width: none;
@@ -558,17 +643,17 @@
   height: auto;
 }
 
-.paperclip-mermaid-status {
+.outpost-mermaid-status {
   margin: 0 0 0.45rem;
   font-size: 0.75rem;
   color: var(--muted-foreground);
 }
 
-.paperclip-mermaid-status-error {
+.outpost-mermaid-status-error {
   color: var(--destructive);
 }
 
-.paperclip-mermaid-source {
+.outpost-mermaid-source {
   margin: 0;
   padding: 0;
   border: 0;
@@ -576,7 +661,7 @@
 }
 
 /* Project mention chips rendered inside MarkdownBody */
-a.paperclip-project-mention-chip {
+a.outpost-project-mention-chip {
   display: inline-flex;
   align-items: center;
   gap: 0.25rem;
@@ -591,7 +676,7 @@ a.paperclip-project-mention-chip {
   white-space: nowrap;
 }
 
-/* Keep MDXEditor popups above app dialogs, even when they portal to <body>. */
+/* Keep MDXEditor popups above app dialogs */
 [class*="_popupContainer_"] {
   z-index: 81 !important;
 }

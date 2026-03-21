@@ -148,7 +148,7 @@ export function Skills() {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 animate-page-enter">
       <div className="flex items-center justify-end">
         <Button
           size="sm"

@@ -550,7 +550,7 @@ export function Inbox() {
   const canMarkAllRead = unreadIssueIds.length > 0;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-page-enter">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <Tabs value={tab} onValueChange={(value) => navigate(`/inbox/${value}`)}>
           <PageTabBar

@@ -87,7 +87,7 @@ export const statusBadgeDefault = "bg-muted text-muted-foreground";
 // ---------------------------------------------------------------------------
 
 export const agentStatusDot: Record<string, string> = {
-  running: "bg-cyan-400 animate-pulse",
+  running: "bg-primary animate-pulse-amber",
   active: "bg-green-400",
   paused: "bg-yellow-400",
   idle: "bg-yellow-400",
@@ -110,3 +110,25 @@ export const priorityColor: Record<string, string> = {
 };
 
 export const priorityColorDefault = "text-yellow-600 dark:text-yellow-400";
+
+// ---------------------------------------------------------------------------
+// Run invocation source — labels and badge colors
+// ---------------------------------------------------------------------------
+
+export const invocationSourceLabel: Record<string, string> = {
+  timer: "Timer",
+  assignment: "Assignment",
+  on_demand: "On-demand",
+  automation: "Automation",
+  chat: "Chat",
+};
+
+export const invocationSourceBadge: Record<string, string> = {
+  timer: "bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300",
+  assignment: "bg-violet-100 text-violet-700 dark:bg-violet-900/50 dark:text-violet-300",
+  on_demand: "bg-cyan-100 text-cyan-700 dark:bg-cyan-900/50 dark:text-cyan-300",
+  chat: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300",
+  automation: "bg-muted text-muted-foreground",
+};
+
+export const invocationSourceBadgeDefault = "bg-muted text-muted-foreground";

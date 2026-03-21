@@ -7,6 +7,8 @@ interface NewIssueDefaults {
   assigneeAgentId?: string;
   title?: string;
   description?: string;
+  /** Workspace file path shown as a visual attachment chip in the dialog. */
+  attachedFile?: string;
 }
 
 interface NewGoalDefaults {

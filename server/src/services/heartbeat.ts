@@ -1,6 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import { and, asc, desc, eq, gt, inArray, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gt, inArray, ne, sql } from "drizzle-orm";
 import { resolveConfiguredEnvFilePath } from "@paperclipai/adapter-utils/server-utils";
 import type { Db } from "@paperclipai/db";
 import {
@@ -8,6 +8,7 @@ import {
   agentRuntimeState,
   agentTaskSessions,
   agentWakeupRequests,
+  companies,
   heartbeatRunEvents,
   heartbeatRuns,
   chatMessages,
@@ -568,6 +569,87 @@ function resolveNextSessionState(input: {
     displayId,
     legacySessionId,
   };
+}
+
+async function buildAgentSelfContext(
+  db: Db,
+  agent: { id: string; companyId: string; name: string; adapterType: string | null; adapterConfig: unknown; role?: string; title?: string | null },
+  context: Record<string, unknown>,
+): Promise<string> {
+  const config = parseObject(agent.adapterConfig);
+  const cwd = typeof config.cwd === "string" ? config.cwd : null;
+  const issueId = readNonEmptyString(context.issueId);
+
+  const [companyRow, peerAgents, currentIssue] = await Promise.all([
+    db
+      .select({ name: companies.name, issuePrefix: companies.issuePrefix })
+      .from(companies)
+      .where(eq(companies.id, agent.companyId))
+      .then((rows) => rows[0] ?? null),
+    db
+      .select({
+        name: agents.name,
+        status: agents.status,
+        adapterType: agents.adapterType,
+        role: agents.role,
+        title: agents.title,
+      })
+      .from(agents)
+      .where(and(
+        eq(agents.companyId, agent.companyId),
+        ne(agents.id, agent.id),
+        ne(agents.status, "terminated"),
+      )),
+    issueId
+      ? db
+          .select({
+            id: issues.id,
+            identifier: issues.identifier,
+            title: issues.title,
+            status: issues.status,
+            priority: issues.priority,
+            description: issues.description,
+          })
+          .from(issues)
+          .where(and(eq(issues.id, issueId), eq(issues.companyId, agent.companyId)))
+          .then((rows) => rows[0] ?? null)
+      : null,
+  ]);
+
+  const lines: string[] = [];
+
+  const companyName = companyRow?.name ?? "Unknown";
+  const prefix = companyRow?.issuePrefix ?? "";
+  lines.push(`You are **${agent.name}** (id \`${agent.id}\`).`);
+  if (agent.title) lines.push(`Title: ${agent.title}`);
+  lines.push(`Company: ${companyName}${prefix ? ` (${prefix})` : ""}`);
+  if (cwd) lines.push(`Workspace: \`${cwd}\``);
+
+  const livePeers = peerAgents.filter((p) => p.status !== "terminated");
+  if (livePeers.length > 0) {
+    lines.push("");
+    lines.push("## Your team");
+    for (const peer of livePeers) {
+      const label = peer.title && peer.title !== peer.name ? peer.title : peer.role || "agent";
+      lines.push(`- **${peer.name}** (${label}) — ${peer.status}`);
+    }
+  }
+
+  if (currentIssue) {
+    lines.push("");
+    lines.push("## Current task");
+    lines.push(`You were woken for issue **${currentIssue.identifier ?? currentIssue.id.slice(0, 8)}: ${currentIssue.title}** (priority: ${currentIssue.priority}, status: ${currentIssue.status}).`);
+    if (currentIssue.description) {
+      const desc = currentIssue.description.length > 1000
+        ? currentIssue.description.slice(0, 1000) + "…"
+        : currentIssue.description;
+      lines.push("");
+      lines.push("Description:");
+      lines.push(desc);
+    }
+  }
+
+  return lines.join("\n");
 }
 
 export function heartbeatService(db: Db) {
@@ -1720,6 +1802,7 @@ export function heartbeatService(db: Db) {
             ),
           }
         : context;
+      const selfContext = await buildAgentSelfContext(db, agent, context);
       const adapterResult = await adapter.execute({
         runId: run.id,
         agent,
@@ -1730,6 +1813,7 @@ export function heartbeatService(db: Db) {
         onMeta: onAdapterMeta,
         authToken: authToken ?? undefined,
         skills: resolvedSkills.map((s) => ({ name: s.name, tier: s.tier, path: s.path })),
+        selfContext,
       });
       const adapterManagedRuntimeServices = adapterResult.runtimeServices
         ? await persistAdapterManagedRuntimeServices({

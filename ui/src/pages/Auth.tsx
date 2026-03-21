@@ -5,7 +5,7 @@ import { authApi } from "../api/auth";
 import { queryKeys } from "../lib/queryKeys";
 import { Button } from "@/components/ui/button";
 import { AsciiArtAnimation } from "@/components/AsciiArtAnimation";
-import { Sparkles } from "lucide-react";
+import { OutpostMark } from "@/components/OutpostMark";
 
 type AuthMode = "sign_in" | "sign_up";
 
@@ -62,8 +62,11 @@ export function AuthPage() {
 
   if (isSessionLoading) {
     return (
-      <div className="fixed inset-0 flex items-center justify-center">
-        <p className="text-sm text-muted-foreground">Loading…</p>
+      <div className="fixed inset-0 flex items-center justify-center bg-background">
+        <div className="flex items-center gap-3">
+          <OutpostMark size={20} className="text-primary animate-pulse-amber" />
+          <p className="text-sm text-muted-foreground">Loading…</p>
+        </div>
       </div>
     );
   }
@@ -73,32 +76,45 @@ export function AuthPage() {
       {/* Left half — form */}
       <div className="w-full md:w-1/2 flex flex-col overflow-y-auto">
         <div className="w-full max-w-md mx-auto my-auto px-8 py-12">
-          <div className="flex items-center gap-2 mb-8">
-            <Sparkles className="h-4 w-4 text-muted-foreground" />
-            <span className="text-sm font-medium">Paperclip</span>
+          <div
+            className="flex items-center gap-2.5 mb-10"
+            style={{ animationDelay: "0ms" }}
+          >
+            <OutpostMark size={20} className="text-primary" glow />
+            <span className="text-sm font-semibold tracking-wide" style={{ fontFamily: "var(--font-family-display)" }}>
+              Outpost
+            </span>
           </div>
 
-          <h1 className="text-xl font-semibold">
-            {mode === "sign_in" ? "Sign in to Paperclip" : "Create your Paperclip account"}
+          <h1
+            className="text-2xl font-bold tracking-tight animate-stagger-in"
+            style={{ fontFamily: "var(--font-family-display)", animationDelay: "40ms" }}
+          >
+            {mode === "sign_in" ? "Sign in" : "Create your account"}
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <p
+            className="mt-2 text-sm text-muted-foreground animate-stagger-in"
+            style={{ animationDelay: "80ms" }}
+          >
             {mode === "sign_in"
-              ? "Use your email and password to access this instance."
-              : "Create an account for this instance. Email confirmation is not required in v1."}
+              ? "Access your Outpost command post."
+              : "Set up your operator account."}
           </p>
 
           <form
-            className="mt-6 space-y-4"
+            className="mt-8 space-y-5"
             onSubmit={(event) => {
               event.preventDefault();
               mutation.mutate();
             }}
           >
             {mode === "sign_up" && (
-              <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Name</label>
+              <div className="animate-stagger-in" style={{ animationDelay: "100ms" }}>
+                <label className="text-xs font-medium text-muted-foreground mb-1.5 block uppercase tracking-wider">
+                  Name
+                </label>
                 <input
-                  className="w-full rounded-md border border-border bg-transparent px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/50"
+                  className="w-full border border-border bg-transparent px-3 py-2.5 text-sm outline-none transition-shadow focus:ring-2 focus:ring-primary/40 focus:border-primary/60 placeholder:text-muted-foreground/40"
                   value={name}
                   onChange={(event) => setName(event.target.value)}
                   autoComplete="name"
@@ -106,10 +122,12 @@ export function AuthPage() {
                 />
               </div>
             )}
-            <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Email</label>
+            <div className="animate-stagger-in" style={{ animationDelay: mode === "sign_up" ? "140ms" : "120ms" }}>
+              <label className="text-xs font-medium text-muted-foreground mb-1.5 block uppercase tracking-wider">
+                Email
+              </label>
               <input
-                className="w-full rounded-md border border-border bg-transparent px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/50"
+                className="w-full border border-border bg-transparent px-3 py-2.5 text-sm outline-none transition-shadow focus:ring-2 focus:ring-primary/40 focus:border-primary/60 placeholder:text-muted-foreground/40"
                 type="email"
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
@@ -117,31 +135,44 @@ export function AuthPage() {
                 autoFocus={mode === "sign_in"}
               />
             </div>
-            <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Password</label>
+            <div className="animate-stagger-in" style={{ animationDelay: mode === "sign_up" ? "180ms" : "160ms" }}>
+              <label className="text-xs font-medium text-muted-foreground mb-1.5 block uppercase tracking-wider">
+                Password
+              </label>
               <input
-                className="w-full rounded-md border border-border bg-transparent px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/50"
+                className="w-full border border-border bg-transparent px-3 py-2.5 text-sm outline-none transition-shadow focus:ring-2 focus:ring-primary/40 focus:border-primary/60 placeholder:text-muted-foreground/40"
                 type="password"
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
                 autoComplete={mode === "sign_in" ? "current-password" : "new-password"}
               />
             </div>
-            {error && <p className="text-xs text-destructive">{error}</p>}
-            <Button type="submit" disabled={!canSubmit || mutation.isPending} className="w-full">
-              {mutation.isPending
-                ? "Working…"
-                : mode === "sign_in"
-                  ? "Sign In"
-                  : "Create Account"}
-            </Button>
+            {error && (
+              <p className="text-xs text-destructive px-1">{error}</p>
+            )}
+            <div className="animate-stagger-in" style={{ animationDelay: mode === "sign_up" ? "220ms" : "200ms" }}>
+              <Button
+                type="submit"
+                disabled={!canSubmit || mutation.isPending}
+                className="w-full font-semibold"
+              >
+                {mutation.isPending
+                  ? "Working…"
+                  : mode === "sign_in"
+                    ? "Sign In"
+                    : "Create Account"}
+              </Button>
+            </div>
           </form>
 
-          <div className="mt-5 text-sm text-muted-foreground">
+          <div
+            className="mt-6 text-sm text-muted-foreground animate-stagger-in"
+            style={{ animationDelay: "260ms" }}
+          >
             {mode === "sign_in" ? "Need an account?" : "Already have an account?"}{" "}
             <button
               type="button"
-              className="font-medium text-foreground underline underline-offset-2"
+              className="font-medium text-primary hover:text-primary/80 transition-colors"
               onClick={() => {
                 setError(null);
                 setMode(mode === "sign_in" ? "sign_up" : "sign_in");
@@ -153,9 +184,20 @@ export function AuthPage() {
         </div>
       </div>
 
-      {/* Right half — ASCII art animation (hidden on mobile) */}
-      <div className="hidden md:block w-1/2 overflow-hidden">
+      {/* Right half — signal station animation */}
+      <div className="hidden md:block w-1/2 overflow-hidden relative">
         <AsciiArtAnimation />
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <div className="text-center">
+            <OutpostMark size={48} className="text-[oklch(0.78_0.155_70)] mx-auto mb-4 opacity-60" glow />
+            <p
+              className="text-xs uppercase tracking-[0.25em] font-medium opacity-40"
+              style={{ fontFamily: "var(--font-family-display)", color: "oklch(0.78 0.155 70)" }}
+            >
+              Command Post
+            </p>
+          </div>
+        </div>
       </div>
     </div>
   );

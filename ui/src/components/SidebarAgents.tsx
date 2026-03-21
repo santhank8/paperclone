@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { NavLink, useLocation } from "@/lib/router";
+import { NavLink, Link, useLocation } from "@/lib/router";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronRight, Plus } from "lucide-react";
 import { useCompany } from "../context/CompanyContext";
@@ -80,17 +80,23 @@ export function SidebarAgents() {
     <Collapsible open={open} onOpenChange={setOpen}>
       <div className="group">
         <div className="flex items-center px-3 py-1.5">
-          <CollapsibleTrigger className="flex items-center gap-1 flex-1 min-w-0">
+          <CollapsibleTrigger className="flex items-center shrink-0">
             <ChevronRight
               className={cn(
                 "h-3 w-3 text-muted-foreground/60 transition-transform opacity-0 group-hover:opacity-100",
                 open && "rotate-90"
               )}
             />
-            <span className="text-[10px] font-medium uppercase tracking-widest font-mono text-muted-foreground/60">
+          </CollapsibleTrigger>
+          <Link
+            to="/agents"
+            onClick={() => { if (isMobile) setSidebarOpen(false); }}
+            className="flex-1 min-w-0 ml-1"
+          >
+            <span className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground/60 hover:text-foreground transition-colors" style={{ fontFamily: "var(--font-family-display)" }}>
               Agents
             </span>
-          </CollapsibleTrigger>
+          </Link>
           <button
             onClick={(e) => {
               e.stopPropagation();
@@ -127,10 +133,10 @@ export function SidebarAgents() {
                 {runCount > 0 && (
                   <span className="ml-auto flex items-center gap-1.5 shrink-0">
                     <span className="relative flex h-2 w-2">
-                      <span className="animate-pulse absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75" />
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500" />
+                      <span className="animate-pulse-amber absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-primary" />
                     </span>
-                    <span className="text-[11px] font-medium text-blue-600 dark:text-blue-400">
+                    <span className="text-[11px] font-medium text-primary">
                       {runCount} live
                     </span>
                   </span>

@@ -8,7 +8,7 @@ import {
 } from "@paperclipai/shared";
 import { eq } from "drizzle-orm";
 import { validate } from "../middleware/validate.js";
-import { assertBoard, assertCompanyAccess, getActorInfo } from "./authz.js";
+import { assertBoardOrOwnAgent, assertCompanyAccess, getActorInfo } from "./authz.js";
 import { issueService, logActivity, taskCronService } from "../services/index.js";
 import { notFound } from "../errors.js";
 
@@ -58,7 +58,7 @@ export function taskCronRoutes(db: Db) {
       .where(eq(agents.id, agentId))
       .then((rows) => rows[0] ?? null);
     if (!agent) throw notFound("Agent not found");
-    assertBoard(req);
+    assertBoardOrOwnAgent(req, agent.id);
     assertCompanyAccess(req, agent.companyId);
 
     const body = req.body as {
@@ -107,7 +107,7 @@ export function taskCronRoutes(db: Db) {
     const id = req.params.id as string;
     const existing = await schedules.getById(id);
     if (!existing) throw notFound("Task cron schedule not found");
-    assertBoard(req);
+    assertBoardOrOwnAgent(req, existing.agentId);
     assertCompanyAccess(req, existing.companyId);
 
     const body = req.body as {
@@ -133,7 +133,7 @@ export function taskCronRoutes(db: Db) {
     const id = req.params.id as string;
     const existing = await schedules.getById(id);
     if (!existing) throw notFound("Task cron schedule not found");
-    assertBoard(req);
+    assertBoardOrOwnAgent(req, existing.agentId);
     assertCompanyAccess(req, existing.companyId);
     await schedules.deleteSchedule(id);
     res.json({ ok: true });
@@ -159,9 +159,9 @@ export function taskCronRoutes(db: Db) {
       if (!issueId) throw notFound("Issue not found");
       const issue = await issuesSvc.getById(issueId);
       if (!issue) throw notFound("Issue not found");
-      assertBoard(req);
-      assertCompanyAccess(req, issue.companyId);
       if (!issue.assigneeAgentId) throw notFound("Issue has no assigned agent");
+      assertBoardOrOwnAgent(req, issue.assigneeAgentId);
+      assertCompanyAccess(req, issue.companyId);
 
       const body = req.body as {
         name: string;
@@ -191,7 +191,7 @@ export function taskCronRoutes(db: Db) {
     const id = req.params.id as string;
     const existing = await schedules.getById(id);
     if (!existing) throw notFound("Task cron schedule not found");
-    assertBoard(req);
+    assertBoardOrOwnAgent(req, existing.agentId);
     assertCompanyAccess(req, existing.companyId);
     const issueId = (req.body as { issueId: string }).issueId;
     const issueExists = await schedules.issueExistsInCompany(issueId, existing.companyId);
@@ -205,7 +205,7 @@ export function taskCronRoutes(db: Db) {
     const id = req.params.id as string;
     const existing = await schedules.getById(id);
     if (!existing) throw notFound("Task cron schedule not found");
-    assertBoard(req);
+    assertBoardOrOwnAgent(req, existing.agentId);
     assertCompanyAccess(req, existing.companyId);
     const updated = await schedules.detachIssue(id);
     if (!updated) throw notFound("Task cron schedule not found");
