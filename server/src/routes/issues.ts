@@ -1125,10 +1125,12 @@ export function issueRoutes(db: Db, storage: StorageService) {
     const actorRunId = requireAgentRunId(req, res);
     if (req.actor.type === "agent" && !actorRunId) return;
 
+    const force = req.body?.force === true && req.actor.type !== "agent";
     const released = await svc.release(
       id,
       req.actor.type === "agent" ? req.actor.agentId : undefined,
       actorRunId,
+      { force },
     );
     if (!released) {
       res.status(404).json({ error: "Issue not found" });

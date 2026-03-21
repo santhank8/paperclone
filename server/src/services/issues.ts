@@ -1104,7 +1104,7 @@ export function issueService(db: Db) {
       });
     },
 
-    release: async (id: string, actorAgentId?: string, actorRunId?: string | null) => {
+    release: async (id: string, actorAgentId?: string, actorRunId?: string | null, opts?: { force?: boolean }) => {
       const existing = await db
         .select()
         .from(issues)
@@ -1112,22 +1112,33 @@ export function issueService(db: Db) {
         .then((rows) => rows[0] ?? null);
 
       if (!existing) return null;
-      if (actorAgentId && existing.assigneeAgentId && existing.assigneeAgentId !== actorAgentId) {
-        throw conflict("Only assignee can release issue");
+
+      // Auto-clear stale execution locks: if executionRunId points to a
+      // finished run, skip ownership checks (the lock is orphaned).
+      let forceRelease = opts?.force === true;
+      if (!forceRelease && existing.executionRunId) {
+        const stale = await isTerminalOrMissingHeartbeatRun(existing.executionRunId);
+        if (stale) forceRelease = true;
       }
-      if (
-        actorAgentId &&
-        existing.status === "in_progress" &&
-        existing.assigneeAgentId === actorAgentId &&
-        existing.checkoutRunId &&
-        !sameRunLock(existing.checkoutRunId, actorRunId ?? null)
-      ) {
-        throw conflict("Only checkout run can release issue", {
-          issueId: existing.id,
-          assigneeAgentId: existing.assigneeAgentId,
-          checkoutRunId: existing.checkoutRunId,
-          actorRunId: actorRunId ?? null,
-        });
+
+      if (!forceRelease) {
+        if (actorAgentId && existing.assigneeAgentId && existing.assigneeAgentId !== actorAgentId) {
+          throw conflict("Only assignee can release issue");
+        }
+        if (
+          actorAgentId &&
+          existing.status === "in_progress" &&
+          existing.assigneeAgentId === actorAgentId &&
+          existing.checkoutRunId &&
+          !sameRunLock(existing.checkoutRunId, actorRunId ?? null)
+        ) {
+          throw conflict("Only checkout run can release issue", {
+            issueId: existing.id,
+            assigneeAgentId: existing.assigneeAgentId,
+            checkoutRunId: existing.checkoutRunId,
+            actorRunId: actorRunId ?? null,
+          });
+        }
       }
 
       const updated = await db
@@ -1136,6 +1147,8 @@ export function issueService(db: Db) {
           status: "todo",
           assigneeAgentId: null,
           checkoutRunId: null,
+          executionRunId: null,
+          executionLockedAt: null,
           updatedAt: new Date(),
         })
         .where(eq(issues.id, id))
