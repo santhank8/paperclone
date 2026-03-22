@@ -53,7 +53,7 @@ import {
   Trash2,
 } from "lucide-react";
 import type { ActivityEvent } from "@paperclipai/shared";
-import type { Agent, IssueAttachment } from "@paperclipai/shared";
+import type { Agent, Issue, IssueAttachment } from "@paperclipai/shared";
 
 type CommentReassignment = {
   assigneeAgentId: string | null;
@@ -467,6 +467,17 @@ export function IssueDetail() {
 
   const markIssueRead = useMutation({
     mutationFn: (id: string) => issuesApi.markRead(id),
+    onMutate: async (id) => {
+      if (!selectedCompanyId) return;
+      // Cancel in-flight fetches and optimistically mark as read
+      const touchedKey = queryKeys.issues.listTouchedByMe(selectedCompanyId);
+      await queryClient.cancelQueries({ queryKey: touchedKey });
+      queryClient.setQueryData<Issue[]>(touchedKey, (old) =>
+        old?.map((issue) =>
+          issue.id === id ? { ...issue, isUnreadForMe: false } : issue,
+        ),
+      );
+    },
     onSuccess: () => {
       if (selectedCompanyId) {
         queryClient.invalidateQueries({ queryKey: queryKeys.issues.listTouchedByMe(selectedCompanyId) });
