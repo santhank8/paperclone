@@ -1,7 +1,9 @@
 import { z } from "zod";
+import { isValidLocaleCode } from "./localization.js";
 
 export const instanceGeneralSettingsSchema = z.object({
   censorUsernameInLogs: z.boolean().default(false),
+  defaultLocale: z.string().min(1).refine(isValidLocaleCode, "Invalid locale code").default("en"),
 }).strict();
 
 export const patchInstanceGeneralSettingsSchema = instanceGeneralSettingsSchema.partial();

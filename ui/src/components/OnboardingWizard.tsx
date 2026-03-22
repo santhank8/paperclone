@@ -15,6 +15,13 @@ import {
   PopoverContent,
   PopoverTrigger
 } from "@/components/ui/popover";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { cn } from "../lib/utils";
 import {
@@ -31,6 +38,7 @@ import {
 import { DEFAULT_CURSOR_LOCAL_MODEL } from "@paperclipai/adapter-cursor-local";
 import { DEFAULT_GEMINI_LOCAL_MODEL } from "@paperclipai/adapter-gemini-local";
 import { resolveRouteOnboardingOptions } from "../lib/onboarding-route";
+import { useI18n } from "../i18n";
 import { AsciiArtAnimation } from "./AsciiArtAnimation";
 import { OpenCodeLogoIcon } from "./OpenCodeLogoIcon";
 import {
@@ -48,6 +56,7 @@ import {
   Check,
   Loader2,
   ChevronDown,
+  Globe,
   X
 } from "lucide-react";
 
@@ -71,6 +80,7 @@ const DEFAULT_TASK_DESCRIPTION = `You are the CEO. You set the direction for the
 export function OnboardingWizard() {
   const { onboardingOpen, onboardingOptions, closeOnboarding } = useDialog();
   const { companies, setSelectedCompanyId, loading: companiesLoading } = useCompany();
+  const { t, locales, localePreference, setLocalePreference } = useI18n();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const location = useLocation();
@@ -215,6 +225,11 @@ export function OnboardingWizard() {
   }, [step, adapterType, model, command, args, url]);
 
   const selectedModel = (adapterModels ?? []).find((m) => m.id === model);
+  const localeOptions = [
+    { value: "instance", label: t("common.instanceDefault") },
+    { value: "browser", label: t("common.browserLanguage") },
+    ...locales.map((locale) => ({ value: locale.locale, label: locale.label ?? locale.locale })),
+  ];
   const hasAnthropicApiKeyOverrideCheck =
     adapterEnvResult?.checks.some(
       (check) =>
@@ -579,14 +594,27 @@ export function OnboardingWizard() {
             scroll container. A plain div preserves the background without scroll-locking. */}
         <div className="fixed inset-0 z-50 bg-background" />
         <div className="fixed inset-0 z-50 flex" onKeyDown={handleKeyDown}>
-          {/* Close button */}
-          <button
-            onClick={handleClose}
-            className="absolute top-4 left-4 z-10 rounded-sm p-1.5 text-muted-foreground/60 hover:text-foreground transition-colors"
-          >
-            <X className="h-5 w-5" />
-            <span className="sr-only">Close</span>
-          </button>
+          <div className="absolute top-4 left-4 right-4 z-10 flex items-start justify-between gap-3">
+            {/* Close button */}
+            <button
+              onClick={handleClose}
+              className="rounded-sm p-1.5 text-muted-foreground/60 hover:text-foreground transition-colors"
+            >
+              <X className="h-5 w-5" />
+              <span className="sr-only">Close</span>
+            </button>
+            <Select value={localePreference} onValueChange={setLocalePreference}>
+              <SelectTrigger className="w-40 bg-background/90 text-sm backdrop-blur">
+                <Globe className="h-4 w-4 text-muted-foreground" />
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {localeOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
           {/* Left half — form */}
           <div

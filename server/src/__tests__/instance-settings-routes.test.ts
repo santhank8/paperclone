@@ -35,6 +35,7 @@ describe("instance settings routes", () => {
     vi.clearAllMocks();
     mockInstanceSettingsService.getGeneral.mockResolvedValue({
       censorUsernameInLogs: false,
+      defaultLocale: "en",
     });
     mockInstanceSettingsService.getExperimental.mockResolvedValue({
       enableIsolatedWorkspaces: false,
@@ -44,6 +45,7 @@ describe("instance settings routes", () => {
       id: "instance-settings-1",
       general: {
         censorUsernameInLogs: true,
+        defaultLocale: "en",
       },
     });
     mockInstanceSettingsService.updateExperimental.mockResolvedValue({
@@ -110,7 +112,7 @@ describe("instance settings routes", () => {
 
     const getRes = await request(app).get("/api/instance/settings/general");
     expect(getRes.status).toBe(200);
-    expect(getRes.body).toEqual({ censorUsernameInLogs: false });
+    expect(getRes.body).toEqual({ censorUsernameInLogs: false, defaultLocale: "en" });
 
     const patchRes = await request(app)
       .patch("/api/instance/settings/general")

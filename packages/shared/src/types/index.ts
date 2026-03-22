@@ -1,5 +1,6 @@
 export type { Company } from "./company.js";
 export type { InstanceExperimentalSettings, InstanceGeneralSettings, InstanceSettings } from "./instance.js";
+export type { LocalizationPack, InstanceLocaleSummary, InstanceLocalesResponse } from "./localization.js";
 export type {
   CompanySkillSourceType,
   CompanySkillTrustLevel,

@@ -240,6 +240,9 @@ export type {
   AgentTaskSession,
   AgentWakeupRequest,
   InstanceSchedulerHeartbeatAgent,
+  InstanceLocaleSummary,
+  InstanceLocalesResponse,
+  LocalizationPack,
   LiveEvent,
   DashboardSummary,
   ActivityEvent,
@@ -317,6 +320,16 @@ export {
   instanceExperimentalSettingsSchema,
   patchInstanceExperimentalSettingsSchema,
   type PatchInstanceExperimentalSettings,
+  canonicalizeLocaleCode,
+  isValidLocaleCode,
+  localeCodeSchema,
+  localizationMessagesSchema,
+  localizationPackSchema,
+  instanceLocaleSummarySchema,
+  instanceLocalesResponseSchema,
+  type LocalizationPackInput,
+  type InstanceLocaleSummaryInput,
+  type InstanceLocalesResponseInput,
 } from "./validators/index.js";
 
 export {

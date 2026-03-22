@@ -6,6 +6,7 @@ import { Link } from "@/lib/router";
 import { heartbeatsApi } from "../api/heartbeats";
 import { agentsApi } from "../api/agents";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
+import { useI18n } from "../i18n";
 import { EmptyState } from "../components/EmptyState";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -29,14 +30,15 @@ function buildAgentHref(agent: InstanceSchedulerHeartbeatAgent) {
 export function InstanceSettings() {
   const { setBreadcrumbs } = useBreadcrumbs();
   const queryClient = useQueryClient();
+  const { t } = useI18n();
   const [actionError, setActionError] = useState<string | null>(null);
 
   useEffect(() => {
     setBreadcrumbs([
-      { label: "Instance Settings" },
-      { label: "Heartbeats" },
+      { label: t("breadcrumbs.instanceSettings") },
+      { label: t("breadcrumbs.heartbeats") },
     ]);
-  }, [setBreadcrumbs]);
+  }, [setBreadcrumbs, t]);
 
   const heartbeatsQuery = useQuery({
     queryKey: queryKeys.instance.schedulerHeartbeats,
@@ -73,7 +75,7 @@ export function InstanceSettings() {
       ]);
     },
     onError: (error) => {
-      setActionError(error instanceof Error ? error.message : "Failed to update heartbeat.");
+      setActionError(error instanceof Error ? error.message : t("instance.heartbeats.updateFailed"));
     },
   });
 
@@ -95,7 +97,7 @@ export function InstanceSettings() {
   }, [agents]);
 
   if (heartbeatsQuery.isLoading) {
-    return <div className="text-sm text-muted-foreground">Loading scheduler heartbeats...</div>;
+    return <div className="text-sm text-muted-foreground">{t("instance.heartbeats.loading")}</div>;
   }
 
   if (heartbeatsQuery.error) {
@@ -103,7 +105,7 @@ export function InstanceSettings() {
       <div className="text-sm text-destructive">
         {heartbeatsQuery.error instanceof Error
           ? heartbeatsQuery.error.message
-          : "Failed to load scheduler heartbeats."}
+          : t("instance.heartbeats.loadFailed")}
       </div>
     );
   }
@@ -113,17 +115,20 @@ export function InstanceSettings() {
       <div className="space-y-2">
         <div className="flex items-center gap-2">
           <Settings className="h-5 w-5 text-muted-foreground" />
-          <h1 className="text-lg font-semibold">Scheduler Heartbeats</h1>
+          <h1 className="text-lg font-semibold">{t("instance.heartbeats.title")}</h1>
         </div>
         <p className="text-sm text-muted-foreground">
-          Agents with a timer heartbeat enabled across all of your companies.
+          {t("instance.heartbeats.description")}
         </p>
       </div>
 
       <div className="flex gap-4 text-sm text-muted-foreground">
-        <span><span className="font-semibold text-foreground">{activeCount}</span> active</span>
-        <span><span className="font-semibold text-foreground">{disabledCount}</span> disabled</span>
-        <span><span className="font-semibold text-foreground">{grouped.length}</span> {grouped.length === 1 ? "company" : "companies"}</span>
+        <span><span className="font-semibold text-foreground">{activeCount}</span> {t("instance.heartbeats.active")}</span>
+        <span><span className="font-semibold text-foreground">{disabledCount}</span> {t("instance.heartbeats.disabled")}</span>
+        <span>
+          <span className="font-semibold text-foreground">{grouped.length}</span>{" "}
+          {grouped.length === 1 ? t("instance.heartbeats.company_one") : t("instance.heartbeats.company_other")}
+        </span>
       </div>
 
       {actionError && (
@@ -135,7 +140,7 @@ export function InstanceSettings() {
       {agents.length === 0 ? (
         <EmptyState
           icon={Clock3}
-          message="No scheduler heartbeats match the current criteria."
+          message={t("instance.heartbeats.empty")}
         />
       ) : (
         <div className="space-y-4">
@@ -157,7 +162,7 @@ export function InstanceSettings() {
                           variant={agent.schedulerActive ? "default" : "outline"}
                           className="shrink-0 text-[10px] px-1.5 py-0"
                         >
-                          {agent.schedulerActive ? "On" : "Off"}
+                          {agent.schedulerActive ? t("instance.heartbeats.on") : t("instance.heartbeats.off")}
                         </Badge>
                         <Link
                           to={buildAgentHref(agent)}
@@ -177,13 +182,13 @@ export function InstanceSettings() {
                         >
                           {agent.lastHeartbeatAt
                             ? relativeTime(agent.lastHeartbeatAt)
-                            : "never"}
+                            : t("instance.heartbeats.never")}
                         </span>
                         <span className="ml-auto flex items-center gap-1.5 shrink-0">
                           <Link
                             to={buildAgentHref(agent)}
                             className="text-muted-foreground hover:text-foreground"
-                            title="Full agent config"
+                            title={t("instance.heartbeats.fullAgentConfig")}
                           >
                             <ExternalLink className="h-3.5 w-3.5" />
                           </Link>
@@ -194,7 +199,7 @@ export function InstanceSettings() {
                             disabled={saving}
                             onClick={() => toggleMutation.mutate(agent)}
                           >
-                            {saving ? "..." : agent.heartbeatEnabled ? "Disable Timer Heartbeat" : "Enable Timer Heartbeat"}
+                            {saving ? "..." : agent.heartbeatEnabled ? t("instance.heartbeats.disableTimer") : t("instance.heartbeats.enableTimer")}
                           </Button>
                         </span>
                       </div>

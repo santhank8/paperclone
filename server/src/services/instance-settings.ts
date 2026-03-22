@@ -1,6 +1,7 @@
 import type { Db } from "@paperclipai/db";
 import { companies, instanceSettings } from "@paperclipai/db";
 import {
+  canonicalizeLocaleCode,
   instanceGeneralSettingsSchema,
   type InstanceGeneralSettings,
   instanceExperimentalSettingsSchema,
@@ -18,10 +19,12 @@ function normalizeGeneralSettings(raw: unknown): InstanceGeneralSettings {
   if (parsed.success) {
     return {
       censorUsernameInLogs: parsed.data.censorUsernameInLogs ?? false,
+      defaultLocale: canonicalizeLocaleCode(parsed.data.defaultLocale ?? "en") || "en",
     };
   }
   return {
     censorUsernameInLogs: false,
+    defaultLocale: "en",
   };
 }
 

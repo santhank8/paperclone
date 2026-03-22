@@ -13,6 +13,7 @@ import { SidebarProvider } from "./context/SidebarContext";
 import { DialogProvider } from "./context/DialogContext";
 import { ToastProvider } from "./context/ToastContext";
 import { ThemeProvider } from "./context/ThemeContext";
+import { I18nProvider } from "./i18n";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { initPluginBridge } from "./plugins/bridge-init";
 import { PluginLauncherProvider } from "./plugins/launchers";
@@ -40,27 +41,29 @@ createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
-        <CompanyProvider>
-          <ToastProvider>
-            <LiveUpdatesProvider>
-              <BrowserRouter>
-                <TooltipProvider>
-                  <BreadcrumbProvider>
-                    <SidebarProvider>
-                      <PanelProvider>
-                        <PluginLauncherProvider>
-                          <DialogProvider>
-                            <App />
-                          </DialogProvider>
-                        </PluginLauncherProvider>
-                      </PanelProvider>
-                    </SidebarProvider>
-                  </BreadcrumbProvider>
-                </TooltipProvider>
-              </BrowserRouter>
-            </LiveUpdatesProvider>
-          </ToastProvider>
-        </CompanyProvider>
+        <I18nProvider>
+          <CompanyProvider>
+            <ToastProvider>
+              <LiveUpdatesProvider>
+                <BrowserRouter>
+                  <TooltipProvider>
+                    <BreadcrumbProvider>
+                      <SidebarProvider>
+                        <PanelProvider>
+                          <PluginLauncherProvider>
+                            <DialogProvider>
+                              <App />
+                            </DialogProvider>
+                          </PluginLauncherProvider>
+                        </PanelProvider>
+                      </SidebarProvider>
+                    </BreadcrumbProvider>
+                  </TooltipProvider>
+                </BrowserRouter>
+              </LiveUpdatesProvider>
+            </ToastProvider>
+          </CompanyProvider>
+        </I18nProvider>
       </ThemeProvider>
     </QueryClientProvider>
   </StrictMode>

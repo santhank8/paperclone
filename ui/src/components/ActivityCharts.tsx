@@ -1,4 +1,5 @@
 import type { HeartbeatRun } from "@paperclipai/shared";
+import { useI18n } from "../i18n";
 
 /* ---- Utilities ---- */
 
@@ -44,6 +45,26 @@ function ChartLegend({ items }: { items: { color: string; label: string }[] }) {
   );
 }
 
+function useChartLabels() {
+  const { t } = useI18n();
+  const priorityLabels: Record<string, string> = {
+    critical: t("activityCharts.priorityCritical"),
+    high: t("activityCharts.priorityHigh"),
+    medium: t("activityCharts.priorityMedium"),
+    low: t("activityCharts.priorityLow"),
+  };
+  const statusLabels: Record<string, string> = {
+    todo: t("activityCharts.statusTodo"),
+    in_progress: t("activityCharts.statusInProgress"),
+    in_review: t("activityCharts.statusInReview"),
+    done: t("activityCharts.statusDone"),
+    blocked: t("activityCharts.statusBlocked"),
+    cancelled: t("activityCharts.statusCancelled"),
+    backlog: t("activityCharts.statusBacklog"),
+  };
+  return { t, priorityLabels, statusLabels };
+}
+
 export function ChartCard({ title, subtitle, children }: { title: string; subtitle?: string; children: React.ReactNode }) {
   return (
     <div className="border border-border rounded-lg p-4 space-y-3">
@@ -60,6 +81,7 @@ export function ChartCard({ title, subtitle, children }: { title: string; subtit
 
 export function RunActivityChart({ runs }: { runs: HeartbeatRun[] }) {
   const days = getLast14Days();
+  const { t } = useChartLabels();
 
   const grouped = new Map<string, { succeeded: number; failed: number; other: number }>();
   for (const day of days) grouped.set(day, { succeeded: 0, failed: 0, other: 0 });
@@ -75,7 +97,7 @@ export function RunActivityChart({ runs }: { runs: HeartbeatRun[] }) {
   const maxValue = Math.max(...Array.from(grouped.values()).map(v => v.succeeded + v.failed + v.other), 1);
   const hasData = Array.from(grouped.values()).some(v => v.succeeded + v.failed + v.other > 0);
 
-  if (!hasData) return <p className="text-xs text-muted-foreground">No runs yet</p>;
+  if (!hasData) return <p className="text-xs text-muted-foreground">{t("activityCharts.noRunsYet")}</p>;
 
   return (
     <div>
@@ -85,7 +107,7 @@ export function RunActivityChart({ runs }: { runs: HeartbeatRun[] }) {
           const total = entry.succeeded + entry.failed + entry.other;
           const heightPct = (total / maxValue) * 100;
           return (
-            <div key={day} className="flex-1 h-full flex flex-col justify-end" title={`${day}: ${total} runs`}>
+            <div key={day} className="flex-1 h-full flex flex-col justify-end" title={t("activityCharts.runsTooltip", { day, total })}>
               {total > 0 ? (
                 <div className="flex flex-col-reverse gap-px overflow-hidden" style={{ height: `${heightPct}%`, minHeight: 2 }}>
                   {entry.succeeded > 0 && <div className="bg-emerald-500" style={{ flex: entry.succeeded }} />}
@@ -115,6 +137,7 @@ const priorityOrder = ["critical", "high", "medium", "low"] as const;
 
 export function PriorityChart({ issues }: { issues: { priority: string; createdAt: Date }[] }) {
   const days = getLast14Days();
+  const { t, priorityLabels } = useChartLabels();
   const grouped = new Map<string, Record<string, number>>();
   for (const day of days) grouped.set(day, { critical: 0, high: 0, medium: 0, low: 0 });
   for (const issue of issues) {
@@ -127,7 +150,7 @@ export function PriorityChart({ issues }: { issues: { priority: string; createdA
   const maxValue = Math.max(...Array.from(grouped.values()).map(v => Object.values(v).reduce((a, b) => a + b, 0)), 1);
   const hasData = Array.from(grouped.values()).some(v => Object.values(v).reduce((a, b) => a + b, 0) > 0);
 
-  if (!hasData) return <p className="text-xs text-muted-foreground">No issues</p>;
+  if (!hasData) return <p className="text-xs text-muted-foreground">{t("activityCharts.noIssues")}</p>;
 
   return (
     <div>
@@ -137,7 +160,7 @@ export function PriorityChart({ issues }: { issues: { priority: string; createdA
           const total = Object.values(entry).reduce((a, b) => a + b, 0);
           const heightPct = (total / maxValue) * 100;
           return (
-            <div key={day} className="flex-1 h-full flex flex-col justify-end" title={`${day}: ${total} issues`}>
+            <div key={day} className="flex-1 h-full flex flex-col justify-end" title={t("activityCharts.issuesTooltip", { day, total })}>
               {total > 0 ? (
                 <div className="flex flex-col-reverse gap-px overflow-hidden" style={{ height: `${heightPct}%`, minHeight: 2 }}>
                   {priorityOrder.map(p => entry[p] > 0 ? (
@@ -152,7 +175,7 @@ export function PriorityChart({ issues }: { issues: { priority: string; createdA
         })}
       </div>
       <DateLabels days={days} />
-      <ChartLegend items={priorityOrder.map(p => ({ color: priorityColors[p], label: p.charAt(0).toUpperCase() + p.slice(1) }))} />
+      <ChartLegend items={priorityOrder.map(p => ({ color: priorityColors[p], label: priorityLabels[p] }))} />
     </div>
   );
 }
@@ -167,18 +190,9 @@ const statusColors: Record<string, string> = {
   backlog: "#64748b",
 };
 
-const statusLabels: Record<string, string> = {
-  todo: "To Do",
-  in_progress: "In Progress",
-  in_review: "In Review",
-  done: "Done",
-  blocked: "Blocked",
-  cancelled: "Cancelled",
-  backlog: "Backlog",
-};
-
 export function IssueStatusChart({ issues }: { issues: { status: string; createdAt: Date }[] }) {
   const days = getLast14Days();
+  const { t, statusLabels } = useChartLabels();
   const allStatuses = new Set<string>();
   const grouped = new Map<string, Record<string, number>>();
   for (const day of days) grouped.set(day, {});
@@ -194,7 +208,7 @@ export function IssueStatusChart({ issues }: { issues: { status: string; created
   const maxValue = Math.max(...Array.from(grouped.values()).map(v => Object.values(v).reduce((a, b) => a + b, 0)), 1);
   const hasData = allStatuses.size > 0;
 
-  if (!hasData) return <p className="text-xs text-muted-foreground">No issues</p>;
+  if (!hasData) return <p className="text-xs text-muted-foreground">{t("activityCharts.noIssues")}</p>;
 
   return (
     <div>
@@ -204,7 +218,7 @@ export function IssueStatusChart({ issues }: { issues: { status: string; created
           const total = Object.values(entry).reduce((a, b) => a + b, 0);
           const heightPct = (total / maxValue) * 100;
           return (
-            <div key={day} className="flex-1 h-full flex flex-col justify-end" title={`${day}: ${total} issues`}>
+            <div key={day} className="flex-1 h-full flex flex-col justify-end" title={t("activityCharts.issuesTooltip", { day, total })}>
               {total > 0 ? (
                 <div className="flex flex-col-reverse gap-px overflow-hidden" style={{ height: `${heightPct}%`, minHeight: 2 }}>
                   {statusOrder.map(s => (entry[s] ?? 0) > 0 ? (
@@ -226,6 +240,7 @@ export function IssueStatusChart({ issues }: { issues: { status: string; created
 
 export function SuccessRateChart({ runs }: { runs: HeartbeatRun[] }) {
   const days = getLast14Days();
+  const { t } = useChartLabels();
   const grouped = new Map<string, { succeeded: number; total: number }>();
   for (const day of days) grouped.set(day, { succeeded: 0, total: 0 });
   for (const run of runs) {
@@ -237,7 +252,7 @@ export function SuccessRateChart({ runs }: { runs: HeartbeatRun[] }) {
   }
 
   const hasData = Array.from(grouped.values()).some(v => v.total > 0);
-  if (!hasData) return <p className="text-xs text-muted-foreground">No runs yet</p>;
+  if (!hasData) return <p className="text-xs text-muted-foreground">{t("activityCharts.noRunsYet")}</p>;
 
   return (
     <div>
@@ -247,7 +262,16 @@ export function SuccessRateChart({ runs }: { runs: HeartbeatRun[] }) {
           const rate = entry.total > 0 ? entry.succeeded / entry.total : 0;
           const color = entry.total === 0 ? undefined : rate >= 0.8 ? "#10b981" : rate >= 0.5 ? "#eab308" : "#ef4444";
           return (
-            <div key={day} className="flex-1 h-full flex flex-col justify-end" title={`${day}: ${entry.total > 0 ? Math.round(rate * 100) : 0}% (${entry.succeeded}/${entry.total})`}>
+            <div
+              key={day}
+              className="flex-1 h-full flex flex-col justify-end"
+              title={t("activityCharts.successRateTooltip", {
+                day,
+                percent: entry.total > 0 ? Math.round(rate * 100) : 0,
+                succeeded: entry.succeeded,
+                total: entry.total,
+              })}
+            >
               {entry.total > 0 ? (
                 <div style={{ height: `${rate * 100}%`, minHeight: 2, backgroundColor: color }} />
               ) : (
