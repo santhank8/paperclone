@@ -1511,6 +1511,152 @@ export function heartbeatService(db: Db) {
     return queued;
   }
 
+  const TRANSIENT_ERROR_PATTERNS = [
+    "overloaded_error",
+    "overloaded",
+    '"type":"api_error"',
+    "Internal server error",
+    "API Error: 500",
+    "API Error: 529",
+    "API Error: 503",
+    "Service Unavailable",
+  ];
+
+  const MAX_TRANSIENT_RETRIES = 3;
+  const TRANSIENT_RETRY_BASE_DELAY_MS = 30_000;
+  const TRANSIENT_RETRY_BACKOFF_MULTIPLIER = 2;
+
+  function isTransientApiError(errorMessage: string | null | undefined): boolean {
+    if (!errorMessage) return false;
+    return TRANSIENT_ERROR_PATTERNS.some((pattern) => errorMessage.includes(pattern));
+  }
+
+  function getTransientRetryCount(run: typeof heartbeatRuns.$inferSelect): number {
+    const snapshot = parseObject(run.contextSnapshot);
+    return typeof snapshot.transientRetryCount === "number" ? snapshot.transientRetryCount : 0;
+  }
+
+  async function enqueueTransientRetry(
+    run: typeof heartbeatRuns.$inferSelect,
+    agent: typeof agents.$inferSelect,
+    errorMessage: string,
+  ): Promise<typeof heartbeatRuns.$inferSelect | null> {
+    const retryCount = getTransientRetryCount(run) + 1;
+    if (retryCount > MAX_TRANSIENT_RETRIES) return null;
+
+    const delayMs = TRANSIENT_RETRY_BASE_DELAY_MS * Math.pow(TRANSIENT_RETRY_BACKOFF_MULTIPLIER, retryCount - 1);
+    const now = new Date();
+    const contextSnapshot = parseObject(run.contextSnapshot);
+    const issueId = readNonEmptyString(contextSnapshot.issueId);
+    const taskKey = deriveTaskKey(contextSnapshot, null);
+    const sessionBefore = await resolveSessionBeforeForWakeup(agent, taskKey);
+
+    const retryContextSnapshot = {
+      ...contextSnapshot,
+      retryOfRunId: run.id,
+      wakeReason: "transient_api_retry",
+      retryReason: "transient_api_error",
+      transientRetryCount: retryCount,
+    };
+
+    const queued = await db.transaction(async (tx) => {
+      const wakeupRequest = await tx
+        .insert(agentWakeupRequests)
+        .values({
+          companyId: run.companyId,
+          agentId: run.agentId,
+          source: "automation",
+          triggerDetail: "system",
+          reason: "transient_api_retry",
+          payload: {
+            ...(issueId ? { issueId } : {}),
+            retryOfRunId: run.id,
+            retryCount,
+            delayMs,
+          },
+          status: "queued",
+          requestedByActorType: "system",
+          requestedByActorId: null,
+          updatedAt: now,
+        })
+        .returning()
+        .then((rows) => rows[0]);
+
+      const retryRun = await tx
+        .insert(heartbeatRuns)
+        .values({
+          companyId: run.companyId,
+          agentId: run.agentId,
+          invocationSource: "automation",
+          triggerDetail: "system",
+          status: "queued",
+          wakeupRequestId: wakeupRequest.id,
+          contextSnapshot: retryContextSnapshot,
+          sessionIdBefore: sessionBefore,
+          retryOfRunId: run.id,
+          processLossRetryCount: run.processLossRetryCount ?? 0,
+          updatedAt: now,
+        })
+        .returning()
+        .then((rows) => rows[0]);
+
+      await tx
+        .update(agentWakeupRequests)
+        .set({ runId: retryRun.id, updatedAt: now })
+        .where(eq(agentWakeupRequests.id, wakeupRequest.id));
+
+      if (issueId) {
+        await tx
+          .update(issues)
+          .set({
+            executionRunId: retryRun.id,
+            executionAgentNameKey: normalizeAgentNameKey(agent.name),
+            executionLockedAt: now,
+            updatedAt: now,
+          })
+          .where(and(eq(issues.id, issueId), eq(issues.companyId, run.companyId), eq(issues.executionRunId, run.id)));
+      }
+
+      return retryRun;
+    });
+
+    publishLiveEvent({
+      companyId: queued.companyId,
+      type: "heartbeat.run.queued",
+      payload: {
+        runId: queued.id,
+        agentId: queued.agentId,
+        invocationSource: queued.invocationSource,
+        triggerDetail: queued.triggerDetail,
+        wakeupRequestId: queued.wakeupRequestId,
+      },
+    });
+
+    await appendRunEvent(queued, 1, {
+      eventType: "lifecycle",
+      stream: "system",
+      level: "warn",
+      message: `Queued automatic retry ${retryCount}/${MAX_TRANSIENT_RETRIES} after transient API failure (delay: ${Math.round(delayMs / 1000)}s)`,
+      payload: {
+        retryOfRunId: run.id,
+        retryCount,
+        delayMs,
+        originalError: errorMessage.slice(0, 200),
+      },
+    });
+
+    // Schedule delayed execution
+    setTimeout(() => {
+      void startNextQueuedRunForAgent(agent.id);
+    }, delayMs);
+
+    logger.info(
+      `[heartbeat] Transient API retry ${retryCount}/${MAX_TRANSIENT_RETRIES} queued for agent ${agent.id} (run ${run.id}), delay ${delayMs}ms`,
+    );
+
+    return queued;
+  }
+
   function parseHeartbeatPolicy(agent: typeof agents.$inferSelect) {
     const runtimeConfig = parseObject(agent.runtimeConfig);
     const heartbeat = parseObject(runtimeConfig.heartbeat);
@@ -2474,6 +2620,47 @@ export function heartbeatService(db: Db) {
         outcome = "succeeded";
       } else {
         outcome = "failed";
+      }
+
+      // Auto-retry on transient API failures (500, 529, overloaded)
+      if (outcome === "failed" && isTransientApiError(adapterResult.errorMessage)) {
+        const retryCount = getTransientRetryCount(run);
+        if (retryCount < MAX_TRANSIENT_RETRIES) {
+          const errorMsg = adapterResult.errorMessage ?? "Transient API error";
+
+          // Mark current run as failed with retry note
+          let logSummary: { bytes: number; sha256?: string; compressed: boolean } | null = null;
+          if (handle) {
+            logSummary = await runLogStore.finalize(handle);
+          }
+          await setRunStatus(run.id, "failed", {
+            finishedAt: new Date(),
+            error: redactCurrentUserText(
+              `${errorMsg}; auto-retrying (attempt ${retryCount + 1}/${MAX_TRANSIENT_RETRIES})`,
+              currentUserRedactionOptions,
+            ),
+            errorCode: "transient_api_error",
+            exitCode: adapterResult.exitCode,
+            signal: adapterResult.signal,
+            stdoutExcerpt,
+            stderrExcerpt,
+            logBytes: logSummary?.bytes,
+            logSha256: logSummary?.sha256,
+            logCompressed: logSummary?.compressed ?? false,
+          });
+          await setWakeupStatus(run.wakeupRequestId, "failed", {
+            finishedAt: new Date(),
+            error: errorMsg,
+          });
+
+          const retryRun = await enqueueTransientRetry(run, agent, errorMsg);
+          if (retryRun) {
+            await finalizeAgentStatus(agent.id, "failed");
+            activeRunExecutions.delete(run.id);
+            return;
+          }
+          // If retry enqueue failed, fall through to normal failure handling
+        }
       }
 
       let logSummary: { bytes: number; sha256?: string; compressed: boolean } | null = null;
