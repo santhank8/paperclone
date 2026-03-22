@@ -27,6 +27,15 @@ export function chatRoutes(db: Db) {
     return agent;
   }
 
+  router.get("/companies/:companyId/chat/sessions", async (req, res) => {
+    const companyId = req.params.companyId as string;
+    assertCompanyAccess(req, companyId);
+    const limitRaw = req.query.limit;
+    const limit = typeof limitRaw === "string" ? Math.min(Math.max(parseInt(limitRaw, 10) || 100, 1), 500) : 100;
+    const sessions = await chat.listCompanySessions(companyId, { limit });
+    res.json(sessions);
+  });
+
   router.get("/agents/:agentId/chat/sessions", async (req, res) => {
     const agent = await resolveAgent(req, res);
     if (!agent) return;

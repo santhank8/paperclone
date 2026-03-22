@@ -23,6 +23,7 @@ import { Skills } from "./pages/Skills";
 import { Webhooks } from "./pages/Webhooks";
 import { Activity } from "./pages/Activity";
 import { Inbox } from "./pages/Inbox";
+import { Chat } from "./pages/Chat";
 import { CompanySettings } from "./pages/CompanySettings";
 import { DesignGuide } from "./pages/DesignGuide";
 import { OrgChart } from "./pages/OrgChart";
@@ -146,6 +147,8 @@ function boardRoutes() {
       <Route path="inbox/unread" element={<Inbox />} />
       <Route path="inbox/all" element={<Inbox />} />
       <Route path="inbox/new" element={<Navigate to="/inbox/recent" replace />} />
+      <Route path="chat" element={<Chat />} />
+      <Route path="chat/:agentId" element={<Chat />} />
       <Route path="design-guide" element={<DesignGuide />} />
       <Route path="skills" element={<Skills />} />
       <Route path="webhooks" element={<Webhooks />} />
@@ -250,6 +253,8 @@ export function App() {
           <Route path="projects/:projectId/issues" element={<UnprefixedBoardRedirect />} />
           <Route path="projects/:projectId/issues/:filter" element={<UnprefixedBoardRedirect />} />
           <Route path="projects/:projectId/configuration" element={<UnprefixedBoardRedirect />} />
+          <Route path="chat" element={<UnprefixedBoardRedirect />} />
+          <Route path="chat/:agentId" element={<UnprefixedBoardRedirect />} />
           <Route path="skills" element={<UnprefixedBoardRedirect />} />
           <Route path="webhooks" element={<UnprefixedBoardRedirect />} />
           <Route path=":companyPrefix" element={<Layout />}>

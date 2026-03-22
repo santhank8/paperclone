@@ -98,11 +98,13 @@ export function AgentChatSessionTab({
   agentRouteId,
   adapterType,
   agentName,
+  fillContainer = false,
 }: {
   agentId: string;
   agentRouteId: string;
   adapterType: string;
   agentName: string;
+  fillContainer?: boolean;
 }) {
   const queryClient = useQueryClient();
   const sessionsQueryKey = queryKeys.chatSessions(agentId, true);
@@ -649,8 +651,8 @@ export function AgentChatSessionTab({
   );
 
   return (
-    <div className="overflow-hidden rounded-lg border border-border bg-background">
-      <div className="grid h-[74vh] min-h-[34rem] grid-cols-[18rem_1fr]">
+    <div className={cn("overflow-hidden bg-background", fillContainer ? "h-full" : "rounded-lg border border-border")}>
+      <div className={cn("grid grid-cols-[18rem_1fr]", fillContainer ? "h-full" : "h-[74vh] min-h-[34rem]")}>
         <aside className="border-r border-border bg-card/40 p-3">
           <div className="mb-3 space-y-2">
             <div className="flex items-center justify-between gap-2">

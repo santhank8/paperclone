@@ -72,6 +72,8 @@ export const queryKeys = {
   runDetail: (runId: string) => ["heartbeat-run", runId] as const,
   liveRuns: (companyId: string) => ["live-runs", companyId] as const,
   runIssues: (runId: string) => ["run-issues", runId] as const,
+  chatCompanySessions: (companyId: string) =>
+    ["chat", "company-sessions", companyId] as const,
   chatSessions: (agentId: string, includeArchived: boolean = false) =>
     ["chat", "sessions", agentId, includeArchived ? "with-archived" : "active-only"] as const,
   chatMessages: (agentId: string, sessionId: string) => ["chat", "messages", agentId, sessionId] as const,
@@ -99,6 +101,8 @@ export const queryKeys = {
     content: (agentId: string, path: string) => ["workspace", "content", agentId, path] as const,
   },
   mcpServers: (agentId: string) => ["mcp-servers", agentId] as const,
+  mcpInstructions: (agentId: string, serverName: string) =>
+    ["mcp-instructions", agentId, serverName] as const,
   inboxDismissals: (companyId: string) => ["inbox-dismissals", companyId] as const,
   org: (companyId: string) => ["org", companyId] as const,
 };

@@ -21,6 +21,14 @@ export interface ChatLogEvent {
 }
 
 export const chatApi = {
+  listCompanySessions: (companyId: string, options?: { limit?: number }) => {
+    const params = new URLSearchParams();
+    if (options?.limit) params.set("limit", String(options.limit));
+    const suffix = params.toString();
+    return api.get<ChatSession[]>(
+      `/companies/${encodeURIComponent(companyId)}/chat/sessions${suffix ? `?${suffix}` : ""}`,
+    );
+  },
   listSessions: (agentId: string, options?: { includeArchived?: boolean }) => {
     const includeArchived = options?.includeArchived ?? false;
     const params = new URLSearchParams();

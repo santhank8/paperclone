@@ -378,6 +378,17 @@ export function chatService(db: Db) {
       return query.then((rows) => rows.map(normalizeChatSession));
     },
 
+    listCompanySessions: async (companyId: string, opts?: { limit?: number }) => {
+      const limit = opts?.limit ?? 100;
+      return db
+        .select()
+        .from(chatSessions)
+        .where(eq(chatSessions.companyId, companyId))
+        .orderBy(desc(chatSessions.updatedAt))
+        .limit(limit)
+        .then((rows) => rows.map(normalizeChatSession));
+    },
+
     getOrCreateDefaultSession: async (agentId: string) => {
       const agent = await agents.getById(agentId);
       if (!agent) throw notFound("Agent not found");
