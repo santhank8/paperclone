@@ -62,13 +62,13 @@ export async function testEnvironment(
     checks.push({
       code: "claude_cwd_valid",
       level: "info",
-      message: `Working directory is valid: ${cwd}`,
+      message: `工作目录有效：${cwd}`,
     });
   } catch (err) {
     checks.push({
       code: "claude_cwd_invalid",
       level: "error",
-      message: err instanceof Error ? err.message : "Invalid working directory",
+      message: err instanceof Error ? err.message : "工作目录无效",
       detail: cwd,
     });
   }
@@ -84,13 +84,13 @@ export async function testEnvironment(
     checks.push({
       code: "claude_command_resolvable",
       level: "info",
-      message: `Command is executable: ${command}`,
+      message: `命令可执行：${command}`,
     });
   } catch (err) {
     checks.push({
       code: "claude_command_unresolvable",
       level: "error",
-      message: err instanceof Error ? err.message : "Command is not executable",
+      message: err instanceof Error ? err.message : "命令不可执行",
       detail: command,
     });
   }
@@ -98,20 +98,20 @@ export async function testEnvironment(
   const configApiKey = env.ANTHROPIC_API_KEY;
   const hostApiKey = process.env.ANTHROPIC_API_KEY;
   if (isNonEmpty(configApiKey) || isNonEmpty(hostApiKey)) {
-    const source = isNonEmpty(configApiKey) ? "adapter config env" : "server environment";
+    const source = isNonEmpty(configApiKey) ? "适配器配置环境变量" : "服务器环境变量";
     checks.push({
       code: "claude_anthropic_api_key_overrides_subscription",
       level: "warn",
       message:
-        "ANTHROPIC_API_KEY is set. Claude will use API-key auth instead of subscription credentials.",
-      detail: `Detected in ${source}.`,
-      hint: "Unset ANTHROPIC_API_KEY if you want subscription-based Claude login behavior.",
+        "已设置 ANTHROPIC_API_KEY。Claude 将使用 API 密钥认证而非订阅凭据。",
+      detail: `在 ${source} 中检测到。`,
+      hint: "如果希望使用基于订阅的 Claude 登录方式，请取消设置 ANTHROPIC_API_KEY。",
     });
   } else {
     checks.push({
       code: "claude_subscription_mode_possible",
       level: "info",
-      message: "ANTHROPIC_API_KEY is not set; subscription-based auth can be used if Claude is logged in.",
+      message: "未设置 ANTHROPIC_API_KEY；如果 Claude 已登录，可使用基于订阅的认证。",
     });
   }
 
@@ -122,9 +122,9 @@ export async function testEnvironment(
       checks.push({
         code: "claude_hello_probe_skipped_custom_command",
         level: "info",
-        message: "Skipped hello probe because command is not `claude`.",
+        message: "由于命令不是 `claude`，已跳过 hello 探测。",
         detail: command,
-        hint: "Use the `claude` CLI command to run the automatic login and installation probe.",
+        hint: "使用 `claude` CLI 命令运行自动登录和安装探测。",
       });
     } else {
       const model = asString(config.model, "").trim();
@@ -173,18 +173,18 @@ export async function testEnvironment(
         checks.push({
           code: "claude_hello_probe_timed_out",
           level: "warn",
-          message: "Claude hello probe timed out.",
-          hint: "Retry the probe. If this persists, verify Claude can run `Respond with hello` from this directory manually.",
+          message: "Claude hello 探测超时。",
+          hint: "请重试探测。如果问题持续，请手动在此目录中验证 Claude 是否可以运行 `Respond with hello`。",
         });
       } else if (loginMeta.requiresLogin) {
         checks.push({
           code: "claude_hello_probe_auth_required",
           level: "warn",
-          message: "Claude CLI is installed, but login is required.",
+          message: "Claude CLI 已安装，但需要登录。",
           ...(detail ? { detail } : {}),
           hint: loginMeta.loginUrl
-            ? `Run \`claude login\` and complete sign-in at ${loginMeta.loginUrl}, then retry.`
-            : "Run `claude login` in this environment, then retry the probe.",
+            ? `运行 \`claude login\` 并在 ${loginMeta.loginUrl} 完成登录，然后重试。`
+            : "在此环境中运行 `claude login`，然后重试探测。",
         });
       } else if ((probe.exitCode ?? 1) === 0) {
         const summary = parsedStream.summary.trim();
@@ -193,22 +193,22 @@ export async function testEnvironment(
           code: hasHello ? "claude_hello_probe_passed" : "claude_hello_probe_unexpected_output",
           level: hasHello ? "info" : "warn",
           message: hasHello
-            ? "Claude hello probe succeeded."
-            : "Claude probe ran but did not return `hello` as expected.",
+            ? "Claude hello 探测成功。"
+            : "Claude 探测已运行，但未按预期返回 `hello`。",
           ...(summary ? { detail: summary.replace(/\s+/g, " ").trim().slice(0, 240) } : {}),
           ...(hasHello
             ? {}
             : {
-                hint: "Try the probe manually (`claude --print - --output-format stream-json --verbose`) and prompt `Respond with hello`.",
+                hint: "手动尝试探测（`claude --print - --output-format stream-json --verbose`）并提示 `Respond with hello`。",
               }),
         });
       } else {
         checks.push({
           code: "claude_hello_probe_failed",
           level: "error",
-          message: "Claude hello probe failed.",
+          message: "Claude hello 探测失败。",
           ...(detail ? { detail } : {}),
-          hint: "Run `claude --print - --output-format stream-json --verbose` manually in this directory and prompt `Respond with hello` to debug.",
+          hint: "在此目录中手动运行 `claude --print - --output-format stream-json --verbose` 并提示 `Respond with hello` 进行调试。",
         });
       }
     }

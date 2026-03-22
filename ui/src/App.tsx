@@ -91,7 +91,7 @@ function CloudAccessGate() {
   });
 
   if (healthQuery.isLoading || (isAuthenticatedMode && sessionQuery.isLoading)) {
-    return <div className="mx-auto max-w-xl py-10 text-sm text-muted-foreground">Loading...</div>;
+    return <div className="mx-auto max-w-xl py-10 text-sm text-muted-foreground">加载中...</div>;
   }
 
   if (healthQuery.error) {
@@ -194,15 +194,15 @@ function OnboardingRoutePage() {
     : null;
 
   const title = matchedCompany
-    ? `Add another agent to ${matchedCompany.name}`
+    ? `为 ${matchedCompany.name} 添加智能体`
     : companies.length > 0
-      ? "Create another company"
-      : "Create your first company";
+      ? "创建新公司"
+      : "创建您的第一家公司";
   const description = matchedCompany
-    ? "Run onboarding again to add an agent and a starter task for this company."
+    ? "再次运行引导流程，为该公司添加一个智能体和起始任务。"
     : companies.length > 0
-      ? "Run onboarding again to create another company and seed its first agent."
-      : "Get started by creating a company and your first agent.";
+      ? "再次运行引导流程，创建新公司并配置第一个智能体。"
+      : "开始创建一家公司和您的第一个智能体。";
 
   return (
     <div className="mx-auto max-w-xl py-10">
@@ -217,7 +217,7 @@ function OnboardingRoutePage() {
                 : openOnboarding()
             }
           >
-            {matchedCompany ? "Add Agent" : "Start Onboarding"}
+            {matchedCompany ? "添加智能体" : "开始引导"}
           </Button>
         </div>
       </div>
@@ -230,7 +230,7 @@ function CompanyRootRedirect() {
   const location = useLocation();
 
   if (loading) {
-    return <div className="mx-auto max-w-xl py-10 text-sm text-muted-foreground">Loading...</div>;
+    return <div className="mx-auto max-w-xl py-10 text-sm text-muted-foreground">加载中...</div>;
   }
 
   const targetCompany = selectedCompany ?? companies[0] ?? null;
@@ -254,7 +254,7 @@ function UnprefixedBoardRedirect() {
   const { companies, selectedCompany, loading } = useCompany();
 
   if (loading) {
-    return <div className="mx-auto max-w-xl py-10 text-sm text-muted-foreground">Loading...</div>;
+    return <div className="mx-auto max-w-xl py-10 text-sm text-muted-foreground">加载中...</div>;
   }
 
   const targetCompany = selectedCompany ?? companies[0] ?? null;
@@ -284,12 +284,12 @@ function NoCompaniesStartPage() {
   return (
     <div className="mx-auto max-w-xl py-10">
       <div className="rounded-lg border border-border bg-card p-6">
-        <h1 className="text-xl font-semibold">Create your first company</h1>
+        <h1 className="text-xl font-semibold">创建您的第一家公司</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Get started by creating a company.
+          开始创建一家公司。
         </p>
         <div className="mt-4">
-          <Button onClick={() => openOnboarding()}>New Company</Button>
+          <Button onClick={() => openOnboarding()}>新建公司</Button>
         </div>
       </div>
     </div>

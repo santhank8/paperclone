@@ -357,11 +357,11 @@ export function RoutineDetail() {
   const copySecretValue = async (label: string, value: string) => {
     try {
       await navigator.clipboard.writeText(value);
-      pushToast({ title: `${label} copied`, tone: "success" });
+      pushToast({ title: `${label} 已复制`, tone: "success" });
     } catch (error) {
       pushToast({
-        title: `Failed to copy ${label.toLowerCase()}`,
-        body: error instanceof Error ? error.message : "Clipboard access was denied.",
+        title: `复制 ${label.toLowerCase()} 失败`,
+        body: error instanceof Error ? error.message : "剪贴板访问被拒绝。",
         tone: "error",
       });
     }

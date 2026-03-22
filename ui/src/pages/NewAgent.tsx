@@ -153,27 +153,27 @@ export function NewAgent() {
     if (configValues.adapterType === "opencode_local") {
       const selectedModel = configValues.model.trim();
       if (!selectedModel) {
-        setFormError("OpenCode requires an explicit model in provider/model format.");
+        setFormError("OpenCode 需要以 provider/model 格式指定模型。");
         return;
       }
       if (adapterModelsError) {
         setFormError(
           adapterModelsError instanceof Error
             ? adapterModelsError.message
-            : "Failed to load OpenCode models.",
+            : "加载 OpenCode 模型失败。",
         );
         return;
       }
       if (adapterModelsLoading || adapterModelsFetching) {
-        setFormError("OpenCode models are still loading. Please wait and try again.");
+        setFormError("OpenCode 模型仍在加载中，请稍候再试。");
         return;
       }
       const discovered = adapterModels ?? [];
       if (!discovered.some((entry) => entry.id === selectedModel)) {
         setFormError(
           discovered.length === 0
-            ? "No OpenCode models discovered. Run `opencode models` and authenticate providers."
-            : `Configured OpenCode model is unavailable: ${selectedModel}`,
+            ? "未发现 OpenCode 模型。请运行 `opencode models` 并完成提供商认证。"
+            : `配置的 OpenCode 模型不可用：${selectedModel}`,
         );
         return;
       }

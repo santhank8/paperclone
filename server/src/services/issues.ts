@@ -334,15 +334,15 @@ export function issueService(db: Db) {
       .where(eq(agents.id, agentId))
       .then((rows) => rows[0] ?? null);
 
-    if (!assignee) throw notFound("Assignee agent not found");
+    if (!assignee) throw notFound("未找到受理代理");
     if (assignee.companyId !== companyId) {
-      throw unprocessable("Assignee must belong to same company");
+      throw unprocessable("受理方必须属于同一组织");
     }
     if (assignee.status === "pending_approval") {
-      throw conflict("Cannot assign work to pending approval agents");
+      throw conflict("无法将工作分配给待审批的代理");
     }
     if (assignee.status === "terminated") {
-      throw conflict("Cannot assign work to terminated agents");
+      throw conflict("无法将工作分配给已终止的代理");
     }
   }
 
@@ -360,7 +360,7 @@ export function issueService(db: Db) {
       )
       .then((rows) => rows[0] ?? null);
     if (!membership) {
-      throw notFound("Assignee user not found");
+      throw notFound("未找到受理用户");
     }
   }
 
@@ -374,7 +374,7 @@ export function issueService(db: Db) {
       .from(projectWorkspaces)
       .where(eq(projectWorkspaces.id, projectWorkspaceId))
       .then((rows) => rows[0] ?? null);
-    if (!workspace) throw notFound("Project workspace not found");
+    if (!workspace) throw notFound("未找到项目工作区");
     if (workspace.companyId !== companyId) throw unprocessable("Project workspace must belong to same company");
     if (projectId && workspace.projectId !== projectId) {
       throw unprocessable("Project workspace must belong to the selected project");
@@ -391,7 +391,7 @@ export function issueService(db: Db) {
       .from(executionWorkspaces)
       .where(eq(executionWorkspaces.id, executionWorkspaceId))
       .then((rows) => rows[0] ?? null);
-    if (!workspace) throw notFound("Execution workspace not found");
+    if (!workspace) throw notFound("未找到执行工作区");
     if (workspace.companyId !== companyId) throw unprocessable("Execution workspace must belong to same company");
     if (projectId && workspace.projectId !== projectId) {
       throw unprocessable("Execution workspace must belong to the selected project");
@@ -928,7 +928,7 @@ export function issueService(db: Db) {
         .from(issues)
         .where(eq(issues.id, id))
         .then((rows) => rows[0] ?? null);
-      if (!issueCompany) throw notFound("Issue not found");
+      if (!issueCompany) throw notFound("未找到任务");
       await assertAssignableAgent(issueCompany.companyId, agentId);
 
       const now = new Date();
@@ -980,7 +980,7 @@ export function issueService(db: Db) {
         .where(eq(issues.id, id))
         .then((rows) => rows[0] ?? null);
 
-      if (!current) throw notFound("Issue not found");
+      if (!current) throw notFound("未找到任务");
 
       if (
         current.assigneeAgentId === agentId &&
@@ -1041,7 +1041,7 @@ export function issueService(db: Db) {
         return enriched;
       }
 
-      throw conflict("Issue checkout conflict", {
+      throw conflict("任务签出冲突", {
         issueId: current.id,
         status: current.status,
         assigneeAgentId: current.assigneeAgentId,
@@ -1062,7 +1062,7 @@ export function issueService(db: Db) {
         .where(eq(issues.id, id))
         .then((rows) => rows[0] ?? null);
 
-      if (!current) throw notFound("Issue not found");
+      if (!current) throw notFound("未找到任务");
 
       if (
         current.status === "in_progress" &&
@@ -1094,7 +1094,7 @@ export function issueService(db: Db) {
         }
       }
 
-      throw conflict("Issue run ownership conflict", {
+      throw conflict("任务运行所有权冲突", {
         issueId: current.id,
         status: current.status,
         assigneeAgentId: current.assigneeAgentId,
@@ -1113,7 +1113,7 @@ export function issueService(db: Db) {
 
       if (!existing) return null;
       if (actorAgentId && existing.assigneeAgentId && existing.assigneeAgentId !== actorAgentId) {
-        throw conflict("Only assignee can release issue");
+        throw conflict("只有受理方才能释放任务");
       }
       if (
         actorAgentId &&
@@ -1122,7 +1122,7 @@ export function issueService(db: Db) {
         existing.checkoutRunId &&
         !sameRunLock(existing.checkoutRunId, actorRunId ?? null)
       ) {
-        throw conflict("Only checkout run can release issue", {
+        throw conflict("只有签出运行才能释放任务", {
           issueId: existing.id,
           assigneeAgentId: existing.assigneeAgentId,
           checkoutRunId: existing.checkoutRunId,
@@ -1275,7 +1275,7 @@ export function issueService(db: Db) {
         .where(eq(issues.id, issueId))
         .then((rows) => rows[0] ?? null);
 
-      if (!issue) throw notFound("Issue not found");
+      if (!issue) throw notFound("未找到任务");
 
       const currentUserRedactionOptions = {
         enabled: (await instanceSettings.getGeneral()).censorUsernameInLogs,
@@ -1318,7 +1318,7 @@ export function issueService(db: Db) {
         .from(issues)
         .where(eq(issues.id, input.issueId))
         .then((rows) => rows[0] ?? null);
-      if (!issue) throw notFound("Issue not found");
+      if (!issue) throw notFound("未找到任务");
 
       if (input.issueCommentId) {
         const comment = await db
@@ -1326,9 +1326,9 @@ export function issueService(db: Db) {
           .from(issueComments)
           .where(eq(issueComments.id, input.issueCommentId))
           .then((rows) => rows[0] ?? null);
-        if (!comment) throw notFound("Issue comment not found");
+        if (!comment) throw notFound("未找到任务评论");
         if (comment.companyId !== issue.companyId || comment.issueId !== issue.id) {
-          throw unprocessable("Attachment comment must belong to same issue and company");
+          throw unprocessable("附件评论必须属于同一任务和组织");
         }
       }
 
