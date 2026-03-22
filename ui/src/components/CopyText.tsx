@@ -30,7 +30,7 @@ export function CopyText({ text, children, className, copiedLabel = "Copied!" }:
 
   return (
     <span className="relative inline-flex">
-      <button
+      <button type="button"
         ref={triggerRef}
         type="button"
         className={cn(

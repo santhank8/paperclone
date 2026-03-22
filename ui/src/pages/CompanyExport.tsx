@@ -312,7 +312,7 @@ function FrontmatterCard({
               {Array.isArray(value) ? (
                 <div className="flex flex-wrap gap-1.5">
                   {value.map((item) => (
-                    <button
+                    <button type="button"
                       key={item}
                       type="button"
                       className={cn(

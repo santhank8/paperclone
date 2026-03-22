@@ -232,7 +232,7 @@ export function InviteLandingPage() {
         {invite.inviteType !== "bootstrap_ceo" && (
           <div className="mt-5 flex gap-2">
             {availableJoinTypes.map((type) => (
-              <button
+              <button type="button"
                 key={type}
                 type="button"
                 onClick={() => setJoinType(type)}

@@ -70,7 +70,7 @@ export function MobileBottomNav({ visible }: MobileBottomNavProps) {
             const Icon = item.icon;
             const active = /\/issues\/new(?:\/|$)/.test(location.pathname);
             return (
-              <button
+              <button type="button"
                 key={item.label}
                 type="button"
                 onClick={item.onClick}

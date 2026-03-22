@@ -218,7 +218,7 @@ export function RunTranscriptUxLab() {
               {surfaceOptions.map((option) => {
                 const Icon = option.icon;
                 return (
-                  <button
+                  <button type="button"
                     key={option.id}
                     type="button"
                     onClick={() => setSelectedSurface(option.id)}
@@ -277,7 +277,7 @@ export function RunTranscriptUxLab() {
               </span>
               <div className="inline-flex rounded-full border border-border/70 bg-background/80 p-1">
                 {(["nice", "raw"] as const).map((mode) => (
-                  <button
+                  <button type="button"
                     key={mode}
                     type="button"
                     className={cn(
@@ -292,7 +292,7 @@ export function RunTranscriptUxLab() {
               </div>
               <div className="inline-flex rounded-full border border-border/70 bg-background/80 p-1">
                 {(["comfortable", "compact"] as const).map((nextDensity) => (
-                  <button
+                  <button type="button"
                     key={nextDensity}
                     type="button"
                     className={cn(

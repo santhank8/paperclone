@@ -40,12 +40,12 @@ export function StatusIcon({ status, onChange, className, showLabel }: StatusIco
   if (!onChange) return showLabel ? <span className="inline-flex items-center gap-1.5">{circle}<span className="text-sm">{statusLabel(status)}</span></span> : circle;
 
   const trigger = showLabel ? (
-    <button className="inline-flex items-center gap-1.5 cursor-pointer hover:bg-accent/50 rounded px-1 -mx-1 py-0.5 transition-colors">
+    <button type="button" className="inline-flex items-center gap-1.5 cursor-pointer hover:bg-accent/50 rounded px-1 -mx-1 py-0.5 transition-colors">
       {circle}
       <span className="text-sm">{statusLabel(status)}</span>
     </button>
   ) : (
-    <button
+    <button type="button"
       className="inline-flex items-center justify-center cursor-pointer hover:bg-accent/50 rounded p-0.5 transition-colors"
       aria-label={`Change status: ${statusLabel(status)}`}
       aria-haspopup="listbox"

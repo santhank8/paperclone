@@ -116,7 +116,7 @@ export const InlineEntitySelector = forwardRef<HTMLButtonElement, InlineEntitySe
         }}
       >
         <PopoverTrigger asChild>
-          <button
+          <button type="button"
             ref={ref}
             type="button"
             aria-expanded={open}
@@ -207,7 +207,7 @@ export const InlineEntitySelector = forwardRef<HTMLButtonElement, InlineEntitySe
                 const isSelected = option.id === value;
                 const isHighlighted = index === highlightedIndex;
                 return (
-                  <button
+                  <button type="button"
                     key={option.id || "__none__"}
                     type="button"
                     className={cn(

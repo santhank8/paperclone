@@ -506,7 +506,7 @@ export default function LogViewer({ run, adapterType }: { run: HeartbeatRun; ada
         <div className="flex items-center gap-2">
           <div className="inline-flex rounded-lg border border-border/70 bg-background/70 p-0.5">
             {(["nice", "raw"] as const).map((mode) => (
-              <button
+              <button type="button"
                 key={mode}
                 type="button"
                 className={cn(

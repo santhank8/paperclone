@@ -80,7 +80,7 @@ export function PathInstructionsModal({
         {/* Platform tabs */}
         <div className="flex gap-1 rounded-md border border-border p-0.5">
           {platforms.map((p) => (
-            <button
+            <button type="button"
               key={p.id}
               type="button"
               className={cn(

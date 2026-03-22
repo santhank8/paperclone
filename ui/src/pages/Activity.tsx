@@ -155,7 +155,7 @@ export function Activity() {
 
       {hasMore && (
         <div className="flex justify-center">
-          <button
+          <button type="button"
             className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors px-3 py-1.5 border border-border rounded-md hover:bg-muted"
             onClick={() => setVisibleCount((c) => c + 50)}
           >
