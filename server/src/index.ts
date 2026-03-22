@@ -708,25 +708,30 @@ export async function startServer(): Promise<StartedServer> {
     });
   });
   
-  if (embeddedPostgres && embeddedPostgresStartedByThisProcess) {
-    const shutdown = async (signal: "SIGINT" | "SIGTERM") => {
-      logger.info({ signal }, "Stopping embedded PostgreSQL");
+  const shutdown = async (signal: "SIGINT" | "SIGTERM") => {
+    logger.info({ signal }, "Graceful shutdown: closing HTTP server");
+    // Close HTTP server first so port 3100 is released before PM2 starts the next
+    // process — prevents EADDRINUSE on rapid restarts.
+    await new Promise<void>((resolve) => {
+      const timeout = setTimeout(() => resolve(), 5000);
+      server.close(() => {
+        clearTimeout(timeout);
+        resolve();
+      });
+    });
+    if (embeddedPostgres && embeddedPostgresStartedByThisProcess) {
+      logger.info({ signal }, "HTTP server closed; stopping embedded PostgreSQL");
       try {
-        await embeddedPostgres?.stop();
+        await embeddedPostgres.stop();
       } catch (err) {
         logger.error({ err }, "Failed to stop embedded PostgreSQL cleanly");
-      } finally {
-        process.exit(0);
       }
-    };
-  
-    process.once("SIGINT", () => {
-      void shutdown("SIGINT");
-    });
-    process.once("SIGTERM", () => {
-      void shutdown("SIGTERM");
-    });
-  }
+    }
+    process.exit(0);
+  };
+
+  process.once("SIGINT", () => { void shutdown("SIGINT"); });
+  process.once("SIGTERM", () => { void shutdown("SIGTERM"); });
 
   return {
     server,
