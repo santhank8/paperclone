@@ -970,12 +970,13 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
                         </div>
                         <div>
                           <div className="mb-1 flex items-center gap-1.5">
-                            <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <label htmlFor="pp-base-ref" className="flex items-center gap-2 text-xs text-muted-foreground">
                               <span>Base ref</span>
                               <SaveIndicator state={fieldState("execution_workspace_base_ref")} />
                             </label>
                           </div>
                           <DraftInput
+                            id="pp-base-ref"
                             value={executionWorkspaceStrategy.baseRef ?? ""}
                             onCommit={(value) =>
                               commitField("execution_workspace_base_ref", {
@@ -994,12 +995,13 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
                         </div>
                         <div>
                           <div className="mb-1 flex items-center gap-1.5">
-                            <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <label htmlFor="pp-branch-template" className="flex items-center gap-2 text-xs text-muted-foreground">
                               <span>Branch template</span>
                               <SaveIndicator state={fieldState("execution_workspace_branch_template")} />
                             </label>
                           </div>
                           <DraftInput
+                            id="pp-branch-template"
                             value={executionWorkspaceStrategy.branchTemplate ?? ""}
                             onCommit={(value) =>
                               commitField("execution_workspace_branch_template", {
@@ -1018,12 +1020,13 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
                         </div>
                         <div>
                           <div className="mb-1 flex items-center gap-1.5">
-                            <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <label htmlFor="pp-worktree-parent-dir" className="flex items-center gap-2 text-xs text-muted-foreground">
                               <span>Worktree parent dir</span>
                               <SaveIndicator state={fieldState("execution_workspace_worktree_parent_dir")} />
                             </label>
                           </div>
                           <DraftInput
+                            id="pp-worktree-parent-dir"
                             value={executionWorkspaceStrategy.worktreeParentDir ?? ""}
                             onCommit={(value) =>
                               commitField("execution_workspace_worktree_parent_dir", {
@@ -1042,12 +1045,13 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
                         </div>
                         <div>
                           <div className="mb-1 flex items-center gap-1.5">
-                            <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <label htmlFor="pp-provision-command" className="flex items-center gap-2 text-xs text-muted-foreground">
                               <span>Provision command</span>
                               <SaveIndicator state={fieldState("execution_workspace_provision_command")} />
                             </label>
                           </div>
                           <DraftInput
+                            id="pp-provision-command"
                             value={executionWorkspaceStrategy.provisionCommand ?? ""}
                             onCommit={(value) =>
                               commitField("execution_workspace_provision_command", {
@@ -1066,12 +1070,13 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
                         </div>
                         <div>
                           <div className="mb-1 flex items-center gap-1.5">
-                            <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <label htmlFor="pp-teardown-command" className="flex items-center gap-2 text-xs text-muted-foreground">
                               <span>Teardown command</span>
                               <SaveIndicator state={fieldState("execution_workspace_teardown_command")} />
                             </label>
                           </div>
                           <DraftInput
+                            id="pp-teardown-command"
                             value={executionWorkspaceStrategy.teardownCommand ?? ""}
                             onCommit={(value) =>
                               commitField("execution_workspace_teardown_command", {
