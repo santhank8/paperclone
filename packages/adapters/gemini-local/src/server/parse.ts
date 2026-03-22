@@ -9,6 +9,9 @@ function collectMessageText(message: unknown): string[] {
   const record = parseObject(message);
   const direct = asString(record.text, "").trim();
   const lines: string[] = direct ? [direct] : [];
+  // Gemini CLI v0.33+ may emit content as a plain string instead of an array of parts
+  const contentString = typeof record.content === "string" ? record.content.trim() : "";
+  if (contentString) lines.push(contentString);
   const content = Array.isArray(record.content) ? record.content : [];
 
   for (const partRaw of content) {
@@ -97,9 +100,11 @@ export function parseGeminiJsonl(stdout: string) {
 
     const type = asString(event.type, "").trim();
 
-    if (type === "assistant") {
-      messages.push(...collectMessageText(event.message));
-      const messageObj = parseObject(event.message);
+    // Gemini CLI v0.33+ emits type:"message" with role:"assistant" instead of type:"assistant"
+    const role = asString(event.role, "").trim();
+    if (type === "assistant" || (type === "message" && role === "assistant")) {
+      messages.push(...collectMessageText(type === "message" ? event : event.message));
+      const messageObj = parseObject(type === "message" ? event : event.message);
       const content = Array.isArray(messageObj.content) ? messageObj.content : [];
       for (const partRaw of content) {
         const part = parseObject(partRaw);
@@ -185,7 +190,7 @@ export function isGeminiUnknownSessionError(stdout: string, stderr: string): boo
     .filter(Boolean)
     .join("\n");
 
-  return /unknown\s+session|session\s+.*\s+not\s+found|resume\s+.*\s+not\s+found|checkpoint\s+.*\s+not\s+found|cannot\s+resume|failed\s+to\s+resume/i.test(
+  return /unknown\s+session|session\s+.*\s+not\s+found|resume\s+.*\s+not\s+found|checkpoint\s+.*\s+not\s+found|cannot\s+resume|failed\s+to\s+resume|no\s+previous\s+sessions?\s+found/i.test(
     haystack,
   );
 }

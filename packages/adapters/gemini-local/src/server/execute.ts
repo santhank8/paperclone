@@ -350,13 +350,19 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
       });
     }
 
+    // Filter out duplicate "YOLO mode is enabled" stderr noise from Gemini CLI
+    const filteredOnLog: typeof onLog = async (stream, chunk) => {
+      if (stream === "stderr" && /YOLO mode is enabled/i.test(chunk)) return;
+      return onLog(stream, chunk);
+    };
+
     const proc = await runChildProcess(runId, command, args, {
       cwd,
       env,
       timeoutSec,
       graceSec,
       onSpawn,
-      onLog,
+      onLog: filteredOnLog,
     });
     return {
       proc,
