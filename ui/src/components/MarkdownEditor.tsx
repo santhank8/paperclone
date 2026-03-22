@@ -621,6 +621,7 @@ export const MarkdownEditor = forwardRef<MarkdownEditorRef, MarkdownEditorProps>
           {filteredMentions.map((option, i) => (
             <button
               key={option.id}
+              type="button"
               className={cn(
                 "flex items-center gap-2 w-full px-3 py-1.5 text-sm text-left hover:bg-accent/50 transition-colors",
                 i === mentionIndex && "bg-accent",
