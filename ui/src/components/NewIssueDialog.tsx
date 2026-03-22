@@ -1141,6 +1141,7 @@ export function NewIssueDialog() {
               </div>
               <select
                 className="w-full rounded border border-border bg-transparent px-2 py-1.5 text-xs outline-none"
+                aria-label="Execution workspace mode"
                 value={executionWorkspaceMode}
                 onChange={(e) => {
                   setExecutionWorkspaceMode(e.target.value);
@@ -1158,6 +1159,7 @@ export function NewIssueDialog() {
               {executionWorkspaceMode === "reuse_existing" && (
                 <select
                   className="w-full rounded border border-border bg-transparent px-2 py-1.5 text-xs outline-none"
+                  aria-label="Select existing workspace"
                   value={selectedExecutionWorkspaceId}
                   onChange={(e) => setSelectedExecutionWorkspaceId(e.target.value)}
                 >
