@@ -23,6 +23,22 @@ describe("stripNullBytes", () => {
     expect(stripNullBytes(true)).toBe(true);
   });
 
+  it("preserves Date instances", () => {
+    const date = new Date("2026-03-22T07:00:00.000Z");
+    const result = stripNullBytes(date);
+    expect(result).toBe(date);
+    expect(result instanceof Date).toBe(true);
+    expect(result.toISOString()).toBe("2026-03-22T07:00:00.000Z");
+  });
+
+  it("preserves Date instances inside objects", () => {
+    const date = new Date("2026-03-22T07:00:00.000Z");
+    const result = stripNullBytes({ finishedAt: date, error: "test\x00msg" });
+    expect(result.finishedAt).toBe(date);
+    expect(result.finishedAt instanceof Date).toBe(true);
+    expect(result.error).toBe("testmsg");
+  });
+
   it("recursively strips from objects", () => {
     expect(
       stripNullBytes({ a: "foo\x00bar", b: 123, c: null }),

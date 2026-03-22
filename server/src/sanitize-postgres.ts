@@ -15,6 +15,7 @@ export function stripNullBytes<T>(value: T): T {
     return value.replace(/\x00/g, "") as T;
   }
   if (value === null || value === undefined) return value;
+  if (value instanceof Date) return value;
   if (Array.isArray(value)) return value.map(stripNullBytes) as T;
   if (typeof value === "object") {
     const out: Record<string, unknown> = {};
