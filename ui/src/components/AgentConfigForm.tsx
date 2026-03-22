@@ -981,7 +981,7 @@ function AdapterTypeDropdown({
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <button className="inline-flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1.5 text-sm hover:bg-accent/50 transition-colors w-full justify-between">
+        <button type="button" className="inline-flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1.5 text-sm hover:bg-accent/50 transition-colors w-full justify-between">
           <span className="inline-flex items-center gap-1.5">
             {value === "opencode_local" ? <OpenCodeLogoIcon className="h-3.5 w-3.5" /> : null}
             <span>{adapterLabels[value] ?? value}</span>
@@ -991,7 +991,7 @@ function AdapterTypeDropdown({
       </PopoverTrigger>
       <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-1" align="start">
         {ADAPTER_DISPLAY_LIST.map((item) => (
-          <button
+          <button type="button"
             key={item.value}
             disabled={item.comingSoon}
             className={cn(
@@ -1338,7 +1338,7 @@ function ModelDropdown({
         }}
       >
         <PopoverTrigger asChild>
-          <button className="inline-flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1.5 text-sm hover:bg-accent/50 transition-colors w-full justify-between">
+          <button type="button" className="inline-flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1.5 text-sm hover:bg-accent/50 transition-colors w-full justify-between">
             <span className={cn(!value && "text-muted-foreground")}>
               {selected
                 ? selected.label
@@ -1357,7 +1357,7 @@ function ModelDropdown({
           />
           <div className="max-h-[240px] overflow-y-auto">
             {allowDefault && (
-              <button
+              <button type="button"
                 className={cn(
                   "flex items-center gap-2 w-full px-2 py-1.5 text-sm rounded hover:bg-accent/50",
                   !value && "bg-accent",
@@ -1378,7 +1378,7 @@ function ModelDropdown({
                   </div>
                 )}
                 {group.entries.map((m) => (
-                  <button
+                  <button type="button"
                     key={m.id}
                     className={cn(
                       "flex items-center w-full px-2 py-1.5 text-sm rounded hover:bg-accent/50",
@@ -1400,7 +1400,7 @@ function ModelDropdown({
               <p className="px-2 py-1.5 text-xs text-muted-foreground">No models found.</p>
             )}
             {modelSearch.trim() && !models.some((m) => m.id === modelSearch.trim()) && (
-              <button
+              <button type="button"
                 className="flex items-center gap-2 w-full px-2 py-1.5 text-sm rounded hover:bg-accent/50 border-t border-border mt-1 pt-2"
                 onClick={() => {
                   onChange(modelSearch.trim());
@@ -1437,14 +1437,14 @@ function ThinkingEffortDropdown({
     <Field label="Thinking effort" hint={help.thinkingEffort}>
       <Popover open={open} onOpenChange={onOpenChange}>
         <PopoverTrigger asChild>
-          <button className="inline-flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1.5 text-sm hover:bg-accent/50 transition-colors w-full justify-between">
+          <button type="button" className="inline-flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1.5 text-sm hover:bg-accent/50 transition-colors w-full justify-between">
             <span className={cn(!value && "text-muted-foreground")}>{selected?.label ?? "Auto"}</span>
             <ChevronDown className="h-3 w-3 text-muted-foreground" />
           </button>
         </PopoverTrigger>
         <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-1" align="start">
           {options.map((option) => (
-            <button
+            <button type="button"
               key={option.id || "auto"}
               className={cn(
                 "flex items-center justify-between w-full px-2 py-1.5 text-sm rounded hover:bg-accent/50",

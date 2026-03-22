@@ -580,7 +580,7 @@ export function OnboardingWizard() {
         <div className="fixed inset-0 z-50 bg-background" />
         <div className="fixed inset-0 z-50 flex" onKeyDown={handleKeyDown}>
           {/* Close button */}
-          <button
+          <button type="button"
             onClick={handleClose}
             className="absolute top-4 left-4 z-10 rounded-sm p-1.5 text-muted-foreground/60 hover:text-foreground transition-colors"
           >
@@ -606,7 +606,7 @@ export function OnboardingWizard() {
                     { step: 4 as Step, label: "Launch", icon: Rocket }
                   ] as const
                 ).map(({ step: s, label, icon: Icon }) => (
-                  <button
+                  <button type="button"
                     key={s}
                     type="button"
                     onClick={() => setStep(s)}
@@ -725,7 +725,7 @@ export function OnboardingWizard() {
                           recommended: true
                         }
                       ].map((opt) => (
-                        <button
+                        <button type="button"
                           key={opt.value}
                           className={cn(
                             "flex flex-col items-center gap-1.5 rounded-md border p-3 text-xs transition-colors relative",
@@ -758,7 +758,7 @@ export function OnboardingWizard() {
                       ))}
                     </div>
 
-                    <button
+                    <button type="button"
                       className="flex items-center gap-1.5 mt-3 text-xs text-muted-foreground hover:text-foreground transition-colors"
                       onClick={() => setShowMoreAdapters((v) => !v)}
                     >
@@ -807,7 +807,7 @@ export function OnboardingWizard() {
                             disabledLabel: "Configure OpenClaw within the App"
                           }
                         ].map((opt) => (
-                          <button
+                          <button type="button"
                             key={opt.value}
                             disabled={!!opt.comingSoon}
                             className={cn(
@@ -873,7 +873,7 @@ export function OnboardingWizard() {
                           }}
                         >
                           <PopoverTrigger asChild>
-                            <button className="inline-flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1.5 text-sm hover:bg-accent/50 transition-colors w-full justify-between">
+                            <button type="button" className="inline-flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1.5 text-sm hover:bg-accent/50 transition-colors w-full justify-between">
                               <span
                                 className={cn(
                                   !model && "text-muted-foreground"
@@ -901,7 +901,7 @@ export function OnboardingWizard() {
                               autoFocus
                             />
                             {adapterType !== "opencode_local" && (
-                              <button
+                              <button type="button"
                                 className={cn(
                                   "flex items-center gap-2 w-full px-2 py-1.5 text-sm rounded hover:bg-accent/50",
                                   !model && "bg-accent"
@@ -926,7 +926,7 @@ export function OnboardingWizard() {
                                     </div>
                                   )}
                                   {group.entries.map((m) => (
-                                    <button
+                                    <button type="button"
                                       key={m.id}
                                       className={cn(
                                         "flex items-center w-full px-2 py-1.5 text-sm rounded hover:bg-accent/50",

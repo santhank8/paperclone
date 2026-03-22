@@ -552,7 +552,7 @@ export function Routines() {
           <>
             <div className="flex flex-wrap gap-1 border-b border-border pb-3 mb-3">
               {(["all", "active", "paused", "archived"] as const).map((filter) => (
-                <button
+                <button type="button"
                   key={filter}
                   type="button"
                   onClick={() => {

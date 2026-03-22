@@ -1048,7 +1048,7 @@ export function CompanyImport() {
               { key: "local", icon: Upload, label: "Local zip" },
             ] as const
           ).map(({ key, icon: Icon, label }) => (
-            <button
+            <button type="button"
               key={key}
               type="button"
               className={cn(

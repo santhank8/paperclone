@@ -121,7 +121,7 @@ function ProjectStatusPicker({ status, onChange }: { status: string; onChange: (
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <button
+        <button type="button"
           className={cn(
             "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium whitespace-nowrap shrink-0 cursor-pointer hover:opacity-80 transition-opacity",
             colorClass,
@@ -534,7 +534,7 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
                     {goal.title}
                   </Link>
                   {(onUpdate || onFieldUpdate) && (
-                    <button
+                    <button type="button"
                       className="text-muted-foreground hover:text-foreground"
                       type="button"
                       onClick={() => removeGoal(goal.id)}
@@ -567,7 +567,7 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
                   </div>
                 ) : (
                   availableGoals.map((goal) => (
-                    <button
+                    <button type="button"
                       key={goal.id}
                       className="flex items-center w-full px-2 py-1.5 text-xs rounded hover:bg-accent/50"
                       onClick={() => addGoal(goal.id)}
@@ -885,7 +885,7 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
                     </div>
                   </div>
                   {onUpdate || onFieldUpdate ? (
-                    <button
+                    <button type="button"
                       className={cn(
                         "relative inline-flex h-5 w-9 items-center rounded-full transition-colors",
                         executionWorkspacesEnabled ? "bg-green-600" : "bg-muted",
@@ -923,7 +923,7 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
                           If disabled, new issues stay on the project's primary checkout unless someone opts in.
                         </div>
                       </div>
-                      <button
+                      <button type="button"
                         className={cn(
                           "relative inline-flex h-5 w-9 items-center rounded-full transition-colors",
                           executionWorkspaceDefaultMode === "isolated_workspace" ? "bg-green-600" : "bg-muted",

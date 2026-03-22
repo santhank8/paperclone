@@ -343,14 +343,14 @@ export function IssuesList({
         <div className="flex items-center gap-0.5 sm:gap-1 shrink-0">
           {/* View mode toggle */}
           <div className="flex items-center border border-border rounded-md overflow-hidden mr-1">
-            <button
+            <button type="button"
               className={`p-1.5 transition-colors ${viewState.viewMode === "list" ? "bg-accent text-foreground" : "text-muted-foreground hover:text-foreground"}`}
               onClick={() => updateView({ viewMode: "list" })}
               title="List view"
             >
               <List className="h-3.5 w-3.5" />
             </button>
-            <button
+            <button type="button"
               className={`p-1.5 transition-colors ${viewState.viewMode === "board" ? "bg-accent text-foreground" : "text-muted-foreground hover:text-foreground"}`}
               onClick={() => updateView({ viewMode: "board" })}
               title="Board view"
@@ -384,7 +384,7 @@ export function IssuesList({
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium">Filters</span>
                   {activeFilterCount > 0 && (
-                    <button
+                    <button type="button"
                       className="text-xs text-muted-foreground hover:text-foreground"
                       onClick={() => updateView({ statuses: [], priorities: [], assignees: [], labels: [] })}
                     >
@@ -400,7 +400,7 @@ export function IssuesList({
                     {quickFilterPresets.map((preset) => {
                       const isActive = arraysEqual(viewState.statuses, preset.statuses);
                       return (
-                        <button
+                        <button type="button"
                           key={preset.label}
                           className={`px-2.5 py-1 text-xs rounded-full border transition-colors ${
                             isActive
@@ -547,7 +547,7 @@ export function IssuesList({
                     ["created", "Created"],
                     ["updated", "Updated"],
                   ] as const).map(([field, label]) => (
-                    <button
+                    <button type="button"
                       key={field}
                       className={`flex items-center justify-between w-full px-2 py-1.5 text-sm rounded-sm ${
                         viewState.sortField === field ? "bg-accent/50 text-foreground" : "hover:bg-accent/50 text-muted-foreground"
@@ -590,7 +590,7 @@ export function IssuesList({
                     ["assignee", "Assignee"],
                     ["none", "None"],
                   ] as const).map(([value, label]) => (
-                    <button
+                    <button type="button"
                       key={value}
                       className={`flex items-center justify-between w-full px-2 py-1.5 text-sm rounded-sm ${
                         viewState.groupBy === value ? "bg-accent/50 text-foreground" : "hover:bg-accent/50 text-muted-foreground"
@@ -745,7 +745,7 @@ export function IssuesList({
                         }}
                       >
                         <PopoverTrigger asChild>
-                          <button
+                          <button type="button"
                             className="flex w-[180px] shrink-0 items-center rounded-md px-2 py-1 transition-colors hover:bg-accent/50"
                             onClick={(e) => {
                               e.preventDefault();
@@ -785,7 +785,7 @@ export function IssuesList({
                             autoFocus
                           />
                           <div className="max-h-48 overflow-y-auto overscroll-contain">
-                            <button
+                            <button type="button"
                               className={cn(
                                 "flex w-full items-center gap-2 rounded px-2 py-1.5 text-xs hover:bg-accent/50",
                                 !issue.assigneeAgentId && !issue.assigneeUserId && "bg-accent",
@@ -799,7 +799,7 @@ export function IssuesList({
                               No assignee
                             </button>
                             {currentUserId && (
-                              <button
+                              <button type="button"
                                 className={cn(
                                   "flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-xs hover:bg-accent/50",
                                   issue.assigneeUserId === currentUserId && "bg-accent",
@@ -822,7 +822,7 @@ export function IssuesList({
                                   .includes(assigneeSearch.toLowerCase());
                               })
                               .map((agent) => (
-                                <button
+                                <button type="button"
                                   key={agent.id}
                                   className={cn(
                                     "flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-xs hover:bg-accent/50",

@@ -98,7 +98,7 @@ export function Goals() {
           <div className="flex items-center justify-between">
             <div className="flex flex-wrap gap-1">
               {FILTER_OPTIONS.map(({ value, label }) => (
-                <button
+                <button type="button"
                   key={value}
                   type="button"
                   onClick={() => handleFilter(value)}

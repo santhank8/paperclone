@@ -93,7 +93,7 @@ export function Projects() {
         {projects.length > 0 ? (
           <div className="flex flex-wrap gap-1">
             {FILTER_OPTIONS.map(({ value, label }) => (
-              <button
+              <button type="button"
                 key={value}
                 onClick={() => handleFilter(value)}
                 className={cn(

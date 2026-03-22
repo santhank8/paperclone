@@ -168,7 +168,7 @@ export function Agents() {
         <div className="flex items-center gap-2">
           {/* Filters */}
           <div className="relative">
-            <button
+            <button type="button"
               className={cn(
                 "flex items-center gap-1.5 px-2 py-1.5 text-xs transition-colors border border-border",
                 filtersOpen || showTerminated ? "text-foreground bg-accent" : "text-muted-foreground hover:bg-accent/50"
@@ -181,7 +181,7 @@ export function Agents() {
             </button>
             {filtersOpen && (
               <div className="absolute right-0 top-full mt-1 z-50 w-48 border border-border bg-popover shadow-md p-1">
-                <button
+                <button type="button"
                   className="flex items-center gap-2 w-full px-2 py-1.5 text-xs text-left hover:bg-accent/50 transition-colors"
                   onClick={() => setShowTerminated(!showTerminated)}
                 >
@@ -199,7 +199,7 @@ export function Agents() {
           {/* View toggle */}
           {!forceListView && (
             <div className="flex items-center border border-border">
-              <button
+              <button type="button"
                 aria-label="List view"
                 aria-pressed={effectiveView === "list"}
                 className={cn(
@@ -210,7 +210,7 @@ export function Agents() {
               >
                 <List className="h-3.5 w-3.5" />
               </button>
-              <button
+              <button type="button"
                 aria-label="Org chart view"
                 aria-pressed={effectiveView === "org"}
                 className={cn(
