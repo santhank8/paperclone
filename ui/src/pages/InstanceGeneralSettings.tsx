@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { LocalizationPack } from "@paperclipai/shared";
+import { localizationPackSchema, type LocalizationPack } from "@paperclipai/shared";
 import { SlidersHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -144,8 +144,12 @@ export function InstanceGeneralSettings() {
     if (!file) return;
     setSelectedImportFileName(file.name);
     try {
-      const parsed = JSON.parse(await file.text()) as LocalizationPack;
-      importLocaleMutation.mutate(parsed);
+      const parsed = localizationPackSchema.safeParse(JSON.parse(await file.text()));
+      if (!parsed.success) {
+        setActionError(t("instance.general.importFailed"));
+        return;
+      }
+      importLocaleMutation.mutate(parsed.data);
     } catch {
       setActionError(t("instance.general.importFailed"));
     } finally {
@@ -245,7 +249,7 @@ export function InstanceGeneralSettings() {
         <div className="space-y-1.5">
           <h2 className="text-sm font-semibold">{t("common.language")}</h2>
           <p className="max-w-2xl text-sm text-muted-foreground">
-            {t("instance.general.defaultLocaleDescription")}
+            {t("instance.general.localePackDescription")}
           </p>
         </div>
 

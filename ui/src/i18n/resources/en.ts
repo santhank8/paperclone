@@ -64,6 +64,7 @@ export const enMessages = {
   "instance.general.defaultLocaleDescription": "Choose the default UI language for this instance. Users can still override it locally.",
   "instance.general.localePreference": "Your language preference",
   "instance.general.localePreferenceDescription": "Choose how this browser resolves language for your own UI session.",
+  "instance.general.localePackDescription": "Download the current language pack as JSON or upload a translated pack for this instance.",
   "instance.general.exportLocalePack": "Export language pack",
   "instance.general.importLocalePack": "Import language pack",
   "instance.general.chooseFile": "Choose JSON file",

@@ -11,6 +11,17 @@ const BUILTIN_ENGLISH_SUMMARY: InstanceLocaleSummary = {
   builtIn: true,
 };
 
+function stableStringify(value: unknown): string {
+  if (Array.isArray(value)) {
+    return `[${value.map((entry) => stableStringify(entry)).join(",")}]`;
+  }
+  if (value && typeof value === "object") {
+    const rec = value as Record<string, unknown>;
+    return `{${Object.keys(rec).sort().map((key) => `${JSON.stringify(key)}:${stableStringify(rec[key])}`).join(",")}}`;
+  }
+  return JSON.stringify(value);
+}
+
 interface UpsertLocaleResult {
   pack: LocalizationPack;
   changed: boolean;
@@ -79,7 +90,7 @@ export function instanceLocalesService(db: Db) {
       if (
         existing
         && (existing.label ?? null) === (pack.label ?? null)
-        && JSON.stringify(existing.messagesJson ?? {}) === JSON.stringify(nextMessages)
+        && stableStringify(existing.messagesJson ?? {}) === stableStringify(nextMessages)
       ) {
         return {
           pack: toLocalizationPack(existing),
@@ -107,8 +118,12 @@ export function instanceLocalesService(db: Db) {
         })
         .returning();
 
+      if (!row) {
+        throw new Error("Locale pack upsert returned no rows");
+      }
+
       return {
-        pack: toLocalizationPack(row ?? existing!),
+        pack: toLocalizationPack(row),
         changed: true,
       };
     },
