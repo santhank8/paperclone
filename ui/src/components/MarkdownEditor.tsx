@@ -303,9 +303,10 @@ export const MarkdownEditor = forwardRef<MarkdownEditorRef, MarkdownEditorProps>
   }, [hasImageUpload]);
 
   useEffect(() => {
-    if (value !== latestValueRef.current) {
-      ref.current?.setMarkdown(value);
-      latestValueRef.current = value;
+    const safeValue = value ?? "";
+    if (safeValue !== latestValueRef.current) {
+      ref.current?.setMarkdown(safeValue);
+      latestValueRef.current = safeValue;
     }
   }, [value]);
 
@@ -576,7 +577,7 @@ export const MarkdownEditor = forwardRef<MarkdownEditorRef, MarkdownEditorProps>
     >
       <MDXEditor
         ref={ref}
-        markdown={value}
+        markdown={value ?? ""}
         placeholder={placeholder}
         onChange={(next) => {
           latestValueRef.current = next;
