@@ -2,7 +2,7 @@ import { Router, type Request } from "express";
 import { generateKeyPairSync, randomUUID } from "node:crypto";
 import path from "node:path";
 import type { Db } from "@paperclipai/db";
-import { agents as agentsTable, companies, heartbeatRuns } from "@paperclipai/db";
+import { agents as agentsTable, agentRuntimeState, companies, heartbeatRuns } from "@paperclipai/db";
 import { and, desc, eq, inArray, not, sql } from "drizzle-orm";
 import {
   agentSkillSyncSchema,
@@ -1757,6 +1757,8 @@ export function agentRoutes(db: Db) {
     }
 
     const actor = getActorInfo(req);
+    const adapterTypeChanged =
+      typeof patchData.adapterType === "string" && patchData.adapterType !== existing.adapterType;
     const agent = await svc.update(id, patchData, {
       recordRevision: {
         createdByAgentId: actor.agentId,
@@ -1767,6 +1769,19 @@ export function agentRoutes(db: Db) {
     if (!agent) {
       res.status(404).json({ error: "Agent not found" });
       return;
+    }
+
+    // When adapter type changes, clear stale runtime session state so the new
+    // adapter doesn't attempt to resume a session from the old adapter (#1505).
+    if (adapterTypeChanged) {
+      await db
+        .update(agentRuntimeState)
+        .set({
+          sessionId: null,
+          adapterType: patchData.adapterType as string,
+          updatedAt: new Date(),
+        })
+        .where(eq(agentRuntimeState.agentId, id));
     }
 
     await logActivity(db, {
