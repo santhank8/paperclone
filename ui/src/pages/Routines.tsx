@@ -37,13 +37,13 @@ import {
 const concurrencyPolicies = ["coalesce_if_active", "always_enqueue", "skip_if_active"];
 const catchUpPolicies = ["skip_missed", "enqueue_missed_with_cap"];
 const concurrencyPolicyDescriptions: Record<string, string> = {
-  coalesce_if_active: "If a run is already active, keep just one follow-up run queued.",
-  always_enqueue: "Queue every trigger occurrence, even if the routine is already running.",
-  skip_if_active: "Drop new trigger occurrences while a run is still active.",
+  coalesce_if_active: "如果运行已在进行中，仅保留一个后续运行排队。",
+  always_enqueue: "即使例行任务已在运行，也排队每次触发。",
+  skip_if_active: "运行仍在进行时丢弃新的触发。",
 };
 const catchUpPolicyDescriptions: Record<string, string> = {
-  skip_missed: "Ignore windows that were missed while the scheduler or routine was paused.",
-  enqueue_missed_with_cap: "Catch up missed schedule windows in capped batches after recovery.",
+  skip_missed: "忽略在调度器或例行任务暂停期间错过的窗口。",
+  enqueue_missed_with_cap: "恢复后以有上限的批次补上错过的调度窗口。",
 };
 
 function autoResizeTextarea(element: HTMLTextAreaElement | null) {
@@ -53,7 +53,7 @@ function autoResizeTextarea(element: HTMLTextAreaElement | null) {
 }
 
 function formatLastRunTimestamp(value: Date | string | null | undefined) {
-  if (!value) return "Never";
+  if (!value) return "从未";
   return new Date(value).toLocaleString();
 }
 
@@ -87,7 +87,7 @@ export function Routines() {
   });
 
   useEffect(() => {
-    setBreadcrumbs([{ label: "Routines" }]);
+    setBreadcrumbs([{ label: "例行任务" }]);
   }, [setBreadcrumbs]);
 
   const { data: routines, isLoading, error } = useQuery({
@@ -130,8 +130,8 @@ export function Routines() {
       setAdvancedOpen(false);
       await queryClient.invalidateQueries({ queryKey: queryKeys.routines.list(selectedCompanyId!) });
       pushToast({
-        title: "Routine created",
-        body: "Add the first trigger to turn it into a live workflow.",
+        title: "例行任务已创建",
+        body: "添加第一个触发器将其转变为实时工作流。",
         tone: "success",
       });
       navigate(`/routines/${routine.id}?tab=triggers`);
@@ -154,8 +154,8 @@ export function Routines() {
     },
     onError: (mutationError) => {
       pushToast({
-        title: "Failed to update routine",
-        body: mutationError instanceof Error ? mutationError.message : "Paperclip could not update the routine.",
+        title: "更新例行任务失败",
+        body: mutationError instanceof Error ? mutationError.message : "Paperclip 无法更新例行任务。",
         tone: "error",
       });
     },
@@ -177,8 +177,8 @@ export function Routines() {
     },
     onError: (mutationError) => {
       pushToast({
-        title: "Routine run failed",
-        body: mutationError instanceof Error ? mutationError.message : "Paperclip could not start the routine run.",
+        title: "例行任务运行失败",
+        body: mutationError instanceof Error ? mutationError.message : "Paperclip 无法启动例行任务运行。",
         tone: "error",
       });
     },
@@ -218,7 +218,7 @@ export function Routines() {
   const currentProject = draft.projectId ? projectById.get(draft.projectId) ?? null : null;
 
   if (!selectedCompanyId) {
-    return <EmptyState icon={Repeat} message="Select a company to view routines." />;
+    return <EmptyState icon={Repeat} message="请选择一个公司以查看例行任务。" />;
   }
 
   if (isLoading) {
@@ -230,16 +230,16 @@ export function Routines() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div className="space-y-1">
           <h1 className="text-2xl font-semibold tracking-tight flex items-center gap-2">
-            Routines
+            例行任务
             <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-900/30 dark:text-amber-400">Beta</span>
           </h1>
           <p className="text-sm text-muted-foreground">
-            Recurring work definitions that materialize into auditable execution issues.
+            循环工作定义，可转化为可审计的执行任务。
           </p>
         </div>
         <Button onClick={() => setComposerOpen(true)}>
           <Plus className="mr-2 h-4 w-4" />
-          Create routine
+          创建例行任务
         </Button>
       </div>
 
@@ -254,9 +254,9 @@ export function Routines() {
         <DialogContent showCloseButton={false} className="max-w-3xl gap-0 overflow-hidden p-0">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/60 px-5 py-3">
             <div>
-              <p className="text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground">New routine</p>
+              <p className="text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground">新建例行任务</p>
               <p className="text-sm text-muted-foreground">
-                Define the recurring work first. Trigger setup comes next on the detail page.
+                先定义循环工作。触发器设置将在详情页面中进行。
               </p>
             </div>
             <Button
@@ -268,7 +268,7 @@ export function Routines() {
               }}
               disabled={createRoutine.isPending}
             >
-              Cancel
+              取消
             </Button>
           </div>
 
@@ -276,7 +276,7 @@ export function Routines() {
             <textarea
               ref={titleInputRef}
               className="w-full resize-none overflow-hidden bg-transparent text-xl font-semibold outline-none placeholder:text-muted-foreground/50"
-              placeholder="Routine title"
+              placeholder="例程标题"
               rows={1}
               value={draft.title}
               onChange={(event) => {
@@ -314,10 +314,10 @@ export function Routines() {
                   ref={assigneeSelectorRef}
                   value={draft.assigneeAgentId}
                   options={assigneeOptions}
-                  placeholder="Assignee"
-                  noneLabel="No assignee"
-                  searchPlaceholder="Search assignees..."
-                  emptyMessage="No assignees found."
+                  placeholder="负责人"
+                  noneLabel="无负责人"
+                  searchPlaceholder="搜索负责人..."
+                  emptyMessage="未找到负责人。"
                   onChange={(assigneeAgentId) => {
                     if (assigneeAgentId) trackRecentAssignee(assigneeAgentId);
                     setDraft((current) => ({ ...current, assigneeAgentId }));
@@ -340,7 +340,7 @@ export function Routines() {
                         <span className="truncate">{option.label}</span>
                       )
                     ) : (
-                      <span className="text-muted-foreground">Assignee</span>
+                      <span className="text-muted-foreground">负责人</span>
                     )
                   }
                   renderOption={(option) => {
@@ -359,10 +359,10 @@ export function Routines() {
                   ref={projectSelectorRef}
                   value={draft.projectId}
                   options={projectOptions}
-                  placeholder="Project"
-                  noneLabel="No project"
-                  searchPlaceholder="Search projects..."
-                  emptyMessage="No projects found."
+                  placeholder="项目"
+                  noneLabel="无项目"
+                  searchPlaceholder="搜索项目..."
+                  emptyMessage="未找到项目。"
                   onChange={(projectId) => setDraft((current) => ({ ...current, projectId }))}
                   onConfirm={() => descriptionEditorRef.current?.focus()}
                   renderTriggerValue={(option) =>
@@ -375,7 +375,7 @@ export function Routines() {
                         <span className="truncate">{option.label}</span>
                       </>
                     ) : (
-                      <span className="text-muted-foreground">Project</span>
+                      <span className="text-muted-foreground">项目</span>
                     )
                   }
                   renderOption={(option) => {
@@ -401,7 +401,7 @@ export function Routines() {
               ref={descriptionEditorRef}
               value={draft.description}
               onChange={(description) => setDraft((current) => ({ ...current, description }))}
-              placeholder="Add instructions..."
+              placeholder="添加指示..."
               bordered={false}
               contentClassName="min-h-[160px] text-sm text-muted-foreground"
               onSubmit={() => {
@@ -416,15 +416,15 @@ export function Routines() {
             <Collapsible open={advancedOpen} onOpenChange={setAdvancedOpen}>
               <CollapsibleTrigger className="flex w-full items-center justify-between text-left">
                 <div>
-                  <p className="text-sm font-medium">Advanced delivery settings</p>
-                  <p className="text-sm text-muted-foreground">Keep policy controls secondary to the work definition.</p>
+                  <p className="text-sm font-medium">高级投递设置</p>
+                  <p className="text-sm text-muted-foreground">策略控制仅作为工作定义的辅助。</p>
                 </div>
                 {advancedOpen ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
               </CollapsibleTrigger>
               <CollapsibleContent className="pt-3">
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="space-y-2">
-                    <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">Concurrency</p>
+                    <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">并发策略</p>
                     <Select
                       value={draft.concurrencyPolicy}
                       onValueChange={(concurrencyPolicy) => setDraft((current) => ({ ...current, concurrencyPolicy }))}
@@ -441,7 +441,7 @@ export function Routines() {
                     <p className="text-xs text-muted-foreground">{concurrencyPolicyDescriptions[draft.concurrencyPolicy]}</p>
                   </div>
                   <div className="space-y-2">
-                    <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">Catch-up</p>
+                    <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">补发策略</p>
                     <Select
                       value={draft.catchUpPolicy}
                       onValueChange={(catchUpPolicy) => setDraft((current) => ({ ...current, catchUpPolicy }))}
@@ -464,7 +464,7 @@ export function Routines() {
 
           <div className="flex flex-col gap-3 border-t border-border/60 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="text-sm text-muted-foreground">
-              After creation, Paperclip takes you straight to trigger setup for schedules, webhooks, or internal runs.
+              创建后，Paperclip 会直接引导您设置调度、Webhook 或内部运行的触发器。
             </div>
             <div className="flex flex-col gap-2 sm:items-end">
               <Button
@@ -477,11 +477,11 @@ export function Routines() {
                 }
               >
                 <Plus className="mr-2 h-4 w-4" />
-                {createRoutine.isPending ? "Creating..." : "Create routine"}
+                {createRoutine.isPending ? "创建中..." : "创建例行任务"}
               </Button>
               {createRoutine.isError ? (
                 <p className="text-sm text-destructive">
-                  {createRoutine.error instanceof Error ? createRoutine.error.message : "Failed to create routine"}
+                  {createRoutine.error instanceof Error ? createRoutine.error.message : "创建例行任务失败"}
                 </p>
               ) : null}
             </div>
@@ -492,7 +492,7 @@ export function Routines() {
       {error ? (
         <Card>
           <CardContent className="pt-6 text-sm text-destructive">
-            {error instanceof Error ? error.message : "Failed to load routines"}
+            {error instanceof Error ? error.message : "加载例行任务失败"}
           </CardContent>
         </Card>
       ) : null}
@@ -502,7 +502,7 @@ export function Routines() {
           <div className="py-12">
             <EmptyState
               icon={Repeat}
-              message="No routines yet. Use Create routine to define the first recurring workflow."
+              message="暂无例行任务。使用创建例行任务来定义第一个循环工作流。"
             />
           </div>
         ) : (
@@ -510,11 +510,11 @@ export function Routines() {
             <table className="min-w-full text-sm">
               <thead>
                 <tr className="text-left text-xs text-muted-foreground border-b border-border">
-                  <th className="px-3 py-2 font-medium">Name</th>
-                  <th className="px-3 py-2 font-medium">Project</th>
-                  <th className="px-3 py-2 font-medium">Agent</th>
-                  <th className="px-3 py-2 font-medium">Last run</th>
-                  <th className="px-3 py-2 font-medium">Enabled</th>
+                  <th className="px-3 py-2 font-medium">名称</th>
+                  <th className="px-3 py-2 font-medium">项目</th>
+                  <th className="px-3 py-2 font-medium">智能体</th>
+                  <th className="px-3 py-2 font-medium">上次运行</th>
+                  <th className="px-3 py-2 font-medium">已启用</th>
                   <th className="w-12 px-3 py-2" />
                 </tr>
               </thead>
@@ -536,7 +536,7 @@ export function Routines() {
                           </span>
                           {(isArchived || routine.status === "paused") && (
                             <div className="mt-1 text-xs text-muted-foreground">
-                              {isArchived ? "archived" : "paused"}
+                              {isArchived ? "已归档" : "已暂停"}
                             </div>
                           )}
                         </div>
@@ -600,7 +600,7 @@ export function Routines() {
                             />
                           </button>
                           <span className="text-xs text-muted-foreground">
-                            {isArchived ? "Archived" : enabled ? "On" : "Off"}
+                            {isArchived ? "已归档" : enabled ? "开启" : "关闭"}
                           </span>
                         </div>
                       </td>
@@ -613,13 +613,13 @@ export function Routines() {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             <DropdownMenuItem onClick={() => navigate(`/routines/${routine.id}`)}>
-                              Edit
+                              编辑
                             </DropdownMenuItem>
                             <DropdownMenuItem
                               disabled={runningRoutineId === routine.id || isArchived}
                               onClick={() => runRoutine.mutate(routine.id)}
                             >
-                              {runningRoutineId === routine.id ? "Running..." : "Run now"}
+                              {runningRoutineId === routine.id ? "运行中..." : "立即运行"}
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem
@@ -631,7 +631,7 @@ export function Routines() {
                               }
                               disabled={isStatusPending || isArchived}
                             >
-                              {enabled ? "Pause" : "Enable"}
+                              {enabled ? "暂停" : "启用"}
                             </DropdownMenuItem>
                             <DropdownMenuItem
                               onClick={() =>
@@ -642,7 +642,7 @@ export function Routines() {
                               }
                               disabled={isStatusPending}
                             >
-                              {routine.status === "archived" ? "Restore" : "Archive"}
+                              {routine.status === "archived" ? "恢复" : "归档"}
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>

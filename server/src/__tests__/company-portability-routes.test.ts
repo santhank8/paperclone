@@ -86,7 +86,7 @@ describe("company portability routes", () => {
       .send({ include: { company: true, agents: true, projects: true } });
 
     expect(res.status).toBe(403);
-    expect(res.body.error).toContain("Only CEO agents");
+    expect(res.body.error).toContain("仅 CEO 智能体");
     expect(mockCompanyPortabilityService.previewExport).not.toHaveBeenCalled();
   });
 
@@ -147,7 +147,7 @@ describe("company portability routes", () => {
       });
 
     expect(res.status).toBe(403);
-    expect(res.body.error).toContain("does not allow replace");
+    expect(res.body.error).toContain("不允许替换");
     expect(mockCompanyPortabilityService.previewImport).not.toHaveBeenCalled();
   });
 
@@ -170,6 +170,6 @@ describe("company portability routes", () => {
       });
 
     expect(res.status).toBe(403);
-    expect(res.body.error).toContain("Board access required");
+    expect(res.body.error).toContain("需要管理面板访问权限");
   });
 });

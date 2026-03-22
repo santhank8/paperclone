@@ -22,11 +22,11 @@ import { registerPluginCommands } from "./commands/client/plugin.js";
 
 const program = new Command();
 const DATA_DIR_OPTION_HELP =
-  "Paperclip data directory root (isolates state from ~/.paperclip)";
+  "Paperclip 数据目录根路径（与 ~/.paperclip 隔离状态）";
 
 program
   .name("paperclipai")
-  .description("Paperclip CLI — setup, diagnose, and configure your instance")
+  .description("Paperclip CLI — 设置、诊断和配置你的实例")
   .version("0.2.7");
 
 program.hook("preAction", (_thisCommand, actionCommand) => {
@@ -41,92 +41,92 @@ program.hook("preAction", (_thisCommand, actionCommand) => {
 
 program
   .command("onboard")
-  .description("Interactive first-run setup wizard")
-  .option("-c, --config <path>", "Path to config file")
+  .description("交互式首次运行设置向导")
+  .option("-c, --config <path>", "配置文件路径")
   .option("-d, --data-dir <path>", DATA_DIR_OPTION_HELP)
-  .option("-y, --yes", "Accept defaults (quickstart + start immediately)", false)
-  .option("--run", "Start Paperclip immediately after saving config", false)
+  .option("-y, --yes", "接受默认值（快速启动 + 立即运行）", false)
+  .option("--run", "保存配置后立即启动 Paperclip", false)
   .action(onboard);
 
 program
   .command("doctor")
-  .description("Run diagnostic checks on your Paperclip setup")
-  .option("-c, --config <path>", "Path to config file")
+  .description("运行 Paperclip 设置诊断检查")
+  .option("-c, --config <path>", "配置文件路径")
   .option("-d, --data-dir <path>", DATA_DIR_OPTION_HELP)
-  .option("--repair", "Attempt to repair issues automatically")
+  .option("--repair", "尝试自动修复问题")
   .alias("--fix")
-  .option("-y, --yes", "Skip repair confirmation prompts")
+  .option("-y, --yes", "跳过修复确认提示")
   .action(async (opts) => {
     await doctor(opts);
   });
 
 program
   .command("env")
-  .description("Print environment variables for deployment")
-  .option("-c, --config <path>", "Path to config file")
+  .description("打印部署环境变量")
+  .option("-c, --config <path>", "配置文件路径")
   .option("-d, --data-dir <path>", DATA_DIR_OPTION_HELP)
   .action(envCommand);
 
 program
   .command("configure")
-  .description("Update configuration sections")
-  .option("-c, --config <path>", "Path to config file")
+  .description("更新配置部分")
+  .option("-c, --config <path>", "配置文件路径")
   .option("-d, --data-dir <path>", DATA_DIR_OPTION_HELP)
-  .option("-s, --section <section>", "Section to configure (llm, database, logging, server, storage, secrets)")
+  .option("-s, --section <section>", "要配置的部分（llm、database、logging、server、storage、secrets）")
   .action(configure);
 
 program
   .command("db:backup")
-  .description("Create a one-off database backup using current config")
-  .option("-c, --config <path>", "Path to config file")
+  .description("使用当前配置创建一次性数据库备份")
+  .option("-c, --config <path>", "配置文件路径")
   .option("-d, --data-dir <path>", DATA_DIR_OPTION_HELP)
-  .option("--dir <path>", "Backup output directory (overrides config)")
-  .option("--retention-days <days>", "Retention window used for pruning", (value) => Number(value))
-  .option("--filename-prefix <prefix>", "Backup filename prefix", "paperclip")
-  .option("--json", "Print backup metadata as JSON")
+  .option("--dir <path>", "备份输出目录（覆盖配置）")
+  .option("--retention-days <days>", "用于清理的保留时间窗口", (value) => Number(value))
+  .option("--filename-prefix <prefix>", "备份文件名前缀", "paperclip")
+  .option("--json", "以 JSON 格式打印备份元数据")
   .action(async (opts) => {
     await dbBackupCommand(opts);
   });
 
 program
   .command("allowed-hostname")
-  .description("Allow a hostname for authenticated/private mode access")
-  .argument("<host>", "Hostname to allow (for example dotta-macbook-pro)")
-  .option("-c, --config <path>", "Path to config file")
+  .description("允许主机名用于认证/私有模式访问")
+  .argument("<host>", "要允许的主机名（例如 dotta-macbook-pro）")
+  .option("-c, --config <path>", "配置文件路径")
   .option("-d, --data-dir <path>", DATA_DIR_OPTION_HELP)
   .action(addAllowedHostname);
 
 program
   .command("run")
-  .description("Bootstrap local setup (onboard + doctor) and run Paperclip")
-  .option("-c, --config <path>", "Path to config file")
+  .description("引导本地设置（onboard + doctor）并运行 Paperclip")
+  .option("-c, --config <path>", "配置文件路径")
   .option("-d, --data-dir <path>", DATA_DIR_OPTION_HELP)
-  .option("-i, --instance <id>", "Local instance id (default: default)")
-  .option("--repair", "Attempt automatic repairs during doctor", true)
-  .option("--no-repair", "Disable automatic repairs during doctor")
+  .option("-i, --instance <id>", "本地实例 ID（默认：default）")
+  .option("--repair", "在 doctor 期间尝试自动修复", true)
+  .option("--no-repair", "禁用 doctor 期间的自动修复")
   .action(runCommand);
 
-const heartbeat = program.command("heartbeat").description("Heartbeat utilities");
+const heartbeat = program.command("heartbeat").description("心跳检测工具");
 
 heartbeat
   .command("run")
-  .description("Run one agent heartbeat and stream live logs")
-  .requiredOption("-a, --agent-id <agentId>", "Agent ID to invoke")
-  .option("-c, --config <path>", "Path to config file")
+  .description("运行一次智能体心跳检测并流式输出实时日志")
+  .requiredOption("-a, --agent-id <agentId>", "要调用的智能体 ID")
+  .option("-c, --config <path>", "配置文件路径")
   .option("-d, --data-dir <path>", DATA_DIR_OPTION_HELP)
-  .option("--context <path>", "Path to CLI context file")
-  .option("--profile <name>", "CLI context profile name")
-  .option("--api-base <url>", "Base URL for the Paperclip server API")
-  .option("--api-key <token>", "Bearer token for agent-authenticated calls")
+  .option("--context <path>", "CLI 上下文文件路径")
+  .option("--profile <name>", "CLI 上下文配置文件名")
+  .option("--api-base <url>", "Paperclip 服务器 API 基础 URL")
+  .option("--api-key <token>", "用于智能体认证调用的 Bearer 令牌")
   .option(
     "--source <source>",
-    "Invocation source (timer | assignment | on_demand | automation)",
+    "调用来源（timer | assignment | on_demand | automation）",
     "on_demand",
   )
-  .option("--trigger <trigger>", "Trigger detail (manual | ping | callback | system)", "manual")
-  .option("--timeout-ms <ms>", "Max time to wait before giving up", "0")
-  .option("--json", "Output raw JSON where applicable")
-  .option("--debug", "Show raw adapter stdout/stderr JSON chunks")
+  .option("--trigger <trigger>", "触发详情（manual | ping | callback | system）", "manual")
+  .option("--timeout-ms <ms>", "放弃前的最大等待时间", "0")
+  .option("--json", "在适用时输出原始 JSON")
+  .option("--debug", "显示原始适配器 stdout/stderr JSON 数据块")
   .action(heartbeatRun);
 
 registerContextCommands(program);
@@ -139,16 +139,16 @@ registerDashboardCommands(program);
 registerWorktreeCommands(program);
 registerPluginCommands(program);
 
-const auth = program.command("auth").description("Authentication and bootstrap utilities");
+const auth = program.command("auth").description("认证和引导工具");
 
 auth
   .command("bootstrap-ceo")
-  .description("Create a one-time bootstrap invite URL for first instance admin")
-  .option("-c, --config <path>", "Path to config file")
+  .description("为首位实例管理员创建一次性引导邀请 URL")
+  .option("-c, --config <path>", "配置文件路径")
   .option("-d, --data-dir <path>", DATA_DIR_OPTION_HELP)
-  .option("--force", "Create new invite even if admin already exists", false)
-  .option("--expires-hours <hours>", "Invite expiration window in hours", (value) => Number(value))
-  .option("--base-url <url>", "Public base URL used to print invite link")
+  .option("--force", "即使管理员已存在也创建新邀请", false)
+  .option("--expires-hours <hours>", "邀请过期时间（小时）", (value) => Number(value))
+  .option("--base-url <url>", "用于打印邀请链接的公共基础 URL")
   .action(bootstrapCeoInvite);
 
 program.parseAsync().catch((err) => {

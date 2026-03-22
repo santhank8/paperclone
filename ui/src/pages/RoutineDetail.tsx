@@ -56,17 +56,17 @@ const triggerKinds = ["schedule", "webhook"];
 const signingModes = ["bearer", "hmac_sha256"];
 const routineTabs = ["triggers", "runs", "activity"] as const;
 const concurrencyPolicyDescriptions: Record<string, string> = {
-  coalesce_if_active: "Keep one follow-up run queued while an active run is still working.",
-  always_enqueue: "Queue every trigger occurrence, even if several runs stack up.",
-  skip_if_active: "Drop overlapping trigger occurrences while the routine is already active.",
+  coalesce_if_active: "当运行仍在进行中时，仅保留一个后续运行排队。",
+  always_enqueue: "即使例程已在运行，也排队每次触发。",
+  skip_if_active: "运行仍在进行时丢弃新的触发。",
 };
 const catchUpPolicyDescriptions: Record<string, string> = {
-  skip_missed: "Ignore schedule windows that were missed while the routine or scheduler was paused.",
-  enqueue_missed_with_cap: "Catch up missed schedule windows in capped batches after recovery.",
+  skip_missed: "忽略在例程或调度器暂停期间错过的调度窗口。",
+  enqueue_missed_with_cap: "恢复后以有上限的批次补上错过的调度窗口。",
 };
 const signingModeDescriptions: Record<string, string> = {
-  bearer: "Expect a shared bearer token in the Authorization header.",
-  hmac_sha256: "Expect an HMAC SHA-256 signature over the request using the shared secret.",
+  bearer: "在 Authorization 头中传递共享的 Bearer 令牌。",
+  hmac_sha256: "使用共享密钥对请求进行 HMAC SHA-256 签名验证。",
 };
 
 type RoutineTab = (typeof routineTabs)[number];
@@ -340,7 +340,7 @@ export function RoutineDetail() {
 
   useEffect(() => {
     if (!routine) return;
-    setBreadcrumbs([{ label: "Routines", href: "/routines" }, { label: routine.title }]);
+    setBreadcrumbs([{ label: "例行任务", href: "/routines" }, { label: routine.title }]);
     if (!routineDefaults) return;
 
     const changedRoutine = hydratedRoutineIdRef.current !== routine.id;
@@ -357,11 +357,11 @@ export function RoutineDetail() {
   const copySecretValue = async (label: string, value: string) => {
     try {
       await navigator.clipboard.writeText(value);
-      pushToast({ title: `${label} copied`, tone: "success" });
+      pushToast({ title: `${label} 已复制`, tone: "success" });
     } catch (error) {
       pushToast({
-        title: `Failed to copy ${label.toLowerCase()}`,
-        body: error instanceof Error ? error.message : "Clipboard access was denied.",
+        title: `复制 ${label.toLowerCase()} 失败`,
+        body: error instanceof Error ? error.message : "剪贴板访问被拒绝。",
         tone: "error",
       });
     }
@@ -401,8 +401,8 @@ export function RoutineDetail() {
     },
     onError: (error) => {
       pushToast({
-        title: "Failed to save routine",
-        body: error instanceof Error ? error.message : "Paperclip could not save the routine.",
+        title: "保存例程失败",
+        body: error instanceof Error ? error.message : "Paperclip 无法保存例程。",
         tone: "error",
       });
     },
@@ -411,7 +411,7 @@ export function RoutineDetail() {
   const runRoutine = useMutation({
     mutationFn: () => routinesApi.run(routineId!),
     onSuccess: async () => {
-      pushToast({ title: "Routine run started", tone: "success" });
+      pushToast({ title: "例程运行已启动", tone: "success" });
       setActiveTab("runs");
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: queryKeys.routines.detail(routineId!) }),
@@ -422,8 +422,8 @@ export function RoutineDetail() {
     },
     onError: (error) => {
       pushToast({
-        title: "Routine run failed",
-        body: error instanceof Error ? error.message : "Paperclip could not start the routine run.",
+        title: "例程运行失败",
+        body: error instanceof Error ? error.message : "Paperclip 无法启动例程运行。",
         tone: "error",
       });
     },
@@ -433,8 +433,8 @@ export function RoutineDetail() {
     mutationFn: (status: string) => routinesApi.update(routineId!, { status }),
     onSuccess: async (_data, status) => {
       pushToast({
-        title: "Routine saved",
-        body: status === "paused" ? "Automation paused." : "Automation enabled.",
+        title: "例程已保存",
+        body: status === "paused" ? "自动化已暂停。" : "自动化已启用。",
         tone: "success",
       });
       await Promise.all([
@@ -444,8 +444,8 @@ export function RoutineDetail() {
     },
     onError: (error) => {
       pushToast({
-        title: "Failed to update routine",
-        body: error instanceof Error ? error.message : "Paperclip could not update the routine.",
+        title: "更新例程失败",
+        body: error instanceof Error ? error.message : "Paperclip 无法更新例程。",
         tone: "error",
       });
     },
@@ -472,7 +472,7 @@ export function RoutineDetail() {
     onSuccess: async (result) => {
       if (result.secretMaterial) {
         setSecretMessage({
-          title: "Webhook trigger created",
+          title: "Webhook 触发器已创建",
           webhookUrl: result.secretMaterial.webhookUrl,
           webhookSecret: result.secretMaterial.webhookSecret,
         });
@@ -485,8 +485,8 @@ export function RoutineDetail() {
     },
     onError: (error) => {
       pushToast({
-        title: "Failed to add trigger",
-        body: error instanceof Error ? error.message : "Paperclip could not create the trigger.",
+        title: "添加触发器失败",
+        body: error instanceof Error ? error.message : "Paperclip 无法创建触发器。",
         tone: "error",
       });
     },
@@ -503,8 +503,8 @@ export function RoutineDetail() {
     },
     onError: (error) => {
       pushToast({
-        title: "Failed to update trigger",
-        body: error instanceof Error ? error.message : "Paperclip could not update the trigger.",
+        title: "更新触发器失败",
+        body: error instanceof Error ? error.message : "Paperclip 无法更新触发器。",
         tone: "error",
       });
     },
@@ -521,8 +521,8 @@ export function RoutineDetail() {
     },
     onError: (error) => {
       pushToast({
-        title: "Failed to delete trigger",
-        body: error instanceof Error ? error.message : "Paperclip could not delete the trigger.",
+        title: "删除触发器失败",
+        body: error instanceof Error ? error.message : "Paperclip 无法删除触发器。",
         tone: "error",
       });
     },
@@ -532,7 +532,7 @@ export function RoutineDetail() {
     mutationFn: (id: string): Promise<RotateRoutineTriggerResponse> => routinesApi.rotateTriggerSecret(id),
     onSuccess: async (result) => {
       setSecretMessage({
-        title: "Webhook secret rotated",
+        title: "Webhook 密钥已轮换",
         webhookUrl: result.secretMaterial.webhookUrl,
         webhookSecret: result.secretMaterial.webhookSecret,
       });
@@ -543,8 +543,8 @@ export function RoutineDetail() {
     },
     onError: (error) => {
       pushToast({
-        title: "Failed to rotate webhook secret",
-        body: error instanceof Error ? error.message : "Paperclip could not rotate the webhook secret.",
+        title: "轮换 Webhook 密钥失败",
+        body: error instanceof Error ? error.message : "Paperclip 无法轮换 Webhook 密钥。",
         tone: "error",
       });
     },
@@ -584,7 +584,7 @@ export function RoutineDetail() {
   const currentProject = editDraft.projectId ? projectById.get(editDraft.projectId) ?? null : null;
 
   if (!selectedCompanyId) {
-    return <EmptyState icon={Repeat} message="Select a company to view routines." />;
+    return <EmptyState icon={Repeat} message="请选择一家公司以查看例程。" />;
   }
 
   if (isLoading) {
@@ -594,14 +594,14 @@ export function RoutineDetail() {
   if (error || !routine) {
     return (
       <p className="pt-6 text-sm text-destructive">
-        {error instanceof Error ? error.message : "Routine not found"}
+        {error instanceof Error ? error.message : "例程未找到"}
       </p>
     );
   }
 
   const automationEnabled = routine.status === "active";
   const automationToggleDisabled = updateRoutineStatus.isPending || routine.status === "archived";
-  const automationLabel = routine.status === "archived" ? "Archived" : automationEnabled ? "Active" : "Paused";
+  const automationLabel = routine.status === "archived" ? "已归档" : automationEnabled ? "活跃" : "已暂停";
   const automationLabelClassName = routine.status === "archived"
     ? "text-muted-foreground"
     : automationEnabled
@@ -615,7 +615,7 @@ export function RoutineDetail() {
         <textarea
           ref={titleInputRef}
           className="flex-1 min-w-0 resize-none overflow-hidden bg-transparent text-xl font-bold outline-none placeholder:text-muted-foreground/50"
-          placeholder="Routine title"
+          placeholder="例程标题"
           rows={1}
           value={editDraft.title}
           onChange={(event) => {
@@ -672,7 +672,7 @@ export function RoutineDetail() {
         <div className="rounded-lg border border-blue-500/30 bg-blue-500/5 p-4 space-y-3 text-sm">
           <div>
             <p className="font-medium">{secretMessage.title}</p>
-            <p className="text-xs text-muted-foreground">Save this now. Paperclip will not show the secret value again.</p>
+            <p className="text-xs text-muted-foreground">请立即保存。Paperclip 不会再次显示密钥值。</p>
           </div>
           <div className="space-y-2">
             <div className="flex items-center gap-2">
@@ -701,10 +701,10 @@ export function RoutineDetail() {
             ref={assigneeSelectorRef}
             value={editDraft.assigneeAgentId}
             options={assigneeOptions}
-            placeholder="Assignee"
-            noneLabel="No assignee"
-            searchPlaceholder="Search assignees..."
-            emptyMessage="No assignees found."
+            placeholder="负责人"
+            noneLabel="无负责人"
+            searchPlaceholder="搜索负责人..."
+            emptyMessage="未找到负责人。"
             onChange={(assigneeAgentId) => {
               if (assigneeAgentId) trackRecentAssignee(assigneeAgentId);
               setEditDraft((current) => ({ ...current, assigneeAgentId }));
@@ -727,7 +727,7 @@ export function RoutineDetail() {
                   <span className="truncate">{option.label}</span>
                 )
               ) : (
-                <span className="text-muted-foreground">Assignee</span>
+                <span className="text-muted-foreground">负责人</span>
               )
             }
             renderOption={(option) => {
@@ -746,10 +746,10 @@ export function RoutineDetail() {
             ref={projectSelectorRef}
             value={editDraft.projectId}
             options={projectOptions}
-            placeholder="Project"
-            noneLabel="No project"
-            searchPlaceholder="Search projects..."
-            emptyMessage="No projects found."
+            placeholder="项目"
+            noneLabel="无项目"
+            searchPlaceholder="搜索项目..."
+            emptyMessage="未找到项目。"
             onChange={(projectId) => setEditDraft((current) => ({ ...current, projectId }))}
             onConfirm={() => descriptionEditorRef.current?.focus()}
             renderTriggerValue={(option) =>
@@ -762,7 +762,7 @@ export function RoutineDetail() {
                   <span className="truncate">{option.label}</span>
                 </>
               ) : (
-                <span className="text-muted-foreground">Project</span>
+                <span className="text-muted-foreground">项目</span>
               )
             }
             renderOption={(option) => {
@@ -787,7 +787,7 @@ export function RoutineDetail() {
         ref={descriptionEditorRef}
         value={editDraft.description}
         onChange={(description) => setEditDraft((current) => ({ ...current, description }))}
-        placeholder="Add instructions..."
+        placeholder="添加指示..."
         bordered={false}
         contentClassName="min-h-[120px] text-[15px] leading-7"
         onSubmit={() => {

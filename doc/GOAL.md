@@ -1,55 +1,55 @@
 # Paperclip
 
-**Paperclip is the backbone of the autonomous economy.** We are building the infrastructure that autonomous AI companies run on. Our goal is for Paperclip-powered companies to collectively generate economic output that rivals the GDP of the world's largest countries. Every decision we make should serve that: make autonomous companies more capable, more governable, more scalable, and more real.
+**Paperclip 是自主经济的骨干。**我们正在构建自主 AI 公司运行所需的基础设施。我们的目标是让 Paperclip 驱动的公司集体产生的经济产出，能与世界最大国家的 GDP 相匹敌。我们所做的每一个决定都应服务于此：让自主公司更强大、更可治理、更可扩展、更真实。
 
-## The Vision
+## 愿景
 
-Autonomous companies — AI workforces organized with real structure, governance, and accountability — will become a major force in the global economy. Not one company. Thousands. Millions. An entire economic layer that runs on AI labor, coordinated through Paperclip.
+自主公司 — 拥有真正组织结构、治理和问责制的 AI 劳动力 — 将成为全球经济的重要力量。不是一家公司，而是成千上万家，数百万家。一个完全运行在 AI 劳动力上、通过 Paperclip 协调的经济层。
 
-Paperclip is not the company. Paperclip is what makes the companies possible. We are the control plane, the nervous system, the operating layer. Every autonomous company needs structure, task management, cost control, goal alignment, and human governance. That's us. We are to autonomous companies what the corporate operating system is to human ones — except this time, the operating system is real software, not metaphor.
+Paperclip 不是那家公司。Paperclip 是使这些公司成为可能的基础。我们是控制面板、神经系统、运营层。每一家自主公司都需要组织结构、任务管理、成本控制、目标对齐和人类治理。这就是我们。我们之于自主公司，就像企业操作系统之于人类公司 — 只不过这次，操作系统是真正的软件，而不是隐喻。
 
-The measure of our success is not whether one company works. It's whether Paperclip becomes the default foundation that autonomous companies are built on — and whether those companies, collectively, become a serious economic force that rivals the output of nations.
+衡量我们成功的标准不是一家公司是否运作。而是 Paperclip 是否成为自主公司构建的默认基础 — 以及这些公司集体是否成为能与国家产出相匹敌的严肃经济力量。
 
-## The Problem
+## 问题
 
-Task management software doesn't go far enough. When your entire workforce is AI agents, you need more than a to-do list — you need a **control plane** for an entire company.
+任务管理软件做得还不够。当你的整个劳动力都是 AI 智能体时，你需要的不仅仅是一个待办清单 — 你需要整个公司的**控制面板**。
 
-## What This Is
+## 这是什么
 
-Paperclip is the command, communication, and control plane for a company of AI agents. It is the single place where you:
+Paperclip 是 AI 智能体公司的指挥、通信和控制面板。它是你在一个地方完成以下所有事情的平台：
 
-- **Manage agents as employees** — hire, organize, and track who does what
-- **Define org structure** — org charts that agents themselves operate within
-- **Track work in real time** — see at any moment what every agent is working on
-- **Control costs** — token salary budgets per agent, spend tracking, burn rate
-- **Align to goals** — agents see how their work serves the bigger mission
-- **Store company knowledge** — a shared brain for the organization
+- **像管理员工一样管理智能体** — 雇佣、组织、追踪谁在做什么
+- **定义组织结构** — 智能体在其中运作的组织架构图
+- **实时跟踪工作** — 随时查看每个智能体正在做什么
+- **控制成本** — 每个智能体的 token 薪资预算、支出追踪、消耗率
+- **对齐目标** — 智能体了解其工作如何服务于更大的使命
+- **存储公司知识** — 组织的共享大脑
 
-## Architecture
+## 架构
 
-Two layers:
+两个层次：
 
-### 1. Control Plane (this software)
+### 1. 控制面板（本软件）
 
-The central nervous system. Manages:
+中枢神经系统。管理：
 
-- Agent registry and org chart
-- Task assignment and status
-- Budget and token spend tracking
-- Company knowledge base
-- Goal hierarchy (company → team → agent → task)
-- Heartbeat monitoring — know when agents are alive, idle, or stuck
+- 智能体注册表和组织架构图
+- 任务分配和状态
+- 预算和 token 支出追踪
+- 公司知识库
+- 目标层级（公司 → 团队 → 智能体 → 任务）
+- 心跳监控 — 了解智能体何时活跃、空闲或卡住
 
-### 2. Execution Services (adapters)
+### 2. 执行服务（适配器）
 
-Agents run externally and report into the control plane. An agent is just Python code that gets kicked off and does work. Adapters connect different execution environments:
+智能体在外部运行并向控制面板报告。智能体就是被启动并执行工作的 Python 代码。适配器连接不同的执行环境：
 
-- **OpenClaw** — initial adapter target
-- **Heartbeat loop** — simple custom Python that loops, checks in, does work
-- **Others** — any runtime that can call an API
+- **OpenClaw** — 初始适配器目标
+- **心跳循环** — 简单的自定义 Python，循环、签到、执行工作
+- **其他** — 任何能调用 API 的运行时
 
-The control plane doesn't run agents. It orchestrates them. Agents run wherever they run and phone home.
+控制面板不运行智能体。它协调它们。智能体在哪里运行就在哪里运行，然后回电汇报。
 
-## Core Principle
+## 核心原则
 
-You should be able to look at Paperclip and understand your entire company at a glance — who's doing what, how much it costs, and whether it's working.
+你应该能够看一眼 Paperclip 就了解你的整个公司 — 谁在做什么、花了多少钱、是否有效。

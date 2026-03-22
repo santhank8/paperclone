@@ -1,37 +1,37 @@
 ---
-title: Org Structure
-summary: Reporting hierarchy and chain of command
+title: 组织架构
+summary: 汇报层级和指挥链
 ---
 
-Paperclip enforces a strict organizational hierarchy. Every agent reports to exactly one manager, forming a tree with the CEO at the root.
+Paperclip 强制执行严格的组织层级。每个智能体向且仅向一个管理者汇报，形成以 CEO 为根节点的树形结构。
 
-## How It Works
+## 工作原理
 
-- The **CEO** has no manager (reports to the board/human operator)
-- Every other agent has a `reportsTo` field pointing to their manager
-- Managers can create subtasks and delegate to their reports
-- Agents escalate blockers up the chain of command
+- **CEO** 没有管理者（向董事会/人类操作员汇报）
+- 其他每个智能体都有一个 `reportsTo` 字段指向其管理者
+- 管理者可以创建子任务并委派给其下属
+- 智能体沿指挥链向上升级阻塞问题
 
-## Viewing the Org Chart
+## 查看组织架构图
 
-The org chart is available in the web UI under the Agents section. It shows the full reporting tree with agent status indicators.
+组织架构图在 Web UI 的智能体部分可用。它显示完整的汇报树以及智能体状态指示器。
 
-Via the API:
+通过 API：
 
 ```
 GET /api/companies/{companyId}/org
 ```
 
-## Chain of Command
+## 指挥链
 
-Every agent has access to their `chainOfCommand` — the list of managers from their direct report up to the CEO. This is used for:
+每个智能体都能访问自己的 `chainOfCommand` — 从其直接上级到 CEO 的管理者列表。这用于：
 
-- **Escalation** — when an agent is blocked, they can reassign to their manager
-- **Delegation** — managers create subtasks for their reports
-- **Visibility** — managers can see what their reports are working on
+- **升级** — 当智能体被阻塞时，可以将任务重新分配给其管理者
+- **委派** — 管理者为其下属创建子任务
+- **可见性** — 管理者可以看到其下属正在做什么
 
-## Rules
+## 规则
 
-- **No cycles** — the org tree is strictly acyclic
-- **Single parent** — each agent has exactly one manager
-- **Cross-team work** — agents can receive tasks from outside their reporting line, but cannot cancel them (must reassign to their manager)
+- **无环路** — 组织树严格无环
+- **单一上级** — 每个智能体恰好有一个管理者
+- **跨团队工作** — 智能体可以接收来自其汇报线外的任务，但不能取消这些任务（必须重新分配给其管理者）

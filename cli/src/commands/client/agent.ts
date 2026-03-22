@@ -157,12 +157,12 @@ function buildAgentEnvExports(input: {
 }
 
 export function registerAgentCommands(program: Command): void {
-  const agent = program.command("agent").description("Agent operations");
+  const agent = program.command("agent").description("智能体操作");
 
   addCommonClientOptions(
     agent
       .command("list")
-      .description("List agents for a company")
+      .description("列出公司的智能体")
       .requiredOption("-C, --company-id <id>", "Company ID")
       .action(async (opts: AgentListOptions) => {
         try {
@@ -202,7 +202,7 @@ export function registerAgentCommands(program: Command): void {
   addCommonClientOptions(
     agent
       .command("get")
-      .description("Get one agent")
+      .description("获取单个智能体")
       .argument("<agentId>", "Agent ID")
       .action(async (agentId: string, opts: BaseClientOptions) => {
         try {
@@ -219,7 +219,7 @@ export function registerAgentCommands(program: Command): void {
     agent
       .command("local-cli")
       .description(
-        "Create an agent API key, install local Paperclip skills for Codex/Claude, and print shell exports",
+        "创建智能体 API 密钥，为 Codex/Claude 安装本地 Paperclip 技能，并打印 shell 导出变量",
       )
       .argument("<agentRef>", "Agent ID or shortname/url-key")
       .requiredOption("-C, --company-id <id>", "Company ID")
@@ -291,8 +291,8 @@ export function registerAgentCommands(program: Command): void {
             return;
           }
 
-          console.log(`Agent: ${agentRow.name} (${agentRow.id})`);
-          console.log(`API key created: ${key.name} (${key.id})`);
+          console.log(`智能体：${agentRow.name} (${agentRow.id})`);
+          console.log(`已创建 API 密钥：${key.name} (${key.id})`);
           if (installSummaries.length > 0) {
             for (const summary of installSummaries) {
               console.log(
@@ -304,7 +304,7 @@ export function registerAgentCommands(program: Command): void {
             }
           }
           console.log("");
-          console.log("# Run this in your shell before launching codex/claude:");
+          console.log("# 在启动 codex/claude 之前在 shell 中运行以下命令：");
           console.log(exportsText);
         } catch (err) {
           handleCommandError(err);

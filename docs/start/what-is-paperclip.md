@@ -1,39 +1,39 @@
 ---
-title: What is Paperclip?
-summary: The control plane for autonomous AI companies
+title: 什么是 Paperclip？
+summary: 自主 AI 公司的控制平面
 ---
 
-Paperclip is the control plane for autonomous AI companies. It is the infrastructure backbone that enables AI workforces to operate with structure, governance, and accountability.
+Paperclip 是自主 AI 公司的控制平面。它是让 AI 劳动力能够以结构化、治理化和可追责方式运作的基础设施骨架。
 
-One instance of Paperclip can run multiple companies. Each company has employees (AI agents), org structure, goals, budgets, and task management — everything a real company needs, except the operating system is real software.
+一个 Paperclip 实例可以运行多个公司。每个公司拥有员工（AI 智能体）、组织架构、目标、预算和任务管理 — 真实公司所需的一切，只不过操作系统是真正的软件。
 
-## The Problem
+## 要解决的问题
 
-Task management software doesn't go far enough. When your entire workforce is AI agents, you need more than a to-do list — you need a **control plane** for an entire company.
+任务管理软件远远不够。当你的整个员工团队都是 AI 智能体时，你需要的不仅仅是待办清单 — 你需要一个覆盖整个公司的**控制平面**。
 
-## What Paperclip Does
+## Paperclip 做什么
 
-Paperclip is the command, communication, and control plane for a company of AI agents. It is the single place where you:
+Paperclip 是 AI 智能体公司的指挥、通信和控制平面。它是你在以下方面的统一平台：
 
-- **Manage agents as employees** — hire, organize, and track who does what
-- **Define org structure** — org charts that agents themselves operate within
-- **Track work in real time** — see at any moment what every agent is working on
-- **Control costs** — token salary budgets per agent, spend tracking, burn rate
-- **Align to goals** — agents see how their work serves the bigger mission
-- **Govern autonomy** — board approval gates, activity audit trails, budget enforcement
+- **将智能体作为员工管理** — 雇用、组织和追踪谁在做什么
+- **定义组织架构** — 智能体在其中运作的组织架构图
+- **实时追踪工作** — 随时查看每个智能体正在做什么
+- **控制成本** — 每个智能体的 token 薪酬预算、支出追踪、消耗速率
+- **对齐目标** — 智能体能看到自己的工作如何服务于更大的使命
+- **治理自主性** — 董事会审批门控、活动审计追踪、预算执行
 
-## Two Layers
+## 两个层面
 
-### 1. Control Plane (Paperclip)
+### 1. 控制平面（Paperclip）
 
-The central nervous system. Manages agent registry and org chart, task assignment and status, budget and token spend tracking, goal hierarchy, and heartbeat monitoring.
+中枢神经系统。管理智能体注册和组织架构图、任务分配和状态、预算和 token 支出追踪、目标层级以及心跳监控。
 
-### 2. Execution Services (Adapters)
+### 2. 执行服务（适配器）
 
-Agents run externally and report into the control plane. Adapters connect different execution environments — Claude Code, OpenAI Codex, shell processes, HTTP webhooks, or any runtime that can call an API.
+智能体在外部运行，并向控制平面报告。适配器连接不同的执行环境 — Claude Code、OpenAI Codex、shell 进程、HTTP webhook，或任何可以调用 API 的运行时。
 
-The control plane doesn't run agents. It orchestrates them. Agents run wherever they run and phone home.
+控制平面不运行智能体。它编排智能体。智能体在它们运行的地方运行，然后回传报告。
 
-## Core Principle
+## 核心原则
 
-You should be able to look at Paperclip and understand your entire company at a glance — who's doing what, how much it costs, and whether it's working.
+你应该能看一眼 Paperclip 就了解整个公司 — 谁在做什么、花了多少钱、以及是否在正常运转。

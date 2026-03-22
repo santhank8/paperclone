@@ -24,11 +24,11 @@ interface ContextSetOptions extends ContextOptions {
 }
 
 export function registerContextCommands(program: Command): void {
-  const context = program.command("context").description("Manage CLI client context profiles");
+  const context = program.command("context").description("管理 CLI 客户端上下文配置");
 
   context
     .command("show")
-    .description("Show current context and active profile")
+    .description("显示当前上下文和活动配置")
     .option("-d, --data-dir <path>", "Paperclip data directory root (isolates state from ~/.paperclip)")
     .option("--context <path>", "Path to CLI context file")
     .option("--profile <name>", "Profile to inspect")
@@ -49,7 +49,7 @@ export function registerContextCommands(program: Command): void {
 
   context
     .command("list")
-    .description("List available context profiles")
+    .description("列出可用的上下文配置")
     .option("-d, --data-dir <path>", "Paperclip data directory root (isolates state from ~/.paperclip)")
     .option("--context <path>", "Path to CLI context file")
     .option("--json", "Output raw JSON")
@@ -67,18 +67,18 @@ export function registerContextCommands(program: Command): void {
 
   context
     .command("use")
-    .description("Set active context profile")
+    .description("设置活动上下文配置")
     .argument("<profile>", "Profile name")
     .option("-d, --data-dir <path>", "Paperclip data directory root (isolates state from ~/.paperclip)")
     .option("--context <path>", "Path to CLI context file")
     .action((profile: string, opts: ContextOptions) => {
       setCurrentProfile(profile, opts.context);
-      console.log(pc.green(`Active profile set to '${profile}'.`));
+      console.log(pc.green(`活动配置已设置为 '${profile}'。`));
     });
 
   context
     .command("set")
-    .description("Set values on a profile")
+    .description("设置配置的值")
     .option("-d, --data-dir <path>", "Paperclip data directory root (isolates state from ~/.paperclip)")
     .option("--context <path>", "Path to CLI context file")
     .option("--profile <name>", "Profile name (default: current profile)")
@@ -115,9 +115,9 @@ export function registerContextCommands(program: Command): void {
       };
 
       if (!opts.json) {
-        console.log(pc.green(`Updated profile '${targetProfile}'.`));
+        console.log(pc.green(`已更新配置 '${targetProfile}'。`));
         if (opts.use) {
-          console.log(pc.green(`Set '${targetProfile}' as active profile.`));
+          console.log(pc.green(`已将 '${targetProfile}' 设置为活动配置。`));
         }
       }
       printOutput(payload, { json: opts.json });

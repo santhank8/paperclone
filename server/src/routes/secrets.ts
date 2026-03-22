@@ -71,7 +71,7 @@ export function secretRoutes(db: Db) {
     const id = req.params.id as string;
     const existing = await svc.getById(id);
     if (!existing) {
-      res.status(404).json({ error: "Secret not found" });
+      res.status(404).json({ error: "密钥未找到" });
       return;
     }
     assertCompanyAccess(req, existing.companyId);
@@ -103,7 +103,7 @@ export function secretRoutes(db: Db) {
     const id = req.params.id as string;
     const existing = await svc.getById(id);
     if (!existing) {
-      res.status(404).json({ error: "Secret not found" });
+      res.status(404).json({ error: "密钥未找到" });
       return;
     }
     assertCompanyAccess(req, existing.companyId);
@@ -115,7 +115,7 @@ export function secretRoutes(db: Db) {
     });
 
     if (!updated) {
-      res.status(404).json({ error: "Secret not found" });
+      res.status(404).json({ error: "密钥未找到" });
       return;
     }
 
@@ -137,14 +137,14 @@ export function secretRoutes(db: Db) {
     const id = req.params.id as string;
     const existing = await svc.getById(id);
     if (!existing) {
-      res.status(404).json({ error: "Secret not found" });
+      res.status(404).json({ error: "密钥未找到" });
       return;
     }
     assertCompanyAccess(req, existing.companyId);
 
     const removed = await svc.remove(id);
     if (!removed) {
-      res.status(404).json({ error: "Secret not found" });
+      res.status(404).json({ error: "密钥未找到" });
       return;
     }
 

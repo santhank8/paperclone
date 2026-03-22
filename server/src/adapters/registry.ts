@@ -75,6 +75,21 @@ import {
   agentConfigurationDoc as hermesAgentConfigurationDoc,
   models as hermesModels,
 } from "hermes-paperclip-adapter";
+import {
+  execute as deepseekExecute,
+  testEnvironment as deepseekTestEnvironment,
+} from "@paperclipai/adapter-deepseek-local/server";
+import { agentConfigurationDoc as deepseekAgentConfigurationDoc, models as deepseekModels } from "@paperclipai/adapter-deepseek-local";
+import {
+  execute as qwenExecute,
+  testEnvironment as qwenTestEnvironment,
+} from "@paperclipai/adapter-qwen-local/server";
+import { agentConfigurationDoc as qwenAgentConfigurationDoc, models as qwenModels } from "@paperclipai/adapter-qwen-local";
+import {
+  execute as moonshotExecute,
+  testEnvironment as moonshotTestEnvironment,
+} from "@paperclipai/adapter-moonshot-local/server";
+import { agentConfigurationDoc as moonshotAgentConfigurationDoc, models as moonshotModels } from "@paperclipai/adapter-moonshot-local";
 import { processAdapter } from "./process/index.js";
 import { httpAdapter } from "./http/index.js";
 
@@ -181,6 +196,33 @@ const hermesLocalAdapter: ServerAdapterModule = {
   agentConfigurationDoc: hermesAgentConfigurationDoc,
 };
 
+const deepseekLocalAdapter: ServerAdapterModule = {
+  type: "deepseek_local",
+  execute: deepseekExecute,
+  testEnvironment: deepseekTestEnvironment,
+  models: deepseekModels,
+  supportsLocalAgentJwt: false,
+  agentConfigurationDoc: deepseekAgentConfigurationDoc,
+};
+
+const qwenLocalAdapter: ServerAdapterModule = {
+  type: "qwen_local",
+  execute: qwenExecute,
+  testEnvironment: qwenTestEnvironment,
+  models: qwenModels,
+  supportsLocalAgentJwt: false,
+  agentConfigurationDoc: qwenAgentConfigurationDoc,
+};
+
+const moonshotLocalAdapter: ServerAdapterModule = {
+  type: "moonshot_local",
+  execute: moonshotExecute,
+  testEnvironment: moonshotTestEnvironment,
+  models: moonshotModels,
+  supportsLocalAgentJwt: false,
+  agentConfigurationDoc: moonshotAgentConfigurationDoc,
+};
+
 const adaptersByType = new Map<string, ServerAdapterModule>(
   [
     claudeLocalAdapter,
@@ -191,6 +233,9 @@ const adaptersByType = new Map<string, ServerAdapterModule>(
     geminiLocalAdapter,
     openclawGatewayAdapter,
     hermesLocalAdapter,
+    deepseekLocalAdapter,
+    qwenLocalAdapter,
+    moonshotLocalAdapter,
     processAdapter,
     httpAdapter,
   ].map((a) => [a.type, a]),

@@ -20,11 +20,11 @@ import { DraftInput } from "./agent-config-primitives";
 import { InlineEditor } from "./InlineEditor";
 
 const PROJECT_STATUSES = [
-  { value: "backlog", label: "Backlog" },
-  { value: "planned", label: "Planned" },
-  { value: "in_progress", label: "In Progress" },
-  { value: "completed", label: "Completed" },
-  { value: "cancelled", label: "Cancelled" },
+  { value: "backlog", label: "待处理" },
+  { value: "planned", label: "已规划" },
+  { value: "in_progress", label: "进行中" },
+  { value: "completed", label: "已完成" },
+  { value: "cancelled", label: "已取消" },
 ];
 
 interface ProjectPropertiesProps {
@@ -443,8 +443,8 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
   const clearLocalWorkspace = () => {
     const confirmed = window.confirm(
       codebase.repoUrl
-        ? "Clear local folder from this workspace?"
-        : "Delete this workspace local folder?",
+        ? "从此工作区清除本地文件夹？"
+        : "删除此工作区本地文件夹？",
     );
     if (!confirmed) return;
     persistCodebase({ cwd: null });
@@ -454,8 +454,8 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
     const hasLocalFolder = Boolean(codebase.localFolder);
     const confirmed = window.confirm(
       hasLocalFolder
-        ? "Clear repo from this workspace?"
-        : "Delete this workspace repo?",
+        ? "从此工作区清除仓库？"
+        : "删除此工作区仓库？",
     );
     if (!confirmed) return;
     if (primaryCodebaseWorkspace && hasLocalFolder) {
@@ -471,21 +471,21 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
   return (
     <div>
       <div className="space-y-1 pb-4">
-        <PropertyRow label={<FieldLabel label="Name" state={fieldState("name")} />}>
+        <PropertyRow label={<FieldLabel label="名称" state={fieldState("name")} />}>
           {onUpdate || onFieldUpdate ? (
             <DraftInput
               value={project.name}
               onCommit={(name) => commitField("name", { name })}
               immediate
               className="w-full rounded border border-border bg-transparent px-2 py-1 text-sm outline-none"
-              placeholder="Project name"
+              placeholder="项目名称"
             />
           ) : (
             <span className="text-sm">{project.name}</span>
           )}
         </PropertyRow>
         <PropertyRow
-          label={<FieldLabel label="Description" state={fieldState("description")} />}
+          label={<FieldLabel label="描述" state={fieldState("description")} />}
           alignStart
           valueClassName="space-y-0.5"
         >
@@ -495,16 +495,16 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
               onSave={(description) => commitField("description", { description })}
               as="p"
               className="text-sm text-muted-foreground"
-              placeholder="Add a description..."
+              placeholder="添加描述..."
               multiline
             />
           ) : (
             <p className="text-sm text-muted-foreground">
-              {project.description?.trim() || "No description"}
+              {project.description?.trim() || "暂无描述"}
             </p>
           )}
         </PropertyRow>
-        <PropertyRow label={<FieldLabel label="Status" state={fieldState("status")} />}>
+        <PropertyRow label={<FieldLabel label="状态" state={fieldState("status")} />}>
           {onUpdate || onFieldUpdate ? (
             <ProjectStatusPicker
               status={project.status}
@@ -515,12 +515,12 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
           )}
         </PropertyRow>
         {project.leadAgentId && (
-          <PropertyRow label="Lead">
+          <PropertyRow label="负责人">
             <span className="text-sm font-mono">{project.leadAgentId.slice(0, 8)}</span>
           </PropertyRow>
         )}
         <PropertyRow
-          label={<FieldLabel label="Goals" state={fieldState("goals")} />}
+          label={<FieldLabel label="目标" state={fieldState("goals")} />}
           alignStart
           valueClassName="space-y-2"
         >
@@ -558,13 +558,13 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
                   disabled={availableGoals.length === 0}
                 >
                   <Plus className="h-3 w-3 mr-1" />
-                  Goal
+                  目标
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-56 p-1" align="start">
                 {availableGoals.length === 0 ? (
                   <div className="px-2 py-1.5 text-xs text-muted-foreground">
-                    All goals linked.
+                    所有目标已关联。
                   </div>
                 ) : (
                   availableGoals.map((goal) => (
@@ -581,14 +581,14 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
             </Popover>
           )}
         </PropertyRow>
-        <PropertyRow label={<FieldLabel label="Created" state="idle" />}>
+        <PropertyRow label={<FieldLabel label="创建时间" state="idle" />}>
           <span className="text-sm">{formatDate(project.createdAt)}</span>
         </PropertyRow>
-        <PropertyRow label={<FieldLabel label="Updated" state="idle" />}>
+        <PropertyRow label={<FieldLabel label="更新时间" state="idle" />}>
           <span className="text-sm">{formatDate(project.updatedAt)}</span>
         </PropertyRow>
         {project.targetDate && (
-          <PropertyRow label={<FieldLabel label="Target Date" state="idle" />}>
+          <PropertyRow label={<FieldLabel label="目标日期" state="idle" />}>
             <span className="text-sm">{formatDate(project.targetDate)}</span>
           </PropertyRow>
         )}

@@ -138,7 +138,7 @@ export function pluginRegistryService(db: Db) {
       const existing = await getByKey(manifest.id);
       if (existing) {
         if (existing.status !== "uninstalled") {
-          throw conflict(`Plugin already installed: ${manifest.id}`);
+          throw conflict(`插件已安装：${manifest.id}`);
         }
 
         // Reinstall after soft-delete: reactivate the existing row so plugin-scoped
@@ -181,7 +181,7 @@ export function pluginRegistryService(db: Db) {
         return rows[0];
       } catch (error) {
         if (isPluginKeyConflict(error)) {
-          throw conflict(`Plugin already installed: ${manifest.id}`);
+          throw conflict(`插件已安装：${manifest.id}`);
         }
         throw error;
       }
@@ -202,7 +202,7 @@ export function pluginRegistryService(db: Db) {
       },
     ) => {
       const plugin = await getById(id);
-      if (!plugin) throw notFound("Plugin not found");
+      if (!plugin) throw notFound("插件未找到");
 
       const setClause: Partial<typeof plugins.$inferInsert> & { updatedAt: Date } = {
         updatedAt: new Date(),
@@ -228,7 +228,7 @@ export function pluginRegistryService(db: Db) {
     /** Update a plugin's lifecycle status and optional error message. */
     updateStatus: async (id: string, input: UpdatePluginStatus) => {
       const plugin = await getById(id);
-      if (!plugin) throw notFound("Plugin not found");
+      if (!plugin) throw notFound("插件未找到");
 
       return db
         .update(plugins)
@@ -253,7 +253,7 @@ export function pluginRegistryService(db: Db) {
      */
     uninstall: async (id: string, removeData = false) => {
       const plugin = await getById(id);
-      if (!plugin) throw notFound("Plugin not found");
+      if (!plugin) throw notFound("插件未找到");
 
       if (removeData) {
         // Hard delete – plugin_config cascades via FK onDelete
@@ -293,7 +293,7 @@ export function pluginRegistryService(db: Db) {
      */
     upsertConfig: async (pluginId: string, input: UpsertPluginConfig) => {
       const plugin = await getById(pluginId);
-      if (!plugin) throw notFound("Plugin not found");
+      if (!plugin) throw notFound("插件未找到");
 
       const existing = await db
         .select()
@@ -330,7 +330,7 @@ export function pluginRegistryService(db: Db) {
      */
     patchConfig: async (pluginId: string, input: PatchPluginConfig) => {
       const plugin = await getById(pluginId);
-      if (!plugin) throw notFound("Plugin not found");
+      if (!plugin) throw notFound("插件未找到");
 
       const existing = await db
         .select()
@@ -373,7 +373,7 @@ export function pluginRegistryService(db: Db) {
         .where(eq(pluginConfig.pluginId, pluginId))
         .returning();
 
-      if (rows.length === 0) throw notFound("Plugin config not found");
+      if (rows.length === 0) throw notFound("插件配置未找到");
       return rows[0];
     },
 

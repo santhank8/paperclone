@@ -66,8 +66,8 @@ export function currentUserAssigneeOption(currentUserId: string | null | undefin
   if (!currentUserId) return [];
   return [{
     id: assigneeValueFromSelection({ assigneeUserId: currentUserId }),
-    label: "Me",
-    searchText: currentUserId === "local-board" ? "me board human local-board" : `me human ${currentUserId}`,
+    label: "我",
+    searchText: currentUserId === "local-board" ? "我 board human local-board" : `我 human ${currentUserId}`,
   }];
 }
 
@@ -76,7 +76,7 @@ export function formatAssigneeUserLabel(
   currentUserId: string | null | undefined,
 ): string | null {
   if (!userId) return null;
-  if (currentUserId && userId === currentUserId) return "Me";
-  if (userId === "local-board") return "Board";
+  if (currentUserId && userId === currentUserId) return "我";
+  if (userId === "local-board") return "董事会";
   return userId.slice(0, 5);
 }

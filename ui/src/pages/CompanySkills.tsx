@@ -259,31 +259,31 @@ function NewSkillForm({
         <Input
           value={name}
           onChange={(event) => setName(event.target.value)}
-          placeholder="Skill name"
+          placeholder="技能名称"
           className="h-9 rounded-none border-0 border-b border-border px-0 shadow-none focus-visible:ring-0"
         />
         <Input
           value={slug}
           onChange={(event) => setSlug(event.target.value)}
-          placeholder="optional-shortname"
+          placeholder="可选的简称"
           className="h-9 rounded-none border-0 border-b border-border px-0 shadow-none focus-visible:ring-0"
         />
         <Textarea
           value={description}
           onChange={(event) => setDescription(event.target.value)}
-          placeholder="Short description"
+          placeholder="简短描述"
           className="min-h-20 rounded-none border-0 border-b border-border px-0 shadow-none focus-visible:ring-0"
         />
         <div className="flex items-center justify-end gap-2">
           <Button variant="ghost" size="sm" onClick={onCancel} disabled={isPending}>
-            Cancel
+            取消
           </Button>
           <Button
             size="sm"
             onClick={() => onCreate({ name, slug: slug || null, description: description || null })}
             disabled={isPending || name.trim().length === 0}
           >
-            {isPending ? "Creating..." : "Create skill"}
+            {isPending ? "创建中..." : "创建技能"}
           </Button>
         </div>
       </div>
@@ -534,7 +534,7 @@ function SkillPane({
     return (
       <EmptyState
         icon={Boxes}
-        message="Select a skill to inspect its files."
+        message="选择一个技能以查看其文件。"
       />
     );
   }
@@ -565,7 +565,7 @@ function SkillPane({
               onClick={() => setEditMode(!editMode)}
             >
               <Pencil className="h-3.5 w-3.5" />
-              {editMode ? "Stop editing" : "Edit"}
+              {editMode ? "停止编辑" : "编辑"}
             </button>
           ) : (
             <div className="text-sm text-muted-foreground">{detail.editableReason}</div>
@@ -583,7 +583,7 @@ function SkillPane({
                     className="truncate hover:text-foreground text-muted-foreground transition-colors cursor-pointer"
                     onClick={() => {
                       navigator.clipboard.writeText(detail.sourcePath!);
-                      pushToast({ title: "Copied path to workspace" });
+                      pushToast({ title: "已复制工作区路径" });
                     }}
                   >
                     {source.label}
@@ -607,7 +607,7 @@ function SkillPane({
                   disabled={checkUpdatesPending || updateStatusLoading}
                 >
                   <RefreshCw className={cn("mr-1.5 h-3.5 w-3.5", (checkUpdatesPending || updateStatusLoading) && "animate-spin")} />
-                  Check for updates
+                  检查更新
                 </Button>
                 {updateStatus?.supported && updateStatus.hasUpdate && (
                   <Button
@@ -616,11 +616,11 @@ function SkillPane({
                     disabled={installUpdatePending}
                   >
                     <RefreshCw className={cn("mr-1.5 h-3.5 w-3.5", installUpdatePending && "animate-spin")} />
-                    Install update{latestPin ? ` ${latestPin}` : ""}
+                    安装更新{latestPin ? ` ${latestPin}` : ""}
                   </Button>
                 )}
                 {updateStatus?.supported && !updateStatus.hasUpdate && !updateStatusLoading && (
-                  <span className="text-xs text-muted-foreground">Up to date</span>
+                  <span className="text-xs text-muted-foreground">已是最新</span>
                 )}
                 {!updateStatus?.supported && updateStatus?.reason && (
                   <span className="text-xs text-muted-foreground">{updateStatus.reason}</span>
@@ -633,13 +633,13 @@ function SkillPane({
             </div>
             <div className="flex items-center gap-2">
               <span className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Mode</span>
-              <span>{detail.editable ? "Editable" : "Read only"}</span>
+              <span>{detail.editable ? "可编辑" : "只读"}</span>
             </div>
           </div>
           <div className="flex flex-wrap items-start gap-x-3 gap-y-1">
             <span className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Used by</span>
             {usedBy.length === 0 ? (
-              <span className="text-muted-foreground">No agents attached</span>
+              <span className="text-muted-foreground">没有智能体关联</span>
             ) : (
               <div className="flex flex-wrap gap-x-3 gap-y-1">
                 {usedBy.map((agent) => (
@@ -671,7 +671,7 @@ function SkillPane({
                 >
                   <span className="flex items-center gap-1.5">
                     <Eye className="h-3.5 w-3.5" />
-                    View
+                    查看
                   </span>
                 </button>
                 <button
@@ -680,7 +680,7 @@ function SkillPane({
                 >
                   <span className="flex items-center gap-1.5">
                     <Code2 className="h-3.5 w-3.5" />
-                    Code
+                    代码
                   </span>
                 </button>
               </div>
@@ -688,11 +688,11 @@ function SkillPane({
             {editMode && file?.editable && (
               <>
                 <Button variant="ghost" size="sm" onClick={() => setEditMode(false)} disabled={savePending}>
-                  Cancel
+                  取消
                 </Button>
                 <Button size="sm" onClick={onSave} disabled={savePending}>
                   <Save className="mr-1.5 h-3.5 w-3.5" />
-                  {savePending ? "Saving..." : "Save"}
+                  {savePending ? "保存中..." : "保存"}
                 </Button>
               </>
             )}
@@ -704,7 +704,7 @@ function SkillPane({
         {fileLoading ? (
           <PageSkeleton variant="detail" />
         ) : !file ? (
-          <div className="text-sm text-muted-foreground">Select a file to inspect.</div>
+          <div className="text-sm text-muted-foreground">选择一个文件进行检查。</div>
         ) : editMode && file.editable ? (
           file.markdown ? (
             <MarkdownEditor
@@ -757,8 +757,8 @@ export function CompanySkills() {
 
   useEffect(() => {
     setBreadcrumbs([
-      { label: "Skills", href: "/skills" },
-      ...(routeSkillId ? [{ label: "Detail" }] : []),
+      { label: "技能", href: "/skills" },
+      ...(routeSkillId ? [{ label: "详情" }] : []),
     ]);
   }, [routeSkillId, setBreadcrumbs]);
 
@@ -855,19 +855,19 @@ export function CompanySkills() {
       if (result.imported[0]) navigate(skillRoute(result.imported[0].id));
       pushToast({
         tone: "success",
-        title: "Skills imported",
+        title: "技能已导入",
         body: `${result.imported.length} skill${result.imported.length === 1 ? "" : "s"} added.`,
       });
       if (result.warnings[0]) {
-        pushToast({ tone: "warn", title: "Import warnings", body: result.warnings[0] });
+        pushToast({ tone: "warn", title: "导入警告", body: result.warnings[0] });
       }
       setSource("");
     },
     onError: (error) => {
       pushToast({
         tone: "error",
-        title: "Skill import failed",
-        body: error instanceof Error ? error.message : "Failed to import skill source.",
+        title: "技能导入失败",
+        body: error instanceof Error ? error.message : "导入技能来源失败。",
       });
     },
   });
@@ -880,15 +880,15 @@ export function CompanySkills() {
       setCreateOpen(false);
       pushToast({
         tone: "success",
-        title: "Skill created",
+        title: "技能已创建",
         body: `${skill.name} is now editable in the Paperclip workspace.`,
       });
     },
     onError: (error) => {
       pushToast({
         tone: "error",
-        title: "Skill creation failed",
-        body: error instanceof Error ? error.message : "Failed to create skill.",
+        title: "技能创建失败",
+        body: error instanceof Error ? error.message : "创建技能失败。",
       });
     },
   });
@@ -896,7 +896,7 @@ export function CompanySkills() {
   const scanProjects = useMutation({
     mutationFn: () => companySkillsApi.scanProjects(selectedCompanyId!),
     onMutate: () => {
-      setScanStatusMessage("Scanning project workspaces for skills...");
+      setScanStatusMessage("正在扫描项目工作区中的技能...");
     },
     onSuccess: async (result) => {
       setScanStatusMessage("Refreshing skills list...");
@@ -905,19 +905,19 @@ export function CompanySkills() {
       setScanStatusMessage(summary);
       pushToast({
         tone: "success",
-        title: "Project skill scan complete",
+        title: "项目技能扫描完成",
         body: summary,
       });
       if (result.conflicts[0]) {
         pushToast({
           tone: "warn",
-          title: "Skill conflicts found",
+          title: "发现技能冲突",
           body: result.conflicts[0].reason,
         });
       } else if (result.warnings[0]) {
         pushToast({
           tone: "warn",
-          title: "Scan warnings",
+          title: "扫描警告",
           body: result.warnings[0],
         });
       }
@@ -926,8 +926,8 @@ export function CompanySkills() {
       setScanStatusMessage(null);
       pushToast({
         tone: "error",
-        title: "Project skill scan failed",
-        body: error instanceof Error ? error.message : "Failed to scan project workspaces.",
+        title: "项目技能扫描失败",
+        body: error instanceof Error ? error.message : "扫描项目工作区失败。",
       });
     },
   });
@@ -949,15 +949,15 @@ export function CompanySkills() {
       setEditMode(false);
       pushToast({
         tone: "success",
-        title: "Skill saved",
+        title: "技能已保存",
         body: result.path,
       });
     },
     onError: (error) => {
       pushToast({
         tone: "error",
-        title: "Save failed",
-        body: error instanceof Error ? error.message : "Failed to save skill file.",
+        title: "保存失败",
+        body: error instanceof Error ? error.message : "保存技能文件失败。",
       });
     },
   });
@@ -974,21 +974,21 @@ export function CompanySkills() {
       navigate(skillRoute(skill.id, selectedPath));
       pushToast({
         tone: "success",
-        title: "Skill updated",
+        title: "技能已更新",
         body: skill.sourceRef ? `Pinned to ${shortRef(skill.sourceRef)}` : skill.name,
       });
     },
     onError: (error) => {
       pushToast({
         tone: "error",
-        title: "Update failed",
-        body: error instanceof Error ? error.message : "Failed to install skill update.",
+        title: "更新失败",
+        body: error instanceof Error ? error.message : "安装技能更新失败。",
       });
     },
   });
 
   if (!selectedCompanyId) {
-    return <EmptyState icon={Boxes} message="Select a company to manage skills." />;
+    return <EmptyState icon={Boxes} message="请选择一个公司以管理技能。" />;
   }
 
   function handleAddSkillSource() {
@@ -1032,7 +1032,7 @@ export function CompanySkills() {
               className="flex items-start justify-between rounded-md border border-border px-3 py-3 text-foreground no-underline transition-colors hover:bg-accent/40"
             >
               <span>
-                <span className="block font-medium">Search GitHub</span>
+                <span className="block font-medium">搜索 GitHub</span>
                 <span className="mt-1 block text-muted-foreground">
                   Look for repositories with `SKILL.md`, then paste the repo URL here.
                 </span>
@@ -1060,7 +1060,7 @@ export function CompanySkills() {
                   size="icon-sm"
                   onClick={() => scanProjects.mutate()}
                   disabled={scanProjects.isPending}
-                  title="Scan project workspaces for skills"
+                  title="扫描项目工作区中的技能"
                 >
                   <RefreshCw className={cn("h-4 w-4", scanProjects.isPending && "animate-spin")} />
                 </Button>
@@ -1075,7 +1075,7 @@ export function CompanySkills() {
               <input
                 value={skillFilter}
                 onChange={(event) => setSkillFilter(event.target.value)}
-                placeholder="Filter skills"
+                placeholder="筛选技能"
                 className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
               />
             </div>
@@ -1084,7 +1084,7 @@ export function CompanySkills() {
               <input
                 value={source}
                 onChange={(event) => setSource(event.target.value)}
-                placeholder="Paste path, GitHub URL, or skills.sh command"
+                placeholder="粘贴路径、GitHub URL 或 skills.sh 命令"
                 className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
               />
               <Button
@@ -1093,7 +1093,7 @@ export function CompanySkills() {
                 onClick={handleAddSkillSource}
                 disabled={importSkill.isPending}
               >
-                {importSkill.isPending ? <RefreshCw className="h-4 w-4 animate-spin" /> : "Add"}
+                {importSkill.isPending ? <RefreshCw className="h-4 w-4 animate-spin" /> : "添加"}
               </Button>
             </div>
             {scanStatusMessage && (

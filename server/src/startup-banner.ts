@@ -61,7 +61,7 @@ function redactConnectionString(raw: string): string {
     const auth = `${user}:***@`;
     return `${u.protocol}//${auth}${u.host}${u.pathname}`;
   } catch {
-    return "<invalid DATABASE_URL>";
+    return "<无效的 DATABASE_URL>";
   }
 }
 
@@ -75,7 +75,7 @@ function resolveAgentJwtSecretStatus(
   if (envValue) {
     return {
       status: "pass",
-      message: "set",
+      message: "已设置",
     };
   }
 
@@ -85,14 +85,14 @@ function resolveAgentJwtSecretStatus(
     if (fileValue) {
       return {
         status: "warn",
-        message: `found in ${envFilePath} but not loaded`,
+        message: `在 ${envFilePath} 中找到但未加载`,
       };
     }
   }
 
   return {
     status: "warn",
-    message: "missing (run `pnpm paperclipai onboard`)",
+    message: "缺少（请运行 `pnpm paperclipai onboard`）",
   };
 }
 
@@ -100,7 +100,7 @@ export function printStartupBanner(opts: StartupBannerOptions): void {
   const baseHost = opts.host === "0.0.0.0" ? "localhost" : opts.host;
   const baseUrl = `http://${baseHost}:${opts.listenPort}`;
   const apiUrl = `${baseUrl}/api`;
-  const uiUrl = opts.uiMode === "none" ? "disabled" : baseUrl;
+  const uiUrl = opts.uiMode === "none" ? "已禁用" : baseUrl;
   const configPath = resolvePaperclipConfigPath();
   const envFilePath = resolvePaperclipEnvPath();
   const agentJwtSecret = resolveAgentJwtSecretStatus(envFilePath);
@@ -111,15 +111,15 @@ export function printStartupBanner(opts: StartupBannerOptions): void {
       : color("external-postgres", "yellow");
   const uiMode =
     opts.uiMode === "vite-dev"
-      ? color("vite-dev-middleware", "cyan")
+      ? color("Vite 开发中间件", "cyan")
       : opts.uiMode === "static"
-        ? color("static-ui", "magenta")
-        : color("headless-api", "yellow");
+        ? color("静态界面", "magenta")
+        : color("无界面 API", "yellow");
 
   const portValue =
     opts.requestedPort === opts.listenPort
       ? `${opts.listenPort}`
-      : `${opts.listenPort} ${color(`(requested ${opts.requestedPort})`, "dim")}`;
+      : `${opts.listenPort} ${color(`(请求端口 ${opts.requestedPort})`, "dim")}`;
 
   const dbDetails =
     opts.db.mode === "embedded-postgres"
@@ -127,11 +127,11 @@ export function printStartupBanner(opts: StartupBannerOptions): void {
       : redactConnectionString(opts.db.connectionString);
 
   const heartbeat = opts.heartbeatSchedulerEnabled
-    ? `enabled ${color(`(${opts.heartbeatSchedulerIntervalMs}ms)`, "dim")}`
-    : color("disabled", "yellow");
+    ? `已启用 ${color(`(${opts.heartbeatSchedulerIntervalMs}ms)`, "dim")}`
+    : color("已禁用", "yellow");
   const dbBackup = opts.databaseBackupEnabled
-    ? `enabled ${color(`(every ${opts.databaseBackupIntervalMinutes}m, keep ${opts.databaseBackupRetentionDays}d)`, "dim")}`
-    : color("disabled", "yellow");
+    ? `已启用 ${color(`(每 ${opts.databaseBackupIntervalMinutes} 分钟，保留 ${opts.databaseBackupRetentionDays} 天)`, "dim")}`
+    : color("已禁用", "yellow");
 
   const art = [
     color("██████╗  █████╗ ██████╗ ███████╗██████╗  ██████╗██╗     ██╗██████╗ ", "cyan"),
@@ -146,24 +146,24 @@ export function printStartupBanner(opts: StartupBannerOptions): void {
     "",
     ...art,
     color("  ───────────────────────────────────────────────────────", "blue"),
-    row("Mode", `${dbMode}  |  ${uiMode}`),
-    row("Deploy", `${opts.deploymentMode} (${opts.deploymentExposure})`),
-    row("Auth", opts.authReady ? color("ready", "green") : color("not-ready", "yellow")),
-    row("Server", portValue),
-    row("API", `${apiUrl} ${color(`(health: ${apiUrl}/health)`, "dim")}`),
-    row("UI", uiUrl),
-    row("Database", dbDetails),
-    row("Migrations", opts.migrationSummary),
+    row("模式", `${dbMode}  |  ${uiMode}`),
+    row("部署", `${opts.deploymentMode} (${opts.deploymentExposure})`),
+    row("认证", opts.authReady ? color("就绪", "green") : color("未就绪", "yellow")),
+    row("服务器", portValue),
+    row("API", `${apiUrl} ${color(`(健康检查: ${apiUrl}/health)`, "dim")}`),
+    row("界面", uiUrl),
+    row("数据库", dbDetails),
+    row("迁移", opts.migrationSummary),
     row(
-      "Agent JWT",
+      "智能体 JWT",
       agentJwtSecret.status === "pass"
         ? color(agentJwtSecret.message, "green")
         : color(agentJwtSecret.message, "yellow"),
     ),
-    row("Heartbeat", heartbeat),
-    row("DB Backup", dbBackup),
-    row("Backup Dir", opts.databaseBackupDir),
-    row("Config", configPath),
+    row("心跳检测", heartbeat),
+    row("数据库备份", dbBackup),
+    row("备份目录", opts.databaseBackupDir),
+    row("配置", configPath),
     agentJwtSecret.status === "warn"
       ? color("  ───────────────────────────────────────────────────────", "yellow")
       : null,

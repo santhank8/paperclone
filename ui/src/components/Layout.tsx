@@ -269,7 +269,7 @@ export function Layout() {
         href="#main-content"
         className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-[200] focus:rounded-md focus:bg-background focus:px-3 focus:py-2 focus:text-sm focus:font-medium focus:shadow-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
-        Skip to Main Content
+        跳转到主内容
       </a>
       <WorktreeBanner />
       <DevRestartBanner devServer={health?.devServer} />
@@ -279,7 +279,7 @@ export function Layout() {
             type="button"
             className="fixed inset-0 z-40 bg-black/50"
             onClick={() => setSidebarOpen(false)}
-            aria-label="Close sidebar"
+            aria-label="关闭侧边栏"
           />
         )}
 
@@ -303,7 +303,7 @@ export function Layout() {
                   className="flex items-center gap-2.5 px-3 py-2 text-[13px] font-medium transition-colors text-foreground/80 hover:bg-accent/50 hover:text-foreground flex-1 min-w-0"
                 >
                   <BookOpen className="h-4 w-4 shrink-0" />
-                  <span className="truncate">Documentation</span>
+                  <span className="truncate">文档</span>
                 </a>
                 {health?.version && (
                   <Tooltip>
@@ -316,8 +316,8 @@ export function Layout() {
                 <Button variant="ghost" size="icon-sm" className="text-muted-foreground shrink-0" asChild>
                   <Link
                     to={instanceSettingsTarget}
-                    aria-label="Instance settings"
-                    title="Instance settings"
+                    aria-label="实例设置"
+                    title="实例设置"
                     onClick={() => {
                       if (isMobile) setSidebarOpen(false);
                     }}
@@ -361,7 +361,7 @@ export function Layout() {
                   className="flex items-center gap-2.5 px-3 py-2 text-[13px] font-medium transition-colors text-foreground/80 hover:bg-accent/50 hover:text-foreground flex-1 min-w-0"
                 >
                   <BookOpen className="h-4 w-4 shrink-0" />
-                  <span className="truncate">Documentation</span>
+                  <span className="truncate">文档</span>
                 </a>
                 {health?.version && (
                   <Tooltip>
@@ -374,8 +374,8 @@ export function Layout() {
                 <Button variant="ghost" size="icon-sm" className="text-muted-foreground shrink-0" asChild>
                   <Link
                     to={instanceSettingsTarget}
-                    aria-label="Instance settings"
-                    title="Instance settings"
+                    aria-label="实例设置"
+                    title="实例设置"
                     onClick={() => {
                       if (isMobile) setSidebarOpen(false);
                     }}

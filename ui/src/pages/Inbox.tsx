@@ -71,7 +71,7 @@ function firstNonEmptyLine(value: string | null | undefined): string | null {
 }
 
 function runFailureMessage(run: HeartbeatRun): string {
-  return firstNonEmptyLine(run.error) ?? firstNonEmptyLine(run.stderrExcerpt) ?? "Run exited with an error.";
+  return firstNonEmptyLine(run.error) ?? firstNonEmptyLine(run.stderrExcerpt) ?? "运行退出并出错。";
 }
 
 function approvalStatusLabel(status: Approval["status"]): string {
@@ -311,7 +311,7 @@ export function Inbox() {
   });
 
   useEffect(() => {
-    setBreadcrumbs([{ label: "Inbox" }]);
+    setBreadcrumbs([{ label: "收件箱" }]);
   }, [setBreadcrumbs]);
 
   useEffect(() => {
@@ -454,7 +454,7 @@ export function Inbox() {
       navigate(`/approvals/${id}?resolved=approved`);
     },
     onError: (err) => {
-      setActionError(err instanceof Error ? err.message : "Failed to approve");
+      setActionError(err instanceof Error ? err.message : "审批失败");
     },
   });
 
@@ -465,7 +465,7 @@ export function Inbox() {
       queryClient.invalidateQueries({ queryKey: queryKeys.approvals.list(selectedCompanyId!) });
     },
     onError: (err) => {
-      setActionError(err instanceof Error ? err.message : "Failed to reject");
+      setActionError(err instanceof Error ? err.message : "拒绝失败");
     },
   });
 
@@ -480,7 +480,7 @@ export function Inbox() {
       queryClient.invalidateQueries({ queryKey: queryKeys.companies.all });
     },
     onError: (err) => {
-      setActionError(err instanceof Error ? err.message : "Failed to approve join request");
+      setActionError(err instanceof Error ? err.message : "批准加入请求失败");
     },
   });
 
@@ -493,7 +493,7 @@ export function Inbox() {
       queryClient.invalidateQueries({ queryKey: queryKeys.sidebarBadges(selectedCompanyId!) });
     },
     onError: (err) => {
-      setActionError(err instanceof Error ? err.message : "Failed to reject join request");
+      setActionError(err instanceof Error ? err.message : "拒绝加入请求失败");
     },
   });
 
@@ -591,7 +591,7 @@ export function Inbox() {
   });
 
   if (!selectedCompanyId) {
-    return <EmptyState icon={InboxIcon} message="Select a company to view inbox." />;
+    return <EmptyState icon={InboxIcon} message="请选择一个公司以查看收件箱。" />;
   }
 
   const hasRunFailures = failedRuns.length > 0;
@@ -643,10 +643,10 @@ export function Inbox() {
               items={[
                 {
                   value: "recent",
-                  label: "Recent",
+                  label: "最近",
                 },
-                { value: "unread", label: "Unread" },
-                { value: "all", label: "All" },
+                { value: "unread", label: "未读" },
+                { value: "all", label: "全部" },
               ]}
             />
           </Tabs>
@@ -660,7 +660,7 @@ export function Inbox() {
               onClick={() => markAllReadMutation.mutate(unreadIssueIds)}
               disabled={markAllReadMutation.isPending}
             >
-              {markAllReadMutation.isPending ? "Marking…" : "Mark all as read"}
+              {markAllReadMutation.isPending ? "标记中…" : "全部标为已读"}
             </Button>
           )}
         </div>
@@ -672,15 +672,15 @@ export function Inbox() {
               onValueChange={(value) => setAllCategoryFilter(value as InboxCategoryFilter)}
             >
               <SelectTrigger className="h-8 w-[170px] text-xs">
-                <SelectValue placeholder="Category" />
+                <SelectValue placeholder="类别" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="everything">All categories</SelectItem>
-                <SelectItem value="issues_i_touched">My recent issues</SelectItem>
-                <SelectItem value="join_requests">Join requests</SelectItem>
-                <SelectItem value="approvals">Approvals</SelectItem>
-                <SelectItem value="failed_runs">Failed runs</SelectItem>
-                <SelectItem value="alerts">Alerts</SelectItem>
+                <SelectItem value="everything">全部类别</SelectItem>
+                <SelectItem value="issues_i_touched">我最近的任务</SelectItem>
+                <SelectItem value="join_requests">加入请求</SelectItem>
+                <SelectItem value="approvals">审批</SelectItem>
+                <SelectItem value="failed_runs">失败的运行</SelectItem>
+                <SelectItem value="alerts">警报</SelectItem>
               </SelectContent>
             </Select>
 
@@ -690,12 +690,12 @@ export function Inbox() {
                 onValueChange={(value) => setAllApprovalFilter(value as InboxApprovalFilter)}
               >
                 <SelectTrigger className="h-8 w-[170px] text-xs">
-                  <SelectValue placeholder="Approval status" />
+                  <SelectValue placeholder="审批状态" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All approval statuses</SelectItem>
-                  <SelectItem value="actionable">Needs action</SelectItem>
-                  <SelectItem value="resolved">Resolved</SelectItem>
+                  <SelectItem value="all">全部审批状态</SelectItem>
+                  <SelectItem value="actionable">需要处理</SelectItem>
+                  <SelectItem value="resolved">已解决</SelectItem>
                 </SelectContent>
               </Select>
             )}
@@ -715,10 +715,10 @@ export function Inbox() {
           icon={InboxIcon}
           message={
             tab === "unread"
-              ? "No new inbox items."
+              ? "没有新的收件箱项目。"
               : tab === "recent"
-                ? "No recent inbox items."
-                : "No inbox items match these filters."
+                ? "没有最近的收件箱项目。"
+                : "没有收件箱项目匹配这些筛选条件。"
           }
         />
       )}

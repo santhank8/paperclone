@@ -17,7 +17,7 @@ export function MyIssues() {
   const { setBreadcrumbs } = useBreadcrumbs();
 
   useEffect(() => {
-    setBreadcrumbs([{ label: "My Issues" }]);
+    setBreadcrumbs([{ label: "我的任务" }]);
   }, [setBreadcrumbs]);
 
   const { data: issues, isLoading, error } = useQuery({
@@ -27,7 +27,7 @@ export function MyIssues() {
   });
 
   if (!selectedCompanyId) {
-    return <EmptyState icon={ListTodo} message="Select a company to view your issues." />;
+    return <EmptyState icon={ListTodo} message="请选择一个公司以查看你的任务。" />;
   }
 
   if (isLoading) {
@@ -44,7 +44,7 @@ export function MyIssues() {
       {error && <p className="text-sm text-destructive">{error.message}</p>}
 
       {myIssues.length === 0 && (
-        <EmptyState icon={ListTodo} message="No issues assigned to you." />
+        <EmptyState icon={ListTodo} message="没有分配给你的任务。" />
       )}
 
       {myIssues.length > 0 && (

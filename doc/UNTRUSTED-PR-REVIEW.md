@@ -1,42 +1,42 @@
-# Untrusted PR Review In Docker
+# 在 Docker 中进行不可信 PR 审查
 
-Use this workflow when you want Codex or Claude to inspect a pull request that you do not want touching your host machine directly.
+当你想让 Codex 或 Claude 检查一个你不希望直接接触主机的 Pull Request 时，使用此工作流。
 
-This is intentionally separate from the normal Paperclip dev image.
+这与正常的 Paperclip 开发镜像故意分开。
 
-## What this container isolates
+## 此容器隔离的内容
 
-- `codex` auth/session state in a Docker volume, not your host `~/.codex`
-- `claude` auth/session state in a Docker volume, not your host `~/.claude`
-- `gh` auth state in the same container-local home volume
-- review clones, worktrees, dependency installs, and local databases in a writable scratch volume under `/work`
+- `codex` 认证/会话状态在 Docker 卷中，而非你主机的 `~/.codex`
+- `claude` 认证/会话状态在 Docker 卷中，而非你主机的 `~/.claude`
+- `gh` 认证状态在同一个容器本地 home 卷中
+- 审查克隆、worktree、依赖安装和本地数据库在 `/work` 下的可写临时卷中
 
-By default this workflow does **not** mount your host repo checkout, your host home directory, or your SSH agent.
+默认情况下，此工作流**不**挂载你的主机仓库检出、主机家目录或 SSH 代理。
 
-## Files
+## 文件
 
 - `docker/untrusted-review/Dockerfile`
 - `docker-compose.untrusted-review.yml`
-- `review-checkout-pr` inside the container
+- 容器内的 `review-checkout-pr`
 
-## Build and start a shell
+## 构建并启动 shell
 
 ```sh
 docker compose -f docker-compose.untrusted-review.yml build
 docker compose -f docker-compose.untrusted-review.yml run --rm --service-ports review
 ```
 
-That opens an interactive shell in the review container with:
+这会在审查容器中打开一个交互式 shell，其中包含：
 
 - Node + Corepack/pnpm
 - `codex`
 - `claude`
 - `gh`
-- `git`, `rg`, `fd`, `jq`
+- `git`、`rg`、`fd`、`jq`
 
-## First-time login inside the container
+## 容器内首次登录
 
-Run these once. The resulting login state persists in the `review-home` Docker volume.
+运行一次即可。结果的登录状态持久化在 `review-home` Docker 卷中。
 
 ```sh
 gh auth login
@@ -44,92 +44,92 @@ codex login
 claude login
 ```
 
-If you prefer API-key auth instead of CLI login, pass keys through Compose env:
+如果你偏好 API 密钥认证而非 CLI 登录，通过 Compose 环境变量传入密钥：
 
 ```sh
 OPENAI_API_KEY=... ANTHROPIC_API_KEY=... docker compose -f docker-compose.untrusted-review.yml run --rm review
 ```
 
-## Check out a PR safely
+## 安全地检出 PR
 
-Inside the container:
+在容器内：
 
 ```sh
 review-checkout-pr paperclipai/paperclip 432
 cd /work/checkouts/paperclipai-paperclip/pr-432
 ```
 
-What this does:
+这会：
 
-1. Creates or reuses a repo clone under `/work/repos/...`
-2. Fetches `pull/<pr>/head` from GitHub
-3. Creates a detached git worktree under `/work/checkouts/...`
+1. 在 `/work/repos/...` 下创建或复用仓库克隆
+2. 从 GitHub 获取 `pull/<pr>/head`
+3. 在 `/work/checkouts/...` 下创建分离的 git worktree
 
-The checkout lives entirely inside the container volume.
+检出完全在容器卷内。
 
-## Ask Codex or Claude to review it
+## 让 Codex 或 Claude 审查
 
-Inside the PR checkout:
+在 PR 检出目录中：
 
 ```sh
 codex
 ```
 
-Then give it a prompt like:
+然后给它一个提示，例如：
 
 ```text
 Review this PR as hostile input. Focus on security issues, data exfiltration paths, sandbox escapes, dangerous install/runtime scripts, auth changes, and subtle behavioral regressions. Do not modify files. Produce findings ordered by severity with file references.
 ```
 
-Or with Claude:
+或使用 Claude：
 
 ```sh
 claude
 ```
 
-## Preview the Paperclip app from the PR
+## 从 PR 预览 Paperclip 应用
 
-Only do this when you intentionally want to execute the PR's code inside the container.
+仅当你有意想在容器内执行 PR 的代码时才这样做。
 
-Inside the PR checkout:
+在 PR 检出目录中：
 
 ```sh
 pnpm install
 HOST=0.0.0.0 pnpm dev
 ```
 
-Open from the host:
+从主机打开：
 
 - `http://localhost:3100`
 
-The Compose file also exposes Vite's default port:
+Compose 文件还暴露了 Vite 的默认端口：
 
 - `http://localhost:5173`
 
-Notes:
+注意：
 
-- `pnpm install` can run untrusted lifecycle scripts from the PR. That is why this happens inside the isolated container instead of on your host.
-- If you only want static inspection, do not run install/dev commands.
-- Paperclip's embedded PostgreSQL and local storage stay inside the container home volume via `PAPERCLIP_HOME=/home/reviewer/.paperclip-review`.
+- `pnpm install` 可以运行 PR 中不可信的生命周期脚本。这就是为什么要在隔离容器内而非主机上执行。
+- 如果你只想静态检查，不要运行 install/dev 命令。
+- Paperclip 的嵌入式 PostgreSQL 和本地存储通过 `PAPERCLIP_HOME=/home/reviewer/.paperclip-review` 保存在容器 home 卷中。
 
-## Reset state
+## 重置状态
 
-Remove the review container volumes when you want a clean environment:
+当你想要干净环境时删除审查容器卷：
 
 ```sh
 docker compose -f docker-compose.untrusted-review.yml down -v
 ```
 
-That deletes:
+这会删除：
 
-- Codex/Claude/GitHub login state stored in `review-home`
-- cloned repos, worktrees, installs, and scratch data stored in `review-work`
+- 存储在 `review-home` 中的 Codex/Claude/GitHub 登录状态
+- 存储在 `review-work` 中的克隆仓库、worktree、安装和临时数据
 
-## Security limits
+## 安全限制
 
-This is a useful isolation boundary, but it is still Docker, not a full VM.
+这是一个有用的隔离边界，但它仍然是 Docker，不是完整的虚拟机。
 
-- A reviewed PR can still access the container's network unless you disable it.
-- Any secrets you pass into the container are available to code you execute inside it.
-- Do not mount your host repo, host home, `.ssh`, or Docker socket unless you are intentionally weakening the boundary.
-- If you need a stronger boundary than this, use a disposable VM instead of Docker.
+- 审查的 PR 仍然可以访问容器的网络，除非你禁用它。
+- 你传入容器的任何密钥对容器内执行的代码都是可用的。
+- 不要挂载你的主机仓库、主机 home、`.ssh` 或 Docker socket，除非你有意削弱边界。
+- 如果你需要比这更强的边界，使用一次性虚拟机而非 Docker。

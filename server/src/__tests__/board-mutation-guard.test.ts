@@ -33,7 +33,7 @@ describe("boardMutationGuard", () => {
     const app = createApp("board");
     const res = await request(app).post("/mutate").send({ ok: true });
     expect(res.status).toBe(403);
-    expect(res.body).toEqual({ error: "Board mutation requires trusted browser origin" });
+    expect(res.body).toEqual({ error: "管理面板操作需要可信的浏览器来源" });
   });
 
   it("allows local implicit board mutations without origin", async () => {

@@ -121,7 +121,7 @@ async function ensureManagedProjectWorkspace(input: {
     if (entries.length > 0) {
       return {
         cwd,
-        warning: `Managed workspace path "${cwd}" already exists but is not a git checkout. Using it as-is.`,
+        warning: `托管工作区路径 "${cwd}" 已存在但不是 git 检出目录，将直接使用。`,
       };
     }
     await fs.rm(cwd, { recursive: true, force: true });
@@ -135,7 +135,7 @@ async function ensureManagedProjectWorkspace(input: {
     return { cwd, warning: null };
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error);
-    throw new Error(`Failed to prepare managed checkout for "${input.repoUrl}" at "${cwd}": ${reason}`);
+    throw new Error(`为 "${input.repoUrl}" 在 "${cwd}" 准备托管检出失败: ${reason}`);
   }
 }
 
@@ -455,8 +455,8 @@ export function resolveRuntimeSessionParamsForWorkspace(input: {
   return {
     sessionParams: migratedSessionParams,
     warning:
-      `Project workspace "${projectCwd}" is now available. ` +
-      `Attempting to resume session "${previousSessionId}" that was previously saved in fallback workspace "${previousCwd}".`,
+      `项目工作区 "${projectCwd}" 现已可用。` +
+      `正在尝试恢复之前保存在回退工作区 "${previousCwd}" 中的会话 "${previousSessionId}"。`,
   };
 }
 
@@ -1036,7 +1036,7 @@ export function heartbeatService(db: Db) {
       let preferredWorkspaceWarning: string | null = null;
       if (preferredProjectWorkspaceId && !preferredWorkspace) {
         preferredWorkspaceWarning =
-          `Selected project workspace "${preferredProjectWorkspaceId}" is not available on this project.`;
+          `所选项目工作区 "${preferredProjectWorkspaceId}" 在此项目中不可用。`;
       }
       for (const workspace of projectWorkspaceRows) {
         let projectCwd = readNonEmptyString(workspace.cwd);
@@ -1078,7 +1078,7 @@ export function heartbeatService(db: Db) {
         }
         if (preferredWorkspace?.id === workspace.id) {
           preferredWorkspaceWarning =
-            `Selected project workspace path "${projectCwd}" is not available yet.`;
+            `所选项目工作区路径 "${projectCwd}" 尚不可用。`;
         }
         missingProjectCwds.push(projectCwd);
       }
@@ -1094,12 +1094,12 @@ export function heartbeatService(db: Db) {
         const extraMissingCount = Math.max(0, missingProjectCwds.length - 1);
         warnings.push(
           extraMissingCount > 0
-            ? `Project workspace path "${firstMissing}" and ${extraMissingCount} other configured path(s) are not available yet. Using fallback workspace "${fallbackCwd}" for this run.`
-            : `Project workspace path "${firstMissing}" is not available yet. Using fallback workspace "${fallbackCwd}" for this run.`,
+            ? `项目工作区路径 "${firstMissing}" 及其他 ${extraMissingCount} 个已配置路径尚不可用。本次运行使用回退工作区 "${fallbackCwd}"。`
+            : `项目工作区路径 "${firstMissing}" 尚不可用。本次运行使用回退工作区 "${fallbackCwd}"。`,
         );
       } else if (!hasConfiguredProjectCwd) {
         warnings.push(
-          `Project workspace has no local cwd configured. Using fallback workspace "${fallbackCwd}" for this run.`,
+          `项目工作区未配置本地工作目录。本次运行使用回退工作区 "${fallbackCwd}"。`,
         );
       }
       return {
@@ -1157,15 +1157,15 @@ export function heartbeatService(db: Db) {
     const warnings: string[] = [];
     if (sessionCwd) {
       warnings.push(
-        `Saved session workspace "${sessionCwd}" is not available. Using fallback workspace "${cwd}" for this run.`,
+        `已保存的会话工作区 "${sessionCwd}" 不可用。本次运行使用回退工作区 "${cwd}"。`,
       );
     } else if (resolvedProjectId) {
       warnings.push(
-        `No project workspace directory is currently available for this issue. Using fallback workspace "${cwd}" for this run.`,
+        `当前没有可用的项目工作区目录。本次运行使用回退工作区 "${cwd}"。`,
       );
     } else {
       warnings.push(
-        `No project or prior session workspace was available. Using fallback workspace "${cwd}" for this run.`,
+        `没有可用的项目或先前会话工作区。本次运行使用回退工作区 "${cwd}"。`,
       );
     }
     return {
@@ -1403,7 +1403,7 @@ export function heartbeatService(db: Db) {
       eventType: "lifecycle",
       stream: "system",
       level: "info",
-      message: "Detached child process reported activity; cleared detached warning",
+      message: "分离的子进程报告了活动；已清除分离警告",
     });
     return updated;
   }
@@ -1502,7 +1502,7 @@ export function heartbeatService(db: Db) {
       eventType: "lifecycle",
       stream: "system",
       level: "warn",
-      message: "Queued automatic retry after orphaned child process was confirmed dead",
+      message: "确认孤儿子进程已终止后，已排队自动重试",
       payload: {
         retryOfRunId: run.id,
       },
@@ -1535,11 +1535,11 @@ export function heartbeatService(db: Db) {
     if (run.status !== "queued") return run;
     const agent = await getAgent(run.agentId);
     if (!agent) {
-      await cancelRunInternal(run.id, "Cancelled because the agent no longer exists");
+      await cancelRunInternal(run.id, "已取消，因为代理已不存在");
       return null;
     }
     if (agent.status === "paused" || agent.status === "terminated" || agent.status === "pending_approval") {
-      await cancelRunInternal(run.id, "Cancelled because the agent is not invokable");
+      await cancelRunInternal(run.id, "已取消，因为代理当前不可调用");
       return null;
     }
 
@@ -1660,7 +1660,7 @@ export function heartbeatService(db: Db) {
       const tracksLocalChild = isTrackedLocalChildProcessAdapter(adapterType);
       if (tracksLocalChild && run.processPid && isProcessAlive(run.processPid)) {
         if (run.errorCode !== DETACHED_PROCESS_ERROR_CODE) {
-          const detachedMessage = `Lost in-memory process handle, but child pid ${run.processPid} is still alive`;
+          const detachedMessage = `丢失了内存中的进程句柄，但子进程 pid ${run.processPid} 仍然存活`;
           const detachedRun = await setRunStatus(run.id, "running", {
             error: detachedMessage,
             errorCode: DETACHED_PROCESS_ERROR_CODE,
@@ -1682,17 +1682,17 @@ export function heartbeatService(db: Db) {
 
       const shouldRetry = tracksLocalChild && !!run.processPid && (run.processLossRetryCount ?? 0) < 1;
       const baseMessage = run.processPid
-        ? `Process lost -- child pid ${run.processPid} is no longer running`
-        : "Process lost -- server may have restarted";
+        ? `进程丢失 -- 子进程 pid ${run.processPid} 已不再运行`
+        : "进程丢失 -- 服务器可能已重启";
 
       let finalizedRun = await setRunStatus(run.id, "failed", {
-        error: shouldRetry ? `${baseMessage}; retrying once` : baseMessage,
+        error: shouldRetry ? `${baseMessage}；正在重试一次` : baseMessage,
         errorCode: "process_lost",
         finishedAt: now,
       });
       await setWakeupStatus(run.wakeupRequestId, "failed", {
         finishedAt: now,
-        error: shouldRetry ? `${baseMessage}; retrying once` : baseMessage,
+        error: shouldRetry ? `${baseMessage}；正在重试一次` : baseMessage,
       });
       if (!finalizedRun) finalizedRun = await getRun(run.id);
       if (!finalizedRun) continue;
@@ -1855,13 +1855,13 @@ export function heartbeatService(db: Db) {
     const agent = await getAgent(run.agentId);
     if (!agent) {
       await setRunStatus(runId, "failed", {
-        error: "Agent not found",
+        error: "未找到代理",
         errorCode: "agent_not_found",
         finishedAt: new Date(),
       });
       await setWakeupStatus(run.wakeupRequestId, "failed", {
         finishedAt: new Date(),
-        error: "Agent not found",
+        error: "未找到代理",
       });
       const failedRun = await getRun(runId);
       if (failedRun) await releaseIssueExecutionAndPromote(failedRun);
@@ -2080,7 +2080,7 @@ export function heartbeatService(db: Db) {
               executionWorkspaceCwd: executionWorkspace.cwd,
               cleanupError: cleanupError instanceof Error ? cleanupError.message : String(cleanupError),
             },
-            "Failed to cleanup realized execution workspace after persistence failure",
+            "持久化失败后清理已实例化的执行工作区失败",
           );
         }
       }
@@ -2130,8 +2130,8 @@ export function heartbeatService(db: Db) {
       ...(resetTaskSession && sessionResetReason
         ? [
             taskKey
-              ? `Skipping saved session resume for task "${taskKey}" because ${sessionResetReason}.`
-              : `Skipping saved session resume because ${sessionResetReason}.`,
+              ? `跳过任务 "${taskKey}" 的已保存会话恢复，因为 ${sessionResetReason}。`
+              : `跳过已保存会话恢复，因为 ${sessionResetReason}。`,
           ]
         : []),
     ];
@@ -2194,7 +2194,7 @@ export function heartbeatService(db: Db) {
       previousSessionDisplayId = null;
       if (sessionCompaction.reason) {
         runtimeWorkspaceWarnings.push(
-          `Starting a fresh session because ${sessionCompaction.reason}.`,
+          `正在启动新会话，因为 ${sessionCompaction.reason}。`,
         );
       }
     } else {
@@ -2353,7 +2353,7 @@ export function heartbeatService(db: Db) {
         } catch (err) {
           await onLog(
             "stderr",
-            `[paperclip] Failed to post workspace-ready comment: ${err instanceof Error ? err.message : String(err)}\n`,
+            `[paperclip] 发布工作区就绪评论失败: ${err instanceof Error ? err.message : String(err)}\n`,
           );
         }
       }
@@ -2443,7 +2443,7 @@ export function heartbeatService(db: Db) {
           } catch (err) {
             await onLog(
               "stderr",
-              `[paperclip] Failed to post adapter-managed runtime comment: ${err instanceof Error ? err.message : String(err)}\n`,
+              `[paperclip] 发布适配器管理的运行时评论失败: ${err instanceof Error ? err.message : String(err)}\n`,
             );
           }
         }
@@ -2522,7 +2522,7 @@ export function heartbeatService(db: Db) {
           outcome === "succeeded"
             ? null
             : redactCurrentUserText(
-                adapterResult.errorMessage ?? (outcome === "timed_out" ? "Timed out" : "Adapter failed"),
+                adapterResult.errorMessage ?? (outcome === "timed_out" ? "执行超时" : "适配器失败"),
                 currentUserRedactionOptions,
               ),
         errorCode:
@@ -2592,7 +2592,7 @@ export function heartbeatService(db: Db) {
       await finalizeAgentStatus(agent.id, outcome);
     } catch (err) {
       const message = redactCurrentUserText(
-        err instanceof Error ? err.message : "Unknown adapter failure",
+        err instanceof Error ? err.message : "未知适配器故障",
         await getCurrentUserRedactionOptions(),
       );
       logger.error({ err, runId }, "heartbeat execution failed");
@@ -2658,7 +2658,7 @@ export function heartbeatService(db: Db) {
     } catch (outerErr) {
           // Setup code before adapter.execute threw (e.g. ensureRuntimeState, resolveWorkspaceForRun).
           // The inner catch did not fire, so we must record the failure here.
-          const message = outerErr instanceof Error ? outerErr.message : "Unknown setup failure";
+          const message = outerErr instanceof Error ? outerErr.message : "未知初始化故障";
           logger.error({ err: outerErr, runId }, "heartbeat execution setup failed");
           await setRunStatus(runId, "failed", {
             error: message,
@@ -2753,7 +2753,7 @@ export function heartbeatService(db: Db) {
             .set({
               status: "failed",
               finishedAt: new Date(),
-              error: "Deferred wake could not be promoted: agent is not invokable",
+              error: "延迟唤醒无法提升：代理不可调用",
               updatedAt: new Date(),
             })
             .where(eq(agentWakeupRequests.id, deferred.id));
@@ -2864,7 +2864,7 @@ export function heartbeatService(db: Db) {
     const issueId = readNonEmptyString(enrichedContextSnapshot.issueId) ?? issueIdFromPayload;
 
     const agent = await getAgent(agentId);
-    if (!agent) throw notFound("Agent not found");
+    if (!agent) throw notFound("未找到代理");
 
     const writeSkippedRequest = async (skipReason: string) => {
       await db.insert(agentWakeupRequests).values({
@@ -2908,7 +2908,7 @@ export function heartbeatService(db: Db) {
       agent.status === "terminated" ||
       agent.status === "pending_approval"
     ) {
-      throw conflict("Agent is not invokable in its current state", { status: agent.status });
+      throw conflict("代理当前状态不可调用", { status: agent.status });
     }
 
     const policy = parseHeartbeatPolicy(agent);
@@ -3412,7 +3412,7 @@ export function heartbeatService(db: Db) {
       .set({
         status: "cancelled",
         finishedAt: now,
-        error: "Cancelled due to budget pause",
+        error: "因预算暂停已取消",
         updatedAt: now,
       })
       .where(inArray(agentWakeupRequests.id, wakeupIds));
@@ -3420,9 +3420,9 @@ export function heartbeatService(db: Db) {
     return wakeupIds.length;
   }
 
-  async function cancelRunInternal(runId: string, reason = "Cancelled by control plane") {
+  async function cancelRunInternal(runId: string, reason = "被控制平面取消") {
     const run = await getRun(runId);
-    if (!run) throw notFound("Heartbeat run not found");
+    if (!run) throw notFound("未找到心跳运行记录");
     if (run.status !== "running" && run.status !== "queued") return run;
 
     const running = runningProcesses.get(run.id);
@@ -3452,7 +3452,7 @@ export function heartbeatService(db: Db) {
         eventType: "lifecycle",
         stream: "system",
         level: "warn",
-        message: "run cancelled",
+        message: "运行已取消",
       });
       await releaseIssueExecutionAndPromote(cancelled);
     }
@@ -3463,7 +3463,7 @@ export function heartbeatService(db: Db) {
     return cancelled;
   }
 
-  async function cancelActiveForAgentInternal(agentId: string, reason = "Cancelled due to agent pause") {
+  async function cancelActiveForAgentInternal(agentId: string, reason = "因代理暂停已取消") {
     const runs = await db
       .select()
       .from(heartbeatRuns)
@@ -3494,7 +3494,7 @@ export function heartbeatService(db: Db) {
 
   async function cancelBudgetScopeWork(scope: BudgetEnforcementScope) {
     if (scope.scopeType === "agent") {
-      await cancelActiveForAgentInternal(scope.scopeId, "Cancelled due to budget pause");
+      await cancelActiveForAgentInternal(scope.scopeId, "因预算暂停已取消");
       await cancelPendingWakeupsForBudgetScope(scope);
       return;
     }
@@ -3514,7 +3514,7 @@ export function heartbeatService(db: Db) {
         : await listProjectScopedRunIds(scope.companyId, scope.scopeId);
 
     for (const runId of runIds) {
-      await cancelRunInternal(runId, "Cancelled due to budget pause");
+      await cancelRunInternal(runId, "因预算暂停已取消");
     }
 
     await cancelPendingWakeupsForBudgetScope(scope);
@@ -3562,7 +3562,7 @@ export function heartbeatService(db: Db) {
 
     listTaskSessions: async (agentId: string) => {
       const agent = await getAgent(agentId);
-      if (!agent) throw notFound("Agent not found");
+      if (!agent) throw notFound("未找到代理");
 
       return db
         .select()
@@ -3573,7 +3573,7 @@ export function heartbeatService(db: Db) {
 
     resetRuntimeSession: async (agentId: string, opts?: { taskKey?: string | null }) => {
       const agent = await getAgent(agentId);
-      if (!agent) throw notFound("Agent not found");
+      if (!agent) throw notFound("未找到代理");
       await ensureRuntimeState(agent);
       const taskKey = readNonEmptyString(opts?.taskKey);
       const clearedTaskSessions = await clearTaskSessions(
@@ -3616,8 +3616,8 @@ export function heartbeatService(db: Db) {
 
     readLog: async (runId: string, opts?: { offset?: number; limitBytes?: number }) => {
       const run = await getRun(runId);
-      if (!run) throw notFound("Heartbeat run not found");
-      if (!run.logStore || !run.logRef) throw notFound("Run log not found");
+      if (!run) throw notFound("未找到心跳运行记录");
+      if (!run.logStore || !run.logRef) throw notFound("未找到运行日志");
 
       const result = await runLogStore.read(
         {

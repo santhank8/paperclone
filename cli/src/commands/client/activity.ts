@@ -17,12 +17,12 @@ interface ActivityListOptions extends BaseClientOptions {
 }
 
 export function registerActivityCommands(program: Command): void {
-  const activity = program.command("activity").description("Activity log operations");
+  const activity = program.command("activity").description("活动日志操作");
 
   addCommonClientOptions(
     activity
       .command("list")
-      .description("List company activity log entries")
+      .description("列出公司活动日志条目")
       .requiredOption("-C, --company-id <id>", "Company ID")
       .option("--agent-id <id>", "Filter by agent ID")
       .option("--entity-type <type>", "Filter by entity type")

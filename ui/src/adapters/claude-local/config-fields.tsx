@@ -30,7 +30,7 @@ export function ClaudeLocalConfigFields({
   return (
     <>
       {!hideInstructionsFile && (
-        <Field label="Agent instructions file" hint={instructionsFileHint}>
+        <Field label="智能体指令文件" hint={instructionsFileHint}>
           <div className="flex items-center gap-2">
             <DraftInput
               value={
@@ -81,7 +81,7 @@ export function ClaudeLocalAdvancedFields({
   return (
     <>
       <ToggleField
-        label="Enable Chrome"
+        label="启用 Chrome"
         hint={help.chrome}
         checked={
           isCreate
@@ -95,7 +95,7 @@ export function ClaudeLocalAdvancedFields({
         }
       />
       <ToggleField
-        label="Skip permissions"
+        label="跳过权限"
         hint={help.dangerouslySkipPermissions}
         checked={
           isCreate
@@ -112,7 +112,7 @@ export function ClaudeLocalAdvancedFields({
             : mark("adapterConfig", "dangerouslySkipPermissions", v)
         }
       />
-      <Field label="Max turns per run" hint={help.maxTurnsPerRun}>
+      <Field label="每次运行最大回合数" hint={help.maxTurnsPerRun}>
         {isCreate ? (
           <input
             type="number"

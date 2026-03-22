@@ -24,7 +24,7 @@ export function InlineEditor({
   onSave,
   as: Tag = "span",
   className,
-  placeholder = "Click to edit...",
+  placeholder = "点击编辑...",
   multiline = false,
   imageUploadHandler,
   mentions,
@@ -192,12 +192,12 @@ export function InlineEditor({
             )}
           >
             {autosaveState === "saving"
-              ? "Autosaving..."
+              ? "自动保存中..."
               : autosaveState === "saved"
-                ? "Saved"
+                ? "已保存"
                 : autosaveState === "error"
-                  ? "Could not save"
-                  : "Idle"}
+                  ? "保存失败"
+                  : "空闲"}
           </span>
         </div>
       </div>

@@ -62,12 +62,12 @@ interface IssueCheckoutOptions extends BaseClientOptions {
 }
 
 export function registerIssueCommands(program: Command): void {
-  const issue = program.command("issue").description("Issue operations");
+  const issue = program.command("issue").description("任务操作");
 
   addCommonClientOptions(
     issue
       .command("list")
-      .description("List issues for a company")
+      .description("列出公司的任务")
       .option("-C, --company-id <id>", "Company ID")
       .option("--status <csv>", "Comma-separated statuses")
       .option("--assignee-agent-id <id>", "Filter by assignee agent ID")
@@ -119,7 +119,7 @@ export function registerIssueCommands(program: Command): void {
   addCommonClientOptions(
     issue
       .command("get")
-      .description("Get an issue by UUID or identifier (e.g. PC-12)")
+      .description("通过 UUID 或标识符获取任务（例如 PC-12）")
       .argument("<idOrIdentifier>", "Issue ID or identifier")
       .action(async (idOrIdentifier: string, opts: BaseClientOptions) => {
         try {
@@ -135,7 +135,7 @@ export function registerIssueCommands(program: Command): void {
   addCommonClientOptions(
     issue
       .command("create")
-      .description("Create an issue")
+      .description("创建任务")
       .requiredOption("-C, --company-id <id>", "Company ID")
       .requiredOption("--title <title>", "Issue title")
       .option("--description <text>", "Issue description")
@@ -175,7 +175,7 @@ export function registerIssueCommands(program: Command): void {
   addCommonClientOptions(
     issue
       .command("update")
-      .description("Update an issue")
+      .description("更新任务")
       .argument("<issueId>", "Issue ID")
       .option("--title <title>", "Issue title")
       .option("--description <text>", "Issue description")
@@ -218,7 +218,7 @@ export function registerIssueCommands(program: Command): void {
   addCommonClientOptions(
     issue
       .command("comment")
-      .description("Add comment to issue")
+      .description("为任务添加评论")
       .argument("<issueId>", "Issue ID")
       .requiredOption("--body <text>", "Comment body")
       .option("--reopen", "Reopen if issue is done/cancelled")
@@ -240,7 +240,7 @@ export function registerIssueCommands(program: Command): void {
   addCommonClientOptions(
     issue
       .command("checkout")
-      .description("Checkout issue for an agent")
+      .description("为智能体签出任务")
       .argument("<issueId>", "Issue ID")
       .requiredOption("--agent-id <id>", "Agent ID")
       .option(
@@ -266,7 +266,7 @@ export function registerIssueCommands(program: Command): void {
   addCommonClientOptions(
     issue
       .command("release")
-      .description("Release issue back to todo and clear assignee")
+      .description("将任务释放回待办并清除受理人")
       .argument("<issueId>", "Issue ID")
       .action(async (issueId: string, opts: BaseClientOptions) => {
         try {

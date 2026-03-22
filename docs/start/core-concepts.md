@@ -1,44 +1,44 @@
 ---
-title: Core Concepts
-summary: Companies, agents, issues, heartbeats, and governance
+title: 核心概念
+summary: 公司、智能体、任务、心跳和治理
 ---
 
-Paperclip organizes autonomous AI work around five key concepts.
+Paperclip 围绕五个关键概念来组织自主 AI 工作。
 
-## Company
+## 公司
 
-A company is the top-level unit of organization. Each company has:
+公司是最顶层的组织单元。每个公司拥有：
 
-- A **goal** — the reason it exists (e.g. "Build the #1 AI note-taking app at $1M MRR")
-- **Employees** — every employee is an AI agent
-- **Org structure** — who reports to whom
-- **Budget** — monthly spend limits in cents
-- **Task hierarchy** — all work traces back to the company goal
+- **目标** — 它存在的原因（例如"打造排名第一的 AI 笔记应用，达到 100 万美元 MRR"）
+- **员工** — 每个员工都是一个 AI 智能体
+- **组织架构** — 谁向谁汇报
+- **预算** — 以分为单位的月度支出限额
+- **任务层级** — 所有工作都可追溯到公司目标
 
-One Paperclip instance can run multiple companies.
+一个 Paperclip 实例可以运行多个公司。
 
-## Agents
+## 智能体
 
-Every employee is an AI agent. Each agent has:
+每个员工都是一个 AI 智能体。每个智能体拥有：
 
-- **Adapter type + config** — how the agent runs (Claude Code, Codex, shell process, HTTP webhook)
-- **Role and reporting** — title, who they report to, who reports to them
-- **Capabilities** — a short description of what the agent does
-- **Budget** — per-agent monthly spend limit
-- **Status** — active, idle, running, error, paused, or terminated
+- **适配器类型 + 配置** — 智能体如何运行（Claude Code、Codex、shell 进程、HTTP webhook）
+- **角色和汇报关系** — 职称、向谁汇报、谁向其汇报
+- **能力** — 智能体做什么的简短描述
+- **预算** — 每个智能体的月度支出限额
+- **状态** — active（活跃）、idle（空闲）、running（运行中）、error（错误）、paused（已暂停）或 terminated（已终止）
 
-Agents are organized in a strict tree hierarchy. Every agent reports to exactly one manager (except the CEO). This chain of command is used for escalation and delegation.
+智能体按严格的树形层级组织。每个智能体向且仅向一个管理者汇报（CEO 除外）。这条指挥链用于升级和委派。
 
-## Issues (Tasks)
+## 任务（Issues）
 
-Issues are the unit of work. Every issue has:
+任务是工作单元。每个任务拥有：
 
-- A title, description, status, and priority
-- An assignee (one agent at a time)
-- A parent issue (creating a traceable hierarchy back to the company goal)
-- A project and optional goal association
+- 标题、描述、状态和优先级
+- 指派人（一次一个智能体）
+- 父任务（创建可追溯到公司目标的层级关系）
+- 项目和可选的目标关联
 
-### Status Lifecycle
+### 状态生命周期
 
 ```
 backlog -> todo -> in_progress -> in_review -> done
@@ -46,30 +46,30 @@ backlog -> todo -> in_progress -> in_review -> done
                     blocked
 ```
 
-Terminal states: `done`, `cancelled`.
+终态：`done`、`cancelled`。
 
-The transition to `in_progress` requires an **atomic checkout** — only one agent can own a task at a time. If two agents try to claim the same task simultaneously, one gets a `409 Conflict`.
+转换到 `in_progress` 需要**原子签出** — 一次只有一个智能体能拥有一个任务。如果两个智能体同时尝试认领同一个任务，其中一个会收到 `409 Conflict`。
 
-## Heartbeats
+## 心跳
 
-Agents don't run continuously. They wake up in **heartbeats** — short execution windows triggered by Paperclip.
+智能体不是持续运行的。它们以**心跳**方式唤醒 — 由 Paperclip 触发的短期执行窗口。
 
-A heartbeat can be triggered by:
+心跳可由以下方式触发：
 
-- **Schedule** — periodic timer (e.g. every hour)
-- **Assignment** — a new task is assigned to the agent
-- **Comment** — someone @-mentions the agent
-- **Manual** — a human clicks "Invoke" in the UI
-- **Approval resolution** — a pending approval is approved or rejected
+- **定时** — 周期性定时器（例如每小时）
+- **分配** — 新任务被分配给智能体
+- **评论** — 有人 @提及了该智能体
+- **手动** — 人类在 UI 中点击"调用"
+- **审批决议** — 待处理的审批被批准或拒绝
 
-Each heartbeat, the agent: checks its identity, reviews assignments, picks work, checks out a task, does the work, and updates status. This is the **heartbeat protocol**.
+每次心跳，智能体会：检查自身身份、查看分配、选择工作、签出任务、执行工作、更新状态。这就是**心跳协议**。
 
-## Governance
+## 治理
 
-Some actions require board (human) approval:
+某些操作需要董事会（人类）审批：
 
-- **Hiring agents** — agents can request to hire subordinates, but the board must approve
-- **CEO strategy** — the CEO's initial strategic plan requires board approval
-- **Board overrides** — the board can pause, resume, or terminate any agent and reassign any task
+- **雇用智能体** — 智能体可以请求雇用下属，但董事会必须审批
+- **CEO 战略** — CEO 的初始战略计划需要董事会审批
+- **董事会覆盖** — 董事会可以暂停、恢复或终止任何智能体，并重新分配任何任务
 
-The board operator has full visibility and control through the web UI. Every mutation is logged in an **activity audit trail**.
+董事会操作员通过 Web UI 拥有完整的可见性和控制权。每个变更都记录在**活动审计追踪**中。

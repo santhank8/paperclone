@@ -17,11 +17,11 @@ export function llmRoutes(db: Db) {
   async function assertCanRead(req: Request) {
     if (req.actor.type === "board") return;
     if (req.actor.type !== "agent" || !req.actor.agentId) {
-      throw forbidden("Board or permitted agent authentication required");
+      throw forbidden("需要管理面板或有权限的智能体认证");
     }
     const actorAgent = await agentsSvc.getById(req.actor.agentId);
     if (!actorAgent || !hasCreatePermission(actorAgent)) {
-      throw forbidden("Missing permission to read agent configuration reflection");
+      throw forbidden("缺少读取智能体配置反射的权限");
     }
   }
 

@@ -486,7 +486,7 @@ export function pluginRoutes(
     assertBoard(req);
 
     if (!toolDeps) {
-      res.status(501).json({ error: "Plugin tool dispatch is not enabled" });
+      res.status(501).json({ error: "插件工具调度未启用" });
       return;
     }
 
@@ -520,13 +520,13 @@ export function pluginRoutes(
     assertBoard(req);
 
     if (!toolDeps) {
-      res.status(501).json({ error: "Plugin tool dispatch is not enabled" });
+      res.status(501).json({ error: "插件工具调度未启用" });
       return;
     }
 
     const body = (req.body as PluginToolExecuteRequest | undefined);
     if (!body) {
-      res.status(400).json({ error: "Request body is required" });
+      res.status(400).json({ error: "请求体为必填项" });
       return;
     }
 
@@ -641,7 +641,7 @@ export function pluginRoutes(
       const discovered = await loader.installPlugin(installOptions);
 
       if (!discovered.manifest) {
-        res.status(500).json({ error: "Plugin installed but manifest is missing" });
+        res.status(500).json({ error: "插件已安装但清单文件缺失" });
         return;
       }
 
@@ -661,7 +661,7 @@ export function pluginRoutes(
         res.json(updated);
       } else {
         // This shouldn't happen since installPlugin already registers in the DB
-        res.status(500).json({ error: "Plugin installed but not found in registry" });
+        res.status(500).json({ error: "插件已安装但在注册表中未找到" });
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -796,7 +796,7 @@ export function pluginRoutes(
     assertBoard(req);
 
     if (!bridgeDeps) {
-      res.status(501).json({ error: "Plugin bridge is not enabled" });
+      res.status(501).json({ error: "插件桥接未启用" });
       return;
     }
 
@@ -805,7 +805,7 @@ export function pluginRoutes(
     // Resolve plugin
     const plugin = await resolvePlugin(registry, pluginId);
     if (!plugin) {
-      res.status(404).json({ error: "Plugin not found" });
+      res.status(404).json({ error: "插件未找到" });
       return;
     }
 
@@ -879,7 +879,7 @@ export function pluginRoutes(
     assertBoard(req);
 
     if (!bridgeDeps) {
-      res.status(501).json({ error: "Plugin bridge is not enabled" });
+      res.status(501).json({ error: "插件桥接未启用" });
       return;
     }
 
@@ -888,7 +888,7 @@ export function pluginRoutes(
     // Resolve plugin
     const plugin = await resolvePlugin(registry, pluginId);
     if (!plugin) {
-      res.status(404).json({ error: "Plugin not found" });
+      res.status(404).json({ error: "插件未找到" });
       return;
     }
 
@@ -963,7 +963,7 @@ export function pluginRoutes(
     assertBoard(req);
 
     if (!bridgeDeps) {
-      res.status(501).json({ error: "Plugin bridge is not enabled" });
+      res.status(501).json({ error: "插件桥接未启用" });
       return;
     }
 
@@ -972,7 +972,7 @@ export function pluginRoutes(
     // Resolve plugin
     const plugin = await resolvePlugin(registry, pluginId);
     if (!plugin) {
-      res.status(404).json({ error: "Plugin not found" });
+      res.status(404).json({ error: "插件未找到" });
       return;
     }
 
@@ -1042,7 +1042,7 @@ export function pluginRoutes(
     assertBoard(req);
 
     if (!bridgeDeps) {
-      res.status(501).json({ error: "Plugin bridge is not enabled" });
+      res.status(501).json({ error: "插件桥接未启用" });
       return;
     }
 
@@ -1051,7 +1051,7 @@ export function pluginRoutes(
     // Resolve plugin
     const plugin = await resolvePlugin(registry, pluginId);
     if (!plugin) {
-      res.status(404).json({ error: "Plugin not found" });
+      res.status(404).json({ error: "插件未找到" });
       return;
     }
 
@@ -1123,7 +1123,7 @@ export function pluginRoutes(
     assertBoard(req);
 
     if (!bridgeDeps?.streamBus) {
-      res.status(501).json({ error: "Plugin stream bridge is not enabled" });
+      res.status(501).json({ error: "插件流式桥接未启用" });
       return;
     }
 
@@ -1137,7 +1137,7 @@ export function pluginRoutes(
 
     const plugin = await resolvePlugin(registry, pluginId);
     if (!plugin) {
-      res.status(404).json({ error: "Plugin not found" });
+      res.status(404).json({ error: "插件未找到" });
       return;
     }
 
@@ -1202,7 +1202,7 @@ export function pluginRoutes(
     const { pluginId } = req.params;
     const plugin = await resolvePlugin(registry, pluginId);
     if (!plugin) {
-      res.status(404).json({ error: "Plugin not found" });
+      res.status(404).json({ error: "插件未找到" });
       return;
     }
 
@@ -1234,7 +1234,7 @@ export function pluginRoutes(
 
     const plugin = await resolvePlugin(registry, pluginId);
     if (!plugin) {
-      res.status(404).json({ error: "Plugin not found" });
+      res.status(404).json({ error: "插件未找到" });
       return;
     }
 
@@ -1269,7 +1269,7 @@ export function pluginRoutes(
 
     const plugin = await resolvePlugin(registry, pluginId);
     if (!plugin) {
-      res.status(404).json({ error: "Plugin not found" });
+      res.status(404).json({ error: "插件未找到" });
       return;
     }
 
@@ -1309,7 +1309,7 @@ export function pluginRoutes(
 
     const plugin = await resolvePlugin(registry, pluginId);
     if (!plugin) {
-      res.status(404).json({ error: "Plugin not found" });
+      res.status(404).json({ error: "插件未找到" });
       return;
     }
 
@@ -1348,7 +1348,7 @@ export function pluginRoutes(
 
     const plugin = await resolvePlugin(registry, pluginId);
     if (!plugin) {
-      res.status(404).json({ error: "Plugin not found" });
+      res.status(404).json({ error: "插件未找到" });
       return;
     }
 
@@ -1416,7 +1416,7 @@ export function pluginRoutes(
 
     const plugin = await resolvePlugin(registry, pluginId);
     if (!plugin) {
-      res.status(404).json({ error: "Plugin not found" });
+      res.status(404).json({ error: "插件未找到" });
       return;
     }
 
@@ -1468,7 +1468,7 @@ export function pluginRoutes(
 
     const plugin = await resolvePlugin(registry, pluginId);
     if (!plugin) {
-      res.status(404).json({ error: "Plugin not found" });
+      res.status(404).json({ error: "插件未找到" });
       return;
     }
 
@@ -1515,7 +1515,7 @@ export function pluginRoutes(
 
     const plugin = await resolvePlugin(registry, pluginId);
     if (!plugin) {
-      res.status(404).json({ error: "Plugin not found" });
+      res.status(404).json({ error: "插件未找到" });
       return;
     }
 
@@ -1545,7 +1545,7 @@ export function pluginRoutes(
 
     const plugin = await resolvePlugin(registry, pluginId);
     if (!plugin) {
-      res.status(404).json({ error: "Plugin not found" });
+      res.status(404).json({ error: "插件未找到" });
       return;
     }
 
@@ -1572,7 +1572,7 @@ export function pluginRoutes(
       const validation = validateInstanceConfig(body.configJson, schema);
       if (!validation.valid) {
         res.status(400).json({
-          error: "Configuration does not match the plugin's instanceConfigSchema",
+          error: "配置不符合插件的 instanceConfigSchema",
           fieldErrors: validation.errors,
         });
         return;
@@ -1648,7 +1648,7 @@ export function pluginRoutes(
     assertBoard(req);
 
     if (!bridgeDeps) {
-      res.status(501).json({ error: "Plugin bridge is not enabled" });
+      res.status(501).json({ error: "插件桥接未启用" });
       return;
     }
 
@@ -1656,7 +1656,7 @@ export function pluginRoutes(
 
     const plugin = await resolvePlugin(registry, pluginId);
     if (!plugin) {
-      res.status(404).json({ error: "Plugin not found" });
+      res.status(404).json({ error: "插件未找到" });
       return;
     }
 
@@ -1679,7 +1679,7 @@ export function pluginRoutes(
       const validation = validateInstanceConfig(body.configJson, schema);
       if (!validation.valid) {
         res.status(400).json({
-          error: "Configuration does not match the plugin's instanceConfigSchema",
+          error: "配置不符合插件的 instanceConfigSchema",
           fieldErrors: validation.errors,
         });
         return;
@@ -1744,14 +1744,14 @@ export function pluginRoutes(
   router.get("/plugins/:pluginId/jobs", async (req, res) => {
     assertBoard(req);
     if (!jobDeps) {
-      res.status(501).json({ error: "Job scheduling is not enabled" });
+      res.status(501).json({ error: "作业调度未启用" });
       return;
     }
 
     const { pluginId } = req.params;
     const plugin = await resolvePlugin(registry, pluginId);
     if (!plugin) {
-      res.status(404).json({ error: "Plugin not found" });
+      res.status(404).json({ error: "插件未找到" });
       return;
     }
 
@@ -1790,20 +1790,20 @@ export function pluginRoutes(
   router.get("/plugins/:pluginId/jobs/:jobId/runs", async (req, res) => {
     assertBoard(req);
     if (!jobDeps) {
-      res.status(501).json({ error: "Job scheduling is not enabled" });
+      res.status(501).json({ error: "作业调度未启用" });
       return;
     }
 
     const { pluginId, jobId } = req.params;
     const plugin = await resolvePlugin(registry, pluginId);
     if (!plugin) {
-      res.status(404).json({ error: "Plugin not found" });
+      res.status(404).json({ error: "插件未找到" });
       return;
     }
 
     const job = await jobDeps.jobStore.getJobByIdForPlugin(plugin.id, jobId);
     if (!job) {
-      res.status(404).json({ error: "Job not found" });
+      res.status(404).json({ error: "作业未找到" });
       return;
     }
 
@@ -1838,20 +1838,20 @@ export function pluginRoutes(
   router.post("/plugins/:pluginId/jobs/:jobId/trigger", async (req, res) => {
     assertBoard(req);
     if (!jobDeps) {
-      res.status(501).json({ error: "Job scheduling is not enabled" });
+      res.status(501).json({ error: "作业调度未启用" });
       return;
     }
 
     const { pluginId, jobId } = req.params;
     const plugin = await resolvePlugin(registry, pluginId);
     if (!plugin) {
-      res.status(404).json({ error: "Plugin not found" });
+      res.status(404).json({ error: "插件未找到" });
       return;
     }
 
     const job = await jobDeps.jobStore.getJobByIdForPlugin(plugin.id, jobId);
     if (!job) {
-      res.status(404).json({ error: "Job not found" });
+      res.status(404).json({ error: "作业未找到" });
       return;
     }
 
@@ -1894,7 +1894,7 @@ export function pluginRoutes(
    */
   router.post("/plugins/:pluginId/webhooks/:endpointKey", async (req, res) => {
     if (!webhookDeps) {
-      res.status(501).json({ error: "Webhook ingestion is not enabled" });
+      res.status(501).json({ error: "Webhook 接收未启用" });
       return;
     }
 
@@ -1903,7 +1903,7 @@ export function pluginRoutes(
     // Step 1: Resolve the plugin
     const plugin = await resolvePlugin(registry, pluginId);
     if (!plugin) {
-      res.status(404).json({ error: "Plugin not found" });
+      res.status(404).json({ error: "插件未找到" });
       return;
     }
 
@@ -1918,14 +1918,14 @@ export function pluginRoutes(
     // Step 3: Validate the plugin has webhooks.receive capability
     const manifest = plugin.manifestJson;
     if (!manifest) {
-      res.status(400).json({ error: "Plugin manifest is missing" });
+      res.status(400).json({ error: "插件清单缺失" });
       return;
     }
 
     const capabilities = manifest.capabilities ?? [];
     if (!capabilities.includes("webhooks.receive")) {
       res.status(400).json({
-        error: "Plugin does not have the webhooks.receive capability",
+        error: "插件不具备 webhooks.receive 能力",
       });
       return;
     }
@@ -2047,7 +2047,7 @@ export function pluginRoutes(
 
     const plugin = await resolvePlugin(registry, pluginId);
     if (!plugin) {
-      res.status(404).json({ error: "Plugin not found" });
+      res.status(404).json({ error: "插件未找到" });
       return;
     }
 

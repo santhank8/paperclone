@@ -13,15 +13,15 @@ export function badRequest(message: string, details?: unknown) {
   return new HttpError(400, message, details);
 }
 
-export function unauthorized(message = "Unauthorized") {
+export function unauthorized(message = "未授权") {
   return new HttpError(401, message);
 }
 
-export function forbidden(message = "Forbidden") {
+export function forbidden(message = "禁止访问") {
   return new HttpError(403, message);
 }
 
-export function notFound(message = "Not found") {
+export function notFound(message = "未找到") {
   return new HttpError(404, message);
 }
 

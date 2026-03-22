@@ -1497,7 +1497,7 @@ function renderMergePlan(plan: Awaited<ReturnType<typeof collectMergePlan>>["pla
   const issueInserts = plan.issuePlans.filter((item): item is PlannedIssueInsert => item.action === "insert");
   if (issueInserts.length > 0) {
     lines.push("");
-    lines.push("Planned issue imports");
+    lines.push("计划的任务导入");
     for (const issue of issueInserts) {
       const projectNote =
         issue.projectResolution === "mapped" && issue.mappedProjectName
@@ -1834,19 +1834,19 @@ async function promptForProjectMappings(input: {
       (project) => project.name.trim().toLowerCase() === sourceProject.name.trim().toLowerCase(),
     );
     const selection = await p.select<string | null>({
-      message: `Project "${sourceProject.name}" is missing in target. How should ${input.plan.issuePrefix} imports handle it?`,
+      message: `项目 "${sourceProject.name}" 在目标中缺失。${input.plan.issuePrefix} 的导入应如何处理？`,
       options: [
         ...(nameMatch
           ? [{
               value: nameMatch.id,
-              label: `Map to ${nameMatch.name}`,
-              hint: "Recommended: exact name match",
+              label: `映射到 ${nameMatch.name}`,
+              hint: "推荐：精确名称匹配",
             }]
           : []),
         {
           value: null,
-          label: "Leave unset",
-          hint: "Keep imported issues without a project",
+          label: "留空",
+          hint: "保留导入的任务而不关联项目",
         },
         ...targetChoices.filter((choice) => choice.value !== nameMatch?.id),
       ],
@@ -1954,7 +1954,7 @@ async function promptForSourceEndpoint(excludeWorktreePath?: string): Promise<Re
     throw new Error("No Paperclip worktrees were found. Run `paperclipai worktree:list` to inspect the repo worktrees.");
   }
   const selection = await p.select<string>({
-    message: "Choose the source worktree to import from",
+    message: "选择要导入的源工作树",
     options: choices,
   });
   if (p.isCancel(selection)) {
@@ -2391,11 +2391,11 @@ export async function worktreeMergeHistoryCommand(sourceArg: string | undefined,
 }
 
 export function registerWorktreeCommands(program: Command): void {
-  const worktree = program.command("worktree").description("Worktree-local Paperclip instance helpers");
+  const worktree = program.command("worktree").description("工作树本地 Paperclip 实例辅助工具");
 
   program
     .command("worktree:make")
-    .description("Create ~/NAME as a git worktree, then initialize an isolated Paperclip instance inside it")
+    .description("创建 ~/NAME 作为 git 工作树，然后在其中初始化一个隔离的 Paperclip 实例")
     .argument("<name>", "Worktree name — auto-prefixed with paperclip- if needed (created at ~/paperclip-NAME)")
     .option("--start-point <ref>", "Remote ref to base the new branch on (env: PAPERCLIP_WORKTREE_START_POINT)")
     .option("--instance <id>", "Explicit isolated instance id")
@@ -2403,7 +2403,7 @@ export function registerWorktreeCommands(program: Command): void {
     .option("--from-config <path>", "Source config.json to seed from")
     .option("--from-data-dir <path>", "Source PAPERCLIP_HOME used when deriving the source config")
     .option("--from-instance <id>", "Source instance id when deriving the source config", "default")
-    .option("--server-port <port>", "Preferred server port", (value) => Number(value))
+    .option("--server-port <port>", "首选服务器端口", (value) => Number(value))
     .option("--db-port <port>", "Preferred embedded Postgres port", (value) => Number(value))
     .option("--seed-mode <mode>", "Seed profile: minimal or full (default: minimal)", "minimal")
     .option("--no-seed", "Skip database seeding from the source instance")
@@ -2412,14 +2412,14 @@ export function registerWorktreeCommands(program: Command): void {
 
   worktree
     .command("init")
-    .description("Create repo-local config/env and an isolated instance for this worktree")
+    .description("为此工作树创建仓库本地配置/环境和隔离实例")
     .option("--name <name>", "Display name used to derive the instance id")
     .option("--instance <id>", "Explicit isolated instance id")
     .option("--home <path>", `Home root for worktree instances (env: PAPERCLIP_WORKTREES_DIR, default: ${DEFAULT_WORKTREE_HOME})`)
     .option("--from-config <path>", "Source config.json to seed from")
     .option("--from-data-dir <path>", "Source PAPERCLIP_HOME used when deriving the source config")
     .option("--from-instance <id>", "Source instance id when deriving the source config", "default")
-    .option("--server-port <port>", "Preferred server port", (value) => Number(value))
+    .option("--server-port <port>", "首选服务器端口", (value) => Number(value))
     .option("--db-port <port>", "Preferred embedded Postgres port", (value) => Number(value))
     .option("--seed-mode <mode>", "Seed profile: minimal or full (default: minimal)", "minimal")
     .option("--no-seed", "Skip database seeding from the source instance")
@@ -2428,20 +2428,20 @@ export function registerWorktreeCommands(program: Command): void {
 
   worktree
     .command("env")
-    .description("Print shell exports for the current worktree-local Paperclip instance")
+    .description("打印当前工作树本地 Paperclip 实例的 shell 导出变量")
     .option("-c, --config <path>", "Path to config file")
     .option("--json", "Print JSON instead of shell exports")
     .action(worktreeEnvCommand);
 
   program
     .command("worktree:list")
-    .description("List git worktrees visible from this repo and whether they look like Paperclip worktrees")
+    .description("列出此仓库可见的 git 工作树及其是否为 Paperclip 工作树")
     .option("--json", "Print JSON instead of text output")
     .action(worktreeListCommand);
 
   program
     .command("worktree:merge-history")
-    .description("Preview or import issue/comment history from another worktree into the current instance")
+    .description("预览或从另一个工作树导入任务/评论历史到当前实例")
     .argument("[source]", "Optional source worktree path, directory name, or branch name (back-compat alias for --from)")
     .option("--from <worktree>", "Source worktree path, directory name, branch name, or current")
     .option("--to <worktree>", "Target worktree path, directory name, branch name, or current (defaults to current)")
@@ -2454,7 +2454,7 @@ export function registerWorktreeCommands(program: Command): void {
 
   program
     .command("worktree:cleanup")
-    .description("Safely remove a worktree, its branch, and its isolated instance data")
+    .description("安全移除工作树、其分支和隔离的实例数据")
     .argument("<name>", "Worktree name — auto-prefixed with paperclip- if needed")
     .option("--instance <id>", "Explicit instance id (if different from the worktree name)")
     .option("--home <path>", `Home root for worktree instances (env: PAPERCLIP_WORKTREES_DIR, default: ${DEFAULT_WORKTREE_HOME})`)

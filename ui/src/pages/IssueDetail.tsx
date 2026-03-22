@@ -268,7 +268,7 @@ export function IssueDetail() {
 
   const hasLiveRuns = (liveRuns ?? []).length > 0 || !!activeRun;
   const sourceBreadcrumb = useMemo(
-    () => readIssueDetailBreadcrumb(location.state) ?? { label: "Issues", href: "/issues" },
+    () => readIssueDetailBreadcrumb(location.state) ?? { label: "任务", href: "/issues" },
     [location.state],
   );
 
@@ -565,7 +565,7 @@ export function IssueDetail() {
   });
 
   useEffect(() => {
-    const titleLabel = issue?.title ?? issueId ?? "Issue";
+    const titleLabel = issue?.title ?? issueId ?? "任务";
     setBreadcrumbs([
       sourceBreadcrumb,
       { label: hasLiveRuns ? `🔵 ${titleLabel}` : titleLabel },
@@ -611,7 +611,7 @@ export function IssueDetail() {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  if (isLoading) return <p className="text-sm text-muted-foreground">Loading...</p>;
+  if (isLoading) return <p className="text-sm text-muted-foreground">加载中...</p>;
   if (error) return <p className="text-sm text-destructive">{error.message}</p>;
   if (!issue) return null;
 
@@ -959,7 +959,7 @@ export function IssueDetail() {
                   className="text-muted-foreground hover:text-destructive"
                   onClick={() => deleteAttachment.mutate(attachment.id)}
                   disabled={deleteAttachment.isPending}
-                  title="Delete attachment"
+                  title="删除附件"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
                 </button>

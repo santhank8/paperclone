@@ -192,7 +192,7 @@ async function confirmOverwriteExportDirectory(outDir: string): Promise<void> {
   }
 
   const confirmed = await p.confirm({
-    message: `Overwrite existing files in ${root}?`,
+    message: `覆盖 ${root} 中的现有文件？`,
     initialValue: false,
   });
 
@@ -279,12 +279,12 @@ function assertDeleteFlags(opts: CompanyDeleteOptions): void {
 }
 
 export function registerCompanyCommands(program: Command): void {
-  const company = program.command("company").description("Company operations");
+  const company = program.command("company").description("公司操作");
 
   addCommonClientOptions(
     company
       .command("list")
-      .description("List companies")
+      .description("列出公司")
       .action(async (opts: CompanyCommandOptions) => {
         try {
           const ctx = resolveCommandContext(opts);
@@ -319,7 +319,7 @@ export function registerCompanyCommands(program: Command): void {
   addCommonClientOptions(
     company
       .command("get")
-      .description("Get one company")
+      .description("获取单个公司")
       .argument("<companyId>", "Company ID")
       .action(async (companyId: string, opts: CompanyCommandOptions) => {
         try {
@@ -335,7 +335,7 @@ export function registerCompanyCommands(program: Command): void {
   addCommonClientOptions(
     company
       .command("export")
-      .description("Export a company into a portable markdown package")
+      .description("将公司导出为可移植的 Markdown 包")
       .argument("<companyId>", "Company ID")
       .requiredOption("--out <path>", "Output directory")
       .option("--include <values>", "Comma-separated include set: company,agents,projects,issues,tasks,skills", "company,agents")
@@ -389,7 +389,7 @@ export function registerCompanyCommands(program: Command): void {
   addCommonClientOptions(
     company
       .command("import")
-      .description("Import a portable markdown company package from local path, URL, or GitHub")
+      .description("从本地路径、URL 或 GitHub 导入可移植的 Markdown 公司包")
       .requiredOption("--from <pathOrUrl>", "Source path or URL")
       .option("--include <values>", "Comma-separated include set: company,agents,projects,issues,tasks,skills", "company,agents")
       .option("--target <mode>", "Target mode: new | existing")
@@ -484,7 +484,7 @@ export function registerCompanyCommands(program: Command): void {
   addCommonClientOptions(
     company
       .command("delete")
-      .description("Delete a company by ID or shortname/prefix (destructive)")
+      .description("通过 ID 或简称/前缀删除公司（破坏性操作）")
       .argument("<selector>", "Company ID or issue prefix (for example PAP)")
       .option(
         "--by <mode>",

@@ -32,28 +32,28 @@ export function companyRoutes(db: Db, storage?: StorageService) {
   async function assertCanUpdateBranding(req: Request, companyId: string) {
     assertCompanyAccess(req, companyId);
     if (req.actor.type === "board") return;
-    if (!req.actor.agentId) throw forbidden("Agent authentication required");
+    if (!req.actor.agentId) throw forbidden("需要智能体认证");
 
     const actorAgent = await agents.getById(req.actor.agentId);
     if (!actorAgent || actorAgent.companyId !== companyId) {
-      throw forbidden("Agent key cannot access another company");
+      throw forbidden("智能体密钥无法访问其他公司");
     }
     if (actorAgent.role !== "ceo") {
-      throw forbidden("Only CEO agents can update company branding");
+      throw forbidden("仅 CEO 智能体可以更新公司品牌");
     }
   }
 
   async function assertCanManagePortability(req: Request, companyId: string, capability: "imports" | "exports") {
     assertCompanyAccess(req, companyId);
     if (req.actor.type === "board") return;
-    if (!req.actor.agentId) throw forbidden("Agent authentication required");
+    if (!req.actor.agentId) throw forbidden("需要智能体认证");
 
     const actorAgent = await agents.getById(req.actor.agentId);
     if (!actorAgent || actorAgent.companyId !== companyId) {
-      throw forbidden("Agent key cannot access another company");
+      throw forbidden("智能体密钥无法访问其他公司");
     }
     if (actorAgent.role !== "ceo") {
-      throw forbidden(`Only CEO agents can manage company ${capability}`);
+      throw forbidden(`仅 CEO 智能体可以管理公司${capability === "imports" ? "导入" : "导出"}`);
     }
   }
 
@@ -85,7 +85,7 @@ export function companyRoutes(db: Db, storage?: StorageService) {
   // Common malformed path when companyId is empty in "/api/companies/{companyId}/issues".
   router.get("/issues", (_req, res) => {
     res.status(400).json({
-      error: "Missing companyId in path. Use /api/companies/{companyId}/issues.",
+      error: "路径中缺少 companyId。请使用 /api/companies/{companyId}/issues。",
     });
   });
 
@@ -98,7 +98,7 @@ export function companyRoutes(db: Db, storage?: StorageService) {
     }
     const company = await svc.getById(companyId);
     if (!company) {
-      res.status(404).json({ error: "Company not found" });
+      res.status(404).json({ error: "公司未找到" });
       return;
     }
     res.json(company);
@@ -164,10 +164,10 @@ export function companyRoutes(db: Db, storage?: StorageService) {
     const companyId = req.params.companyId as string;
     await assertCanManagePortability(req, companyId, "imports");
     if (req.body.target.mode === "existing_company" && req.body.target.companyId !== companyId) {
-      throw forbidden("Safe import route can only target the route company");
+      throw forbidden("安全导入路由只能定向到当前路由公司");
     }
     if (req.body.collisionStrategy === "replace") {
-      throw forbidden("Safe import route does not allow replace collision strategy");
+      throw forbidden("安全导入路由不允许替换冲突策略");
     }
     const preview = await portability.previewImport(req.body, {
       mode: "agent_safe",
@@ -180,10 +180,10 @@ export function companyRoutes(db: Db, storage?: StorageService) {
     const companyId = req.params.companyId as string;
     await assertCanManagePortability(req, companyId, "imports");
     if (req.body.target.mode === "existing_company" && req.body.target.companyId !== companyId) {
-      throw forbidden("Safe import route can only target the route company");
+      throw forbidden("安全导入路由只能定向到当前路由公司");
     }
     if (req.body.collisionStrategy === "replace") {
-      throw forbidden("Safe import route does not allow replace collision strategy");
+      throw forbidden("安全导入路由不允许替换冲突策略");
     }
     const actor = getActorInfo(req);
     const result = await portability.importBundle(req.body, req.actor.type === "board" ? req.actor.userId : null, {
@@ -213,7 +213,7 @@ export function companyRoutes(db: Db, storage?: StorageService) {
   router.post("/", validate(createCompanySchema), async (req, res) => {
     assertBoard(req);
     if (!(req.actor.source === "local_implicit" || req.actor.isInstanceAdmin)) {
-      throw forbidden("Instance admin required");
+      throw forbidden("需要实例管理员权限");
     }
     const company = await svc.create(req.body);
     await access.ensureMembership(company.id, "user", req.actor.userId ?? "local-board", "owner", "active");
@@ -253,10 +253,10 @@ export function companyRoutes(db: Db, storage?: StorageService) {
       const agentSvc = agentService(db);
       const actorAgent = req.actor.agentId ? await agentSvc.getById(req.actor.agentId) : null;
       if (!actorAgent || actorAgent.role !== "ceo") {
-        throw forbidden("Only CEO agents or board users may update company settings");
+        throw forbidden("仅 CEO 智能体或管理面板用户可以更新公司设置");
       }
       if (actorAgent.companyId !== companyId) {
-        throw forbidden("Agent key cannot access another company");
+        throw forbidden("智能体密钥无法访问其他公司");
       }
       body = updateCompanyBrandingSchema.parse(req.body);
     } else {
@@ -266,7 +266,7 @@ export function companyRoutes(db: Db, storage?: StorageService) {
 
     const company = await svc.update(companyId, body);
     if (!company) {
-      res.status(404).json({ error: "Company not found" });
+      res.status(404).json({ error: "公司未找到" });
       return;
     }
     await logActivity(db, {
@@ -288,7 +288,7 @@ export function companyRoutes(db: Db, storage?: StorageService) {
     await assertCanUpdateBranding(req, companyId);
     const company = await svc.update(companyId, req.body);
     if (!company) {
-      res.status(404).json({ error: "Company not found" });
+      res.status(404).json({ error: "公司未找到" });
       return;
     }
     const actor = getActorInfo(req);
@@ -312,7 +312,7 @@ export function companyRoutes(db: Db, storage?: StorageService) {
     assertCompanyAccess(req, companyId);
     const company = await svc.archive(companyId);
     if (!company) {
-      res.status(404).json({ error: "Company not found" });
+      res.status(404).json({ error: "公司未找到" });
       return;
     }
     await logActivity(db, {
@@ -332,7 +332,7 @@ export function companyRoutes(db: Db, storage?: StorageService) {
     assertCompanyAccess(req, companyId);
     const company = await svc.remove(companyId);
     if (!company) {
-      res.status(404).json({ error: "Company not found" });
+      res.status(404).json({ error: "公司未找到" });
       return;
     }
     res.json({ ok: true });

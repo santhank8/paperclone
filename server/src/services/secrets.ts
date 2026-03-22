@@ -70,8 +70,8 @@ export function secretService(db: Db) {
 
   async function assertSecretInCompany(companyId: string, secretId: string) {
     const secret = await getById(secretId);
-    if (!secret) throw notFound("Secret not found");
-    if (secret.companyId !== companyId) throw unprocessable("Secret must belong to same company");
+    if (!secret) throw notFound("未找到密钥");
+    if (secret.companyId !== companyId) throw unprocessable("密钥必须属于同一组织");
     return secret;
   }
 
@@ -83,7 +83,7 @@ export function secretService(db: Db) {
     const secret = await assertSecretInCompany(companyId, secretId);
     const resolvedVersion = version === "latest" ? secret.latestVersion : version;
     const versionRow = await getSecretVersion(secret.id, resolvedVersion);
-    if (!versionRow) throw notFound("Secret version not found");
+    if (!versionRow) throw notFound("未找到密钥版本");
     const provider = getSecretProvider(secret.provider as SecretProvider);
     return provider.resolveVersion({
       material: versionRow.material as Record<string, unknown>,
@@ -216,7 +216,7 @@ export function secretService(db: Db) {
       actor?: { userId?: string | null; agentId?: string | null },
     ) => {
       const secret = await getById(secretId);
-      if (!secret) throw notFound("Secret not found");
+      if (!secret) throw notFound("未找到密钥");
       const provider = getSecretProvider(secret.provider as SecretProvider);
       const nextVersion = secret.latestVersion + 1;
       const prepared = await provider.createVersion({
@@ -245,7 +245,7 @@ export function secretService(db: Db) {
           .returning()
           .then((rows) => rows[0] ?? null);
 
-        if (!updated) throw notFound("Secret not found");
+        if (!updated) throw notFound("未找到密钥");
         return updated;
       });
     },
@@ -255,7 +255,7 @@ export function secretService(db: Db) {
       patch: { name?: string; description?: string | null; externalRef?: string | null },
     ) => {
       const secret = await getById(secretId);
-      if (!secret) throw notFound("Secret not found");
+      if (!secret) throw notFound("未找到密钥");
 
       if (patch.name && patch.name !== secret.name) {
         const duplicate = await getByName(secret.companyId, patch.name);

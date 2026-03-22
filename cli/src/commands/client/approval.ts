@@ -43,12 +43,12 @@ interface ApprovalCommentOptions extends BaseClientOptions {
 }
 
 export function registerApprovalCommands(program: Command): void {
-  const approval = program.command("approval").description("Approval operations");
+  const approval = program.command("approval").description("审批操作");
 
   addCommonClientOptions(
     approval
       .command("list")
-      .description("List approvals for a company")
+      .description("列出公司的审批")
       .requiredOption("-C, --company-id <id>", "Company ID")
       .option("--status <status>", "Status filter")
       .action(async (opts: ApprovalListOptions) => {
@@ -93,7 +93,7 @@ export function registerApprovalCommands(program: Command): void {
   addCommonClientOptions(
     approval
       .command("get")
-      .description("Get one approval")
+      .description("获取单个审批")
       .argument("<approvalId>", "Approval ID")
       .action(async (approvalId: string, opts: BaseClientOptions) => {
         try {
@@ -109,7 +109,7 @@ export function registerApprovalCommands(program: Command): void {
   addCommonClientOptions(
     approval
       .command("create")
-      .description("Create an approval request")
+      .description("创建审批请求")
       .requiredOption("-C, --company-id <id>", "Company ID")
       .requiredOption("--type <type>", "Approval type (hire_agent|approve_ceo_strategy)")
       .requiredOption("--payload <json>", "Approval payload as JSON object")
@@ -137,7 +137,7 @@ export function registerApprovalCommands(program: Command): void {
   addCommonClientOptions(
     approval
       .command("approve")
-      .description("Approve an approval request")
+      .description("通过审批请求")
       .argument("<approvalId>", "Approval ID")
       .option("--decision-note <text>", "Decision note")
       .option("--decided-by-user-id <id>", "Decision actor user ID")
@@ -159,7 +159,7 @@ export function registerApprovalCommands(program: Command): void {
   addCommonClientOptions(
     approval
       .command("reject")
-      .description("Reject an approval request")
+      .description("拒绝审批请求")
       .argument("<approvalId>", "Approval ID")
       .option("--decision-note <text>", "Decision note")
       .option("--decided-by-user-id <id>", "Decision actor user ID")
@@ -181,7 +181,7 @@ export function registerApprovalCommands(program: Command): void {
   addCommonClientOptions(
     approval
       .command("request-revision")
-      .description("Request revision for an approval")
+      .description("请求修改审批")
       .argument("<approvalId>", "Approval ID")
       .option("--decision-note <text>", "Decision note")
       .option("--decided-by-user-id <id>", "Decision actor user ID")
@@ -203,7 +203,7 @@ export function registerApprovalCommands(program: Command): void {
   addCommonClientOptions(
     approval
       .command("resubmit")
-      .description("Resubmit an approval (optionally with new payload)")
+      .description("重新提交审批（可选择附带新的载荷）")
       .argument("<approvalId>", "Approval ID")
       .option("--payload <json>", "Payload JSON object")
       .action(async (approvalId: string, opts: ApprovalResubmitOptions) => {
@@ -223,7 +223,7 @@ export function registerApprovalCommands(program: Command): void {
   addCommonClientOptions(
     approval
       .command("comment")
-      .description("Add comment to an approval")
+      .description("为审批添加评论")
       .argument("<approvalId>", "Approval ID")
       .requiredOption("--body <text>", "Comment body")
       .action(async (approvalId: string, opts: ApprovalCommentOptions) => {

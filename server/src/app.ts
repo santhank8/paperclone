@@ -105,7 +105,7 @@ export async function createApp(
   );
   app.get("/api/auth/get-session", (req, res) => {
     if (req.actor.type !== "board" || !req.actor.userId) {
-      res.status(401).json({ error: "Unauthorized" });
+      res.status(401).json({ error: "未授权" });
       return;
     }
     res.json({
@@ -116,7 +116,7 @@ export async function createApp(
       user: {
         id: req.actor.userId,
         email: null,
-        name: req.actor.source === "local_implicit" ? "Local Board" : null,
+        name: req.actor.source === "local_implicit" ? "本地董事会" : null,
       },
     });
   });
@@ -226,7 +226,7 @@ export async function createApp(
   );
   app.use("/api", api);
   app.use("/api", (_req, res) => {
-    res.status(404).json({ error: "API route not found" });
+    res.status(404).json({ error: "API 路由未找到" });
   });
   app.use(pluginUiStaticRoutes(db, {
     localPluginDir: opts.localPluginDir ?? DEFAULT_LOCAL_PLUGIN_DIR,

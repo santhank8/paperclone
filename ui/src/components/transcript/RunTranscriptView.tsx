@@ -253,9 +253,9 @@ function summarizeToolResult(result: string | undefined, isError: boolean | unde
     if (structured.body) {
       return truncate(structured.body.split("\n")[0] ?? structured.body, density === "compact" ? 84 : 140);
     }
-    if (structured.status === "completed") return "Completed";
+    if (structured.status === "completed") return "已完成";
     if (structured.status === "failed" || structured.status === "error") {
-      return structured.exitCode ? `Failed with exit code ${structured.exitCode}` : "Failed";
+      return structured.exitCode ? `失败，退出码 ${structured.exitCode}` : "失败";
     }
   }
   const lines = result
@@ -428,7 +428,7 @@ export function normalizeTranscript(entries: TranscriptEntry[], streaming: boole
         ts: entry.ts,
         label: "result",
         tone: entry.isError ? "error" : "info",
-        text: entry.text.trim() || entry.errors[0] || (entry.isError ? "Run failed" : "Completed"),
+        text: entry.text.trim() || entry.errors[0] || (entry.isError ? "运行失败" : "已完成"),
       });
       continue;
     }
@@ -584,10 +584,10 @@ function TranscriptToolCard({
   const parsedResult = parseStructuredToolResult(block.result);
   const statusLabel =
     block.status === "running"
-      ? "Running"
+      ? "运行中"
       : block.status === "error"
-        ? "Errored"
-        : "Completed";
+        ? "出错"
+        : "已完成";
   const statusTone =
     block.status === "running"
       ? "text-cyan-700 dark:text-cyan-300"
@@ -966,7 +966,7 @@ export function RunTranscriptView({
   limit,
   streaming = false,
   collapseStdout = false,
-  emptyMessage = "No transcript yet.",
+  emptyMessage = "暂无转录。",
   className,
   thinkingClassName,
 }: RunTranscriptViewProps) {

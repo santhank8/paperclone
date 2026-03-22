@@ -1543,17 +1543,17 @@ export function accessRoutes(
     if (req.actor.type !== "board") throw unauthorized();
     if (isLocalImplicit(req)) return;
     const allowed = await access.isInstanceAdmin(req.actor.userId);
-    if (!allowed) throw forbidden("Instance admin required");
+    if (!allowed) throw forbidden("需要实例管理员权限");
   }
 
   router.get("/board-claim/:token", async (req, res) => {
     const token = (req.params.token as string).trim();
     const code =
       typeof req.query.code === "string" ? req.query.code.trim() : undefined;
-    if (!token) throw notFound("Board claim challenge not found");
+    if (!token) throw notFound("管理面板认领挑战未找到");
     const challenge = inspectBoardClaimChallenge(token, code);
     if (challenge.status === "invalid")
-      throw notFound("Board claim challenge not found");
+      throw notFound("管理面板认领挑战未找到");
     res.json(challenge);
   });
 
@@ -1561,7 +1561,7 @@ export function accessRoutes(
     const token = (req.params.token as string).trim();
     const code =
       typeof req.body?.code === "string" ? req.body.code.trim() : undefined;
-    if (!token) throw notFound("Board claim challenge not found");
+    if (!token) throw notFound("管理面板认领挑战未找到");
     if (!code) throw badRequest("Claim code is required");
     if (
       req.actor.type !== "board" ||
@@ -1578,7 +1578,7 @@ export function accessRoutes(
     });
 
     if (claimed.status === "invalid")
-      throw notFound("Board claim challenge not found");
+      throw notFound("管理面板认领挑战未找到");
     if (claimed.status === "expired")
       throw conflict(
         "Board claim challenge expired. Restart server to generate a new one."
@@ -1608,7 +1608,7 @@ export function accessRoutes(
         req.actor.agentId,
         permissionKey
       );
-      if (!allowed) throw forbidden("Permission denied");
+      if (!allowed) throw forbidden("权限不足");
       return;
     }
     if (req.actor.type !== "board") throw unauthorized();
@@ -1618,7 +1618,7 @@ export function accessRoutes(
       req.actor.userId,
       permissionKey
     );
-    if (!allowed) throw forbidden("Permission denied");
+    if (!allowed) throw forbidden("权限不足");
   }
 
   async function assertCanGenerateOpenClawInvitePrompt(
@@ -1627,20 +1627,20 @@ export function accessRoutes(
   ) {
     assertCompanyAccess(req, companyId);
     if (req.actor.type === "agent") {
-      if (!req.actor.agentId) throw forbidden("Agent authentication required");
+      if (!req.actor.agentId) throw forbidden("需要智能体认证");
       const actorAgent = await agents.getById(req.actor.agentId);
       if (!actorAgent || actorAgent.companyId !== companyId) {
-        throw forbidden("Agent key cannot access another company");
+        throw forbidden("智能体密钥无法访问其他公司");
       }
       if (actorAgent.role !== "ceo") {
-        throw forbidden("Only CEO agents can generate OpenClaw invite prompts");
+        throw forbidden("仅 CEO 智能体可以生成 OpenClaw 邀请提示");
       }
       return;
     }
     if (req.actor.type !== "board") throw unauthorized();
     if (isLocalImplicit(req)) return;
     const allowed = await access.canUser(companyId, req.actor.userId, "users:invite");
-    if (!allowed) throw forbidden("Permission denied");
+    if (!allowed) throw forbidden("权限不足");
   }
 
   async function createCompanyInviteForCompany(input: {
@@ -1718,7 +1718,7 @@ export function accessRoutes(
   router.get("/skills/:skillName", (req, res) => {
     const skillName = (req.params.skillName as string).trim().toLowerCase();
     const markdown = readSkillMarkdown(skillName);
-    if (!markdown) throw notFound("Skill not found");
+    if (!markdown) throw notFound("技能未找到");
     res.type("text/markdown").send(markdown);
   });
 
@@ -1814,7 +1814,7 @@ export function accessRoutes(
 
   router.get("/invites/:token", async (req, res) => {
     const token = (req.params.token as string).trim();
-    if (!token) throw notFound("Invite not found");
+    if (!token) throw notFound("邀请未找到");
     const invite = await db
       .select()
       .from(invites)
@@ -1826,7 +1826,7 @@ export function accessRoutes(
       invite.acceptedAt ||
       inviteExpired(invite)
     ) {
-      throw notFound("Invite not found");
+      throw notFound("邀请未找到");
     }
 
     res.json(toInviteSummaryResponse(req, token, invite));
@@ -1834,14 +1834,14 @@ export function accessRoutes(
 
   router.get("/invites/:token/onboarding", async (req, res) => {
     const token = (req.params.token as string).trim();
-    if (!token) throw notFound("Invite not found");
+    if (!token) throw notFound("邀请未找到");
     const invite = await db
       .select()
       .from(invites)
       .where(eq(invites.tokenHash, hashToken(token)))
       .then((rows) => rows[0] ?? null);
     if (!invite || invite.revokedAt || inviteExpired(invite)) {
-      throw notFound("Invite not found");
+      throw notFound("邀请未找到");
     }
 
     res.json(buildInviteOnboardingManifest(req, token, invite, opts));
@@ -1849,14 +1849,14 @@ export function accessRoutes(
 
   router.get("/invites/:token/onboarding.txt", async (req, res) => {
     const token = (req.params.token as string).trim();
-    if (!token) throw notFound("Invite not found");
+    if (!token) throw notFound("邀请未找到");
     const invite = await db
       .select()
       .from(invites)
       .where(eq(invites.tokenHash, hashToken(token)))
       .then((rows) => rows[0] ?? null);
     if (!invite || invite.revokedAt || inviteExpired(invite)) {
-      throw notFound("Invite not found");
+      throw notFound("邀请未找到");
     }
 
     res
@@ -1866,14 +1866,14 @@ export function accessRoutes(
 
   router.get("/invites/:token/test-resolution", async (req, res) => {
     const token = (req.params.token as string).trim();
-    if (!token) throw notFound("Invite not found");
+    if (!token) throw notFound("邀请未找到");
     const invite = await db
       .select()
       .from(invites)
       .where(eq(invites.tokenHash, hashToken(token)))
       .then((rows) => rows[0] ?? null);
     if (!invite || invite.revokedAt || inviteExpired(invite)) {
-      throw notFound("Invite not found");
+      throw notFound("邀请未找到");
     }
 
     const rawUrl =
@@ -1911,7 +1911,7 @@ export function accessRoutes(
     validate(acceptInviteSchema),
     async (req, res) => {
       const token = (req.params.token as string).trim();
-      if (!token) throw notFound("Invite not found");
+      if (!token) throw notFound("邀请未找到");
 
       const invite = await db
         .select()
@@ -1919,7 +1919,7 @@ export function accessRoutes(
         .where(eq(invites.tokenHash, hashToken(token)))
         .then((rows) => rows[0] ?? null);
       if (!invite || invite.revokedAt || inviteExpired(invite)) {
-        throw notFound("Invite not found");
+        throw notFound("邀请未找到");
       }
       const inviteAlreadyAccepted = Boolean(invite.acceptedAt);
       const existingJoinRequestForInvite = inviteAlreadyAccepted
@@ -1931,7 +1931,7 @@ export function accessRoutes(
         : null;
 
       if (invite.inviteType === "bootstrap_ceo") {
-        if (inviteAlreadyAccepted) throw notFound("Invite not found");
+        if (inviteAlreadyAccepted) throw notFound("邀请未找到");
         if (req.body.requestType !== "human") {
           throw badRequest("Bootstrap invite requires human request type");
         }
@@ -2003,7 +2003,7 @@ export function accessRoutes(
           existingJoinRequest: existingJoinRequestForInvite
         })
       ) {
-        throw notFound("Invite not found");
+        throw notFound("邀请未找到");
       }
       const replayJoinRequestId = inviteAlreadyAccepted
         ? existingJoinRequestForInvite?.id ?? null
@@ -2302,7 +2302,7 @@ export function accessRoutes(
       .from(invites)
       .where(eq(invites.id, id))
       .then((rows) => rows[0] ?? null);
-    if (!invite) throw notFound("Invite not found");
+    if (!invite) throw notFound("邀请未找到");
     if (invite.inviteType === "bootstrap_ceo") {
       await assertInstanceAdmin(req);
     } else {
@@ -2371,7 +2371,7 @@ export function accessRoutes(
           )
         )
         .then((rows) => rows[0] ?? null);
-      if (!existing) throw notFound("Join request not found");
+      if (!existing) throw notFound("加入请求未找到");
       if (existing.status !== "pending_approval")
         throw conflict("Join request is not pending");
 
@@ -2380,7 +2380,7 @@ export function accessRoutes(
         .from(invites)
         .where(eq(invites.id, existing.inviteId))
         .then((rows) => rows[0] ?? null);
-      if (!invite) throw notFound("Invite not found");
+      if (!invite) throw notFound("邀请未找到");
 
       let createdAgentId: string | null = existing.createdAgentId ?? null;
       if (existing.requestType === "human") {
@@ -2526,7 +2526,7 @@ export function accessRoutes(
           )
         )
         .then((rows) => rows[0] ?? null);
-      if (!existing) throw notFound("Join request not found");
+      if (!existing) throw notFound("加入请求未找到");
       if (existing.status !== "pending_approval")
         throw conflict("Join request is not pending");
 
@@ -2568,7 +2568,7 @@ export function accessRoutes(
         .from(joinRequests)
         .where(eq(joinRequests.id, requestId))
         .then((rows) => rows[0] ?? null);
-      if (!joinRequest) throw notFound("Join request not found");
+      if (!joinRequest) throw notFound("加入请求未找到");
       if (joinRequest.requestType !== "agent")
         throw badRequest("Only agent join requests can claim API keys");
       if (joinRequest.status !== "approved")
@@ -2580,7 +2580,7 @@ export function accessRoutes(
       if (
         !tokenHashesMatch(joinRequest.claimSecretHash, presentedClaimSecretHash)
       ) {
-        throw forbidden("Invalid claim secret");
+        throw forbidden("无效的认领密钥");
       }
       if (
         joinRequest.claimSecretExpiresAt &&
@@ -2658,7 +2658,7 @@ export function accessRoutes(
         req.body.grants ?? [],
         req.actor.userId ?? null
       );
-      if (!updated) throw notFound("Member not found");
+      if (!updated) throw notFound("成员未找到");
       res.json(updated);
     }
   );
@@ -2679,7 +2679,7 @@ export function accessRoutes(
       await assertInstanceAdmin(req);
       const userId = req.params.userId as string;
       const removed = await access.demoteInstanceAdmin(userId);
-      if (!removed) throw notFound("Instance admin role not found");
+      if (!removed) throw notFound("实例管理员角色未找到");
       res.json(removed);
     }
   );

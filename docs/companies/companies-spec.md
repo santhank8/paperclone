@@ -1,56 +1,56 @@
-# Agent Companies Specification
+# 智能体公司规范
 
-Extension of the Agent Skills Specification
+智能体技能规范的扩展
 
-Version: `agentcompanies/v1-draft`
+版本：`agentcompanies/v1-draft`
 
-## 1. Purpose
+## 1. 目的
 
-An Agent Company package is a filesystem- and GitHub-native format for describing a company, team, agent, project, task, and associated skills using markdown files with YAML frontmatter.
+智能体公司包是一种文件系统和 GitHub 原生格式，用于使用带有 YAML 前置元数据的 markdown 文件来描述公司、团队、智能体、项目、任务及其关联技能。
 
-This specification is an extension of the Agent Skills specification, not a replacement for it.
+本规范是智能体技能规范的扩展，而非替代。
 
-It defines how company-, team-, and agent-level package structure composes around the existing `SKILL.md` model.
+它定义了公司级、团队级和智能体级包结构如何围绕现有 `SKILL.md` 模型进行组合。
 
-This specification is vendor-neutral. It is intended to be usable by any agent-company runtime, not only Paperclip.
+本规范是供应商中立的。它旨在可被任何智能体公司运行时使用，而不仅限于 Paperclip。
 
-The format is designed to:
+该格式设计为：
 
-- be readable and writable by humans
-- work directly from a local folder or GitHub repository
-- require no central registry
-- support attribution and pinned references to upstream files
-- extend the existing Agent Skills ecosystem without redefining it
-- be useful outside Paperclip
+- 人类可读可写
+- 可直接从本地文件夹或 GitHub 仓库使用
+- 不需要中央注册表
+- 支持归属和对上游文件的固定引用
+- 扩展现有智能体技能生态系统而不重新定义它
+- 在 Paperclip 之外也有用
 
-## 2. Core Principles
+## 2. 核心原则
 
-1. Markdown is canonical.
-2. Git repositories are valid package containers.
-3. Registries are optional discovery layers, not authorities.
-4. `SKILL.md` remains owned by the Agent Skills specification.
-5. External references must be pinnable to immutable Git commits.
-6. Attribution and license metadata must survive import/export.
-7. Slugs and relative paths are the portable identity layer, not database ids.
-8. Conventional folder structure should work without verbose wiring.
-9. Vendor-specific fidelity belongs in optional extensions, not the base package.
+1. Markdown 是权威格式。
+2. Git 仓库是有效的包容器。
+3. 注册表是可选的发现层，而非权威机构。
+4. `SKILL.md` 仍由智能体技能规范所有。
+5. 外部引用必须可固定到不可变的 Git 提交。
+6. 归属和许可元数据必须在导入/导出中保留。
+7. Slug 和相对路径是可移植的身份层，而非数据库 ID。
+8. 约定的文件夹结构无需冗长配置即可工作。
+9. 供应商特定的保真度属于可选扩展，而非基础包。
 
-## 3. Package Kinds
+## 3. 包类型
 
-A package root is identified by one primary markdown file:
+包根目录由一个主 markdown 文件标识：
 
-- `COMPANY.md` for a company package
-- `TEAM.md` for a team package
-- `AGENTS.md` for an agent package
-- `PROJECT.md` for a project package
-- `TASK.md` for a task package
-- `SKILL.md` for a skill package defined by the Agent Skills specification
+- `COMPANY.md` 用于公司包
+- `TEAM.md` 用于团队包
+- `AGENTS.md` 用于智能体包
+- `PROJECT.md` 用于项目包
+- `TASK.md` 用于任务包
+- `SKILL.md` 用于智能体技能规范定义的技能包
 
-A GitHub repo may contain one package at root or many packages in subdirectories.
+一个 GitHub 仓库可以在根目录包含一个包或在子目录中包含多个包。
 
-## 4. Reserved Files And Directories
+## 4. 保留的文件和目录
 
-Common conventions:
+通用约定：
 
 ```text
 COMPANY.md
@@ -77,15 +77,15 @@ scripts/
 references/
 ```
 
-Rules:
+规则：
 
-- only markdown files are canonical content docs
-- non-markdown directories like `assets/`, `scripts/`, and `references/` are allowed
-- package tools may generate optional lock files, but lock files are not required for authoring
+- 只有 markdown 文件是权威内容文档
+- 允许非 markdown 目录如 `assets/`、`scripts/` 和 `references/`
+- 包工具可以生成可选的锁文件，但锁文件不是编写所必需的
 
-## 5. Common Frontmatter
+## 5. 通用前置元数据
 
-Package docs may support these fields:
+包文档可以支持这些字段：
 
 ```yaml
 schema: agentcompanies/v1
@@ -105,20 +105,20 @@ metadata: {}
 sources: []
 ```
 
-Notes:
+说明：
 
-- `schema` is optional and should usually appear only at the package root
-- `kind` is optional when file path and file name already make the kind obvious
-- `slug` should be URL-safe and stable
-- `sources` is for provenance and external references
-- `metadata` is for tool-specific extensions
-- exporters should omit empty or default-valued fields
+- `schema` 是可选的，通常只应出现在包根目录
+- `kind` 在文件路径和文件名已明确类型时是可选的
+- `slug` 应为 URL 安全且稳定的
+- `sources` 用于来源和外部引用
+- `metadata` 用于工具特定的扩展
+- 导出器应省略空或默认值字段
 
 ## 6. COMPANY.md
 
-`COMPANY.md` is the root entrypoint for a whole company package.
+`COMPANY.md` 是整个公司包的根入口点。
 
-### Required fields
+### 必需字段
 
 ```yaml
 name: Lean Dev Shop
@@ -127,7 +127,7 @@ slug: lean-dev-shop
 schema: agentcompanies/v1
 ```
 
-### Recommended fields
+### 推荐字段
 
 ```yaml
 version: 1.0.0
@@ -143,20 +143,20 @@ requirements:
     - OPENAI_API_KEY
 ```
 
-### Semantics
+### 语义
 
-- `includes` defines the package graph
-- local package contents should be discovered implicitly by folder convention
-- `includes` is optional and should be used mainly for external refs or nonstandard locations
-- included items may be local or external references
-- `COMPANY.md` may include agents directly, teams, projects, tasks, or skills
-- a company importer may render `includes` as the tree/checkbox import UI
+- `includes` 定义包图
+- 本地包内容应通过文件夹约定隐式发现
+- `includes` 是可选的，主要用于外部引用或非标准位置
+- 被包含的项可以是本地或外部引用
+- `COMPANY.md` 可以直接包含智能体、团队、项目、任务或技能
+- 公司导入器可以将 `includes` 渲染为树形/复选框导入 UI
 
 ## 7. TEAM.md
 
-`TEAM.md` defines an org subtree.
+`TEAM.md` 定义一个组织子树。
 
-### Example
+### 示例
 
 ```yaml
 name: Engineering
@@ -173,18 +173,18 @@ tags:
   - engineering
 ```
 
-### Semantics
+### 语义
 
-- a team package is a reusable subtree, not necessarily a runtime database table
-- `manager` identifies the root agent of the subtree
-- `includes` may contain child agents, child teams, or shared skills
-- a team package can be imported into an existing company and attached under a target manager
+- 团队包是一个可复用的子树，不一定是运行时数据库表
+- `manager` 标识子树的根智能体
+- `includes` 可以包含子智能体、子团队或共享技能
+- 团队包可以被导入到现有公司中，附加到目标管理者下
 
 ## 8. AGENTS.md
 
-`AGENTS.md` defines an agent.
+`AGENTS.md` 定义一个智能体。
 
-### Example
+### 示例
 
 ```yaml
 name: CEO
@@ -195,39 +195,39 @@ skills:
   - review
 ```
 
-### Semantics
+### 语义
 
-- body content is the canonical default instruction content for the agent
-- `docs` points to sibling markdown docs when present
-- `skills` references reusable `SKILL.md` packages by skill shortname or slug
-- a bare skill entry like `review` should resolve to `skills/review/SKILL.md` by convention
-- if a package references external skills, the agent should still refer to the skill by shortname; the skill package itself owns any source refs, pinning, or attribution details
-- tools may allow path or URL entries as an escape hatch, but exporters should prefer shortname-based skill references in `AGENTS.md`
-- vendor-specific adapter/runtime config should not live in the base package
-- local absolute paths, machine-specific cwd values, and secret values must not be exported as canonical package data
+- 正文内容是智能体的权威默认指令内容
+- `docs` 在存在时指向同级 markdown 文档
+- `skills` 通过技能简称或 slug 引用可复用的 `SKILL.md` 包
+- 像 `review` 这样的简单技能条目应按约定解析为 `skills/review/SKILL.md`
+- 如果包引用外部技能，智能体仍应通过简称引用技能；技能包本身拥有任何来源引用、固定或归属详情
+- 工具可以允许路径或 URL 条目作为应急方案，但导出器应在 `AGENTS.md` 中优先使用基于简称的技能引用
+- 供应商特定的适配器/运行时配置不应存在于基础包中
+- 本地绝对路径、机器特定的 cwd 值和密钥值不得作为权威包数据导出
 
-### Skill Resolution
+### 技能解析
 
-The preferred association standard between agents and skills is by skill shortname.
+智能体和技能之间的首选关联标准是技能简称。
 
-Suggested resolution order for an agent skill entry:
+建议的智能体技能条目解析顺序：
 
-1. a local package skill at `skills/<shortname>/SKILL.md`
-2. a referenced or included skill package whose declared slug or shortname matches
-3. a tool-managed company skill library entry with the same shortname
+1. `skills/<shortname>/SKILL.md` 的本地包技能
+2. 声明的 slug 或简称匹配的引用或包含的技能包
+3. 同名简称的工具管理的公司技能库条目
 
-Rules:
+规则：
 
-- exporters should emit shortnames in `AGENTS.md` whenever possible
-- importers should not require full file paths for ordinary skill references
-- the skill package itself should carry any complexity around external refs, vendoring, mirrors, or pinned upstream content
-- this keeps `AGENTS.md` readable and consistent with `skills.sh`-style sharing
+- 导出器应尽可能在 `AGENTS.md` 中输出简称
+- 导入器不应要求普通技能引用的完整文件路径
+- 技能包本身应承载有关外部引用、vendoring、镜像或固定上游内容的任何复杂性
+- 这使 `AGENTS.md` 保持可读性，并与 `skills.sh` 风格的共享一致
 
 ## 9. PROJECT.md
 
-`PROJECT.md` defines a lightweight project package.
+`PROJECT.md` 定义一个轻量级项目包。
 
-### Example
+### 示例
 
 ```yaml
 name: Q2 Launch
@@ -235,19 +235,19 @@ description: Ship the Q2 launch plan and supporting assets
 owner: cto
 ```
 
-### Semantics
+### 语义
 
-- a project package groups related starter tasks and supporting markdown
-- `owner` should reference an agent slug when there is a clear project owner
-- a conventional `tasks/` subfolder should be discovered implicitly
-- `includes` may contain `TASK.md`, `SKILL.md`, or supporting docs when explicit wiring is needed
-- project packages are intended to seed planned work, not represent runtime task state
+- 项目包将相关的初始任务和支持 markdown 分组
+- 当有明确的项目负责人时，`owner` 应引用智能体 slug
+- 约定的 `tasks/` 子文件夹应被隐式发现
+- 当需要显式关联时，`includes` 可以包含 `TASK.md`、`SKILL.md` 或支持文档
+- 项目包旨在播种计划工作，而非表示运行时任务状态
 
 ## 10. TASK.md
 
-`TASK.md` defines a lightweight starter task.
+`TASK.md` 定义一个轻量级初始任务。
 
-### Example
+### 示例
 
 ```yaml
 name: Monday Review
@@ -266,26 +266,26 @@ schedule:
       minute: 0
 ```
 
-### Semantics
+### 语义
 
-- body content is the canonical markdown task description
-- `assignee` should reference an agent slug inside the package
-- `project` should reference a project slug when the task belongs to a `PROJECT.md`
-- tasks are intentionally basic seed work: title, markdown body, assignee, and optional recurrence
-- tools may also support optional fields like `priority`, `labels`, or `metadata`, but they should not require them in the base package
+- 正文内容是权威的 markdown 任务描述
+- `assignee` 应引用包内的智能体 slug
+- 当任务属于 `PROJECT.md` 时，`project` 应引用项目 slug
+- 任务是有意的基础种子工作：标题、markdown 正文、指派人和可选的循环
+- 工具也可以支持如 `priority`、`labels` 或 `metadata` 等可选字段，但不应在基础包中要求它们
 
-### Scheduling
+### 调度
 
-The scheduling model is intentionally lightweight. It should cover common recurring patterns such as:
+调度模型有意保持轻量级。它应该覆盖常见的循环模式，例如：
 
-- every 6 hours
-- every weekday at 9:00
-- every Monday morning
-- every month on the 1st
-- every first Monday of the month
-- every year on January 1
+- 每 6 小时
+- 每个工作日上午 9:00
+- 每周一上午
+- 每月 1 日
+- 每月第一个周一
+- 每年 1 月 1 日
 
-Suggested shape:
+建议的格式：
 
 ```yaml
 schedule:
@@ -313,32 +313,32 @@ schedule:
     count: 10
 ```
 
-Rules:
+规则：
 
-- `timezone` should use an IANA timezone like `America/Chicago`
-- `startsAt` anchors the first occurrence
-- `frequency` and `interval` are the only required recurrence fields
-- `weekdays`, `monthDays`, `ordinalWeekdays`, and `months` are optional narrowing rules
-- `ordinalWeekdays` uses `ordinal` values like `1`, `2`, `3`, `4`, or `-1` for “last”
-- `time.hour` and `time.minute` keep common “morning / 9:00 / end of day” scheduling human-readable
-- `until` and `count` are optional recurrence end bounds
-- tools may accept richer calendar syntaxes such as RFC5545 `RRULE`, but exporters should prefer the structured form above
+- `timezone` 应使用 IANA 时区如 `America/Chicago`
+- `startsAt` 锚定第一次出现
+- `frequency` 和 `interval` 是唯一必需的循环字段
+- `weekdays`、`monthDays`、`ordinalWeekdays` 和 `months` 是可选的缩窄规则
+- `ordinalWeekdays` 使用 `ordinal` 值如 `1`、`2`、`3`、`4` 或 `-1` 表示"最后"
+- `time.hour` 和 `time.minute` 使常见的"上午 / 9:00 / 当天结束"调度保持人类可读
+- `until` 和 `count` 是可选的循环结束边界
+- 工具可以接受更丰富的日历语法如 RFC5545 `RRULE`，但导出器应优先使用上述结构化形式
 
-## 11. SKILL.md Compatibility
+## 11. SKILL.md 兼容性
 
-A skill package must remain a valid Agent Skills package.
+技能包必须保持为有效的智能体技能包。
 
-Rules:
+规则：
 
-- `SKILL.md` should follow the Agent Skills spec
-- Paperclip must not require extra top-level fields for skill validity
-- Paperclip-specific extensions must live under `metadata.paperclip` or `metadata.sources`
-- a skill directory may include `scripts/`, `references/`, and `assets/` exactly as the Agent Skills ecosystem expects
-- tools implementing this spec should treat `skills.sh` compatibility as a first-class goal rather than inventing a parallel skill format
+- `SKILL.md` 应遵循智能体技能规范
+- Paperclip 不得要求额外的顶级字段来验证技能有效性
+- Paperclip 特定的扩展必须位于 `metadata.paperclip` 或 `metadata.sources` 下
+- 技能目录可以包含 `scripts/`、`references/` 和 `assets/`，与智能体技能生态系统的预期完全一致
+- 实现此规范的工具应将 `skills.sh` 兼容性视为首要目标，而非发明并行的技能格式
 
-In other words, this spec extends Agent Skills upward into company/team/agent composition. It does not redefine skill package semantics.
+换句话说，本规范将智能体技能向上扩展到公司/团队/智能体组合。它不重新定义技能包语义。
 
-### Example compatible extension
+### 兼容扩展示例
 
 ```yaml
 ---
@@ -363,11 +363,11 @@ metadata:
 ---
 ```
 
-## 12. Source References
+## 12. 来源引用
 
-A package may point to upstream content instead of vendoring it.
+包可以指向上游内容而不是将其打包进来。
 
-### Source object
+### 来源对象
 
 ```yaml
 sources:
@@ -384,7 +384,7 @@ sources:
     usage: referenced
 ```
 
-### Supported kinds
+### 支持的类型
 
 - `local-file`
 - `local-dir`
@@ -392,47 +392,47 @@ sources:
 - `github-dir`
 - `url`
 
-### Usage modes
+### 使用模式
 
-- `vendored`: bytes are included in the package
-- `referenced`: package points to upstream immutable content
-- `mirrored`: bytes are cached locally but upstream attribution remains canonical
+- `vendored`：字节包含在包中
+- `referenced`：包指向上游不可变内容
+- `mirrored`：字节在本地缓存，但上游归属仍为权威
 
-### Rules
+### 规则
 
-- `commit` is required for `github-file` and `github-dir` in strict mode
-- `sha256` is strongly recommended and should be verified on fetch
-- branch-only refs may be allowed in development mode but must warn
-- exporters should default to `referenced` for third-party content unless redistribution is clearly allowed
+- 严格模式下 `github-file` 和 `github-dir` 需要 `commit`
+- 强烈推荐 `sha256` 并应在获取时验证
+- 开发模式下可以允许仅分支引用但必须发出警告
+- 导出器对于第三方内容应默认使用 `referenced`，除非重新分发被明确允许
 
-## 13. Resolution Rules
+## 13. 解析规则
 
-Given a package root, an importer resolves in this order:
+给定一个包根目录，导入器按此顺序解析：
 
-1. local relative paths
-2. local absolute paths if explicitly allowed by the importing tool
-3. pinned GitHub refs
-4. generic URLs
+1. 本地相对路径
+2. 如果导入工具明确允许，本地绝对路径
+3. 固定的 GitHub 引用
+4. 通用 URL
 
-For pinned GitHub refs:
+对于固定的 GitHub 引用：
 
-1. resolve `repo + commit + path`
-2. fetch content
-3. verify `sha256` if present
-4. verify `blob` if present
-5. fail closed on mismatch
+1. 解析 `repo + commit + path`
+2. 获取内容
+3. 如果存在则验证 `sha256`
+4. 如果存在则验证 `blob`
+5. 不匹配时严格失败
 
-An importer must surface:
+导入器必须提示：
 
-- missing files
-- hash mismatches
-- missing licenses
-- referenced upstream content that requires network fetch
-- executable content in skills or scripts
+- 缺失文件
+- 哈希不匹配
+- 缺失许可
+- 需要网络获取的引用上游内容
+- 技能或脚本中的可执行内容
 
-## 14. Import Graph
+## 14. 导入图
 
-A package importer should build a graph from:
+包导入器应从以下构建图：
 
 - `COMPANY.md`
 - `TEAM.md`
@@ -440,46 +440,46 @@ A package importer should build a graph from:
 - `PROJECT.md`
 - `TASK.md`
 - `SKILL.md`
-- local and external refs
+- 本地和外部引用
 
-Suggested import UI behavior:
+建议的导入 UI 行为：
 
-- render graph as a tree
-- checkbox at entity level, not raw file level
-- selecting an agent auto-selects required docs and referenced skills
-- selecting a team auto-selects its subtree
-- selecting a project auto-selects its included tasks
-- selecting a recurring task should surface its schedule before import
-- selecting referenced third-party content shows attribution, license, and fetch policy
+- 将图渲染为树
+- 在实体级别使用复选框，而非原始文件级别
+- 选择智能体自动选择所需文档和引用的技能
+- 选择团队自动选择其子树
+- 选择项目自动选择其包含的任务
+- 选择循环任务应在导入前显示其调度
+- 选择引用的第三方内容显示归属、许可和获取策略
 
-## 15. Vendor Extensions
+## 15. 供应商扩展
 
-Vendor-specific data should live outside the base package shape.
+供应商特定数据应存在于基础包形状之外。
 
-For Paperclip, the preferred fidelity extension is:
+对于 Paperclip，首选的保真度扩展是：
 
 ```text
 .paperclip.yaml
 ```
 
-Example uses:
+示例用途：
 
-- adapter type and adapter config
-- adapter env inputs and defaults
-- runtime settings
-- permissions
-- budgets
-- approval policies
-- project execution workspace policies
-- issue/task Paperclip-only metadata
+- 适配器类型和适配器配置
+- 适配器环境输入和默认值
+- 运行时设置
+- 权限
+- 预算
+- 审批策略
+- 项目执行工作区策略
+- 任务的 Paperclip 专有元数据
 
-Rules:
+规则：
 
-- the base package must remain readable without the extension
-- tools that do not understand a vendor extension should ignore it
-- Paperclip tools may emit the vendor extension by default as a sidecar while keeping the base markdown clean
+- 基础包必须在没有扩展的情况下仍可读
+- 不理解供应商扩展的工具应忽略它
+- Paperclip 工具可以默认将供应商扩展作为附属文件输出，同时保持基础 markdown 整洁
 
-Suggested Paperclip shape:
+建议的 Paperclip 格式：
 
 ```yaml
 schema: paperclip/v1
@@ -504,94 +504,94 @@ agents:
           default: claude
 ```
 
-Additional rules for Paperclip exporters:
+Paperclip 导出器的额外规则：
 
-- do not duplicate `promptTemplate` when `AGENTS.md` already contains the agent instructions
-- do not export provider-specific secret bindings such as `secretId`, `version`, or `type: secret_ref`
-- export env inputs as portable declarations with `required` or `optional` semantics and optional defaults
-- warn on system-dependent values such as absolute commands and absolute `PATH` overrides
-- omit empty and default-valued Paperclip fields when possible
+- 当 `AGENTS.md` 已包含智能体指令时，不要重复 `promptTemplate`
+- 不要导出提供商特定的密钥绑定，如 `secretId`、`version` 或 `type: secret_ref`
+- 将环境输入导出为带有 `required` 或 `optional` 语义和可选默认值的可移植声明
+- 对系统依赖的值（如绝对命令和绝对 `PATH` 覆盖）发出警告
+- 尽可能省略空和默认值的 Paperclip 字段
 
-## 16. Export Rules
+## 16. 导出规则
 
-A compliant exporter should:
+合规的导出器应：
 
-- emit markdown roots and relative folder layout
-- omit machine-local ids and timestamps
-- omit secret values
-- omit machine-specific paths
-- preserve task descriptions and recurrence definitions when exporting tasks
-- omit empty/default fields
-- default to the vendor-neutral base package
-- Paperclip exporters should emit `.paperclip.yaml` as a sidecar by default
-- preserve attribution and source references
-- prefer `referenced` over silent vendoring for third-party content
-- preserve `SKILL.md` as-is when exporting compatible skills
+- 输出 markdown 根文件和相对文件夹布局
+- 省略机器本地 ID 和时间戳
+- 省略密钥值
+- 省略机器特定路径
+- 导出任务时保留任务描述和循环定义
+- 省略空/默认字段
+- 默认使用供应商中立的基础包
+- Paperclip 导出器应默认将 `.paperclip.yaml` 作为附属文件输出
+- 保留归属和来源引用
+- 对于第三方内容优先使用 `referenced` 而非静默打包
+- 导出兼容技能时保持 `SKILL.md` 原样
 
-## 17. Licensing And Attribution
+## 17. 许可和归属
 
-A compliant tool must:
+合规工具必须：
 
-- preserve `license` and `attribution` metadata when importing and exporting
-- distinguish vendored vs referenced content
-- not silently inline referenced third-party content during export
-- surface missing license metadata as a warning
-- surface restrictive or unknown licenses before install/import if content is vendored or mirrored
+- 在导入和导出时保留 `license` 和 `attribution` 元数据
+- 区分打包和引用的内容
+- 导出时不静默内联引用的第三方内容
+- 将缺失的许可元数据作为警告提示
+- 在内容被打包或镜像时，安装/导入前提示限制性或未知许可
 
-## 18. Optional Lock File
+## 18. 可选锁文件
 
-Authoring does not require a lock file.
+编写不需要锁文件。
 
-Tools may generate an optional lock file such as:
+工具可以生成可选的锁文件，例如：
 
 ```text
 company-package.lock.json
 ```
 
-Purpose:
+用途：
 
-- cache resolved refs
-- record final hashes
-- support reproducible installs
+- 缓存已解析的引用
+- 记录最终哈希
+- 支持可复现安装
 
-Rules:
+规则：
 
-- lock files are optional
-- lock files are generated artifacts, not canonical authoring input
-- the markdown package remains the source of truth
+- 锁文件是可选的
+- 锁文件是生成的产物，不是权威的编写输入
+- markdown 包仍是真实来源
 
-## 19. Paperclip Mapping
+## 19. Paperclip 映射
 
-Paperclip can map this spec to its runtime model like this:
+Paperclip 可以这样将本规范映射到其运行时模型：
 
-- base package:
-  - `COMPANY.md` -> company metadata
-  - `TEAM.md` -> importable org subtree
-  - `AGENTS.md` -> agent identity and instructions
-  - `PROJECT.md` -> starter project definition
-  - `TASK.md` -> starter issue/task definition, or automation template when recurrence is present
-  - `SKILL.md` -> imported skill package
-  - `sources[]` -> provenance and pinned upstream refs
-- Paperclip extension:
-  - `.paperclip.yaml` -> adapter config, runtime config, env input declarations, permissions, budgets, and other Paperclip-specific fidelity
+- 基础包：
+  - `COMPANY.md` -> 公司元数据
+  - `TEAM.md` -> 可导入的组织子树
+  - `AGENTS.md` -> 智能体身份和指令
+  - `PROJECT.md` -> 初始项目定义
+  - `TASK.md` -> 初始任务定义，或当存在循环时的自动化模板
+  - `SKILL.md` -> 导入的技能包
+  - `sources[]` -> 来源和固定的上游引用
+- Paperclip 扩展：
+  - `.paperclip.yaml` -> 适配器配置、运行时配置、环境输入声明、权限、预算和其他 Paperclip 特定保真度
 
-Inline Paperclip-only metadata that must live inside a shared markdown file should use:
+必须存在于共享 markdown 文件中的内联 Paperclip 专有元数据应使用：
 
 - `metadata.paperclip`
 
-That keeps the base format broader than Paperclip.
+这使基础格式比 Paperclip 更广泛。
 
-This specification itself remains vendor-neutral and intended for any agent-company runtime, not only Paperclip.
+本规范本身保持供应商中立，旨在适用于任何智能体公司运行时，而不仅限于 Paperclip。
 
-## 20. Cutover
+## 20. 切换
 
-Paperclip should cut over to this markdown-first package model as the primary portability format.
+Paperclip 应切换到此 markdown 优先的包模型作为主要的可移植性格式。
 
-`paperclip.manifest.json` does not need to be preserved as a compatibility requirement for the future package system.
+`paperclip.manifest.json` 不需要作为未来包系统的兼容性要求保留。
 
-For Paperclip, this should be treated as a hard cutover in product direction rather than a long-lived dual-format strategy.
+对于 Paperclip，这应被视为产品方向的硬切换，而非长期的双格式策略。
 
-## 21. Minimal Example
+## 21. 最小示例
 
 ```text
 lean-dev-shop/
@@ -612,17 +612,17 @@ lean-dev-shop/
 └── skills/
     └── review/SKILL.md
 
-Optional:
+可选：
 
 ```text
 .paperclip.yaml
 ```
 ```
 
-**Recommendation**
-This is the direction I would take:
+**建议**
+这是我将采取的方向：
 
-- make this the human-facing spec
-- define `SKILL.md` compatibility as non-negotiable
-- treat this spec as an extension of Agent Skills, not a parallel format
-- make `companies.sh` a discovery layer for repos implementing this spec, not a publishing authority
+- 将其作为面向用户的规范
+- 将 `SKILL.md` 兼容性定义为不可妥协的
+- 将本规范视为智能体技能的扩展，而非并行格式
+- 使 `companies.sh` 成为实现本规范的仓库的发现层，而非发布权威

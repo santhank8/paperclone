@@ -92,7 +92,7 @@ function formatPlugin(p: PluginRecord): string {
 // ---------------------------------------------------------------------------
 
 export function registerPluginCommands(program: Command): void {
-  const plugin = program.command("plugin").description("Plugin lifecycle management");
+  const plugin = program.command("plugin").description("插件生命周期管理");
 
   // -------------------------------------------------------------------------
   // plugin list
@@ -100,7 +100,7 @@ export function registerPluginCommands(program: Command): void {
   addCommonClientOptions(
     plugin
       .command("list")
-      .description("List installed plugins")
+      .description("列出已安装的插件")
       .option("--status <status>", "Filter by status (ready, error, disabled, installed, upgrade_pending)")
       .action(async (opts: PluginListOptions) => {
         try {
@@ -115,7 +115,7 @@ export function registerPluginCommands(program: Command): void {
 
           const rows = plugins ?? [];
           if (rows.length === 0) {
-            console.log(pc.dim("No plugins installed."));
+            console.log(pc.dim("未安装任何插件。"));
             return;
           }
 
@@ -135,11 +135,11 @@ export function registerPluginCommands(program: Command): void {
     plugin
       .command("install <package>")
       .description(
-        "Install a plugin from a local path or npm package.\n" +
-          "  Examples:\n" +
-          "    paperclipai plugin install ./my-plugin              # local path\n" +
-          "    paperclipai plugin install @acme/plugin-linear      # npm package\n" +
-          "    paperclipai plugin install @acme/plugin-linear@1.2  # pinned version",
+        "从本地路径或 npm 包安装插件。\n" +
+          "  示例：\n" +
+          "    paperclipai plugin install ./my-plugin              # 本地路径\n" +
+          "    paperclipai plugin install @acme/plugin-linear      # npm 包\n" +
+          "    paperclipai plugin install @acme/plugin-linear@1.2  # 固定版本",
       )
       .option("-l, --local", "Treat <package> as a local filesystem path", false)
       .option("--version <version>", "Specific npm version to install (npm packages only)")
@@ -161,8 +161,8 @@ export function registerPluginCommands(program: Command): void {
             console.log(
               pc.dim(
                 isLocal
-                  ? `Installing plugin from local path: ${resolvedPackage}`
-                  : `Installing plugin: ${resolvedPackage}${opts.version ? `@${opts.version}` : ""}`,
+                  ? `正在从本地路径安装插件：${resolvedPackage}`
+                  : `正在安装插件：${resolvedPackage}${opts.version ? `@${opts.version}` : ""}`,
               ),
             );
           }
@@ -179,18 +179,18 @@ export function registerPluginCommands(program: Command): void {
           }
 
           if (!installedPlugin) {
-            console.log(pc.dim("Install returned no plugin record."));
+            console.log(pc.dim("安装未返回插件记录。"));
             return;
           }
 
           console.log(
             pc.green(
-              `✓ Installed ${pc.bold(installedPlugin.pluginKey)} v${installedPlugin.version} (${installedPlugin.status})`,
+              `✓ 已安装 ${pc.bold(installedPlugin.pluginKey)} v${installedPlugin.version} (${installedPlugin.status})`,
             ),
           );
 
           if (installedPlugin.lastError) {
-            console.log(pc.red(`  Warning: ${installedPlugin.lastError}`));
+            console.log(pc.red(`  警告：${installedPlugin.lastError}`));
           }
         } catch (err) {
           handleCommandError(err);
@@ -205,8 +205,8 @@ export function registerPluginCommands(program: Command): void {
     plugin
       .command("uninstall <pluginKey>")
       .description(
-        "Uninstall a plugin by its plugin key or database ID.\n" +
-          "  Use --force to hard-purge all state and config.",
+        "通过插件键或数据库 ID 卸载插件。\n" +
+          "  使用 --force 强制清除所有状态和配置。",
       )
       .option("--force", "Purge all plugin state and config (hard delete)", false)
       .action(async (pluginKey: string, opts: PluginUninstallOptions) => {
@@ -219,8 +219,8 @@ export function registerPluginCommands(program: Command): void {
             console.log(
               pc.dim(
                 purge
-                  ? `Uninstalling and purging plugin: ${pluginKey}`
-                  : `Uninstalling plugin: ${pluginKey}`,
+                  ? `正在卸载并清除插件：${pluginKey}`
+                  : `正在卸载插件：${pluginKey}`,
               ),
             );
           }
@@ -234,7 +234,7 @@ export function registerPluginCommands(program: Command): void {
             return;
           }
 
-          console.log(pc.green(`✓ Uninstalled ${pc.bold(pluginKey)}${purge ? " (purged)" : ""}`));
+          console.log(pc.green(`✓ 已卸载 ${pc.bold(pluginKey)}${purge ? "（已清除）" : ""}`));
         } catch (err) {
           handleCommandError(err);
         }
@@ -247,7 +247,7 @@ export function registerPluginCommands(program: Command): void {
   addCommonClientOptions(
     plugin
       .command("enable <pluginKey>")
-      .description("Enable a disabled or errored plugin")
+      .description("启用已禁用或出错的插件")
       .action(async (pluginKey: string, opts: BaseClientOptions) => {
         try {
           const ctx = resolveCommandContext(opts);
@@ -260,7 +260,7 @@ export function registerPluginCommands(program: Command): void {
             return;
           }
 
-          console.log(pc.green(`✓ Enabled ${pc.bold(pluginKey)} — status: ${result?.status ?? "unknown"}`));
+          console.log(pc.green(`✓ 已启用 ${pc.bold(pluginKey)} — 状态：${result?.status ?? "unknown"}`));
         } catch (err) {
           handleCommandError(err);
         }
@@ -273,7 +273,7 @@ export function registerPluginCommands(program: Command): void {
   addCommonClientOptions(
     plugin
       .command("disable <pluginKey>")
-      .description("Disable a running plugin without uninstalling it")
+      .description("禁用运行中的插件而不卸载")
       .action(async (pluginKey: string, opts: BaseClientOptions) => {
         try {
           const ctx = resolveCommandContext(opts);
@@ -286,7 +286,7 @@ export function registerPluginCommands(program: Command): void {
             return;
           }
 
-          console.log(pc.dim(`Disabled ${pc.bold(pluginKey)} — status: ${result?.status ?? "unknown"}`));
+          console.log(pc.dim(`已禁用 ${pc.bold(pluginKey)} — 状态：${result?.status ?? "unknown"}`));
         } catch (err) {
           handleCommandError(err);
         }
@@ -299,7 +299,7 @@ export function registerPluginCommands(program: Command): void {
   addCommonClientOptions(
     plugin
       .command("inspect <pluginKey>")
-      .description("Show full details for an installed plugin")
+      .description("显示已安装插件的完整详情")
       .action(async (pluginKey: string, opts: BaseClientOptions) => {
         try {
           const ctx = resolveCommandContext(opts);
@@ -313,13 +313,13 @@ export function registerPluginCommands(program: Command): void {
           }
 
           if (!result) {
-            console.log(pc.red(`Plugin not found: ${pluginKey}`));
+            console.log(pc.red(`未找到插件：${pluginKey}`));
             process.exit(1);
           }
 
           console.log(formatPlugin(result));
           if (result.lastError) {
-            console.log(`\n${pc.red("Last error:")}\n${result.lastError}`);
+            console.log(`\n${pc.red("最近错误：")}\n${result.lastError}`);
           }
         } catch (err) {
           handleCommandError(err);
@@ -333,7 +333,7 @@ export function registerPluginCommands(program: Command): void {
   addCommonClientOptions(
     plugin
       .command("examples")
-      .description("List bundled example plugins available for local install")
+      .description("列出可本地安装的内置示例插件")
       .action(async (opts: BaseClientOptions) => {
         try {
           const ctx = resolveCommandContext(opts);
@@ -355,7 +355,7 @@ export function registerPluginCommands(program: Command): void {
 
           const rows = examples ?? [];
           if (rows.length === 0) {
-            console.log(pc.dim("No bundled examples available."));
+            console.log(pc.dim("没有可用的内置示例。"));
             return;
           }
 

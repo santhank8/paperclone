@@ -167,7 +167,7 @@ export function companyService(db: Db) {
       const row = await getCompanyQuery(db)
         .where(eq(companies.id, created.id))
         .then((rows) => rows[0] ?? null);
-      if (!row) throw notFound("Company not found after creation");
+      if (!row) throw notFound("公司创建后未找到");
       const [hydrated] = await hydrateCompanySpend([row], db);
       return enrichCompany(hydrated);
     },
@@ -190,9 +190,9 @@ export function companyService(db: Db) {
             .from(assets)
             .where(eq(assets.id, logoAssetId))
             .then((rows) => rows[0] ?? null);
-          if (!nextLogoAsset) throw notFound("Logo asset not found");
+          if (!nextLogoAsset) throw notFound("Logo 资源未找到");
           if (nextLogoAsset.companyId !== existing.id) {
-            throw unprocessable("Logo asset must belong to the same company");
+            throw unprocessable("Logo 资源必须属于同一个公司");
           }
         }
 

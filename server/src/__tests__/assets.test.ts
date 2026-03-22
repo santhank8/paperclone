@@ -244,7 +244,7 @@ describe("POST /api/companies/:companyId/logo", () => {
       .attach("file", Buffer.from("not actually svg"), "logo.svg");
 
     expect(res.status).toBe(422);
-    expect(res.body.error).toBe("SVG could not be sanitized");
+    expect(res.body.error).toBe("SVG 无法进行安全净化");
     expect(createAssetMock).not.toHaveBeenCalled();
   });
 });

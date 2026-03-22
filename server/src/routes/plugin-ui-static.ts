@@ -237,7 +237,7 @@ export function pluginUiStaticRoutes(db: Db, options: PluginUiStaticRouteOptions
       : rawParam as string | undefined;
 
     if (!rawFilePath || rawFilePath.length === 0) {
-      res.status(400).json({ error: "File path is required" });
+      res.status(400).json({ error: "文件路径必填" });
       return;
     }
 
@@ -259,21 +259,21 @@ export function pluginUiStaticRoutes(db: Db, options: PluginUiStaticRouteOptions
     }
 
     if (!plugin) {
-      res.status(404).json({ error: "Plugin not found" });
+      res.status(404).json({ error: "插件未找到" });
       return;
     }
 
     // Step 2: Verify the plugin is ready and has UI declared
     if (plugin.status !== "ready") {
       res.status(403).json({
-        error: `Plugin UI is not available (status: ${plugin.status})`,
+        error: `插件 UI 不可用 (status: ${plugin.status})`,
       });
       return;
     }
 
     const manifest = plugin.manifestJson;
     if (!manifest?.entrypoints?.ui) {
-      res.status(404).json({ error: "Plugin does not declare a UI bundle" });
+      res.status(404).json({ error: "插件未声明 UI 包" });
       return;
     }
 
@@ -307,7 +307,7 @@ export function pluginUiStaticRoutes(db: Db, options: PluginUiStaticRouteOptions
           try {
             decodedPath = decodeURIComponent(rawFilePath);
           } catch {
-            res.status(400).json({ error: "Invalid file path" });
+            res.status(400).json({ error: "文件路径无效" });
             return;
           }
           if (
@@ -315,7 +315,7 @@ export function pluginUiStaticRoutes(db: Db, options: PluginUiStaticRouteOptions
             decodedPath.startsWith("//") ||
             decodedPath.startsWith("\\\\")
           ) {
-            res.status(400).json({ error: "Invalid file path" });
+            res.status(400).json({ error: "文件路径无效" });
             return;
           }
 
@@ -324,7 +324,7 @@ export function pluginUiStaticRoutes(db: Db, options: PluginUiStaticRouteOptions
 
           // SSRF protection: only allow http/https and localhost targets for dev proxy
           if (targetUrl.protocol !== "http:" && targetUrl.protocol !== "https:") {
-            res.status(400).json({ error: "devUiUrl must use http or https protocol" });
+            res.status(400).json({ error: "devUiUrl 必须使用 http 或 https 协议" });
             return;
           }
 
@@ -342,7 +342,7 @@ export function pluginUiStaticRoutes(db: Db, options: PluginUiStaticRouteOptions
               { pluginId: plugin.id, devUiUrl, host: devHost },
               "plugin-ui-static: devUiUrl must target localhost, rejecting proxy",
             );
-            res.status(400).json({ error: "devUiUrl must target localhost" });
+            res.status(400).json({ error: "devUiUrl 必须指向 localhost" });
             return;
           }
 
@@ -358,7 +358,7 @@ export function pluginUiStaticRoutes(db: Db, options: PluginUiStaticRouteOptions
               const upstream = await fetch(targetUrl.href, { signal: controller.signal });
               if (!upstream.ok) {
                 res.status(upstream.status).json({
-                  error: `Dev server returned ${upstream.status}`,
+                  error: `开发服务器返回了 ${upstream.status}`,
                 });
                 return;
               }
@@ -403,7 +403,7 @@ export function pluginUiStaticRoutes(db: Db, options: PluginUiStaticRouteOptions
         { pluginId: plugin.id, pluginKey: plugin.pluginKey, packageName: plugin.packageName },
         "plugin-ui-static: UI directory not found on disk",
       );
-      res.status(404).json({ error: "Plugin UI directory not found" });
+      res.status(404).json({ error: "插件 UI 目录未找到" });
       return;
     }
 
@@ -415,7 +415,7 @@ export function pluginUiStaticRoutes(db: Db, options: PluginUiStaticRouteOptions
     try {
       fileStat = fs.statSync(resolvedFilePath);
     } catch {
-      res.status(404).json({ error: "File not found" });
+      res.status(404).json({ error: "文件未找到" });
       return;
     }
 
@@ -427,18 +427,18 @@ export function pluginUiStaticRoutes(db: Db, options: PluginUiStaticRouteOptions
       realFilePath = fs.realpathSync(resolvedFilePath);
       realUiDir = fs.realpathSync(uiDir);
     } catch {
-      res.status(404).json({ error: "File not found" });
+      res.status(404).json({ error: "文件未找到" });
       return;
     }
 
     const relative = path.relative(realUiDir, realFilePath);
     if (relative.startsWith("..") || path.isAbsolute(relative)) {
-      res.status(403).json({ error: "Access denied" });
+      res.status(403).json({ error: "访问被拒绝" });
       return;
     }
 
     if (!fileStat.isFile()) {
-      res.status(404).json({ error: "File not found" });
+      res.status(404).json({ error: "文件未找到" });
       return;
     }
 
@@ -486,7 +486,7 @@ export function pluginUiStaticRoutes(db: Db, options: PluginUiStaticRouteOptions
         );
         // Only send error if headers haven't been sent yet
         if (!res.headersSent) {
-          res.status(500).json({ error: "Failed to serve file" });
+          res.status(500).json({ error: "文件服务失败" });
         }
       }
     });

@@ -44,8 +44,8 @@ export function resolvePrivateHostnameAllowSet(opts: { allowedHostnames: string[
 
 function blockedHostnameMessage(hostname: string): string {
   return (
-    `Hostname '${hostname}' is not allowed for this Paperclip instance. ` +
-    `If you want to allow this hostname, please run pnpm paperclipai allowed-hostname ${hostname}`
+    `主机名 '${hostname}' 不允许用于此 Paperclip 实例。` +
+    `如需允许此主机名，请运行 pnpm paperclipai allowed-hostname ${hostname}`
   );
 }
 
@@ -68,7 +68,7 @@ export function privateHostnameGuard(opts: {
     const wantsJson = req.path.startsWith("/api") || req.accepts(["json", "html", "text"]) === "json";
 
     if (!hostname) {
-      const error = "Missing Host header. If you want to allow a hostname, run pnpm paperclipai allowed-hostname <host>.";
+      const error = "缺少 Host 请求头。如需允许某个主机名，请运行 pnpm paperclipai allowed-hostname <host>。";
       if (wantsJson) {
         res.status(403).json({ error });
       } else {

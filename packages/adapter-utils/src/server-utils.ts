@@ -311,13 +311,13 @@ export async function ensureAbsoluteDirectory(
   opts: { createIfMissing?: boolean } = {},
 ) {
   if (!path.isAbsolute(cwd)) {
-    throw new Error(`Working directory must be an absolute path: "${cwd}"`);
+    throw new Error(`工作目录必须是绝对路径："${cwd}"`);
   }
 
   const assertDirectory = async () => {
     const stats = await fs.stat(cwd);
     if (!stats.isDirectory()) {
-      throw new Error(`Working directory is not a directory: "${cwd}"`);
+      throw new Error(`工作目录不是一个目录："${cwd}"`);
     }
   };
 
@@ -328,7 +328,7 @@ export async function ensureAbsoluteDirectory(
     const code = (err as NodeJS.ErrnoException).code;
     if (!opts.createIfMissing || code !== "ENOENT") {
       if (code === "ENOENT") {
-        throw new Error(`Working directory does not exist: "${cwd}"`);
+        throw new Error(`工作目录不存在："${cwd}"`);
       }
       throw err instanceof Error ? err : new Error(String(err));
     }
@@ -339,7 +339,7 @@ export async function ensureAbsoluteDirectory(
     await assertDirectory();
   } catch (err) {
     const reason = err instanceof Error ? err.message : String(err);
-    throw new Error(`Could not create working directory "${cwd}": ${reason}`);
+    throw new Error(`无法创建工作目录 "${cwd}"：${reason}`);
   }
 }
 
@@ -710,9 +710,9 @@ export async function ensureCommandResolvable(command: string, cwd: string, env:
   if (resolved) return;
   if (command.includes("/") || command.includes("\\")) {
     const absolute = path.isAbsolute(command) ? command : path.resolve(cwd, command);
-    throw new Error(`Command is not executable: "${command}" (resolved: "${absolute}")`);
+    throw new Error(`命令不可执行："${command}"（解析为："${absolute}"）`);
   }
-  throw new Error(`Command not found in PATH: "${command}"`);
+  throw new Error(`在 PATH 中未找到命令："${command}"`);
 }
 
 export async function runChildProcess(
@@ -815,8 +815,8 @@ export async function runChildProcess(
           const pathValue = mergedEnv.PATH ?? mergedEnv.Path ?? "";
           const msg =
             errno === "ENOENT"
-              ? `Failed to start command "${command}" in "${opts.cwd}". Verify adapter command, working directory, and PATH (${pathValue}).`
-              : `Failed to start command "${command}" in "${opts.cwd}": ${err.message}`;
+              ? `启动命令 "${command}" 失败，工作目录 "${opts.cwd}"。请检查适配器命令、工作目录和 PATH (${pathValue})。`
+              : `启动命令 "${command}" 失败，工作目录 "${opts.cwd}"：${err.message}`;
           reject(new Error(msg));
         });
 

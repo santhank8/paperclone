@@ -252,7 +252,7 @@ export function setupLiveEventsWebSocketServer(
     })
       .then((context) => {
         if (!context) {
-          rejectUpgrade(socket, "403 Forbidden", "forbidden");
+          rejectUpgrade(socket, "403 禁止访问", "forbidden");
           return;
         }
 

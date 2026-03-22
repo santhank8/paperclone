@@ -1,62 +1,62 @@
-# Issue worktree support
+# 任务 worktree 支持
 
-Status: experimental, runtime-only, not shipping as a user-facing feature yet.
+状态：实验性，仅运行时，尚未作为面向用户的功能发布。
 
-This branch contains the runtime and seeding work needed for issue-scoped worktrees:
+此分支包含任务范围 worktree 所需的运行时和初始化工作：
 
-- project execution workspace policy support
-- issue-level execution workspace settings
-- git worktree realization for isolated issue execution
-- optional command-based worktree provisioning
-- seeded worktree fixes for secrets key compatibility
-- seeded project workspace rebinding to the current git worktree
+- 项目执行工作区策略支持
+- 任务级执行工作区设置
+- 用于隔离任务执行的 git worktree 实现
+- 可选的基于命令的 worktree 预配置
+- 已初始化 worktree 的密钥文件兼容性修复
+- 已初始化项目工作区重新绑定到当前 git worktree
 
-We are intentionally not shipping the UI for this yet. The runtime code remains in place, but the main UI entrypoints are hard-gated off for now.
+我们故意尚未发布此功能的 UI。运行时代码保留在原位，但主要的 UI 入口点目前已硬性关闭。
 
-## What works today
+## 今天能工作的内容
 
-- projects can carry execution workspace policy in the backend
-- issues can carry execution workspace settings in the backend
-- heartbeat execution can realize isolated git worktrees
-- runtime can run a project-defined provision command inside the derived worktree
-- seeded worktree instances can keep local-encrypted secrets working
-- seeded worktree instances can rebind same-repo project workspace paths onto the current git worktree
+- 项目可以在后端携带执行工作区策略
+- 任务可以在后端携带执行工作区设置
+- 心跳执行可以实现隔离的 git worktree
+- 运行时可以在派生的 worktree 内运行项目定义的预配置命令
+- 已初始化的 worktree 实例可以保持本地加密密钥正常工作
+- 已初始化的 worktree 实例可以将同仓库项目工作区路径重新绑定到当前 git worktree
 
-## Hidden UI entrypoints
+## 隐藏的 UI 入口点
 
-These are the current user-facing UI surfaces for the feature, now intentionally disabled:
+以下是该功能当前面向用户的 UI 界面，现已故意禁用：
 
-- project settings:
+- 项目设置：
   - `ui/src/components/ProjectProperties.tsx`
-  - execution workspace policy controls
-  - git worktree base ref / branch template / parent dir
-  - provision / teardown command inputs
+  - 执行工作区策略控件
+  - git worktree 基础引用/分支模板/父目录
+  - 预配置/清理命令输入
 
-- issue creation:
+- 任务创建：
   - `ui/src/components/NewIssueDialog.tsx`
-  - isolated issue checkout toggle
-  - defaulting issue execution workspace settings from project policy
+  - 隔离任务检出开关
+  - 从项目策略默认任务执行工作区设置
 
-- issue editing:
+- 任务编辑：
   - `ui/src/components/IssueProperties.tsx`
-  - issue-level workspace mode toggle
-  - defaulting issue execution workspace settings when project changes
+  - 任务级工作区模式开关
+  - 项目更改时默认任务执行工作区设置
 
-- agent/runtime settings:
+- 智能体/运行时设置：
   - `ui/src/adapters/runtime-json-fields.tsx`
-  - runtime services JSON field, which is part of the broader workspace-runtime support surface
+  - 运行时服务 JSON 字段，这是更广泛的工作区运行时支持界面的一部分
 
-## Why the UI is hidden
+## 为什么 UI 被隐藏
 
-- the runtime behavior is still being validated
-- the workflow and operator ergonomics are not final
-- we do not want to expose a partially-baked user-facing feature in issues, projects, or settings
+- 运行时行为仍在验证中
+- 工作流和操作员人机工程学尚未最终确定
+- 我们不想在任务、项目或设置中暴露部分成熟的面向用户功能
 
-## Re-enable plan
+## 重新启用计划
 
-When this is ready to ship:
+当准备好发布时：
 
-- re-enable the gated UI sections in the files above
-- review wording and defaults for project and issue controls
-- decide which agent/runtime settings should remain advanced-only
-- add end-to-end product-level verification for the full UI workflow
+- 重新启用上述文件中的受控 UI 部分
+- 审查项目和任务控件的措辞和默认值
+- 决定哪些智能体/运行时设置应保持为仅高级选项
+- 为完整 UI 工作流添加端到端产品级验证
