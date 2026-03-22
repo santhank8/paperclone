@@ -474,12 +474,15 @@ export function issueService(db: Db) {
 
   async function isTerminalOrMissingHeartbeatRun(runId: string) {
     const run = await db
-      .select({ status: heartbeatRuns.status })
+      .select({ status: heartbeatRuns.status, startedAt: heartbeatRuns.startedAt })
       .from(heartbeatRuns)
       .where(eq(heartbeatRuns.id, runId))
       .then((rows) => rows[0] ?? null);
     if (!run) return true;
-    return TERMINAL_HEARTBEAT_RUN_STATUSES.has(run.status);
+    if (TERMINAL_HEARTBEAT_RUN_STATUSES.has(run.status)) return true;
+    // A queued run that never started is stale — treat as releasable (#1390)
+    if (run.status === "queued" && run.startedAt == null) return true;
+    return false;
   }
 
   async function adoptStaleCheckoutRun(input: {
@@ -1083,6 +1086,42 @@ export function issueService(db: Db) {
         const row = await db.select().from(issues).where(eq(issues.id, id)).then((rows) => rows[0]!);
         const [enriched] = await withIssueLabels(db, [row]);
         return enriched;
+      }
+
+      // Supersede a stale executionRunId from a queued run that never started (#1390)
+      if (
+        checkoutRunId &&
+        current.executionRunId &&
+        current.executionRunId !== checkoutRunId &&
+        (current.assigneeAgentId == null || current.assigneeAgentId === agentId)
+      ) {
+        const staleExec = await isTerminalOrMissingHeartbeatRun(current.executionRunId);
+        if (staleExec) {
+          const now = new Date();
+          const superseded = await db
+            .update(issues)
+            .set({
+              assigneeAgentId: agentId,
+              assigneeUserId: null,
+              checkoutRunId,
+              executionRunId: checkoutRunId,
+              status: "in_progress",
+              startedAt: now,
+              updatedAt: now,
+            })
+            .where(
+              and(
+                eq(issues.id, id),
+                eq(issues.executionRunId, current.executionRunId),
+              ),
+            )
+            .returning()
+            .then((rows) => rows[0] ?? null);
+          if (superseded) {
+            const [enriched] = await withIssueLabels(db, [superseded]);
+            return enriched;
+          }
+        }
       }
 
       throw conflict("Issue checkout conflict", {
