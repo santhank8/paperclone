@@ -116,6 +116,7 @@ export {
   type JoinRequestType,
   type JoinRequestStatus,
   type PermissionKey,
+  ROLE_PERMISSIONS,
   type PluginStatus,
   type PluginCategory,
   type PluginCapability,

@@ -468,6 +468,9 @@ importers:
       '@paperclipai/shared':
         specifier: workspace:*
         version: link:../packages/shared
+      '@wopr-network/provision-server':
+        specifier: ^1.0.5
+        version: 1.0.5(express@5.2.1)
       ajv:
         specifier: ^8.18.0
         version: 8.18.0
@@ -3497,6 +3500,11 @@ packages:
 
   '@vitest/utils@3.2.4':
     resolution: {integrity: sha512-fB2V0JFrQSMsCo9HiSq3Ezpdv4iYaXRG1Sx8edX3MwxfyNn83mKiGzOcH+Fkxt4MHxr3y42fQi1oeAInqgX2QA==}
+
+  '@wopr-network/provision-server@1.0.5':
+    resolution: {integrity: sha512-ds2juKeo+CQXUhu9+zk6ymRdGFW3zWE4kkKn7ecSE039dAFzPSy5XcSHR349fyQYr6XeUS2FOh1I0/fOjIjqgQ==}
+    peerDependencies:
+      express: ^4.0.0 || ^5.0.0
 
   accepts@2.0.0:
     resolution: {integrity: sha512-5cvg6CtKwfgdmVqY1WIiXKc3Q1bkRqGLi+2W/6ao+6Y7gu/RCwRuAhGEzh5B4KlszSuTLgZYuqFqo5bImjNKng==}
@@ -9370,6 +9378,10 @@ snapshots:
       '@vitest/pretty-format': 3.2.4
       loupe: 3.2.1
       tinyrainbow: 2.0.0
+
+  '@wopr-network/provision-server@1.0.5(express@5.2.1)':
+    dependencies:
+      express: 5.2.1
 
   accepts@2.0.0:
     dependencies:

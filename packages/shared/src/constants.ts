@@ -1,7 +1,7 @@
 export const COMPANY_STATUSES = ["active", "paused", "archived"] as const;
 export type CompanyStatus = (typeof COMPANY_STATUSES)[number];
 
-export const DEPLOYMENT_MODES = ["local_trusted", "authenticated"] as const;
+export const DEPLOYMENT_MODES = ["local_trusted", "authenticated", "hosted_proxy"] as const;
 export type DeploymentMode = (typeof DEPLOYMENT_MODES)[number];
 
 export const DEPLOYMENT_EXPOSURES = ["private", "public"] as const;
@@ -350,6 +350,13 @@ export const PERMISSION_KEYS = [
   "joins:approve",
 ] as const;
 export type PermissionKey = (typeof PERMISSION_KEYS)[number];
+
+/** Role → permission mapping for provision member sync. */
+export const ROLE_PERMISSIONS: Record<string, readonly PermissionKey[]> = {
+  owner: PERMISSION_KEYS,
+  admin: PERMISSION_KEYS,
+  member: ["agents:create", "tasks:assign", "tasks:assign_scope"],
+};
 
 // ---------------------------------------------------------------------------
 // Plugin System — see doc/plugins/PLUGIN_SPEC.md for the full specification

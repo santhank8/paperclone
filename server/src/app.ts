@@ -29,6 +29,7 @@ import { llmRoutes } from "./routes/llms.js";
 import { assetRoutes } from "./routes/assets.js";
 import { accessRoutes } from "./routes/access.js";
 import { pluginRoutes } from "./routes/plugins.js";
+import { provisionRoutes } from "./routes/provision.js";
 import { pluginUiStaticRoutes } from "./routes/plugin-ui-static.js";
 import { applyUiBranding } from "./ui-branding.js";
 import { logger } from "./middleware/logger.js";
@@ -69,6 +70,7 @@ export async function createApp(
     bindHost: string;
     authReady: boolean;
     companyDeletionEnabled: boolean;
+    hostedMode?: boolean;
     instanceId?: string;
     hostVersion?: string;
     localPluginDir?: string;
@@ -124,6 +126,7 @@ export async function createApp(
     app.all("/api/auth/*authPath", opts.betterAuthHandler);
   }
   app.use(llmRoutes(db));
+  app.use("/internal", provisionRoutes(db));
 
   // Mount API routes
   const api = Router();
