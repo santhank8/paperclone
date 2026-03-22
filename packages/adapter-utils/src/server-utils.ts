@@ -210,17 +210,25 @@ export function buildWakeContextNote(context: Record<string, unknown>): string {
       lines.push(`A new comment was posted on your task.`);
       if (effectiveIssueId) lines.push(`Issue ID: ${effectiveIssueId}`);
       if (wakeCommentId) lines.push(`Comment ID: ${wakeCommentId}`);
-      lines.push(
-        `Action: Fetch the comment using GET /api/issues/${effectiveIssueId}/comments/${wakeCommentId} and respond appropriately. Post your response as a new comment on the issue.`,
-      );
+      if (effectiveIssueId && wakeCommentId) {
+        lines.push(
+          `Action: Fetch the comment using GET /api/issues/${effectiveIssueId}/comments/${wakeCommentId} and respond appropriately. Post your response as a new comment on the issue.`,
+        );
+      } else {
+        lines.push(`Action: Check the issue and respond to the latest comment.`);
+      }
       break;
 
     case "issue_assigned":
       lines.push(`A task was assigned to you.`);
       if (effectiveIssueId) lines.push(`Issue ID: ${effectiveIssueId}`);
-      lines.push(
-        `Action: Fetch the issue using GET /api/issues/${effectiveIssueId} to understand the task, then begin working on it following the Paperclip heartbeat procedure.`,
-      );
+      if (effectiveIssueId) {
+        lines.push(
+          `Action: Fetch the issue using GET /api/issues/${effectiveIssueId} to understand the task, then begin working on it following the Paperclip heartbeat procedure.`,
+        );
+      } else {
+        lines.push(`Action: Check your assignments and begin working on the assigned task.`);
+      }
       break;
 
     case "approval_resolved":
