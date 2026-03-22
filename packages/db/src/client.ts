@@ -373,6 +373,75 @@ async function constraintExists(
   return rows[0]?.exists ?? false;
 }
 
+function extractFirstCreateTable(migrationContent: string): string | null {
+  const match = migrationContent.match(/CREATE TABLE(?:\s+IF\s+NOT\s+EXISTS)?\s+"([^"]+)"/i);
+  return match ? match[1] : null;
+}
+
+/**
+ * Check if any recognisable DDL object from a migration exists in the database.
+ * Prioritises positive indicators (CREATE/ADD/ALTER) over negative ones (DROP),
+ * because a migration often DROP-then-CREATEs the same object.
+ * Returns true when a target object is found, false when clearly absent,
+ * null when no statement could be classified.
+ */
+async function migrationLikelyApplied(
+  sql: ReturnType<typeof postgres>,
+  migrationContent: string,
+): Promise<boolean | null> {
+  const statements = splitMigrationStatements(migrationContent);
+
+  // First pass: look for positive indicators (CREATE, ADD, ALTER COLUMN, RENAME)
+  for (const statement of statements) {
+    const normalized = statement.replace(/\s+/g, " ").trim();
+
+    const createTableMatch = normalized.match(/^CREATE TABLE(?:\s+IF\s+NOT\s+EXISTS)?\s+"([^"]+)"/i);
+    if (createTableMatch) return tableExists(sql, createTableMatch[1]);
+
+    const addColumnMatch = normalized.match(
+      /^ALTER TABLE\s+"([^"]+)"\s+ADD COLUMN(?:\s+IF\s+NOT\s+EXISTS)?\s+"([^"]+)"/i,
+    );
+    if (addColumnMatch) return columnExists(sql, addColumnMatch[1], addColumnMatch[2]);
+
+    const alterColumnMatch = normalized.match(
+      /^ALTER TABLE\s+"([^"]+)"\s+ALTER COLUMN\s+"([^"]+)"/i,
+    );
+    if (alterColumnMatch) return columnExists(sql, alterColumnMatch[1], alterColumnMatch[2]);
+
+    const createIndexMatch = normalized.match(/^CREATE\s+(?:UNIQUE\s+)?INDEX(?:\s+IF\s+NOT\s+EXISTS)?\s+"([^"]+)"/i);
+    if (createIndexMatch) return indexExists(sql, createIndexMatch[1]);
+
+    const addConstraintMatch = normalized.match(/^ALTER TABLE\s+"([^"]+)"\s+ADD CONSTRAINT\s+"([^"]+)"/i);
+    if (addConstraintMatch) return constraintExists(sql, addConstraintMatch[2]);
+
+    const renameColumnMatch = normalized.match(
+      /^ALTER TABLE\s+"([^"]+)"\s+RENAME COLUMN\s+"[^"]+"\s+TO\s+"([^"]+)"/i,
+    );
+    if (renameColumnMatch) return columnExists(sql, renameColumnMatch[1], renameColumnMatch[2]);
+  }
+
+  // Second pass: negative indicators only (DROP operations)
+  for (const statement of statements) {
+    const normalized = statement.replace(/\s+/g, " ").trim();
+
+    const dropColumnMatch = normalized.match(
+      /^ALTER TABLE\s+"([^"]+)"\s+DROP COLUMN(?:\s+IF\s+EXISTS)?\s+"([^"]+)"/i,
+    );
+    if (dropColumnMatch) {
+      const exists = await columnExists(sql, dropColumnMatch[1], dropColumnMatch[2]);
+      return !exists;
+    }
+
+    const dropIndexMatch = normalized.match(/^DROP INDEX(?:\s+IF\s+EXISTS)?\s+"([^"]+)"/i);
+    if (dropIndexMatch) {
+      const exists = await indexExists(sql, dropIndexMatch[1]);
+      return !exists;
+    }
+  }
+
+  return null;
+}
+
 async function migrationStatementAlreadyApplied(
   sql: ReturnType<typeof postgres>,
   statement: string,
@@ -689,8 +758,81 @@ export async function applyPendingMigrations(url: string): Promise<void> {
   }
 
   if (initialState.reason === "no-migration-journal-non-empty-db") {
+    // Bootstrap migration journal for a database with existing tables but
+    // no drizzle migration journal.  Walk each migration in order: if its
+    // content matches what is already in the schema, record it in the
+    // journal without re-running it.  When the heuristic is inconclusive
+    // (migration contains DDL patterns the checker does not recognise),
+    // check whether the first CREATE TABLE in the migration already exists
+    // — if so, treat the whole migration as previously applied.  The first
+    // migration whose objects are clearly absent is treated as genuinely
+    // pending and handed off to the normal migration path.
+    const orderedMigrations = await orderMigrationsByJournal(initialState.pendingMigrations);
+    const journalEntries = await listJournalMigrationEntries();
+    const folderMillisByFileName = new Map(
+      journalEntries.map((entry) => [entry.fileName, normalizeFolderMillis(entry.folderMillis)]),
+    );
+
+    const sql = createUtilitySql(url);
+    try {
+      const { migrationTableSchema, columnNames } = await ensureMigrationJournalTable(sql);
+      const qualifiedTable = `${quoteIdentifier(migrationTableSchema)}.${quoteIdentifier(DRIZZLE_MIGRATIONS_TABLE)}`;
+
+      for (const migrationFile of orderedMigrations) {
+        const migrationContent = await readMigrationFileContent(migrationFile);
+        const hash = createHash("sha256").update(migrationContent).digest("hex");
+
+        // Fast path: full content check passes
+        const fullyRecognised = await migrationContentAlreadyApplied(sql, migrationContent);
+        if (fullyRecognised) {
+          await recordMigrationHistoryEntry(
+            sql, qualifiedTable, columnNames, migrationFile, hash,
+            folderMillisByFileName.get(migrationFile) ?? Date.now(),
+          );
+          continue;
+        }
+
+        // Fallback: scan statements for the first recognisable DDL object
+        // (table, column, index, constraint) and check if it exists in the DB.
+        const likelyApplied = await migrationLikelyApplied(sql, migrationContent);
+        if (likelyApplied === true) {
+          await recordMigrationHistoryEntry(
+            sql, qualifiedTable, columnNames, migrationFile, hash,
+            folderMillisByFileName.get(migrationFile) ?? Date.now(),
+          );
+          continue;
+        }
+        if (likelyApplied === null) {
+          // No recognisable DDL found. Since the database already has tables
+          // and all previous migrations were recorded, assume this data-only
+          // or unrecognised migration was also applied.
+          await recordMigrationHistoryEntry(
+            sql, qualifiedTable, columnNames, migrationFile, hash,
+            folderMillisByFileName.get(migrationFile) ?? Date.now(),
+          );
+          continue;
+        }
+
+        // Object is clearly absent — this migration is genuinely pending.
+        // Stop recording and delegate to the normal pending-migrations path.
+        break;
+      }
+    } finally {
+      await sql.end();
+    }
+
+    // Re-inspect after journal bootstrap.  If genuinely pending migrations
+    // remain, apply them through the standard path.
+    const postBootstrapState = await inspectMigrations(url);
+    if (postBootstrapState.status === "upToDate") return;
+    if (postBootstrapState.status === "needsMigrations" && postBootstrapState.reason === "pending-migrations") {
+      await applyPendingMigrationsManually(url, postBootstrapState.pendingMigrations);
+      const finalState = await inspectMigrations(url);
+      if (finalState.status === "upToDate") return;
+      throw new Error(`Failed to apply remaining migrations: ${finalState.pendingMigrations.join(", ")}`);
+    }
     throw new Error(
-      "Database has tables but no migration journal; automatic migration is unsafe. Initialize migration history manually.",
+      `Failed to bootstrap migration journal: unexpected state after bootstrap (${postBootstrapState.reason})`,
     );
   }
 
