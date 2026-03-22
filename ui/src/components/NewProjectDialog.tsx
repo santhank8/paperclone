@@ -264,7 +264,7 @@ export function NewProjectDialog() {
         <div className="px-4 pt-3 pb-3 space-y-3 border-t border-border">
           <div>
             <div className="mb-1 flex items-center gap-1.5">
-              <label className="block text-xs text-muted-foreground">Repo URL</label>
+              <label htmlFor="new-project-repo-url" className="block text-xs text-muted-foreground">Repo URL</label>
               <span className="text-xs text-muted-foreground/50">optional</span>
               <Tooltip delayDuration={300}>
                 <TooltipTrigger asChild>
@@ -277,6 +277,7 @@ export function NewProjectDialog() {
             </div>
             <input
               className="w-full rounded border border-border bg-transparent px-2 py-1 text-xs outline-none"
+              id="new-project-repo-url"
               value={workspaceRepoUrl}
               onChange={(e) => { setWorkspaceRepoUrl(e.target.value); setWorkspaceError(null); }}
               placeholder="https://github.com/org/repo or https://gitlab.example.com/org/repo"
@@ -285,7 +286,7 @@ export function NewProjectDialog() {
 
           <div>
             <div className="mb-1 flex items-center gap-1.5">
-              <label className="block text-xs text-muted-foreground">Local folder</label>
+              <label htmlFor="new-project-local-folder" className="block text-xs text-muted-foreground">Local folder</label>
               <span className="text-xs text-muted-foreground/50">optional</span>
               <Tooltip delayDuration={300}>
                 <TooltipTrigger asChild>
@@ -298,6 +299,7 @@ export function NewProjectDialog() {
             </div>
             <div className="flex items-center gap-2">
               <input
+                id="new-project-local-folder"
                 className="w-full rounded border border-border bg-transparent px-2 py-1 text-xs font-mono outline-none"
                 value={workspaceLocalPath}
                 onChange={(e) => { setWorkspaceLocalPath(e.target.value); setWorkspaceError(null); }}
