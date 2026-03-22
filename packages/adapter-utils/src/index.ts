@@ -51,3 +51,9 @@ export {
   redactTranscriptEntryPaths,
 } from "./log-redaction.js";
 export { inferOpenAiCompatibleBiller } from "./billing.js";
+export {
+  executeOpenAiCompatChat,
+  testOpenAiCompatApiKey,
+  type OpenAiCompatConfig,
+  type OpenAiCompatCallbacks,
+} from "./openai-compat.js";
