@@ -18,8 +18,13 @@ export function parseCodexJsonl(stdout: string) {
     if (!event) continue;
 
     const type = asString(event.type, "");
-    if (type === "thread.started") {
-      sessionId = asString(event.thread_id, sessionId ?? "") || sessionId;
+
+    // Support both old "thread.started" and new "session.created" (#1343)
+    if (type === "thread.started" || type === "session.created") {
+      sessionId =
+        asString(event.session_id, "") ||
+        asString(event.thread_id, "") ||
+        sessionId;
       continue;
     }
 
@@ -31,7 +36,10 @@ export function parseCodexJsonl(stdout: string) {
 
     if (type === "item.completed") {
       const item = parseObject(event.item);
-      if (asString(item.type, "") === "agent_message") {
+      // Support both old "item.type" and new "item.item_type",
+      // and both "agent_message" and "assistant_message" (#1343)
+      const itemType = asString(item.item_type, "") || asString(item.type, "");
+      if (itemType === "agent_message" || itemType === "assistant_message") {
         const text = asString(item.text, "");
         if (text) messages.push(text);
       }
