@@ -975,6 +975,7 @@ export function NewIssueDialog() {
               className="text-muted-foreground"
               onClick={() => setExpanded(!expanded)}
               disabled={createIssue.isPending}
+              aria-label={expanded ? "Minimize" : "Maximize"}
             >
               {expanded ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
             </Button>
@@ -984,6 +985,7 @@ export function NewIssueDialog() {
               className="text-muted-foreground"
               onClick={() => closeNewIssue()}
               disabled={createIssue.isPending}
+              aria-label="Close"
             >
               <span className="text-lg leading-none">&times;</span>
             </Button>
@@ -1299,6 +1301,7 @@ export function NewIssueDialog() {
                           onClick={() => removeStagedFile(file.id)}
                           disabled={createIssue.isPending}
                           title="Remove document"
+                          aria-label="Remove document"
                         >
                           <X className="h-3.5 w-3.5" />
                         </Button>
@@ -1330,6 +1333,7 @@ export function NewIssueDialog() {
                           onClick={() => removeStagedFile(file.id)}
                           disabled={createIssue.isPending}
                           title="Remove attachment"
+                          aria-label="Remove attachment"
                         >
                           <X className="h-3.5 w-3.5" />
                         </Button>
