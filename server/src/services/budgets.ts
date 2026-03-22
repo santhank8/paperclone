@@ -861,9 +861,15 @@ export function budgetService(db: Db, hooks: BudgetServiceHooks = {}) {
         return false;
       });
 
+      // Batch-fetch observed amounts to avoid N+1 queries
+      const billedPolicies = relevantPolicies.filter(
+        (p) => p.metric === "billed_cents" && p.amount > 0,
+      );
+      const observedAmounts = await batchComputeObservedAmounts(db, billedPolicies);
+
       for (const policy of relevantPolicies) {
         if (policy.metric !== "billed_cents" || policy.amount <= 0) continue;
-        const observedAmount = await computeObservedAmount(db, policy);
+        const observedAmount = observedAmounts.get(policy.id) ?? 0;
         const softThreshold = Math.ceil((policy.amount * policy.warnPercent) / 100);
 
         if (policy.notifyEnabled && observedAmount >= softThreshold) {

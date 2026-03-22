@@ -734,7 +734,11 @@ export function heartbeatService(db: Db) {
   const issuesSvc = issueService(db);
   const executionWorkspacesSvc = executionWorkspaceService(db);
   const workspaceOperationsSvc = workspaceOperationService(db);
-  const activeRunExecutions = new Set<string>();
+  // Map of runId → timestamp when execution started, used to skip stale-run reaping
+  // for runs that are genuinely in-flight. The timestamp enables defensive TTL cleanup
+  // in case a run ID is never removed (e.g. process-level crash before finally block).
+  const activeRunExecutions = new Map<string, number>();
+  const ACTIVE_RUN_EXECUTION_TTL_MS = 4 * 60 * 60 * 1000; // 4 hours
   const budgetHooks = {
     cancelWorkForScope: cancelBudgetScopeWork,
   };
@@ -1824,6 +1828,16 @@ export function heartbeatService(db: Db) {
     for (const { run, adapterType } of activeRuns) {
       if (runningProcesses.has(run.id) || activeRunExecutions.has(run.id)) continue;
 
+      // Defensive TTL cleanup: remove entries stuck longer than the threshold
+      // to prevent the Map from growing unbounded in edge cases.
+      if (activeRunExecutions.size > 0) {
+        for (const [id, startedAt] of activeRunExecutions) {
+          if (now.getTime() - startedAt > ACTIVE_RUN_EXECUTION_TTL_MS) {
+            activeRunExecutions.delete(id);
+          }
+        }
+      }
+
       // Apply staleness threshold to avoid false positives
       if (staleThresholdMs > 0) {
         const refTime = run.updatedAt ? new Date(run.updatedAt).getTime() : 0;
@@ -2022,7 +2036,7 @@ export function heartbeatService(db: Db) {
       run = claimed;
     }
 
-    activeRunExecutions.add(run.id);
+    activeRunExecutions.set(run.id, Date.now());
 
     try {
     const agent = await getAgent(run.agentId);
