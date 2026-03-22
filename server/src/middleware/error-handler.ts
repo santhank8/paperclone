@@ -11,13 +11,20 @@ export interface ErrorContext {
   reqQuery?: unknown;
 }
 
+/** Extended Response with error context attached by the error handler */
+export interface ResponseWithErrorContext extends Response {
+  __errorContext?: ErrorContext;
+  err?: Error;
+}
+
 function attachErrorContext(
   req: Request,
   res: Response,
   payload: ErrorContext["error"],
   rawError?: Error,
 ) {
-  (res as any).__errorContext = {
+  const extRes = res as ResponseWithErrorContext;
+  extRes.__errorContext = {
     error: payload,
     method: req.method,
     url: req.originalUrl,
@@ -26,7 +33,7 @@ function attachErrorContext(
     reqQuery: req.query,
   } satisfies ErrorContext;
   if (rawError) {
-    (res as any).err = rawError;
+    extRes.err = rawError;
   }
 }
 

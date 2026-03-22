@@ -4,6 +4,7 @@ import pino from "pino";
 import { pinoHttp } from "pino-http";
 import { readConfigFile } from "../config-file.js";
 import { resolveDefaultLogsDir, resolveHomeAwarePath } from "../home-paths.js";
+import type { ResponseWithErrorContext } from "./error-handler.js";
 
 function resolveServerLogDir(): string {
   const envOverride = process.env.PAPERCLIP_LOG_DIR?.trim();
@@ -53,13 +54,15 @@ export const httpLogger = pinoHttp({
     return `${req.method} ${req.url} ${res.statusCode}`;
   },
   customErrorMessage(req, res, err) {
-    const ctx = (res as any).__errorContext;
-    const errMsg = ctx?.error?.message || err?.message || (res as any).err?.message || "unknown error";
+    const extRes = res as ResponseWithErrorContext;
+    const ctx = extRes.__errorContext;
+    const errMsg = ctx?.error?.message || err?.message || extRes.err?.message || "unknown error";
     return `${req.method} ${req.url} ${res.statusCode} — ${errMsg}`;
   },
   customProps(req, res) {
     if (res.statusCode >= 400) {
-      const ctx = (res as any).__errorContext;
+      const extRes = res as ResponseWithErrorContext;
+      const ctx = extRes.__errorContext;
       if (ctx) {
         return {
           errorContext: ctx.error,
@@ -69,8 +72,8 @@ export const httpLogger = pinoHttp({
         };
       }
       const props: Record<string, unknown> = {};
-      const { body, params, query } = req as any;
-      if (body && typeof body === "object" && Object.keys(body).length > 0) {
+      const { body, params, query } = req;
+      if (body && typeof body === "object" && Object.keys(body as Record<string, unknown>).length > 0) {
         props.reqBody = body;
       }
       if (params && typeof params === "object" && Object.keys(params).length > 0) {
@@ -79,8 +82,9 @@ export const httpLogger = pinoHttp({
       if (query && typeof query === "object" && Object.keys(query).length > 0) {
         props.reqQuery = query;
       }
-      if ((req as any).route?.path) {
-        props.routePath = (req as any).route.path;
+      const routeReq = req as typeof req & { route?: { path?: string } };
+      if (routeReq.route?.path) {
+        props.routePath = routeReq.route.path;
       }
       return props;
     }

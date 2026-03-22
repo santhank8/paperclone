@@ -230,7 +230,7 @@ export function resolveProjectNameForUniqueShortname(
 }
 
 async function ensureSinglePrimaryWorkspace(
-  dbOrTx: any,
+  dbOrTx: Db,
   input: {
     companyId: string;
     projectId: string;
