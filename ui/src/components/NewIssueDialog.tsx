@@ -1435,7 +1435,7 @@ export function NewIssueDialog() {
           {/* More (dates) */}
           <Popover open={moreOpen} onOpenChange={setMoreOpen}>
             <PopoverTrigger asChild>
-              <button className="inline-flex items-center justify-center rounded-md border border-border p-1 text-xs hover:bg-accent/50 transition-colors text-muted-foreground">
+              <button aria-label="More date options" className="inline-flex items-center justify-center rounded-md border border-border p-1 text-xs hover:bg-accent/50 transition-colors text-muted-foreground">
                 <MoreHorizontal className="h-3 w-3" />
               </button>
             </PopoverTrigger>
