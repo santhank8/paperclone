@@ -57,6 +57,13 @@ export function boardMutationGuard(): RequestHandler {
       return;
     }
 
+    // Hosted proxy mode — the platform proxy already authenticated and authorized the user.
+    // Origin headers may not match the internal container hostname, so skip the check.
+    if (req.actor.source === "hosted_proxy") {
+      next();
+      return;
+    }
+
     if (!isTrustedBoardMutationRequest(req)) {
       res.status(403).json({ error: "Board mutation requires trusted browser origin" });
       return;
