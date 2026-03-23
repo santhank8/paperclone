@@ -34,6 +34,50 @@ import { getDefaultCompanyGoal } from "./goals.js";
 const ALL_ISSUE_STATUSES = ["backlog", "todo", "in_progress", "in_review", "blocked", "done", "cancelled"];
 const MAX_ISSUE_COMMENT_PAGE_LIMIT = 500;
 
+/**
+ * Decode common HTML entities that can leak from rich-text editors.
+ */
+function decodeHtmlEntities(text: string): string {
+  return text
+    .replace(/&amp;/g, "&")
+    .replace(/&#(\d+);/g, (_, code: string) => String.fromCharCode(parseInt(code, 10)))
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, code: string) => String.fromCharCode(parseInt(code, 16)))
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&nbsp;/g, " ");
+}
+
+/**
+ * Match @mentions in a body against a list of candidate names.
+ * Returns a Set of matched names (lowercased).
+ *
+ * Handles HTML-encoded bodies and multi-word names correctly.
+ */
+export function matchMentionedNames(body: string, names: string[]): Set<string> {
+  const decoded = decodeHtmlEntities(body);
+  const lower = decoded.toLowerCase();
+  const matched = new Set<string>();
+
+  for (const name of names) {
+    const nameLower = name.toLowerCase();
+    const mention = `@${nameLower}`;
+    let pos = 0;
+    while ((pos = lower.indexOf(mention, pos)) !== -1) {
+      // Ensure @ is not preceded by a word char (avoids email-like patterns)
+      if (pos > 0 && /\w/.test(lower[pos - 1])) { pos++; continue; }
+      // Ensure the name is not a prefix of a longer token
+      const end = pos + mention.length;
+      if (end < lower.length && /\w/.test(lower[end])) { pos++; continue; }
+      matched.add(nameLower);
+      break;
+    }
+  }
+
+  return matched;
+}
+
 function assertTransition(from: string, to: string) {
   if (from === to) return;
   if (!ALL_ISSUE_STATUSES.includes(to)) {
@@ -430,12 +474,15 @@ export function issueService(db: Db) {
 
   async function isTerminalOrMissingHeartbeatRun(runId: string) {
     const run = await db
-      .select({ status: heartbeatRuns.status })
+      .select({ status: heartbeatRuns.status, startedAt: heartbeatRuns.startedAt })
       .from(heartbeatRuns)
       .where(eq(heartbeatRuns.id, runId))
       .then((rows) => rows[0] ?? null);
     if (!run) return true;
-    return TERMINAL_HEARTBEAT_RUN_STATUSES.has(run.status);
+    if (TERMINAL_HEARTBEAT_RUN_STATUSES.has(run.status)) return true;
+    // A queued run that never started is stale — treat as releasable (#1390)
+    if (run.status === "queued" && run.startedAt == null) return true;
+    return false;
   }
 
   async function adoptStaleCheckoutRun(input: {
@@ -856,12 +903,18 @@ export function issueService(db: Db) {
       }
       if (issueData.status && issueData.status !== "in_progress") {
         patch.checkoutRunId = null;
+        patch.executionRunId = null;
+        patch.executionLockedAt = null;
+        patch.executionAgentNameKey = null;
       }
       if (
         (issueData.assigneeAgentId !== undefined && issueData.assigneeAgentId !== existing.assigneeAgentId) ||
         (issueData.assigneeUserId !== undefined && issueData.assigneeUserId !== existing.assigneeUserId)
       ) {
         patch.checkoutRunId = null;
+        patch.executionRunId = null;
+        patch.executionAgentNameKey = null;
+        patch.executionLockedAt = null;
       }
 
       return db.transaction(async (tx) => {
@@ -1024,7 +1077,8 @@ export function issueService(db: Db) {
           expectedCheckoutRunId: current.checkoutRunId,
         });
         if (adopted) {
-          const row = await db.select().from(issues).where(eq(issues.id, id)).then((rows) => rows[0]!);
+          const row = await db.select().from(issues).where(eq(issues.id, id)).then((rows) => rows[0]);
+          if (!row) throw notFound("Issue not found after checkout adoption");
           const [enriched] = await withIssueLabels(db, [row]);
           return enriched;
         }
@@ -1036,9 +1090,46 @@ export function issueService(db: Db) {
         current.status === "in_progress" &&
         sameRunLock(current.checkoutRunId, checkoutRunId)
       ) {
-        const row = await db.select().from(issues).where(eq(issues.id, id)).then((rows) => rows[0]!);
+        const row = await db.select().from(issues).where(eq(issues.id, id)).then((rows) => rows[0]);
+        if (!row) throw notFound("Issue not found");
         const [enriched] = await withIssueLabels(db, [row]);
         return enriched;
+      }
+
+      // Supersede a stale executionRunId from a queued run that never started (#1390)
+      if (
+        checkoutRunId &&
+        current.executionRunId &&
+        current.executionRunId !== checkoutRunId &&
+        (current.assigneeAgentId == null || current.assigneeAgentId === agentId)
+      ) {
+        const staleExec = await isTerminalOrMissingHeartbeatRun(current.executionRunId);
+        if (staleExec) {
+          const now = new Date();
+          const superseded = await db
+            .update(issues)
+            .set({
+              assigneeAgentId: agentId,
+              assigneeUserId: null,
+              checkoutRunId,
+              executionRunId: checkoutRunId,
+              status: "in_progress",
+              startedAt: now,
+              updatedAt: now,
+            })
+            .where(
+              and(
+                eq(issues.id, id),
+                eq(issues.executionRunId, current.executionRunId),
+              ),
+            )
+            .returning()
+            .then((rows) => rows[0] ?? null);
+          if (superseded) {
+            const [enriched] = await withIssueLabels(db, [superseded]);
+            return enriched;
+          }
+        }
       }
 
       throw conflict("Issue checkout conflict", {
@@ -1094,13 +1185,14 @@ export function issueService(db: Db) {
         }
       }
 
-      throw conflict("Issue run ownership conflict", {
+      throw conflict("Issue run ownership conflict — checkout expired or reassigned, do not retry", {
         issueId: current.id,
         status: current.status,
         assigneeAgentId: current.assigneeAgentId,
         checkoutRunId: current.checkoutRunId,
         actorAgentId,
         actorRunId,
+        retryable: false,
       });
     },
 
@@ -1136,6 +1228,9 @@ export function issueService(db: Db) {
           status: "todo",
           assigneeAgentId: null,
           checkoutRunId: null,
+          executionRunId: null,
+          executionAgentNameKey: null,
+          executionLockedAt: null,
           updatedAt: new Date(),
         })
         .where(eq(issues.id, id))
@@ -1458,14 +1553,13 @@ export function issueService(db: Db) {
       }),
 
     findMentionedAgents: async (companyId: string, body: string) => {
-      const re = /\B@([^\s@,!?.]+)/g;
-      const tokens = new Set<string>();
-      let m: RegExpExecArray | null;
-      while ((m = re.exec(body)) !== null) tokens.add(m[1].toLowerCase());
-      if (tokens.size === 0) return [];
+      if (!body.includes("@")) return [];
+
       const rows = await db.select({ id: agents.id, name: agents.name })
         .from(agents).where(eq(agents.companyId, companyId));
-      return rows.filter(a => tokens.has(a.name.toLowerCase())).map(a => a.id);
+
+      const matched = matchMentionedNames(body, rows.map(a => a.name));
+      return rows.filter(a => matched.has(a.name.toLowerCase())).map(a => a.id);
     },
 
     findMentionedProjectIds: async (issueId: string) => {
