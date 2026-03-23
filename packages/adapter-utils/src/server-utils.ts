@@ -766,6 +766,9 @@ export async function runChildProcess(
           child.stdin.end();
         }
 
+        child.stdout?.setEncoding("utf8");
+        child.stderr?.setEncoding("utf8");
+      
         if (typeof child.pid === "number" && child.pid > 0 && opts.onSpawn) {
           void opts.onSpawn({ pid: child.pid, startedAt }).catch((err) => {
             onLogError(err, runId, "failed to record child process metadata");

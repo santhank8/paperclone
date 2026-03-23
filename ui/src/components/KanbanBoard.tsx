@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Link } from "@/lib/router";
 import {
   DndContext,
@@ -32,9 +33,15 @@ const boardStatuses = [
   "cancelled",
 ];
 
-function statusLabel(status: string): string {
-  return status.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-}
+const STATUS_LABEL_KEYS: Record<string, string> = {
+  backlog: "kanbanBoard.statusLabels.backlog",
+  todo: "kanbanBoard.statusLabels.todo",
+  in_progress: "kanbanBoard.statusLabels.inProgress",
+  in_review: "kanbanBoard.statusLabels.inReview",
+  blocked: "kanbanBoard.statusLabels.blocked",
+  done: "kanbanBoard.statusLabels.done",
+  cancelled: "kanbanBoard.statusLabels.cancelled",
+};
 
 interface Agent {
   id: string;
@@ -61,6 +68,7 @@ function KanbanColumn({
   agents?: Agent[];
   liveIssueIds?: Set<string>;
 }) {
+  const { t } = useTranslation();
   const { setNodeRef, isOver } = useDroppable({ id: status });
 
   return (
@@ -68,7 +76,7 @@ function KanbanColumn({
       <div className="flex items-center gap-2 px-2 py-2 mb-1">
         <StatusIcon status={status} />
         <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          {statusLabel(status)}
+          {t(STATUS_LABEL_KEYS[status] ?? status)}
         </span>
         <span className="text-xs text-muted-foreground/60 ml-auto tabular-nums">
           {issues.length}

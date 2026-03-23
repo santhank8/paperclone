@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { CheckCircle2, XCircle, Clock } from "lucide-react";
 import { Link } from "@/lib/router";
 import { Button } from "@/components/ui/button";
@@ -31,6 +32,7 @@ export function ApprovalCard({
   detailLink?: string;
   isPending: boolean;
 }) {
+  const { t } = useTranslation();
   const Icon = typeIcon[approval.type] ?? defaultTypeIcon;
   const label = approvalLabel(approval.type, approval.payload as Record<string, unknown> | null);
   const showResolutionButtons =
@@ -47,7 +49,7 @@ export function ApprovalCard({
             <span className="font-medium text-sm">{label}</span>
             {requesterAgent && (
               <span className="text-xs text-muted-foreground">
-                requested by <Identity name={requesterAgent.name} size="sm" className="inline-flex" />
+                {t("common.requestedBy")} <Identity name={requesterAgent.name} size="sm" className="inline-flex" />
               </span>
             )}
           </div>

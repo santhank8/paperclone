@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useCallback, useRef } from "react";
 import { useLocation, useSearchParams } from "@/lib/router";
+import { useTranslation } from "react-i18next";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { issuesApi } from "../api/issues";
 import { agentsApi } from "../api/agents";
@@ -16,6 +17,7 @@ import { CircleDot } from "lucide-react";
 export function Issues() {
   const { selectedCompanyId } = useCompany();
   const { setBreadcrumbs } = useBreadcrumbs();
+  const { t } = useTranslation();
   const location = useLocation();
   const [searchParams] = useSearchParams();
   const queryClient = useQueryClient();
@@ -75,15 +77,15 @@ export function Issues() {
   const issueLinkState = useMemo(
     () =>
       createIssueDetailLocationState(
-        "Issues",
+        t("pages.issues.title"),
         `${location.pathname}${location.search}${location.hash}`,
       ),
-    [location.pathname, location.search, location.hash],
+    [location.pathname, location.search, location.hash, t],
   );
 
   useEffect(() => {
-    setBreadcrumbs([{ label: "Issues" }]);
-  }, [setBreadcrumbs]);
+    setBreadcrumbs([{ label: t("pages.issues.title") }]);
+  }, [setBreadcrumbs, t]);
 
   const { data: issues, isLoading, error } = useQuery({
     queryKey: queryKeys.issues.list(selectedCompanyId!),
@@ -100,7 +102,7 @@ export function Issues() {
   });
 
   if (!selectedCompanyId) {
-    return <EmptyState icon={CircleDot} message="Select a company to view issues." />;
+    return <EmptyState icon={CircleDot} message={t("pages.issues.selectCompany")} />;
   }
 
   return (

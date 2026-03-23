@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo, type ChangeEvent, type DragEvent } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { useDialog } from "../context/DialogContext";
 import { useCompany } from "../context/CompanyContext";
 import { executionWorkspacesApi } from "../api/execution-workspaces";
@@ -280,6 +281,7 @@ export function NewIssueDialog() {
   const { companies, selectedCompanyId, selectedCompany } = useCompany();
   const queryClient = useQueryClient();
   const { pushToast } = useToast();
+  const { t } = useTranslation();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [status, setStatus] = useState("todo");
@@ -777,12 +779,12 @@ export function NewIssueDialog() {
   );
   const assigneeOptionsTitle =
     assigneeAdapterType === "claude_local"
-      ? "Claude options"
+      ? t("newIssue.claudeOptions")
       : assigneeAdapterType === "codex_local"
-        ? "Codex options"
+        ? t("newIssue.codexOptions")
         : assigneeAdapterType === "opencode_local"
-          ? "OpenCode options"
-        : "Agent options";
+          ? t("newIssue.openCodeOptions")
+        : t("newIssue.agentOptions");
   const thinkingEffortOptions =
     assigneeAdapterType === "codex_local"
       ? ISSUE_THINKING_EFFORT_OPTIONS.codex_local
@@ -817,7 +819,7 @@ export function NewIssueDialog() {
   const hasSavedDraft = Boolean(savedDraft?.title.trim() || savedDraft?.description.trim());
   const canDiscardDraft = hasDraft || hasSavedDraft;
   const createIssueErrorMessage =
-    createIssue.error instanceof Error ? createIssue.error.message : "Failed to create issue. Try again.";
+    createIssue.error instanceof Error ? createIssue.error.message : t("newIssue.failedToCreate");
   const stagedDocuments = stagedFiles.filter((file) => file.kind === "document");
   const stagedAttachments = stagedFiles.filter((file) => file.kind === "attachment");
 
@@ -956,7 +958,7 @@ export function NewIssueDialog() {
               </PopoverContent>
             </Popover>
             <span className="text-muted-foreground/60">&rsaquo;</span>
-            <span>New issue</span>
+            <span>{t("newIssue.title")}</span>
           </div>
           <div className="flex items-center gap-1">
             <Button
@@ -984,7 +986,7 @@ export function NewIssueDialog() {
         <div className="px-4 pt-4 pb-2 shrink-0">
           <textarea
             className="w-full text-lg font-semibold bg-transparent outline-none resize-none overflow-hidden placeholder:text-muted-foreground/50"
-            placeholder="Issue title"
+            placeholder={t("newIssue.issueTitlePlaceholder")}
             rows={1}
             value={title}
             onChange={(e) => {
@@ -1024,16 +1026,16 @@ export function NewIssueDialog() {
         <div className="px-4 pb-2 shrink-0">
           <div className="overflow-x-auto overscroll-x-contain">
             <div className="inline-flex items-center gap-2 text-sm text-muted-foreground flex-wrap sm:flex-nowrap sm:min-w-max">
-              <span>For</span>
+              <span>{t("newIssue.for")}</span>
               <InlineEntitySelector
                 ref={assigneeSelectorRef}
                 value={assigneeValue}
                 options={assigneeOptions}
-                placeholder="Assignee"
+                placeholder={t("newIssue.assignee")}
                 disablePortal
-                noneLabel="No assignee"
-                searchPlaceholder="Search assignees..."
-                emptyMessage="No assignees found."
+                noneLabel={t("newIssue.noAssignee")}
+                searchPlaceholder={t("newIssue.searchAssignees")}
+                emptyMessage={t("newIssue.noAssigneesFound")}
                 onChange={(value) => {
                   const nextAssignee = parseAssigneeValue(value);
                   if (nextAssignee.assigneeAgentId) {
@@ -1059,7 +1061,7 @@ export function NewIssueDialog() {
                       <span className="truncate">{option.label}</span>
                     )
                   ) : (
-                    <span className="text-muted-foreground">Assignee</span>
+                    <span className="text-muted-foreground">{t("newIssue.assignee")}</span>
                   )
                 }
                 renderOption={(option) => {
@@ -1075,16 +1077,16 @@ export function NewIssueDialog() {
                   );
                 }}
               />
-              <span>in</span>
+              <span>{t("newIssue.in")}</span>
               <InlineEntitySelector
                 ref={projectSelectorRef}
                 value={projectId}
                 options={projectOptions}
-                placeholder="Project"
+                placeholder={t("newIssue.project")}
                 disablePortal
-                noneLabel="No project"
-                searchPlaceholder="Search projects..."
-                emptyMessage="No projects found."
+                noneLabel={t("newIssue.noProject")}
+                searchPlaceholder={t("newIssue.searchProjects")}
+                emptyMessage={t("newIssue.noProjectsFound")}
                 onChange={handleProjectChange}
                 onConfirm={() => {
                   descriptionEditorRef.current?.focus();
@@ -1099,7 +1101,7 @@ export function NewIssueDialog() {
                       <span className="truncate">{option.label}</span>
                     </>
                   ) : (
-                    <span className="text-muted-foreground">Project</span>
+                    <span className="text-muted-foreground">{t("newIssue.project")}</span>
                   )
                 }
                 renderOption={(option) => {
@@ -1123,9 +1125,9 @@ export function NewIssueDialog() {
         {currentProject && currentProjectSupportsExecutionWorkspace && (
           <div className="px-4 py-3 shrink-0 space-y-2">
             <div className="space-y-1.5">
-              <div className="text-xs font-medium">Execution workspace</div>
+              <div className="text-xs font-medium">{t("newIssue.executionWorkspace")}</div>
               <div className="text-[11px] text-muted-foreground">
-                Control whether this issue runs in the shared workspace, a new isolated workspace, or an existing one.
+                {t("newIssue.executionWorkspaceHint")}
               </div>
               <select
                 className="w-full rounded border border-border bg-transparent px-2 py-1.5 text-xs outline-none"
@@ -1139,7 +1141,7 @@ export function NewIssueDialog() {
               >
                 {EXECUTION_WORKSPACE_MODES.map((option) => (
                   <option key={option.value} value={option.value}>
-                    {option.label}
+                    {t(`newIssue.workspaceModeLabels.${option.value}`)}
                   </option>
                 ))}
               </select>
@@ -1149,7 +1151,7 @@ export function NewIssueDialog() {
                   value={selectedExecutionWorkspaceId}
                   onChange={(e) => setSelectedExecutionWorkspaceId(e.target.value)}
                 >
-                  <option value="">Choose an existing workspace</option>
+                  <option value="">{t("newIssue.chooseExistingWorkspace")}</option>
                   {deduplicatedReusableWorkspaces.map((workspace) => (
                     <option key={workspace.id} value={workspace.id}>
                       {workspace.name} · {workspace.status} · {workspace.branchName ?? workspace.cwd ?? workspace.id.slice(0, 8)}
@@ -1159,7 +1161,7 @@ export function NewIssueDialog() {
               )}
               {executionWorkspaceMode === "reuse_existing" && selectedReusableExecutionWorkspace && (
                 <div className="text-[11px] text-muted-foreground">
-                  Reusing {selectedReusableExecutionWorkspace.name} from {selectedReusableExecutionWorkspace.branchName ?? selectedReusableExecutionWorkspace.cwd ?? "existing execution workspace"}.
+                  {t("newIssue.reusingWorkspace", { name: selectedReusableExecutionWorkspace.name, location: selectedReusableExecutionWorkspace.branchName ?? selectedReusableExecutionWorkspace.cwd ?? selectedReusableExecutionWorkspace.id.slice(0, 8) })}
                 </div>
               )}
             </div>
@@ -1178,20 +1180,20 @@ export function NewIssueDialog() {
             {assigneeOptionsOpen && (
               <div className="mt-2 rounded-md border border-border p-3 bg-muted/20 space-y-3">
                 <div className="space-y-1.5">
-                  <div className="text-xs text-muted-foreground">Model</div>
+                  <div className="text-xs text-muted-foreground">{t("newIssue.model")}</div>
                   <InlineEntitySelector
                     value={assigneeModelOverride}
                     options={modelOverrideOptions}
-                    placeholder="Default model"
+                    placeholder={t("newIssue.defaultModel")}
                     disablePortal
-                    noneLabel="Default model"
-                    searchPlaceholder="Search models..."
-                    emptyMessage="No models found."
+                    noneLabel={t("newIssue.defaultModel")}
+                    searchPlaceholder={t("newIssue.searchModels")}
+                    emptyMessage={t("newIssue.noModelsFound")}
                     onChange={setAssigneeModelOverride}
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <div className="text-xs text-muted-foreground">Thinking effort</div>
+                  <div className="text-xs text-muted-foreground">{t("newIssue.thinkingEffort")}</div>
                   <div className="flex items-center gap-1.5 flex-wrap">
                     {thinkingEffortOptions.map((option) => (
                       <button
@@ -1202,14 +1204,14 @@ export function NewIssueDialog() {
                         )}
                         onClick={() => setAssigneeThinkingEffort(option.value)}
                       >
-                        {option.label}
+                        {t(`newIssue.thinkingEffortLabels.${option.value || "default"}`)}
                       </button>
                     ))}
                   </div>
                 </div>
                 {assigneeAdapterType === "claude_local" && (
                   <div className="flex items-center justify-between rounded-md border border-border px-2 py-1.5">
-                    <div className="text-xs text-muted-foreground">Enable Chrome (--chrome)</div>
+                    <div className="text-xs text-muted-foreground">{t("newIssue.enableChrome")}</div>
                     <button
                       className={cn(
                         "relative inline-flex h-5 w-9 items-center rounded-full transition-colors",
@@ -1249,7 +1251,7 @@ export function NewIssueDialog() {
               ref={descriptionEditorRef}
               value={description}
               onChange={setDescription}
-              placeholder="Add description..."
+              placeholder={t("newIssue.addDescription")}
               bordered={false}
               mentions={mentionOptions}
               contentClassName={cn("text-sm text-muted-foreground pb-12", expanded ? "min-h-[220px]" : "min-h-[120px]")}
@@ -1263,7 +1265,7 @@ export function NewIssueDialog() {
             <div className="mt-4 space-y-3 rounded-lg border border-border/70 p-3">
               {stagedDocuments.length > 0 ? (
                 <div className="space-y-2">
-                  <div className="text-xs font-medium text-muted-foreground">Documents</div>
+                  <div className="text-xs font-medium text-muted-foreground">{t("newIssue.documents")}</div>
                   <div className="space-y-2">
                     {stagedDocuments.map((file) => (
                       <div key={file.id} className="flex items-start justify-between gap-3 rounded-md border border-border/70 px-3 py-2">
@@ -1287,7 +1289,7 @@ export function NewIssueDialog() {
                           className="shrink-0 text-muted-foreground"
                           onClick={() => removeStagedFile(file.id)}
                           disabled={createIssue.isPending}
-                          title="Remove document"
+                          title={t("newIssue.removeDocument")}
                         >
                           <X className="h-3.5 w-3.5" />
                         </Button>
@@ -1299,7 +1301,7 @@ export function NewIssueDialog() {
 
               {stagedAttachments.length > 0 ? (
                 <div className="space-y-2">
-                  <div className="text-xs font-medium text-muted-foreground">Attachments</div>
+                  <div className="text-xs font-medium text-muted-foreground">{t("newIssue.attachments")}</div>
                   <div className="space-y-2">
                     {stagedAttachments.map((file) => (
                       <div key={file.id} className="flex items-start justify-between gap-3 rounded-md border border-border/70 px-3 py-2">
@@ -1318,7 +1320,7 @@ export function NewIssueDialog() {
                           className="shrink-0 text-muted-foreground"
                           onClick={() => removeStagedFile(file.id)}
                           disabled={createIssue.isPending}
-                          title="Remove attachment"
+                          title={t("newIssue.removeAttachment")}
                         >
                           <X className="h-3.5 w-3.5" />
                         </Button>
@@ -1338,7 +1340,7 @@ export function NewIssueDialog() {
             <PopoverTrigger asChild>
               <button className="inline-flex items-center gap-1.5 rounded-md border border-border px-2 py-1 text-xs hover:bg-accent/50 transition-colors">
                 <CircleDot className={cn("h-3 w-3", currentStatus.color)} />
-                {currentStatus.label}
+                {t(`newIssue.statusLabels.${currentStatus.value}`)}
               </button>
             </PopoverTrigger>
             <PopoverContent className="w-36 p-1" align="start">
@@ -1352,7 +1354,7 @@ export function NewIssueDialog() {
                   onClick={() => { setStatus(s.value); setStatusOpen(false); }}
                 >
                   <CircleDot className={cn("h-3 w-3", s.color)} />
-                  {s.label}
+                  {t(`newIssue.statusLabels.${s.value}`)}
                 </button>
               ))}
             </PopoverContent>
@@ -1365,12 +1367,12 @@ export function NewIssueDialog() {
                 {currentPriority ? (
                   <>
                     <currentPriority.icon className={cn("h-3 w-3", currentPriority.color)} />
-                    {currentPriority.label}
+                    {t(`newIssue.priorityLabels.${currentPriority.value}`)}
                   </>
                 ) : (
                   <>
                     <Minus className="h-3 w-3 text-muted-foreground" />
-                    Priority
+                    {t("newIssue.priorityLabels.none")}
                   </>
                 )}
               </button>
@@ -1386,7 +1388,7 @@ export function NewIssueDialog() {
                   onClick={() => { setPriority(p.value); setPriorityOpen(false); }}
                 >
                   <p.icon className={cn("h-3 w-3", p.color)} />
-                  {p.label}
+                  {t(`newIssue.priorityLabels.${p.value}`)}
                 </button>
               ))}
             </PopoverContent>
@@ -1395,7 +1397,7 @@ export function NewIssueDialog() {
           {/* Labels chip (placeholder) */}
           <button className="inline-flex items-center gap-1.5 rounded-md border border-border px-2 py-1 text-xs hover:bg-accent/50 transition-colors text-muted-foreground">
             <Tag className="h-3 w-3" />
-            Labels
+            {t("newIssue.labels")}
           </button>
 
           <input
@@ -1412,7 +1414,7 @@ export function NewIssueDialog() {
             disabled={createIssue.isPending}
           >
             <Paperclip className="h-3 w-3" />
-            Upload
+            {t("newIssue.upload")}
           </button>
 
           {/* More (dates) */}
@@ -1425,11 +1427,11 @@ export function NewIssueDialog() {
             <PopoverContent className="w-44 p-1" align="start">
               <button className="flex items-center gap-2 w-full px-2 py-1.5 text-xs rounded hover:bg-accent/50 text-muted-foreground">
                 <Calendar className="h-3 w-3" />
-                Start date
+                {t("newIssue.startDate")}
               </button>
               <button className="flex items-center gap-2 w-full px-2 py-1.5 text-xs rounded hover:bg-accent/50 text-muted-foreground">
                 <Calendar className="h-3 w-3" />
-                Due date
+                {t("newIssue.dueDate")}
               </button>
             </PopoverContent>
           </Popover>
@@ -1444,14 +1446,14 @@ export function NewIssueDialog() {
             onClick={discardDraft}
             disabled={createIssue.isPending || !canDiscardDraft}
           >
-            Discard Draft
+            {t("newIssue.discardDraft")}
           </Button>
           <div className="flex items-center gap-3">
             <div className="min-h-5 text-right">
               {createIssue.isPending ? (
                 <span className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
                   <Loader2 className="h-3 w-3 animate-spin" />
-                  Creating issue...
+                  {t("newIssue.creatingIndicator")}
                 </span>
               ) : createIssue.isError ? (
                 <span className="text-xs text-destructive">{createIssueErrorMessage}</span>
@@ -1466,7 +1468,7 @@ export function NewIssueDialog() {
             >
               <span className="inline-flex items-center justify-center gap-1.5">
                 {createIssue.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
-                <span>{createIssue.isPending ? "Creating..." : "Create Issue"}</span>
+                <span>{createIssue.isPending ? t("newIssue.creating") : t("newIssue.createIssue")}</span>
               </span>
             </Button>
           </div>

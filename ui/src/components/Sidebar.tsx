@@ -12,6 +12,8 @@ import {
   Repeat,
   Settings,
 } from "lucide-react";
+import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
 import { SidebarSection } from "./SidebarSection";
 import { SidebarNavItem } from "./SidebarNavItem";
@@ -24,11 +26,27 @@ import { queryKeys } from "../lib/queryKeys";
 import { useInboxBadge } from "../hooks/useInboxBadge";
 import { Button } from "@/components/ui/button";
 import { PluginSlotOutlet } from "@/plugins/slots";
+import { cn } from "../lib/utils";
+import { i18n, LANGUAGE_STORAGE_KEY, SUPPORTED_LANGUAGES, type SupportedLanguage } from "../i18n/config";
 
 export function Sidebar() {
   const { openNewIssue } = useDialog();
   const { selectedCompanyId, selectedCompany } = useCompany();
+  const { t } = useTranslation();
+  const [currentLang, setCurrentLang] = useState<SupportedLanguage>(
+    (i18n.language as SupportedLanguage) ?? "en",
+  );
   const inboxBadge = useInboxBadge(selectedCompanyId);
+
+  function handleLanguageChange(lang: SupportedLanguage) {
+    setCurrentLang(lang);
+    i18n.changeLanguage(lang);
+    try {
+      localStorage.setItem(LANGUAGE_STORAGE_KEY, lang);
+    } catch {
+      // Ignore localStorage errors.
+    }
+  }
   const { data: liveRuns } = useQuery({
     queryKey: queryKeys.liveRuns(selectedCompanyId!),
     queryFn: () => heartbeatsApi.liveRunsForCompany(selectedCompanyId!),
@@ -57,7 +75,7 @@ export function Sidebar() {
           />
         )}
         <span className="flex-1 text-sm font-bold text-foreground truncate pl-1">
-          {selectedCompany?.name ?? "Select company"}
+          {selectedCompany?.name ?? t("common.selectCompany")}
         </span>
         <Button
           variant="ghost"
@@ -77,12 +95,12 @@ export function Sidebar() {
             className="flex items-center gap-2.5 px-3 py-2 text-[13px] font-medium text-muted-foreground hover:bg-accent/50 hover:text-foreground transition-colors"
           >
             <SquarePen className="h-4 w-4 shrink-0" />
-            <span className="truncate">New Issue</span>
+            <span className="truncate">{t("sidebar.newIssue")}</span>
           </button>
-          <SidebarNavItem to="/dashboard" label="Dashboard" icon={LayoutDashboard} liveCount={liveRunCount} />
+          <SidebarNavItem to="/dashboard" label={t("sidebar.dashboard")} icon={LayoutDashboard} liveCount={liveRunCount} />
           <SidebarNavItem
             to="/inbox"
-            label="Inbox"
+            label={t("sidebar.inbox")}
             icon={Inbox}
             badge={inboxBadge.inbox}
             badgeTone={inboxBadge.failedRuns > 0 ? "danger" : "default"}
@@ -97,22 +115,20 @@ export function Sidebar() {
           />
         </div>
 
-        <SidebarSection label="Work">
-          <SidebarNavItem to="/issues" label="Issues" icon={CircleDot} />
-          <SidebarNavItem to="/routines" label="Routines" icon={Repeat} textBadge="Beta" textBadgeTone="amber" />
-          <SidebarNavItem to="/goals" label="Goals" icon={Target} />
+        <SidebarSection label={t("sidebar.sectionWork")}>
+          <SidebarNavItem to="/issues" label={t("sidebar.issues")} icon={CircleDot} />
+          <SidebarNavItem to="/goals" label={t("sidebar.goals")} icon={Target} />
         </SidebarSection>
 
         <SidebarProjects />
 
         <SidebarAgents />
 
-        <SidebarSection label="Company">
-          <SidebarNavItem to="/org" label="Org" icon={Network} />
-          <SidebarNavItem to="/skills" label="Skills" icon={Boxes} />
-          <SidebarNavItem to="/costs" label="Costs" icon={DollarSign} />
-          <SidebarNavItem to="/activity" label="Activity" icon={History} />
-          <SidebarNavItem to="/company/settings" label="Settings" icon={Settings} />
+        <SidebarSection label={t("sidebar.sectionCompany")}>
+          <SidebarNavItem to="/org" label={t("sidebar.org")} icon={Network} />
+          <SidebarNavItem to="/costs" label={t("sidebar.costs")} icon={DollarSign} />
+          <SidebarNavItem to="/activity" label={t("sidebar.activity")} icon={History} />
+          <SidebarNavItem to="/company/settings" label={t("sidebar.companySettings")} icon={Settings} />
         </SidebarSection>
 
         <PluginSlotOutlet
@@ -123,6 +139,27 @@ export function Sidebar() {
           missingBehavior="placeholder"
         />
       </nav>
+
+      {/* Language switcher */}
+      <div className="border-t border-border px-3 py-2 shrink-0">
+        <div className="flex items-center gap-1">
+          {SUPPORTED_LANGUAGES.map((lang) => (
+            <button
+              key={lang.value}
+              type="button"
+              onClick={() => handleLanguageChange(lang.value)}
+              className={cn(
+                "flex-1 text-[10px] font-medium py-1 rounded transition-colors",
+                currentLang === lang.value
+                  ? "bg-accent text-foreground"
+                  : "text-muted-foreground/60 hover:text-foreground hover:bg-accent/50",
+              )}
+            >
+              {lang.value === "en" ? "EN" : "PT"}
+            </button>
+          ))}
+        </div>
+      </div>
     </aside>
   );
 }

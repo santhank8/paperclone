@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ChangeEvent, type DragEvent } from "react";
+import { useTranslation } from "react-i18next";
 import { Link, useLocation, useNavigate, useParams } from "@/lib/router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { issuesApi } from "../api/issues";
@@ -194,6 +195,7 @@ function ActorIdentity({ evt, agentMap }: { evt: ActivityEvent; agentMap: Map<st
 }
 
 export function IssueDetail() {
+  const { t } = useTranslation();
   const { issueId } = useParams<{ issueId: string }>();
   const { selectedCompanyId } = useCompany();
   const { openPanel, closePanel, panelVisible, setPanelVisible } = usePanel();
@@ -670,7 +672,7 @@ export function IssueDetail() {
         )}
       >
         <Paperclip className="h-3.5 w-3.5 mr-1.5" />
-        {uploadAttachment.isPending || importMarkdownDocument.isPending ? "Uploading..." : "Upload attachment"}
+        {uploadAttachment.isPending || importMarkdownDocument.isPending ? t("pages.issueDetail.uploading") : t("pages.issueDetail.uploadAttachment")}
       </Button>
     </>
   );
@@ -786,7 +788,7 @@ export function IssueDetail() {
               variant="ghost"
               size="icon-xs"
               onClick={() => setMobilePropsOpen(true)}
-              title="Properties"
+              title={t("common.properties")}
             >
               <SlidersHorizontal className="h-4 w-4" />
             </Button>
@@ -1168,7 +1170,7 @@ export function IssueDetail() {
       <Sheet open={mobilePropsOpen} onOpenChange={setMobilePropsOpen}>
         <SheetContent side="bottom" className="max-h-[85dvh] pb-[env(safe-area-inset-bottom)]">
           <SheetHeader>
-            <SheetTitle className="text-sm">Properties</SheetTitle>
+            <SheetTitle className="text-sm">{t("common.properties")}</SheetTitle>
           </SheetHeader>
           <ScrollArea className="flex-1 overflow-y-auto">
             <div className="px-4 pb-4">

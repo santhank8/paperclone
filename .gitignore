@@ -36,6 +36,7 @@ tmp/
 *.tmp
 .vscode/
 .claude/settings.local.json
+.claude/*.local.md
 .paperclip-local/
 /.idea/
 /.agents/
@@ -50,3 +51,4 @@ tests/release-smoke/test-results/
 tests/release-smoke/playwright-report/
 .superset/
 .claude/worktrees/
+/package-lock.json

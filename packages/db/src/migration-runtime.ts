@@ -1,8 +1,21 @@
 import { existsSync, readFileSync, rmSync } from "node:fs";
 import { createServer } from "node:net";
 import path from "node:path";
+import { spawn as spawnChild } from "node:child_process";
 import { ensurePostgresDatabase, getPostgresDataDirectory } from "./client.js";
 import { resolveDatabaseTarget } from "./runtime-config.js";
+
+async function forceTerminateProcess(pid: number): Promise<void> {
+  if (process.platform === "win32") {
+    await new Promise<void>((resolve) => {
+      const child = spawnChild("taskkill", ["/F", "/PID", String(pid)], { stdio: "ignore" });
+      child.on("exit", () => resolve());
+      child.on("error", () => resolve());
+    });
+  } else {
+    try { process.kill(pid, "SIGKILL"); } catch { /* already dead */ }
+  }
+}
 
 type EmbeddedPostgresInstance = {
   initialise(): Promise<void>;
@@ -44,7 +57,12 @@ function readRunningPostmasterPid(postmasterPidFile: string): number | null {
   try {
     const pid = Number(readFileSync(postmasterPidFile, "utf8").split("\n")[0]?.trim());
     if (!Number.isInteger(pid) || pid <= 0) return null;
-    process.kill(pid, 0);
+    try {
+      process.kill(pid, 0);
+    } catch (killError: unknown) {
+      // On Windows, EPERM means the process exists but cannot be signalled — treat as running.
+      if ((killError as NodeJS.ErrnoException).code !== "EPERM") return null;
+    }
     return pid;
   } catch {
     return null;
@@ -181,7 +199,15 @@ async function ensureEmbeddedPostgresConnection(
     connectionString: `postgres://paperclip:paperclip@127.0.0.1:${selectedPort}/paperclip`,
     source: `embedded-postgres@${selectedPort}`,
     stop: async () => {
-      await instance.stop();
+      const stopped = await Promise.race([
+        instance.stop().then(() => true).catch(() => false),
+        new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 5000)),
+      ]);
+      if (!stopped) {
+        // instance.stop() timed out — force-kill the postgres process directly.
+        const pid = readRunningPostmasterPid(postmasterPidFile);
+        if (pid !== null) await forceTerminateProcess(pid);
+      }
     },
   };
 }
