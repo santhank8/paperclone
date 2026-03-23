@@ -10,8 +10,64 @@ const MIGRATIONS_FOLDER = fileURLToPath(new URL("./migrations", import.meta.url)
 const DRIZZLE_MIGRATIONS_TABLE = "__drizzle_migrations";
 const MIGRATIONS_JOURNAL_JSON = fileURLToPath(new URL("./migrations/meta/_journal.json", import.meta.url));
 
+/**
+ * Re-encode the password component of a PostgreSQL URL so that special
+ * characters like `@`, `#`, `%` (when not already percent-encoded) do not
+ * confuse the URL parser.
+ *
+ * Accepts both `postgres://` and `postgresql://` schemes.
+ *
+ * If the URL is already valid (password already encoded, or no problematic
+ * characters) the original string is returned unchanged.
+ */
+export function sanitizePostgresUrl(raw: string): string {
+  // Manual parsing: scheme://user:password@host:port/database?params
+  // We always parse manually because `new URL()` treats `@` and `#` inside
+  // passwords as structural delimiters, silently producing wrong hostnames.
+  const schemeEnd = raw.indexOf("://");
+  if (schemeEnd === -1) return raw; // not a URL — return as-is
+
+  const scheme = raw.slice(0, schemeEnd);
+  const rest = raw.slice(schemeEnd + 3); // after ://
+
+  // Find the last unencoded `@` — that's the credentials/host separator.
+  // We scan right-to-left to handle passwords containing literal `@`.
+  const lastAt = rest.lastIndexOf("@");
+  if (lastAt === -1) return raw; // no credentials
+
+  const credentials = rest.slice(0, lastAt);
+  const hostAndPath = rest.slice(lastAt + 1);
+
+  const colonIdx = credentials.indexOf(":");
+  if (colonIdx === -1) return raw; // no password
+
+  const user = credentials.slice(0, colonIdx);
+  const password = credentials.slice(colonIdx + 1);
+
+  // If the password is already properly encoded (round-trips cleanly), return as-is.
+  try {
+    const decoded = decodeURIComponent(password);
+    const reEncoded = encodeURIComponent(decoded);
+    if (reEncoded === password) return raw;
+  } catch {
+    // decoding failed — password has bare % signs; fall through to encode
+  }
+
+  // Re-encode the password using encodeURIComponent (which encodes @, #, etc.)
+  // First decode any partial encoding, then re-encode everything.
+  let decodedPassword: string;
+  try {
+    decodedPassword = decodeURIComponent(password);
+  } catch {
+    decodedPassword = password;
+  }
+  const encodedPassword = encodeURIComponent(decodedPassword);
+
+  return `${scheme}://${user}:${encodedPassword}@${hostAndPath}`;
+}
+
 function createUtilitySql(url: string) {
-  return postgres(url, { max: 1, onnotice: () => {} });
+  return postgres(sanitizePostgresUrl(url), { max: 1, onnotice: () => {} });
 }
 
 function isSafeIdentifier(value: string): boolean {
@@ -46,7 +102,7 @@ export type MigrationState =
     };
 
 export function createDb(url: string) {
-  const sql = postgres(url);
+  const sql = postgres(sanitizePostgresUrl(url));
   return drizzlePg(sql, { schema });
 }
 
@@ -261,6 +317,8 @@ async function applyPendingMigrationsManually(
 
       await runInTransaction(sql, async () => {
         for (const statement of splitMigrationStatements(migrationContent)) {
+          const alreadyApplied = await migrationStatementAlreadyApplied(sql, statement);
+          if (alreadyApplied) continue;
           await sql.unsafe(statement);
         }
 
@@ -689,16 +747,27 @@ export async function applyPendingMigrations(url: string): Promise<void> {
   }
 
   if (initialState.reason === "no-migration-journal-non-empty-db") {
-    throw new Error(
-      "Database has tables but no migration journal; automatic migration is unsafe. Initialize migration history manually.",
-    );
+    // Database has tables but no migration journal (e.g. shared database,
+    // partially-failed prior run, or external schema management).
+    // applyPendingMigrationsManually handles this: it creates the journal
+    // table via ensureMigrationJournalTable, skips already-applied statements,
+    // and records each migration in the journal.
+    await applyPendingMigrationsManually(url, initialState.pendingMigrations);
+
+    const finalState = await inspectMigrations(url);
+    if (finalState.status !== "upToDate") {
+      throw new Error(
+        `Failed to apply pending migrations for non-empty DB: ${finalState.pendingMigrations.join(", ")}`,
+      );
+    }
+    return;
   }
 
   let state = await inspectMigrations(url);
   if (state.status === "upToDate") return;
 
-  const repair = await reconcilePendingMigrationHistory(url);
-  if (repair.repairedMigrations.length > 0) {
+  const { repairedMigrations } = await reconcilePendingMigrationHistory(url);
+  if (repairedMigrations.length > 0) {
     state = await inspectMigrations(url);
     if (state.status === "upToDate") return;
   }
