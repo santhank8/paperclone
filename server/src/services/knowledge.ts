@@ -1,6 +1,7 @@
 import { and, desc, eq, sql, isNull, inArray, gte, lte } from "drizzle-orm";
 import type { Db } from "@paperclipai/db";
 import { knowledgeStore } from "@paperclipai/db";
+import { publishLiveEvent } from "./live-events.js";
 
 export interface CreateKnowledgeInput {
   companyId?: string | null;
@@ -56,6 +57,15 @@ export function createKnowledgeService(db: Db) {
           ttlDays: input.ttlDays ?? null,
         })
         .returning();
+      try {
+        if (entry.companyId) {
+          publishLiveEvent({
+            companyId: entry.companyId,
+            type: "knowledge.created",
+            payload: { id: entry.id, title: entry.title, category: entry.category },
+          });
+        }
+      } catch { /* non-fatal */ }
       return entry;
     },
 
@@ -134,6 +144,16 @@ export function createKnowledgeService(db: Db) {
         .limit(limit)
         .offset(offset);
 
+      try {
+        if (input.companyId) {
+          publishLiveEvent({
+            companyId: input.companyId,
+            type: "knowledge.searched",
+            payload: { query: input.query, resultCount: results.length },
+          });
+        }
+      } catch { /* non-fatal */ }
+
       return results;
     },
 
@@ -162,15 +182,38 @@ export function createKnowledgeService(db: Db) {
         })
         .where(eq(knowledgeStore.id, id))
         .returning({ id: knowledgeStore.id, accessCount: knowledgeStore.accessCount });
+      try {
+        const full = await this.getById(id);
+        if (full?.companyId) {
+          publishLiveEvent({
+            companyId: full.companyId,
+            type: "knowledge.learned",
+            payload: { id, accessCount: updated?.accessCount },
+          });
+        }
+      } catch { /* non-fatal */ }
       return updated ?? null;
     },
 
     /** Mark an entry as superseded by another */
     async supersede(oldId: string, newId: string) {
+      const [old] = await db
+        .select({ companyId: knowledgeStore.companyId })
+        .from(knowledgeStore)
+        .where(eq(knowledgeStore.id, oldId));
       await db
         .update(knowledgeStore)
         .set({ supersededBy: newId, updatedAt: new Date() })
         .where(eq(knowledgeStore.id, oldId));
+      try {
+        if (old?.companyId) {
+          publishLiveEvent({
+            companyId: old.companyId,
+            type: "knowledge.superseded",
+            payload: { oldId, newId },
+          });
+        }
+      } catch { /* non-fatal */ }
     },
 
     /** Bulk import from Vault/claude-mem/OpenClaw */
@@ -248,6 +291,60 @@ export function createKnowledgeService(db: Db) {
         active: activeResult[0]?.count ?? 0,
         categories: catResult.map((r) => r.category),
         platforms: platResult.map((r) => r.platform),
+      };
+    },
+
+    /** Weekly brain digest — last 7 days summary */
+    async getWeeklyDigest() {
+      const weekAgo = new Date(Date.now() - 7 * 86400000);
+
+      const newEntries = await db
+        .select({
+          id: knowledgeStore.id,
+          title: knowledgeStore.title,
+          category: knowledgeStore.category,
+          tags: knowledgeStore.tags,
+          createdAt: knowledgeStore.createdAt,
+        })
+        .from(knowledgeStore)
+        .where(gte(knowledgeStore.createdAt, weekAgo))
+        .orderBy(desc(knowledgeStore.createdAt))
+        .limit(20);
+
+      const topAccessed = await db
+        .select({
+          id: knowledgeStore.id,
+          title: knowledgeStore.title,
+          accessCount: knowledgeStore.accessCount,
+          relevanceScore: knowledgeStore.relevanceScore,
+        })
+        .from(knowledgeStore)
+        .where(isNull(knowledgeStore.supersededBy))
+        .orderBy(desc(knowledgeStore.accessCount))
+        .limit(5);
+
+      const lowRelevance = await db
+        .select({
+          id: knowledgeStore.id,
+          title: knowledgeStore.title,
+          relevanceScore: knowledgeStore.relevanceScore,
+          accessCount: knowledgeStore.accessCount,
+        })
+        .from(knowledgeStore)
+        .where(
+          and(
+            isNull(knowledgeStore.supersededBy),
+            lte(knowledgeStore.relevanceScore, 0.3),
+          ),
+        )
+        .orderBy(knowledgeStore.relevanceScore)
+        .limit(5);
+
+      return {
+        period: { from: weekAgo.toISOString(), to: new Date().toISOString() },
+        newEntries: { count: newEntries.length, items: newEntries },
+        topAccessed: { items: topAccessed },
+        lowRelevance: { items: lowRelevance, message: "Consider pruning or updating these entries" },
       };
     },
   };

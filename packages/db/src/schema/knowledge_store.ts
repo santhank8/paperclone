@@ -28,6 +28,7 @@ export const knowledgeStore = pgTable(
     accessCount: integer("access_count").notNull().default(0),
     supersededBy: uuid("superseded_by").references((): AnyPgColumn => knowledgeStore.id),
     ttlDays: integer("ttl_days"),
+    searchVector: text("search_vector"), // managed by PostgreSQL trigger, not by ORM
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
