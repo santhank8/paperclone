@@ -211,6 +211,7 @@ export function IssueDetail() {
   });
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
   const [attachmentDragActive, setAttachmentDragActive] = useState(false);
+  const [visibleActivityCount, setVisibleActivityCount] = useState(20);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const lastMarkedReadIssueIdRef = useRef<string | null>(null);
 
@@ -779,6 +780,7 @@ export function IssueDetail() {
               size="icon-xs"
               onClick={copyIssueToClipboard}
               title="Copy issue as markdown"
+              aria-label="Copy issue as markdown"
             >
               {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
             </Button>
@@ -787,6 +789,7 @@ export function IssueDetail() {
               size="icon-xs"
               onClick={() => setMobilePropsOpen(true)}
               title="Properties"
+              aria-label="Show properties"
             >
               <SlidersHorizontal className="h-4 w-4" />
             </Button>
@@ -798,6 +801,7 @@ export function IssueDetail() {
               size="icon-xs"
               onClick={copyIssueToClipboard}
               title="Copy issue as markdown"
+              aria-label="Copy issue as markdown"
             >
               {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
             </Button>
@@ -810,6 +814,7 @@ export function IssueDetail() {
               )}
               onClick={() => setPanelVisible(true)}
               title="Show properties"
+              aria-label="Show properties"
             >
               <SlidersHorizontal className="h-4 w-4" />
             </Button>
@@ -960,6 +965,7 @@ export function IssueDetail() {
                   onClick={() => deleteAttachment.mutate(attachment.id)}
                   disabled={deleteAttachment.isPending}
                   title="Delete attachment"
+                  aria-label="Delete attachment"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
                 </button>
@@ -1099,13 +1105,26 @@ export function IssueDetail() {
             <p className="text-xs text-muted-foreground">No activity yet.</p>
           ) : (
             <div className="space-y-1.5">
-              {activity.slice(0, 20).map((evt) => (
+              <p className="text-[10px] text-muted-foreground/60">
+                Showing {Math.min(visibleActivityCount, activity.length)} of {activity.length} event{activity.length !== 1 ? "s" : ""}
+              </p>
+              {activity.slice(0, visibleActivityCount).map((evt) => (
                 <div key={evt.id} className="flex items-center gap-1.5 text-xs text-muted-foreground">
                   <ActorIdentity evt={evt} agentMap={agentMap} />
                   <span>{formatAction(evt.action, evt.details)}</span>
                   <span className="ml-auto shrink-0">{relativeTime(evt.createdAt)}</span>
                 </div>
               ))}
+              {visibleActivityCount < activity.length && (
+                <button
+                  type="button"
+                  className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+                  onClick={() => setVisibleActivityCount((c) => c + 20)}
+                >
+                  <ChevronDown className="h-3 w-3" />
+                  Load more ({activity.length - visibleActivityCount} remaining)
+                </button>
+              )}
             </div>
           )}
         </TabsContent>
