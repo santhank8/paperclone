@@ -87,7 +87,7 @@ async function main() {
       GROUP BY DATE(created_at) ORDER BY date
     `).all() as any[];
 
-    // Settlement
+    // Settlement — overall
     const settle = db.prepare(`
       SELECT
         COUNT(DISTINCT CASE WHEN status = 'close' AND is_exit_position = 0 THEN order_id END) AS settled,
@@ -95,6 +95,27 @@ async function main() {
         COUNT(DISTINCT order_id) AS total
       FROM _order_flat WHERE created_at >= ${range.sql} AND status IN ('close', 'cancel')
     `).get() as any;
+
+    // Settlement — per token
+    const settleByToken = db.prepare(`
+      SELECT
+        token_symbol AS symbol,
+        COUNT(DISTINCT CASE WHEN status = 'close' AND is_exit_position = 0 THEN order_id END) AS settled,
+        COUNT(DISTINCT CASE WHEN status = 'cancel' THEN order_id END) AS cancelled,
+        COUNT(DISTINCT order_id) AS total
+      FROM _order_flat
+      WHERE created_at >= ${range.sql} AND status IN ('close', 'cancel')
+      GROUP BY token_symbol
+      HAVING settled > 0 OR cancelled > 0
+      ORDER BY total DESC
+      LIMIT 10
+    `).all().map((r: any) => ({
+      symbol: r.symbol,
+      settled: r.settled,
+      cancelled: r.cancelled,
+      total: r.total,
+      rate: r.total > 0 ? (r.settled / r.total) * 100 : 0,
+    }));
 
     // GA4
     let gaData: any = null;
@@ -131,6 +152,7 @@ async function main() {
       settledOrders: settle?.settled,
       cancelledOrders: settle?.cancelled,
       settleRate: settle?.total > 0 ? (settle.settled / settle.total) * 100 : undefined,
+      settleByToken,
     };
 
     console.log("  → Building HTML...");

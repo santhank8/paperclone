@@ -31,6 +31,7 @@ export interface ReportData {
   settledOrders?: number;
   cancelledOrders?: number;
   settleRate?: number;
+  settleByToken?: Array<{ symbol: string; settled: number; cancelled: number; total: number; rate: number }>;
 }
 
 function pctChange(cur: number, prev: number): string {
@@ -192,25 +193,29 @@ ${data.trafficSources && data.trafficSources.length > 0 ? `
 ` : ''}
 
 <!-- Settlement -->
-${data.settleRate !== undefined ? `
 <div class="section">
   <div class="section-title">⚖️ Settlement Performance</div>
-  <div class="metrics-grid" style="grid-template-columns: repeat(3, 1fr)">
-    <div class="metric-card">
-      <div class="label">Settlement Rate</div>
-      <div class="value" style="color:${(data.settleRate ?? 0) >= 80 ? '#4ade80' : (data.settleRate ?? 0) >= 50 ? '#fbbf24' : '#f87171'}">${data.settleRate?.toFixed(1)}%</div>
-    </div>
-    <div class="metric-card">
-      <div class="label">Settled</div>
-      <div class="value">${data.settledOrders}</div>
-    </div>
-    <div class="metric-card">
-      <div class="label">Cancelled</div>
-      <div class="value" style="color:#f87171">${data.cancelledOrders}</div>
-    </div>
-  </div>
+  ${(data.settleByToken ?? []).length === 0
+    ? `<div class="metric-card" style="text-align:center;padding:20px"><div class="value" style="color:#94a3b8;font-size:16px">Không có token nào được settle trong kỳ này</div></div>`
+    : `<div class="landing-list">
+      <div class="landing-item" style="font-weight:600;color:#94a3b8;font-size:11px;text-transform:uppercase">
+        <span style="flex:1">Token</span>
+        <span style="width:60px;text-align:center">Settled</span>
+        <span style="width:60px;text-align:center">Cancel</span>
+        <span style="width:70px;text-align:right">Rate</span>
+      </div>
+      ${(data.settleByToken ?? []).map(t => {
+        const rateColor = t.rate >= 80 ? '#4ade80' : t.rate >= 50 ? '#fbbf24' : '#f87171';
+        return `<div class="landing-item">
+          <span class="page" style="flex:1">$${t.symbol}</span>
+          <span style="width:60px;text-align:center;color:#4ade80">${t.settled}</span>
+          <span style="width:60px;text-align:center;color:#f87171">${t.cancelled}</span>
+          <span style="width:70px;text-align:right;font-weight:700;color:${rateColor}">${t.rate.toFixed(1)}%</span>
+        </div>`;
+      }).join("")}
+    </div>`
+  }
 </div>
-` : ''}
 
 <script>
 Chart.defaults.color = '#94a3b8';
