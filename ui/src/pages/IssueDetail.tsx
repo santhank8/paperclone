@@ -714,7 +714,7 @@ export function IssueDetail() {
     : undefined;
 
   const issueContent = (
-    <div className="max-w-2xl space-y-6 animate-page-enter">
+    <div className="max-w-2xl space-y-6 pb-16 animate-page-enter">
       {/* Parent chain breadcrumb */}
       {ancestors.length > 0 && (
         <nav className="flex items-center gap-1 text-xs text-muted-foreground flex-wrap">
@@ -1358,6 +1358,11 @@ export function IssueDetail() {
                     onDelete={(scheduleId) => deleteRecurring.mutate(scheduleId)}
                     updating={updateRecurring.isPending}
                     deleting={deleteRecurring.isPending}
+                    issueIdentifier={
+                      schedule.issueId === issue?.id
+                        ? (issue.identifier ?? issue.id.slice(0, 8))
+                        : null
+                    }
                   />
                 ))}
               </div>

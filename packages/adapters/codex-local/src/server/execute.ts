@@ -122,6 +122,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     asString(config.reasoningEffort, ""),
   );
   const search = asBoolean(config.search, false);
+  const mode = asString(config.mode, "").trim().toLowerCase() === "plan" ? "plan" as const : null;
   const bypass = asBoolean(
     config.dangerouslyBypassApprovalsAndSandbox,
     asBoolean(config.dangerouslyBypassSandbox, false),
@@ -161,6 +162,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
   const injectedEnv: Record<string, string> = { ...buildPaperclipEnv(agent) };
   injectedEnv.PAPERCLIP_RUN_ID = runId;
   injectedEnv.AGENT_HOME = cwd;
+  if (mode) injectedEnv.PAPERCLIP_MODE = mode;
   const wakeTaskId =
     (typeof context.taskId === "string" && context.taskId.trim().length > 0 && context.taskId.trim()) ||
     (typeof context.issueId === "string" && context.issueId.trim().length > 0 && context.issueId.trim()) ||
@@ -362,6 +364,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     const args = ["exec", "--json"];
     if (search) args.unshift("--search");
     if (bypass) args.push("--dangerously-bypass-approvals-and-sandbox");
+    if (mode === "plan") args.push("--sandbox", "read-only");
     if (model) args.push("--model", model);
     if (modelReasoningEffort) args.push("-c", `model_reasoning_effort=${JSON.stringify(modelReasoningEffort)}`);
     if (extraArgs.length > 0) args.push(...extraArgs);

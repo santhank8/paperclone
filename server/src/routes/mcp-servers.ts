@@ -185,5 +185,68 @@ export function mcpServerRoutes(db: Db) {
     }
   });
 
+  const MCP_INSTRUCTIONS_DIR = ".agents/mcp-instructions";
+
+  function instructionsPath(cwd: string, serverName: string): string {
+    const safeName = serverName.replace(/[^a-zA-Z0-9_-]/g, "_");
+    return path.resolve(cwd, MCP_INSTRUCTIONS_DIR, `${safeName}.md`);
+  }
+
+  /**
+   * GET /api/agents/:id/mcp-servers/:serverName/instructions
+   * Reads per-MCP custom instructions from disk.
+   */
+  router.get("/agents/:id/mcp-servers/:serverName/instructions", async (req, res, next) => {
+    try {
+      const agent = await resolveAgent(req);
+      assertCompanyAccess(req, agent.companyId);
+
+      const cwd = getCwd(agent);
+      const serverName = req.params.serverName as string;
+      if (!serverName?.trim()) throw badRequest("Server name is required");
+
+      const filePath = instructionsPath(cwd, serverName);
+
+      let content = "";
+      try {
+        content = await fs.readFile(filePath, "utf-8");
+      } catch (err: unknown) {
+        if ((err as NodeJS.ErrnoException).code !== "ENOENT") throw err;
+      }
+
+      res.json({ content, serverName });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  /**
+   * PUT /api/agents/:id/mcp-servers/:serverName/instructions
+   * Writes per-MCP custom instructions to disk.
+   */
+  router.put("/agents/:id/mcp-servers/:serverName/instructions", async (req, res, next) => {
+    try {
+      const agent = await resolveAgent(req);
+      assertCompanyAccess(req, agent.companyId);
+
+      const cwd = getCwd(agent);
+      const serverName = req.params.serverName as string;
+      if (!serverName?.trim()) throw badRequest("Server name is required");
+
+      const body = req.body as { content?: string };
+      if (typeof body.content !== "string") {
+        throw badRequest("Request body must include a `content` string");
+      }
+
+      const filePath = instructionsPath(cwd, serverName);
+      await fs.mkdir(path.dirname(filePath), { recursive: true });
+      await fs.writeFile(filePath, body.content, "utf-8");
+
+      res.json({ content: body.content, serverName });
+    } catch (err) {
+      next(err);
+    }
+  });
+
   return router;
 }

@@ -915,20 +915,14 @@ function AgentOverview({
         ) : (
           <div className="space-y-2">
             {schedules.map((schedule) => (
-              <div key={schedule.id}>
-                <RecurringScheduleCard
-                  schedule={schedule}
-                  onUpdate={onUpdateSchedule}
-                  onDelete={onDeleteSchedule}
-                  updating={updatingSchedule}
-                  deleting={deletingSchedule}
-                />
-                {schedule.issueId && (
-                  <div className="mt-1 ml-5 text-[10px] text-muted-foreground">
-                    Linked to issue <Link to={`/issues/${schedule.issueId}`} className="underline hover:text-foreground">{schedule.issueId.slice(0, 8)}</Link>
-                  </div>
-                )}
-              </div>
+              <RecurringScheduleCard
+                key={schedule.id}
+                schedule={schedule}
+                onUpdate={onUpdateSchedule}
+                onDelete={onDeleteSchedule}
+                updating={updatingSchedule}
+                deleting={deletingSchedule}
+              />
             ))}
           </div>
         )}

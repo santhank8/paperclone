@@ -157,6 +157,12 @@ const claudeThinkingEffortOptions = [
   { id: "high", label: "High" },
 ] as const;
 
+const agentModeOptions = [
+  { id: "", label: "Default (Act)" },
+  { id: "plan", label: "Plan (read-only)" },
+] as const;
+
+const ADAPTERS_WITH_PLAN_MODE = new Set(["claude_local", "codex_local", "opencode_local"]);
 
 /* ---- Form ---- */
 
@@ -712,6 +718,31 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
                     Codex may reject `minimal` thinking when search is enabled.
                   </p>
                 )}
+
+              {ADAPTERS_WITH_PLAN_MODE.has(adapterType) && (
+                <Field label="Mode" hint={help.mode}>
+                  <select
+                    value={
+                      isCreate
+                        ? val!.mode
+                        : eff("adapterConfig", "mode", String(config.mode ?? ""))
+                    }
+                    onChange={(e) =>
+                      isCreate
+                        ? set!({ mode: e.target.value })
+                        : mark("adapterConfig", "mode", e.target.value || undefined)
+                    }
+                    className={inputClass}
+                  >
+                    {agentModeOptions.map((opt) => (
+                      <option key={opt.id} value={opt.id}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+              )}
+
               <Field label="Bootstrap prompt (first run)" hint={help.bootstrapPrompt}>
                 <MarkdownEditor
                   value={

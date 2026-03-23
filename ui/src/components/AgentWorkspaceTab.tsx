@@ -275,6 +275,14 @@ function FileViewer({
             <p className="text-xs text-muted-foreground mt-1">
               {contentQuery.error instanceof Error ? contentQuery.error.message : "Unknown error"}
             </p>
+            <Button
+              variant="outline"
+              size="sm"
+              className="mt-3"
+              onClick={() => contentQuery.refetch()}
+            >
+              Retry
+            </Button>
           </div>
         </div>
       )}

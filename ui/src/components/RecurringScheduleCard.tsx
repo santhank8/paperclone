@@ -1,9 +1,10 @@
 import { useMemo, useState } from "react";
+import { Link } from "@/lib/router";
 import type { TaskCronSchedule, TaskCronIssueMode } from "@paperclipai/shared";
 import { cronPresetOptions } from "../lib/cron-presets";
 import { relativeTime } from "../lib/utils";
 import { Button } from "@/components/ui/button";
-import { Clock3, Pencil, Save, Trash2, X } from "lucide-react";
+import { Clock3, ExternalLink, Pencil, Save, Trash2, X } from "lucide-react";
 
 type ScheduleUpdate = Partial<{
   name: string;
@@ -19,6 +20,7 @@ interface RecurringScheduleCardProps {
   onDelete: (scheduleId: string) => void;
   updating: boolean;
   deleting: boolean;
+  issueIdentifier?: string | null;
 }
 
 export function RecurringScheduleCard({
@@ -27,6 +29,7 @@ export function RecurringScheduleCard({
   onDelete,
   updating,
   deleting,
+  issueIdentifier,
 }: RecurringScheduleCardProps) {
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(schedule.name);
@@ -104,16 +107,30 @@ export function RecurringScheduleCard({
             </Button>
           </span>
         </div>
-        <div className="mt-1 text-[10px] text-muted-foreground">
-          {schedule.enabled ? "Active" : "Disabled"}
-          {" · "}
-          {schedule.issueMode === "reopen_existing"
-            ? "reopens issue"
-            : schedule.issueMode === "reuse_existing"
-              ? "reuses issue"
-              : "creates new issue"}
-          {" · next "}
-          {schedule.nextTriggerAt ? relativeTime(schedule.nextTriggerAt) : "not scheduled"}
+        <div className="mt-1 flex items-center gap-1.5 text-[10px] text-muted-foreground flex-wrap">
+          <span>{schedule.enabled ? "Active" : "Disabled"}</span>
+          <span>·</span>
+          <span>
+            {schedule.issueMode === "reopen_existing"
+              ? "reopens issue"
+              : schedule.issueMode === "reuse_existing"
+                ? "reuses issue"
+                : "creates new issue"}
+          </span>
+          <span>·</span>
+          <span>next {schedule.nextTriggerAt ? relativeTime(schedule.nextTriggerAt) : "not scheduled"}</span>
+          {schedule.issueId && (
+            <>
+              <span>·</span>
+              <Link
+                to={`/issues/${schedule.issueId}`}
+                className="inline-flex items-center gap-0.5 underline hover:text-foreground"
+              >
+                {issueIdentifier || schedule.issueId.slice(0, 8)}
+                <ExternalLink className="h-2.5 w-2.5" />
+              </Link>
+            </>
+          )}
         </div>
       </div>
     );
@@ -182,6 +199,18 @@ export function RecurringScheduleCard({
           <option value="create_new">Create a new issue each run</option>
         </select>
       </div>
+      {schedule.issueId && (
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <span>Linked issue:</span>
+          <Link
+            to={`/issues/${schedule.issueId}`}
+            className="inline-flex items-center gap-1 underline hover:text-foreground font-medium"
+          >
+            {issueIdentifier || schedule.issueId.slice(0, 8)}
+            <ExternalLink className="h-3 w-3" />
+          </Link>
+        </div>
+      )}
       <div className="flex items-center gap-2 pt-1">
         <Button
           size="sm"

@@ -127,15 +127,29 @@ function looksLikeFilePath(text: string): boolean {
 }
 
 function resolveWorkspacePath(text: string, cwd: string | null): string | null {
-  const cleaned = text.replace(/^\.\//, "");
+  let cleaned = text.trim().replace(/^\.\//, "");
+
+  // Expand common agent env-var references against cwd
+  if (cwd && /^\$[\w_]+\//.test(cleaned)) {
+    const afterVar = cleaned.replace(/^\$[\w_]+\//, "");
+    // Check if the remainder starts with a path segment that exists within cwd
+    const cwdSegments = cwd.replace(/\/$/, "").split("/");
+    const lastSeg = cwdSegments[cwdSegments.length - 1];
+    if (lastSeg && afterVar.startsWith(lastSeg + "/")) {
+      return afterVar.slice(lastSeg.length + 1);
+    }
+    return afterVar;
+  }
 
   if (cwd) {
     const normalizedCwd = cwd.endsWith("/") ? cwd : cwd + "/";
 
+    // Full absolute match
     if (cleaned.startsWith(normalizedCwd)) {
       return cleaned.slice(normalizedCwd.length);
     }
 
+    // Partial suffix match (for paths that share a tail with cwd)
     const cwdSegments = normalizedCwd.replace(/\/$/, "").split("/");
     for (let i = 1; i < cwdSegments.length; i++) {
       const suffix = cwdSegments.slice(i).join("/") + "/";
@@ -144,6 +158,9 @@ function resolveWorkspacePath(text: string, cwd: string | null): string | null {
       }
     }
   }
+
+  // If still an absolute path after all resolution, return null (unresolvable)
+  if (cleaned.startsWith("/")) return null;
 
   return cleaned;
 }

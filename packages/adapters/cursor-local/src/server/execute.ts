@@ -222,6 +222,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
   const injectedEnv: Record<string, string> = { ...buildPaperclipEnv(agent) };
   injectedEnv.PAPERCLIP_RUN_ID = runId;
   injectedEnv.AGENT_HOME = cwd;
+  if (mode) injectedEnv.PAPERCLIP_MODE = mode;
   const wakeTaskId =
     (typeof context.taskId === "string" && context.taskId.trim().length > 0 && context.taskId.trim()) ||
     (typeof context.issueId === "string" && context.issueId.trim().length > 0 && context.issueId.trim()) ||

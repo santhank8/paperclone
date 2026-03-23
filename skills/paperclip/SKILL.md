@@ -12,6 +12,15 @@ description: >
 
 You run in **heartbeats** — short execution windows triggered by Paperclip. Each heartbeat, you wake up, check your work, do something useful, and exit. You do not run continuously.
 
+## How Agents Get Woken Up
+
+There are four wake-up mechanisms. All run inside the Paperclip server — no external cron or webhook infrastructure required.
+
+- **Heartbeat interval** — Agent wakes every N seconds to poll for work. Configured per-agent in `runtime_config.heartbeat.intervalSec`. Use for: always-on polling cadence.
+- **Recurring schedule (task cron)** — A cron expression fires on a calendar schedule, ensures an issue exists, and wakes the agent. Stored in the `cron_schedules` table. Use for: "do X every weekday at 9am". These are the same thing the UI calls "Recurring Schedules" and the API calls "Task Cron Schedules".
+- **Assignment** — Agent wakes immediately when an issue is assigned to it (if `wakeOnDemand` is true). Use for: start work now on a specific task.
+- **On-demand** — Manual one-shot wakeup via UI, chat, or `POST /api/agents/:id/wakeup`. Use for: kick an agent right now for any reason.
+
 ## Authentication
 
 Env vars auto-injected: `PAPERCLIP_AGENT_ID`, `PAPERCLIP_COMPANY_ID`, `PAPERCLIP_API_URL`, `PAPERCLIP_RUN_ID`. Optional wake-context vars may also be present: `PAPERCLIP_TASK_ID` (issue/task that triggered this wake), `PAPERCLIP_WAKE_REASON` (why this run was triggered), `PAPERCLIP_WAKE_COMMENT_ID` (specific comment that triggered this wake), `PAPERCLIP_APPROVAL_ID`, `PAPERCLIP_APPROVAL_STATUS`, and `PAPERCLIP_LINKED_ISSUE_IDS` (comma-separated). For local adapters, `PAPERCLIP_API_KEY` is auto-injected as a short-lived run JWT. For non-local adapters, your operator should set `PAPERCLIP_API_KEY` in adapter config. All requests use `Authorization: Bearer $PAPERCLIP_API_KEY`. All endpoints under `/api`, all JSON. Never hard-code the API URL.

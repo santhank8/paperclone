@@ -377,6 +377,7 @@ export function eventRoutingService(db: Db) {
     rawBody: string;
   }) {
     const { endpoint, headers, rawBody } = input;
+    if (endpoint.provider === "email") return true;
     const secret = endpoint.secret;
     if (!secret) return false;
 
@@ -398,7 +399,7 @@ export function eventRoutingService(db: Db) {
       return safeHexCompare(signature.digest, expectedDigest);
     }
 
-    const signatureHeader = asString(headers["x-paperclip-signature"]) ?? asString(headers["x-webhook-signature"]);
+    const signatureHeader = asString(headers["x-paperclip-signature"]) ?? asString(headers["x-webhook-signature"]) ?? asString(headers["x-agentmail-signature"]);
     if (!signatureHeader) return false;
     const parsed = parseWebhookSignature(signatureHeader);
     if (parsed?.algorithm === "sha256") {
@@ -659,6 +660,7 @@ export function eventRoutingService(db: Db) {
         : {
           eventType:
             asString(headerMap["x-event-type"]) ??
+            asString(input.payload.event_type) ??
             asString(input.payload.eventType) ??
             asString(input.payload.type) ??
             "unknown",

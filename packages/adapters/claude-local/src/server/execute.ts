@@ -160,6 +160,8 @@ async function buildClaudeRuntimeConfig(input: ClaudeExecutionInput): Promise<Cl
   const injectedEnv: Record<string, string> = { ...buildPaperclipEnv(agent) };
   injectedEnv.PAPERCLIP_RUN_ID = runId;
   injectedEnv.AGENT_HOME = cwd;
+  const runtimeMode = asString(config.mode, "").trim().toLowerCase() === "plan" ? "plan" : null;
+  if (runtimeMode) injectedEnv.PAPERCLIP_MODE = runtimeMode;
 
   const wakeTaskId =
     (typeof context.taskId === "string" && context.taskId.trim().length > 0 && context.taskId.trim()) ||
@@ -341,6 +343,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
   );
   const model = asString(config.model, "");
   const effort = asString(config.effort, "");
+  const mode = asString(config.mode, "").trim().toLowerCase() === "plan" ? "plan" as const : null;
   const chrome = asBoolean(config.chrome, false);
   const maxTurns = asNumber(config.maxTurnsPerRun, 0);
   const dangerouslySkipPermissions = asBoolean(config.dangerouslySkipPermissions, false);
@@ -419,6 +422,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     const args = ["--print", "-", "--output-format", "stream-json", "--verbose"];
     if (resumeSessionId) args.push("--resume", resumeSessionId);
     if (dangerouslySkipPermissions) args.push("--dangerously-skip-permissions");
+    if (mode === "plan") args.push("--permission-mode", "plan");
     if (chrome) args.push("--chrome");
     if (model) args.push("--model", model);
     if (effort) args.push("--effort", effort);

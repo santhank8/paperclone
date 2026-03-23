@@ -2,6 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { and, asc, desc, eq, gt, inArray, ne, sql } from "drizzle-orm";
 import { resolveConfiguredEnvFilePath } from "@paperclipai/adapter-utils/server-utils";
+import { mcpConfigPath, fromClaudeMcpJson, fromOpenCodeJson, fromCodexToml } from "@paperclipai/adapter-utils";
 import type { Db } from "@paperclipai/db";
 import {
   agents,
@@ -649,7 +650,73 @@ async function buildAgentSelfContext(
     }
   }
 
+  if (cwd && agent.adapterType) {
+    const mcpInstructions = await loadMcpInstructions(cwd, agent.adapterType);
+    if (mcpInstructions.length > 0) {
+      lines.push("");
+      for (const { serverName, content } of mcpInstructions) {
+        lines.push(`## MCP: ${serverName}`);
+        lines.push(content);
+        lines.push("");
+      }
+    }
+  }
+
   return lines.join("\n");
+}
+
+const MCP_INSTRUCTIONS_DIR = ".agents/mcp-instructions";
+
+async function loadMcpInstructions(
+  cwd: string,
+  adapterType: string,
+): Promise<Array<{ serverName: string; content: string }>> {
+  const pathInfo = mcpConfigPath(adapterType);
+  if (!pathInfo) return [];
+
+  const fullConfigPath = path.resolve(cwd, pathInfo.filePath);
+  let serverNames: string[];
+  try {
+    const raw = await fs.readFile(fullConfigPath, "utf-8");
+    let parsed: Record<string, unknown>;
+    switch (pathInfo.format) {
+      case "claude":
+      case "cursor":
+        parsed = fromClaudeMcpJson(raw);
+        break;
+      case "opencode":
+        parsed = fromOpenCodeJson(raw);
+        break;
+      case "codex":
+        parsed = fromCodexToml(raw);
+        break;
+      default:
+        return [];
+    }
+    serverNames = Object.keys(parsed);
+  } catch {
+    return [];
+  }
+
+  if (serverNames.length === 0) return [];
+
+  const instructionsDir = path.resolve(cwd, MCP_INSTRUCTIONS_DIR);
+  const results: Array<{ serverName: string; content: string }> = [];
+
+  for (const name of serverNames) {
+    const safeName = name.replace(/[^a-zA-Z0-9_-]/g, "_");
+    const filePath = path.resolve(instructionsDir, `${safeName}.md`);
+    try {
+      const content = await fs.readFile(filePath, "utf-8");
+      if (content.trim()) {
+        results.push({ serverName: name, content: content.trim() });
+      }
+    } catch {
+      // No instructions file for this server -- skip
+    }
+  }
+
+  return results;
 }
 
 export function heartbeatService(db: Db) {

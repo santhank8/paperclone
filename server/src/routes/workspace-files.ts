@@ -42,9 +42,19 @@ function mimeForExt(filename: string): string {
 }
 
 function sanitizePath(workspaceRoot: string, requestedPath: string): string {
-  const normalized = path.normalize(requestedPath).replace(/^\/+/, "");
-  const resolved = path.resolve(workspaceRoot, normalized);
   const rootWithSep = workspaceRoot.endsWith(path.sep) ? workspaceRoot : workspaceRoot + path.sep;
+
+  // If the request is already an absolute path within the workspace, use it directly
+  const trimmed = requestedPath.trim();
+  if (path.isAbsolute(trimmed)) {
+    const normalizedAbs = path.normalize(trimmed);
+    if (normalizedAbs === workspaceRoot || normalizedAbs.startsWith(rootWithSep)) {
+      return normalizedAbs;
+    }
+  }
+
+  const normalized = path.normalize(trimmed).replace(/^\/+/, "");
+  const resolved = path.resolve(workspaceRoot, normalized);
   if (resolved !== workspaceRoot && !resolved.startsWith(rootWithSep)) {
     throw forbidden("Path escapes workspace root");
   }

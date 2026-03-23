@@ -73,6 +73,7 @@ export function buildCodexLocalConfig(v: CreateConfigValues): Record<string, unk
   if (v.promptTemplate) ac.promptTemplate = v.promptTemplate;
   ac.model = v.model || DEFAULT_CODEX_LOCAL_MODEL;
   if (v.thinkingEffort) ac.modelReasoningEffort = v.thinkingEffort;
+  if (v.mode) ac.mode = v.mode;
   ac.timeoutSec = 0;
   ac.graceSec = 15;
   const env = parseEnvBindings(v.envBindings);

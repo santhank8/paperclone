@@ -361,7 +361,9 @@ export function CommentThread({
     <div className="space-y-4">
       <h3 className="text-sm font-semibold">Comments &amp; Runs ({timeline.length})</h3>
 
-      <TimelineList timeline={timeline} agentMap={agentMap} highlightCommentId={highlightCommentId} />
+      <div className={timeline.length > 10 ? "max-h-[70vh] overflow-y-auto rounded-md border border-border/50 p-1" : undefined}>
+        <TimelineList timeline={timeline} agentMap={agentMap} highlightCommentId={highlightCommentId} />
+      </div>
 
       {liveRunSlot}
 

@@ -22,6 +22,7 @@ Core fields:
 - instructionsFilePath (string, optional): absolute path to a markdown instructions file prepended to the run prompt
 - model (string, required): OpenCode model id in provider/model format (for example anthropic/claude-sonnet-4-5)
 - variant (string, optional): provider-specific model variant (for example minimal|low|medium|high|max)
+- mode (string, optional): execution mode. Set to "plan" for read-only analysis mode (passes --agent plan). Default: normal execution.
 - promptTemplate (string, optional): run prompt template
 - command (string, optional): defaults to "opencode"
 - extraArgs (string[], optional): additional CLI args

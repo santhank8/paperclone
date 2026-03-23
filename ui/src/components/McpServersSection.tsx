@@ -1,7 +1,7 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { Plus, Trash2, Server, ToggleLeft, ToggleRight, Pencil, X, Check, Zap, Loader2 } from "lucide-react";
+import { Plus, Trash2, Server, ToggleLeft, ToggleRight, Pencil, X, Check, Zap, Loader2, FileText, ChevronDown, ChevronRight } from "lucide-react";
 import { cn } from "../lib/utils";
 import { api } from "../api/client";
 import { queryKeys } from "../lib/queryKeys";
@@ -30,6 +30,11 @@ interface McpServersResponse {
   filePath: string | null;
 }
 
+interface McpInstructionsResponse {
+  content: string;
+  serverName: string;
+}
+
 const SECRET_PATTERNS = /_KEY$|_SECRET$|_TOKEN$|_PASSWORD$/i;
 
 function maskValue(key: string, value: string): string {
@@ -49,6 +54,127 @@ const AGENTMAIL_PRESET: McpServerEntry = {
   env: { AGENTMAIL_API_KEY: "" },
   enabled: true,
 };
+
+const AGENTMAIL_DEFAULT_INSTRUCTIONS = `# AgentMail
+
+## Handling inbound email
+
+When you are woken by an email event (\`PAPERCLIP_EVENT_TYPE\` = \`message.received\`):
+
+1. **Read the payload** -- Parse \`PAPERCLIP_EVENT_PAYLOAD\` (JSON string) to get \`message.from\`, \`message.subject\`, \`message.text\`, \`message.thread_id\`, and \`thread.message_count\`.
+
+2. **Thread awareness** -- If \`thread.message_count\` is greater than 1, this is a reply in an existing conversation. Use \`get_thread\` (AgentMail MCP) to load the full thread history before responding so you have context on what was said previously.
+
+3. **Reply before closing** -- If the email expects a response (a question, a request, an introduction, anything conversational), reply via \`reply_to_message\` using the \`thread_id\` **before** closing the Paperclip issue. Never close an issue that was triggered by an email without replying when a reply is clearly expected.
+
+4. **Close the loop on both sides**:
+   - Reply to the email (if a response is needed)
+   - Post a comment on the Paperclip issue summarising what you did (e.g. "Replied to {sender} re: {subject}")
+   - Then close the issue
+
+5. **No-reply emails** -- Not every email needs a reply (newsletters, notifications, automated alerts). If the email is informational and no response is expected, note this in the issue comment and close.
+`;
+
+function InstructionsEditor({
+  agentId,
+  companyId,
+  serverName,
+}: {
+  agentId: string;
+  companyId: string;
+  serverName: string;
+}) {
+  const queryClient = useQueryClient();
+
+  const { data, isLoading } = useQuery({
+    queryKey: queryKeys.mcpInstructions(agentId, serverName),
+    queryFn: () =>
+      api.get<McpInstructionsResponse>(
+        `/agents/${agentId}/mcp-servers/${encodeURIComponent(serverName)}/instructions?companyId=${companyId}`,
+      ),
+  });
+
+  const [draft, setDraft] = useState<string | null>(null);
+  const content = data?.content ?? "";
+
+  useEffect(() => {
+    setDraft(null);
+  }, [content]);
+
+  const saveMutation = useMutation({
+    mutationFn: (nextContent: string) =>
+      api.put<McpInstructionsResponse>(
+        `/agents/${agentId}/mcp-servers/${encodeURIComponent(serverName)}/instructions?companyId=${companyId}`,
+        { content: nextContent },
+      ),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.mcpInstructions(agentId, serverName) });
+      setDraft(null);
+    },
+  });
+
+  const currentValue = draft ?? content;
+  const isDirty = draft !== null && draft !== content;
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center gap-2 text-xs text-muted-foreground/60 py-1">
+        <Loader2 className="h-3 w-3 animate-spin" />
+        Loading instructions...
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-2">
+      <textarea
+        className={cn(inputClass, "h-40 resize-y text-xs leading-relaxed")}
+        value={currentValue}
+        onChange={(e) => setDraft(e.target.value)}
+        placeholder="Add custom instructions for how this agent should use this MCP server..."
+      />
+      <div className="flex items-center gap-2">
+        <Button
+          size="sm"
+          className="h-6 px-2 text-[11px]"
+          onClick={() => saveMutation.mutate(currentValue)}
+          disabled={!isDirty || saveMutation.isPending}
+        >
+          {saveMutation.isPending
+            ? <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+            : <Check className="h-3 w-3 mr-1" />}
+          Save
+        </Button>
+        {isDirty && (
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-6 px-2 text-[11px]"
+            onClick={() => setDraft(null)}
+            disabled={saveMutation.isPending}
+          >
+            Discard
+          </Button>
+        )}
+        {!content && serverName === "AgentMail" && (
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-6 px-2 text-[11px]"
+            onClick={() => setDraft(AGENTMAIL_DEFAULT_INSTRUCTIONS)}
+            disabled={saveMutation.isPending}
+          >
+            <Zap className="h-3 w-3 mr-1" />
+            Load template
+          </Button>
+        )}
+        <span className="text-[10px] text-muted-foreground/40 ml-auto">
+          .agents/mcp-instructions/{serverName}.md
+        </span>
+      </div>
+    </div>
+  );
+}
 
 function ServerForm({
   name: initialName,
@@ -276,6 +402,7 @@ export function McpServersSection({ agentId, adapterType, companyId }: McpServer
   const [editing, setEditing] = useState<string | null>(null);
   const [presetServer, setPresetServer] = useState<McpServerEntry | null>(null);
   const [presetName, setPresetName] = useState("");
+  const [expandedInstructions, setExpandedInstructions] = useState<string | null>(null);
 
   const { data, isLoading, isError } = useQuery({
     queryKey: queryKeys.mcpServers(agentId),
@@ -297,18 +424,32 @@ export function McpServersSection({ agentId, adapterType, companyId }: McpServer
     },
   });
 
+  const writeInstructionsMutation = useMutation({
+    mutationFn: ({ serverName, content }: { serverName: string; content: string }) =>
+      api.put<McpInstructionsResponse>(
+        `/agents/${agentId}/mcp-servers/${encodeURIComponent(serverName)}/instructions?companyId=${companyId}`,
+        { content },
+      ),
+  });
+
   const handleAdd = useCallback(
     (name: string, server: McpServerEntry) => {
       const next = { ...servers, [name]: server };
       saveMutation.mutate(next, {
         onSuccess: () => {
+          if (name === "AgentMail") {
+            writeInstructionsMutation.mutate({
+              serverName: "AgentMail",
+              content: AGENTMAIL_DEFAULT_INSTRUCTIONS,
+            });
+          }
           setAdding(false);
           setPresetServer(null);
           setPresetName("");
         },
       });
     },
-    [servers, saveMutation],
+    [servers, saveMutation, writeInstructionsMutation],
   );
 
   const handleUpdate = useCallback(
@@ -330,8 +471,9 @@ export function McpServersSection({ agentId, adapterType, companyId }: McpServer
       const next = { ...servers };
       delete next[name];
       saveMutation.mutate(next);
+      if (expandedInstructions === name) setExpandedInstructions(null);
     },
-    [servers, saveMutation],
+    [servers, saveMutation, expandedInstructions],
   );
 
   const handleToggle = useCallback(
@@ -356,6 +498,10 @@ export function McpServersSection({ agentId, adapterType, companyId }: McpServer
       setAdding(true);
     }
   }, [servers]);
+
+  const toggleInstructions = useCallback((name: string) => {
+    setExpandedInstructions((prev) => (prev === name ? null : name));
+  }, []);
 
   const entries = Object.entries(servers);
 
@@ -446,51 +592,62 @@ export function McpServersSection({ agentId, adapterType, companyId }: McpServer
             saving={saveMutation.isPending}
           />
         ) : (
-          <div
-            key={name}
-            className="flex items-center gap-2 rounded-md border border-border px-3 py-2 text-xs"
-          >
-            <button
-              className="shrink-0"
-              onClick={() => handleToggle(name)}
-              title={srv.enabled !== false ? "Disable" : "Enable"}
-              disabled={saveMutation.isPending}
-            >
-              {srv.enabled !== false
-                ? <ToggleRight className="h-4 w-4 text-green-600" />
-                : <ToggleLeft className="h-4 w-4 text-muted-foreground" />}
-            </button>
-            <div className="min-w-0 flex-1">
-              <span className={cn("font-medium", srv.enabled === false && "text-muted-foreground line-through")}>
-                {name}
-              </span>
-              <span className="ml-2 text-muted-foreground/60">
-                {srv.transport === "stdio"
-                  ? `${srv.command ?? ""} ${(srv.args ?? []).join(" ")}`.trim()
-                  : srv.url ?? ""}
-              </span>
-              {srv.env && Object.keys(srv.env).length > 0 && (
-                <span className="ml-2 text-muted-foreground/40">
-                  ({Object.entries(srv.env).map(([k, v]) => `${k}=${maskValue(k, v)}`).join(", ")})
+          <div key={name} className="rounded-md border border-border">
+            <div className="flex items-center gap-2 px-3 py-2 text-xs">
+              <button
+                className="shrink-0"
+                onClick={() => handleToggle(name)}
+                title={srv.enabled !== false ? "Disable" : "Enable"}
+                disabled={saveMutation.isPending}
+              >
+                {srv.enabled !== false
+                  ? <ToggleRight className="h-4 w-4 text-green-600" />
+                  : <ToggleLeft className="h-4 w-4 text-muted-foreground" />}
+              </button>
+              <div className="min-w-0 flex-1">
+                <span className={cn("font-medium", srv.enabled === false && "text-muted-foreground line-through")}>
+                  {name}
                 </span>
-              )}
+                <span className="ml-2 text-muted-foreground/60">
+                  {srv.transport === "stdio"
+                    ? `${srv.command ?? ""} ${(srv.args ?? []).join(" ")}`.trim()
+                    : srv.url ?? ""}
+                </span>
+                {srv.env && Object.keys(srv.env).length > 0 && (
+                  <span className="ml-2 text-muted-foreground/40">
+                    ({Object.entries(srv.env).map(([k, v]) => `${k}=${maskValue(k, v)}`).join(", ")})
+                  </span>
+                )}
+              </div>
+              <button
+                className="text-muted-foreground/60 hover:text-foreground transition-colors"
+                onClick={() => toggleInstructions(name)}
+                title="Instructions"
+              >
+                <FileText className={cn("h-3 w-3", expandedInstructions === name && "text-primary")} />
+              </button>
+              <button
+                className="text-muted-foreground/60 hover:text-foreground transition-colors"
+                onClick={() => setEditing(name)}
+                title="Edit"
+                disabled={saveMutation.isPending}
+              >
+                <Pencil className="h-3 w-3" />
+              </button>
+              <button
+                className="text-muted-foreground/60 hover:text-destructive transition-colors"
+                onClick={() => handleRemove(name)}
+                title="Remove"
+                disabled={saveMutation.isPending}
+              >
+                <Trash2 className="h-3 w-3" />
+              </button>
             </div>
-            <button
-              className="text-muted-foreground/60 hover:text-foreground transition-colors"
-              onClick={() => setEditing(name)}
-              title="Edit"
-              disabled={saveMutation.isPending}
-            >
-              <Pencil className="h-3 w-3" />
-            </button>
-            <button
-              className="text-muted-foreground/60 hover:text-destructive transition-colors"
-              onClick={() => handleRemove(name)}
-              title="Remove"
-              disabled={saveMutation.isPending}
-            >
-              <Trash2 className="h-3 w-3" />
-            </button>
+            {expandedInstructions === name && (
+              <div className="border-t border-border px-3 py-2">
+                <InstructionsEditor agentId={agentId} companyId={companyId} serverName={name} />
+              </div>
+            )}
           </div>
         ),
       )}
