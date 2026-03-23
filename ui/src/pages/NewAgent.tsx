@@ -32,6 +32,7 @@ const SUPPORTED_ADVANCED_ADAPTER_TYPES = new Set<CreateConfigValues["adapterType
   "claude_local",
   "codex_local",
   "gemini_local",
+  "ollama_local",
   "opencode_local",
   "pi_local",
   "cursor",
@@ -51,6 +52,8 @@ function createValuesForAdapterType(
     nextValues.model = DEFAULT_GEMINI_LOCAL_MODEL;
   } else if (adapterType === "cursor") {
     nextValues.model = DEFAULT_CURSOR_LOCAL_MODEL;
+  } else if (adapterType === "ollama_local") {
+    nextValues.model = "";
   } else if (adapterType === "opencode_local") {
     nextValues.model = "";
   }
@@ -152,11 +155,12 @@ export function NewAgent() {
     setFormError(null);
     if (configValues.adapterType === "opencode_local") {
       const selectedModel = configValues.model.trim();
+      const allowUndiscoveredModel = configValues.allowUndiscoveredModel === true;
       if (!selectedModel) {
         setFormError("OpenCode requires an explicit model in provider/model format.");
         return;
       }
-      if (adapterModelsError) {
+      if (adapterModelsError && !allowUndiscoveredModel) {
         setFormError(
           adapterModelsError instanceof Error
             ? adapterModelsError.message
@@ -164,12 +168,12 @@ export function NewAgent() {
         );
         return;
       }
-      if (adapterModelsLoading || adapterModelsFetching) {
+      if ((adapterModelsLoading || adapterModelsFetching) && !allowUndiscoveredModel) {
         setFormError("OpenCode models are still loading. Please wait and try again.");
         return;
       }
       const discovered = adapterModels ?? [];
-      if (!discovered.some((entry) => entry.id === selectedModel)) {
+      if (!allowUndiscoveredModel && !discovered.some((entry) => entry.id === selectedModel)) {
         setFormError(
           discovered.length === 0
             ? "No OpenCode models discovered. Run `opencode models` and authenticate providers."
@@ -177,6 +181,10 @@ export function NewAgent() {
         );
         return;
       }
+    }
+    if (configValues.adapterType === "ollama_local" && !configValues.model.trim()) {
+      setFormError("Ollama requires an explicit local model name.");
+      return;
     }
     createAgent.mutate({
       name: name.trim(),

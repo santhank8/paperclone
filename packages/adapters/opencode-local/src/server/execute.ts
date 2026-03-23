@@ -6,6 +6,7 @@ import { inferOpenAiCompatibleBiller, type AdapterExecutionContext, type Adapter
 import {
   asString,
   asNumber,
+  asBoolean,
   asStringArray,
   parseObject,
   buildPaperclipEnv,
@@ -97,6 +98,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
   );
   const command = asString(config.command, "opencode");
   const model = asString(config.model, "").trim();
+  const allowUndiscoveredModel = asBoolean(config.allowUndiscoveredModel, false);
   const variant = asString(config.variant, "").trim();
 
   const workspaceContext = parseObject(context.paperclipWorkspace);
@@ -184,6 +186,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     command,
     cwd,
     env: runtimeEnv,
+    allowUndiscoveredModel,
   });
 
   const timeoutSec = asNumber(config.timeoutSec, 0);

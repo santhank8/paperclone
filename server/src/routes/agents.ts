@@ -56,6 +56,7 @@ import {
 } from "@paperclipai/adapter-codex-local";
 import { DEFAULT_CURSOR_LOCAL_MODEL } from "@paperclipai/adapter-cursor-local";
 import { DEFAULT_GEMINI_LOCAL_MODEL } from "@paperclipai/adapter-gemini-local";
+import { ensureOllamaModelConfiguredAndAvailable } from "@paperclipai/adapter-ollama-local/server";
 import { ensureOpenCodeModelConfiguredAndAvailable } from "@paperclipai/adapter-opencode-local/server";
 import {
   loadDefaultAgentInstructionsBundle,
@@ -67,6 +68,7 @@ export function agentRoutes(db: Db) {
     claude_local: "instructionsFilePath",
     codex_local: "instructionsFilePath",
     gemini_local: "instructionsFilePath",
+    ollama_local: "instructionsFilePath",
     opencode_local: "instructionsFilePath",
     cursor: "instructionsFilePath",
     pi_local: "instructionsFilePath",
@@ -385,19 +387,37 @@ export function agentRoutes(db: Db) {
     adapterType: string | null | undefined,
     adapterConfig: Record<string, unknown>,
   ) {
-    if (adapterType !== "opencode_local") return;
+    if (adapterType !== "opencode_local" && adapterType !== "ollama_local") return;
     const { config: runtimeConfig } = await secretsSvc.resolveAdapterConfigForRuntime(companyId, adapterConfig);
-    const runtimeEnv = asRecord(runtimeConfig.env) ?? {};
-    try {
-      await ensureOpenCodeModelConfiguredAndAvailable({
-        model: runtimeConfig.model,
-        command: runtimeConfig.command,
-        cwd: runtimeConfig.cwd,
-        env: runtimeEnv,
-      });
-    } catch (err) {
-      const reason = err instanceof Error ? err.message : String(err);
-      throw unprocessable(`Invalid opencode_local adapterConfig: ${reason}`);
+    if (adapterType === "opencode_local") {
+      const runtimeEnv = asRecord(runtimeConfig.env) ?? {};
+      const allowUndiscoveredModel = parseBooleanLike(runtimeConfig.allowUndiscoveredModel) === true;
+      try {
+        await ensureOpenCodeModelConfiguredAndAvailable({
+          model: runtimeConfig.model,
+          command: runtimeConfig.command,
+          cwd: runtimeConfig.cwd,
+          env: runtimeEnv,
+          allowUndiscoveredModel,
+        });
+      } catch (err) {
+        const reason = err instanceof Error ? err.message : String(err);
+        throw unprocessable(`Invalid opencode_local adapterConfig: ${reason}`);
+      }
+      return;
+    }
+    if (adapterType === "ollama_local") {
+      const allowUndiscoveredModel = parseBooleanLike(runtimeConfig.allowUndiscoveredModel) === true;
+      try {
+        await ensureOllamaModelConfiguredAndAvailable({
+          model: runtimeConfig.model,
+          baseUrl: runtimeConfig.baseUrl ?? runtimeConfig.url,
+          allowUndiscoveredModel,
+        });
+      } catch (err) {
+        const reason = err instanceof Error ? err.message : String(err);
+        throw unprocessable(`Invalid ollama_local adapterConfig: ${reason}`);
+      }
     }
   }
 

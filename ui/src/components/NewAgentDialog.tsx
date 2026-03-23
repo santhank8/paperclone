@@ -26,6 +26,7 @@ type AdvancedAdapterType =
   | "claude_local"
   | "codex_local"
   | "gemini_local"
+  | "ollama_local"
   | "opencode_local"
   | "pi_local"
   | "cursor"
@@ -57,6 +58,12 @@ const ADVANCED_ADAPTER_OPTIONS: Array<{
     label: "Gemini CLI",
     icon: Gem,
     desc: "Local Gemini agent",
+  },
+  {
+    value: "ollama_local",
+    label: "Ollama",
+    icon: Bot,
+    desc: "Direct local Ollama adapter",
   },
   {
     value: "opencode_local",

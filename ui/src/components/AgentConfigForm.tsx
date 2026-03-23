@@ -562,6 +562,7 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
                             : t === "cursor"
                               ? DEFAULT_CURSOR_LOCAL_MODEL
                             : "",
+                        allowUndiscoveredModel: false,
                         effort: "",
                         modelReasoningEffort: "",
                         variant: "",

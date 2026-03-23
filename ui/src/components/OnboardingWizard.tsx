@@ -30,6 +30,7 @@ import {
 } from "@paperclipai/adapter-codex-local";
 import { DEFAULT_CURSOR_LOCAL_MODEL } from "@paperclipai/adapter-cursor-local";
 import { DEFAULT_GEMINI_LOCAL_MODEL } from "@paperclipai/adapter-gemini-local";
+import { DEFAULT_OLLAMA_BASE_URL } from "@paperclipai/adapter-ollama-local";
 import { resolveRouteOnboardingOptions } from "../lib/onboarding-route";
 import { AsciiArtAnimation } from "./AsciiArtAnimation";
 import { OpenCodeLogoIcon } from "./OpenCodeLogoIcon";
@@ -56,6 +57,7 @@ type AdapterType =
   | "claude_local"
   | "codex_local"
   | "gemini_local"
+  | "ollama_local"
   | "opencode_local"
   | "pi_local"
   | "cursor"
@@ -108,6 +110,7 @@ export function OnboardingWizard() {
   const [agentName, setAgentName] = useState("CEO");
   const [adapterType, setAdapterType] = useState<AdapterType>("claude_local");
   const [model, setModel] = useState("");
+  const [allowUndiscoveredModel, setAllowUndiscoveredModel] = useState(false);
   const [command, setCommand] = useState("");
   const [args, setArgs] = useState("");
   const [url, setUrl] = useState("");
@@ -196,12 +199,16 @@ export function OnboardingWizard() {
     adapterType === "gemini_local" ||
     adapterType === "opencode_local" ||
     adapterType === "cursor";
+  const showAdapterEnvironmentCheck =
+    isLocalAdapter || adapterType === "ollama_local";
   const effectiveAdapterCommand =
     command.trim() ||
     (adapterType === "codex_local"
       ? "codex"
       : adapterType === "gemini_local"
         ? "gemini"
+      : adapterType === "ollama_local"
+      ? "ollama"
       : adapterType === "cursor"
       ? "agent"
       : adapterType === "opencode_local"
@@ -212,7 +219,7 @@ export function OnboardingWizard() {
     if (step !== 2) return;
     setAdapterEnvResult(null);
     setAdapterEnvError(null);
-  }, [step, adapterType, model, command, args, url]);
+  }, [step, adapterType, model, command, args, url, allowUndiscoveredModel]);
 
   const selectedModel = (adapterModels ?? []).find((m) => m.id === model);
   const hasAnthropicApiKeyOverrideCheck =
@@ -269,6 +276,7 @@ export function OnboardingWizard() {
     setAgentName("CEO");
     setAdapterType("claude_local");
     setModel("");
+    setAllowUndiscoveredModel(false);
     setCommand("");
     setArgs("");
     setUrl("");
@@ -295,6 +303,7 @@ export function OnboardingWizard() {
     const config = adapter.buildAdapterConfig({
       ...defaultCreateValues,
       adapterType,
+      allowUndiscoveredModel,
       model:
         adapterType === "codex_local"
           ? model || DEFAULT_CODEX_LOCAL_MODEL
@@ -396,13 +405,14 @@ export function OnboardingWizard() {
     try {
       if (adapterType === "opencode_local") {
         const selectedModelId = model.trim();
+        const bypassDiscovery = allowUndiscoveredModel;
         if (!selectedModelId) {
           setError(
             "OpenCode requires an explicit model in provider/model format."
           );
           return;
         }
-        if (adapterModelsError) {
+        if (adapterModelsError && !bypassDiscovery) {
           setError(
             adapterModelsError instanceof Error
               ? adapterModelsError.message
@@ -410,14 +420,17 @@ export function OnboardingWizard() {
           );
           return;
         }
-        if (adapterModelsLoading || adapterModelsFetching) {
+        if ((adapterModelsLoading || adapterModelsFetching) && !bypassDiscovery) {
           setError(
             "OpenCode models are still loading. Please wait and try again."
           );
           return;
         }
         const discoveredModels = adapterModels ?? [];
-        if (!discoveredModels.some((entry) => entry.id === selectedModelId)) {
+        if (
+          !bypassDiscovery &&
+          !discoveredModels.some((entry) => entry.id === selectedModelId)
+        ) {
           setError(
             discoveredModels.length === 0
               ? "No OpenCode models discovered. Run `opencode models` and authenticate providers."
@@ -427,7 +440,12 @@ export function OnboardingWizard() {
         }
       }
 
-      if (isLocalAdapter) {
+      if (adapterType === "ollama_local" && !model.trim()) {
+        setError("Ollama requires an explicit local model name.");
+        return;
+      }
+
+      if (showAdapterEnvironmentCheck) {
         const result = adapterEnvResult ?? (await runAdapterEnvironmentTest());
         if (!result) return;
       }
@@ -787,6 +805,12 @@ export function OnboardingWizard() {
                             desc: "Local multi-provider agent"
                           },
                           {
+                            value: "ollama_local" as const,
+                            label: "Ollama",
+                            icon: Bot,
+                            desc: "Direct local Ollama adapter"
+                          },
+                          {
                             value: "pi_local" as const,
                             label: "Pi",
                             icon: Terminal,
@@ -822,6 +846,12 @@ export function OnboardingWizard() {
                               if (opt.comingSoon) return;
                               const nextType = opt.value as AdapterType;
                               setAdapterType(nextType);
+                              if (
+                                nextType !== "opencode_local" &&
+                                nextType !== "ollama_local"
+                              ) {
+                                setAllowUndiscoveredModel(false);
+                              }
                               if (nextType === "gemini_local" && !model) {
                                 setModel(DEFAULT_GEMINI_LOCAL_MODEL);
                                 return;
@@ -834,6 +864,10 @@ export function OnboardingWizard() {
                                 if (!model.includes("/")) {
                                   setModel("");
                                 }
+                                return;
+                              }
+                              if (nextType === "ollama_local") {
+                                setModel("");
                                 return;
                               }
                               setModel("");
@@ -857,111 +891,180 @@ export function OnboardingWizard() {
                   {(adapterType === "claude_local" ||
                     adapterType === "codex_local" ||
                     adapterType === "gemini_local" ||
+                    adapterType === "ollama_local" ||
                     adapterType === "opencode_local" ||
                     adapterType === "pi_local" ||
                     adapterType === "cursor") && (
                     <div className="space-y-3">
-                      <div>
-                        <label className="text-xs text-muted-foreground mb-1 block">
-                          Model
-                        </label>
-                        <Popover
-                          open={modelOpen}
-                          onOpenChange={(next) => {
-                            setModelOpen(next);
-                            if (!next) setModelSearch("");
-                          }}
-                        >
-                          <PopoverTrigger asChild>
-                            <button className="inline-flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1.5 text-sm hover:bg-accent/50 transition-colors w-full justify-between">
-                              <span
-                                className={cn(
-                                  !model && "text-muted-foreground"
-                                )}
-                              >
-                                {selectedModel
-                                  ? selectedModel.label
-                                  : model ||
-                                    (adapterType === "opencode_local"
-                                      ? "Select model (required)"
-                                      : "Default")}
-                              </span>
-                              <ChevronDown className="h-3 w-3 text-muted-foreground" />
-                            </button>
-                          </PopoverTrigger>
-                          <PopoverContent
-                            className="w-[var(--radix-popover-trigger-width)] p-1"
-                            align="start"
+                      {adapterType !== "ollama_local" ? (
+                        <div>
+                          <label className="text-xs text-muted-foreground mb-1 block">
+                            Model
+                          </label>
+                          <Popover
+                            open={modelOpen}
+                            onOpenChange={(next) => {
+                              setModelOpen(next);
+                              if (!next) setModelSearch("");
+                            }}
                           >
-                            <input
-                              className="w-full px-2 py-1.5 text-xs bg-transparent outline-none border-b border-border mb-1 placeholder:text-muted-foreground/50"
-                              placeholder="Search models..."
-                              value={modelSearch}
-                              onChange={(e) => setModelSearch(e.target.value)}
-                              autoFocus
-                            />
-                            {adapterType !== "opencode_local" && (
-                              <button
-                                className={cn(
-                                  "flex items-center gap-2 w-full px-2 py-1.5 text-sm rounded hover:bg-accent/50",
-                                  !model && "bg-accent"
-                                )}
-                                onClick={() => {
-                                  setModel("");
-                                  setModelOpen(false);
-                                }}
-                              >
-                                Default
-                              </button>
-                            )}
-                            <div className="max-h-[240px] overflow-y-auto">
-                              {groupedModels.map((group) => (
-                                <div
-                                  key={group.provider}
-                                  className="mb-1 last:mb-0"
-                                >
-                                  {adapterType === "opencode_local" && (
-                                    <div className="px-2 py-1 text-[10px] uppercase tracking-wide text-muted-foreground">
-                                      {group.provider} ({group.entries.length})
-                                    </div>
+                            <PopoverTrigger asChild>
+                              <button className="inline-flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1.5 text-sm hover:bg-accent/50 transition-colors w-full justify-between">
+                                <span
+                                  className={cn(
+                                    !model && "text-muted-foreground"
                                   )}
-                                  {group.entries.map((m) => (
-                                    <button
-                                      key={m.id}
-                                      className={cn(
-                                        "flex items-center w-full px-2 py-1.5 text-sm rounded hover:bg-accent/50",
-                                        m.id === model && "bg-accent"
-                                      )}
-                                      onClick={() => {
-                                        setModel(m.id);
-                                        setModelOpen(false);
-                                      }}
-                                    >
-                                      <span
-                                        className="block w-full text-left truncate"
-                                        title={m.id}
+                                >
+                                  {selectedModel
+                                    ? selectedModel.label
+                                    : model ||
+                                      (adapterType === "opencode_local"
+                                        ? "Select model (required)"
+                                        : "Default")}
+                                </span>
+                                <ChevronDown className="h-3 w-3 text-muted-foreground" />
+                              </button>
+                            </PopoverTrigger>
+                            <PopoverContent
+                              className="w-[var(--radix-popover-trigger-width)] p-1"
+                              align="start"
+                            >
+                              <input
+                                className="w-full px-2 py-1.5 text-xs bg-transparent outline-none border-b border-border mb-1 placeholder:text-muted-foreground/50"
+                                placeholder="Search models..."
+                                value={modelSearch}
+                                onChange={(e) => setModelSearch(e.target.value)}
+                                autoFocus
+                              />
+                              {adapterType !== "opencode_local" && (
+                                <button
+                                  className={cn(
+                                    "flex items-center gap-2 w-full px-2 py-1.5 text-sm rounded hover:bg-accent/50",
+                                    !model && "bg-accent"
+                                  )}
+                                  onClick={() => {
+                                    setModel("");
+                                    setModelOpen(false);
+                                  }}
+                                >
+                                  Default
+                                </button>
+                              )}
+                              <div className="max-h-[240px] overflow-y-auto">
+                                {groupedModels.map((group) => (
+                                  <div
+                                    key={group.provider}
+                                    className="mb-1 last:mb-0"
+                                  >
+                                    {adapterType === "opencode_local" && (
+                                      <div className="px-2 py-1 text-[10px] uppercase tracking-wide text-muted-foreground">
+                                        {group.provider} ({group.entries.length})
+                                      </div>
+                                    )}
+                                    {group.entries.map((m) => (
+                                      <button
+                                        key={m.id}
+                                        className={cn(
+                                          "flex items-center w-full px-2 py-1.5 text-sm rounded hover:bg-accent/50",
+                                          m.id === model && "bg-accent"
+                                        )}
+                                        onClick={() => {
+                                          setModel(m.id);
+                                          setModelOpen(false);
+                                        }}
                                       >
-                                        {adapterType === "opencode_local"
-                                          ? extractModelName(m.id)
-                                          : m.label}
-                                      </span>
-                                    </button>
-                                  ))}
-                                </div>
-                              ))}
-                            </div>
-                            {filteredModels.length === 0 && (
-                              <p className="px-2 py-1.5 text-xs text-muted-foreground">
-                                No models discovered.
-                              </p>
-                            )}
-                          </PopoverContent>
-                        </Popover>
-                      </div>
+                                        <span
+                                          className="block w-full text-left truncate"
+                                          title={m.id}
+                                        >
+                                          {adapterType === "opencode_local"
+                                            ? extractModelName(m.id)
+                                            : m.label}
+                                        </span>
+                                      </button>
+                                    ))}
+                                  </div>
+                                ))}
+                              </div>
+                              {filteredModels.length === 0 && (
+                                <p className="px-2 py-1.5 text-xs text-muted-foreground">
+                                  No models discovered.
+                                </p>
+                              )}
+                            </PopoverContent>
+                          </Popover>
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          <div>
+                            <label className="text-xs text-muted-foreground mb-1 block">
+                              Ollama base URL
+                            </label>
+                            <input
+                              className="w-full rounded-md border border-border bg-transparent px-3 py-2 text-sm font-mono outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/50"
+                              placeholder={DEFAULT_OLLAMA_BASE_URL}
+                              value={url}
+                              onChange={(e) => setUrl(e.target.value)}
+                            />
+                          </div>
+                          <div>
+                            <label className="text-xs text-muted-foreground mb-1 block">
+                              Model
+                            </label>
+                            <input
+                              className="w-full rounded-md border border-border bg-transparent px-3 py-2 text-sm font-mono outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/50"
+                              placeholder="qwen2.5:7b"
+                              value={model}
+                              onChange={(e) => setModel(e.target.value)}
+                            />
+                          </div>
+                        </div>
+                      )}
+                      {(adapterType === "opencode_local" ||
+                        adapterType === "ollama_local") && (
+                        <div className="space-y-2">
+                          <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <input
+                              type="checkbox"
+                              checked={allowUndiscoveredModel}
+                              onChange={(e) =>
+                                setAllowUndiscoveredModel(e.target.checked)
+                              }
+                            />
+                            Allow undiscovered model
+                          </label>
+                          <input
+                            className="w-full rounded-md border border-border bg-transparent px-3 py-2 text-sm font-mono outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/50"
+                            placeholder={
+                              adapterType === "opencode_local"
+                                ? "provider/model (e.g. openai/qwen2.5:7b)"
+                                : "local model name (e.g. qwen2.5:7b)"
+                            }
+                            value={model}
+                            onChange={(e) => setModel(e.target.value)}
+                          />
+                          <p className="text-[11px] text-muted-foreground">
+                            {adapterType === "opencode_local"
+                              ? (
+                                <>
+                                  Use this for local OpenAI-compatible endpoints where{" "}
+                                  <span className="font-mono">opencode models</span>{" "}
+                                  does not list your target model.
+                                </>
+                              )
+                              : (
+                                <>
+                                  Use this if <span className="font-mono">/api/tags</span>{" "}
+                                  cannot discover your target Ollama model yet.
+                                </>
+                              )}
+                          </p>
+                        </div>
+                      )}
                     </div>
                   )}
 
-                  {isLocalAdapter && (
+                  {showAdapterEnvironmentCheck && (
                     <div className="space-y-2 rounded-md border border-border p-3">
                       <div className="flex items-center justify-between gap-2">
                         <div>
@@ -969,8 +1072,9 @@ export function OnboardingWizard() {
                             Adapter environment check
                           </p>
                           <p className="text-[11px] text-muted-foreground">
-                            Runs a live probe that asks the adapter CLI to
-                            respond with hello.
+                            {adapterType === "ollama_local"
+                              ? "Calls the local Ollama HTTP API and asks the model to respond with hello."
+                              : "Runs a live probe that asks the adapter CLI to respond with hello."}
                           </p>
                         </div>
                         <Button
@@ -1028,7 +1132,9 @@ export function OnboardingWizard() {
                         <div className="rounded-md border border-border/70 bg-muted/20 px-2.5 py-2 text-[11px] space-y-1.5">
                           <p className="font-medium">Manual debug</p>
                           <p className="text-muted-foreground font-mono break-all">
-                            {adapterType === "cursor"
+                            {adapterType === "ollama_local"
+                              ? `curl ${url || DEFAULT_OLLAMA_BASE_URL}/api/tags`
+                              : adapterType === "cursor"
                               ? `${effectiveAdapterCommand} -p --mode ask --output-format json \"Respond with hello.\"`
                               : adapterType === "codex_local"
                               ? `${effectiveAdapterCommand} exec --json -`
@@ -1042,10 +1148,16 @@ export function OnboardingWizard() {
                             Prompt:{" "}
                             <span className="font-mono">Respond with hello.</span>
                           </p>
-                          {adapterType === "cursor" ||
-                          adapterType === "codex_local" ||
-                          adapterType === "gemini_local" ||
-                          adapterType === "opencode_local" ? (
+                          {adapterType === "ollama_local" ? (
+                            <p className="text-muted-foreground">
+                              Also verify{" "}
+                              <span className="font-mono">ollama list</span> shows{" "}
+                              <span className="font-mono">{model || "your-model"}</span>.
+                            </p>
+                          ) : adapterType === "cursor" ||
+                            adapterType === "codex_local" ||
+                            adapterType === "gemini_local" ||
+                            adapterType === "opencode_local" ? (
                             <p className="text-muted-foreground">
                               If auth fails, set{" "}
                               <span className="font-mono">

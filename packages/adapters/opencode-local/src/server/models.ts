@@ -170,23 +170,33 @@ export async function ensureOpenCodeModelConfiguredAndAvailable(input: {
   command?: unknown;
   cwd?: unknown;
   env?: unknown;
+  allowUndiscoveredModel?: unknown;
 }): Promise<AdapterModel[]> {
   const model = asString(input.model, "").trim();
   if (!model) {
     throw new Error("OpenCode requires `adapterConfig.model` in provider/model format.");
   }
 
-  const models = await discoverOpenCodeModelsCached({
-    command: input.command,
-    cwd: input.cwd,
-    env: input.env,
-  });
+  const allowUndiscoveredModel = input.allowUndiscoveredModel === true;
+  let models: AdapterModel[] = [];
+  try {
+    models = await discoverOpenCodeModelsCached({
+      command: input.command,
+      cwd: input.cwd,
+      env: input.env,
+    });
+  } catch (err) {
+    if (allowUndiscoveredModel) return [];
+    throw err;
+  }
 
   if (models.length === 0) {
+    if (allowUndiscoveredModel) return models;
     throw new Error("OpenCode returned no models. Run `opencode models` and verify provider auth.");
   }
 
   if (!models.some((entry) => entry.id === model)) {
+    if (allowUndiscoveredModel) return models;
     const sample = models.slice(0, 12).map((entry) => entry.id).join(", ");
     throw new Error(
       `Configured OpenCode model is unavailable: ${model}. Available models: ${sample}${models.length > 12 ? ", ..." : ""}`,

@@ -83,6 +83,7 @@ export interface AdapterExecutionResult {
   resultJson?: Record<string, unknown> | null;
   runtimeServices?: AdapterRuntimeServiceReport[];
   summary?: string | null;
+  issueComment?: string | null;
   clearSession?: boolean;
   question?: {
     prompt: string;
@@ -326,6 +327,7 @@ export interface CreateConfigValues {
   instructionsFilePath?: string;
   promptTemplate: string;
   model: string;
+  allowUndiscoveredModel: boolean;
   thinkingEffort: string;
   chrome: boolean;
   dangerouslySkipPermissions: boolean;

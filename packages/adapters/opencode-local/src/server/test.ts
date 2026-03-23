@@ -5,6 +5,7 @@ import type {
 } from "@paperclipai/adapter-utils";
 import {
   asString,
+  asBoolean,
   asStringArray,
   parseObject,
   ensureAbsoluteDirectory,
@@ -123,6 +124,7 @@ export async function testEnvironment(
 
   let modelValidationPassed = false;
   const configuredModel = asString(config.model, "").trim();
+  const allowUndiscoveredModel = asBoolean(config.allowUndiscoveredModel, false);
 
   if (canRunProbe && configuredModel) {
     try {
@@ -136,9 +138,13 @@ export async function testEnvironment(
       } else {
         checks.push({
           code: "opencode_models_empty",
-          level: "error",
-          message: "OpenCode returned no models.",
-          hint: "Run `opencode models` and verify provider authentication.",
+          level: allowUndiscoveredModel ? "warn" : "error",
+          message: allowUndiscoveredModel
+            ? "OpenCode returned no models. Continuing because allowUndiscoveredModel is enabled."
+            : "OpenCode returned no models.",
+          hint: allowUndiscoveredModel
+            ? "Run `opencode models` when possible to verify provider discovery."
+            : "Run `opencode models` and verify provider authentication.",
         });
       }
     } catch (err) {
@@ -154,9 +160,15 @@ export async function testEnvironment(
       } else {
         checks.push({
           code: "opencode_models_discovery_failed",
-          level: "error",
-          message: errMsg || "OpenCode model discovery failed.",
-          hint: "Run `opencode models` manually to verify provider auth and config.",
+          level: allowUndiscoveredModel ? "warn" : "error",
+          message:
+            errMsg ||
+            (allowUndiscoveredModel
+              ? "OpenCode model discovery failed (continuing because allowUndiscoveredModel is enabled)."
+              : "OpenCode model discovery failed."),
+          hint: allowUndiscoveredModel
+            ? "Run `opencode models` manually when available to validate provider config."
+            : "Run `opencode models` manually to verify provider auth and config.",
         });
       }
     }
@@ -201,6 +213,7 @@ export async function testEnvironment(
         command,
         cwd,
         env: runtimeEnv,
+        allowUndiscoveredModel,
       });
       checks.push({
         code: "opencode_model_configured",
@@ -211,9 +224,11 @@ export async function testEnvironment(
     } catch (err) {
       checks.push({
         code: "opencode_model_invalid",
-        level: "error",
+        level: allowUndiscoveredModel ? "warn" : "error",
         message: err instanceof Error ? err.message : "Configured model is unavailable.",
-        hint: "Run `opencode models` and choose a currently available provider/model ID.",
+        hint: allowUndiscoveredModel
+          ? "Model verification was relaxed. If runs still fail, verify provider/model manually with `opencode run`."
+          : "Run `opencode models` and choose a currently available provider/model ID.",
       });
     }
   }

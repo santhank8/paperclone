@@ -1879,6 +1879,7 @@ export function heartbeatService(db: Db) {
             id: issues.id,
             identifier: issues.identifier,
             title: issues.title,
+            description: issues.description,
             projectId: issues.projectId,
             projectWorkspaceId: issues.projectWorkspaceId,
             executionWorkspaceId: issues.executionWorkspaceId,
@@ -1959,12 +1960,28 @@ export function heartbeatService(db: Db) {
           id: issueContext.id,
           identifier: issueContext.identifier,
           title: issueContext.title,
+          description: issueContext.description,
           projectId: issueContext.projectId,
           projectWorkspaceId: issueContext.projectWorkspaceId,
           executionWorkspaceId: issueContext.executionWorkspaceId,
           executionWorkspacePreference: issueContext.executionWorkspacePreference,
         }
       : null;
+    const adapterContext = issueRef
+      ? {
+          ...context,
+          paperclipIssue: {
+            id: issueRef.id,
+            identifier: issueRef.identifier,
+            title: issueRef.title,
+            description: issueRef.description ?? null,
+            projectId: issueRef.projectId,
+            projectWorkspaceId: issueRef.projectWorkspaceId,
+            executionWorkspaceId: issueRef.executionWorkspaceId,
+            executionWorkspacePreference: issueRef.executionWorkspacePreference,
+          },
+        }
+      : context;
     const existingExecutionWorkspace =
       issueRef?.executionWorkspaceId ? await executionWorkspacesSvc.getById(issueRef.executionWorkspaceId) : null;
     const workspaceOperationRecorder = workspaceOperationsSvc.createRecorder({
@@ -2392,7 +2409,7 @@ export function heartbeatService(db: Db) {
         agent,
         runtime: runtimeForAdapter,
         config: runtimeConfig,
-        context,
+        context: adapterContext,
         onLog,
         onMeta: onAdapterMeta,
         onSpawn: async (meta) => {
@@ -2474,6 +2491,18 @@ export function heartbeatService(db: Db) {
         outcome = "succeeded";
       } else {
         outcome = "failed";
+      }
+
+      const issueComment = readNonEmptyString(adapterResult.issueComment);
+      if (outcome === "succeeded" && issueId && issueComment) {
+        try {
+          await issuesSvc.addComment(issueId, issueComment, { agentId: agent.id });
+        } catch (err) {
+          await onLog(
+            "stderr",
+            `[paperclip] Failed to post adapter issue comment: ${err instanceof Error ? err.message : String(err)}\n`,
+          );
+        }
       }
 
       let logSummary: { bytes: number; sha256?: string; compressed: boolean } | null = null;
