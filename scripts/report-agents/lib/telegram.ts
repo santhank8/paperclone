@@ -42,6 +42,19 @@ export async function sendTelegram(
     if (res.ok) return;
     const err = await res.text();
     console.error(`Telegram attempt ${attempt + 1} failed: ${res.status} ${err}`);
+
+    // If HTML parse error → fallback to plain text (no parse_mode)
+    if (err.includes("can't parse entities")) {
+      console.log("  Falling back to plain text...");
+      const plainBody = { ...body, parse_mode: undefined, text: cleanHtml.replace(/<[^>]+>/g, "") };
+      const plainRes = await fetch(`${TELEGRAM_API}/bot${token}/sendMessage`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(plainBody),
+      });
+      if (plainRes.ok) return;
+    }
+
     if (attempt < 2) await new Promise((r) => setTimeout(r, 30_000));
   }
   throw new Error("Telegram send failed after 3 retries");

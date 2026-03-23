@@ -173,6 +173,57 @@ async function main() {
     console.log("  → Sending to Telegram...");
     await sendPhoto(png, `📊 Whales Market ${period.charAt(0).toUpperCase() + period.slice(1)} Report — ${reportData.timeframe}`);
 
+    // Generate insight text via Claude CLI
+    console.log("  → Generating insight...");
+    try {
+      const { execFile } = await import("child_process");
+      const { promisify } = await import("util");
+      const execFileAsync = promisify(execFile);
+
+      const insightPrompt = `Bạn là Head of Data Analytics cho Whales Market. Dựa trên data dưới đây, viết TỐI ĐA 5 bullet points insight ngắn gọn.
+
+ĐỌC: /Users/amando/Desktop/Learn/metabase-sync/BUSINESS_CONTEXT.md để biết benchmarks.
+
+## Data (${period} report):
+- Filled Volume: $${reportData.filledVolume.toFixed(0)} (prev: $${reportData.filledVolumePrev.toFixed(0)})
+- Orders: ${reportData.totalOrders}
+- Exit Position Volume: $${reportData.exitVolume.toFixed(0)}
+- Active Wallets: ${reportData.activeWallets} (New: ${reportData.newUsers}, Returning: ${reportData.returningUsers})
+- Fees: $${reportData.totalFees.toFixed(0)}
+- Top tokens: ${reportData.topTokens.slice(0, 3).map(t => `$${t.symbol} ($${t.volume.toFixed(0)})`).join(", ")}
+- Settlement: ${(reportData.settleByToken ?? []).length > 0 ? reportData.settleByToken!.map(t => `$${t.symbol}: ${t.rate.toFixed(0)}%`).join(", ") : "không có token settle"}
+- GA4: Active Users ${reportData.gaActiveUsers ?? "N/A"}, Sessions ${reportData.gaSessions ?? "N/A"}
+- Traffic: ${(reportData.trafficSources ?? []).map(s => `${s.source}(${s.sessions})`).join(", ")}
+- Top landing pages: ${(reportData.topLandingPages ?? []).slice(0, 3).map(p => p.page.replace("/en/premarket/", "$")).join(", ")}
+
+QUY TẮC:
+- Viết tiếng Việt, metric giữ tiếng Anh
+- Tối đa 5 bullet points, mỗi cái 1-2 dòng
+- CHỈ dựa trên fact, so sánh với benchmark
+- Nếu volume = 0 hoặc không có data → ghi rõ, không bịa
+- Cross-platform insight nếu có (vd: token hot trên platform match với page views)
+- Format HTML cho Telegram (<b>, <i>), KHÔNG markdown
+- Bắt đầu bằng: <b>💡 Insight — ${reportData.timeframe}</b>`;
+
+      const { stdout } = await execFileAsync("claude", [
+        "--print", "--dangerously-skip-permissions",
+        "--model", "claude-sonnet-4-5-20250929",
+        "-p", insightPrompt,
+      ], {
+        timeout: 120_000,
+        maxBuffer: 1024 * 1024,
+        env: { ...process.env, PATH: `${process.env.PATH}:/usr/local/bin:/opt/homebrew/bin` },
+      });
+
+      const insight = stdout.trim();
+      if (insight) {
+        const { sendTelegram } = await import("./lib/telegram.js");
+        await sendTelegram(insight);
+      }
+    } catch (e) {
+      console.error("  Insight error:", e);
+    }
+
     console.log("Visual Report: done ✓");
   } finally {
     db.close();
