@@ -154,30 +154,16 @@ async function handleQuestion(chatId: string, question: string, chatKey: string,
 
   const historyContext = getHistoryContext(chatKey);
 
-  const prompt = `Bạn là Data Analyst cho Whales Market. Bạn trả lời câu hỏi từ internal team dựa trên dữ liệu thực.
-
-ĐỌC CÁC FILE NÀY TRƯỚC KHI LÀM GÌ:
-1. /Users/amando/Desktop/Learn/metabase-sync/BUSINESS_CONTEXT.md — business context, KPIs, benchmarks
-2. /Users/amando/Desktop/Learn/metabase-sync/SCHEMA.md — database schema
-3. /Users/amando/Desktop/Learn/metabase-sync/QUERY_PATTERNS.md — verified query patterns, BẮT BUỘC dùng
+  const prompt = `ĐỌC FILE SYSTEM PROMPT TRƯỚC: /Users/amando/Desktop/Learn/metabase-sync/SYSTEM_PROMPT.md — đây là hướng dẫn chi tiết cách bạn suy nghĩ và trả lời.
 
 Database SQLite tại: ${WHALES_DB_PATH}
 ${historyContext}
 Câu hỏi hiện tại: "${question}"
 
 QUAN TRỌNG — HIỂU CONTEXT:
-- Nếu có lịch sử hội thoại ở trên, hãy đọc kỹ để hiểu user đang hỏi về cái gì
-- Ví dụ: nếu trước đó bot trả lời về "BP có 25 orders" và user hỏi "có bao nhiêu ví trade token này" → "token này" = BP
-- Nếu user reply/quote một message trước → đó là context cho câu hỏi hiện tại
-- Nếu không rõ "cái này", "token này", "con này" refer đến gì → dựa vào lịch sử hội thoại
-
-CÁCH TRẢ LỜI:
-1. Query database dùng verified patterns (KHÔNG tự viết SQL)
-2. So sánh kết quả với benchmarks trong BUSINESS_CONTEXT.md
-3. Phân biệt rõ: <b>Fact</b> (số liệu) → <b>Observation</b> (pattern) → <b>Recommendation</b> (đề xuất)
-4. Viết tiếng Việt, giữ metric tiếng Anh
-5. Format HTML cho Telegram (<b>, <i>), dưới 800 ký tự
-6. KHÔNG dùng markdown, code blocks, backticks`;
+- Nếu có lịch sử hội thoại ở trên, đọc kỹ để hiểu "token này", "con này" refer đến gì
+- Nếu user reply/quote message → đó là context
+- Làm theo đúng quy trình trong SYSTEM_PROMPT.md: Hiểu → Query → Validate → Phân tích (Fact → Observation → Recommendation)`;
 
   try {
     const { stdout } = await execFileAsync("claude", [
