@@ -330,7 +330,13 @@ async function main() {
   const social = await collectSocialData();
 
   console.log("  → GA4...");
-  const ga = await collectGA4Data();
+  let ga: { html: string; raw: any } = { html: "", raw: null };
+  try {
+    ga = await collectGA4Data();
+  } catch (e) {
+    console.error("  GA4 failed (continuing without):", e);
+    ga = { html: "🌐 GA4: Credentials hết hạn — cần chạy `gcloud auth application-default login`", raw: null };
+  }
 
   // Send individual data reports
   if (platform.html) await sendTelegram(platform.html);
