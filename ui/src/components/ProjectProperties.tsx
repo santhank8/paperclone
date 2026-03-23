@@ -343,11 +343,10 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
 
   const isAbsolutePath = (value: string) => value.startsWith("/") || /^[A-Za-z]:[\\/]/.test(value);
 
-  const isGitHubRepoUrl = (value: string) => {
+  const isValidGitRepoUrl = (value: string) => {
     try {
       const parsed = new URL(value);
-      const host = parsed.hostname.toLowerCase();
-      if (host !== "github.com" && host !== "www.github.com") return false;
+      if (!["https:", "http:"].includes(parsed.protocol)) return false;
       const segments = parsed.pathname.split("/").filter(Boolean);
       return segments.length >= 2;
     } catch {
@@ -432,8 +431,8 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
       persistCodebase({ repoUrl: null });
       return;
     }
-    if (!isGitHubRepoUrl(repoUrl)) {
-      setWorkspaceError("Repo must use a valid GitHub repo URL.");
+    if (!isValidGitRepoUrl(repoUrl)) {
+      setWorkspaceError("Please enter a valid Git repository URL (e.g. https://github.com/org/repo or https://gitlab.example.com/org/repo).");
       return;
     }
     setWorkspaceError(null);
@@ -811,7 +810,7 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
                 className="w-full rounded border border-border bg-transparent px-2 py-1 text-xs outline-none"
                 value={workspaceRepoUrl}
                 onChange={(e) => setWorkspaceRepoUrl(e.target.value)}
-                placeholder="https://github.com/org/repo"
+                placeholder="https://github.com/org/repo or https://gitlab.example.com/org/repo"
               />
               <div className="flex items-center gap-2">
                 <Button
@@ -971,12 +970,13 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
                         </div>
                         <div>
                           <div className="mb-1 flex items-center gap-1.5">
-                            <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <label htmlFor="pp-base-ref" className="flex items-center gap-2 text-xs text-muted-foreground">
                               <span>Base ref</span>
                               <SaveIndicator state={fieldState("execution_workspace_base_ref")} />
                             </label>
                           </div>
                           <DraftInput
+                            id="pp-base-ref"
                             value={executionWorkspaceStrategy.baseRef ?? ""}
                             onCommit={(value) =>
                               commitField("execution_workspace_base_ref", {
@@ -995,12 +995,13 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
                         </div>
                         <div>
                           <div className="mb-1 flex items-center gap-1.5">
-                            <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <label htmlFor="pp-branch-template" className="flex items-center gap-2 text-xs text-muted-foreground">
                               <span>Branch template</span>
                               <SaveIndicator state={fieldState("execution_workspace_branch_template")} />
                             </label>
                           </div>
                           <DraftInput
+                            id="pp-branch-template"
                             value={executionWorkspaceStrategy.branchTemplate ?? ""}
                             onCommit={(value) =>
                               commitField("execution_workspace_branch_template", {
@@ -1019,12 +1020,13 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
                         </div>
                         <div>
                           <div className="mb-1 flex items-center gap-1.5">
-                            <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <label htmlFor="pp-worktree-parent-dir" className="flex items-center gap-2 text-xs text-muted-foreground">
                               <span>Worktree parent dir</span>
                               <SaveIndicator state={fieldState("execution_workspace_worktree_parent_dir")} />
                             </label>
                           </div>
                           <DraftInput
+                            id="pp-worktree-parent-dir"
                             value={executionWorkspaceStrategy.worktreeParentDir ?? ""}
                             onCommit={(value) =>
                               commitField("execution_workspace_worktree_parent_dir", {
@@ -1043,12 +1045,13 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
                         </div>
                         <div>
                           <div className="mb-1 flex items-center gap-1.5">
-                            <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <label htmlFor="pp-provision-command" className="flex items-center gap-2 text-xs text-muted-foreground">
                               <span>Provision command</span>
                               <SaveIndicator state={fieldState("execution_workspace_provision_command")} />
                             </label>
                           </div>
                           <DraftInput
+                            id="pp-provision-command"
                             value={executionWorkspaceStrategy.provisionCommand ?? ""}
                             onCommit={(value) =>
                               commitField("execution_workspace_provision_command", {
@@ -1067,12 +1070,13 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
                         </div>
                         <div>
                           <div className="mb-1 flex items-center gap-1.5">
-                            <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <label htmlFor="pp-teardown-command" className="flex items-center gap-2 text-xs text-muted-foreground">
                               <span>Teardown command</span>
                               <SaveIndicator state={fieldState("execution_workspace_teardown_command")} />
                             </label>
                           </div>
                           <DraftInput
+                            id="pp-teardown-command"
                             value={executionWorkspaceStrategy.teardownCommand ?? ""}
                             onCommit={(value) =>
                               commitField("execution_workspace_teardown_command", {
