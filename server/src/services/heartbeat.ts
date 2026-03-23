@@ -10,6 +10,7 @@ import {
   agentRuntimeState,
   agentTaskSessions,
   agentWakeupRequests,
+  companies,
   heartbeatRunEvents,
   heartbeatRuns,
   issues,
@@ -2043,6 +2044,12 @@ export function heartbeatService(db: Db) {
     return withAgentStartLock(agentId, async () => {
       const agent = await getAgent(agentId);
       if (!agent) return [];
+      // Skip agents in archived companies
+      const [company] = await db
+        .select({ status: companies.status })
+        .from(companies)
+        .where(eq(companies.id, agent.companyId));
+      if (company?.status === "archived") return [];
       if (agent.status === "paused" || agent.status === "terminated" || agent.status === "pending_approval") {
         return [];
       }
@@ -3178,6 +3185,15 @@ export function heartbeatService(db: Db) {
     const agent = await getAgent(agentId);
     if (!agent) throw notFound("Agent not found");
 
+    // Reject wakeups for agents belonging to archived companies
+    const [company] = await db
+      .select({ status: companies.status })
+      .from(companies)
+      .where(eq(companies.id, agent.companyId));
+    if (company?.status === "archived") {
+      throw conflict("Cannot wake agent in archived company");
+    }
+
     // Auto-resolve checked-out issue context when not provided by the caller.
     // This handles the case where /agents/:id/wakeup is called directly without
     // issueId, but the agent already has an issue checked out (GH #1387).
@@ -4017,7 +4033,12 @@ export function heartbeatService(db: Db) {
     resumeQueuedRuns,
 
     tickTimers: async (now = new Date()) => {
-      const allAgents = await db.select().from(agents);
+      const allAgents = await db
+        .select({ agent: agents })
+        .from(agents)
+        .innerJoin(companies, eq(agents.companyId, companies.id))
+        .where(eq(companies.status, "active"))
+        .then((rows) => rows.map((r) => r.agent));
       let checked = 0;
       let enqueued = 0;
       let skipped = 0;

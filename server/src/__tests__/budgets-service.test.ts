@@ -92,7 +92,7 @@ describe("budgetService", () => {
 
     const dbStub = createDbStub([
       [policy],
-      [{ total: 150 }],
+      [{ agentId: "agent-1", total: 150 }],
       [],
       [{
         companyId: "company-1",

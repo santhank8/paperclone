@@ -1,27 +1,25 @@
 module.exports = {
-  apps: [{
-    name: 'paperclip',
-    script: 'pnpm',
-    args: 'dev:once',
-    cwd: '/Users/quanghung/Documents/paperclip',
-    autorestart: true,
-    max_restarts: 10,
-    min_uptime: '10s',
-    restart_delay: 5000,
-    exp_backoff_restart_delay: 1000,
-    kill_timeout: 8000,
-    watch: false,
-    max_memory_restart: '1G',
-    env: {
-      NODE_ENV: 'development',
-      PAPERCLIP_MIGRATION_AUTO_APPLY: 'true',
+  apps: [
+    {
+      name: "paperclip",
+      script: "pnpm",
+      args: "dev:once",
+      cwd: "/Users/quanghung/Documents/paperclip",
+      autorestart: false,
+      watch: false,
+      max_memory_restart: "0",
+      cron_restart: "",
+      max_restarts: 0,
+      env: {
+        NODE_ENV: "development",
+      },
     },
-  }, {
-    name: 'cloudflared-paperclip',
-    script: '/opt/homebrew/bin/cloudflared',
-    args: 'tunnel --config /Users/quanghung/.cloudflared/config.yml run c214bad6-c982-43dd-9b34-68f5925cfa41',
-    autorestart: true,
-    max_restarts: 10,
-    restart_delay: 5000,
-  }],
+    {
+      name: "cloudflared-paperclip",
+      script: "cloudflared",
+      args: "tunnel run paperclip",
+      autorestart: true,
+      watch: false,
+    },
+  ],
 };

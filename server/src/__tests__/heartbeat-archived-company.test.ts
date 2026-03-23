@@ -13,6 +13,7 @@ import {
   agentRuntimeState,
   agentWakeupRequests,
   companies,
+  companySkills,
   heartbeatRunEvents,
   heartbeatRuns,
 } from "@paperclipai/db";
@@ -102,6 +103,7 @@ describe("heartbeat skips archived companies", () => {
     await db.delete(agentWakeupRequests);
     await db.delete(agentRuntimeState);
     await db.delete(agents);
+    await db.delete(companySkills);
     await db.delete(companies);
   });
 
