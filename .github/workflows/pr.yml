@@ -74,8 +74,19 @@ jobs:
       - name: Typecheck
         run: pnpm -r typecheck
 
-      - name: Run tests
-        run: pnpm test:run
+      - name: Run tests with coverage
+        run: pnpm test:run --coverage
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-report
+          path: coverage/
+          retention-days: 14
+
+      - name: Dependency audit (SCA)
+        run: pnpm audit --audit-level=high
 
       - name: Build
         run: pnpm build
@@ -85,6 +96,44 @@ jobs:
           git checkout -B master HEAD
           git checkout -- pnpm-lock.yaml
           ./scripts/release.sh canary --skip-verify --dry-run
+
+  security:
+    needs: [verify]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build Docker image for scanning
+        run: docker build -t paperclip:pr-${{ github.event.pull_request.number }} .
+
+      - name: Run Trivy vulnerability scanner (container image)
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: paperclip:pr-${{ github.event.pull_request.number }}
+          format: sarif
+          output: trivy-results.sarif
+          severity: CRITICAL,HIGH
+          exit-code: "1"
+          ignore-unfixed: true
+
+      - name: Upload Trivy SARIF to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: trivy-results.sarif
+
+      - name: Run Trivy filesystem scan (source deps)
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          format: table
+          severity: CRITICAL,HIGH
+          exit-code: "0"
+          ignore-unfixed: true
 
   e2e:
     needs: [policy]

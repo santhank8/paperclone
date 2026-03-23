@@ -34,7 +34,18 @@ RUN test -f server/dist/index.js || (echo "ERROR: server build output missing" &
 FROM base AS production
 WORKDIR /app
 COPY --chown=node:node --from=build /app /app
-RUN npm install --global --omit=dev @anthropic-ai/claude-code@latest @openai/codex@latest opencode-ai \
+
+# Pin external AI tool versions for reproducible, supply-chain-safe builds.
+# To upgrade: update these ARGs and rebuild. Do NOT revert to @latest.
+# Run `npm show <package> version` to find the current stable version.
+ARG CLAUDE_CODE_VERSION=1.0.13
+ARG CODEX_VERSION=0.1.2505211718
+ARG OPENCODE_VERSION=0.1.113
+
+RUN npm install --global --omit=dev \
+    "@anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}" \
+    "@openai/codex@${CODEX_VERSION}" \
+    "opencode-ai@${OPENCODE_VERSION}" \
   && mkdir -p /paperclip \
   && chown node:node /paperclip
 
