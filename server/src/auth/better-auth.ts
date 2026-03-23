@@ -43,7 +43,7 @@ function headersFromExpressRequest(req: Request): Headers {
 }
 
 export function deriveAuthTrustedOrigins(config: Config): string[] {
-  const baseUrl = config.authBaseUrlMode === "explicit" ? config.authPublicBaseUrl : undefined;
+  const baseUrl = resolveBaseUrl(config);
   const trustedOrigins = new Set<string>();
 
   if (baseUrl) {
@@ -65,13 +65,27 @@ export function deriveAuthTrustedOrigins(config: Config): string[] {
   return Array.from(trustedOrigins);
 }
 
+export function resolveBaseUrl(config: Config): string | undefined {
+  if (config.authBaseUrlMode === "explicit") {
+    return config.authPublicBaseUrl;
+  }
+  // In "auto" mode, construct a baseURL from the server's listen address so
+  // better-auth can correctly determine the cookie security policy.  Without
+  // this, better-auth falls back to NODE_ENV === "production" which causes
+  // __Secure- cookies over plain HTTP — silently breaking login.  (#1598)
+  const host = config.host === "0.0.0.0" || config.host === "::" ? "localhost" : config.host;
+  return `http://${host}:${config.port}`;
+}
+
 export function createBetterAuthInstance(db: Db, config: Config, trustedOrigins?: string[]): BetterAuthInstance {
-  const baseUrl = config.authBaseUrlMode === "explicit" ? config.authPublicBaseUrl : undefined;
+  const baseUrl = resolveBaseUrl(config);
+  const useSecureCookies = baseUrl ? baseUrl.startsWith("https://") : false;
   const secret = process.env.BETTER_AUTH_SECRET ?? process.env.PAPERCLIP_AGENT_JWT_SECRET ?? "paperclip-dev-secret";
   const effectiveTrustedOrigins = trustedOrigins ?? deriveAuthTrustedOrigins(config);
 
   const authConfig = {
     baseURL: baseUrl,
+    useSecureCookies,
     secret,
     trustedOrigins: effectiveTrustedOrigins,
     database: drizzleAdapter(db, {
