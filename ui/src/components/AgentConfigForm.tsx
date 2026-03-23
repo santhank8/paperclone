@@ -23,7 +23,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
-import { FolderOpen, Heart, ChevronDown, X } from "lucide-react";
+import { FolderOpen, Heart, ChevronDown, User, X } from "lucide-react";
 import { cn } from "../lib/utils";
 import { extractModelName, extractProviderId } from "../lib/model-utils";
 import { queryKeys } from "../lib/queryKeys";
@@ -37,6 +37,7 @@ import {
   DraftNumberInput,
   help,
   adapterLabels,
+  roleLabels,
 } from "./agent-config-primitives";
 import { defaultCreateValues } from "./agent-config-defaults";
 import { getUIAdapter } from "../adapters";
@@ -44,6 +45,7 @@ import { ClaudeLocalAdvancedFields } from "../adapters/claude-local/config-field
 import { MarkdownEditor } from "./MarkdownEditor";
 import { ChoosePathButton } from "./PathInstructionsModal";
 import { OpenCodeLogoIcon } from "./OpenCodeLogoIcon";
+import { AgentIcon } from "./AgentIconPicker";
 import { shouldShowLegacyWorkingDirectoryField } from "../lib/legacy-agent-config";
 
 /* ---- Create mode values ---- */
@@ -175,6 +177,8 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
   const showCreateRunPolicySection = props.showCreateRunPolicySection ?? true;
   const hideInstructionsFile = props.hideInstructionsFile ?? false;
   const { selectedCompanyId } = useCompany();
+  const effectiveCompanyId = !isCreate ? (props.agent.companyId || selectedCompanyId) : selectedCompanyId;
+  const originalReportsTo = !isCreate ? (props.agent.reportsTo ?? null) : null;
   const queryClient = useQueryClient();
 
   const { data: availableSecrets = [] } = useQuery({
@@ -201,8 +205,15 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
     },
   });
 
+  const { data: companyAgents } = useQuery({
+    queryKey: queryKeys.agents.list(effectiveCompanyId ?? "__none__"),
+    queryFn: () => agentsApi.list(effectiveCompanyId!),
+    enabled: !isCreate && Boolean(effectiveCompanyId),
+  });
+
   // ---- Edit mode: overlay for dirty tracking ----
   const [overlay, setOverlay] = useState<Overlay>(emptyOverlay);
+  const [reportsToOpen, setReportsToOpen] = useState(false);
   const agentRef = useRef<Agent | null>(null);
 
   // Clear overlay when agent data refreshes (after save)
@@ -236,6 +247,23 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
   const handleCancel = useCallback(() => {
     setOverlay({ ...emptyOverlay });
   }, []);
+
+  const setReportsToValue = useCallback((nextReportsTo: string | null) => {
+    if (isCreate) return;
+    setOverlay((prev) => {
+      const nextIdentity = { ...prev.identity };
+      if (nextReportsTo === originalReportsTo) {
+        delete nextIdentity.reportsTo;
+      } else {
+        nextIdentity.reportsTo = nextReportsTo;
+      }
+      return {
+        ...prev,
+        identity: nextIdentity,
+      };
+    });
+    setReportsToOpen(false);
+  }, [isCreate, originalReportsTo]);
 
   const handleSave = useCallback(() => {
     if (isCreate || !isDirty) return;
@@ -418,6 +446,15 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
       heartbeat: mergedHeartbeat,
     };
   }, [isCreate, overlay.heartbeat, runtimeConfig, val]);
+  const editableReportsTo = !isCreate
+    ? eff<string | null>("identity", "reportsTo", props.agent.reportsTo ?? null)
+    : null;
+  const availableManagers = !isCreate
+    ? (companyAgents ?? []).filter((agent) => agent.id !== props.agent.id)
+    : [];
+  const currentManager = !isCreate && editableReportsTo
+    ? availableManagers.find((agent) => agent.id === editableReportsTo) ?? null
+    : null;
   return (
     <div className={cn("relative", cards && "space-y-6")}>
       {/* ---- Floating Save button (edit mode, when dirty) ---- */}
@@ -461,6 +498,74 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
                 className={inputClass}
                 placeholder="e.g. VP of Engineering"
               />
+            </Field>
+            <Field label="Reports to" hint={help.reportsTo}>
+              <Popover open={reportsToOpen} onOpenChange={setReportsToOpen}>
+                <PopoverTrigger asChild>
+                  <button
+                    type="button"
+                    className={cn(
+                      inputClass,
+                      "flex items-center justify-between gap-3 text-left"
+                    )}
+                  >
+                    <span className="flex min-w-0 items-center gap-2">
+                      {currentManager ? (
+                        <>
+                          <AgentIcon icon={currentManager.icon} className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                          <span className="truncate">{currentManager.name}</span>
+                        </>
+                      ) : editableReportsTo ? (
+                        <>
+                          <User className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                          <span className="truncate">Unknown manager</span>
+                        </>
+                      ) : (
+                        <>
+                          <User className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                          <span className="truncate text-muted-foreground">No manager</span>
+                        </>
+                      )}
+                    </span>
+                    <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent className="w-72 p-1" align="start">
+                  <button
+                    type="button"
+                    className={cn(
+                      "flex w-full items-center gap-2 rounded px-2 py-1.5 text-xs hover:bg-accent/50",
+                      editableReportsTo === null && "bg-accent"
+                    )}
+                    onClick={() => setReportsToValue(null)}
+                  >
+                    <User className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                    <span className="truncate">No manager</span>
+                  </button>
+                  {availableManagers.map((agent) => (
+                    <button
+                      key={agent.id}
+                      type="button"
+                      className={cn(
+                        "flex w-full items-center gap-2 rounded px-2 py-1.5 text-xs hover:bg-accent/50",
+                        agent.id === editableReportsTo && "bg-accent"
+                      )}
+                      onClick={() => setReportsToValue(agent.id)}
+                    >
+                      <AgentIcon icon={agent.icon} className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                      <span className="min-w-0 flex-1 truncate text-left">{agent.name}</span>
+                      <span className="shrink-0 text-muted-foreground">
+                        {roleLabels[agent.role] ?? agent.role}
+                      </span>
+                    </button>
+                  ))}
+                  {availableManagers.length === 0 ? (
+                    <div className="px-2 py-1.5 text-xs text-muted-foreground">
+                      No other agents available in this company.
+                    </div>
+                  ) : null}
+                </PopoverContent>
+              </Popover>
             </Field>
             <Field label="Capabilities" hint={help.capabilities}>
               <MarkdownEditor
