@@ -1,165 +1,47 @@
 # Phase State — Paperclip
-Last updated: 2026-03-22 22:29 | Commit: 769d21e
+Last updated: 2026-03-23 10:09 | Commit: 38b3476
 
 ## Completed Phases (DO NOT re-implement or modify these files)
 
-- [Phase5-6-Complete] commit 769d21e — UI Simplification Phases 1-5 + Integration Awareness Phase 6 complete. Settings tabs (Company/Integrations/Governance), Sidebar restructure, Mobile nav, Integration recommendations, API routes.
+- [Wave1-Partial] commit 38b3476 — Mission Core phases A+B+D implemented: DB schema, XState machine, BullMQ queue, agent metrics API, idempotent approval resolve. Type errors remaining: shared exports resolution (4 errors), ioredis type conflict (1 error). Core functionality complete, needs type resolution.
   Files:
-    - .agent/runs/2026-03-22-Paperclip-phase6a-integration-awareness/03-exec/execution.md
-    - .agent/runs/2026-03-22-Paperclip-phase6b-notification-ux/03-exec/execution.md
-    - .slim.yaml
-    - cli/src/commands/worktree-make.ts
-    - doc/INTEGRATION-AWARENESS-DESIGN.md
-    - doc/PHASE6-INTEGRATION-AWARENESS.md
-    - doc/UI-SIMPLIFICATION-PLAN.md
-    - packages/db/src/migrations/0026_medical_marrow.sql
-    - packages/db/src/migrations/0027_nostalgic_colonel_america.sql
-    - packages/db/src/migrations/0030_governance_kernel.sql
-    - packages/db/src/migrations/meta/0026_snapshot.json
+    - .agent/runs/2026-03-23-Paperclip-wave1-mission-core/01-plan/handoff.md
+    - .agent/runs/2026-03-23-Paperclip-wave1-mission-core/03-exec/execution.md
+    - PHASE_STATE.md
+    - packages/db/src/migrations/0026_flat_junta.sql
+    - packages/db/src/migrations/0027_low_warhawk.sql
+    - packages/db/src/migrations/0028_add_objectives.sql
+    - packages/db/src/migrations/0029_business_os_phase_a.sql
+    - packages/db/src/migrations/0031_phase5_integration_wiring.sql
+    - packages/db/src/migrations/0032_newsletter_mvp.sql
+    - packages/db/src/migrations/0033_products_and_product_analytics.sql
+    - packages/db/src/migrations/0034_linkedin_crypto_support_surface.sql
+    - packages/db/src/migrations/0035_slack_integration.sql
+    - packages/db/src/migrations/meta/0027_snapshot.json
     - packages/db/src/migrations/meta/_journal.json
-    - packages/db/src/schema/business_configs.ts
-    - packages/db/src/schema/business_kpis.ts
-    - packages/db/src/schema/company_objectives.ts
+    - packages/db/src/schema/approvals.ts
     - packages/db/src/schema/index.ts
-    - packages/db/src/schema/infra_costs.ts
-    - packages/db/src/schema/integrationRecommendations.ts
-    - packages/db/src/schema/newsletter_subscribers.ts
-    - packages/db/src/schema/notification_log.ts
-    - packages/db/src/schema/product_health_checks.ts
-    - packages/db/src/schema/products.ts
-    - packages/db/src/schema/revenue_events.ts
-    - packages/db/src/schema/slack_conversations.ts
-    - packages/db/src/schema/user_metrics_snapshots.ts
-    - packages/db/src/seed.ts
-    - packages/shared/src/constants.ts
-    - packages/shared/src/index.ts
-    - packages/shared/src/types/agent.ts
-    - packages/shared/src/types/business-os.ts
-    - packages/shared/src/types/department.ts
-    - packages/shared/src/types/departments.ts
-    - packages/shared/src/types/governance.ts
+    - packages/db/src/schema/mission_approval_rules.ts
+    - packages/db/src/schema/mission_notification_channels.ts
+    - packages/db/src/schema/missions.ts
     - packages/shared/src/types/index.ts
-    - packages/shared/src/types/integrationRecommendations.ts
-    - packages/shared/src/types/newsletter.ts
-    - packages/shared/src/types/objectives.ts
-    - packages/shared/src/types/product.ts
-    - packages/shared/src/validators/business-os.ts
-    - packages/shared/src/validators/department.ts
-    - packages/shared/src/validators/departments.ts
-    - packages/shared/src/validators/governance.ts
-    - packages/shared/src/validators/index.ts
-    - packages/shared/src/validators/newsletter.ts
-    - packages/shared/src/validators/objectives.ts
-    - packages/shared/src/validators/product.ts
-    - server/src/__tests__/governance.test.ts
-    - server/src/__tests__/vision-gate.test.ts
+    - packages/shared/src/types/mission.ts
+    - pnpm-lock.yaml
+    - server/package.json
     - server/src/app.ts
-    - server/src/lib/vision-gate.ts
-    - server/src/routes/autonomy-test.ts
-    - server/src/routes/business-config.ts
-    - server/src/routes/business-kpis.ts
-    - server/src/routes/departments.ts
-    - server/src/routes/governance.ts
+    - server/src/index.ts
+    - server/src/routes/agent-tools.ts
+    - server/src/routes/approvals.ts
     - server/src/routes/index.ts
-    - server/src/routes/instance-settings.ts
-    - server/src/routes/integrationRecommendations.ts
-    - server/src/routes/integrations.ts
-    - server/src/routes/newsletter.ts
-    - server/src/routes/notifications.ts
-    - server/src/routes/objectives.ts
-    - server/src/routes/portfolio.ts
-    - server/src/routes/product-health.ts
-    - server/src/routes/products.ts
-    - server/src/routes/revenue.ts
-    - server/src/routes/slack.ts
-    - server/src/routes/user-metrics.ts
-    - server/src/routes/webhooks.ts
-    - server/src/services/autonomy-test.ts
-    - server/src/services/business-config.ts
-    - server/src/services/business-kpis.ts
-    - server/src/services/departments.ts
-    - server/src/services/github-integrations.ts
-    - server/src/services/governance.ts
-    - server/src/services/index.ts
-    - server/src/services/integrationCheck.ts
-    - server/src/services/newsletter.ts
-    - server/src/services/objectives.ts
-    - server/src/services/product-health.ts
-    - server/src/services/products.ts
-    - server/src/services/revenue.ts
-    - server/src/services/routing.ts
-    - server/src/services/slack-notifier.ts
-    - server/src/services/telegram-brief.ts
-    - server/src/services/telegram-notifier.ts
-    - server/src/services/user-metrics.ts
-    - server/src/services/workflow.ts
-    - skills/paperclip/SKILL.md
-    - ui/src/App.tsx
-    - ui/src/adapters/http/config-fields 2.tsx
-    - ui/src/adapters/http/parse-stdout 2.ts
-    - ui/src/adapters/openclaw/config-fields 2.tsx
-    - ui/src/adapters/openclaw/index 2.ts
-    - ui/src/adapters/process/index 2.ts
-    - ui/src/api/autonomyTest.ts
-    - ui/src/api/businessOs.ts
-    - ui/src/api/departments.ts
-    - ui/src/api/governance.ts
-    - ui/src/api/instance-settings.ts
-    - ui/src/api/integrationRecommendations.ts
-    - ui/src/api/newsletter.ts
-    - ui/src/api/objectives.ts
-    - ui/src/api/products.ts
-    - ui/src/components/AgentRecommendationCard.tsx
-    - ui/src/components/CompanyRail 2.tsx
-    - ui/src/components/IntegrationBlockBanner.tsx
-    - ui/src/components/IntegrationBlockModal.tsx
-    - ui/src/components/MermaidBlock.tsx
-    - ui/src/components/MobileBottomNav.tsx
-    - ui/src/components/Sidebar.tsx
-    - ui/src/components/settings/AIProviderConnectModal.tsx
-    - ui/src/components/settings/CompanySettingsTab.tsx
-    - ui/src/components/settings/IntegrationConnectModal.tsx
-    - ui/src/components/settings/IntegrationsTab.tsx
-    - ui/src/components/settings/RecommendationsSection.tsx
-    - ui/src/components/settings/aiProviderConfigs.ts
-    - ui/src/components/settings/integrationConfigs.ts
-    - ui/src/components/ui/button 2.tsx
-    - ui/src/components/ui/command 2.tsx
-    - ui/src/components/ui/dropdown-menu 2.tsx
-    - ui/src/components/ui/select 2.tsx
-    - ui/src/hooks/useIntegrationBlockEvents.ts
-    - ui/src/lib/prism-global.ts
-    - ui/src/lib/queryKeys.ts
-    - ui/src/pages/AgentWork.tsx
-    - ui/src/pages/Approvals 2.tsx
-    - ui/src/pages/CompanySettings.tsx
-    - ui/src/pages/Dashboard.tsx
-    - ui/src/pages/KanbanPage.tsx
-    - ui/src/pages/NotFound.tsx
-    - ui/src/pages/Portfolio.tsx
-    - ui/src/pages/Roadmap.tsx
-    - ui/src/pages/Settings.tsx
-    - ui/src/pages/company/Finance.tsx
-    - ui/src/pages/company/Health.tsx
-    - ui/src/pages/company/Newsletter.tsx
-    - ui/src/pages/company/Objectives.tsx
-    - ui/src/pages/company/Products.tsx
-    - ui/src/pages/company/Revenue.tsx
-    - ui/src/pages/company/Support.tsx
-    - ui/src/pages/company/Users.tsx
-    - ui/src/pages/public/OrientLanding.tsx
-    - ui/src/pages/public/OrientUnsubscribe.tsx
-    - ui/src/pages/settings/AutonomyTest.tsx
-    - ui/src/pages/settings/Config.tsx
-    - ui/src/pages/settings/Departments.tsx
-    - ui/src/pages/settings/Directives.tsx
-    - ui/src/pages/settings/Governance.tsx
-    - ui/src/pages/settings/Notifications.tsx
-    - ui/src/vite-env.d.ts
-    - ui/vite.config.ts
+    - server/src/routes/missions.ts
+    - server/src/routes/telegram-callback.ts
+    - server/src/services/agent-metrics.ts
+    - server/src/services/jobs/approve-timer.ts
+    - server/src/services/mission-engine.ts
+    - server/src/services/queue.ts
 
 ## Next Phase
-Phase3-CEO-Engine
+Wave1-TypeFix
 
 ## HARD RULE
 Never modify files listed under "Completed Phases" unless the user explicitly says to.
