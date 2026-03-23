@@ -46,3 +46,30 @@ export async function sendTelegram(
   }
   throw new Error("Telegram send failed after 3 retries");
 }
+
+export async function sendPhoto(
+  photo: Buffer,
+  caption?: string,
+  opts?: { botToken?: string; chatId?: string; threadId?: number }
+): Promise<void> {
+  const token = opts?.botToken ?? process.env.TELEGRAM_BOT_TOKEN;
+  const chatId = opts?.chatId ?? process.env.TELEGRAM_CHAT_ID;
+  const threadId = opts?.threadId ?? (process.env.TELEGRAM_THREAD_ID ? Number(process.env.TELEGRAM_THREAD_ID) : undefined);
+
+  if (!token || !chatId) throw new Error("Missing TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID");
+
+  const form = new FormData();
+  form.append("chat_id", chatId);
+  form.append("photo", new Blob([new Uint8Array(photo)], { type: "image/png" }), "chart.png");
+  if (caption) form.append("caption", caption);
+  if (threadId) form.append("message_thread_id", String(threadId));
+
+  const res = await fetch(`${TELEGRAM_API}/bot${token}/sendPhoto`, {
+    method: "POST",
+    body: form,
+  });
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Telegram sendPhoto failed: ${res.status} ${err}`);
+  }
+}

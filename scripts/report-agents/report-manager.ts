@@ -424,12 +424,67 @@ async function main() {
   if (social.html) await sendTelegram(social.html);
   if (ga.html) await sendTelegram(ga.html);
 
-  // Daily insight (cross-platform analysis by Claude)
-  console.log("  → Daily insight...");
+  // Send charts
+  console.log("  → Charts...");
   try {
-    const insight = await generateDailyOverview(platform.raw, ga.raw);
-    if (insight) await sendTelegram(insight);
-  } catch (e) { console.error("  Daily insight error:", e); }
+    const { volumeBarChart, dailyTrendChart, userPieChart, trafficSourcesChart } = await import("./lib/charts.js");
+    const { sendPhoto } = await import("./lib/telegram.js");
+
+    // Volume bar chart
+    if (platform.raw?.length > 0) {
+      const topTokens = platform.raw.slice(0, 7).map((t: any) => ({
+        symbol: t.token_symbol,
+        volume: Number(t.total_value_24h) || 0,
+      }));
+      const volChart = await volumeBarChart(topTokens);
+      await sendPhoto(volChart, "Top Tokens by 24h Filled Volume");
+    }
+
+    // Daily trend (14 days)
+    const db = new Database(WHALES_DB_PATH, { readonly: true });
+    try {
+      const trend = db.prepare(`
+        SELECT DATE(created_at) AS date,
+          ROUND(SUM(CASE WHEN is_exit_position = 0 THEN order_value_usd_1side ELSE 0 END), 2) AS volume,
+          COUNT(DISTINCT order_id) AS orders
+        FROM _order_flat WHERE created_at >= datetime('now', '-14 days')
+        GROUP BY DATE(created_at) ORDER BY date
+      `).all() as any[];
+      if (trend.length > 2) {
+        const trendChart = await dailyTrendChart(trend);
+        await sendPhoto(trendChart, "14-Day Volume & Orders Trend");
+      }
+
+      // User pie chart
+      const users = db.prepare(`
+        WITH w AS (
+          SELECT DISTINCT buyer_id AS user_id FROM _order_flat WHERE created_at >= datetime('now', '-24 hours')
+          UNION SELECT DISTINCT seller_id FROM _order_flat WHERE created_at >= datetime('now', '-24 hours')
+        )
+        SELECT
+          COUNT(DISTINCT CASE WHEN ufo.first_order_at >= datetime('now', '-24 hours') THEN w.user_id END) AS new_users,
+          COUNT(DISTINCT CASE WHEN ufo.first_order_at < datetime('now', '-24 hours') THEN w.user_id END) AS returning
+        FROM w JOIN _user_first_order ufo ON w.user_id = ufo.user_id
+      `).get() as any;
+      if (users && (users.new_users + users.returning) > 0) {
+        const userChart = await userPieChart(users.new_users, users.returning);
+        await sendPhoto(userChart, "New vs Returning Users (24h)");
+      }
+    } finally { db.close(); }
+
+    // Traffic sources chart
+    if (ga.raw?.trafficSources?.length > 0) {
+      const trafficChart = await trafficSourcesChart(ga.raw.trafficSources);
+      await sendPhoto(trafficChart, "Website Traffic Sources");
+    }
+  } catch (e) { console.error("  Charts error:", e); }
+
+  // Daily overview (cross-platform analysis by Claude)
+  console.log("  → Daily overview...");
+  try {
+    const overview = await generateDailyOverview(platform.raw, ga.raw);
+    if (overview) await sendTelegram(overview);
+  } catch (e) { console.error("  Daily overview error:", e); }
 
   // === WEEKLY (Sunday) ===
   if (dayOfWeek === 0) {
