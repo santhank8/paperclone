@@ -16,7 +16,7 @@ Core fields:
 - gatewayUrl (string, optional): Gateway API URL (default: http://deerflow-gateway:8001)
 - model (string, optional): LLM model name (e.g., "claude-sonnet-4-6")
 - skill (string, optional): DeerFlow skill to activate (e.g., "deep-research", "data-analysis")
-- thinkingEnabled (boolean, optional): enable extended thinking (default: true)
+- thinkingEnabled (boolean, optional): enable extended thinking (default: false)
 - subagentEnabled (boolean, optional): enable sub-agent delegation (default: true)
 - timeoutSec (number, optional): execution timeout in seconds (default: 600)
 - recursionLimit (number, optional): LangGraph recursion limit (default: 100)

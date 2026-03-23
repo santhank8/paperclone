@@ -209,7 +209,7 @@ export async function execute(
   const deerflowUrl = asString(config.deerflowUrl as unknown, "http://deerflow-langgraph:2024");
   const model = asString(config.model as unknown, "");
   const skill = asString(config.skill as unknown, "");
-  const thinkingEnabled = asBoolean(config.thinkingEnabled as unknown, true);
+  const thinkingEnabled = asBoolean(config.thinkingEnabled as unknown, false);
   const subagentEnabled = asBoolean(config.subagentEnabled as unknown, true);
   const timeoutSec = asNumber(config.timeoutSec as unknown, 600);
   const recursionLimit = asNumber(config.recursionLimit as unknown, 100);
