@@ -20,48 +20,27 @@ const TELEGRAM_API = "https://api.telegram.org";
 let offset = 0;
 
 // ============================================================
-// CONVERSATION MEMORY — per chat, last 10 messages
+// SESSION MANAGEMENT — persistent Claude session per chat
 // ============================================================
 
-interface ChatMessage {
-  role: "user" | "bot";
-  text: string;
-  timestamp: number;
+interface ChatSession {
+  sessionId: string | null; // Claude CLI session ID
+  lastActivity: number;
 }
 
-const chatHistory = new Map<string, ChatMessage[]>();
-const MAX_HISTORY = 10;
-const HISTORY_TTL_MS = 30 * 60 * 1000; // 30 minutes — reset context after inactivity
+const chatSessions = new Map<string, ChatSession>();
+const SESSION_TTL_MS = 60 * 60 * 1000; // 1 hour — new session after inactivity
 
-function addToHistory(chatKey: string, role: "user" | "bot", text: string) {
-  if (!chatHistory.has(chatKey)) chatHistory.set(chatKey, []);
-  const history = chatHistory.get(chatKey)!;
-
-  // Clear if last message was >30 min ago (new conversation)
-  if (history.length > 0 && Date.now() - history[history.length - 1].timestamp > HISTORY_TTL_MS) {
-    history.length = 0;
+function getSession(chatKey: string): ChatSession {
+  const session = chatSessions.get(chatKey);
+  if (session && Date.now() - session.lastActivity < SESSION_TTL_MS) {
+    session.lastActivity = Date.now();
+    return session;
   }
-
-  history.push({ role, text: text.slice(0, 1000), timestamp: Date.now() });
-
-  // Keep last N messages
-  while (history.length > MAX_HISTORY) history.shift();
-}
-
-function getHistoryContext(chatKey: string): string {
-  const history = chatHistory.get(chatKey) ?? [];
-  if (history.length === 0) return "";
-
-  // Filter out stale messages
-  const now = Date.now();
-  const recent = history.filter((m) => now - m.timestamp < HISTORY_TTL_MS);
-
-  if (recent.length === 0) return "";
-
-  const lines = recent.map((m) =>
-    m.role === "user" ? `User: ${m.text}` : `Bot: ${m.text}`
-  );
-  return `\n## Lịch sử hội thoại gần đây (dùng để hiểu context):\n${lines.join("\n")}\n`;
+  // New session
+  const newSession: ChatSession = { sessionId: null, lastActivity: Date.now() };
+  chatSessions.set(chatKey, newSession);
+  return newSession;
 }
 
 // ============================================================
@@ -152,41 +131,85 @@ async function handleQuestion(chatId: string, question: string, chatKey: string,
 
   await reply(chatId, "🤔 Thinking...", threadId);
 
-  const historyContext = getHistoryContext(chatKey);
+  const session = getSession(chatKey);
+  const isNewSession = !session.sessionId;
 
-  const prompt = `ĐỌC FILE SYSTEM PROMPT TRƯỚC: /Users/amando/Desktop/Learn/metabase-sync/SYSTEM_PROMPT.md — đây là hướng dẫn chi tiết cách bạn suy nghĩ và trả lời.
-
+  // Build prompt — system prompt only on first message, then just the question
+  let prompt: string;
+  if (isNewSession) {
+    prompt = `ĐỌC FILE SYSTEM PROMPT: /Users/amando/Desktop/Learn/metabase-sync/SYSTEM_PROMPT.md — làm theo hướng dẫn trong đó.
 Database SQLite tại: ${WHALES_DB_PATH}
-${historyContext}
-Câu hỏi hiện tại: "${question}"
 
-QUAN TRỌNG — HIỂU CONTEXT:
-- Nếu có lịch sử hội thoại ở trên, đọc kỹ để hiểu "token này", "con này" refer đến gì
-- Nếu user reply/quote message → đó là context
-- Làm theo đúng quy trình trong SYSTEM_PROMPT.md: Hiểu → Query → Validate → Phân tích (Fact → Observation → Recommendation)`;
+Câu hỏi: "${question}"`;
+  } else {
+    // Follow-up: just the question, Claude remembers context from session
+    prompt = question;
+  }
 
   try {
-    const { stdout } = await execFileAsync("claude", [
+    // Build args: --print for output, -r for session resume, -p for prompt
+    const args = [
       "--print",
       "--dangerously-skip-permissions",
       "--model", "claude-sonnet-4-5-20250929",
-      "-p", prompt,
-    ], {
+    ];
+
+    // Resume existing session if available
+    if (session.sessionId) {
+      args.push("-r", session.sessionId);
+    }
+
+    args.push("-p", prompt);
+
+    const { stdout, stderr } = await execFileAsync("claude", args, {
       timeout: 120_000,
       maxBuffer: 1024 * 1024,
       env: { ...process.env, PATH: `${process.env.PATH}:/usr/local/bin:/opt/homebrew/bin` },
     });
 
+    // Extract session ID from stderr (Claude CLI outputs session info there)
+    const sessionMatch = stderr?.match(/session_id[=:]\s*([a-f0-9-]+)/i)
+      || stderr?.match(/Resuming session ([a-f0-9-]+)/i)
+      || stdout?.match(/"session_id"\s*:\s*"([a-f0-9-]+)"/);
+
+    if (sessionMatch) {
+      session.sessionId = sessionMatch[1];
+      console.log(`  [${chatKey}] Session: ${session.sessionId?.slice(0, 8)}...`);
+    }
+
+    // If --print didn't capture session, try to extract from output
+    if (!session.sessionId && isNewSession) {
+      // Run a quick command to get the last session ID
+      try {
+        const { stdout: lsOut } = await execFileAsync("claude", [
+          "sessions", "list", "--limit", "1", "--json",
+        ], {
+          timeout: 10_000,
+          env: { ...process.env, PATH: `${process.env.PATH}:/usr/local/bin:/opt/homebrew/bin` },
+        });
+        const sessions = JSON.parse(lsOut);
+        if (sessions?.[0]?.id) {
+          session.sessionId = sessions[0].id;
+          console.log(`  [${chatKey}] Session (from list): ${session.sessionId?.slice(0, 8)}...`);
+        }
+      } catch {
+        // Ignore — session tracking is best-effort
+      }
+    }
+
     const answer = stdout.trim();
     if (answer) {
-      const sent = await reply(chatId, answer, threadId);
-      // Save bot response to history
-      addToHistory(chatKey, "bot", sent.slice(0, 500));
+      await reply(chatId, answer, threadId);
     } else {
       await reply(chatId, "❌ No response from Claude", threadId);
     }
   } catch (e: any) {
     console.error("Claude CLI error:", e.message);
+    // If session error, reset and retry without resume
+    if (session.sessionId && e.message?.includes("session")) {
+      console.log(`  [${chatKey}] Session error, resetting...`);
+      session.sessionId = null;
+    }
     await reply(chatId, `❌ Error: ${e.message?.slice(0, 200)}`, threadId);
   }
 }
@@ -227,8 +250,6 @@ async function main() {
           await handleReport(chatId, threadId);
         } else if (cleanText.length > 2) {
           console.log(`[${chatKey}] Question: ${cleanText.slice(0, 50)}`);
-          // Save user message to history
-          addToHistory(chatKey, "user", fullQuestion);
           await handleQuestion(chatId, fullQuestion, chatKey, threadId);
         }
       }
