@@ -176,65 +176,51 @@ export function telegramService(db: Db) {
   }) {
     const taskKey = `telegram:${input.telegramChatId}`;
 
-    // Look for an active session by telegramChatId or by taskKey (legacy rows may lack telegramChatId)
-    const existing = await db
+    // Find any session with this taskKey (active or archived)
+    const match = await db
       .select()
       .from(chatSessions)
       .where(
         and(
           eq(chatSessions.agentId, input.agentId),
           eq(chatSessions.companyId, input.companyId),
-          isNull(chatSessions.archivedAt),
           eq(chatSessions.taskKey, taskKey),
         ),
       )
       .then((rows) => rows[0] ?? null);
 
-    if (existing) {
-      // Backfill telegramChatId if the legacy row is missing it
-      if (!existing.telegramChatId) {
+    if (match && !match.archivedAt) {
+      // Active session — backfill telegramChatId if missing
+      if (!match.telegramChatId) {
         await db
           .update(chatSessions)
           .set({ telegramChatId: input.telegramChatId, updatedAt: new Date() })
-          .where(eq(chatSessions.id, existing.id));
+          .where(eq(chatSessions.id, match.id));
       }
-      return existing;
+      return match;
+    }
+
+    if (match && match.archivedAt) {
+      // Archived session blocking the taskKey slot — rename it to free the constraint
+      await db
+        .update(chatSessions)
+        .set({ taskKey: `${taskKey}:archived:${match.archivedAt.getTime()}` })
+        .where(eq(chatSessions.id, match.id));
     }
 
     const sessionId = randomUUID();
-    try {
-      const [created] = await db
-        .insert(chatSessions)
-        .values({
-          id: sessionId,
-          companyId: input.companyId,
-          agentId: input.agentId,
-          taskKey,
-          title: "Telegram chat",
-          telegramChatId: input.telegramChatId,
-        })
-        .returning();
-      return created!;
-    } catch (err: unknown) {
-      // Handle race condition: another request created the session between our SELECT and INSERT
-      const isUniqueViolation = err && typeof err === "object" && "code" in err && (err as { code: string }).code === "23505";
-      if (isUniqueViolation) {
-        const fallback = await db
-          .select()
-          .from(chatSessions)
-          .where(
-            and(
-              eq(chatSessions.agentId, input.agentId),
-              eq(chatSessions.companyId, input.companyId),
-              eq(chatSessions.taskKey, taskKey),
-              isNull(chatSessions.archivedAt),
-            ),
-          )
-          .then((rows) => rows[0] ?? null);
-        if (fallback) return fallback;
-      }
-      throw err;
-    }
+    const [created] = await db
+      .insert(chatSessions)
+      .values({
+        id: sessionId,
+        companyId: input.companyId,
+        agentId: input.agentId,
+        taskKey,
+        title: "Telegram chat",
+        telegramChatId: input.telegramChatId,
+      })
+      .returning();
+    return created!;
   }
 
   const agentsSvc = agentService(db);
