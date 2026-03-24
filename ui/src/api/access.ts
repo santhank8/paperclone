@@ -13,6 +13,7 @@ type InviteSummary = {
   onboardingTextUrl?: string;
   skillIndexPath?: string;
   skillIndexUrl?: string;
+  inviteMessage?: string | null;
 };
 
 type AcceptInviteInput =
@@ -39,7 +40,21 @@ type AgentJoinRequestAccepted = JoinRequest & {
 
 type InviteOnboardingManifest = {
   invite: InviteSummary;
-  onboarding: Record<string, unknown>;
+  onboarding: {
+    inviteMessage?: string | null;
+    connectivity?: {
+      guidance?: string;
+      connectionCandidates?: string[];
+      testResolutionEndpoint?: {
+        method?: string;
+        path?: string;
+        url?: string;
+      };
+    };
+    textInstructions?: {
+      url?: string;
+    };
+  };
 };
 
 type BoardClaimStatus = {
@@ -49,22 +64,55 @@ type BoardClaimStatus = {
   claimedByUserId: string | null;
 };
 
+type CliAuthChallengeStatus = {
+  id: string;
+  status: "pending" | "approved" | "cancelled" | "expired";
+  command: string;
+  clientName: string | null;
+  requestedAccess: "board" | "instance_admin_required";
+  requestedCompanyId: string | null;
+  requestedCompanyName: string | null;
+  approvedAt: string | null;
+  cancelledAt: string | null;
+  expiresAt: string;
+  approvedByUser: { id: string; name: string; email: string } | null;
+  requiresSignIn: boolean;
+  canApprove: boolean;
+  currentUserId: string | null;
+};
+
+type CompanyInviteCreated = {
+  id: string;
+  token: string;
+  inviteUrl: string;
+  expiresAt: string;
+  allowedJoinTypes: "human" | "agent" | "both";
+  onboardingTextPath?: string;
+  onboardingTextUrl?: string;
+  inviteMessage?: string | null;
+};
+
 export const accessApi = {
   createCompanyInvite: (
     companyId: string,
     input: {
       allowedJoinTypes?: "human" | "agent" | "both";
-      expiresInHours?: number;
       defaultsPayload?: Record<string, unknown> | null;
+      agentMessage?: string | null;
     } = {},
   ) =>
-    api.post<{
-      id: string;
-      token: string;
-      inviteUrl: string;
-      expiresAt: string;
-      allowedJoinTypes: "human" | "agent" | "both";
-    }>(`/companies/${companyId}/invites`, input),
+    api.post<CompanyInviteCreated>(`/companies/${companyId}/invites`, input),
+
+  createOpenClawInvitePrompt: (
+    companyId: string,
+    input: {
+      agentMessage?: string | null;
+    } = {},
+  ) =>
+    api.post<CompanyInviteCreated>(
+      `/companies/${companyId}/openclaw/invite-prompt`,
+      input,
+    ),
 
   getInvite: (token: string) => api.get<InviteSummary>(`/invites/${token}`),
   getInviteOnboarding: (token: string) =>
@@ -96,4 +144,16 @@ export const accessApi = {
 
   claimBoard: (token: string, code: string) =>
     api.post<{ claimed: true; userId: string }>(`/board-claim/${token}/claim`, { code }),
+
+  getCliAuthChallenge: (id: string, token: string) =>
+    api.get<CliAuthChallengeStatus>(`/cli-auth/challenges/${id}?token=${encodeURIComponent(token)}`),
+
+  approveCliAuthChallenge: (id: string, token: string) =>
+    api.post<{ approved: boolean; status: string; userId: string; keyId: string | null; expiresAt: string }>(
+      `/cli-auth/challenges/${id}/approve`,
+      { token },
+    ),
+
+  cancelCliAuthChallenge: (id: string, token: string) =>
+    api.post<{ cancelled: boolean; status: string }>(`/cli-auth/challenges/${id}/cancel`, { token }),
 };

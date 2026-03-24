@@ -9,11 +9,19 @@ import {
 
 export const createCompanyInviteSchema = z.object({
   allowedJoinTypes: z.enum(INVITE_JOIN_TYPES).default("both"),
-  expiresInHours: z.number().int().min(1).max(24 * 30).optional().default(72),
   defaultsPayload: z.record(z.string(), z.unknown()).optional().nullable(),
+  agentMessage: z.string().max(4000).optional().nullable(),
 });
 
 export type CreateCompanyInvite = z.infer<typeof createCompanyInviteSchema>;
+
+export const createOpenClawInvitePromptSchema = z.object({
+  agentMessage: z.string().max(4000).optional().nullable(),
+});
+
+export type CreateOpenClawInvitePrompt = z.infer<
+  typeof createOpenClawInvitePromptSchema
+>;
 
 export const acceptInviteSchema = z.object({
   requestType: z.enum(JOIN_REQUEST_TYPES),
@@ -21,6 +29,12 @@ export const acceptInviteSchema = z.object({
   adapterType: z.enum(AGENT_ADAPTER_TYPES).optional(),
   capabilities: z.string().max(4000).optional().nullable(),
   agentDefaultsPayload: z.record(z.string(), z.unknown()).optional().nullable(),
+  // OpenClaw join compatibility fields accepted at top level.
+  responsesWebhookUrl: z.string().max(4000).optional().nullable(),
+  responsesWebhookMethod: z.string().max(32).optional().nullable(),
+  responsesWebhookHeaders: z.record(z.string(), z.unknown()).optional().nullable(),
+  paperclipApiUrl: z.string().max(4000).optional().nullable(),
+  webhookAuthHeader: z.string().max(4000).optional().nullable(),
 });
 
 export type AcceptInvite = z.infer<typeof acceptInviteSchema>;
@@ -37,6 +51,28 @@ export const claimJoinRequestApiKeySchema = z.object({
 });
 
 export type ClaimJoinRequestApiKey = z.infer<typeof claimJoinRequestApiKeySchema>;
+
+export const boardCliAuthAccessLevelSchema = z.enum([
+  "board",
+  "instance_admin_required",
+]);
+
+export type BoardCliAuthAccessLevel = z.infer<typeof boardCliAuthAccessLevelSchema>;
+
+export const createCliAuthChallengeSchema = z.object({
+  command: z.string().min(1).max(240),
+  clientName: z.string().max(120).optional().nullable(),
+  requestedAccess: boardCliAuthAccessLevelSchema.default("board"),
+  requestedCompanyId: z.string().uuid().optional().nullable(),
+});
+
+export type CreateCliAuthChallenge = z.infer<typeof createCliAuthChallengeSchema>;
+
+export const resolveCliAuthChallengeSchema = z.object({
+  token: z.string().min(16).max(256),
+});
+
+export type ResolveCliAuthChallenge = z.infer<typeof resolveCliAuthChallengeSchema>;
 
 export const updateMemberPermissionsSchema = z.object({
   grants: z.array(
