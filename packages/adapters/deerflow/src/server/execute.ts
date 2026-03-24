@@ -210,7 +210,7 @@ export async function execute(
   const model = asString(config.model as unknown, "");
   const skill = asString(config.skill as unknown, "");
   const thinkingEnabled = asBoolean(config.thinkingEnabled as unknown, false);
-  const subagentEnabled = asBoolean(config.subagentEnabled as unknown, false);
+  const subagentEnabled = asBoolean(config.subagentEnabled as unknown, true);
   const timeoutSec = asNumber(config.timeoutSec as unknown, 600);
   const recursionLimit = asNumber(config.recursionLimit as unknown, 50);
 
@@ -385,9 +385,20 @@ export async function execute(
           }
         } else if (msgType === "ToolMessage") {
           const content = asString(msgData.content as unknown, "");
+          const toolName = asString(msgData.name as unknown, "");
           if (content) {
-            const truncated = content.length > 2000 ? content.slice(0, 2000) + "..." : content;
-            await onLog("stderr", `[tool_result] ${truncated}\n`);
+            // Task tool results contain subagent output — show prominently on stdout
+            const isTaskResult = toolName === "task" || content.startsWith("[task_");
+            if (isTaskResult) {
+              const truncated = content.length > 6000 ? content.slice(0, 6000) + "\n..." : content;
+              await onLog("stdout", `\n--- Subagent Result ---\n${truncated}\n---\n`);
+              stdout = appendWithCap(stdout, truncated);
+            } else {
+              // Regular tool results (web_search, web_fetch, etc.) — show on stdout too
+              const truncated = content.length > 3000 ? content.slice(0, 3000) + "..." : content;
+              await onLog("stdout", `\n[${toolName || "tool_result"}] ${truncated}\n`);
+              stdout = appendWithCap(stdout, truncated);
+            }
           }
         }
       } else if (sse.event === "values") {
