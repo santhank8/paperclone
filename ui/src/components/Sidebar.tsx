@@ -9,6 +9,7 @@ import {
   SquarePen,
   Network,
   Settings,
+  Radar,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { SidebarSection } from "./SidebarSection";
@@ -44,7 +45,7 @@ export function Sidebar() {
       <div className="flex items-center gap-1 px-3 h-12 shrink-0">
         {selectedCompany?.brandColor && (
           <div
-            className="w-4 h-4 rounded-sm shrink-0 ml-1"
+            className="w-4 h-4 rounded-sm shrink-0"
             style={{ backgroundColor: selectedCompany.brandColor }}
           />
         )}
@@ -96,6 +97,10 @@ export function Sidebar() {
           <SidebarNavItem to="/costs" label="Costs" icon={DollarSign} />
           <SidebarNavItem to="/activity" label="Activity" icon={History} />
           <SidebarNavItem to="/company/settings" label="Settings" icon={Settings} />
+        </SidebarSection>
+
+        <SidebarSection label="Instance">
+          <SidebarNavItem to="/command-center" label="Command Center" icon={Radar} />
         </SidebarSection>
       </nav>
     </aside>

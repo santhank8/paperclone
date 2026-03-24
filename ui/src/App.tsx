@@ -27,6 +27,7 @@ import { InstanceSettings } from "./pages/InstanceSettings";
 import { RunTranscriptUxLab } from "./pages/RunTranscriptUxLab";
 import { OrgChart } from "./pages/OrgChart";
 import { NewAgent } from "./pages/NewAgent";
+import { CommandCenter } from "./pages/CommandCenter";
 import { AuthPage } from "./pages/Auth";
 import { BoardClaimPage } from "./pages/BoardClaim";
 import { InviteLandingPage } from "./pages/InviteLanding";
@@ -298,6 +299,9 @@ export function App() {
           <Route path="instance" element={<Navigate to="/instance/settings" replace />} />
           <Route path="instance/settings" element={<Layout />}>
             <Route index element={<InstanceSettings />} />
+          </Route>
+          <Route path="command-center" element={<Layout />}>
+            <Route index element={<CommandCenter />} />
           </Route>
           <Route path="companies" element={<UnprefixedBoardRedirect />} />
           <Route path="issues" element={<UnprefixedBoardRedirect />} />
