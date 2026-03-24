@@ -135,7 +135,19 @@ When adding endpoints:
 - Use company selection context for company-scoped pages
 - Surface failures clearly; do not silently ignore API errors
 
-## 10. Definition of Done
+## 10. Task Title and Description Standards
+
+When creating tasks or subtasks (in Paperclip or issue trackers), follow these rules:
+
+- **Action-oriented titles:** Use verb + object + constraint format. Write directives, not problem statements.
+  - Good: "Remove all credit_repair references from codebase"
+  - Bad: "Missing credit_repair industry data"
+- **Unambiguous descriptions:** State the desired outcome clearly so it cannot be misread as the opposite action.
+- **Acceptance criteria required:** Every task must include explicit, verifiable acceptance criteria before work begins. Use checklist format.
+- **Clarify before starting:** If a task has ambiguous title/description or missing acceptance criteria, ask for clarification in comments before beginning work.
+- **Verify before done:** Before marking a task `done`, verify each acceptance criterion is met.
+
+## 11. Definition of Done
 
 A change is done when all are true:
 
@@ -143,3 +155,4 @@ A change is done when all are true:
 2. Typecheck, tests, and build pass
 3. Contracts are synced across db/shared/server/ui
 4. Docs updated when behavior or commands change
+5. All acceptance criteria verified and confirmed in closing comment
