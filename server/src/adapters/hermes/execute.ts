@@ -19,63 +19,79 @@ import {
   renderTemplate,
   runChildProcess,
 } from "@paperclipai/adapter-utils/server-utils";
-import type { RunProcessResult } from "@paperclipai/adapter-utils/server-utils";
 import fs from "node:fs/promises";
-import os from "node:os";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
-
-const __moduleDir = path.dirname(fileURLToPath(import.meta.url));
-const PAPERCLIP_SKILLS_CANDIDATES = [
-  path.resolve(__moduleDir, "../../../skills"),
-  path.resolve(__moduleDir, "../../../../../../skills"),
-];
 
 const HERMES_CLI = "hermes";
 const DEFAULT_MODEL = "anthropic/claude-sonnet-4";
 const DEFAULT_TIMEOUT_SEC = 300;
 const DEFAULT_GRACE_SEC = 10;
 const VALID_PROVIDERS = [
-  "auto", "openrouter", "nous", "openai-codex", "zai",
-  "kimi-coding", "minimax", "minimax-cn",
+  "auto", "openrouter", "nous", "openai-codex", "copilot-acp",
+  "copilot", "anthropic", "zai", "kimi-coding", "minimax", "minimax-cn",
+  "kilocode",
 ];
 
-async function resolvePaperclipSkillsDir(): Promise<string | null> {
-  for (const candidate of PAPERCLIP_SKILLS_CANDIDATES) {
-    const isDir = await fs.stat(candidate).then((s) => s.isDirectory()).catch(() => false);
-    if (isDir) return candidate;
+// ---------------------------------------------------------------------------
+// Skills → ephemeral system prompt
+// ---------------------------------------------------------------------------
+// Hermes loads skills by name from ~/.hermes/skills/ via the -s flag.
+// For Paperclip-resolved skills (which live at arbitrary paths), we read each
+// SKILL.md and concatenate into the HERMES_EPHEMERAL_SYSTEM_PROMPT env var.
+// This injects them into Hermes's system prompt without modifying its skill
+// store or cached prompt.
+// ---------------------------------------------------------------------------
+
+async function readSkillContent(skill: AdapterSkill): Promise<string | null> {
+  const candidates = [
+    path.join(skill.path, "SKILL.md"),
+    path.join(skill.path, "skill.md"),
+    path.join(skill.path, "README.md"),
+  ];
+  for (const candidate of candidates) {
+    try {
+      return await fs.readFile(candidate, "utf-8");
+    } catch {
+      continue;
+    }
   }
   return null;
 }
 
-async function buildSkillsDir(skills?: AdapterSkill[]): Promise<string> {
-  const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "paperclip-hermes-skills-"));
-  const target = path.join(tmp, ".agents", "skills");
-  await fs.mkdir(target, { recursive: true });
+async function buildEphemeralSystemPrompt(
+  skills: AdapterSkill[] | undefined,
+  instructionsFilePath: string,
+): Promise<string> {
+  const sections: string[] = [];
 
   if (skills && skills.length > 0) {
     for (const skill of skills) {
-      const stat = await fs.stat(skill.path).catch(() => null);
-      if (stat?.isDirectory()) {
-        await fs.symlink(skill.path, path.join(target, skill.name));
+      const content = await readSkillContent(skill);
+      if (content) {
+        sections.push(`<skill name="${skill.name}">\n${content}\n</skill>`);
       }
     }
-    return tmp;
   }
 
-  const skillsDir = await resolvePaperclipSkillsDir();
-  if (!skillsDir) return tmp;
-  const entries = await fs.readdir(skillsDir, { withFileTypes: true });
-  for (const entry of entries) {
-    if (entry.isDirectory()) {
-      await fs.symlink(
-        path.join(skillsDir, entry.name),
-        path.join(target, entry.name),
+  if (instructionsFilePath) {
+    try {
+      const content = await fs.readFile(instructionsFilePath, "utf-8");
+      const dir = path.dirname(instructionsFilePath);
+      sections.push(
+        `<agent-instructions source="${instructionsFilePath}">\n${content}\n` +
+        `Resolve relative file references from ${dir}/.\n</agent-instructions>`,
       );
+    } catch {
+      // file not found — skip silently
     }
   }
-  return tmp;
+
+  return sections.join("\n\n");
 }
+
+// ---------------------------------------------------------------------------
+// Output parsing
+// ---------------------------------------------------------------------------
 
 const SESSION_ID_REGEX = /^session_id:\s*(\S+)/m;
 const SESSION_ID_REGEX_LEGACY = /session[_ ](?:id|saved)[:\s]+([a-zA-Z0-9_-]+)/i;
@@ -125,6 +141,10 @@ function parseHermesOutput(stdout: string, stderr: string) {
 
   return result;
 }
+
+// ---------------------------------------------------------------------------
+// Runtime config builder (env vars, cwd, workspace context)
+// ---------------------------------------------------------------------------
 
 interface HermesRuntimeConfig {
   command: string;
@@ -272,6 +292,10 @@ async function buildHermesRuntimeConfig(input: {
   };
 }
 
+// ---------------------------------------------------------------------------
+// Main execute
+// ---------------------------------------------------------------------------
+
 export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExecutionResult> {
   const { runId, agent, runtime, config, context, onLog, onMeta, authToken } = ctx;
 
@@ -282,6 +306,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
   const worktreeMode = asBoolean(config.worktreeMode, false);
   const checkpoints = asBoolean(config.checkpoints, false);
   const useQuiet = asBoolean(config.quiet, true);
+  const instructionsFilePath = asString(config.instructionsFilePath, "").trim();
   const promptTemplate = asString(
     config.promptTemplate,
     "You are agent {{agent.id}} ({{agent.name}}). Continue your Paperclip work.",
@@ -296,7 +321,16 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
   });
   const { command, cwd, workspaceId, workspaceRepoUrl, workspaceRepoRef, env, timeoutSec, graceSec, extraArgs } = runtimeConfig;
 
-  const skillsDir = await buildSkillsDir(ctx.skills);
+  // Build ephemeral system prompt from Paperclip skills and instructions file.
+  // Hermes natively loads AGENTS.md from cwd, so we only inject the
+  // instructionsFilePath if it's configured (for explicit override).
+  // Skills are read from their resolved paths and injected as ephemeral content
+  // via HERMES_EPHEMERAL_SYSTEM_PROMPT so they appear in the system prompt
+  // without modifying ~/.hermes/skills/.
+  const ephemeralPrompt = await buildEphemeralSystemPrompt(ctx.skills, instructionsFilePath);
+  if (ephemeralPrompt) {
+    env.HERMES_EPHEMERAL_SYSTEM_PROMPT = ephemeralPrompt;
+  }
 
   const prompt = renderTemplate(promptTemplate, {
     agentId: agent.id,
@@ -321,6 +355,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
   const prevSessionId = asString(runtimeSessionParams.sessionId, runtime.sessionId ?? "");
   const canResume = persistSession && prevSessionId.length > 0;
 
+  // Build CLI args. Hermes uses: hermes chat -q "prompt" -Q -m model ...
   const args = ["chat", "-q", effectivePrompt];
   if (useQuiet) args.push("-Q");
   args.push("-m", model);
@@ -332,6 +367,8 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
   if (checkpoints) args.push("--checkpoints");
   if (asBoolean(config.verbose, false)) args.push("-v");
   if (canResume) args.push("--resume", prevSessionId);
+  // --yolo bypasses tool approval prompts (required for non-interactive use)
+  args.push("--yolo");
   if (extraArgs.length > 0) args.push(...extraArgs);
 
   if (onMeta) {
@@ -347,61 +384,57 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     });
   }
 
-  try {
-    const result = await runChildProcess(runId, command, args, {
-      cwd,
-      env,
-      timeoutSec,
-      graceSec,
-      onLog,
-    });
+  const result = await runChildProcess(runId, command, args, {
+    cwd,
+    env,
+    timeoutSec,
+    graceSec,
+    onLog,
+  });
 
-    const parsed = parseHermesOutput(result.stdout || "", result.stderr || "");
+  const parsed = parseHermesOutput(result.stdout || "", result.stderr || "");
 
-    const executionResult: AdapterExecutionResult = {
-      exitCode: result.exitCode,
-      signal: result.signal,
-      timedOut: result.timedOut,
-      provider: provider || null,
-      model,
-    };
+  const executionResult: AdapterExecutionResult = {
+    exitCode: result.exitCode,
+    signal: result.signal,
+    timedOut: result.timedOut,
+    provider: provider || null,
+    model,
+  };
 
-    if (result.timedOut) {
-      executionResult.errorMessage = `Timed out after ${timeoutSec}s`;
-      executionResult.errorCode = "timeout";
-    }
-
-    if (parsed.errorMessage) {
-      executionResult.errorMessage = parsed.errorMessage as string;
-    }
-
-    if (parsed.usage) {
-      executionResult.usage = parsed.usage as { inputTokens: number; outputTokens: number };
-    }
-
-    if (parsed.costUsd !== undefined) {
-      executionResult.costUsd = parsed.costUsd as number;
-    }
-
-    if (parsed.response) {
-      executionResult.summary = (parsed.response as string).slice(0, 2000);
-    }
-
-    const sessionId = parsed.sessionId as string | undefined;
-    if (persistSession && sessionId) {
-      executionResult.sessionId = sessionId;
-      executionResult.sessionParams = {
-        sessionId,
-        cwd,
-        ...(workspaceId ? { workspaceId } : {}),
-        ...(workspaceRepoUrl ? { repoUrl: workspaceRepoUrl } : {}),
-        ...(workspaceRepoRef ? { repoRef: workspaceRepoRef } : {}),
-      };
-      executionResult.sessionDisplayId = sessionId.slice(0, 16);
-    }
-
-    return executionResult;
-  } finally {
-    fs.rm(skillsDir, { recursive: true, force: true }).catch(() => {});
+  if (result.timedOut) {
+    executionResult.errorMessage = `Timed out after ${timeoutSec}s`;
+    executionResult.errorCode = "timeout";
   }
+
+  if (parsed.errorMessage) {
+    executionResult.errorMessage = parsed.errorMessage as string;
+  }
+
+  if (parsed.usage) {
+    executionResult.usage = parsed.usage as { inputTokens: number; outputTokens: number };
+  }
+
+  if (parsed.costUsd !== undefined) {
+    executionResult.costUsd = parsed.costUsd as number;
+  }
+
+  if (parsed.response) {
+    executionResult.summary = (parsed.response as string).slice(0, 2000);
+  }
+
+  const sessionId = parsed.sessionId as string | undefined;
+  if (persistSession && sessionId) {
+    executionResult.sessionId = sessionId;
+    executionResult.sessionParams = {
+      sessionId,
+      cwd,
+      ...(workspaceId ? { workspaceId } : {}),
+      ...(workspaceRepoUrl ? { repoUrl: workspaceRepoUrl } : {}),
+      ...(workspaceRepoRef ? { repoRef: workspaceRepoRef } : {}),
+    };
+    executionResult.sessionDisplayId = sessionId.slice(0, 16);
+  }
+
+  return executionResult;
 }
