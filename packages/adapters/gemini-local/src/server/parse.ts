@@ -37,10 +37,11 @@ function collectMessageText(message: unknown): string[] {
 function extractQuestion(message: unknown): { prompt: string; choices: Array<{ key: string; label: string; description?: string }> } | null {
   if (typeof message === "string") return null;
 
+  const record = Array.isArray(message) ? null : parseObject(message);
   const content = Array.isArray(message)
     ? message
-    : Array.isArray(parseObject(message).content)
-      ? (parseObject(message).content as unknown[])
+    : Array.isArray(record?.content)
+      ? (record.content as unknown[])
       : [];
 
   for (const partRaw of content) {
