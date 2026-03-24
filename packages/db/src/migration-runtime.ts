@@ -144,6 +144,7 @@ async function ensureEmbeddedPostgresConnection(
     };
   }
 
+  const startupErrors: string[] = [];
   const instance = new EmbeddedPostgres({
     databaseDir: dataDir,
     user: "paperclip",
@@ -152,7 +153,9 @@ async function ensureEmbeddedPostgresConnection(
     persistent: true,
     initdbFlags: ["--encoding=UTF8", "--locale=C"],
     onLog: () => {},
-    onError: () => {},
+    onError: (message: unknown) => {
+      startupErrors.push(String(message));
+    },
   });
 
   if (!existsSync(path.resolve(dataDir, "PG_VERSION"))) {
@@ -171,7 +174,12 @@ async function ensureEmbeddedPostgresConnection(
   try {
     await instance.start();
   } catch (error) {
-    throw toError(error, `Failed to start embedded PostgreSQL on port ${selectedPort}`);
+    const pgErrors = startupErrors.join("\n").trim();
+    const detail = pgErrors ? `:\n${pgErrors}` : "";
+    throw toError(
+      error,
+      `Failed to start embedded PostgreSQL on port ${selectedPort}${detail}`,
+    );
   }
 
   const adminConnectionString = `postgres://paperclip:paperclip@127.0.0.1:${selectedPort}/postgres`;
