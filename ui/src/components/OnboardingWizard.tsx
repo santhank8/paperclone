@@ -19,7 +19,9 @@ import { Button } from "@/components/ui/button";
 import { cn } from "../lib/utils";
 import {
   extractModelName,
-  extractProviderIdWithFallback
+  extractProviderIdWithFallback,
+  isProviderModelId,
+  shouldOfferCustomModelEntry,
 } from "../lib/model-utils";
 import { getUIAdapter } from "../adapters";
 import { defaultCreateValues } from "./agent-config-defaults";
@@ -178,12 +180,7 @@ export function OnboardingWizard() {
     if (step === 3) autoResizeTextarea();
   }, [step, taskDescription, autoResizeTextarea]);
 
-  const {
-    data: adapterModels,
-    error: adapterModelsError,
-    isLoading: adapterModelsLoading,
-    isFetching: adapterModelsFetching
-  } = useQuery({
+  const { data: adapterModels } = useQuery({
     queryKey: createdCompanyId
       ? queryKeys.agents.adapterModels(createdCompanyId, adapterType)
       : ["agents", "none", "adapter-models", adapterType],
@@ -218,6 +215,13 @@ export function OnboardingWizard() {
   }, [step, adapterType, model, command, args, url]);
 
   const selectedModel = (adapterModels ?? []).find((m) => m.id === model);
+  const customModelCandidate = model.trim();
+  const showCustomModelEntry =
+    adapterType === "opencode_local" &&
+    shouldOfferCustomModelEntry(
+      customModelCandidate,
+      (adapterModels ?? []).map((entry) => entry.id),
+    );
   const hasAnthropicApiKeyOverrideCheck =
     adapterEnvResult?.checks.some(
       (check) =>
@@ -405,27 +409,8 @@ export function OnboardingWizard() {
           );
           return;
         }
-        if (adapterModelsError) {
-          setError(
-            adapterModelsError instanceof Error
-              ? adapterModelsError.message
-              : "Failed to load OpenCode models."
-          );
-          return;
-        }
-        if (adapterModelsLoading || adapterModelsFetching) {
-          setError(
-            "OpenCode models are still loading. Please wait and try again."
-          );
-          return;
-        }
-        const discoveredModels = adapterModels ?? [];
-        if (!discoveredModels.some((entry) => entry.id === selectedModelId)) {
-          setError(
-            discoveredModels.length === 0
-              ? "No OpenCode models discovered. Run `opencode models` and authenticate providers."
-              : `Configured OpenCode model is unavailable: ${selectedModelId}`
-          );
+        if (!isProviderModelId(selectedModelId)) {
+          setError("OpenCode model must use provider/model format.");
           return;
         }
       }
@@ -898,9 +883,19 @@ export function OnboardingWizard() {
                           >
                             <input
                               className="w-full px-2 py-1.5 text-xs bg-transparent outline-none border-b border-border mb-1 placeholder:text-muted-foreground/50"
-                              placeholder="Search models..."
+                              placeholder={
+                                adapterType === "opencode_local"
+                                  ? "Search models or paste provider/model..."
+                                  : "Search models..."
+                              }
                               value={modelSearch}
                               onChange={(e) => setModelSearch(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key !== "Enter" || !showCustomModelEntry) return;
+                                e.preventDefault();
+                                setModel(customModelCandidate);
+                                setModelOpen(false);
+                              }}
                               autoFocus
                             />
                             {adapterType !== "opencode_local" && (
@@ -918,6 +913,17 @@ export function OnboardingWizard() {
                               </button>
                             )}
                             <div className="max-h-[240px] overflow-y-auto">
+                              {showCustomModelEntry && (
+                                <button
+                                  className="flex items-center gap-2 w-full px-2 py-1.5 text-sm rounded hover:bg-accent/50 border border-dashed border-border/70 mb-1"
+                                  onClick={() => {
+                                    setModel(customModelCandidate);
+                                    setModelOpen(false);
+                                  }}
+                                >
+                                  {`Use custom model: ${customModelCandidate}`}
+                                </button>
+                              )}
                               {groupedModels.map((group) => (
                                 <div
                                   key={group.provider}
@@ -955,11 +961,18 @@ export function OnboardingWizard() {
                             </div>
                             {filteredModels.length === 0 && (
                               <p className="px-2 py-1.5 text-xs text-muted-foreground">
-                                No models discovered.
+                                {adapterType === "opencode_local"
+                                  ? "No discovered models found. Paste provider/model and press Enter."
+                                  : "No models discovered."}
                               </p>
                             )}
                           </PopoverContent>
                         </Popover>
+                        {adapterType === "opencode_local" && (
+                          <p className="text-[11px] text-muted-foreground mt-1">
+                            Tip: for OpenCode you can paste a provider/model value even if discovery misses it.
+                          </p>
+                        )}
                       </div>
                     </div>
                   )}

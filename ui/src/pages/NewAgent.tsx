@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/popover";
 import { Shield } from "lucide-react";
 import { cn, agentUrl } from "../lib/utils";
+import { isProviderModelId } from "../lib/model-utils";
 import { roleLabels } from "../components/agent-config-primitives";
 import { AgentConfigForm, type CreateConfigValues } from "../components/AgentConfigForm";
 import { defaultCreateValues } from "../components/agent-config-defaults";
@@ -80,12 +81,7 @@ export function NewAgent() {
     enabled: !!selectedCompanyId,
   });
 
-  const {
-    data: adapterModels,
-    error: adapterModelsError,
-    isLoading: adapterModelsLoading,
-    isFetching: adapterModelsFetching,
-  } = useQuery({
+  const { data: adapterModels } = useQuery({
     queryKey: selectedCompanyId
       ? queryKeys.agents.adapterModels(selectedCompanyId, configValues.adapterType)
       : ["agents", "none", "adapter-models", configValues.adapterType],
@@ -155,25 +151,8 @@ export function NewAgent() {
         setFormError("OpenCode requires an explicit model in provider/model format.");
         return;
       }
-      if (adapterModelsError) {
-        setFormError(
-          adapterModelsError instanceof Error
-            ? adapterModelsError.message
-            : "Failed to load OpenCode models.",
-        );
-        return;
-      }
-      if (adapterModelsLoading || adapterModelsFetching) {
-        setFormError("OpenCode models are still loading. Please wait and try again.");
-        return;
-      }
-      const discovered = adapterModels ?? [];
-      if (!discovered.some((entry) => entry.id === selectedModel)) {
-        setFormError(
-          discovered.length === 0
-            ? "No OpenCode models discovered. Run `opencode models` and authenticate providers."
-            : `Configured OpenCode model is unavailable: ${selectedModel}`,
-        );
+      if (!isProviderModelId(selectedModel)) {
+        setFormError("OpenCode model must use provider/model format.");
         return;
       }
     }
