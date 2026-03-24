@@ -64,8 +64,7 @@ CREATE TABLE "plugin_state" (
 	"namespace" text DEFAULT 'default' NOT NULL,
 	"state_key" text NOT NULL,
 	"value_json" jsonb NOT NULL,
-	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
-	CONSTRAINT "plugin_state_unique_entry_idx" UNIQUE NULLS NOT DISTINCT("plugin_id","scope_kind","scope_id","namespace","state_key")
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "plugin_entities" (
@@ -157,6 +156,7 @@ CREATE UNIQUE INDEX "plugins_plugin_key_idx" ON "plugins" USING btree ("plugin_k
 CREATE INDEX "plugins_status_idx" ON "plugins" USING btree ("status");--> statement-breakpoint
 CREATE UNIQUE INDEX "plugin_config_plugin_id_idx" ON "plugin_config" USING btree ("plugin_id");--> statement-breakpoint
 CREATE INDEX "plugin_state_plugin_scope_idx" ON "plugin_state" USING btree ("plugin_id","scope_kind");--> statement-breakpoint
+CREATE UNIQUE INDEX "plugin_state_unique_entry_idx" ON "plugin_state" USING btree ("plugin_id","scope_kind","scope_id","namespace","state_key");--> statement-breakpoint
 CREATE INDEX "plugin_entities_plugin_idx" ON "plugin_entities" USING btree ("plugin_id");--> statement-breakpoint
 CREATE INDEX "plugin_entities_type_idx" ON "plugin_entities" USING btree ("entity_type");--> statement-breakpoint
 CREATE INDEX "plugin_entities_scope_idx" ON "plugin_entities" USING btree ("scope_kind","scope_id");--> statement-breakpoint

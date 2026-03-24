@@ -596,6 +596,29 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
             </Field>
           )}
 
+          {/* Fallback adapters */}
+          {isLocal && (
+            <Field label="Fallback adapters" hint={help.fallbackAdapters}>
+              <FallbackAdapterSelector
+                currentAdapter={adapterType}
+                value={
+                  isCreate
+                    ? [] // create mode: no fallback by default (could add to CreateConfigValues later)
+                    : eff(
+                        "adapterConfig",
+                        "fallbackAdapters",
+                        Array.isArray(config.fallbackAdapters) ? (config.fallbackAdapters as string[]) : [],
+                      )
+                }
+                onChange={(chain) =>
+                  isCreate
+                    ? undefined
+                    : mark("adapterConfig", "fallbackAdapters", chain.length > 0 ? chain : undefined)
+                }
+              />
+            </Field>
+          )}
+
           {testEnvironment.error && (
             <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
               {testEnvironment.error instanceof Error
@@ -1032,6 +1055,62 @@ function AdapterTypeDropdown({
         ))}
       </PopoverContent>
     </Popover>
+  );
+}
+
+/** Ordered fallback adapter picker — click to add/remove, numbered in order. */
+function FallbackAdapterSelector({
+  currentAdapter,
+  value,
+  onChange,
+}: {
+  currentAdapter: string;
+  value: string[];
+  onChange: (chain: string[]) => void;
+}) {
+  const available = ADAPTER_DISPLAY_LIST.filter(
+    (a) => !a.comingSoon && a.value !== currentAdapter,
+  );
+
+  function toggle(type: string) {
+    if (value.includes(type)) {
+      onChange(value.filter((t) => t !== type));
+    } else {
+      onChange([...value, type]);
+    }
+  }
+
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {available.map((item) => {
+        const idx = value.indexOf(item.value);
+        const selected = idx >= 0;
+        return (
+          <button
+            key={item.value}
+            type="button"
+            className={cn(
+              "inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs transition-colors",
+              selected
+                ? "bg-primary/15 border-primary/50 text-primary"
+                : "border-border text-muted-foreground hover:bg-accent/50",
+            )}
+            onClick={() => toggle(item.value)}
+          >
+            {selected && (
+              <span className="inline-flex items-center justify-center h-3.5 w-3.5 rounded-full bg-primary text-[9px] font-bold text-primary-foreground">
+                {idx + 1}
+              </span>
+            )}
+            {item.value === "opencode_local" ? <OpenCodeLogoIcon className="h-3 w-3" /> : null}
+            {item.label}
+          </button>
+        );
+      })}
+      {value.length === 0 && (
+        <span className="text-xs text-muted-foreground/50 italic">No fallback — runs fail on rate limit</span>
+      )}
+    </div>
   );
 }
 

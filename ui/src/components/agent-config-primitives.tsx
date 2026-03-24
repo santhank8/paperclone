@@ -55,6 +55,7 @@ export const help: Record<string, string> = {
   cooldownSec: "Minimum seconds between consecutive heartbeat runs.",
   maxConcurrentRuns: "Maximum number of heartbeat runs that can execute simultaneously for this agent.",
   budgetMonthlyCents: "Monthly spending limit in cents. 0 means no limit.",
+  fallbackAdapters: "When this agent's adapter hits a rate limit, try these adapters in order. Each fallback runs with its own default CLI and model.",
 };
 
 export const adapterLabels: Record<string, string> = {

@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, inArray, sql as drizzleSql } from "drizzle-orm";
 import type { Db } from "@paperclipai/db";
 import { companySkills } from "@paperclipai/db";
 import { readPaperclipSkillSyncPreference, writePaperclipSkillSyncPreference } from "@paperclipai/adapter-utils/server-utils";
@@ -464,11 +464,13 @@ async function fetchText(url: string) {
 }
 
 async function fetchJson<T>(url: string): Promise<T> {
-  const response = await fetch(url, {
-    headers: {
-      accept: "application/vnd.github+json",
-    },
-  });
+  const headers: Record<string, string> = {
+    accept: "application/vnd.github+json",
+  };
+  if (process.env.GITHUB_TOKEN) {
+    headers["Authorization"] = `Bearer ${process.env.GITHUB_TOKEN}`;
+  }
+  const response = await fetch(url, { headers });
   if (!response.ok) {
     throw unprocessable(`Failed to fetch ${url}: ${response.status}`);
   }
@@ -1424,35 +1426,51 @@ function toCompanySkillListItem(skill: CompanySkill, attachedAgentCount: number)
   };
 }
 
+// Per-process cache: once bundled skills are synced for a company, skip on subsequent calls
+const bundledSkillsSyncedCompanies = new Map<string, Promise<ImportedSkill[]>>();
+
 export function companySkillService(db: Db) {
   const agents = agentService(db);
   const projects = projectService(db);
   const secretsSvc = secretService(db);
 
   async function ensureBundledSkills(companyId: string) {
-    for (const skillsRoot of resolveBundledSkillsRoot()) {
-      const stats = await fs.stat(skillsRoot).catch(() => null);
-      if (!stats?.isDirectory()) continue;
-      const bundledSkills = await readLocalSkillImports(companyId, skillsRoot)
-        .then((skills) => skills.map((skill) => ({
-          ...skill,
-          key: deriveCanonicalSkillKey(companyId, {
+    const existing = bundledSkillsSyncedCompanies.get(companyId);
+    if (existing) return existing;
+
+    const promise = (async (): Promise<ImportedSkill[]> => {
+      for (const skillsRoot of resolveBundledSkillsRoot()) {
+        const stats = await fs.stat(skillsRoot).catch(() => null);
+        if (!stats?.isDirectory()) continue;
+        const bundledSkills = await readLocalSkillImports(companyId, skillsRoot)
+          .then((skills) => skills.map((skill) => ({
             ...skill,
+            key: deriveCanonicalSkillKey(companyId, {
+              ...skill,
+              metadata: {
+                ...(skill.metadata ?? {}),
+                sourceKind: "paperclip_bundled",
+              },
+            }),
             metadata: {
               ...(skill.metadata ?? {}),
               sourceKind: "paperclip_bundled",
             },
-          }),
-          metadata: {
-            ...(skill.metadata ?? {}),
-            sourceKind: "paperclip_bundled",
-          },
-        })))
-        .catch(() => [] as ImportedSkill[]);
-      if (bundledSkills.length === 0) continue;
-      return upsertImportedSkills(companyId, bundledSkills);
+          })))
+          .catch(() => [] as ImportedSkill[]);
+        if (bundledSkills.length === 0) continue;
+        return upsertImportedSkills(companyId, bundledSkills) as unknown as ImportedSkill[];
+      }
+      return [];
+    })();
+
+    bundledSkillsSyncedCompanies.set(companyId, promise);
+    try {
+      return await promise;
+    } catch (err) {
+      bundledSkillsSyncedCompanies.delete(companyId);
+      throw err;
     }
-    return [];
   }
 
   async function pruneMissingLocalPathSkills(companyId: string) {
@@ -2014,9 +2032,15 @@ export function companySkillService(db: Db) {
       const sourceKind = asString(getSkillMeta(skill).sourceKind);
       let source = normalizeSkillDirectory(skill);
       if (!source) {
-        source = options.materializeMissing === false
-          ? resolveRuntimeSkillMaterializedPath(companyId, skill)
-          : await materializeRuntimeSkillFiles(companyId, skill).catch(() => null);
+        const runtimePath = resolveRuntimeSkillMaterializedPath(companyId, skill);
+        if (options.materializeMissing === false) {
+          source = runtimePath;
+        } else {
+          const alreadyExists = await fs.stat(path.join(runtimePath, "SKILL.md")).catch(() => null);
+          source = alreadyExists
+            ? runtimePath
+            : await materializeRuntimeSkillFiles(companyId, skill).catch(() => null);
+        }
       }
       if (!source) continue;
 
@@ -2158,9 +2182,28 @@ export function companySkillService(db: Db) {
   }
 
   async function upsertImportedSkills(companyId: string, imported: ImportedSkill[]): Promise<CompanySkill[]> {
+    if (imported.length === 0) return [];
+
+    // --- Bulk-fetch all existing skills for this company matching incoming keys (1 query) ---
+    const incomingKeys = imported.map((s) => s.key);
+    const KEY_CHUNK = 500;
+    const existingRows: CompanySkillRow[] = [];
+    for (let i = 0; i < incomingKeys.length; i += KEY_CHUNK) {
+      const chunk = incomingKeys.slice(i, i + KEY_CHUNK);
+      const rows = await db
+        .select()
+        .from(companySkills)
+        .where(and(eq(companySkills.companyId, companyId), inArray(companySkills.key, chunk)));
+      existingRows.push(...rows);
+    }
+    const existingByKey = new Map(existingRows.map((r) => [r.key, toCompanySkill(r)]));
+
+    // --- Partition into skipped vs to-persist ---
     const out: CompanySkill[] = [];
+    const toPersist: Array<{ skill: ImportedSkill; existing: CompanySkill | undefined }> = [];
+
     for (const skill of imported) {
-      const existing = await getByKey(companyId, skill.key);
+      const existing = existingByKey.get(skill.key);
       const existingMeta = existing ? getSkillMeta(existing) : {};
       const incomingMeta = skill.metadata && isPlainRecord(skill.metadata) ? skill.metadata : {};
       const incomingOwner = asString(incomingMeta.owner);
@@ -2176,42 +2219,61 @@ export function companySkillService(db: Db) {
         out.push(existing);
         continue;
       }
-
-      const metadata = {
-        ...(skill.metadata ?? {}),
-        skillKey: skill.key,
-      };
-      const values = {
-        companyId,
-        key: skill.key,
-        slug: skill.slug,
-        name: skill.name,
-        description: skill.description,
-        markdown: skill.markdown,
-        sourceType: skill.sourceType,
-        sourceLocator: skill.sourceLocator,
-        sourceRef: skill.sourceRef,
-        trustLevel: skill.trustLevel,
-        compatibility: skill.compatibility,
-        fileInventory: serializeFileInventory(skill.fileInventory),
-        metadata,
-        updatedAt: new Date(),
-      };
-      const row = existing
-        ? await db
-          .update(companySkills)
-          .set(values)
-          .where(eq(companySkills.id, existing.id))
-          .returning()
-          .then((rows) => rows[0] ?? null)
-        : await db
-          .insert(companySkills)
-          .values(values)
-          .returning()
-          .then((rows) => rows[0] ?? null);
-      if (!row) throw notFound("Failed to persist company skill");
-      out.push(toCompanySkill(row));
+      toPersist.push({ skill, existing });
     }
+
+    // --- Batch INSERT ... ON CONFLICT DO UPDATE (chunks of 100) ---
+    const UPSERT_CHUNK = 100;
+    for (let i = 0; i < toPersist.length; i += UPSERT_CHUNK) {
+      const chunk = toPersist.slice(i, i + UPSERT_CHUNK);
+      const valuesBatch = chunk.map(({ skill }) => {
+        const metadata = {
+          ...(skill.metadata ?? {}),
+          skillKey: skill.key,
+        };
+        return {
+          companyId,
+          key: skill.key,
+          slug: skill.slug,
+          name: skill.name,
+          description: skill.description,
+          markdown: skill.markdown,
+          sourceType: skill.sourceType,
+          sourceLocator: skill.sourceLocator,
+          sourceRef: skill.sourceRef,
+          trustLevel: skill.trustLevel,
+          compatibility: skill.compatibility,
+          fileInventory: serializeFileInventory(skill.fileInventory),
+          metadata,
+          updatedAt: new Date(),
+        };
+      });
+      const rows = await db
+        .insert(companySkills)
+        .values(valuesBatch)
+        .onConflictDoUpdate({
+          target: [companySkills.companyId, companySkills.key],
+          set: {
+            slug: drizzleSql`excluded.slug`,
+            name: drizzleSql`excluded.name`,
+            description: drizzleSql`excluded.description`,
+            markdown: drizzleSql`excluded.markdown`,
+            sourceType: drizzleSql`excluded.source_type`,
+            sourceLocator: drizzleSql`excluded.source_locator`,
+            sourceRef: drizzleSql`excluded.source_ref`,
+            trustLevel: drizzleSql`excluded.trust_level`,
+            compatibility: drizzleSql`excluded.compatibility`,
+            fileInventory: drizzleSql`excluded.file_inventory`,
+            metadata: drizzleSql`excluded.metadata`,
+            updatedAt: drizzleSql`excluded.updated_at`,
+          },
+        })
+        .returning();
+      for (const row of rows) {
+        out.push(toCompanySkill(row));
+      }
+    }
+
     return out;
   }
 

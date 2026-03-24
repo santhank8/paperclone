@@ -68,6 +68,7 @@ export async function createApp(
     allowedHostnames: string[];
     bindHost: string;
     authReady: boolean;
+    authDisableSignUp: boolean;
     companyDeletionEnabled: boolean;
     instanceId?: string;
     hostVersion?: string;
@@ -135,6 +136,7 @@ export async function createApp(
       deploymentExposure: opts.deploymentExposure,
       authReady: opts.authReady,
       companyDeletionEnabled: opts.companyDeletionEnabled,
+      authDisableSignUp: opts.authDisableSignUp,
     }),
   );
   api.use("/companies", companyRoutes(db, opts.storageService));
@@ -261,11 +263,11 @@ export async function createApp(
       server: {
         middlewareMode: true,
         hmr: {
-          host: opts.bindHost,
+          host: "localhost",
           port: hmrPort,
           clientPort: hmrPort,
         },
-        allowedHosts: privateHostnameGateEnabled ? Array.from(privateHostnameAllowSet) : undefined,
+        allowedHosts: privateHostnameGateEnabled ? Array.from(privateHostnameAllowSet) : true,
       },
     });
 

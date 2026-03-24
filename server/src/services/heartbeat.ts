@@ -20,7 +20,7 @@ import { conflict, notFound } from "../errors.js";
 import { logger } from "../middleware/logger.js";
 import { publishLiveEvent } from "./live-events.js";
 import { getRunLogStore, type RunLogHandle } from "./run-log-store.js";
-import { getServerAdapter, runningProcesses } from "../adapters/index.js";
+import { getServerAdapter, findServerAdapter, runningProcesses } from "../adapters/index.js";
 import type { AdapterExecutionResult, AdapterInvocationMeta, AdapterSessionCodec, UsageSummary } from "../adapters/index.js";
 import { createLocalAgentJwt } from "../agent-auth-jwt.js";
 import { parseObject, asBoolean, asNumber, appendWithCap, MAX_EXCERPT_BYTES } from "../adapters/utils.js";
@@ -1849,10 +1849,12 @@ export function heartbeatService(db: Db) {
       run = claimed;
     }
 
+    logger.info({ runId, agentId: run.agentId }, "executeRun: starting execution");
     activeRunExecutions.add(run.id);
 
     try {
     const agent = await getAgent(run.agentId);
+    logger.info({ runId, hasAgent: !!agent }, "executeRun: got agent");
     if (!agent) {
       await setRunStatus(runId, "failed", {
         error: "Agent not found",
@@ -1869,6 +1871,7 @@ export function heartbeatService(db: Db) {
     }
 
     const runtime = await ensureRuntimeState(agent);
+    logger.info({ runId }, "executeRun: runtime state OK");
     const context = parseObject(run.contextSnapshot);
     const taskKey = deriveTaskKey(context, null);
     const sessionCodec = getAdapterSessionCodec(agent.adapterType);
@@ -1879,6 +1882,7 @@ export function heartbeatService(db: Db) {
             id: issues.id,
             identifier: issues.identifier,
             title: issues.title,
+            description: issues.description,
             projectId: issues.projectId,
             projectWorkspaceId: issues.projectWorkspaceId,
             executionWorkspaceId: issues.executionWorkspaceId,
@@ -1949,7 +1953,9 @@ export function heartbeatService(db: Db) {
       agent.companyId,
       mergedConfig,
     );
-    const runtimeSkillEntries = await companySkills.listRuntimeSkillEntries(agent.companyId);
+    logger.info({ runId }, "executeRun: resolving skills");
+    const runtimeSkillEntries = await companySkills.listRuntimeSkillEntries(agent.companyId, { materializeMissing: false });
+    logger.info({ runId, skillCount: runtimeSkillEntries.length }, "executeRun: skills resolved");
     const runtimeConfig = {
       ...resolvedConfig,
       paperclipRuntimeSkills: runtimeSkillEntries,
@@ -1965,6 +1971,20 @@ export function heartbeatService(db: Db) {
           executionWorkspacePreference: issueContext.executionWorkspacePreference,
         }
       : null;
+    if (issueContext) {
+      const descSnippet = issueContext.description
+        ? issueContext.description.length > 2000
+          ? issueContext.description.slice(0, 2000) + "…"
+          : issueContext.description
+        : "";
+      context.issueTitle = issueContext.title;
+      context.issueIdentifier = issueContext.identifier;
+      context.paperclipIssueContextMarkdown = [
+        `Assigned issue: ${issueContext.identifier ?? ""} — ${issueContext.title ?? "(no title)"}`,
+        descSnippet ? `\nDescription:\n${descSnippet}` : "",
+        `\nUse the Paperclip API to check out this issue, perform the work, and post your results.`,
+      ].filter(Boolean).join("\n");
+    }
     const existingExecutionWorkspace =
       issueRef?.executionWorkspaceId ? await executionWorkspacesSvc.getById(issueRef.executionWorkspaceId) : null;
     const workspaceOperationRecorder = workspaceOperationsSvc.createRecorder({
@@ -2372,34 +2392,97 @@ export function heartbeatService(db: Db) {
         });
       };
 
-      const adapter = getServerAdapter(agent.adapterType);
-      const authToken = adapter.supportsLocalAgentJwt
-        ? createLocalAgentJwt(agent.id, agent.companyId, agent.adapterType, run.id)
+      // --- Adapter execution with automatic rate-limit fallback ---
+      // Per-agent fallback chain from adapterConfig.fallbackAdapters (set in UI).
+      // Falls back to a hardcoded default chain if the agent has no explicit config.
+      const DEFAULT_FALLBACK_CHAIN: Record<string, string[]> = {
+        claude_local:   ["gemini_local", "codex_local", "opencode_local"],
+        gemini_local:   ["codex_local", "claude_local", "opencode_local"],
+        codex_local:    ["claude_local", "gemini_local", "opencode_local"],
+        opencode_local: ["codex_local", "gemini_local", "claude_local"],
+      };
+      const agentFallbackConfig = Array.isArray(
+        (agent.adapterConfig as Record<string, unknown> | null)?.fallbackAdapters,
+      )
+        ? ((agent.adapterConfig as Record<string, unknown>).fallbackAdapters as string[])
         : null;
-      if (adapter.supportsLocalAgentJwt && !authToken) {
-        logger.warn(
-          {
-            companyId: agent.companyId,
-            agentId: agent.id,
-            runId: run.id,
-            adapterType: agent.adapterType,
-          },
-          "local agent jwt secret missing or invalid; running without injected PAPERCLIP_API_KEY",
+
+      const isRateLimitFailure = (result: AdapterExecutionResult): boolean => {
+        const msg = (result.errorMessage ?? "").toLowerCase();
+        return (
+          result.exitCode !== 0 &&
+          (msg.includes("hit your lim") ||
+            msg.includes("rate limit") ||
+            msg.includes("rate_limit") ||
+            msg.includes("429") ||
+            msg.includes("too many requests") ||
+            msg.includes("quota exceeded") ||
+            msg.includes("exhausted your capacity") ||
+            msg.includes("resource_exhausted") ||
+            msg.includes("no capacity") ||
+            msg.includes("overloaded"))
         );
+      };
+
+      const executeWithAdapter = async (adapterType: string, isFallback = false) => {
+        const adpt = getServerAdapter(adapterType);
+        const token = adpt.supportsLocalAgentJwt
+          ? createLocalAgentJwt(agent.id, agent.companyId, adapterType, run.id)
+          : null;
+        if (adpt.supportsLocalAgentJwt && !token) {
+          logger.warn(
+            { companyId: agent.companyId, agentId: agent.id, runId: run.id, adapterType },
+            "local agent jwt secret missing or invalid; running without injected PAPERCLIP_API_KEY",
+          );
+        }
+        // When falling back, strip adapter-specific CLI config so the
+        // fallback adapter uses its own default command, model, and args
+        // instead of inheriting the primary adapter's values.
+        const effectiveConfig = isFallback
+          ? { ...runtimeConfig, command: undefined, model: undefined, extraArgs: undefined, args: undefined }
+          : runtimeConfig;
+        // Clear session data on fallback so the fallback adapter starts
+        // fresh instead of trying to resume the primary adapter's session.
+        const effectiveRuntime = isFallback
+          ? { ...runtimeForAdapter, sessionId: null, sessionDisplayId: null, sessionParams: null }
+          : runtimeForAdapter;
+        return adpt.execute({
+          runId: run.id,
+          agent: { ...agent, adapterType },
+          runtime: effectiveRuntime,
+          config: effectiveConfig,
+          context,
+          onLog,
+          onMeta: onAdapterMeta,
+          onSpawn: async (meta) => {
+            await persistRunProcessMetadata(run.id, meta);
+          },
+          authToken: token ?? undefined,
+        });
+      };
+
+      let effectiveAdapterType = agent.adapterType;
+      let adapterResult = await executeWithAdapter(effectiveAdapterType);
+
+      // Automatic multi-hop fallback on rate limit
+      // Use per-agent config if set in UI, otherwise use hardcoded defaults.
+      const fallbackChain = agentFallbackConfig ?? DEFAULT_FALLBACK_CHAIN[effectiveAdapterType] ?? [];
+      const FALLBACK_DELAY_MS = 10_000; // wait 10s between hops so quota can partially reset
+      for (const fallbackType of fallbackChain) {
+        if (!isRateLimitFailure(adapterResult)) break;
+        if (!findServerAdapter(fallbackType)) continue;
+        logger.warn(
+          { runId, primaryAdapter: effectiveAdapterType, fallbackAdapter: fallbackType },
+          "rate limit detected, retrying with fallback adapter",
+        );
+        await onLog(
+          "stderr",
+          `[paperclip] Rate limit on ${effectiveAdapterType}, waiting ${FALLBACK_DELAY_MS / 1000}s then falling back to ${fallbackType}\n`,
+        );
+        await new Promise((resolve) => setTimeout(resolve, FALLBACK_DELAY_MS));
+        effectiveAdapterType = fallbackType;
+        adapterResult = await executeWithAdapter(effectiveAdapterType, true);
       }
-      const adapterResult = await adapter.execute({
-        runId: run.id,
-        agent,
-        runtime: runtimeForAdapter,
-        config: runtimeConfig,
-        context,
-        onLog,
-        onMeta: onAdapterMeta,
-        onSpawn: async (meta) => {
-          await persistRunProcessMetadata(run.id, meta);
-        },
-        authToken: authToken ?? undefined,
-      });
       const adapterManagedRuntimeServices = adapterResult.runtimeServices
         ? await persistAdapterManagedRuntimeServices({
             db,

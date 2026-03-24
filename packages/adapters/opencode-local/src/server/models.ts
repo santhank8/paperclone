@@ -187,10 +187,19 @@ export async function ensureOpenCodeModelConfiguredAndAvailable(input: {
   }
 
   if (!models.some((entry) => entry.id === model)) {
-    const sample = models.slice(0, 12).map((entry) => entry.id).join(", ");
-    throw new Error(
-      `Configured OpenCode model is unavailable: ${model}. Available models: ${sample}${models.length > 12 ? ", ..." : ""}`,
-    );
+    // When a custom OpenAI-compatible endpoint is configured (e.g. vLLM),
+    // `opencode models` won't discover the served model. Allow the model
+    // through if the env explicitly sets a custom base URL.
+    const env = typeof input.env === "object" && input.env !== null ? (input.env as Record<string, string>) : {};
+    const hasCustomEndpoint =
+      Boolean(env.OPENAI_BASE_URL || env.OPENAI_API_BASE) ||
+      Boolean(process.env.OPENAI_BASE_URL || process.env.OPENAI_API_BASE);
+    if (!hasCustomEndpoint) {
+      const sample = models.slice(0, 12).map((entry) => entry.id).join(", ");
+      throw new Error(
+        `Configured OpenCode model is unavailable: ${model}. Available models: ${sample}${models.length > 12 ? ", ..." : ""}`,
+      );
+    }
   }
 
   return models;

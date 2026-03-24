@@ -14,11 +14,13 @@ export function healthRoutes(
     deploymentExposure: DeploymentExposure;
     authReady: boolean;
     companyDeletionEnabled: boolean;
+    authDisableSignUp?: boolean;
   } = {
     deploymentMode: "local_trusted",
     deploymentExposure: "private",
     authReady: true,
     companyDeletionEnabled: true,
+    authDisableSignUp: false,
   },
 ) {
   const router = Router();
@@ -80,6 +82,7 @@ export function healthRoutes(
       deploymentMode: opts.deploymentMode,
       deploymentExposure: opts.deploymentExposure,
       authReady: opts.authReady,
+      authDisableSignUp: opts.authDisableSignUp ?? false,
       bootstrapStatus,
       bootstrapInviteActive,
       features: {
