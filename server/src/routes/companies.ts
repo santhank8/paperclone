@@ -1,4 +1,4 @@
-import { Router, type Request } from "express";
+import express, { Router, type Request } from "express";
 import type { Db } from "@paperclipai/db";
 import {
   companyPortabilityExportSchema,
@@ -28,6 +28,10 @@ export function companyRoutes(db: Db, storage?: StorageService) {
   const portability = companyPortabilityService(db, storage);
   const access = accessService(db);
   const budgets = budgetService(db);
+
+  // Company import/export payloads can inline full portable packages, so
+  // these routes need a higher body-size limit than the global 1 MB default.
+  const largeBody = express.json({ limit: "10mb" });
 
   async function assertCanUpdateBranding(req: Request, companyId: string) {
     assertCompanyAccess(req, companyId);
@@ -104,14 +108,14 @@ export function companyRoutes(db: Db, storage?: StorageService) {
     res.json(company);
   });
 
-  router.post("/:companyId/export", validate(companyPortabilityExportSchema), async (req, res) => {
+  router.post("/:companyId/export", largeBody, validate(companyPortabilityExportSchema), async (req, res) => {
     const companyId = req.params.companyId as string;
     assertCompanyAccess(req, companyId);
     const result = await portability.exportBundle(companyId, req.body);
     res.json(result);
   });
 
-  router.post("/import/preview", validate(companyPortabilityPreviewSchema), async (req, res) => {
+  router.post("/import/preview", largeBody, validate(companyPortabilityPreviewSchema), async (req, res) => {
     assertBoard(req);
     if (req.body.target.mode === "existing_company") {
       assertCompanyAccess(req, req.body.target.companyId);
@@ -120,7 +124,7 @@ export function companyRoutes(db: Db, storage?: StorageService) {
     res.json(preview);
   });
 
-  router.post("/import", validate(companyPortabilityImportSchema), async (req, res) => {
+  router.post("/import", largeBody, validate(companyPortabilityImportSchema), async (req, res) => {
     assertBoard(req);
     if (req.body.target.mode === "existing_company") {
       assertCompanyAccess(req, req.body.target.companyId);
@@ -146,21 +150,21 @@ export function companyRoutes(db: Db, storage?: StorageService) {
     res.json(result);
   });
 
-  router.post("/:companyId/exports/preview", validate(companyPortabilityExportSchema), async (req, res) => {
+  router.post("/:companyId/exports/preview", largeBody, validate(companyPortabilityExportSchema), async (req, res) => {
     const companyId = req.params.companyId as string;
     await assertCanManagePortability(req, companyId, "exports");
     const preview = await portability.previewExport(companyId, req.body);
     res.json(preview);
   });
 
-  router.post("/:companyId/exports", validate(companyPortabilityExportSchema), async (req, res) => {
+  router.post("/:companyId/exports", largeBody, validate(companyPortabilityExportSchema), async (req, res) => {
     const companyId = req.params.companyId as string;
     await assertCanManagePortability(req, companyId, "exports");
     const result = await portability.exportBundle(companyId, req.body);
     res.json(result);
   });
 
-  router.post("/:companyId/imports/preview", validate(companyPortabilityPreviewSchema), async (req, res) => {
+  router.post("/:companyId/imports/preview", largeBody, validate(companyPortabilityPreviewSchema), async (req, res) => {
     const companyId = req.params.companyId as string;
     await assertCanManagePortability(req, companyId, "imports");
     if (req.body.target.mode === "existing_company" && req.body.target.companyId !== companyId) {
@@ -176,7 +180,7 @@ export function companyRoutes(db: Db, storage?: StorageService) {
     res.json(preview);
   });
 
-  router.post("/:companyId/imports/apply", validate(companyPortabilityImportSchema), async (req, res) => {
+  router.post("/:companyId/imports/apply", largeBody, validate(companyPortabilityImportSchema), async (req, res) => {
     const companyId = req.params.companyId as string;
     await assertCanManagePortability(req, companyId, "imports");
     if (req.body.target.mode === "existing_company" && req.body.target.companyId !== companyId) {

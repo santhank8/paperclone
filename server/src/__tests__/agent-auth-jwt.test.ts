@@ -34,12 +34,12 @@ describe("agent local JWT", () => {
     else process.env[audienceEnv] = originalEnv.audience;
   });
 
-  it("creates and verifies a token", () => {
+  it("creates and verifies a token", async () => {
     vi.setSystemTime(new Date("2026-01-01T00:00:00.000Z"));
     const token = createLocalAgentJwt("agent-1", "company-1", "claude_local", "run-1");
     expect(typeof token).toBe("string");
 
-    const claims = verifyLocalAgentJwt(token!);
+    const claims = await verifyLocalAgentJwt(token!);
     expect(claims).toMatchObject({
       sub: "agent-1",
       company_id: "company-1",
@@ -50,23 +50,23 @@ describe("agent local JWT", () => {
     });
   });
 
-  it("returns null when secret is missing", () => {
+  it("returns null when secret is missing", async () => {
     process.env[secretEnv] = "";
     const token = createLocalAgentJwt("agent-1", "company-1", "claude_local", "run-1");
     expect(token).toBeNull();
-    expect(verifyLocalAgentJwt("abc.def.ghi")).toBeNull();
+    expect(await verifyLocalAgentJwt("abc.def.ghi")).toBeNull();
   });
 
-  it("rejects expired tokens", () => {
+  it("rejects expired tokens", async () => {
     process.env[ttlEnv] = "1";
     vi.setSystemTime(new Date("2026-01-01T00:00:00.000Z"));
     const token = createLocalAgentJwt("agent-1", "company-1", "claude_local", "run-1");
 
     vi.setSystemTime(new Date("2026-01-01T00:00:05.000Z"));
-    expect(verifyLocalAgentJwt(token!)).toBeNull();
+    expect(await verifyLocalAgentJwt(token!)).toBeNull();
   });
 
-  it("rejects issuer/audience mismatch", () => {
+  it("rejects issuer/audience mismatch", async () => {
     process.env[issuerEnv] = "custom-issuer";
     process.env[audienceEnv] = "custom-audience";
     vi.setSystemTime(new Date("2026-01-01T00:00:00.000Z"));
@@ -74,6 +74,44 @@ describe("agent local JWT", () => {
 
     process.env[issuerEnv] = "paperclip";
     process.env[audienceEnv] = "paperclip-api";
-    expect(verifyLocalAgentJwt(token!)).toBeNull();
+    expect(await verifyLocalAgentJwt(token!)).toBeNull();
+  });
+
+  it("signs with company key and verifies with resolver", async () => {
+    vi.setSystemTime(new Date("2026-01-01T00:00:00.000Z"));
+    const companyKey = "per-company-secret-123";
+    const token = createLocalAgentJwt("agent-1", "company-1", "claude_local", "run-1", companyKey);
+    expect(typeof token).toBe("string");
+
+    // Should fail verification with instance-wide secret (no resolver)
+    expect(await verifyLocalAgentJwt(token!)).toBeNull();
+
+    // Should succeed with a resolver that returns the company key
+    const resolver = async (companyId: string) => {
+      if (companyId === "company-1") return companyKey;
+      return null;
+    };
+    const claims = await verifyLocalAgentJwt(token!, resolver);
+    expect(claims).toMatchObject({
+      sub: "agent-1",
+      company_id: "company-1",
+      adapter_type: "claude_local",
+      run_id: "run-1",
+    });
+  });
+
+  it("falls back to instance secret when resolver returns null", async () => {
+    vi.setSystemTime(new Date("2026-01-01T00:00:00.000Z"));
+    // Sign with instance-wide secret (no company key)
+    const token = createLocalAgentJwt("agent-1", "company-1", "claude_local", "run-1");
+    expect(typeof token).toBe("string");
+
+    // Resolver returns null -> should fall back to instance secret and succeed
+    const resolver = async (_companyId: string) => null;
+    const claims = await verifyLocalAgentJwt(token!, resolver);
+    expect(claims).toMatchObject({
+      sub: "agent-1",
+      company_id: "company-1",
+    });
   });
 });

@@ -6,6 +6,7 @@ import type { DeploymentExposure, DeploymentMode } from "@paperclipai/shared";
 import { readPersistedDevServerStatus, toDevServerHealthStatus } from "../dev-server-status.js";
 import { instanceSettingsService } from "../services/instance-settings.js";
 import { serverVersion } from "../version.js";
+import { assertBoard } from "./authz.js";
 
 export function healthRoutes(
   db?: Db,
@@ -29,7 +30,15 @@ export function healthRoutes(
 ) {
   const router = Router();
 
+  // Public, no auth required
   router.get("/", async (_req, res) => {
+    res.json({ status: "ok", version: serverVersion });
+  });
+
+  // Authenticated — full details
+  router.get("/details", async (req, res) => {
+    assertBoard(req);
+
     if (!db) {
       res.json({ status: "ok", version: serverVersion });
       return;

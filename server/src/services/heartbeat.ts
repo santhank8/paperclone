@@ -2,7 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { execFile as execFileCallback } from "node:child_process";
 import { promisify } from "node:util";
-import { and, asc, desc, eq, gt, inArray, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gt, inArray, lt, sql } from "drizzle-orm";
 import type { Db } from "@paperclipai/db";
 import type { BillingType } from "@paperclipai/shared";
 import {
@@ -67,6 +67,8 @@ const DETACHED_PROCESS_ERROR_CODE = "process_detached";
 const startLocksByAgent = new Map<string, Promise<void>>();
 const REPO_ONLY_CWD_SENTINEL = "/__paperclip_repo_only__";
 const MANAGED_WORKSPACE_GIT_CLONE_TIMEOUT_MS = 10 * 60 * 1000;
+const MAX_RUN_DURATION_MS = parseInt(process.env.PAPERCLIP_MAX_RUN_DURATION_SECONDS ?? "7200", 10) * 1000; // default 2 hours
+const STALE_RUN_SWEEP_INTERVAL_MS = 60_000; // check every minute
 const execFile = promisify(execFileCallback);
 const SESSIONED_LOCAL_ADAPTERS = new Set([
   "claude_local",
@@ -1832,6 +1834,67 @@ export function heartbeatService(db: Db) {
       logger.warn({ reapedCount: reaped.length, runIds: reaped }, "reaped orphaned heartbeat runs");
     }
     return { reaped: reaped.length, runIds: reaped };
+  }
+
+  async function sweepStaleRuns() {
+    const now = new Date();
+    const cutoff = new Date(now.getTime() - MAX_RUN_DURATION_MS);
+
+    const staleRuns = await db
+      .select()
+      .from(heartbeatRuns)
+      .where(
+        and(
+          eq(heartbeatRuns.status, "running"),
+          lt(heartbeatRuns.startedAt, cutoff),
+        ),
+      );
+
+    let timedOutCount = 0;
+
+    for (const run of staleRuns) {
+      logger.warn(
+        { runId: run.id, agentId: run.agentId, startedAt: run.startedAt },
+        "sweepStaleRuns: run exceeded maximum duration, marking as failed",
+      );
+
+      const failedRun = await setRunStatus(run.id, "failed", {
+        error: "Run exceeded maximum duration",
+        errorCode: "server_timeout",
+        finishedAt: now,
+      });
+
+      await setWakeupStatus(run.wakeupRequestId, "failed", {
+        finishedAt: now,
+        error: "Run exceeded maximum duration",
+      });
+
+      if (failedRun) {
+        await appendRunEvent(failedRun, await nextRunEventSeq(failedRun.id), {
+          eventType: "lifecycle",
+          stream: "system",
+          level: "error",
+          message: "Run exceeded maximum duration",
+          payload: {
+            maxDurationMs: MAX_RUN_DURATION_MS,
+            startedAt: run.startedAt ? new Date(run.startedAt).toISOString() : null,
+          },
+        });
+      }
+
+      await releaseIssueExecutionAndPromote(failedRun ?? run);
+      await finalizeAgentStatus(run.agentId, "failed");
+      await startNextQueuedRunForAgent(run.agentId);
+      runningProcesses.delete(run.id);
+      activeRunExecutions.delete(run.id);
+      timedOutCount += 1;
+    }
+
+    if (timedOutCount > 0) {
+      logger.warn({ timedOutCount }, "sweepStaleRuns: timed out stale runs");
+    }
+
+    return timedOutCount;
   }
 
   async function resumeQueuedRuns() {
@@ -3818,6 +3881,8 @@ export function heartbeatService(db: Db) {
     reportRunActivity: clearDetachedRunWarning,
 
     reapOrphanedRuns,
+
+    sweepStaleRuns,
 
     resumeQueuedRuns,
 

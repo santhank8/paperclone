@@ -18,6 +18,7 @@ export const companies = pgTable(
       .default(true),
     inferenceMode: text("inference_mode").notNull().default("byok"),
     brandColor: text("brand_color"),
+    jwtSigningKey: text("jwt_signing_key"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
