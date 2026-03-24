@@ -210,9 +210,9 @@ export async function execute(
   const model = asString(config.model as unknown, "");
   const skill = asString(config.skill as unknown, "");
   const thinkingEnabled = asBoolean(config.thinkingEnabled as unknown, false);
-  const subagentEnabled = asBoolean(config.subagentEnabled as unknown, true);
+  const subagentEnabled = asBoolean(config.subagentEnabled as unknown, false);
   const timeoutSec = asNumber(config.timeoutSec as unknown, 600);
-  const recursionLimit = asNumber(config.recursionLimit as unknown, 100);
+  const recursionLimit = asNumber(config.recursionLimit as unknown, 15);
 
   // Resolve existing thread from session
   const sessionParams = parseObject(ctx.runtime.sessionParams);
@@ -397,12 +397,13 @@ export async function execute(
         if (title) {
           await onLog("stdout", `\n[title] ${title}\n`);
         }
-        // Extract the last AI message from the values snapshot as a fallback.
+        // Extract AI content from the values snapshot as a fallback.
         // The streaming messages handler above is preferred; only use values
         // if streaming didn't capture anything (e.g. non-streaming mode).
         if (lastAiContent.trim().length === 0) {
           const msgs = stateData.messages;
           if (Array.isArray(msgs)) {
+            // First pass: look for an AI message with text content
             for (let i = msgs.length - 1; i >= 0; i--) {
               const m = msgs[i] as Record<string, unknown>;
               if ((m.type === "ai" || m.type === "AIMessage") && typeof m.content === "string" && m.content.trim().length > 0) {
@@ -410,6 +411,22 @@ export async function execute(
                 await onLog("stdout", lastAiContent);
                 stdout = appendWithCap(stdout, lastAiContent);
                 break;
+              }
+            }
+            // Second pass: if model only made tool calls without synthesizing,
+            // concatenate tool results as the output (the research data IS the value).
+            if (lastAiContent.trim().length === 0) {
+              const toolResults: string[] = [];
+              for (const m of msgs) {
+                const msg = m as Record<string, unknown>;
+                if ((msg.type === "tool" || msg.type === "ToolMessage") && typeof msg.content === "string" && msg.content.trim().length > 50) {
+                  toolResults.push(msg.content as string);
+                }
+              }
+              if (toolResults.length > 0) {
+                lastAiContent = toolResults.join("\n\n---\n\n").slice(0, 8000);
+                await onLog("stdout", `\n[deerflow] Model did not synthesize results — extracting tool output:\n${lastAiContent}`);
+                stdout = appendWithCap(stdout, lastAiContent);
               }
             }
           }
