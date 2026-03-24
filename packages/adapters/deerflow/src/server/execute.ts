@@ -212,7 +212,7 @@ export async function execute(
   const thinkingEnabled = asBoolean(config.thinkingEnabled as unknown, false);
   const subagentEnabled = asBoolean(config.subagentEnabled as unknown, false);
   const timeoutSec = asNumber(config.timeoutSec as unknown, 600);
-  const recursionLimit = asNumber(config.recursionLimit as unknown, 15);
+  const recursionLimit = asNumber(config.recursionLimit as unknown, 50);
 
   // Resolve existing thread from session
   const sessionParams = parseObject(ctx.runtime.sessionParams);
