@@ -272,30 +272,34 @@ export function CompanyRail() {
         <Paperclip className="h-5 w-5 text-foreground" />
       </div>
 
-      {/* Command Center button */}
-      <div className="flex items-center justify-center shrink-0 pb-1">
-        <Tooltip delayDuration={300}>
-          <TooltipTrigger asChild>
-            <a
-              href="/command-center"
-              className={cn(
-                "flex items-center justify-center w-11 h-11 rounded-[14px] transition-[background-color,color] duration-150",
-                location.pathname === "/command-center"
-                  ? "bg-accent text-foreground"
-                  : "text-muted-foreground hover:bg-accent/50 hover:text-foreground",
-              )}
-            >
-              <Radar className="h-5 w-5" />
-            </a>
-          </TooltipTrigger>
-          <TooltipContent side="right" sideOffset={8}>
-            <p>Command Center</p>
-          </TooltipContent>
-        </Tooltip>
-      </div>
+      {/* Command Center button — only shown with 2+ companies */}
+      {sidebarCompanies.length >= 2 && (
+        <>
+          <div className="flex items-center justify-center shrink-0 pb-1">
+            <Tooltip delayDuration={300}>
+              <TooltipTrigger asChild>
+                <a
+                  href="/command-center"
+                  className={cn(
+                    "flex items-center justify-center w-11 h-11 rounded-[14px] transition-[background-color,color] duration-150",
+                    location.pathname === "/command-center"
+                      ? "bg-accent text-foreground"
+                      : "text-muted-foreground hover:bg-accent/50 hover:text-foreground",
+                  )}
+                >
+                  <Radar className="h-5 w-5" />
+                </a>
+              </TooltipTrigger>
+              <TooltipContent side="right" sideOffset={8}>
+                <p>Command Center</p>
+              </TooltipContent>
+            </Tooltip>
+          </div>
 
-      {/* Separator before companies */}
-      <div className="w-8 h-px bg-border mx-auto shrink-0" />
+          {/* Separator before companies */}
+          <div className="w-8 h-px bg-border mx-auto shrink-0" />
+        </>
+      )}
 
       {/* Company list */}
       <div className="flex-1 flex flex-col items-center gap-2 py-3 w-full overflow-y-auto overflow-x-hidden scrollbar-none">

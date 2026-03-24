@@ -25,7 +25,7 @@ import { Button } from "@/components/ui/button";
 
 export function Sidebar() {
   const { openNewIssue } = useDialog();
-  const { selectedCompanyId, selectedCompany } = useCompany();
+  const { companies, selectedCompanyId, selectedCompany } = useCompany();
   const inboxBadge = useInboxBadge(selectedCompanyId);
   const { data: liveRuns } = useQuery({
     queryKey: queryKeys.liveRuns(selectedCompanyId!),
@@ -99,9 +99,11 @@ export function Sidebar() {
           <SidebarNavItem to="/company/settings" label="Settings" icon={Settings} />
         </SidebarSection>
 
-        <SidebarSection label="Instance">
-          <SidebarNavItem to="/command-center" label="Command Center" icon={Radar} />
-        </SidebarSection>
+        {companies.length >= 2 && (
+          <SidebarSection label="Instance">
+            <SidebarNavItem to="/command-center" label="Command Center" icon={Radar} />
+          </SidebarSection>
+        )}
       </nav>
     </aside>
   );
