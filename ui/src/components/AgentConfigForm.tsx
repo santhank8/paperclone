@@ -305,7 +305,8 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
     adapterType === "claude_local" ||
     adapterType === "codex_local" ||
     adapterType === "opencode_local" ||
-    adapterType === "cursor";
+    adapterType === "cursor" ||
+    adapterType === "hermes_local";
   const uiAdapter = useMemo(() => getUIAdapter(adapterType), [adapterType]);
 
   const editTaskCronDefaults = eff(
@@ -674,7 +675,9 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
                         ? "agent"
                         : adapterType === "opencode_local"
                           ? "opencode"
-                          : "claude"
+                          : adapterType === "hermes_local"
+                            ? "hermes"
+                            : "claude"
                   }
                 />
               </Field>
