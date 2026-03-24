@@ -434,6 +434,24 @@ export function telegramService(db: Db) {
     });
 
     const runner = grammyRun(bot);
+
+    runner.task()?.catch(async (err) => {
+      const is409 = err && typeof err === "object" && "error_code" in err && err.error_code === 409;
+      if (is409) {
+        logger.warn({ agentId }, "telegram: 409 conflict (another instance polling), will retry in 30s");
+        activeBots.delete(agentId);
+        runner.isRunning() && (await runner.stop().catch(() => {}));
+        await new Promise((resolve) => setTimeout(resolve, 30_000));
+        const freshConfig = await getConfig(agentId);
+        if (freshConfig?.enabled && freshConfig.botToken) {
+          logger.info({ agentId }, "telegram: retrying bot start after 409");
+          startBot(freshConfig);
+        }
+      } else {
+        logger.error({ err, agentId }, "telegram: runner crashed");
+      }
+    });
+
     const unsubscribeLiveEvents = subscribeCompanyLiveEvents(companyId, () => {
       // live event listener placeholder for future streaming
     });
