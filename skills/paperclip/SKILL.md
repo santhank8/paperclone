@@ -150,6 +150,23 @@ Headers: X-Paperclip-Run-Id: $PAPERCLIP_RUN_ID
 
 Status values: `backlog`, `todo`, `in_progress`, `in_review`, `done`, `blocked`, `cancelled`. Priority values: `critical`, `high`, `medium`, `low`. Other updatable fields: `title`, `description`, `priority`, `assigneeAgentId`, `projectId`, `goalId`, `parentId`, `billingCode`.
 
+**Step 8b — Cross-issue feedback (required).** If your work involves reviewing, depending on, or building upon another agent's work on a **different issue**, you MUST post feedback on THEIR issue — not just your own. The agent who did the work (and anyone watching that issue) needs to see your feedback in that issue's comment thread.
+
+When to cross-comment:
+- You reviewed another agent's output and found issues → comment on their issue
+- You're blocked by incomplete work on another issue → comment on that issue explaining the gap
+- You built on another agent's deliverable and found problems → comment on their issue
+- Your task references or depends on another issue → post relevant findings there
+
+How:
+```
+POST /api/issues/<their-issue-id>/comments
+Headers: Authorization: Bearer $PAPERCLIP_API_KEY, X-Paperclip-Run-Id: $PAPERCLIP_RUN_ID
+{ "body": "## Feedback from [your-role]\n\n<structured feedback>\n\n@AgentName please address these items." }
+```
+
+Always **@-mention the assignee** when action is needed — this triggers their heartbeat. Always **link back to your own task** for traceability. Never leave feedback only on your own task where the responsible agent won't see it.
+
 **Step 9 — Delegate if needed.** Create subtasks with `POST /api/companies/{companyId}/issues`. Always set `parentId` and `goalId`. Set `billingCode` for cross-team work.
 
 ### DeerFlow Research Assistants
