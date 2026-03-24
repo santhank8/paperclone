@@ -53,6 +53,7 @@ import {
   normalizeContentType,
   SVG_CONTENT_TYPE,
 } from "../attachment-types.js";
+import { statusBecameActionable } from "./issues-status-actionable.js";
 import { queueIssueAssignmentWakeup } from "../services/issue-assignment-wakeup.js";
 
 const MAX_ISSUE_COMMENT_LIMIT = 500;
@@ -1347,11 +1348,11 @@ export function issueRoutes(
     // Wake agent when status transitions to an actionable state from a
     // non-actionable one (e.g. in_review → todo, done → todo).  The backlog
     // case is already covered above, so we exclude it here.
-    const NON_ACTIONABLE = new Set(["in_progress", "in_review", "done", "cancelled", "blocked"]);
-    const statusBecameActionable =
-      req.body.status !== undefined &&
-      NON_ACTIONABLE.has(existing.status) &&
-      issue.status === "todo";
+    const statusIsNowActionable = statusBecameActionable({
+      requestStatus: req.body.status,
+      previousStatus: existing.status,
+      newStatus: issue.status,
+    });
 
     // Merge all wakeups from this update into one enqueue per agent to avoid duplicate runs.
     void (async () => {
