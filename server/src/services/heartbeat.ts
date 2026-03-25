@@ -740,6 +740,41 @@ function enrichWakeContextSnapshot(input: {
   };
 }
 
+function normalizeWakeupSource(value: string | null | undefined): WakeupOptions["source"] {
+  if (value === "timer" || value === "assignment" || value === "on_demand" || value === "automation") {
+    return value;
+  }
+  return "automation";
+}
+
+function normalizeWakeupTriggerDetail(
+  value: string | null | undefined,
+): WakeupOptions["triggerDetail"] | null {
+  if (value === "manual" || value === "ping" || value === "callback" || value === "system") {
+    return value;
+  }
+  return null;
+}
+
+function buildReplayContextSnapshotFromWakeupPayload(
+  payload: Record<string, unknown> | null,
+): Record<string, unknown> {
+  const contextSnapshot: Record<string, unknown> = {};
+  const issueId = readNonEmptyString(payload?.issueId);
+  const commentId = readNonEmptyString(payload?.commentId);
+
+  if (issueId) {
+    contextSnapshot.issueId = issueId;
+    contextSnapshot.taskId = issueId;
+  }
+  if (commentId) {
+    contextSnapshot.commentId = commentId;
+    contextSnapshot.wakeCommentId = commentId;
+  }
+
+  return contextSnapshot;
+}
+
 function mergeCoalescedContextSnapshot(
   existingRaw: unknown,
   incoming: Record<string, unknown>,
@@ -1952,12 +1987,25 @@ export function heartbeatService(db: Db) {
   }
 
   async function resumeQueuedRuns() {
+    const orphanedIssueWakeups = await db
+      .select({ agentId: agentWakeupRequests.agentId })
+      .from(agentWakeupRequests)
+      .where(
+        and(
+          eq(agentWakeupRequests.status, "queued"),
+          sql`${agentWakeupRequests.runId} is null`,
+          sql`${agentWakeupRequests.payload} ->> 'issueId' is not null`,
+        ),
+      );
+
     const queuedRuns = await db
       .select({ agentId: heartbeatRuns.agentId })
       .from(heartbeatRuns)
       .where(eq(heartbeatRuns.status, "queued"));
 
-    const agentIds = [...new Set(queuedRuns.map((r) => r.agentId))];
+    const agentIds = [
+      ...new Set([...queuedRuns, ...orphanedIssueWakeups].map((record) => record.agentId)),
+    ];
     for (const agentId of agentIds) {
       await startNextQueuedRunForAgent(agentId);
     }
@@ -2019,6 +2067,8 @@ export function heartbeatService(db: Db) {
   }
 
   async function startNextQueuedRunForAgent(agentId: string) {
+    await recoverOrphanedIssueWakeupsForAgent(agentId);
+
     return withAgentStartLock(agentId, async () => {
       const agent = await getAgent(agentId);
       if (!agent) return [];
@@ -2052,6 +2102,80 @@ export function heartbeatService(db: Db) {
       }
       return claimedRuns;
     });
+  }
+
+  async function recoverOrphanedIssueWakeupsForAgent(agentId: string, limit = 10) {
+    const orphanedWakeups = await db
+      .select()
+      .from(agentWakeupRequests)
+      .where(
+        and(
+          eq(agentWakeupRequests.agentId, agentId),
+          eq(agentWakeupRequests.status, "queued"),
+          sql`${agentWakeupRequests.runId} is null`,
+          sql`${agentWakeupRequests.payload} ->> 'issueId' is not null`,
+        ),
+      )
+      .orderBy(asc(agentWakeupRequests.requestedAt))
+      .limit(limit);
+
+    if (orphanedWakeups.length === 0) return 0;
+
+    let recovered = 0;
+    for (const orphanedWakeup of orphanedWakeups) {
+      const payload = parseObject(orphanedWakeup.payload);
+      try {
+        const replayed = await enqueueWakeup(orphanedWakeup.agentId, {
+          source: normalizeWakeupSource(orphanedWakeup.source),
+          triggerDetail: normalizeWakeupTriggerDetail(orphanedWakeup.triggerDetail),
+          reason: orphanedWakeup.reason,
+          payload,
+          idempotencyKey: orphanedWakeup.idempotencyKey,
+          requestedByActorType:
+            orphanedWakeup.requestedByActorType === "user" ||
+            orphanedWakeup.requestedByActorType === "agent" ||
+            orphanedWakeup.requestedByActorType === "system"
+              ? orphanedWakeup.requestedByActorType
+              : null,
+          requestedByActorId: orphanedWakeup.requestedByActorId,
+          contextSnapshot: buildReplayContextSnapshotFromWakeupPayload(payload),
+        });
+
+        const replayedRunId =
+          typeof replayed === "object" && replayed !== null && "id" in replayed
+            ? readNonEmptyString((replayed as { id?: unknown }).id)
+            : null;
+
+        await db
+          .update(agentWakeupRequests)
+          .set({
+            status: "coalesced",
+            runId: replayedRunId,
+            finishedAt: new Date(),
+            error: null,
+            updatedAt: new Date(),
+          })
+          .where(
+            and(
+              eq(agentWakeupRequests.id, orphanedWakeup.id),
+              eq(agentWakeupRequests.status, "queued"),
+              sql`${agentWakeupRequests.runId} is null`,
+            ),
+          );
+        recovered += 1;
+      } catch (err) {
+        logger.warn(
+          {
+            err,
+            wakeupRequestId: orphanedWakeup.id,
+            agentId: orphanedWakeup.agentId,
+          },
+          "failed to recover orphaned issue wakeup request",
+        );
+      }
+    }
+
+    return recovered;
   }
 
   async function executeRun(runId: string) {
