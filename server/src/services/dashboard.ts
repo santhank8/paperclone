@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, ne, sql } from "drizzle-orm";
 import type { Db } from "@paperclipai/db";
 import { agents, approvals, companies, costEvents, heartbeatRuns, issues } from "@paperclipai/db";
 import { notFound } from "../errors.js";
@@ -128,7 +128,10 @@ export function dashboardService(db: Db) {
         })
         .from(heartbeatRuns)
         .leftJoin(agents, eq(heartbeatRuns.agentId, agents.id))
-        .where(eq(heartbeatRuns.companyId, companyId))
+        .where(and(
+          eq(heartbeatRuns.companyId, companyId),
+          ne(heartbeatRuns.invocationSource, "checkout_upsert"),
+        ))
         .orderBy(desc(heartbeatRuns.startedAt))
         .limit(50);
 
@@ -191,6 +194,7 @@ export function dashboardService(db: Db) {
         .where(
           and(
             eq(heartbeatRuns.companyId, companyId),
+            ne(heartbeatRuns.invocationSource, "checkout_upsert"),
             gte(heartbeatRuns.startedAt, fourteenDaysAgo),
           ),
         );
