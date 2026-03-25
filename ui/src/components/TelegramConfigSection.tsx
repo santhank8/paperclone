@@ -13,6 +13,10 @@ import {
   WifiOff,
   Eye,
   EyeOff,
+  Clock,
+  MessageSquare,
+  RefreshCw,
+  Activity,
 } from "lucide-react";
 import { cn } from "../lib/utils";
 import { api } from "../api/client";
@@ -24,13 +28,35 @@ interface TelegramConfigSectionProps {
   companyId: string;
 }
 
+interface TelegramTelemetry {
+  botRunning: boolean;
+  startedAt: string | null;
+  lastMessageAt: string | null;
+  messageCount: number;
+  activeSessionCount: number;
+  retrying: boolean;
+}
+
 interface TelegramResponse {
   config: AgentTelegramConfig | null;
   status: "connected" | "disconnected" | "disabled" | "starting";
+  telemetry?: TelegramTelemetry;
 }
 
 const inputClass =
   "w-full rounded-md border border-border px-2.5 py-1.5 bg-transparent outline-none text-sm font-mono placeholder:text-muted-foreground/40";
+
+function formatRelativeTime(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const seconds = Math.floor(diff / 1000);
+  if (seconds < 60) return "just now";
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}
 
 export function TelegramConfigSection({ agentId, companyId }: TelegramConfigSectionProps) {
   const queryClient = useQueryClient();
@@ -46,6 +72,7 @@ export function TelegramConfigSection({ agentId, companyId }: TelegramConfigSect
   } = useQuery({
     queryKey: queryKeys.telegram(agentId),
     queryFn: () => api.get<TelegramResponse>(`/agents/${agentId}/telegram?companyId=${companyId}`),
+    refetchInterval: 15_000,
   });
 
   const saveMutation = useMutation({
@@ -105,6 +132,7 @@ export function TelegramConfigSection({ agentId, companyId }: TelegramConfigSect
 
   const config = data?.config;
   const status = data?.status ?? "disabled";
+  const telemetry = data?.telemetry;
   const hasConfig = !!config;
 
   if (isLoading) {
@@ -180,27 +208,68 @@ export function TelegramConfigSection({ agentId, companyId }: TelegramConfigSect
       </div>
 
       {hasConfig && !isEditing && (
-        <div className="rounded-md border border-border p-3 space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="text-xs text-muted-foreground">Bot</span>
-            <span className="text-sm font-mono">
-              {config.botUsername ? `@${config.botUsername}` : "—"}
-            </span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-xs text-muted-foreground">Owner Chat ID</span>
-            <span className="text-sm font-mono">
-              {config.ownerChatId ?? (
-                <span className="text-muted-foreground/50 italic">auto-captured on first message</span>
-              )}
-            </span>
-          </div>
-          {config.allowedUserIds.length > 0 && (
+        <div className="rounded-md border border-border p-3 space-y-3">
+          <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-xs text-muted-foreground">Allowed users</span>
-              <span className="text-xs font-mono">{config.allowedUserIds.join(", ")}</span>
+              <span className="text-xs text-muted-foreground">Bot</span>
+              <span className="text-sm font-mono">
+                {config.botUsername ? `@${config.botUsername}` : "—"}
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-muted-foreground">Owner Chat ID</span>
+              <span className="text-sm font-mono">
+                {config.ownerChatId ?? (
+                  <span className="text-muted-foreground/50 italic">auto-captured on first message</span>
+                )}
+              </span>
+            </div>
+            {config.allowedUserIds.length > 0 && (
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-muted-foreground">Allowed users</span>
+                <span className="text-xs font-mono">{config.allowedUserIds.join(", ")}</span>
+              </div>
+            )}
+          </div>
+
+          {telemetry && config.enabled && (
+            <div className="border-t border-border pt-2 space-y-1.5">
+              <div className="flex items-center justify-between">
+                <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <Activity className="h-3 w-3" />
+                  Uptime
+                </span>
+                <span className="text-xs font-mono">
+                  {telemetry.startedAt ? formatRelativeTime(telemetry.startedAt) : "—"}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <Clock className="h-3 w-3" />
+                  Last message
+                </span>
+                <span className="text-xs font-mono">
+                  {telemetry.lastMessageAt ? formatRelativeTime(telemetry.lastMessageAt) : "none yet"}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <MessageSquare className="h-3 w-3" />
+                  Messages / Sessions
+                </span>
+                <span className="text-xs font-mono">
+                  {telemetry.messageCount} / {telemetry.activeSessionCount}
+                </span>
+              </div>
+              {telemetry.retrying && (
+                <div className="flex items-center gap-1.5 text-xs text-yellow-500 mt-1">
+                  <RefreshCw className="h-3 w-3 animate-spin" />
+                  Reconnecting after conflict...
+                </div>
+              )}
             </div>
           )}
+
           <div className="pt-1">
             <Button
               variant="outline"

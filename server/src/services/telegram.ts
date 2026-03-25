@@ -28,8 +28,12 @@ interface BotInstance {
   agentId: string;
   companyId: string;
   unsubscribeLiveEvents: () => void;
+  startedAt: Date;
+  lastMessageAt: Date | null;
+  messageCount: number;
 }
 
+const activeBots = new Map<string, BotInstance>();
 const pendingRetries = new Set<string>();
 const MAX_409_RETRIES = 3;
 
@@ -68,7 +72,6 @@ function splitMessage(text: string): string[] {
 }
 
 export function telegramService(db: Db) {
-  const activeBots = new Map<string, BotInstance>();
   const chat = chatService(db);
   const heartbeat = heartbeatService(db);
 
@@ -415,6 +418,12 @@ export function telegramService(db: Db) {
           .where(eq(agentTelegramConfigs.id, currentConfig.id));
       }
 
+      const instance = activeBots.get(agentId);
+      if (instance) {
+        instance.lastMessageAt = new Date();
+        instance.messageCount++;
+      }
+
       const rawText = ctx.message.text;
       let messageText = rawText;
       let forceNewSession = false;
@@ -517,7 +526,10 @@ export function telegramService(db: Db) {
       // live event listener placeholder for future streaming
     });
 
-    activeBots.set(agentId, { bot, runner, agentId, companyId, unsubscribeLiveEvents });
+    activeBots.set(agentId, {
+      bot, runner, agentId, companyId, unsubscribeLiveEvents,
+      startedAt: new Date(), lastMessageAt: null, messageCount: 0,
+    });
 
     void testToken(config.botToken)
       .then(async (info) => {
@@ -592,6 +604,37 @@ export function telegramService(db: Db) {
     return activeBots.size;
   }
 
+  async function getTelemetry(agentId: string): Promise<{
+    botRunning: boolean;
+    startedAt: string | null;
+    lastMessageAt: string | null;
+    messageCount: number;
+    activeSessionCount: number;
+    retrying: boolean;
+  }> {
+    const instance = activeBots.get(agentId);
+
+    const sessionRows = await db
+      .select({ id: chatSessions.id })
+      .from(chatSessions)
+      .where(
+        and(
+          eq(chatSessions.agentId, agentId),
+          isNull(chatSessions.archivedAt),
+        ),
+      );
+    const telegramSessions = sessionRows.length;
+
+    return {
+      botRunning: !!instance,
+      startedAt: instance?.startedAt?.toISOString() ?? null,
+      lastMessageAt: instance?.lastMessageAt?.toISOString() ?? null,
+      messageCount: instance?.messageCount ?? 0,
+      activeSessionCount: telegramSessions,
+      retrying: pendingRetries.has(agentId),
+    };
+  }
+
   async function sendNotification(
     agentId: string,
     text: string,
@@ -642,6 +685,7 @@ export function telegramService(db: Db) {
     onConfigChange,
     getActiveBot,
     getActiveBotCount,
+    getTelemetry,
     sendNotification,
   };
 }

@@ -28,9 +28,11 @@ export function telegramRoutes(db: Db) {
 
     const config = await telegram.getConfig(agent.id);
     const botInstance = telegram.getActiveBot(agent.id);
+    const telemetry = await telegram.getTelemetry(agent.id);
     res.json({
       config: config ?? null,
       status: botInstance ? "connected" : config?.enabled ? "disconnected" : "disabled",
+      telemetry,
     });
   });
 
@@ -109,7 +111,14 @@ export function telegramRoutes(db: Db) {
           sessionId: req.body.sessionId,
         });
         if (!sent) {
-          res.status(422).json({ error: "Bot is not active or no owner chat ID is configured" });
+          const botInstance = telegram.getActiveBot(agent.id);
+          const config = await telegram.getConfig(agent.id);
+          const reason = !config?.enabled
+            ? "Telegram is not enabled for this agent"
+            : !botInstance
+              ? "Telegram bot is not running (server may need restart)"
+              : "No target chat ID — ownerChatId not set and no matching session found";
+          res.status(422).json({ error: reason });
           return;
         }
         res.json({ ok: true });
