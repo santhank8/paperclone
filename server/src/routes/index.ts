@@ -18,4 +18,6 @@ export { integrationRecommendationRoutes } from "./integrationRecommendations.js
 export { missionRoutes } from "./missions.js";
 export { agentToolRoutes } from "./agent-tools.js";
 export { telegramCallbackRoutes } from "./telegram-callback.js";
+export { telegramWebhookRoutes } from "./telegram-webhook.js";
 export { departmentRoutes } from "./departments.js";
+export { aiIntelligenceRoutes } from "./ai-intelligence.js";

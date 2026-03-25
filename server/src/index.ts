@@ -22,6 +22,7 @@ import { createApp } from "./app.js";
 import { loadConfig } from "./config.js";
 import { logger } from "./middleware/logger.js";
 import { setupLiveEventsWebSocketServer } from "./realtime/live-events-ws.js";
+import { RealtimeServer } from "./realtime/ws-server.js";
 import { heartbeatService } from "./services/index.js";
 import { startApproveTimerWorker } from "./services/jobs/approve-timer.js";
 import { createStorageServiceFromConfig } from "./storage/index.js";
@@ -430,20 +431,12 @@ const app = await createApp(db as any, {
   resolveSession,
 });
 const server = createServer(app);
-const listenPort = await detectPort(config.port);
 
-if (listenPort !== config.port) {
-  logger.warn(`Requested port is busy; using next free port (requestedPort=${config.port}, selectedPort=${listenPort})`);
-}
+// Initialize RealtimeServer 
+const realtimeServer = new RealtimeServer(server);
 
-const runtimeListenHost = config.host;
-const runtimeApiHost =
-  runtimeListenHost === "0.0.0.0" || runtimeListenHost === "::"
-    ? "localhost"
-    : runtimeListenHost;
-process.env.PAPERCLIP_LISTEN_HOST = runtimeListenHost;
-process.env.PAPERCLIP_LISTEN_PORT = String(listenPort);
-process.env.PAPERCLIP_API_URL = `http://${runtimeApiHost}:${listenPort}`;
+// Make available to routes
+app.set('realtime', realtimeServer);
 
 setupLiveEventsWebSocketServer(server, db as any, {
   deploymentMode: config.deploymentMode,
@@ -487,6 +480,18 @@ if (process.env.REDIS_URL) {
 } else {
   logger.warn("REDIS_URL not set — BullMQ workers disabled. Auto-approve timers will not fire.");
 }
+
+// Detect free port for the HTTP server
+const listenPort = await detectPort(config.port);
+
+const runtimeListenHost = config.host;
+const runtimeApiHost =
+  runtimeListenHost === "0.0.0.0" || runtimeListenHost === "::"
+    ? "localhost"
+    : runtimeListenHost;
+process.env.PAPERCLIP_LISTEN_HOST = runtimeListenHost;
+process.env.PAPERCLIP_LISTEN_PORT = String(listenPort);
+process.env.PAPERCLIP_API_URL = `http://${runtimeApiHost}:${listenPort}`;
 
 server.listen(listenPort, config.host, () => {
   logger.info(`Server listening on ${config.host}:${listenPort}`);

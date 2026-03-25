@@ -21,3 +21,8 @@ export { createStorageServiceFromConfig, getStorageService } from "../storage/in
 export { integrationCheckService, INTEGRATION_REQUIREMENTS } from "./integrationCheck.js";
 export { productService } from "./products.js";
 export { notificationService } from "./notification-service.js";
+export { businessKpiService } from "./business-kpis.js";
+export { telegramNotifierService } from "./telegram-notifier.js";
+export { telegramBriefService } from "./telegram-brief.js";
+export { slackNotifierService } from "./slack-notifier.js";
+export { aiIntelligenceService } from "./ai-intelligence.js";

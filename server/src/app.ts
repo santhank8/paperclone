@@ -22,6 +22,7 @@ import { costRoutes } from "./routes/costs.js";
 import { activityRoutes } from "./routes/activity.js";
 import { dashboardRoutes } from "./routes/dashboard.js";
 import { sidebarBadgeRoutes } from "./routes/sidebar-badges.js";
+import { notificationRoutes } from "./routes/notifications.js";
 import { llmRoutes } from "./routes/llms.js";
 import { modelProviderRoutes } from "./routes/model-providers.js";
 import { assetRoutes } from "./routes/assets.js";
@@ -30,6 +31,8 @@ import { integrationRecommendationRoutes } from "./routes/integrationRecommendat
 import { missionRoutes } from "./routes/missions.js";
 import { agentToolRoutes } from "./routes/agent-tools.js";
 import { telegramCallbackRoutes } from "./routes/telegram-callback.js";
+import { telegramWebhookRoutes } from "./routes/telegram-webhook.js";
+import { aiIntelligenceRoutes } from "./routes/ai-intelligence.js";
 import { departmentRoutes } from "./routes/departments.js";
 import { productRoutes } from "./routes/products.js";
 import type { BetterAuthSessionResult } from "./auth/better-auth.js";
@@ -122,11 +125,14 @@ export async function createApp(
   api.use(activityRoutes(db));
   api.use(dashboardRoutes(db));
   api.use(sidebarBadgeRoutes(db));
+  api.use(notificationRoutes(db)); // Added for CEO Engine - telegram brief endpoint
   api.use(integrationRecommendationRoutes(db));
+  api.use(aiIntelligenceRoutes(db));
   // Wave 1 mission layer
   api.use(missionRoutes(db));
   api.use(agentToolRoutes(db));
   api.use(telegramCallbackRoutes(db));
+  api.use(telegramWebhookRoutes);
   api.use(departmentRoutes(db));
   api.use(productRoutes(db));
   api.use(

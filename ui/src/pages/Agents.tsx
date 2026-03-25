@@ -1,6 +1,6 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { Link, useNavigate, useLocation } from "@/lib/router";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { agentsApi, type OrgNode } from "../api/agents";
 import { heartbeatsApi } from "../api/heartbeats";
 import { useCompany } from "../context/CompanyContext";
@@ -18,6 +18,7 @@ import { PageTabBar } from "../components/PageTabBar";
 import { Tabs } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Bot, Plus, List, GitBranch, SlidersHorizontal } from "lucide-react";
+import { useWebSocket } from "../hooks/useWebSocket"; // Import WebSocket hook
 import type { Agent } from "@paperclipai/shared";
 
 const adapterLabels: Record<string, string> = {
@@ -61,6 +62,7 @@ function filterOrgTree(nodes: OrgNode[], tab: FilterTab, showTerminated: boolean
 
 export function Agents() {
   const { selectedCompanyId } = useCompany();
+  const queryClient = useQueryClient();
   const { openNewAgent } = useDialog();
   const { setBreadcrumbs } = useBreadcrumbs();
   const navigate = useNavigate();
@@ -73,6 +75,33 @@ export function Agents() {
   const effectiveView: "list" | "org" = forceListView ? "list" : view;
   const [showTerminated, setShowTerminated] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
+  
+  // WebSocket event handler to update agent status in real-time
+  const eventHandlers = useMemo(() => ({
+    agent_status: (payload: any) => {
+      console.log('Agent status update via WebSocket:', payload);
+      // Only invalidate agent queries when status changes
+      if (selectedCompanyId) {
+        queryClient.invalidateQueries({ queryKey: queryKeys.agents.list(selectedCompanyId) });
+        queryClient.invalidateQueries({ queryKey: queryKeys.org(selectedCompanyId) });
+        queryClient.invalidateQueries({ queryKey: queryKeys.heartbeats(selectedCompanyId) });
+      }
+    },
+    task_update: (payload: any) => {
+      // Task updates in agents context would affect runs
+      if (selectedCompanyId) {
+        queryClient.invalidateQueries({ queryKey: queryKeys.heartbeats(selectedCompanyId) });
+      }
+    },
+    mission_progress: (payload: any) => {
+      // Mission progress updates might affect what agents are working on
+      if (selectedCompanyId) {
+        queryClient.invalidateQueries({ queryKey: queryKeys.heartbeats(selectedCompanyId) });
+      }
+    }
+  }), [selectedCompanyId, queryClient]);
+  
+  useWebSocket(eventHandlers);
 
   const { data: agents, isLoading, error } = useQuery({
     queryKey: queryKeys.agents.list(selectedCompanyId!),

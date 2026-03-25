@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Layout } from "./components/Layout";
 import { OnboardingWizard } from "./components/OnboardingWizard";
+import { PWAInstallPrompt } from "./components/PWAInstallPrompt";
 import { authApi } from "./api/auth";
 import { healthApi } from "./api/health";
 import { Dashboard } from "./pages/Dashboard";
@@ -26,6 +27,10 @@ import { SettingsPage } from "./pages/Settings";
 import { Skills } from "./pages/Skills";
 import { DesignGuide } from "./pages/DesignGuide";
 import { OrgChart } from "./pages/OrgChart";
+import { MissionsPage } from "./pages/Missions";
+import { MissionWizard } from "./pages/MissionWizard";
+import { MissionDetail } from "./pages/MissionDetail";
+import { ObjectivesPage } from "./pages/company/Objectives";
 import { AuthPage } from "./pages/Auth";
 import { BoardClaimPage } from "./pages/BoardClaim";
 import { InviteLandingPage } from "./pages/InviteLanding";
@@ -127,6 +132,11 @@ function boardRoutes() {
       <Route path="issues/:issueId" element={<IssueDetail />} />
       <Route path="goals" element={<Goals />} />
       <Route path="goals/:goalId" element={<GoalDetail />} />
+      <Route path="missions" element={<MissionsPage />} />
+      <Route path="missions/create" element={<MissionWizard />} />
+      <Route path="missions/:missionId" element={<MissionDetail />} />
+      // Add objectives route for CEO Engine
+      <Route path="objectives" element={<ObjectivesPage />} />
       <Route path="approvals" element={<Navigate to="/approvals/pending" replace />} />
       <Route path="approvals/pending" element={<Approvals />} />
       <Route path="approvals/all" element={<Approvals />} />
@@ -238,6 +248,7 @@ export function App() {
         </Route>
       </Routes>
       <OnboardingWizard />
+      <PWAInstallPrompt />
     </>
   );
 }
