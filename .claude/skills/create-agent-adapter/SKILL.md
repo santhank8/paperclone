@@ -786,6 +786,7 @@ UI visibility gates:
 - [ ] Added to `SUPPORTED_ADVANCED_ADAPTER_TYPES` in `NewAgent.tsx`
 - [ ] Added to `AdvancedAdapterType` and `ADVANCED_ADAPTER_OPTIONS` in `NewAgentDialog.tsx`
 - [ ] Added to `AdapterType`, `isLocalAdapter`, adapter cards, `effectiveAdapterCommand`, debug commands, and auth hints in `OnboardingWizard.tsx`
+- [ ] Added to `isLocal` check in `AgentDetail.tsx` `PromptsTab` (enables Instructions tab)
 
 Verification:
 - [ ] Added to workspace in root `pnpm-workspace.yaml` (if not already covered by glob)

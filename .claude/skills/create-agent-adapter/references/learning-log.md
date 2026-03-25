@@ -26,6 +26,8 @@ The SKILL.md documents three registries (server, UI, CLI) but there are **seven 
 
 8. **`ui/src/components/OnboardingWizard.tsx`** — `AdapterType` union, `isLocalAdapter` check, and the "More Agent Adapter Types" card array. If missing, the adapter won't appear during first-run onboarding.
 
+9. **`ui/src/pages/AgentDetail.tsx`** — `isLocal` check in the `PromptsTab` component (~line 1603). Controls whether the Instructions tab shows the bundle editor or the "only available for local adapters" message.
+
 **Also update these secondary touchpoints:**
 - `ui/src/components/agent-config-primitives.tsx` — `adapterLabels` record. Maps adapter type to human-readable label for the dropdown.
 - `AgentConfigForm.tsx` command placeholder ternary (~line 696) — Controls the placeholder text in the Command field (e.g. "oz", "claude", "codex").
