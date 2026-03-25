@@ -31,8 +31,8 @@ import yaml from "js-yaml";
 
 const HERMES_CLI = "hermes";
 const DEFAULT_MODEL = "anthropic/claude-sonnet-4";
-/** 0 = no Paperclip wall-clock kill (matches other local adapters). */
-const DEFAULT_TIMEOUT_SEC = 0;
+/** Default Paperclip wall-clock cap for the spawned `hermes` process (30 minutes). Use 0 in agent settings for no cap. */
+const DEFAULT_TIMEOUT_SEC = 1800;
 const DEFAULT_GRACE_SEC = 10;
 
 /**
