@@ -786,6 +786,7 @@ export async function runChildProcess(
           opts.timeoutSec > 0
             ? setTimeout(() => {
                 timedOut = true;
+                if (idleTimer) clearTimeout(idleTimer);
                 child.kill("SIGTERM");
                 setTimeout(() => {
                   if (!child.killed) {
@@ -802,6 +803,7 @@ export async function runChildProcess(
               if (idleTimer) clearTimeout(idleTimer);
               idleTimer = setTimeout(() => {
                 idleTimedOut = true;
+                if (timeout) clearTimeout(timeout);
                 const idleMsg = `[paperclip] idle timeout: no output for ${idleSec}s, killing child (run ${runId})\n`;
                 logChain = logChain
                   .then(() => opts.onLog("stderr", idleMsg))
