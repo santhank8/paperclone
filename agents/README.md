@@ -10,6 +10,8 @@ This directory contains specialized agent skills for common Paperclip use cases.
 | Task Manager | `task-manager/` | Manages task lifecycles including creation, delegation, tracking, and completion |
 | Cost Analyst | `cost-analyst/` | Monitors and analyzes company spending, agent costs, and budget utilization |
 | Agent Ops | `agent-ops/` | Handles agent lifecycle operations including hiring, configuration, monitoring, and troubleshooting |
+| Cloud Ops | `cloud-ops/` | Manages cloud infrastructure: IaC changes, CI/CD deployments, incident triage, cost analysis, and security compliance |
+| SRE Runbook | `sre-runbook/` | Executes SRE incident runbooks: SLO assessment, incident response by severity, PIR authoring, and error budget tracking |
 
 ## How Agent Skills Work
 
