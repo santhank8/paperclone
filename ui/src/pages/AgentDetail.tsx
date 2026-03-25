@@ -829,7 +829,7 @@ export function AgentDetail() {
           </div>
         </div>
         <div className="flex items-center gap-1 sm:gap-2 shrink-0">
-          {agent.reportsTo === null && (
+          {(agent.reportsTo === null || directReports.length > 0) && (
             <Button
               variant="outline"
               size="sm"
