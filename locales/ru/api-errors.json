@@ -21,18 +21,54 @@
     "instanceAdminRequired": "Требуются права администратора экземпляра",
     "forbidden": "Доступ запрещён",
     "prefixTaken": "Префикс задачи уже используется",
-    "invalidPrefix": "Недопустимый префикс задачи"
+    "invalidPrefix": "Недопустимый префикс задачи",
+    "missingCompanyIdInPath": "Отсутствует companyId в пути. Используйте /api/companies/{companyId}/issues."
   },
   "issues": {
     "notFound": "Задача не найдена",
     "checkoutConflict": "Задача уже занята другим агентом",
     "checkoutFailed": "Не удалось взять задачу",
     "invalidStatus": "Недопустимый переход статуса",
-    "forbidden": "Доступ запрещён"
+    "forbidden": "Доступ запрещён",
+    "missingPermissionLinkApprovals": "Отсутствует разрешение на привязку согласований",
+    "missingPermissionTasksAssign": "Отсутствует разрешение: tasks:assign",
+    "agentRunIdRequired": "Требуется идентификатор запуска агента",
+    "agentCheckoutSelfOnly": "Агент может взять задачу только от своего имени",
+    "assigneeUserMeRequiresBoard": "assigneeUserId=me требует аутентификации через board",
+    "touchedByUserMeRequiresBoard": "touchedByUserId=me требует аутентификации через board",
+    "unreadForUserMeRequiresBoard": "unreadForUserId=me требует аутентификации через board",
+    "labelNotFound": "Метка не найдена",
+    "documentKeyInvalid": "Недопустимый ключ документа",
+    "documentNotFound": "Документ не найден",
+    "boardAuthRequired": "Требуется аутентификация через board",
+    "boardUserContextRequired": "Требуется контекст пользователя board",
+    "workProductInvalid": "Недопустимые данные рабочего продукта",
+    "workProductNotFound": "Рабочий продукт не найден",
+    "projectPausedBudget": "Проект приостановлен из-за достижения жёсткого лимита бюджета",
+    "projectPaused": "Проект приостановлен",
+    "commentNotFound": "Комментарий не найден",
+    "boardInterruptOnly": "Только пользователи board могут прерывать активные запуски через комментарии к задачам",
+    "notBelongCompany": "Задача не принадлежит этой компании",
+    "attachmentExceedsLimit": "Вложение превышает {{limit}} байт",
+    "attachmentMissingFile": "Отсутствует поле файла 'file'",
+    "attachmentUnsupportedType": "Неподдерживаемый тип вложения: {{contentType}}",
+    "attachmentEmpty": "Вложение пустое",
+    "attachmentNotFound": "Вложение не найдено",
+    "attachmentMetadataInvalid": "Недопустимые метаданные вложения"
   },
   "approvals": {
     "notFound": "Одобрение не найдено",
-    "forbidden": "Доступ запрещён"
+    "forbidden": "Доступ запрещён",
+    "onlyRequesterCanResubmit": "Только запрашивающий агент может повторно отправить это согласование"
+  },
+  "projects": {
+    "notFound": "Проект не найден",
+    "workspaceNotFound": "Рабочее пространство проекта не найдено",
+    "workspaceInvalid": "Недопустимые данные рабочего пространства проекта",
+    "shortnameAmbiguous": "Краткое имя проекта неоднозначно в этой компании. Используйте ID проекта."
+  },
+  "goals": {
+    "notFound": "Цель не найдена"
   },
   "auth": {
     "unauthorized": "Не авторизован",

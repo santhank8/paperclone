@@ -21,18 +21,54 @@
     "instanceAdminRequired": "Instance admin required",
     "forbidden": "Access denied",
     "prefixTaken": "Issue prefix already in use",
-    "invalidPrefix": "Invalid issue prefix"
+    "invalidPrefix": "Invalid issue prefix",
+    "missingCompanyIdInPath": "Missing companyId in path. Use /api/companies/{companyId}/issues."
   },
   "issues": {
     "notFound": "Issue not found",
     "checkoutConflict": "Issue is already checked out by another agent",
     "checkoutFailed": "Checkout failed",
     "invalidStatus": "Invalid status transition",
-    "forbidden": "Access denied"
+    "forbidden": "Access denied",
+    "missingPermissionLinkApprovals": "Missing permission to link approvals",
+    "missingPermissionTasksAssign": "Missing permission: tasks:assign",
+    "agentRunIdRequired": "Agent run id required",
+    "agentCheckoutSelfOnly": "Agent can only checkout as itself",
+    "assigneeUserMeRequiresBoard": "assigneeUserId=me requires board authentication",
+    "touchedByUserMeRequiresBoard": "touchedByUserId=me requires board authentication",
+    "unreadForUserMeRequiresBoard": "unreadForUserId=me requires board authentication",
+    "labelNotFound": "Label not found",
+    "documentKeyInvalid": "Invalid document key",
+    "documentNotFound": "Document not found",
+    "boardAuthRequired": "Board authentication required",
+    "boardUserContextRequired": "Board user context required",
+    "workProductInvalid": "Invalid work product payload",
+    "workProductNotFound": "Work product not found",
+    "projectPausedBudget": "Project is paused because its budget hard-stop was reached",
+    "projectPaused": "Project is paused",
+    "commentNotFound": "Comment not found",
+    "boardInterruptOnly": "Only board users can interrupt active runs from issue comments",
+    "notBelongCompany": "Issue does not belong to company",
+    "attachmentExceedsLimit": "Attachment exceeds {{limit}} bytes",
+    "attachmentMissingFile": "Missing file field 'file'",
+    "attachmentUnsupportedType": "Unsupported attachment type: {{contentType}}",
+    "attachmentEmpty": "Attachment is empty",
+    "attachmentNotFound": "Attachment not found",
+    "attachmentMetadataInvalid": "Invalid attachment metadata"
   },
   "approvals": {
     "notFound": "Approval not found",
-    "forbidden": "Access denied"
+    "forbidden": "Access denied",
+    "onlyRequesterCanResubmit": "Only requesting agent can resubmit this approval"
+  },
+  "projects": {
+    "notFound": "Project not found",
+    "workspaceNotFound": "Project workspace not found",
+    "workspaceInvalid": "Invalid project workspace payload",
+    "shortnameAmbiguous": "Project shortname is ambiguous in this company. Use the project ID."
+  },
+  "goals": {
+    "notFound": "Goal not found"
   },
   "auth": {
     "unauthorized": "Unauthorized",

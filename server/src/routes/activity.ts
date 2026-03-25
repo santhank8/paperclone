@@ -6,6 +6,7 @@ import { activityService } from "../services/activity.js";
 import { assertBoard, assertCompanyAccess } from "./authz.js";
 import { issueService } from "../services/index.js";
 import { sanitizeRecord } from "../redaction.js";
+import { t } from "../i18n.js";
 
 const createActivitySchema = z.object({
   actorType: z.enum(["agent", "user", "system"]).optional().default("system"),
@@ -58,7 +59,7 @@ export function activityRoutes(db: Db) {
     const rawId = req.params.id as string;
     const issue = await resolveIssueByRef(rawId);
     if (!issue) {
-      res.status(404).json({ error: "Issue not found" });
+      res.status(404).json({ error: t("issues.notFound") });
       return;
     }
     assertCompanyAccess(req, issue.companyId);
@@ -70,7 +71,7 @@ export function activityRoutes(db: Db) {
     const rawId = req.params.id as string;
     const issue = await resolveIssueByRef(rawId);
     if (!issue) {
-      res.status(404).json({ error: "Issue not found" });
+      res.status(404).json({ error: t("issues.notFound") });
       return;
     }
     assertCompanyAccess(req, issue.companyId);

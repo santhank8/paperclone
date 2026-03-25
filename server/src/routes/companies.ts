@@ -8,6 +8,7 @@ import {
   updateCompanySchema,
 } from "@paperclipai/shared";
 import { forbidden } from "../errors.js";
+import { t } from "../i18n.js";
 import { validate } from "../middleware/validate.js";
 import {
   accessService,
@@ -52,9 +53,7 @@ export function companyRoutes(db: Db) {
 
   // Common malformed path when companyId is empty in "/api/companies/{companyId}/issues".
   router.get("/issues", (_req, res) => {
-    res.status(400).json({
-      error: "Missing companyId in path. Use /api/companies/{companyId}/issues.",
-    });
+    res.status(400).json({ error: t("companies.missingCompanyIdInPath") });
   });
 
   router.get("/:companyId", async (req, res) => {
@@ -63,7 +62,7 @@ export function companyRoutes(db: Db) {
     assertCompanyAccess(req, companyId);
     const company = await svc.getById(companyId);
     if (!company) {
-      res.status(404).json({ error: "Company not found" });
+      res.status(404).json({ error: t("companies.notFound") });
       return;
     }
     res.json(company);
@@ -116,7 +115,7 @@ export function companyRoutes(db: Db) {
   router.post("/", validate(createCompanySchema), async (req, res) => {
     assertBoard(req);
     if (!(req.actor.source === "local_implicit" || req.actor.isInstanceAdmin)) {
-      throw forbidden("Instance admin required");
+      throw forbidden(t("companies.instanceAdminRequired"));
     }
     const company = await svc.create(req.body);
     await access.ensureMembership(company.id, "user", req.actor.userId ?? "local-board", "owner", "active");
@@ -150,7 +149,7 @@ export function companyRoutes(db: Db) {
     assertCompanyAccess(req, companyId);
     const company = await svc.update(companyId, req.body);
     if (!company) {
-      res.status(404).json({ error: "Company not found" });
+      res.status(404).json({ error: t("companies.notFound") });
       return;
     }
     await logActivity(db, {
@@ -171,7 +170,7 @@ export function companyRoutes(db: Db) {
     assertCompanyAccess(req, companyId);
     const company = await svc.archive(companyId);
     if (!company) {
-      res.status(404).json({ error: "Company not found" });
+      res.status(404).json({ error: t("companies.notFound") });
       return;
     }
     await logActivity(db, {
@@ -191,7 +190,7 @@ export function companyRoutes(db: Db) {
     assertCompanyAccess(req, companyId);
     const company = await svc.remove(companyId);
     if (!company) {
-      res.status(404).json({ error: "Company not found" });
+      res.status(404).json({ error: t("companies.notFound") });
       return;
     }
     res.json({ ok: true });
