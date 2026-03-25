@@ -22,8 +22,6 @@ import { Bot, CircleDot, ShieldCheck, LayoutDashboard, Activity, CheckCircle, Cl
 import { ActiveAgentsPanel } from "../components/ActiveAgentsPanel";
 import { RunsTable } from "../components/RunsTable";
 import { ChartCard, RunActivityChart, PriorityChart, IssueStatusChart } from "../components/ActivityCharts";
-import { HeartbeatFrequencyChart } from "../components/SpendingCharts";
-import { costsApi } from "../api/costs";
 import { PageSkeleton } from "../components/PageSkeleton";
 import type { Agent, Issue } from "@paperclipai/shared";
 
@@ -78,18 +76,6 @@ export function Dashboard() {
   const { data: runs } = useQuery({
     queryKey: queryKeys.heartbeats(selectedCompanyId!),
     queryFn: () => heartbeatsApi.list(selectedCompanyId!),
-    enabled: !!selectedCompanyId,
-  });
-
-  const fourteenDaysAgo = useMemo(() => {
-    const d = new Date();
-    d.setDate(d.getDate() - 14);
-    return d.toISOString().slice(0, 10);
-  }, []);
-
-  const { data: dailyCosts } = useQuery({
-    queryKey: queryKeys.costsDaily(selectedCompanyId!, fourteenDaysAgo),
-    queryFn: () => costsApi.daily(selectedCompanyId!, fourteenDaysAgo, undefined, "day"),
     enabled: !!selectedCompanyId,
   });
 
@@ -285,10 +271,6 @@ export function Dashboard() {
               <IssueStatusChart issues={issues ?? []} />
             </ChartCard>
           </div>
-
-          <ChartCard title="Heartbeat Activity" subtitle="Last 14 days">
-            <HeartbeatFrequencyChart data={dailyCosts ?? []} />
-          </ChartCard>
 
           {/* Agent Performance */}
           {runStats && (
