@@ -57,8 +57,6 @@ export function RunsTable({ runs }: { runs: DashboardRun[] }) {
               <th className="text-left px-3 py-2 font-medium text-muted-foreground">Agent</th>
               <th className="text-left px-3 py-2 font-medium text-muted-foreground">Task</th>
               <th className="text-left px-3 py-2 font-medium text-muted-foreground">Status</th>
-              <th className="text-right px-3 py-2 font-medium text-muted-foreground">Tokens In</th>
-              <th className="text-right px-3 py-2 font-medium text-muted-foreground">Tokens Out</th>
               <th className="text-right px-3 py-2 font-medium text-muted-foreground">Duration</th>
               <th className="text-left px-3 py-2 font-medium text-muted-foreground">Source</th>
               <th className="text-right px-3 py-2 font-medium text-muted-foreground">When</th>
@@ -92,8 +90,6 @@ export function RunsTable({ runs }: { runs: DashboardRun[] }) {
                     {run.status}
                   </span>
                 </td>
-                <td className="px-3 py-2 text-right tabular-nums">{formatTokens(run.inputTokens)}</td>
-                <td className="px-3 py-2 text-right tabular-nums">{formatTokens(run.outputTokens)}</td>
                 <td className="px-3 py-2 text-right tabular-nums">{formatDuration(run.durationMs)}</td>
                 <td className="px-3 py-2">
                   <span className="text-xs text-muted-foreground">

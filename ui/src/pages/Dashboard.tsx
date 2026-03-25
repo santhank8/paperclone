@@ -18,12 +18,11 @@ import { PriorityIcon } from "../components/PriorityIcon";
 import { ActivityRow } from "../components/ActivityRow";
 import { Identity } from "../components/Identity";
 import { timeAgo } from "../lib/timeAgo";
-import { cn, formatCents } from "../lib/utils";
-import { Bot, CircleDot, DollarSign, ShieldCheck, LayoutDashboard, Activity, CheckCircle, Clock, Zap } from "lucide-react";
+import { Bot, CircleDot, ShieldCheck, LayoutDashboard, Activity, CheckCircle, Clock } from "lucide-react";
 import { ActiveAgentsPanel } from "../components/ActiveAgentsPanel";
 import { RunsTable } from "../components/RunsTable";
-import { ChartCard, RunActivityChart, PriorityChart, IssueStatusChart, SuccessRateChart } from "../components/ActivityCharts";
-import { SpendingVelocityChart, HeartbeatFrequencyChart } from "../components/SpendingCharts";
+import { ChartCard, RunActivityChart, PriorityChart, IssueStatusChart } from "../components/ActivityCharts";
+import { HeartbeatFrequencyChart } from "../components/SpendingCharts";
 import { costsApi } from "../api/costs";
 import { PageSkeleton } from "../components/PageSkeleton";
 import type { Agent, Issue } from "@paperclipai/shared";
@@ -236,7 +235,7 @@ export function Dashboard() {
 
       {data && (
         <>
-          <div className="grid grid-cols-2 xl:grid-cols-4 gap-1 sm:gap-2">
+          <div className="grid grid-cols-2 xl:grid-cols-3 gap-1 sm:gap-2">
             <MetricCard
               icon={Bot}
               value={data.agents.active + data.agents.running + data.agents.paused + data.agents.error}
@@ -263,19 +262,6 @@ export function Dashboard() {
               }
             />
             <MetricCard
-              icon={DollarSign}
-              value={formatCents(data.costs.monthSpendCents)}
-              label="Month Spend"
-              to="/costs"
-              description={
-                <span>
-                  {data.costs.monthBudgetCents > 0
-                    ? `${data.costs.monthUtilizationPercent}% of ${formatCents(data.costs.monthBudgetCents)} budget`
-                    : "Unlimited budget"}
-                </span>
-              }
-            />
-            <MetricCard
               icon={ShieldCheck}
               value={data.pendingApprovals}
               label="Pending Approvals"
@@ -288,7 +274,7 @@ export function Dashboard() {
             />
           </div>
 
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
             <ChartCard title="Run Activity" subtitle="Last 14 days">
               <RunActivityChart runs={runs ?? []} />
             </ChartCard>
@@ -298,23 +284,15 @@ export function Dashboard() {
             <ChartCard title="Issues by Status" subtitle="Last 14 days">
               <IssueStatusChart issues={issues ?? []} />
             </ChartCard>
-            <ChartCard title="Success Rate" subtitle="Last 14 days">
-              <SuccessRateChart runs={runs ?? []} />
-            </ChartCard>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <ChartCard title="Daily Spend" subtitle="Last 14 days">
-              <SpendingVelocityChart data={dailyCosts ?? []} />
-            </ChartCard>
-            <ChartCard title="Heartbeat Activity" subtitle="Last 14 days">
-              <HeartbeatFrequencyChart data={dailyCosts ?? []} />
-            </ChartCard>
-          </div>
+          <ChartCard title="Heartbeat Activity" subtitle="Last 14 days">
+            <HeartbeatFrequencyChart data={dailyCosts ?? []} />
+          </ChartCard>
 
           {/* Agent Performance */}
           {runStats && (
-            <div className="grid grid-cols-2 xl:grid-cols-4 gap-1 sm:gap-2">
+            <div className="grid grid-cols-2 xl:grid-cols-3 gap-1 sm:gap-2">
               <MetricCard
                 icon={Activity}
                 value={runStats.totalRuns}
@@ -332,20 +310,6 @@ export function Dashboard() {
                 icon={Clock}
                 value={runStats.avgDurationMs != null ? `${Math.round(runStats.avgDurationMs / 1000)}s` : "—"}
                 label="Avg Duration"
-              />
-              <MetricCard
-                icon={Zap}
-                value={
-                  runStats.avgInputTokens != null && runStats.avgOutputTokens != null
-                    ? (runStats.avgInputTokens + runStats.avgOutputTokens).toLocaleString()
-                    : "—"
-                }
-                label="Avg Tokens/Run"
-                description={
-                  runStats.avgInputTokens != null
-                    ? <span>{runStats.avgInputTokens.toLocaleString()} in, {(runStats.avgOutputTokens ?? 0).toLocaleString()} out</span>
-                    : undefined
-                }
               />
             </div>
           )}
