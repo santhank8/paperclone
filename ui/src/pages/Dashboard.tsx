@@ -19,8 +19,9 @@ import { ActivityRow } from "../components/ActivityRow";
 import { Identity } from "../components/Identity";
 import { timeAgo } from "../lib/timeAgo";
 import { cn, formatCents } from "../lib/utils";
-import { Bot, CircleDot, DollarSign, ShieldCheck, LayoutDashboard } from "lucide-react";
+import { Bot, CircleDot, DollarSign, ShieldCheck, LayoutDashboard, Activity, CheckCircle, Clock, Zap } from "lucide-react";
 import { ActiveAgentsPanel } from "../components/ActiveAgentsPanel";
+import { RunsTable } from "../components/RunsTable";
 import { ChartCard, RunActivityChart, PriorityChart, IssueStatusChart, SuccessRateChart } from "../components/ActivityCharts";
 import { SpendingVelocityChart, HeartbeatFrequencyChart } from "../components/SpendingCharts";
 import { costsApi } from "../api/costs";
@@ -90,6 +91,18 @@ export function Dashboard() {
   const { data: dailyCosts } = useQuery({
     queryKey: queryKeys.costsDaily(selectedCompanyId!, fourteenDaysAgo),
     queryFn: () => costsApi.daily(selectedCompanyId!, fourteenDaysAgo, undefined, "day"),
+    enabled: !!selectedCompanyId,
+  });
+
+  const { data: dashboardRuns } = useQuery({
+    queryKey: queryKeys.dashboardRuns(selectedCompanyId!),
+    queryFn: () => dashboardApi.runs(selectedCompanyId!),
+    enabled: !!selectedCompanyId,
+  });
+
+  const { data: runStats } = useQuery({
+    queryKey: queryKeys.dashboardRunStats(selectedCompanyId!),
+    queryFn: () => dashboardApi.runStats(selectedCompanyId!),
     enabled: !!selectedCompanyId,
   });
 
@@ -298,6 +311,53 @@ export function Dashboard() {
               <HeartbeatFrequencyChart data={dailyCosts ?? []} />
             </ChartCard>
           </div>
+
+          {/* Agent Performance */}
+          {runStats && (
+            <div className="grid grid-cols-2 xl:grid-cols-4 gap-1 sm:gap-2">
+              <MetricCard
+                icon={Activity}
+                value={runStats.totalRuns}
+                label="Total Runs (14d)"
+              />
+              <MetricCard
+                icon={CheckCircle}
+                value={`${runStats.successRate}%`}
+                label="Success Rate"
+                description={
+                  <span>{runStats.succeededRuns} succeeded, {runStats.failedRuns} failed</span>
+                }
+              />
+              <MetricCard
+                icon={Clock}
+                value={runStats.avgDurationMs != null ? `${Math.round(runStats.avgDurationMs / 1000)}s` : "—"}
+                label="Avg Duration"
+              />
+              <MetricCard
+                icon={Zap}
+                value={
+                  runStats.avgInputTokens != null && runStats.avgOutputTokens != null
+                    ? (runStats.avgInputTokens + runStats.avgOutputTokens).toLocaleString()
+                    : "—"
+                }
+                label="Avg Tokens/Run"
+                description={
+                  runStats.avgInputTokens != null
+                    ? <span>{runStats.avgInputTokens.toLocaleString()} in, {(runStats.avgOutputTokens ?? 0).toLocaleString()} out</span>
+                    : undefined
+                }
+              />
+            </div>
+          )}
+
+          {dashboardRuns && (
+            <div>
+              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">
+                Recent Runs
+              </h3>
+              <RunsTable runs={dashboardRuns} />
+            </div>
+          )}
 
           <div className="grid md:grid-cols-2 gap-4">
             {/* Recent Activity */}
