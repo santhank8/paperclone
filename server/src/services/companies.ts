@@ -163,10 +163,18 @@ export function companyService(db: Db) {
     },
 
     getByIdOrPrefix: async (idOrPrefix: string) => {
-      // Try as UUID first
-      let row = await getCompanyQuery(db)
-        .where(eq(companies.id, idOrPrefix))
-        .then((rows) => rows[0] ?? null);
+      let row = null;
+
+      // Try as UUID first (if it looks like a UUID)
+      if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idOrPrefix)) {
+        try {
+          row = await getCompanyQuery(db)
+            .where(eq(companies.id, idOrPrefix))
+            .then((rows) => rows[0] ?? null);
+        } catch {
+          // If UUID query fails, continue to prefix lookup
+        }
+      }
 
       // If not found, try as issue prefix
       if (!row) {
