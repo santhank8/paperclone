@@ -109,6 +109,8 @@ interface WakeupOptions {
   requestedByActorType?: "user" | "agent" | "system";
   requestedByActorId?: string | null;
   contextSnapshot?: Record<string, unknown>;
+  /** Skip debounce — used by flushDebouncedWakeups to avoid re-entering the debounce loop. */
+  skipDebounce?: boolean;
 }
 
 interface ParsedIssueAssigneeAdapterOverrides {
@@ -248,6 +250,26 @@ export function shouldResetTaskSessionForWake(
 
   const wakeTriggerDetail = readNonEmptyString(contextSnapshot?.wakeTriggerDetail);
   return wakeSource === "on_demand" && wakeTriggerDetail === "manual";
+}
+
+const SYSTEMIC_ERROR_CODES = new Set([
+  "auth_failed",
+  "claude_auth_required",
+  "adapter_failed",
+  "timeout",
+]);
+
+/**
+ * Determines whether an agent should self-wake to process remaining inbox
+ * items after a heartbeat run completes.
+ */
+export function shouldSelfWake(
+  outcome: string,
+  errorCode: string | null | undefined,
+): boolean {
+  if (outcome === "succeeded") return true;
+  if (outcome === "failed" && !SYSTEMIC_ERROR_CODES.has(errorCode ?? "")) return true;
+  return false;
 }
 
 function describeSessionResetReason(
@@ -1245,11 +1267,47 @@ export function heartbeatService(db: Db) {
           .select({
             assigneeAgentId: issues.assigneeAgentId,
             assigneeAdapterOverrides: issues.assigneeAdapterOverrides,
+            status: issues.status,
+            title: issues.title,
+            description: issues.description,
           })
           .from(issues)
           .where(and(eq(issues.id, issueId), eq(issues.companyId, agent.companyId)))
           .then((rows) => rows[0] ?? null)
       : null;
+
+    // Safety net: abort the run if there is no task, the issue no longer exists,
+    // or the issue is no longer actionable (e.g. already done or blocked).
+    if (!issueId || !issueAssigneeConfig || !["todo", "in_progress"].includes(issueAssigneeConfig.status)) {
+      const skipReason = !issueId
+        ? "no_task_assigned"
+        : !issueAssigneeConfig
+          ? "issue_not_found"
+          : `issue_status_${issueAssigneeConfig.status}`;
+      logger.info({ runId, agentId: agent.id, issueId, skipReason }, "Aborting run — no actionable task");
+      await setRunStatus(runId, "cancelled", {
+        error: `Run cancelled: ${skipReason}`,
+        errorCode: skipReason,
+        finishedAt: new Date(),
+      });
+      await setWakeupStatus(run.wakeupRequestId, "failed", {
+        finishedAt: new Date(),
+        error: `Run cancelled: ${skipReason}`,
+      });
+      const cancelledRun = await getRun(runId);
+      if (cancelledRun) await releaseIssueExecutionAndPromote(cancelledRun);
+      return;
+    }
+
+    // Enrich context with issue title/description so adapters (e.g. DeerFlow)
+    // can build meaningful prompts instead of falling back to generic messages.
+    if (issueAssigneeConfig.title && !context.issueTitle) {
+      context.issueTitle = issueAssigneeConfig.title;
+    }
+    if (issueAssigneeConfig.description && !context.issueBody) {
+      context.issueBody = issueAssigneeConfig.description;
+    }
+
     const issueAssigneeOverrides =
       issueAssigneeConfig && issueAssigneeConfig.assigneeAgentId === agent.id
         ? parseIssueAssigneeAdapterOverrides(
@@ -1593,6 +1651,19 @@ export function heartbeatService(db: Db) {
       }
       await finalizeAgentStatus(agent.id, outcome);
 
+      // Auto-pause ALL agents when auth fails — retrying is pointless until a
+      // human re-authenticates, and cascading retries just burn compute.
+      if (adapterResult.errorCode === "claude_auth_required" || adapterResult.errorCode === "auth_failed") {
+        logger.warn({ agentId: agent.id, runId: run.id }, "Auth failure detected — pausing all agents in company");
+        const companyAgents = await db.select({ id: agents.id }).from(agents).where(
+          and(eq(agents.companyId, agent.companyId), inArray(agents.status, ["idle", "running", "error"])),
+        );
+        for (const a of companyAgents) {
+          await db.update(agents).set({ status: "paused", updatedAt: new Date() }).where(eq(agents.id, a.id));
+          publishLiveEvent({ companyId: agent.companyId, type: "agent.status", payload: { agentId: a.id, status: "paused" } });
+        }
+      }
+
       // When an engineer's run completes with real work, wake the CTO to review.
       // Skip for timer-only heartbeats (idle inbox checks) to avoid cascading wakes.
       if (outcome === "succeeded" && agent.role === "engineer" && run.invocationSource !== "timer") {
@@ -1861,11 +1932,19 @@ export function heartbeatService(db: Db) {
       issueIds,
     };
 
+    // Preserve the original wake reason (e.g. "issue_assigned") so downstream
+    // checks like unblockReasons still match.  Append batch info for logging.
+    const primaryReason = entry.contexts[0]?.wakeReason ?? entry.opts.reason;
+    const batchReason = issueIds.length > 1
+      ? `${primaryReason} (batch: ${issueIds.length} issues)`
+      : primaryReason ?? "issue_assigned";
+
     try {
       await enqueueWakeup(agentId, {
         ...entry.opts,
+        skipDebounce: true,
         contextSnapshot: batchedContextSnapshot,
-        reason: `batch_assignment (${issueIds.length} issues)`,
+        reason: batchReason,
         payload: { ...(entry.opts.payload ?? {}), issueId: primaryIssueId, issueIds },
       });
     } catch (err) {
@@ -1891,12 +1970,13 @@ export function heartbeatService(db: Db) {
       triggerDetail,
       payload,
     });
-    const issueId = readNonEmptyString(enrichedContextSnapshot.issueId) ?? issueIdFromPayload;
+    let issueId = readNonEmptyString(enrichedContextSnapshot.issueId) ?? issueIdFromPayload;
 
     // Debounce rapid assignment wakeups for the same agent.
     // Skip debounce for comment mentions (need immediate response), manual triggers,
-    // and timer-based wakes.
+    // timer-based wakes, and flushed debounce calls (to avoid infinite re-debounce).
     const shouldDebounce =
+      !opts.skipDebounce &&
       !wakeCommentId &&
       source !== "timer" &&
       triggerDetail !== "manual" &&
@@ -1959,6 +2039,61 @@ export function heartbeatService(db: Db) {
     if (source !== "timer" && !policy.wakeOnDemand) {
       await writeSkippedRequest("heartbeat.wakeOnDemand.disabled");
       return null;
+    }
+
+    // Skip wakeup if agent has no actionable (non-blocked) issues,
+    // unless the wake reason indicates an unblock event or it's a manual trigger.
+    const unblockReasons = ["sibling_unblocked", "issue_comment_mentioned", "issue_assigned", "manual_unblock"];
+    const isUnblockWake =
+      triggerDetail === "manual" ||
+      unblockReasons.some(r =>
+        reason?.includes(r) || (payload as Record<string, unknown>)?.mutation?.toString().includes(r),
+      );
+
+    if (!isUnblockWake) {
+      const actionableIssues = await db
+        .select({ id: issues.id })
+        .from(issues)
+        .where(
+          and(
+            eq(issues.assigneeAgentId, agentId),
+            inArray(issues.status, ["todo", "in_progress"]),
+          ),
+        )
+        .limit(1);
+
+      if (actionableIssues.length === 0) {
+        logger.info({ agentId }, "Skipping wakeup — no actionable issues");
+        await writeSkippedRequest("no_actionable_issues");
+        return null;
+      }
+    }
+
+    // Never spawn a container without a task.  If no issueId was provided,
+    // auto-resolve the agent's top-priority assigned issue so the run has work.
+    if (!issueId) {
+      const topIssue = await db
+        .select({ id: issues.id })
+        .from(issues)
+        .where(
+          and(
+            eq(issues.assigneeAgentId, agentId),
+            inArray(issues.status, ["todo", "in_progress"]),
+          ),
+        )
+        .limit(1)
+        .then((rows) => rows[0] ?? null);
+
+      if (topIssue) {
+        issueId = topIssue.id;
+        enrichedContextSnapshot.issueId = issueId;
+        enrichedContextSnapshot.taskId = issueId;
+        logger.info({ agentId, issueId }, "Auto-resolved issue for taskless wakeup");
+      } else {
+        logger.info({ agentId, source, reason }, "Skipping wakeup — no task/issue assigned");
+        await writeSkippedRequest("no_task_assigned");
+        return null;
+      }
     }
 
     const bypassIssueExecutionLock =
