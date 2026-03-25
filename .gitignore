@@ -49,3 +49,9 @@ tests/e2e/playwright-report/
 .superset/
 .claude/worktrees/
 scripts/report-agents/.env
+
+# Sensitive credentials
+ga4-key.json
+
+# Plugin local data
+server/.x-watchdog-data/
