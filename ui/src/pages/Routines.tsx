@@ -515,7 +515,7 @@ export function Routines() {
                   <th scope="col" className="px-3 py-2 font-medium">Agent</th>
                   <th scope="col" className="px-3 py-2 font-medium">Last run</th>
                   <th scope="col" className="px-3 py-2 font-medium">Enabled</th>
-                  <th scope="col" className="w-12 px-3 py-2" />
+                  <th scope="col" aria-label="Actions" className="w-12 px-3 py-2" />
                 </tr>
               </thead>
               <tbody>
