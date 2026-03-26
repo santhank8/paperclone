@@ -76,7 +76,7 @@ export function Sidebar() {
             <span className="truncate">New Issue</span>
           </button>
           <SidebarNavItem to="/dashboard" label="Dashboard" icon={LayoutDashboard} liveCount={liveRunCount} />
-          <SidebarNavItem to="/chat" label="Chat" icon={MessageSquare} />
+          <SidebarNavItem to="/chat" label="Chat" icon={MessageSquare} badge={inboxBadge.unreadChatSessions} />
           <SidebarNavItem
             to="/inbox"
             label="Inbox"

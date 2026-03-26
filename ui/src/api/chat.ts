@@ -52,6 +52,11 @@ export const chatApi = {
       `${messagesBasePath(agentId, sessionId)}/${encodeURIComponent(messageId)}/retry`,
       {},
     ),
+  markSessionAsRead: (agentId: string, sessionId: string) =>
+    api.post<{ ok: boolean; lastReadAt: string }>(
+      `${sessionsBasePath(agentId)}/${encodeURIComponent(sessionId)}/read`,
+      {},
+    ),
   streamUrl: (agentId: string, sessionId: string, messageId: string) =>
     `/api${messagesBasePath(agentId, sessionId)}/${encodeURIComponent(messageId)}/stream`,
 };

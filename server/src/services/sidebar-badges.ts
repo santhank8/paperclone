@@ -31,6 +31,7 @@ export function sidebarBadgeService(db: Db) {
         unreadTouchedIssues?: number;
         alerts?: number;
         dismissedFailedRunIds?: string[];
+        unreadChatSessions?: number;
       },
     ): Promise<SidebarBadges> => {
       const actionableApprovals = await db
@@ -69,6 +70,7 @@ export function sidebarBadgeService(db: Db) {
       const joinRequests = extra?.joinRequests ?? 0;
       const unreadTouchedIssues = extra?.unreadTouchedIssues ?? 0;
       const alerts = extra?.alerts ?? 0;
+      const unreadChatSessions = extra?.unreadChatSessions ?? 0;
       return {
         inbox: computeSidebarInboxCount({
           approvals: actionableApprovals,
@@ -82,6 +84,7 @@ export function sidebarBadgeService(db: Db) {
         joinRequests,
         unreadTouchedIssues,
         alerts,
+        unreadChatSessions,
       };
     },
   };

@@ -8,6 +8,7 @@ import { heartbeatsApi } from "../api/heartbeats";
 import { getUIAdapter, buildTranscript } from "../adapters";
 import { queryKeys } from "../lib/queryKeys";
 import { relativeTime, cn } from "../lib/utils";
+import { useCompany } from "../context/CompanyContext";
 import { displaySessionTitle, filterChatSessions, groupChatSessions } from "../lib/chat-sessions";
 import { MarkdownBody } from "./MarkdownBody";
 import { Button } from "@/components/ui/button";
@@ -118,6 +119,7 @@ export function AgentChatSessionTab({
   fillContainer?: boolean;
 }) {
   const queryClient = useQueryClient();
+  const { selectedCompanyId } = useCompany();
   const sessionsQueryKey = queryKeys.chatSessions(agentId, true);
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -169,6 +171,18 @@ export function AgentChatSessionTab({
     queryFn: () => chatApi.listMessages(agentId, selectedSessionId!),
     enabled: Boolean(agentId && selectedSessionId),
   });
+
+  // Mark session as read when user views it and messages are loaded
+  useEffect(() => {
+    if (!selectedSessionId || !agentId || messages.length === 0) return;
+    chatApi.markSessionAsRead(agentId, selectedSessionId).then(() => {
+      if (selectedCompanyId) {
+        queryClient.invalidateQueries({ queryKey: queryKeys.sidebarBadges(selectedCompanyId) });
+      }
+    }).catch(() => {
+      // Silently ignore — marking read is best-effort
+    });
+  }, [selectedSessionId, agentId, messages.length, selectedCompanyId, queryClient]);
 
   const closeStream = useCallback(() => {
     eventSourceRef.current?.close();

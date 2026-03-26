@@ -24,6 +24,7 @@ export { issueReviewBundles } from "./issue_review_bundles.js";
 export { issueComments } from "./issue_comments.js";
 export { chatSessions } from "./chat_sessions.js";
 export { chatMessages } from "./chat_messages.js";
+export { chatReadStates } from "./chat_read_states.js";
 export { issueReadStates } from "./issue_read_states.js";
 export { inboxDismissals } from "./inbox_dismissals.js";
 export { assets } from "./assets.js";

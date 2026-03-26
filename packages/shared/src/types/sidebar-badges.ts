@@ -5,4 +5,5 @@ export interface SidebarBadges {
   joinRequests: number;
   unreadTouchedIssues: number;
   alerts: number;
+  unreadChatSessions: number;
 }

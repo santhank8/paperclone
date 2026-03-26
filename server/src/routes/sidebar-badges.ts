@@ -4,6 +4,7 @@ import { and, eq, sql } from "drizzle-orm";
 import { joinRequests } from "@paperclipai/db";
 import { computeSidebarInboxCount, sidebarBadgeService } from "../services/sidebar-badges.js";
 import { inboxDismissalService } from "../services/inbox-dismissals.js";
+import { chatReadStateService } from "../services/chat-read-states.js";
 import { accessService } from "../services/access.js";
 import { dashboardService } from "../services/dashboard.js";
 import { issueService } from "../services/issues.js";
@@ -14,6 +15,7 @@ export function sidebarBadgeRoutes(db: Db) {
   const svc = sidebarBadgeService(db);
   const access = accessService(db);
   const inboxDismissals = inboxDismissalService(db);
+  const chatReadStates = chatReadStateService(db);
   const dashboard = dashboardService(db);
   const issues = issueService(db);
   const INBOX_ISSUE_STATUSES = "backlog,todo,in_progress,in_review,blocked,done";
@@ -49,10 +51,16 @@ export function sidebarBadgeRoutes(db: Db) {
         ? await inboxDismissals.listItemIdsByType(companyId, req.actor.userId, "failed_run")
         : [];
 
+    const unreadChatSessions =
+      req.actor.type === "board" && typeof req.actor.userId === "string"
+        ? await chatReadStates.countUnreadSessions(companyId, req.actor.userId)
+        : 0;
+
     const badges = await svc.get(companyId, {
       joinRequests: joinRequestCount,
       unreadTouchedIssues,
       dismissedFailedRunIds,
+      unreadChatSessions,
     });
 
     const summary = await dashboard.summary(companyId);
