@@ -3,6 +3,7 @@ import type { Db } from "@paperclipai/db";
 import { addChatMessageSchema, createChatSessionSchema, updateChatSessionSchema } from "@paperclipai/shared";
 import { validate } from "../middleware/validate.js";
 import { chatService } from "../services/chat.js";
+import { chatReadStateService } from "../services/chat-read-states.js";
 import { agentService, logActivity } from "../services/index.js";
 import { assertCompanyAccess, getActorInfo } from "./authz.js";
 
@@ -14,6 +15,7 @@ function writeSseEvent(res: Response, event: string, data: unknown) {
 export function chatRoutes(db: Db) {
   const router = Router();
   const chat = chatService(db);
+  const chatReadStates = chatReadStateService(db);
   const agents = agentService(db);
 
   async function resolveAgent(req: Request, res: Response) {
@@ -90,6 +92,24 @@ export function chatRoutes(db: Db) {
     });
 
     res.json({ session });
+  });
+
+  router.post("/agents/:agentId/chat/sessions/:sessionId/read", async (req, res) => {
+    const agent = await resolveAgent(req, res);
+    if (!agent) return;
+    const sessionId = req.params.sessionId as string;
+    const actor = getActorInfo(req);
+    if (actor.actorType !== "user" || !actor.actorId) {
+      res.status(403).json({ error: "Only board users can mark sessions as read" });
+      return;
+    }
+    const session = await chat.getSession(sessionId);
+    if (!session || session.agentId !== agent.id || session.companyId !== agent.companyId) {
+      res.status(404).json({ error: "Chat session not found" });
+      return;
+    }
+    const result = await chatReadStates.markRead(agent.companyId, sessionId, actor.actorId);
+    res.json({ ok: true, lastReadAt: result?.lastReadAt });
   });
 
   router.get("/agents/:agentId/chat/sessions/:sessionId/messages", async (req, res) => {
