@@ -258,8 +258,18 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
     if (overlay.adapterType !== undefined) {
       patch.adapterType = overlay.adapterType;
       // When adapter type changes, send only the new config — don't merge
-      // with old config since old adapter fields are meaningless for the new type
-      patch.adapterConfig = overlay.adapterConfig;
+      // with old config since old adapter fields are meaningless for the new type.
+      // Exception: instructionsFilePath is shared across all local adapters and
+      // must be preserved unless the user explicitly changed it in the overlay.
+      const existing = (agent.adapterConfig ?? {}) as Record<string, unknown>;
+      const preserved: Record<string, unknown> = {};
+      if (
+        existing.instructionsFilePath !== undefined &&
+        !("instructionsFilePath" in overlay.adapterConfig)
+      ) {
+        preserved.instructionsFilePath = existing.instructionsFilePath;
+      }
+      patch.adapterConfig = { ...preserved, ...overlay.adapterConfig };
     } else if (Object.keys(overlay.adapterConfig).length > 0) {
       const existing = (agent.adapterConfig ?? {}) as Record<string, unknown>;
       patch.adapterConfig = { ...existing, ...overlay.adapterConfig };
