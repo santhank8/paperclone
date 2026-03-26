@@ -72,20 +72,26 @@ describe("issue comments routes", () => {
     mockIssueService.listComments.mockResolvedValue([]);
   });
 
-  it("rejects invalid after cursors before hitting the service", async () => {
-    const res = await request(createApp())
-      .get("/api/issues/11111111-1111-4111-8111-111111111111/comments?after=does-not-exist&order=asc");
+  it.each(["after", "afterCommentId"])(
+    "rejects invalid %s cursors before hitting the service",
+    async (cursorParam) => {
+      const res = await request(createApp()).get(
+        `/api/issues/11111111-1111-4111-8111-111111111111/comments?${cursorParam}=does-not-exist&order=asc`,
+      );
 
-    expect(res.status).toBe(400);
-    expect(res.body).toEqual({ error: "Invalid after comment id" });
-    expect(mockIssueService.listComments).not.toHaveBeenCalled();
-  });
+      expect(res.status).toBe(400);
+      expect(res.body).toEqual({ error: "Invalid after comment id" });
+      expect(mockIssueService.listComments).not.toHaveBeenCalled();
+    },
+  );
 
-  it("passes through valid UUID after cursors", async () => {
+  it.each(["after", "afterCommentId"])("passes through valid UUID %s cursors", async (cursorParam) => {
     const afterCommentId = "22222222-2222-4222-8222-222222222222";
 
     const res = await request(createApp())
-      .get(`/api/issues/11111111-1111-4111-8111-111111111111/comments?after=${afterCommentId}&order=asc`);
+      .get(
+        `/api/issues/11111111-1111-4111-8111-111111111111/comments?${cursorParam}=${afterCommentId}&order=asc`,
+      );
 
     expect(res.status).toBe(200);
     expect(mockIssueService.listComments).toHaveBeenCalledWith(
