@@ -917,14 +917,66 @@ export function issueService(db: Db) {
               .then((rows) => rows[0]?.id ?? null);
           }
         }
+        // Get current company state to detect counter drift
+        const [companyBefore] = await tx
+          .select()
+          .from(companies)
+          .where(eq(companies.id, companyId));
+
+        if (!companyBefore) throw new Error(`Company ${companyId} not found`);
+
+        // Check if we need to auto-correct the counter due to drift
+        // Find the highest existing issue number to detect gaps
+        const highestIssue = await tx
+          .select({ identifier: issues.identifier })
+          .from(issues)
+          .where(eq(issues.companyId, companyId))
+          .orderBy(desc(issues.createdAt))
+          .limit(1);
+
+        let counterStart = companyBefore.issueCounter + 1;
+        if (highestIssue.length > 0 && highestIssue[0].identifier) {
+          const lastIdentifier = highestIssue[0].identifier;
+          const lastNumber = parseInt(lastIdentifier.split('-')[1], 10);
+          if (lastNumber >= counterStart) {
+            // Counter drift detected: actual highest is >= what we'd create
+            counterStart = lastNumber + 1;
+          }
+        }
+
+        // Try to create issue with collision handling (max 5 attempts)
+        let issueNumber = counterStart;
+        let identifier = `${companyBefore.issuePrefix}-${issueNumber}`;
+        let collision = true;
+        let attempts = 0;
+
+        while (collision && attempts < 5) {
+          const existing = await tx
+            .select({ id: issues.id })
+            .from(issues)
+            .where(and(eq(issues.companyId, companyId), eq(issues.identifier, identifier)))
+            .limit(1);
+
+          if (existing.length === 0) {
+            collision = false;
+            break;
+          }
+
+          issueNumber++;
+          identifier = `${companyBefore.issuePrefix}-${issueNumber}`;
+          attempts++;
+        }
+
+        if (collision) {
+          throw new Error(`Unable to resolve issue identifier collision after ${attempts} attempts`);
+        }
+
+        // Update counter to at least the issue we're creating
         const [company] = await tx
           .update(companies)
-          .set({ issueCounter: sql`${companies.issueCounter} + 1` })
+          .set({ issueCounter: Math.max(companyBefore.issueCounter + 1, issueNumber) })
           .where(eq(companies.id, companyId))
           .returning({ issueCounter: companies.issueCounter, issuePrefix: companies.issuePrefix });
-
-        const issueNumber = company.issueCounter;
-        const identifier = `${company.issuePrefix}-${issueNumber}`;
 
         const values = {
           ...issueData,
