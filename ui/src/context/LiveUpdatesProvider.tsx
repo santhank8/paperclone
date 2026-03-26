@@ -515,6 +515,15 @@ export function LiveUpdatesProvider({ children }: { children: ReactNode }) {
   });
   const currentUserId = session?.user?.id ?? session?.session?.userId ?? null;
 
+  // Store callbacks and derived values in refs so the WebSocket effect only
+  // reconnects when selectedCompanyId changes — not when callback identities
+  // shift during re-renders (which triggers teardown → reconnect → query
+  // invalidation → more re-renders, potentially exceeding React's update limit).
+  const pushToastRef = useRef(pushToast);
+  pushToastRef.current = pushToast;
+  const currentUserIdRef = useRef(currentUserId);
+  currentUserIdRef.current = currentUserId;
+
   useEffect(() => {
     if (!selectedCompanyId) return;
 
@@ -559,8 +568,8 @@ export function LiveUpdatesProvider({ children }: { children: ReactNode }) {
 
         try {
           const parsed = JSON.parse(raw) as LiveEvent;
-          handleLiveEvent(queryClient, selectedCompanyId, parsed, pushToast, gateRef.current, {
-            userId: currentUserId,
+          handleLiveEvent(queryClient, selectedCompanyId, parsed, pushToastRef.current, gateRef.current, {
+            userId: currentUserIdRef.current,
             agentId: null,
           });
         } catch {
@@ -591,7 +600,7 @@ export function LiveUpdatesProvider({ children }: { children: ReactNode }) {
         socket.close(1000, "provider_unmount");
       }
     };
-  }, [queryClient, selectedCompanyId, pushToast, currentUserId]);
+  }, [queryClient, selectedCompanyId]);
 
   return <>{children}</>;
 }
