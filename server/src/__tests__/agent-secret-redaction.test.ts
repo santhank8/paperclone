@@ -157,6 +157,14 @@ const boardActor = {
   companyIds: [companyId],
 };
 
+const nonAdminBoardActor = {
+  type: "board",
+  userId: "board-user-2",
+  source: "web",
+  isInstanceAdmin: false,
+  companyIds: [companyId],
+};
+
 const agentActor = {
   type: "agent",
   agentId,
@@ -237,6 +245,38 @@ describe("agent secret redaction in API responses", () => {
 
     expect(res.status).toBe(200);
     expect(res.body[0].adapterConfig.cwd).toBe("/workspace");
+  });
+
+  it("GET /companies/:companyId/agents redacts env values for non-admin board users", async () => {
+    mockAccessService.canUser.mockResolvedValue(false);
+    const app = createApp(nonAdminBoardActor);
+    const res = await request(app).get(`/api/companies/${companyId}/agents`);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveLength(1);
+    const agent = res.body[0];
+    expect(agent.adapterConfig.cwd).toBe("/workspace");
+    expect(agent.adapterConfig.env).toEqual({
+      OPENAI_API_KEY: "***",
+      ANTHROPIC_API_KEY: "***",
+      DATABASE_URL: "***",
+      PAPERCLIP_API_URL: "***",
+    });
+  });
+
+  it("redacts sensitive runtimeConfig values", async () => {
+    mockAgentService.list.mockResolvedValue([{
+      ...baseAgent,
+      runtimeConfig: { auth_token: "tok_secret_abc123", mode: "production" },
+    }]);
+
+    const app = createApp(boardActor);
+    const res = await request(app).get(`/api/companies/${companyId}/agents`);
+
+    expect(res.status).toBe(200);
+    const agent = res.body[0];
+    expect(agent.runtimeConfig.auth_token).toBe("***REDACTED***");
+    expect(agent.runtimeConfig.mode).toBe("production");
   });
 
   it("handles agents with no env in adapterConfig", async () => {

@@ -591,16 +591,24 @@ export function agentRoutes(db: Db) {
     };
   }
 
-  function redactAgentSecrets<T extends { adapterConfig?: unknown }>(agent: T): T {
+  function redactAgentSecrets<T extends { adapterConfig?: unknown; runtimeConfig?: unknown }>(agent: T): T {
+    let result = { ...agent };
     const config = asRecord(agent.adapterConfig);
-    if (!config) return agent;
-    const env = asRecord(config.env);
-    if (!env) return agent;
-    const redactedEnv: Record<string, string> = {};
-    for (const key of Object.keys(env)) {
-      redactedEnv[key] = "***";
+    if (config) {
+      const env = asRecord(config.env);
+      if (env) {
+        const redactedEnv: Record<string, string> = {};
+        for (const key of Object.keys(env)) {
+          redactedEnv[key] = "***";
+        }
+        result.adapterConfig = { ...config, env: redactedEnv } as T["adapterConfig"];
+      }
     }
-    return { ...agent, adapterConfig: { ...config, env: redactedEnv } };
+    const rtConfig = asRecord(agent.runtimeConfig);
+    if (rtConfig) {
+      result.runtimeConfig = redactEventPayload(rtConfig) as T["runtimeConfig"];
+    }
+    return result;
   }
 
   function redactAgentConfiguration(agent: Awaited<ReturnType<typeof svc.getById>>) {
