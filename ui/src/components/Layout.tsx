@@ -361,37 +361,37 @@ export function Layout() {
           </div>
         </div>
       ) : (
-        <div className="flex flex-col shrink-0 h-full">
-          <div className="flex flex-1 min-h-0">
-            <CompanyRail />
-            <div
-              className={cn(
-                "overflow-hidden transition-[width] duration-100 ease-out",
-                sidebarOpen ? "w-60" : "w-0"
-              )}
-            >
+        <div className="flex shrink-0 h-full">
+          <CompanyRail />
+          <div
+            className={cn(
+              "overflow-hidden transition-[width] duration-100 ease-out flex flex-col",
+              sidebarOpen ? "w-60" : "w-0"
+            )}
+          >
+            <div className="w-60 flex-1 min-h-0">
               <Sidebar />
             </div>
-          </div>
-          <div className="border-t border-r border-border px-3 py-2">
-            <div className="flex items-center gap-1">
-              <SidebarNavItem
-                to="/docs"
-                label="Documentation"
-                icon={BookOpen}
-                className="flex-1 min-w-0"
-              />
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                className="text-muted-foreground shrink-0"
-                onClick={toggleTheme}
-                aria-label={`Switch to ${nextTheme} mode`}
-                title={`Switch to ${nextTheme} mode`}
-              >
-                {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-              </Button>
+            <div className="w-60 border-t border-r border-border px-3 py-2 shrink-0">
+              <div className="flex items-center gap-1">
+                <SidebarNavItem
+                  to="/docs"
+                  label="Documentation"
+                  icon={BookOpen}
+                  className="flex-1 min-w-0"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  className="text-muted-foreground shrink-0"
+                  onClick={toggleTheme}
+                  aria-label={`Switch to ${nextTheme} mode`}
+                  title={`Switch to ${nextTheme} mode`}
+                >
+                  {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+                </Button>
+              </div>
             </div>
           </div>
         </div>

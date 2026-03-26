@@ -1,5 +1,5 @@
 import { Link } from "@/lib/router";
-import { Menu, Maximize2, Minimize2 } from "lucide-react";
+import { Menu, Maximize2, Minimize2, PanelLeft } from "lucide-react";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
 import { useSidebar } from "../context/SidebarContext";
 import { useContentWidth, ZOOM_LEVELS } from "./Layout";
@@ -79,11 +79,11 @@ function ViewControls() {
 
 export function BreadcrumbBar() {
   const { breadcrumbs } = useBreadcrumbs();
-  const { toggleSidebar, isMobile } = useSidebar();
+  const { sidebarOpen, toggleSidebar, isMobile } = useSidebar();
 
   if (breadcrumbs.length === 0) return null;
 
-  const menuButton = isMobile && (
+  const menuButton = isMobile ? (
     <Button
       variant="ghost"
       size="icon-sm"
@@ -93,7 +93,24 @@ export function BreadcrumbBar() {
     >
       <Menu className="h-5 w-5" />
     </Button>
-  );
+  ) : !sidebarOpen ? (
+    <Tooltip delayDuration={400}>
+      <TooltipTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          className="mr-2 shrink-0 text-muted-foreground"
+          onClick={toggleSidebar}
+          aria-label="Expand sidebar"
+        >
+          <PanelLeft className="h-4 w-4" />
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent side="bottom" sideOffset={4}>
+        <p>Expand sidebar</p>
+      </TooltipContent>
+    </Tooltip>
+  ) : null;
 
   if (breadcrumbs.length === 1) {
     return (

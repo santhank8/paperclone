@@ -10,20 +10,43 @@ interface SidebarContextValue {
 const SidebarContext = createContext<SidebarContextValue | null>(null);
 
 const MOBILE_BREAKPOINT = 768;
+const SIDEBAR_OPEN_KEY = "outpost.sidebarOpen";
 
 export function SidebarProvider({ children }: { children: ReactNode }) {
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < MOBILE_BREAKPOINT);
-  const [sidebarOpen, setSidebarOpen] = useState(() => window.innerWidth >= MOBILE_BREAKPOINT);
+  const [sidebarOpen, setSidebarOpen] = useState(() => {
+    if (window.innerWidth < MOBILE_BREAKPOINT) return false;
+    try {
+      const stored = localStorage.getItem(SIDEBAR_OPEN_KEY);
+      if (stored !== null) return stored === "true";
+    } catch {}
+    return true;
+  });
 
   useEffect(() => {
     const mql = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT - 1}px)`);
     const onChange = (e: MediaQueryListEvent) => {
       setIsMobile(e.matches);
-      setSidebarOpen(!e.matches);
+      if (e.matches) {
+        setSidebarOpen(false);
+      } else {
+        try {
+          const stored = localStorage.getItem(SIDEBAR_OPEN_KEY);
+          setSidebarOpen(stored !== null ? stored === "true" : true);
+        } catch {
+          setSidebarOpen(true);
+        }
+      }
     };
     mql.addEventListener("change", onChange);
     return () => mql.removeEventListener("change", onChange);
   }, []);
+
+  useEffect(() => {
+    if (!isMobile) {
+      try { localStorage.setItem(SIDEBAR_OPEN_KEY, String(sidebarOpen)); } catch {}
+    }
+  }, [sidebarOpen, isMobile]);
 
   const toggleSidebar = useCallback(() => setSidebarOpen((v) => !v), []);
 
