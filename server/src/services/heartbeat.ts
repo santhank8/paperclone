@@ -3564,20 +3564,70 @@ export function heartbeatService(db: Db) {
     return wakeupIds.length;
   }
 
-  async function cancelRunInternal(runId: string, reason = "Cancelled by control plane") {
+  async function cancelRunInternal(
+    runId: string,
+    reason = "Cancelled by control plane",
+    options?: { skipStartNext?: boolean },
+  ) {
     const run = await getRun(runId);
     if (!run) throw notFound("Heartbeat run not found");
     if (run.status !== "running" && run.status !== "queued") return run;
 
     const running = runningProcesses.get(run.id);
     if (running) {
-      running.child.kill("SIGTERM");
       const graceMs = Math.max(1, running.graceSec) * 1000;
-      setTimeout(() => {
-        if (!running.child.killed) {
-          running.child.kill("SIGKILL");
+      const child = running.child;
+
+      const waitForExit = (timeoutMs: number): Promise<boolean> =>
+        new Promise((resolve) => {
+          // Child may already be gone by the time cancellation starts.
+          if (child.exitCode !== null || child.signalCode !== null) {
+            resolve(true);
+            return;
+          }
+
+          let done = false;
+          const finish = (exited: boolean) => {
+            if (done) return;
+            done = true;
+            clearTimeout(timer);
+            child.removeListener("exit", onExit);
+            child.removeListener("close", onClose);
+            resolve(exited);
+          };
+          const onExit = () => finish(true);
+          const onClose = () => finish(true);
+
+          child.once("exit", onExit);
+          child.once("close", onClose);
+
+          const timer = setTimeout(() => {
+            // Re-check: process may have exited in the race window
+            if (child.exitCode !== null || child.signalCode !== null) {
+              finish(true);
+            } else {
+              finish(false);
+            }
+          }, timeoutMs);
+        });
+
+      try {
+        child.kill("SIGTERM");
+      } catch {
+        // Process may already be gone.
+      }
+
+      const exitedAfterSigterm = await waitForExit(graceMs);
+      if (!exitedAfterSigterm) {
+        try {
+          child.kill("SIGKILL");
+          logger.warn({ runId: run.id, agentId: run.agentId, graceMs }, "run did not exit after SIGTERM; sent SIGKILL");
+        } catch {
+          // Process may have exited between checks.
         }
-      }, graceMs);
+        // Wait briefly for kernel to reap the process.
+        await waitForExit(2000);
+      }
     }
 
     const cancelled = await setRunStatus(run.id, "cancelled", {
@@ -3603,7 +3653,9 @@ export function heartbeatService(db: Db) {
 
     runningProcesses.delete(run.id);
     await finalizeAgentStatus(run.agentId, "cancelled");
-    await startNextQueuedRunForAgent(run.agentId);
+    if (!options?.skipStartNext) {
+      await startNextQueuedRunForAgent(run.agentId);
+    }
     return cancelled;
   }
 
@@ -3614,24 +3666,9 @@ export function heartbeatService(db: Db) {
       .where(and(eq(heartbeatRuns.agentId, agentId), inArray(heartbeatRuns.status, ["queued", "running"])));
 
     for (const run of runs) {
-      await setRunStatus(run.id, "cancelled", {
-        finishedAt: new Date(),
-        error: reason,
-        errorCode: "cancelled",
-      });
-
-      await setWakeupStatus(run.wakeupRequestId, "cancelled", {
-        finishedAt: new Date(),
-        error: reason,
-      });
-
-      const running = runningProcesses.get(run.id);
-      if (running) {
-        running.child.kill("SIGTERM");
-        runningProcesses.delete(run.id);
-      }
-      await releaseIssueExecutionAndPromote(run);
+      await cancelRunInternal(run.id, reason, { skipStartNext: true });
     }
+    await startNextQueuedRunForAgent(agentId);
 
     return runs.length;
   }
