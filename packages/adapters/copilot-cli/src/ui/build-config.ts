@@ -67,6 +67,7 @@ export function buildCopilotCliConfig(v: CreateConfigValues): Record<string, unk
   if (v.cwd) ac.cwd = v.cwd;
   if (v.promptTemplate) ac.promptTemplate = v.promptTemplate;
   if (v.bootstrapPrompt) ac.bootstrapPromptTemplate = v.bootstrapPrompt;
+  if (v.instructionsFilePath) ac.instructionsFilePath = v.instructionsFilePath;
   if (v.model) ac.model = v.model;
   if (v.thinkingEffort) ac.reasoningEffort = v.thinkingEffort;
   ac.timeoutSec = 0;
