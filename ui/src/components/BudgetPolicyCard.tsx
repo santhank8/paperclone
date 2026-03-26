@@ -105,7 +105,7 @@ export function BudgetPolicyCard({
           aria-valuenow={Math.round(progress)}
           aria-valuemin={0}
           aria-valuemax={100}
-          aria-label={`Budget utilization: ${summary.utilizationPercent}% used`}
+          aria-label={`Budget utilization: ${Math.round(progress)}% used`}
           className={cn(
             "h-full rounded-full transition-[width,background-color] duration-200",
             summary.status === "hard_stop"
