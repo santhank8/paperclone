@@ -266,10 +266,6 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
         `The above agent instructions were loaded from ${resolvedInstructionsFilePath}. ` +
         `Resolve any relative file references from ${instructionsFileDir}.\n\n` +
         `You are agent {{agent.id}} ({{agent.name}}). Continue your Paperclip work.`;
-      await onLog(
-        "stdout",
-        `[paperclip] Loaded agent instructions file: ${resolvedInstructionsFilePath}\n`,
-      );
     } catch (err) {
       instructionsReadFailed = true;
       const reason = err instanceof Error ? err.message : String(err);
@@ -339,15 +335,15 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     if (provider) args.push("--provider", provider);
     if (modelId) args.push("--model", modelId);
     if (thinking) args.push("--thinking", thinking);
-    
+
     args.push("--tools", "read,bash,edit,write,grep,find,ls");
     args.push("--session", sessionFile);
-    
+
     // Add Paperclip skills directory so Pi can load the paperclip skill
     args.push("--skill", PI_AGENT_SKILLS_DIR);
-    
+
     if (extraArgs.length > 0) args.push(...extraArgs);
-    
+
     return args;
   };
 

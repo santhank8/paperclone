@@ -60,6 +60,7 @@ export {
   portabilityIncludeSchema,
   portabilityEnvInputSchema,
   portabilityCompanyManifestEntrySchema,
+  portabilitySidebarOrderSchema,
   portabilityAgentManifestEntrySchema,
   portabilitySkillManifestEntrySchema,
   portabilityManifestSchema,
@@ -189,6 +190,21 @@ export {
 } from "./secret.js";
 
 export {
+  createRoutineSchema,
+  updateRoutineSchema,
+  createRoutineTriggerSchema,
+  updateRoutineTriggerSchema,
+  runRoutineSchema,
+  rotateRoutineTriggerSecretSchema,
+  type CreateRoutine,
+  type UpdateRoutine,
+  type CreateRoutineTrigger,
+  type UpdateRoutineTrigger,
+  type RunRoutine,
+  type RotateRoutineTriggerSecret,
+} from "./routine.js";
+
+export {
   createCostEventSchema,
   updateBudgetSchema,
   type CreateCostEvent,
@@ -211,6 +227,9 @@ export {
   acceptInviteSchema,
   listJoinRequestsQuerySchema,
   claimJoinRequestApiKeySchema,
+  boardCliAuthAccessLevelSchema,
+  createCliAuthChallengeSchema,
+  resolveCliAuthChallengeSchema,
   updateMemberPermissionsSchema,
   updateUserCompanyAccessSchema,
   type CreateCompanyInvite,
@@ -218,6 +237,9 @@ export {
   type AcceptInvite,
   type ListJoinRequestsQuery,
   type ClaimJoinRequestApiKey,
+  type BoardCliAuthAccessLevel,
+  type CreateCliAuthChallenge,
+  type ResolveCliAuthChallenge,
   type UpdateMemberPermissions,
   type UpdateUserCompanyAccess,
 } from "./access.js";
