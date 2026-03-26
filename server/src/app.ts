@@ -80,7 +80,7 @@ export async function createApp(
 
   // Trust X-Forwarded-* headers from reverse proxies (Fly.io, nginx, etc.) so that
   // better-auth can set __Secure- cookies correctly when HTTPS is terminated upstream.
-  app.set("trust proxy", true);
+  app.set("trust proxy", 1);
 
   app.use(express.json({
     // Company import/export payloads can inline full portable packages.
