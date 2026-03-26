@@ -1,0 +1,776 @@
+{
+  "layout": {
+    "skipToMain": "Skip to Main Content",
+    "closeSidebar": "Close sidebar",
+    "documentation": "Documentation",
+    "instanceSettings": "Instance settings",
+    "switchTheme": "Switch to {{nextTheme}} mode"
+  },
+  "sidebar": {
+    "selectCompany": "Select company",
+    "newIssue": "New Issue",
+    "nav": {
+      "dashboard": "Dashboard",
+      "inbox": "Inbox",
+      "issues": "Issues",
+      "routines": "Routines",
+      "goals": "Goals",
+      "agents": "Agents",
+      "org": "Org",
+      "skills": "Skills",
+      "costs": "Costs",
+      "activity": "Activity",
+      "settings": "Settings",
+      "projects": "Projects",
+      "approvals": "Approvals"
+    },
+    "section": {
+      "work": "Work",
+      "company": "Company"
+    },
+    "badge": {
+      "beta": "Beta"
+    }
+  },
+  "companyRail": {
+    "addCompany": "Add company"
+  },
+  "dashboard": {
+    "breadcrumb": "Dashboard",
+    "welcome": {
+      "message": "Welcome to Paperclip. Set up your first company and agent to get started.",
+      "action": "Get Started"
+    },
+    "noCompany": "Create or select a company to view the dashboard.",
+    "noAgents": "You have no agents.",
+    "createAgentLink": "Create one here",
+    "budgetIncidents": "{{count}} active budget incident",
+    "budgetIncidents_plural": "{{count}} active budget incidents",
+    "openBudgets": "Open budgets",
+    "metric": {
+      "agentsEnabled": "Agents Enabled",
+      "tasksInProgress": "Tasks In Progress",
+      "monthSpend": "Month Spend",
+      "pendingApprovals": "Pending Approvals"
+    },
+    "unlimitedBudget": "Unlimited budget",
+    "awaitingBoardReview": "Awaiting board review",
+    "runActivity": "Run Activity",
+    "last14Days": "Last 14 days",
+    "issuesByPriority": "Issues by Priority",
+    "issuesByStatus": "Issues by Status",
+    "successRate": "Success Rate",
+    "recentActivity": "Recent Activity",
+    "recentTasks": "Recent Tasks",
+    "noTasks": "No tasks yet."
+  },
+  "agents": {
+    "breadcrumb": "Agents",
+    "noCompany": "Select a company to view agents.",
+    "tab": {
+      "all": "All",
+      "active": "Active",
+      "paused": "Paused",
+      "error": "Error"
+    },
+    "filters": "Filters",
+    "showTerminated": "Show terminated",
+    "newAgent": "New Agent",
+    "count": "{{count}} agent",
+    "count_plural": "{{count}} agents",
+    "empty": {
+      "create": "Create your first agent to get started.",
+      "noMatch": "No agents match the selected filter.",
+      "noHierarchy": "No organizational hierarchy defined."
+    },
+    "live": "Live",
+    "liveCount": "Live ({{count}})"
+  },
+  "agentDetail": {
+    "source": {
+      "timer": "Timer",
+      "assignment": "Assignment",
+      "onDemand": "On-demand",
+      "automation": "Automation"
+    },
+    "breadcrumb": {
+      "agents": "Agents",
+      "runs": "Runs",
+      "run": "Run {{number}}",
+      "instructions": "Instructions",
+      "configuration": "Configuration",
+      "budget": "Budget",
+      "dashboard": "Dashboard"
+    },
+    "action": {
+      "assignTask": "Assign Task",
+      "runHeartbeat": "Run Heartbeat",
+      "copyAgentId": "Copy Agent ID",
+      "resetSessions": "Reset Sessions",
+      "terminate": "Terminate"
+    },
+    "live": "Live",
+    "actionFailed": "Action failed",
+    "error": {
+      "resetSession": "Failed to reset session",
+      "updatePermissions": "Failed to update permissions"
+    },
+    "tab": {
+      "dashboard": "Dashboard",
+      "instructions": "Instructions",
+      "skills": "Skills",
+      "configuration": "Configuration",
+      "runs": "Runs",
+      "budget": "Budget"
+    },
+    "pendingApproval": "This agent is pending board approval and cannot be invoked yet.",
+    "cancel": "Cancel",
+    "saving": "Saving…",
+    "save": "Save",
+    "overview": {
+      "liveRun": "Live Run",
+      "latestRun": "Latest Run",
+      "viewDetails": "View details →",
+      "runActivity": "Run Activity",
+      "last14Days": "Last 14 days",
+      "issuesByPriority": "Issues by Priority",
+      "issuesByStatus": "Issues by Status",
+      "successRate": "Success Rate",
+      "recentIssues": "Recent Issues",
+      "seeAll": "See All →",
+      "noRecentIssues": "No recent issues.",
+      "moreIssues": "+{{count}} more issues",
+      "costs": "Costs"
+    },
+    "costs": {
+      "date": "Date",
+      "run": "Run",
+      "input": "Input",
+      "output": "Output",
+      "cost": "Cost",
+      "inputTokens": "Input tokens",
+      "outputTokens": "Output tokens",
+      "cachedTokens": "Cached tokens",
+      "totalCost": "Total cost"
+    },
+    "config": {
+      "apiKeys": "API Keys",
+      "revisions": "Configuration Revisions",
+      "noRevisions": "No configuration revisions yet.",
+      "restore": "Restore",
+      "changed": "Changed:",
+      "noTrackedChanges": "no tracked changes"
+    },
+    "permissions": {
+      "title": "Permissions",
+      "canCreateAgents": "Can create new agents",
+      "canCreateAgentsDesc": "Lets this agent create or hire agents and implicitly assign tasks.",
+      "canAssignTasks": "Can assign tasks",
+      "enabledForCeo": "Enabled automatically for CEO agents.",
+      "enabledAutoCreate": "Enabled automatically while this agent can create new agents.",
+      "enabledExplicit": "Enabled via explicit company permission grant.",
+      "disabledUnlessGranted": "Disabled unless explicitly granted.",
+      "saveFailed": "Save failed"
+    },
+    "prompts": {
+      "advanced": "Advanced",
+      "mode": "Mode",
+      "managed": "Managed",
+      "external": "External",
+      "rootPath": "Root path",
+      "managedLabel": "(managed)",
+      "entryFile": "Entry file",
+      "files": "Files",
+      "create": "Create",
+      "cancel": "Cancel",
+      "deprecatedVirtualFile": "Deprecated virtual file",
+      "virtualFile": "virtual file",
+      "newFile": "New file in this bundle",
+      "delete": "Delete",
+      "fileContentsPlaceholder": "# Agent instructions",
+      "fileContentsLabel": "File contents",
+      "localAdaptersOnly": "Instructions bundles are only available for local adapters.",
+      "saveError": "Could not save agent"
+    },
+    "skills": {
+      "viewLibrary": "View company skills library",
+      "mode": {
+        "persistent": "Kept in the workspace",
+        "ephemeral": "Applied when the agent runs",
+        "unsupported": "Tracked only",
+        "unknown": "Unknown"
+      },
+      "unsupported": {
+        "openclaw": "Paperclip cannot manage OpenClaw skills here. Visit your OpenClaw instance to manage this agent's skills.",
+        "other": "Paperclip cannot manage skills for this adapter yet. Manage them in the adapter directly."
+      },
+      "savingChanges": "Saving changes...",
+      "savingSoon": "Saving soon...",
+      "importFirst": "Import skills into the company library first, then attach them here.",
+      "requiredByPaperclip": "Required by Paperclip",
+      "userInstalled": "User-installed skills, not managed by Paperclip",
+      "missingFromLibrary": "Requested skills missing from the company library",
+      "adapter": "Adapter",
+      "applied": "Skills applied",
+      "selected": "Selected skills",
+      "updateError": "Failed to update skills",
+      "location": "Location: ",
+      "view": "View",
+      "manageInAdapter": "Manage skills in the adapter directly."
+    },
+    "runs": {
+      "empty": "No runs yet.",
+      "backToRuns": "Back to runs",
+      "cancelling": "Cancelling…",
+      "cancel": "Cancel",
+      "resuming": "Resuming…",
+      "resume": "Resume",
+      "retrying": "Retrying…",
+      "retry": "Retry",
+      "resumeError": "Failed to resume run",
+      "retryError": "Failed to retry run",
+      "duration": "Duration: ",
+      "resumeSkipped": "Resume request was skipped because the agent is not currently invokable.",
+      "retrySkipped": "Retry was skipped because the agent is not currently invokable.",
+      "exitCode": "Exit code ",
+      "session": "Session",
+      "sessionChanged": "(changed)",
+      "sessionBefore": "Before",
+      "sessionAfter": "After",
+      "sessionId": "ID",
+      "clearSessionConfirm": "Clear session for {{count}} issue(s) touched by this run?",
+      "clearingSession": "clearing session...",
+      "clearSessionLink": "clear session for these issues",
+      "clearSessionError": "Failed to clear sessions",
+      "issuesTouched": "Issues Touched ({{count}})",
+      "stderr": "stderr",
+      "stdout": "stdout",
+      "loadingLogs": "Loading run logs...",
+      "noLogEvents": "No log events.",
+      "invocation": "Invocation",
+      "invocationAdapter": "Adapter: ",
+      "invocationWorkingDir": "Working dir: ",
+      "invocationCommand": "Command: ",
+      "invocationCommandNotes": "Command notes",
+      "invocationPrompt": "Prompt",
+      "invocationContext": "Context",
+      "invocationEnvironment": "Environment",
+      "transcript": "Transcript ({{count}})",
+      "jumpToLive": "Jump to live",
+      "live": "Live",
+      "waitingForTranscript": "Waiting for transcript...",
+      "noTranscript": "No persisted transcript for this run.",
+      "failureDetails": "Failure details",
+      "errorLabel": "Error: ",
+      "stderrExcerpt": "stderr excerpt",
+      "adapterResultJson": "adapter result JSON",
+      "stdoutExcerpt": "stdout excerpt",
+      "events": "Events ({{count}})",
+      "loadLogError": "Failed to load run log"
+    },
+    "workspace": {
+      "phase": {
+        "worktreeSetup": "Worktree setup",
+        "provision": "Provision",
+        "teardown": "Teardown",
+        "worktreeCleanup": "Worktree cleanup"
+      },
+      "hideLog": "Hide full log",
+      "showLog": "Show full log",
+      "loadingLog": "Loading log...",
+      "loadLogError": "Failed to load workspace operation log",
+      "noLogLines": "No persisted log lines.",
+      "title": "Workspace ({{count}})",
+      "command": "Command: ",
+      "workingDir": "Working dir: ",
+      "branch": "Branch: ",
+      "baseRef": "Base ref: ",
+      "worktree": "Worktree: ",
+      "repoRoot": "Repo root: ",
+      "cleanup": "Cleanup: ",
+      "createdByRun": "Created by this run",
+      "reused": "Reused existing workspace"
+    },
+    "keys": {
+      "created": "API key created — copy it now, it will not be shown again.",
+      "hide": "Hide",
+      "show": "Show",
+      "copy": "Copy",
+      "copied": "Copied!",
+      "dismiss": "Dismiss",
+      "createTitle": "Create API Key",
+      "description": "API keys allow this agent to authenticate calls to the Paperclip server.",
+      "namePlaceholder": "Key name (e.g. production)",
+      "create": "Create",
+      "loading": "Loading keys...",
+      "noActive": "No active API keys.",
+      "activeTitle": "Active Keys",
+      "createdDate": "Created ",
+      "revoke": "Revoke",
+      "revokedTitle": "Revoked Keys",
+      "revokedDate": "Revoked "
+    }
+  },
+  "issues": {
+    "breadcrumb": "Issues",
+    "noCompany": "Select a company to view issues."
+  },
+  "issueDetail": {
+    "action": {
+      "createdIssue": "created the issue",
+      "updatedIssue": "updated the issue",
+      "checkedOut": "checked out the issue",
+      "released": "released the issue",
+      "addedComment": "added a comment",
+      "addedAttachment": "added an attachment",
+      "removedAttachment": "removed an attachment",
+      "createdDocument": "created a document",
+      "updatedDocument": "updated a document",
+      "deletedDocument": "deleted a document",
+      "deletedIssue": "deleted the issue",
+      "createdAgent": "created an agent",
+      "updatedAgent": "updated the agent",
+      "pausedAgent": "paused the agent",
+      "resumedAgent": "resumed the agent",
+      "terminatedAgent": "terminated the agent",
+      "invokedHeartbeat": "invoked a heartbeat",
+      "cancelledHeartbeat": "cancelled a heartbeat",
+      "requestedApproval": "requested approval",
+      "approved": "approved",
+      "rejected": "rejected"
+    },
+    "humanize": {
+      "changedStatus": "changed the status from {{from}} to {{to}}",
+      "changedPriority": "changed the priority from {{from}} to {{to}}",
+      "assigned": "assigned the issue",
+      "unassigned": "unassigned the issue",
+      "updatedTitle": "updated the title",
+      "updatedDescription": "updated the description"
+    },
+    "identity": {
+      "system": "System",
+      "board": "Board",
+      "me": "Me",
+      "unknown": "Unknown"
+    },
+    "copiedToClipboard": "Copied to clipboard",
+    "loading": "Loading...",
+    "uploadFailed": "Upload failed",
+    "documentImportFailed": "Document import failed",
+    "deleteFailed": "Delete failed",
+    "noCompany": "No company selected",
+    "live": "Live",
+    "routine": "Routine",
+    "noProject": "No project",
+    "copyAsMarkdown": "Copy issue as markdown",
+    "properties": "Properties",
+    "hideIssue": "Hide this Issue",
+    "issueHidden": "This issue is hidden",
+    "descriptionPlaceholder": "Add a description...",
+    "uploading": "Uploading...",
+    "uploadAttachment": "Upload attachment",
+    "upload": "Upload",
+    "attachments": "Attachments",
+    "deleteAttachment": "Delete attachment",
+    "tab": {
+      "comments": "Comments",
+      "subIssues": "Sub-issues",
+      "activity": "Activity"
+    },
+    "noSubIssues": "No sub-issues.",
+    "costSummary": "Cost Summary",
+    "noCostData": "No cost data yet.",
+    "tokens": "Tokens",
+    "noActivity": "No activity yet.",
+    "linkedApprovals": "Linked Approvals ({{count}})",
+    "propertiesDrawer": "Properties"
+  },
+  "projects": {
+    "breadcrumb": "Projects",
+    "noCompany": "Select a company to view projects.",
+    "addProject": "Add Project",
+    "empty": "No projects yet."
+  },
+  "goals": {
+    "breadcrumb": "Goals",
+    "noCompany": "Select a company to view goals.",
+    "empty": "No goals yet.",
+    "addGoal": "Add Goal",
+    "newGoal": "New Goal"
+  },
+  "approvals": {
+    "breadcrumb": "Approvals",
+    "noCompany": "Select a company first.",
+    "tab": {
+      "pending": "Pending",
+      "all": "All"
+    },
+    "empty": {
+      "pending": "No pending approvals.",
+      "all": "No approvals yet."
+    },
+    "error": {
+      "approve": "Failed to approve",
+      "reject": "Failed to reject"
+    }
+  },
+  "activity": {
+    "breadcrumb": "Activity",
+    "noCompany": "Select a company to view activity.",
+    "filter": {
+      "allTypes": "All types"
+    },
+    "empty": "No activity yet.",
+    "filterByType": "Filter by type"
+  },
+  "costs": {
+    "breadcrumb": "Costs",
+    "noCompany": "Select a company to view costs.",
+    "pageTitle": "Costs",
+    "pageDescription": "Inference spend, platform fees, credits, and live quota windows.",
+    "dateRangeSeparator": "to",
+    "metric": {
+      "inferenceSpend": "Inference spend",
+      "budget": "Budget",
+      "financeNet": "Finance net",
+      "financeEvents": "Finance events"
+    },
+    "noMonthlyCap": "No monthly cap configured",
+    "unlimitedBudget": "Unlimited budget",
+    "tab": {
+      "overview": "Overview",
+      "budgets": "Budgets",
+      "providers": "Providers",
+      "billers": "Billers",
+      "finance": "Finance"
+    },
+    "overview": {
+      "inferenceLedger": "Inference ledger",
+      "inferenceLedgerDesc": "Request-scoped inference spend for the selected period.",
+      "usage": "usage",
+      "budgetConsumed": "% of monthly budget consumed in this range.",
+      "byAgent": "By agent",
+      "byAgentDesc": "What each agent consumed in the selected period.",
+      "noCostEvents": "No cost events yet.",
+      "in": "in",
+      "out": "out",
+      "api": "api",
+      "subscription": "subscription",
+      "byProject": "By project",
+      "byProjectDesc": "Run costs attributed through project-linked issues.",
+      "noProjectCosts": "No project-attributed run costs yet.",
+      "unattributed": "Unattributed",
+      "noFinanceEvents": "No finance events yet. Add account-level charges once biller invoices or credits land."
+    },
+    "budgets": {
+      "controlPlane": "Budget control plane",
+      "controlPlaneDesc": "Hard-stop spend limits for agents and projects. Provider subscription quota stays separate and appears under Providers.",
+      "metric": {
+        "activeIncidents": "Active incidents",
+        "pendingApprovals": "Pending approvals",
+        "pausedAgents": "Paused agents",
+        "pausedProjects": "Paused projects",
+        "incidentsDesc": "Open soft or hard threshold crossings",
+        "approvalsDesc": "Budget override approvals awaiting board action",
+        "pausedAgentsDesc": "Agent heartbeats blocked by budget",
+        "pausedProjectsDesc": "Project execution blocked by budget"
+      },
+      "resolveHardStops": "Resolve hard stops here by raising the budget or explicitly keeping the scope paused.",
+      "companyPolicy": "Company-wide monthly policy.",
+      "agentPolicy": "Recurring monthly spend policies for individual agents.",
+      "projectPolicy": "Lifetime spend policies for execution-bound projects.",
+      "empty": "No budget policies yet. Set agent and project budgets from their detail pages, or use the existing company monthly budget control."
+    },
+    "providers": {
+      "noCostEvents": "No cost events in this period.",
+      "selectDates": "Select a start and end date to load data."
+    },
+    "billers": {
+      "noEvents": "No billable events in this period."
+    },
+    "finance": {
+      "byBiller": "By biller",
+      "byBillerDesc": "Account-level financial events grouped by who charged or credited them.",
+      "noEvents": "No finance events yet."
+    }
+  },
+  "inbox": {
+    "breadcrumb": "Inbox",
+    "noCompany": "Select a company to view inbox.",
+    "tab": {
+      "recent": "Recent",
+      "unread": "Unread",
+      "all": "All"
+    },
+    "markAllRead": "Mark all as read",
+    "marking": "Marking…",
+    "filter": {
+      "allCategories": "All categories",
+      "myRecentIssues": "My recent issues",
+      "joinRequests": "Join requests",
+      "approvals": "Approvals",
+      "failedRuns": "Failed runs",
+      "allApprovalStatuses": "All approval statuses",
+      "needsAction": "Needs action",
+      "resolved": "Resolved"
+    },
+    "section": {
+      "alerts": "Alerts"
+    },
+    "empty": {
+      "noNew": "No new inbox items.",
+      "noRecent": "No recent inbox items.",
+      "noMatch": "No inbox items match these filters.",
+      "inboxZero": "Inbox zero."
+    },
+    "approval": {
+      "requestedBy": "requested by {{name}}",
+      "updated": "updated {{time}}",
+      "approve": "Approve",
+      "reject": "Reject"
+    },
+    "failedRun": {
+      "title": "Failed run — {{agentName}}",
+      "dismiss": "Dismiss",
+      "retry": "Retry",
+      "retrying": "Retrying…"
+    },
+    "joinRequest": {
+      "human": "Human join request",
+      "agent": "Agent join request: {{name}}",
+      "requested": "requested {{time}} from IP {{ip}}",
+      "adapter": "adapter: {{type}}"
+    },
+    "error": {
+      "approve": "Failed to approve",
+      "reject": "Failed to reject",
+      "approveJoin": "Failed to approve join request",
+      "rejectJoin": "Failed to reject join request"
+    },
+    "live": "Live",
+    "alert": {
+      "agentErrors": "{{count}} agent has errors",
+      "agentErrors_plural": "{{count}} agents have errors",
+      "budgetUtilization": "Budget at {{percent}}% utilization this month",
+      "dismiss": "Dismiss"
+    }
+  },
+  "companySettings": {
+    "breadcrumb": "Settings",
+    "noCompany": "No company selected. Select a company from the switcher above.",
+    "title": "Company Settings",
+    "section": {
+      "general": "General",
+      "appearance": "Appearance",
+      "hiring": "Hiring",
+      "invites": "Invites",
+      "packages": "Company Packages",
+      "danger": "Danger Zone"
+    },
+    "field": {
+      "companyName": "Company name",
+      "companyNameDesc": "The display name for your company.",
+      "description": "Description",
+      "descriptionDesc": "Optional description shown in the company profile.",
+      "descriptionPlaceholder": "Optional company description",
+      "logo": "Logo",
+      "logoDesc": "Upload a PNG, JPEG, WEBP, GIF, or SVG logo image.",
+      "brandColor": "Brand color",
+      "brandColorDesc": "Sets the hue for the company icon. Leave empty for auto-generated color.",
+      "brandColorPlaceholder": "Auto",
+      "brandColorClear": "Clear"
+    },
+    "logo": {
+      "removing": "Removing...",
+      "remove": "Remove logo",
+      "uploadFailed": "Logo upload failed",
+      "uploading": "Uploading logo..."
+    },
+    "saving": "Saving...",
+    "saveChanges": "Save changes",
+    "saved": "Saved",
+    "saveError": "Failed to save",
+    "hiring": {
+      "requireApproval": "Require board approval for new hires",
+      "requireApprovalDesc": "New agent hires stay pending until approved by board."
+    },
+    "invites": {
+      "title": "Generate an OpenClaw agent invite snippet.",
+      "desc": "Creates a short-lived OpenClaw agent invite and renders a copy-ready prompt.",
+      "generating": "Generating...",
+      "generateButton": "Generate OpenClaw Invite Prompt",
+      "error": "Failed to create invite",
+      "promptTitle": "OpenClaw Invite Prompt",
+      "copied": "Copied",
+      "copiedSnippet": "Copied snippet",
+      "copySnippet": "Copy snippet"
+    },
+    "packages": {
+      "moved": "Import and export have moved to dedicated pages.",
+      "export": "Export",
+      "import": "Import"
+    },
+    "danger": {
+      "archiveDesc": "Archive this company to hide it from the sidebar. This persists in the database.",
+      "archiveConfirm": "Archive company \"{{name}}\"? It will be hidden from the sidebar.",
+      "archiving": "Archiving...",
+      "alreadyArchived": "Already archived",
+      "archiveButton": "Archive company",
+      "archiveError": "Failed to archive company"
+    }
+  },
+  "onboarding": {
+    "step": {
+      "company": "Company",
+      "agent": "Agent",
+      "task": "Task",
+      "launch": "Launch"
+    },
+    "company": {
+      "title": "Name your company",
+      "desc": "This is the organization your agents will work for.",
+      "nameLabel": "Company name",
+      "namePlaceholder": "Acme Corp",
+      "missionLabel": "Mission / goal (optional)",
+      "missionPlaceholder": "What is this company trying to achieve?"
+    },
+    "agent": {
+      "title": "Create your first agent",
+      "desc": "Choose how this agent will run tasks.",
+      "nameLabel": "Agent name",
+      "namePlaceholder": "CEO",
+      "adapterTypeLabel": "Adapter type",
+      "modelLabel": "Model",
+      "modelPlaceholder": "Select model (required)",
+      "modelDefault": "Default",
+      "modelSearch": "Search models...",
+      "noModels": "No models discovered.",
+      "envCheck": "Adapter environment check",
+      "envCheckDesc": "Runs a live probe that asks the adapter CLI to respond with hello.",
+      "testing": "Testing...",
+      "testNow": "Test now",
+      "testPassed": "Passed",
+      "testWarnings": "Warnings",
+      "testFailed": "Failed",
+      "manualDebug": "Manual debug",
+      "hint": "Hint: ",
+      "gatewayUrl": "Gateway URL",
+      "webhookUrl": "Webhook URL"
+    },
+    "adapter": {
+      "claudeCode": "Claude Code",
+      "claudeCodeDesc": "Local Claude agent",
+      "codex": "Codex",
+      "codexDesc": "Local Codex agent",
+      "recommended": "Recommended",
+      "gemini": "Gemini CLI",
+      "geminiDesc": "Local Gemini agent",
+      "opencode": "OpenCode",
+      "opencodeDesc": "Local multi-provider agent",
+      "pi": "Pi",
+      "piDesc": "Local Pi agent",
+      "cursor": "Cursor",
+      "cursorDesc": "Local Cursor agent",
+      "openclaw": "OpenClaw Gateway",
+      "openclawDesc": "Invoke OpenClaw via gateway protocol",
+      "openclawConfig": "Configure OpenClaw within the App",
+      "comingSoon": "Coming soon",
+      "moreTypes": "More Agent Adapter Types"
+    },
+    "task": {
+      "title": "Give it something to do",
+      "desc": "Give your agent a small task to start with — a bug fix, a research question, writing a script.",
+      "titleLabel": "Task title",
+      "titlePlaceholder": "e.g. Research competitor pricing",
+      "descriptionLabel": "Description (optional)",
+      "descriptionPlaceholder": "Add more detail about what the agent should do..."
+    },
+    "launch": {
+      "title": "Ready to launch",
+      "desc": "Everything is set up. Launching now will create the starter task, wake the agent, and open the issue.",
+      "companyLabel": "Company",
+      "taskLabel": "Task"
+    },
+    "nav": {
+      "back": "Back",
+      "creating": "Creating...",
+      "next": "Next",
+      "createAndOpen": "Create & Open Issue"
+    },
+    "error": {
+      "createTask": "Failed to create task"
+    },
+    "close": "Close"
+  },
+  "commandPalette": {
+    "placeholder": "Search issues, agents, projects...",
+    "noResults": "No results found.",
+    "group": {
+      "actions": "Actions",
+      "pages": "Pages",
+      "issues": "Issues",
+      "agents": "Agents",
+      "projects": "Projects"
+    },
+    "action": {
+      "createIssue": "Create new issue",
+      "createAgent": "Create new agent",
+      "createProject": "Create new project"
+    },
+    "page": {
+      "dashboard": "Dashboard",
+      "inbox": "Inbox",
+      "issues": "Issues",
+      "projects": "Projects",
+      "goals": "Goals",
+      "agents": "Agents",
+      "costs": "Costs",
+      "activity": "Activity"
+    }
+  },
+  "filterBar": {
+    "clearAll": "Clear all"
+  },
+  "org": {
+    "breadcrumb": "Org Chart",
+    "noCompany": "Select a company to view org chart.",
+    "empty": "No agents in the organization. Create agents to build your org chart."
+  },
+  "newAgent": {
+    "title": "New Agent",
+    "subtitle": "Advanced agent configuration",
+    "namePlaceholder": "Agent name",
+    "titlePlaceholder": "Title (e.g. VP of Engineering)",
+    "skills": {
+      "title": "Company skills",
+      "desc": "Optional skills from the company library. Built-in Paperclip runtime skills are added automatically.",
+      "empty": "No optional company skills installed yet."
+    },
+    "ceoNotice": "This will be the CEO",
+    "cancel": "Cancel",
+    "creating": "Creating…",
+    "createButton": "Create agent",
+    "error": {
+      "create": "Failed to create agent"
+    }
+  },
+  "common": {
+    "loading": "Loading...",
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "create": "Create",
+    "close": "Close",
+    "approve": "Approve",
+    "reject": "Reject",
+    "copy": "Copy",
+    "copied": "Copied!",
+    "back": "Back",
+    "next": "Next",
+    "search": "Search...",
+    "noResults": "No results found.",
+    "error": "Error",
+    "success": "Success",
+    "confirm": "Confirm"
+  }
+}

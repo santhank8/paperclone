@@ -1,0 +1,776 @@
+{
+  "layout": {
+    "skipToMain": "跳到主要內容",
+    "closeSidebar": "關閉側邊欄",
+    "documentation": "文件",
+    "instanceSettings": "實例設定",
+    "switchTheme": "切換到{{nextTheme}}模式"
+  },
+  "sidebar": {
+    "selectCompany": "選擇公司",
+    "newIssue": "新增任務",
+    "nav": {
+      "dashboard": "儀表板",
+      "inbox": "收件匣",
+      "issues": "任務",
+      "routines": "例行工作",
+      "goals": "目標",
+      "agents": "代理人",
+      "org": "組織",
+      "skills": "技能",
+      "costs": "成本",
+      "activity": "活動",
+      "settings": "設定",
+      "projects": "專案",
+      "approvals": "審批"
+    },
+    "section": {
+      "work": "工作",
+      "company": "公司"
+    },
+    "badge": {
+      "beta": "測試版"
+    }
+  },
+  "companyRail": {
+    "addCompany": "新增公司"
+  },
+  "dashboard": {
+    "breadcrumb": "儀表板",
+    "welcome": {
+      "message": "歡迎使用 Paperclip。請先建立您的第一間公司和代理人。",
+      "action": "開始使用"
+    },
+    "noCompany": "請建立或選擇一間公司以檢視儀表板。",
+    "noAgents": "您還沒有代理人。",
+    "createAgentLink": "在此建立",
+    "budgetIncidents": "{{count}} 個有效預算事件",
+    "budgetIncidents_plural": "{{count}} 個有效預算事件",
+    "openBudgets": "開啟預算",
+    "metric": {
+      "agentsEnabled": "啟用代理人",
+      "tasksInProgress": "進行中任務",
+      "monthSpend": "本月花費",
+      "pendingApprovals": "待審批"
+    },
+    "unlimitedBudget": "無限預算",
+    "awaitingBoardReview": "等待董事會審查",
+    "runActivity": "執行活動",
+    "last14Days": "過去 14 天",
+    "issuesByPriority": "依優先級分類的任務",
+    "issuesByStatus": "依狀態分類的任務",
+    "successRate": "成功率",
+    "recentActivity": "最近活動",
+    "recentTasks": "最近任務",
+    "noTasks": "尚無任務。"
+  },
+  "agents": {
+    "breadcrumb": "代理人",
+    "noCompany": "請選擇一間公司以檢視代理人。",
+    "tab": {
+      "all": "全部",
+      "active": "活躍",
+      "paused": "暫停",
+      "error": "錯誤"
+    },
+    "filters": "篩選",
+    "showTerminated": "顯示已終止",
+    "newAgent": "新增代理人",
+    "count": "{{count}} 個代理人",
+    "count_plural": "{{count}} 個代理人",
+    "empty": {
+      "create": "建立您的第一個代理人以開始使用。",
+      "noMatch": "沒有符合篩選條件的代理人。",
+      "noHierarchy": "尚未定義組織架構。"
+    },
+    "live": "運行中",
+    "liveCount": "運行中 ({{count}})"
+  },
+  "agentDetail": {
+    "source": {
+      "timer": "定時",
+      "assignment": "指派",
+      "onDemand": "隨選",
+      "automation": "自動化"
+    },
+    "breadcrumb": {
+      "agents": "代理人",
+      "runs": "執行紀錄",
+      "run": "第 {{number}} 次執行",
+      "instructions": "指令",
+      "configuration": "設定",
+      "budget": "預算",
+      "dashboard": "儀表板"
+    },
+    "action": {
+      "assignTask": "指派任務",
+      "runHeartbeat": "執行心跳",
+      "copyAgentId": "複製代理人 ID",
+      "resetSessions": "重置會話",
+      "terminate": "終止"
+    },
+    "live": "運行中",
+    "actionFailed": "操作失敗",
+    "error": {
+      "resetSession": "重置會話失敗",
+      "updatePermissions": "更新權限失敗"
+    },
+    "tab": {
+      "dashboard": "儀表板",
+      "instructions": "指令",
+      "skills": "技能",
+      "configuration": "設定",
+      "runs": "執行紀錄",
+      "budget": "預算"
+    },
+    "pendingApproval": "此代理人正在等待董事會批准，尚無法啟動。",
+    "cancel": "取消",
+    "saving": "儲存中…",
+    "save": "儲存",
+    "overview": {
+      "liveRun": "即時執行",
+      "latestRun": "最近執行",
+      "viewDetails": "查看詳情 →",
+      "runActivity": "執行活動",
+      "last14Days": "過去 14 天",
+      "issuesByPriority": "依優先級分類的任務",
+      "issuesByStatus": "依狀態分類的任務",
+      "successRate": "成功率",
+      "recentIssues": "最近任務",
+      "seeAll": "查看全部 →",
+      "noRecentIssues": "沒有最近的任務。",
+      "moreIssues": "還有 {{count}} 個任務",
+      "costs": "成本"
+    },
+    "costs": {
+      "date": "日期",
+      "run": "執行",
+      "input": "輸入",
+      "output": "輸出",
+      "cost": "費用",
+      "inputTokens": "輸入 Token",
+      "outputTokens": "輸出 Token",
+      "cachedTokens": "快取 Token",
+      "totalCost": "總費用"
+    },
+    "config": {
+      "apiKeys": "API 金鑰",
+      "revisions": "設定版本",
+      "noRevisions": "尚無設定版本。",
+      "restore": "還原",
+      "changed": "變更：",
+      "noTrackedChanges": "無追蹤的變更"
+    },
+    "permissions": {
+      "title": "權限",
+      "canCreateAgents": "可以建立新代理人",
+      "canCreateAgentsDesc": "允許此代理人建立或招募代理人，並隱含指派任務的權限。",
+      "canAssignTasks": "可以指派任務",
+      "enabledForCeo": "CEO 代理人自動啟用。",
+      "enabledAutoCreate": "當此代理人可以建立新代理人時自動啟用。",
+      "enabledExplicit": "透過明確的公司權限授予啟用。",
+      "disabledUnlessGranted": "除非明確授予，否則停用。",
+      "saveFailed": "儲存失敗"
+    },
+    "prompts": {
+      "advanced": "進階",
+      "mode": "模式",
+      "managed": "託管",
+      "external": "外部",
+      "rootPath": "根路徑",
+      "managedLabel": "(託管)",
+      "entryFile": "入口檔案",
+      "files": "檔案",
+      "create": "建立",
+      "cancel": "取消",
+      "deprecatedVirtualFile": "已棄用的虛擬檔案",
+      "virtualFile": "虛擬檔案",
+      "newFile": "在此套件中新增檔案",
+      "delete": "刪除",
+      "fileContentsPlaceholder": "# 代理人指令",
+      "fileContentsLabel": "檔案內容",
+      "localAdaptersOnly": "指令套件僅適用於本地配接器。",
+      "saveError": "無法儲存代理人"
+    },
+    "skills": {
+      "viewLibrary": "檢視公司技能庫",
+      "mode": {
+        "persistent": "保留在工作區",
+        "ephemeral": "代理人執行時套用",
+        "unsupported": "僅追蹤",
+        "unknown": "未知"
+      },
+      "unsupported": {
+        "openclaw": "Paperclip 無法在此管理 OpenClaw 技能。請前往您的 OpenClaw 實例管理此代理人的技能。",
+        "other": "Paperclip 尚無法管理此配接器的技能。請直接在配接器中管理。"
+      },
+      "savingChanges": "儲存變更中...",
+      "savingSoon": "即將儲存...",
+      "importFirst": "請先將技能匯入公司技能庫，然後在此附加。",
+      "requiredByPaperclip": "Paperclip 必要技能",
+      "userInstalled": "使用者安裝的技能，非由 Paperclip 管理",
+      "missingFromLibrary": "公司技能庫中缺少的請求技能",
+      "adapter": "配接器",
+      "applied": "已套用技能",
+      "selected": "已選技能",
+      "updateError": "更新技能失敗",
+      "location": "位置：",
+      "view": "檢視",
+      "manageInAdapter": "請直接在配接器中管理技能。"
+    },
+    "runs": {
+      "empty": "尚無執行紀錄。",
+      "backToRuns": "返回執行紀錄",
+      "cancelling": "取消中…",
+      "cancel": "取消",
+      "resuming": "恢復中…",
+      "resume": "恢復",
+      "retrying": "重試中…",
+      "retry": "重試",
+      "resumeError": "恢復執行失敗",
+      "retryError": "重試執行失敗",
+      "duration": "持續時間：",
+      "resumeSkipped": "因為代理人目前無法啟動，恢復請求被略過。",
+      "retrySkipped": "因為代理人目前無法啟動，重試被略過。",
+      "exitCode": "結束代碼 ",
+      "session": "會話",
+      "sessionChanged": "(已變更)",
+      "sessionBefore": "之前",
+      "sessionAfter": "之後",
+      "sessionId": "ID",
+      "clearSessionConfirm": "清除此次執行涉及的 {{count}} 個任務的會話？",
+      "clearingSession": "清除會話中...",
+      "clearSessionLink": "清除這些任務的會話",
+      "clearSessionError": "清除會話失敗",
+      "issuesTouched": "涉及的任務 ({{count}})",
+      "stderr": "stderr",
+      "stdout": "stdout",
+      "loadingLogs": "載入執行日誌中...",
+      "noLogEvents": "無日誌事件。",
+      "invocation": "調用",
+      "invocationAdapter": "配接器：",
+      "invocationWorkingDir": "工作目錄：",
+      "invocationCommand": "命令：",
+      "invocationCommandNotes": "命令備註",
+      "invocationPrompt": "提示詞",
+      "invocationContext": "上下文",
+      "invocationEnvironment": "環境",
+      "transcript": "對話記錄 ({{count}})",
+      "jumpToLive": "跳至即時",
+      "live": "即時",
+      "waitingForTranscript": "等待對話記錄...",
+      "noTranscript": "此次執行無保存的對話記錄。",
+      "failureDetails": "失敗詳情",
+      "errorLabel": "錯誤：",
+      "stderrExcerpt": "stderr 摘錄",
+      "adapterResultJson": "配接器結果 JSON",
+      "stdoutExcerpt": "stdout 摘錄",
+      "events": "事件 ({{count}})",
+      "loadLogError": "載入執行日誌失敗"
+    },
+    "workspace": {
+      "phase": {
+        "worktreeSetup": "工作樹設置",
+        "provision": "佈建",
+        "teardown": "拆解",
+        "worktreeCleanup": "工作樹清理"
+      },
+      "hideLog": "隱藏完整日誌",
+      "showLog": "顯示完整日誌",
+      "loadingLog": "載入日誌中...",
+      "loadLogError": "載入工作區操作日誌失敗",
+      "noLogLines": "無保存的日誌行。",
+      "title": "工作區 ({{count}})",
+      "command": "命令：",
+      "workingDir": "工作目錄：",
+      "branch": "分支：",
+      "baseRef": "基礎參照：",
+      "worktree": "工作樹：",
+      "repoRoot": "倉庫根目錄：",
+      "cleanup": "清理：",
+      "createdByRun": "由此次執行建立",
+      "reused": "重用現有工作區"
+    },
+    "keys": {
+      "created": "API 金鑰已建立 — 請立即複製，之後將無法再次顯示。",
+      "hide": "隱藏",
+      "show": "顯示",
+      "copy": "複製",
+      "copied": "已複製！",
+      "dismiss": "關閉",
+      "createTitle": "建立 API 金鑰",
+      "description": "API 金鑰允許此代理人驗證對 Paperclip 伺服器的呼叫。",
+      "namePlaceholder": "金鑰名稱（例如 production）",
+      "create": "建立",
+      "loading": "載入金鑰中...",
+      "noActive": "沒有有效的 API 金鑰。",
+      "activeTitle": "有效金鑰",
+      "createdDate": "建立於 ",
+      "revoke": "撤銷",
+      "revokedTitle": "已撤銷金鑰",
+      "revokedDate": "撤銷於 "
+    }
+  },
+  "issues": {
+    "breadcrumb": "任務",
+    "noCompany": "請選擇一間公司以檢視任務。"
+  },
+  "issueDetail": {
+    "action": {
+      "createdIssue": "建立了任務",
+      "updatedIssue": "更新了任務",
+      "checkedOut": "簽出了任務",
+      "released": "釋放了任務",
+      "addedComment": "新增了評論",
+      "addedAttachment": "新增了附件",
+      "removedAttachment": "移除了附件",
+      "createdDocument": "建立了文件",
+      "updatedDocument": "更新了文件",
+      "deletedDocument": "刪除了文件",
+      "deletedIssue": "刪除了任務",
+      "createdAgent": "建立了代理人",
+      "updatedAgent": "更新了代理人",
+      "pausedAgent": "暫停了代理人",
+      "resumedAgent": "恢復了代理人",
+      "terminatedAgent": "終止了代理人",
+      "invokedHeartbeat": "觸發了心跳",
+      "cancelledHeartbeat": "取消了心跳",
+      "requestedApproval": "請求審批",
+      "approved": "已批准",
+      "rejected": "已拒絕"
+    },
+    "humanize": {
+      "changedStatus": "將狀態從 {{from}} 變更為 {{to}}",
+      "changedPriority": "將優先級從 {{from}} 變更為 {{to}}",
+      "assigned": "指派了任務",
+      "unassigned": "取消指派了任務",
+      "updatedTitle": "更新了標題",
+      "updatedDescription": "更新了描述"
+    },
+    "identity": {
+      "system": "系統",
+      "board": "董事會",
+      "me": "我",
+      "unknown": "未知"
+    },
+    "copiedToClipboard": "已複製到剪貼簿",
+    "loading": "載入中...",
+    "uploadFailed": "上傳失敗",
+    "documentImportFailed": "文件匯入失敗",
+    "deleteFailed": "刪除失敗",
+    "noCompany": "未選擇公司",
+    "live": "運行中",
+    "routine": "例行工作",
+    "noProject": "無專案",
+    "copyAsMarkdown": "以 Markdown 複製任務",
+    "properties": "屬性",
+    "hideIssue": "隱藏此任務",
+    "issueHidden": "此任務已隱藏",
+    "descriptionPlaceholder": "新增描述...",
+    "uploading": "上傳中...",
+    "uploadAttachment": "上傳附件",
+    "upload": "上傳",
+    "attachments": "附件",
+    "deleteAttachment": "刪除附件",
+    "tab": {
+      "comments": "評論",
+      "subIssues": "子任務",
+      "activity": "活動"
+    },
+    "noSubIssues": "沒有子任務。",
+    "costSummary": "費用摘要",
+    "noCostData": "尚無費用資料。",
+    "tokens": "Token",
+    "noActivity": "尚無活動。",
+    "linkedApprovals": "關聯審批 ({{count}})",
+    "propertiesDrawer": "屬性"
+  },
+  "projects": {
+    "breadcrumb": "專案",
+    "noCompany": "請選擇一間公司以檢視專案。",
+    "addProject": "新增專案",
+    "empty": "尚無專案。"
+  },
+  "goals": {
+    "breadcrumb": "目標",
+    "noCompany": "請選擇一間公司以檢視目標。",
+    "empty": "尚無目標。",
+    "addGoal": "新增目標",
+    "newGoal": "新目標"
+  },
+  "approvals": {
+    "breadcrumb": "審批",
+    "noCompany": "請先選擇一間公司。",
+    "tab": {
+      "pending": "待處理",
+      "all": "全部"
+    },
+    "empty": {
+      "pending": "沒有待處理的審批。",
+      "all": "尚無審批。"
+    },
+    "error": {
+      "approve": "批准失敗",
+      "reject": "拒絕失敗"
+    }
+  },
+  "activity": {
+    "breadcrumb": "活動",
+    "noCompany": "請選擇一間公司以檢視活動。",
+    "filter": {
+      "allTypes": "所有類型"
+    },
+    "empty": "尚無活動。",
+    "filterByType": "依類型篩選"
+  },
+  "costs": {
+    "breadcrumb": "成本",
+    "noCompany": "請選擇一間公司以檢視成本。",
+    "pageTitle": "成本",
+    "pageDescription": "推理花費、平台費用、額度與即時配額視窗。",
+    "dateRangeSeparator": "至",
+    "metric": {
+      "inferenceSpend": "推理花費",
+      "budget": "預算",
+      "financeNet": "財務淨額",
+      "financeEvents": "財務事件"
+    },
+    "noMonthlyCap": "未設定月度上限",
+    "unlimitedBudget": "無限預算",
+    "tab": {
+      "overview": "總覽",
+      "budgets": "預算",
+      "providers": "供應商",
+      "billers": "帳單方",
+      "finance": "財務"
+    },
+    "overview": {
+      "inferenceLedger": "推理帳本",
+      "inferenceLedgerDesc": "所選期間內按請求範圍計算的推理花費。",
+      "usage": "使用量",
+      "budgetConsumed": "此區間消耗的月度預算百分比。",
+      "byAgent": "依代理人",
+      "byAgentDesc": "所選期間內每個代理人的消耗。",
+      "noCostEvents": "尚無費用事件。",
+      "in": "收入",
+      "out": "支出",
+      "api": "API",
+      "subscription": "訂閱",
+      "byProject": "依專案",
+      "byProjectDesc": "透過專案關聯任務歸屬的執行成本。",
+      "noProjectCosts": "尚無專案歸屬的執行成本。",
+      "unattributed": "未歸屬",
+      "noFinanceEvents": "尚無財務事件。在帳單方發票或額度結算後新增帳戶級費用。"
+    },
+    "budgets": {
+      "controlPlane": "預算控制面板",
+      "controlPlaneDesc": "代理人和專案的硬性花費限制。供應商訂閱配額獨立計算，顯示在供應商下。",
+      "metric": {
+        "activeIncidents": "有效事件",
+        "pendingApprovals": "待審批",
+        "pausedAgents": "暫停的代理人",
+        "pausedProjects": "暫停的專案",
+        "incidentsDesc": "開啟的軟性或硬性閾值交叉",
+        "approvalsDesc": "等待董事會操作的預算覆蓋審批",
+        "pausedAgentsDesc": "因預算而被封鎖的代理人心跳",
+        "pausedProjectsDesc": "因預算而被封鎖的專案執行"
+      },
+      "resolveHardStops": "在此透過提高預算或明確保持範圍暫停來解決硬性停止。",
+      "companyPolicy": "全公司月度政策。",
+      "agentPolicy": "個別代理人的每月重複花費政策。",
+      "projectPolicy": "執行綁定專案的終身花費政策。",
+      "empty": "尚無預算政策。從代理人和專案的詳情頁面設定預算，或使用現有的公司月度預算控制。"
+    },
+    "providers": {
+      "noCostEvents": "此期間無費用事件。",
+      "selectDates": "選擇開始和結束日期以載入資料。"
+    },
+    "billers": {
+      "noEvents": "此期間無帳單事件。"
+    },
+    "finance": {
+      "byBiller": "依帳單方",
+      "byBillerDesc": "依收費或記入額度的帳單方分組的帳戶級財務事件。",
+      "noEvents": "尚無財務事件。"
+    }
+  },
+  "inbox": {
+    "breadcrumb": "收件匣",
+    "noCompany": "請選擇一間公司以檢視收件匣。",
+    "tab": {
+      "recent": "最近",
+      "unread": "未讀",
+      "all": "全部"
+    },
+    "markAllRead": "全部標為已讀",
+    "marking": "標記中…",
+    "filter": {
+      "allCategories": "所有分類",
+      "myRecentIssues": "我的最近任務",
+      "joinRequests": "加入請求",
+      "approvals": "審批",
+      "failedRuns": "失敗的執行",
+      "allApprovalStatuses": "所有審批狀態",
+      "needsAction": "需要操作",
+      "resolved": "已解決"
+    },
+    "section": {
+      "alerts": "警報"
+    },
+    "empty": {
+      "noNew": "沒有新的收件匣項目。",
+      "noRecent": "沒有最近的收件匣項目。",
+      "noMatch": "沒有符合篩選條件的收件匣項目。",
+      "inboxZero": "收件匣已清空。"
+    },
+    "approval": {
+      "requestedBy": "由 {{name}} 請求",
+      "updated": "更新於 {{time}}",
+      "approve": "批准",
+      "reject": "拒絕"
+    },
+    "failedRun": {
+      "title": "執行失敗 — {{agentName}}",
+      "dismiss": "關閉",
+      "retry": "重試",
+      "retrying": "重試中…"
+    },
+    "joinRequest": {
+      "human": "人類加入請求",
+      "agent": "代理人加入請求：{{name}}",
+      "requested": "於 {{time}} 從 IP {{ip}} 請求",
+      "adapter": "配接器：{{type}}"
+    },
+    "error": {
+      "approve": "批准失敗",
+      "reject": "拒絕失敗",
+      "approveJoin": "批准加入請求失敗",
+      "rejectJoin": "拒絕加入請求失敗"
+    },
+    "live": "運行中",
+    "alert": {
+      "agentErrors": "{{count}} 個代理人發生錯誤",
+      "agentErrors_plural": "{{count}} 個代理人發生錯誤",
+      "budgetUtilization": "本月預算使用率 {{percent}}%",
+      "dismiss": "關閉"
+    }
+  },
+  "companySettings": {
+    "breadcrumb": "設定",
+    "noCompany": "未選擇公司。請從上方的切換器選擇一間公司。",
+    "title": "公司設定",
+    "section": {
+      "general": "一般",
+      "appearance": "外觀",
+      "hiring": "招募",
+      "invites": "邀請",
+      "packages": "公司套件",
+      "danger": "危險區域"
+    },
+    "field": {
+      "companyName": "公司名稱",
+      "companyNameDesc": "您的公司的顯示名稱。",
+      "description": "描述",
+      "descriptionDesc": "顯示在公司資料中的選填描述。",
+      "descriptionPlaceholder": "選填的公司描述",
+      "logo": "標誌",
+      "logoDesc": "上傳 PNG、JPEG、WEBP、GIF 或 SVG 標誌圖片。",
+      "brandColor": "品牌色",
+      "brandColorDesc": "設定公司圖示的色調。留空則自動產生顏色。",
+      "brandColorPlaceholder": "自動",
+      "brandColorClear": "清除"
+    },
+    "logo": {
+      "removing": "移除中...",
+      "remove": "移除標誌",
+      "uploadFailed": "標誌上傳失敗",
+      "uploading": "上傳標誌中..."
+    },
+    "saving": "儲存中...",
+    "saveChanges": "儲存變更",
+    "saved": "已儲存",
+    "saveError": "儲存失敗",
+    "hiring": {
+      "requireApproval": "新招募需要董事會批准",
+      "requireApprovalDesc": "新代理人招募在董事會批准前保持待定狀態。"
+    },
+    "invites": {
+      "title": "產生 OpenClaw 代理人邀請片段。",
+      "desc": "建立一個短效的 OpenClaw 代理人邀請並產生可複製的提示詞。",
+      "generating": "產生中...",
+      "generateButton": "產生 OpenClaw 邀請提示詞",
+      "error": "建立邀請失敗",
+      "promptTitle": "OpenClaw 邀請提示詞",
+      "copied": "已複製",
+      "copiedSnippet": "已複製片段",
+      "copySnippet": "複製片段"
+    },
+    "packages": {
+      "moved": "匯入和匯出已移至專用頁面。",
+      "export": "匯出",
+      "import": "匯入"
+    },
+    "danger": {
+      "archiveDesc": "封存此公司以從側邊欄隱藏。此操作保留在資料庫中。",
+      "archiveConfirm": "封存公司「{{name}}」？它將從側邊欄隱藏。",
+      "archiving": "封存中...",
+      "alreadyArchived": "已封存",
+      "archiveButton": "封存公司",
+      "archiveError": "封存公司失敗"
+    }
+  },
+  "onboarding": {
+    "step": {
+      "company": "公司",
+      "agent": "代理人",
+      "task": "任務",
+      "launch": "啟動"
+    },
+    "company": {
+      "title": "為您的公司命名",
+      "desc": "這是您的代理人將為之工作的組織。",
+      "nameLabel": "公司名稱",
+      "namePlaceholder": "範例公司",
+      "missionLabel": "使命 / 目標（選填）",
+      "missionPlaceholder": "這間公司想要達成什麼？"
+    },
+    "agent": {
+      "title": "建立您的第一個代理人",
+      "desc": "選擇此代理人如何執行任務。",
+      "nameLabel": "代理人名稱",
+      "namePlaceholder": "CEO",
+      "adapterTypeLabel": "配接器類型",
+      "modelLabel": "模型",
+      "modelPlaceholder": "選擇模型（必填）",
+      "modelDefault": "預設",
+      "modelSearch": "搜尋模型...",
+      "noModels": "未發現模型。",
+      "envCheck": "配接器環境檢查",
+      "envCheckDesc": "執行即時探測，要求配接器 CLI 回應 hello。",
+      "testing": "測試中...",
+      "testNow": "立即測試",
+      "testPassed": "通過",
+      "testWarnings": "警告",
+      "testFailed": "失敗",
+      "manualDebug": "手動除錯",
+      "hint": "提示：",
+      "gatewayUrl": "閘道 URL",
+      "webhookUrl": "Webhook URL"
+    },
+    "adapter": {
+      "claudeCode": "Claude Code",
+      "claudeCodeDesc": "本地 Claude 代理人",
+      "codex": "Codex",
+      "codexDesc": "本地 Codex 代理人",
+      "recommended": "推薦",
+      "gemini": "Gemini CLI",
+      "geminiDesc": "本地 Gemini 代理人",
+      "opencode": "OpenCode",
+      "opencodeDesc": "本地多供應商代理人",
+      "pi": "Pi",
+      "piDesc": "本地 Pi 代理人",
+      "cursor": "Cursor",
+      "cursorDesc": "本地 Cursor 代理人",
+      "openclaw": "OpenClaw Gateway",
+      "openclawDesc": "透過閘道協定呼叫 OpenClaw",
+      "openclawConfig": "在應用程式中設定 OpenClaw",
+      "comingSoon": "即將推出",
+      "moreTypes": "更多代理人配接器類型"
+    },
+    "task": {
+      "title": "給它一些事情做",
+      "desc": "給您的代理人一個小任務開始 — 修復 bug、研究問題、撰寫腳本。",
+      "titleLabel": "任務標題",
+      "titlePlaceholder": "例如：研究競爭者定價",
+      "descriptionLabel": "描述（選填）",
+      "descriptionPlaceholder": "新增更多關於代理人應該做什麼的細節..."
+    },
+    "launch": {
+      "title": "準備啟動",
+      "desc": "一切就緒。啟動後將建立起始任務、喚醒代理人並開啟任務。",
+      "companyLabel": "公司",
+      "taskLabel": "任務"
+    },
+    "nav": {
+      "back": "上一步",
+      "creating": "建立中...",
+      "next": "下一步",
+      "createAndOpen": "建立並開啟任務"
+    },
+    "error": {
+      "createTask": "建立任務失敗"
+    },
+    "close": "關閉"
+  },
+  "commandPalette": {
+    "placeholder": "搜尋任務、代理人、專案...",
+    "noResults": "找不到結果。",
+    "group": {
+      "actions": "操作",
+      "pages": "頁面",
+      "issues": "任務",
+      "agents": "代理人",
+      "projects": "專案"
+    },
+    "action": {
+      "createIssue": "建立新任務",
+      "createAgent": "建立新代理人",
+      "createProject": "建立新專案"
+    },
+    "page": {
+      "dashboard": "儀表板",
+      "inbox": "收件匣",
+      "issues": "任務",
+      "projects": "專案",
+      "goals": "目標",
+      "agents": "代理人",
+      "costs": "成本",
+      "activity": "活動"
+    }
+  },
+  "filterBar": {
+    "clearAll": "清除全部"
+  },
+  "org": {
+    "breadcrumb": "組織架構",
+    "noCompany": "請選擇一間公司以檢視組織架構。",
+    "empty": "組織中沒有代理人。建立代理人以建構您的組織架構。"
+  },
+  "newAgent": {
+    "title": "新增代理人",
+    "subtitle": "進階代理人設定",
+    "namePlaceholder": "代理人名稱",
+    "titlePlaceholder": "職稱（例如：工程副總）",
+    "skills": {
+      "title": "公司技能",
+      "desc": "來自公司技能庫的選填技能。Paperclip 執行時必要技能會自動加入。",
+      "empty": "尚未安裝選填的公司技能。"
+    },
+    "ceoNotice": "這將成為 CEO",
+    "cancel": "取消",
+    "creating": "建立中…",
+    "createButton": "建立代理人",
+    "error": {
+      "create": "建立代理人失敗"
+    }
+  },
+  "common": {
+    "loading": "載入中...",
+    "save": "儲存",
+    "cancel": "取消",
+    "delete": "刪除",
+    "create": "建立",
+    "close": "關閉",
+    "approve": "批准",
+    "reject": "拒絕",
+    "copy": "複製",
+    "copied": "已複製！",
+    "back": "返回",
+    "next": "下一步",
+    "search": "搜尋...",
+    "noResults": "找不到結果。",
+    "error": "錯誤",
+    "success": "成功",
+    "confirm": "確認"
+  }
+}
