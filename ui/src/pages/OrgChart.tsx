@@ -163,7 +163,7 @@ export function OrgChart() {
   }, [agents]);
 
   useEffect(() => {
-    setBreadcrumbs([{ label: "Org Chart" }]);
+    setBreadcrumbs([{ label: "组织架构图" }]);
   }, [setBreadcrumbs]);
 
   // Layout computation
@@ -256,7 +256,7 @@ export function OrgChart() {
   }, [zoom, pan]);
 
   if (!selectedCompanyId) {
-    return <EmptyState icon={Network} message="Select a company to view the org chart." />;
+    return <EmptyState icon={Network} message="选择一个公司以查看组织架构图。" />;
   }
 
   if (isLoading) {
@@ -264,7 +264,7 @@ export function OrgChart() {
   }
 
   if (orgTree && orgTree.length === 0) {
-    return <EmptyState icon={Network} message="No organizational hierarchy defined." />;
+    return <EmptyState icon={Network} message="未定义组织层级结构。" />;
   }
 
   return (
@@ -273,13 +273,13 @@ export function OrgChart() {
       <Link to="/company/import">
         <Button variant="outline" size="sm">
           <Upload className="mr-1.5 h-3.5 w-3.5" />
-          Import company
+          导入公司
         </Button>
       </Link>
       <Link to="/company/export">
         <Button variant="outline" size="sm">
           <Download className="mr-1.5 h-3.5 w-3.5" />
-          Export company
+          导出公司
         </Button>
       </Link>
     </div>
@@ -293,7 +293,7 @@ export function OrgChart() {
       onMouseLeave={handleMouseUp}
       onWheel={handleWheel}
     >
-      {/* Zoom controls */}
+      {/* 缩放控件 */}
       <div className="absolute top-3 right-3 z-10 flex flex-col gap-1">
         <button
           className="w-7 h-7 flex items-center justify-center bg-background border border-border rounded text-sm hover:bg-accent transition-colors"
@@ -308,7 +308,7 @@ export function OrgChart() {
             }
             setZoom(newZoom);
           }}
-          aria-label="Zoom in"
+          aria-label="放大"
         >
           +
         </button>
@@ -325,7 +325,7 @@ export function OrgChart() {
             }
             setZoom(newZoom);
           }}
-          aria-label="Zoom out"
+          aria-label="缩小"
         >
           &minus;
         </button>
@@ -343,10 +343,10 @@ export function OrgChart() {
             setZoom(fitZoom);
             setPan({ x: (cW - chartW) / 2, y: (cH - chartH) / 2 });
           }}
-          title="Fit to screen"
-          aria-label="Fit chart to screen"
+          title="适应屏幕"
+          aria-label="适应屏幕"
         >
-          Fit
+          适应
         </button>
       </div>
 

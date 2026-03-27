@@ -1,192 +1,192 @@
-# Storage System Implementation Plan (V1)
+# 存储系统实施计划（V1）
 
-Status: Draft  
-Owner: Backend + UI  
-Date: 2026-02-20
+状态：草案
+负责人：后端 + UI
+日期：2026-02-20
 
-## Goal
+## 目标
 
-Add a single storage subsystem for Paperclip that supports:
+为 Paperclip 添加统一的存储子系统，支持：
 
-- local disk storage for single-user local deployment
-- S3-compatible object storage for cloud deployment
-- a provider-agnostic interface for issue images and future file attachments
+- 单用户本地部署的本地磁盘存储
+- 云部署的 S3 兼容对象存储
+- 用于 issue 图片和未来文件附件的存储提供商无关接口
 
-## V1 Scope
+## V1 范围
 
-- First consumer: issue attachments/images.
-- Storage adapters: `local_disk` and `s3`.
-- Files are always company-scoped and access-controlled.
-- API serves attachment bytes through authenticated Paperclip endpoints.
+- 首个消费者：issue 附件/图片。
+- 存储适配器：`local_disk` 和 `s3`。
+- 文件始终以公司为范围并有访问控制。
+- API 通过经过认证的 Paperclip 端点提供附件字节。
 
-## Out of Scope (This Draft)
+## 范围外（本草案）
 
-- Public unauthenticated object URLs.
-- CDN/signed URL optimization.
-- Image transformations/thumbnails.
-- Malware scanning pipeline.
+- 公开的未认证对象 URL。
+- CDN/签名 URL 优化。
+- 图片转换/缩略图。
+- 恶意软件扫描流水线。
 
-## Key Decisions
+## 关键决策
 
-- Default local path is under instance root: `~/.paperclip/instances/<instanceId>/data/storage`.
-- Object bytes live in storage provider; metadata lives in Postgres.
-- `assets` is generic metadata table; `issue_attachments` links assets to issues/comments.
-- S3 credentials come from runtime environment/default AWS provider chain, not DB rows.
-- All object keys include company prefix to preserve hard tenancy boundaries.
+- 默认本地路径位于实例根目录下：`~/.paperclip/instances/<instanceId>/data/storage`。
+- 对象字节存储在存储提供商中；元数据存储在 Postgres 中。
+- `assets` 是通用元数据表；`issue_attachments` 将资产链接到 issue/评论。
+- S3 凭据来自运行时环境/默认 AWS 提供商链，不是数据库行。
+- 所有对象键包含公司前缀以保持严格的租户边界。
 
-## Phase 1: Shared Config + Provider Contract
+## 阶段 1：共享配置 + 提供商合约
 
-### Checklist (Per File)
+### 检查清单（按文件）
 
-- [ ] `packages/shared/src/constants.ts`: add `STORAGE_PROVIDERS` and `StorageProvider` type.
-- [ ] `packages/shared/src/config-schema.ts`: add `storageConfigSchema` with:
+- [ ] `packages/shared/src/constants.ts`：添加 `STORAGE_PROVIDERS` 和 `StorageProvider` 类型。
+- [ ] `packages/shared/src/config-schema.ts`：添加 `storageConfigSchema`，包含：
   - provider: `local_disk | s3`
   - localDisk.baseDir
-  - s3.bucket, s3.region, s3.endpoint?, s3.prefix?, s3.forcePathStyle?
-- [ ] `packages/shared/src/index.ts`: export new storage config/types.
-- [ ] `cli/src/config/schema.ts`: ensure re-export includes new storage schema/types.
-- [ ] `cli/src/commands/configure.ts`: add `storage` section support.
-- [ ] `cli/src/commands/onboard.ts`: initialize default storage config.
-- [ ] `cli/src/prompts/storage.ts`: new prompt flow for local disk vs s3 settings.
-- [ ] `cli/src/prompts/index` (if present) or direct imports: wire new storage prompt.
-- [ ] `server/src/config.ts`: load storage config and resolve home-aware local path.
-- [ ] `server/src/home-paths.ts`: add `resolveDefaultStorageDir()`.
-- [ ] `doc/CLI.md`: document `configure --section storage`.
-- [ ] `doc/DEVELOPING.md`: document default local storage path and overrides.
+  - s3.bucket、s3.region、s3.endpoint?、s3.prefix?、s3.forcePathStyle?
+- [ ] `packages/shared/src/index.ts`：导出新的存储配置/类型。
+- [ ] `cli/src/config/schema.ts`：确保重新导出包含新的存储架构/类型。
+- [ ] `cli/src/commands/configure.ts`：添加 `storage` 部分支持。
+- [ ] `cli/src/commands/onboard.ts`：初始化默认存储配置。
+- [ ] `cli/src/prompts/storage.ts`：新的本地磁盘 vs S3 设置提示流程。
+- [ ] `cli/src/prompts/index`（如存在）或直接导入：连接新的存储提示。
+- [ ] `server/src/config.ts`：加载存储配置并解析带主目录感知的本地路径。
+- [ ] `server/src/home-paths.ts`：添加 `resolveDefaultStorageDir()`。
+- [ ] `doc/CLI.md`：记录 `configure --section storage`。
+- [ ] `doc/DEVELOPING.md`：记录默认本地存储路径和覆盖方式。
 
-### Acceptance Criteria
+### 验收标准
 
-- `paperclipai onboard` writes a valid `storage` config block by default.
-- `paperclipai configure --section storage` can switch between local and s3 modes.
-- Server startup reads storage config without env-only hacks.
+- `paperclipai onboard` 默认写入有效的 `storage` 配置块。
+- `paperclipai configure --section storage` 可以在本地和 S3 模式之间切换。
+- 服务器启动时读取存储配置，无需仅依赖环境变量的技巧。
 
-## Phase 2: Server Storage Subsystem + Providers
+## 阶段 2：服务器存储子系统 + 提供商
 
-### Checklist (Per File)
+### 检查清单（按文件）
 
-- [ ] `server/src/storage/types.ts`: define provider + service interfaces.
-- [ ] `server/src/storage/service.ts`: provider-agnostic service (key generation, validation, stream APIs).
-- [ ] `server/src/storage/local-disk-provider.ts`: implement local disk provider with safe path resolution.
-- [ ] `server/src/storage/s3-provider.ts`: implement S3-compatible provider (`@aws-sdk/client-s3`).
-- [ ] `server/src/storage/provider-registry.ts`: provider lookup by configured id.
-- [ ] `server/src/storage/index.ts`: export storage factory helpers.
-- [ ] `server/src/services/index.ts`: export `storageService` factory.
-- [ ] `server/src/app.ts` or route wiring point: inject/use storage service where needed.
-- [ ] `server/package.json`: add AWS SDK dependency if not present.
+- [ ] `server/src/storage/types.ts`：定义提供商 + 服务接口。
+- [ ] `server/src/storage/service.ts`：提供商无关的服务（键生成、验证、流 API）。
+- [ ] `server/src/storage/local-disk-provider.ts`：实现带安全路径解析的本地磁盘提供商。
+- [ ] `server/src/storage/s3-provider.ts`：实现 S3 兼容提供商（`@aws-sdk/client-s3`）。
+- [ ] `server/src/storage/provider-registry.ts`：按配置 ID 查找提供商。
+- [ ] `server/src/storage/index.ts`：导出存储工厂辅助函数。
+- [ ] `server/src/services/index.ts`：导出 `storageService` 工厂。
+- [ ] `server/src/app.ts` 或路由连接点：在需要的地方注入/使用存储服务。
+- [ ] `server/package.json`：如未安装，添加 AWS SDK 依赖。
 
-### Acceptance Criteria
+### 验收标准
 
-- In `local_disk` mode, uploading + reading a file round-trips bytes on disk.
-- In `s3` mode, service can `put/get/delete` against S3-compatible endpoint.
-- Invalid provider config yields clear startup/config errors.
+- 在 `local_disk` 模式下，上传 + 读取文件可以在磁盘上完成字节往返。
+- 在 `s3` 模式下，服务可以针对 S3 兼容端点执行 `put/get/delete`。
+- 无效的提供商配置会产生清晰的启动/配置错误。
 
-## Phase 3: Database Metadata Model
+## 阶段 3：数据库元数据模型
 
-### Checklist (Per File)
+### 检查清单（按文件）
 
-- [ ] `packages/db/src/schema/assets.ts`: new generic asset metadata table.
-- [ ] `packages/db/src/schema/issue_attachments.ts`: issue-to-asset linking table.
-- [ ] `packages/db/src/schema/index.ts`: export new tables.
-- [ ] `packages/db/src/migrations/*`: generate migration for both tables and indexes.
-- [ ] `packages/shared/src/types/issue.ts` (or new asset types file): add `IssueAttachment` type.
-- [ ] `packages/shared/src/index.ts`: export new types.
+- [ ] `packages/db/src/schema/assets.ts`：新的通用资产元数据表。
+- [ ] `packages/db/src/schema/issue_attachments.ts`：issue 到资产的关联表。
+- [ ] `packages/db/src/schema/index.ts`：导出新表。
+- [ ] `packages/db/src/migrations/*`：为两个表和索引生成迁移。
+- [ ] `packages/shared/src/types/issue.ts`（或新的资产类型文件）：添加 `IssueAttachment` 类型。
+- [ ] `packages/shared/src/index.ts`：导出新类型。
 
-### Suggested Columns
+### 建议列
 
-- `assets`:
-  - `id`, `company_id`, `provider`, `object_key`
-  - `content_type`, `byte_size`, `sha256`, `original_filename`
-  - `created_by_agent_id`, `created_by_user_id`, timestamps
-- `issue_attachments`:
-  - `id`, `company_id`, `issue_id`, `asset_id`, `issue_comment_id` (nullable), timestamps
+- `assets`：
+  - `id`、`company_id`、`provider`、`object_key`
+  - `content_type`、`byte_size`、`sha256`、`original_filename`
+  - `created_by_agent_id`、`created_by_user_id`、时间戳
+- `issue_attachments`：
+  - `id`、`company_id`、`issue_id`、`asset_id`、`issue_comment_id`（可空）、时间戳
 
-### Acceptance Criteria
+### 验收标准
 
-- Migration applies cleanly on empty and existing local dev DB.
-- Metadata rows are company-scoped and indexed for issue lookup.
+- 迁移在空数据库和现有本地开发数据库上均可干净地应用。
+- 元数据行以公司为范围，并为 issue 查找建立索引。
 
-## Phase 4: Issue Attachment API
+## 阶段 4：Issue 附件 API
 
-### Checklist (Per File)
+### 检查清单（按文件）
 
-- [ ] `packages/shared/src/validators/issue.ts`: add schemas for upload/list/delete attachment operations.
-- [ ] `server/src/services/issues.ts`: add attachment CRUD helpers with company checks.
-- [ ] `server/src/routes/issues.ts`: add endpoints:
-  - `POST /companies/:companyId/issues/:issueId/attachments` (multipart)
+- [ ] `packages/shared/src/validators/issue.ts`：为上传/列表/删除附件操作添加 schema。
+- [ ] `server/src/services/issues.ts`：添加带公司检查的附件 CRUD 辅助函数。
+- [ ] `server/src/routes/issues.ts`：添加端点：
+  - `POST /companies/:companyId/issues/:issueId/attachments`（multipart）
   - `GET /issues/:issueId/attachments`
   - `GET /attachments/:attachmentId/content`
   - `DELETE /attachments/:attachmentId`
-- [ ] `server/src/routes/authz.ts`: reuse/enforce company access for attachment endpoints.
-- [ ] `server/src/services/activity-log.ts` usage callsites: log attachment add/remove mutations.
-- [ ] `server/src/app.ts`: ensure multipart parsing middleware is in place for upload route.
+- [ ] `server/src/routes/authz.ts`：复用/强制执行附件端点的公司访问。
+- [ ] `server/src/services/activity-log.ts` 使用调用点：记录附件添加/删除变更。
+- [ ] `server/src/app.ts`：确保上传路由有 multipart 解析中间件。
 
-### API Behavior
+### API 行为
 
-- Enforce max size and image/content-type allowlist in V1.
-- Return consistent errors: `400/401/403/404/409/422/500`.
-- Stream bytes instead of buffering large payloads in memory.
+- V1 中强制最大大小和图片/内容类型白名单。
+- 返回一致的错误：`400/401/403/404/409/422/500`。
+- 流式传输字节而非在内存中缓冲大负载。
 
-### Acceptance Criteria
+### 验收标准
 
-- Board and same-company agents can upload and read attachments per issue permissions.
-- Cross-company access is denied even with valid attachment id.
-- Activity log records attachment add/remove actions.
+- Board 和同公司代理可以按 issue 权限上传和读取附件。
+- 即使有有效的附件 ID，跨公司访问也被拒绝。
+- 活动日志记录附件添加/删除操作。
 
-## Phase 5: UI Issue Attachment Integration
+## 阶段 5：UI Issue 附件集成
 
-### Checklist (Per File)
+### 检查清单（按文件）
 
-- [ ] `ui/src/api/issues.ts`: add attachment API client methods.
-- [ ] `ui/src/api/client.ts`: support multipart upload helper (no JSON `Content-Type` for `FormData`).
-- [ ] `ui/src/lib/queryKeys.ts`: add issue attachment query keys.
-- [ ] `ui/src/pages/IssueDetail.tsx`: add upload UI + attachment list/query invalidation.
-- [ ] `ui/src/components/CommentThread.tsx`: optional comment image attach or display linked images.
-- [ ] `packages/shared/src/types/index.ts`: ensure attachment types are consumed cleanly in UI.
+- [ ] `ui/src/api/issues.ts`：添加附件 API 客户端方法。
+- [ ] `ui/src/api/client.ts`：支持 multipart 上传辅助函数（`FormData` 不使用 JSON `Content-Type`）。
+- [ ] `ui/src/lib/queryKeys.ts`：添加 issue 附件查询键。
+- [ ] `ui/src/pages/IssueDetail.tsx`：添加上传 UI + 附件列表/查询失效。
+- [ ] `ui/src/components/CommentThread.tsx`：可选的评论图片附加或显示关联图片。
+- [ ] `packages/shared/src/types/index.ts`：确保附件类型在 UI 中被干净地消费。
 
-### Acceptance Criteria
+### 验收标准
 
-- User can upload an image from issue detail and see it listed immediately.
-- Uploaded image can be opened/rendered via authenticated API route.
-- Upload and fetch failures are visible to users (no silent errors).
+- 用户可以从 issue 详情上传图片并立即看到列表。
+- 上传的图片可以通过经过认证的 API 路由打开/渲染。
+- 上传和获取失败对用户可见（无静默错误）。
 
-## Phase 6: CLI Doctor + Operational Hardening
+## 阶段 6：CLI 诊断 + 运维加固
 
-### Checklist (Per File)
+### 检查清单（按文件）
 
-- [ ] `cli/src/checks/storage-check.ts`: add storage check (local writable dir, optional S3 reachability check).
-- [ ] `cli/src/checks/index.ts`: export new storage check.
-- [ ] `cli/src/commands/doctor.ts`: include storage check in doctor sequence.
-- [ ] `doc/DATABASE.md` or `doc/DEVELOPING.md`: mention storage backend behavior by deployment mode.
-- [ ] `doc/SPEC-implementation.md`: add storage subsystem and issue-attachment endpoint contract.
+- [ ] `cli/src/checks/storage-check.ts`：添加存储检查（本地可写目录、可选的 S3 可达性检查）。
+- [ ] `cli/src/checks/index.ts`：导出新的存储检查。
+- [ ] `cli/src/commands/doctor.ts`：在诊断序列中包含存储检查。
+- [ ] `doc/DATABASE.md` 或 `doc/DEVELOPING.md`：说明按部署模式的存储后端行为。
+- [ ] `doc/SPEC-implementation.md`：添加存储子系统和 issue 附件端点合约。
 
-### Acceptance Criteria
+### 验收标准
 
-- `paperclipai doctor` reports actionable storage status.
-- Local single-user install works without extra cloud credentials.
-- Cloud config supports S3-compatible endpoint without code changes.
+- `paperclipai doctor` 报告可操作的存储状态。
+- 本地单用户安装无需额外的云凭据即可工作。
+- 云配置支持 S3 兼容端点，无需代码更改。
 
-## Test Plan
+## 测试计划
 
-### Server Integration Tests
+### 服务器集成测试
 
-- [ ] `server/src/__tests__/issue-attachments.auth.test.ts`: company boundary and permission tests.
-- [ ] `server/src/__tests__/issue-attachments.lifecycle.test.ts`: upload/list/read/delete flow.
-- [ ] `server/src/__tests__/storage-local-provider.test.ts`: local provider path safety and round-trip.
-- [ ] `server/src/__tests__/storage-s3-provider.test.ts`: s3 provider contract (mocked client).
-- [ ] `server/src/__tests__/activity-log.attachments.test.ts`: mutation logging assertions.
+- [ ] `server/src/__tests__/issue-attachments.auth.test.ts`：公司边界和权限测试。
+- [ ] `server/src/__tests__/issue-attachments.lifecycle.test.ts`：上传/列表/读取/删除流程。
+- [ ] `server/src/__tests__/storage-local-provider.test.ts`：本地提供商路径安全和往返。
+- [ ] `server/src/__tests__/storage-s3-provider.test.ts`：S3 提供商合约（模拟客户端）。
+- [ ] `server/src/__tests__/activity-log.attachments.test.ts`：变更日志断言。
 
-### CLI Tests
+### CLI 测试
 
-- [ ] `cli/src/__tests__/configure-storage.test.ts`: configure section writes valid config.
-- [ ] `cli/src/__tests__/doctor-storage-check.test.ts`: storage health output and repair behavior.
+- [ ] `cli/src/__tests__/configure-storage.test.ts`：配置部分写入有效配置。
+- [ ] `cli/src/__tests__/doctor-storage-check.test.ts`：存储健康输出和修复行为。
 
-### UI Tests (if present in current stack)
+### UI 测试（如当前技术栈中存在）
 
-- [ ] `ui/src/...`: issue detail upload and error handling tests.
+- [ ] `ui/src/...`：issue 详情上传和错误处理测试。
 
-## Verification Gate Before Merge
+## 合并前验证关卡
 
-Run:
+运行：
 
 ```sh
 pnpm -r typecheck
@@ -194,13 +194,12 @@ pnpm test:run
 pnpm build
 ```
 
-If any command is skipped, document exactly what was skipped and why.
+如果跳过了任何命令，需准确记录跳过了什么以及原因。
 
-## Implementation Order
+## 实施顺序
 
-1. Phase 1 and Phase 2 (foundation, no user-visible breakage)
-2. Phase 3 (DB contract)
-3. Phase 4 (API)
-4. Phase 5 (UI consumer)
-5. Phase 6 (doctor/docs hardening)
-
+1. 阶段 1 和阶段 2（基础，不会造成用户可见的破坏）
+2. 阶段 3（数据库合约）
+3. 阶段 4（API）
+4. 阶段 5（UI 消费者）
+5. 阶段 6（诊断/文档加固）

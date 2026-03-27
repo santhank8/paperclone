@@ -34,7 +34,7 @@ import { MentionAwareLinkNode, mentionAwareLinkNodeReplacement } from "../lib/me
 import { mentionDeletionPlugin } from "../lib/mention-deletion";
 import { cn } from "../lib/utils";
 
-/* ---- Mention types ---- */
+/* ---- 提及类型 ---- */
 
 export interface MentionOption {
   id: string;
@@ -46,7 +46,7 @@ export interface MentionOption {
   projectColor?: string | null;
 }
 
-/* ---- Editor props ---- */
+/* ---- 编辑器属性 ---- */
 
 interface MarkdownEditorProps {
   value: string;
@@ -57,9 +57,9 @@ interface MarkdownEditorProps {
   onBlur?: () => void;
   imageUploadHandler?: (file: File) => Promise<string>;
   bordered?: boolean;
-  /** List of mentionable entities. Enables @-mention autocomplete. */
+  /** 可提及的实体列表。启用 @-mention 自动补全。 */
   mentions?: MentionOption[];
-  /** Called on Cmd/Ctrl+Enter */
+  /** 按下 Cmd/Ctrl+Enter 时调用 */
   onSubmit?: () => void;
 }
 
@@ -77,13 +77,13 @@ function isSafeMarkdownLinkUrl(url: string): boolean {
   return !/^(javascript|data|vbscript):/i.test(trimmed);
 }
 
-/* ---- Mention detection helpers ---- */
+/* ---- 提及检测辅助函数 ---- */
 
 interface MentionState {
   query: string;
   top: number;
   left: number;
-  /** Viewport-relative coords for portal positioning */
+  /** 用于 Portal 定位的视口相对坐标 */
   viewportTop: number;
   viewportLeft: number;
   textNode: Text;
@@ -112,8 +112,8 @@ const CODE_BLOCK_LANGUAGES: Record<string, string> = {
 };
 
 const FALLBACK_CODE_BLOCK_DESCRIPTOR: CodeBlockEditorDescriptor = {
-  // Keep this lower than codeMirrorPlugin's descriptor priority so known languages
-  // still use the standard matching path; this catches malformed/unknown fences.
+  // 保持优先级低于 codeMirrorPlugin 的描述符，使已知语言
+  // 仍使用标准匹配路径；此项捕获格式错误/未知的围栏。
   priority: 0,
   match: () => true,
   Editor: CodeMirrorEditor,
@@ -175,7 +175,7 @@ function mentionMarkdown(option: MentionOption): string {
   return `[@${option.name}](${buildAgentMentionHref(agentId, option.agentIcon ?? null)}) `;
 }
 
-/** Replace `@<query>` in the markdown string with the selected mention token. */
+/** 将 markdown 字符串中的 `@<query>` 替换为选中的提及标记。 */
 function applyMention(markdown: string, query: string, option: MentionOption): string {
   const search = `@${query}`;
   const replacement = mentionMarkdown(option);
@@ -184,7 +184,7 @@ function applyMention(markdown: string, query: string, option: MentionOption): s
   return markdown.slice(0, idx) + replacement + markdown.slice(idx + search.length);
 }
 
-/* ---- Component ---- */
+/* ---- 组件 ---- */
 
 export const MarkdownEditor = forwardRef<MarkdownEditorRef, MarkdownEditorProps>(function MarkdownEditor({
   value,
@@ -205,11 +205,11 @@ export const MarkdownEditor = forwardRef<MarkdownEditorRef, MarkdownEditorProps>
   const [isDragOver, setIsDragOver] = useState(false);
   const dragDepthRef = useRef(0);
 
-  // Stable ref for imageUploadHandler so plugins don't recreate on every render
+  // imageUploadHandler 的稳定 ref，防止插件在每次渲染时重新创建
   const imageUploadHandlerRef = useRef(imageUploadHandler);
   imageUploadHandlerRef.current = imageUploadHandler;
 
-  // Mention state (ref kept in sync so callbacks always see the latest value)
+  // 提及状态（保持 ref 同步，使回调始终获取最新值）
   const [mentionState, setMentionState] = useState<MentionState | null>(null);
   const mentionStateRef = useRef<MentionState | null>(null);
   const [mentionIndex, setMentionIndex] = useState(0);
@@ -240,15 +240,14 @@ export const MarkdownEditor = forwardRef<MarkdownEditorRef, MarkdownEditorProps>
     },
   }), []);
 
-  // Whether the image plugin should be included (boolean is stable across renders
-  // as long as the handler presence doesn't toggle)
+  // 是否应包含图片插件（只要处理器存在性不变，布尔值在渲染间保持稳定）
   const hasImageUpload = Boolean(imageUploadHandler);
 
   const plugins = useMemo<RealmPlugin[]>(() => {
     const imageHandler = hasImageUpload
       ? async (file: File) => {
           const handler = imageUploadHandlerRef.current;
-          if (!handler) throw new Error("No image upload handler");
+          if (!handler) throw new Error("没有图片上传处理器");
           try {
             const src = await handler(file);
             setUploadError(null);
@@ -272,7 +271,7 @@ export const MarkdownEditor = forwardRef<MarkdownEditorRef, MarkdownEditorProps>
             }, 100);
             return src;
           } catch (err) {
-            const message = err instanceof Error ? err.message : "Image upload failed";
+            const message = err instanceof Error ? err.message : "图片上传失败";
             setUploadError(message);
             throw err;
           }
@@ -336,7 +335,7 @@ export const MarkdownEditor = forwardRef<MarkdownEditorRef, MarkdownEditorProps>
     }
   }, [mentionOptionByKey]);
 
-  // Mention detection: listen for selection changes and input events
+  // 提及检测：监听选区变化和输入事件
   const checkMention = useCallback(() => {
     if (!mentions || mentions.length === 0 || !containerRef.current) {
       mentionStateRef.current = null;
@@ -357,8 +356,8 @@ export const MarkdownEditor = forwardRef<MarkdownEditorRef, MarkdownEditorProps>
     if (!mentions || mentions.length === 0) return;
 
     const el = containerRef.current;
-    // Listen for input events on the container so mention detection
-    // also fires after typing (e.g. space to dismiss).
+    // 监听容器上的输入事件，使提及检测
+    // 在输入后也能触发（例如按空格关闭）。
     const onInput = () => requestAnimationFrame(checkMention);
 
     document.addEventListener("selectionchange", checkMention);
@@ -386,8 +385,8 @@ export const MarkdownEditor = forwardRef<MarkdownEditorRef, MarkdownEditorProps>
 
   const selectMention = useCallback(
     (option: MentionOption) => {
-      // Read from ref to avoid stale-closure issues (selectionchange can
-      // update state between the last render and this callback firing).
+      // 从 ref 读取以避免过期闭包问题（selectionchange 可能
+      // 在上次渲染和此回调触发之间更新状态）。
       const state = mentionStateRef.current;
       if (!state) return;
       const current = latestValueRef.current;
@@ -475,7 +474,7 @@ export const MarkdownEditor = forwardRef<MarkdownEditorRef, MarkdownEditorProps>
         className,
       )}
       onKeyDownCapture={(e) => {
-        // Cmd/Ctrl+Enter to submit
+        // Cmd/Ctrl+Enter 提交
         if (onSubmit && e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
           e.preventDefault();
           e.stopPropagation();
@@ -483,15 +482,15 @@ export const MarkdownEditor = forwardRef<MarkdownEditorRef, MarkdownEditorProps>
           return;
         }
 
-        // Mention keyboard handling
+        // 提及键盘处理
         if (mentionActive) {
-          // Space dismisses the popup (let the character be typed normally)
+          // 空格关闭弹出框（让字符正常输入）
           if (e.key === " ") {
             mentionStateRef.current = null;
             setMentionState(null);
             return;
           }
-          // Escape always dismisses
+          // Escape 总是关闭
           if (e.key === "Escape") {
             e.preventDefault();
             e.stopPropagation();
@@ -499,7 +498,7 @@ export const MarkdownEditor = forwardRef<MarkdownEditorRef, MarkdownEditorProps>
             setMentionState(null);
             return;
           }
-          // Arrow / Enter / Tab only when there are filtered results
+          // 仅在有过滤结果时响应方向键 / Enter / Tab
           if (filteredMentions.length > 0) {
             if (e.key === "ArrowDown") {
               e.preventDefault();
@@ -560,7 +559,7 @@ export const MarkdownEditor = forwardRef<MarkdownEditorRef, MarkdownEditorProps>
         plugins={plugins}
       />
 
-      {/* Mention dropdown — rendered via portal so it isn't clipped by overflow containers */}
+      {/* 提及下拉框 — 通过 portal 渲染，避免被溢出容器裁剪 */}
       {mentionActive && filteredMentions.length > 0 &&
         createPortal(
           <div
@@ -594,7 +593,7 @@ export const MarkdownEditor = forwardRef<MarkdownEditorRef, MarkdownEditorProps>
                 <span>{option.name}</span>
                 {option.kind === "project" && option.projectId && (
                   <span className="ml-auto text-[10px] uppercase tracking-wide text-muted-foreground">
-                    Project
+                    项目
                   </span>
                 )}
               </button>
@@ -610,7 +609,7 @@ export const MarkdownEditor = forwardRef<MarkdownEditorRef, MarkdownEditorProps>
             !bordered && "inset-0 rounded-sm",
           )}
         >
-          Drop image to upload
+          拖放图片以上传
         </div>
       )}
       {uploadError && (

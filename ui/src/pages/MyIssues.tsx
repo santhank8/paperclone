@@ -17,7 +17,7 @@ export function MyIssues() {
   const { setBreadcrumbs } = useBreadcrumbs();
 
   useEffect(() => {
-    setBreadcrumbs([{ label: "My Issues" }]);
+    setBreadcrumbs([{ label: "我的任务" }]);
   }, [setBreadcrumbs]);
 
   const { data: issues, isLoading, error } = useQuery({
@@ -27,14 +27,14 @@ export function MyIssues() {
   });
 
   if (!selectedCompanyId) {
-    return <EmptyState icon={ListTodo} message="Select a company to view your issues." />;
+    return <EmptyState icon={ListTodo} message="请选择一个公司以查看您的任务。" />;
   }
 
   if (isLoading) {
     return <PageSkeleton variant="list" />;
   }
 
-  // Show issues that are not assigned (user-created or unassigned)
+  // 显示未分配的任务（用户创建或未分配的）
   const myIssues = (issues ?? []).filter(
     (i) => !i.assigneeAgentId && !["done", "cancelled"].includes(i.status)
   );
@@ -44,7 +44,7 @@ export function MyIssues() {
       {error && <p className="text-sm text-destructive">{error.message}</p>}
 
       {myIssues.length === 0 && (
-        <EmptyState icon={ListTodo} message="No issues assigned to you." />
+        <EmptyState icon={ListTodo} message="暂无分配给您的任务。" />
       )}
 
       {myIssues.length > 0 && (

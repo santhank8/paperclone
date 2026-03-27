@@ -47,14 +47,14 @@ import { OpenCodeLogoIcon } from "./OpenCodeLogoIcon";
 import { ReportsToPicker } from "./ReportsToPicker";
 import { shouldShowLegacyWorkingDirectoryField } from "../lib/legacy-agent-config";
 
-/* ---- Create mode values ---- */
+/* ---- 创建模式值 ---- */
 
 // Canonical type lives in @paperclipai/adapter-utils; re-exported here
 // so existing imports from this file keep working.
 export type { CreateConfigValues } from "@paperclipai/adapter-utils";
 import type { CreateConfigValues } from "@paperclipai/adapter-utils";
 
-/* ---- Props ---- */
+/* ---- 属性 ---- */
 
 type AgentConfigFormProps = {
   adapterModels?: AdapterModel[];
@@ -66,9 +66,9 @@ type AgentConfigFormProps = {
   showAdapterTestEnvironmentButton?: boolean;
   showCreateRunPolicySection?: boolean;
   hideInstructionsFile?: boolean;
-  /** Hide the prompt template field from the Identity section (used when it's shown in a separate Prompts tab). */
+  /** 在身份部分隐藏提示模板字段（当它在单独的提示标签页中显示时使用）。 */
   hidePromptTemplate?: boolean;
-  /** "cards" renders each section as heading + bordered card (for settings pages). Default: "inline" (border-b dividers). */
+  /** "cards" 将每个部分渲染为标题+带边框的卡片（用于设置页面）。默认值："inline"（底部边框分隔）。 */
   sectionLayout?: "inline" | "cards";
 } & (
   | {
@@ -84,7 +84,7 @@ type AgentConfigFormProps = {
     }
 );
 
-/* ---- Edit mode overlay (dirty tracking) ---- */
+/* ---- 编辑模式覆盖层（脏数据跟踪） ---- */
 
 interface Overlay {
   identity: Record<string, unknown>;
@@ -101,7 +101,7 @@ const emptyOverlay: Overlay = {
   runtime: {},
 };
 
-/** Stable empty object used as fallback for missing env config to avoid new-object-per-render. */
+/** 用作缺失环境配置的回退的稳定空对象，以避免每次渲染时创建新对象。 */
 const EMPTY_ENV: Record<string, EnvBinding> = {};
 
 function isOverlayDirty(o: Overlay): boolean {
@@ -114,7 +114,7 @@ function isOverlayDirty(o: Overlay): boolean {
   );
 }
 
-/* ---- Shared input class ---- */
+/* ---- 共享输入框样式 ---- */
 const inputClass =
   "w-full rounded-md border border-border px-2.5 py-1.5 bg-transparent outline-none text-sm font-mono placeholder:text-muted-foreground/40";
 
@@ -165,7 +165,7 @@ const claudeThinkingEffortOptions = [
 ] as const;
 
 
-/* ---- Form ---- */
+/* ---- 表单 ---- */
 
 export function AgentConfigForm(props: AgentConfigFormProps) {
   const { mode, adapterModels: externalModels } = props;
@@ -186,7 +186,7 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
 
   const createSecret = useMutation({
     mutationFn: (input: { name: string; value: string }) => {
-      if (!selectedCompanyId) throw new Error("Select a company to create secrets");
+      if (!selectedCompanyId) throw new Error("请选择一个公司来创建密钥");
       return secretsApi.create(selectedCompanyId, input);
     },
     onSuccess: () => {
@@ -197,16 +197,16 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
 
   const uploadMarkdownImage = useMutation({
     mutationFn: async ({ file, namespace }: { file: File; namespace: string }) => {
-      if (!selectedCompanyId) throw new Error("Select a company to upload images");
+      if (!selectedCompanyId) throw new Error("请选择一个公司来上传图片");
       return assetsApi.uploadImage(selectedCompanyId, file, namespace);
     },
   });
 
-  // ---- Edit mode: overlay for dirty tracking ----
+  // ---- 编辑模式：脏数据跟踪覆盖层 ----
   const [overlay, setOverlay] = useState<Overlay>(emptyOverlay);
   const agentRef = useRef<Agent | null>(null);
 
-  // Clear overlay when agent data refreshes (after save)
+  // 当代理数据刷新时清除覆盖层（保存后）
   useEffect(() => {
     if (!isCreate) {
       if (agentRef.current !== null && props.agent !== agentRef.current) {
@@ -218,14 +218,14 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
 
   const isDirty = !isCreate && isOverlayDirty(overlay);
 
-  /** Read effective value: overlay if dirty, else original */
+  /** 读取有效值：如果有脏数据则使用覆盖层，否则使用原始值 */
   function eff<T>(group: keyof Omit<Overlay, "adapterType">, field: string, original: T): T {
     const o = overlay[group];
     if (field in o) return o[field] as T;
     return original;
   }
 
-  /** Mark field dirty in overlay */
+  /** 在覆盖层中标记字段为脏数据 */
   function mark(group: keyof Omit<Overlay, "adapterType">, field: string, value: unknown) {
     setOverlay((prev) => ({
       ...prev,
@@ -233,7 +233,7 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
     }));
   }
 
-  /** Build accumulated patch and send to parent */
+  /** 构建累积的补丁并发送给父组件 */
   const handleCancel = useCallback(() => {
     setOverlay({ ...emptyOverlay });
   }, []);
@@ -359,7 +359,7 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
   const testEnvironment = useMutation({
     mutationFn: async () => {
       if (!selectedCompanyId) {
-        throw new Error("Select a company to test adapter environment");
+        throw new Error("请选择一个公司来测试适配器环境");
       }
       return agentsApi.testEnvironment(selectedCompanyId, adapterType, {
         adapterConfig: buildAdapterConfigForTest(),
@@ -427,28 +427,28 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
   }, [isCreate, overlay.heartbeat, runtimeConfig, val]);
   return (
     <div className={cn("relative", cards && "space-y-6")}>
-      {/* ---- Floating Save button (edit mode, when dirty) ---- */}
+      {/* ---- 悬浮保存按钮（编辑模式，有未保存更改时） ---- */}
       {isDirty && !props.hideInlineSave && (
         <div className="sticky top-0 z-10 flex items-center justify-end px-4 py-2 bg-background/90 backdrop-blur-sm border-b border-primary/20">
           <div className="flex items-center gap-3">
-            <span className="text-xs text-muted-foreground">Unsaved changes</span>
+            <span className="text-xs text-muted-foreground">未保存的更改</span>
             <Button
               size="sm"
               onClick={handleSave}
               disabled={!isCreate && props.isSaving}
             >
-              {!isCreate && props.isSaving ? "Saving..." : "Save"}
+              {!isCreate && props.isSaving ? "保存中..." : "保存"}
             </Button>
           </div>
         </div>
       )}
 
-      {/* ---- Identity (edit only) ---- */}
+      {/* ---- 身份信息（仅编辑模式） ---- */}
       {!isCreate && (
         <div className={cn(!cards && "border-b border-border")}>
           {cards
-            ? <h3 className="text-sm font-medium mb-3">Identity</h3>
-            : <div className="px-4 py-2 text-xs font-medium text-muted-foreground">Identity</div>
+            ? <h3 className="text-sm font-medium mb-3">身份信息</h3>
+            : <div className="px-4 py-2 text-xs font-medium text-muted-foreground">身份信息</div>
           }
           <div className={cn(cards ? "border border-border rounded-lg p-4 space-y-3" : "px-4 pb-3 space-y-3")}>
             <Field label="Name" hint={help.name}>
@@ -457,7 +457,7 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
                 onCommit={(v) => mark("identity", "name", v)}
                 immediate
                 className={inputClass}
-                placeholder="Agent name"
+                placeholder="代理名称"
               />
             </Field>
             <Field label="Title" hint={help.title}>
@@ -466,7 +466,7 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
                 onCommit={(v) => mark("identity", "title", v || null)}
                 immediate
                 className={inputClass}
-                placeholder="e.g. VP of Engineering"
+                placeholder="例如：工程副总裁"
               />
             </Field>
             <Field label="Reports to" hint={help.reportsTo}>
@@ -475,14 +475,14 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
                 value={eff("identity", "reportsTo", props.agent.reportsTo ?? null)}
                 onChange={(id) => mark("identity", "reportsTo", id)}
                 excludeAgentIds={[props.agent.id]}
-                chooseLabel="Choose manager…"
+                chooseLabel="选择上级…"
               />
             </Field>
             <Field label="Capabilities" hint={help.capabilities}>
               <MarkdownEditor
                 value={eff("identity", "capabilities", props.agent.capabilities ?? "")}
                 onChange={(v) => mark("identity", "capabilities", v || null)}
-                placeholder="Describe what this agent can do..."
+                placeholder="描述此代理的能力..."
                 contentClassName="min-h-[44px] text-sm font-mono"
                 imageUploadHandler={async (file) => {
                   const asset = await uploadMarkdownImage.mutateAsync({
@@ -513,7 +513,7 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
                   />
                 </Field>
                 <div className="rounded-md border border-amber-500/25 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
-                  Prompt template is replayed on every heartbeat. Keep it compact and dynamic to avoid recurring token cost and cache churn.
+                  提示模板在每次心跳时重新发送。请保持简洁和动态，以避免重复的令牌成本和缓存更新。
                 </div>
               </>
             )}
@@ -521,12 +521,12 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
         </div>
       )}
 
-      {/* ---- Adapter ---- */}
+      {/* ---- 适配器 ---- */}
       <div className={cn(!cards && (isCreate ? "border-t border-border" : "border-b border-border"))}>
         <div className={cn(cards ? "flex items-center justify-between mb-3" : "px-4 py-2 flex items-center justify-between gap-2")}>
           {cards
-            ? <h3 className="text-sm font-medium">Adapter</h3>
-            : <span className="text-xs font-medium text-muted-foreground">Adapter</span>
+            ? <h3 className="text-sm font-medium">适配器</h3>
+            : <span className="text-xs font-medium text-muted-foreground">适配器</span>
           }
           {showAdapterTestEnvironmentButton && (
             <Button
@@ -537,7 +537,7 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
               onClick={() => testEnvironment.mutate()}
               disabled={testEnvironment.isPending || !selectedCompanyId}
             >
-              {testEnvironment.isPending ? "Testing..." : "Test environment"}
+              {testEnvironment.isPending ? "测试中..." : "测试环境"}
             </Button>
           )}
         </div>
@@ -600,7 +600,7 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
             <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
               {testEnvironment.error instanceof Error
                 ? testEnvironment.error.message
-                : "Environment test failed"}
+                : "环境测试失败"}
             </div>
           )}
 
@@ -608,7 +608,7 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
             <AdapterEnvironmentResult result={testEnvironment.data} />
           )}
 
-          {/* Working directory */}
+          {/* 工作目录 */}
           {showLegacyWorkingDirectoryField && (
             <Field label="Working directory (deprecated)" hint={help.cwd}>
               <div className="flex items-center gap-2 rounded-md border border-border px-2.5 py-1.5">
@@ -633,7 +633,7 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
             </Field>
           )}
 
-          {/* Prompt template (create mode only — edit mode shows this in Identity) */}
+          {/* 提示模板（仅创建模式——编辑模式在身份信息中显示） */}
           {isLocal && isCreate && (
             <>
               <Field label="Prompt Template" hint={help.promptTemplate}>
@@ -650,23 +650,23 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
                 />
               </Field>
               <div className="rounded-md border border-amber-500/25 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
-                Prompt template is replayed on every heartbeat. Prefer small task framing and variables like <code>{"{{ context.* }}"}</code> or <code>{"{{ run.* }}"}</code>; avoid repeating stable instructions here.
+                提示模板在每次心跳时重新发送。建议使用简短的任务描述和变量如 <code>{"{{ context.* }}"}</code> 或 <code>{"{{ run.* }}"}</code>；避免在此重复固定指令。
               </div>
             </>
           )}
 
-          {/* Adapter-specific fields */}
+          {/* 适配器特定字段 */}
           <uiAdapter.ConfigFields {...adapterFieldProps} />
         </div>
 
       </div>
 
-      {/* ---- Permissions & Configuration ---- */}
+      {/* ---- 权限和配置 ---- */}
       {isLocal && (
         <div className={cn(!cards && "border-b border-border")}>
           {cards
-            ? <h3 className="text-sm font-medium mb-3">Permissions &amp; Configuration</h3>
-            : <div className="px-4 py-2 text-xs font-medium text-muted-foreground">Permissions &amp; Configuration</div>
+            ? <h3 className="text-sm font-medium mb-3">权限和配置</h3>
+            : <div className="px-4 py-2 text-xs font-medium text-muted-foreground">权限和配置</div>
           }
           <div className={cn(cards ? "border border-border rounded-lg p-4 space-y-3" : "px-4 pb-3 space-y-3")}>
               <Field label="Command" hint={help.localCommand}>
@@ -717,7 +717,7 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
                 <p className="text-xs text-destructive">
                   {fetchedModelsError instanceof Error
                     ? fetchedModelsError.message
-                    : "Failed to load adapter models."}
+                    : "加载适配器模型失败。"}
                 </p>
               )}
 
@@ -738,7 +738,7 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
                     codexSearchEnabled &&
                     currentThinkingEffort === "minimal" && (
                       <p className="text-xs text-amber-400">
-                        Codex may reject `minimal` thinking when search is enabled.
+                        Codex 在启用搜索时可能会拒绝 `minimal` 思考模式。
                       </p>
                     )}
                 </>
@@ -755,7 +755,7 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
                       onChange={(v) =>
                         mark("adapterConfig", "bootstrapPromptTemplate", v || undefined)
                       }
-                      placeholder="Optional initial setup prompt for the first run"
+                      placeholder="首次运行的可选初始设置提示"
                       contentClassName="min-h-[44px] text-sm font-mono"
                       imageUploadHandler={async (file) => {
                         const namespace = `agents/${props.agent.id}/bootstrap-prompt`;
@@ -765,7 +765,7 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
                     />
                   </Field>
                   <div className="rounded-md border border-amber-500/25 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
-                    Bootstrap prompt is legacy and will be removed in a future release. Consider moving this content into the agent&apos;s prompt template or instructions file instead.
+                    引导提示为旧版功能，将在未来版本中移除。建议将此内容移至代理的提示模板或指令文件中。
                   </div>
                 </>
               )}
@@ -812,7 +812,7 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
                 />
               </Field>
 
-              {/* Edit-only: timeout + grace period */}
+              {/* 仅编辑模式：超时和优雅终止时间 */}
               {!isCreate && (
                 <>
                   <Field label="Timeout (sec)" hint={help.timeoutSec}>
@@ -845,23 +845,23 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
         </div>
       )}
 
-      {/* ---- Run Policy ---- */}
+      {/* ---- 运行策略 ---- */}
       {isCreate && showCreateRunPolicySection ? (
         <div className={cn(!cards && "border-b border-border")}>
           {cards
-            ? <h3 className="text-sm font-medium flex items-center gap-2 mb-3"><Heart className="h-3 w-3" /> Run Policy</h3>
-            : <div className="px-4 py-2 text-xs font-medium text-muted-foreground flex items-center gap-2"><Heart className="h-3 w-3" /> Run Policy</div>
+            ? <h3 className="text-sm font-medium flex items-center gap-2 mb-3"><Heart className="h-3 w-3" /> 运行策略</h3>
+            : <div className="px-4 py-2 text-xs font-medium text-muted-foreground flex items-center gap-2"><Heart className="h-3 w-3" /> 运行策略</div>
           }
           <div className={cn(cards ? "border border-border rounded-lg p-4 space-y-3" : "px-4 pb-3 space-y-3")}>
             <ToggleWithNumber
-              label="Heartbeat on interval"
+              label="定时心跳"
               hint={help.heartbeatInterval}
               checked={val!.heartbeatEnabled}
               onCheckedChange={(v) => set!({ heartbeatEnabled: v })}
               number={val!.intervalSec}
               onNumberChange={(v) => set!({ intervalSec: v })}
               numberLabel="sec"
-              numberPrefix="Run heartbeat every"
+              numberPrefix="每隔"
               numberHint={help.intervalSec}
               showNumber={val!.heartbeatEnabled}
             />
@@ -870,33 +870,33 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
       ) : !isCreate ? (
         <div className={cn(!cards && "border-b border-border")}>
           {cards
-            ? <h3 className="text-sm font-medium flex items-center gap-2 mb-3"><Heart className="h-3 w-3" /> Run Policy</h3>
-            : <div className="px-4 py-2 text-xs font-medium text-muted-foreground flex items-center gap-2"><Heart className="h-3 w-3" /> Run Policy</div>
+            ? <h3 className="text-sm font-medium flex items-center gap-2 mb-3"><Heart className="h-3 w-3" /> 运行策略</h3>
+            : <div className="px-4 py-2 text-xs font-medium text-muted-foreground flex items-center gap-2"><Heart className="h-3 w-3" /> 运行策略</div>
           }
           <div className={cn(cards ? "border border-border rounded-lg overflow-hidden" : "")}>
             <div className={cn(cards ? "p-4 space-y-3" : "px-4 pb-3 space-y-3")}>
               <ToggleWithNumber
-                label="Heartbeat on interval"
+                label="定时心跳"
                 hint={help.heartbeatInterval}
                 checked={eff("heartbeat", "enabled", heartbeat.enabled !== false)}
                 onCheckedChange={(v) => mark("heartbeat", "enabled", v)}
                 number={eff("heartbeat", "intervalSec", Number(heartbeat.intervalSec ?? 300))}
                 onNumberChange={(v) => mark("heartbeat", "intervalSec", v)}
                 numberLabel="sec"
-                numberPrefix="Run heartbeat every"
+                numberPrefix="每隔"
                 numberHint={help.intervalSec}
                 showNumber={eff("heartbeat", "enabled", heartbeat.enabled !== false)}
               />
             </div>
             <CollapsibleSection
-              title="Advanced Run Policy"
+              title="高级运行策略"
               bordered={cards}
               open={runPolicyAdvancedOpen}
               onToggle={() => setRunPolicyAdvancedOpen(!runPolicyAdvancedOpen)}
             >
             <div className="space-y-3">
               <ToggleField
-                label="Wake on demand"
+                label="按需唤醒"
                 hint={help.wakeOnDemand}
                 checked={eff(
                   "heartbeat",
@@ -941,7 +941,7 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
 
 function AdapterEnvironmentResult({ result }: { result: AdapterEnvironmentTestResult }) {
   const statusLabel =
-    result.status === "pass" ? "Passed" : result.status === "warn" ? "Warnings" : "Failed";
+    result.status === "pass" ? "通过" : result.status === "warn" ? "有警告" : "失败";
   const statusClass =
     result.status === "pass"
       ? "text-green-700 dark:text-green-300 border-green-300 dark:border-green-500/40 bg-green-50 dark:bg-green-500/10"
@@ -966,7 +966,7 @@ function AdapterEnvironmentResult({ result }: { result: AdapterEnvironmentTestRe
             <span className="mx-1 opacity-60">·</span>
             <span>{check.message}</span>
             {check.detail && <span className="block opacity-75 break-all">({check.detail})</span>}
-            {check.hint && <span className="block opacity-90 break-words">Hint: {check.hint}</span>}
+            {check.hint && <span className="block opacity-90 break-words">提示：{check.hint}</span>}
           </div>
         ))}
       </div>
@@ -974,11 +974,11 @@ function AdapterEnvironmentResult({ result }: { result: AdapterEnvironmentTestRe
   );
 }
 
-/* ---- Internal sub-components ---- */
+/* ---- 内部子组件 ---- */
 
 const ENABLED_ADAPTER_TYPES = new Set(["claude_local", "codex_local", "gemini_local", "opencode_local", "pi_local", "cursor"]);
 
-/** Display list includes all real adapter types plus UI-only coming-soon entries. */
+/** 显示列表包括所有真实适配器类型以及仅界面显示的即将推出项。 */
 const ADAPTER_DISPLAY_LIST: { value: string; label: string; comingSoon: boolean }[] = [
   ...AGENT_ADAPTER_TYPES.map((t) => ({
     value: t,
@@ -1026,7 +1026,7 @@ function AdapterTypeDropdown({
               <span>{item.label}</span>
             </span>
             {item.comingSoon && (
-              <span className="text-[10px] text-muted-foreground">Coming soon</span>
+              <span className="text-[10px] text-muted-foreground">即将推出</span>
             )}
           </button>
         ))}

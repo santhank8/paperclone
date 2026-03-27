@@ -25,7 +25,7 @@ import { Tabs } from "@/components/ui/tabs";
 import { PluginLauncherOutlet } from "@/plugins/launchers";
 import { PluginSlotMount, PluginSlotOutlet, usePluginSlots } from "@/plugins/slots";
 
-/* ── Top-level tab types ── */
+/* ── 顶层选项卡类型 ── */
 
 type ProjectBaseTab = "overview" | "list" | "configuration" | "budget";
 type ProjectPluginTab = `plugin:${string}`;
@@ -47,7 +47,7 @@ function resolveProjectTab(pathname: string, projectId: string): ProjectTab | nu
   return null;
 }
 
-/* ── Overview tab content ── */
+/* ── 概览选项卡内容 ── */
 
 function OverviewContent({
   project,
@@ -65,21 +65,21 @@ function OverviewContent({
         onSave={(description) => onUpdate({ description })}
         as="p"
         className="text-sm text-muted-foreground"
-        placeholder="Add a description..."
+        placeholder="添加描述..."
         multiline
         imageUploadHandler={imageUploadHandler}
       />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
         <div>
-          <span className="text-muted-foreground">Status</span>
+          <span className="text-muted-foreground">状态</span>
           <div className="mt-1">
             <StatusBadge status={project.status} />
           </div>
         </div>
         {project.targetDate && (
           <div>
-            <span className="text-muted-foreground">Target Date</span>
+            <span className="text-muted-foreground">目标日期</span>
             <p>{project.targetDate}</p>
           </div>
         )}
@@ -88,7 +88,7 @@ function OverviewContent({
   );
 }
 
-/* ── Color picker popover ── */
+/* ── 颜色选择器弹窗 ── */
 
 function ColorPicker({
   currentColor,
@@ -117,7 +117,7 @@ function ColorPicker({
         onClick={() => setOpen(!open)}
         className="shrink-0 h-5 w-5 rounded-md cursor-pointer hover:ring-2 hover:ring-foreground/20 transition-[box-shadow]"
         style={{ backgroundColor: currentColor }}
-        aria-label="Change project color"
+        aria-label="更改项目颜色"
       />
       {open && (
         <div className="absolute top-full left-0 mt-2 p-2 bg-popover border border-border rounded-lg shadow-lg z-50 w-max">
@@ -135,7 +135,7 @@ function ColorPicker({
                     : "hover:ring-2 hover:ring-foreground/30"
                 }`}
                 style={{ backgroundColor: color }}
-                aria-label={`Select color ${color}`}
+                aria-label={`选择颜色 ${color}`}
               />
             ))}
           </div>
@@ -145,7 +145,7 @@ function ColorPicker({
   );
 }
 
-/* ── List (issues) tab content ── */
+/* ── 列表（任务）选项卡内容 ── */
 
 function ProjectIssuesList({ projectId, companyId }: { projectId: string; companyId: string }) {
   const queryClient = useQueryClient();
@@ -200,7 +200,7 @@ function ProjectIssuesList({ projectId, companyId }: { projectId: string; compan
   );
 }
 
-/* ── Main project page ── */
+/* ── 项目主页面 ── */
 
 export function ProjectDetail() {
   const { companyPrefix, projectId, filter } = useParams<{
@@ -290,15 +290,15 @@ export function ProjectDetail() {
       invalidateProject();
       const name = updatedProject?.name ?? project?.name ?? "Project";
       if (archived) {
-        pushToast({ title: `"${name}" has been archived`, tone: "success" });
+        pushToast({ title: `"${name}" 已归档`, tone: "success" });
         navigate("/dashboard");
       } else {
-        pushToast({ title: `"${name}" has been unarchived`, tone: "success" });
+        pushToast({ title: `"${name}" 已取消归档`, tone: "success" });
       }
     },
     onError: (_, archived) => {
       pushToast({
-        title: archived ? "Failed to archive project" : "Failed to unarchive project",
+        title: archived ? "归档项目失败" : "取消归档项目失败",
         tone: "error",
       });
     },
@@ -321,8 +321,8 @@ export function ProjectDetail() {
 
   useEffect(() => {
     setBreadcrumbs([
-      { label: "Projects", href: "/projects" },
-      { label: project?.name ?? routeProjectRef ?? "Project" },
+      { label: "项目", href: "/projects" },
+      { label: project?.name ?? routeProjectRef ?? "项目" },
     ]);
   }, [setBreadcrumbs, project, routeProjectRef]);
 
@@ -455,7 +455,7 @@ export function ProjectDetail() {
     return <Navigate to={`/projects/${canonicalProjectRef}/issues`} replace />;
   }
 
-  // Redirect bare /projects/:id to cached tab or default /issues
+  // 将裸路径 /projects/:id 重定向到缓存的标签页或默认的 /issues
   if (routeProjectRef && activeTab === null) {
     let cachedTab: string | null = null;
     if (project?.id) {
@@ -481,7 +481,7 @@ export function ProjectDetail() {
   if (!project) return null;
 
   const handleTabChange = (tab: ProjectTab) => {
-    // Cache the active tab per project
+    // 为每个项目缓存活跃的标签页
     if (project?.id) {
       try { localStorage.setItem(`paperclip:project-tab:${project.id}`, tab); } catch {}
     }
@@ -519,7 +519,7 @@ export function ProjectDetail() {
           {project.pauseReason === "budget" ? (
             <div className="inline-flex items-center gap-2 rounded-full border border-red-500/30 bg-red-500/10 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.18em] text-red-200">
               <span className="h-2 w-2 rounded-full bg-red-400" />
-              Paused by budget hard stop
+              因预算硬限制已暂停
             </div>
           ) : null}
         </div>
@@ -559,10 +559,10 @@ export function ProjectDetail() {
       <Tabs value={activeTab ?? "list"} onValueChange={(value) => handleTabChange(value as ProjectTab)}>
         <PageTabBar
           items={[
-            { value: "list", label: "Issues" },
-            { value: "overview", label: "Overview" },
-            { value: "configuration", label: "Configuration" },
-            { value: "budget", label: "Budget" },
+            { value: "list", label: "任务" },
+            { value: "overview", label: "概览" },
+            { value: "configuration", label: "配置" },
+            { value: "budget", label: "预算" },
             ...pluginTabItems.map((item) => ({
               value: item.value,
               label: item.label,
