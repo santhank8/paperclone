@@ -8,6 +8,7 @@ coverage/
 .DS_Store
 data/
 .ironworks/
+.ironworks-plans/
 .pnpm-store/
 tmp-*
 cli/tmp/
