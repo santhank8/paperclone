@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
+import { useTranslation } from "react-i18next";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type {
   CompanyPortabilityCollisionStrategy,
@@ -190,9 +191,11 @@ function ImportPreviewPane({
   action: string | null;
   renamedTo: string | null;
 }) {
+  const { t } = useTranslation();
+
   if (!selectedFile || content === null) {
     return (
-      <EmptyState icon={Package} message="Select a file to preview its contents." />
+      <EmptyState icon={Package} message={t("companyImport.selectFileMessage")} />
     );
   }
 
@@ -644,6 +647,7 @@ async function readLocalPackageZip(file: File): Promise<{
 // ── Main page ─────────────────────────────────────────────────────────
 
 export function CompanyImport() {
+  const { t } = useTranslation();
   const {
     selectedCompanyId,
     selectedCompany,
@@ -708,7 +712,7 @@ export function CompanyImport() {
   useEffect(() => {
     setBreadcrumbs([
       { label: "Org Chart", href: "/org" },
-      { label: "Import" },
+      { label: t("companyImport.import") },
     ]);
   }, [setBreadcrumbs]);
 
@@ -1085,7 +1089,7 @@ export function CompanyImport() {
   const selectedAction = selectedFile ? (actionMap.get(selectedFile) ?? null) : null;
 
   if (!selectedCompanyId) {
-    return <EmptyState icon={Download} message="Select a company to import into." />;
+    return <EmptyState icon={Download} message={t("companyImport.selectCompanyMessage")} />;
   }
 
   return (
@@ -1161,7 +1165,7 @@ export function CompanyImport() {
           </div>
         ) : (
           <Field
-            label="GitHub URL"
+            label={t("companyImport.githubUrlLabel")}
             hint="Repo tree path or blob URL to COMPANY.md (e.g. github.com/owner/repo/tree/main/company)."
           >
             <input
@@ -1177,7 +1181,7 @@ export function CompanyImport() {
           </Field>
         )}
 
-        <Field label="Target" hint="Import into this company or create a new one.">
+        <Field label={t("companyImport.targetLabel")} hint="Import into this company or create a new one.">
           <select
             className="w-full rounded-md border border-border bg-transparent px-2.5 py-1.5 text-sm outline-none"
             value={targetMode}
@@ -1195,7 +1199,7 @@ export function CompanyImport() {
 
         {targetMode === "new" && (
           <Field
-            label="New company name"
+            label={t("companyImport.newCompanyNameLabel")}
             hint="Optional override. Leave blank to use the package name."
           >
             <input
@@ -1203,13 +1207,13 @@ export function CompanyImport() {
               type="text"
               value={newCompanyName}
               onChange={(e) => setNewCompanyName(e.target.value)}
-              placeholder="Imported Company"
+              placeholder={t("companyImport.importedCompanyPlaceholder")}
             />
           </Field>
         )}
 
         <Field
-          label="Collision strategy"
+          label={t("companyImport.collisionStrategyLabel")}
           hint="Board imports can rename, skip, or replace matching company content."
         >
           <select
@@ -1294,8 +1298,8 @@ export function CompanyImport() {
             >
               <Download className="mr-1.5 h-3.5 w-3.5" />
               {importMutation.isPending
-                ? "Importing..."
-                : `Import ${selectedCount} file${selectedCount === 1 ? "" : "s"}`}
+                ? t("companyImport.importing")
+                : t("companyImport.import")}
             </Button>
           </div>
 

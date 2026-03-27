@@ -49,6 +49,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import type { RoutineTrigger } from "@paperclipai/shared";
+import { useTranslation } from "react-i18next";
 
 const concurrencyPolicies = ["coalesce_if_active", "always_enqueue", "skip_if_active"];
 const catchUpPolicies = ["skip_missed", "enqueue_missed_with_cap"];
@@ -233,6 +234,7 @@ function TriggerEditor({
 }
 
 export function RoutineDetail() {
+  const { t } = useTranslation();
   const { routineId } = useParams<{ routineId: string }>();
   const { selectedCompanyId } = useCompany();
   const { setBreadcrumbs } = useBreadcrumbs();
@@ -584,7 +586,7 @@ export function RoutineDetail() {
   const currentProject = editDraft.projectId ? projectById.get(editDraft.projectId) ?? null : null;
 
   if (!selectedCompanyId) {
-    return <EmptyState icon={Repeat} message="Select a company to view routines." />;
+    return <EmptyState icon={Repeat} message={t("routineDetail.selectCompanyMessage")} />;
   }
 
   if (isLoading) {
@@ -615,7 +617,7 @@ export function RoutineDetail() {
         <textarea
           ref={titleInputRef}
           className="flex-1 min-w-0 resize-none overflow-hidden bg-transparent text-xl font-bold outline-none placeholder:text-muted-foreground/50"
-          placeholder="Routine title"
+          placeholder={t("routineDetail.titlePlaceholder")}
           rows={1}
           value={editDraft.title}
           onChange={(event) => {
@@ -702,7 +704,7 @@ export function RoutineDetail() {
             ref={assigneeSelectorRef}
             value={editDraft.assigneeAgentId}
             options={assigneeOptions}
-            placeholder="Assignee"
+            placeholder={t("routineDetail.assigneePlaceholder")}
             noneLabel="No assignee"
             searchPlaceholder="Search assignees..."
             emptyMessage="No assignees found."
@@ -728,7 +730,7 @@ export function RoutineDetail() {
                   <span className="truncate">{option.label}</span>
                 )
               ) : (
-                <span className="text-muted-foreground">Assignee</span>
+                <span className="text-muted-foreground">{t("routineDetail.assigneePlaceholder")}</span>
               )
             }
             renderOption={(option) => {
@@ -747,7 +749,7 @@ export function RoutineDetail() {
             ref={projectSelectorRef}
             value={editDraft.projectId}
             options={projectOptions}
-            placeholder="Project"
+            placeholder={t("routineDetail.projectPlaceholder")}
             noneLabel="No project"
             searchPlaceholder="Search projects..."
             emptyMessage="No projects found."
@@ -763,7 +765,7 @@ export function RoutineDetail() {
                   <span className="truncate">{option.label}</span>
                 </>
               ) : (
-                <span className="text-muted-foreground">Project</span>
+                <span className="text-muted-foreground">{t("routineDetail.projectPlaceholder")}</span>
               )
             }
             renderOption={(option) => {
@@ -788,7 +790,7 @@ export function RoutineDetail() {
         ref={descriptionEditorRef}
         value={editDraft.description}
         onChange={(description) => setEditDraft((current) => ({ ...current, description }))}
-        placeholder="Add instructions..."
+        placeholder={t("routineDetail.addInstructionsPlaceholder")}
         bordered={false}
         contentClassName="min-h-[120px] text-[15px] leading-7"
         onSubmit={() => {
@@ -856,7 +858,7 @@ export function RoutineDetail() {
           disabled={saveRoutine.isPending || !editDraft.title.trim() || !editDraft.projectId || !editDraft.assigneeAgentId}
         >
           <Save className="mr-2 h-4 w-4" />
-          Save routine
+          {t("routineDetail.save")}
         </Button>
       </div>
 
@@ -871,7 +873,7 @@ export function RoutineDetail() {
           </TabsTrigger>
           <TabsTrigger value="runs" className="gap-1.5">
             <Play className="h-3.5 w-3.5" />
-            Runs
+            {t("routineDetail.runs")}
             {hasLiveRun && <span className="h-2 w-2 rounded-full bg-blue-500 animate-pulse" />}
           </TabsTrigger>
 <TabsTrigger value="activity" className="gap-1.5">
@@ -962,7 +964,7 @@ export function RoutineDetail() {
             <LiveRunWidget issueId={activeIssueId} companyId={routine.companyId} />
           )}
           {(routineRuns ?? []).length === 0 ? (
-            <p className="text-xs text-muted-foreground">No runs yet.</p>
+            <p className="text-xs text-muted-foreground">{t("routineDetail.noRunsYet")}</p>
           ) : (
             <div className="border border-border rounded-lg divide-y divide-border">
               {(routineRuns ?? []).map((run) => (
@@ -990,7 +992,7 @@ export function RoutineDetail() {
 
         <TabsContent value="activity">
           {(activity ?? []).length === 0 ? (
-            <p className="text-xs text-muted-foreground">No activity yet.</p>
+            <p className="text-xs text-muted-foreground">{t("routineDetail.noEvents")}</p>
           ) : (
             <div className="border border-border rounded-lg divide-y divide-border">
               {(activity ?? []).map((event) => (

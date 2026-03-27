@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Link } from "@/lib/router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Project } from "@paperclipai/shared";
@@ -19,13 +20,13 @@ import { ChoosePathButton } from "./PathInstructionsModal";
 import { DraftInput } from "./agent-config-primitives";
 import { InlineEditor } from "./InlineEditor";
 
-const PROJECT_STATUSES = [
-  { value: "backlog", label: "Backlog" },
-  { value: "planned", label: "Planned" },
-  { value: "in_progress", label: "In Progress" },
-  { value: "completed", label: "Completed" },
-  { value: "cancelled", label: "Cancelled" },
-];
+const PROJECT_STATUS_KEYS: Record<string, string> = {
+  backlog: "projectProperties.statusBacklog",
+  planned: "projectProperties.statusPlanned",
+  in_progress: "projectProperties.statusInProgress",
+  completed: "projectProperties.statusCompleted",
+  cancelled: "projectProperties.statusCancelled",
+};
 
 interface ProjectPropertiesProps {
   project: Project;
@@ -114,7 +115,10 @@ function PropertyRow({
   );
 }
 
+const PROJECT_STATUS_VALUES = ["backlog", "planned", "in_progress", "completed", "cancelled"];
+
 function ProjectStatusPicker({ status, onChange }: { status: string; onChange: (status: string) => void }) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const colorClass = statusBadge[status] ?? statusBadgeDefault;
 
@@ -127,22 +131,22 @@ function ProjectStatusPicker({ status, onChange }: { status: string; onChange: (
             colorClass,
           )}
         >
-          {status.replace("_", " ")}
+          {t(PROJECT_STATUS_KEYS[status] ?? status)}
         </button>
       </PopoverTrigger>
       <PopoverContent className="w-40 p-1" align="start">
-        {PROJECT_STATUSES.map((s) => (
+        {PROJECT_STATUS_VALUES.map((s) => (
           <Button
-            key={s.value}
+            key={s}
             variant="ghost"
             size="sm"
-            className={cn("w-full justify-start gap-2 text-xs", s.value === status && "bg-accent")}
+            className={cn("w-full justify-start gap-2 text-xs", s === status && "bg-accent")}
             onClick={() => {
-              onChange(s.value);
+              onChange(s);
               setOpen(false);
             }}
           >
-            {s.label}
+            {t(PROJECT_STATUS_KEYS[s] ?? s)}
           </Button>
         ))}
       </PopoverContent>
@@ -160,8 +164,9 @@ function ArchiveDangerZone({
   archivePending?: boolean;
 }) {
   const [confirming, setConfirming] = useState(false);
+  const { t } = useTranslation();
   const isArchive = !project.archivedAt;
-  const action = isArchive ? "Archive" : "Unarchive";
+  const action = isArchive ? t("projectProperties.archive") : t("projectProperties.unarchive");
 
   return (
     <div className="space-y-3 rounded-md border border-destructive/40 bg-destructive/5 px-4 py-4">
@@ -173,7 +178,7 @@ function ArchiveDangerZone({
       {archivePending ? (
         <Button size="sm" variant="destructive" disabled>
           <Loader2 className="h-3 w-3 animate-spin mr-1" />
-          {isArchive ? "Archiving..." : "Unarchiving..."}
+          {isArchive ? t("projectProperties.archiving") : t("projectProperties.unarchiving")}
         </Button>
       ) : confirming ? (
         <div className="flex items-center gap-2">
@@ -216,6 +221,7 @@ function ArchiveDangerZone({
 }
 
 export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSaveState, onArchive, archivePending }: ProjectPropertiesProps) {
+  const { t } = useTranslation();
   const { selectedCompanyId } = useCompany();
   const queryClient = useQueryClient();
   const [goalOpen, setGoalOpen] = useState(false);
@@ -471,21 +477,21 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
   return (
     <div>
       <div className="space-y-1 pb-4">
-        <PropertyRow label={<FieldLabel label="Name" state={fieldState("name")} />}>
+        <PropertyRow label={<FieldLabel label={t("projectProperties.projectName")} state={fieldState("name")} />}>
           {onUpdate || onFieldUpdate ? (
             <DraftInput
               value={project.name}
               onCommit={(name) => commitField("name", { name })}
               immediate
               className="w-full rounded border border-border bg-transparent px-2 py-1 text-sm outline-none"
-              placeholder="Project name"
+              placeholder={t("projectProperties.projectName")}
             />
           ) : (
             <span className="text-sm">{project.name}</span>
           )}
         </PropertyRow>
         <PropertyRow
-          label={<FieldLabel label="Description" state={fieldState("description")} />}
+          label={<FieldLabel label={t("projectProperties.description")} state={fieldState("description")} />}
           alignStart
           valueClassName="space-y-0.5"
         >
@@ -495,16 +501,16 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
               onSave={(description) => commitField("description", { description })}
               as="p"
               className="text-sm text-muted-foreground"
-              placeholder="Add a description..."
+              placeholder={t("projectProperties.addDescription")}
               multiline
             />
           ) : (
             <p className="text-sm text-muted-foreground">
-              {project.description?.trim() || "No description"}
+              {project.description?.trim() || t("projectProperties.noDescription")}
             </p>
           )}
         </PropertyRow>
-        <PropertyRow label={<FieldLabel label="Status" state={fieldState("status")} />}>
+        <PropertyRow label={<FieldLabel label={t("projectProperties.status")} state={fieldState("status")} />}>
           {onUpdate || onFieldUpdate ? (
             <ProjectStatusPicker
               status={project.status}
@@ -515,12 +521,12 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
           )}
         </PropertyRow>
         {project.leadAgentId && (
-          <PropertyRow label="Lead">
+          <PropertyRow label={t("projectProperties.lead")}>
             <span className="text-sm font-mono">{project.leadAgentId.slice(0, 8)}</span>
           </PropertyRow>
         )}
         <PropertyRow
-          label={<FieldLabel label="Goals" state={fieldState("goals")} />}
+          label={<FieldLabel label={t("projectProperties.goals")} state={fieldState("goals")} />}
           alignStart
           valueClassName="space-y-2"
         >
@@ -581,14 +587,14 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
             </Popover>
           )}
         </PropertyRow>
-        <PropertyRow label={<FieldLabel label="Created" state="idle" />}>
+        <PropertyRow label={<FieldLabel label={t("projectProperties.created")} state="idle" />}>
           <span className="text-sm">{formatDate(project.createdAt)}</span>
         </PropertyRow>
-        <PropertyRow label={<FieldLabel label="Updated" state="idle" />}>
+        <PropertyRow label={<FieldLabel label={t("projectProperties.updated")} state="idle" />}>
           <span className="text-sm">{formatDate(project.updatedAt)}</span>
         </PropertyRow>
         {project.targetDate && (
-          <PropertyRow label={<FieldLabel label="Target Date" state="idle" />}>
+          <PropertyRow label={<FieldLabel label={t("projectProperties.targetDate")} state="idle" />}>
             <span className="text-sm">{formatDate(project.targetDate)}</span>
           </PropertyRow>
         )}
@@ -599,13 +605,13 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
       <div className="space-y-1 py-4">
         <div className="space-y-2">
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <span>Codebase</span>
+            <span>{t("projectProperties.codebase")}</span>
             <Tooltip>
               <TooltipTrigger asChild>
                 <button
                   type="button"
                   className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-border text-[10px] text-muted-foreground hover:text-foreground"
-                  aria-label="Codebase help"
+                  aria-label={t("projectProperties.codebaseHelp")}
                 >
                   ?
                 </button>
@@ -617,7 +623,7 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
           </div>
           <div className="space-y-2 rounded-md border border-border/70 p-3">
             <div className="space-y-1">
-              <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Repo</div>
+              <div className="text-[11px] uppercase tracking-wide text-muted-foreground">{t("projectProperties.repo")}</div>
               {codebase.repoUrl ? (
                 <div className="flex items-center justify-between gap-2">
                   {isSafeExternalUrl(codebase.repoUrl) ? (
@@ -648,13 +654,13 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
                         setWorkspaceError(null);
                       }}
                     >
-                      Change repo
+                      {t("projectProperties.changeRepo")}
                     </Button>
                     <Button
                       variant="ghost"
                       size="icon-xs"
                       onClick={clearRepoWorkspace}
-                      aria-label="Clear repo"
+                      aria-label={t("projectProperties.clearRepo")}
                     >
                       <Trash2 className="h-3 w-3" />
                     </Button>
@@ -662,7 +668,7 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
                 </div>
               ) : (
                 <div className="flex items-center justify-between gap-2">
-                  <div className="text-xs text-muted-foreground">Not set.</div>
+                  <div className="text-xs text-muted-foreground">{t("projectProperties.notSet")}</div>
                   <Button
                     variant="outline"
                     size="xs"
@@ -680,7 +686,7 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
             </div>
 
             <div className="space-y-1">
-              <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Local folder</div>
+              <div className="text-[11px] uppercase tracking-wide text-muted-foreground">{t("projectProperties.localFolder")}</div>
               <div className="flex items-center justify-between gap-2">
                 <div className="min-w-0 space-y-1">
                   <div className="min-w-0 truncate font-mono text-xs text-muted-foreground">
@@ -701,14 +707,14 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
                       setWorkspaceError(null);
                     }}
                   >
-                    {codebase.localFolder ? "Change local folder" : "Set local folder"}
+                    {codebase.localFolder ? t("projectProperties.changeLocalFolder") : t("projectProperties.setLocalFolder")}
                   </Button>
                   {codebase.localFolder ? (
                     <Button
                       variant="ghost"
                       size="icon-xs"
                       onClick={clearLocalWorkspace}
-                      aria-label="Clear local folder"
+                      aria-label={t("projectProperties.clearLocalFolder")}
                     >
                       <Trash2 className="h-3 w-3" />
                     </Button>
@@ -788,7 +794,7 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
                   disabled={(!workspaceCwd.trim() && !primaryCodebaseWorkspace) || createWorkspace.isPending || updateWorkspace.isPending}
                   onClick={submitLocalWorkspace}
                 >
-                  Save
+                  {t("common.save")}
                 </Button>
                 <Button
                   variant="ghost"
@@ -800,7 +806,7 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
                     setWorkspaceError(null);
                   }}
                 >
-                  Cancel
+                  {t("common.cancel")}
                 </Button>
               </div>
             </div>
@@ -821,7 +827,7 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
                   disabled={(!workspaceRepoUrl.trim() && !primaryCodebaseWorkspace) || createWorkspace.isPending || updateWorkspace.isPending}
                   onClick={submitRepoWorkspace}
                 >
-                  Save
+                  {t("common.save")}
                 </Button>
                 <Button
                   variant="ghost"
@@ -833,7 +839,7 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
                     setWorkspaceError(null);
                   }}
                 >
-                  Cancel
+                  {t("common.cancel")}
                 </Button>
               </div>
             </div>
@@ -842,13 +848,13 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
             <p className="text-xs text-destructive">{workspaceError}</p>
           )}
           {createWorkspace.isError && (
-            <p className="text-xs text-destructive">Failed to save workspace.</p>
+            <p className="text-xs text-destructive">{t("projectProperties.failedToSaveWorkspace")}</p>
           )}
           {removeWorkspace.isError && (
-            <p className="text-xs text-destructive">Failed to delete workspace.</p>
+            <p className="text-xs text-destructive">{t("projectProperties.failedToDeleteWorkspace")}</p>
           )}
           {updateWorkspace.isError && (
-            <p className="text-xs text-destructive">Failed to update workspace.</p>
+            <p className="text-xs text-destructive">{t("projectProperties.failedToUpdateWorkspace")}</p>
           )}
         </div>
 
@@ -858,13 +864,13 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
 
             <div className="py-1.5 space-y-2">
               <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                <span>Execution Workspaces</span>
+                <span>{t("projectProperties.executionWorkspaces")}</span>
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <button
                       type="button"
                       className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-border text-[10px] text-muted-foreground hover:text-foreground"
-                      aria-label="Execution workspaces help"
+                      aria-label={t("projectProperties.executionWorkspacesHelp")}
                     >
                       ?
                     </button>
@@ -1111,7 +1117,7 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
           <Separator className="my-4" />
           <div className="space-y-4 py-4">
             <div className="text-xs font-medium text-destructive uppercase tracking-wide">
-              Danger Zone
+              {t("projectProperties.dangerZone")}
             </div>
             <ArchiveDangerZone
               project={project}

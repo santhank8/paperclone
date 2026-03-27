@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import type { CostByBiller, CostByProviderModel } from "@paperclipai/shared";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { QuotaBar } from "./QuotaBar";
@@ -19,6 +20,7 @@ export function BillerSpendCard({
   totalCompanySpendCents,
   providerRows,
 }: BillerSpendCardProps) {
+  const { t } = useTranslation();
   const providerBreakdown = useMemo(() => {
     const map = new Map<string, { provider: string; costCents: number; inputTokens: number; outputTokens: number }>();
     for (const entry of providerRows) {
@@ -80,7 +82,7 @@ export function BillerSpendCard({
       <CardContent className="px-4 pb-4 pt-3 space-y-4">
         {budgetMonthlyCents > 0 && (
           <QuotaBar
-            label="Period spend"
+            label={t("billerSpendCard.periodSpend")}
             percentUsed={budgetPct}
             leftLabel={formatCents(row.costCents)}
             rightLabel={`${Math.round(budgetPct)}% of allocation`}

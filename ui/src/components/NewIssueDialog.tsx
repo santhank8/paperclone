@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo, type ChangeEvent, type DragEvent } from "react";
+import { useTranslation } from "react-i18next";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { pickTextColorForSolidBg } from "@/lib/color-contrast";
 import { useDialog } from "../context/DialogContext";
@@ -268,6 +269,7 @@ function issueExecutionWorkspaceModeForExistingWorkspace(mode: string | null | u
 }
 
 export function NewIssueDialog() {
+  const { t } = useTranslation();
   const { newIssueOpen, newIssueDefaults, closeNewIssue } = useDialog();
   const { companies, selectedCompanyId, selectedCompany } = useCompany();
   const queryClient = useQueryClient();
@@ -951,7 +953,7 @@ export function NewIssueDialog() {
               </PopoverContent>
             </Popover>
             <span className="text-muted-foreground/60">&rsaquo;</span>
-            <span>New issue</span>
+            <span>{t("newIssueDialog.newIssue")}</span>
           </div>
           <div className="flex items-center gap-1">
             <Button
@@ -979,7 +981,7 @@ export function NewIssueDialog() {
         <div className="px-4 pt-4 pb-2 shrink-0">
           <textarea
             className="w-full text-lg font-semibold bg-transparent outline-none resize-none overflow-hidden placeholder:text-muted-foreground/50"
-            placeholder="Issue title"
+            placeholder={t("newIssueDialog.issueTitle")}
             rows={1}
             value={title}
             onChange={(e) => {
@@ -1019,16 +1021,16 @@ export function NewIssueDialog() {
         <div className="px-4 pb-2 shrink-0">
           <div className="overflow-x-auto overscroll-x-contain">
             <div className="inline-flex items-center gap-2 text-sm text-muted-foreground flex-wrap sm:flex-nowrap sm:min-w-max">
-              <span>For</span>
+              <span>{t("newIssueDialog.for")}</span>
               <InlineEntitySelector
                 ref={assigneeSelectorRef}
                 value={assigneeValue}
                 options={assigneeOptions}
-                placeholder="Assignee"
+                placeholder={t("newIssueDialog.assignee")}
                 disablePortal
-                noneLabel="No assignee"
-                searchPlaceholder="Search assignees..."
-                emptyMessage="No assignees found."
+                noneLabel={t("newIssueDialog.noAssignee")}
+                searchPlaceholder={t("newIssueDialog.searchAssignees")}
+                emptyMessage={t("newIssueDialog.noAssigneesFound")}
                 onChange={(value) => {
                   const nextAssignee = parseAssigneeValue(value);
                   if (nextAssignee.assigneeAgentId) {
@@ -1054,7 +1056,7 @@ export function NewIssueDialog() {
                       <span className="truncate">{option.label}</span>
                     )
                   ) : (
-                    <span className="text-muted-foreground">Assignee</span>
+                    <span className="text-muted-foreground">{t("newIssueDialog.assignee")}</span>
                   )
                 }
                 renderOption={(option) => {
@@ -1070,16 +1072,16 @@ export function NewIssueDialog() {
                   );
                 }}
               />
-              <span>in</span>
+              <span>{t("newIssueDialog.in")}</span>
               <InlineEntitySelector
                 ref={projectSelectorRef}
                 value={projectId}
                 options={projectOptions}
-                placeholder="Project"
+                placeholder={t("newIssueDialog.project")}
                 disablePortal
-                noneLabel="No project"
-                searchPlaceholder="Search projects..."
-                emptyMessage="No projects found."
+                noneLabel={t("newIssueDialog.noProject")}
+                searchPlaceholder={t("newIssueDialog.searchProjects")}
+                emptyMessage={t("newIssueDialog.noProjectsFound")}
                 onChange={handleProjectChange}
                 onConfirm={() => {
                   descriptionEditorRef.current?.focus();
@@ -1177,11 +1179,11 @@ export function NewIssueDialog() {
                   <InlineEntitySelector
                     value={assigneeModelOverride}
                     options={modelOverrideOptions}
-                    placeholder="Default model"
+                    placeholder={t("newIssueDialog.defaultModel")}
                     disablePortal
-                    noneLabel="Default model"
-                    searchPlaceholder="Search models..."
-                    emptyMessage="No models found."
+                    noneLabel={t("newIssueDialog.defaultModel")}
+                    searchPlaceholder={t("newIssueDialog.searchModels")}
+                    emptyMessage={t("newIssueDialog.noModelsFound")}
                     onChange={setAssigneeModelOverride}
                   />
                 </div>
@@ -1245,7 +1247,7 @@ export function NewIssueDialog() {
               ref={descriptionEditorRef}
               value={description}
               onChange={setDescription}
-              placeholder="Add description..."
+              placeholder={t("newIssueDialog.addDescription")}
               bordered={false}
               mentions={mentionOptions}
               contentClassName={cn("text-sm text-muted-foreground pb-12", expanded ? "min-h-[220px]" : "min-h-[120px]")}
@@ -1440,7 +1442,7 @@ export function NewIssueDialog() {
             onClick={discardDraft}
             disabled={createIssue.isPending || !canDiscardDraft}
           >
-            Discard Draft
+            {t("newIssueDialog.discardDraft")}
           </Button>
           <div className="flex items-center gap-3">
             <div className="min-h-5 text-right">
@@ -1462,7 +1464,7 @@ export function NewIssueDialog() {
             >
               <span className="inline-flex items-center justify-center gap-1.5">
                 {createIssue.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
-                <span>{createIssue.isPending ? "Creating..." : "Create Issue"}</span>
+                <span>{createIssue.isPending ? t("newIssueDialog.creating") : t("newIssueDialog.createIssue")}</span>
               </span>
             </Button>
           </div>

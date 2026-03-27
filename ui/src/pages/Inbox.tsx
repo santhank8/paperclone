@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Link, useLocation, useNavigate } from "@/lib/router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { approvalsApi } from "../api/approvals";
@@ -125,6 +126,7 @@ function FailedRunInboxRow({
   archiveDisabled?: boolean;
   className?: string;
 }) {
+  const { t } = useTranslation();
   const issueId = readIssueIdFromRun(run);
   const issue = issueId ? issueById.get(issueId) ?? null : null;
   const displayError = runFailureMessage(run);
@@ -206,14 +208,14 @@ function FailedRunInboxRow({
             disabled={isRetrying}
           >
             <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
-            {isRetrying ? "Retrying…" : "Retry"}
+            {isRetrying ? t("inbox.failedRun.retrying") : t("inbox.failedRun.retry")}
           </Button>
           {!showUnreadSlot && (
             <button
               type="button"
               onClick={onDismiss}
               className="rounded-md p-1 text-muted-foreground opacity-0 transition-opacity hover:bg-accent hover:text-foreground group-hover:opacity-100"
-              aria-label="Dismiss"
+              aria-label={t("inbox.failedRun.dismiss")}
             >
               <X className="h-4 w-4" />
             </button>
@@ -230,14 +232,14 @@ function FailedRunInboxRow({
           disabled={isRetrying}
         >
           <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
-          {isRetrying ? "Retrying…" : "Retry"}
+          {isRetrying ? t("inbox.failedRun.retrying") : t("inbox.failedRun.retry")}
         </Button>
         {!showUnreadSlot && (
           <button
             type="button"
             onClick={onDismiss}
             className="rounded-md p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
-            aria-label="Dismiss"
+            aria-label={t("inbox.failedRun.dismiss")}
           >
             <X className="h-4 w-4" />
           </button>
@@ -270,6 +272,7 @@ function ApprovalInboxRow({
   archiveDisabled?: boolean;
   className?: string;
 }) {
+  const { t } = useTranslation();
   const Icon = typeIcon[approval.type] ?? defaultTypeIcon;
   const label = approvalLabel(approval.type, approval.payload as Record<string, unknown> | null);
   const showResolutionButtons =
@@ -341,7 +344,7 @@ function ApprovalInboxRow({
               onClick={onApprove}
               disabled={isPending}
             >
-              Approve
+              {t("inbox.approval.approve")}
             </Button>
             <Button
               variant="destructive"
@@ -350,7 +353,7 @@ function ApprovalInboxRow({
               onClick={onReject}
               disabled={isPending}
             >
-              Reject
+              {t("inbox.approval.reject")}
             </Button>
           </div>
         ) : null}
@@ -401,6 +404,7 @@ function JoinRequestInboxRow({
   archiveDisabled?: boolean;
   className?: string;
 }) {
+  const { t } = useTranslation();
   const label =
     joinRequest.requestType === "human"
       ? "Human join request"
@@ -503,6 +507,7 @@ function JoinRequestInboxRow({
 }
 
 export function Inbox() {
+  const { t } = useTranslation();
   const { selectedCompanyId } = useCompany();
   const { setBreadcrumbs } = useBreadcrumbs();
   const navigate = useNavigate();
@@ -522,10 +527,10 @@ export function Inbox() {
   const issueLinkState = useMemo(
     () =>
       createIssueDetailLocationState(
-        "Inbox",
+        t("inbox.breadcrumb"),
         `${location.pathname}${location.search}${location.hash}`,
       ),
-    [location.pathname, location.search, location.hash],
+    [t, location.pathname, location.search, location.hash],
   );
 
   const { data: agents } = useQuery({
@@ -535,7 +540,7 @@ export function Inbox() {
   });
 
   useEffect(() => {
-    setBreadcrumbs([{ label: "Inbox" }]);
+    setBreadcrumbs([{ label: t("inbox.breadcrumb") }]);
   }, [setBreadcrumbs]);
 
   useEffect(() => {
@@ -706,7 +711,7 @@ export function Inbox() {
       navigate(`/approvals/${id}?resolved=approved`);
     },
     onError: (err) => {
-      setActionError(err instanceof Error ? err.message : "Failed to approve");
+      setActionError(err instanceof Error ? err.message : t("inbox.error.approve"));
     },
   });
 
@@ -717,7 +722,7 @@ export function Inbox() {
       queryClient.invalidateQueries({ queryKey: queryKeys.approvals.list(selectedCompanyId!) });
     },
     onError: (err) => {
-      setActionError(err instanceof Error ? err.message : "Failed to reject");
+      setActionError(err instanceof Error ? err.message : t("inbox.error.reject"));
     },
   });
 
@@ -909,7 +914,7 @@ export function Inbox() {
   };
 
   if (!selectedCompanyId) {
-    return <EmptyState icon={InboxIcon} message="Select a company to view inbox." />;
+    return <EmptyState icon={InboxIcon} message={t("inbox.noCompany")} />;
   }
 
   const hasRunFailures = failedRuns.length > 0;
@@ -964,10 +969,10 @@ export function Inbox() {
                 },
                 {
                   value: "recent",
-                  label: "Recent",
+                  label: t("inbox.tab.recent"),
                 },
-                { value: "unread", label: "Unread" },
-                { value: "all", label: "All" },
+                { value: "unread", label: t("inbox.tab.unread") },
+                { value: "all", label: t("inbox.tab.all") },
               ]}
             />
           </Tabs>
@@ -981,7 +986,7 @@ export function Inbox() {
               onClick={() => markAllReadMutation.mutate(unreadIssueIds)}
               disabled={markAllReadMutation.isPending}
             >
-              {markAllReadMutation.isPending ? "Marking…" : "Mark all as read"}
+              {markAllReadMutation.isPending ? t("inbox.marking") : t("inbox.markAllRead")}
             </Button>
           )}
         </div>
@@ -993,15 +998,15 @@ export function Inbox() {
               onValueChange={(value) => setAllCategoryFilter(value as InboxCategoryFilter)}
             >
               <SelectTrigger className="h-8 w-[170px] text-xs">
-                <SelectValue placeholder="Category" />
+                <SelectValue placeholder={t("inbox.filter.categoryPlaceholder")} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="everything">All categories</SelectItem>
-                <SelectItem value="issues_i_touched">My recent issues</SelectItem>
-                <SelectItem value="join_requests">Join requests</SelectItem>
-                <SelectItem value="approvals">Approvals</SelectItem>
-                <SelectItem value="failed_runs">Failed runs</SelectItem>
-                <SelectItem value="alerts">Alerts</SelectItem>
+                <SelectItem value="everything">{t("inbox.filter.allCategories")}</SelectItem>
+                <SelectItem value="issues_i_touched">{t("inbox.filter.myRecentIssues")}</SelectItem>
+                <SelectItem value="join_requests">{t("inbox.filter.joinRequests")}</SelectItem>
+                <SelectItem value="approvals">{t("inbox.filter.approvals")}</SelectItem>
+                <SelectItem value="failed_runs">{t("inbox.filter.failedRuns")}</SelectItem>
+                <SelectItem value="alerts">{t("inbox.section.alerts")}</SelectItem>
               </SelectContent>
             </Select>
 
@@ -1011,7 +1016,7 @@ export function Inbox() {
                 onValueChange={(value) => setAllApprovalFilter(value as InboxApprovalFilter)}
               >
                 <SelectTrigger className="h-8 w-[170px] text-xs">
-                  <SelectValue placeholder="Approval status" />
+                  <SelectValue placeholder={t("inbox.filter.approvalStatusPlaceholder")} />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All approval statuses</SelectItem>
@@ -1036,12 +1041,12 @@ export function Inbox() {
           icon={InboxIcon}
           message={
             tab === "mine"
-              ? "Inbox zero."
+              ? t("inbox.empty.inboxZero")
               : tab === "unread"
-              ? "No new inbox items."
+              ? t("inbox.empty.noNew")
               : tab === "recent"
-                ? "No recent inbox items."
-                : "No inbox items match these filters."
+                ? t("inbox.empty.noRecent")
+                : t("inbox.empty.noMatch")
           }
         />
       )}
@@ -1183,7 +1188,7 @@ export function Inbox() {
                               <span className="relative inline-flex h-2 w-2 rounded-full bg-blue-500" />
                             </span>
                             <span className="hidden text-[11px] font-medium text-blue-600 dark:text-blue-400 sm:inline">
-                              Live
+                              {t("inbox.live")}
                             </span>
                           </span>
                         )}
@@ -1232,7 +1237,7 @@ export function Inbox() {
           {showSeparatorBefore("alerts") && <Separator />}
           <div>
             <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-              Alerts
+              {t("inbox.section.alerts")}
             </h3>
             <div className="divide-y divide-border border border-border">
               {showAggregateAgentError && (
@@ -1251,7 +1256,7 @@ export function Inbox() {
                     type="button"
                     onClick={() => dismiss("alert:agent-errors")}
                     className="rounded-md p-1 text-muted-foreground opacity-0 transition-opacity hover:bg-accent hover:text-foreground group-hover/alert:opacity-100"
-                    aria-label="Dismiss"
+                    aria-label={t("inbox.failedRun.dismiss")}
                   >
                     <X className="h-3.5 w-3.5" />
                   </button>
@@ -1274,7 +1279,7 @@ export function Inbox() {
                     type="button"
                     onClick={() => dismiss("alert:budget")}
                     className="rounded-md p-1 text-muted-foreground opacity-0 transition-opacity hover:bg-accent hover:text-foreground group-hover/alert:opacity-100"
-                    aria-label="Dismiss"
+                    aria-label={t("inbox.failedRun.dismiss")}
                   >
                     <X className="h-3.5 w-3.5" />
                   </button>

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import type {
   Agent,
@@ -498,9 +499,10 @@ function ExportPreviewPane({
   allFiles: Record<string, CompanyPortabilityFileEntry>;
   onSkillClick?: (skill: string) => void;
 }) {
+  const { t } = useTranslation();
   if (!selectedFile || content === null) {
     return (
-      <EmptyState icon={Package} message="Select a file to preview its contents." />
+      <EmptyState icon={Package} message={t("companyExport.selectFileMessage")} />
     );
   }
 
@@ -578,6 +580,7 @@ function expandAncestors(filePath: string): string[] {
 }
 
 export function CompanyExport() {
+  const { t } = useTranslation();
   const { selectedCompanyId, selectedCompany } = useCompany();
   const { setBreadcrumbs } = useBreadcrumbs();
   const { pushToast } = useToast();
@@ -673,7 +676,7 @@ export function CompanyExport() {
   useEffect(() => {
     setBreadcrumbs([
       { label: "Org Chart", href: "/org" },
-      { label: "Export" },
+      { label: t("companyExport.export") },
     ]);
   }, [setBreadcrumbs]);
 
@@ -911,7 +914,7 @@ export function CompanyExport() {
   }
 
   if (!selectedCompanyId) {
-    return <EmptyState icon={Package} message="Select a company to export." />;
+    return <EmptyState icon={Package} message={t("companyExport.selectCompanyMessage")} />;
   }
 
   if (exportPreviewMutation.isPending && !exportData) {
@@ -919,7 +922,7 @@ export function CompanyExport() {
   }
 
   if (!exportData) {
-    return <EmptyState icon={Package} message="Loading export data..." />;
+    return <EmptyState icon={Package} message={t("companyExport.loadingMessage")} />;
   }
 
   const previewContent = selectedFile
@@ -935,7 +938,7 @@ export function CompanyExport() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-4 text-sm">
             <span className="font-medium">
-              {selectedCompany?.name ?? "Company"} export
+              {selectedCompany?.name ?? t("companyExport.exportCompany")}
             </span>
             <span className="text-muted-foreground">
               {selectedCount} / {totalFiles} file{totalFiles === 1 ? "" : "s"} selected
@@ -953,8 +956,8 @@ export function CompanyExport() {
           >
             <Download className="mr-1.5 h-3.5 w-3.5" />
             {downloadMutation.isPending
-              ? "Building export..."
-              : `Export ${selectedCount} file${selectedCount === 1 ? "" : "s"}`}
+              ? t("companyExport.exporting")
+              : t("companyExport.export")}
           </Button>
         </div>
       </div>
@@ -981,7 +984,7 @@ export function CompanyExport() {
                 type="text"
                 value={treeSearch}
                 onChange={(e) => handleSearchChange(e.target.value)}
-                placeholder="Search files..."
+                placeholder={t("companyExport.searchFilesPlaceholder")}
                 className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
               />
             </div>
