@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type {
   CompanyPortabilityCollisionStrategy,
@@ -711,12 +711,12 @@ export function CompanyImport() {
     ? (instanceGeneralSettingsQuery.data?.defaultAdapterType ?? null)
     : ceoAdapterType;
 
-  function resolveImportAdapterSelection(adapterType: string): string {
+  const resolveImportAdapterSelection = useCallback((adapterType: string): string => {
     if (adapterType !== "process") {
       return adapterType;
     }
     return importProcessDefaultAdapterType ?? adapterType;
-  }
+  }, [importProcessDefaultAdapterType]);
 
   const localZipHelpText =
     "Upload a .zip exported directly from Paperclip. Re-zipped archives created by Finder, Explorer, or other zip tools may not import correctly.";
@@ -1124,7 +1124,7 @@ export function CompanyImport() {
       }
       return changed ? next : prev;
     });
-  }, [importPreview, targetMode, instanceGeneralSettingsQuery.data?.defaultAdapterType]);
+  }, [importPreview, targetMode, instanceGeneralSettingsQuery.data?.defaultAdapterType, resolveImportAdapterSelection]);
 
   const previewContent = selectedFile && importPreview
     ? (() => {
