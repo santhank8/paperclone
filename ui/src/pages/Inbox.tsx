@@ -960,13 +960,13 @@ export function Inbox() {
               items={[
                 {
                   value: "mine",
-                  label: "Mine",
+                  label: `Mine (${mineIssues.length})`,
                 },
                 {
                   value: "recent",
-                  label: "Recent",
+                  label: `Recent (${touchedIssues.length})`,
                 },
-                { value: "unread", label: "Unread" },
+                { value: "unread", label: `Unread (${unreadTouchedIssues.length})` },
                 { value: "all", label: "All" },
               ]}
             />
