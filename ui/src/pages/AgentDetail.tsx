@@ -1428,13 +1428,16 @@ function ConfigurationTab({
   const [awaitingRefreshAfterSave, setAwaitingRefreshAfterSave] = useState(false);
   const lastAgentRef = useRef(agent);
 
+  const savedCommand = typeof agent.adapterConfig?.command === "string" ? agent.adapterConfig.command : undefined;
   const { data: adapterModels } = useQuery({
     queryKey:
       companyId
-        ? queryKeys.agents.adapterModels(companyId, agent.adapterType)
-        : ["agents", "none", "adapter-models", agent.adapterType],
-    queryFn: () => agentsApi.adapterModels(companyId!, agent.adapterType),
+        ? queryKeys.agents.adapterModels(companyId, agent.adapterType, savedCommand)
+        : ["agents", "none", "adapter-models", agent.adapterType, savedCommand ?? ""],
+    queryFn: () =>
+      agentsApi.adapterModels(companyId!, agent.adapterType, savedCommand ? { command: savedCommand } : undefined),
     enabled: Boolean(companyId),
+    staleTime: 60_000,
   });
 
   const updateAgent = useMutation({

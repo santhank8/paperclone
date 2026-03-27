@@ -303,16 +303,31 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
     isLocal && shouldShowLegacyWorkingDirectoryField({ isCreate, adapterConfig: config });
   const uiAdapter = useMemo(() => getUIAdapter(adapterType), [adapterType]);
 
-  // Fetch adapter models for the effective adapter type
+  // Resolve the current command value from form state (create or edit overlay)
+  const currentCommand = isCreate
+    ? props.values.command
+    : eff("adapterConfig", "command", String(config.command ?? ""));
+
+  // Debounce command so every keystroke doesn't trigger a new fetch (server-side child process)
+  const [debouncedCommand, setDebouncedCommand] = useState(currentCommand);
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedCommand(currentCommand), 800);
+    return () => clearTimeout(timer);
+  }, [currentCommand]);
+
+  // Fetch adapter models for the effective adapter type, passing command so
+  // adapters like opencode can discover models from the configured binary.
   const {
     data: fetchedModels,
     error: fetchedModelsError,
   } = useQuery({
     queryKey: selectedCompanyId
-      ? queryKeys.agents.adapterModels(selectedCompanyId, adapterType)
-      : ["agents", "none", "adapter-models", adapterType],
-    queryFn: () => agentsApi.adapterModels(selectedCompanyId!, adapterType),
+      ? queryKeys.agents.adapterModels(selectedCompanyId, adapterType, debouncedCommand || undefined)
+      : ["agents", "none", "adapter-models", adapterType, debouncedCommand || ""],
+    queryFn: () =>
+      agentsApi.adapterModels(selectedCompanyId!, adapterType, debouncedCommand ? { command: debouncedCommand } : undefined),
     enabled: Boolean(selectedCompanyId),
+    staleTime: 60_000,
   });
   const models = fetchedModels ?? externalModels ?? [];
 

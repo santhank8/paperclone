@@ -667,7 +667,14 @@ export function agentRoutes(db: Db) {
     const companyId = req.params.companyId as string;
     assertCompanyAccess(req, companyId);
     const type = req.params.type as string;
-    const models = await listAdapterModels(type);
+    const command = typeof req.query.command === "string" ? req.query.command : undefined;
+    if (command !== undefined) {
+      // Reject shell metacharacters and empty/whitespace-only values
+      if (!command.trim() || /[;&|`$(){}[\]!#~]/.test(command)) {
+        return res.status(400).json({ error: "Invalid command" });
+      }
+    }
+    const models = await listAdapterModels(type, command ? { command } : undefined);
     res.json(models);
   });
 
