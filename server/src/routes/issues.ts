@@ -409,11 +409,15 @@ export function issueRoutes(db: Db, storage: StorageService) {
   router.post("/companies/:companyId/issues", validate(createIssueSchema), async (req, res) => {
     const companyId = req.params.companyId as string;
     assertCompanyAccess(req, companyId);
-    if (req.body.assigneeAgentId || req.body.assigneeUserId) {
+    const actor = getActorInfo(req);
+    const isSelfAssign =
+      req.actor.type === "agent" &&
+      !!req.actor.agentId &&
+      req.body.assigneeAgentId === req.actor.agentId;
+
+    if ((req.body.assigneeAgentId || req.body.assigneeUserId) && !isSelfAssign) {
       await assertCanAssignTasks(req, companyId);
     }
-
-    const actor = getActorInfo(req);
     const issue = await svc.create(companyId, {
       ...req.body,
       createdByAgentId: actor.agentId,
