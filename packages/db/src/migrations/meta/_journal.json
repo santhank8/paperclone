@@ -344,6 +344,13 @@
       "when": 1774375318749,
       "tag": "0048_plugin_company_isolation",
       "breakpoints": true
+    },
+    {
+      "idx": 49,
+      "version": "7",
+      "when": 1774530504348,
+      "tag": "0049_workable_shockwave",
+      "breakpoints": true
     }
   ]
 }
