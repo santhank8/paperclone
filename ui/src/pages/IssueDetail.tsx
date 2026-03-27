@@ -16,7 +16,7 @@ import { assigneeValueFromSelection, suggestedCommentAssigneeValue } from "../li
 import { queryKeys } from "../lib/queryKeys";
 import { readIssueDetailBreadcrumb } from "../lib/issueDetailBreadcrumb";
 import { useProjectOrder } from "../hooks/useProjectOrder";
-import { relativeTime, cn, formatTokens, visibleRunCostUsd } from "../lib/utils";
+import { relativeTime, cn, formatTokens, visibleRunCostUsd, isApproximateRunCost } from "../lib/utils";
 import { InlineEditor } from "../components/InlineEditor";
 import { CommentThread } from "../components/CommentThread";
 import { IssueDocumentsSection } from "../components/IssueDocumentsSection";
@@ -33,6 +33,7 @@ import { PluginSlotMount, PluginSlotOutlet, usePluginSlots } from "@/plugins/slo
 import { PluginLauncherOutlet } from "@/plugins/launchers";
 import { Separator } from "@/components/ui/separator";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -419,6 +420,7 @@ export function IssueDetail() {
     let cost = 0;
     let hasCost = false;
     let hasTokens = false;
+    let isApproximate = false;
 
     for (const run of linkedRuns ?? []) {
       const usage = asRecord(run.usageJson);
@@ -433,6 +435,7 @@ export function IssueDetail() {
       );
       const runCost = visibleRunCostUsd(usage, result);
       if (runCost > 0) hasCost = true;
+      if (runCost > 0 && isApproximateRunCost(usage, result)) isApproximate = true;
       if (runInput + runOutput + runCached > 0) hasTokens = true;
       input += runInput;
       output += runOutput;
@@ -448,6 +451,7 @@ export function IssueDetail() {
       totalTokens: input + output,
       hasCost,
       hasTokens,
+      isApproximate,
     };
   }, [linkedRuns]);
 
@@ -1096,9 +1100,20 @@ export function IssueDetail() {
               ) : (
                 <div className="flex flex-wrap gap-3 text-xs text-muted-foreground tabular-nums">
                   {issueCostSummary.hasCost && (
-                    <span className="font-medium text-foreground">
-                      ${issueCostSummary.cost.toFixed(4)}
-                    </span>
+                    issueCostSummary.isApproximate ? (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="font-medium text-muted-foreground cursor-default">
+                            ~${issueCostSummary.cost.toFixed(4)}
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent>Estimated based on public pricing. Not a billed charge.</TooltipContent>
+                      </Tooltip>
+                    ) : (
+                      <span className="font-medium text-foreground">
+                        ${issueCostSummary.cost.toFixed(4)}
+                      </span>
+                    )
                   )}
                   {issueCostSummary.hasTokens && (
                     <span>

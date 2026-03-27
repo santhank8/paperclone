@@ -9,6 +9,7 @@ import type {
   FinanceEvent,
   QuotaWindow,
 } from "@paperclipai/shared";
+import { computeTokenCostCents } from "@paperclipai/shared";
 import { ArrowDownLeft, ArrowUpRight, ChevronDown, ChevronRight, Coins, DollarSign, ReceiptText } from "lucide-react";
 import { budgetsApi } from "../api/budgets";
 import { costsApi } from "../api/costs";
@@ -32,6 +33,7 @@ import { billingTypeDisplayName, cn, formatCents, formatTokens, providerDisplayN
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 const NO_COMPANY = "__none__";
 
@@ -764,7 +766,20 @@ export function Costs() {
                             {isExpanded && modelRows.length > 0 ? (
                               <div className="mt-3 space-y-2 border-l border-border pl-4">
                                 {modelRows.map((modelRow) => {
-                                  const sharePct = row.costCents > 0 ? Math.round((modelRow.costCents / row.costCents) * 100) : 0;
+                                  const isSubscription = modelRow.billingType === "subscription_included";
+                                  // For subscription rows, costCents is always 0 — compute an estimate from tokens
+                                  const estimatedCents = isSubscription
+                                    ? computeTokenCostCents(
+                                        modelRow.provider,
+                                        modelRow.model,
+                                        modelRow.inputTokens,
+                                        modelRow.outputTokens,
+                                        modelRow.cachedInputTokens,
+                                      )
+                                    : 0;
+                                  const displayCents = isSubscription ? estimatedCents : modelRow.costCents;
+                                  const totalCentsForShare = isSubscription ? estimatedCents : row.costCents;
+                                  const sharePct = totalCentsForShare > 0 ? Math.round((displayCents / totalCentsForShare) * 100) : 0;
                                   return (
                                     <div
                                       key={`${modelRow.provider}:${modelRow.model}:${modelRow.billingType}`}
@@ -782,8 +797,23 @@ export function Costs() {
                                       </div>
                                       <div className="text-right tabular-nums">
                                         <div className="font-medium">
-                                          {formatCents(modelRow.costCents)}
-                                          <span className="ml-1 font-normal text-muted-foreground">({sharePct}%)</span>
+                                          {isSubscription && estimatedCents > 0 ? (
+                                            <Tooltip>
+                                              <TooltipTrigger asChild>
+                                                <span className="text-muted-foreground cursor-default">
+                                                  ~{formatCents(estimatedCents)}
+                                                </span>
+                                              </TooltipTrigger>
+                                              <TooltipContent>Estimated based on public pricing. Not a billed charge.</TooltipContent>
+                                            </Tooltip>
+                                          ) : isSubscription ? (
+                                            <span className="text-muted-foreground">-</span>
+                                          ) : (
+                                            <>
+                                              {formatCents(modelRow.costCents)}
+                                              <span className="ml-1 font-normal text-muted-foreground">({sharePct}%)</span>
+                                            </>
+                                          )}
                                         </div>
                                         <div className="text-muted-foreground">
                                           {formatTokens(modelRow.inputTokens + modelRow.cachedInputTokens + modelRow.outputTokens)} tok

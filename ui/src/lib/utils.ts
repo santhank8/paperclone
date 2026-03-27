@@ -1,6 +1,6 @@
 import { type ClassValue, clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
-import { deriveAgentUrlKey, deriveProjectUrlKey } from "@paperclipai/shared";
+import { deriveAgentUrlKey, deriveProjectUrlKey, computeTokenCostUsd } from "@paperclipai/shared";
 import type { BillingType, FinanceDirection, FinanceEventKind } from "@paperclipai/shared";
 
 export function cn(...inputs: ClassValue[]) {
@@ -108,12 +108,57 @@ function readRunCostUsd(payload: Record<string, unknown> | null): number {
   return 0;
 }
 
+function readUsageTokens(usage: Record<string, unknown> | null): {
+  inputTokens: number;
+  outputTokens: number;
+  cachedInputTokens: number;
+} {
+  if (!usage) return { inputTokens: 0, outputTokens: 0, cachedInputTokens: 0 };
+  function readNum(obj: Record<string, unknown>, ...keys: string[]): number {
+    for (const k of keys) {
+      const v = obj[k];
+      if (typeof v === "number" && Number.isFinite(v) && v > 0) return v;
+    }
+    return 0;
+  }
+  return {
+    inputTokens: readNum(usage, "inputTokens", "input_tokens"),
+    outputTokens: readNum(usage, "outputTokens", "output_tokens"),
+    cachedInputTokens: readNum(usage, "cachedInputTokens", "cached_input_tokens", "cache_read_input_tokens"),
+  };
+}
+
+/**
+ * Returns true when the run was billed as subscription_included.
+ * In that case any reported cost is an approximation, not a real charge.
+ */
+export function isApproximateRunCost(
+  usage: Record<string, unknown> | null,
+  result: Record<string, unknown> | null = null,
+): boolean {
+  const billingType = coerceBillingType(usage?.billingType) ?? coerceBillingType(result?.billingType);
+  return billingType === "subscription_included";
+}
+
 export function visibleRunCostUsd(
   usage: Record<string, unknown> | null,
   result: Record<string, unknown> | null = null,
 ): number {
   const billingType = coerceBillingType(usage?.billingType) ?? coerceBillingType(result?.billingType);
-  if (billingType === "subscription_included") return 0;
+  if (billingType === "subscription_included") {
+    // Prefer adapter-reported costUsd (Claude/Gemini/Cursor report this even on subscription)
+    const reported = readRunCostUsd(usage) || readRunCostUsd(result);
+    if (reported > 0) return reported;
+    // Fall back to token-based estimate (e.g. Codex always returns costUsd: null)
+    const provider = typeof usage?.provider === "string" ? usage.provider : "";
+    const model = typeof usage?.model === "string" ? usage.model : "";
+    if (model) {
+      const { inputTokens, outputTokens, cachedInputTokens } = readUsageTokens(usage);
+      const estimated = computeTokenCostUsd(provider, model, inputTokens, outputTokens, cachedInputTokens);
+      if (estimated !== null) return estimated;
+    }
+    return 0;
+  }
   return readRunCostUsd(usage) || readRunCostUsd(result);
 }
 

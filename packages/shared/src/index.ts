@@ -536,6 +536,13 @@ export {
   type ListPluginState,
 } from "./validators/index.js";
 
+export {
+  type ModelPricing,
+  MODEL_PRICING,
+  computeTokenCostCents,
+  computeTokenCostUsd,
+} from "./model-pricing.js";
+
 export { API_PREFIX, API } from "./api.js";
 export { normalizeAgentUrlKey, deriveAgentUrlKey, isUuidLike } from "./agent-url-key.js";
 export { deriveProjectUrlKey, normalizeProjectUrlKey } from "./project-url-key.js";

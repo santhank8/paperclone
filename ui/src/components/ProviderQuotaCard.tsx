@@ -1,7 +1,9 @@
 import { useMemo } from "react";
 import type { CostByProviderModel, CostWindowSpendRow, QuotaWindow } from "@paperclipai/shared";
+import { computeTokenCostCents } from "@paperclipai/shared";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { QuotaBar } from "./QuotaBar";
 import { ClaudeSubscriptionPanel } from "./ClaudeSubscriptionPanel";
 import { CodexSubscriptionPanel } from "./CodexSubscriptionPanel";
@@ -261,6 +263,17 @@ export function ProviderQuotaCard({
             <div className="border-t border-border" />
             <div className="space-y-3">
               {rows.map((row) => {
+                const isSubscription = row.billingType === "subscription_included";
+                const estimatedCents = isSubscription
+                  ? computeTokenCostCents(
+                      row.provider,
+                      row.model,
+                      row.inputTokens,
+                      row.outputTokens,
+                      row.cachedInputTokens,
+                    )
+                  : 0;
+                const displayCents = isSubscription ? estimatedCents : row.costCents;
                 const rowTokens = row.inputTokens + row.outputTokens;
                 const tokenPct = totalTokens > 0 ? (rowTokens / totalTokens) * 100 : 0;
                 const costPct = totalCostCents > 0 ? (row.costCents / totalCostCents) * 100 : 0;
@@ -280,7 +293,18 @@ export function ProviderQuotaCard({
                         <span className="text-muted-foreground">
                           {formatTokens(rowTokens)} tok
                         </span>
-                        <span className="font-medium">{formatCents(row.costCents)}</span>
+                        {isSubscription && displayCents > 0 ? (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className="font-medium text-muted-foreground cursor-default">
+                                ~{formatCents(displayCents)}
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent>Estimated based on public pricing. Not a billed charge.</TooltipContent>
+                          </Tooltip>
+                        ) : (
+                          <span className="font-medium">{formatCents(row.costCents)}</span>
+                        )}
                       </div>
                     </div>
                     {/* token share bar */}

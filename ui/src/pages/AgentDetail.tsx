@@ -39,7 +39,7 @@ import { RunButton, PauseResumeButton } from "../components/AgentActionButtons";
 import { BudgetPolicyCard } from "../components/BudgetPolicyCard";
 import { PackageFileTree, buildFileTree } from "../components/PackageFileTree";
 import { ScrollToBottom } from "../components/ScrollToBottom";
-import { formatCents, formatDate, relativeTime, formatTokens, visibleRunCostUsd } from "../lib/utils";
+import { formatCents, formatDate, relativeTime, formatTokens, visibleRunCostUsd, isApproximateRunCost } from "../lib/utils";
 import { cn } from "../lib/utils";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -261,13 +261,14 @@ function runMetrics(run: HeartbeatRun) {
     "cached_input_tokens",
     "cache_read_input_tokens",
   );
-  const cost =
-    visibleRunCostUsd(usage, result);
+  const cost = visibleRunCostUsd(usage, result);
+  const isApproximate = isApproximateRunCost(usage, result);
   return {
     input,
     output,
     cached,
     cost,
+    isApproximate,
     totalTokens: input + output,
   };
 }
@@ -1228,6 +1229,26 @@ function CostsSection({
     })
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
+  // Compute total cost from runs (includes subscription estimates; server total is always 0 for subscription)
+  const costRollup = useMemo(() => {
+    let total = 0;
+    let anyApproximate = false;
+    for (const run of runs) {
+      const usage = (run.usageJson ?? null) as Record<string, unknown> | null;
+      const result = (run.resultJson ?? null) as Record<string, unknown> | null;
+      const cost = visibleRunCostUsd(usage, result);
+      total += cost;
+      if (cost > 0 && isApproximateRunCost(usage, result)) anyApproximate = true;
+    }
+    return { total, isApproximate: anyApproximate };
+  }, [runs]);
+
+  const totalCostDisplay = costRollup.total > 0
+    ? `${costRollup.isApproximate ? "~" : ""}$${costRollup.total.toFixed(2)}`
+    : runtimeState
+      ? formatCents(runtimeState.totalCostCents)
+      : "$0.00";
+
   return (
     <div className="space-y-4">
       {runtimeState && (
@@ -1247,7 +1268,16 @@ function CostsSection({
             </div>
             <div>
               <span className="text-xs text-muted-foreground block">Total cost</span>
-              <span className="text-lg font-semibold">{formatCents(runtimeState.totalCostCents)}</span>
+              {costRollup.isApproximate ? (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="text-lg font-semibold text-muted-foreground cursor-default">{totalCostDisplay}</span>
+                  </TooltipTrigger>
+                  <TooltipContent>Estimated based on public pricing. Not a billed charge.</TooltipContent>
+                </Tooltip>
+              ) : (
+                <span className="text-lg font-semibold">{totalCostDisplay}</span>
+              )}
             </div>
           </div>
         </div>
@@ -1274,10 +1304,18 @@ function CostsSection({
                     <td className="px-3 py-2 text-right tabular-nums">{formatTokens(metrics.input)}</td>
                     <td className="px-3 py-2 text-right tabular-nums">{formatTokens(metrics.output)}</td>
                     <td className="px-3 py-2 text-right tabular-nums">
-                      {metrics.cost > 0
-                        ? `$${metrics.cost.toFixed(4)}`
-                        : "-"
-                      }
+                      {metrics.cost > 0 ? (
+                        metrics.isApproximate ? (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className="text-muted-foreground cursor-default">~${metrics.cost.toFixed(4)}</span>
+                            </TooltipTrigger>
+                            <TooltipContent>Estimated based on public pricing. Not a billed charge.</TooltipContent>
+                          </Tooltip>
+                        ) : (
+                          `$${metrics.cost.toFixed(4)}`
+                        )
+                      ) : "-"}
                     </td>
                   </tr>
                 );
@@ -2773,7 +2811,18 @@ function RunListItem({ run, isSelected, agentId }: { run: HeartbeatRun; isSelect
       {(metrics.totalTokens > 0 || metrics.cost > 0) && (
         <div className="flex items-center gap-2 pl-5.5 text-[11px] text-muted-foreground tabular-nums">
           {metrics.totalTokens > 0 && <span>{formatTokens(metrics.totalTokens)} tok</span>}
-          {metrics.cost > 0 && <span>${metrics.cost.toFixed(3)}</span>}
+          {metrics.cost > 0 && (
+            metrics.isApproximate ? (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="text-muted-foreground cursor-default">~${metrics.cost.toFixed(3)}</span>
+                </TooltipTrigger>
+                <TooltipContent>Estimated based on public pricing. Not a billed charge.</TooltipContent>
+              </Tooltip>
+            ) : (
+              <span>${metrics.cost.toFixed(3)}</span>
+            )
+          )}
         </div>
       )}
     </Link>
@@ -3162,7 +3211,20 @@ function RunDetail({ run: initialRun, agentRouteId, adapterType }: { run: Heartb
               </div>
               <div>
                 <div className="text-xs text-muted-foreground">Cost</div>
-                <div className="text-sm font-medium font-mono">{metrics.cost > 0 ? `$${metrics.cost.toFixed(4)}` : "-"}</div>
+                <div className="text-sm font-medium font-mono">
+                  {metrics.cost > 0 ? (
+                    metrics.isApproximate ? (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="text-muted-foreground cursor-default">~${metrics.cost.toFixed(4)}</span>
+                        </TooltipTrigger>
+                        <TooltipContent>Estimated based on public pricing. Not a billed charge.</TooltipContent>
+                      </Tooltip>
+                    ) : (
+                      `$${metrics.cost.toFixed(4)}`
+                    )
+                  ) : "-"}
+                </div>
               </div>
             </div>
           )}
