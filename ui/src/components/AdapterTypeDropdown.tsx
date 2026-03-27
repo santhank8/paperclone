@@ -23,11 +23,14 @@ export const ADAPTER_DISPLAY_LIST: { value: string; label: string; comingSoon: b
 export function AdapterTypeDropdown({
   value,
   onChange,
+  hiddenAdapterTypes,
 }: {
   value: string;
   onChange: (type: string) => void;
+  hiddenAdapterTypes?: readonly string[];
 }) {
   const [open, setOpen] = useState(false);
+  const hiddenTypes = new Set(hiddenAdapterTypes ?? []);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -41,7 +44,7 @@ export function AdapterTypeDropdown({
         </button>
       </PopoverTrigger>
       <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-1" align="start">
-        {ADAPTER_DISPLAY_LIST.map((item) => (
+        {ADAPTER_DISPLAY_LIST.filter((item) => !hiddenTypes.has(item.value)).map((item) => (
           <button
             key={item.value}
             disabled={item.comingSoon}

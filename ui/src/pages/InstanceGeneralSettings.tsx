@@ -87,6 +87,7 @@ export function InstanceGeneralSettings() {
         <div className="mt-4 max-w-sm">
           <AdapterTypeDropdown
             value={defaultAdapterType}
+            hiddenAdapterTypes={["process", "http"]}
             onChange={(adapterType) =>
               updateGeneralMutation.mutate({ defaultAdapterType: adapterType as AgentAdapterType })
             }
