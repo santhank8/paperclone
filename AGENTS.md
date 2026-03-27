@@ -31,7 +31,25 @@ Before making changes, read in this order:
 - `packages/plugins/`: plugin system packages
 - `doc/`: operational and product docs
 
-## 4. Dev Setup (Auto DB)
+## 4. Repository Setup (Fork)
+
+This repository is a fork of `paperclipai/paperclip`.
+
+- `upstream` → `https://github.com/paperclipai/paperclip.git` (original repo, `master` is source of truth, **read-only**)
+- `origin` → `git@github.com:nahankid/paperclip.git` (our fork, `main` is source of truth)
+
+**IMPORTANT**: `upstream` is read-only. Never push to `upstream` or open PRs against it.
+All commits, pushes, and PRs must target `origin` (`nahankid/paperclip`) on the `main` branch.
+
+Sync workflow: periodically pull from `upstream/master` and rebase onto `origin/main`.
+
+```sh
+git fetch upstream
+git rebase upstream/master
+git push origin main
+```
+
+## 5. Dev Setup (Auto DB)
 
 Use embedded PGlite in dev by leaving `DATABASE_URL` unset.
 
@@ -59,7 +77,7 @@ rm -rf data/pglite
 pnpm dev
 ```
 
-## 5. Core Engineering Rules
+## 6. Core Engineering Rules
 
 1. Keep changes company-scoped.
 Every domain entity should be scoped to a company and company boundaries must be enforced in routes/services.
@@ -84,7 +102,7 @@ Prefer additive updates. Keep `doc/SPEC.md` and `doc/SPEC-implementation.md` ali
 5. Keep plan docs dated and centralized.
 New plan documents belong in `doc/plans/` and should use `YYYY-MM-DD-slug.md` filenames.
 
-## 6. Database Change Workflow
+## 7. Database Change Workflow
 
 When changing data model:
 
@@ -106,7 +124,7 @@ Notes:
 - `packages/db/drizzle.config.ts` reads compiled schema from `dist/schema/*.js`
 - `pnpm db:generate` compiles `packages/db` first
 
-## 7. Verification Before Hand-off
+## 8. Verification Before Hand-off
 
 Run this full check before claiming done:
 
@@ -118,7 +136,7 @@ pnpm build
 
 If anything cannot be run, explicitly report what was not run and why.
 
-## 8. API and Auth Expectations
+## 9. API and Auth Expectations
 
 - Base path: `/api`
 - Board access is treated as full-control operator context
@@ -132,13 +150,13 @@ When adding endpoints:
 - write activity log entries for mutations
 - return consistent HTTP errors (`400/401/403/404/409/422/500`)
 
-## 9. UI Expectations
+## 10. UI Expectations
 
 - Keep routes and nav aligned with available API surface
 - Use company selection context for company-scoped pages
 - Surface failures clearly; do not silently ignore API errors
 
-## 10. Definition of Done
+## 11. Definition of Done
 
 A change is done when all are true:
 
