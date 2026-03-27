@@ -16,8 +16,8 @@ export function ReportsToPicker({
   onChange,
   disabled = false,
   excludeAgentIds = [],
-  disabledEmptyLabel = "Reports to: N/A (CEO)",
-  chooseLabel = "Reports to...",
+  disabledEmptyLabel = "汇报给：不适用 (CEO)",
+  chooseLabel = "汇报给...",
 }: {
   agents: Agent[];
   value: string | null;
@@ -51,7 +51,7 @@ export function ReportsToPicker({
           {unknownManager ? (
             <>
               <User className="h-3 w-3 shrink-0 text-muted-foreground" />
-              <span className="min-w-0 truncate text-muted-foreground">Unknown manager (stale ID)</span>
+              <span className="min-w-0 truncate text-muted-foreground">未知管理者（ID 已过期）</span>
             </>
           ) : current ? (
             <>
@@ -62,7 +62,7 @@ export function ReportsToPicker({
                   terminatedManager && "text-amber-900 dark:text-amber-200",
                 )}
               >
-                {`Reports to ${current.name}${terminatedManager ? " (terminated)" : ""}`}
+                {`汇报给 ${current.name}${terminatedManager ? "（已终止）" : ""}`}
               </span>
             </>
           ) : (
@@ -87,19 +87,19 @@ export function ReportsToPicker({
             setOpen(false);
           }}
         >
-          No manager
+          无管理者
         </button>
         {terminatedManager && (
           <div className="flex min-w-0 items-center gap-2 overflow-hidden px-2 py-1.5 text-xs text-muted-foreground border-b border-border mb-0.5">
             <AgentIcon icon={current.icon} className="shrink-0 h-3 w-3" />
             <span className="min-w-0 truncate">
-              Current: {current.name} (terminated)
+              当前：{current.name}（已终止）
             </span>
           </div>
         )}
         {unknownManager && (
           <div className="px-2 py-1.5 text-xs text-muted-foreground border-b border-border mb-0.5">
-            Saved manager is missing from this company. Choose a new manager or clear.
+            已保存的管理者在此公司中不存在。请选择新的管理者或清除。
           </div>
         )}
         {rows.map((a) => (
