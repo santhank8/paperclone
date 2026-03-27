@@ -73,6 +73,22 @@ export function agentRoutes(db: Db) {
   };
   const DEFAULT_MANAGED_INSTRUCTIONS_ADAPTER_TYPES = new Set(Object.keys(DEFAULT_INSTRUCTIONS_PATH_KEYS));
   const KNOWN_INSTRUCTIONS_PATH_KEYS = new Set(["instructionsFilePath", "agentsMdPath"]);
+  const CROSS_ADAPTER_CONFIG_KEYS = new Set([
+    "cwd",
+    "env",
+    "maxTurnsPerRun",
+    "instructionsBundleMode",
+    "instructionsRootPath",
+    "instructionsEntryFile",
+    "instructionsFilePath",
+    "paperclipSkillSync",
+    "workspaceRuntime",
+    "promptTemplate",
+    "bootstrapPromptTemplate",
+    "extraArgs",
+    "timeoutSec",
+    "graceSec",
+  ]);
 
   const router = Router();
   const svc = agentService(db);
@@ -352,11 +368,27 @@ export function agentRoutes(db: Db) {
     return { ...adapterConfig, devicePrivateKeyPem: generateEd25519PrivateKeyPem() };
   }
 
+  const OPENCODE_PERMISSION_ALLOW_ALL = JSON.stringify({
+    edit: "allow",
+    bash: "allow",
+    webfetch: "allow",
+    external_directory: "allow",
+    doom_loop: "allow",
+    skill: "allow",
+    task: "allow",
+  });
+
   function applyCreateDefaultsByAdapterType(
     adapterType: string | null | undefined,
     adapterConfig: Record<string, unknown>,
   ): Record<string, unknown> {
     const next = { ...adapterConfig };
+    if (adapterType === "claude_local") {
+      if (typeof next.dangerouslySkipPermissions !== "boolean") {
+        next.dangerouslySkipPermissions = true;
+      }
+      return ensureGatewayDeviceKey(adapterType, next);
+    }
     if (adapterType === "codex_local") {
       if (!asNonEmptyString(next.model)) {
         next.model = DEFAULT_CODEX_LOCAL_MODEL;
@@ -369,11 +401,19 @@ export function agentRoutes(db: Db) {
       }
       return ensureGatewayDeviceKey(adapterType, next);
     }
+    if (adapterType === "opencode_local") {
+      // Inject OPENCODE_PERMISSION env var so agents run fully autonomous
+      const env = (asRecord(next.env) ?? {}) as Record<string, unknown>;
+      if (!asNonEmptyString(env.OPENCODE_PERMISSION)) {
+        env.OPENCODE_PERMISSION = OPENCODE_PERMISSION_ALLOW_ALL;
+        next.env = env;
+      }
+      return ensureGatewayDeviceKey(adapterType, next);
+    }
     if (adapterType === "gemini_local" && !asNonEmptyString(next.model)) {
       next.model = DEFAULT_GEMINI_LOCAL_MODEL;
       return ensureGatewayDeviceKey(adapterType, next);
     }
-    // OpenCode requires explicit model selection — no default
     if (adapterType === "cursor" && !asNonEmptyString(next.model)) {
       next.model = DEFAULT_CURSOR_LOCAL_MODEL;
     }
@@ -415,6 +455,16 @@ export function agentRoutes(db: Db) {
       throw unprocessable("adapterConfig.cwd must be an absolute path to resolve relative instructions path");
     }
     return path.resolve(cwd, trimmed);
+  }
+
+  function preserveCrossAdapterConfig(adapterConfig: Record<string, unknown>) {
+    const preserved: Record<string, unknown> = {};
+    for (const key of CROSS_ADAPTER_CONFIG_KEYS) {
+      if (Object.prototype.hasOwnProperty.call(adapterConfig, key)) {
+        preserved[key] = adapterConfig[key];
+      }
+    }
+    return preserved;
   }
 
   async function materializeDefaultInstructionsBundleForNewAgent<T extends {
@@ -1689,6 +1739,9 @@ export function agentRoutes(db: Db) {
     }
 
     const patchData = { ...(req.body as Record<string, unknown>) };
+    const requestedAdapterType =
+      typeof patchData.adapterType === "string" ? patchData.adapterType : existing.adapterType;
+    const adapterTypeChanged = requestedAdapterType !== existing.adapterType;
     if (Object.prototype.hasOwnProperty.call(patchData, "adapterConfig")) {
       const adapterConfig = asRecord(patchData.adapterConfig);
       if (!adapterConfig) {
@@ -1701,11 +1754,30 @@ export function agentRoutes(db: Db) {
       if (changingInstructionsPath) {
         await assertCanManageInstructionsPath(req, existing);
       }
-      patchData.adapterConfig = adapterConfig;
+      const existingAdapterConfig = asRecord(existing.adapterConfig) ?? {};
+      patchData.adapterConfig = adapterTypeChanged
+        ? {
+            ...preserveCrossAdapterConfig(existingAdapterConfig),
+            ...adapterConfig,
+          }
+        : {
+            ...existingAdapterConfig,
+            ...adapterConfig,
+          };
     }
-
-    const requestedAdapterType =
-      typeof patchData.adapterType === "string" ? patchData.adapterType : existing.adapterType;
+    if (Object.prototype.hasOwnProperty.call(patchData, "runtimeConfig")) {
+      const runtimeConfig = asRecord(patchData.runtimeConfig);
+      if (patchData.runtimeConfig !== undefined && !runtimeConfig) {
+        res.status(422).json({ error: "runtimeConfig must be an object" });
+        return;
+      }
+      if (runtimeConfig) {
+        patchData.runtimeConfig = {
+          ...(asRecord(existing.runtimeConfig) ?? {}),
+          ...runtimeConfig,
+        };
+      }
+    }
     const touchesAdapterConfiguration =
       Object.prototype.hasOwnProperty.call(patchData, "adapterType") ||
       Object.prototype.hasOwnProperty.call(patchData, "adapterConfig");

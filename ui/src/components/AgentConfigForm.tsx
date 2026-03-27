@@ -102,6 +102,22 @@ const emptyOverlay: Overlay = {
 
 /** Stable empty object used as fallback for missing env config to avoid new-object-per-render. */
 const EMPTY_ENV: Record<string, EnvBinding> = {};
+const CROSS_ADAPTER_CONFIG_KEYS = [
+  "cwd",
+  "env",
+  "maxTurnsPerRun",
+  "instructionsBundleMode",
+  "instructionsRootPath",
+  "instructionsEntryFile",
+  "instructionsFilePath",
+  "paperclipSkillSync",
+  "workspaceRuntime",
+  "promptTemplate",
+  "bootstrapPromptTemplate",
+  "extraArgs",
+  "timeoutSec",
+  "graceSec",
+] as const;
 
 function isOverlayDirty(o: Overlay): boolean {
   return (
@@ -345,6 +361,14 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
     if (isCreate) {
       return uiAdapter.buildAdapterConfig(val!);
     }
+    if (overlay.adapterType !== undefined) {
+      const preserved = Object.fromEntries(
+        CROSS_ADAPTER_CONFIG_KEYS.flatMap((key) =>
+          Object.prototype.hasOwnProperty.call(config, key) ? [[key, config[key]]] : [],
+        ),
+      );
+      return { ...preserved, ...overlay.adapterConfig };
+    }
     const base = config as Record<string, unknown>;
     return { ...base, ...overlay.adapterConfig };
   }
@@ -548,12 +572,18 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
                     }
                     set!(nextValues);
                   } else {
+                    const preserved = Object.fromEntries(
+                      CROSS_ADAPTER_CONFIG_KEYS.flatMap((key) =>
+                        Object.prototype.hasOwnProperty.call(config, key) ? [[key, config[key]]] : [],
+                      ),
+                    );
                     // Clear all adapter config and explicitly blank out model + effort/mode keys
                     // so the old adapter's values don't bleed through via eff()
                     setOverlay((prev) => ({
                       ...prev,
                       adapterType: t,
                       adapterConfig: {
+                        ...preserved,
                         model:
                           t === "codex_local"
                             ? DEFAULT_CODEX_LOCAL_MODEL
@@ -566,12 +596,14 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
                         modelReasoningEffort: "",
                         variant: "",
                         mode: "",
-                        ...(t === "codex_local"
-                          ? {
-                              dangerouslyBypassApprovalsAndSandbox:
-                                DEFAULT_CODEX_LOCAL_BYPASS_APPROVALS_AND_SANDBOX,
-                            }
-                          : {}),
+                        ...(t === "claude_local"
+                          ? { dangerouslySkipPermissions: true }
+                          : t === "codex_local"
+                            ? {
+                                dangerouslyBypassApprovalsAndSandbox:
+                                  DEFAULT_CODEX_LOCAL_BYPASS_APPROVALS_AND_SANDBOX,
+                              }
+                            : {}),
                       },
                     }));
                   }
@@ -960,7 +992,7 @@ function AdapterEnvironmentResult({ result }: { result: AdapterEnvironmentTestRe
 
 /* ---- Internal sub-components ---- */
 
-const ENABLED_ADAPTER_TYPES = new Set(["claude_local", "codex_local", "gemini_local", "opencode_local", "pi_local", "cursor"]);
+const ENABLED_ADAPTER_TYPES = new Set(["claude_local", "codex_local", "gemini_local", "opencode_local", "pi_local", "cursor", "openclaw_gateway"]);
 
 /** Display list includes all real adapter types plus UI-only coming-soon entries. */
 const ADAPTER_DISPLAY_LIST: { value: string; label: string; comingSoon: boolean }[] = [
