@@ -1,6 +1,7 @@
 ---
 name: Daily Security Audit
 assignee: security-lead
+project: initial-audit
 recurring: true
 ---
 
