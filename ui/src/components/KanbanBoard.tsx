@@ -48,7 +48,7 @@ interface KanbanBoardProps {
   onUpdateIssue: (id: string, data: Record<string, unknown>) => void;
 }
 
-/* ── Droppable Column ── */
+/* ── 可放置列 ── */
 
 function KanbanColumn({
   status,
@@ -98,7 +98,7 @@ function KanbanColumn({
   );
 }
 
-/* ── Draggable Card ── */
+/* ── 可拖拽卡片 ── */
 
 function KanbanCard({
   issue,
@@ -144,7 +144,7 @@ function KanbanCard({
         to={`/issues/${issue.identifier ?? issue.id}`}
         className="block no-underline text-inherit"
         onClick={(e) => {
-          // Prevent navigation during drag
+          // 拖拽过程中阻止导航
           if (isDragging) e.preventDefault();
         }}
       >
@@ -178,7 +178,7 @@ function KanbanCard({
   );
 }
 
-/* ── Main Board ── */
+/* ── 主面板 ── */
 
 export function KanbanBoard({
   issues,
@@ -223,14 +223,14 @@ export function KanbanBoard({
     const issue = issues.find((i) => i.id === issueId);
     if (!issue) return;
 
-    // Determine target status: the "over" could be a column id (status string)
-    // or another card's id. Find which column the "over" belongs to.
+    // 确定目标状态："over" 可能是列 ID（状态字符串）
+    // 或另一个卡片的 ID。查找 "over" 所属的列。
     let targetStatus: string | null = null;
 
     if (boardStatuses.includes(over.id as string)) {
       targetStatus = over.id as string;
     } else {
-      // It's a card - find which column it's in
+      // 这是一个卡片 - 查找它所在的列
       const targetIssue = issues.find((i) => i.id === over.id);
       if (targetIssue) {
         targetStatus = targetIssue.status;
@@ -243,7 +243,7 @@ export function KanbanBoard({
   }
 
   function handleDragOver(_event: DragOverEvent) {
-    // Could be used for visual feedback; keeping simple for now
+    // 可用于视觉反馈；目前保持简单
   }
 
   return (

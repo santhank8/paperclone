@@ -68,7 +68,7 @@ function saveDraft(draftKey: string, value: string) {
       localStorage.removeItem(draftKey);
     }
   } catch {
-    // Ignore localStorage failures.
+    // 忽略 localStorage 错误。
   }
 }
 
@@ -76,7 +76,7 @@ function clearDraft(draftKey: string) {
   try {
     localStorage.removeItem(draftKey);
   } catch {
-    // Ignore localStorage failures.
+    // 忽略 localStorage 错误。
   }
 }
 
@@ -304,7 +304,7 @@ export function CommentThread({
     });
   }, [comments, linkedRuns]);
 
-  // Build mention options from agent map (exclude terminated agents)
+  // 从智能体映射中构建提及选项（排除已终止的智能体）
   const mentions = useMemo<MentionOption[]>(() => {
     if (providedMentions) return providedMentions;
     if (!agentMap) return [];
@@ -342,19 +342,19 @@ export function CommentThread({
     setReassignTarget(effectiveSuggestedAssigneeValue);
   }, [effectiveSuggestedAssigneeValue]);
 
-  // Scroll to comment when URL hash matches #comment-{id}
+  // 当 URL 哈希匹配 #comment-{id} 时滚动到评论
   useEffect(() => {
     const hash = location.hash;
     if (!hash.startsWith("#comment-") || comments.length === 0) return;
     const commentId = hash.slice("#comment-".length);
-    // Only scroll once per hash
+    // 每个哈希只滚动一次
     if (hasScrolledRef.current) return;
     const el = document.getElementById(`comment-${commentId}`);
     if (el) {
       hasScrolledRef.current = true;
       setHighlightCommentId(commentId);
       el.scrollIntoView({ behavior: "smooth", block: "center" });
-      // Clear highlight after animation
+      // 动画结束后清除高亮
       const timer = setTimeout(() => setHighlightCommentId(null), 3000);
       return () => clearTimeout(timer);
     }
@@ -401,7 +401,7 @@ export function CommentThread({
 
   return (
     <div className="space-y-4">
-      <h3 className="text-sm font-semibold">Comments &amp; Runs ({timeline.length})</h3>
+      <h3 className="text-sm font-semibold">评论与运行 ({timeline.length})</h3>
 
       <TimelineList
         timeline={timeline}
@@ -418,7 +418,7 @@ export function CommentThread({
           ref={editorRef}
           value={body}
           onChange={setBody}
-          placeholder="Leave a comment..."
+          placeholder="留下评论..."
           mentions={mentions}
           onSubmit={handleSubmit}
           imageUploadHandler={imageUploadHandler}
@@ -439,7 +439,7 @@ export function CommentThread({
                 size="icon-sm"
                 onClick={() => attachInputRef.current?.click()}
                 disabled={attaching}
-                title="Attach image"
+                title="附加图片"
               >
                 <Paperclip className="h-4 w-4" />
               </Button>
@@ -452,20 +452,20 @@ export function CommentThread({
               onChange={(e) => setReopen(e.target.checked)}
               className="rounded border-border"
             />
-            Re-open
+            重新打开
           </label>
           {enableReassign && reassignOptions.length > 0 && (
             <InlineEntitySelector
               value={reassignTarget}
               options={reassignOptions}
-              placeholder="Assignee"
-              noneLabel="No assignee"
-              searchPlaceholder="Search assignees..."
-              emptyMessage="No assignees found."
+              placeholder="负责人"
+              noneLabel="无负责人"
+              searchPlaceholder="搜索负责人..."
+              emptyMessage="未找到负责人。"
               onChange={setReassignTarget}
               className="text-xs h-8"
               renderTriggerValue={(option) => {
-                if (!option) return <span className="text-muted-foreground">Assignee</span>;
+                if (!option) return <span className="text-muted-foreground">负责人</span>;
                 const agentId = option.id.startsWith("agent:") ? option.id.slice("agent:".length) : null;
                 const agent = agentId ? agentMap?.get(agentId) : null;
                 return (
@@ -493,7 +493,7 @@ export function CommentThread({
             />
           )}
           <Button size="sm" disabled={!canSubmit} onClick={handleSubmit}>
-            {submitting ? "Posting..." : "Comment"}
+            {submitting ? "发布中..." : "评论"}
           </Button>
         </div>
       </div>

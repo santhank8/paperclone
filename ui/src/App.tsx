@@ -52,11 +52,11 @@ function BootstrapPendingPage({ hasActiveInvite = false }: { hasActiveInvite?: b
   return (
     <div className="mx-auto max-w-xl py-10">
       <div className="rounded-lg border border-border bg-card p-6">
-        <h1 className="text-xl font-semibold">Instance setup required</h1>
+        <h1 className="text-xl font-semibold">需要初始化实例</h1>
         <p className="mt-2 text-sm text-muted-foreground">
           {hasActiveInvite
-            ? "No instance admin exists yet. A bootstrap invite is already active. Check your Paperclip startup logs for the first admin invite URL, or run this command to rotate it:"
-            : "No instance admin exists yet. Run this command in your Paperclip environment to generate the first admin invite URL:"}
+            ? "尚无实例管理员。引导邀请已激活。请检查 Paperclip 启动日志获取首个管理员邀请 URL，或运行以下命令重新生成："
+            : "尚无实例管理员。在 Paperclip 环境中运行以下命令生成首个管理员邀请 URL："}
         </p>
         <pre className="mt-4 overflow-x-auto rounded-md border border-border bg-muted/30 p-3 text-xs">
 {`pnpm paperclipai auth bootstrap-ceo`}
@@ -92,13 +92,13 @@ function CloudAccessGate() {
   });
 
   if (healthQuery.isLoading || (isAuthenticatedMode && sessionQuery.isLoading)) {
-    return <div className="mx-auto max-w-xl py-10 text-sm text-muted-foreground">Loading...</div>;
+    return <div className="mx-auto max-w-xl py-10 text-sm text-muted-foreground">加载中...</div>;
   }
 
   if (healthQuery.error) {
     return (
       <div className="mx-auto max-w-xl py-10 text-sm text-destructive">
-        {healthQuery.error instanceof Error ? healthQuery.error.message : "Failed to load app state"}
+        {healthQuery.error instanceof Error ? healthQuery.error.message : "加载应用状态失败"}
       </div>
     );
   }
@@ -196,15 +196,15 @@ function OnboardingRoutePage() {
     : null;
 
   const title = matchedCompany
-    ? `Add another agent to ${matchedCompany.name}`
+    ? `为 ${matchedCompany.name} 添加另一个智能体`
     : companies.length > 0
-      ? "Create another company"
-      : "Create your first company";
+      ? "创建另一个公司"
+      : "创建你的第一个公司";
   const description = matchedCompany
-    ? "Run onboarding again to add an agent and a starter task for this company."
+    ? "再次运行初始化向导，为此公司添加一个智能体和入门任务。"
     : companies.length > 0
-      ? "Run onboarding again to create another company and seed its first agent."
-      : "Get started by creating a company and your first agent.";
+      ? "再次运行初始化向导，创建另一个公司并初始化其第一个智能体。"
+      : "从创建一个公司和你的第一个智能体开始。";
 
   return (
     <div className="mx-auto max-w-xl py-10">
@@ -219,7 +219,7 @@ function OnboardingRoutePage() {
                 : openOnboarding()
             }
           >
-            {matchedCompany ? "Add Agent" : "Start Onboarding"}
+            {matchedCompany ? "添加智能体" : "开始初始化"}
           </Button>
         </div>
       </div>
@@ -232,7 +232,7 @@ function CompanyRootRedirect() {
   const location = useLocation();
 
   if (loading) {
-    return <div className="mx-auto max-w-xl py-10 text-sm text-muted-foreground">Loading...</div>;
+    return <div className="mx-auto max-w-xl py-10 text-sm text-muted-foreground">加载中...</div>;
   }
 
   const targetCompany = selectedCompany ?? companies[0] ?? null;
@@ -256,7 +256,7 @@ function UnprefixedBoardRedirect() {
   const { companies, selectedCompany, loading } = useCompany();
 
   if (loading) {
-    return <div className="mx-auto max-w-xl py-10 text-sm text-muted-foreground">Loading...</div>;
+    return <div className="mx-auto max-w-xl py-10 text-sm text-muted-foreground">加载中...</div>;
   }
 
   const targetCompany = selectedCompany ?? companies[0] ?? null;
@@ -286,12 +286,12 @@ function NoCompaniesStartPage() {
   return (
     <div className="mx-auto max-w-xl py-10">
       <div className="rounded-lg border border-border bg-card p-6">
-        <h1 className="text-xl font-semibold">Create your first company</h1>
+        <h1 className="text-xl font-semibold">创建你的第一个公司</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Get started by creating a company.
+          从创建一个公司开始。
         </p>
         <div className="mt-4">
-          <Button onClick={() => openOnboarding()}>New Company</Button>
+          <Button onClick={() => openOnboarding()}>新建公司</Button>
         </div>
       </div>
     </div>

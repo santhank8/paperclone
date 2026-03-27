@@ -125,7 +125,7 @@ import { PageSkeleton } from "@/components/PageSkeleton";
 import { Identity } from "@/components/Identity";
 
 /* ------------------------------------------------------------------ */
-/*  Section wrapper                                                    */
+/*  区块容器                                                            */
 /* ------------------------------------------------------------------ */
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
@@ -150,7 +150,7 @@ function SubSection({ title, children }: { title: string; children: React.ReactN
 }
 
 /* ------------------------------------------------------------------ */
-/*  Color swatch                                                       */
+/*  颜色色块                                                            */
 /* ------------------------------------------------------------------ */
 
 function Swatch({ name, cssVar }: { name: string; cssVar: string }) {
@@ -169,7 +169,7 @@ function Swatch({ name, cssVar }: { name: string; cssVar: string }) {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Page                                                               */
+/*  页面                                                               */
 /* ------------------------------------------------------------------ */
 
 export function DesignGuide() {
@@ -178,35 +178,35 @@ export function DesignGuide() {
   const [selectValue, setSelectValue] = useState("in_progress");
   const [menuChecked, setMenuChecked] = useState(true);
   const [collapsibleOpen, setCollapsibleOpen] = useState(false);
-  const [inlineText, setInlineText] = useState("Click to edit this text");
-  const [inlineTitle, setInlineTitle] = useState("Editable Title");
+  const [inlineText, setInlineText] = useState("点击编辑此文本");
+  const [inlineTitle, setInlineTitle] = useState("可编辑标题");
   const [inlineDesc, setInlineDesc] = useState(
-    "This is an editable description. Click to edit it — the textarea auto-sizes to fit the content without layout shift."
+    "这是一段可编辑的描述。点击即可编辑 — 文本区域会自动调整大小以适应内容，不会产生布局偏移。"
   );
   const [filters, setFilters] = useState<FilterValue[]>([
-    { key: "status", label: "Status", value: "Active" },
-    { key: "priority", label: "Priority", value: "High" },
+    { key: "status", label: "状态", value: "活跃" },
+    { key: "priority", label: "优先级", value: "高" },
   ]);
 
   return (
     <div className="space-y-10 max-w-4xl">
-      {/* Page header */}
+      {/* 页面标题 */}
       <div>
-        <h2 className="text-xl font-bold">Design Guide</h2>
+        <h2 className="text-xl font-bold">设计指南</h2>
         <p className="text-sm text-muted-foreground mt-1">
-          Every component, style, and pattern used across Paperclip.
+          Paperclip 中使用的每个组件、样式和模式。
         </p>
       </div>
 
       {/* ============================================================ */}
-      {/*  COVERAGE                                                     */}
+      {/*  覆盖范围                                                     */}
       {/* ============================================================ */}
-      <Section title="Component Coverage">
+      <Section title="组件覆盖范围">
         <p className="text-sm text-muted-foreground">
-          This page should be updated when new UI primitives or app-level patterns ship.
+          当新的 UI 基础组件或应用级模式发布时，此页面应随之更新。
         </p>
         <div className="grid gap-6 md:grid-cols-2">
-          <SubSection title="UI primitives">
+          <SubSection title="UI 基础组件">
             <div className="flex flex-wrap gap-2">
               {[
                 "avatar", "badge", "breadcrumb", "button", "card", "checkbox", "collapsible",
@@ -219,7 +219,7 @@ export function DesignGuide() {
               ))}
             </div>
           </SubSection>
-          <SubSection title="App components">
+          <SubSection title="应用组件">
             <div className="flex flex-wrap gap-2">
               {[
                 "StatusBadge", "StatusIcon", "PriorityIcon", "EntityRow", "EmptyState", "MetricCard",
@@ -236,40 +236,40 @@ export function DesignGuide() {
       </Section>
 
       {/* ============================================================ */}
-      {/*  COLORS                                                       */}
+      {/*  颜色                                                         */}
       {/* ============================================================ */}
-      <Section title="Colors">
-        <SubSection title="Core">
+      <Section title="颜色">
+        <SubSection title="核心">
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-            <Swatch name="Background" cssVar="--background" />
-            <Swatch name="Foreground" cssVar="--foreground" />
-            <Swatch name="Card" cssVar="--card" />
-            <Swatch name="Primary" cssVar="--primary" />
-            <Swatch name="Primary foreground" cssVar="--primary-foreground" />
-            <Swatch name="Secondary" cssVar="--secondary" />
-            <Swatch name="Muted" cssVar="--muted" />
-            <Swatch name="Muted foreground" cssVar="--muted-foreground" />
-            <Swatch name="Accent" cssVar="--accent" />
-            <Swatch name="Destructive" cssVar="--destructive" />
-            <Swatch name="Border" cssVar="--border" />
-            <Swatch name="Ring" cssVar="--ring" />
+            <Swatch name="背景" cssVar="--background" />
+            <Swatch name="前景" cssVar="--foreground" />
+            <Swatch name="卡片" cssVar="--card" />
+            <Swatch name="主色" cssVar="--primary" />
+            <Swatch name="主色前景" cssVar="--primary-foreground" />
+            <Swatch name="次要色" cssVar="--secondary" />
+            <Swatch name="柔和色" cssVar="--muted" />
+            <Swatch name="柔和前景色" cssVar="--muted-foreground" />
+            <Swatch name="强调色" cssVar="--accent" />
+            <Swatch name="危险色" cssVar="--destructive" />
+            <Swatch name="边框" cssVar="--border" />
+            <Swatch name="聚焦环" cssVar="--ring" />
           </div>
         </SubSection>
 
-        <SubSection title="Sidebar">
+        <SubSection title="侧边栏">
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-            <Swatch name="Sidebar" cssVar="--sidebar" />
-            <Swatch name="Sidebar border" cssVar="--sidebar-border" />
+            <Swatch name="侧边栏" cssVar="--sidebar" />
+            <Swatch name="侧边栏边框" cssVar="--sidebar-border" />
           </div>
         </SubSection>
 
-        <SubSection title="Chart">
+        <SubSection title="图表">
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-            <Swatch name="Chart 1" cssVar="--chart-1" />
-            <Swatch name="Chart 2" cssVar="--chart-2" />
-            <Swatch name="Chart 3" cssVar="--chart-3" />
-            <Swatch name="Chart 4" cssVar="--chart-4" />
-            <Swatch name="Chart 5" cssVar="--chart-5" />
+            <Swatch name="图表 1" cssVar="--chart-1" />
+            <Swatch name="图表 2" cssVar="--chart-2" />
+            <Swatch name="图表 3" cssVar="--chart-3" />
+            <Swatch name="图表 4" cssVar="--chart-4" />
+            <Swatch name="图表 5" cssVar="--chart-5" />
           </div>
         </SubSection>
       </Section>
@@ -277,34 +277,34 @@ export function DesignGuide() {
       {/* ============================================================ */}
       {/*  TYPOGRAPHY                                                   */}
       {/* ============================================================ */}
-      <Section title="Typography">
+      <Section title="字体排版">
         <div className="space-y-3">
-          <h2 className="text-xl font-bold">Page Title — text-xl font-bold</h2>
-          <h2 className="text-lg font-semibold">Section Title — text-lg font-semibold</h2>
+          <h2 className="text-xl font-bold">页面标题 — text-xl font-bold</h2>
+          <h2 className="text-lg font-semibold">章节标题 — text-lg font-semibold</h2>
           <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-            Section Heading — text-sm font-semibold uppercase tracking-wide
+            章节标题 — text-sm font-semibold uppercase tracking-wide
           </h3>
-          <p className="text-sm font-medium">Card Title — text-sm font-medium</p>
-          <p className="text-sm font-semibold">Card Title Alt — text-sm font-semibold</p>
-          <p className="text-sm">Body text — text-sm</p>
+          <p className="text-sm font-medium">卡片标题 — text-sm font-medium</p>
+          <p className="text-sm font-semibold">卡片标题（备用） — text-sm font-semibold</p>
+          <p className="text-sm">正文 — text-sm</p>
           <p className="text-sm text-muted-foreground">
-            Muted description — text-sm text-muted-foreground
+            柔和描述 — text-sm text-muted-foreground
           </p>
           <p className="text-xs text-muted-foreground">
-            Tiny label — text-xs text-muted-foreground
+            小标签 — text-xs text-muted-foreground
           </p>
           <p className="text-sm font-mono text-muted-foreground">
-            Mono identifier — text-sm font-mono text-muted-foreground
+            等宽标识符 — text-sm font-mono text-muted-foreground
           </p>
-          <p className="text-2xl font-bold">Large stat — text-2xl font-bold</p>
-          <p className="font-mono text-xs">Log/code text — font-mono text-xs</p>
+          <p className="text-2xl font-bold">大数字 — text-2xl font-bold</p>
+          <p className="font-mono text-xs">日志/代码文本 — font-mono text-xs</p>
         </div>
       </Section>
 
       {/* ============================================================ */}
       {/*  SPACING & RADIUS                                             */}
       {/* ============================================================ */}
-      <Section title="Radius">
+      <Section title="圆角">
         <div className="flex items-end gap-4 flex-wrap">
           {[
             ["sm", "var(--radius-sm)"],
@@ -327,28 +327,28 @@ export function DesignGuide() {
       {/* ============================================================ */}
       {/*  BUTTONS                                                      */}
       {/* ============================================================ */}
-      <Section title="Buttons">
-        <SubSection title="Variants">
+      <Section title="按钮">
+        <SubSection title="变体">
           <div className="flex items-center gap-2 flex-wrap">
-            <Button variant="default">Default</Button>
-            <Button variant="secondary">Secondary</Button>
-            <Button variant="outline">Outline</Button>
-            <Button variant="ghost">Ghost</Button>
-            <Button variant="destructive">Destructive</Button>
-            <Button variant="link">Link</Button>
+            <Button variant="default">默认</Button>
+            <Button variant="secondary">次要</Button>
+            <Button variant="outline">轮廓</Button>
+            <Button variant="ghost">幽灵</Button>
+            <Button variant="destructive">危险</Button>
+            <Button variant="link">链接</Button>
           </div>
         </SubSection>
 
-        <SubSection title="Sizes">
+        <SubSection title="尺寸">
           <div className="flex items-center gap-2 flex-wrap">
-            <Button size="xs">Extra Small</Button>
-            <Button size="sm">Small</Button>
-            <Button size="default">Default</Button>
-            <Button size="lg">Large</Button>
+            <Button size="xs">超小</Button>
+            <Button size="sm">小</Button>
+            <Button size="default">默认</Button>
+            <Button size="lg">大</Button>
           </div>
         </SubSection>
 
-        <SubSection title="Icon buttons">
+        <SubSection title="图标按钮">
           <div className="flex items-center gap-2 flex-wrap">
             <Button variant="ghost" size="icon-xs"><Search /></Button>
             <Button variant="ghost" size="icon-sm"><Search /></Button>
@@ -357,19 +357,19 @@ export function DesignGuide() {
           </div>
         </SubSection>
 
-        <SubSection title="With icons">
+        <SubSection title="带图标">
           <div className="flex items-center gap-2 flex-wrap">
-            <Button><Plus /> New Issue</Button>
-            <Button variant="outline"><Upload /> Upload</Button>
-            <Button variant="destructive"><Trash2 /> Delete</Button>
-            <Button size="sm"><Plus /> Add</Button>
+            <Button><Plus /> 新建问题</Button>
+            <Button variant="outline"><Upload /> 上传</Button>
+            <Button variant="destructive"><Trash2 /> 删除</Button>
+            <Button size="sm"><Plus /> 添加</Button>
           </div>
         </SubSection>
 
-        <SubSection title="States">
+        <SubSection title="状态">
           <div className="flex items-center gap-2 flex-wrap">
-            <Button disabled>Disabled</Button>
-            <Button variant="outline" disabled>Disabled Outline</Button>
+            <Button disabled>禁用</Button>
+            <Button variant="outline" disabled>禁用轮廓</Button>
           </div>
         </SubSection>
       </Section>
@@ -377,14 +377,14 @@ export function DesignGuide() {
       {/* ============================================================ */}
       {/*  BADGES                                                       */}
       {/* ============================================================ */}
-      <Section title="Badges">
-        <SubSection title="Variants">
+      <Section title="徽章">
+        <SubSection title="变体">
           <div className="flex items-center gap-2 flex-wrap">
-            <Badge variant="default">Default</Badge>
-            <Badge variant="secondary">Secondary</Badge>
-            <Badge variant="outline">Outline</Badge>
-            <Badge variant="destructive">Destructive</Badge>
-            <Badge variant="ghost">Ghost</Badge>
+            <Badge variant="default">默认</Badge>
+            <Badge variant="secondary">次要</Badge>
+            <Badge variant="outline">轮廓</Badge>
+            <Badge variant="destructive">危险</Badge>
+            <Badge variant="ghost">幽灵</Badge>
           </div>
         </SubSection>
       </Section>
@@ -392,7 +392,7 @@ export function DesignGuide() {
       {/* ============================================================ */}
       {/*  STATUS BADGES & ICONS                                        */}
       {/* ============================================================ */}
-      <Section title="Status System">
+      <Section title="状态系统">
         <SubSection title="StatusBadge (all statuses)">
           <div className="flex items-center gap-2 flex-wrap">
             {[
@@ -420,7 +420,7 @@ export function DesignGuide() {
           </div>
           <div className="flex items-center gap-2 mt-2">
             <StatusIcon status={status} onChange={setStatus} />
-            <span className="text-sm">Click the icon to change status (current: {status})</span>
+            <span className="text-sm">点击图标更改状态（当前：{status}）</span>
           </div>
         </SubSection>
 
@@ -435,11 +435,11 @@ export function DesignGuide() {
           </div>
           <div className="flex items-center gap-2 mt-2">
             <PriorityIcon priority={priority} onChange={setPriority} />
-            <span className="text-sm">Click the icon to change (current: {priority})</span>
+            <span className="text-sm">点击图标更改（当前：{priority}）</span>
           </div>
         </SubSection>
 
-        <SubSection title="Agent status dots">
+        <SubSection title="智能体状态指示点">
           <div className="flex items-center gap-4 flex-wrap">
             {(["running", "active", "paused", "error", "archived"] as const).map((label) => (
               <div key={label} className="flex items-center gap-2">
@@ -452,7 +452,7 @@ export function DesignGuide() {
           </div>
         </SubSection>
 
-        <SubSection title="Run invocation badges">
+        <SubSection title="运行调用徽章">
           <div className="flex items-center gap-2 flex-wrap">
             {[
               ["timer", "bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300"],
@@ -471,38 +471,38 @@ export function DesignGuide() {
       {/* ============================================================ */}
       {/*  FORM ELEMENTS                                                */}
       {/* ============================================================ */}
-      <Section title="Form Elements">
+      <Section title="表单元素">
         <div className="grid gap-6 md:grid-cols-2">
-          <SubSection title="Input">
-            <Input placeholder="Default input" />
-            <Input placeholder="Disabled input" disabled className="mt-2" />
+          <SubSection title="输入框">
+            <Input placeholder="默认输入" />
+            <Input placeholder="禁用输入" disabled className="mt-2" />
           </SubSection>
 
-          <SubSection title="Textarea">
-            <Textarea placeholder="Write something..." />
+          <SubSection title="文本域">
+            <Textarea placeholder="请输入内容..." />
           </SubSection>
 
-          <SubSection title="Checkbox & Label">
+          <SubSection title="复选框和标签">
             <div className="space-y-3">
               <div className="flex items-center gap-2">
                 <Checkbox id="check1" defaultChecked />
-                <Label htmlFor="check1">Checked item</Label>
+                <Label htmlFor="check1">已选中项</Label>
               </div>
               <div className="flex items-center gap-2">
                 <Checkbox id="check2" />
-                <Label htmlFor="check2">Unchecked item</Label>
+                <Label htmlFor="check2">未选中项</Label>
               </div>
               <div className="flex items-center gap-2">
                 <Checkbox id="check3" disabled />
-                <Label htmlFor="check3">Disabled item</Label>
+                <Label htmlFor="check3">禁用项</Label>
               </div>
             </div>
           </SubSection>
 
-          <SubSection title="Inline Editor">
+          <SubSection title="行内编辑器">
             <div className="space-y-4">
               <div>
-                <p className="text-xs text-muted-foreground mb-1">Title (single-line)</p>
+                <p className="text-xs text-muted-foreground mb-1">标题（单行）</p>
                 <InlineEditor
                   value={inlineTitle}
                   onSave={setInlineTitle}
@@ -511,7 +511,7 @@ export function DesignGuide() {
                 />
               </div>
               <div>
-                <p className="text-xs text-muted-foreground mb-1">Body text (single-line)</p>
+                <p className="text-xs text-muted-foreground mb-1">正文（单行）</p>
                 <InlineEditor
                   value={inlineText}
                   onSave={setInlineText}
@@ -520,13 +520,13 @@ export function DesignGuide() {
                 />
               </div>
               <div>
-                <p className="text-xs text-muted-foreground mb-1">Description (multiline, auto-sizing)</p>
+                <p className="text-xs text-muted-foreground mb-1">描述（多行，自动调整大小）</p>
                 <InlineEditor
                   value={inlineDesc}
                   onSave={setInlineDesc}
                   as="p"
                   className="text-sm text-muted-foreground"
-                  placeholder="Add a description..."
+                  placeholder="添加描述..."
                   multiline
                 />
               </div>
@@ -538,12 +538,12 @@ export function DesignGuide() {
       {/* ============================================================ */}
       {/*  SELECT                                                       */}
       {/* ============================================================ */}
-      <Section title="Select">
+      <Section title="选择器">
         <div className="grid gap-6 md:grid-cols-2">
-          <SubSection title="Default size">
+          <SubSection title="默认尺寸">
             <Select value={selectValue} onValueChange={setSelectValue}>
               <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select status" />
+                <SelectValue placeholder="选择状态" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="backlog">Backlog</SelectItem>
@@ -553,9 +553,9 @@ export function DesignGuide() {
                 <SelectItem value="done">Done</SelectItem>
               </SelectContent>
             </Select>
-            <p className="text-xs text-muted-foreground">Current value: {selectValue}</p>
+            <p className="text-xs text-muted-foreground">当前值：{selectValue}</p>
           </SubSection>
-          <SubSection title="Small trigger">
+          <SubSection title="小尺寸触发器">
             <Select defaultValue="high">
               <SelectTrigger size="sm" className="w-full">
                 <SelectValue />
@@ -574,34 +574,34 @@ export function DesignGuide() {
       {/* ============================================================ */}
       {/*  DROPDOWN MENU                                                */}
       {/* ============================================================ */}
-      <Section title="Dropdown Menu">
+      <Section title="下拉菜单">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="sm">
-              Quick Actions
+              快捷操作
               <ChevronDown className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="w-56">
             <DropdownMenuItem>
               <Check className="h-4 w-4" />
-              Mark as done
+              标记为已完成
               <DropdownMenuShortcut>⌘D</DropdownMenuShortcut>
             </DropdownMenuItem>
             <DropdownMenuItem>
               <BookOpen className="h-4 w-4" />
-              Open docs
+              打开文档
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuCheckboxItem
               checked={menuChecked}
               onCheckedChange={(value) => setMenuChecked(value === true)}
             >
-              Watch issue
+              关注问题
             </DropdownMenuCheckboxItem>
             <DropdownMenuItem variant="destructive">
               <Trash2 className="h-4 w-4" />
-              Delete issue
+              删除问题
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -610,17 +610,17 @@ export function DesignGuide() {
       {/* ============================================================ */}
       {/*  POPOVER                                                      */}
       {/* ============================================================ */}
-      <Section title="Popover">
+      <Section title="弹出框">
         <Popover>
           <PopoverTrigger asChild>
-            <Button variant="outline" size="sm">Open Popover</Button>
+            <Button variant="outline" size="sm">打开弹出框</Button>
           </PopoverTrigger>
           <PopoverContent className="space-y-2">
-            <p className="text-sm font-medium">Agent heartbeat</p>
+            <p className="text-sm font-medium">智能体心跳</p>
             <p className="text-xs text-muted-foreground">
-              Last run succeeded 24s ago. Next timer run in 9m.
+              上次运行在 24 秒前成功。下次定时运行在 9 分钟后。
             </p>
-            <Button size="xs">Wake now</Button>
+            <Button size="xs">立即唤醒</Button>
           </PopoverContent>
         </Popover>
       </Section>
@@ -628,17 +628,17 @@ export function DesignGuide() {
       {/* ============================================================ */}
       {/*  COLLAPSIBLE                                                  */}
       {/* ============================================================ */}
-      <Section title="Collapsible">
+      <Section title="可折叠">
         <Collapsible open={collapsibleOpen} onOpenChange={setCollapsibleOpen} className="space-y-2">
           <CollapsibleTrigger asChild>
             <Button variant="outline" size="sm">
-              {collapsibleOpen ? "Hide" : "Show"} advanced filters
+              {collapsibleOpen ? "隐藏" : "显示"}高级筛选
             </Button>
           </CollapsibleTrigger>
           <CollapsibleContent className="rounded-md border border-border p-3">
             <div className="space-y-2">
-              <Label htmlFor="owner-filter">Owner</Label>
-              <Input id="owner-filter" placeholder="Filter by agent name" />
+              <Label htmlFor="owner-filter">负责人</Label>
+              <Input id="owner-filter" placeholder="按智能体名称筛选" />
             </div>
           </CollapsibleContent>
         </Collapsible>
@@ -647,10 +647,10 @@ export function DesignGuide() {
       {/* ============================================================ */}
       {/*  SHEET                                                        */}
       {/* ============================================================ */}
-      <Section title="Sheet">
+      <Section title="侧面板">
         <Sheet>
           <SheetTrigger asChild>
-            <Button variant="outline" size="sm">Open Side Panel</Button>
+            <Button variant="outline" size="sm">打开侧面板</Button>
           </SheetTrigger>
           <SheetContent side="right">
             <SheetHeader>

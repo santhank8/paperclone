@@ -384,12 +384,12 @@ async function loadPluginModule(contribution: PluginUiContribution): Promise<voi
 
   const importPromise = (async () => {
     try {
-      // Dynamic ESM import of the plugin's UI entry module with
-      // bare-specifier rewriting for host-provided dependencies.
+      // 使用裸说明符重写动态 ESM 导入插件 UI 入口模块，
+      // 以支持主机提供的依赖。
       const mod: Record<string, unknown> = await importPluginModule(url);
 
-      // Collect the set of export names declared across all UI contributions so
-      // we only register what the manifest advertises (ignore extra exports).
+      // 收集所有 UI 贡献中声明的导出名称集合，
+      // 仅注册清单中声明的内容（忽略额外导出）。
       const declaredExports = new Set<string>();
       for (const slot of slots) {
         declaredExports.add(slot.exportName);
@@ -407,24 +407,24 @@ async function loadPluginModule(contribution: PluginUiContribution): Promise<voi
         const exported = mod[exportName];
         if (exported === undefined) {
           console.warn(
-            `Plugin "${pluginKey}" declares slot export "${exportName}" but the module does not export it.`,
+            `插件 "${pluginKey}" 声明了插槽导出 "${exportName}"，但模块中未找到该导出。`,
           );
           continue;
         }
 
         if (typeof exported === "function") {
-          // React component (function component or class component).
+          // React 组件（函数组件或类组件）。
           registerPluginReactComponent(
             pluginKey,
             exportName,
             exported as ComponentType<PluginSlotComponentProps>,
           );
         } else if (typeof exported === "string") {
-          // Web component tag name.
+          // Web 组件标签名。
           registerPluginWebComponent(pluginKey, exportName, exported);
         } else {
           console.warn(
-            `Plugin "${pluginKey}" export "${exportName}" is neither a function nor a string tag name — skipping.`,
+            `插件 "${pluginKey}" 的导出 "${exportName}" 既不是函数也不是字符串标签名 — 已跳过。`,
           );
         }
       }
@@ -432,7 +432,7 @@ async function loadPluginModule(contribution: PluginUiContribution): Promise<voi
       pluginLoadStates.set(moduleKey, "loaded");
     } catch (err) {
       pluginLoadStates.set(moduleKey, "error");
-      console.error(`Failed to load UI module for plugin "${pluginKey}"`, err);
+      console.error(`加载插件 "${pluginKey}" 的 UI 模块失败`, err);
     } finally {
       inflightImports.delete(pluginId);
     }
@@ -449,10 +449,10 @@ function isLauncherComponentTarget(launcher: PluginLauncherDeclaration): boolean
 }
 
 /**
- * Load UI modules for a set of plugin contributions.
+ * 为一组插件贡献加载 UI 模块。
  *
- * Returns a promise that resolves once all modules have been loaded (or
- * failed). Plugins that are already loaded are skipped.
+ * 返回一个在所有模块加载完成（或失败）后解析的 promise。
+ * 已加载的插件将被跳过。
  */
 async function ensurePluginModulesLoaded(contributions: PluginUiContribution[]): Promise<void> {
   await Promise.all(
@@ -467,10 +467,10 @@ export async function ensurePluginContributionLoaded(
 }
 
 /**
- * Returns the aggregate load state across a set of plugin contributions.
- * - If any plugin is still loading → "loading"
- * - If all are loaded (or no contributions) → "loaded"
- * - If all finished but some errored → "loaded" (errors are logged, not fatal)
+ * 返回一组插件贡献的聚合加载状态。
+ * - 如果任何插件仍在加载 → "loading"
+ * - 如果全部已加载（或没有贡献）→ "loaded"
+ * - 如果全部完成但部分出错 → "loaded"（错误已记录，非致命）
  */
 function aggregateLoadState(contributions: PluginUiContribution[]): "loading" | "loaded" {
   for (const c of contributions) {
@@ -487,11 +487,10 @@ function aggregateLoadState(contributions: PluginUiContribution[]): "loading" | 
 // ---------------------------------------------------------------------------
 
 /**
- * Trigger dynamic loading of plugin UI modules when contributions change.
+ * 当贡献变化时触发插件 UI 模块的动态加载。
  *
- * This hook is intentionally decoupled from usePluginSlots so that callers
- * who consume slots via `usePluginSlots()` automatically get module loading
- * without extra wiring.
+ * 此 hook 有意与 usePluginSlots 解耦，以便通过 `usePluginSlots()` 消费插槽的
+ * 调用方自动获得模块加载，无需额外配置。
  */
 function usePluginModuleLoader(contributions: PluginUiContribution[] | undefined) {
   const [, setTick] = useState(0);
@@ -499,7 +498,7 @@ function usePluginModuleLoader(contributions: PluginUiContribution[] | undefined
   useEffect(() => {
     if (!contributions || contributions.length === 0) return;
 
-    // Filter to contributions that haven't been loaded yet.
+    // 过滤出尚未加载的贡献。
     const unloaded = contributions.filter((c) => {
       const state = pluginLoadStates.get(buildPluginModuleKey(c));
       return state !== "loaded" && state !== "loading";
@@ -509,7 +508,7 @@ function usePluginModuleLoader(contributions: PluginUiContribution[] | undefined
 
     let cancelled = false;
     void ensurePluginModulesLoaded(unloaded).then(() => {
-      // Re-render so the slot mount can resolve the newly-registered components.
+      // 重新渲染以便插槽挂载点可以解析新注册的组件。
       if (!cancelled) setTick((t) => t + 1);
     });
 
@@ -520,15 +519,15 @@ function usePluginModuleLoader(contributions: PluginUiContribution[] | undefined
 }
 
 /**
- * Resolves and sorts slots across all ready plugin contributions.
+ * 在所有就绪的插件贡献中解析和排序插槽。
  *
- * Filtering rules:
- * - `slotTypes` must match one of the caller-requested host slot types.
- * - Entity-scoped slot types (`detailTab`, `taskDetailView`, `contextMenuItem`)
- *   require `entityType` and must include it in `slot.entityTypes`.
+ * 过滤规则：
+ * - `slotTypes` 必须匹配调用方请求的主机插槽类型之一。
+ * - 实体范围的插槽类型（`detailTab`、`taskDetailView`、`contextMenuItem`）
+ *   需要 `entityType` 且必须包含在 `slot.entityTypes` 中。
  *
- * Automatically triggers dynamic import of plugin UI modules for any
- * newly-discovered contributions. Components render once loading completes.
+ * 自动触发对任何新发现贡献的插件 UI 模块的动态导入。
+ * 组件在加载完成后渲染。
  */
 export function usePluginSlots(filters: SlotFilters): UsePluginSlotsResult {
   const queryEnabled = filters.enabled ?? true;
@@ -538,7 +537,7 @@ export function usePluginSlots(filters: SlotFilters): UsePluginSlotsResult {
     enabled: queryEnabled,
   });
 
-  // Kick off dynamic imports for any new plugin contributions.
+  // 为任何新的插件贡献启动动态导入。
   usePluginModuleLoader(data);
 
   const slotTypesKey = useMemo(() => [...filters.slotTypes].sort().join("|"), [filters.slotTypes]);
@@ -573,7 +572,7 @@ export function usePluginSlots(filters: SlotFilters): UsePluginSlotsResult {
     return rows;
   }, [data, filters.entityType, slotTypesKey]);
 
-  // Consider loading until both query and module imports are done.
+  // 在查询和模块导入都完成之前视为加载中。
   const modulesLoaded = data ? aggregateLoadState(data) === "loaded" : true;
   const isLoading = queryEnabled && (isQueryLoading || !modulesLoaded);
 
@@ -602,8 +601,8 @@ class PluginSlotErrorBoundary extends Component<PluginSlotErrorBoundaryProps, Pl
   }
 
   override componentDidCatch(error: unknown, info: ErrorInfo): void {
-    // Keep plugin failures isolated while preserving actionable diagnostics.
-    console.error("Plugin slot render failed", {
+    // 保持插件故障隔离，同时保留可操作的诊断信息。
+    console.error("插件插槽渲染失败", {
       pluginKey: this.props.slot.pluginKey,
       slotId: this.props.slot.id,
       error,
@@ -615,7 +614,7 @@ class PluginSlotErrorBoundary extends Component<PluginSlotErrorBoundaryProps, Pl
     if (this.state.hasError) {
       return (
         <div className={cn("rounded-md border border-destructive/30 bg-destructive/5 px-2 py-1 text-xs text-destructive", this.props.className)}>
-          {this.props.slot.pluginDisplayName}: failed to render
+          {this.props.slot.pluginDisplayName}：渲染失败
         </div>
       );
     }
@@ -638,7 +637,7 @@ function PluginWebComponentMount({
 
   useEffect(() => {
     if (!ref.current) return;
-    // Bridge manifest slot/context metadata onto the custom element instance.
+    // 将清单插槽/上下文元数据桥接到自定义元素实例上。
     const el = ref.current as HTMLElement & {
       pluginSlot?: ResolvedPluginSlot;
       pluginContext?: PluginSlotContext;
@@ -658,10 +657,9 @@ type PluginSlotMountProps = {
 };
 
 /**
- * Maps the slot's `PluginSlotContext` to a `PluginHostContext` for the bridge.
+ * 将插槽的 `PluginSlotContext` 映射为桥接器的 `PluginHostContext`。
  *
- * The bridge hooks need the full host context shape; the slot context carries
- * the subset available from the rendering location.
+ * 桥接 hook 需要完整的主机上下文结构；插槽上下文携带渲染位置可用的子集。
  */
 function slotContextToHostContext(
   pluginSlotContext: PluginSlotContext,
@@ -680,10 +678,10 @@ function slotContextToHostContext(
 }
 
 /**
- * Wrapper component that sets the active bridge context around plugin renders.
+ * 包装组件，在插件渲染周围设置活跃的桥接上下文。
  *
- * This ensures that `usePluginData()`, `usePluginAction()`, and `useHostContext()`
- * have access to the current plugin ID and host context during the render phase.
+ * 确保 `usePluginData()`、`usePluginAction()` 和 `useHostContext()`
+ * 在渲染阶段能够访问当前插件 ID 和主机上下文。
  */
 function PluginBridgeScope({
   pluginId,
@@ -795,7 +793,7 @@ export function PluginSlotOutlet({
   if (errorMessage) {
     return (
       <div className={cn("rounded-md border border-destructive/30 bg-destructive/5 px-2 py-1 text-xs text-destructive", errorClassName)}>
-        Plugin extensions unavailable: {errorMessage}
+        插件扩展不可用：{errorMessage}
       </div>
     );
   }
@@ -818,11 +816,11 @@ export function PluginSlotOutlet({
 }
 
 // ---------------------------------------------------------------------------
-// Test helpers — exported for use in test suites only.
+// 测试辅助工具 — 仅供测试套件使用。
 // ---------------------------------------------------------------------------
 
 /**
- * Reset the module loader state. Only use in tests.
+ * 重置模块加载器状态。仅在测试中使用。
  * @internal
  */
 export function _resetPluginModuleLoader(): void {

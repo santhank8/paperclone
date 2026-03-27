@@ -3,14 +3,14 @@ import { cn } from "@/lib/utils";
 
 interface CopyTextProps {
   text: string;
-  /** What to display. Defaults to `text`. */
+  /** 显示内容。默认为 `text`。 */
   children?: React.ReactNode;
   className?: string;
-  /** Tooltip message shown after copying. Default: "Copied!" */
+  /** 复制后显示的提示信息。默认："已复制！" */
   copiedLabel?: string;
 }
 
-export function CopyText({ text, children, className, copiedLabel = "Copied!" }: CopyTextProps) {
+export function CopyText({ text, children, className, copiedLabel = "已复制！" }: CopyTextProps) {
   const [visible, setVisible] = useState(false);
   const [label, setLabel] = useState(copiedLabel);
   const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -21,7 +21,7 @@ export function CopyText({ text, children, className, copiedLabel = "Copied!" }:
       await navigator.clipboard.writeText(text);
       setLabel(copiedLabel);
     } catch {
-      setLabel("Copy failed");
+      setLabel("复制失败");
     }
     clearTimeout(timerRef.current);
     setVisible(true);
