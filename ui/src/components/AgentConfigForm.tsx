@@ -25,7 +25,11 @@ import {
 import { Button } from "@/components/ui/button";
 import { FolderOpen, Heart, ChevronDown, X } from "lucide-react";
 import { cn } from "../lib/utils";
-import { extractModelName, extractProviderId } from "../lib/model-utils";
+import {
+  extractModelName,
+  extractProviderId,
+  shouldOfferCustomModelEntry,
+} from "../lib/model-utils";
 import { queryKeys } from "../lib/queryKeys";
 import { useCompany } from "../context/CompanyContext";
 import {
@@ -1305,6 +1309,13 @@ function ModelDropdown({
 }) {
   const [modelSearch, setModelSearch] = useState("");
   const selected = models.find((m) => m.id === value);
+  const customModelCandidate = modelSearch.trim();
+  const showCustomModelEntry = groupByProvider
+    ? shouldOfferCustomModelEntry(
+        customModelCandidate,
+        models.map((model) => model.id),
+      )
+    : false;
   const filteredModels = useMemo(() => {
     return models.filter((m) => {
       if (!modelSearch.trim()) return true;
@@ -1363,9 +1374,15 @@ function ModelDropdown({
         <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-1" align="start">
           <input
             className="w-full px-2 py-1.5 text-xs bg-transparent outline-none border-b border-border mb-1 placeholder:text-muted-foreground/50"
-            placeholder="Search models..."
+            placeholder={groupByProvider ? "Search or paste provider/model..." : "Search models..."}
             value={modelSearch}
             onChange={(e) => setModelSearch(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key !== "Enter" || !showCustomModelEntry) return;
+              e.preventDefault();
+              onChange(customModelCandidate);
+              onOpenChange(false);
+            }}
             autoFocus
           />
           <div className="max-h-[240px] overflow-y-auto">
@@ -1381,6 +1398,17 @@ function ModelDropdown({
                 }}
               >
                 Default
+              </button>
+            )}
+            {showCustomModelEntry && (
+              <button
+                className="flex items-center gap-2 w-full px-2 py-1.5 text-sm rounded hover:bg-accent/50 border border-dashed border-border/70 mb-1"
+                onClick={() => {
+                  onChange(customModelCandidate);
+                  onOpenChange(false);
+                }}
+              >
+                {`Use custom model: ${customModelCandidate}`}
               </button>
             )}
             {groupedModels.map((group) => (
@@ -1410,11 +1438,20 @@ function ModelDropdown({
               </div>
             ))}
             {filteredModels.length === 0 && (
-              <p className="px-2 py-1.5 text-xs text-muted-foreground">No models found.</p>
+              <p className="px-2 py-1.5 text-xs text-muted-foreground">
+                {groupByProvider
+                  ? "No discovered models found. Paste provider/model and press Enter."
+                  : "No models found."}
+              </p>
             )}
           </div>
         </PopoverContent>
       </Popover>
+      {groupByProvider && (
+        <p className="text-[11px] text-muted-foreground mt-1">
+          Tip: for OpenCode you can paste a provider/model value even if discovery misses it.
+        </p>
+      )}
     </Field>
   );
 }
