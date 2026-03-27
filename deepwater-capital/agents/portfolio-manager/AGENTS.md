@@ -5,6 +5,7 @@ reportsTo: null
 skills:
   - signal-generator
   - fear-greed-scanner
+  - broker-execution
   - paperclip
 ---
 
