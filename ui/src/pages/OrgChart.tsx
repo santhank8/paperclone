@@ -310,7 +310,7 @@ export function OrgChart() {
             }
             setZoom(newZoom);
           }}
-          aria-label="Zoom in"
+          aria-label={t("org.zoomIn")}
         >
           +
         </button>
@@ -327,7 +327,7 @@ export function OrgChart() {
             }
             setZoom(newZoom);
           }}
-          aria-label="Zoom out"
+          aria-label={t("org.zoomOut")}
         >
           &minus;
         </button>
@@ -345,8 +345,8 @@ export function OrgChart() {
             setZoom(fitZoom);
             setPan({ x: (cW - chartW) / 2, y: (cH - chartH) / 2 });
           }}
-          title="Fit to screen"
-          aria-label="Fit chart to screen"
+          title={t("org.fitToScreen")}
+          aria-label={t("org.fitChartToScreen")}
         >
           Fit
         </button>

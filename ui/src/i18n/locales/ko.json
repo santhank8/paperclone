@@ -433,7 +433,13 @@
       "inferenceSpend": "추론 비용",
       "budget": "예산",
       "financeNet": "재무 순액",
-      "financeEvents": "재무 이벤트"
+      "financeEvents": "재무 이벤트",
+      "tokenSubtitle": "{{tokens}} 토큰 (요청 범위 이벤트 전체)",
+      "budgetSubtitlePaused": "{{agents}} 에이전트 일시 중지 \u00b7 {{projects}} 프로젝트 일시 중지",
+      "budgetSubtitleUsage": "{{spent}} / {{budget}}",
+      "budgetSubtitleNoCap": "월간 상한 미설정",
+      "financeNetSubtitle": "{{debits}} 차변 \u00b7 {{credits}} 대변",
+      "financeEventsSubtitle": "{{estimated}} 범위 내 추정"
     },
     "noMonthlyCap": "월간 상한 미설정",
     "unlimitedBudget": "무제한 예산",
@@ -460,7 +466,9 @@
       "byProjectDesc": "프로젝트에 연결된 작업을 통한 실행 비용.",
       "noProjectCosts": "아직 프로젝트에 귀속된 실행 비용이 없습니다.",
       "unattributed": "미귀속",
-      "noFinanceEvents": "아직 재무 이벤트가 없습니다. 청구처 인보이스 또는 크레딧 정산 후 계정 수준 요금을 추가하세요."
+      "noFinanceEvents": "아직 재무 이벤트가 없습니다. 청구처 인보이스 또는 크레딧 정산 후 계정 수준 요금을 추가하세요.",
+      "allProviders": "전체 공급자",
+      "allBillers": "전체 청구처"
     },
     "budgets": {
       "controlPlane": "예산 제어판",
@@ -475,7 +483,9 @@
         "pausedAgentsDesc": "예산으로 인해 차단된 에이전트 하트비트",
         "pausedProjectsDesc": "예산으로 인해 차단된 프로젝트 실행"
       },
+      "activeIncidentsHeading": "활성 인시던트",
       "resolveHardStops": "예산을 높이거나 명시적으로 범위를 일시 중지 상태로 유지하여 하드 스톱을 해결하세요.",
+      "scopeBudgets": "{{scope}} 예산",
       "companyPolicy": "회사 전체 월간 정책.",
       "agentPolicy": "개별 에이전트의 월간 반복 비용 정책.",
       "projectPolicy": "실행이 바인딩된 프로젝트의 전체 기간 비용 정책.",
@@ -491,7 +501,18 @@
     "finance": {
       "byBiller": "청구처별",
       "byBillerDesc": "요금 부과 또는 크레딧 기입을 수행한 청구처별 계정 수준 재무 이벤트.",
-      "noEvents": "아직 재무 이벤트가 없습니다."
+      "noEvents": "아직 재무 이벤트가 없습니다.",
+      "ledger": "재무 원장",
+      "ledgerDesc": "단일 추론 요청에 대응하지 않는 계정 수준 요금.",
+      "debits": "차변",
+      "debitsSubtitle": "범위 내 총 {{count}}개 이벤트",
+      "debitsSubtitle_plural": "범위 내 총 {{count}}개 이벤트",
+      "credits": "대변",
+      "creditsSubtitle": "환불, 상쇄 및 크레딧 반환",
+      "net": "순액",
+      "netSubtitle": "선택 기간의 차변에서 대변을 뺀 값",
+      "estimated": "추정",
+      "estimatedSubtitle": "아직 인보이스 확정 전인 추정 차변"
     }
   },
   "inbox": {
@@ -512,7 +533,9 @@
       "failedRuns": "실패한 실행",
       "allApprovalStatuses": "모든 승인 상태",
       "needsAction": "조치 필요",
-      "resolved": "해결됨"
+      "resolved": "해결됨",
+      "categoryPlaceholder": "카테고리",
+      "approvalStatusPlaceholder": "승인 상태"
     },
     "section": {
       "alerts": "알림"
@@ -578,7 +601,9 @@
       "brandColor": "브랜드 색상",
       "brandColorDesc": "회사 아이콘의 색조를 설정합니다. 비워두면 자동으로 생성됩니다.",
       "brandColorPlaceholder": "자동",
-      "brandColorClear": "지우기"
+      "brandColorClear": "지우기",
+      "requireApproval": "신규 채용에 이사회 승인 필요",
+      "requireApprovalDesc": "새 에이전트 채용은 이사회 승인 전까지 대기 상태로 유지됩니다."
     },
     "logo": {
       "removing": "제거 중...",
@@ -734,7 +759,12 @@
   "org": {
     "breadcrumb": "조직도",
     "noCompany": "조직도를 보려면 회사를 선택하세요.",
-    "empty": "조직에 에이전트가 없습니다. 에이전트를 만들어 조직도를 구성하세요."
+    "empty": "조직에 에이전트가 없습니다. 에이전트를 만들어 조직도를 구성하세요.",
+    "noAgents": "조직에 에이전트가 없습니다. 에이전트를 만들어 조직도를 구성하세요.",
+    "zoomIn": "확대",
+    "zoomOut": "축소",
+    "fitToScreen": "화면에 맞추기",
+    "fitChartToScreen": "차트를 화면에 맞추기"
   },
   "newAgent": {
     "title": "새 에이전트",
@@ -785,7 +815,8 @@
     "parent": "상위 목표",
     "targetDate": "목표 날짜",
     "noProjectsLinked": "연결된 프로젝트가 없습니다.",
-    "noActivityYet": "아직 활동이 없습니다."
+    "noActivityYet": "아직 활동이 없습니다.",
+    "addDescriptionPlaceholder": "설명 추가..."
   },
   "projectDetail": {
     "overview": "개요",
@@ -801,7 +832,8 @@
     "cancel": "취소",
     "archive": "보관",
     "addDescription": "설명 추가...",
-    "failedToSave": "프로젝트 저장에 실패했습니다"
+    "failedToSave": "프로젝트 저장에 실패했습니다",
+    "changeProjectColor": "프로젝트 색상 변경"
   },
   "routineDetail": {
     "overview": "개요",
@@ -820,13 +852,24 @@
     "delete": "삭제",
     "deleting": "삭제 중...",
     "noRunsYet": "아직 실행 기록이 없습니다.",
-    "noEvents": "이벤트가 없습니다."
+    "noEvents": "이벤트가 없습니다.",
+    "selectCompanyMessage": "루틴을 보려면 회사를 선택하세요.",
+    "titlePlaceholder": "루틴 제목",
+    "assigneePlaceholder": "담당자",
+    "projectPlaceholder": "프로젝트",
+    "addInstructionsPlaceholder": "지침 추가..."
   },
   "routines": {
     "title": "루틴",
     "newRoutine": "새 루틴",
     "noRoutinesYet": "아직 루틴이 없습니다.",
-    "creating": "생성 중..."
+    "creating": "생성 중...",
+    "selectCompanyMessage": "루틴을 보려면 회사를 선택하세요.",
+    "titlePlaceholder": "루틴 제목",
+    "assigneePlaceholder": "담당자",
+    "projectPlaceholder": "프로젝트",
+    "addInstructionsPlaceholder": "지침 추가...",
+    "noRoutinesMessage": "아직 루틴이 없습니다. '루틴 만들기'를 사용하여 첫 번째 반복 워크플로를 정의하세요."
   },
   "companySkills": {
     "title": "회사 스킬",
@@ -837,7 +880,13 @@
     "uninstalling": "제거 중...",
     "searchSkills": "스킬 검색...",
     "availableSkills": "사용 가능한 스킬",
-    "installed": "설치됨"
+    "installed": "설치됨",
+    "skillNamePlaceholder": "스킬 이름",
+    "shortDescriptionPlaceholder": "간단한 설명",
+    "selectSkillMessage": "스킬을 선택하여 파일을 확인하세요.",
+    "selectCompanyMessage": "스킬을 관리하려면 회사를 선택하세요.",
+    "scanProjectsTitle": "프로젝트 워크스페이스에서 스킬 스캔",
+    "pasteSourcePlaceholder": "경로, GitHub URL 또는 skills.sh 명령어 붙여넣기"
   },
   "notFound": {
     "404": "404",
@@ -897,7 +946,8 @@
     "createIssue": "작업 만들기",
     "live": "가동 중",
     "noAssignee": "담당자 없음",
-    "me": "나"
+    "me": "나",
+    "searchIssuesAria": "작업 검색"
   },
   "issueProperties": {
     "status": "상태",
@@ -919,7 +969,16 @@
     "noProject": "프로젝트 없음",
     "searchProjects": "프로젝트 검색...",
     "copied": "복사되었습니다!",
-    "copyToClipboard": "클립보드에 복사"
+    "copyToClipboard": "클립보드에 복사",
+    "depth": "깊이",
+    "createdBy": "작성자",
+    "started": "시작됨",
+    "completed": "완료됨",
+    "assignToMe": "나에게 할당",
+    "assignToUser": "{{name}}에게 할당",
+    "assignToRequester": "요청자에게 할당",
+    "existingIsolatedWorkspace": "기존 격리 워크스페이스",
+    "chooseExistingWorkspace": "기존 워크스페이스 선택"
   },
   "newIssueDialog": {
     "newIssue": "새 작업",
@@ -943,7 +1002,12 @@
     "dueDate": "마감일",
     "discardDraft": "초안 삭제",
     "creating": "생성 중...",
-    "createIssue": "작업 만들기"
+    "createIssue": "작업 만들기",
+    "noAssigneesFound": "담당자를 찾을 수 없습니다.",
+    "noProjectsFound": "프로젝트를 찾을 수 없습니다.",
+    "defaultModel": "기본 모델",
+    "searchModels": "모델 검색...",
+    "noModelsFound": "모델을 찾을 수 없습니다."
   },
   "newProjectDialog": {
     "newProject": "새 프로젝트",
@@ -957,7 +1021,8 @@
     "targetDate": "목표 날짜",
     "creating": "생성 중…",
     "createProject": "프로젝트 생성",
-    "failedToCreate": "프로젝트 생성에 실패했습니다."
+    "failedToCreate": "프로젝트 생성에 실패했습니다.",
+    "allGoalsSelected": "모든 목표가 이미 선택되었습니다."
   },
   "newGoalDialog": {
     "newGoal": "새 목표",
@@ -1003,7 +1068,44 @@
     "unsavedChanges": "저장되지 않은 변경 사항",
     "passed": "통과",
     "warnings": "경고",
-    "failed": "실패"
+    "failed": "실패",
+    "titlePlaceholder": "예: 엔지니어링 부사장",
+    "capabilitiesPlaceholder": "이 에이전트가 할 수 있는 것을 설명하세요...",
+    "promptTemplate": "프롬프트 템플릿",
+    "promptTemplatePlaceholder": "당신은 에이전트 {{ agent.name }}입니다. 당신의 역할은 {{ agent.role }}입니다...",
+    "promptTemplateWarningEdit": "프롬프트 템플릿은 매 하트비트마다 재생됩니다. 반복적인 토큰 비용과 캐시 소모를 피하기 위해 간결하고 동적으로 유지하세요.",
+    "promptTemplateWarningCreate": "프롬프트 템플릿은 매 하트비트마다 재생됩니다. 작은 작업 프레이밍과 {{ context.* }} 또는 {{ run.* }} 같은 변수를 사용하고, 안정적인 지시의 반복을 피하세요.",
+    "envTestFailed": "환경 테스트 실패",
+    "workingDirectoryDeprecated": "작업 디렉터리 (지원 중단)",
+    "cwdPlaceholder": "/path/to/project",
+    "adapterType": "어댑터 유형",
+    "failedToLoadModels": "어댑터 모델을 불러오지 못했습니다.",
+    "bootstrapPrompt": "부트스트랩 프롬프트 (레거시)",
+    "bootstrapPromptPlaceholder": "첫 실행을 위한 선택적 초기 설정 프롬프트",
+    "bootstrapPromptWarning": "부트스트랩 프롬프트는 레거시 기능이며 향후 릴리스에서 제거됩니다. 이 콘텐츠를 에이전트의 프롬프트 템플릿이나 지시 파일로 이동하는 것을 고려하세요.",
+    "extraArgs": "추가 인수 (쉼표 구분)",
+    "extraArgsPlaceholder": "예: --verbose, --foo=bar",
+    "environmentVariables": "환경 변수",
+    "timeoutSec": "타임아웃 (초)",
+    "interruptGracePeriod": "인터럽트 유예 기간 (초)",
+    "runHeartbeatEvery": "하트비트 실행 간격",
+    "advancedRunPolicy": "고급 실행 정책",
+    "model": "모델",
+    "thinkingEffort": "사고 수준",
+    "searchModels": "모델 검색...",
+    "modelDefault": "기본값",
+    "selectModel": "모델 선택",
+    "selectModelRequired": "모델 선택 (필수)",
+    "noModelsFound": "모델을 찾을 수 없습니다.",
+    "env": {
+      "selectSecret": "시크릿 선택...",
+      "createSecretTitle": "현재 평문 값에서 시크릿 생성",
+      "new": "신규",
+      "valuePlaceholder": "값",
+      "sealTitle": "값을 시크릿으로 저장하고 참조로 대체",
+      "seal": "봉인",
+      "autoInjected": "PAPERCLIP_* 변수는 런타임에 자동으로 주입됩니다."
+    }
   },
   "agentsPanel": {
     "noRecentRuns": "최근 에이전트 실행이 없습니다.",
@@ -1031,13 +1133,17 @@
     "adapter": "어댑터",
     "scope": "범위",
     "window": "기간",
-    "metric": "지표"
+    "metric": "지표",
+    "role": "역할",
+    "icon": "아이콘"
   },
   "budgetIncident": {
     "projectPaused": "프로젝트 실행이 일시 중지되었습니다. 예산 인시던트를 해결할 때까지 이 프로젝트의 새 작업이 시작되지 않습니다.",
     "scopePaused": "이 범위가 일시 중지되었습니다. 예산 인시던트를 해결할 때까지 새 하트비트가 시작되지 않습니다.",
     "applying": "적용 중...",
-    "raiseAndResume": "예산 인상 및 재개"
+    "raiseAndResume": "예산 인상 및 재개",
+    "newBudgetUsd": "새 예산 (USD)",
+    "keepPaused": "일시 중지 유지"
   },
   "budgetPolicy": {
     "lifetimeBudget": "총 예산",
@@ -1055,7 +1161,8 @@
     "warning": "경고",
     "hardStop": "강제 중지",
     "healthy": "정상",
-    "validAmount": "유효한 양수 금액을 입력하세요."
+    "validAmount": "유효한 양수 금액을 입력하세요.",
+    "budgetUsd": "예산 (USD)"
   },
   "companySwitcher": {
     "selectCompany": "회사 선택",
@@ -1103,7 +1210,9 @@
       "on": "켜짐",
       "off": "꺼짐",
       "disableTimer": "타이머 하트비트 비활성화",
-      "enableTimer": "타이머 하트비트 활성화"
+      "enableTimer": "타이머 하트비트 활성화",
+      "noHeartbeatsMessage": "현재 기준에 일치하는 스케줄러 하트비트가 없습니다.",
+      "fullAgentConfig": "전체 에이전트 설정"
     },
     "experimental": {
       "loading": "실험적 설정을 불러오는 중...",
@@ -1113,7 +1222,9 @@
       "isolatedWorkspaces": "격리된 워크스페이스 활성화",
       "isolatedWorkspacesDesc": "프로젝트 설정에 실행 워크스페이스 컨트롤을 표시하고 신규 및 기존 작업 실행에 대해 격리된 워크스페이스 동작을 허용합니다.",
       "autoRestartDevServer": "유휴 시 개발 서버 자동 재시작",
-      "autoRestartDevServerDesc": "`pnpm dev:once`에서 대기열에 있는 모든 로컬 에이전트 실행이 완료될 때까지 기다린 후 백엔드 변경이나 마이그레이션으로 현재 부팅이 오래된 경우 서버를 자동으로 재시작합니다."
+      "autoRestartDevServerDesc": "`pnpm dev:once`에서 대기열에 있는 모든 로컬 에이전트 실행이 완료될 때까지 기다린 후 백엔드 변경이나 마이그레이션으로 현재 부팅이 오래된 경우 서버를 자동으로 재시작합니다.",
+      "toggleIsolatedWorkspaces": "격리 워크스페이스 실험적 설정 전환",
+      "toggleAutoRestartDevServer": "보호된 개발 서버 자동 재시작 전환"
     }
   },
   "pluginManager": {
@@ -1258,7 +1369,17 @@
     "localFolder": "로컬 폴더",
     "changeLocalFolder": "로컬 폴더 변경",
     "setLocalFolder": "로컬 폴더 설정",
-    "executionWorkspaces": "실행 워크스페이스"
+    "executionWorkspaces": "실행 워크스페이스",
+    "lead": "리드",
+    "codebaseHelp": "코드베이스 도움말",
+    "clearRepo": "저장소 제거",
+    "clearLocalFolder": "로컬 폴더 제거",
+    "executionWorkspacesHelp": "실행 워크스페이스 도움말",
+    "changeRepo": "저장소 변경",
+    "failedToSaveWorkspace": "워크스페이스 저장에 실패했습니다.",
+    "failedToDeleteWorkspace": "워크스페이스 삭제에 실패했습니다.",
+    "failedToUpdateWorkspace": "워크스페이스 업데이트에 실패했습니다.",
+    "dangerZone": "위험 구역"
   },
   "scheduleEditor": {
     "everyMinute": "매분",
@@ -1269,7 +1390,8 @@
     "monthly": "매월",
     "customCron": "사용자 정의 (cron)",
     "noScheduleSet": "스케줄 미설정",
-    "chooseFrequency": "빈도 선택..."
+    "chooseFrequency": "빈도 선택...",
+    "cronHelp": "5개 필드: 분 시 일 월 요일"
   },
   "worktreeBanner": {
     "worktree": "워크트리"
@@ -1294,7 +1416,10 @@
     "showSecret": "시크릿 표시",
     "addItem": "항목 추가",
     "add": "추가",
-    "removeItem": "항목 제거"
+    "removeItem": "항목 제거",
+    "noItems": "추가된 항목이 없습니다.",
+    "noConfigOptions": "사용 가능한 설정 옵션이 없습니다.",
+    "itemNumber": "항목 {{number}}"
   },
   "companyExport": {
     "exportCompany": "회사 내보내기",
@@ -1304,7 +1429,11 @@
     "agents": "에이전트",
     "projects": "프로젝트",
     "issues": "작업",
-    "goals": "목표"
+    "goals": "목표",
+    "selectFileMessage": "파일을 선택하여 내용을 미리 보세요.",
+    "selectCompanyMessage": "내보낼 회사를 선택하세요.",
+    "loadingMessage": "내보내기 데이터 로딩 중...",
+    "searchFilesPlaceholder": "파일 검색..."
   },
   "companyImport": {
     "importCompany": "회사 가져오기",
@@ -1317,7 +1446,14 @@
     "goals": "목표",
     "skip": "건너뛰기",
     "overwrite": "덮어쓰기",
-    "conflictsDetected": "충돌이 감지되었습니다"
+    "conflictsDetected": "충돌이 감지되었습니다",
+    "selectFileMessage": "파일을 선택하여 내용을 미리 보세요.",
+    "selectCompanyMessage": "가져올 회사를 선택하세요.",
+    "githubUrlLabel": "GitHub URL",
+    "targetLabel": "대상",
+    "newCompanyNameLabel": "새 회사 이름",
+    "importedCompanyPlaceholder": "가져온 회사",
+    "collisionStrategyLabel": "충돌 전략"
   },
   "boardClaim": {
     "claimBoardAccess": "보드 액세스 요청",
@@ -1345,6 +1481,57 @@
     "title": "내 작업",
     "selectCompany": "작업을 보려면 회사를 선택하세요.",
     "noIssues": "할당된 작업이 없습니다."
+  },
+  "agentProperties": {
+    "status": "상태",
+    "role": "역할",
+    "title": "직함",
+    "adapter": "어댑터",
+    "session": "세션",
+    "lastError": "마지막 오류",
+    "lastHeartbeat": "마지막 하트비트",
+    "reportsTo": "보고 대상",
+    "created": "생성일"
+  },
+  "goalProperties": {
+    "status": "상태",
+    "level": "수준",
+    "owner": "소유자",
+    "none": "없음",
+    "parentGoal": "상위 목표",
+    "created": "생성일",
+    "updated": "수정일"
+  },
+  "sidebarProjects": {
+    "projects": "프로젝트",
+    "newProject": "새 프로젝트"
+  },
+  "sidebarAgents": {
+    "agents": "에이전트",
+    "newAgent": "새 에이전트"
+  },
+  "providerQuotaCard": {
+    "periodSpend": "기간 지출",
+    "thisWeek": "이번 주"
+  },
+  "billerSpendCard": {
+    "periodSpend": "기간 지출"
+  },
+  "breadcrumbBar": {
+    "openSidebar": "사이드바 열기"
+  },
+  "scrollToBottom": {
+    "ariaLabel": "맨 아래로 스크롤"
+  },
+  "toastViewport": {
+    "dismissNotification": "알림 닫기"
+  },
+  "issueRow": {
+    "markAsRead": "읽음으로 표시"
+  },
+  "agentIconPicker": {
+    "searchIcons": "아이콘 검색...",
+    "noIconsMatch": "일치하는 아이콘 없음"
   },
   "common": {
     "loading": "불러오는 중...",

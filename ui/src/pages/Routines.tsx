@@ -220,7 +220,7 @@ export function Routines() {
   const currentProject = draft.projectId ? projectById.get(draft.projectId) ?? null : null;
 
   if (!selectedCompanyId) {
-    return <EmptyState icon={Repeat} message="Select a company to view routines." />;
+    return <EmptyState icon={Repeat} message={t("routines.selectCompanyMessage")} />;
   }
 
   if (isLoading) {
@@ -278,7 +278,7 @@ export function Routines() {
             <textarea
               ref={titleInputRef}
               className="w-full resize-none overflow-hidden bg-transparent text-xl font-semibold outline-none placeholder:text-muted-foreground/50"
-              placeholder="Routine title"
+              placeholder={t("routines.titlePlaceholder")}
               rows={1}
               value={draft.title}
               onChange={(event) => {
@@ -316,7 +316,7 @@ export function Routines() {
                   ref={assigneeSelectorRef}
                   value={draft.assigneeAgentId}
                   options={assigneeOptions}
-                  placeholder="Assignee"
+                  placeholder={t("routines.assigneePlaceholder")}
                   noneLabel="No assignee"
                   searchPlaceholder="Search assignees..."
                   emptyMessage="No assignees found."
@@ -342,7 +342,7 @@ export function Routines() {
                         <span className="truncate">{option.label}</span>
                       )
                     ) : (
-                      <span className="text-muted-foreground">Assignee</span>
+                      <span className="text-muted-foreground">{t("routines.assigneePlaceholder")}</span>
                     )
                   }
                   renderOption={(option) => {
@@ -361,7 +361,7 @@ export function Routines() {
                   ref={projectSelectorRef}
                   value={draft.projectId}
                   options={projectOptions}
-                  placeholder="Project"
+                  placeholder={t("routines.projectPlaceholder")}
                   noneLabel="No project"
                   searchPlaceholder="Search projects..."
                   emptyMessage="No projects found."
@@ -377,7 +377,7 @@ export function Routines() {
                         <span className="truncate">{option.label}</span>
                       </>
                     ) : (
-                      <span className="text-muted-foreground">Project</span>
+                      <span className="text-muted-foreground">{t("routines.projectPlaceholder")}</span>
                     )
                   }
                   renderOption={(option) => {
@@ -403,7 +403,7 @@ export function Routines() {
               ref={descriptionEditorRef}
               value={draft.description}
               onChange={(description) => setDraft((current) => ({ ...current, description }))}
-              placeholder="Add instructions..."
+              placeholder={t("routines.addInstructionsPlaceholder")}
               bordered={false}
               contentClassName="min-h-[160px] text-sm text-muted-foreground"
               onSubmit={() => {
@@ -504,7 +504,7 @@ export function Routines() {
           <div className="py-12">
             <EmptyState
               icon={Repeat}
-              message="No routines yet. Use Create routine to define the first recurring workflow."
+              message={t("routines.noRoutinesMessage")}
             />
           </div>
         ) : (

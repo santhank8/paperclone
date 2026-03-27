@@ -433,7 +433,13 @@
       "inferenceSpend": "推理花費",
       "budget": "預算",
       "financeNet": "財務淨額",
-      "financeEvents": "財務事件"
+      "financeEvents": "財務事件",
+      "tokenSubtitle": "{{tokens}} tokens 涵蓋請求範圍事件",
+      "budgetSubtitlePaused": "{{agents}} 個代理人暫停 \u00b7 {{projects}} 個專案暫停",
+      "budgetSubtitleUsage": "{{spent}} / {{budget}}",
+      "budgetSubtitleNoCap": "未設定月度上限",
+      "financeNetSubtitle": "{{debits}} 借方 \u00b7 {{credits}} 貸方",
+      "financeEventsSubtitle": "{{estimated}} 預估在範圍內"
     },
     "noMonthlyCap": "未設定月度上限",
     "unlimitedBudget": "無限預算",
@@ -460,7 +466,9 @@
       "byProjectDesc": "透過專案關聯任務歸屬的執行成本。",
       "noProjectCosts": "尚無專案歸屬的執行成本。",
       "unattributed": "未歸屬",
-      "noFinanceEvents": "尚無財務事件。在帳單方發票或額度結算後新增帳戶級費用。"
+      "noFinanceEvents": "尚無財務事件。在帳單方發票或額度結算後新增帳戶級費用。",
+      "allProviders": "所有供應商",
+      "allBillers": "所有帳單方"
     },
     "budgets": {
       "controlPlane": "預算控制面板",
@@ -475,7 +483,9 @@
         "pausedAgentsDesc": "因預算而被封鎖的代理人心跳",
         "pausedProjectsDesc": "因預算而被封鎖的專案執行"
       },
+      "activeIncidentsHeading": "有效事件",
       "resolveHardStops": "在此透過提高預算或明確保持範圍暫停來解決硬性停止。",
+      "scopeBudgets": "{{scope}}預算",
       "companyPolicy": "全公司月度政策。",
       "agentPolicy": "個別代理人的每月重複花費政策。",
       "projectPolicy": "執行綁定專案的終身花費政策。",
@@ -491,7 +501,18 @@
     "finance": {
       "byBiller": "依帳單方",
       "byBillerDesc": "依收費或記入額度的帳單方分組的帳戶級財務事件。",
-      "noEvents": "尚無財務事件。"
+      "noEvents": "尚無財務事件。",
+      "ledger": "財務帳本",
+      "ledgerDesc": "無法對應至單一推理請求的帳戶級費用。",
+      "debits": "借方",
+      "debitsSubtitle": "範圍內共 {{count}} 個事件",
+      "debitsSubtitle_plural": "範圍內共 {{count}} 個事件",
+      "credits": "貸方",
+      "creditsSubtitle": "退款、抵銷和額度退回",
+      "net": "淨額",
+      "netSubtitle": "所選期間的借方減去貸方",
+      "estimated": "預估",
+      "estimatedSubtitle": "尚未以發票為準的預估借方"
     }
   },
   "inbox": {
@@ -512,7 +533,9 @@
       "failedRuns": "失敗的執行",
       "allApprovalStatuses": "所有審批狀態",
       "needsAction": "需要操作",
-      "resolved": "已解決"
+      "resolved": "已解決",
+      "categoryPlaceholder": "分類",
+      "approvalStatusPlaceholder": "審批狀態"
     },
     "section": {
       "alerts": "警報"
@@ -578,7 +601,9 @@
       "brandColor": "品牌色",
       "brandColorDesc": "設定公司圖示的色調。留空則自動產生顏色。",
       "brandColorPlaceholder": "自動",
-      "brandColorClear": "清除"
+      "brandColorClear": "清除",
+      "requireApproval": "新招募需要董事會批准",
+      "requireApprovalDesc": "新代理人招募在董事會批准前保持待定狀態。"
     },
     "logo": {
       "removing": "移除中...",
@@ -734,7 +759,12 @@
   "org": {
     "breadcrumb": "組織架構",
     "noCompany": "請選擇一間公司以檢視組織架構。",
-    "empty": "組織中沒有代理人。建立代理人以建構您的組織架構。"
+    "empty": "組織中沒有代理人。建立代理人以建構您的組織架構。",
+    "noAgents": "組織中沒有代理人。建立代理人以建構您的組織架構。",
+    "zoomIn": "放大",
+    "zoomOut": "縮小",
+    "fitToScreen": "適應螢幕",
+    "fitChartToScreen": "將圖表適應螢幕"
   },
   "newAgent": {
     "title": "新增代理人",
@@ -785,7 +815,8 @@
     "parent": "上級目標",
     "targetDate": "目標日期",
     "noProjectsLinked": "沒有關聯的專案。",
-    "noActivityYet": "尚無活動。"
+    "noActivityYet": "尚無活動。",
+    "addDescriptionPlaceholder": "新增描述..."
   },
   "projectDetail": {
     "overview": "總覽",
@@ -801,7 +832,8 @@
     "cancel": "取消",
     "archive": "封存",
     "addDescription": "新增描述...",
-    "failedToSave": "儲存專案失敗"
+    "failedToSave": "儲存專案失敗",
+    "changeProjectColor": "變更專案顏色"
   },
   "routineDetail": {
     "overview": "總覽",
@@ -820,13 +852,24 @@
     "delete": "刪除",
     "deleting": "刪除中...",
     "noRunsYet": "尚無執行紀錄。",
-    "noEvents": "沒有事件。"
+    "noEvents": "沒有事件。",
+    "selectCompanyMessage": "請選擇一間公司以檢視例行工作。",
+    "titlePlaceholder": "例行工作標題",
+    "assigneePlaceholder": "負責人",
+    "projectPlaceholder": "專案",
+    "addInstructionsPlaceholder": "新增指令..."
   },
   "routines": {
     "title": "例行工作",
     "newRoutine": "新增例行工作",
     "noRoutinesYet": "尚無例行工作。",
-    "creating": "建立中..."
+    "creating": "建立中...",
+    "selectCompanyMessage": "請選擇一間公司以檢視例行工作。",
+    "titlePlaceholder": "例行工作標題",
+    "assigneePlaceholder": "負責人",
+    "projectPlaceholder": "專案",
+    "addInstructionsPlaceholder": "新增指令...",
+    "noRoutinesMessage": "尚無例行工作。使用「建立例行工作」來定義第一個週期性工作流程。"
   },
   "companySkills": {
     "title": "公司技能",
@@ -837,7 +880,13 @@
     "uninstalling": "解除安裝中...",
     "searchSkills": "搜尋技能...",
     "availableSkills": "可用技能",
-    "installed": "已安裝"
+    "installed": "已安裝",
+    "skillNamePlaceholder": "技能名稱",
+    "shortDescriptionPlaceholder": "簡短描述",
+    "selectSkillMessage": "選擇一個技能以檢視其檔案。",
+    "selectCompanyMessage": "請選擇一間公司以管理技能。",
+    "scanProjectsTitle": "掃描專案工作區以尋找技能",
+    "pasteSourcePlaceholder": "貼上路徑、GitHub URL 或 skills.sh 指令"
   },
   "notFound": {
     "404": "404",
@@ -897,7 +946,8 @@
     "createIssue": "建立任務",
     "live": "運行中",
     "noAssignee": "未指派",
-    "me": "我"
+    "me": "我",
+    "searchIssuesAria": "搜尋任務"
   },
   "issueProperties": {
     "status": "狀態",
@@ -919,7 +969,16 @@
     "noProject": "無專案",
     "searchProjects": "搜尋專案...",
     "copied": "已複製！",
-    "copyToClipboard": "複製到剪貼簿"
+    "copyToClipboard": "複製到剪貼簿",
+    "depth": "深度",
+    "createdBy": "建立者",
+    "started": "已開始",
+    "completed": "已完成",
+    "assignToMe": "指派給我",
+    "assignToUser": "指派給 {{name}}",
+    "assignToRequester": "指派給請求者",
+    "existingIsolatedWorkspace": "現有隔離工作區",
+    "chooseExistingWorkspace": "選擇現有工作區"
   },
   "newIssueDialog": {
     "newIssue": "新增任務",
@@ -943,7 +1002,12 @@
     "dueDate": "到期日期",
     "discardDraft": "捨棄草稿",
     "creating": "建立中...",
-    "createIssue": "建立任務"
+    "createIssue": "建立任務",
+    "noAssigneesFound": "找不到負責人。",
+    "noProjectsFound": "找不到專案。",
+    "defaultModel": "預設模型",
+    "searchModels": "搜尋模型...",
+    "noModelsFound": "找不到模型。"
   },
   "newProjectDialog": {
     "newProject": "新增專案",
@@ -957,7 +1021,8 @@
     "targetDate": "目標日期",
     "creating": "建立中…",
     "createProject": "建立專案",
-    "failedToCreate": "專案建立失敗。"
+    "failedToCreate": "專案建立失敗。",
+    "allGoalsSelected": "所有目標已全部選取。"
   },
   "newGoalDialog": {
     "newGoal": "新增目標",
@@ -1003,7 +1068,44 @@
     "unsavedChanges": "未儲存的變更",
     "passed": "通過",
     "warnings": "警告",
-    "failed": "失敗"
+    "failed": "失敗",
+    "titlePlaceholder": "例如：工程副總裁",
+    "capabilitiesPlaceholder": "描述此代理人能做什麼...",
+    "promptTemplate": "提示範本",
+    "promptTemplatePlaceholder": "你是代理人 {{ agent.name }}。你的角色是 {{ agent.role }}...",
+    "promptTemplateWarningEdit": "提示範本會在每次心跳時重播。保持精簡且動態以避免重複的 token 成本和快取流失。",
+    "promptTemplateWarningCreate": "提示範本會在每次心跳時重播。建議使用小型任務框架和變數如 {{ context.* }} 或 {{ run.* }}；避免在此重複穩定的指令。",
+    "envTestFailed": "環境測試失敗",
+    "workingDirectoryDeprecated": "工作目錄（已棄用）",
+    "cwdPlaceholder": "/path/to/project",
+    "adapterType": "配接器類型",
+    "failedToLoadModels": "無法載入配接器模型。",
+    "bootstrapPrompt": "引導提示（舊版）",
+    "bootstrapPromptPlaceholder": "首次執行的可選初始設定提示",
+    "bootstrapPromptWarning": "引導提示為舊版功能，將在未來版本中移除。請考慮將此內容移至代理人的提示範本或指令檔案中。",
+    "extraArgs": "額外參數（逗號分隔）",
+    "extraArgsPlaceholder": "例如 --verbose, --foo=bar",
+    "environmentVariables": "環境變數",
+    "timeoutSec": "逾時（秒）",
+    "interruptGracePeriod": "中斷寬限期（秒）",
+    "runHeartbeatEvery": "每隔多久執行心跳",
+    "advancedRunPolicy": "進階執行策略",
+    "model": "模型",
+    "thinkingEffort": "思考力度",
+    "searchModels": "搜尋模型...",
+    "modelDefault": "預設",
+    "selectModel": "選擇模型",
+    "selectModelRequired": "選擇模型（必填）",
+    "noModelsFound": "找不到模型。",
+    "env": {
+      "selectSecret": "選擇密鑰...",
+      "createSecretTitle": "從目前的明文值建立密鑰",
+      "new": "新增",
+      "valuePlaceholder": "值",
+      "sealTitle": "將值儲存為密鑰並替換為參考",
+      "seal": "封存",
+      "autoInjected": "PAPERCLIP_* 變數會在執行時自動注入。"
+    }
   },
   "agentsPanel": {
     "noRecentRuns": "沒有最近的代理人執行。",
@@ -1031,13 +1133,17 @@
     "adapter": "配接器",
     "scope": "範圍",
     "window": "時間視窗",
-    "metric": "指標"
+    "metric": "指標",
+    "role": "角色",
+    "icon": "圖示"
   },
   "budgetIncident": {
     "projectPaused": "專案執行已暫停。在您解決預算事件之前，此專案中的新工作不會啟動。",
     "scopePaused": "此範圍已暫停。在您解決預算事件之前，新的心跳不會啟動。",
     "applying": "套用中...",
-    "raiseAndResume": "提高預算並恢復"
+    "raiseAndResume": "提高預算並恢復",
+    "newBudgetUsd": "新預算 (USD)",
+    "keepPaused": "保持暫停"
   },
   "budgetPolicy": {
     "lifetimeBudget": "終身預算",
@@ -1055,7 +1161,8 @@
     "warning": "警告",
     "hardStop": "硬性停止",
     "healthy": "正常",
-    "validAmount": "請輸入有效的非負金額。"
+    "validAmount": "請輸入有效的非負金額。",
+    "budgetUsd": "預算 (USD)"
   },
   "companySwitcher": {
     "selectCompany": "選擇公司",
@@ -1103,7 +1210,9 @@
       "on": "開",
       "off": "關",
       "disableTimer": "停用定時心跳",
-      "enableTimer": "啟用定時心跳"
+      "enableTimer": "啟用定時心跳",
+      "noHeartbeatsMessage": "沒有符合目前條件的排程器心跳。",
+      "fullAgentConfig": "完整代理人設定"
     },
     "experimental": {
       "loading": "載入實驗性設定中...",
@@ -1113,7 +1222,9 @@
       "isolatedWorkspaces": "啟用隔離工作區",
       "isolatedWorkspacesDesc": "在專案設定中顯示執行工作區控制項，並允許新建和現有任務執行使用隔離工作區行為。",
       "autoRestartDevServer": "閒置時自動重啟開發伺服器",
-      "autoRestartDevServerDesc": "在 `pnpm dev:once` 中，等待所有排隊和正在執行的本地代理人執行完成，然後在後端變更或遷移使當前啟動過期時自動重啟伺服器。"
+      "autoRestartDevServerDesc": "在 `pnpm dev:once` 中，等待所有排隊和正在執行的本地代理人執行完成，然後在後端變更或遷移使當前啟動過期時自動重啟伺服器。",
+      "toggleIsolatedWorkspaces": "切換隔離工作區實驗性設定",
+      "toggleAutoRestartDevServer": "切換受保護的開發伺服器自動重啟"
     }
   },
   "pluginManager": {
@@ -1258,7 +1369,17 @@
     "localFolder": "本地資料夾",
     "changeLocalFolder": "變更本地資料夾",
     "setLocalFolder": "設定本地資料夾",
-    "executionWorkspaces": "執行工作區"
+    "executionWorkspaces": "執行工作區",
+    "lead": "負責人",
+    "codebaseHelp": "程式碼庫說明",
+    "clearRepo": "清除儲存庫",
+    "clearLocalFolder": "清除本地資料夾",
+    "executionWorkspacesHelp": "執行工作區說明",
+    "changeRepo": "變更儲存庫",
+    "failedToSaveWorkspace": "工作區儲存失敗。",
+    "failedToDeleteWorkspace": "工作區刪除失敗。",
+    "failedToUpdateWorkspace": "工作區更新失敗。",
+    "dangerZone": "危險區域"
   },
   "scheduleEditor": {
     "everyMinute": "每分鐘",
@@ -1269,7 +1390,8 @@
     "monthly": "每月",
     "customCron": "自訂（cron）",
     "noScheduleSet": "未設定排程",
-    "chooseFrequency": "選擇頻率..."
+    "chooseFrequency": "選擇頻率...",
+    "cronHelp": "五個欄位：分 時 日 月 星期"
   },
   "worktreeBanner": {
     "worktree": "工作樹"
@@ -1294,7 +1416,10 @@
     "showSecret": "顯示密鑰",
     "addItem": "新增項目",
     "add": "新增",
-    "removeItem": "移除項目"
+    "removeItem": "移除項目",
+    "noItems": "尚未新增項目。",
+    "noConfigOptions": "沒有可用的設定選項。",
+    "itemNumber": "項目 {{number}}"
   },
   "companyExport": {
     "exportCompany": "匯出公司",
@@ -1304,7 +1429,11 @@
     "agents": "代理人",
     "projects": "專案",
     "issues": "任務",
-    "goals": "目標"
+    "goals": "目標",
+    "selectFileMessage": "選擇檔案以預覽其內容。",
+    "selectCompanyMessage": "請選擇一間公司以匯出。",
+    "loadingMessage": "載入匯出資料中...",
+    "searchFilesPlaceholder": "搜尋檔案..."
   },
   "companyImport": {
     "importCompany": "匯入公司",
@@ -1317,7 +1446,14 @@
     "goals": "目標",
     "skip": "略過",
     "overwrite": "覆蓋",
-    "conflictsDetected": "偵測到衝突"
+    "conflictsDetected": "偵測到衝突",
+    "selectFileMessage": "選擇檔案以預覽其內容。",
+    "selectCompanyMessage": "請選擇一間公司以匯入。",
+    "githubUrlLabel": "GitHub URL",
+    "targetLabel": "目標",
+    "newCompanyNameLabel": "新公司名稱",
+    "importedCompanyPlaceholder": "匯入的公司",
+    "collisionStrategyLabel": "衝突策略"
   },
   "boardClaim": {
     "claimBoardAccess": "認領看板存取權",
@@ -1345,6 +1481,57 @@
     "title": "我的任務",
     "selectCompany": "請選擇一間公司以檢視您的任務。",
     "noIssues": "沒有指派給您的任務。"
+  },
+  "agentProperties": {
+    "status": "狀態",
+    "role": "角色",
+    "title": "職稱",
+    "adapter": "適配器",
+    "session": "工作階段",
+    "lastError": "最後錯誤",
+    "lastHeartbeat": "最後心跳",
+    "reportsTo": "匯報對象",
+    "created": "建立日期"
+  },
+  "goalProperties": {
+    "status": "狀態",
+    "level": "層級",
+    "owner": "擁有者",
+    "none": "無",
+    "parentGoal": "上層目標",
+    "created": "建立日期",
+    "updated": "更新日期"
+  },
+  "sidebarProjects": {
+    "projects": "專案",
+    "newProject": "新增專案"
+  },
+  "sidebarAgents": {
+    "agents": "代理人",
+    "newAgent": "新增代理人"
+  },
+  "providerQuotaCard": {
+    "periodSpend": "期間支出",
+    "thisWeek": "本週"
+  },
+  "billerSpendCard": {
+    "periodSpend": "期間支出"
+  },
+  "breadcrumbBar": {
+    "openSidebar": "開啟側邊欄"
+  },
+  "scrollToBottom": {
+    "ariaLabel": "捲動到底部"
+  },
+  "toastViewport": {
+    "dismissNotification": "關閉通知"
+  },
+  "issueRow": {
+    "markAsRead": "標記為已讀"
+  },
+  "agentIconPicker": {
+    "searchIcons": "搜尋圖示...",
+    "noIconsMatch": "沒有符合的圖示"
   },
   "common": {
     "loading": "載入中...",

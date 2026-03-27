@@ -713,7 +713,7 @@ const ArrayField = React.memo(({
           >
             <div className="flex-1">
               <div className="mb-2 text-xs font-medium text-muted-foreground">
-                Item {index + 1}
+                {t("jsonSchemaForm.itemNumber", { number: index + 1 })}
               </div>
               <FormField
                 propSchema={itemSchema}
@@ -752,7 +752,7 @@ const ArrayField = React.memo(({
         ))}
         {items.length === 0 && (
           <div className="rounded-lg border border-dashed p-4 text-center text-xs text-muted-foreground">
-            No items added yet.
+            {t("jsonSchemaForm.noItems")}
           </div>
         )}
       </div>
@@ -975,6 +975,7 @@ export function JsonSchemaForm({
   disabled,
   className,
 }: JsonSchemaFormProps) {
+  const { t } = useTranslation();
   const type = resolveType(schema);
 
   const handleRootScalarChange = useCallback((newVal: unknown) => {
@@ -1021,7 +1022,7 @@ export function JsonSchemaForm({
           className,
         )}
       >
-        No configuration options available.
+        {t("jsonSchemaForm.noConfigOptions")}
       </div>
     );
   }

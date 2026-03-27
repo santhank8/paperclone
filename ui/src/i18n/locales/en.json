@@ -433,7 +433,13 @@
       "inferenceSpend": "Inference spend",
       "budget": "Budget",
       "financeNet": "Finance net",
-      "financeEvents": "Finance events"
+      "financeEvents": "Finance events",
+      "tokenSubtitle": "{{tokens}} tokens across request-scoped events",
+      "budgetSubtitlePaused": "{{agents}} agents paused \u00b7 {{projects}} projects paused",
+      "budgetSubtitleUsage": "{{spent}} of {{budget}}",
+      "budgetSubtitleNoCap": "No monthly cap configured",
+      "financeNetSubtitle": "{{debits}} debits \u00b7 {{credits}} credits",
+      "financeEventsSubtitle": "{{estimated}} estimated in range"
     },
     "noMonthlyCap": "No monthly cap configured",
     "unlimitedBudget": "Unlimited budget",
@@ -460,7 +466,9 @@
       "byProjectDesc": "Run costs attributed through project-linked issues.",
       "noProjectCosts": "No project-attributed run costs yet.",
       "unattributed": "Unattributed",
-      "noFinanceEvents": "No finance events yet. Add account-level charges once biller invoices or credits land."
+      "noFinanceEvents": "No finance events yet. Add account-level charges once biller invoices or credits land.",
+      "allProviders": "All providers",
+      "allBillers": "All billers"
     },
     "budgets": {
       "controlPlane": "Budget control plane",
@@ -475,7 +483,9 @@
         "pausedAgentsDesc": "Agent heartbeats blocked by budget",
         "pausedProjectsDesc": "Project execution blocked by budget"
       },
+      "activeIncidentsHeading": "Active incidents",
       "resolveHardStops": "Resolve hard stops here by raising the budget or explicitly keeping the scope paused.",
+      "scopeBudgets": "{{scope}} budgets",
       "companyPolicy": "Company-wide monthly policy.",
       "agentPolicy": "Recurring monthly spend policies for individual agents.",
       "projectPolicy": "Lifetime spend policies for execution-bound projects.",
@@ -491,7 +501,18 @@
     "finance": {
       "byBiller": "By biller",
       "byBillerDesc": "Account-level financial events grouped by who charged or credited them.",
-      "noEvents": "No finance events yet."
+      "noEvents": "No finance events yet.",
+      "ledger": "Finance ledger",
+      "ledgerDesc": "Account-level charges that do not map to a single inference request.",
+      "debits": "Debits",
+      "debitsSubtitle": "{{count}} total event in range",
+      "debitsSubtitle_plural": "{{count}} total events in range",
+      "credits": "Credits",
+      "creditsSubtitle": "Refunds, offsets, and credit returns",
+      "net": "Net",
+      "netSubtitle": "Debit minus credit for the selected period",
+      "estimated": "Estimated",
+      "estimatedSubtitle": "Estimated debits that are not yet invoice-authoritative"
     }
   },
   "inbox": {
@@ -512,7 +533,9 @@
       "failedRuns": "Failed runs",
       "allApprovalStatuses": "All approval statuses",
       "needsAction": "Needs action",
-      "resolved": "Resolved"
+      "resolved": "Resolved",
+      "categoryPlaceholder": "Category",
+      "approvalStatusPlaceholder": "Approval status"
     },
     "section": {
       "alerts": "Alerts"
@@ -578,7 +601,9 @@
       "brandColor": "Brand color",
       "brandColorDesc": "Sets the hue for the company icon. Leave empty for auto-generated color.",
       "brandColorPlaceholder": "Auto",
-      "brandColorClear": "Clear"
+      "brandColorClear": "Clear",
+      "requireApproval": "Require board approval for new hires",
+      "requireApprovalDesc": "New agent hires stay pending until approved by board."
     },
     "logo": {
       "removing": "Removing...",
@@ -734,7 +759,12 @@
   "org": {
     "breadcrumb": "Org Chart",
     "noCompany": "Select a company to view org chart.",
-    "empty": "No agents in the organization. Create agents to build your org chart."
+    "empty": "No agents in the organization. Create agents to build your org chart.",
+    "noAgents": "No agents in the organization. Create agents to build your org chart.",
+    "zoomIn": "Zoom in",
+    "zoomOut": "Zoom out",
+    "fitToScreen": "Fit to screen",
+    "fitChartToScreen": "Fit chart to screen"
   },
   "newAgent": {
     "title": "New Agent",
@@ -785,7 +815,8 @@
     "parent": "Parent",
     "targetDate": "Target date",
     "noProjectsLinked": "No projects linked.",
-    "noActivityYet": "No activity yet."
+    "noActivityYet": "No activity yet.",
+    "addDescriptionPlaceholder": "Add a description..."
   },
   "projectDetail": {
     "overview": "Overview",
@@ -801,7 +832,8 @@
     "cancel": "Cancel",
     "archive": "Archive",
     "addDescription": "Add a description...",
-    "failedToSave": "Failed to save project"
+    "failedToSave": "Failed to save project",
+    "changeProjectColor": "Change project color"
   },
   "routineDetail": {
     "overview": "Overview",
@@ -820,13 +852,24 @@
     "delete": "Delete",
     "deleting": "Deleting...",
     "noRunsYet": "No runs yet.",
-    "noEvents": "No events."
+    "noEvents": "No events.",
+    "selectCompanyMessage": "Select a company to view routines.",
+    "titlePlaceholder": "Routine title",
+    "assigneePlaceholder": "Assignee",
+    "projectPlaceholder": "Project",
+    "addInstructionsPlaceholder": "Add instructions..."
   },
   "routines": {
     "title": "Routines",
     "newRoutine": "New routine",
     "noRoutinesYet": "No routines yet.",
-    "creating": "Creating..."
+    "creating": "Creating...",
+    "selectCompanyMessage": "Select a company to view routines.",
+    "titlePlaceholder": "Routine title",
+    "assigneePlaceholder": "Assignee",
+    "projectPlaceholder": "Project",
+    "addInstructionsPlaceholder": "Add instructions...",
+    "noRoutinesMessage": "No routines yet. Use Create routine to define the first recurring workflow."
   },
   "companySkills": {
     "title": "Company Skills",
@@ -837,7 +880,13 @@
     "uninstalling": "Uninstalling...",
     "searchSkills": "Search skills...",
     "availableSkills": "Available skills",
-    "installed": "Installed"
+    "installed": "Installed",
+    "skillNamePlaceholder": "Skill name",
+    "shortDescriptionPlaceholder": "Short description",
+    "selectSkillMessage": "Select a skill to inspect its files.",
+    "selectCompanyMessage": "Select a company to manage skills.",
+    "scanProjectsTitle": "Scan project workspaces for skills",
+    "pasteSourcePlaceholder": "Paste path, GitHub URL, or skills.sh command"
   },
   "notFound": {
     "404": "404",
@@ -897,7 +946,8 @@
     "createIssue": "Create Issue",
     "live": "Live",
     "noAssignee": "No assignee",
-    "me": "Me"
+    "me": "Me",
+    "searchIssuesAria": "Search issues"
   },
   "issueProperties": {
     "status": "Status",
@@ -919,7 +969,16 @@
     "noProject": "No project",
     "searchProjects": "Search projects...",
     "copied": "Copied!",
-    "copyToClipboard": "Copy to clipboard"
+    "copyToClipboard": "Copy to clipboard",
+    "depth": "Depth",
+    "createdBy": "Created by",
+    "started": "Started",
+    "completed": "Completed",
+    "assignToMe": "Assign to me",
+    "assignToUser": "Assign to {{name}}",
+    "assignToRequester": "Assign to requester",
+    "existingIsolatedWorkspace": "Existing isolated workspace",
+    "chooseExistingWorkspace": "Choose an existing workspace"
   },
   "newIssueDialog": {
     "newIssue": "New issue",
@@ -943,7 +1002,12 @@
     "dueDate": "Due date",
     "discardDraft": "Discard Draft",
     "creating": "Creating...",
-    "createIssue": "Create Issue"
+    "createIssue": "Create Issue",
+    "noAssigneesFound": "No assignees found.",
+    "noProjectsFound": "No projects found.",
+    "defaultModel": "Default model",
+    "searchModels": "Search models...",
+    "noModelsFound": "No models found."
   },
   "newProjectDialog": {
     "newProject": "New project",
@@ -957,7 +1021,8 @@
     "targetDate": "Target date",
     "creating": "Creating…",
     "createProject": "Create project",
-    "failedToCreate": "Failed to create project."
+    "failedToCreate": "Failed to create project.",
+    "allGoalsSelected": "All goals already selected."
   },
   "newGoalDialog": {
     "newGoal": "New goal",
@@ -1003,7 +1068,44 @@
     "unsavedChanges": "Unsaved changes",
     "passed": "Passed",
     "warnings": "Warnings",
-    "failed": "Failed"
+    "failed": "Failed",
+    "titlePlaceholder": "e.g. VP of Engineering",
+    "capabilitiesPlaceholder": "Describe what this agent can do...",
+    "promptTemplate": "Prompt Template",
+    "promptTemplatePlaceholder": "You are agent {{ agent.name }}. Your role is {{ agent.role }}...",
+    "promptTemplateWarningEdit": "Prompt template is replayed on every heartbeat. Keep it compact and dynamic to avoid recurring token cost and cache churn.",
+    "promptTemplateWarningCreate": "Prompt template is replayed on every heartbeat. Prefer small task framing and variables like {{ context.* }} or {{ run.* }}; avoid repeating stable instructions here.",
+    "envTestFailed": "Environment test failed",
+    "workingDirectoryDeprecated": "Working directory (deprecated)",
+    "cwdPlaceholder": "/path/to/project",
+    "adapterType": "Adapter type",
+    "failedToLoadModels": "Failed to load adapter models.",
+    "bootstrapPrompt": "Bootstrap prompt (legacy)",
+    "bootstrapPromptPlaceholder": "Optional initial setup prompt for the first run",
+    "bootstrapPromptWarning": "Bootstrap prompt is legacy and will be removed in a future release. Consider moving this content into the agent's prompt template or instructions file instead.",
+    "extraArgs": "Extra args (comma-separated)",
+    "extraArgsPlaceholder": "e.g. --verbose, --foo=bar",
+    "environmentVariables": "Environment variables",
+    "timeoutSec": "Timeout (sec)",
+    "interruptGracePeriod": "Interrupt grace period (sec)",
+    "runHeartbeatEvery": "Run heartbeat every",
+    "advancedRunPolicy": "Advanced Run Policy",
+    "model": "Model",
+    "thinkingEffort": "Thinking effort",
+    "searchModels": "Search models...",
+    "modelDefault": "Default",
+    "selectModel": "Select model",
+    "selectModelRequired": "Select model (required)",
+    "noModelsFound": "No models found.",
+    "env": {
+      "selectSecret": "Select secret...",
+      "createSecretTitle": "Create secret from current plain value",
+      "new": "New",
+      "valuePlaceholder": "value",
+      "sealTitle": "Store value as secret and replace with reference",
+      "seal": "Seal",
+      "autoInjected": "PAPERCLIP_* variables are injected automatically at runtime."
+    }
   },
   "agentsPanel": {
     "noRecentRuns": "No recent agent runs.",
@@ -1031,13 +1133,17 @@
     "adapter": "Adapter",
     "scope": "Scope",
     "window": "Window",
-    "metric": "Metric"
+    "metric": "Metric",
+    "role": "Role",
+    "icon": "Icon"
   },
   "budgetIncident": {
     "projectPaused": "Project execution is paused. New work in this project will not start until you resolve the budget incident.",
     "scopePaused": "This scope is paused. New heartbeats will not start until you resolve the budget incident.",
     "applying": "Applying...",
-    "raiseAndResume": "Raise budget & resume"
+    "raiseAndResume": "Raise budget & resume",
+    "newBudgetUsd": "New budget (USD)",
+    "keepPaused": "Keep paused"
   },
   "budgetPolicy": {
     "lifetimeBudget": "Lifetime budget",
@@ -1055,7 +1161,8 @@
     "warning": "Warning",
     "hardStop": "Hard stop",
     "healthy": "Healthy",
-    "validAmount": "Enter a valid non-negative dollar amount."
+    "validAmount": "Enter a valid non-negative dollar amount.",
+    "budgetUsd": "Budget (USD)"
   },
   "companySwitcher": {
     "selectCompany": "Select company",
@@ -1103,7 +1210,9 @@
       "on": "On",
       "off": "Off",
       "disableTimer": "Disable Timer Heartbeat",
-      "enableTimer": "Enable Timer Heartbeat"
+      "enableTimer": "Enable Timer Heartbeat",
+      "noHeartbeatsMessage": "No scheduler heartbeats match the current criteria.",
+      "fullAgentConfig": "Full agent config"
     },
     "experimental": {
       "loading": "Loading experimental settings...",
@@ -1113,7 +1222,9 @@
       "isolatedWorkspaces": "Enable Isolated Workspaces",
       "isolatedWorkspacesDesc": "Show execution workspace controls in project configuration and allow isolated workspace behavior for new and existing issue runs.",
       "autoRestartDevServer": "Auto-Restart Dev Server When Idle",
-      "autoRestartDevServerDesc": "In `pnpm dev:once`, wait for all queued and running local agent runs to finish, then restart the server automatically when backend changes or migrations make the current boot stale."
+      "autoRestartDevServerDesc": "In `pnpm dev:once`, wait for all queued and running local agent runs to finish, then restart the server automatically when backend changes or migrations make the current boot stale.",
+      "toggleIsolatedWorkspaces": "Toggle isolated workspaces experimental setting",
+      "toggleAutoRestartDevServer": "Toggle guarded dev-server auto-restart"
     }
   },
   "pluginManager": {
@@ -1258,7 +1369,17 @@
     "localFolder": "Local folder",
     "changeLocalFolder": "Change local folder",
     "setLocalFolder": "Set local folder",
-    "executionWorkspaces": "Execution Workspaces"
+    "executionWorkspaces": "Execution Workspaces",
+    "lead": "Lead",
+    "codebaseHelp": "Codebase help",
+    "clearRepo": "Clear repo",
+    "clearLocalFolder": "Clear local folder",
+    "executionWorkspacesHelp": "Execution workspaces help",
+    "changeRepo": "Change repo",
+    "failedToSaveWorkspace": "Failed to save workspace.",
+    "failedToDeleteWorkspace": "Failed to delete workspace.",
+    "failedToUpdateWorkspace": "Failed to update workspace.",
+    "dangerZone": "Danger Zone"
   },
   "scheduleEditor": {
     "everyMinute": "Every minute",
@@ -1269,7 +1390,8 @@
     "monthly": "Monthly",
     "customCron": "Custom (cron)",
     "noScheduleSet": "No schedule set",
-    "chooseFrequency": "Choose frequency..."
+    "chooseFrequency": "Choose frequency...",
+    "cronHelp": "Five fields: minute hour day-of-month month day-of-week"
   },
   "worktreeBanner": {
     "worktree": "Worktree"
@@ -1294,7 +1416,10 @@
     "showSecret": "Show secret",
     "addItem": "Add item",
     "add": "Add",
-    "removeItem": "Remove item"
+    "removeItem": "Remove item",
+    "noItems": "No items added yet.",
+    "noConfigOptions": "No configuration options available.",
+    "itemNumber": "Item {{number}}"
   },
   "companyExport": {
     "exportCompany": "Export Company",
@@ -1304,7 +1429,11 @@
     "agents": "Agents",
     "projects": "Projects",
     "issues": "Issues",
-    "goals": "Goals"
+    "goals": "Goals",
+    "selectFileMessage": "Select a file to preview its contents.",
+    "selectCompanyMessage": "Select a company to export.",
+    "loadingMessage": "Loading export data...",
+    "searchFilesPlaceholder": "Search files..."
   },
   "companyImport": {
     "importCompany": "Import Company",
@@ -1317,7 +1446,14 @@
     "goals": "Goals",
     "skip": "Skip",
     "overwrite": "Overwrite",
-    "conflictsDetected": "Conflicts detected"
+    "conflictsDetected": "Conflicts detected",
+    "selectFileMessage": "Select a file to preview its contents.",
+    "selectCompanyMessage": "Select a company to import into.",
+    "githubUrlLabel": "GitHub URL",
+    "targetLabel": "Target",
+    "newCompanyNameLabel": "New company name",
+    "importedCompanyPlaceholder": "Imported Company",
+    "collisionStrategyLabel": "Collision strategy"
   },
   "boardClaim": {
     "claimBoardAccess": "Claim Board Access",
@@ -1345,6 +1481,57 @@
     "title": "My Issues",
     "selectCompany": "Select a company to view your issues.",
     "noIssues": "No issues assigned to you."
+  },
+  "agentProperties": {
+    "status": "Status",
+    "role": "Role",
+    "title": "Title",
+    "adapter": "Adapter",
+    "session": "Session",
+    "lastError": "Last error",
+    "lastHeartbeat": "Last Heartbeat",
+    "reportsTo": "Reports To",
+    "created": "Created"
+  },
+  "goalProperties": {
+    "status": "Status",
+    "level": "Level",
+    "owner": "Owner",
+    "none": "None",
+    "parentGoal": "Parent Goal",
+    "created": "Created",
+    "updated": "Updated"
+  },
+  "sidebarProjects": {
+    "projects": "Projects",
+    "newProject": "New project"
+  },
+  "sidebarAgents": {
+    "agents": "Agents",
+    "newAgent": "New agent"
+  },
+  "providerQuotaCard": {
+    "periodSpend": "Period spend",
+    "thisWeek": "This week"
+  },
+  "billerSpendCard": {
+    "periodSpend": "Period spend"
+  },
+  "breadcrumbBar": {
+    "openSidebar": "Open sidebar"
+  },
+  "scrollToBottom": {
+    "ariaLabel": "Scroll to bottom"
+  },
+  "toastViewport": {
+    "dismissNotification": "Dismiss notification"
+  },
+  "issueRow": {
+    "markAsRead": "Mark as read"
+  },
+  "agentIconPicker": {
+    "searchIcons": "Search icons...",
+    "noIconsMatch": "No icons match"
   },
   "common": {
     "loading": "Loading...",

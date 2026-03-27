@@ -236,7 +236,7 @@ export function NewAgent() {
         <div className="px-4 pb-2">
           <input
             className="w-full bg-transparent outline-none text-sm text-muted-foreground placeholder:text-muted-foreground/40"
-            placeholder="Title (e.g. VP of Engineering)"
+            placeholder={t("newAgent.titlePlaceholder")}
             value={title}
             onChange={(e) => setTitle(e.target.value)}
           />

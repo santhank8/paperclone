@@ -1030,7 +1030,7 @@ export function NewIssueDialog() {
                 disablePortal
                 noneLabel={t("newIssueDialog.noAssignee")}
                 searchPlaceholder={t("newIssueDialog.searchAssignees")}
-                emptyMessage="No assignees found."
+                emptyMessage={t("newIssueDialog.noAssigneesFound")}
                 onChange={(value) => {
                   const nextAssignee = parseAssigneeValue(value);
                   if (nextAssignee.assigneeAgentId) {
@@ -1081,7 +1081,7 @@ export function NewIssueDialog() {
                 disablePortal
                 noneLabel={t("newIssueDialog.noProject")}
                 searchPlaceholder={t("newIssueDialog.searchProjects")}
-                emptyMessage="No projects found."
+                emptyMessage={t("newIssueDialog.noProjectsFound")}
                 onChange={handleProjectChange}
                 onConfirm={() => {
                   descriptionEditorRef.current?.focus();
@@ -1179,11 +1179,11 @@ export function NewIssueDialog() {
                   <InlineEntitySelector
                     value={assigneeModelOverride}
                     options={modelOverrideOptions}
-                    placeholder="Default model"
+                    placeholder={t("newIssueDialog.defaultModel")}
                     disablePortal
-                    noneLabel="Default model"
-                    searchPlaceholder="Search models..."
-                    emptyMessage="No models found."
+                    noneLabel={t("newIssueDialog.defaultModel")}
+                    searchPlaceholder={t("newIssueDialog.searchModels")}
+                    emptyMessage={t("newIssueDialog.noModelsFound")}
                     onChange={setAssigneeModelOverride}
                   />
                 </div>

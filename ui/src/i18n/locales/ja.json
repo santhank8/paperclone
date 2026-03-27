@@ -433,7 +433,13 @@
       "inferenceSpend": "推論コスト",
       "budget": "予算",
       "financeNet": "財務純額",
-      "financeEvents": "財務イベント"
+      "financeEvents": "財務イベント",
+      "tokenSubtitle": "{{tokens}} トークン（リクエストスコープイベント全体）",
+      "budgetSubtitlePaused": "{{agents}} エージェント一時停止 \u00b7 {{projects}} プロジェクト一時停止",
+      "budgetSubtitleUsage": "{{spent}} / {{budget}}",
+      "budgetSubtitleNoCap": "月次上限未設定",
+      "financeNetSubtitle": "{{debits}} 借方 \u00b7 {{credits}} 貸方",
+      "financeEventsSubtitle": "{{estimated}} 範囲内の見積もり"
     },
     "noMonthlyCap": "月次上限未設定",
     "unlimitedBudget": "無制限予算",
@@ -460,7 +466,9 @@
       "byProjectDesc": "プロジェクトに関連付けられたタスク経由の実行コスト。",
       "noProjectCosts": "プロジェクトに帰属する実行コストはまだありません。",
       "unattributed": "未帰属",
-      "noFinanceEvents": "財務イベントはまだありません。請求元のインボイスまたはクレジット決済後にアカウントレベルの料金を追加してください。"
+      "noFinanceEvents": "財務イベントはまだありません。請求元のインボイスまたはクレジット決済後にアカウントレベルの料金を追加してください。",
+      "allProviders": "全プロバイダー",
+      "allBillers": "全請求元"
     },
     "budgets": {
       "controlPlane": "予算コントロールプレーン",
@@ -475,7 +483,9 @@
         "pausedAgentsDesc": "予算によりブロックされたエージェントのハートビート",
         "pausedProjectsDesc": "予算によりブロックされたプロジェクトの実行"
       },
+      "activeIncidentsHeading": "アクティブなインシデント",
       "resolveHardStops": "予算を引き上げるか、明示的にスコープを一時停止のまま維持して、ハードストップを解決してください。",
+      "scopeBudgets": "{{scope}}予算",
       "companyPolicy": "全社的な月次ポリシー。",
       "agentPolicy": "個別エージェントの月次繰り返しコストポリシー。",
       "projectPolicy": "実行が紐付けられたプロジェクトの生涯コストポリシー。",
@@ -491,7 +501,18 @@
     "finance": {
       "byBiller": "請求元別",
       "byBillerDesc": "課金またはクレジット計上を行った請求元別のアカウントレベル財務イベント。",
-      "noEvents": "財務イベントはまだありません。"
+      "noEvents": "財務イベントはまだありません。",
+      "ledger": "財務台帳",
+      "ledgerDesc": "単一の推論リクエストに対応しないアカウントレベルの料金。",
+      "debits": "借方",
+      "debitsSubtitle": "範囲内の合計 {{count}} イベント",
+      "debitsSubtitle_plural": "範囲内の合計 {{count}} イベント",
+      "credits": "貸方",
+      "creditsSubtitle": "返金、相殺、クレジット返還",
+      "net": "純額",
+      "netSubtitle": "選択期間の借方マイナス貸方",
+      "estimated": "見積もり",
+      "estimatedSubtitle": "インボイス確定前の見積もり借方"
     }
   },
   "inbox": {
@@ -512,7 +533,9 @@
       "failedRuns": "失敗した実行",
       "allApprovalStatuses": "すべての承認ステータス",
       "needsAction": "対応が必要",
-      "resolved": "解決済み"
+      "resolved": "解決済み",
+      "categoryPlaceholder": "カテゴリー",
+      "approvalStatusPlaceholder": "承認ステータス"
     },
     "section": {
       "alerts": "アラート"
@@ -578,7 +601,9 @@
       "brandColor": "ブランドカラー",
       "brandColorDesc": "会社アイコンの色調を設定します。空欄にすると自動生成されます。",
       "brandColorPlaceholder": "自動",
-      "brandColorClear": "クリア"
+      "brandColorClear": "クリア",
+      "requireApproval": "新規採用に取締役会の承認を要求",
+      "requireApprovalDesc": "新しいエージェントの採用は取締役会が承認するまで保留されます。"
     },
     "logo": {
       "removing": "削除中...",
@@ -734,7 +759,12 @@
   "org": {
     "breadcrumb": "組織図",
     "noCompany": "組織図を表示するには、会社を選択してください。",
-    "empty": "組織にエージェントがいません。エージェントを作成して組織図を構築してください。"
+    "empty": "組織にエージェントがいません。エージェントを作成して組織図を構築してください。",
+    "noAgents": "組織にエージェントがいません。エージェントを作成して組織図を構築してください。",
+    "zoomIn": "拡大",
+    "zoomOut": "縮小",
+    "fitToScreen": "画面に合わせる",
+    "fitChartToScreen": "チャートを画面に合わせる"
   },
   "newAgent": {
     "title": "新規エージェント",
@@ -785,7 +815,8 @@
     "parent": "親目標",
     "targetDate": "目標日",
     "noProjectsLinked": "リンクされたプロジェクトはありません。",
-    "noActivityYet": "アクティビティはまだありません。"
+    "noActivityYet": "アクティビティはまだありません。",
+    "addDescriptionPlaceholder": "説明を追加..."
   },
   "projectDetail": {
     "overview": "概要",
@@ -801,7 +832,8 @@
     "cancel": "キャンセル",
     "archive": "アーカイブ",
     "addDescription": "説明を追加...",
-    "failedToSave": "プロジェクトの保存に失敗しました"
+    "failedToSave": "プロジェクトの保存に失敗しました",
+    "changeProjectColor": "プロジェクトの色を変更"
   },
   "routineDetail": {
     "overview": "概要",
@@ -820,13 +852,24 @@
     "delete": "削除",
     "deleting": "削除中...",
     "noRunsYet": "実行履歴はまだありません。",
-    "noEvents": "イベントはありません。"
+    "noEvents": "イベントはありません。",
+    "selectCompanyMessage": "ルーティンを表示するには会社を選択してください。",
+    "titlePlaceholder": "ルーティンタイトル",
+    "assigneePlaceholder": "担当者",
+    "projectPlaceholder": "プロジェクト",
+    "addInstructionsPlaceholder": "手順を追加..."
   },
   "routines": {
     "title": "ルーティン",
     "newRoutine": "新規ルーティン",
     "noRoutinesYet": "ルーティンはまだありません。",
-    "creating": "作成中..."
+    "creating": "作成中...",
+    "selectCompanyMessage": "ルーティンを表示するには会社を選択してください。",
+    "titlePlaceholder": "ルーティンタイトル",
+    "assigneePlaceholder": "担当者",
+    "projectPlaceholder": "プロジェクト",
+    "addInstructionsPlaceholder": "手順を追加...",
+    "noRoutinesMessage": "ルーティンはまだありません。「ルーティン作成」で最初の定期ワークフローを定義してください。"
   },
   "companySkills": {
     "title": "会社スキル",
@@ -837,7 +880,13 @@
     "uninstalling": "アンインストール中...",
     "searchSkills": "スキルを検索...",
     "availableSkills": "利用可能なスキル",
-    "installed": "インストール済み"
+    "installed": "インストール済み",
+    "skillNamePlaceholder": "スキル名",
+    "shortDescriptionPlaceholder": "簡単な説明",
+    "selectSkillMessage": "スキルを選択してファイルを確認してください。",
+    "selectCompanyMessage": "スキルを管理するには会社を選択してください。",
+    "scanProjectsTitle": "プロジェクトワークスペースでスキルをスキャン",
+    "pasteSourcePlaceholder": "パス、GitHub URL、または skills.sh コマンドを貼り付け"
   },
   "notFound": {
     "404": "404",
@@ -897,7 +946,8 @@
     "createIssue": "タスクを作成",
     "live": "稼働中",
     "noAssignee": "担当者なし",
-    "me": "自分"
+    "me": "自分",
+    "searchIssuesAria": "タスクを検索"
   },
   "issueProperties": {
     "status": "ステータス",
@@ -919,7 +969,16 @@
     "noProject": "プロジェクトなし",
     "searchProjects": "プロジェクトを検索...",
     "copied": "コピーしました！",
-    "copyToClipboard": "クリップボードにコピー"
+    "copyToClipboard": "クリップボードにコピー",
+    "depth": "深さ",
+    "createdBy": "作成者",
+    "started": "開始",
+    "completed": "完了",
+    "assignToMe": "自分に割り当て",
+    "assignToUser": "{{name}}に割り当て",
+    "assignToRequester": "依頼者に割り当て",
+    "existingIsolatedWorkspace": "既存の分離ワークスペース",
+    "chooseExistingWorkspace": "既存のワークスペースを選択"
   },
   "newIssueDialog": {
     "newIssue": "新規タスク",
@@ -943,7 +1002,12 @@
     "dueDate": "期日",
     "discardDraft": "下書きを破棄",
     "creating": "作成中...",
-    "createIssue": "タスクを作成"
+    "createIssue": "タスクを作成",
+    "noAssigneesFound": "担当者が見つかりません。",
+    "noProjectsFound": "プロジェクトが見つかりません。",
+    "defaultModel": "デフォルトモデル",
+    "searchModels": "モデルを検索...",
+    "noModelsFound": "モデルが見つかりません。"
   },
   "newProjectDialog": {
     "newProject": "新規プロジェクト",
@@ -957,7 +1021,8 @@
     "targetDate": "目標日",
     "creating": "作成中…",
     "createProject": "プロジェクトを作成",
-    "failedToCreate": "プロジェクトの作成に失敗しました。"
+    "failedToCreate": "プロジェクトの作成に失敗しました。",
+    "allGoalsSelected": "すべての目標がすでに選択されています。"
   },
   "newGoalDialog": {
     "newGoal": "新しい目標",
@@ -1003,7 +1068,44 @@
     "unsavedChanges": "未保存の変更",
     "passed": "合格",
     "warnings": "警告あり",
-    "failed": "失敗"
+    "failed": "失敗",
+    "titlePlaceholder": "例：エンジニアリング担当VP",
+    "capabilitiesPlaceholder": "このエージェントができることを説明してください...",
+    "promptTemplate": "プロンプトテンプレート",
+    "promptTemplatePlaceholder": "あなたはエージェント {{ agent.name }} です。あなたの役割は {{ agent.role }} です...",
+    "promptTemplateWarningEdit": "プロンプトテンプレートはハートビートごとに再生されます。繰り返しのトークンコストとキャッシュの消耗を避けるため、コンパクトでダイナミックに保ってください。",
+    "promptTemplateWarningCreate": "プロンプトテンプレートはハートビートごとに再生されます。小さなタスクフレーミングと {{ context.* }} や {{ run.* }} などの変数を使用し、安定した指示の繰り返しを避けてください。",
+    "envTestFailed": "環境テスト失敗",
+    "workingDirectoryDeprecated": "作業ディレクトリ（非推奨）",
+    "cwdPlaceholder": "/path/to/project",
+    "adapterType": "アダプタータイプ",
+    "failedToLoadModels": "アダプターモデルの読み込みに失敗しました。",
+    "bootstrapPrompt": "ブートストラッププロンプト（レガシー）",
+    "bootstrapPromptPlaceholder": "初回実行時のオプションの初期設定プロンプト",
+    "bootstrapPromptWarning": "ブートストラッププロンプトはレガシー機能であり、将来のリリースで削除されます。このコンテンツをエージェントのプロンプトテンプレートまたは指示ファイルに移動することを検討してください。",
+    "extraArgs": "追加引数（カンマ区切り）",
+    "extraArgsPlaceholder": "例: --verbose, --foo=bar",
+    "environmentVariables": "環境変数",
+    "timeoutSec": "タイムアウト（秒）",
+    "interruptGracePeriod": "中断猶予期間（秒）",
+    "runHeartbeatEvery": "ハートビート実行間隔",
+    "advancedRunPolicy": "高度な実行ポリシー",
+    "model": "モデル",
+    "thinkingEffort": "思考レベル",
+    "searchModels": "モデルを検索...",
+    "modelDefault": "デフォルト",
+    "selectModel": "モデルを選択",
+    "selectModelRequired": "モデルを選択（必須）",
+    "noModelsFound": "モデルが見つかりません。",
+    "env": {
+      "selectSecret": "シークレットを選択...",
+      "createSecretTitle": "現在の平文値からシークレットを作成",
+      "new": "新規",
+      "valuePlaceholder": "値",
+      "sealTitle": "値をシークレットとして保存し参照に置き換え",
+      "seal": "封印",
+      "autoInjected": "PAPERCLIP_* 変数はランタイムで自動的に注入されます。"
+    }
   },
   "agentsPanel": {
     "noRecentRuns": "最近のエージェント実行はありません。",
@@ -1031,13 +1133,17 @@
     "adapter": "アダプター",
     "scope": "スコープ",
     "window": "ウィンドウ",
-    "metric": "メトリック"
+    "metric": "メトリック",
+    "role": "役割",
+    "icon": "アイコン"
   },
   "budgetIncident": {
     "projectPaused": "プロジェクトの実行が一時停止されています。予算インシデントを解決するまで、このプロジェクトの新しい作業は開始されません。",
     "scopePaused": "このスコープは一時停止されています。予算インシデントを解決するまで、新しいハートビートは開始されません。",
     "applying": "適用中...",
-    "raiseAndResume": "予算を引き上げて再開"
+    "raiseAndResume": "予算を引き上げて再開",
+    "newBudgetUsd": "新しい予算 (USD)",
+    "keepPaused": "一時停止を維持"
   },
   "budgetPolicy": {
     "lifetimeBudget": "生涯予算",
@@ -1055,7 +1161,8 @@
     "warning": "警告",
     "hardStop": "ハードストップ",
     "healthy": "正常",
-    "validAmount": "有効な非負の金額を入力してください。"
+    "validAmount": "有効な非負の金額を入力してください。",
+    "budgetUsd": "予算 (USD)"
   },
   "companySwitcher": {
     "selectCompany": "会社を選択",
@@ -1103,7 +1210,9 @@
       "on": "オン",
       "off": "オフ",
       "disableTimer": "タイマーハートビートを無効化",
-      "enableTimer": "タイマーハートビートを有効化"
+      "enableTimer": "タイマーハートビートを有効化",
+      "noHeartbeatsMessage": "現在の条件に一致するスケジューラーハートビートはありません。",
+      "fullAgentConfig": "エージェント設定全体"
     },
     "experimental": {
       "loading": "実験的設定を読み込み中...",
@@ -1113,7 +1222,9 @@
       "isolatedWorkspaces": "分離ワークスペースを有効化",
       "isolatedWorkspacesDesc": "プロジェクト設定に実行ワークスペースコントロールを表示し、新規および既存のタスク実行で分離ワークスペース動作を許可します。",
       "autoRestartDevServer": "アイドル時に開発サーバーを自動再起動",
-      "autoRestartDevServerDesc": "`pnpm dev:once` で、キューイングおよび実行中のすべてのローカルエージェント実行の完了を待ち、バックエンドの変更やマイグレーションにより現在の起動が古くなった場合にサーバーを自動的に再起動します。"
+      "autoRestartDevServerDesc": "`pnpm dev:once` で、キューイングおよび実行中のすべてのローカルエージェント実行の完了を待ち、バックエンドの変更やマイグレーションにより現在の起動が古くなった場合にサーバーを自動的に再起動します。",
+      "toggleIsolatedWorkspaces": "分離ワークスペースの実験的設定を切り替え",
+      "toggleAutoRestartDevServer": "保護された開発サーバー自動再起動を切り替え"
     }
   },
   "pluginManager": {
@@ -1258,7 +1369,17 @@
     "localFolder": "ローカルフォルダ",
     "changeLocalFolder": "ローカルフォルダを変更",
     "setLocalFolder": "ローカルフォルダを設定",
-    "executionWorkspaces": "実行ワークスペース"
+    "executionWorkspaces": "実行ワークスペース",
+    "lead": "リード",
+    "codebaseHelp": "コードベースのヘルプ",
+    "clearRepo": "リポジトリをクリア",
+    "clearLocalFolder": "ローカルフォルダをクリア",
+    "executionWorkspacesHelp": "実行ワークスペースのヘルプ",
+    "changeRepo": "リポジトリを変更",
+    "failedToSaveWorkspace": "ワークスペースの保存に失敗しました。",
+    "failedToDeleteWorkspace": "ワークスペースの削除に失敗しました。",
+    "failedToUpdateWorkspace": "ワークスペースの更新に失敗しました。",
+    "dangerZone": "危険ゾーン"
   },
   "scheduleEditor": {
     "everyMinute": "毎分",
@@ -1269,7 +1390,8 @@
     "monthly": "毎月",
     "customCron": "カスタム（cron）",
     "noScheduleSet": "スケジュール未設定",
-    "chooseFrequency": "頻度を選択..."
+    "chooseFrequency": "頻度を選択...",
+    "cronHelp": "5つのフィールド: 分 時 日 月 曜日"
   },
   "worktreeBanner": {
     "worktree": "ワークツリー"
@@ -1294,7 +1416,10 @@
     "showSecret": "シークレットを表示",
     "addItem": "項目を追加",
     "add": "追加",
-    "removeItem": "項目を削除"
+    "removeItem": "項目を削除",
+    "noItems": "項目がまだ追加されていません。",
+    "noConfigOptions": "設定オプションはありません。",
+    "itemNumber": "項目 {{number}}"
   },
   "companyExport": {
     "exportCompany": "会社をエクスポート",
@@ -1304,7 +1429,11 @@
     "agents": "エージェント",
     "projects": "プロジェクト",
     "issues": "タスク",
-    "goals": "目標"
+    "goals": "目標",
+    "selectFileMessage": "ファイルを選択して内容をプレビューしてください。",
+    "selectCompanyMessage": "エクスポートする会社を選択してください。",
+    "loadingMessage": "エクスポートデータを読み込み中...",
+    "searchFilesPlaceholder": "ファイルを検索..."
   },
   "companyImport": {
     "importCompany": "会社をインポート",
@@ -1317,7 +1446,14 @@
     "goals": "目標",
     "skip": "スキップ",
     "overwrite": "上書き",
-    "conflictsDetected": "競合が検出されました"
+    "conflictsDetected": "競合が検出されました",
+    "selectFileMessage": "ファイルを選択して内容をプレビューしてください。",
+    "selectCompanyMessage": "インポート先の会社を選択してください。",
+    "githubUrlLabel": "GitHub URL",
+    "targetLabel": "ターゲット",
+    "newCompanyNameLabel": "新しい会社名",
+    "importedCompanyPlaceholder": "インポートされた会社",
+    "collisionStrategyLabel": "競合時の戦略"
   },
   "boardClaim": {
     "claimBoardAccess": "ボードアクセスを申請",
@@ -1345,6 +1481,57 @@
     "title": "マイタスク",
     "selectCompany": "会社を選択してタスクを表示してください。",
     "noIssues": "あなたに割り当てられたタスクはありません。"
+  },
+  "agentProperties": {
+    "status": "ステータス",
+    "role": "役割",
+    "title": "タイトル",
+    "adapter": "アダプター",
+    "session": "セッション",
+    "lastError": "最後のエラー",
+    "lastHeartbeat": "最後のハートビート",
+    "reportsTo": "上司",
+    "created": "作成日"
+  },
+  "goalProperties": {
+    "status": "ステータス",
+    "level": "レベル",
+    "owner": "オーナー",
+    "none": "なし",
+    "parentGoal": "親目標",
+    "created": "作成日",
+    "updated": "更新日"
+  },
+  "sidebarProjects": {
+    "projects": "プロジェクト",
+    "newProject": "新規プロジェクト"
+  },
+  "sidebarAgents": {
+    "agents": "エージェント",
+    "newAgent": "新規エージェント"
+  },
+  "providerQuotaCard": {
+    "periodSpend": "期間の支出",
+    "thisWeek": "今週"
+  },
+  "billerSpendCard": {
+    "periodSpend": "期間の支出"
+  },
+  "breadcrumbBar": {
+    "openSidebar": "サイドバーを開く"
+  },
+  "scrollToBottom": {
+    "ariaLabel": "一番下までスクロール"
+  },
+  "toastViewport": {
+    "dismissNotification": "通知を閉じる"
+  },
+  "issueRow": {
+    "markAsRead": "既読にする"
+  },
+  "agentIconPicker": {
+    "searchIcons": "アイコンを検索...",
+    "noIconsMatch": "一致するアイコンはありません"
   },
   "common": {
     "loading": "読み込み中...",

@@ -209,7 +209,7 @@ export function InstanceSettings() {
       {agents.length === 0 ? (
         <EmptyState
           icon={Clock3}
-          message="No scheduler heartbeats match the current criteria."
+          message={t("instanceSettings.heartbeats.noHeartbeatsMessage")}
         />
       ) : (
         <div className="space-y-4">
@@ -257,7 +257,7 @@ export function InstanceSettings() {
                           <Link
                             to={buildAgentHref(agent)}
                             className="text-muted-foreground hover:text-foreground"
-                            title="Full agent config"
+                            title={t("instanceSettings.heartbeats.fullAgentConfig")}
                           >
                             <ExternalLink className="h-3.5 w-3.5" />
                           </Link>

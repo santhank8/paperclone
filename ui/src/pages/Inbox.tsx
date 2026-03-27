@@ -998,7 +998,7 @@ export function Inbox() {
               onValueChange={(value) => setAllCategoryFilter(value as InboxCategoryFilter)}
             >
               <SelectTrigger className="h-8 w-[170px] text-xs">
-                <SelectValue placeholder="Category" />
+                <SelectValue placeholder={t("inbox.filter.categoryPlaceholder")} />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="everything">{t("inbox.filter.allCategories")}</SelectItem>
@@ -1016,7 +1016,7 @@ export function Inbox() {
                 onValueChange={(value) => setAllApprovalFilter(value as InboxApprovalFilter)}
               >
                 <SelectTrigger className="h-8 w-[170px] text-xs">
-                  <SelectValue placeholder="Approval status" />
+                  <SelectValue placeholder={t("inbox.filter.approvalStatusPlaceholder")} />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All approval statuses</SelectItem>

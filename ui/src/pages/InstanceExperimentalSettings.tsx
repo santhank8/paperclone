@@ -86,7 +86,7 @@ export function InstanceExperimentalSettings() {
           <button
             type="button"
             data-slot="toggle"
-            aria-label="Toggle isolated workspaces experimental setting"
+            aria-label={t("instanceSettings.experimental.toggleIsolatedWorkspaces")}
             disabled={toggleMutation.isPending}
             className={cn(
               "relative inline-flex h-5 w-9 items-center rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-60",
@@ -115,7 +115,7 @@ export function InstanceExperimentalSettings() {
           <button
             type="button"
             data-slot="toggle"
-            aria-label="Toggle guarded dev-server auto-restart"
+            aria-label={t("instanceSettings.experimental.toggleAutoRestartDevServer")}
             disabled={toggleMutation.isPending}
             className={cn(
               "relative inline-flex h-5 w-9 items-center rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-60",

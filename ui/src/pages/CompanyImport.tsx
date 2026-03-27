@@ -191,9 +191,11 @@ function ImportPreviewPane({
   action: string | null;
   renamedTo: string | null;
 }) {
+  const { t } = useTranslation();
+
   if (!selectedFile || content === null) {
     return (
-      <EmptyState icon={Package} message="Select a file to preview its contents." />
+      <EmptyState icon={Package} message={t("companyImport.selectFileMessage")} />
     );
   }
 
@@ -1087,7 +1089,7 @@ export function CompanyImport() {
   const selectedAction = selectedFile ? (actionMap.get(selectedFile) ?? null) : null;
 
   if (!selectedCompanyId) {
-    return <EmptyState icon={Download} message="Select a company to import into." />;
+    return <EmptyState icon={Download} message={t("companyImport.selectCompanyMessage")} />;
   }
 
   return (
@@ -1163,7 +1165,7 @@ export function CompanyImport() {
           </div>
         ) : (
           <Field
-            label="GitHub URL"
+            label={t("companyImport.githubUrlLabel")}
             hint="Repo tree path or blob URL to COMPANY.md (e.g. github.com/owner/repo/tree/main/company)."
           >
             <input
@@ -1179,7 +1181,7 @@ export function CompanyImport() {
           </Field>
         )}
 
-        <Field label="Target" hint="Import into this company or create a new one.">
+        <Field label={t("companyImport.targetLabel")} hint="Import into this company or create a new one.">
           <select
             className="w-full rounded-md border border-border bg-transparent px-2.5 py-1.5 text-sm outline-none"
             value={targetMode}
@@ -1197,7 +1199,7 @@ export function CompanyImport() {
 
         {targetMode === "new" && (
           <Field
-            label="New company name"
+            label={t("companyImport.newCompanyNameLabel")}
             hint="Optional override. Leave blank to use the package name."
           >
             <input
@@ -1205,13 +1207,13 @@ export function CompanyImport() {
               type="text"
               value={newCompanyName}
               onChange={(e) => setNewCompanyName(e.target.value)}
-              placeholder="Imported Company"
+              placeholder={t("companyImport.importedCompanyPlaceholder")}
             />
           </Field>
         )}
 
         <Field
-          label="Collision strategy"
+          label={t("companyImport.collisionStrategyLabel")}
           hint="Board imports can rename, skip, or replace matching company content."
         >
           <select

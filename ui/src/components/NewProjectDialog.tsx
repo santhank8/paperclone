@@ -412,7 +412,7 @@ export function NewProjectDialog() {
               ))}
               {selectedGoals.length > 0 && availableGoals.length === 0 && (
                 <div className="px-2 py-1.5 text-xs text-muted-foreground">
-                  All goals already selected.
+                  {t("newProjectDialog.allGoalsSelected")}
                 </div>
               )}
             </PopoverContent>
