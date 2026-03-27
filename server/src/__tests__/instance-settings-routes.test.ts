@@ -35,6 +35,7 @@ describe("instance settings routes", () => {
     vi.clearAllMocks();
     mockInstanceSettingsService.getGeneral.mockResolvedValue({
       censorUsernameInLogs: false,
+      defaultAdapterType: "claude_local",
     });
     mockInstanceSettingsService.getExperimental.mockResolvedValue({
       enableIsolatedWorkspaces: false,
@@ -44,6 +45,7 @@ describe("instance settings routes", () => {
       id: "instance-settings-1",
       general: {
         censorUsernameInLogs: true,
+        defaultAdapterType: "codex_local",
       },
     });
     mockInstanceSettingsService.updateExperimental.mockResolvedValue({
@@ -110,15 +112,19 @@ describe("instance settings routes", () => {
 
     const getRes = await request(app).get("/api/instance/settings/general");
     expect(getRes.status).toBe(200);
-    expect(getRes.body).toEqual({ censorUsernameInLogs: false });
+    expect(getRes.body).toEqual({
+      censorUsernameInLogs: false,
+      defaultAdapterType: "claude_local",
+    });
 
     const patchRes = await request(app)
       .patch("/api/instance/settings/general")
-      .send({ censorUsernameInLogs: true });
+      .send({ censorUsernameInLogs: true, defaultAdapterType: "codex_local" });
 
     expect(patchRes.status).toBe(200);
     expect(mockInstanceSettingsService.updateGeneral).toHaveBeenCalledWith({
       censorUsernameInLogs: true,
+      defaultAdapterType: "codex_local",
     });
     expect(mockLogActivity).toHaveBeenCalledTimes(2);
   });

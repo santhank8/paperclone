@@ -1,7 +1,9 @@
 import { z } from "zod";
+import { AGENT_ADAPTER_TYPES } from "../constants.js";
 
 export const instanceGeneralSettingsSchema = z.object({
   censorUsernameInLogs: z.boolean().default(false),
+  defaultAdapterType: z.enum(AGENT_ADAPTER_TYPES).default("claude_local"),
 }).strict();
 
 export const patchInstanceGeneralSettingsSchema = instanceGeneralSettingsSchema.partial();

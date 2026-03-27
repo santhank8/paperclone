@@ -350,7 +350,12 @@ export function buildSelectedFilesFromImportSelection(
 
 export function buildDefaultImportAdapterOverrides(
   preview: Pick<CompanyPortabilityPreviewResult, "manifest" | "selectedAgentSlugs">,
+  defaultAdapterType?: string | null,
 ): Record<string, { adapterType: string }> | undefined {
+  const normalizedDefaultAdapterType = defaultAdapterType?.trim();
+  if (!normalizedDefaultAdapterType) {
+    return undefined;
+  }
   const selectedAgentSlugs = new Set(preview.selectedAgentSlugs);
   const overrides = Object.fromEntries(
     preview.manifest.agents
@@ -359,8 +364,7 @@ export function buildDefaultImportAdapterOverrides(
       .map((agent) => [
         agent.slug,
         {
-          // TODO: replace this temporary claude_local fallback with adapter selection in the import TUI.
-          adapterType: "claude_local",
+          adapterType: normalizedDefaultAdapterType,
         },
       ]),
   );

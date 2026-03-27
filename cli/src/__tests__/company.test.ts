@@ -499,7 +499,7 @@ describe("import selection catalog", () => {
 });
 
 describe("default adapter overrides", () => {
-  it("maps process-only imported agents to claude_local", () => {
+  it("returns no overrides unless a default adapter is provided", () => {
     const preview: CompanyPortabilityPreviewResult = {
       include: {
         company: false,
@@ -578,9 +578,91 @@ describe("default adapter overrides", () => {
       errors: [],
     };
 
-    expect(buildDefaultImportAdapterOverrides(preview)).toEqual({
+    expect(buildDefaultImportAdapterOverrides(preview)).toBeUndefined();
+  });
+
+  it("maps process-only imported agents to the provided default adapter", () => {
+    const preview: CompanyPortabilityPreviewResult = {
+      include: {
+        company: false,
+        agents: true,
+        projects: false,
+        issues: false,
+        skills: false,
+      },
+      targetCompanyId: null,
+      targetCompanyName: null,
+      collisionStrategy: "rename",
+      selectedAgentSlugs: ["legacy-agent", "explicit-agent"],
+      plan: {
+        companyAction: "none",
+        agentPlans: [],
+        projectPlans: [],
+        issuePlans: [],
+      },
+      manifest: {
+        schemaVersion: 1,
+        generatedAt: "2026-03-23T18:20:00.000Z",
+        source: null,
+        includes: {
+          company: false,
+          agents: true,
+          projects: false,
+          issues: false,
+          skills: false,
+        },
+        company: null,
+        sidebar: null,
+        agents: [
+          {
+            slug: "legacy-agent",
+            name: "Legacy Agent",
+            path: "agents/legacy-agent/AGENT.md",
+            skills: [],
+            role: "agent",
+            title: null,
+            icon: null,
+            capabilities: null,
+            reportsToSlug: null,
+            adapterType: "process",
+            adapterConfig: {},
+            runtimeConfig: {},
+            permissions: {},
+            budgetMonthlyCents: 0,
+            metadata: null,
+          },
+          {
+            slug: "explicit-agent",
+            name: "Explicit Agent",
+            path: "agents/explicit-agent/AGENT.md",
+            skills: [],
+            role: "agent",
+            title: null,
+            icon: null,
+            capabilities: null,
+            reportsToSlug: null,
+            adapterType: "codex_local",
+            adapterConfig: {},
+            runtimeConfig: {},
+            permissions: {},
+            budgetMonthlyCents: 0,
+            metadata: null,
+          },
+        ],
+        skills: [],
+        projects: [],
+        issues: [],
+        envInputs: [],
+      },
+      files: {},
+      envInputs: [],
+      warnings: [],
+      errors: [],
+    };
+
+    expect(buildDefaultImportAdapterOverrides(preview, "codex_local")).toEqual({
       "legacy-agent": {
-        adapterType: "claude_local",
+        adapterType: "codex_local",
       },
     });
   });

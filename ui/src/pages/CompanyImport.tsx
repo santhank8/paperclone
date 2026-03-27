@@ -13,6 +13,7 @@ import { useToast } from "../context/ToastContext";
 import { authApi } from "../api/auth";
 import { companiesApi } from "../api/companies";
 import { agentsApi } from "../api/agents";
+import { instanceSettingsApi } from "../api/instanceSettings";
 import { queryKeys } from "../lib/queryKeys";
 import { getAgentOrderStorageKey, writeAgentOrder } from "../lib/agent-order";
 import { getProjectOrderStorageKey, writeProjectOrder } from "../lib/project-order";
@@ -540,7 +541,7 @@ function AdapterPickerList({
   configValues: Record<string, CreateConfigValues>;
   onChangeAdapter: (slug: string, adapterType: string) => void;
   onToggleExpand: (slug: string) => void;
-  onChangeConfig: (slug: string, patch: Partial<CreateConfigValues>) => void;
+  onChangeConfig: (slug: string, adapterType: string, patch: Partial<CreateConfigValues>) => void;
 }) {
   if (agents.length === 0) return null;
 
@@ -602,7 +603,7 @@ function AdapterPickerList({
                     <AgentConfigForm
                       mode="create"
                       values={vals}
-                      onChange={(patch) => onChangeConfig(agent.slug, patch)}
+                      onChange={(patch) => onChangeConfig(agent.slug, selectedType, patch)}
                       showAdapterTypeField={false}
                       showAdapterTestEnvironmentButton={false}
                       showCreateRunPolicySection={false}
@@ -690,7 +691,7 @@ export function CompanyImport() {
   const [adapterExpandedSlugs, setAdapterExpandedSlugs] = useState<Set<string>>(new Set());
   const [adapterConfigValues, setAdapterConfigValues] = useState<Record<string, CreateConfigValues>>({});
 
-  // Fetch current company agents to find CEO adapter type
+  // Fetch current company agents to find the destination company's default adapter for existing-company imports.
   const { data: companyAgents } = useQuery({
     queryKey: selectedCompanyId ? queryKeys.agents.list(selectedCompanyId) : ["agents", "none"],
     queryFn: () => agentsApi.list(selectedCompanyId!),
@@ -701,6 +702,21 @@ export function CompanyImport() {
     const ceo = companyAgents.find((a) => a.role === "ceo");
     return ceo?.adapterType ?? "claude_local";
   }, [companyAgents]);
+  const instanceGeneralSettingsQuery = useQuery({
+    queryKey: queryKeys.instance.generalSettings,
+    queryFn: () => instanceSettingsApi.getGeneral(),
+    enabled: targetMode === "new",
+  });
+  const importProcessDefaultAdapterType = targetMode === "new"
+    ? (instanceGeneralSettingsQuery.data?.defaultAdapterType ?? null)
+    : ceoAdapterType;
+
+  function resolveImportAdapterSelection(adapterType: string): string {
+    if (adapterType !== "process") {
+      return adapterType;
+    }
+    return importProcessDefaultAdapterType ?? adapterType;
+  }
 
   const localZipHelpText =
     "Upload a .zip exported directly from Paperclip. Re-zipped archives created by Finder, Explorer, or other zip tools may not import correctly.";
@@ -760,10 +776,13 @@ export function CompanyImport() {
       setSkippedSlugs(new Set());
       setConfirmedSlugs(new Set());
 
-      // Initialize adapter overrides — default all agents to the CEO's adapter type
+      // Initialize adapter overrides only when import defaults should change a vendor-neutral process agent.
       const defaultAdapters: Record<string, string> = {};
       for (const agent of result.manifest.agents) {
-        defaultAdapters[agent.slug] = ceoAdapterType;
+        const selectedType = resolveImportAdapterSelection(agent.adapterType);
+        if (selectedType !== agent.adapterType) {
+          defaultAdapters[agent.slug] = selectedType;
+        }
       }
       setAdapterOverrides(defaultAdapters);
       setAdapterExpandedSlugs(new Set());
@@ -1039,10 +1058,10 @@ export function CompanyImport() {
     });
   }
 
-  function handleAdapterConfigChange(slug: string, patch: Partial<CreateConfigValues>) {
+  function handleAdapterConfigChange(slug: string, adapterType: string, patch: Partial<CreateConfigValues>) {
     setAdapterConfigValues((prev) => ({
       ...prev,
-      [slug]: { ...(prev[slug] ?? { ...defaultCreateValues, adapterType: adapterOverrides[slug] ?? "claude_local" }), ...patch },
+      [slug]: { ...(prev[slug] ?? { ...defaultCreateValues, adapterType }), ...patch },
     }));
   }
 
@@ -1061,8 +1080,14 @@ export function CompanyImport() {
     if (adapterAgents.length === 0) return undefined;
     const overrides: Record<string, CompanyPortabilityAdapterOverride> = {};
     for (const agent of adapterAgents) {
-      const selectedType = adapterOverrides[agent.slug] ?? agent.adapterType;
+      const hasExplicitAdapterOverride = Object.prototype.hasOwnProperty.call(adapterOverrides, agent.slug);
+      const selectedType = hasExplicitAdapterOverride
+        ? adapterOverrides[agent.slug]!
+        : resolveImportAdapterSelection(agent.adapterType);
       const configVals = adapterConfigValues[agent.slug];
+      if (!hasExplicitAdapterOverride && !configVals) {
+        continue;
+      }
       const override: CompanyPortabilityAdapterOverride = { adapterType: selectedType };
       if (configVals) {
         const uiAdapter = getUIAdapter(selectedType);
@@ -1076,6 +1101,30 @@ export function CompanyImport() {
   const hasSource =
     sourceMode === "local" ? !!localPackage : importUrl.trim().length > 0;
   const hasErrors = importPreview ? importPreview.errors.length > 0 : false;
+
+  useEffect(() => {
+    if (!importPreview || targetMode !== "new" || !instanceGeneralSettingsQuery.data?.defaultAdapterType) {
+      return;
+    }
+    setAdapterOverrides((prev) => {
+      let changed = false;
+      const next = { ...prev };
+      for (const agent of importPreview.manifest.agents) {
+        if (agent.adapterType !== "process") {
+          continue;
+        }
+        if (Object.prototype.hasOwnProperty.call(next, agent.slug)) {
+          continue;
+        }
+        const selectedType = resolveImportAdapterSelection(agent.adapterType);
+        if (selectedType !== agent.adapterType) {
+          next[agent.slug] = selectedType;
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [importPreview, targetMode, instanceGeneralSettingsQuery.data?.defaultAdapterType]);
 
   const previewContent = selectedFile && importPreview
     ? (() => {
