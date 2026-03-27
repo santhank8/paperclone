@@ -667,12 +667,11 @@ export function agentRoutes(db: Db) {
     const companyId = req.params.companyId as string;
     assertCompanyAccess(req, companyId);
     const type = req.params.type as string;
-    const agentId = typeof req.query.agentId === "string" ? req.query.agentId : undefined;
-    let command: string | undefined;
-    if (agentId) {
-      const agent = await svc.getById(agentId);
-      if (agent && agent.companyId === companyId && agent.adapterConfig && typeof agent.adapterConfig.command === "string") {
-        command = agent.adapterConfig.command;
+    const command = typeof req.query.command === "string" ? req.query.command : undefined;
+    if (command !== undefined) {
+      // Reject shell metacharacters and empty/whitespace-only values
+      if (!command.trim() || /[;&|`$(){}[\]!#~]/.test(command)) {
+        return res.status(400).json({ error: "Invalid command" });
       }
     }
     const models = await listAdapterModels(type, command ? { command } : undefined);

@@ -199,10 +199,12 @@ export function OnboardingWizard() {
     isFetching: adapterModelsFetching
   } = useQuery({
     queryKey: createdCompanyId
-      ? queryKeys.agents.adapterModels(createdCompanyId, adapterType)
-      : ["agents", "none", "adapter-models", adapterType],
-    queryFn: () => agentsApi.adapterModels(createdCompanyId!, adapterType),
-    enabled: Boolean(createdCompanyId) && effectiveOnboardingOpen && step === 2
+      ? queryKeys.agents.adapterModels(createdCompanyId, adapterType, command || undefined)
+      : ["agents", "none", "adapter-models", adapterType, command || ""],
+    queryFn: () =>
+      agentsApi.adapterModels(createdCompanyId!, adapterType, command ? { command } : undefined),
+    enabled: Boolean(createdCompanyId) && effectiveOnboardingOpen && step === 2,
+    staleTime: 60_000,
   });
   const isLocalAdapter =
     adapterType === "claude_local" ||

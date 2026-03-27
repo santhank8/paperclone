@@ -87,10 +87,12 @@ export function NewAgent() {
     isFetching: adapterModelsFetching,
   } = useQuery({
     queryKey: selectedCompanyId
-      ? queryKeys.agents.adapterModels(selectedCompanyId, configValues.adapterType)
-      : ["agents", "none", "adapter-models", configValues.adapterType],
-    queryFn: () => agentsApi.adapterModels(selectedCompanyId!, configValues.adapterType),
+      ? queryKeys.agents.adapterModels(selectedCompanyId, configValues.adapterType, configValues.command || undefined)
+      : ["agents", "none", "adapter-models", configValues.adapterType, configValues.command || ""],
+    queryFn: () =>
+      agentsApi.adapterModels(selectedCompanyId!, configValues.adapterType, configValues.command ? { command: configValues.command } : undefined),
     enabled: Boolean(selectedCompanyId),
+    staleTime: 60_000,
   });
 
   const { data: companySkills } = useQuery({

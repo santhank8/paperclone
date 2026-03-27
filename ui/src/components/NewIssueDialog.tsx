@@ -354,7 +354,9 @@ export function NewIssueDialog() {
   const selectedAssigneeAgentId = selectedAssignee.assigneeAgentId;
   const selectedAssigneeUserId = selectedAssignee.assigneeUserId;
 
-  const assigneeAdapterType = (agents ?? []).find((agent) => agent.id === selectedAssigneeAgentId)?.adapterType ?? null;
+  const assigneeAgent = (agents ?? []).find((agent) => agent.id === selectedAssigneeAgentId);
+  const assigneeAdapterType = assigneeAgent?.adapterType ?? null;
+  const assigneeCommand = typeof assigneeAgent?.adapterConfig?.command === "string" ? assigneeAgent.adapterConfig.command : undefined;
   const supportsAssigneeOverrides = Boolean(
     assigneeAdapterType && ISSUE_OVERRIDE_ADAPTER_TYPES.has(assigneeAdapterType),
   );
@@ -387,10 +389,12 @@ export function NewIssueDialog() {
   const { data: assigneeAdapterModels } = useQuery({
     queryKey:
       effectiveCompanyId && assigneeAdapterType
-        ? queryKeys.agents.adapterModels(effectiveCompanyId, assigneeAdapterType)
-        : ["agents", "none", "adapter-models", assigneeAdapterType ?? "none"],
-    queryFn: () => agentsApi.adapterModels(effectiveCompanyId!, assigneeAdapterType!),
+        ? queryKeys.agents.adapterModels(effectiveCompanyId, assigneeAdapterType, assigneeCommand)
+        : ["agents", "none", "adapter-models", assigneeAdapterType ?? "none", assigneeCommand ?? ""],
+    queryFn: () =>
+      agentsApi.adapterModels(effectiveCompanyId!, assigneeAdapterType!, assigneeCommand ? { command: assigneeCommand } : undefined),
     enabled: Boolean(effectiveCompanyId) && newIssueOpen && supportsAssigneeOverrides,
+    staleTime: 60_000,
   });
 
   const createIssue = useMutation({
