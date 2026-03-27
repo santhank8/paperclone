@@ -19,6 +19,7 @@ const manifest: PaperclipPluginManifestV1 = {
     "events.subscribe",
     "issues.read",
     "activity.log.write",
+    "jobs.schedule",
   ],
 
   entrypoints: {
