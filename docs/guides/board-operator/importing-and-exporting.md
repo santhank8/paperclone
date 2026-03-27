@@ -28,6 +28,7 @@ my-company/
 - **AGENT.md** files contain agent identity, role, and instructions.
 - **SKILL.md** files are compatible with the Agent Skills ecosystem.
 - **.paperclip.yaml** holds Paperclip-specific config (adapter types, env inputs, budgets) as an optional sidecar.
+- Packages without `.paperclip.yaml` stay vendor-neutral. Their agents import as `process` agents until Paperclip resolves them to a concrete adapter during import.
 
 ## Exporting a Company
 
@@ -114,6 +115,10 @@ paperclipai company import org/repo/companies/acme
 
 If `--target` is not specified, Paperclip infers it: if a `--company-id` is provided (or one exists in context), it defaults to `existing`; otherwise `new`.
 
+For `--target new`, vendor-neutral packages without explicit adapter metadata use the instance default adapter from **Instance Settings → General**.
+
+On a brand-new instance, Paperclip also seeds that instance default from the first agent ever created unless an operator explicitly chose a default adapter first.
+
 ### Collision Strategies
 
 When importing into an existing company, agent or project names may conflict with existing ones:
@@ -141,6 +146,8 @@ The preview shows:
 - **Warnings** — Potential issues like missing skills or unresolved references
 
 Imported agents always land with timer heartbeats disabled. Assignment/on-demand wake behavior from the package is preserved, but scheduled runs stay off until a board operator re-enables them.
+
+When previewing a new-company import in the UI, vendor-neutral `process` agents are prefilled with the instance default adapter so operators can review or override that choice before applying the import.
 
 ### Common Workflows
 

@@ -1,5 +1,8 @@
+import type { AgentAdapterType } from "../constants.js";
+
 export interface InstanceGeneralSettings {
   censorUsernameInLogs: boolean;
+  defaultAdapterType: AgentAdapterType;
 }
 
 export interface InstanceExperimentalSettings {

@@ -15,6 +15,7 @@ import {
 import { isUuidLike, normalizeAgentUrlKey } from "@paperclipai/shared";
 import { conflict, notFound, unprocessable } from "../errors.js";
 import { normalizeAgentPermissions } from "./agent-permissions.js";
+import { instanceSettingsService } from "./instance-settings.js";
 import { REDACTED_EVENT_VALUE, sanitizeRecord } from "../redaction.js";
 
 function hashToken(token: string) {
@@ -183,6 +184,8 @@ export function deduplicateAgentName(
 }
 
 export function agentService(db: Db) {
+  const instanceSettings = instanceSettingsService(db);
+
   function currentUtcMonthWindow(now = new Date()) {
     const year = now.getUTCFullYear();
     const month = now.getUTCMonth();
@@ -399,6 +402,16 @@ export function agentService(db: Db) {
         .values({ ...data, name: uniqueName, companyId, role, permissions: normalizedPermissions })
         .returning()
         .then((rows) => rows[0]);
+
+      const [{ count: totalAgentCount }] = await db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(agents);
+
+      if (Number(totalAgentCount ?? 0) === 1) {
+        await instanceSettings.seedDefaultAdapterType(
+          created.adapterType as Parameters<typeof instanceSettings.seedDefaultAdapterType>[0],
+        );
+      }
 
       return normalizeAgentRow(created);
     },

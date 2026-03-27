@@ -59,6 +59,10 @@ const assetSvc = {
   create: vi.fn(),
 };
 
+const instanceSettingsSvc = {
+  getGeneral: vi.fn(),
+};
+
 const agentInstructionsSvc = {
   exportFiles: vi.fn(),
   materializeManagedBundle: vi.fn(),
@@ -94,6 +98,10 @@ vi.mock("../services/company-skills.js", () => ({
 
 vi.mock("../services/assets.js", () => ({
   assetService: () => assetSvc,
+}));
+
+vi.mock("../services/instance-settings.js", () => ({
+  instanceSettingsService: () => instanceSettingsSvc,
 }));
 
 vi.mock("../services/agent-instructions.js", () => ({
@@ -339,6 +347,10 @@ describe("company portability", () => {
     assetSvc.getById.mockReset();
     assetSvc.getById.mockResolvedValue(null);
     assetSvc.create.mockReset();
+    instanceSettingsSvc.getGeneral.mockResolvedValue({
+      censorUsernameInLogs: false,
+      defaultAdapterType: "codex_local",
+    });
     accessSvc.setPrincipalPermission.mockResolvedValue(undefined);
     assetSvc.create.mockResolvedValue({
       id: "asset-created",
@@ -1632,6 +1644,66 @@ describe("company portability", () => {
     }));
     expect(agentSvc.create).toHaveBeenCalledWith("company-imported", expect.objectContaining({
       name: "ClaudeCoder",
+      adapterType: "codex_local",
+    }));
+  });
+
+  it("keeps an explicit process adapter override on new-company imports", async () => {
+    const portability = companyPortabilityService({} as any);
+
+    companySvc.create.mockResolvedValue({
+      id: "company-imported",
+      name: "Imported Paperclip",
+    });
+    accessSvc.ensureMembership.mockResolvedValue(undefined);
+    agentSvc.create.mockResolvedValue({
+      id: "agent-created",
+      name: "ClaudeCoder",
+    });
+
+    await portability.importBundle({
+      source: {
+        type: "inline",
+        rootPath: "paperclip-demo",
+        files: {
+          "COMPANY.md": [
+            "---",
+            'schema: "agentcompanies/v1"',
+            'name: "Imported Paperclip"',
+            "---",
+            "",
+          ].join("\n"),
+          "agents/claudecoder/AGENTS.md": [
+            "---",
+            'name: "ClaudeCoder"',
+            "---",
+            "",
+            "You write code.",
+            "",
+          ].join("\n"),
+        },
+      },
+      include: {
+        company: true,
+        agents: true,
+        projects: false,
+        issues: false,
+      },
+      target: {
+        mode: "new_company",
+        newCompanyName: "Imported Paperclip",
+      },
+      agents: "all",
+      collisionStrategy: "rename",
+      adapterOverrides: {
+        claudecoder: {
+          adapterType: "process",
+        },
+      },
+    }, "user-1");
+
+    expect(agentSvc.create).toHaveBeenCalledWith("company-imported", expect.objectContaining({
+      name: "ClaudeCoder",
       adapterType: "process",
     }));
   });
@@ -2181,5 +2253,64 @@ describe("company portability", () => {
     expect(nestedMaterializedFiles?.["AGENTS.md"]).toContain("You are ClaudeCoder.");
     expect(nestedMaterializedFiles?.["AGENTS.md"]).not.toMatch(/^---\n/);
     expect(nestedMaterializedFiles?.["AGENTS.md"]).not.toContain('name: "ClaudeCoder"');
+  });
+
+  it("applies codex adapter defaults during import when bypass is omitted", async () => {
+    const portability = companyPortabilityService({} as any);
+
+    companySvc.create.mockResolvedValue({
+      id: "company-imported",
+      name: "Imported Paperclip",
+    });
+    accessSvc.ensureMembership.mockResolvedValue(undefined);
+    agentSvc.create.mockResolvedValue({
+      id: "agent-created",
+      name: "ClaudeCoder",
+    });
+
+    const exported = await portability.exportBundle("company-1", {
+      include: {
+        company: true,
+        agents: true,
+        projects: false,
+        issues: false,
+      },
+    });
+
+    agentSvc.list.mockResolvedValue([]);
+
+    await portability.importBundle({
+      source: {
+        type: "inline",
+        rootPath: exported.rootPath,
+        files: exported.files,
+      },
+      include: {
+        company: true,
+        agents: true,
+        projects: false,
+        issues: false,
+      },
+      target: {
+        mode: "new_company",
+        newCompanyName: "Imported Paperclip",
+      },
+      agents: "all",
+      collisionStrategy: "rename",
+      adapterOverrides: {
+        claudecoder: {
+          adapterType: "codex_local",
+          adapterConfig: {},
+        },
+      },
+    }, "user-1");
+
+    expect(agentSvc.create).toHaveBeenCalledWith("company-imported", expect.objectContaining({
+      adapterType: "codex_local",
+      adapterConfig: expect.objectContaining({
+        dangerouslyBypassApprovalsAndSandbox: true,
+        model: "gpt-5.3-codex",
+      }),
+    }));
   });
 });

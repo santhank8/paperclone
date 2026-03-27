@@ -54,10 +54,12 @@ import { generateReadme } from "./company-export-readme.js";
 import { renderOrgChartPng, type OrgNode } from "../routes/org-chart-svg.js";
 import { companySkillService } from "./company-skills.js";
 import { companyService } from "./companies.js";
+import { instanceSettingsService } from "./instance-settings.js";
 import { validateCron } from "./cron.js";
 import { issueService } from "./issues.js";
 import { projectService } from "./projects.js";
 import { routineService } from "./routines.js";
+import { applyAdapterConfigDefaults } from "./agent-adapter-defaults.js";
 
 /** Build OrgNode tree from manifest agent list (slug + reportsToSlug). */
 function buildOrgTreeFromManifest(agents: CompanyPortabilityManifest["agents"]): OrgNode[] {
@@ -2621,6 +2623,7 @@ export function companyPortabilityService(db: Db, storage?: StorageService) {
   const assetRecords = assetService(db);
   const instructions = agentInstructionsService();
   const access = accessService(db);
+  const instanceSettings = instanceSettingsService(db);
   const projects = projectService(db);
   const issues = issueService(db);
   const companySkills = companySkillService(db);
@@ -3708,6 +3711,9 @@ export function companyPortabilityService(db: Db, storage?: StorageService) {
     const sourceManifest = plan.source.manifest;
     const warnings = [...plan.preview.warnings];
     const include = plan.include;
+    const defaultInstanceAdapterType = input.target.mode === "new_company"
+      ? (await instanceSettings.getGeneral()).defaultAdapterType
+      : null;
 
     let targetCompany: { id: string; name: string } | null = null;
     let companyAction: "created" | "updated" | "unchanged" = "unchanged";
@@ -3884,14 +3890,21 @@ export function companyPortabilityService(db: Db, storage?: StorageService) {
 
         // Apply adapter overrides from request if present
         const adapterOverride = input.adapterOverrides?.[planAgent.slug];
-        const effectiveAdapterType = adapterOverride?.adapterType ?? manifestAgent.adapterType;
+        const effectiveAdapterType = adapterOverride?.adapterType
+          ?? (
+            input.target.mode === "new_company"
+            && manifestAgent.adapterType === "process"
+            && defaultInstanceAdapterType
+              ? defaultInstanceAdapterType
+              : manifestAgent.adapterType
+          );
         const baseAdapterConfig = adapterOverride?.adapterConfig
           ? { ...adapterOverride.adapterConfig }
           : { ...manifestAgent.adapterConfig } as Record<string, unknown>;
 
         const desiredSkills = (manifestAgent.skills ?? []).map((skillRef) => desiredSkillRefMap.get(skillRef) ?? skillRef);
         const adapterConfigWithSkills = writePaperclipSkillSyncPreference(
-          baseAdapterConfig,
+          applyAdapterConfigDefaults(effectiveAdapterType, baseAdapterConfig),
           desiredSkills,
         );
         delete adapterConfigWithSkills.promptTemplate;

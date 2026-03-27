@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import type { AgentAdapterType, PatchInstanceGeneralSettings } from "@paperclipai/shared";
 import { SlidersHorizontal } from "lucide-react";
 import { instanceSettingsApi } from "@/api/instanceSettings";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
 import { queryKeys } from "../lib/queryKeys";
 import { cn } from "../lib/utils";
+import { AdapterTypeDropdown } from "../components/AdapterTypeDropdown";
 
 export function InstanceGeneralSettings() {
   const { setBreadcrumbs } = useBreadcrumbs();
@@ -23,9 +25,9 @@ export function InstanceGeneralSettings() {
     queryFn: () => instanceSettingsApi.getGeneral(),
   });
 
-  const toggleMutation = useMutation({
-    mutationFn: async (enabled: boolean) =>
-      instanceSettingsApi.updateGeneral({ censorUsernameInLogs: enabled }),
+  const updateGeneralMutation = useMutation({
+    mutationFn: async (patch: PatchInstanceGeneralSettings) =>
+      instanceSettingsApi.updateGeneral(patch),
     onSuccess: async () => {
       setActionError(null);
       await queryClient.invalidateQueries({ queryKey: queryKeys.instance.generalSettings });
@@ -49,7 +51,12 @@ export function InstanceGeneralSettings() {
     );
   }
 
-  const censorUsernameInLogs = generalQuery.data?.censorUsernameInLogs === true;
+  const generalSettings = generalQuery.data ?? {
+    censorUsernameInLogs: false,
+    defaultAdapterType: "claude_local",
+  };
+  const censorUsernameInLogs = generalSettings.censorUsernameInLogs === true;
+  const defaultAdapterType = generalSettings.defaultAdapterType;
 
   return (
     <div className="max-w-4xl space-y-6">
@@ -59,7 +66,7 @@ export function InstanceGeneralSettings() {
           <h1 className="text-lg font-semibold">General</h1>
         </div>
         <p className="text-sm text-muted-foreground">
-          Configure instance-wide defaults that affect how operator-visible logs are displayed.
+          Configure instance-wide defaults for company imports and operator-visible logs.
         </p>
       </div>
 
@@ -68,6 +75,25 @@ export function InstanceGeneralSettings() {
           {actionError}
         </div>
       )}
+
+      <section className="rounded-xl border border-border bg-card p-5">
+        <div className="space-y-1.5">
+          <h2 className="text-sm font-semibold">Default adapter for imported agents</h2>
+          <p className="max-w-2xl text-sm text-muted-foreground">
+            When a new company import includes vendor-neutral agents without an explicit Paperclip adapter,
+            Paperclip uses this adapter type by default.
+          </p>
+        </div>
+        <div className="mt-4 max-w-sm">
+          <AdapterTypeDropdown
+            value={defaultAdapterType}
+            hiddenAdapterTypes={["process", "http"]}
+            onChange={(adapterType) =>
+              updateGeneralMutation.mutate({ defaultAdapterType: adapterType as AgentAdapterType })
+            }
+          />
+        </div>
+      </section>
 
       <section className="rounded-xl border border-border bg-card p-5">
         <div className="flex items-start justify-between gap-4">
@@ -83,12 +109,12 @@ export function InstanceGeneralSettings() {
             type="button"
             data-slot="toggle"
             aria-label="Toggle username log censoring"
-            disabled={toggleMutation.isPending}
+            disabled={updateGeneralMutation.isPending}
             className={cn(
               "relative inline-flex h-5 w-9 items-center rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-60",
               censorUsernameInLogs ? "bg-green-600" : "bg-muted",
             )}
-            onClick={() => toggleMutation.mutate(!censorUsernameInLogs)}
+            onClick={() => updateGeneralMutation.mutate({ censorUsernameInLogs: !censorUsernameInLogs })}
           >
             <span
               className={cn(

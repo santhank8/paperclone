@@ -18,10 +18,12 @@ function normalizeGeneralSettings(raw: unknown): InstanceGeneralSettings {
   if (parsed.success) {
     return {
       censorUsernameInLogs: parsed.data.censorUsernameInLogs ?? false,
+      defaultAdapterType: parsed.data.defaultAdapterType ?? "claude_local",
     };
   }
   return {
     censorUsernameInLogs: false,
+    defaultAdapterType: "claude_local",
   };
 }
 
@@ -37,6 +39,13 @@ function normalizeExperimentalSettings(raw: unknown): InstanceExperimentalSettin
     enableIsolatedWorkspaces: false,
     autoRestartDevServerWhenIdle: false,
   };
+}
+
+function hasExplicitGeneralDefaultAdapterType(raw: unknown): boolean {
+  return typeof raw === "object"
+    && raw !== null
+    && !Array.isArray(raw)
+    && Object.prototype.hasOwnProperty.call(raw, "defaultAdapterType");
 }
 
 function toInstanceSettings(row: typeof instanceSettings.$inferSelect): InstanceSettings {
@@ -97,6 +106,29 @@ export function instanceSettingsService(db: Db) {
       const nextGeneral = normalizeGeneralSettings({
         ...normalizeGeneralSettings(current.general),
         ...patch,
+      });
+      const now = new Date();
+      const [updated] = await db
+        .update(instanceSettings)
+        .set({
+          general: { ...nextGeneral },
+          updatedAt: now,
+        })
+        .where(eq(instanceSettings.id, current.id))
+        .returning();
+      return toInstanceSettings(updated ?? current);
+    },
+
+    seedDefaultAdapterType: async (
+      adapterType: InstanceGeneralSettings["defaultAdapterType"],
+    ): Promise<InstanceSettings> => {
+      const current = await getOrCreateRow();
+      if (hasExplicitGeneralDefaultAdapterType(current.general)) {
+        return toInstanceSettings(current);
+      }
+      const nextGeneral = normalizeGeneralSettings({
+        ...normalizeGeneralSettings(current.general),
+        defaultAdapterType: adapterType,
       });
       const now = new Date();
       const [updated] = await db

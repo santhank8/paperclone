@@ -295,6 +295,8 @@ Runs local `codex` CLI directly.
 }
 ```
 
+If `dangerouslyBypassApprovalsAndSandbox` is omitted for `codex_local`, Paperclip currently defaults it to `true` for normal create/update flows and company imports so imported Codex agents behave like manually created ones.
+
 ### Invocation
 
 - Base command: `codex exec --json <prompt>`
