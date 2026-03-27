@@ -1,0 +1,17 @@
+schema: paperclip/v1
+agents:
+  security-lead:
+    adapter:
+      type: claude_local
+  vulnerability-analyst:
+    adapter:
+      type: claude_local
+  supply-chain-auditor:
+    adapter:
+      type: claude_local
+routines:
+  daily-security-audit:
+    triggers:
+      - kind: schedule
+        cronExpression: "0 8 * * *"
+        timezone: UTC
