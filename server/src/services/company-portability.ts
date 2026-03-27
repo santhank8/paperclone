@@ -59,6 +59,7 @@ import { validateCron } from "./cron.js";
 import { issueService } from "./issues.js";
 import { projectService } from "./projects.js";
 import { routineService } from "./routines.js";
+import { applyAdapterConfigDefaults } from "./agent-adapter-defaults.js";
 
 /** Build OrgNode tree from manifest agent list (slug + reportsToSlug). */
 function buildOrgTreeFromManifest(agents: CompanyPortabilityManifest["agents"]): OrgNode[] {
@@ -3903,7 +3904,7 @@ export function companyPortabilityService(db: Db, storage?: StorageService) {
 
         const desiredSkills = (manifestAgent.skills ?? []).map((skillRef) => desiredSkillRefMap.get(skillRef) ?? skillRef);
         const adapterConfigWithSkills = writePaperclipSkillSyncPreference(
-          baseAdapterConfig,
+          applyAdapterConfigDefaults(effectiveAdapterType, baseAdapterConfig),
           desiredSkills,
         );
         delete adapterConfigWithSkills.promptTemplate;

@@ -1,5 +1,5 @@
 import { Router, type Request } from "express";
-import { generateKeyPairSync, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import path from "node:path";
 import type { Db } from "@paperclipai/db";
 import { agents as agentsTable, companies, heartbeatRuns } from "@paperclipai/db";
@@ -50,17 +50,12 @@ import { redactCurrentUserValue } from "../log-redaction.js";
 import { renderOrgChartSvg, renderOrgChartPng, type OrgNode, type OrgChartStyle, ORG_CHART_STYLES } from "./org-chart-svg.js";
 import { instanceSettingsService } from "../services/instance-settings.js";
 import { runClaudeLogin } from "@paperclipai/adapter-claude-local/server";
-import {
-  DEFAULT_CODEX_LOCAL_BYPASS_APPROVALS_AND_SANDBOX,
-  DEFAULT_CODEX_LOCAL_MODEL,
-} from "@paperclipai/adapter-codex-local";
-import { DEFAULT_CURSOR_LOCAL_MODEL } from "@paperclipai/adapter-cursor-local";
-import { DEFAULT_GEMINI_LOCAL_MODEL } from "@paperclipai/adapter-gemini-local";
 import { ensureOpenCodeModelConfiguredAndAvailable } from "@paperclipai/adapter-opencode-local/server";
 import {
   loadDefaultAgentInstructionsBundle,
   resolveDefaultAgentInstructionsBundleRole,
 } from "../services/default-agent-instructions.js";
+import { applyAdapterConfigDefaults } from "../services/agent-adapter-defaults.js";
 
 export function agentRoutes(db: Db) {
   const DEFAULT_INSTRUCTIONS_PATH_KEYS: Record<string, string> = {
@@ -361,48 +356,11 @@ export function agentRoutes(db: Db) {
     };
   }
 
-  function generateEd25519PrivateKeyPem(): string {
-    const { privateKey } = generateKeyPairSync("ed25519");
-    return privateKey.export({ type: "pkcs8", format: "pem" }).toString();
-  }
-
-  function ensureGatewayDeviceKey(
-    adapterType: string | null | undefined,
-    adapterConfig: Record<string, unknown>,
-  ): Record<string, unknown> {
-    if (adapterType !== "openclaw_gateway") return adapterConfig;
-    const disableDeviceAuth = parseBooleanLike(adapterConfig.disableDeviceAuth) === true;
-    if (disableDeviceAuth) return adapterConfig;
-    if (asNonEmptyString(adapterConfig.devicePrivateKeyPem)) return adapterConfig;
-    return { ...adapterConfig, devicePrivateKeyPem: generateEd25519PrivateKeyPem() };
-  }
-
   function applyCreateDefaultsByAdapterType(
     adapterType: string | null | undefined,
     adapterConfig: Record<string, unknown>,
   ): Record<string, unknown> {
-    const next = { ...adapterConfig };
-    if (adapterType === "codex_local") {
-      if (!asNonEmptyString(next.model)) {
-        next.model = DEFAULT_CODEX_LOCAL_MODEL;
-      }
-      const hasBypassFlag =
-        typeof next.dangerouslyBypassApprovalsAndSandbox === "boolean" ||
-        typeof next.dangerouslyBypassSandbox === "boolean";
-      if (!hasBypassFlag) {
-        next.dangerouslyBypassApprovalsAndSandbox = DEFAULT_CODEX_LOCAL_BYPASS_APPROVALS_AND_SANDBOX;
-      }
-      return ensureGatewayDeviceKey(adapterType, next);
-    }
-    if (adapterType === "gemini_local" && !asNonEmptyString(next.model)) {
-      next.model = DEFAULT_GEMINI_LOCAL_MODEL;
-      return ensureGatewayDeviceKey(adapterType, next);
-    }
-    // OpenCode requires explicit model selection — no default
-    if (adapterType === "cursor" && !asNonEmptyString(next.model)) {
-      next.model = DEFAULT_CURSOR_LOCAL_MODEL;
-    }
-    return ensureGatewayDeviceKey(adapterType, next);
+    return applyAdapterConfigDefaults(adapterType, adapterConfig);
   }
 
   async function assertAdapterConfigConstraints(
