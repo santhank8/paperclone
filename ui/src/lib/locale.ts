@@ -499,6 +499,7 @@ const translations: Record<string, Record<UiLanguage, string>> = {
     en: "Select a company to view inbox.",
     "pt-BR": "Selecione uma empresa para ver a caixa de entrada.",
   },
+  "Inbox zero.": { en: "Inbox zero.", "pt-BR": "Caixa de entrada zerada." },
   "No new inbox items.": { en: "No new inbox items.", "pt-BR": "Nenhum item novo na caixa de entrada." },
   "No recent inbox items.": { en: "No recent inbox items.", "pt-BR": "Nenhum item recente na caixa de entrada." },
   "No inbox items match these filters.": {
