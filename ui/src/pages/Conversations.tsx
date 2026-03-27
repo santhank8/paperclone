@@ -301,6 +301,7 @@ function ConversationList({
                             }}
                             onKeyDown={(e) => {
                               if (e.key === "Enter" || e.key === " ") {
+                                e.preventDefault();
                                 e.stopPropagation();
                                 renameCommitted.current = false;
                                 const currentTopic = issue.title?.includes(" — ")
@@ -779,9 +780,14 @@ function ConversationView({ issueId, companyId, agents, onClose }: ConversationV
                   e.preventDefault();
                   if (!headerRenameCommitted.current && topicDraft.trim()) {
                     headerRenameCommitted.current = true;
-                    await renameConversation(issueId, agentName, topicDraft.trim());
-                    queryClient.invalidateQueries({ queryKey: queryKeys.issues.detail(issueId) });
-                    queryClient.invalidateQueries({ queryKey: queryKeys.conversations.list(companyId) });
+                    try {
+                      await renameConversation(issueId, agentName, topicDraft.trim());
+                      queryClient.invalidateQueries({ queryKey: queryKeys.issues.detail(issueId) });
+                      queryClient.invalidateQueries({ queryKey: queryKeys.conversations.list(companyId) });
+                    } catch {
+                      headerRenameCommitted.current = false;
+                      pushToast({ title: "Failed to rename conversation", tone: "error" });
+                    }
                   }
                   setEditingTopic(false);
                 }
@@ -790,9 +796,14 @@ function ConversationView({ issueId, companyId, agents, onClose }: ConversationV
               onBlur={async () => {
                 if (!headerRenameCommitted.current && topicDraft.trim()) {
                   headerRenameCommitted.current = true;
-                  await renameConversation(issueId, agentName, topicDraft.trim());
-                  queryClient.invalidateQueries({ queryKey: queryKeys.issues.detail(issueId) });
-                  queryClient.invalidateQueries({ queryKey: queryKeys.conversations.list(companyId) });
+                  try {
+                    await renameConversation(issueId, agentName, topicDraft.trim());
+                    queryClient.invalidateQueries({ queryKey: queryKeys.issues.detail(issueId) });
+                    queryClient.invalidateQueries({ queryKey: queryKeys.conversations.list(companyId) });
+                  } catch {
+                    headerRenameCommitted.current = false;
+                    pushToast({ title: "Failed to rename conversation", tone: "error" });
+                  }
                 }
                 setEditingTopic(false);
               }}
