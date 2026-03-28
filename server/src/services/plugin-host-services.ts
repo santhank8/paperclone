@@ -11,6 +11,7 @@ import type {
   PluginWorkspace,
   IssueComment,
 } from "@paperclipai/plugin-sdk";
+import { isUuidLike } from "@paperclipai/shared";
 import { companyService } from "./companies.js";
 import { agentService } from "./agents.js";
 import { projectService } from "./projects.js";
@@ -464,6 +465,7 @@ export function buildHostServices(
 
   const ensureCompanyId = (companyId?: string) => {
     if (!companyId) throw new Error("companyId is required for this operation");
+    if (!isUuidLike(companyId)) throw new Error("Invalid companyId");
     return companyId;
   };
 
