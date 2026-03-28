@@ -61,12 +61,14 @@ import {
   ChevronDown,
   X
 } from "lucide-react";
+import { HermesIcon } from "./HermesIcon";
 
 type Step = 1 | 2 | 3 | 4;
 type AdapterType =
   | "claude_local"
   | "codex_local"
   | "gemini_local"
+  | "hermes_local"
   | "opencode_local"
   | "pi_local"
   | "cursor"
@@ -231,6 +233,7 @@ export function OnboardingWizard() {
     adapterType === "claude_local" ||
     adapterType === "codex_local" ||
     adapterType === "gemini_local" ||
+    adapterType === "hermes_local" ||
     adapterType === "opencode_local" ||
     adapterType === "pi_local" ||
     adapterType === "cursor";
@@ -240,6 +243,8 @@ export function OnboardingWizard() {
       ? "codex"
       : adapterType === "gemini_local"
         ? "gemini"
+      : adapterType === "hermes_local"
+        ? "hermes"
       : adapterType === "pi_local"
       ? "pi"
       : adapterType === "cursor"
@@ -821,7 +826,9 @@ export function OnboardingWizard() {
                             </span>
                           )}
                           <opt.icon className="h-4 w-4" />
-                          <span className="font-medium">{opt.label}</span>
+                          <span className="font-medium">
+                            {t(opt.label, { defaultValue: opt.label })}
+                          </span>
                           <span className="text-muted-foreground text-[10px]">
                             {opt.desc}
                           </span>
@@ -870,6 +877,12 @@ export function OnboardingWizard() {
                             desc: t("Local Cursor agent")
                           },
                           {
+                            value: "hermes_local" as const,
+                            label: "Hermes Agent",
+                            icon: HermesIcon,
+                            desc: t("Local multi-provider agent")
+                          },
+                          {
                             value: "openclaw_gateway" as const,
                             label: "OpenClaw Gateway",
                             icon: Bot,
@@ -911,7 +924,9 @@ export function OnboardingWizard() {
                             }}
                           >
                             <opt.icon className="h-4 w-4" />
-                            <span className="font-medium">{opt.label}</span>
+                            <span className="font-medium">
+                              {t(opt.label, { defaultValue: opt.label })}
+                            </span>
                             <span className="text-muted-foreground text-[10px]">
                               {opt.comingSoon
                                 ? (opt as { disabledLabel?: string })
@@ -928,6 +943,7 @@ export function OnboardingWizard() {
                   {(adapterType === "claude_local" ||
                     adapterType === "codex_local" ||
                     adapterType === "gemini_local" ||
+                    adapterType === "hermes_local" ||
                     adapterType === "opencode_local" ||
                     adapterType === "pi_local" ||
                     adapterType === "cursor") && (

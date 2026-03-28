@@ -27,6 +27,7 @@ const adapterLabels: Record<string, string> = {
   gemini_local: "Gemini",
   opencode_local: "OpenCode",
   cursor: "Cursor",
+  hermes_local: "Hermes",
   openclaw_gateway: "OpenClaw Gateway",
   process: "Process",
   http: "HTTP",
@@ -269,7 +270,9 @@ export function Agents() {
                         />
                       )}
                       <span className="text-xs text-muted-foreground font-mono w-14 text-right">
-                        {adapterLabels[agent.adapterType] ?? agent.adapterType}
+                        {t(adapterLabels[agent.adapterType] ?? agent.adapterType, {
+                          defaultValue: adapterLabels[agent.adapterType] ?? agent.adapterType,
+                        })}
                       </span>
                       <span className="text-xs text-muted-foreground w-16 text-right">
                         {agent.lastHeartbeatAt ? relativeTime(agent.lastHeartbeatAt) : "—"}
@@ -327,6 +330,7 @@ function OrgTreeNode({
   agentMap: Map<string, Agent>;
   liveRunByAgent: Map<string, { runId: string; liveCount: number }>;
 }) {
+  const { t } = useTranslation();
   const agent = agentMap.get(node.id);
 
   const statusColor = agentStatusDot[node.status] ?? agentStatusDotDefault;
@@ -370,7 +374,9 @@ function OrgTreeNode({
             {agent && (
               <>
                 <span className="text-xs text-muted-foreground font-mono w-14 text-right">
-                  {adapterLabels[agent.adapterType] ?? agent.adapterType}
+                  {t(adapterLabels[agent.adapterType] ?? agent.adapterType, {
+                    defaultValue: adapterLabels[agent.adapterType] ?? agent.adapterType,
+                  })}
                 </span>
                 <span className="text-xs text-muted-foreground w-16 text-right">
                   {agent.lastHeartbeatAt ? relativeTime(agent.lastHeartbeatAt) : "—"}

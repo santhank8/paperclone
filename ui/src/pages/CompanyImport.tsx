@@ -514,11 +514,6 @@ function ConflictResolutionList({
 
 // ── Adapter type options for import ───────────────────────────────────
 
-const IMPORT_ADAPTER_OPTIONS: { value: string; label: string }[] = listUIAdapters().map((adapter) => ({
-  value: adapter.type,
-  label: adapterLabels[adapter.type] ?? adapter.label,
-}));
-
 // ── Adapter picker for imported agents ───────────────────────────────
 
 interface AdapterPickerItem {
@@ -544,6 +539,15 @@ function AdapterPickerList({
   onToggleExpand: (slug: string) => void;
   onChangeConfig: (slug: string, patch: Partial<CreateConfigValues>) => void;
 }) {
+  const { t } = useTranslation();
+
+  const importAdapterOptions = listUIAdapters().map((adapter) => ({
+    value: adapter.type,
+    label: t(adapterLabels[adapter.type] ?? adapter.label, {
+      defaultValue: adapterLabels[adapter.type] ?? adapter.label,
+    }),
+  }));
+
   if (agents.length === 0) return null;
 
   return (
@@ -579,7 +583,7 @@ function AdapterPickerList({
                     value={selectedType}
                     onChange={(e) => onChangeAdapter(agent.slug, e.target.value)}
                   >
-                    {IMPORT_ADAPTER_OPTIONS.map((opt) => (
+                    {importAdapterOptions.map((opt) => (
                       <option key={opt.value} value={opt.value}>
                         {opt.label}
                       </option>

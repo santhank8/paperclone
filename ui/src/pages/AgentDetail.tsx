@@ -1139,9 +1139,27 @@ function LatestRunCard({ runs, agentId }: { runs: HeartbeatRun[]; agentId: strin
   const isLive = run.status === "running" || run.status === "queued";
   const statusInfo = runStatusIcons[run.status] ?? { icon: Clock, color: "text-neutral-400" };
   const StatusIcon = statusInfo.icon;
-  const summary = run.resultJson
+  const summaryRaw = run.resultJson
     ? String((run.resultJson as Record<string, unknown>).summary ?? (run.resultJson as Record<string, unknown>).result ?? "")
     : translateRuntimeErrorMessage(t, run.error) ?? "";
+
+  // Extract a clean 2-3 line excerpt: first non-empty, non-header, non-list-mark lines
+  const summary = useMemo(() => {
+    if (!summaryRaw) return "";
+    const lines = summaryRaw
+      .replace(/^#{1,6}\s+/gm, "")
+      .split("\n")
+      .map((l) => l.trim())
+      .filter((l) => l.length > 0 && !l.startsWith("---") && !l.startsWith("|") && !l.startsWith("```") && !/^[-*>]/.test(l) && !/^\d+\./.test(l));
+    const excerpt: string[] = [];
+    let chars = 0;
+    for (const line of lines) {
+      if (excerpt.length >= 3 || chars + line.length > 280) break;
+      excerpt.push(line);
+      chars += line.length;
+    }
+    return excerpt.join(" ");
+  }, [summaryRaw]);
 
   return (
     <div className="space-y-3">
@@ -2420,6 +2438,8 @@ function AgentSkillsTab({
   agent: Agent;
   companyId?: string;
 }) {
+  const { t } = useTranslation();
+
   type SkillRow = {
     id: string;
     key: string;
@@ -2436,6 +2456,7 @@ function AgentSkillsTab({
   const queryClient = useQueryClient();
   const [skillDraft, setSkillDraft] = useState<string[]>([]);
   const [lastSavedSkills, setLastSavedSkills] = useState<string[]>([]);
+  const [unmanagedOpen, setUnmanagedOpen] = useState(false);
   const lastSavedSkillsRef = useRef<string[]>([]);
   const hasHydratedSkillSnapshotRef = useRef(false);
   const skipNextSkillAutosaveRef = useRef(true);
@@ -2765,12 +2786,19 @@ function AgentSkillsTab({
 
                 {unmanagedSkillRows.length > 0 && (
                   <section className="border-y border-border">
-                    <div className="border-b border-border bg-muted/40 px-3 py-2">
+                    <div
+                      role="button"
+                      tabIndex={0}
+                      className="flex cursor-pointer items-center gap-2 border-b border-border bg-muted/40 px-3 py-2 select-none"
+                      onClick={() => setUnmanagedOpen((v) => !v)}
+                      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setUnmanagedOpen((v) => !v); } }}
+                    >
                       <span className="text-xs font-medium text-muted-foreground">
-                        User-installed skills, not managed by Paperclip
+                        ({unmanagedSkillRows.length}) User-installed skills, not managed by Paperclip
                       </span>
+                      {unmanagedOpen ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />}
                     </div>
-                    {unmanagedSkillRows.map(renderSkillRow)}
+                    {unmanagedOpen && unmanagedSkillRows.map(renderSkillRow)}
                   </section>
                 )}
               </>
@@ -2790,7 +2818,11 @@ function AgentSkillsTab({
             <div className="grid gap-2 text-sm sm:grid-cols-2">
               <div className="flex items-center justify-between gap-3 border-b border-border/60 py-2">
                 <span className="text-muted-foreground">Adapter</span>
-                <span className="font-medium">{adapterLabels[agent.adapterType] ?? agent.adapterType}</span>
+                <span className="font-medium">
+                  {t(adapterLabels[agent.adapterType] ?? agent.adapterType, {
+                    defaultValue: adapterLabels[agent.adapterType] ?? agent.adapterType,
+                  })}
+                </span>
               </div>
               <div className="flex items-center justify-between gap-3 border-b border-border/60 py-2">
                 <span className="text-muted-foreground">Skills applied</span>
