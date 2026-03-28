@@ -1,6 +1,7 @@
 import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import { Link } from "@/lib/router";
+import { useI18n } from "../context/I18nContext";
 
 interface MetricCardProps {
   icon: LucideIcon;
@@ -12,6 +13,7 @@ interface MetricCardProps {
 }
 
 export function MetricCard({ icon: Icon, value, label, description, to, onClick }: MetricCardProps) {
+  const { translateText } = useI18n();
   const isClickable = !!(to || onClick);
 
   const inner = (
@@ -22,7 +24,7 @@ export function MetricCard({ icon: Icon, value, label, description, to, onClick 
             {value}
           </p>
           <p className="text-xs sm:text-sm font-medium text-muted-foreground mt-1">
-            {label}
+            {translateText(label)}
           </p>
           {description && (
             <div className="text-xs text-muted-foreground/70 mt-1.5 hidden sm:block">{description}</div>

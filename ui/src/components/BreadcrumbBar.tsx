@@ -15,6 +15,7 @@ import {
 import { Fragment, useMemo } from "react";
 import { PluginSlotOutlet, usePluginSlots } from "@/plugins/slots";
 import { PluginLauncherOutlet, usePluginLaunchers } from "@/plugins/launchers";
+import { useI18n } from "../context/I18nContext";
 
 type GlobalToolbarContext = { companyId: string | null; companyPrefix: string | null };
 
@@ -34,6 +35,7 @@ export function BreadcrumbBar() {
   const { breadcrumbs } = useBreadcrumbs();
   const { toggleSidebar, isMobile } = useSidebar();
   const { selectedCompanyId, selectedCompany } = useCompany();
+  const { t, translateText } = useI18n();
 
   const globalToolbarSlotContext = useMemo(
     () => ({
@@ -59,7 +61,7 @@ export function BreadcrumbBar() {
       size="icon-sm"
       className="mr-2 shrink-0"
       onClick={toggleSidebar}
-      aria-label="Open sidebar"
+      aria-label={t("nav.openSidebar")}
     >
       <Menu className="h-5 w-5" />
     </Button>
@@ -71,8 +73,8 @@ export function BreadcrumbBar() {
       <div className="border-b border-border px-4 md:px-6 h-12 shrink-0 flex items-center">
         {menuButton}
         <div className="min-w-0 overflow-hidden flex-1">
-          <h1 className="text-sm font-semibold uppercase tracking-wider truncate">
-            {breadcrumbs[0].label}
+            <h1 className="text-sm font-semibold uppercase tracking-wider truncate">
+            {translateText(breadcrumbs[0].label)}
           </h1>
         </div>
         {globalToolbarSlots}
@@ -94,10 +96,10 @@ export function BreadcrumbBar() {
                   {i > 0 && <BreadcrumbSeparator />}
                   <BreadcrumbItem className={isLast ? "min-w-0" : "shrink-0"}>
                     {isLast || !crumb.href ? (
-                      <BreadcrumbPage className="truncate">{crumb.label}</BreadcrumbPage>
+                      <BreadcrumbPage className="truncate">{translateText(crumb.label)}</BreadcrumbPage>
                     ) : (
                       <BreadcrumbLink asChild>
-                        <Link to={crumb.href}>{crumb.label}</Link>
+                        <Link to={crumb.href}>{translateText(crumb.label)}</Link>
                       </BreadcrumbLink>
                     )}
                   </BreadcrumbItem>
