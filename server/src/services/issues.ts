@@ -572,6 +572,11 @@ export function issueService(db: Db) {
       const originKindFilter = asNonEmptyString(filters?.originKind);
       const originIdFilter = asNonEmptyString(filters?.originId);
       const rawSearch = asNonEmptyString(filters?.q) ?? "";
+      if (assigneeAgentIdFilter && !isUuidLike(assigneeAgentIdFilter)) return [];
+      if (participantAgentIdFilter && !isUuidLike(participantAgentIdFilter)) return [];
+      if (projectIdFilter && !isUuidLike(projectIdFilter)) return [];
+      if (parentIdFilter && !isUuidLike(parentIdFilter)) return [];
+      if (labelIdFilter && !isUuidLike(labelIdFilter)) return [];
       const conditions = [eq(issues.companyId, companyId)];
       const touchedByUserId = touchedByUserIdFilter;
       const unreadForUserId = unreadForUserIdFilter;

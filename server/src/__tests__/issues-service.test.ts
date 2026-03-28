@@ -15,7 +15,7 @@ import {
   issueComments,
   issues,
 } from "@paperclipai/db";
-import { issueService } from "../services/issues.ts";
+import { issueService, type IssueFilters } from "../services/issues.ts";
 
 type EmbeddedPostgresInstance = {
   initialise(): Promise<void>;
@@ -540,6 +540,42 @@ describe("issueService.list participantAgentId", () => {
     });
 
     expect(result.map((issue) => issue.id)).toContain(issueId);
+  });
+
+  it("returns an empty list for malformed uuid string list filters", async () => {
+    const companyId = randomUUID();
+    const issueId = randomUUID();
+
+    await db.insert(companies).values({
+      id: companyId,
+      name: "Paperclip",
+      issuePrefix: `T${companyId.replace(/-/g, "").slice(0, 6).toUpperCase()}`,
+      requireBoardApprovalForNewAgents: false,
+    });
+
+    await db.insert(issues).values({
+      id: issueId,
+      companyId,
+      title: "Malformed uuid filter safety",
+      status: "todo",
+      priority: "medium",
+    });
+
+    const uuidFilterKeys: Array<keyof Pick<
+      IssueFilters,
+      "assigneeAgentId" | "participantAgentId" | "projectId" | "parentId" | "labelId"
+    >> = [
+      "assigneeAgentId",
+      "participantAgentId",
+      "projectId",
+      "parentId",
+      "labelId",
+    ];
+
+    for (const key of uuidFilterKeys) {
+      const result = await svc.list(companyId, { [key]: "not-a-uuid" } as Pick<IssueFilters, typeof key>);
+      expect(result).toEqual([]);
+    }
   });
 
   it("ignores malformed non-string unread status filters instead of throwing", async () => {
