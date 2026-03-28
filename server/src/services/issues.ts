@@ -766,6 +766,7 @@ export function issueService(db: Db) {
     },
 
     getById: async (id: string) => {
+      if (!isUuidLike(id)) return null;
       const row = await db
         .select()
         .from(issues)

@@ -697,6 +697,10 @@ describe("issueService.list participantAgentId", () => {
     });
   });
 
+  it("returns null for malformed issue ids on getById", async () => {
+    await expect(svc.getById("not-a-uuid")).resolves.toBeNull();
+  });
+
   it("returns not found for malformed issue ids on assertCheckoutOwner", async () => {
     await expect(
       svc.assertCheckoutOwner("not-a-uuid", randomUUID(), null),
