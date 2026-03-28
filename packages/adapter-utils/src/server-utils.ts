@@ -724,6 +724,7 @@ export async function runChildProcess(
     env: Record<string, string>;
     timeoutSec: number;
     graceSec: number;
+    idleTimeoutSec?: number;
     onLog: (stream: "stdout" | "stderr", chunk: string) => Promise<void>;
     onLogError?: (err: unknown, runId: string, message: string) => void;
     onSpawn?: (meta: { pid: number; startedAt: string }) => Promise<void>;
@@ -792,8 +793,30 @@ export async function runChildProcess(
               }, opts.timeoutSec * 1000)
             : null;
 
+        let lastActivityAt = Date.now();
+        const idleTimeoutMs =
+          opts.idleTimeoutSec != null && opts.idleTimeoutSec > 0
+            ? opts.idleTimeoutSec * 1000
+            : 0;
+        let idleCheck: ReturnType<typeof setInterval> | null = null;
+        if (idleTimeoutMs > 0) {
+          idleCheck = setInterval(() => {
+            if (Date.now() - lastActivityAt >= idleTimeoutMs) {
+              if (idleCheck) clearInterval(idleCheck);
+              timedOut = true;
+              child.kill("SIGTERM");
+              setTimeout(() => {
+                if (!child.killed) {
+                  child.kill("SIGKILL");
+                }
+              }, Math.max(1, opts.graceSec) * 1000);
+            }
+          }, Math.min(idleTimeoutMs, 30_000));
+        }
+
         child.stdout?.on("data", (chunk: unknown) => {
           const text = String(chunk);
+          lastActivityAt = Date.now();
           stdout = appendWithCap(stdout, text);
           logChain = logChain
             .then(() => opts.onLog("stdout", text))
@@ -802,6 +825,7 @@ export async function runChildProcess(
 
         child.stderr?.on("data", (chunk: unknown) => {
           const text = String(chunk);
+          lastActivityAt = Date.now();
           stderr = appendWithCap(stderr, text);
           logChain = logChain
             .then(() => opts.onLog("stderr", text))
@@ -810,6 +834,7 @@ export async function runChildProcess(
 
         child.on("error", (err: Error) => {
           if (timeout) clearTimeout(timeout);
+          if (idleCheck) clearInterval(idleCheck);
           runningProcesses.delete(runId);
           const errno = (err as NodeJS.ErrnoException).code;
           const pathValue = mergedEnv.PATH ?? mergedEnv.Path ?? "";
@@ -822,6 +847,7 @@ export async function runChildProcess(
 
         child.on("close", (code: number | null, signal: NodeJS.Signals | null) => {
           if (timeout) clearTimeout(timeout);
+          if (idleCheck) clearInterval(idleCheck);
           runningProcesses.delete(runId);
           void logChain.finally(() => {
             resolve({
