@@ -741,6 +741,24 @@ describe("issueService.list participantAgentId", () => {
     });
   });
 
+  it("returns unprocessable for malformed company ids on markRead", async () => {
+    await expect(
+      svc.markRead("not-a-uuid", randomUUID(), "user-1", new Date()),
+    ).rejects.toMatchObject({
+      status: 422,
+      message: "Invalid companyId",
+    });
+  });
+
+  it("returns unprocessable for malformed user ids on markRead", async () => {
+    await expect(
+      svc.markRead(randomUUID(), randomUUID(), { bad: true } as any, new Date()),
+    ).rejects.toMatchObject({
+      status: 422,
+      message: "Invalid userId",
+    });
+  });
+
   it("returns null for malformed issue ids on getById", async () => {
     await expect(svc.getById("not-a-uuid")).resolves.toBeNull();
   });

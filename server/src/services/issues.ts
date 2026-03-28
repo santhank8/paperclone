@@ -760,7 +760,9 @@ export function issueService(db: Db) {
     },
 
     markRead: async (companyId: string, issueId: string, userId: string, readAt: Date = new Date()) => {
+      if (!isUuidLike(companyId)) throw unprocessable("Invalid companyId");
       if (!isUuidLike(issueId)) throw notFound("Issue not found");
+      if (typeof userId !== "string" || userId.trim().length === 0) throw unprocessable("Invalid userId");
       const now = new Date();
       const [row] = await db
         .insert(issueReadStates)
