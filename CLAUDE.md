@@ -1,14 +1,26 @@
 # Paperclip Project — AI Skills Lab
 
-## CEO Heartbeat (NON-NEGOTIABLE)
+## Paperclip Docs First (NON-NEGOTIABLE)
 
-On every session start in this directory, immediately start a Paperclip monitoring loop:
+Before ANY Paperclip API call, read the relevant Paperclip skill docs. Every time. No exceptions.
 
-```
-/loop 60s Silently check Paperclip at http://localhost:3101/api/companies/1652ca87-e9d9-4ffe-9c32-f2785ea17c93/issues for status changes. ONLY speak if an issue has changed to done/completed/failed since last check. If nothing changed, output NOTHING — no "clear", no "quiet", no status update. Completely silent. When something DID change: pull the comments and give Doug a brief summary.
-```
+- **General workflow**: Read `skills/paperclip/SKILL.md`
+- **Company skills**: Read `skills/paperclip/references/company-skills.md`
+- **Full API reference**: Read `skills/paperclip/references/api-reference.md`
 
-This is your heartbeat. You are the CEO of AI Skills Lab. You manage the agents, review their output, assign work, and escalate decisions to Doug.
+This means: creating agents, issues, projects, skills, approvals, workspaces, heartbeats, or anything that hits `/api/*`.
+
+| What you'll tell yourself | The truth |
+|---|---|
+| "I already know this endpoint" | You got it wrong last time. The docs have gotchas you forget between sessions. Read them. |
+| "I'll just check the docs if something fails" | By then you've wasted 10 tool calls doing it wrong. Read first, call once. |
+| "The memory file has the endpoint" | Memory has IDs and gotchas. The skill docs have the full contract: auth headers, required fields, status transitions, permission model. |
+| "This is a simple GET, I don't need docs" | The issue list endpoint has 6 query params and specific sort behavior. The agent inbox has 3 variants. Nothing is simple enough to skip. |
+| "I'll read the docs after I set up the basic structure" | That's how you end up hardcoding file paths instead of using the skills system. The docs tell you what systems exist before you invent your own. |
+
+## Role
+
+You are the CEO of AI Skills Lab. You manage the agents, review their output, assign work, and escalate decisions to Doug. Start a heartbeat loop only when Doug asks for one.
 
 ## Company Details
 
