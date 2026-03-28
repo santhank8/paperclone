@@ -207,39 +207,39 @@ Paperclip 已拥有具体的工作区模型：
 
 需要本地工具（文件浏览、git、终端、进程追踪）的插件可通过项目工作区 API 解析工作区路径，然后直接操作文件系统、生成进程并运行 git 命令。主机不对这些操作进行封装——插件自行拥有其实现。
 
-## 8. Installation Model
+## 8. 安装模型
 
-Plugin installation is global and operator-driven.
+插件安装是全局的，由运营者驱动。
 
-There is no per-company install table and no per-company enable/disable switch.
+不存在按公司维度的安装表，也没有按公司维度的启用/禁用开关。
 
-If a plugin needs business-object-specific mappings, those are stored as plugin configuration or plugin state.
+如果插件需要与业务对象相关的映射，这些映射将作为插件配置或插件状态存储。
 
-Examples:
+示例：
 
-- one global Linear plugin install
-- mappings from company A to Linear team X and company B to Linear team Y
-- one global git plugin install
-- per-project workspace state stored under `project_workspace`
+- 一个全局 Linear 插件安装
+- 公司 A 到 Linear 团队 X、公司 B 到 Linear 团队 Y 的映射
+- 一个全局 git 插件安装
+- 存储在 `project_workspace` 下的按项目工作区状态
 
-## 8.1 On-Disk Layout
+## 8.1 磁盘布局
 
-Plugins live under the Paperclip instance directory.
+插件位于 Paperclip 实例目录下。
 
-Suggested layout:
+建议布局：
 
 - `~/.paperclip/instances/default/plugins/package.json`
 - `~/.paperclip/instances/default/plugins/node_modules/`
 - `~/.paperclip/instances/default/plugins/.cache/`
 - `~/.paperclip/instances/default/data/plugins/<plugin-id>/`
 
-The package install directory and the plugin data directory are separate.
+包安装目录和插件数据目录是分开的。
 
-This on-disk model is the reason the current implementation expects a persistent writable host filesystem. Cloud-safe artifact replication is future work.
+这种磁盘模型是当前实现需要持久化可写主机文件系统的原因。云安全的制品复制是未来的工作。
 
-## 8.2 Operator Commands
+## 8.2 运营者命令
 
-Paperclip should add CLI commands:
+Paperclip 应添加以下 CLI 命令：
 
 - `pnpm paperclipai plugin list`
 - `pnpm paperclipai plugin install <package[@version]>`
@@ -247,22 +247,22 @@ Paperclip should add CLI commands:
 - `pnpm paperclipai plugin upgrade <plugin-id> [version]`
 - `pnpm paperclipai plugin doctor <plugin-id>`
 
-These commands are instance-level operations.
+这些命令是实例级操作。
 
-## 8.3 Install Process
+## 8.3 安装流程
 
-The install process is:
+安装流程如下：
 
-1. Resolve npm package and version.
-2. Install into the instance plugin directory.
-3. Read and validate plugin manifest.
-4. Reject incompatible plugin API versions.
-5. Display requested capabilities to the operator.
-6. Persist install record in Postgres.
-7. Start plugin worker and run health/validation.
-8. Mark plugin `ready` or `error`.
+1. 解析 npm 包和版本。
+2. 安装到实例插件目录。
+3. 读取并验证插件清单。
+4. 拒绝不兼容的插件 API 版本。
+5. 向运营者显示所请求的能力。
+6. 在 Postgres 中持久化安装记录。
+7. 启动插件 worker 并运行健康/验证检查。
+8. 将插件标记为 `ready` 或 `error`。
 
-For the current implementation, this install flow should be read as a single-host workflow. A successful install writes packages to the local host, and other app nodes will not automatically receive that plugin unless a future shared distribution mechanism is added.
+对于当前实现，此安装流程应理解为单主机工作流。成功安装后包会写入本地主机，除非未来添加了共享分发机制，否则其他应用节点不会自动获得该插件。
 
 ## 9. Load Order And Precedence
 

@@ -242,31 +242,31 @@ Paperclip 不能假设它与代码运行在同一台机器上。
 - `createdAt`
 - `updatedAt`
 
-### Notes
+### 说明
 
-- `sourceType=non_git_path` is important so non-git projects are first-class.
-- `setupCommand` and `cleanupCommand` should be allowed here for workspace-root bootstrap, even when isolated execution is not used.
-- For a monorepo, multiple project workspaces may point at different roots or packages under one repo.
-- `sourceType=remote_managed` is important for cloud deployments where the durable codebase is defined by provider/repo metadata rather than a local checkout path.
+- `sourceType=non_git_path` 很重要，使非 git 项目成为一等公民。
+- `setupCommand` 和 `cleanupCommand` 应在此处允许用于工作区根目录的引导，即使未使用隔离执行。
+- 对于 monorepo，多个项目工作区可以指向同一仓库下的不同根目录或包。
+- `sourceType=remote_managed` 对于云部署很重要，其中持久化代码库由提供商/仓库元数据定义，而非本地检出路径。
 
-## 3. Project Execution Workspace Policy
+## 3. 项目执行工作区策略（Project Execution Workspace Policy）
 
-Project-level defaults for how issues execute.
+issue 如何执行的项目级默认值。
 
-This is the main operator-facing configuration surface.
+这是面向运营者的主要配置界面。
 
-### Motivation
+### 动机
 
-This lets Paperclip support:
+这使 Paperclip 能够支持：
 
-- direct editing in a shared workspace
-- isolated workspaces for issue parallelism
-- long-lived integration branch workflows
-- remote cloud-agent execution that returns a branch or PR
+- 在共享工作区中直接编辑
+- 用于 issue 并行性的隔离工作区
+- 长期存在的集成分支工作流
+- 返回分支或 PR 的远程云代理执行
 
-without forcing every issue or agent to expose low-level runtime configuration.
+而无需强制每个 issue 或代理暴露低级运行时配置。
 
-### Proposed fields
+### 提议字段
 
 - `enabled: boolean`
 - `defaultMode`

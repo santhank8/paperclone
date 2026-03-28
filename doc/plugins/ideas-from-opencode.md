@@ -227,62 +227,62 @@ npm 插件：
 
 这验证了核心论点：一个简单的类型化插件 API 可以创造真正的生态速度。
 
-## What OpenCode Gets Right
+## OpenCode 做得对的地方
 
-## 1. Separate plugin SDK from host runtime
+## 1. 将插件 SDK 与宿主运行时分离
 
-This is one of the best parts of the design.
+这是设计中最出色的部分之一。
 
-- plugin authors code against a clean public package
-- host internals can evolve behind the loader
-- runtime code and plugin code have a clean contract boundary
+- 插件作者基于一个干净的公共包编码
+- 宿主内部可以在加载器之后独立演进
+- 运行时代码和插件代码之间有清晰的契约边界
 
-Paperclip should absolutely do this.
+Paperclip 绝对应该这样做。
 
-## 2. Deterministic loading and precedence
+## 2. 确定性加载和优先级
 
-`opencode` is explicit about:
+`opencode` 明确规定了：
 
-- where plugins come from
-- how config merges
-- what order wins
+- 插件来自哪里
+- 配置如何合并
+- 哪个顺序获胜
 
-Paperclip should copy this discipline.
+Paperclip 应该借鉴这种严谨性。
 
-## 3. Low-ceremony authoring
+## 3. 低仪式感的创作方式
 
-A plugin author does not have to learn a giant framework.
+插件作者无需学习一个庞大的框架。
 
-- export async function
-- return hooks
-- optionally export tools
+- 导出异步函数
+- 返回钩子
+- 可选导出工具
 
-That simplicity matters.
+这种简洁性至关重要。
 
-## 4. Typed tool definitions
+## 4. 类型化的工具定义
 
-The `tool()` helper is excellent:
+`tool()` 辅助函数非常出色：
 
-- typed
-- schema-based
-- easy to document
-- easy for runtime validation
+- 类型化
+- 基于 schema
+- 易于文档化
+- 便于运行时验证
 
-Paperclip should adopt this style for plugin actions, automations, and UI schemas.
+Paperclip 应该为插件操作、自动化和 UI schema 采用这种风格。
 
-## 5. Built-in features and plugins use similar shapes
+## 5. 内置功能与插件使用相似的结构
 
-`opencode` uses the same hook system for internal and external plugin-style behavior in several places.
-That reduces special cases.
+`opencode` 在多处为内部和外部的插件式行为使用相同的钩子系统。
+这减少了特殊情况。
 
-Paperclip can benefit from that with adapters, secret backends, storage providers, and connector modules.
+Paperclip 在适配器、密钥后端、存储提供商和连接器模块方面可以从中受益。
 
-## 6. Incremental extension, not giant abstraction upfront
+## 6. 增量扩展，而非预先设计庞大抽象
 
-`opencode` did not design a giant marketplace platform first.
-It added concrete extension points that real features needed.
+`opencode` 没有先设计一个庞大的市场平台。
+它是针对真实功能所需的具体扩展点逐步添加的。
 
-That is the correct mindset for Paperclip too.
+这也是 Paperclip 应有的正确心态。
 
 ## What Paperclip Should Not Copy Directly
 

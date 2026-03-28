@@ -104,20 +104,20 @@ modules/
 }
 ```
 
-Key fields:
+关键字段：
 
-- **`id`**: Unique identifier, used as the npm package name suffix (`@paperclipai/mod-observability`)
-- **`slot`**: Optional exclusive category. If set, only one module with this slot can be active. Omit for modules that can coexist freely.
-- **`hooks`**: Which core events this module subscribes to. Declared upfront so the core knows what to emit.
-- **`routes.prefix`**: Mounted under `/api/modules/<prefix>`. The module owns this namespace.
-- **`ui.pages`**: Adds entries to the sidebar. Lazy-loaded React components.
-- **`ui.widgets`**: Injects components into existing pages (e.g., dashboard cards).
-- **`schema`**: Drizzle table definitions for module-owned tables. Prefixed with `mod_<id>_` to avoid collisions.
-- **`configSchema`**: JSON Schema for module configuration. Validated before the module loads.
+- **`id`**：唯一标识符，用作 npm 包名后缀（`@paperclipai/mod-observability`）
+- **`slot`**：可选的独占类别。设置后，同一插槽只能有一个模块处于活跃状态。可自由共存的模块可省略此字段。
+- **`hooks`**：该模块订阅的核心事件。提前声明以便核心知道需要触发哪些事件。
+- **`routes.prefix`**：挂载在 `/api/modules/<prefix>` 下。模块拥有该命名空间。
+- **`ui.pages`**：向侧边栏添加条目，为懒加载的 React 组件。
+- **`ui.widgets`**：向现有页面注入组件（如仪表盘卡片）。
+- **`schema`**：模块自有表的 Drizzle 表定义。以 `mod_<id>_` 为前缀以避免冲突。
+- **`configSchema`**：模块配置的 JSON Schema，在模块加载前验证。
 
-### Entry Point
+### 入口点
 
-The module's `src/index.ts` exports a `register` function that receives the module API:
+模块的 `src/index.ts` 导出一个 `register` 函数，该函数接收模块 API：
 
 ```typescript
 import type { ModuleAPI } from "@paperclipai/core";
@@ -143,7 +143,7 @@ export default function register(api: ModuleAPI) {
 }
 ```
 
-### Module API Surface
+### 模块 API 接口
 
 ```typescript
 interface ModuleAPI {

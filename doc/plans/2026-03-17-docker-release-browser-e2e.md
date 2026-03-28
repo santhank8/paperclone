@@ -201,48 +201,48 @@ HOST_PORT=3233 DATA_DIR=./data/release-smoke-stable PAPERCLIPAI_VERSION=latest .
 
 强行将两者合并到一个规范中只会让两者都变得更糟。
 
-## 3. Add a release-smoke workflow in GitHub Actions
+## 3. 在 GitHub Actions 中添加发布冒烟工作流
 
-Add a workflow dedicated to this surface, ideally reusable:
+添加一个专用于此场景的工作流，最好可复用：
 
 - `.github/workflows/release-smoke.yml`
 
-Recommended triggers:
+推荐触发方式：
 
 - `workflow_dispatch`
 - `workflow_call`
 
-Recommended inputs:
+推荐输入参数：
 
 - `paperclip_version`
-  - `canary` or `latest`
+  - `canary` 或 `latest`
 - `host_port`
-  - optional, default runner-safe port
+  - 可选，默认为 runner 安全端口
 - `artifact_name`
-  - optional for clearer uploads
+  - 可选，用于更清晰的产物上传命名
 
-### Job outline
+### 作业概要
 
-1. checkout repo
-2. install Node/pnpm
-3. install Playwright browser dependencies
-4. launch Docker smoke harness in detached mode with the chosen dist-tag
-5. run the release-smoke Playwright suite against the returned base URL
-6. always collect diagnostics:
-   - Playwright report
-   - screenshots
-   - trace
+1. 检出代码仓库
+2. 安装 Node/pnpm
+3. 安装 Playwright 浏览器依赖
+4. 以分离模式启动 Docker 冒烟框架，使用选定的 dist-tag
+5. 针对返回的 base URL 运行发布冒烟 Playwright 测试套件
+6. 始终收集诊断信息：
+   - Playwright 报告
+   - 截图
+   - 追踪记录
    - `docker logs`
-   - harness metadata file
-7. stop and remove container
+   - 框架元数据文件
+7. 停止并移除容器
 
-### Why a reusable workflow
+### 为何使用可复用工作流
 
-This lets us:
+这使我们能够：
 
-- run the smoke manually on demand
-- call it from `release.yml`
-- reuse the same job for both `canary` and `latest`
+- 按需手动运行冒烟测试
+- 从 `release.yml` 调用它
+- 对 `canary` 和 `latest` 复用同一个作业
 
 ## 4. Integrate it into release automation incrementally
 

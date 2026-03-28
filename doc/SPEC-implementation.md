@@ -333,7 +333,7 @@ V1 不需要独立的队列基础设施。
 
 ## 7.15 `documents` + `document_revisions` + `issue_documents`
 
-- `documents` stores editable text-first documents:
+- `documents` 存储可编辑的文本优先文档：
   - `id` uuid pk
   - `company_id` uuid fk not null
   - `title` text null
@@ -345,19 +345,19 @@ V1 不需要独立的队列基础设施。
   - `created_by_user_id` uuid/text fk null
   - `updated_by_agent_id` uuid fk null
   - `updated_by_user_id` uuid/text fk null
-- `document_revisions` stores append-only history:
+- `document_revisions` 存储只追加的历史记录：
   - `id` uuid pk
   - `company_id` uuid fk not null
   - `document_id` uuid fk not null
   - `revision_number` int not null
   - `body` text not null
   - `change_summary` text null
-- `issue_documents` links documents to issues with a stable workflow key:
+- `issue_documents` 通过稳定的工作流键将文档关联到问题：
   - `id` uuid pk
   - `company_id` uuid fk not null
   - `issue_id` uuid fk not null
   - `document_id` uuid fk not null
-  - `key` text not null (`plan`, `design`, `notes`, etc.)
+  - `key` text not null（`plan`、`design`、`notes` 等）
 
 ## 8. State Machines
 

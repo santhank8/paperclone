@@ -258,28 +258,28 @@ V1 发布时，适配器标识为显式：
 }
 ```
 
-### Invocation
+### 调用方式
 
-- Base command: `claude --print <prompt> --output-format json`
-- Resume: add `--resume <sessionId>` when runtime state has session ID
-- Unsandboxed mode: add `--dangerously-skip-permissions` when enabled
+- 基础命令：`claude --print <prompt> --output-format json`
+- 恢复：当运行时状态包含 session ID 时添加 `--resume <sessionId>`
+- 非沙盒模式：启用时添加 `--dangerously-skip-permissions`
 
-### Output parsing
+### 输出解析
 
-1. Parse stdout JSON object.
-2. Extract `session_id` for resume.
-3. Extract usage fields:
+1. 解析 stdout JSON 对象。
+2. 提取 `session_id` 用于恢复。
+3. 提取用量字段：
    - `usage.input_tokens`
-   - `usage.cache_read_input_tokens` (if present)
+   - `usage.cache_read_input_tokens`（如存在）
    - `usage.output_tokens`
-4. Extract `total_cost_usd` when present.
-5. On non-zero exit: still attempt parse; if parse succeeds keep extracted state and mark run failed unless adapter explicitly reports success.
+4. 存在时提取 `total_cost_usd`。
+5. 非零退出时：仍尝试解析；若解析成功则保留提取的状态，并将运行标记为失败，除非适配器明确报告成功。
 
 ## 7.2 `codex-local`
 
-Runs local `codex` CLI directly.
+直接运行本地 `codex` CLI。
 
-### Config
+### 配置
 
 ```json
 {

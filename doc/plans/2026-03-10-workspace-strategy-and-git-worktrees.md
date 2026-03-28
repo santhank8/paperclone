@@ -88,115 +88,115 @@ Paperclip 应建模**执行工作区（execution workspaces）**，而非 **work
 - 在提供商的远程环境中创建一个隔离的分支/工作区
 - 忽略宿主 cwd 等仅限本地的字段，同时仍遵循分支/ref/隔离意图
 
-## Product and UX Requirements
+## 产品与用户体验要求
 
-The current technical model is directionally right, but the product surface needs clearer separation between:
+当前的技术模型方向正确，但产品界面需要在以下概念之间进行更清晰的分离：
 
-- the generic cross-adapter concept of an **execution workspace**
-- the user-visible local-git implementation concept of an **isolated issue checkout**
-- the specific git implementation detail of a **git worktree**
+- 跨适配器通用概念**执行工作区（execution workspace）**
+- 面向用户的本地 git 实现概念**独立问题检出（isolated issue checkout）**
+- 特定 git 实现细节 **git worktree**
 
-Those should not be collapsed into one label in the UI.
+这些不应在 UI 中合并为一个标签。
 
-### Terminology recommendation
+### 术语建议
 
-For product/UI copy:
+对于产品/UI 文案：
 
-- use **execution workspace** for the generic cross-adapter concept
-- use **isolated issue checkout** for the user-facing feature when we want to say "this issue gets its own branch/checkout"
-- reserve **git worktree** for advanced or implementation detail views
+- 使用**执行工作区（execution workspace）**表示跨适配器的通用概念
+- 使用**独立问题检出（isolated issue checkout）**表示面向用户的功能，即"该问题拥有自己的分支/检出"
+- 将 **git worktree** 保留用于高级或实现细节视图
 
-That gives Paperclip room to support:
+这为 Paperclip 提供了支持以下内容的空间：
 
-- local git worktrees
-- remote sandbox checkouts
-- adapter-managed remote workspaces
+- 本地 git worktrees
+- 远程沙盒检出
+- 适配器管理的远程工作区
 
-without teaching users that "workspace" always means "git worktree on my machine".
+而无需让用户认为"工作区"总是意味着"我机器上的 git worktree"。
 
-### Project-level defaults should drive the feature
+### 项目级默认值应驱动该功能
 
-The main place this should be configured is the **project**, not the agent form.
+主要配置位置应在**项目**层面，而非代理表单。
 
-Reasoning:
+原因：
 
-- whether a repo/project wants isolated issue checkouts is primarily a project workflow decision
-- most operators do not want to configure runtime JSON per agent
-- agents should inherit the project's workspace policy unless there is a strong adapter-specific override
-- the board needs a place to express repo workflow defaults such as branching, PRs, cleanup, and preview lifecycle
+- 仓库/项目是否需要独立问题检出，主要是项目工作流决策
+- 大多数运营者不希望为每个代理配置运行时 JSON
+- 除非有强烈的适配器特定覆盖，代理应继承项目的工作区策略
+- 看板需要一个地方来表达仓库工作流默认值，例如分支、PR、清理和预览生命周期
 
-So the project should own a setting like:
+因此项目应拥有如下设置：
 
-- `isolatedIssueCheckouts.enabled` or equivalent
+- `isolatedIssueCheckouts.enabled` 或等效项
 
-and that should be the default driver for new issues in that project.
+这应作为该项目中新问题的默认驱动器。
 
-### Issue-level use should stay optional
+### 问题级使用应保持可选
 
-Even when a project supports isolated issue checkouts, not every issue should be forced into one.
+即使项目支持独立问题检出，也不应强制每个问题都使用。
 
-Examples:
+示例：
 
-- a small fix may be fine in the main project workspace
-- an operator may want to work directly on a long-lived branch
-- a board user may want to create a task without paying the setup/cleanup overhead
+- 小修复可能在主项目工作区中就够用了
+- 运营者可能希望直接在长期分支上工作
+- 看板用户可能希望创建任务而不需要付出设置/清理的开销
 
-So the model should be:
+因此模型应为：
 
-- project defines whether isolated issue checkouts are available and what the defaults are
-- each issue can opt in or out when created
-- the default issue value can be inherited from the project
+- 项目定义独立问题检出是否可用以及默认值是什么
+- 每个问题在创建时可以选择加入或退出
+- 问题的默认值可以从项目继承
 
-This should not require showing advanced adapter config in normal issue creation flows.
+这不应要求在正常问题创建流程中显示高级适配器配置。
 
-### Runtime services should usually be hidden from the agent form
+### 运行时服务通常应隐藏在代理表单之外
 
-The current raw runtime service JSON is too low-level as a primary UI for most local agents.
+当前原始运行时服务 JSON 对于大多数本地代理来说作为主要 UI 层级过低。
 
-For `claude_local` and `codex_local`, the likely desired behavior is:
+对于 `claude_local` 和 `codex_local`，可能期望的行为是：
 
-- Paperclip handles workspace runtime services under the hood using project/workspace policy
-- operators do not need to hand-author generic runtime JSON in the agent form
-- if a provider-specific adapter later needs richer runtime configuration, give it a purpose-built UI rather than generic JSON by default
+- Paperclip 使用项目/工作区策略在后台处理工作区运行时服务
+- 运营者不需要在代理表单中手写通用运行时 JSON
+- 如果某个提供商特定的适配器将来需要更丰富的运行时配置，提供专用 UI，而非默认使用通用 JSON
 
-So the UI recommendation is:
+因此 UI 建议为：
 
-- keep runtime service JSON out of the default local-agent editing experience
-- allow it only behind an advanced section or adapter-specific expert mode
-- move the common workflow settings up to project-level workspace automation settings
+- 将运行时服务 JSON 排除在默认本地代理编辑体验之外
+- 仅在高级部分或适配器特定专家模式后面允许使用
+- 将常见工作流设置移至项目级工作区自动化设置
 
-### Pull request workflow needs explicit ownership and approval rules
+### Pull request 工作流需要明确的所有权和审批规则
 
-Once Paperclip is creating isolated issue checkouts, it is implicitly touching a bigger workflow:
+一旦 Paperclip 创建独立问题检出，就隐式涉及更大的工作流：
 
-- branch creation
-- runtime service start/stop
-- commit and push
-- PR creation
-- cleanup after merge or abandonment
+- 分支创建
+- 运行时服务启动/停止
+- 提交和推送
+- PR 创建
+- 合并或放弃后的清理
 
-That means the product needs an explicit model for **who owns PR creation and merge readiness**.
+这意味着产品需要一个明确的模型来定义 **PR 创建和合并就绪的所有者**。
 
-At minimum there are two valid modes:
+至少有两种有效模式：
 
-- agent-managed PR creation
-- approval-gated PR creation
+- 代理管理的 PR 创建
+- 审批门控的 PR 创建
 
-And likely three distinct decision points:
+以及可能的三个不同决策点：
 
-1. should the agent commit automatically?
-2. should the agent open the PR automatically?
-3. does opening or marking-ready require board approval?
+1. 代理是否应自动提交？
+2. 代理是否应自动打开 PR？
+3. 打开或标记为就绪是否需要看板审批？
 
-Those should not be buried inside adapter prompts. They are workflow policy.
+这些不应埋藏在适配器提示中。它们是工作流策略。
 
-### Human operator workflows are different from issue-isolation workflows
+### 人工运营者工作流与问题隔离工作流不同
 
-A human operator may want a long-lived personal integration branch such as `dotta` and may not want every task to create a new branch/workspace dance.
+人工运营者可能希望有一个长期个人集成分支（例如 `dotta`），且可能不希望每个任务都创建新的分支/工作区。
 
-That is a legitimate workflow and should be supported directly.
+这是合理的工作流，应直接支持。
 
-So Paperclip should distinguish:
+因此 Paperclip 应区分：
 
 - **isolated issue checkout workflows**: optimized for agent parallelism and issue-scoped isolation
 - **personal branch workflows**: optimized for a human or operator making multiple related changes on a long-lived branch and creating PRs back to the main branch when convenient

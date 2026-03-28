@@ -244,38 +244,36 @@ Issue 之间有四种关系类型：
 
 ---
 
-## Sub-issues (Parent/Child)
+## 子 Issue（父子关系）
 
-Issues support parent/child nesting.
+Issue 支持父子嵌套。
 
-- Setting `parentId` on an issue makes it a sub-issue
-- Sub-issues can themselves have sub-issues (multi-level nesting)
-- Sub-issues inherit **project** from their parent at creation
-  time (not retroactively), but NOT team, labels, or assignee
+- 在 issue 上设置 `parentId` 即可将其设为子 issue
+- 子 issue 本身也可以有子 issue（支持多层嵌套）
+- 子 issue 在创建时从父 issue 继承 **project**（非追溯性），但不继承团队、标签或负责人
 
-### Auto-close
+### 自动关闭
 
-- **Sub-issue auto-close**: when parent completes, remaining sub-issues
-  auto-complete
+- **子 issue 自动关闭**：当父 issue 完成时，剩余的子 issue 自动完成
 
-### Conversions
+### 转换
 
-- Existing issues can be reparented (add or remove `parentId`)
-- A parent issue with many sub-issues can be "promoted" to a project
+- 现有 issue 可以重新设置父级（添加或移除 `parentId`）
+- 拥有大量子 issue 的父 issue 可以"晋升"为 project
 
 ---
 
-## Estimates
+## 估算
 
-Point-based estimation, configured per-team.
+基于点数的估算，按团队配置。
 
-### Available Scales
+### 可用量表
 
-| Scale       | Values                   |
-| ----------- | ------------------------ |
+| 量表     | 取值                     |
+| -------- | ------------------------ |
 | Exponential | 1, 2, 4, 8, 16 (+32, 64) |
 
-Unestimated issues default to 1 point for progress/velocity calculations.
+未估算的 issue 在进度/速度计算时默认为 1 点。
 
 ---
 

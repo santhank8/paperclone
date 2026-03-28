@@ -106,13 +106,13 @@ runWorker(plugin, import.meta.url);
 
 **Jobs：** 在 `manifest.jobs` 中声明，包含 `jobKey`、`displayName`、`schedule`（cron 表达式）。使用 `ctx.jobs.register(jobKey, fn)` 注册处理器。**Webhooks：** 在 `manifest.webhooks` 中声明 `endpointKey`；在 `onWebhook(input)` 中处理。**State：** `ctx.state.get/set/delete(scopeKey)`；作用域类型：`instance`、`company`、`project`、`project_workspace`、`agent`、`issue`、`goal`、`run`。
 
-## Events
+## 事件
 
-Subscribe in `setup` with `ctx.events.on(name, handler)` or `ctx.events.on(name, filter, handler)`. Emit plugin-scoped events with `ctx.events.emit(name, companyId, payload)` (requires `events.emit`).
+在 `setup` 中通过 `ctx.events.on(name, handler)` 或 `ctx.events.on(name, filter, handler)` 订阅事件。使用 `ctx.events.emit(name, companyId, payload)` 发布插件作用域内的事件（需要 `events.emit` 能力）。
 
-**Core domain events (subscribe with `events.subscribe`):**
+**核心领域事件（通过 `events.subscribe` 订阅）：**
 
-| Event | Typical entity |
+| 事件 | 典型实体 |
 |-------|-----------------|
 | `company.created`, `company.updated` | company |
 | `project.created`, `project.updated` | project |
@@ -125,11 +125,11 @@ Subscribe in `setup` with `ctx.events.on(name, handler)` or `ctx.events.on(name,
 | `cost_event.created` | cost |
 | `activity.logged` | activity |
 
-**Plugin-to-plugin:** Subscribe to `plugin.<pluginId>.<eventName>` (e.g. `plugin.acme.linear.sync-done`). Emit with `ctx.events.emit("sync-done", companyId, payload)`; the host namespaces it automatically.
+**插件间通信：** 订阅 `plugin.<pluginId>.<eventName>`（例如 `plugin.acme.linear.sync-done`）。使用 `ctx.events.emit("sync-done", companyId, payload)` 发布；宿主会自动添加命名空间前缀。
 
-**Filter (optional):** Pass a second argument to `on()`: `{ projectId?, companyId?, agentId? }` so the host only delivers matching events.
+**过滤器（可选）：** 向 `on()` 传入第二个参数：`{ projectId?, companyId?, agentId? }`，使宿主仅投递匹配的事件。
 
-**Company context:** Events still carry `companyId` for company-scoped data, but plugin installation and activation are instance-wide in the current runtime.
+**公司上下文：** 事件仍携带 `companyId` 用于公司作用域数据，但在当前运行时中，插件的安装和激活是实例级别的。
 
 ## Scheduled (recurring) jobs
 
