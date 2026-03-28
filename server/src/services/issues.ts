@@ -560,6 +560,7 @@ export function issueService(db: Db) {
 
   return {
     list: async (companyId: string, filters?: IssueFilters) => {
+      if (!isUuidLike(companyId)) return [];
       const statusFilter = asNonEmptyString(filters?.status);
       const assigneeAgentIdFilter = asNonEmptyString(filters?.assigneeAgentId);
       const participantAgentIdFilter = asNonEmptyString(filters?.participantAgentId);
@@ -720,6 +721,7 @@ export function issueService(db: Db) {
     },
 
     countUnreadTouchedByUser: async (companyId: string, userId: string, status?: string) => {
+      if (!isUuidLike(companyId)) return 0;
       const conditions = [
         eq(issues.companyId, companyId),
         isNull(issues.hiddenAt),
@@ -1307,6 +1309,9 @@ export function issueService(db: Db) {
     },
 
     listLabels: (companyId: string) =>
+      !isUuidLike(companyId)
+        ? Promise.resolve([])
+        :
       db.select().from(labels).where(eq(labels.companyId, companyId)).orderBy(asc(labels.name), asc(labels.id)),
 
     getLabelById: (id: string) =>
@@ -1320,6 +1325,7 @@ export function issueService(db: Db) {
         .then((rows) => rows[0] ?? null),
 
     createLabel: async (companyId: string, data: Pick<typeof labels.$inferInsert, "name" | "color">) => {
+      if (!isUuidLike(companyId)) throw unprocessable("Invalid companyId");
       const [created] = await db
         .insert(labels)
         .values({

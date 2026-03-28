@@ -578,6 +578,10 @@ describe("issueService.list participantAgentId", () => {
     }
   });
 
+  it("returns an empty list when companyId is malformed for list", async () => {
+    await expect(svc.list("not-a-uuid", {})).resolves.toEqual([]);
+  });
+
   it("ignores malformed non-string unread status filters instead of throwing", async () => {
     const companyId = randomUUID();
     const issueId = randomUUID();
@@ -614,6 +618,11 @@ describe("issueService.list participantAgentId", () => {
     );
 
     expect(unreadCount).toBe(1);
+  });
+
+  it("returns zero unread count when companyId is malformed", async () => {
+    const unreadCount = await svc.countUnreadTouchedByUser("not-a-uuid", randomUUID(), "todo");
+    expect(unreadCount).toBe(0);
   });
 
   it("returns not found for malformed non-uuid issue ids on createAttachment", async () => {
@@ -726,6 +735,19 @@ describe("issueService.list participantAgentId", () => {
 
   it("returns null for malformed label ids on deleteLabel", async () => {
     await expect(svc.deleteLabel("not-a-uuid")).resolves.toBeNull();
+  });
+
+  it("returns an empty label list when companyId is malformed", async () => {
+    await expect(svc.listLabels("not-a-uuid")).resolves.toEqual([]);
+  });
+
+  it("returns unprocessable for malformed company ids on createLabel", async () => {
+    await expect(
+      svc.createLabel("not-a-uuid", { name: "Bug", color: "#FF0000" }),
+    ).rejects.toMatchObject({
+      status: 422,
+      message: "Invalid companyId",
+    });
   });
 
   it("returns an empty list for malformed issue ids on findMentionedProjectIds", async () => {
