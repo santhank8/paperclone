@@ -1,10 +1,12 @@
 import { CheckCircle2, XCircle, Clock } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { Link } from "@/lib/router";
 import { Button } from "@/components/ui/button";
 import { Identity } from "./Identity";
 import { approvalLabel, typeIcon, defaultTypeIcon, ApprovalPayloadRenderer } from "./ApprovalPayload";
 import { timeAgo } from "../lib/timeAgo";
 import type { Approval, Agent } from "@paperclipai/shared";
+import { translateStatusLabel } from "../lib/i18n-labels";
 
 function statusIcon(status: string) {
   if (status === "approved") return <CheckCircle2 className="h-3.5 w-3.5 text-green-600 dark:text-green-400" />;
@@ -31,6 +33,7 @@ export function ApprovalCard({
   detailLink?: string;
   isPending: boolean;
 }) {
+  const { t } = useTranslation();
   const Icon = typeIcon[approval.type] ?? defaultTypeIcon;
   const label = approvalLabel(approval.type, approval.payload as Record<string, unknown> | null);
   const showResolutionButtons =
@@ -47,14 +50,15 @@ export function ApprovalCard({
             <span className="font-medium text-sm">{label}</span>
             {requesterAgent && (
               <span className="text-xs text-muted-foreground">
-                requested by <Identity name={requesterAgent.name} size="sm" className="inline-flex" />
+                {t("Requested by", { defaultValue: "Requested by" })}{" "}
+                <Identity name={requesterAgent.name} size="sm" className="inline-flex" />
               </span>
             )}
           </div>
         </div>
         <div className="flex items-center gap-1.5 shrink-0">
           {statusIcon(approval.status)}
-          <span className="text-xs text-muted-foreground capitalize">{approval.status}</span>
+          <span className="text-xs text-muted-foreground">{translateStatusLabel(t, approval.status)}</span>
           <span className="text-xs text-muted-foreground">· {timeAgo(approval.createdAt)}</span>
         </div>
       </div>
@@ -65,7 +69,7 @@ export function ApprovalCard({
       {/* Decision note */}
       {approval.decisionNote && (
         <div className="mt-3 text-xs text-muted-foreground italic border-t border-border pt-2">
-          Note: {approval.decisionNote}
+          {t("Note", { defaultValue: "Note" })}: {approval.decisionNote}
         </div>
       )}
 
@@ -78,7 +82,7 @@ export function ApprovalCard({
             onClick={onApprove}
             disabled={isPending}
           >
-            Approve
+            {t("Approve", { defaultValue: "Approve" })}
           </Button>
           <Button
             variant="destructive"
@@ -86,18 +90,18 @@ export function ApprovalCard({
             onClick={onReject}
             disabled={isPending}
           >
-            Reject
+            {t("Reject", { defaultValue: "Reject" })}
           </Button>
         </div>
       )}
       <div className="mt-3">
         {detailLink ? (
           <Button variant="ghost" size="sm" className="text-xs px-0" asChild>
-            <Link to={detailLink}>View details</Link>
+            <Link to={detailLink}>{t("View details", { defaultValue: "View details" })}</Link>
           </Button>
         ) : (
           <Button variant="ghost" size="sm" className="text-xs px-0" onClick={onOpen}>
-            View details
+            {t("View details", { defaultValue: "View details" })}
           </Button>
         )}
       </div>

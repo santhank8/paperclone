@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { BookOpen, Moon, Settings, Sun } from "lucide-react";
 import { Link, Outlet, useLocation, useNavigate, useParams } from "@/lib/router";
 import { CompanyRail } from "./CompanyRail";
@@ -25,6 +26,7 @@ import { useKeyboardShortcuts } from "../hooks/useKeyboardShortcuts";
 import { useCompanyPageMemory } from "../hooks/useCompanyPageMemory";
 import { healthApi } from "../api/health";
 import { shouldSyncCompanySelectionFromRoute } from "../lib/company-selection";
+import { BRAND_DOCS_URL } from "../lib/branding";
 import {
   DEFAULT_INSTANCE_SETTINGS_PATH,
   normalizeRememberedInstanceSettingsPath,
@@ -34,6 +36,7 @@ import { cn } from "../lib/utils";
 import { NotFoundPage } from "../pages/NotFound";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
+import { LanguageSwitcher } from "./LanguageSwitcher";
 
 const INSTANCE_SETTINGS_MEMORY_KEY = "paperclip.lastInstanceSettingsPath";
 
@@ -47,6 +50,7 @@ function readRememberedInstanceSettingsPath(): string {
 }
 
 export function Layout() {
+  const { t } = useTranslation();
   const { sidebarOpen, setSidebarOpen, toggleSidebar, isMobile } = useSidebar();
   const { openNewIssue, openOnboarding } = useDialog();
   const { togglePanelVisible } = usePanel();
@@ -68,6 +72,7 @@ export function Layout() {
   const [mobileNavVisible, setMobileNavVisible] = useState(true);
   const [instanceSettingsTarget, setInstanceSettingsTarget] = useState<string>(() => readRememberedInstanceSettingsPath());
   const nextTheme = theme === "dark" ? "light" : "dark";
+  const nextThemeLabel = nextTheme === "dark" ? t("layout.switchToDarkMode") : t("layout.switchToLightMode");
   const matchedCompany = useMemo(() => {
     if (!companyPrefix) return null;
     const requestedPrefix = companyPrefix.toUpperCase();
@@ -269,7 +274,7 @@ export function Layout() {
         href="#main-content"
         className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-[200] focus:rounded-md focus:bg-background focus:px-3 focus:py-2 focus:text-sm focus:font-medium focus:shadow-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
-        Skip to Main Content
+        {t("layout.skipToMainContent")}
       </a>
       <WorktreeBanner />
       <DevRestartBanner devServer={health?.devServer} />
@@ -279,7 +284,7 @@ export function Layout() {
             type="button"
             className="fixed inset-0 z-40 bg-black/50"
             onClick={() => setSidebarOpen(false)}
-            aria-label="Close sidebar"
+            aria-label={t("layout.closeSidebar")}
           />
         )}
 
@@ -297,13 +302,13 @@ export function Layout() {
             <div className="border-t border-r border-border px-3 py-2 bg-background">
               <div className="flex items-center gap-1">
                 <a
-                  href="https://docs.paperclip.ing/"
+                  href={BRAND_DOCS_URL}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center gap-2.5 px-3 py-2 text-[13px] font-medium transition-colors text-foreground/80 hover:bg-accent/50 hover:text-foreground flex-1 min-w-0"
                 >
                   <BookOpen className="h-4 w-4 shrink-0" />
-                  <span className="truncate">Documentation</span>
+                  <span className="truncate">{t("layout.documentation")}</span>
                 </a>
                 {health?.version && (
                   <Tooltip>
@@ -316,8 +321,8 @@ export function Layout() {
                 <Button variant="ghost" size="icon-sm" className="text-muted-foreground shrink-0" asChild>
                   <Link
                     to={instanceSettingsTarget}
-                    aria-label="Instance settings"
-                    title="Instance settings"
+                    aria-label={t("layout.instanceSettings")}
+                    title={t("layout.instanceSettings")}
                     onClick={() => {
                       if (isMobile) setSidebarOpen(false);
                     }}
@@ -325,14 +330,15 @@ export function Layout() {
                     <Settings className="h-4 w-4" />
                   </Link>
                 </Button>
+                <LanguageSwitcher side="top" />
                 <Button
                   type="button"
                   variant="ghost"
                   size="icon-sm"
                   className="text-muted-foreground shrink-0"
                   onClick={toggleTheme}
-                  aria-label={`Switch to ${nextTheme} mode`}
-                  title={`Switch to ${nextTheme} mode`}
+                  aria-label={nextThemeLabel}
+                  title={nextThemeLabel}
                 >
                   {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
                 </Button>
@@ -355,13 +361,13 @@ export function Layout() {
             <div className="border-t border-r border-border px-3 py-2">
               <div className="flex items-center gap-1">
                 <a
-                  href="https://docs.paperclip.ing/"
+                  href={BRAND_DOCS_URL}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center gap-2.5 px-3 py-2 text-[13px] font-medium transition-colors text-foreground/80 hover:bg-accent/50 hover:text-foreground flex-1 min-w-0"
                 >
                   <BookOpen className="h-4 w-4 shrink-0" />
-                  <span className="truncate">Documentation</span>
+                  <span className="truncate">{t("layout.documentation")}</span>
                 </a>
                 {health?.version && (
                   <Tooltip>
@@ -374,8 +380,8 @@ export function Layout() {
                 <Button variant="ghost" size="icon-sm" className="text-muted-foreground shrink-0" asChild>
                   <Link
                     to={instanceSettingsTarget}
-                    aria-label="Instance settings"
-                    title="Instance settings"
+                    aria-label={t("layout.instanceSettings")}
+                    title={t("layout.instanceSettings")}
                     onClick={() => {
                       if (isMobile) setSidebarOpen(false);
                     }}
@@ -383,14 +389,15 @@ export function Layout() {
                     <Settings className="h-4 w-4" />
                   </Link>
                 </Button>
+                <LanguageSwitcher side="top" />
                 <Button
                   type="button"
                   variant="ghost"
                   size="icon-sm"
                   className="text-muted-foreground shrink-0"
                   onClick={toggleTheme}
-                  aria-label={`Switch to ${nextTheme} mode`}
-                  title={`Switch to ${nextTheme} mode`}
+                  aria-label={nextThemeLabel}
+                  title={nextThemeLabel}
                 >
                   {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
                 </Button>

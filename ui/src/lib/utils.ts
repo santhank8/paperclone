@@ -2,44 +2,90 @@ import { type ClassValue, clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
 import { deriveAgentUrlKey, deriveProjectUrlKey } from "@paperclipai/shared";
 import type { BillingType, FinanceDirection, FinanceEventKind } from "@paperclipai/shared";
+import { getCurrentLocale, translateInstant } from "../i18n";
+
+// Ledger and budget values remain USD-denominated; locale only affects formatting.
+const DISPLAY_CURRENCY = "USD";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export function formatCents(cents: number): string {
-  return `$${(cents / 100).toFixed(2)}`;
+export function formatUsdAmount(
+  amountUsd: number,
+  options?: { minimumFractionDigits?: number; maximumFractionDigits?: number },
+): string {
+  const locale = getCurrentLocale();
+  return new Intl.NumberFormat(locale, {
+    style: "currency",
+    currency: DISPLAY_CURRENCY,
+    currencyDisplay: "narrowSymbol",
+    minimumFractionDigits: options?.minimumFractionDigits ?? 2,
+    maximumFractionDigits: options?.maximumFractionDigits ?? 2,
+  }).format(amountUsd);
 }
 
-export function formatDate(date: Date | string): string {
-  return new Date(date).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
+export function formatCents(cents: number): string {
+  return formatUsdAmount(cents / 100, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
   });
 }
 
+export function formatBudgetInputValue(cents: number): string {
+  return (cents / 100).toFixed(2);
+}
+
+export function parseBudgetInputValue(value: string): number | null {
+  const normalized = value.trim();
+  if (normalized.length === 0) return 0;
+  const parsed = Number(normalized);
+  if (!Number.isFinite(parsed) || parsed < 0) return null;
+  return Math.round(parsed * 100);
+}
+
+export function formatDate(date: Date | string): string {
+  return new Intl.DateTimeFormat(getCurrentLocale(), {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  }).format(new Date(date));
+}
+
 export function formatDateTime(date: Date | string): string {
-  return new Date(date).toLocaleString("en-US", {
+  return new Intl.DateTimeFormat(getCurrentLocale(), {
     month: "short",
     day: "numeric",
     year: "numeric",
     hour: "numeric",
     minute: "2-digit",
-  });
+  }).format(new Date(date));
+}
+
+export function formatTime(
+  date: Date | string,
+  options?: Intl.DateTimeFormatOptions,
+): string {
+  return new Intl.DateTimeFormat(getCurrentLocale(), options).format(new Date(date));
 }
 
 export function relativeTime(date: Date | string): string {
-  const now = Date.now();
-  const then = new Date(date).getTime();
-  const diffSec = Math.round((now - then) / 1000);
-  if (diffSec < 60) return "just now";
-  const diffMin = Math.round(diffSec / 60);
-  if (diffMin < 60) return `${diffMin}m ago`;
-  const diffHr = Math.round(diffMin / 60);
-  if (diffHr < 24) return `${diffHr}h ago`;
-  const diffDay = Math.round(diffHr / 24);
-  if (diffDay < 30) return `${diffDay}d ago`;
+  const deltaSeconds = Math.round((new Date(date).getTime() - Date.now()) / 1000);
+  const absoluteSeconds = Math.abs(deltaSeconds);
+
+  if (absoluteSeconds < 45) return translateInstant("common.justNow");
+
+  const formatter = new Intl.RelativeTimeFormat(getCurrentLocale(), { numeric: "auto" });
+
+  if (absoluteSeconds < 3_600) {
+    return formatter.format(Math.round(deltaSeconds / 60), "minute");
+  }
+  if (absoluteSeconds < 86_400) {
+    return formatter.format(Math.round(deltaSeconds / 3_600), "hour");
+  }
+  if (absoluteSeconds < 2_592_000) {
+    return formatter.format(Math.round(deltaSeconds / 86_400), "day");
+  }
   return formatDate(date);
 }
 
@@ -65,12 +111,12 @@ export function providerDisplayName(provider: string): string {
 
 export function billingTypeDisplayName(billingType: BillingType): string {
   const map: Record<BillingType, string> = {
-    metered_api: "Metered API",
-    subscription_included: "Subscription",
-    subscription_overage: "Subscription overage",
-    credits: "Credits",
-    fixed: "Fixed",
-    unknown: "Unknown",
+    metered_api: translateInstant("billingType.meteredApi"),
+    subscription_included: translateInstant("billingType.subscription"),
+    subscription_overage: translateInstant("billingType.subscriptionOverage"),
+    credits: translateInstant("billingType.credits"),
+    fixed: translateInstant("billingType.fixed"),
+    unknown: translateInstant("billingType.unknown"),
   };
   return map[billingType];
 }
@@ -119,26 +165,28 @@ export function visibleRunCostUsd(
 
 export function financeEventKindDisplayName(eventKind: FinanceEventKind): string {
   const map: Record<FinanceEventKind, string> = {
-    inference_charge: "Inference charge",
-    platform_fee: "Platform fee",
-    credit_purchase: "Credit purchase",
-    credit_refund: "Credit refund",
-    credit_expiry: "Credit expiry",
-    byok_fee: "BYOK fee",
-    gateway_overhead: "Gateway overhead",
-    log_storage_charge: "Log storage",
-    logpush_charge: "Logpush",
-    provisioned_capacity_charge: "Provisioned capacity",
-    training_charge: "Training",
-    custom_model_import_charge: "Custom model import",
-    custom_model_storage_charge: "Custom model storage",
-    manual_adjustment: "Manual adjustment",
+    inference_charge: translateInstant("financeEventKind.inferenceCharge"),
+    platform_fee: translateInstant("financeEventKind.platformFee"),
+    credit_purchase: translateInstant("financeEventKind.creditPurchase"),
+    credit_refund: translateInstant("financeEventKind.creditRefund"),
+    credit_expiry: translateInstant("financeEventKind.creditExpiry"),
+    byok_fee: translateInstant("financeEventKind.byokFee"),
+    gateway_overhead: translateInstant("financeEventKind.gatewayOverhead"),
+    log_storage_charge: translateInstant("financeEventKind.logStorage"),
+    logpush_charge: translateInstant("financeEventKind.logpush"),
+    provisioned_capacity_charge: translateInstant("financeEventKind.provisionedCapacity"),
+    training_charge: translateInstant("financeEventKind.training"),
+    custom_model_import_charge: translateInstant("financeEventKind.customModelImport"),
+    custom_model_storage_charge: translateInstant("financeEventKind.customModelStorage"),
+    manual_adjustment: translateInstant("financeEventKind.manualAdjustment"),
   };
   return map[eventKind];
 }
 
 export function financeDirectionDisplayName(direction: FinanceDirection): string {
-  return direction === "credit" ? "Credit" : "Debit";
+  return direction === "credit"
+    ? translateInstant("financeDirection.credit")
+    : translateInstant("financeDirection.debit");
 }
 
 /** Build an issue URL using the human-readable identifier when available. */

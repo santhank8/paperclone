@@ -34,11 +34,11 @@
   "scripts": {
     "dev": "tsx src/index.ts",
     "dev:watch": "cross-env PAPERCLIP_MIGRATION_PROMPT=never PAPERCLIP_MIGRATION_AUTO_APPLY=true tsx ./scripts/dev-watch.ts",
-    "prepare:ui-dist": "bash ../scripts/prepare-server-ui-dist.sh",
-    "build": "tsc && mkdir -p dist/onboarding-assets && cp -R src/onboarding-assets/. dist/onboarding-assets/",
+    "prepare:ui-dist": "node ../scripts/prepare-server-ui-dist.mjs",
+    "build": "tsc && node ../scripts/fs-ops.mjs mkdir dist/onboarding-assets && node ../scripts/fs-ops.mjs cp src/onboarding-assets dist/onboarding-assets --contents",
     "prepack": "pnpm run prepare:ui-dist",
-    "postpack": "rm -rf ui-dist",
-    "clean": "rm -rf dist",
+    "postpack": "node ../scripts/fs-ops.mjs rm ui-dist",
+    "clean": "node ../scripts/fs-ops.mjs rm dist",
     "start": "node dist/index.js",
     "typecheck": "pnpm --filter @paperclipai/plugin-sdk build && tsc --noEmit"
   },

@@ -29,4 +29,8 @@ export {
   createEmbeddedPostgresLogBuffer,
   formatEmbeddedPostgresError,
 } from "./embedded-postgres-error.js";
+export {
+  recoverEmbeddedPostgresStart,
+  shouldRetryEmbeddedPostgresStart,
+} from "./embedded-postgres-recovery.js";
 export * from "./schema/index.js";

@@ -16,6 +16,7 @@ import {
   arrayMove,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { useTranslation } from "react-i18next";
 import { useCompany } from "../context/CompanyContext";
 import { useDialog } from "../context/DialogContext";
 import { cn } from "../lib/utils";
@@ -154,6 +155,7 @@ function SortableCompanyItem({
 }
 
 export function CompanyRail() {
+  const { t } = useTranslation();
   const { companies, selectedCompanyId, setSelectedCompanyId } = useCompany();
   const { openOnboarding } = useDialog();
   const navigate = useNavigate();
@@ -313,13 +315,13 @@ export function CompanyRail() {
             <button
               onClick={() => openOnboarding()}
               className="flex items-center justify-center w-11 h-11 rounded-[22px] hover:rounded-[14px] border-2 border-dashed border-border text-muted-foreground hover:border-foreground/30 hover:text-foreground transition-[border-color,color,border-radius] duration-150"
-              aria-label="Add company"
+              aria-label={t("app.newCompany")}
             >
               <Plus className="h-5 w-5" />
             </button>
           </TooltipTrigger>
           <TooltipContent side="right" sideOffset={8}>
-            <p>Add company</p>
+            <p>{t("app.newCompany")}</p>
           </TooltipContent>
         </Tooltip>
       </div>

@@ -1,3 +1,5 @@
+import { getCurrentLocale, translateInstant } from "../i18n";
+
 const BASE = "/api";
 
 export class ApiError extends Error {
@@ -18,6 +20,9 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   if (!(body instanceof FormData) && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
   }
+  if (!headers.has("Accept-Language")) {
+    headers.set("Accept-Language", getCurrentLocale());
+  }
 
   const res = await fetch(`${BASE}${path}`, {
     headers,
@@ -26,8 +31,15 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   });
   if (!res.ok) {
     const errorBody = await res.json().catch(() => null);
+    const requestFailedFallback = translateInstant("api.requestFailedWithStatus", {
+      status: res.status,
+      defaultValue:
+        getCurrentLocale() === "zh-CN"
+          ? `请求失败：${res.status}`
+          : `Request failed: ${res.status}`,
+    });
     throw new ApiError(
-      (errorBody as { error?: string } | null)?.error ?? `Request failed: ${res.status}`,
+      (errorBody as { error?: string } | null)?.error ?? requestFailedFallback,
       res.status,
       errorBody,
     );

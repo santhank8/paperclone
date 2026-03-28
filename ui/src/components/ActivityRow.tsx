@@ -1,8 +1,11 @@
+import { useTranslation } from "react-i18next";
 import { Link } from "@/lib/router";
 import { Identity } from "./Identity";
 import { timeAgo } from "../lib/timeAgo";
 import { cn } from "../lib/utils";
 import { deriveProjectUrlKey, type ActivityEvent, type Agent } from "@paperclipai/shared";
+import { translateEntityTypeLabel, translatePriorityLabel, translateStatusLabel } from "../lib/i18n-labels";
+import { displaySeededName } from "../lib/seeded-display";
 
 const ACTION_VERBS: Record<string, string> = {
   "issue.created": "created",
@@ -15,6 +18,7 @@ const ACTION_VERBS: Record<string, string> = {
   "issue.document_created": "created document for",
   "issue.document_updated": "updated document on",
   "issue.document_deleted": "deleted document from",
+  "issue.read_marked": "marked as read",
   "issue.commented": "commented on",
   "issue.deleted": "deleted",
   "agent.created": "created",
@@ -30,18 +34,34 @@ const ACTION_VERBS: Record<string, string> = {
   "approval.created": "requested approval",
   "approval.approved": "approved",
   "approval.rejected": "rejected",
+  "approval.revision_requested": "requested revisions on",
+  "approval.resubmitted": "resubmitted",
+  "approval.comment_added": "commented on",
+  "approval.requester_wakeup_queued": "queued requester wake-up for",
+  "approval.requester_wakeup_failed": "failed requester wake-up for",
   "project.created": "created",
   "project.updated": "updated",
   "project.deleted": "deleted",
+  "invite.created": "created invite",
+  "invite.openclaw_prompt_created": "created OpenClaw invite prompt",
   "goal.created": "created",
   "goal.updated": "updated",
   "goal.deleted": "deleted",
+  "routine.created": "created",
+  "routine.updated": "updated",
+  "routine.run_triggered": "triggered run for",
+  "routine.trigger_created": "created trigger for",
+  "routine.trigger_updated": "updated trigger for",
+  "routine.trigger_deleted": "deleted trigger for",
+  "routine.trigger_secret_rotated": "rotated trigger secret for",
   "cost.reported": "reported cost for",
   "cost.recorded": "recorded cost for",
   "company.created": "created company",
   "company.updated": "updated company",
   "company.archived": "archived",
   "company.budget_updated": "updated budget for",
+  "agent.hire_created": "created hire request for",
+  "issue.approval_linked": "linked approval to",
 };
 
 function humanizeValue(value: unknown): string {
@@ -88,7 +108,40 @@ interface ActivityRowProps {
 }
 
 export function ActivityRow({ event, agentMap, entityNameMap, entityTitleMap, className }: ActivityRowProps) {
-  const verb = formatVerb(event.action, event.details);
+  const { t } = useTranslation();
+  let verb = formatVerb(event.action, event.details);
+  if (event.action === "issue.updated" && event.details) {
+    const previous = (event.details._previous ?? {}) as Record<string, unknown>;
+    if (event.details.status !== undefined) {
+      const nextStatus = translateStatusLabel(t, String(event.details.status));
+      const previousStatus = previous.status ? translateStatusLabel(t, String(previous.status)) : null;
+      verb = previousStatus
+        ? t("activity.changedStatusFromTo", {
+            from: previousStatus,
+            to: nextStatus,
+            defaultValue: `Changed status from ${previousStatus} to ${nextStatus} on`,
+          })
+        : t("activity.changedStatusTo", {
+            status: nextStatus,
+            defaultValue: `Changed status to ${nextStatus} on`,
+          });
+    } else if (event.details.priority !== undefined) {
+      const nextPriority = translatePriorityLabel(t, String(event.details.priority));
+      const previousPriority = previous.priority ? translatePriorityLabel(t, String(previous.priority)) : null;
+      verb = previousPriority
+        ? t("activity.changedPriorityFromTo", {
+            from: previousPriority,
+            to: nextPriority,
+            defaultValue: `Changed priority from ${previousPriority} to ${nextPriority} on`,
+          })
+        : t("activity.changedPriorityTo", {
+            priority: nextPriority,
+            defaultValue: `Changed priority to ${nextPriority} on`,
+          });
+    }
+  } else {
+    verb = t(verb, { defaultValue: verb });
+  }
 
   const isHeartbeatEvent = event.entityType === "heartbeat_run";
   const heartbeatAgentId = isHeartbeatEvent
@@ -106,19 +159,26 @@ export function ActivityRow({ event, agentMap, entityNameMap, entityTitleMap, cl
     : entityLink(event.entityType, event.entityId, name);
 
   const actor = event.actorType === "agent" ? agentMap.get(event.actorId) : null;
-  const actorName = actor?.name ?? (event.actorType === "system" ? "System" : event.actorType === "user" ? "Board" : event.actorId || "Unknown");
+  const actorName = actor?.name
+    ?? (event.actorType === "system"
+      ? t("System", { defaultValue: "System" })
+      : event.actorType === "user"
+        ? t("Board", { defaultValue: "Board" })
+        : event.actorId || t("Unknown", { defaultValue: "Unknown" }));
+  const displayActorName = displaySeededName(actorName);
+  const displayEntityName = displaySeededName(name);
 
   const inner = (
     <div className="flex gap-3">
       <p className="flex-1 min-w-0 truncate">
         <Identity
-          name={actorName}
+          name={displayActorName}
           size="xs"
           className="align-baseline"
         />
         <span className="text-muted-foreground ml-1">{verb} </span>
-        {name && <span className="font-medium">{name}</span>}
-        {entityTitle && <span className="text-muted-foreground ml-1">— {entityTitle}</span>}
+        <span className="font-medium">{displayEntityName || translateEntityTypeLabel(t, event.entityType)}</span>
+        {entityTitle && <span className="text-muted-foreground ml-1">- {entityTitle}</span>}
       </p>
       <span className="text-xs text-muted-foreground shrink-0 pt-0.5">{timeAgo(event.createdAt)}</span>
     </div>

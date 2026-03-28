@@ -1,5 +1,6 @@
 import { Plus } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 
 interface EmptyStateProps {
@@ -10,16 +11,18 @@ interface EmptyStateProps {
 }
 
 export function EmptyState({ icon: Icon, message, action, onAction }: EmptyStateProps) {
+  const { t } = useTranslation();
+
   return (
     <div className="flex flex-col items-center justify-center py-16 text-center">
       <div className="bg-muted/50 p-4 mb-4">
         <Icon className="h-10 w-10 text-muted-foreground/50" />
       </div>
-      <p className="text-sm text-muted-foreground mb-4">{message}</p>
+      <p className="text-sm text-muted-foreground mb-4">{t(message, { defaultValue: message })}</p>
       {action && onAction && (
         <Button onClick={onAction}>
           <Plus className="h-4 w-4 mr-1.5" />
-          {action}
+          {t(action, { defaultValue: action })}
         </Button>
       )}
     </div>

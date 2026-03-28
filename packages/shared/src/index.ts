@@ -580,3 +580,12 @@ export {
   type SecretsLocalEncryptedConfig,
   type ConfigMeta,
 } from "./config-schema.js";
+
+export {
+  BRANDING,
+  DEFAULT_UI_LOCALE,
+  SUPPORTED_UI_LOCALES,
+  normalizeUiLocale,
+  resolveUiLocaleFromHeader,
+  type UiLocale,
+} from "./branding.js";

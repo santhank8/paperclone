@@ -1,4 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
+import { useTranslation } from "react-i18next";
+import { buildDocumentTitle } from "../lib/branding";
 
 export interface Breadcrumb {
   label: string;
@@ -14,6 +16,7 @@ const BreadcrumbContext = createContext<BreadcrumbContextValue | null>(null);
 
 export function BreadcrumbProvider({ children }: { children: ReactNode }) {
   const [breadcrumbs, setBreadcrumbsState] = useState<Breadcrumb[]>([]);
+  const { i18n } = useTranslation();
 
   const setBreadcrumbs = useCallback((crumbs: Breadcrumb[]) => {
     setBreadcrumbsState(crumbs);
@@ -21,12 +24,12 @@ export function BreadcrumbProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (breadcrumbs.length === 0) {
-      document.title = "Paperclip";
+      document.title = buildDocumentTitle();
     } else {
       const parts = [...breadcrumbs].reverse().map((b) => b.label);
-      document.title = `${parts.join(" · ")} · Paperclip`;
+      document.title = buildDocumentTitle(parts);
     }
-  }, [breadcrumbs]);
+  }, [breadcrumbs, i18n.resolvedLanguage, i18n.language]);
 
   return (
     <BreadcrumbContext.Provider value={{ breadcrumbs, setBreadcrumbs }}>

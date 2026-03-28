@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import type {
   Agent,
   CompanyPortabilityFileEntry,
@@ -21,6 +22,7 @@ import { EmptyState } from "../components/EmptyState";
 import { PageSkeleton } from "../components/PageSkeleton";
 import { MarkdownBody } from "../components/MarkdownBody";
 import { cn } from "../lib/utils";
+import { translateInstant } from "../i18n";
 import { queryKeys } from "../lib/queryKeys";
 import { createZipArchive } from "../lib/zip";
 import { buildInitialExportCheckedFiles } from "../lib/company-export-selection";
@@ -403,6 +405,7 @@ function generateReadmeFromSelection(
   checkedFiles: Set<string>,
   companyName: string,
   companyDescription: string | null,
+  translate: (key: string, options?: Record<string, string | number | boolean | null | undefined>) => string,
 ): string {
   const slugs = checkedSlugs(checkedFiles);
 
@@ -427,9 +430,9 @@ function generateReadmeFromSelection(
     lines.push("");
   }
 
-  lines.push("## What's Inside");
+  lines.push(`## ${translate("companyExport.readme.whatsInside")}`);
   lines.push("");
-  lines.push("This is an [Agent Company](https://paperclip.ing) package.");
+  lines.push(translate("companyExport.readme.agentCompanyPackage"));
   lines.push("");
 
   const counts: Array<[string, number]> = [];
@@ -439,7 +442,7 @@ function generateReadmeFromSelection(
   if (tasks.length > 0) counts.push(["Tasks", tasks.length]);
 
   if (counts.length > 0) {
-    lines.push("| Content | Count |");
+    lines.push(`| ${translate("companyExport.readme.content")} | ${translate("companyExport.readme.count")} |`);
     lines.push("|---------|-------|");
     for (const [label, count] of counts) {
       lines.push(`| ${label} | ${count} |`);
@@ -448,9 +451,9 @@ function generateReadmeFromSelection(
   }
 
   if (agents.length > 0) {
-    lines.push("### Agents");
+    lines.push(`### ${translate("companyExport.readme.agents")}`);
     lines.push("");
-    lines.push("| Agent | Role | Reports To |");
+    lines.push(`| ${translate("companyExport.readme.agent")} | ${translate("companyExport.readme.role")} | ${translate("companyExport.readme.reportsTo")} |`);
     lines.push("|-------|------|------------|");
     for (const agent of agents) {
       const roleLabel = ROLE_LABELS[agent.role] ?? agent.role;
@@ -461,7 +464,7 @@ function generateReadmeFromSelection(
   }
 
   if (projects.length > 0) {
-    lines.push("### Projects");
+    lines.push(`### ${translate("companyExport.readme.projects")}`);
     lines.push("");
     for (const project of projects) {
       const desc = project.description ? ` \u2014 ${project.description}` : "";
@@ -470,16 +473,16 @@ function generateReadmeFromSelection(
     lines.push("");
   }
 
-  lines.push("## Getting Started");
+  lines.push(`## ${translate("companyExport.readme.gettingStarted")}`);
   lines.push("");
   lines.push("```bash");
   lines.push("pnpm paperclipai company import this-github-url-or-folder");
   lines.push("```");
   lines.push("");
-  lines.push("See [Paperclip](https://paperclip.ing) for more information.");
+  lines.push(translate("companyExport.readme.moreInfo"));
   lines.push("");
   lines.push("---");
-  lines.push(`Exported from [Paperclip](https://paperclip.ing) on ${new Date().toISOString().split("T")[0]}`);
+  lines.push(translate("companyExport.readme.exportedOn", { date: new Date().toISOString().split("T")[0] }));
   lines.push("");
 
   return lines.join("\n");
@@ -498,9 +501,11 @@ function ExportPreviewPane({
   allFiles: Record<string, CompanyPortabilityFileEntry>;
   onSkillClick?: (skill: string) => void;
 }) {
+  const { t } = useTranslation();
+
   if (!selectedFile || content === null) {
     return (
-      <EmptyState icon={Package} message="Select a file to preview its contents." />
+      <EmptyState icon={Package} message={t("companyExport.selectPreview")} />
     );
   }
 
@@ -546,7 +551,7 @@ function ExportPreviewPane({
           </pre>
         ) : (
           <div className="rounded-lg border border-border bg-accent/10 px-4 py-3 text-sm text-muted-foreground">
-            Binary asset preview is not available for this file type.
+            {t("companyExport.binaryPreviewUnavailable")}
           </div>
         )}
       </div>
@@ -578,6 +583,7 @@ function expandAncestors(filePath: string): string[] {
 }
 
 export function CompanyExport() {
+  const { t } = useTranslation();
   const { selectedCompanyId, selectedCompany } = useCompany();
   const { setBreadcrumbs } = useBreadcrumbs();
   const { pushToast } = useToast();
@@ -672,10 +678,10 @@ export function CompanyExport() {
 
   useEffect(() => {
     setBreadcrumbs([
-      { label: "Org Chart", href: "/org" },
-      { label: "Export" },
+      { label: t("companyExport.orgChartLabel"), href: "/org" },
+      { label: t("companyExport.exportTitle") },
     ]);
-  }, [setBreadcrumbs]);
+  }, [setBreadcrumbs, t]);
 
   const exportPreviewMutation = useMutation({
     mutationFn: () =>
@@ -719,8 +725,8 @@ export function CompanyExport() {
     onError: (err) => {
       pushToast({
         tone: "error",
-        title: "Export failed",
-        body: err instanceof Error ? err.message : "Failed to load export data.",
+        title: t("companyExport.exportFailedTitle"),
+        body: err instanceof Error ? err.message : t("companyExport.exportFailedBody"),
       });
     },
   });
@@ -737,15 +743,18 @@ export function CompanyExport() {
       downloadZip(result, resultCheckedFiles, result.files);
       pushToast({
         tone: "success",
-        title: "Export downloaded",
-        body: `${resultCheckedFiles.size} file${resultCheckedFiles.size === 1 ? "" : "s"} exported as ${result.rootPath}.zip`,
+        title: t("companyExport.exportDownloadedTitle"),
+        body: t("companyExport.exportDownloadedBody", {
+          count: resultCheckedFiles.size,
+          rootPath: result.rootPath,
+        }),
       });
     },
     onError: (err) => {
       pushToast({
         tone: "error",
-        title: "Export failed",
-        body: err instanceof Error ? err.message : "Failed to build export package.",
+        title: t("companyExport.exportFailedTitle"),
+        body: err instanceof Error ? err.message : t("companyExport.buildFailedBody"),
       });
     },
   });
@@ -789,13 +798,14 @@ export function CompanyExport() {
 
     // Regenerate README.md based on checked selection
     if (typeof exportData.files["README.md"] === "string") {
-      const companyName = exportData.manifest.company?.name ?? selectedCompany?.name ?? "Company";
+      const companyName = exportData.manifest.company?.name ?? selectedCompany?.name ?? translateInstant("Company");
       const companyDescription = exportData.manifest.company?.description ?? null;
       filtered["README.md"] = generateReadmeFromSelection(
         exportData.manifest,
         checkedFiles,
         companyName,
         companyDescription,
+        translateInstant,
       );
     }
 
@@ -911,7 +921,7 @@ export function CompanyExport() {
   }
 
   if (!selectedCompanyId) {
-    return <EmptyState icon={Package} message="Select a company to export." />;
+    return <EmptyState icon={Package} message={t("companyExport.selectCompany")} />;
   }
 
   if (exportPreviewMutation.isPending && !exportData) {
@@ -919,7 +929,7 @@ export function CompanyExport() {
   }
 
   if (!exportData) {
-    return <EmptyState icon={Package} message="Loading export data..." />;
+    return <EmptyState icon={Package} message={t("companyExport.loadingData")} />;
   }
 
   const previewContent = selectedFile
@@ -935,14 +945,20 @@ export function CompanyExport() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-4 text-sm">
             <span className="font-medium">
-              {selectedCompany?.name ?? "Company"} export
+              {t("companyExport.header", {
+                companyName: selectedCompany?.name ?? t("companyExport.companyFallback"),
+              })}
             </span>
             <span className="text-muted-foreground">
-              {selectedCount} / {totalFiles} file{totalFiles === 1 ? "" : "s"} selected
+              {t("companyExport.selectedCount", {
+                selected: selectedCount,
+                total: totalFiles,
+                count: totalFiles,
+              })}
             </span>
             {warnings.length > 0 && (
               <span className="text-amber-500">
-                {warnings.length} warning{warnings.length === 1 ? "" : "s"}
+                {t("companyExport.warningCount", { count: warnings.length })}
               </span>
             )}
           </div>
@@ -953,8 +969,8 @@ export function CompanyExport() {
           >
             <Download className="mr-1.5 h-3.5 w-3.5" />
             {downloadMutation.isPending
-              ? "Building export..."
-              : `Export ${selectedCount} file${selectedCount === 1 ? "" : "s"}`}
+              ? t("companyExport.building")
+              : t("companyExport.exportButton", { count: selectedCount })}
           </Button>
         </div>
       </div>
@@ -972,7 +988,7 @@ export function CompanyExport() {
       <div className="grid h-[calc(100vh-12rem)] gap-0 xl:grid-cols-[19rem_minmax(0,1fr)]">
         <aside className="flex flex-col border-r border-border overflow-hidden">
           <div className="border-b border-border px-4 py-3 shrink-0">
-            <h2 className="text-base font-semibold">Package files</h2>
+            <h2 className="text-base font-semibold">{t("companyExport.packageFiles")}</h2>
           </div>
           <div className="border-b border-border px-3 py-2 shrink-0">
             <div className="flex items-center gap-2 rounded-md border border-border px-2 py-1">
@@ -981,7 +997,7 @@ export function CompanyExport() {
                 type="text"
                 value={treeSearch}
                 onChange={(e) => handleSearchChange(e.target.value)}
-                placeholder="Search files..."
+                placeholder={t("companyExport.searchFiles")}
                 className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
               />
             </div>
@@ -1003,7 +1019,10 @@ export function CompanyExport() {
                   onClick={() => setTaskLimit((prev) => prev + TASKS_PAGE_SIZE)}
                   className="w-full rounded-md border border-border px-3 py-1.5 text-xs text-muted-foreground hover:bg-accent/30 hover:text-foreground transition-colors"
                 >
-                  Show more issues ({visibleTaskChildren} of {totalTaskChildren})
+                  {t("companyExport.showMoreIssues", {
+                    visible: visibleTaskChildren,
+                    total: totalTaskChildren,
+                  })}
                 </button>
               </div>
             )}

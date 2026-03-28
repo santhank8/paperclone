@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { getCurrentLocale, translateInstant } from "../i18n";
 
 type SchedulePreset = "every_minute" | "every_hour" | "every_day" | "weekdays" | "weekly" | "monthly" | "custom";
 
@@ -113,28 +114,69 @@ function buildCron(preset: SchedulePreset, hour: string, minute: string, dayOfWe
   }
 }
 
+function formatHourOptionLabel(value: string): string {
+  const hour = Number(value);
+  if (!Number.isFinite(hour)) return value;
+  const locale = getCurrentLocale();
+  const date = new Date(2026, 0, 1, hour, 0, 0, 0);
+  return new Intl.DateTimeFormat(locale, { hour: "numeric" }).format(date);
+}
+
+function formatTimeLabel(hour: string, minute: string): string {
+  const hourValue = Number(hour);
+  const minuteValue = Number(minute);
+  if (!Number.isFinite(hourValue) || !Number.isFinite(minuteValue)) {
+    return `${hour}:${minute.padStart(2, "0")}`;
+  }
+  const locale = getCurrentLocale();
+  const date = new Date(2026, 0, 1, hourValue, minuteValue, 0, 0);
+  return new Intl.DateTimeFormat(locale, { hour: "numeric", minute: "2-digit" }).format(date);
+}
+
+function dayLabel(dayOfWeek: string): string {
+  const entry = DAYS_OF_WEEK.find((day) => day.value === dayOfWeek);
+  if (!entry) return dayOfWeek;
+  return translateInstant(entry.label, { defaultValue: entry.label });
+}
+
 function describeSchedule(cron: string): string {
   const { preset, hour, minute, dayOfWeek, dayOfMonth } = parseCronToPreset(cron);
-  const hourLabel = HOURS.find((h) => h.value === hour)?.label ?? `${hour}`;
-  const timeStr = `${hourLabel.replace(/ (AM|PM)$/, "")}:${minute.padStart(2, "0")} ${hourLabel.match(/(AM|PM)$/)?.[0] ?? ""}`;
+  const timeStr = formatTimeLabel(hour, minute);
 
   switch (preset) {
     case "every_minute":
-      return "Every minute";
+      return translateInstant("Every minute", { defaultValue: "Every minute" });
     case "every_hour":
-      return `Every hour at :${minute.padStart(2, "0")}`;
+      return translateInstant("Every hour at :{{minute}}", {
+        minute: minute.padStart(2, "0"),
+        defaultValue: `Every hour at :${minute.padStart(2, "0")}`,
+      });
     case "every_day":
-      return `Every day at ${timeStr}`;
+      return translateInstant("Every day at {{time}}", {
+        time: timeStr,
+        defaultValue: `Every day at ${timeStr}`,
+      });
     case "weekdays":
-      return `Weekdays at ${timeStr}`;
+      return translateInstant("Weekdays at {{time}}", {
+        time: timeStr,
+        defaultValue: `Weekdays at ${timeStr}`,
+      });
     case "weekly": {
-      const day = DAYS_OF_WEEK.find((d) => d.value === dayOfWeek)?.label ?? dayOfWeek;
-      return `Every ${day} at ${timeStr}`;
+      const day = dayLabel(dayOfWeek);
+      return translateInstant("Every {{day}} at {{time}}", {
+        day,
+        time: timeStr,
+        defaultValue: `Every ${day} at ${timeStr}`,
+      });
     }
     case "monthly":
-      return `Monthly on the ${dayOfMonth}${ordinalSuffix(Number(dayOfMonth))} at ${timeStr}`;
+      return translateInstant("Monthly on day {{day}} at {{time}}", {
+        day: dayOfMonth,
+        time: timeStr,
+        defaultValue: `Monthly on day ${dayOfMonth} at ${timeStr}`,
+      });
     case "custom":
-      return cron || "No schedule set";
+      return cron || translateInstant("No schedule set", { defaultValue: "No schedule set" });
   }
 }
 
@@ -153,6 +195,7 @@ export function ScheduleEditor({
   value: string;
   onChange: (cron: string) => void;
 }) {
+  const { t } = useTranslation();
   const parsed = useMemo(() => parseCronToPreset(value), [value]);
   const [preset, setPreset] = useState<SchedulePreset>(parsed.preset);
   const [hour, setHour] = useState(parsed.hour);
@@ -196,12 +239,12 @@ export function ScheduleEditor({
     <div className="space-y-3">
       <Select value={preset} onValueChange={(v) => handlePresetChange(v as SchedulePreset)}>
         <SelectTrigger className="w-full">
-          <SelectValue placeholder="Choose frequency..." />
+          <SelectValue placeholder={t("Choose frequency...", { defaultValue: "Choose frequency..." })} />
         </SelectTrigger>
         <SelectContent>
           {PRESETS.map((p) => (
             <SelectItem key={p.value} value={p.value}>
-              {p.label}
+              {t(p.label, { defaultValue: p.label })}
             </SelectItem>
           ))}
         </SelectContent>
@@ -219,14 +262,16 @@ export function ScheduleEditor({
             className="font-mono text-sm"
           />
           <p className="text-xs text-muted-foreground">
-            Five fields: minute hour day-of-month month day-of-week
+            {t("Five fields: minute hour day-of-month month day-of-week", {
+              defaultValue: "Five fields: minute hour day-of-month month day-of-week",
+            })}
           </p>
         </div>
       ) : (
         <div className="flex flex-wrap items-center gap-2">
           {preset !== "every_minute" && preset !== "every_hour" && (
             <>
-              <span className="text-sm text-muted-foreground">at</span>
+              <span className="text-sm text-muted-foreground">{t("at", { defaultValue: "at" })}</span>
               <Select
                 value={hour}
                 onValueChange={(h) => {
@@ -240,7 +285,7 @@ export function ScheduleEditor({
                 <SelectContent>
                   {HOURS.map((h) => (
                     <SelectItem key={h.value} value={h.value}>
-                      {h.label}
+                      {formatHourOptionLabel(h.value)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -269,7 +314,7 @@ export function ScheduleEditor({
 
           {preset === "every_hour" && (
             <>
-              <span className="text-sm text-muted-foreground">at minute</span>
+              <span className="text-sm text-muted-foreground">{t("at minute", { defaultValue: "at minute" })}</span>
               <Select
                 value={minute}
                 onValueChange={(m) => {
@@ -293,7 +338,7 @@ export function ScheduleEditor({
 
           {preset === "weekly" && (
             <>
-              <span className="text-sm text-muted-foreground">on</span>
+              <span className="text-sm text-muted-foreground">{t("on", { defaultValue: "on" })}</span>
               <div className="flex gap-1">
                 {DAYS_OF_WEEK.map((d) => (
                   <Button
@@ -307,7 +352,7 @@ export function ScheduleEditor({
                       emitChange(preset, hour, minute, d.value, dayOfMonth, customCron);
                     }}
                   >
-                    {d.label}
+                    {t(d.label, { defaultValue: d.label })}
                   </Button>
                 ))}
               </div>
@@ -316,7 +361,7 @@ export function ScheduleEditor({
 
           {preset === "monthly" && (
             <>
-              <span className="text-sm text-muted-foreground">on day</span>
+              <span className="text-sm text-muted-foreground">{t("on day", { defaultValue: "on day" })}</span>
               <Select
                 value={dayOfMonth}
                 onValueChange={(dom) => {

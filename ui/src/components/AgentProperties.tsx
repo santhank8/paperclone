@@ -1,9 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@/lib/router";
 import { AGENT_ROLE_LABELS, type Agent, type AgentRuntimeState } from "@paperclipai/shared";
+import { useTranslation } from "react-i18next";
 import { agentsApi } from "../api/agents";
 import { useCompany } from "../context/CompanyContext";
 import { queryKeys } from "../lib/queryKeys";
+import { translateRuntimeErrorMessage } from "../lib/error-i18n";
 import { StatusBadge } from "./StatusBadge";
 import { Identity } from "./Identity";
 import { formatDate, agentUrl } from "../lib/utils";
@@ -37,6 +39,7 @@ function PropertyRow({ label, children }: { label: string; children: React.React
 }
 
 export function AgentProperties({ agent, runtimeState }: AgentPropertiesProps) {
+  const { t } = useTranslation();
   const { selectedCompanyId } = useCompany();
 
   const { data: agents } = useQuery({
@@ -78,7 +81,9 @@ export function AgentProperties({ agent, runtimeState }: AgentPropertiesProps) {
         )}
         {runtimeState?.lastError && (
           <PropertyRow label="Last error">
-            <span className="text-xs text-red-600 dark:text-red-400 truncate max-w-[160px]">{runtimeState.lastError}</span>
+            <span className="text-xs text-red-600 dark:text-red-400 truncate max-w-[160px]">
+              {translateRuntimeErrorMessage(t, runtimeState.lastError)}
+            </span>
           </PropertyRow>
         )}
         {agent.lastHeartbeatAt && (

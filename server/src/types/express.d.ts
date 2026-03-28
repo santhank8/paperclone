@@ -1,8 +1,15 @@
+import type { UiLocale } from "@paperclipai/shared";
+
 export {};
 
 declare global {
   namespace Express {
     interface Request {
+      locale: UiLocale;
+      t: (
+        key: string,
+        params?: Record<string, string | number | boolean | null | undefined>,
+      ) => string;
       actor: {
         type: "board" | "agent" | "none";
         userId?: string;

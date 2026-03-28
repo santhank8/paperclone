@@ -1,3 +1,5 @@
+import { translateInstant } from "../i18n";
+
 export interface AssigneeSelection {
   assigneeAgentId: string | null;
   assigneeUserId: string | null;
@@ -66,7 +68,7 @@ export function currentUserAssigneeOption(currentUserId: string | null | undefin
   if (!currentUserId) return [];
   return [{
     id: assigneeValueFromSelection({ assigneeUserId: currentUserId }),
-    label: "Me",
+    label: translateInstant("Me"),
     searchText: currentUserId === "local-board" ? "me board human local-board" : `me human ${currentUserId}`,
   }];
 }
@@ -76,7 +78,7 @@ export function formatAssigneeUserLabel(
   currentUserId: string | null | undefined,
 ): string | null {
   if (!userId) return null;
-  if (currentUserId && userId === currentUserId) return "Me";
-  if (userId === "local-board") return "Board";
+  if (currentUserId && userId === currentUserId) return translateInstant("Me");
+  if (userId === "local-board") return translateInstant("Board");
   return userId.slice(0, 5);
 }

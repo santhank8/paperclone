@@ -19,23 +19,46 @@ const SKIP_LLM = process.env.PAPERCLIP_E2E_SKIP_LLM !== "false";
 const COMPANY_NAME = `E2E-Test-${Date.now()}`;
 const AGENT_NAME = "CEO";
 const TASK_TITLE = "E2E test task";
+const LANGUAGE_SWITCHER_SELECTOR =
+  'button[aria-label="Switch language"], button[aria-label="切换语言"]';
+
+test.use({
+  // This flow asserts English copy throughout; locale switching is covered
+  // separately in language-switcher.spec.ts.
+  locale: "en-US",
+});
 
 test.describe("Onboarding wizard", () => {
   test("completes full wizard flow", async ({ page }) => {
-    await page.goto("/");
+    test.setTimeout(120_000);
 
-    const wizardHeading = page.locator("h3", { hasText: "Name your company" });
-    const newCompanyBtn = page.getByRole("button", { name: "New Company" });
+    await page.goto("/onboarding");
 
-    await expect(
-      wizardHeading.or(newCompanyBtn)
-    ).toBeVisible({ timeout: 15_000 });
+    const html = page.locator("html");
+    const languageSwitcher = page.locator(LANGUAGE_SWITCHER_SELECTOR).first();
+    await expect(languageSwitcher).toBeVisible({ timeout: 15_000 });
 
-    if (await newCompanyBtn.isVisible()) {
-      await newCompanyBtn.click();
+    if ((await html.getAttribute("lang")) !== "en") {
+      await languageSwitcher.click();
+      await page.getByRole("button", { name: "English" }).click();
+      await expect(html).toHaveAttribute("lang", "en");
     }
 
-    await expect(wizardHeading).toBeVisible({ timeout: 5_000 });
+    const wizardHeading = page.locator("h3", { hasText: "Name your company" });
+    const startOnboardingBtn = page.getByRole("button", {
+      name: "Start Onboarding",
+    });
+    const newCompanyBtn = page.getByRole("button", { name: "New Company" });
+
+    if (!(await wizardHeading.isVisible())) {
+      if (await startOnboardingBtn.isVisible()) {
+        await startOnboardingBtn.click();
+      } else if (await newCompanyBtn.isVisible()) {
+        await newCompanyBtn.click();
+      }
+    }
+
+    await expect(wizardHeading).toBeVisible({ timeout: 15_000 });
 
     const companyNameInput = page.locator('input[placeholder="Acme Corp"]');
     await companyNameInput.fill(COMPANY_NAME);
@@ -61,7 +84,7 @@ test.describe("Onboarding wizard", () => {
 
     await expect(
       page.locator("h3", { hasText: "Give it something to do" })
-    ).toBeVisible({ timeout: 10_000 });
+    ).toBeVisible({ timeout: 60_000 });
 
     const taskTitleInput = page.locator(
       'input[placeholder="e.g. Research competitor pricing"]'

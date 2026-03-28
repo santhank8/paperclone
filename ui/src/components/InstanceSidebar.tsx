@@ -1,11 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
 import { Clock3, FlaskConical, Puzzle, Settings, SlidersHorizontal } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { NavLink } from "@/lib/router";
 import { pluginsApi } from "@/api/plugins";
 import { queryKeys } from "@/lib/queryKeys";
 import { SidebarNavItem } from "./SidebarNavItem";
 
 export function InstanceSidebar() {
+  const { t } = useTranslation();
   const { data: plugins } = useQuery({
     queryKey: queryKeys.plugins.all,
     queryFn: () => pluginsApi.list(),
@@ -16,7 +18,7 @@ export function InstanceSidebar() {
       <div className="flex items-center gap-2 px-3 h-12 shrink-0">
         <Settings className="h-4 w-4 text-muted-foreground shrink-0 ml-1" />
         <span className="flex-1 text-sm font-bold text-foreground truncate">
-          Instance Settings
+          {t("Instance Settings", { defaultValue: "Instance Settings" })}
         </span>
       </div>
 

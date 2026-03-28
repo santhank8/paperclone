@@ -1,13 +1,16 @@
 <p align="center">
-  <img src="doc/assets/header.png" alt="Paperclip — runs your business" width="720" />
+  <img src="doc/assets/header.png" alt="Penclip — runs your business" width="720" />
 </p>
 
 <p align="center">
   <a href="#quickstart"><strong>Quickstart</strong></a> &middot;
-  <a href="https://paperclip.ing/docs"><strong>Docs</strong></a> &middot;
-  <a href="https://github.com/paperclipai/paperclip"><strong>GitHub</strong></a> &middot;
+  <a href="https://penclip.ing/docs"><strong>Docs</strong></a> &middot;
+  <a href="https://github.com/penclipai/paperclip"><strong>GitHub</strong></a> &middot;
+  <a href="./README.zh-CN.md"><strong>中文 README</strong></a> &middot;
   <a href="https://discord.gg/m4HZY7xNG3"><strong>Discord</strong></a>
 </p>
+
+> **Penclip** is the Chinese-enhanced MIT fork of [Paperclip](https://github.com/paperclipai/paperclip), maintained by `penclipai` for Chinese UX, Windows compatibility, and domestic model integrations. The GitHub repo intentionally remains `paperclip` for upstream compatibility and discovery. See [README.zh-CN](./README.zh-CN.md) for the localized overview.
 
 <p align="center">
   <a href="https://github.com/paperclipai/paperclip/blob/master/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT License" /></a>

@@ -1,6 +1,7 @@
 import type { Request, Response, NextFunction } from "express";
 import { ZodError } from "zod";
 import { HttpError } from "../errors.js";
+import { translate as translateServer } from "../i18n.js";
 
 export interface ErrorContext {
   error: { message: string; stack?: string; name?: string; details?: unknown; raw?: unknown };
@@ -36,7 +37,13 @@ export function errorHandler(
   res: Response,
   _next: NextFunction,
 ) {
+  const translate = typeof req.t === "function"
+    ? req.t
+    : ((key: string, params?: Record<string, string | number | boolean | null | undefined>) =>
+        translateServer("en", key, params));
+
   if (err instanceof HttpError) {
+    const translatedMessage = translate(err.message);
     if (err.status >= 500) {
       attachErrorContext(
         req,
@@ -46,14 +53,14 @@ export function errorHandler(
       );
     }
     res.status(err.status).json({
-      error: err.message,
+      error: translatedMessage,
       ...(err.details ? { details: err.details } : {}),
     });
     return;
   }
 
   if (err instanceof ZodError) {
-    res.status(400).json({ error: "Validation error", details: err.errors });
+    res.status(400).json({ error: translate("errors.validation"), details: err.errors });
     return;
   }
 
@@ -67,5 +74,5 @@ export function errorHandler(
     rootError,
   );
 
-  res.status(500).json({ error: "Internal server error" });
+  res.status(500).json({ error: translate("errors.internalServer") });
 }

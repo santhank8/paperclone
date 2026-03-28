@@ -15,7 +15,9 @@ import {
   inspectMigrations,
   applyPendingMigrations,
   createEmbeddedPostgresLogBuffer,
+  recoverEmbeddedPostgresStart,
   reconcilePendingMigrationHistory,
+  shouldRetryEmbeddedPostgresStart,
   formatDatabaseBackupResult,
   runDatabaseBackup,
   authUsers,
@@ -334,6 +336,16 @@ export async function startServer(): Promise<StartedServer> {
         return null;
       }
     };
+    const getRunningPort = (): number | null => {
+      if (!existsSync(postmasterPidFile)) return null;
+      try {
+        const portLine = readFileSync(postmasterPidFile, "utf8").split("\n")[3]?.trim();
+        const pidPort = Number(portLine);
+        return Number.isInteger(pidPort) && pidPort > 0 ? pidPort : null;
+      } catch {
+        return null;
+      }
+    };
   
     const runningPid = getRunningPid();
     if (runningPid) {
@@ -391,13 +403,53 @@ export async function startServer(): Promise<StartedServer> {
         try {
           await embeddedPostgres.start();
         } catch (err) {
-          logEmbeddedPostgresFailure("start", err);
-          throw formatEmbeddedPostgresError(err, {
-            fallbackMessage: `Failed to start embedded PostgreSQL on port ${port}`,
-            recentLogs: logBuffer.getRecentLogs(),
-          });
+          const recentLogs = logBuffer.getRecentLogs();
+          const adoptedPid = getRunningPid();
+          if (adoptedPid) {
+            const adoptedPort = getRunningPort() ?? port;
+            logger.warn(
+              { pid: adoptedPid, port: adoptedPort },
+              "Embedded PostgreSQL became reachable while starting; adopting running process",
+            );
+            await ensurePostgresDatabase(
+              `postgres://paperclip:paperclip@127.0.0.1:${adoptedPort}/postgres`,
+              "paperclip",
+            );
+            port = adoptedPort;
+            embeddedPostgres = null;
+          } else if (shouldRetryEmbeddedPostgresStart(recentLogs)) {
+            logger.warn(
+              "Embedded PostgreSQL hit stale shared-memory state; attempting to clean up matching postgres processes and retry",
+            );
+            await recoverEmbeddedPostgresStart(dataDir);
+            embeddedPostgres = new EmbeddedPostgres({
+              databaseDir: dataDir,
+              user: "paperclip",
+              password: "paperclip",
+              port,
+              persistent: true,
+              initdbFlags: ["--encoding=UTF8", "--locale=C", "--lc-messages=C"],
+              onLog: appendEmbeddedPostgresLog,
+              onError: appendEmbeddedPostgresLog,
+            });
+            try {
+              await embeddedPostgres.start();
+            } catch (retryErr) {
+              logEmbeddedPostgresFailure("start", retryErr);
+              throw formatEmbeddedPostgresError(retryErr, {
+                fallbackMessage: `Failed to start embedded PostgreSQL on port ${port}`,
+                recentLogs: logBuffer.getRecentLogs(),
+              });
+            }
+          } else {
+            logEmbeddedPostgresFailure("start", err);
+            throw formatEmbeddedPostgresError(err, {
+              fallbackMessage: `Failed to start embedded PostgreSQL on port ${port}`,
+              recentLogs,
+            });
+          }
         }
-        embeddedPostgresStartedByThisProcess = true;
+        embeddedPostgresStartedByThisProcess = embeddedPostgres !== null;
       }
     }
   

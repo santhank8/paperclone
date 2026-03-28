@@ -1,4 +1,5 @@
 import { NavLink } from "@/lib/router";
+import { useTranslation } from "react-i18next";
 import { cn } from "../lib/utils";
 import { useSidebar } from "../context/SidebarContext";
 import type { LucideIcon } from "lucide-react";
@@ -31,6 +32,7 @@ export function SidebarNavItem({
   liveCount,
 }: SidebarNavItemProps) {
   const { isMobile, setSidebarOpen } = useSidebar();
+  const { t } = useTranslation();
 
   return (
     <NavLink
@@ -53,7 +55,7 @@ export function SidebarNavItem({
           <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-red-500 shadow-[0_0_0_2px_hsl(var(--background))]" />
         )}
       </span>
-      <span className="flex-1 truncate">{label}</span>
+      <span className="flex-1 truncate">{t(label, { defaultValue: label })}</span>
       {textBadge && (
         <span
           className={cn(
@@ -63,7 +65,7 @@ export function SidebarNavItem({
               : "bg-muted text-muted-foreground",
           )}
         >
-          {textBadge}
+          {t(textBadge, { defaultValue: textBadge })}
         </span>
       )}
       {liveCount != null && liveCount > 0 && (
@@ -72,7 +74,12 @@ export function SidebarNavItem({
             <span className="animate-pulse absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75" />
             <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500" />
           </span>
-          <span className="text-[11px] font-medium text-blue-600 dark:text-blue-400">{liveCount} live</span>
+          <span className="text-[11px] font-medium text-blue-600 dark:text-blue-400">
+            {t("{{count}} live", {
+              count: liveCount,
+              defaultValue: `${liveCount} live`,
+            })}
+          </span>
         </span>
       )}
       {badge != null && badge > 0 && (

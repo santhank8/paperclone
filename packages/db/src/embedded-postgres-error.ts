@@ -25,7 +25,15 @@ function summarizeRecentLogs(recentLogs: string[]): string | null {
 function detectEmbeddedPostgresHint(recentLogs: string[]): string | null {
   const haystack = recentLogs.join("\n").toLowerCase();
   if (!haystack.includes("could not create shared memory segment")) {
-    return null;
+    if (!haystack.includes("pre-existing shared memory block is still in use")) {
+      return null;
+    }
+
+    return (
+      "Embedded PostgreSQL found stale shared-memory state from an older local postgres process. " +
+      "Paperclip will try to clean up matching embedded postgres processes automatically; " +
+      "if startup still fails, stop older local Paperclip/postgres processes and retry."
+    );
   }
 
   return (
