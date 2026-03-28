@@ -216,4 +216,45 @@ describe("prepareManagedCodexHome", () => {
     const configContent = await fs.readFile(path.join(resultHome, "config.toml"), "utf-8");
     expect(configContent).not.toContain('sandbox = "elevated"');
   });
+
+  const itWindows = process.platform === "win32" ? it : it.skip;
+
+  itWindows("converts auth.json symlink to copy on Windows", async () => {
+    const sourceHome = path.join(root, "source-codex");
+    await fs.mkdir(sourceHome, { recursive: true });
+    await fs.writeFile(
+      path.join(sourceHome, "auth.json"),
+      JSON.stringify({ accessToken: "test-token" }),
+    );
+    await fs.writeFile(
+      path.join(sourceHome, "config.toml"),
+      'model = "gpt-5.4"\n',
+    );
+
+    const env: NodeJS.ProcessEnv = {
+      CODEX_HOME: sourceHome,
+      PAPERCLIP_HOME: root,
+      PAPERCLIP_INSTANCE_ID: "test",
+    };
+
+    const logs: string[] = [];
+    const onLog = async (_stream: string, msg: string) => { logs.push(msg); };
+
+    const resultHome = await prepareManagedCodexHome(
+      { ...process.env, ...env },
+      onLog,
+      "test-company",
+    );
+
+    const authPath = path.join(resultHome, "auth.json");
+    const stat = await fs.lstat(authPath);
+
+    // On Windows, auth.json should be a regular file (copy), not a symlink
+    expect(stat.isSymbolicLink()).toBe(false);
+    expect(stat.isFile()).toBe(true);
+
+    const content = JSON.parse(await fs.readFile(authPath, "utf-8"));
+    expect(content.accessToken).toBe("test-token");
+  });
+
 });
