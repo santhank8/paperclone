@@ -232,17 +232,15 @@ Issue 之间有四种关系类型：
 
 ---
 
-## Assignees
+## 负责人
 
-**Single-assignee model** by design.
+设计上采用**单一负责人模型**。
 
-- Each issue has at most one assignee at a time
-- This is deliberate: clear ownership prevents diffusion of responsibility
-- For collaborative work involving multiple people, use **sub-issues** with
-  different assignees
+- 每个 issue 同时最多只有一个负责人
+- 这是刻意为之：清晰的所有权可防止责任扩散
+- 对于涉及多人的协作工作，请使用分配给不同负责人的**子 issue**
 
-In our context, agents are the assignees. The `assigneeId` FK on issues
-points to the `agents` table.
+在我们的场景中，agent 就是负责人。issue 上的 `assigneeId` 外键指向 `agents` 表。
 
 ---
 

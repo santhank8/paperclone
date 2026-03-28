@@ -199,26 +199,26 @@ Paperclip 不能假设它与代码运行在同一台机器上。
 - `workspaces[]`
 - `primaryWorkspace`
 
-## 2. Project Workspace
+## 2. 项目工作区（Project Workspace）
 
-Durable, configured, project-scoped codebase/root object.
+持久化的、已配置的、项目范围的代码库/根目录对象。
 
-This should evolve from the current `project_workspaces` table into a more explicit product object.
+这应该从当前的 `project_workspaces` 表演变为更明确的产品对象。
 
-### Motivation
+### 动机
 
-This separates:
+这将以下两个概念分离：
 
-- "what codebase/root does this project use?"
+- "该项目使用哪个代码库/根目录？"
 
-from:
+与：
 
-- "what temporary execution environment did this issue run in?"
+- "此 issue 在哪个临时执行环境中运行？"
 
-That keeps the model simple for solo users while still supporting advanced automation.
-It also lets cloud-hosted Paperclip deployments point at codebases and remotes without pretending the Paperclip host has direct filesystem access.
+这使模型对独立用户保持简单，同时仍支持高级自动化。
+它还允许云托管的 Paperclip 部署指向代码库和远程端，而无需假装 Paperclip 主机具有直接文件系统访问权限。
 
-### Proposed fields
+### 提议字段
 
 - `id`
 - `companyId`

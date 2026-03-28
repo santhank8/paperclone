@@ -85,26 +85,26 @@ export default plugin;
 runWorker(plugin, import.meta.url);
 ```
 
-**Note:** `runWorker(plugin, import.meta.url)` must be called so that when the host runs your worker (e.g. `node dist/worker.js`), the RPC host starts and the process stays alive. When the file is imported (e.g. for tests), the main-module check prevents the host from starting.
+**注意：** 必须调用 `runWorker(plugin, import.meta.url)`，这样当宿主运行您的 worker 时（例如 `node dist/worker.js`），RPC 宿主才会启动并保持进程存活。当该文件被导入时（例如用于测试），主模块检查会阻止宿主启动。
 
-### Worker lifecycle and context
+### Worker 生命周期与上下文
 
-**Lifecycle (definePlugin):**
+**生命周期（definePlugin）：**
 
-| Hook | Purpose |
+| 钩子 | 用途 |
 |------|--------|
-| `setup(ctx)` | **Required.** Called once at startup. Register event handlers, jobs, data/actions/tools, etc. |
-| `onHealth?()` | Optional. Return `{ status, message?, details? }` for health dashboard. |
-| `onConfigChanged?(newConfig)` | Optional. Apply new config without restart; if omitted, host restarts worker. |
-| `onShutdown?()` | Optional. Clean up before process exit (limited time window). |
-| `onValidateConfig?(config)` | Optional. Return `{ ok, warnings?, errors? }` for settings UI / Test Connection. |
-| `onWebhook?(input)` | Optional. Handle `POST /api/plugins/:pluginId/webhooks/:endpointKey`; required if webhooks declared. |
+| `setup(ctx)` | **必填。** 在启动时调用一次。注册事件处理器、作业、数据/动作/工具等。 |
+| `onHealth?()` | 可选。返回 `{ status, message?, details? }` 用于健康状态仪表板。 |
+| `onConfigChanged?(newConfig)` | 可选。在不重启的情况下应用新配置；若省略，宿主将重启 worker。 |
+| `onShutdown?()` | 可选。在进程退出前执行清理（有限时间窗口）。 |
+| `onValidateConfig?(config)` | 可选。返回 `{ ok, warnings?, errors? }` 用于设置 UI / 测试连接。 |
+| `onWebhook?(input)` | 可选。处理 `POST /api/plugins/:pluginId/webhooks/:endpointKey`；若声明了 webhooks 则必填。 |
 
-**Context (`ctx`) in setup:** `config`, `events`, `jobs`, `launchers`, `http`, `secrets`, `activity`, `state`, `entities`, `projects`, `companies`, `issues`, `agents`, `goals`, `data`, `actions`, `streams`, `tools`, `metrics`, `logger`, `manifest`. Worker-side host APIs are capability-gated; declare capabilities in the manifest.
+**setup 中的上下文（`ctx`）：** `config`、`events`、`jobs`、`launchers`、`http`、`secrets`、`activity`、`state`、`entities`、`projects`、`companies`、`issues`、`agents`、`goals`、`data`、`actions`、`streams`、`tools`、`metrics`、`logger`、`manifest`。Worker 端宿主 API 受能力限制，需在 manifest 中声明相应能力。
 
-**Agents:** `ctx.agents.invoke(agentId, companyId, opts)` for one-shot invocation. `ctx.agents.sessions` for two-way chat: `create`, `list`, `sendMessage` (with streaming `onEvent` callback), `close`. See the [Plugin Authoring Guide](../../doc/plugins/PLUGIN_AUTHORING_GUIDE.md#agent-sessions-two-way-chat) for details.
+**Agents：** `ctx.agents.invoke(agentId, companyId, opts)` 用于单次调用。`ctx.agents.sessions` 用于双向对话：`create`、`list`、`sendMessage`（带流式 `onEvent` 回调）、`close`。详情参见 [插件编写指南](../../doc/plugins/PLUGIN_AUTHORING_GUIDE.md#agent-sessions-two-way-chat)。
 
-**Jobs:** Declare in `manifest.jobs` with `jobKey`, `displayName`, `schedule` (cron). Register handler with `ctx.jobs.register(jobKey, fn)`. **Webhooks:** Declare in `manifest.webhooks` with `endpointKey`; handle in `onWebhook(input)`. **State:** `ctx.state.get/set/delete(scopeKey)`; scope kinds: `instance`, `company`, `project`, `project_workspace`, `agent`, `issue`, `goal`, `run`.
+**Jobs：** 在 `manifest.jobs` 中声明，包含 `jobKey`、`displayName`、`schedule`（cron 表达式）。使用 `ctx.jobs.register(jobKey, fn)` 注册处理器。**Webhooks：** 在 `manifest.webhooks` 中声明 `endpointKey`；在 `onWebhook(input)` 中处理。**State：** `ctx.state.get/set/delete(scopeKey)`；作用域类型：`instance`、`company`、`project`、`project_workspace`、`agent`、`issue`、`goal`、`run`。
 
 ## Events
 

@@ -43,9 +43,9 @@ modules/
         TokenDashboard.tsx
 ```
 
-Modules live in a top-level `modules/` directory. Each module is a pnpm workspace package.
+模块位于顶层 `modules/` 目录中。每个模块都是一个 pnpm 工作区包。
 
-### Manifest (`paperclip.module.json`)
+### 清单文件（`paperclip.module.json`）
 
 ```json
 {

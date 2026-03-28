@@ -220,50 +220,50 @@ Paperclip 导入/导出应支持以下实体类型：
 
 预览输出应明确反映图谱解析结果。
 
-## 7. External References, Pinning, And Attribution
+## 7. 外部引用、版本固定与归因
 
-### 7.1 Why This Matters
+### 7.1 重要性
 
-Some packages will:
+某些包将会：
 
-- reference upstream files we do not want to republish
-- include third-party work where attribution must remain visible
-- need protection from branch hot-swapping
+- 引用我们不希望重新发布的上游文件
+- 包含必须保持可见归因的第三方作品
+- 需要防范分支热替换
 
-### 7.2 Policy
+### 7.2 策略
 
-Paperclip should support source references in package metadata with:
+Paperclip 应在包元数据中支持以下来源引用字段：
 
-- repo
-- path
+- repo（仓库）
+- path（路径）
 - commit sha
-- optional blob sha
-- optional sha256
-- attribution
-- license
-- usage mode
+- 可选的 blob sha
+- 可选的 sha256
+- attribution（归因）
+- license（许可证）
+- usage mode（使用模式）
 
-Usage modes:
+使用模式：
 
-- `vendored`
-- `referenced`
-- `mirrored`
+- `vendored`（已内嵌）
+- `referenced`（已引用）
+- `mirrored`（已镜像）
 
-Default exporter behavior for third-party content should be:
+针对第三方内容的默认导出器行为应为：
 
-- prefer `referenced`
-- preserve attribution
-- do not silently inline third-party content into exports
+- 优先选择 `referenced`
+- 保留归因信息
+- 不得将第三方内容悄无声息地内联到导出包中
 
-### 7.3 Trust Model
+### 7.3 信任模型
 
-Imported package content should be classified by trust level:
+导入的包内容应按信任等级分类：
 
-- markdown-only
-- markdown + assets
-- markdown + scripts/executables
+- 仅 markdown
+- markdown + 资源文件
+- markdown + 脚本/可执行文件
 
-The UI and CLI should surface this clearly before apply.
+界面和 CLI 应在应用前清晰展示此信息。
 
 ## 8. Import Behavior
 

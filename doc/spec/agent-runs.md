@@ -219,30 +219,30 @@ interface RunLogStore {
 }
 ```
 
-V1 deployment defaults:
+V1 部署默认值：
 
-1. Dev/local default: `local_file` (write to `data/run-logs/...`).
-2. Cloud/serverless default: `object_store` (S3/R2/GCS compatible).
-3. Optional fallback: `postgres` with strict size caps.
+1. 开发/本地默认：`local_file`（写入 `data/run-logs/...`）。
+2. 云/无服务器默认：`object_store`（兼容 S3/R2/GCS）。
+3. 可选后备：带严格大小限制的 `postgres`。
 
-### 6.4 Adapter identity and compatibility
+### 6.4 适配器标识与兼容性
 
-For V1 rollout, adapter identity is explicit:
+V1 发布时，适配器标识为显式：
 
 - `claude_local`
 - `codex_local`
-- `process` (generic existing behavior)
-- `http` (generic existing behavior)
+- `process`（通用现有行为）
+- `http`（通用现有行为）
 
-`claude_local` and `codex_local` are not wrappers around arbitrary `process`; they are typed adapters with known parser/resume semantics.
+`claude_local` 和 `codex_local` 不是对任意 `process` 的包装；它们是具有已知解析器/恢复语义的类型化适配器。
 
-## 7. Built-in Adapters (Phase 1)
+## 7. 内置适配器（第一阶段）
 
 ## 7.1 `claude-local`
 
-Runs local `claude` CLI directly.
+直接运行本地 `claude` CLI。
 
-### Config
+### 配置
 
 ```json
 {

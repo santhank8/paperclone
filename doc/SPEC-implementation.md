@@ -280,19 +280,19 @@ V1 不需要独立的队列基础设施。
 
 ## 7.12 `company_secrets` + `company_secret_versions`
 
-- Secret values are not stored inline in `agents.adapter_config.env`.
-- Agent env entries should use secret refs for sensitive values.
-- `company_secrets` tracks identity/provider metadata per company.
-- `company_secret_versions` stores encrypted/reference material per version.
-- Default provider in local deployments: `local_encrypted`.
+- 密钥值不在 `agents.adapter_config.env` 中内联存储。
+- 智能体的环境变量条目应对敏感值使用密钥引用。
+- `company_secrets` 追踪每个公司的身份/提供商元数据。
+- `company_secret_versions` 按版本存储加密/引用材料。
+- 本地部署的默认提供商：`local_encrypted`。
 
-Operational policy:
+运营策略：
 
-- Config read APIs redact sensitive plain values.
-- Activity and approval payloads must not persist raw sensitive values.
-- Config revisions may include redacted placeholders; such revisions are non-restorable for redacted fields.
+- 配置读取 API 对敏感明文值进行脱敏处理。
+- 活动和审批负载不得持久化原始敏感值。
+- 配置修订版本可能包含脱敏占位符；此类修订对脱敏字段不可恢复。
 
-## 7.13 Required Indexes
+## 7.13 必需索引
 
 - `agents(company_id, status)`
 - `agents(company_id, reports_to)`
@@ -313,7 +313,7 @@ Operational policy:
 
 ## 7.14 `assets` + `issue_attachments`
 
-- `assets` stores provider-backed object metadata (not inline bytes):
+- `assets` 存储提供商支持的对象元数据（不内联字节）：
   - `id` uuid pk
   - `company_id` uuid fk not null
   - `provider` enum/text (`local_disk | s3`)
@@ -324,7 +324,7 @@ Operational policy:
   - `original_filename` text null
   - `created_by_agent_id` uuid fk null
   - `created_by_user_id` uuid/text fk null
-- `issue_attachments` links assets to issues/comments:
+- `issue_attachments` 将资产关联到问题/评论：
   - `id` uuid pk
   - `company_id` uuid fk not null
   - `issue_id` uuid fk not null

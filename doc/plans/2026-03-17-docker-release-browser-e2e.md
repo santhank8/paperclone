@@ -151,55 +151,55 @@ HOST_PORT=3233 DATA_DIR=./data/release-smoke-stable PAPERCLIPAI_VERSION=latest .
 
 当前脚本始终跟踪日志，然后阻塞在 `wait "$LOG_PID"` 处。这对手动冒烟测试来说很方便，但对 CI 编排而言是错误的形态。
 
-## 2. Add a dedicated Playwright release-smoke spec
+## 2. 添加专用的 Playwright 发布冒烟规范
 
-Create a second Playwright entry point specifically for published Docker installs, for example:
+为已发布的 Docker 安装创建第二个 Playwright 入口点，例如：
 
 - `tests/release-smoke/playwright.config.ts`
 - `tests/release-smoke/docker-auth-onboarding.spec.ts`
 
-This suite should not use Playwright `webServer`, because the app server will already be running inside Docker.
+该测试套件不应使用 Playwright 的 `webServer`，因为应用服务器已在 Docker 内部运行。
 
-### Browser scenario
+### 浏览器测试场景
 
-The first release-smoke scenario should validate:
+第一个发布冒烟场景应验证：
 
-1. open `/`
-2. unauthenticated user is redirected to `/auth`
-3. sign in using the smoke credentials
-4. authenticated user lands on onboarding when no companies exist
-5. onboarding wizard appears with the expected step labels
-6. create a company
-7. create the first agent using `process`
-8. create the initial issue
-9. finish onboarding and open the created issue
-10. verify via API:
-    - company exists
-    - CEO agent exists
-    - issue exists and is assigned to the CEO
-11. verify the first heartbeat run was triggered:
-    - either by checking issue status changed from initial state, or
-    - by checking agent/runs API shows a run for the CEO, or
-    - both
+1. 打开 `/`
+2. 未认证用户被重定向到 `/auth`
+3. 使用冒烟凭据登录
+4. 已认证用户在无公司时进入引导流程页面
+5. 引导向导显示预期的步骤标签
+6. 创建公司
+7. 使用 `process` 创建首个智能体
+8. 创建初始问题
+9. 完成引导流程并打开已创建的问题
+10. 通过 API 验证：
+    - 公司已存在
+    - CEO 智能体已存在
+    - 问题已存在且分配给 CEO
+11. 验证首次心跳运行已触发：
+    - 检查问题状态是否从初始状态改变，或
+    - 检查 agent/runs API 是否显示 CEO 的运行记录，或
+    - 两者都检查
 
-The test should tolerate the run completing quickly. For this reason, the assertion should accept:
+测试应容忍运行快速完成的情况。因此，断言应接受以下状态：
 
 - `queued`
 - `running`
 - `succeeded`
 
-and similarly for issue progression if the issue status changes before the assertion runs.
+对于断言运行前问题状态已发生变化的情况，问题进展也应同样处理。
 
-### Why a separate spec instead of reusing `tests/e2e/onboarding.spec.ts`
+### 为何使用独立规范而非复用 `tests/e2e/onboarding.spec.ts`
 
-The local-source test and release-smoke test have different assumptions:
+本地源代码测试和发布冒烟测试的前提假设不同：
 
-- different server lifecycle
-- different auth path
-- different deployment mode
-- published npm package instead of local workspace code
+- 服务器生命周期不同
+- 认证路径不同
+- 部署模式不同
+- 使用已发布的 npm 包而非本地工作区代码
 
-Trying to force both through one spec will make both worse.
+强行将两者合并到一个规范中只会让两者都变得更糟。
 
 ## 3. Add a release-smoke workflow in GitHub Actions
 

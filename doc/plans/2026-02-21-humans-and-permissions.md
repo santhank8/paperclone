@@ -117,61 +117,61 @@
 - 每个实例同时只能有一个活跃的引导邀请（重新生成会吊销前一个令牌）
 - 引导操作记录在 `activity_log` 中
 
-## Data model additions
+## 数据模型新增
 
-## New tables
+## 新增表
 
 1. `users`
 
-- identity record for human users (email-based)
-- optional instance-level role field (or companion table) for admin rights
+- 人类用户的身份记录（基于邮箱）
+- 可选的实例级角色字段（或配套表）用于管理员权限
 
 2. `company_memberships`
 
-- `company_id`, `principal_type` (`user | agent`), `principal_id`
-- status (`pending | active | suspended`), role metadata
-- stores effective access state for both humans and agents
-- many-to-many: one principal can belong to multiple companies
+- `company_id`、`principal_type`（`user | agent`）、`principal_id`
+- 状态（`pending | active | suspended`）、角色元数据
+- 存储人类与智能体的有效访问状态
+- 多对多：一个主体可属于多家公司
 
 3. `invites`
 
-- `company_id`, `invite_type` (`company_join | bootstrap_ceo`), token hash, expires_at, invited_by, revoked_at, accepted_at
-- one-time share link (no pre-bound invite email)
-- `allowed_join_types` (`human | agent | both`) for `company_join` links
-- optional defaults payload keyed by join type:
-  - human defaults: initial permissions/membership role
-  - agent defaults: proposed role/title/adapter defaults
+- `company_id`、`invite_type`（`company_join | bootstrap_ceo`）、令牌哈希、expires_at、invited_by、revoked_at、accepted_at
+- 一次性分享链接（无预绑定邀请邮箱）
+- `company_join` 链接的 `allowed_join_types`（`human | agent | both`）
+- 按加入类型区分的可选默认载荷：
+  - 人类默认值：初始权限/成员角色
+  - 智能体默认值：建议的角色/职称/适配器默认值
 
 4. `principal_permission_grants`
 
-- `company_id`, `principal_type` (`user | agent`), `principal_id`, `permission_key`
-- explicit grants such as `agents:create`
-- includes scope payload for chain-of-command limits
-- normalized table (not JSON blob) for auditable grant/revoke history
+- `company_id`、`principal_type`（`user | agent`）、`principal_id`、`permission_key`
+- 显式授权，如 `agents:create`
+- 包含指挥链限制的作用域载荷
+- 规范化表（非 JSON blob），便于审计授权/撤销历史
 
 5. `join_requests`
 
-- `invite_id`, `company_id`, `request_type` (`human | agent`)
-- `status` (`pending_approval | approved | rejected`)
-- common review metadata:
+- `invite_id`、`company_id`、`request_type`（`human | agent`）
+- `status`（`pending_approval | approved | rejected`）
+- 通用审核元数据：
   - `request_ip`
-  - `approved_by_user_id`, `approved_at`, `rejected_by_user_id`, `rejected_at`
-- human request fields:
-  - `requesting_user_id`, `request_email_snapshot`
-- agent request fields:
-  - `agent_name`, `adapter_type`, `capabilities`, `created_agent_id` nullable until approved
-- each consumed invite creates exactly one join request record after join type is selected
+  - `approved_by_user_id`、`approved_at`、`rejected_by_user_id`、`rejected_at`
+- 人类请求字段：
+  - `requesting_user_id`、`request_email_snapshot`
+- 智能体请求字段：
+  - `agent_name`、`adapter_type`、`capabilities`、`created_agent_id`（审批前为空）
+- 每个已消费邀请在选择加入类型后恰好创建一条加入请求记录
 
-6. `issues` extension
+6. `issues` 扩展
 
-- add `assignee_user_id` nullable
-- preserve single-assignee invariant with XOR check:
-  - exactly zero or one of `assignee_agent_id` / `assignee_user_id`
+- 添加可空的 `assignee_user_id`
+- 通过 XOR 检查保留单一受托人不变量：
+  - `assignee_agent_id` / `assignee_user_id` 中恰好有零个或一个非空
 
-## Compatibility
+## 兼容性
 
-- existing `created_by_user_id` / `author_user_id` fields remain and become fully active
-- agent API keys remain auth credentials; membership + grants remain authorization source
+- 现有的 `created_by_user_id` / `author_user_id` 字段保留并完全启用
+- 智能体 API 密钥仍为身份验证凭据；成员资格 + 授权为授权来源
 
 ## Permission model (initial set)
 
