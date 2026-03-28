@@ -34,6 +34,7 @@ const mockCompanyPortabilityService = vi.hoisted(() => ({
 }));
 
 const mockLogActivity = vi.hoisted(() => vi.fn());
+const AGENT_RUN_ID = "22222222-2222-4222-8222-222222222222";
 
 vi.mock("../services/index.js", () => ({
   accessService: () => mockAccessService,
@@ -94,7 +95,7 @@ describe("PATCH /api/companies/:companyId/branding", () => {
       agentId: "agent-1",
       companyId: "company-1",
       source: "agent_key",
-      runId: "run-1",
+      runId: AGENT_RUN_ID,
     });
 
     const res = await request(app)
@@ -119,7 +120,7 @@ describe("PATCH /api/companies/:companyId/branding", () => {
       agentId: "agent-1",
       companyId: "company-1",
       source: "agent_key",
-      runId: "run-1",
+      runId: AGENT_RUN_ID,
     });
 
     const res = await request(app)
@@ -142,7 +143,7 @@ describe("PATCH /api/companies/:companyId/branding", () => {
         actorType: "agent",
         actorId: "agent-1",
         agentId: "agent-1",
-        runId: "run-1",
+        runId: AGENT_RUN_ID,
         action: "company.branding_updated",
         details: {
           logoAssetId: "11111111-1111-4111-8111-111111111111",
