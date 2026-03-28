@@ -148,84 +148,84 @@ npm 插件：
 
 ## 4. 依赖处理
 
-For local config/plugin directories, `opencode` will:
+对于本地配置/插件目录，`opencode` 会：
 
-- ensure a `package.json` exists
-- inject `@opencode-ai/plugin`
-- run `bun install`
+- 确保存在 `package.json`
+- 注入 `@opencode-ai/plugin`
+- 运行 `bun install`
 
-That lets local plugins and local custom tools import dependencies.
+这让本地插件和本地自定义工具能够导入依赖项。
 
-This is excellent for local developer ergonomics.
+这对本地开发者体验而言非常出色。
 
-It is not a safe default for an operator-controlled control plane server.
+但对于运营商管控的控制面服务器来说，这不是安全的默认值。
 
-## 5. Error handling
+## 5. 错误处理
 
-Plugin load failures do not hard-crash the runtime by default.
+插件加载失败默认不会导致运行时崩溃。
 
-Instead, `opencode`:
+`opencode` 会：
 
-- logs the error
-- publishes a session error event
-- continues loading other plugins
+- 记录错误
+- 发布会话错误事件
+- 继续加载其他插件
 
-That is a good operational pattern. One bad plugin should not brick the entire product unless the operator has explicitly configured it as required.
+这是一个良好的运维模式。一个有问题的插件不应让整个产品崩溃，除非运营商明确将其配置为必需项。
 
-## 6. Tools are a first-class extension point
+## 6. 工具是一等扩展点
 
-`opencode` has two ways to add tools:
+`opencode` 有两种添加工具的方式：
 
-- export tools directly from a plugin via `hook.tool`
-- define local files in `.opencode/tools/` or global tools directories
+- 通过 `hook.tool` 直接从插件导出工具
+- 在 `.opencode/tools/` 或全局工具目录中定义本地文件
 
-The tool API is strong:
+工具 API 功能强大：
 
-- tools have descriptions
-- tools have Zod schemas
-- tool execution gets context like session ID, message ID, directory, and worktree
-- tools are merged into the same registry as built-in tools
-- tool definitions themselves can be mutated by a `tool.definition` hook
+- 工具有描述信息
+- 工具有 Zod schema
+- 工具执行时可获取会话 ID、消息 ID、目录和 worktree 等上下文
+- 工具与内置工具合并到同一注册表中
+- 工具定义本身可通过 `tool.definition` 钩子进行修改
 
-The most aggressive part of the design:
+设计中最激进的部分：
 
-- custom tools can override built-in tools by name
+- 自定义工具可以按名称覆盖内置工具
 
-That is very powerful for a local coding assistant.
-It is too dangerous for Paperclip core actions.
+这对本地编码助手来说非常强大。
+但对 Paperclip 的核心操作而言过于危险。
 
-However, the concept of plugins contributing agent-usable tools is very valuable for Paperclip — as long as plugin tools are namespaced (cannot shadow core tools) and capability-gated.
+然而，插件为 agent 贡献可用工具的概念对 Paperclip 而言极具价值——只要插件工具带有命名空间（不能遮蔽核心工具）且受能力限制。
 
-## 7. Auth is also a plugin surface
+## 7. 认证也是插件接口
 
-`opencode` allows plugins to register auth methods for providers.
+`opencode` 允许插件为提供商注册认证方法。
 
-A plugin can contribute:
+插件可以贡献：
 
-- auth method metadata
-- prompt flows
-- OAuth flows
-- API key flows
-- request loaders that adapt provider behavior after auth succeeds
+- 认证方法元数据
+- 提示流程
+- OAuth 流程
+- API key 流程
+- 在认证成功后调整提供商行为的请求加载器
 
-This is a strong pattern worth copying. Integrations often need custom auth UX and token handling.
+这是一个值得借鉴的强大模式。集成通常需要自定义的认证 UX 和令牌处理。
 
-## 8. Ecosystem evidence
+## 8. 生态系统证明
 
-The ecosystem page is the best proof that the model is working in practice.
-Community plugins already cover:
+生态系统页面是该模型在实践中有效的最佳佐证。
+社区插件已覆盖：
 
-- sandbox/workspace systems
-- auth providers
-- session headers / telemetry
-- memory/context features
-- scheduling
-- notifications
-- worktree helpers
-- background agents
-- monitoring
+- 沙箱/工作区系统
+- 认证提供商
+- 会话请求头 / 遥测
+- 记忆/上下文功能
+- 调度
+- 通知
+- worktree 辅助工具
+- 后台 agent
+- 监控
 
-That validates the main thesis: a simple typed plugin API can create real ecosystem velocity.
+这验证了核心论点：一个简单的类型化插件 API 可以创造真正的生态速度。
 
 ## What OpenCode Gets Right
 

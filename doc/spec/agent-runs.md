@@ -177,21 +177,21 @@ interface AgentRunAdapter {
 }
 ```
 
-### 6.1 Required Behavior
+### 6.1 必要行为
 
-1. `validateConfig` runs before saving or invoking.
-2. `invoke` must be deterministic for a given config + runtime state + prompt.
-3. Adapter must not mutate DB directly; it returns data via result/events only.
-4. Adapter must emit enough context for errors to be debuggable.
-5. If `invoke` throws, executor records run as `failed` with captured error text.
+1. `validateConfig` 在保存或调用之前运行。
+2. 对于给定的 config + 运行时状态 + 提示词，`invoke` 必须具有确定性。
+3. 适配器不得直接修改 DB；它仅通过 result/events 返回数据。
+4. 适配器必须输出足够的上下文以便错误可调试。
+5. 若 `invoke` 抛出异常，执行器将运行记录为 `failed` 并捕获错误文本。
 
-### 6.2 Optional Behavior
+### 6.2 可选行为
 
-Adapters may omit status/log hooks. If omitted, runtime still emits system lifecycle statuses (`queued`, `running`, `finished`).
+适配器可以省略 status/log hooks。若省略，运行时仍会发出系统生命周期状态（`queued`、`running`、`finished`）。
 
-### 6.3 Run log storage protocol
+### 6.3 运行日志存储协议
 
-Full run logs are managed by a separate pluggable store (not by the agent adapter).
+完整运行日志由独立的可插拔存储管理（而非由 agent 适配器管理）。
 
 ```ts
 type RunLogStoreType = "local_file" | "object_store" | "postgres";

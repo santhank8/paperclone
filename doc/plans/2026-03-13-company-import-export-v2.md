@@ -175,50 +175,50 @@ Paperclip 不得重新定义 `SKILL.md`。
 - 不应再对旧清单模型进行新的投入
 - 未来的可移植性 API 和界面应仅面向 markdown 优先模型
 
-## 6. Package Graph Model
+## 6. 包图谱模型
 
-### 6.1 Entity Kinds
+### 6.1 实体类型
 
-Paperclip import/export should support these entity kinds:
+Paperclip 导入/导出应支持以下实体类型：
 
-- company
-- team
+- company（公司）
+- team（团队）
 - agent
-- project
-- task
+- project（项目）
+- task（任务）
 - skill
 
-### 6.2 Team Semantics
+### 6.2 团队语义
 
-`team` is a package concept first, not a database-table requirement.
+`team` 首先是一个包概念，而非数据库表的要求。
 
-In Paperclip V2 portability:
+在 Paperclip V2 可移植性中：
 
-- a team is an importable org subtree
-- it is rooted at a manager agent
-- it can be attached under a target manager in an existing company
+- 团队是一个可导入的组织子树
+- 以一个管理者 agent 为根节点
+- 可以挂载在已有公司的目标管理者节点之下
 
-This avoids blocking portability on a future runtime `teams` model.
+这避免了在未来运行时 `teams` 模型上阻塞可移植性。
 
-Imported-team tracking should initially be package/provenance-based:
+导入团队的追踪最初应基于包/来源信息：
 
-- if a team package was imported, the imported agents should carry enough provenance to reconstruct that grouping
-- Paperclip can treat “this set of agents came from team package X” as the imported-team model
-- provenance grouping is the intended near- and medium-term team model for import/export
-- only add a first-class runtime `teams` table later if product needs move beyond what provenance grouping can express
+- 如果某个团队包已被导入，导入的 agent 应携带足够的来源信息以重建该分组
+- Paperclip 可将”这组 agent 来自团队包 X”作为导入团队模型
+- 来源分组是导入/导出近期和中期的预期团队模型
+- 仅当产品需求超出来源分组所能表达的范围时，才添加一流的运行时 `teams` 表
 
-### 6.3 Dependency Graph
+### 6.3 依赖图谱
 
-Import should operate on an entity graph, not raw file selection.
+导入应在实体图谱上操作，而非原始文件选择。
 
-Examples:
+示例：
 
-- selecting an agent auto-selects its required docs and skill refs
-- selecting a team auto-selects its subtree
-- selecting a company auto-selects all included entities by default
-- selecting a project auto-selects its starter tasks
+- 选择一个 agent 会自动选中其所需的文档和 skill 引用
+- 选择一个团队会自动选中其子树
+- 选择一个公司默认自动选中所有包含的实体
+- 选择一个项目会自动选中其初始任务
 
-The preview output should reflect graph resolution explicitly.
+预览输出应明确反映图谱解析结果。
 
 ## 7. External References, Pinning, And Attribution
 

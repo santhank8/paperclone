@@ -251,7 +251,7 @@ V1 不需要独立的队列基础设施。
 - `cost_cents` int not null
 - `occurred_at` timestamptz not null
 
-Invariant: each event must attach to agent and company; rollups are aggregation, never manually edited.
+不变量：每个事件必须关联智能体和公司；汇总值为聚合计算结果，绝不手动编辑。
 
 ## 7.10 `approvals`
 

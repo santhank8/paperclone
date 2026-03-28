@@ -204,33 +204,31 @@ Project 内的 issue 可选择性地分配到某个 milestone。
 
 ---
 
-## Issue Relations / Dependencies
+## Issue 关系 / 依赖
 
-Four relation types between issues:
+Issue 之间有四种关系类型：
 
-| Type         | Meaning                          | Behavior                                      |
+| 类型         | 含义                             | 行为                                          |
 | ------------ | -------------------------------- | --------------------------------------------- |
-| `related`    | General connection               | Informational link                            |
-| `blocks`     | This issue blocks another        | Blocked issue shown with flag                 |
-| `blocked_by` | This issue is blocked by another | Inverse of blocks                             |
-| `duplicate`  | This issue duplicates another    | Auto-moves the duplicate to a Cancelled state |
+| `related`    | 一般关联                         | 信息性链接                                    |
+| `blocks`     | 此 issue 阻塞另一个              | 被阻塞的 issue 显示标记                       |
+| `blocked_by` | 此 issue 被另一个阻塞            | blocks 的反向关系                             |
+| `duplicate`  | 此 issue 与另一个重复            | 自动将重复 issue 移入 Cancelled 状态          |
 
-### IssueRelation Fields
+### IssueRelation 字段
 
-| Field            | Type    | Notes                                          |
+| 字段             | 类型    | 说明                                           |
 | ---------------- | ------- | ---------------------------------------------- |
 | `id`             | uuid    |                                                |
 | `type`           | enum    | `related`, `blocks`, `blocked_by`, `duplicate` |
-| `issueId`        | uuid FK | Source issue                                   |
-| `relatedIssueId` | uuid FK | Target issue                                   |
+| `issueId`        | uuid FK | 源 issue                                       |
+| `relatedIssueId` | uuid FK | 目标 issue                                     |
 
-### Rules
+### 规则
 
-- When a blocking issue is resolved, the relation becomes informational (flag
-  turns green)
-- Duplicate is one-directional (you mark the duplicate, not the canonical)
-- Blocking is **not transitive** at the system level (A blocks B, B blocks C
-  does not auto-block A->C)
+- 当阻塞 issue 被解决后，该关系变为信息性关系（标记变为绿色）
+- 重复关系是单向的（你标记重复方，而非原始方）
+- 阻塞关系在系统层面**不具有传递性**（A 阻塞 B，B 阻塞 C，不代表 A 自动阻塞 C）
 
 ---
 

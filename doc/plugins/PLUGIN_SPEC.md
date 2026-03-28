@@ -148,64 +148,64 @@ Paperclip 插件设计基于以下假设：
 主机授予插件的命名权限。
 插件只能调用其获得授权的能力所覆盖的主机 API。
 
-## 6. Extension Classes
+## 6. 扩展类别
 
-Paperclip has two extension classes.
+Paperclip 有两种扩展类别。
 
-## 6.1 Platform Modules
+## 6.1 平台模块
 
-Platform modules are:
+平台模块具有以下特点：
 
-- trusted
-- in-process
-- host-integrated
-- low-level
+- 受信任
+- 进程内
+- 与主机集成
+- 底层
 
-They use explicit registries, not the general plugin worker protocol.
+它们使用显式注册表，而非通用插件 worker 协议。
 
-Platform module surfaces:
+平台模块界面：
 
 - `registerAgentAdapter()`
 - `registerStorageProvider()`
 - `registerSecretProvider()`
 - `registerRunLogStore()`
 
-Platform modules are the right place for:
+平台模块适用于：
 
-- new agent adapter packages
-- new storage backends
-- new secret backends
-- other host-internal systems that need direct process or DB integration
+- 新的 Agent 适配器包
+- 新的存储后端
+- 新的密钥后端
+- 其他需要直接进程或数据库集成的主机内部系统
 
-## 6.2 Plugins
+## 6.2 插件
 
-Plugins are:
+插件具有以下特点：
 
-- globally installed per instance
-- loaded through the plugin runtime
-- additive
-- capability-gated
-- isolated from core via a stable SDK and host protocol
+- 按实例全局安装
+- 通过插件运行时加载
+- 附加式（additive）
+- 能力管控
+- 通过稳定的 SDK 和主机协议与核心隔离
 
-Plugin categories:
+插件类别：
 
 - `connector`
 - `workspace`
 - `automation`
 - `ui`
 
-A plugin may declare more than one category.
+一个插件可以声明多个类别。
 
-## 7. Project Workspaces
+## 7. 项目工作区
 
-Paperclip already has a concrete workspace model:
+Paperclip 已拥有具体的工作区模型：
 
-- projects expose `workspaces`
-- projects expose `primaryWorkspace`
-- the database contains `project_workspaces`
-- project routes already manage workspaces
+- 项目暴露 `workspaces`
+- 项目暴露 `primaryWorkspace`
+- 数据库包含 `project_workspaces`
+- 项目路由已管理工作区
 
-Plugins that need local tooling (file browsing, git, terminals, process tracking) can resolve workspace paths through the project workspace APIs and then operate on the filesystem, spawn processes, and run git commands directly. The host does not wrap these operations — plugins own their own implementations.
+需要本地工具（文件浏览、git、终端、进程追踪）的插件可通过项目工作区 API 解析工作区路径，然后直接操作文件系统、生成进程并运行 git 命令。主机不对这些操作进行封装——插件自行拥有其实现。
 
 ## 8. Installation Model
 

@@ -148,44 +148,44 @@ Paperclip 不能假设它与代码运行在同一台机器上。
 
 它们与以下概念不同：
 
-- a branch
-- a worktree
-- a PR
-- a preview
+- 分支
+- worktree
+- PR
+- 预览
 
-They may correlate with those things, but they should not be overloaded to mean them.
+它们可能与这些概念相关，但不应被过载为意味着它们。
 
-## Terminology
+## 术语
 
-Use these terms consistently in product copy:
+在产品文案中一致使用以下术语：
 
-- `Project`: planning container
-- `Project workspace`: durable configured codebase/root
-- `Execution workspace`: actual runtime workspace used for issue execution
-- `Isolated issue workspace`: user-facing term for an issue-specific derived workspace
-- `Work product`: previews, PRs, branches, commits, artifacts, docs
-- `Runtime service`: a process or service Paperclip owns or tracks for a workspace
+- `Project`：规划容器
+- `Project workspace`：持久化配置的代码库/根目录
+- `Execution workspace`：用于 issue 执行的实际运行时工作区
+- `Isolated issue workspace`：面向用户的术语，指特定 issue 的派生工作区
+- `Work product`：预览、PR、分支、提交、制品、文档
+- `Runtime service`：Paperclip 为工作区拥有或跟踪的进程或服务
 
-Use these terms consistently in migration and deployment messaging:
+在迁移和部署消息中一致使用以下术语：
 
-- `Compatible mode`: existing behavior preserved without new workspace automation
-- `Adapter-managed workspace`: workspace realized by a remote or cloud execution provider
+- `Compatible mode`：在没有新工作区自动化的情况下保留现有行为
+- `Adapter-managed workspace`：由远程或云执行提供商实现的工作区
 
-Avoid teaching users that "workspace" always means "git worktree on my machine".
+避免让用户认为"工作区"总是意味着"我机器上的 git worktree"。
 
-## Product Object Model
+## 产品对象模型
 
-## 1. Project
+## 1. 项目（Project）
 
-Existing object. No fundamental change in role.
+现有对象。角色无根本变化。
 
-### Required behavior
+### 必要行为
 
-- can exist without code/workspace configuration
-- can have zero or more project workspaces
-- can define execution defaults that new issues inherit
+- 可以在没有代码/工作区配置的情况下存在
+- 可以有零个或多个项目工作区
+- 可以定义新 issue 继承的执行默认值
 
-### Proposed fields
+### 提议字段
 
 - `id`
 - `companyId`

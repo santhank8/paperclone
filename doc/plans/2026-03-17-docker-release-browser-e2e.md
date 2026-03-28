@@ -119,37 +119,37 @@ HOST_PORT=3233 DATA_DIR=./data/release-smoke-stable PAPERCLIPAI_VERSION=latest .
 
 两者在引导流程断言上有重叠，但它们防护的是不同类别的故障。
 
-## Proposed Design
+## 方案设计
 
-## 1. Add a CI-friendly Docker smoke harness
+## 1. 添加 CI 友好的 Docker 冒烟框架
 
-Refactor `scripts/docker-onboard-smoke.sh` so it can run in two modes:
+重构 `scripts/docker-onboard-smoke.sh`，使其支持两种运行模式：
 
-- interactive mode
-  - current behavior
-  - streams logs and waits in foreground for manual inspection
-- CI mode
-  - starts the container
-  - waits for health and authenticated bootstrap
-  - prints machine-readable metadata
-  - exits while leaving the container running for Playwright
+- 交互模式
+  - 保留当前行为
+  - 在前台流式输出日志，等待人工检查
+- CI 模式
+  - 启动容器
+  - 等待健康检查通过并完成已认证引导
+  - 输出机器可读的元数据
+  - 退出时保留容器运行，供 Playwright 使用
 
-Recommended shape:
+推荐结构：
 
-- keep `scripts/docker-onboard-smoke.sh` as the public entry point
-- add a `SMOKE_DETACH=true` or `--detach` mode
-- emit a JSON blob or `.env` file containing:
+- 保留 `scripts/docker-onboard-smoke.sh` 作为公开入口点
+- 添加 `SMOKE_DETACH=true` 或 `--detach` 模式
+- 输出包含以下内容的 JSON 数据块或 `.env` 文件：
   - `SMOKE_BASE_URL`
   - `SMOKE_ADMIN_EMAIL`
   - `SMOKE_ADMIN_PASSWORD`
   - `SMOKE_CONTAINER_NAME`
   - `SMOKE_DATA_DIR`
 
-The workflow and Playwright tests can then consume the emitted metadata instead of scraping logs.
+工作流和 Playwright 测试随后可以使用输出的元数据，而无需解析日志。
 
-### Why this matters
+### 为何重要
 
-The current script always tails logs and then blocks on `wait "$LOG_PID"`. That is convenient for manual smoke testing, but it is the wrong shape for CI orchestration.
+当前脚本始终跟踪日志，然后阻塞在 `wait "$LOG_PID"` 处。这对手动冒烟测试来说很方便，但对 CI 编排而言是错误的形态。
 
 ## 2. Add a dedicated Playwright release-smoke spec
 
