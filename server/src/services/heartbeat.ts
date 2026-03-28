@@ -1864,42 +1864,32 @@ export function heartbeatService(db: Db) {
       })
       .from(issues)
       .innerJoin(heartbeatRuns, eq(heartbeatRuns.id, issues.executionRunId))
-      .where(
-        and(
-          isNotNull(issues.executionRunId),
-          inArray(heartbeatRuns.status, [...TERMINAL_STATUSES]),
-        ),
-      );
+      .where(inArray(heartbeatRuns.status, [...TERMINAL_STATUSES]));
 
     if (orphaned.length === 0) return { cleaned: 0 };
 
-    const issueIds = orphaned.map((o) => o.id);
     const now = new Date();
 
-    await db
-      .update(issues)
-      .set({
-        executionRunId: null,
-        executionLockedAt: null,
-        executionAgentNameKey: null,
-        updatedAt: now,
-      })
-      .where(inArray(issues.id, issueIds));
-
-    logger.warn(
-      {
-        cleanedCount: orphaned.length,
-        issues: orphaned.map((o) => ({
-          id: o.id,
-          identifier: o.identifier,
-          runId: o.runId,
-          runStatus: o.runStatus,
-        })),
-      },
-      "cleaned up orphaned execution locks",
+    // Update per-row, verifying runId still matches the candidate snapshot
+    // to avoid a TOCTOU race where a new run acquires the lock between SELECT and UPDATE.
+    const updateResults = await Promise.all(
+      orphaned.map((o) =>
+        db
+          .update(issues)
+          .set({
+            executionRunId: null,
+            executionLockedAt: null,
+            executionAgentNameKey: null,
+            updatedAt: now,
+          })
+          .where(and(eq(issues.id, o.id), eq(issues.executionRunId, o.runId!)))
+          .returning({ id: issues.id }),
+      ),
     );
 
-    return { cleaned: orphaned.length };
+    const clearedIds = updateResults.flatMap((r) => r.map((row) => row.id));
+
+    return { cleaned: clearedIds.length };
   }
 
   async function updateRuntimeState(
