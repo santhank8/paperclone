@@ -9,6 +9,7 @@ import {
 } from "react";
 
 export type Locale = "en" | "ru";
+export type LocalePreference = Locale | "system";
 
 const LOCALE_STORAGE_KEY = "paperclip.locale";
 
@@ -17,6 +18,14 @@ const messages = {
     "lang.english": "English",
     "lang.russian": "Russian",
     "lang.switch": "Switch language",
+    "lang.section": "Language",
+    "lang.system": "System default",
+    "lang.preference": "Language preference",
+    "lang.preferenceDesc": "Choose the language used by the Paperclip interface.",
+    "lang.preferenceStored": "This preference is stored in this browser for your operator session.",
+    "lang.current": "Current language",
+    "preferences.title": "Language",
+    "preferences.desc": "Manage interface language for your current operator session.",
     "theme.switchTo": "Switch to {mode} mode",
     "theme.light": "light",
     "theme.dark": "dark",
@@ -84,6 +93,14 @@ const messages = {
     "lang.english": "English",
     "lang.russian": "Русский",
     "lang.switch": "Сменить язык",
+    "lang.section": "Язык",
+    "lang.system": "Как в системе",
+    "lang.preference": "Предпочитаемый язык",
+    "lang.preferenceDesc": "Выберите язык интерфейса Paperclip.",
+    "lang.preferenceStored": "Эта настройка хранится в текущем браузере для вашей операторской сессии.",
+    "lang.current": "Текущий язык",
+    "preferences.title": "Язык",
+    "preferences.desc": "Управляйте языком интерфейса для текущей операторской сессии.",
     "theme.switchTo": "Переключить на {mode} режим",
     "theme.light": "светлый",
     "theme.dark": "тёмный",
@@ -244,6 +261,10 @@ const phraseMap = {
     "Recent Tasks": "Последние задачи",
     "No tasks yet.": "Пока нет задач.",
     "General": "Общие",
+    "Preferences": "Предпочтения",
+    "Heartbeats": "Хартбиты",
+    "Experimental": "Экспериментальные",
+    "Plugins": "Плагины",
     "Description": "Описание",
     "Appearance": "Внешний вид",
     "Logo": "Логотип",
@@ -472,15 +493,20 @@ const phraseMap = {
   en: {},
 } satisfies Record<Locale, Record<string, string>>;
 
-function detectLocale(): Locale {
+function detectSystemLocale(): Locale {
   if (typeof window === "undefined") return "ru";
+  return window.navigator.language.toLowerCase().startsWith("ru") ? "ru" : "en";
+}
+
+function detectLocalePreference(): LocalePreference {
+  if (typeof window === "undefined") return "system";
   try {
     const saved = window.localStorage.getItem(LOCALE_STORAGE_KEY);
-    if (saved === "en" || saved === "ru") return saved;
+    if (saved === "en" || saved === "ru" || saved === "system") return saved;
   } catch {
     // Ignore storage failures.
   }
-  return window.navigator.language.toLowerCase().startsWith("ru") ? "ru" : "en";
+  return "system";
 }
 
 function interpolate(template: string, values?: Record<string, string | number>) {
@@ -490,7 +516,9 @@ function interpolate(template: string, values?: Record<string, string | number>)
 
 type I18nContextValue = {
   locale: Locale;
+  localePreference: LocalePreference;
   setLocale: (locale: Locale) => void;
+  setLocalePreference: (preference: LocalePreference) => void;
   toggleLocale: () => void;
   t: (key: string, values?: Record<string, string | number>) => string;
   translateText: (text: string) => string;
@@ -499,7 +527,8 @@ type I18nContextValue = {
 const I18nContext = createContext<I18nContextValue | null>(null);
 
 export function I18nProvider({ children }: { children: ReactNode }) {
-  const [locale, setLocaleState] = useState<Locale>(() => detectLocale());
+  const [localePreference, setLocalePreferenceState] = useState<LocalePreference>(() => detectLocalePreference());
+  const locale = localePreference === "system" ? detectSystemLocale() : localePreference;
 
   useEffect(() => {
     if (typeof document !== "undefined") {
@@ -507,19 +536,26 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     }
     if (typeof window !== "undefined") {
       try {
-        window.localStorage.setItem(LOCALE_STORAGE_KEY, locale);
+        window.localStorage.setItem(LOCALE_STORAGE_KEY, localePreference);
       } catch {
         // Ignore storage failures.
       }
     }
-  }, [locale]);
+  }, [locale, localePreference]);
 
   const setLocale = useCallback((nextLocale: Locale) => {
-    setLocaleState(nextLocale);
+    setLocalePreferenceState(nextLocale);
+  }, []);
+
+  const setLocalePreference = useCallback((nextPreference: LocalePreference) => {
+    setLocalePreferenceState(nextPreference);
   }, []);
 
   const toggleLocale = useCallback(() => {
-    setLocaleState((current) => (current === "ru" ? "en" : "ru"));
+    setLocalePreferenceState((current) => {
+      const effectiveLocale = current === "system" ? detectSystemLocale() : current;
+      return effectiveLocale === "ru" ? "en" : "ru";
+    });
   }, []);
 
   const t = useCallback((key: string, values?: Record<string, string | number>) => {
@@ -536,11 +572,13 @@ export function I18nProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<I18nContextValue>(() => ({
     locale,
+    localePreference,
     setLocale,
+    setLocalePreference,
     toggleLocale,
     t,
     translateText,
-  }), [locale, setLocale, t, toggleLocale, translateText]);
+  }), [locale, localePreference, setLocale, setLocalePreference, t, toggleLocale, translateText]);
 
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;
 }
