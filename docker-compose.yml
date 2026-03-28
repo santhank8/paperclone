@@ -45,10 +45,6 @@ services:
       PAPERCLIP_PUBLIC_URL: "${PAPERCLIP_PUBLIC_URL:-http://localhost:3100}"
       BETTER_AUTH_SECRET: "${BETTER_AUTH_SECRET:?BETTER_AUTH_SECRET must be set}"
       PAPERCLIP_AGENT_JWT_SECRET: "${PAPERCLIP_AGENT_JWT_SECRET:?PAPERCLIP_AGENT_JWT_SECRET must be set}"
-      # Vibe-Stack backend config — Paperclip injects these into agent containers
-      # so they can talk directly to LLM backends without proxying through Paperclip.
-      VIBE_BACKEND_HOST: ${VIBE_BACKEND_HOST:-}
-      VIBE_FALLBACK_URLS: ${VIBE_FALLBACK_URLS:-}
     volumes:
       - paperclip-data:/paperclip
     depends_on:
