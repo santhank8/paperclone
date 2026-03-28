@@ -1483,6 +1483,8 @@ export function issueService(db: Db) {
     addComment: async (issueId: string, body: string, actor: { agentId?: string; userId?: string }) => {
       if (!isUuidLike(issueId)) throw notFound("Issue not found");
       if (typeof body !== "string") throw unprocessable("Invalid comment body");
+      if (actor.agentId != null && !isUuidLike(actor.agentId)) throw unprocessable("Invalid authorAgentId");
+      if (actor.userId != null && typeof actor.userId !== "string") throw unprocessable("Invalid authorUserId");
       const issue = await db
         .select({ companyId: issues.companyId })
         .from(issues)

@@ -714,6 +714,24 @@ describe("issueService.list participantAgentId", () => {
     });
   });
 
+  it("returns unprocessable for malformed author agent ids on addComment", async () => {
+    await expect(
+      svc.addComment(randomUUID(), "hello", { agentId: "not-a-uuid" }),
+    ).rejects.toMatchObject({
+      status: 422,
+      message: "Invalid authorAgentId",
+    });
+  });
+
+  it("returns unprocessable for malformed author user ids on addComment", async () => {
+    await expect(
+      svc.addComment(randomUUID(), "hello", { userId: { bad: true } as any }),
+    ).rejects.toMatchObject({
+      status: 422,
+      message: "Invalid authorUserId",
+    });
+  });
+
   it("returns not found for malformed issue ids on markRead", async () => {
     await expect(
       svc.markRead(randomUUID(), "not-a-uuid", "user-1", new Date()),
