@@ -51,7 +51,7 @@ import {
   resolveExecutionWorkspaceMode,
 } from "./execution-workspace-policy.js";
 import { instanceSettingsService } from "./instance-settings.js";
-import { redactCurrentUserText, redactCurrentUserValue } from "../log-redaction.js";
+import { redactCurrentUserText, redactCurrentUserValue, sanitizeLogText } from "../log-redaction.js";
 import {
   hasSessionCompactionThresholds,
   resolveSessionCompactionPolicy,
@@ -2398,7 +2398,7 @@ export function heartbeatService(db: Db) {
 
       const currentUserRedactionOptions = await getCurrentUserRedactionOptions();
       const onLog = async (stream: "stdout" | "stderr", chunk: string) => {
-        const sanitizedChunk = redactCurrentUserText(chunk, currentUserRedactionOptions);
+        const sanitizedChunk = sanitizeLogText(chunk, currentUserRedactionOptions);
         if (stream === "stdout") stdoutExcerpt = appendExcerpt(stdoutExcerpt, sanitizedChunk);
         if (stream === "stderr") stderrExcerpt = appendExcerpt(stderrExcerpt, sanitizedChunk);
         const ts = new Date().toISOString();
@@ -2646,7 +2646,7 @@ export function heartbeatService(db: Db) {
         error:
           outcome === "succeeded"
             ? null
-            : redactCurrentUserText(
+            : sanitizeLogText(
                 adapterResult.errorMessage ?? (outcome === "timed_out" ? "Timed out" : "Adapter failed"),
                 currentUserRedactionOptions,
               ),
@@ -2716,7 +2716,7 @@ export function heartbeatService(db: Db) {
       }
       await finalizeAgentStatus(agent.id, outcome);
     } catch (err) {
-      const message = redactCurrentUserText(
+      const message = sanitizeLogText(
         err instanceof Error ? err.message : "Unknown adapter failure",
         await getCurrentUserRedactionOptions(),
       );
@@ -3776,7 +3776,7 @@ export function heartbeatService(db: Db) {
         store: run.logStore,
         logRef: run.logRef,
         ...result,
-        content: redactCurrentUserText(result.content, await getCurrentUserRedactionOptions()),
+        content: sanitizeLogText(result.content, await getCurrentUserRedactionOptions()),
       };
     },
 

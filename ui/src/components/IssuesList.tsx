@@ -8,6 +8,7 @@ import { authApi } from "../api/auth";
 import { queryKeys } from "../lib/queryKeys";
 import { formatAssigneeUserLabel } from "../lib/assignees";
 import { groupBy } from "../lib/groupBy";
+import { issueDisplayStatus } from "../lib/issue-execution";
 import { formatDate, cn } from "../lib/utils";
 import { timeAgo } from "../lib/timeAgo";
 import { StatusIcon } from "./StatusIcon";
@@ -681,7 +682,7 @@ export function IssuesList({
                       }}
                     >
                       <StatusIcon
-                        status={issue.status}
+                        status={issueDisplayStatus(issue)}
                         onChange={(s) => onUpdateIssue(issue.id, { status: s })}
                       />
                     </span>
@@ -696,7 +697,7 @@ export function IssuesList({
                         }}
                       >
                         <StatusIcon
-                          status={issue.status}
+                          status={issueDisplayStatus(issue)}
                           onChange={(s) => onUpdateIssue(issue.id, { status: s })}
                         />
                       </span>

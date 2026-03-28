@@ -15,6 +15,12 @@ interface UseLiveRunTranscriptsOptions {
   maxChunksPerRun?: number;
 }
 
+export function shouldPollRunLog(
+  run: Pick<LiveRunForIssue, "status" | "startedAt" | "finishedAt">,
+): boolean {
+  return Boolean(run.startedAt) || isTerminalStatus(run.status) || Boolean(run.finishedAt);
+}
+
 function readString(value: unknown): string | null {
   return typeof value === "string" && value.trim().length > 0 ? value : null;
 }
@@ -137,6 +143,7 @@ export function useLiveRunTranscripts({
     let cancelled = false;
 
     const readRunLog = async (run: LiveRunForIssue) => {
+      if (!shouldPollRunLog(run)) return;
       const offset = logOffsetByRunRef.current.get(run.id) ?? 0;
       try {
         const result = await heartbeatsApi.log(run.id, offset, LOG_READ_LIMIT_BYTES);

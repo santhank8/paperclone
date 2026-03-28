@@ -11,6 +11,7 @@ import {
   companies,
   createDb,
   ensurePostgresDatabase,
+  heartbeatRuns,
   issueComments,
   issues,
 } from "@paperclipai/db";
@@ -99,6 +100,7 @@ describe("issueService.list participantAgentId", () => {
   afterEach(async () => {
     await db.delete(issueComments);
     await db.delete(activityLog);
+    await db.delete(heartbeatRuns);
     await db.delete(issues);
     await db.delete(agents);
     await db.delete(companies);
@@ -280,5 +282,65 @@ describe("issueService.list participantAgentId", () => {
     });
 
     expect(result.map((issue) => issue.id)).toEqual([matchedIssueId]);
+  });
+
+  it("surfaces the latest live run for an issue even when executionRunId is unset", async () => {
+    const companyId = randomUUID();
+    const agentId = randomUUID();
+    const issueId = randomUUID();
+    const runId = randomUUID();
+
+    await db.insert(companies).values({
+      id: companyId,
+      name: "Paperclip",
+      issuePrefix: `T${companyId.replace(/-/g, "").slice(0, 6).toUpperCase()}`,
+      requireBoardApprovalForNewAgents: false,
+    });
+
+    await db.insert(agents).values({
+      id: agentId,
+      companyId,
+      name: "CodexCoder",
+      role: "engineer",
+      status: "active",
+      adapterType: "codex_local",
+      adapterConfig: {},
+      runtimeConfig: {},
+      permissions: {},
+    });
+
+    await db.insert(issues).values({
+      id: issueId,
+      companyId,
+      title: "Blocked issue with live replay",
+      status: "blocked",
+      priority: "medium",
+      assigneeAgentId: agentId,
+      createdByAgentId: agentId,
+      executionRunId: null,
+    });
+
+    await db.insert(heartbeatRuns).values({
+      id: runId,
+      companyId,
+      agentId,
+      invocationSource: "automation",
+      triggerDetail: "system",
+      status: "running",
+      contextSnapshot: { issueId },
+      startedAt: new Date("2026-03-28T05:20:04.076Z"),
+      createdAt: new Date("2026-03-28T05:20:04.076Z"),
+      updatedAt: new Date("2026-03-28T05:20:04.076Z"),
+    });
+
+    const result = await svc.list(companyId);
+
+    expect(result).toHaveLength(1);
+    expect(result[0]?.id).toBe(issueId);
+    expect(result[0]?.activeRun).toMatchObject({
+      id: runId,
+      status: "running",
+      agentId,
+    });
   });
 });

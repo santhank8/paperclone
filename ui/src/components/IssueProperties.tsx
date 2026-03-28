@@ -11,6 +11,7 @@ import { issuesApi } from "../api/issues";
 import { projectsApi } from "../api/projects";
 import { useCompany } from "../context/CompanyContext";
 import { queryKeys } from "../lib/queryKeys";
+import { issueDisplayStatus } from "../lib/issue-execution";
 import { useProjectOrder } from "../hooks/useProjectOrder";
 import { getRecentAssigneeIds, sortAgentsByRecency, trackRecentAssignee } from "../lib/recent-assignees";
 import { formatAssigneeUserLabel } from "../lib/assignees";
@@ -607,7 +608,7 @@ export function IssueProperties({ issue, onUpdate, inline }: IssuePropertiesProp
       <div className="space-y-1">
         <PropertyRow label="Status">
           <StatusIcon
-            status={issue.status}
+            status={issueDisplayStatus(issue)}
             onChange={(status) => onUpdate({ status })}
             showLabel
           />

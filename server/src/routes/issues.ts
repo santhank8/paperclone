@@ -38,6 +38,19 @@ import { isAllowedContentType, MAX_ATTACHMENT_BYTES } from "../attachment-types.
 import { queueIssueAssignmentWakeup } from "../services/issue-assignment-wakeup.js";
 
 const MAX_ISSUE_COMMENT_LIMIT = 500;
+const FRESH_SESSION_COMMENT_PATTERNS = [
+  /#fresh-session\b/i,
+  /\bfresh session\b/i,
+  /\bstart fresh\b/i,
+  /\bfrom scratch\b/i,
+  /\bignore (?:the )?(?:prior|previous) session\b/i,
+  /\breplay\b/i,
+];
+
+function shouldForceFreshSessionFromCommentBody(body: unknown) {
+  if (typeof body !== "string") return false;
+  return FRESH_SESSION_COMMENT_PATTERNS.some((pattern) => pattern.test(body));
+}
 
 export function issueRoutes(db: Db, storage: StorageService) {
   const router = Router();
@@ -955,6 +968,7 @@ export function issueRoutes(db: Db, storage: StorageService) {
       existing.status === "backlog" &&
       issue.status !== "backlog" &&
       req.body.status !== undefined;
+    const forceFreshSession = shouldForceFreshSessionFromCommentBody(commentBody);
 
     // Merge all wakeups from this update into one enqueue per agent to avoid duplicate runs.
     void (async () => {
@@ -1009,6 +1023,7 @@ export function issueRoutes(db: Db, storage: StorageService) {
               wakeCommentId: comment.id,
               wakeReason: "issue_comment_mentioned",
               source: "comment.mention",
+              ...(forceFreshSession ? { forceFreshSession: true } : {}),
             },
           });
         }
@@ -1317,6 +1332,7 @@ export function issueRoutes(db: Db, storage: StorageService) {
       agentId: actor.agentId ?? undefined,
       userId: actor.actorType === "user" ? actor.actorId : undefined,
     });
+    const forceFreshSession = shouldForceFreshSessionFromCommentBody(req.body.body);
 
     if (actor.runId) {
       await heartbeat.reportRunActivity(actor.runId).catch((err) =>
@@ -1349,7 +1365,17 @@ export function issueRoutes(db: Db, storage: StorageService) {
       const actorIsAgent = actor.actorType === "agent";
       const selfComment = actorIsAgent && actor.actorId === assigneeId;
       const skipWake = selfComment || isClosed;
-      if (assigneeId && (reopened || !skipWake)) {
+      let mentionedIds: string[] = [];
+      try {
+        mentionedIds = await svc.findMentionedAgents(issue.companyId, req.body.body);
+      } catch (err) {
+        logger.warn({ err, issueId: id }, "failed to resolve @-mentions");
+      }
+      const mentionedSet = new Set(mentionedIds);
+      const shouldWakeAssigneeByDefault =
+        assigneeId != null && (mentionedSet.size === 0 || mentionedSet.has(assigneeId));
+
+      if (assigneeId && shouldWakeAssigneeByDefault && (reopened || !skipWake)) {
         if (reopened) {
           wakeups.set(assigneeId, {
             source: "automation",
@@ -1371,6 +1397,7 @@ export function issueRoutes(db: Db, storage: StorageService) {
               source: "issue.comment.reopen",
               wakeReason: "issue_reopened_via_comment",
               reopenedFrom: reopenFromStatus,
+              ...(forceFreshSession ? { forceFreshSession: true } : {}),
               ...(interruptedRunId ? { interruptedRunId } : {}),
             },
           });
@@ -1393,17 +1420,11 @@ export function issueRoutes(db: Db, storage: StorageService) {
               commentId: comment.id,
               source: "issue.comment",
               wakeReason: "issue_commented",
+              ...(forceFreshSession ? { forceFreshSession: true } : {}),
               ...(interruptedRunId ? { interruptedRunId } : {}),
             },
           });
         }
-      }
-
-      let mentionedIds: string[] = [];
-      try {
-        mentionedIds = await svc.findMentionedAgents(issue.companyId, req.body.body);
-      } catch (err) {
-        logger.warn({ err, issueId: id }, "failed to resolve @-mentions");
       }
 
       for (const mentionedId of mentionedIds) {
@@ -1423,6 +1444,7 @@ export function issueRoutes(db: Db, storage: StorageService) {
             wakeCommentId: comment.id,
             wakeReason: "issue_comment_mentioned",
             source: "comment.mention",
+            ...(forceFreshSession ? { forceFreshSession: true } : {}),
           },
         });
       }

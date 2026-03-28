@@ -143,4 +143,71 @@ describe("issue comment reopen routes", () => {
       }),
     );
   });
+
+  it("marks replay mentions for a fresh session on PATCH comment updates", async () => {
+    mockIssueService.getById.mockResolvedValue(makeIssue("todo"));
+    mockIssueService.update.mockImplementation(async (_id: string, patch: Record<string, unknown>) => ({
+      ...makeIssue("todo"),
+      ...patch,
+    }));
+    mockIssueService.findMentionedAgents.mockResolvedValue(["22222222-2222-4222-8222-222222222222"]);
+
+    const res = await request(createApp())
+      .patch("/api/issues/11111111-1111-4111-8111-111111111111")
+      .send({ comment: "@Agent replay this lane from scratch" });
+
+    expect(res.status, JSON.stringify(res.body)).toBe(200);
+    expect(mockHeartbeatService.wakeup).toHaveBeenCalledWith(
+      "22222222-2222-4222-8222-222222222222",
+      expect.objectContaining({
+        reason: "issue_comment_mentioned",
+        contextSnapshot: expect.objectContaining({
+          wakeReason: "issue_comment_mentioned",
+          forceFreshSession: true,
+        }),
+      }),
+    );
+  });
+
+  it("marks replay comments for a fresh session on POST comment wakes", async () => {
+    mockIssueService.getById.mockResolvedValue(makeIssue("todo"));
+    mockIssueService.findMentionedAgents.mockResolvedValue(["33333333-3333-4333-8333-333333333333"]);
+
+    const res = await request(createApp())
+      .post("/api/issues/11111111-1111-4111-8111-111111111111/comments")
+      .send({ body: "@Agent fresh session please, replay this lane from scratch" });
+
+    expect(res.status, JSON.stringify(res.body)).toBe(201);
+    expect(mockHeartbeatService.wakeup).toHaveBeenCalledWith(
+      "33333333-3333-4333-8333-333333333333",
+      expect.objectContaining({
+        reason: "issue_comment_mentioned",
+        contextSnapshot: expect.objectContaining({
+          wakeReason: "issue_comment_mentioned",
+          forceFreshSession: true,
+        }),
+      }),
+    );
+    expect(mockHeartbeatService.wakeup).toHaveBeenCalledTimes(1);
+  });
+
+  it("still wakes the assignee when there are no explicit mentions", async () => {
+    mockIssueService.getById.mockResolvedValue(makeIssue("todo"));
+    mockIssueService.findMentionedAgents.mockResolvedValue([]);
+
+    const res = await request(createApp())
+      .post("/api/issues/11111111-1111-4111-8111-111111111111/comments")
+      .send({ body: "Please take another pass on this." });
+
+    expect(res.status, JSON.stringify(res.body)).toBe(201);
+    expect(mockHeartbeatService.wakeup).toHaveBeenCalledWith(
+      "22222222-2222-4222-8222-222222222222",
+      expect.objectContaining({
+        reason: "issue_commented",
+        contextSnapshot: expect.objectContaining({
+          wakeReason: "issue_commented",
+        }),
+      }),
+    );
+  });
 });

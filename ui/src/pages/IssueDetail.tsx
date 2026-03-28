@@ -15,6 +15,7 @@ import { useBreadcrumbs } from "../context/BreadcrumbContext";
 import { assigneeValueFromSelection, suggestedCommentAssigneeValue } from "../lib/assignees";
 import { queryKeys } from "../lib/queryKeys";
 import { readIssueDetailBreadcrumb } from "../lib/issueDetailBreadcrumb";
+import { issueDisplayStatus } from "../lib/issue-execution";
 import { useProjectOrder } from "../hooks/useProjectOrder";
 import { relativeTime, cn, formatTokens, visibleRunCostUsd } from "../lib/utils";
 import { InlineEditor } from "../components/InlineEditor";
@@ -54,7 +55,7 @@ import {
   Trash2,
 } from "lucide-react";
 import type { ActivityEvent } from "@paperclipai/shared";
-import type { Agent, IssueAttachment } from "@paperclipai/shared";
+import type { Agent, Issue, IssueAttachment } from "@paperclipai/shared";
 
 type CommentReassignment = {
   assigneeAgentId: string | null;
@@ -266,6 +267,18 @@ export function IssueDetail() {
     enabled: !!issueId,
     refetchInterval: 3000,
   });
+  const primaryLiveRun = useMemo(() => {
+    const candidates = [activeRun, ...(liveRuns ?? [])].filter(
+      (run): run is NonNullable<typeof activeRun> => Boolean(run),
+    );
+    if (candidates.length === 0) return null;
+    return candidates.sort((a, b) => {
+      const aTime = new Date(a.startedAt ?? a.createdAt ?? 0).getTime();
+      const bTime = new Date(b.startedAt ?? b.createdAt ?? 0).getTime();
+      return bTime - aTime;
+    })[0];
+  }, [activeRun, liveRuns]);
+  const displayedIssueStatus = issue ? issueDisplayStatus(issue, primaryLiveRun) : null;
 
   const hasLiveRuns = (liveRuns ?? []).length > 0 || !!activeRun;
   const sourceBreadcrumb = useMemo(
@@ -591,12 +604,26 @@ export function IssueDetail() {
 
   useEffect(() => {
     if (issue) {
+      const panelActiveRun: Issue["activeRun"] =
+        primaryLiveRun && (primaryLiveRun.status === "queued" || primaryLiveRun.status === "running")
+          ? {
+              id: primaryLiveRun.id,
+              status: primaryLiveRun.status,
+              agentId: primaryLiveRun.agentId,
+              invocationSource: primaryLiveRun.invocationSource,
+              triggerDetail: primaryLiveRun.triggerDetail,
+              startedAt: primaryLiveRun.startedAt ? new Date(primaryLiveRun.startedAt) : null,
+              finishedAt: primaryLiveRun.finishedAt ? new Date(primaryLiveRun.finishedAt) : null,
+              createdAt: new Date(primaryLiveRun.createdAt),
+            }
+          : issue.activeRun ?? null;
+      const issueForPanel = panelActiveRun ? { ...issue, activeRun: panelActiveRun } : issue;
       openPanel(
-        <IssueProperties issue={issue} onUpdate={(data) => updateIssue.mutate(data)} />
+        <IssueProperties issue={issueForPanel} onUpdate={(data) => updateIssue.mutate(data)} />
       );
     }
     return () => closePanel();
-  }, [issue]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [issue, primaryLiveRun]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const copyIssueToClipboard = async () => {
     if (!issue) return;
@@ -716,7 +743,7 @@ export function IssueDetail() {
       <div className="space-y-3">
         <div className="flex items-center gap-2 min-w-0 flex-wrap">
           <StatusIcon
-            status={issue.status}
+            status={displayedIssueStatus ?? issue.status}
             onChange={(status) => updateIssue.mutate({ status })}
           />
           <PriorityIcon

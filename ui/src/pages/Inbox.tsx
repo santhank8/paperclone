@@ -12,6 +12,7 @@ import { useCompany } from "../context/CompanyContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
 import { queryKeys } from "../lib/queryKeys";
 import { createIssueDetailLocationState } from "../lib/issueDetailBreadcrumb";
+import { issueDisplayStatus } from "../lib/issue-execution";
 import { EmptyState } from "../components/EmptyState";
 import { PageSkeleton } from "../components/PageSkeleton";
 import { IssueRow } from "../components/IssueRow";
@@ -862,7 +863,7 @@ export function Inbox() {
                     desktopMetaLeading={(
                       <>
                         <span className="hidden shrink-0 sm:inline-flex">
-                          <StatusIcon status={issue.status} />
+                          <StatusIcon status={issueDisplayStatus(issue)} />
                         </span>
                         <span className="shrink-0 font-mono text-xs text-muted-foreground">
                           {issue.identifier ?? issue.id.slice(0, 8)}
