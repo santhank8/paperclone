@@ -4,6 +4,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { issueRoutes } from "../routes/issues.js";
 import { errorHandler } from "../middleware/index.js";
 
+const COMPANY_ID = "11111111-1111-4111-8111-111111111111";
+
 const mockIssueService = vi.hoisted(() => ({
   list: vi.fn(),
   getById: vi.fn(),
@@ -52,7 +54,7 @@ function createApp() {
     (req as any).actor = {
       type: "board",
       userId: "local-board",
-      companyIds: ["company-1"],
+      companyIds: [COMPANY_ID],
       source: "local_implicit",
       isInstanceAdmin: false,
     };
@@ -69,8 +71,8 @@ describe("issues routes UUID validation", () => {
     mockIssueService.list.mockResolvedValue([]);
     mockIssueService.getByIdentifier.mockResolvedValue(null);
     mockIssueService.getById.mockResolvedValue({
-      id: "11111111-1111-4111-8111-111111111111",
-      companyId: "company-1",
+      id: "22222222-2222-4222-8222-222222222222",
+      companyId: COMPANY_ID,
       status: "todo",
     });
     mockIssueService.listComments.mockResolvedValue([]);
@@ -80,9 +82,16 @@ describe("issues routes UUID validation", () => {
   });
 
   it("returns 400 for invalid UUID-based list filters", async () => {
-    const res = await request(createApp()).get("/api/companies/company-1/issues?projectId=not-a-uuid");
+    const res = await request(createApp()).get(`/api/companies/${COMPANY_ID}/issues?projectId=not-a-uuid`);
     expect(res.status).toBe(400);
     expect(res.body.error).toContain("projectId");
+    expect(mockIssueService.list).not.toHaveBeenCalled();
+  });
+
+  it("returns 400 for invalid companyId path on company-scoped issue routes", async () => {
+    const res = await request(createApp()).get("/api/companies/not-a-uuid/issues");
+    expect(res.status).toBe(400);
+    expect(res.body.error).toContain("companyId");
     expect(mockIssueService.list).not.toHaveBeenCalled();
   });
 

@@ -4,6 +4,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { issueRoutes } from "../routes/issues.js";
 import { errorHandler } from "../middleware/index.js";
 
+const COMPANY_ID = "11111111-1111-4111-8111-111111111111";
+
 const mockIssueService = vi.hoisted(() => ({
   list: vi.fn(),
 }));
@@ -40,7 +42,7 @@ function createApp() {
     (req as any).actor = {
       type: "board",
       userId: "local-board",
-      companyIds: ["company-1"],
+      companyIds: [COMPANY_ID],
       source: "local_implicit",
       isInstanceAdmin: false,
     };
@@ -59,12 +61,12 @@ describe("issues list query parsing", () => {
 
   it("normalizes duplicate query params to safe strings for issue listing", async () => {
     const res = await request(createApp()).get(
-      "/api/companies/company-1/issues?status=todo&status=done&q=alpha&q=beta&includeRoutineExecutions=true&includeRoutineExecutions=false",
+      `/api/companies/${COMPANY_ID}/issues?status=todo&status=done&q=alpha&q=beta&includeRoutineExecutions=true&includeRoutineExecutions=false`,
     );
 
     expect(res.status).toBe(200);
     expect(mockIssueService.list).toHaveBeenCalledWith(
-      "company-1",
+      COMPANY_ID,
       expect.objectContaining({
         status: "todo",
         q: "alpha",
@@ -74,11 +76,11 @@ describe("issues list query parsing", () => {
   });
 
   it("normalizes comma-separated status filters before calling service", async () => {
-    const res = await request(createApp()).get("/api/companies/company-1/issues?status=todo,,in_progress,");
+    const res = await request(createApp()).get(`/api/companies/${COMPANY_ID}/issues?status=todo,,in_progress,`);
 
     expect(res.status).toBe(200);
     expect(mockIssueService.list).toHaveBeenCalledWith(
-      "company-1",
+      COMPANY_ID,
       expect.objectContaining({
         status: "todo,in_progress",
       }),
@@ -86,7 +88,7 @@ describe("issues list query parsing", () => {
   });
 
   it("returns 400 for invalid status filters instead of passing bad enum values to service", async () => {
-    const res = await request(createApp()).get("/api/companies/company-1/issues?status=todo,not_a_status");
+    const res = await request(createApp()).get(`/api/companies/${COMPANY_ID}/issues?status=todo,not_a_status`);
 
     expect(res.status).toBe(400);
     expect(res.body.error).toContain("Invalid status filter");
@@ -94,7 +96,7 @@ describe("issues list query parsing", () => {
   });
 
   it("returns 400 for invalid originKind filters instead of passing bad enum values to service", async () => {
-    const res = await request(createApp()).get("/api/companies/company-1/issues?originKind=unexpected");
+    const res = await request(createApp()).get(`/api/companies/${COMPANY_ID}/issues?originKind=unexpected`);
 
     expect(res.status).toBe(400);
     expect(res.body.error).toContain("Invalid originKind filter");
