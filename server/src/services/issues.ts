@@ -1193,6 +1193,10 @@ export function issueService(db: Db) {
     },
 
     assertCheckoutOwner: async (id: string, actorAgentId: string, actorRunId: string | null) => {
+      if (!isUuidLike(id)) throw notFound("Issue not found");
+      if (!isUuidLike(actorAgentId)) throw conflict("Issue run ownership conflict");
+      if (actorRunId && !isUuidLike(actorRunId)) throw conflict("Issue run ownership conflict");
+
       const current = await db
         .select({
           id: issues.id,
@@ -1247,6 +1251,10 @@ export function issueService(db: Db) {
     },
 
     release: async (id: string, actorAgentId?: string, actorRunId?: string | null) => {
+      if (!isUuidLike(id)) return null;
+      if (actorAgentId && !isUuidLike(actorAgentId)) throw conflict("Only assignee can release issue");
+      if (actorRunId && !isUuidLike(actorRunId)) throw conflict("Only checkout run can release issue");
+
       const existing = await db
         .select()
         .from(issues)
