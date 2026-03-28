@@ -31,34 +31,34 @@
 
 实际上，当前实现适用于本地开发和自托管持久化部署，但尚不适用于多实例云端插件分发。
 
-## 1. Scope
+## 1. 范围
 
-This spec covers:
+本规范涵盖：
 
-- plugin packaging and installation
-- runtime model
-- trust model
-- capability system
-- UI extension surfaces
-- plugin settings UI
-- agent tool contributions
-- event, job, and webhook surfaces
-- plugin-to-plugin communication
-- local tooling approach for workspace plugins
-- Postgres persistence for extensions
-- uninstall and data lifecycle
-- plugin observability
-- plugin development and testing
-- operator workflows
-- hot plugin lifecycle (no server restart)
-- SDK versioning and compatibility rules
+- 插件打包与安装
+- 运行时模型
+- 信任模型
+- 能力系统
+- UI 扩展界面
+- 插件设置 UI
+- Agent 工具贡献
+- 事件、作业和 Webhook 界面
+- 插件间通信
+- 工作区插件的本地工具方法
+- 扩展的 Postgres 持久化
+- 卸载与数据生命周期
+- 插件可观测性
+- 插件开发与测试
+- 运营者工作流
+- 热插件生命周期（无需重启服务器）
+- SDK 版本管理与兼容性规则
 
-This spec does not cover:
+本规范不涵盖：
 
-- a public marketplace
-- cloud/SaaS multi-tenancy
-- arbitrary third-party schema migrations in the first plugin version
-- iframe-sandboxed plugin UI in the first plugin version (plugins render as ES modules in host extension slots)
+- 公共插件市场
+- 云端/SaaS 多租户
+- 第一个插件版本中的任意第三方 Schema 迁移
+- 第一个插件版本中基于 iframe 沙箱的插件 UI（插件以 ES 模块形式在主机扩展槽中渲染）
 
 ## 2. Core Assumptions
 

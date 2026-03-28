@@ -43,9 +43,9 @@ HOST_PORT=3233 DATA_DIR=./data/release-smoke-stable PAPERCLIPAI_VERSION=latest .
 
 然后将该测试接入 GitHub Actions，使发布验证不再只是手动操作。
 
-## Recommendation In One Sentence
+## 一句话建议
 
-Turn the current Docker smoke script into a machine-friendly test harness, add a dedicated Playwright release-smoke spec that drives the authenticated browser flow against published Docker installs, and run it in GitHub Actions for both `canary` and `latest`.
+将现有 Docker 冒烟脚本改造为机器友好的测试框架，添加专用的 Playwright 发布冒烟规范，驱动已认证的浏览器流程针对已发布的 Docker 安装运行，并在 GitHub Actions 中分别对 `canary` 和 `latest` 执行该测试。
 
 ## What We Have Today
 

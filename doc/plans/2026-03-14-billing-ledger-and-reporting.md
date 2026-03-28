@@ -1,74 +1,74 @@
-# Billing Ledger and Reporting
+# 计费账本与报告
 
-## Context
+## 背景
 
-Paperclip currently stores model spend in `cost_events` and operational run state in `heartbeat_runs`.
-That split is fine, but the current reporting code tries to infer billing semantics by mixing both tables:
+Paperclip 目前将模型费用存储在 `cost_events` 中，将运行操作状态存储在 `heartbeat_runs` 中。
+这种拆分本身没有问题，但当前的报告代码试图通过混合使用这两张表来推断计费语义：
 
-- `cost_events` knows provider, model, tokens, and dollars
-- `heartbeat_runs.usage_json` knows some per-run billing metadata
-- `heartbeat_runs.usage_json` does **not** currently carry enough normalized billing dimensions to support honest provider-level reporting
+- `cost_events` 包含提供商、模型、token 数量和金额信息
+- `heartbeat_runs.usage_json` 包含部分每次运行的计费元数据
+- `heartbeat_runs.usage_json` 目前**不**包含足够规范化的计费维度，无法支持准确的提供商级报告
 
-This becomes incorrect as soon as a company uses more than one provider, more than one billing channel, or more than one billing mode.
+一旦某家公司使用了多个提供商、多个计费渠道或多种计费模式，现有系统就会出现错误。
 
-Examples:
+示例：
 
-- direct OpenAI API usage
-- Claude subscription usage with zero marginal dollars
-- subscription overage with dollars and tokens
-- OpenRouter billing where the biller is OpenRouter but the upstream provider is Anthropic or OpenAI
+- 直接使用 OpenAI API
+- Claude 订阅用量，边际费用为零
+- 订阅超额使用，含金额和 token
+- OpenRouter 计费，其中计费方为 OpenRouter，但上游提供商是 Anthropic 或 OpenAI
 
-The system needs to support:
+系统需要支持：
 
-- dollar reporting
-- token reporting
-- subscription-included usage
-- subscription overage
-- direct metered API usage
-- future aggregator billing such as OpenRouter
+- 金额报告
+- token 报告
+- 订阅内含用量
+- 订阅超额用量
+- 直接计量 API 用量
+- 未来的聚合商计费（如 OpenRouter）
 
-## Product Decision
+## 产品决策
 
-`cost_events` becomes the canonical billing and usage ledger for reporting.
+`cost_events` 成为报告所用的权威计费与用量账本。
 
-`heartbeat_runs` remains an operational execution log. It may keep mirrored billing metadata for debugging and transcripts, but reporting must not reconstruct billing semantics from `heartbeat_runs.usage_json`.
+`heartbeat_runs` 保持为运行操作日志。它可以保留镜像的计费元数据用于调试和记录，但报告不得从 `heartbeat_runs.usage_json` 中重建计费语义。
 
-## Decision: One Ledger Or Two
+## 决策：单一账本还是两张表
 
-We do **not** need two tables to solve the current PR's problem.
-For request-level inference reporting, `cost_events` is enough if it carries the right dimensions:
+解决当前 PR 的问题**不需要**两张表。
+对于请求级推理报告，只要 `cost_events` 携带了正确的维度即可满足需求：
 
-- upstream provider
-- biller
-- billing type
-- model
-- token fields
-- billed amount
+- 上游提供商
+- 计费方
+- 计费类型
+- 模型
+- token 字段
+- 计费金额
 
-That is why the first implementation pass extends `cost_events` instead of introducing a second table immediately.
+这就是为什么第一阶段实现选择扩展 `cost_events`，而不是立即引入第二张表。
 
-However, if Paperclip needs to account for the full billing surface of aggregators and managed AI platforms, then `cost_events` alone is not enough.
-Some charges are not cleanly representable as a single model inference event:
+但是，如果 Paperclip 需要覆盖聚合商和托管 AI 平台的完整计费面，则 `cost_events` 单独是不够的。
+某些费用无法简洁地表示为单次模型推理事件：
 
-- account top-ups and credit purchases
-- platform fees charged at purchase time
-- BYOK platform fees that are account-level or threshold-based
-- prepaid credit expirations, refunds, and adjustments
-- provisioned throughput commitments
-- fine-tuning, training, model import, and storage charges
-- gateway logging or other platform overhead that is not attributable to one prompt/response pair
+- 账户充值和积分购买
+- 购买时收取的平台费用
+- 账户级或基于阈值的 BYOK 平台费用
+- 预付积分到期、退款和调整
+- 预留吞吐量承诺
+- 微调、训练、模型导入和存储费用
+- 网关日志记录或其他无法归因于单次提示/响应对的平台开销
 
-So the decision is:
+因此，决策如下：
 
-- near term: keep `cost_events` as the inference and usage ledger
-- next phase: add `finance_events` for non-inference financial events
+- 近期：保留 `cost_events` 作为推理和用量账本
+- 下一阶段：添加 `finance_events` 用于非推理类财务事件
 
-This is a deliberate split between:
+这是有意为之的拆分，区分了：
 
-- usage and inference accounting
-- account-level and platform-level financial accounting
+- 用量与推理会计
+- 账户级和平台级财务会计
 
-That separation keeps request reporting honest without forcing us to fake invoice semantics onto rows that were never request-scoped.
+这种分离确保请求报告的准确性，避免将从未属于请求范围的行强行套入发票语义。
 
 ## External Motivation And Sources
 

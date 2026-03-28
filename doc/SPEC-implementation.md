@@ -54,60 +54,60 @@ Paperclip V1 必须为自主智能体提供完整的控制平面循环：
 
 V1 实现在此基线上扩展为以公司为中心、具备治理意识的控制平面。
 
-## 5. V1 Scope
+## 5. V1 范围
 
-## 5.1 In Scope
+## 5.1 范围内
 
-- Company lifecycle (create/list/get/update/archive)
-- Goal hierarchy linked to company mission
-- Agent lifecycle with org structure and adapter configuration
-- Task lifecycle with parent/child hierarchy and comments
-- Atomic task checkout and explicit task status transitions
-- Board approvals for hires and CEO strategy proposal
-- Heartbeat invocation, status tracking, and cancellation
-- Cost event ingestion and rollups (agent/task/project/company)
-- Budget settings and hard-stop enforcement
-- Board web UI for dashboard, org chart, tasks, agents, approvals, costs
-- Agent-facing API contract (task read/write, heartbeat report, cost report)
-- Auditable activity log for all mutating actions
+- 公司生命周期（创建/列出/获取/更新/归档）
+- 与公司使命关联的目标层级
+- 含组织结构和适配器配置的智能体生命周期
+- 含父子层级和评论的任务生命周期
+- 原子任务检出和明确的任务状态转换
+- 董事会对招聘及 CEO 战略提案的审批
+- 心跳调用、状态追踪及取消
+- 成本事件采集和汇总（智能体/任务/项目/公司）
+- 预算设置和硬停止执行
+- 董事会 Web UI（仪表盘、组织图、任务、智能体、审批、成本）
+- 面向智能体的 API 契约（任务读写、心跳上报、成本上报）
+- 所有变更操作的可审计活动日志
 
-## 5.2 Out of Scope (V1)
+## 5.2 范围外（V1）
 
-- Plugin framework and third-party extension SDK
-- Revenue/expense accounting beyond model/token costs
-- Knowledge base subsystem
-- Public marketplace (ClipHub)
-- Multi-board governance or role-based human permission granularity
-- Automatic self-healing orchestration (auto-reassign/retry planners)
+- 插件框架和第三方扩展 SDK
+- 超出模型/Token 成本的收入/支出核算
+- 知识库子系统
+- 公共市场（ClipHub）
+- 多董事会治理或基于角色的人类权限细粒度管理
+- 自动自愈编排（自动重新分配/重试规划器）
 
-## 6. Architecture
+## 6. 架构
 
-## 6.1 Runtime Components
+## 6.1 运行时组件
 
-- `server/`: REST API, auth, orchestration services
-- `ui/`: Board operator interface
-- `packages/db/`: Drizzle schema, migrations, DB clients (Postgres)
-- `packages/shared/`: Shared API types, validators, constants
+- `server/`：REST API、认证、编排服务
+- `ui/`：董事会运营者界面
+- `packages/db/`：Drizzle 架构、迁移、数据库客户端（Postgres）
+- `packages/shared/`：共享 API 类型、验证器、常量
 
-## 6.2 Data Stores
+## 6.2 数据存储
 
-- Primary: PostgreSQL
-- Local default: embedded PostgreSQL at `~/.paperclip/instances/default/db`
-- Optional local prod-like: Docker Postgres
-- Optional hosted: Supabase/Postgres-compatible
-- File/object storage:
-  - local default: `~/.paperclip/instances/default/data/storage` (`local_disk`)
-  - cloud: S3-compatible object storage (`s3`)
+- 主数据库：PostgreSQL
+- 本地默认：内嵌 PostgreSQL，路径为 `~/.paperclip/instances/default/db`
+- 可选的本地类生产环境：Docker Postgres
+- 可选托管方案：Supabase/Postgres 兼容
+- 文件/对象存储：
+  - 本地默认：`~/.paperclip/instances/default/data/storage`（`local_disk`）
+  - 云端：S3 兼容对象存储（`s3`）
 
-## 6.3 Background Processing
+## 6.3 后台处理
 
-A lightweight scheduler/worker in the server process handles:
+服务进程中的轻量级调度器/工作进程负责处理：
 
-- heartbeat trigger checks
-- stuck run detection
-- budget threshold checks
+- 心跳触发检查
+- 卡住运行检测
+- 预算阈值检查
 
-Separate queue infrastructure is not required for V1.
+V1 不需要独立的队列基础设施。
 
 ## 7. Canonical Data Model (V1)
 

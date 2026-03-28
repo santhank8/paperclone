@@ -52,43 +52,43 @@ Paperclip 代码库中已具备可移植性基础原语：
 10. `skills.sh` 兼容性是 V1 阶段对 skill 包及 skill 安装流程的硬性要求
 11. 适配器感知的 skill 同步界面，使 Paperclip 能在适配器支持时读取、对比、启用、禁用并协调 skill
 
-## 3. Product Goals
+## 3. 产品目标
 
-### 3.1 Goals
+### 3.1 目标
 
-- A user can point Paperclip at a local folder or GitHub repo and import a company package without any registry.
-- A package is readable and writable by humans with normal git workflows.
-- A package can contain:
-  - company definition
-  - org subtree / team definition
-  - agent definitions
-  - optional starter projects and tasks
-  - reusable skills
-- V1 skill support is compatible with the existing `skills.sh` / Agent Skills ecosystem.
-- A user can import into:
-  - a new company
-  - an existing company
-- Import preview shows:
-  - what will be created
-  - what will be updated
-  - what is skipped
-  - what is referenced externally
-  - what needs secrets or approvals
-- Export preserves attribution, licensing, and pinned upstream references.
-- Export produces a clean vendor-neutral package plus a Paperclip sidecar.
-- `companies.sh` can later act as a discovery/index layer over repos implementing this format.
+- 用户可以将 Paperclip 指向本地文件夹或 GitHub 仓库，无需任何注册中心即可导入公司包。
+- 包可由人工通过普通 git 工作流进行读写。
+- 包可包含以下内容：
+  - 公司定义
+  - 组织子树/团队定义
+  - agent 定义
+  - 可选的初始项目和任务
+  - 可复用的 skill
+- V1 阶段的 skill 支持与现有 `skills.sh` / Agent Skills 生态兼容。
+- 用户可以将内容导入：
+  - 新建公司
+  - 已有公司
+- 导入预览展示：
+  - 将会创建的内容
+  - 将会更新的内容
+  - 将被跳过的内容
+  - 外部引用的内容
+  - 需要密钥或审批的内容
+- 导出保留归因、许可证信息及固定的上游引用。
+- 导出产出一个干净的厂商中立包，以及一个 Paperclip 附加文件。
+- `companies.sh` 未来可作为实现此格式的仓库的发现/索引层。
 
-### 3.2 Non-Goals
+### 3.2 非目标
 
-- No central registry is required for package validity.
-- This is not full database backup/restore.
-- This does not attempt to export runtime state like:
-  - heartbeat runs
-  - API keys
-  - spend totals
-  - run sessions
-  - transient workspaces
-- This does not require a first-class runtime `teams` table before team portability ships.
+- 包的有效性不需要中央注册中心。
+- 这不是完整的数据库备份/恢复方案。
+- 不尝试导出以下运行时状态：
+  - heartbeat 运行记录
+  - API 密钥
+  - 消耗总计
+  - 运行会话
+  - 临时工作空间
+- 在团队可移植性发布之前，不需要优先建立运行时 `teams` 表。
 
 ## 4. Current State In Repo
 

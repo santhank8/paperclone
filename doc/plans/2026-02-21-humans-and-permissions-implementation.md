@@ -1,76 +1,76 @@
-# Humans and Permissions Implementation (V1)
+# 人类用户与权限实现方案（V1）
 
-Status: Draft
-Date: 2026-02-21
-Owners: Server + UI + CLI + DB + Shared
-Companion plan: `doc/plan/humans-and-permissions.md`
+状态：草稿
+日期：2026-02-21
+负责人：Server + UI + CLI + DB + Shared
+配套方案：`doc/plan/humans-and-permissions.md`
 
-## 1. Document role
+## 1. 文档职责
 
-This document is the engineering implementation contract for the humans-and-permissions plan.
-It translates product decisions into concrete schema, API, middleware, UI, CLI, and test work.
+本文档是人类用户与权限方案的工程实现合同。
+它将产品决策转化为具体的 schema、API、中间件、UI、CLI 和测试工作。
 
-If this document conflicts with prior exploratory notes, this document wins for V1 execution.
+如本文档与早期探索性笔记存在冲突，以本文档为准执行 V1。
 
-## 2. Locked V1 decisions
+## 2. V1 锁定决策
 
-1. Two deployment modes remain:
+1. 保留两种部署模式：
 - `local_trusted`
 - `cloud_hosted`
 
-2. `local_trusted`:
-- no login UX
-- implicit local instance admin actor
-- loopback-only server binding
-- full admin/settings/invite/approval capabilities available locally
+2. `local_trusted`：
+- 无登录 UI
+- 隐式本地实例管理员角色
+- 仅绑定回环地址
+- 本地可使用完整的管理/设置/邀请/审批功能
 
-3. `cloud_hosted`:
-- Better Auth for humans
-- email/password only
-- no email verification requirement in V1
+3. `cloud_hosted`：
+- 人类用户使用 Better Auth
+- 仅支持邮箱/密码登录
+- V1 不要求邮箱验证
 
-4. Permissions:
-- one shared authorization system for humans and agents
-- normalized grants table (`principal_permission_grants`)
-- no separate “agent permissions engine”
+4. 权限：
+- 人类与智能体共用同一套授权系统
+- 规范化授权表（`principal_permission_grants`）
+- 不单独设立”智能体权限引擎”
 
-5. Invites:
-- copy-link only (no outbound email sending in V1)
-- unified `company_join` link that supports human or agent path
-- acceptance creates `pending_approval` join request
-- no access until admin approval
+5. 邀请：
+- 仅复制链接（V1 不发送外部邮件）
+- 统一的 `company_join` 链接，同时支持人类或智能体路径
+- 接受后创建 `pending_approval` 加入请求
+- 管理员审批前不授予任何访问权限
 
-6. Join review metadata:
-- source IP required
-- no GeoIP/country lookup in V1
+6. 加入审核元数据：
+- 必须记录来源 IP
+- V1 不进行 GeoIP/国家查询
 
-7. Agent API keys:
-- indefinite by default
-- hash at rest
-- display once on claim
-- revoke/regenerate supported
+7. 智能体 API 密钥：
+- 默认永久有效
+- 哈希存储
+- 领取时仅显示一次明文
+- 支持吊销/重新生成
 
-8. Local ingress:
-- public/untrusted ingress is out of scope for V1
-- no `--dangerous-agent-ingress` in V1
+8. 本地入口：
+- V1 不支持公共/不受信任的入口
+- V1 不实现 `--dangerous-agent-ingress`
 
-## 3. Current baseline and delta
+## 3. 当前基准与变更增量
 
-Current baseline (repo as of this doc):
+当前基准（截至本文档的代码库状态）：
 
-- server actor model defaults to `board` in `server/src/middleware/auth.ts`
-- authorization is mostly `assertBoard` + company check in `server/src/routes/authz.ts`
-- no human auth/session tables in local schema
-- no principal membership or grants tables
-- no invite or join-request lifecycle
+- 服务器角色模型在 `server/src/middleware/auth.ts` 中默认为 `board`
+- 授权主要依赖 `server/src/routes/authz.ts` 中的 `assertBoard` + 公司检查
+- 本地 schema 中无人类身份验证/会话表
+- 无主体成员资格或授权表
+- 无邀请或加入请求生命周期
 
-Required delta:
+所需变更：
 
-- move from board-vs-agent authz to principal-based authz
-- add Better Auth integration in cloud mode
-- add membership/grants/invite/join-request persistence
-- add approval inbox signals and actions
-- preserve local no-login UX without weakening cloud security
+- 从 board-vs-agent 授权迁移至基于主体的授权
+- 在云模式中集成 Better Auth
+- 添加成员资格/授权/邀请/加入请求的持久化
+- 添加审批收件箱信号与操作
+- 在不削弱云端安全性的前提下保留本地无登录体验
 
 ## 4. Architecture
 

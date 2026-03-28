@@ -52,43 +52,40 @@ Issue 是工作的基本单元。
 
 ---
 
-## Workflow States
+## 工作流状态
 
-Issue status is **not** a flat enum. It's a team-specific set of named states,
-each belonging to one of these fixed **categories**:
+Issue 的状态**不是**一个扁平的枚举，而是每个团队自定义的一组具名状态，每个状态归属于以下固定**类别**之一：
 
-| Category      | Purpose                      | Example States                  |
+| 类别          | 用途                         | 示例状态                        |
 | ------------- | ---------------------------- | ------------------------------- |
-| **Triage**    | Incoming, needs review       | Triage                          |
-| **Backlog**   | Accepted, not ready for work | Backlog, Icebox                 |
-| **Unstarted** | Ready but not begun          | Todo, Ready                     |
-| **Started**   | Active work                  | In Progress, In Review, In QA   |
-| **Completed** | Done                         | Done, Shipped                   |
-| **Cancelled** | Rejected or abandoned        | Cancelled, Won't Fix, Duplicate |
+| **Triage**    | 新进，待审查                 | Triage                          |
+| **Backlog**   | 已接受，尚未准备好开工       | Backlog, Icebox                 |
+| **Unstarted** | 已就绪但尚未开始             | Todo, Ready                     |
+| **Started**   | 积极推进中                   | In Progress, In Review, In QA   |
+| **Completed** | 已完成                       | Done, Shipped                   |
+| **Cancelled** | 已拒绝或已放弃               | Cancelled, Won't Fix, Duplicate |
 
-### Rules
+### 规则
 
-- Each team defines its own workflow states within these categories
-- Teams must have at least one state per category (Triage is optional)
-- Custom states can be added within any category (e.g. "In Review" under Started)
-- Categories are fixed and ordered -- you can reorder states _within_ a category
-  but not the categories themselves
-- New issues default to the team's first Backlog state
-- Moving an issue to a Started state auto-sets `startedAt`; Completed sets
-  `completedAt`; Cancelled sets `cancelledAt`
-- Marking an issue as a duplicate auto-moves it to a Cancelled state
+- 每个团队在这些类别内定义自己的工作流状态
+- 每个团队每个类别至少需有一个状态（Triage 可选）
+- 可在任意类别内添加自定义状态（例如在 Started 下添加 "In Review"）
+- 类别固定且有序——可在类别_内部_对状态排序，但不能调整类别本身的顺序
+- 新 issue 默认为团队的第一个 Backlog 状态
+- 将 issue 移至 Started 状态时自动设置 `startedAt`；移至 Completed 时设置 `completedAt`；移至 Cancelled 时设置 `cancelledAt`
+- 将 issue 标记为重复时自动移入 Cancelled 状态
 
-### WorkflowState Fields
+### WorkflowState 字段
 
-| Field         | Type    | Notes                                                                         |
+| 字段          | 类型    | 说明                                                                          |
 | ------------- | ------- | ----------------------------------------------------------------------------- |
 | `id`          | uuid    |                                                                               |
-| `name`        | string  | Display name, e.g. "In Review"                                                |
-| `type`        | enum    | One of: `triage`, `backlog`, `unstarted`, `started`, `completed`, `cancelled` |
-| `color`       | string  | Hex color                                                                     |
-| `description` | string  | Optional guidance text                                                        |
-| `position`    | float   | Ordering within the category                                                  |
-| `teamId`      | uuid FK | Each state belongs to one team                                                |
+| `name`        | string  | 显示名称，例如 "In Review"                                                    |
+| `type`        | enum    | 取值之一：`triage`, `backlog`, `unstarted`, `started`, `completed`, `cancelled` |
+| `color`       | string  | 十六进制颜色值                                                                |
+| `description` | string  | 可选的指导说明文字                                                            |
+| `position`    | float   | 类别内的排序顺序                                                              |
+| `teamId`      | uuid FK | 每个状态属于一个团队                                                          |
 
 ---
 

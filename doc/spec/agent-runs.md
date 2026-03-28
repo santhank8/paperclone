@@ -33,24 +33,24 @@
    - 任务分配时唤醒
    - 显式 ping/请求
 
-## 3. Goals and Non-Goals
+## 3. 目标与非目标
 
-### 3.1 Goals
+### 3.1 目标
 
-1. Define a stable adapter protocol that supports multiple runtimes.
-2. Ship production-usable local adapters for Claude CLI and Codex CLI.
-3. Persist adapter runtime state (session IDs, token/cost usage, last errors).
-4. Centralize wakeup decisions and queueing in one service.
-5. Provide realtime run/task/agent updates to the browser.
-6. Support deployment-specific full-log storage without bloating Postgres.
-7. Preserve company scoping and existing governance invariants.
+1. 定义一套支持多运行时的稳定适配器协议。
+2. 交付可用于生产环境的 Claude CLI 和 Codex CLI 本地适配器。
+3. 持久化适配器运行时状态（session ID、token/费用用量、最近错误）。
+4. 在单一服务中集中管理唤醒决策与队列。
+5. 向浏览器提供运行/任务/agent 的实时更新。
+6. 在不使 Postgres 膨胀的前提下，支持特定部署的完整日志存储。
+7. 保留公司作用域及现有治理不变量。
 
-### 3.2 Non-Goals (for this subsystem phase)
+### 3.2 非目标（本子系统阶段）
 
-1. Distributed execution workers across multiple hosts.
-2. Third-party adapter marketplace/plugin SDK.
-3. Perfect cost accounting for providers that do not emit cost.
-4. Long-term log archival strategy beyond basic retention.
+1. 跨多主机的分布式执行 worker。
+2. 第三方适配器市场/插件 SDK。
+3. 对不发出费用数据的 provider 进行完美费用核算。
+4. 超出基本保留期的长期日志归档策略。
 
 ## 4. Baseline and Gaps (As of 2026-02-17)
 

@@ -23,31 +23,31 @@ Paperclip 需要支持两种截然不同但同样合理的工作方式：
 - 让工作区过于隐蔽，导致用户无法形成心智模型
 - 让 Paperclip 看起来像代码审查工具，而非控制平面
 
-## Goals
+## 目标
 
-1. Keep `project` lightweight enough to remain a planning container.
-2. Make workspace behavior understandable for both git and non-git projects.
-3. Support three real workflows without forcing one:
-   - shared workspace / direct-edit workflows
-   - isolated issue workspace workflows
-   - long-lived branch or operator integration workflows
-4. Provide a first-class place to see the outputs of work:
-   - previews
-   - PRs
-   - branches
-   - commits
-   - documents and artifacts
-5. Keep the main navigation and task board simple.
-6. Seamlessly upgrade existing Paperclip users to the new model without forcing disruptive reconfiguration.
-7. Support cloud-hosted Paperclip deployments where execution happens in remote or adapter-managed environments rather than local workers.
+1. 保持 `project` 足够轻量，以继续作为规划容器。
+2. 使工作区行为对 git 和非 git 项目都易于理解。
+3. 支持三种真实工作流，而不强制使用某一种：
+   - 共享工作区 / 直接编辑工作流
+   - 隔离 issue 工作区工作流
+   - 长期存在的分支或运营者集成工作流
+4. 提供一个一等公民的位置来查看工作成果：
+   - 预览
+   - PR
+   - 分支
+   - 提交
+   - 文档和制品
+5. 保持主导航和任务看板简洁。
+6. 无缝升级现有 Paperclip 用户到新模型，无需强制进行破坏性重新配置。
+7. 支持云托管的 Paperclip 部署，其中执行发生在远程或适配器管理的环境中，而非本地工作节点。
 
-## Non-Goals
+## 非目标
 
-- Turning Paperclip into a full code review product
-- Requiring every issue to have its own branch or PR
-- Requiring every project to configure code/workspace automation
-- Making workspaces a top-level global navigation primitive in V1
-- Requiring a local filesystem path or local git checkout to use workspace-aware execution
+- 将 Paperclip 变成完整的代码审查产品
+- 要求每个 issue 都有自己的分支或 PR
+- 要求每个项目都配置代码/工作区自动化
+- 在 V1 中将工作区作为顶级全局导航元素
+- 要求使用本地文件系统路径或本地 git 检出来使用工作区感知执行
 
 ## Core Product Decisions
 

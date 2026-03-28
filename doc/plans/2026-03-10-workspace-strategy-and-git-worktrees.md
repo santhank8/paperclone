@@ -1,24 +1,24 @@
-# Workspace Strategy and Git Worktrees
+# 工作区策略与 Git Worktrees
 
-## Context
+## 背景
 
-`PAP-447` asks how Paperclip should support worktree-driven coding workflows for local coding agents without turning that into a universal product requirement.
+`PAP-447` 探讨 Paperclip 应如何在不将其作为通用产品要求的前提下，为本地编码代理支持基于 worktree 的编码工作流。
 
-The motivating use case is strong:
+该动机用例十分充分：
 
-- when an issue starts, a local coding agent may want its own isolated checkout
-- the agent may need a dedicated branch and a predictable path to push later
-- the agent may need to start one or more long-lived workspace runtime services, discover reachable ports or URLs, and report them back into the issue
-- the workflow should reuse the same Paperclip instance and embedded database instead of creating a blank environment
-- local agent auth should remain low-friction
+- 当一个问题开始时，本地编码代理可能需要自己的独立检出（isolated checkout）
+- 代理可能需要一个专用分支，以及之后推送的可预测路径
+- 代理可能需要启动一个或多个长期运行的工作区运行时服务，发现可达的端口或 URL，并将其报告回该问题
+- 该工作流应复用同一个 Paperclip 实例和嵌入式数据库，而不是创建一个空白环境
+- 本地代理的身份验证应保持低摩擦
 
-At the same time, we do not want to hard-code "every agent uses git worktrees" into Paperclip:
+与此同时，我们不希望将"每个代理都使用 git worktrees"硬编码到 Paperclip 中：
 
-- some operators use Paperclip to manage Paperclip and want worktrees heavily
-- other operators will not want worktrees at all
-- not every adapter runs in a local git repository
-- not every adapter runs on the same machine as Paperclip
-- Claude and Codex expose different built-in affordances, so Paperclip should not overfit to one tool
+- 部分运营者使用 Paperclip 来管理 Paperclip 本身，并大量依赖 worktrees
+- 其他运营者完全不需要 worktrees
+- 并非每个适配器都在本地 git 仓库中运行
+- 并非每个适配器都与 Paperclip 运行在同一台机器上
+- Claude 和 Codex 暴露了不同的内置功能，因此 Paperclip 不应过度适配某一工具
 
 ## Core Product Decision
 
