@@ -1,21 +1,18 @@
-# Penclip 上游同步与冲突处理 Runbook
+# Penclip 上游同步 Runbook
 
 ## 1. 目的
 
-这份文档说明后续从上游拉新代码时，如何在保留 Penclip 中文增强版能力的前提下，尽量低成本、低冲突地同步 `paperclipai/paperclip`。
+这份 runbook 用来指导 Penclip 从上游 `paperclipai/paperclip` 同步代码，并在同步过程中保住三类长期差异：
 
-目标不是“永远零冲突”，而是：
+- Penclip 品牌边界
+- UI 本地化与 locale 基础设施
+- Windows 兼容层
 
-- 让冲突集中在少数已知文件和已知步骤里
-- 避免误把 Penclip 的品牌、本地化、Windows 兼容层冲掉
-- 尽量吸收上游结构、bugfix 和工程改进，而不是把旧 fork 文件整块留下
+目标不是“零冲突”，而是把同步工作收敛为一套稳定、可复盘、可 review 的流程。
 
-这是一份操作型 runbook。
-规范性要求以仓库内其他文档为准。
+## 2. 开始前必读
 
-## 2. 开始前先读什么
-
-开始同步前，至少先读：
+每次同步前至少先读：
 
 1. `AGENTS.md`
 2. `doc/DEVELOPING.md`
@@ -29,36 +26,62 @@
 
 ## 3. 先确认远端角色
 
-不要先假设谁是 `origin`、谁是 `upstream`。
-先看实际 remote 配置：
+不要先假设谁是 `origin`、谁是 `upstream`。先看实际配置：
 
 ```sh
 git remote -v
 ```
 
-在 Penclip 场景里，通常会出现两类布局：
-
-- 布局 A：
-  - `origin` = 上游 `paperclipai/paperclip`
-  - 私有/团队 fork 使用其他 remote 名称，例如 `private`
-- 布局 B：
-  - `origin` = Penclip 自己的仓库
-  - `upstream` = `paperclipai/paperclip`
-
-后面所有命令都要先映射清楚这三个角色：
+同步时只关心三个角色：
 
 - `upstream remote`
   - 原始 Paperclip 仓库
 - `fork remote`
   - Penclip 自己的仓库
 - `base branch`
-  - Penclip 当前准备合并回去的目标分支，通常是 `master`
+  - Penclip 最终要合回去的目标分支，通常是 `master`
 
-如果 remote 命名和本文示例不同，替换成你的实际名字，不要机械照抄。
+常见布局：
 
-## 4. Penclip 必须长期保留的 fork 差异
+- 布局 A
+  - `origin` = 上游
+  - `private` = Penclip fork
+- 布局 B
+  - `origin` = Penclip fork
+  - `upstream` = 上游
 
-### 4.1 品牌与域名边界
+后面所有命令都要先映射到这三个角色，不要机械照抄 remote 名。
+
+## 4. 固定规则
+
+### 4.1 分支规则
+
+上游同步必须在工作分支上完成，不允许直接留在 `master`：
+
+- 工作分支命名：`codex/upstream-sync-YYYYMMDD`
+- 安全分支命名：`codex/upstream-sync-YYYYMMDD-safety`
+- 不要在本地 `master` 上做 merge、冲突解决、提交和推送
+- 最终必须推送工作分支，并通过 PR 合回 Penclip 的 `master`
+
+### 4.2 同步策略
+
+长期 fork 默认使用 merge，不默认使用 rebase：
+
+```sh
+git merge origin/master
+```
+
+如果你的仓库布局里 `upstream/master` 才代表真正上游，就替换成：
+
+```sh
+git merge upstream/master
+```
+
+默认偏向 merge 的原因只有一个：它更适合把“这是一轮上游同步”保留成清晰历史。
+
+### 4.3 长期保留差异
+
+#### 品牌边界
 
 用户可见层保留：
 
@@ -74,9 +97,9 @@ git remote -v
 - `paperclipai` CLI
 - `PAPERCLIP_*`
 
-### 4.2 本地化基础设施
+#### 本地化基础设施
 
-这些能力必须保留：
+这些能力不能被同步冲掉：
 
 - `react-i18next` / `i18next` 根层接入
 - `ui/src/i18n.ts`
@@ -89,40 +112,32 @@ git remote -v
 - 服务端首屏 `html lang` / locale source 注入
 - 服务端用户可见错误的 locale 处理
 
-### 4.3 Windows 兼容改造
+#### Windows 兼容层
 
-这些改造不能在同步时被误回退：
+这些改造不能被误回退：
 
-- 用 Node 脚本替换 Unix-only shell 片段
+- 用 Node 脚本替代 Unix-only shell 片段
 - `dev/build` 链路中的 Windows 兼容处理
 - `tsx` / dev watch 相关兼容修复
 
-## 5. 推荐流程
+## 5. 标准流程
 
-### 5.1 确认工作区干净并拉最新 remote
+### 5.1 准备
 
-开始前先确认没有临时改动：
+先确认工作区干净，再抓取相关 remote：
 
 ```sh
 git status --short
-```
-
-然后抓取所有相关 remote：
-
-```sh
 git fetch origin --prune
-```
-
-如果你有独立的上游或私有 fork remote，也一起抓：
-
-```sh
-git fetch upstream --prune
 git fetch private --prune
+git fetch upstream --prune
 ```
 
-### 5.2 创建工作分支和安全分支
+如果某个 remote 不存在，就删掉对应命令，不要补脑。
 
-推荐先从 Penclip 的目标基线拉一个工作分支，再额外留一个安全分支：
+### 5.2 建立工作分支
+
+从 Penclip 当前目标基线切出工作分支和安全分支：
 
 ```sh
 git checkout master
@@ -131,20 +146,9 @@ git checkout -b codex/upstream-sync-YYYYMMDD
 git branch codex/upstream-sync-YYYYMMDD-safety
 ```
 
-这样即使后面冲突处理走偏，也能快速回到开始状态。
+### 5.3 先和 Penclip 自己的目标分支对齐
 
-重要要求：
-
-- 上游同步工作必须在 `codex/upstream-sync-YYYYMMDD` 这类工作分支上完成
-- 不要直接在 `master` 上做 merge、冲突解决、提交和推送
-- 最终要把工作分支推到 Penclip 自己的远端仓库，再通过 PR 合回 `master`
-- 如果误在本地 `master` 上完成了同步，先把结果挂到 `codex/upstream-sync-...` 分支并推远端，再把本地 `master` 指回 `fork remote/master`
-
-### 5.3 先和 Penclip 自己的目标分支对齐历史
-
-如果你本地当前分支不是从 Penclip 最新 `master` 拉出来的，先和 Penclip 自己的目标分支对齐，再引入上游。
-
-如果存在独立 `fork remote`，先看 `HEAD` 和 `fork/master` 的领先关系：
+如果存在独立 `fork remote`，先看你当前分支与 Penclip 目标分支的关系：
 
 ```sh
 git rev-list --left-right --count private/master...HEAD
@@ -152,20 +156,18 @@ git rev-list --left-right --count private/master...HEAD
 
 解释：
 
-- 左边数字：只在 `private/master` 上的提交数
-- 右边数字：只在 `HEAD` 上的提交数
+- 左边：只在 `private/master` 上的提交数
+- 右边：只在 `HEAD` 上的提交数
 
-如果左边不为 0，说明 Penclip 自己的目标分支比你当前分支更靠前，先合它：
+如果左边不为 0，先把 Penclip 自己的历史补齐：
 
 ```sh
 git merge private/master
 ```
 
-这样做的目的不是“制造额外改动”，而是先把 Penclip 自己的历史补齐，后面的上游同步会更容易判断。
+### 5.4 先看范围，再引入上游
 
-### 5.4 先看范围，不要上来就 merge
-
-在真正合并上游前，先看这次会影响哪些区域：
+先看本次上游更新影响哪些区域：
 
 ```sh
 git log --oneline --decorate --stat HEAD..origin/master
@@ -176,154 +178,131 @@ git diff --name-only HEAD..origin/master
 
 - 是否动到了 i18n 基础设施
 - 是否动到了高 churn UI 页面
-- 是否动到了 package manifest、workspace、exports 或 dev scripts
+- 是否动到了 package manifest、exports、workspace 或 dev scripts
 - 是否动到了 shared types / API contract / schema
 
-### 5.5 用真实 merge commit 引入上游
+### 5.5 合并上游
 
-Penclip 这种长期 fork，默认推荐 merge，不推荐把这类同步工作做成 rebase。
+确认影响范围后再做真实 merge：
 
 ```sh
 git merge origin/master
 ```
 
-如果你的仓库布局是 `upstream/master` 才代表原始上游，就改成：
-
-```sh
-git merge upstream/master
-```
-
-为什么默认推荐 merge：
-
-- 更容易保留“这是一轮上游同步”的上下文
-- 更容易复盘冲突是怎么处理的
-- 更适合长期 fork 持续同步
-
-只有团队明确要求 rebase 时，再偏离这个默认流程。
-
 ## 6. 冲突处理原则
 
 ### 6.1 总原则
 
-不要简单粗暴地：
+不要：
 
 - 全部选 `ours`
 - 全部选 `theirs`
 - 冲突一多就整文件重做
 
-更稳的方式是：
+更稳的做法是：
 
-1. 先保住上游结构
-2. 再把 Penclip 差异按最小补丁接回去
+1. 先吸收上游结构
+2. 再把 Penclip 差异按最小补丁补回去
 
-### 6.2 优先吸收上游结构的文件
+### 6.2 文件处理优先级
 
-这些文件通常应该“以上游结构为主，手动补回 Penclip 差异”：
+#### 以上游结构为主
+
+这类文件通常应保留上游结构，再手动补回 Penclip 差异：
 
 - 大多数页面组件
 - 共享组件
-- server route / service 逻辑
+- server route / service
 - package manifest
 - 构建脚本
 
-原因：
+原因很简单：上游通常会在这些地方带来 bugfix、结构调整和工程改进。
 
-- 上游可能修了 bug
-- 上游可能重构了组件结构
-- 整文件保留旧 fork 版本，只会让下次更难合并
+#### 必须手动合并
 
-### 6.3 必须手动合并的文件
-
-这些文件不要整文件选 `ours` 或 `theirs`，而是要手动合：
+这些文件不要整文件选边，必须手动合：
 
 - `ui/public/locales/zh-CN/common.json`
 - `ui/public/locales/en/common.json`
 - `ui/src/i18n.ts`
 - `ui/src/main.tsx`
 - 语言切换器相关组件
-- server locale 中间件和错误处理
+- server locale 中间件与错误处理
 - `README.md`
 - `README.zh-CN.md`
 - `doc/UI-LOCALIZATION.md`
 - `doc/UPSTREAM-MERGE-RUNBOOK.md`
 
-### 6.4 通常优先保留 Penclip 版本的文件
+#### 通常优先保留 Penclip 版本
 
-如果冲突集中在 Penclip 自己新增的文件，通常优先保留我们的版本，再手动吸收有价值的上游思路：
+这类文件如果是 Penclip 自己新增的，通常保留我们的版本，再选择性吸收上游思路：
 
 - `README.zh-CN.md`
 - `doc/UI-LOCALIZATION.md`
 - `doc/UPSTREAM-MERGE-RUNBOOK.md`
 
-前提是上游没有新增同名文件或明确结构要求。
+## 7. 审计重点
 
-## 7. 审计顺序
+不要只审冲突文件，要审“这次 merge 实际影响到的区域”。
 
-参考流程里最值得保留的一点，是把“合并完成”拆成几类审计，而不是只盯冲突文件。
+### 7.1 品牌审计
 
-### 7.1 品牌与命名审计
-
-检查这次 merge 影响到的文件，不只是有冲突的文件。
+确认用户可见文案是否需要保留 `Penclip`，同时不要把技术标识误改成 `penclip`。
 
 重点看：
 
-- 用户可见 `Paperclip` 是否该改回 `Penclip`
-- 技术标识是否被误改成 `penclip`
-- `paperclipai` / `penclipai` / `paperclip.ing` / `penclip.ing` 是否落在正确边界
+- `Paperclip` 是否该改回 `Penclip`
+- `paperclipai` / `penclipai` 是否落在正确边界
+- package name、CLI 名、环境变量名是否被误改
 
 ### 7.2 UI 本地化审计
 
-对所有触及的 UI 页面和共享组件做一轮本地化复查，确认没有把高可见文案冲回英文：
+对所有触及的页面和共享组件检查：
 
 - 标题
 - 按钮
 - 空状态
 - 错误和 fallback
-- 卡片副文案
 - 表单提示
+- 卡片副文案
 - tooltip / aria / toast
 
-处理新页面时遵循 `doc/UI-LOCALIZATION.md`，不要重新发明一套词表。
+额外确认：
 
-额外检查：
+- 首屏语言来源顺序没有被冲坏
+- 服务端仍返回 `Content-Language` 和 `Vary: Accept-Language`
+- wizard / dialog 默认草稿仍只同步“未编辑”的默认值
+- 共享组件没有把状态、优先级、图例文案重新写死
 
-- 首屏语言来源顺序有没有被冲坏
-  - `?lng=` / localStorage / 服务端 `html lang` / `navigator` / fallback
-- 服务端是否仍然返回 `Content-Language` 和 `Vary: Accept-Language`
-- 共享组件里有没有把状态、优先级、图例文案重新写死成中文或英文
-- wizard / dialog 的默认草稿在切语言时是否仍然只同步“未编辑”的默认值
+术语以 `doc/UI-LOCALIZATION.md` 为准，尤其留意：
+
+- `Agent -> 智能体`
+- `Issue -> 任务`
+- `Routine -> 例行任务`
+- `Workspace -> 工作区`
+- `Costs -> 成本`
 
 ### 7.3 locale JSON 审计
 
-处理方式：
+处理 locale 文件时遵循四条规则：
 
-- 先保留上游新增 key
-- 再补回 Penclip 已有翻译
-- 不要删除英文 key
-- 不要只改中文文件不改英文文件
+1. 先保留上游新增 key
+2. 再补回 Penclip 已有翻译
+3. 中英文一起改
+4. 不要引入重复 key
 
-检查重点：
+重点检查：
 
 - 有没有丢新增 key
 - 有没有把中文值回退成英文
-- 有没有把“智能体”等术语改回不一致状态
 - 有没有引入重复 key
-  - locale 文件里重复 key 会被 `JSON.parse` 静默覆盖，运行时通常只剩最后一个值
 
 ### 7.4 lockfile 审计
 
-这一步要按本仓库当前规则执行，而不是照搬别的仓库习惯。
+默认策略：
 
-根据 `doc/DEVELOPING.md`：
-
-- GitHub Actions 拥有 `pnpm-lock.yaml`
-- 只有在 PR 修改了 package-manager 输入时，才应提交 `pnpm-lock.yaml`
-
-所以本仓库当前默认策略是：
-
-- 如果本次同步没有改 `package.json`、`pnpm-workspace.yaml`、`.npmrc` 或 `pnpmfile.*`，就不要带上 `pnpm-lock.yaml`
-- 如果本次同步改了这些输入，并且干净环境里的 `pnpm install --frozen-lockfile` 需要 lockfile 才能通过，就必须提交最小 `pnpm-lock.yaml` diff
-- 不要把“manifest 已变、lockfile 也该变”的情况，误当成单纯本地恢复步骤
+- 如果本次同步没有改 `package.json`、`pnpm-workspace.yaml`、`.npmrc` 或 `pnpmfile.*`，不要带 `pnpm-lock.yaml`
+- 如果改了 package-manager 输入，并且干净环境需要 lockfile 才能通过，就提交最小 lockfile diff
 
 检查命令：
 
@@ -331,92 +310,34 @@ git merge upstream/master
 git diff --name-only HEAD -- pnpm-lock.yaml
 ```
 
-如果 lockfile 变了，先判断这次同步有没有 package-manager 输入变化。
-
-没有输入变化时，恢复 lockfile：
+没有 package-manager 输入变化时，恢复 lockfile：
 
 ```sh
 git restore --staged --worktree pnpm-lock.yaml
 ```
 
-有输入变化时，再做一次依赖解析校验：
+有输入变化时，重新验证：
 
 ```sh
 pnpm install --lockfile-only --ignore-scripts --no-frozen-lockfile
 pnpm install --frozen-lockfile
 ```
 
-如果生成出的 lockfile 与工作区不一致，提交最小 `pnpm-lock.yaml` diff，而不是强行恢复。
+### 7.5 干净环境审计
 
-### 7.5 干净环境验证
-
-如果这次同步动到了依赖或 workspace 布线，不能只依赖当前机器的脏环境：
-
-- `package.json`
-- `pnpm-workspace.yaml`
-- `.npmrc`
-- package `exports`
-- plugin / adapter / workspace manifest
-
-这类改动建议在干净环境里复跑至少一遍：
+如果本次同步动到了依赖、workspace 布线或 locale 基础设施，至少补做一次干净验证：
 
 ```sh
 pnpm install --frozen-lockfile
 pnpm -r typecheck
-```
-
-Windows 上如果要做干净 Linux 验证，优先 Docker，不推荐默认走 WSL。
-
-如果这次同步动到了 locale 基础设施，干净环境里至少额外验证：
-
-```sh
 pnpm test:run server/src/__tests__/ui-locale.test.ts server/src/__tests__/i18n.test.ts
 ```
 
-有条件的话，再做一次浏览器侧烟雾验证：
+Windows 机器如果要补 Linux 验证，优先 Docker，不默认推荐 WSL。
 
-- 英文 `Accept-Language` 首次访问是否直接进入英文首屏
-- `?lng=en` 是否优先于请求头
-- 切语言后刷新页面是否保留用户选择
+## 8. 验证与交付
 
-## 8. 高频术语回归清单
-
-每次合并后，优先检查这些高频术语有没有被冲回去：
-
-| 英文 | 正确中文 |
-|---|---|
-| Agent | 智能体 |
-| Issue | 任务 |
-| Routine | 例行任务 |
-| Run | 运行 |
-| Workspace | 工作区 |
-| Costs | 成本 |
-| Dashboard | 仪表盘 |
-| Org | 组织 |
-
-额外检查：
-
-- `CEO` 不翻译
-- `Onboarding` 不翻译
-- 外部插件名不翻译
-
-## 9. 推荐处理顺序
-
-发生大量冲突时，按这个顺序处理最稳：
-
-1. package / build / server 基础设施
-2. shared types 和 API 合同
-3. i18n 基础设施
-4. locale JSON
-5. 共享组件
-6. 页面级改动
-7. README 和文档
-
-原因是前面的层一旦定下来，后面的页面冲突会更容易判断。
-
-## 10. 合并后的验证步骤
-
-### 10.1 质量门禁
+### 8.1 质量门禁
 
 按仓库要求，优先跑：
 
@@ -426,11 +347,11 @@ pnpm test:run
 pnpm build
 ```
 
-如果某项因为既有 Windows / 本机环境问题不能作为阻塞项，也要在提交说明里明确写清楚，不要含糊带过。
+如果某项因为既有 Windows / 本机环境问题不能作为阻塞项，必须在提交说明或 PR 描述里明确写清楚。
 
-### 10.2 页面烟雾验证
+### 8.2 页面烟雾验证
 
-至少打开这些页面：
+至少检查这些页面：
 
 - `/TES/dashboard`
 - `/TES/onboarding`
@@ -440,37 +361,26 @@ pnpm build
 
 优先确认：
 
-- 默认语言仍然是中文
+- 默认语言仍是中文
 - 语言切换器仍可用
 - 高可见导航仍是中文
 - 没有明显把 `Agent` 冲回英文
 
-### 10.3 Playwright 复验建议
+### 8.3 交付方式
 
-如果这次同步改动到了 UI 高 churn 区域，建议用 Playwright 至少做一遍：
-
-- dashboard
-- onboarding
-- issue detail
-- costs
-- plugin manager
-
-### 10.4 交付方式
-
-完成验证后，默认交付方式不是“直接更新 `master`”，而是：
-
-1. 保持当前 HEAD 在 `codex/upstream-sync-YYYYMMDD` 工作分支上
-2. 提交同步结果
-3. 推送到 Penclip 自己的远端仓库
-4. 发起 PR，目标分支是 Penclip 的 `master`
-
-推荐命令：
+完成验证后，通过工作分支交付，不直接更新 `master`：
 
 ```sh
 git push -u private codex/upstream-sync-YYYYMMDD
 ```
 
-如果前面不小心在本地 `master` 上做完了同步，按下面顺序修正：
+然后发起：
+
+- `codex/upstream-sync-YYYYMMDD -> master`
+
+的 PR。
+
+如果误在本地 `master` 上做完了同步，按下面顺序修正：
 
 ```sh
 git switch -c codex/upstream-sync-YYYYMMDD
@@ -478,37 +388,11 @@ git push -u private codex/upstream-sync-YYYYMMDD
 git branch -f master private/master
 ```
 
-目的有两个：
+## 9. 常见错误
 
-- 避免把“正在处理中的上游同步”直接混入长期基线分支
-- 让 review、CI 和回滚都围绕独立 PR 展开，而不是围绕本地 `master` 展开
+### 9.1 把技术标识也改成 Penclip
 
-## 11. 推荐提交策略
-
-同步上游后，尽量拆成两类提交：
-
-### 11.1 上游同步提交
-
-只包含：
-
-- 上游代码进入
-- 必要冲突解决
-
-### 11.2 Penclip 重新收口提交
-
-只包含：
-
-- 品牌修复
-- 本地化修复
-- Windows 兼容重新补齐
-
-这样后续看历史时会清楚得多，也更容易回滚和复盘。
-
-## 12. 常见错误
-
-### 12.1 误把技术标识也改成 Penclip
-
-错误示例：
+错误做法：
 
 - 改 package name
 - 改 CLI 名
@@ -516,9 +400,9 @@ git branch -f master private/master
 
 正确做法：
 
-- 只改用户能看到的品牌文案
+- 只改用户可见品牌文案
 
-### 12.2 为了保住中文，整文件保留旧版页面
+### 9.2 为了保住中文，整文件保留旧版页面
 
 后果：
 
@@ -527,20 +411,21 @@ git branch -f master private/master
 
 正确做法：
 
-- 接收上游结构，重新补最小 i18n 补丁
+- 接受上游结构
+- 重新补最小 i18n 补丁
 
-### 12.3 只改中文 locale，不改英文 locale
+### 9.3 只改中文 locale，不改英文 locale
 
 后果：
 
 - 英文模式缺 key
-- fallback 行为异常
+- fallback 异常
 
 正确做法：
 
 - 中英文一起改
 
-### 12.4 把用户内容误当成漏翻
+### 9.4 把用户内容误当成漏翻
 
 不要把这些算作需要修的翻译问题：
 
@@ -550,20 +435,19 @@ git branch -f master private/master
 - 外部插件名称
 - 用户输入名称
 
-### 12.5 把“看起来没变的历史对齐”省掉
+### 9.5 跳过 Penclip 自己的历史对齐
 
 后果：
 
 - PR 历史不清楚
-- 后续 triage 更难
-- 同一类冲突反复出现
+- 同类冲突反复出现
 
 正确做法：
 
 - 先看 `fork/master...HEAD`
 - 需要时先合 Penclip 自己的目标分支
 
-### 12.6 直接把上游同步结果留在 master
+### 9.6 直接把同步结果留在 master
 
 错误做法：
 
@@ -571,22 +455,15 @@ git branch -f master private/master
 - 直接在本地 `master` 上解决冲突并提交
 - 直接把本地 `master` 推到 Penclip 远端
 
-后果：
-
-- 绕过独立 PR 审核
-- 后续很难区分“日常开发提交”和“上游同步提交”
-- 一旦处理错了，回滚范围会落在主分支上
-
 正确做法：
 
-- 全程使用 `codex/upstream-sync-YYYYMMDD` 工作分支
+- 全程使用 `codex/upstream-sync-YYYYMMDD`
 - 推送工作分支
 - 通过 PR 合回 `master`
 
-## 13. 快速操作模板
+## 10. 快速模板
 
-下面给的是“有独立私有 fork remote”的完整模板。
-如果你的 remote 命名不同，替换成实际值：
+下面给的是“有独立私有 fork remote”的标准模板。remote 名称不同就替换成实际值：
 
 ```sh
 git remote -v
@@ -601,34 +478,23 @@ git merge private/master
 git log --oneline --decorate --stat HEAD..origin/master
 git diff --name-only HEAD..origin/master
 git merge origin/master
-```
-
-冲突处理后：
-
-```sh
 pnpm -r typecheck
 pnpm test:run
 pnpm build
-git restore --staged --worktree pnpm-lock.yaml
-```
-
-然后做页面烟雾验证，再提交。
-
-最后通过分支交付，而不是直接推 `master`：
-
-```sh
 git push -u private codex/upstream-sync-YYYYMMDD
 ```
 
-然后在 GitHub 上发起 `codex/upstream-sync-YYYYMMDD -> master` 的 PR。
+如果 lockfile 不该带，额外执行：
 
-## 14. 最后的判断标准
+```sh
+git restore --staged --worktree pnpm-lock.yaml
+```
 
-一次上游同步处理得是否正确，不看“冲突解决得有多快”，而看这四件事是否同时成立：
+## 11. 完成标准
+
+一次上游同步是成功的，当且仅当下面四件事同时成立：
 
 1. 上游结构和 bugfix 没丢
-2. Penclip 的中文增强和品牌边界没丢
+2. Penclip 的品牌边界和中文增强没丢
 3. Windows 兼容层没被误回退
-4. 下次再同步时，冲突没有因为这次处理方式而变得更糟
-
-如果四者都成立，这次同步就是成功的。
+4. 本次同步通过工作分支和 PR 交付，没有把结果直接留在 `master`
