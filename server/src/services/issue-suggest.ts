@@ -28,13 +28,17 @@ export interface IssueSuggestion {
   status: string;
 }
 
+function sanitize(text: string): string {
+  return text.replace(/^---$/gm, "- - -");
+}
+
 function buildPrompt(input: SuggestIssueInput): string {
   const agentList = input.agents
-    .map((a) => `  - id: "${a.id}", name: "${a.name}"${a.role ? `, role: "${a.role}"` : ""}${a.title ? `, title: "${a.title}"` : ""}`)
+    .map((a) => `  - id: "${a.id}", name: "${sanitize(a.name)}"${a.role ? `, role: "${sanitize(a.role)}"` : ""}${a.title ? `, title: "${sanitize(a.title)}"` : ""}`)
     .join("\n");
 
   const projectList = input.projects
-    .map((p) => `  - id: "${p.id}", name: "${p.name}"${p.description ? `, description: "${p.description}"` : ""}`)
+    .map((p) => `  - id: "${p.id}", name: "${sanitize(p.name)}"${p.description ? `, description: "${sanitize(p.description)}"` : ""}`)
     .join("\n");
 
   return `You are an issue triage assistant. Analyze the following raw input from a user and generate structured issue fields.
@@ -47,7 +51,7 @@ ${projectList || "  (none)"}
 
 Raw input from user:
 ---
-${input.rawText}
+${sanitize(input.rawText)}
 ---
 
 Based on the raw input, generate a JSON object with these fields:
