@@ -1,7 +1,42 @@
 export const type = "opencode_local";
 export const label = "OpenCode (local)";
 
-export const models: Array<{ id: string; label: string }> = [];
+/**
+ * Well-known OpenCode models. These are statically listed so Paperclip can
+ * populate the model picker without requiring a live `opencode models` call
+ * at configuration time. Users may also type any valid provider/model string
+ * directly into the model field.
+ *
+ * OpenCode provider format: provider/model
+ * Ollama cloud format: ollama/model-name:tag
+ */
+export const models: Array<{ id: string; label: string }> = [
+  // Anthropic
+  { id: "anthropic/claude-sonnet-4-5", label: "Claude Sonnet 4.5 (Anthropic)" },
+  { id: "anthropic/claude-opus-4-5", label: "Claude Opus 4.5 (Anthropic)" },
+  { id: "anthropic/claude-haiku-3-5", label: "Claude Haiku 3.5 (Anthropic)" },
+
+  // OpenAI via OpenCode free tier
+  { id: "opencode/gpt-5-mini", label: "GPT-5 Mini (OpenCode)" },
+  { id: "opencode/gpt-5", label: "GPT-5 (OpenCode)" },
+  { id: "opencode/gpt-5-nano", label: "GPT-5 Nano (OpenCode)" },
+  { id: "opencode/minimax-m2.5-free", label: "MiniMax M2.5 Free (OpenCode)" },
+  { id: "opencode/big-pickle", label: "Big Pickle (OpenCode)" },
+  { id: "opencode/nemotron-3-super-free", label: "Nemotron 3 Super (OpenCode)" },
+
+  // Google
+  { id: "google/gemini-2.5-flash", label: "Gemini 2.5 Flash (Google)" },
+  { id: "google/gemini-2.5-pro", label: "Gemini 2.5 Pro (Google)" },
+  { id: "google/gemini-2.0-flash", label: "Gemini 2.0 Flash (Google)" },
+
+  // Ollama cloud models
+  { id: "ollama/qwen3.5:cloud", label: "Qwen 3.5 (Ollama Cloud)" },
+  { id: "ollama/qwen3.5:397b-cloud", label: "Qwen 3.5 397B (Ollama Cloud)" },
+  { id: "ollama/glm-5:cloud", label: "GLM-5 (Ollama Cloud)" },
+  { id: "ollama/minimax-m2.5:cloud", label: "MiniMax M2.5 (Ollama Cloud)" },
+  { id: "ollama/minimax-m2.7:cloud", label: "MiniMax M2.7 (Ollama Cloud)" },
+  { id: "ollama/nomic-embed-text", label: "Nomic Embed Text (Ollama)" },
+];
 
 export const agentConfigurationDoc = `# opencode_local agent configuration
 
