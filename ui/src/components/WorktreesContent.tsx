@@ -317,7 +317,8 @@ export function WorktreesContent({ companyId, projectId }: WorktreesContentProps
         )}
       </div>
 
-      <div className="rounded-md border border-border overflow-hidden">
+      {/* Desktop table — hidden on mobile */}
+      <div className="hidden md:block rounded-md border border-border overflow-hidden">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border bg-muted/40">
@@ -331,7 +332,7 @@ export function WorktreesContent({ companyId, projectId }: WorktreesContentProps
           </thead>
           <tbody>
             {branchWorktrees.map((entry, idx) => (
-              <WorktreeRow
+              <WorktreeTableRow
                 key={entry.path}
                 entry={entry}
                 isLast={idx === branchWorktrees.length - 1}
@@ -345,6 +346,22 @@ export function WorktreesContent({ companyId, projectId }: WorktreesContentProps
             ))}
           </tbody>
         </table>
+      </div>
+
+      {/* Mobile cards — hidden on desktop */}
+      <div className="md:hidden flex flex-col gap-3">
+        {branchWorktrees.map((entry) => (
+          <WorktreeCard
+            key={entry.path}
+            entry={entry}
+            isMutating={isMutating}
+            onArchive={() => setPendingAction({ type: "archive", entry })}
+            onRetryCleanup={() => setPendingAction({ type: "retry", entry })}
+            onRemove={() => setPendingAction({ type: "remove", entry })}
+            onIssueAction={handleIssueAction}
+            onTriggerReview={handleTriggerReview}
+          />
+        ))}
       </div>
 
       <Dialog open={!!pendingAction} onOpenChange={(open) => { if (!open) setPendingAction(null); }}>
@@ -383,34 +400,134 @@ export function WorktreesContent({ companyId, projectId }: WorktreesContentProps
   );
 }
 
-function WorktreeRow({
-  entry,
-  isLast,
-  isMutating,
-  onArchive,
-  onRetryCleanup,
-  onRemove,
-  onIssueAction,
-  onTriggerReview,
-}: {
+interface WorktreeActionProps {
   entry: GitWorktreeEntry;
-  isLast: boolean;
   isMutating: boolean;
   onArchive: () => void;
   onRetryCleanup: () => void;
   onRemove: () => void;
   onIssueAction: (issueId: string, status: string, comment?: string) => void;
   onTriggerReview: (issueId: string) => void;
-}) {
+}
+
+function WorktreeActionsDropdown({ entry, isMutating, onArchive, onRetryCleanup, onRemove, onIssueAction, onTriggerReview }: WorktreeActionProps) {
   const ws = entry.executionWorkspace;
   const isArchived = ws?.status === "archived";
   const isCleanupFailed = ws?.status === "cleanup_failed";
-  const pathBasename = entry.path.split("/").pop() ?? entry.path;
   const issueStatus = entry.issue?.status;
 
   const handleCopyPath = () => {
     navigator.clipboard.writeText(entry.path);
   };
+
+  if (isArchived) return null;
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="icon" className="h-7 w-7" disabled={isMutating}>
+          <MoreHorizontal className="h-4 w-4" />
+          <span className="sr-only">Actions</span>
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        {/* Navigation links */}
+        {entry.issue && (
+          <DropdownMenuItem asChild>
+            <Link to={`/issues/${entry.issue.id}`} className="cursor-pointer">Open issue</Link>
+          </DropdownMenuItem>
+        )}
+        {entry.agent && (
+          <DropdownMenuItem asChild>
+            <Link to={`/agents/${entry.agent.id}`} className="cursor-pointer">Open agent</Link>
+          </DropdownMenuItem>
+        )}
+
+        {/* Copy path */}
+        <DropdownMenuItem onClick={handleCopyPath}>
+          <Clipboard className="h-4 w-4 mr-2" />
+          Copy path
+        </DropdownMenuItem>
+
+        {/* Status-based issue actions */}
+        {entry.issue && issueStatus && (
+          <>
+            <DropdownMenuSeparator />
+            {issueStatus === "in_review" && (
+              <>
+                <DropdownMenuItem onClick={() => onTriggerReview(entry.issue!.id)}>
+                  <Zap className="h-4 w-4 mr-2" />
+                  Trigger review
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onIssueAction(entry.issue!.id, "done")}>
+                  <CheckCircle2 className="h-4 w-4 mr-2" />
+                  Mark done
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onIssueAction(entry.issue!.id, "in_progress", "Changes requested — returning to development.")}>
+                  <ArrowLeft className="h-4 w-4 mr-2" />
+                  Request changes
+                </DropdownMenuItem>
+              </>
+            )}
+            {issueStatus === "in_progress" && (
+              <DropdownMenuItem onClick={() => onIssueAction(entry.issue!.id, "in_review")}>
+                <Eye className="h-4 w-4 mr-2" />
+                Move to review
+              </DropdownMenuItem>
+            )}
+            {(issueStatus === "todo" || issueStatus === "backlog") && (
+              <DropdownMenuItem onClick={() => onIssueAction(entry.issue!.id, "in_progress")}>
+                <Play className="h-4 w-4 mr-2" />
+                Start work
+              </DropdownMenuItem>
+            )}
+            {issueStatus === "blocked" && (
+              <DropdownMenuItem onClick={() => onIssueAction(entry.issue!.id, "in_progress", "Unblocked — resuming work.")}>
+                <Play className="h-4 w-4 mr-2" />
+                Unblock
+              </DropdownMenuItem>
+            )}
+            {(issueStatus === "done" || issueStatus === "cancelled") && (
+              <DropdownMenuItem onClick={() => onIssueAction(entry.issue!.id, "in_progress", "Reopened from worktrees view.")}>
+                <RotateCcw className="h-4 w-4 mr-2" />
+                Reopen
+              </DropdownMenuItem>
+            )}
+          </>
+        )}
+
+        {/* Destructive actions */}
+        <DropdownMenuSeparator />
+        {ws && isCleanupFailed ? (
+          <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={onRetryCleanup}>
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Retry cleanup
+          </DropdownMenuItem>
+        ) : ws ? (
+          <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={onArchive}>
+            <Trash2 className="h-4 w-4 mr-2" />
+            Archive & clean up
+          </DropdownMenuItem>
+        ) : (
+          <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={onRemove}>
+            <Trash2 className="h-4 w-4 mr-2" />
+            Remove worktree
+          </DropdownMenuItem>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+function WorktreeTableRow({
+  entry,
+  isLast,
+  ...actionProps
+}: { entry: GitWorktreeEntry; isLast: boolean } & Omit<WorktreeActionProps, "entry">) {
+  const ws = entry.executionWorkspace;
+  const isArchived = ws?.status === "archived";
+  const isCleanupFailed = ws?.status === "cleanup_failed";
+  const pathBasename = entry.path.split("/").pop() ?? entry.path;
 
   return (
     <tr className={cn("hover:bg-muted/30 transition-colors", !isLast && "border-b border-border")}>
@@ -478,107 +595,78 @@ function WorktreeRow({
 
       {/* Actions */}
       <td className="px-2 py-3 text-right">
-        {!isArchived && (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-7 w-7" disabled={isMutating}>
-                <MoreHorizontal className="h-4 w-4" />
-                <span className="sr-only">Actions</span>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              {/* Navigation links */}
-              {entry.issue && (
-                <DropdownMenuItem asChild>
-                  <Link to={`/issues/${entry.issue.id}`} className="cursor-pointer">Open issue</Link>
-                </DropdownMenuItem>
-              )}
-              {entry.agent && (
-                <DropdownMenuItem asChild>
-                  <Link to={`/agents/${entry.agent.id}`} className="cursor-pointer">Open agent</Link>
-                </DropdownMenuItem>
-              )}
-
-              {/* Copy path */}
-              <DropdownMenuItem onClick={handleCopyPath}>
-                <Clipboard className="h-4 w-4 mr-2" />
-                Copy path
-              </DropdownMenuItem>
-
-              {/* Status-based issue actions */}
-              {entry.issue && issueStatus && (
-                <>
-                  <DropdownMenuSeparator />
-                  {/* In Review → Mark Done or Request Changes */}
-                  {issueStatus === "in_review" && (
-                    <>
-                      <DropdownMenuItem onClick={() => onTriggerReview(entry.issue!.id)}>
-                        <Zap className="h-4 w-4 mr-2" />
-                        Trigger review
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => onIssueAction(entry.issue!.id, "done")}>
-                        <CheckCircle2 className="h-4 w-4 mr-2" />
-                        Mark done
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => onIssueAction(entry.issue!.id, "in_progress", "Changes requested — returning to development.")}>
-                        <ArrowLeft className="h-4 w-4 mr-2" />
-                        Request changes
-                      </DropdownMenuItem>
-                    </>
-                  )}
-                  {/* In Progress → Move to Review */}
-                  {issueStatus === "in_progress" && (
-                    <DropdownMenuItem onClick={() => onIssueAction(entry.issue!.id, "in_review")}>
-                      <Eye className="h-4 w-4 mr-2" />
-                      Move to review
-                    </DropdownMenuItem>
-                  )}
-                  {/* Todo / Backlog → Start Work */}
-                  {(issueStatus === "todo" || issueStatus === "backlog") && (
-                    <DropdownMenuItem onClick={() => onIssueAction(entry.issue!.id, "in_progress")}>
-                      <Play className="h-4 w-4 mr-2" />
-                      Start work
-                    </DropdownMenuItem>
-                  )}
-                  {/* Blocked → Unblock */}
-                  {issueStatus === "blocked" && (
-                    <DropdownMenuItem onClick={() => onIssueAction(entry.issue!.id, "in_progress", "Unblocked — resuming work.")}>
-                      <Play className="h-4 w-4 mr-2" />
-                      Unblock
-                    </DropdownMenuItem>
-                  )}
-                  {/* Done / Cancelled → Reopen */}
-                  {(issueStatus === "done" || issueStatus === "cancelled") && (
-                    <DropdownMenuItem onClick={() => onIssueAction(entry.issue!.id, "in_progress", "Reopened from worktrees view.")}>
-                      <RotateCcw className="h-4 w-4 mr-2" />
-                      Reopen
-                    </DropdownMenuItem>
-                  )}
-                </>
-              )}
-
-              {/* Destructive actions */}
-              <DropdownMenuSeparator />
-              {ws && isCleanupFailed ? (
-                <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={onRetryCleanup}>
-                  <RefreshCw className="h-4 w-4 mr-2" />
-                  Retry cleanup
-                </DropdownMenuItem>
-              ) : ws ? (
-                <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={onArchive}>
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  Archive & clean up
-                </DropdownMenuItem>
-              ) : (
-                <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={onRemove}>
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  Remove worktree
-                </DropdownMenuItem>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        )}
+        <WorktreeActionsDropdown entry={entry} {...actionProps} />
       </td>
     </tr>
+  );
+}
+
+function WorktreeCard({
+  entry,
+  ...actionProps
+}: { entry: GitWorktreeEntry } & Omit<WorktreeActionProps, "entry">) {
+  const ws = entry.executionWorkspace;
+  const isArchived = ws?.status === "archived";
+  const isCleanupFailed = ws?.status === "cleanup_failed";
+  const pathBasename = entry.path.split("/").pop() ?? entry.path;
+
+  return (
+    <div className="rounded-md border border-border p-3 flex flex-col gap-2">
+      {/* Header: branch + status + actions */}
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex flex-col gap-0.5 min-w-0 flex-1">
+          <div className="flex items-center gap-1.5">
+            <GitBranch className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+            <span className={cn("font-mono text-[13px] truncate", isArchived && "text-muted-foreground")}>
+              {entry.branch ?? pathBasename}
+            </span>
+          </div>
+          <span className="text-[11px] text-muted-foreground/60 truncate" title={entry.path}>
+            {entry.path}
+          </span>
+          {ws?.cleanupReason && isCleanupFailed && (
+            <span className="text-xs text-destructive truncate" title={ws.cleanupReason}>
+              {ws.cleanupReason}
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-1.5 shrink-0">
+          <StatusBadge entry={entry} />
+          <WorktreeActionsDropdown entry={entry} {...actionProps} />
+        </div>
+      </div>
+
+      {/* Issue + Agent row */}
+      {(entry.issue || entry.agent) && (
+        <div className="flex flex-col gap-1 pl-5 text-[13px]">
+          {entry.issue && (
+            <Link
+              to={`/issues/${entry.issue.id}`}
+              className="flex items-center gap-1 text-foreground/80 hover:text-foreground hover:underline"
+            >
+              {entry.issue.identifier && (
+                <span className="shrink-0 text-xs text-muted-foreground font-mono">{entry.issue.identifier}</span>
+              )}
+              <span className="truncate">{entry.issue.title}</span>
+              <ExternalLink className="h-3 w-3 shrink-0 opacity-50" />
+            </Link>
+          )}
+          {entry.agent && (
+            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+              <span>Agent:</span>
+              <Link
+                to={`/agents/${entry.agent.id}`}
+                className="text-foreground/80 hover:text-foreground hover:underline"
+              >
+                {entry.agent.name}
+              </Link>
+            </div>
+          )}
+          {ws?.lastUsedAt && (
+            <span className="text-xs text-muted-foreground">{timeAgo(new Date(ws.lastUsedAt))}</span>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
