@@ -2090,6 +2090,10 @@ describe("issueService.list participantAgentId", () => {
     expect(result.sort()).toEqual([explicitValidMentionId, mentionedByNameId].sort());
   });
 
+  it("returns an empty mention list for malformed non-string bodies", async () => {
+    await expect(svc.findMentionedAgents(randomUUID(), 123 as any)).resolves.toEqual([]);
+  });
+
   it("normalizes findMentionedAgents company and explicit mention uuids for non-route callers", async () => {
     const companyId = randomUUID();
     const mentionedByNameId = randomUUID();

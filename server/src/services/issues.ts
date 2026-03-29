@@ -1863,6 +1863,7 @@ export function issueService(db: Db) {
     findMentionedAgents: async (companyId: string, body: string) => {
       const normalizedCompanyId = asCanonicalUuid(companyId);
       if (!normalizedCompanyId) return [];
+      if (typeof body !== "string") return [];
       const re = /\B@([^\s@,!?.]+)/g;
       const tokens = new Set<string>();
       let m: RegExpExecArray | null;
