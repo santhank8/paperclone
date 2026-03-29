@@ -23,6 +23,15 @@ function trustedOriginsForRequest(req: Request) {
     origins.add(`http://${host}`.toLowerCase());
     origins.add(`https://${host}`.toLowerCase());
   }
+  // Trust origins from explicit config (covers reverse proxy setups where
+  // the Host header may differ from the public URL).
+  for (const envVar of ["PAPERCLIP_PUBLIC_URL", "PAPERCLIP_CORS_ORIGIN"]) {
+    const value = process.env[envVar]?.trim();
+    if (value) {
+      const parsed = parseOrigin(value);
+      if (parsed) origins.add(parsed);
+    }
+  }
   return origins;
 }
 
