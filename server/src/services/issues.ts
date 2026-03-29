@@ -1608,6 +1608,20 @@ export function issueService(db: Db) {
       if (input.createdByUserId != null && typeof input.createdByUserId !== "string") {
         throw unprocessable("Invalid createdByUserId");
       }
+      const normalizedProvider = asNonEmptyString(input.provider);
+      if (!normalizedProvider) throw unprocessable("Invalid provider");
+      const normalizedObjectKey = asNonEmptyString(input.objectKey);
+      if (!normalizedObjectKey) throw unprocessable("Invalid objectKey");
+      const normalizedContentType = asNonEmptyString(input.contentType);
+      if (!normalizedContentType) throw unprocessable("Invalid contentType");
+      if (typeof input.byteSize !== "number" || !Number.isFinite(input.byteSize) || input.byteSize < 0) {
+        throw unprocessable("Invalid byteSize");
+      }
+      const normalizedSha256 = asNonEmptyString(input.sha256);
+      if (!normalizedSha256) throw unprocessable("Invalid sha256");
+      if (input.originalFilename != null && typeof input.originalFilename !== "string") {
+        throw unprocessable("Invalid originalFilename");
+      }
 
       const issue = await db
         .select({ id: issues.id, companyId: issues.companyId })
@@ -1633,11 +1647,11 @@ export function issueService(db: Db) {
           .insert(assets)
           .values({
             companyId: issue.companyId,
-            provider: input.provider,
-            objectKey: input.objectKey,
-            contentType: input.contentType,
+            provider: normalizedProvider,
+            objectKey: normalizedObjectKey,
+            contentType: normalizedContentType,
             byteSize: input.byteSize,
-            sha256: input.sha256,
+            sha256: normalizedSha256,
             originalFilename: input.originalFilename ?? null,
             createdByAgentId: normalizedCreatedByAgentId,
             createdByUserId: input.createdByUserId ?? null,
