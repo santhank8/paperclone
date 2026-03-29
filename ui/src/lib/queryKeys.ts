@@ -33,6 +33,7 @@ export const queryKeys = {
     reviewBundle: (issueId: string) => ["issues", "review-bundle", issueId] as const,
     liveRuns: (issueId: string) => ["issues", "live-runs", issueId] as const,
     activeRun: (issueId: string) => ["issues", "active-run", issueId] as const,
+    links: (issueId: string) => ["issues", "links", issueId] as const,
   },
   projects: {
     list: (companyId: string) => ["projects", companyId] as const,
@@ -76,6 +77,8 @@ export const queryKeys = {
     ["costs-forecast", companyId] as const,
   costsEfficiency: (companyId: string, from?: string, to?: string) =>
     ["costs-efficiency", companyId, from, to] as const,
+  costsByModel: (companyId: string, from?: string, to?: string) =>
+    ["costs-by-model", companyId, from, to] as const,
   heartbeats: (companyId: string, agentId?: string) =>
     ["heartbeats", companyId, agentId] as const,
   runDetail: (runId: string) => ["heartbeat-run", runId] as const,

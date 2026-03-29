@@ -64,6 +64,8 @@ export {
   type JoinRequestType,
   type JoinRequestStatus,
   type PermissionKey,
+  ISSUE_LINK_TYPES,
+  type IssueLinkType,
 } from "./constants.js";
 
 export type {
@@ -98,6 +100,9 @@ export type {
   IssueComment,
   IssueAttachment,
   IssueLabel,
+  IssueLink,
+  IssueLinkWithDetails,
+  IssueLinksByDirection,
   Goal,
   Approval,
   ApprovalComment,
@@ -169,6 +174,7 @@ export type {
   CostTrend,
   CostForecast,
   CostEfficiencyAgent,
+  CostByModel,
   InboxFeedItem,
   InboxFeedActivity,
 } from "./types/index.js";
@@ -222,6 +228,8 @@ export {
   type AddIssueComment,
   type LinkIssueApproval,
   type CreateIssueAttachmentMetadata,
+  createIssueLinkSchema,
+  type CreateIssueLink,
   reviewBundleRequirementModeSchema,
   issueReviewBundleModeSchema,
   issueReviewBundleStatusSchema,

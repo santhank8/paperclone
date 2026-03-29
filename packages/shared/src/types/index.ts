@@ -38,6 +38,11 @@ export type {
   IssueAttachment,
   IssueLabel,
 } from "./issue.js";
+export type {
+  IssueLink,
+  IssueLinkWithDetails,
+  IssueLinksByDirection,
+} from "./issue-link.js";
 export type { Goal } from "./goal.js";
 export type { Approval, ApprovalComment, LearnedSkillApprovalPayload } from "./approval.js";
 export type {
@@ -57,7 +62,7 @@ export type {
   CompanySecret,
   SecretProviderDescriptor,
 } from "./secrets.js";
-export type { CostEvent, CostSummary, CostByAgent, CostTrendPoint, CostTrend, CostForecast, CostEfficiencyAgent } from "./cost.js";
+export type { CostEvent, CostSummary, CostByAgent, CostTrendPoint, CostTrend, CostForecast, CostEfficiencyAgent, CostByModel } from "./cost.js";
 export type {
   HeartbeatRun,
   HeartbeatRunEvent,

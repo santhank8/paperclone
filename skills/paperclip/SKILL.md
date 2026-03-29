@@ -286,6 +286,8 @@ PATCH /api/agents/{agentId}/instructions-path
 | List agents                           | `GET /api/companies/:companyId/agents`                                                     |
 | Dashboard                             | `GET /api/companies/:companyId/dashboard`                                                  |
 | Search issues                         | `GET /api/companies/:companyId/issues?q=search+term`                                       |
+| List agent workspace files            | `GET /api/agents/:agentId/files?path=subdir`                                               |
+| Read agent workspace file             | `GET /api/agents/:agentId/files/content?path=file.md`                                      |
 | List company skills                   | `GET /api/companies/:companyId/skills`                                                     |
 | Install company/agent skill           | `POST /api/companies/:companyId/skills`                                                    |
 | Send Telegram message                 | `POST /api/agents/:agentId/telegram/send`                                                  |
@@ -298,6 +300,65 @@ PATCH /api/agents/{agentId}/instructions-path
 | Create recurring schedule (on issue)  | `POST /api/issues/:issueId/task-cron-schedules`                                            |
 | Update recurring schedule             | `PATCH /api/task-cron-schedules/:id`                                                       |
 | Delete recurring schedule             | `DELETE /api/task-cron-schedules/:id`                                                      |
+| List issue links                      | `GET /api/issues/:issueId/links`                                                           |
+| Create issue link                     | `POST /api/issues/:issueId/links`                                                          |
+| Delete issue link                     | `DELETE /api/issue-links/:linkId`                                                          |
+
+## Issue Links (Dependency Chains)
+
+Issue links let you chain tasks so completing one automatically triggers the next. Links are directional: a **source** issue triggers a **target** issue when the source moves to `done`.
+
+### Link types
+
+| Type | Behavior |
+|------|----------|
+| `triggers` | When source → `done`, target moves to `todo` and its assignee is woken (if all upstream triggers are also `done`). |
+
+### Creating a link
+
+```
+POST /api/issues/{sourceIssueId}/links
+Headers: Authorization: Bearer $PAPERCLIP_API_KEY
+{ "targetId": "uuid-of-downstream-issue", "linkType": "triggers" }
+```
+
+The server rejects links that would create circular dependency chains (422).
+
+### Listing links
+
+```
+GET /api/issues/{issueId}/links
+```
+
+Returns `{ outgoing: [...], incoming: [...] }` with issue details (identifier, title, status) for each linked issue.
+
+### Deleting a link
+
+```
+DELETE /api/issue-links/{linkId}
+```
+
+### Fan-out and fan-in
+
+- **Fan-out:** One issue can trigger multiple downstream issues in parallel.
+- **Fan-in:** A target with multiple incoming `triggers` links is only triggered when ALL upstream sources are `done`.
+
+### Dependency-triggered wake
+
+When your agent is woken by a dependency trigger, these env vars are set:
+
+- `PAPERCLIP_WAKE_REASON=dependency_triggered`
+- `PAPERCLIP_LINKED_ISSUE_IDS=<comma-separated source issue IDs that triggered this wake>`
+
+### Building a pipeline
+
+Create downstream issues in `backlog` status so they don't appear in agent inboxes until triggered:
+
+```bash
+# Create chain: research → implement → test
+curl -X POST /api/issues/$research_id/links -d '{"targetId":"'$implement_id'","linkType":"triggers"}'
+curl -X POST /api/issues/$implement_id/links -d '{"targetId":"'$test_id'","linkType":"triggers"}'
+```
 
 ## Recurring Schedules (Task Cron)
 
@@ -423,6 +484,38 @@ GET /api/companies/{companyId}/issues?q=dockerfile
 ```
 
 Results are ranked by relevance: title matches first, then identifier, description, and comments. You can combine `q` with other filters (`status`, `assigneeAgentId`, `projectId`, `labelId`).
+
+## Workspace Files
+
+Agents have workspace files accessible via API — the same files visible in the UI under Agent → Workspace. Use these endpoints to browse another agent's workspace or read file content programmatically.
+
+**List directory:**
+```
+GET /api/agents/{agentId}/files?path=workspace/docs
+```
+Returns `{ path, entries[] }` where each entry has `name`, `type` (`"file"` or `"directory"`), `size`, and `modified`. Omit `path` to list the agent's root directory.
+
+**Read file content:**
+```
+GET /api/agents/{agentId}/files/content?path=workspace/docs/my-plan.md
+```
+Returns `{ path, content, mimeType, size, modified }`. Max 1 MB, text files only.
+
+### Referencing workspace files in issues
+
+When creating an issue that should point the assignee at a workspace document, include the file path in the description:
+
+```
+POST /api/companies/{companyId}/issues
+{
+  "title": "Review: deployment-plan.md",
+  "description": "Review and act on the following workspace document.\n\n**Workspace file:** `agents/nexus/workspace/docs/deployment-plan.md`",
+  "assigneeAgentId": "{target-agent-id}",
+  "status": "todo"
+}
+```
+
+The receiving agent reads the referenced path (via the file content endpoint or local filesystem) before starting work. This replicates the UI's "create issue from file" flow.
 
 ## Self-Test Playbook (App-Level)
 
