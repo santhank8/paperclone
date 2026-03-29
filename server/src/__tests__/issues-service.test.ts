@@ -891,6 +891,11 @@ describe("issueService.list participantAgentId", () => {
     expect(unreadCount).toBe(0);
   });
 
+  it("returns zero unread count for malformed non-string user ids", async () => {
+    const unreadCount = await svc.countUnreadTouchedByUser(randomUUID(), { bad: true } as any, "todo");
+    expect(unreadCount).toBe(0);
+  });
+
   it("returns not found for malformed non-uuid issue ids on createAttachment", async () => {
     await expect(
       svc.createAttachment({

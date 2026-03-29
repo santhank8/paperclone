@@ -744,6 +744,7 @@ export function issueService(db: Db) {
 
     countUnreadTouchedByUser: async (companyId: string, userId: string, status?: string) => {
       if (!isUuidLike(companyId)) return 0;
+      if (typeof userId !== "string" || userId.trim().length === 0) return 0;
       const conditions = [
         eq(issues.companyId, companyId),
         isNull(issues.hiddenAt),
