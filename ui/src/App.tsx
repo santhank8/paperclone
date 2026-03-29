@@ -47,6 +47,7 @@ import { BoardClaimPage } from "./pages/BoardClaim";
 import { CliAuthPage } from "./pages/CliAuth";
 import { InviteLandingPage } from "./pages/InviteLanding";
 import { NotFoundPage } from "./pages/NotFound";
+import { SubscriptionGate } from "./components/SubscriptionGate";
 import { queryKeys } from "./lib/queryKeys";
 import { useCompany } from "./context/CompanyContext";
 import { useDialog } from "./context/DialogContext";
@@ -358,6 +359,7 @@ export function App() {
         </Route>
       </Routes>
       <OnboardingWizard />
+      <SubscriptionGate />
     </>
   );
 }
