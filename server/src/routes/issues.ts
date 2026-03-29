@@ -257,6 +257,12 @@ export function issueRoutes(db: Db, storage: StorageService) {
     const assigneeUserFilterRaw = readQueryString(req.query.assigneeUserId);
     const touchedByUserFilterRaw = readQueryString(req.query.touchedByUserId);
     const unreadForUserFilterRaw = readQueryString(req.query.unreadForUserId);
+    const assigneeUserFilter = assigneeUserFilterRaw?.trim();
+    const touchedByUserFilter = touchedByUserFilterRaw?.trim();
+    const unreadForUserFilter = unreadForUserFilterRaw?.trim();
+    const assigneeUserIsMe = assigneeUserFilter?.toLowerCase() === "me";
+    const touchedByUserIsMe = touchedByUserFilter?.toLowerCase() === "me";
+    const unreadForUserIsMe = unreadForUserFilter?.toLowerCase() === "me";
     const projectIdFilter = readQueryString(req.query.projectId);
     const parentIdFilter = readQueryString(req.query.parentId);
     const labelIdFilter = readQueryString(req.query.labelId);
@@ -296,27 +302,27 @@ export function issueRoutes(db: Db, storage: StorageService) {
     const statusFilterNormalized = normalizedStatuses.length > 0 ? Array.from(new Set(normalizedStatuses)).join(",") : undefined;
 
     const assigneeUserId =
-      assigneeUserFilterRaw === "me" && req.actor.type === "board"
+      assigneeUserIsMe && req.actor.type === "board"
         ? req.actor.userId
-        : assigneeUserFilterRaw;
+        : assigneeUserFilter;
     const touchedByUserId =
-      touchedByUserFilterRaw === "me" && req.actor.type === "board"
+      touchedByUserIsMe && req.actor.type === "board"
         ? req.actor.userId
-        : touchedByUserFilterRaw;
+        : touchedByUserFilter;
     const unreadForUserId =
-      unreadForUserFilterRaw === "me" && req.actor.type === "board"
+      unreadForUserIsMe && req.actor.type === "board"
         ? req.actor.userId
-        : unreadForUserFilterRaw;
+        : unreadForUserFilter;
 
-    if (assigneeUserFilterRaw === "me" && (!assigneeUserId || req.actor.type !== "board")) {
+    if (assigneeUserIsMe && (!assigneeUserId || req.actor.type !== "board")) {
       res.status(403).json({ error: "assigneeUserId=me requires board authentication" });
       return;
     }
-    if (touchedByUserFilterRaw === "me" && (!touchedByUserId || req.actor.type !== "board")) {
+    if (touchedByUserIsMe && (!touchedByUserId || req.actor.type !== "board")) {
       res.status(403).json({ error: "touchedByUserId=me requires board authentication" });
       return;
     }
-    if (unreadForUserFilterRaw === "me" && (!unreadForUserId || req.actor.type !== "board")) {
+    if (unreadForUserIsMe && (!unreadForUserId || req.actor.type !== "board")) {
       res.status(403).json({ error: "unreadForUserId=me requires board authentication" });
       return;
     }

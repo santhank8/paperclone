@@ -104,6 +104,22 @@ describe("issues list query parsing", () => {
     );
   });
 
+  it("normalizes me user filters for case and surrounding whitespace", async () => {
+    const res = await request(createApp()).get(
+      `/api/companies/${COMPANY_ID}/issues?assigneeUserId=%20ME%20&touchedByUserId=%20Me%20&unreadForUserId=%20mE%20`,
+    );
+
+    expect(res.status).toBe(200);
+    expect(mockIssueService.list).toHaveBeenCalledWith(
+      COMPANY_ID,
+      expect.objectContaining({
+        assigneeUserId: "local-board",
+        touchedByUserId: "local-board",
+        unreadForUserId: "local-board",
+      }),
+    );
+  });
+
   it("returns 400 for invalid status filters instead of passing bad enum values to service", async () => {
     const res = await request(createApp()).get(`/api/companies/${COMPANY_ID}/issues?status=todo,not_a_status`);
 
