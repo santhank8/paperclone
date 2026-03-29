@@ -806,6 +806,7 @@ describe("issueService.list participantAgentId", () => {
     const companyId = randomUUID();
     const routineIssueId = randomUUID();
     const manualIssueId = randomUUID();
+    const routineOriginId = randomUUID();
 
     await db.insert(companies).values({
       id: companyId,
@@ -822,7 +823,7 @@ describe("issueService.list participantAgentId", () => {
         status: "todo",
         priority: "medium",
         originKind: "routine_execution",
-        originId: randomUUID(),
+        originId: routineOriginId,
       },
       {
         id: manualIssueId,
@@ -839,6 +840,12 @@ describe("issueService.list participantAgentId", () => {
 
     const originResult = await svc.list(companyId, { originKind: " ROUTINE_EXECUTION " });
     expect(originResult.map((issue) => issue.id)).toContain(routineIssueId);
+
+    const originByIdResult = await svc.list(companyId, {
+      originKind: "routine_execution",
+      originId: routineOriginId.toUpperCase(),
+    });
+    expect(originByIdResult.map((issue) => issue.id)).toContain(routineIssueId);
   });
 
   it("keeps routine_execution issues excluded by default for malformed non-route origin/include filters", async () => {

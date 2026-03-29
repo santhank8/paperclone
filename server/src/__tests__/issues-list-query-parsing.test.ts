@@ -89,8 +89,9 @@ describe("issues list query parsing", () => {
 
   it("normalizes status/origin filters for case and surrounding whitespace", async () => {
     const originId = "22222222-2222-4222-8222-222222222222";
+    const uppercaseOriginId = originId.toUpperCase();
     const res = await request(createApp()).get(
-      `/api/companies/${COMPANY_ID}/issues?status=%20TODO,%20IN_PROGRESS%20&originKind=%20ROUTINE_EXECUTION%20&originId=%20${originId}%20`,
+      `/api/companies/${COMPANY_ID}/issues?status=%20TODO,%20IN_PROGRESS%20&originKind=%20ROUTINE_EXECUTION%20&originId=%20${uppercaseOriginId}%20`,
     );
 
     expect(res.status).toBe(200);

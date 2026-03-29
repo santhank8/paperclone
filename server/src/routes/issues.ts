@@ -67,6 +67,10 @@ export function issueRoutes(db: Db, storage: StorageService) {
     return typeof value === "string" && value.trim().length > 0 && isUuidLike(value.trim());
   }
 
+  function normalizeUuidString(value: string): string {
+    return value.trim().toLowerCase();
+  }
+
   function assertValidCompanyId(res: Response, companyId: string) {
     if (!isUuidLike(companyId)) {
       res.status(400).json({ error: "Invalid companyId" });
@@ -269,7 +273,7 @@ export function issueRoutes(db: Db, storage: StorageService) {
     const labelIdFilter = readQueryString(req.query.labelId);
     const originKindFilter = readQueryString(req.query.originKind)?.trim().toLowerCase();
     const originIdFilterRaw = readQueryString(req.query.originId);
-    const originIdFilter = originIdFilterRaw && originIdFilterRaw.trim().length > 0
+    const originIdFilterTrimmed = originIdFilterRaw && originIdFilterRaw.trim().length > 0
       ? originIdFilterRaw.trim()
       : undefined;
     const includeRoutineExecutionsFilter = readQueryString(req.query.includeRoutineExecutions);
@@ -285,10 +289,14 @@ export function issueRoutes(db: Db, storage: StorageService) {
       res.status(400).json({ error: `Invalid originKind filter: ${originKindFilter}` });
       return;
     }
-    if (originKindFilter === "routine_execution" && originIdFilter && !isNonEmptyUuid(originIdFilter)) {
+    if (originKindFilter === "routine_execution" && originIdFilterTrimmed && !isNonEmptyUuid(originIdFilterTrimmed)) {
       res.status(400).json({ error: "Invalid originId filter for routine_execution originKind" });
       return;
     }
+    const originIdFilter =
+      originKindFilter === "routine_execution" && originIdFilterTrimmed
+        ? normalizeUuidString(originIdFilterTrimmed)
+        : originIdFilterTrimmed;
     const normalizedIncludeRoutineExecutions = includeRoutineExecutionsFilter?.trim().toLowerCase();
     if (
       normalizedIncludeRoutineExecutions &&

@@ -588,7 +588,11 @@ export function issueService(db: Db) {
       const parentIdFilter = asNonEmptyString(filters?.parentId);
       const labelIdFilter = asNonEmptyString(filters?.labelId);
       const originKindFilter = asNonEmptyString(filters?.originKind)?.toLowerCase();
-      const originIdFilter = asNonEmptyString(filters?.originId);
+      const originIdFilterRaw = asNonEmptyString(filters?.originId);
+      const originIdFilter =
+        originKindFilter === "routine_execution" && originIdFilterRaw && isUuidLike(originIdFilterRaw)
+          ? originIdFilterRaw.toLowerCase()
+          : originIdFilterRaw;
       const includeRoutineExecutionsRaw = filters?.includeRoutineExecutions as unknown;
       const includeRoutineExecutions =
         includeRoutineExecutionsRaw === true ||
