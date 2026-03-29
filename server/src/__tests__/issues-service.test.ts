@@ -65,7 +65,8 @@ async function getAvailablePort(): Promise<number> {
 }
 
 async function startTempDatabase() {
-  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "paperclip-issues-service-"));
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "paperclip-issues-service-"));
+  const dataDir = path.join(tempDir, "pgdata");
   const port = await getAvailablePort();
   const EmbeddedPostgres = await getEmbeddedPostgresCtor();
   const instance = new EmbeddedPostgres({
@@ -85,7 +86,7 @@ async function startTempDatabase() {
   await ensurePostgresDatabase(adminConnectionString, "paperclip");
   const connectionString = `postgres://paperclip:paperclip@127.0.0.1:${port}/paperclip`;
   await applyPendingMigrations(connectionString);
-  return { connectionString, dataDir, instance };
+  return { connectionString, dataDir: tempDir, instance };
 }
 
 describe("issueService.list participantAgentId", () => {
