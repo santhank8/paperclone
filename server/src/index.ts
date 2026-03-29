@@ -29,6 +29,8 @@ import { loadConfig } from "./config.js";
 import { logger } from "./middleware/logger.js";
 import { setupLiveEventsWebSocketServer } from "./realtime/live-events-ws.js";
 import { heartbeatService, reconcilePersistedRuntimeServicesOnStartup, routineService, startConnectionRefreshJob } from "./services/index.js";
+import { ensureSubscriptionPlans } from "./services/plan-seed.js";
+import { sendTrialExpiryWarnings } from "./services/trial-notifications.js";
 import { createStorageServiceFromConfig } from "./storage/index.js";
 import { createStorageProviderFromConfig } from "./storage/provider-registry.js";
 import { printStartupBanner } from "./startup-banner.js";
@@ -424,6 +426,9 @@ export async function startServer(): Promise<StartedServer> {
     startupDbInfo = { mode: "embedded-postgres", dataDir, port };
   }
   
+  // Seed subscription plans (idempotent)
+  await ensureSubscriptionPlans(db as any);
+
   if (config.deploymentMode === "local_trusted" && !isLoopbackHost(config.host)) {
     throw new Error(
       `local_trusted mode requires loopback host binding (received: ${config.host}). ` +
@@ -670,10 +675,23 @@ async function withSchedulerLock(db: any, fn: () => Promise<void>) {
       });
     }, 60_000); // every minute
 
+    // Send trial expiry warning emails once per hour
+    let lastTrialCheckMs = 0;
+    const TRIAL_CHECK_INTERVAL_MS = 60 * 60 * 1000; // 1 hour
+    const trialCheckTimerId = setInterval(() => {
+      const now = Date.now();
+      if (now - lastTrialCheckMs < TRIAL_CHECK_INTERVAL_MS) return;
+      lastTrialCheckMs = now;
+      void sendTrialExpiryWarnings(db as any).catch((err) => {
+        logger.error({ err }, "trial expiry notification check failed");
+      });
+    }, 60_000); // check every minute, but only actually send hourly
+
     function gracefulShutdown(signal: string) {
       logger.info({ signal }, "Received shutdown signal, cleaning up...");
       clearInterval(schedulerTimerId);
       clearInterval(sweepTimerId);
+      clearInterval(trialCheckTimerId);
       // Give in-flight work 10 seconds to finish
       setTimeout(() => process.exit(0), 10_000);
     }
