@@ -26,6 +26,7 @@ export const issuesApi = {
       labelId?: string;
       originKind?: string;
       originId?: string;
+      needsOwnerAction?: boolean;
       includeRoutineExecutions?: boolean;
       q?: string;
     },
@@ -42,6 +43,7 @@ export const issuesApi = {
     if (filters?.labelId) params.set("labelId", filters.labelId);
     if (filters?.originKind) params.set("originKind", filters.originKind);
     if (filters?.originId) params.set("originId", filters.originId);
+    if (filters?.needsOwnerAction !== undefined) params.set("needsOwnerAction", String(filters.needsOwnerAction));
     if (filters?.includeRoutineExecutions) params.set("includeRoutineExecutions", "true");
     if (filters?.q) params.set("q", filters.q);
     const qs = params.toString();

@@ -160,6 +160,11 @@ function KanbanCard({
           )}
         </div>
         <p className="text-sm leading-snug line-clamp-2 mb-2">{issue.title}</p>
+        {issue.needsOwnerAction && (
+          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 mb-1.5 text-[10px] font-medium rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400 border border-amber-300 dark:border-amber-700">
+            👤 Needs you
+          </span>
+        )}
         <div className="flex items-center gap-2">
           <PriorityIcon priority={issue.priority} />
           {issue.assigneeAgentId && (() => {

@@ -42,6 +42,7 @@ export type IssueViewState = {
   assignees: string[];
   labels: string[];
   projects: string[];
+  needsOwnerAction?: boolean;
   sortField: "status" | "priority" | "title" | "created" | "updated";
   sortDir: "asc" | "desc";
   groupBy: "status" | "priority" | "assignee" | "none";
@@ -55,6 +56,7 @@ const defaultViewState: IssueViewState = {
   assignees: [],
   labels: [],
   projects: [],
+  needsOwnerAction: undefined,
   sortField: "updated",
   sortDir: "desc",
   groupBy: "none",
@@ -63,10 +65,11 @@ const defaultViewState: IssueViewState = {
 };
 
 const quickFilterPresets = [
-  { label: "All", statuses: [] as string[] },
-  { label: "Active", statuses: ["todo", "in_progress", "in_review", "blocked"] },
-  { label: "Backlog", statuses: ["backlog"] },
-  { label: "Done", statuses: ["done", "cancelled"] },
+  { label: "All", statuses: [] as string[], needsOwnerAction: undefined as boolean | undefined },
+  { label: "Active", statuses: ["todo", "in_progress", "in_review", "blocked"], needsOwnerAction: undefined as boolean | undefined },
+  { label: "Needs Action", statuses: [] as string[], needsOwnerAction: true as boolean | undefined },
+  { label: "Backlog", statuses: ["backlog"], needsOwnerAction: undefined as boolean | undefined },
+  { label: "Done", statuses: ["done", "cancelled"], needsOwnerAction: undefined as boolean | undefined },
 ];
 const ISSUE_SEARCH_COMMIT_DELAY_MS = 150;
 
@@ -109,6 +112,7 @@ function applyFilters(issues: Issue[], state: IssueViewState, currentUserId?: st
   }
   if (state.labels.length > 0) result = result.filter((i) => (i.labelIds ?? []).some((id) => state.labels.includes(id)));
   if (state.projects.length > 0) result = result.filter((i) => i.projectId != null && state.projects.includes(i.projectId));
+  if (state.needsOwnerAction === true) result = result.filter((i) => i.needsOwnerAction === true);
   return result;
 }
 
@@ -141,6 +145,7 @@ function countActiveFilters(state: IssueViewState): number {
   if (state.assignees.length > 0) count++;
   if (state.labels.length > 0) count++;
   if (state.projects.length > 0) count++;
+  if (state.needsOwnerAction === true) count++;
   return count;
 }
 
@@ -424,7 +429,7 @@ export function IssuesList({
                   {activeFilterCount > 0 && (
                     <button
                       className="text-xs text-muted-foreground hover:text-foreground"
-                      onClick={() => updateView({ statuses: [], priorities: [], assignees: [], labels: [] })}
+                      onClick={() => updateView({ statuses: [], priorities: [], assignees: [], labels: [], projects: [], needsOwnerAction: undefined })}
                     >
                       Clear
                     </button>
@@ -436,16 +441,16 @@ export function IssuesList({
                   <span className="text-xs text-muted-foreground">Quick filters</span>
                   <div className="flex flex-wrap gap-1.5">
                     {quickFilterPresets.map((preset) => {
-                      const isActive = arraysEqual(viewState.statuses, preset.statuses);
+                      const isActive = arraysEqual(viewState.statuses, preset.statuses) && viewState.needsOwnerAction === preset.needsOwnerAction;
                       return (
                         <button
                           key={preset.label}
                           className={`px-2.5 py-1 text-xs rounded-full border transition-colors ${
                             isActive
-                              ? "bg-primary text-primary-foreground border-primary"
+                              ? preset.needsOwnerAction ? "bg-amber-600 text-white border-amber-600" : "bg-primary text-primary-foreground border-primary"
                               : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/30"
                           }`}
-                          onClick={() => updateView({ statuses: isActive ? [] : [...preset.statuses] })}
+                          onClick={() => updateView({ statuses: isActive ? [] : [...preset.statuses], needsOwnerAction: isActive ? undefined : preset.needsOwnerAction })}
                         >
                           {preset.label}
                         </button>
@@ -712,6 +717,7 @@ export function IssuesList({
                     >
                       <StatusIcon
                         status={issue.status}
+                        needsOwnerAction={issue.needsOwnerAction}
                         onChange={(s) => onUpdateIssue(issue.id, { status: s })}
                       />
                     </span>
@@ -727,6 +733,7 @@ export function IssuesList({
                       >
                         <StatusIcon
                           status={issue.status}
+                          needsOwnerAction={issue.needsOwnerAction}
                           onChange={(s) => onUpdateIssue(issue.id, { status: s })}
                         />
                       </span>
