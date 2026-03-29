@@ -452,4 +452,74 @@ describeEmbeddedPostgres("issueService checkout/execution lock lifecycle", () =>
     expect(released?.executionAgentNameKey).toBeNull();
     expect(released?.executionLockedAt).toBeNull();
   });
+
+  it("allows release override when assignee override is enabled", async () => {
+    const companyId = randomUUID();
+    const assigneeAgentId = randomUUID();
+    const managerAgentId = randomUUID();
+    const issueId = randomUUID();
+    const runId = randomUUID();
+
+    await db.insert(companies).values({
+      id: companyId,
+      name: "Paperclip",
+      issuePrefix: `T${companyId.replace(/-/g, "").slice(0, 6).toUpperCase()}`,
+      requireBoardApprovalForNewAgents: false,
+    });
+
+    await db.insert(agents).values([
+      {
+        id: assigneeAgentId,
+        companyId,
+        name: "Assignee",
+        role: "engineer",
+        status: "active",
+        adapterType: "codex_local",
+        adapterConfig: {},
+        runtimeConfig: {},
+        permissions: {},
+      },
+      {
+        id: managerAgentId,
+        companyId,
+        name: "Manager",
+        role: "manager",
+        status: "active",
+        adapterType: "codex_local",
+        adapterConfig: {},
+        runtimeConfig: {},
+        permissions: { canCreateAgents: true },
+      },
+    ]);
+    await db.insert(heartbeatRuns).values({
+      id: runId,
+      companyId,
+      agentId: assigneeAgentId,
+      invocationSource: "assignment",
+      status: "running",
+      startedAt: new Date(),
+    });
+
+    await db.insert(issues).values({
+      id: issueId,
+      companyId,
+      title: "Release override lock",
+      status: "in_progress",
+      priority: "medium",
+      assigneeAgentId,
+      checkoutRunId: runId,
+      executionRunId: runId,
+      executionAgentNameKey: "assignee",
+      executionLockedAt: new Date(),
+    });
+
+    const released = await svc.release(issueId, managerAgentId, "manager-run", { allowAssigneeOverride: true });
+
+    expect(released?.status).toBe("todo");
+    expect(released?.assigneeAgentId).toBeNull();
+    expect(released?.checkoutRunId).toBeNull();
+    expect(released?.executionRunId).toBeNull();
+    expect(released?.executionAgentNameKey).toBeNull();
+    expect(released?.executionLockedAt).toBeNull();
+  });
 });

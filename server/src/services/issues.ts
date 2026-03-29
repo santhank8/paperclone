@@ -111,6 +111,9 @@ function sameRunLock(checkoutRunId: string | null, actorRunId: string | null) {
 }
 
 const TERMINAL_HEARTBEAT_RUN_STATUSES = new Set(["succeeded", "failed", "cancelled", "timed_out"]);
+type ReleaseOptions = {
+  allowAssigneeOverride?: boolean;
+};
 
 function escapeLikePattern(value: string): string {
   return value.replace(/[\\%_]/g, "\\$&");
@@ -1287,7 +1290,7 @@ export function issueService(db: Db) {
       });
     },
 
-    release: async (id: string, actorAgentId?: string, actorRunId?: string | null) => {
+    release: async (id: string, actorAgentId?: string, actorRunId?: string | null, options?: ReleaseOptions) => {
       const existing = await db
         .select()
         .from(issues)
@@ -1295,7 +1298,13 @@ export function issueService(db: Db) {
         .then((rows) => rows[0] ?? null);
 
       if (!existing) return null;
-      if (actorAgentId && existing.assigneeAgentId && existing.assigneeAgentId !== actorAgentId) {
+      const allowAssigneeOverride = options?.allowAssigneeOverride === true;
+      if (
+        actorAgentId &&
+        existing.assigneeAgentId &&
+        existing.assigneeAgentId !== actorAgentId &&
+        !allowAssigneeOverride
+      ) {
         throw conflict("Only assignee can release issue");
       }
       if (

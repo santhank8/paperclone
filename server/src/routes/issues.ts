@@ -1264,11 +1264,21 @@ export function issueRoutes(db: Db, storage: StorageService) {
     if (!(await assertAgentRunCheckoutOwnership(req, res, existing))) return;
     const actorRunId = requireAgentRunId(req, res);
     if (req.actor.type === "agent" && !actorRunId) return;
+    let allowAssigneeOverride = false;
+    if (req.actor.type === "agent" && req.actor.agentId) {
+      const actorAgent = await agentsSvc.getById(req.actor.agentId);
+      allowAssigneeOverride = Boolean(
+        actorAgent &&
+        actorAgent.companyId === existing.companyId &&
+        canCreateAgentsLegacy(actorAgent),
+      );
+    }
 
     const released = await svc.release(
       id,
       req.actor.type === "agent" ? req.actor.agentId : undefined,
       actorRunId,
+      { allowAssigneeOverride },
     );
     if (!released) {
       res.status(404).json({ error: "Issue not found" });
