@@ -1242,6 +1242,31 @@ describe("issueService.list participantAgentId", () => {
     expect(new Date(row.lastReadAt).toISOString()).toBe(readAt.toISOString());
   });
 
+  it("normalizes markRead company/issue uuid inputs for non-route callers", async () => {
+    const companyId = randomUUID();
+    const issueId = randomUUID();
+    const userId = randomUUID();
+
+    await db.insert(companies).values({
+      id: companyId,
+      name: "Paperclip",
+      issuePrefix: `T${companyId.replace(/-/g, "").slice(0, 6).toUpperCase()}`,
+      requireBoardApprovalForNewAgents: false,
+    });
+
+    await db.insert(issues).values({
+      id: issueId,
+      companyId,
+      title: "markRead uuid normalization",
+      status: "todo",
+      priority: "medium",
+    });
+
+    const row = await svc.markRead(` ${companyId.toUpperCase()} `, ` ${issueId.toUpperCase()} `, userId, new Date());
+    expect(row.companyId).toBe(companyId);
+    expect(row.issueId).toBe(issueId);
+  });
+
   it("returns unprocessable for malformed readAt values on markRead", async () => {
     await expect(
       svc.markRead(randomUUID(), randomUUID(), "user-1", "not-a-date" as any),
@@ -1253,6 +1278,30 @@ describe("issueService.list participantAgentId", () => {
 
   it("returns null for malformed issue ids on getById", async () => {
     await expect(svc.getById("not-a-uuid")).resolves.toBeNull();
+  });
+
+  it("normalizes getById uuid casing/whitespace for non-route callers", async () => {
+    const companyId = randomUUID();
+    const issueId = randomUUID();
+
+    await db.insert(companies).values({
+      id: companyId,
+      name: "Paperclip",
+      issuePrefix: `T${companyId.replace(/-/g, "").slice(0, 6).toUpperCase()}`,
+      requireBoardApprovalForNewAgents: false,
+    });
+
+    await db.insert(issues).values({
+      id: issueId,
+      companyId,
+      title: "getById uuid normalization",
+      status: "todo",
+      priority: "medium",
+    });
+
+    await expect(svc.getById(` ${issueId.toUpperCase()} `)).resolves.toEqual(
+      expect.objectContaining({ id: issueId }),
+    );
   });
 
   it("returns null for malformed non-string issue identifiers on getByIdentifier", async () => {

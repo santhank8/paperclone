@@ -782,8 +782,10 @@ export function issueService(db: Db) {
     },
 
     markRead: async (companyId: string, issueId: string, userId: string, readAt: Date = new Date()) => {
-      if (!isUuidLike(companyId)) throw unprocessable("Invalid companyId");
-      if (!isUuidLike(issueId)) throw notFound("Issue not found");
+      const normalizedCompanyId = asCanonicalUuid(companyId);
+      if (!normalizedCompanyId) throw unprocessable("Invalid companyId");
+      const normalizedIssueId = asCanonicalUuid(issueId);
+      if (!normalizedIssueId) throw notFound("Issue not found");
       if (typeof userId !== "string" || userId.trim().length === 0) throw unprocessable("Invalid userId");
       if (!(readAt instanceof Date) || Number.isNaN(readAt.getTime())) throw unprocessable("Invalid readAt");
       const normalizedUserId = userId.trim();
@@ -791,8 +793,8 @@ export function issueService(db: Db) {
       const [row] = await db
         .insert(issueReadStates)
         .values({
-          companyId,
-          issueId,
+          companyId: normalizedCompanyId,
+          issueId: normalizedIssueId,
           userId: normalizedUserId,
           lastReadAt: readAt,
           updatedAt: now,
@@ -809,11 +811,12 @@ export function issueService(db: Db) {
     },
 
     getById: async (id: string) => {
-      if (!isUuidLike(id)) return null;
+      const normalizedId = asCanonicalUuid(id);
+      if (!normalizedId) return null;
       const row = await db
         .select()
         .from(issues)
-        .where(eq(issues.id, id))
+        .where(eq(issues.id, normalizedId))
         .then((rows) => rows[0] ?? null);
       if (!row) return null;
       const [enriched] = await withIssueLabels(db, [row]);
