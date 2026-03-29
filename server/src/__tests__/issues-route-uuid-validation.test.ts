@@ -161,6 +161,23 @@ describe("issues routes UUID validation", () => {
     expect(mockIssueService.checkout).not.toHaveBeenCalled();
   });
 
+  it("returns 401 for agent checkout when runId is malformed non-uuid string", async () => {
+    const agentId = "33333333-3333-4333-8333-333333333333";
+    const app = createApp({
+      type: "agent",
+      companyId: COMPANY_ID,
+      agentId,
+      runId: "run-1",
+    });
+    const res = await request(app)
+      .post("/api/issues/11111111-1111-4111-8111-111111111111/checkout")
+      .send({ agentId, expectedStatuses: ["todo"] });
+
+    expect(res.status).toBe(401);
+    expect(res.body.error).toContain("run id");
+    expect(mockIssueService.checkout).not.toHaveBeenCalled();
+  });
+
   it("returns 400 for invalid attachment ids before attachment lookup", async () => {
     const res = await request(createApp()).get("/api/attachments/not-a-uuid/content");
     expect(res.status).toBe(400);
