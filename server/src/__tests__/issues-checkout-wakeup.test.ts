@@ -45,4 +45,26 @@ describe("shouldWakeAssigneeOnCheckout", () => {
       }),
     ).toBe(true);
   });
+
+  it("skips wakeup when self-checkout ids only differ by case/whitespace", () => {
+    expect(
+      shouldWakeAssigneeOnCheckout({
+        actorType: "agent",
+        actorAgentId: "  AGENT-1  ",
+        checkoutAgentId: "agent-1",
+        checkoutRunId: " run-1 ",
+      }),
+    ).toBe(false);
+  });
+
+  it("still wakes when checkout agent id is malformed whitespace", () => {
+    expect(
+      shouldWakeAssigneeOnCheckout({
+        actorType: "agent",
+        actorAgentId: "agent-1",
+        checkoutAgentId: "   ",
+        checkoutRunId: "run-1",
+      }),
+    ).toBe(true);
+  });
 });
