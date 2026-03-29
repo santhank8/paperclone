@@ -1209,6 +1209,41 @@ describe("issueService.list participantAgentId", () => {
     });
   });
 
+  it("returns unprocessable for malformed createdByUserId on createAttachment", async () => {
+    const companyId = randomUUID();
+    const issueId = randomUUID();
+
+    await db.insert(companies).values({
+      id: companyId,
+      name: "Paperclip",
+      issuePrefix: `T${companyId.replace(/-/g, "").slice(0, 6).toUpperCase()}`,
+      requireBoardApprovalForNewAgents: false,
+    });
+
+    await db.insert(issues).values({
+      id: issueId,
+      companyId,
+      title: "Attachment createdByUserId validation",
+      status: "todo",
+      priority: "medium",
+    });
+
+    await expect(
+      svc.createAttachment({
+        issueId,
+        provider: "local",
+        objectKey: `issues/${issueId}/file.txt`,
+        contentType: "text/plain",
+        byteSize: 10,
+        sha256: "abc123",
+        createdByUserId: { bad: true } as any,
+      }),
+    ).rejects.toMatchObject({
+      status: 422,
+      message: "Invalid createdByUserId",
+    });
+  });
+
   it("normalizes attachment issue/attachment uuid inputs for non-route callers", async () => {
     const companyId = randomUUID();
     const issueId = randomUUID();

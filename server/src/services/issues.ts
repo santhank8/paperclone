@@ -1605,6 +1605,9 @@ export function issueService(db: Db) {
       if (input.createdByAgentId != null && !normalizedCreatedByAgentId) {
         throw unprocessable("Invalid createdByAgentId");
       }
+      if (input.createdByUserId != null && typeof input.createdByUserId !== "string") {
+        throw unprocessable("Invalid createdByUserId");
+      }
 
       const issue = await db
         .select({ id: issues.id, companyId: issues.companyId })
