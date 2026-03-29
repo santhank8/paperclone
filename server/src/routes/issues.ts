@@ -251,7 +251,7 @@ export function issueRoutes(db: Db, storage: StorageService) {
     const companyId = req.params.companyId as string;
     if (!assertValidCompanyId(res, companyId)) return;
     assertCompanyAccess(req, companyId);
-    const statusFilter = readQueryString(req.query.status);
+    const statusFilter = readQueryString(req.query.status)?.trim();
     const assigneeAgentIdFilter = readQueryString(req.query.assigneeAgentId);
     const participantAgentIdFilter = readQueryString(req.query.participantAgentId);
     const assigneeUserFilterRaw = readQueryString(req.query.assigneeUserId);
@@ -260,12 +260,15 @@ export function issueRoutes(db: Db, storage: StorageService) {
     const projectIdFilter = readQueryString(req.query.projectId);
     const parentIdFilter = readQueryString(req.query.parentId);
     const labelIdFilter = readQueryString(req.query.labelId);
-    const originKindFilter = readQueryString(req.query.originKind);
-    const originIdFilter = readQueryString(req.query.originId);
+    const originKindFilter = readQueryString(req.query.originKind)?.trim().toLowerCase();
+    const originIdFilterRaw = readQueryString(req.query.originId);
+    const originIdFilter = originIdFilterRaw && originIdFilterRaw.trim().length > 0
+      ? originIdFilterRaw.trim()
+      : undefined;
     const includeRoutineExecutionsFilter = readQueryString(req.query.includeRoutineExecutions);
     const searchFilter = readQueryString(req.query.q);
     const normalizedStatuses =
-      statusFilter?.split(",").map((value) => value.trim()).filter((value) => value.length > 0) ?? [];
+      statusFilter?.split(",").map((value) => value.trim().toLowerCase()).filter((value) => value.length > 0) ?? [];
     const invalidStatus = normalizedStatuses.find((status) => !ISSUE_STATUS_SET.has(status as typeof ISSUE_STATUSES[number]));
     if (invalidStatus) {
       res.status(400).json({ error: `Invalid status filter: ${invalidStatus}` });

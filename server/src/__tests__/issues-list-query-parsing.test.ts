@@ -87,6 +87,23 @@ describe("issues list query parsing", () => {
     );
   });
 
+  it("normalizes status/origin filters for case and surrounding whitespace", async () => {
+    const originId = "22222222-2222-4222-8222-222222222222";
+    const res = await request(createApp()).get(
+      `/api/companies/${COMPANY_ID}/issues?status=%20TODO,%20IN_PROGRESS%20&originKind=%20ROUTINE_EXECUTION%20&originId=%20${originId}%20`,
+    );
+
+    expect(res.status).toBe(200);
+    expect(mockIssueService.list).toHaveBeenCalledWith(
+      COMPANY_ID,
+      expect.objectContaining({
+        status: "todo,in_progress",
+        originKind: "routine_execution",
+        originId,
+      }),
+    );
+  });
+
   it("returns 400 for invalid status filters instead of passing bad enum values to service", async () => {
     const res = await request(createApp()).get(`/api/companies/${COMPANY_ID}/issues?status=todo,not_a_status`);
 
