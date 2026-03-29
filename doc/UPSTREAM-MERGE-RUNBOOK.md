@@ -133,6 +133,13 @@ git branch codex/upstream-sync-YYYYMMDD-safety
 
 这样即使后面冲突处理走偏，也能快速回到开始状态。
 
+重要要求：
+
+- 上游同步工作必须在 `codex/upstream-sync-YYYYMMDD` 这类工作分支上完成
+- 不要直接在 `master` 上做 merge、冲突解决、提交和推送
+- 最终要把工作分支推到 Penclip 自己的远端仓库，再通过 PR 合回 `master`
+- 如果误在本地 `master` 上完成了同步，先把结果挂到 `codex/upstream-sync-...` 分支并推远端，再把本地 `master` 指回 `fork remote/master`
+
 ### 5.3 先和 Penclip 自己的目标分支对齐历史
 
 如果你本地当前分支不是从 Penclip 最新 `master` 拉出来的，先和 Penclip 自己的目标分支对齐，再引入上游。
@@ -448,6 +455,34 @@ pnpm build
 - costs
 - plugin manager
 
+### 10.4 交付方式
+
+完成验证后，默认交付方式不是“直接更新 `master`”，而是：
+
+1. 保持当前 HEAD 在 `codex/upstream-sync-YYYYMMDD` 工作分支上
+2. 提交同步结果
+3. 推送到 Penclip 自己的远端仓库
+4. 发起 PR，目标分支是 Penclip 的 `master`
+
+推荐命令：
+
+```sh
+git push -u private codex/upstream-sync-YYYYMMDD
+```
+
+如果前面不小心在本地 `master` 上做完了同步，按下面顺序修正：
+
+```sh
+git switch -c codex/upstream-sync-YYYYMMDD
+git push -u private codex/upstream-sync-YYYYMMDD
+git branch -f master private/master
+```
+
+目的有两个：
+
+- 避免把“正在处理中的上游同步”直接混入长期基线分支
+- 让 review、CI 和回滚都围绕独立 PR 展开，而不是围绕本地 `master` 展开
+
 ## 11. 推荐提交策略
 
 同步上游后，尽量拆成两类提交：
@@ -528,6 +563,26 @@ pnpm build
 - 先看 `fork/master...HEAD`
 - 需要时先合 Penclip 自己的目标分支
 
+### 12.6 直接把上游同步结果留在 master
+
+错误做法：
+
+- 在本地 `master` 上执行 `git merge origin/master`
+- 直接在本地 `master` 上解决冲突并提交
+- 直接把本地 `master` 推到 Penclip 远端
+
+后果：
+
+- 绕过独立 PR 审核
+- 后续很难区分“日常开发提交”和“上游同步提交”
+- 一旦处理错了，回滚范围会落在主分支上
+
+正确做法：
+
+- 全程使用 `codex/upstream-sync-YYYYMMDD` 工作分支
+- 推送工作分支
+- 通过 PR 合回 `master`
+
 ## 13. 快速操作模板
 
 下面给的是“有独立私有 fork remote”的完整模板。
@@ -558,6 +613,14 @@ git restore --staged --worktree pnpm-lock.yaml
 ```
 
 然后做页面烟雾验证，再提交。
+
+最后通过分支交付，而不是直接推 `master`：
+
+```sh
+git push -u private codex/upstream-sync-YYYYMMDD
+```
+
+然后在 GitHub 上发起 `codex/upstream-sync-YYYYMMDD -> master` 的 PR。
 
 ## 14. 最后的判断标准
 
