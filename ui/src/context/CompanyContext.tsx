@@ -12,7 +12,10 @@ import type { Company } from "@paperclipai/shared";
 import { companiesApi } from "../api/companies";
 import { ApiError } from "../api/client";
 import { queryKeys } from "../lib/queryKeys";
-import type { CompanySelectionSource } from "../lib/company-selection";
+import {
+  resolveAutoSelectedCompanyId,
+  type CompanySelectionSource,
+} from "../lib/company-selection";
 type CompanySelectionOptions = { source?: CompanySelectionSource };
 
 interface CompanyContextValue {
@@ -40,7 +43,7 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
   const [selectionSource, setSelectionSource] = useState<CompanySelectionSource>("bootstrap");
   const [selectedCompanyId, setSelectedCompanyIdState] = useState<string | null>(() => localStorage.getItem(STORAGE_KEY));
 
-  const { data: companies = [], isLoading, error } = useQuery({
+  const { data: companies = [], isLoading, isFetching, error } = useQuery({
     queryKey: queryKeys.companies.all,
     queryFn: async () => {
       try {
@@ -61,18 +64,19 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
 
   // Auto-select first company when list loads
   useEffect(() => {
-    if (companies.length === 0) return;
-
-    const selectableCompanies = sidebarCompanies.length > 0 ? sidebarCompanies : companies;
     const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored && selectableCompanies.some((c) => c.id === stored)) return;
-    if (selectedCompanyId && selectableCompanies.some((c) => c.id === selectedCompanyId)) return;
+    const next = resolveAutoSelectedCompanyId({
+      companies,
+      selectedCompanyId,
+      storedCompanyId: stored,
+      isFetching,
+    });
+    if (!next) return;
 
-    const next = selectableCompanies[0]!.id;
     setSelectedCompanyIdState(next);
     setSelectionSource("bootstrap");
     localStorage.setItem(STORAGE_KEY, next);
-  }, [companies, selectedCompanyId, sidebarCompanies]);
+  }, [companies, isFetching, selectedCompanyId]);
 
   const setSelectedCompanyId = useCallback((companyId: string, options?: CompanySelectionOptions) => {
     setSelectedCompanyIdState(companyId);

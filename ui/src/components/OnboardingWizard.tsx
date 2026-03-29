@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import type { AdapterEnvironmentTestResult } from "@paperclipai/shared";
+import type { AdapterEnvironmentTestResult, Company } from "@paperclipai/shared";
 import { useTranslation } from "react-i18next";
 import { useLocation, useNavigate, useParams } from "@/lib/router";
 import { useDialog } from "../context/DialogContext";
@@ -61,12 +61,14 @@ import {
   ChevronDown,
   X
 } from "lucide-react";
+import { HermesIcon } from "./HermesIcon";
 
 type Step = 1 | 2 | 3 | 4;
 type AdapterType =
   | "claude_local"
   | "codex_local"
   | "gemini_local"
+  | "hermes_local"
   | "opencode_local"
   | "pi_local"
   | "cursor"
@@ -231,6 +233,7 @@ export function OnboardingWizard() {
     adapterType === "claude_local" ||
     adapterType === "codex_local" ||
     adapterType === "gemini_local" ||
+    adapterType === "hermes_local" ||
     adapterType === "opencode_local" ||
     adapterType === "pi_local" ||
     adapterType === "cursor";
@@ -240,6 +243,8 @@ export function OnboardingWizard() {
       ? "codex"
       : adapterType === "gemini_local"
         ? "gemini"
+      : adapterType === "hermes_local"
+        ? "hermes"
       : adapterType === "pi_local"
       ? "pi"
       : adapterType === "cursor"
@@ -255,6 +260,13 @@ export function OnboardingWizard() {
   }, [step, adapterType, model, command, args, url]);
 
   const selectedModel = (adapterModels ?? []).find((m) => m.id === model);
+  const allowsDefaultModel = adapterType !== "opencode_local" && adapterType !== "hermes_local";
+  const manualModel = modelSearch.trim();
+  const canUseManualModel = Boolean(
+    adapterType === "hermes_local" &&
+      manualModel &&
+      !(adapterModels ?? []).some((entry) => entry.id.toLowerCase() === manualModel.toLowerCase()),
+  );
   const hasAnthropicApiKeyOverrideCheck =
     adapterEnvResult?.checks.some(
       (check) =>
@@ -404,6 +416,10 @@ export function OnboardingWizard() {
     setError(null);
     try {
       const company = await companiesApi.create({ name: companyName.trim() });
+      queryClient.setQueryData<Company[]>(queryKeys.companies.all, (current = []) => [
+        company,
+        ...current.filter((entry) => entry.id !== company.id),
+      ]);
       setCreatedCompanyId(company.id);
       setCreatedCompanyPrefix(company.issuePrefix);
       setSelectedCompanyId(company.id);
@@ -440,14 +456,18 @@ export function OnboardingWizard() {
     setLoading(true);
     setError(null);
     try {
-      if (adapterType === "opencode_local") {
-        const selectedModelId = model.trim();
+      const selectedModelId = model.trim();
+      if (adapterType === "opencode_local" || adapterType === "hermes_local") {
         if (!selectedModelId) {
           setError(
-            t("OpenCode requires an explicit model in provider/model format.")
+            adapterType === "opencode_local"
+              ? t("OpenCode requires an explicit model in provider/model format.")
+              : t("Hermes requires an explicit model in provider/model format.")
           );
           return;
         }
+      }
+      if (adapterType === "opencode_local") {
         if (adapterModelsError) {
           setError(
             adapterModelsError instanceof Error
@@ -821,7 +841,9 @@ export function OnboardingWizard() {
                             </span>
                           )}
                           <opt.icon className="h-4 w-4" />
-                          <span className="font-medium">{opt.label}</span>
+                          <span className="font-medium">
+                            {t(opt.label, { defaultValue: opt.label })}
+                          </span>
                           <span className="text-muted-foreground text-[10px]">
                             {opt.desc}
                           </span>
@@ -870,6 +892,12 @@ export function OnboardingWizard() {
                             desc: t("Local Cursor agent")
                           },
                           {
+                            value: "hermes_local" as const,
+                            label: "Hermes Agent",
+                            icon: HermesIcon,
+                            desc: t("Local multi-provider agent")
+                          },
+                          {
                             value: "openclaw_gateway" as const,
                             label: "OpenClaw Gateway",
                             icon: Bot,
@@ -911,7 +939,9 @@ export function OnboardingWizard() {
                             }}
                           >
                             <opt.icon className="h-4 w-4" />
-                            <span className="font-medium">{opt.label}</span>
+                            <span className="font-medium">
+                              {t(opt.label, { defaultValue: opt.label })}
+                            </span>
                             <span className="text-muted-foreground text-[10px]">
                               {opt.comingSoon
                                 ? (opt as { disabledLabel?: string })
@@ -928,6 +958,7 @@ export function OnboardingWizard() {
                   {(adapterType === "claude_local" ||
                     adapterType === "codex_local" ||
                     adapterType === "gemini_local" ||
+                    adapterType === "hermes_local" ||
                     adapterType === "opencode_local" ||
                     adapterType === "pi_local" ||
                     adapterType === "cursor") && (
@@ -953,7 +984,7 @@ export function OnboardingWizard() {
                                 {selectedModel
                                   ? selectedModel.label
                                   : model ||
-                                    (adapterType === "opencode_local"
+                                    (adapterType === "opencode_local" || adapterType === "hermes_local"
                                       ? t("Select model (required)")
                                       : t("Default"))}
                               </span>
@@ -966,12 +997,14 @@ export function OnboardingWizard() {
                           >
                             <input
                               className="w-full px-2 py-1.5 text-xs bg-transparent outline-none border-b border-border mb-1 placeholder:text-muted-foreground/50"
-                              placeholder={t("Search models...")}
+                              placeholder={adapterType === "hermes_local"
+                                ? t("agentConfig.searchModelsCreateHint")
+                                : t("Search models...")}
                               value={modelSearch}
                               onChange={(e) => setModelSearch(e.target.value)}
                               autoFocus
                             />
-                            {adapterType !== "opencode_local" && (
+                            {allowsDefaultModel && (
                               <button
                                 className={cn(
                                   "flex items-center gap-2 w-full px-2 py-1.5 text-sm rounded hover:bg-accent/50",
@@ -983,6 +1016,19 @@ export function OnboardingWizard() {
                                 }}
                               >
                                 {t("Default")}
+                              </button>
+                            )}
+                            {canUseManualModel && (
+                              <button
+                                className="flex items-center justify-between gap-2 w-full px-2 py-1.5 text-sm rounded hover:bg-accent/50"
+                                onClick={() => {
+                                  setModel(manualModel);
+                                  setModelOpen(false);
+                                  setModelSearch("");
+                                }}
+                              >
+                                <span>{t("agentConfig.useManualModel")}</span>
+                                <span className="text-xs font-mono text-muted-foreground">{manualModel}</span>
                               </button>
                             )}
                             <div className="max-h-[240px] overflow-y-auto">
@@ -1021,9 +1067,11 @@ export function OnboardingWizard() {
                                 </div>
                               ))}
                             </div>
-                            {filteredModels.length === 0 && (
+                            {filteredModels.length === 0 && !canUseManualModel && (
                               <p className="px-2 py-1.5 text-xs text-muted-foreground">
-                                {t("No models discovered.")}
+                                {adapterType === "hermes_local"
+                                  ? t("agentConfig.noHermesModelsDetected")
+                                  : t("No models discovered.")}
                               </p>
                             )}
                           </PopoverContent>

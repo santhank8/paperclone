@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { OpenCodeLogoIcon } from "./OpenCodeLogoIcon";
+import { HermesIcon } from "./HermesIcon";
 
 type AdvancedAdapterType =
   | "claude_local"
@@ -30,7 +31,8 @@ type AdvancedAdapterType =
   | "opencode_local"
   | "pi_local"
   | "cursor"
-  | "openclaw_gateway";
+  | "openclaw_gateway"
+  | "hermes_local";
 
 const ADVANCED_ADAPTER_OPTIONS: Array<{
   value: AdvancedAdapterType;
@@ -64,6 +66,12 @@ const ADVANCED_ADAPTER_OPTIONS: Array<{
     label: "OpenCode",
     icon: OpenCodeLogoIcon,
     descKey: "newAgent.option.opencodeLocal",
+  },
+  {
+    value: "hermes_local",
+    label: "Hermes Agent",
+    icon: HermesIcon,
+    descKey: "newAgent.option.hermesLocal",
   },
   {
     value: "pi_local",
@@ -207,7 +215,9 @@ export function NewAgentDialog() {
                       </span>
                     )}
                     <opt.icon className="h-4 w-4" />
-                    <span className="font-medium">{opt.label}</span>
+                    <span className="font-medium">
+                      {t(opt.label, { defaultValue: opt.label })}
+                    </span>
                     <span className="text-muted-foreground text-[10px]">
                       {t(opt.descKey)}
                     </span>
