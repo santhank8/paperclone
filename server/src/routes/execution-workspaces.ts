@@ -1,7 +1,7 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray, leftJoin } from "drizzle-orm";
 import { Router } from "express";
 import type { Db } from "@paperclipai/db";
-import { issues, projects, projectWorkspaces } from "@paperclipai/db";
+import { agents, executionWorkspaces, issues, projects, projectWorkspaces } from "@paperclipai/db";
 import { updateExecutionWorkspaceSchema } from "@paperclipai/shared";
 import { validate } from "../middleware/validate.js";
 import { executionWorkspaceService, logActivity, workspaceOperationService } from "../services/index.js";
@@ -11,6 +11,7 @@ import {
   stopRuntimeServicesForExecutionWorkspace,
 } from "../services/workspace-runtime.js";
 import { assertCompanyAccess, getActorInfo } from "./authz.js";
+import { toExecutionWorkspace } from "../services/execution-workspaces.js";
 
 const TERMINAL_ISSUE_STATUSES = new Set(["done", "cancelled"]);
 
@@ -22,6 +23,52 @@ export function executionWorkspaceRoutes(db: Db) {
   router.get("/companies/:companyId/execution-workspaces", async (req, res) => {
     const companyId = req.params.companyId as string;
     assertCompanyAccess(req, companyId);
+    const enriched = req.query.enriched === "true";
+
+    if (enriched) {
+      const conditions = [eq(executionWorkspaces.companyId, companyId)];
+      if (req.query.projectId) conditions.push(eq(executionWorkspaces.projectId, req.query.projectId as string));
+      if (req.query.projectWorkspaceId) {
+        conditions.push(eq(executionWorkspaces.projectWorkspaceId, req.query.projectWorkspaceId as string));
+      }
+      if (req.query.issueId) conditions.push(eq(executionWorkspaces.sourceIssueId, req.query.issueId as string));
+      if (req.query.status) {
+        const statuses = (req.query.status as string).split(",").map((s) => s.trim()).filter(Boolean);
+        if (statuses.length === 1) conditions.push(eq(executionWorkspaces.status, statuses[0]!));
+        else if (statuses.length > 1) conditions.push(inArray(executionWorkspaces.status, statuses));
+      }
+
+      const issuesAlias = issues;
+      const agentsAlias = agents;
+      const rows = await db
+        .select({
+          workspace: executionWorkspaces,
+          issue: {
+            id: issuesAlias.id,
+            title: issuesAlias.title,
+            identifier: issuesAlias.identifier,
+            status: issuesAlias.status,
+          },
+          agent: {
+            id: agentsAlias.id,
+            name: agentsAlias.name,
+          },
+        })
+        .from(executionWorkspaces)
+        .leftJoin(issuesAlias, eq(issuesAlias.id, executionWorkspaces.sourceIssueId))
+        .leftJoin(agentsAlias, eq(agentsAlias.id, issuesAlias.assigneeAgentId))
+        .where(and(...conditions))
+        .orderBy();
+
+      const result = rows.map((row) => ({
+        ...toExecutionWorkspace(row.workspace),
+        issue: row.issue.id ? { id: row.issue.id, title: row.issue.title, identifier: row.issue.identifier, status: row.issue.status } : null,
+        agent: row.agent.id ? { id: row.agent.id, name: row.agent.name } : null,
+      }));
+      res.json(result);
+      return;
+    }
+
     const workspaces = await svc.list(companyId, {
       projectId: req.query.projectId as string | undefined,
       projectWorkspaceId: req.query.projectWorkspaceId as string | undefined,

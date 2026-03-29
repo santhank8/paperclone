@@ -24,10 +24,11 @@ import { projectRouteRef, cn } from "../lib/utils";
 import { Tabs } from "@/components/ui/tabs";
 import { PluginLauncherOutlet } from "@/plugins/launchers";
 import { PluginSlotMount, PluginSlotOutlet, usePluginSlots } from "@/plugins/slots";
+import { WorktreesContent } from "../components/WorktreesContent";
 
 /* ── Top-level tab types ── */
 
-type ProjectBaseTab = "overview" | "list" | "configuration" | "budget";
+type ProjectBaseTab = "overview" | "list" | "configuration" | "budget" | "worktrees";
 type ProjectPluginTab = `plugin:${string}`;
 type ProjectTab = ProjectBaseTab | ProjectPluginTab;
 
@@ -44,6 +45,7 @@ function resolveProjectTab(pathname: string, projectId: string): ProjectTab | nu
   if (tab === "configuration") return "configuration";
   if (tab === "budget") return "budget";
   if (tab === "issues") return "list";
+  if (tab === "worktrees") return "worktrees";
   return null;
 }
 
@@ -470,6 +472,9 @@ export function ProjectDetail() {
     if (cachedTab === "budget") {
       return <Navigate to={`/projects/${canonicalProjectRef}/budget`} replace />;
     }
+    if (cachedTab === "worktrees") {
+      return <Navigate to={`/projects/${canonicalProjectRef}/worktrees`} replace />;
+    }
     if (isProjectPluginTab(cachedTab)) {
       return <Navigate to={`/projects/${canonicalProjectRef}?tab=${encodeURIComponent(cachedTab)}`} replace />;
     }
@@ -495,6 +500,8 @@ export function ProjectDetail() {
       navigate(`/projects/${canonicalProjectRef}/budget`);
     } else if (tab === "configuration") {
       navigate(`/projects/${canonicalProjectRef}/configuration`);
+    } else if (tab === "worktrees") {
+      navigate(`/projects/${canonicalProjectRef}/worktrees`);
     } else {
       navigate(`/projects/${canonicalProjectRef}/issues`);
     }
@@ -563,6 +570,7 @@ export function ProjectDetail() {
             { value: "overview", label: "Overview" },
             { value: "configuration", label: "Configuration" },
             { value: "budget", label: "Budget" },
+            { value: "worktrees", label: "Worktrees" },
             ...pluginTabItems.map((item) => ({
               value: item.value,
               label: item.label,
@@ -612,6 +620,10 @@ export function ProjectDetail() {
           />
         </div>
       ) : null}
+
+      {activeTab === "worktrees" && resolvedCompanyId && project?.id && (
+        <WorktreesContent companyId={resolvedCompanyId} projectId={project.id} />
+      )}
 
       {activePluginTab && (
         <PluginSlotMount

@@ -86,6 +86,19 @@ export interface ExecutionWorkspace {
   updatedAt: Date;
 }
 
+export interface EnrichedExecutionWorkspace extends ExecutionWorkspace {
+  issue: {
+    id: string;
+    title: string;
+    identifier: string | null;
+    status: string;
+  } | null;
+  agent: {
+    id: string;
+    name: string;
+  } | null;
+}
+
 export interface WorkspaceRuntimeService {
   id: string;
   companyId: string;

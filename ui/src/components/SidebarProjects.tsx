@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { NavLink, useLocation } from "@/lib/router";
 import { useQuery } from "@tanstack/react-query";
-import { ChevronRight, Plus } from "lucide-react";
+import { ChevronRight, GitBranch, Plus } from "lucide-react";
 import {
   DndContext,
   PointerSensor,
@@ -91,6 +91,25 @@ function SortableProjectItem({
           <span className="flex-1 truncate">{project.name}</span>
           {project.pauseReason === "budget" ? <BudgetSidebarMarker title="Project paused by budget" /> : null}
         </NavLink>
+        <div className="ml-5 flex flex-col gap-0.5">
+          <NavLink
+            to={`/projects/${routeRef}/worktrees`}
+            onClick={() => {
+              if (isMobile) setSidebarOpen(false);
+            }}
+            className={({ isActive }) =>
+              cn(
+                "flex items-center gap-2 px-3 py-1 text-[12px] transition-colors",
+                isActive
+                  ? "bg-accent text-foreground"
+                  : "text-foreground/60 hover:bg-accent/50 hover:text-foreground",
+              )
+            }
+          >
+            <GitBranch className="h-3 w-3 shrink-0" />
+            <span>Worktrees</span>
+          </NavLink>
+        </div>
         {projectSidebarSlots.length > 0 && (
           <div className="ml-5 flex flex-col gap-0.5">
             {projectSidebarSlots.map((slot) => (

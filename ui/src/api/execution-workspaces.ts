@@ -1,4 +1,4 @@
-import type { ExecutionWorkspace } from "@paperclipai/shared";
+import type { EnrichedExecutionWorkspace, ExecutionWorkspace } from "@paperclipai/shared";
 import { api } from "./client";
 
 export const executionWorkspacesApi = {
@@ -20,6 +20,18 @@ export const executionWorkspacesApi = {
     if (filters?.reuseEligible) params.set("reuseEligible", "true");
     const qs = params.toString();
     return api.get<ExecutionWorkspace[]>(`/companies/${companyId}/execution-workspaces${qs ? `?${qs}` : ""}`);
+  },
+  listEnriched: (
+    companyId: string,
+    filters?: {
+      projectId?: string;
+      status?: string;
+    },
+  ) => {
+    const params = new URLSearchParams({ enriched: "true" });
+    if (filters?.projectId) params.set("projectId", filters.projectId);
+    if (filters?.status) params.set("status", filters.status);
+    return api.get<EnrichedExecutionWorkspace[]>(`/companies/${companyId}/execution-workspaces?${params.toString()}`);
   },
   get: (id: string) => api.get<ExecutionWorkspace>(`/execution-workspaces/${id}`),
   update: (id: string, data: Record<string, unknown>) => api.patch<ExecutionWorkspace>(`/execution-workspaces/${id}`, data),
