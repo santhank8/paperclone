@@ -384,6 +384,8 @@ describeEmbeddedPostgres("issueService checkout/execution lock lifecycle", () =>
       assigneeAgentId: agentId,
       checkoutRunId: null,
       executionRunId: runId,
+      executionAgentNameKey: "codexcoder",
+      executionLockedAt: new Date(),
     });
 
     const updated = await svc.update(issueId, { status: "blocked" });
@@ -391,6 +393,8 @@ describeEmbeddedPostgres("issueService checkout/execution lock lifecycle", () =>
     expect(updated?.status).toBe("blocked");
     expect(updated?.checkoutRunId).toBeNull();
     expect(updated?.executionRunId).toBeNull();
+    expect(updated?.executionAgentNameKey).toBeNull();
+    expect(updated?.executionLockedAt).toBeNull();
   });
 
   it("clears executionRunId on release", async () => {
@@ -435,6 +439,8 @@ describeEmbeddedPostgres("issueService checkout/execution lock lifecycle", () =>
       assigneeAgentId: agentId,
       checkoutRunId: runId,
       executionRunId: runId,
+      executionAgentNameKey: "codexcoder",
+      executionLockedAt: new Date(),
     });
 
     const released = await svc.release(issueId);
@@ -443,5 +449,7 @@ describeEmbeddedPostgres("issueService checkout/execution lock lifecycle", () =>
     expect(released?.assigneeAgentId).toBeNull();
     expect(released?.checkoutRunId).toBeNull();
     expect(released?.executionRunId).toBeNull();
+    expect(released?.executionAgentNameKey).toBeNull();
+    expect(released?.executionLockedAt).toBeNull();
   });
 });
