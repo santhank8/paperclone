@@ -665,6 +665,59 @@ describe("issueService.list participantAgentId", () => {
     expect(comments.map((comment) => comment.body)).toEqual(["second"]);
   });
 
+  it("normalizes issue/comment ids for non-route comment fetch callers", async () => {
+    const companyId = randomUUID();
+    const issueId = randomUUID();
+
+    await db.insert(companies).values({
+      id: companyId,
+      name: "Paperclip",
+      issuePrefix: `T${companyId.replace(/-/g, "").slice(0, 6).toUpperCase()}`,
+      requireBoardApprovalForNewAgents: false,
+    });
+
+    await db.insert(issues).values({
+      id: issueId,
+      companyId,
+      title: "Comment id normalization",
+      status: "todo",
+      priority: "medium",
+    });
+
+    await db.insert(issueComments).values({
+      issueId,
+      companyId,
+      body: "normalized comment",
+    });
+
+    const insertedCommentId = await db
+      .select({ id: issueComments.id })
+      .from(issueComments)
+      .where(eq(issueComments.issueId, issueId))
+      .then((rows) => rows[0]?.id ?? null);
+    expect(insertedCommentId).toBeTruthy();
+
+    const paddedIssueId = ` ${issueId.toUpperCase()} `;
+    const paddedCommentId = ` ${insertedCommentId!.toUpperCase()} `;
+
+    const comments = await svc.listComments(paddedIssueId, { order: "asc" });
+    expect(comments).toHaveLength(1);
+
+    await expect(svc.getCommentCursor(paddedIssueId)).resolves.toEqual(
+      expect.objectContaining({
+        totalComments: 1,
+        latestCommentId: insertedCommentId,
+      }),
+    );
+
+    await expect(svc.getComment(paddedCommentId)).resolves.toEqual(
+      expect.objectContaining({
+        id: insertedCommentId,
+        issueId,
+      }),
+    );
+  });
+
   it("ignores malformed non-string comment cursors instead of throwing", async () => {
     const comments = await svc.listComments(randomUUID(), {
       afterCommentId: { bad: true } as any,

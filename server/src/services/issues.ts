@@ -755,13 +755,14 @@ export function issueService(db: Db) {
     },
 
     countUnreadTouchedByUser: async (companyId: string, userId: string, status?: string) => {
-      if (!isUuidLike(companyId)) return 0;
+      const normalizedCompanyId = asCanonicalUuid(companyId);
+      if (!normalizedCompanyId) return 0;
       if (typeof userId !== "string" || userId.trim().length === 0) return 0;
       const normalizedUserId = userId.trim();
       const conditions = [
-        eq(issues.companyId, companyId),
+        eq(issues.companyId, normalizedCompanyId),
         isNull(issues.hiddenAt),
-        unreadForUserCondition(companyId, normalizedUserId),
+        unreadForUserCondition(normalizedCompanyId, normalizedUserId),
         ne(issues.originKind, "routine_execution"),
       ];
       const normalizedStatus = asNonEmptyString(status)?.toLowerCase();
@@ -1416,7 +1417,8 @@ export function issueService(db: Db) {
     ) => {
       const orderRaw = asNonEmptyString(opts?.order)?.toLowerCase();
       const order = orderRaw === "asc" ? "asc" : "desc";
-      if (!isUuidLike(issueId)) return [];
+      const normalizedIssueId = asCanonicalUuid(issueId);
+      if (!normalizedIssueId) return [];
       const afterCommentIdRaw = asNonEmptyString(opts?.afterCommentId) ?? null;
       const afterCommentId = afterCommentIdRaw ? afterCommentIdRaw.toLowerCase() : null;
       const rawLimit = opts?.limit as unknown;
@@ -1438,7 +1440,7 @@ export function issueService(db: Db) {
             : null;
       if (afterCommentId && !isUuidLike(afterCommentId)) return [];
 
-      const conditions = [eq(issueComments.issueId, issueId)];
+      const conditions = [eq(issueComments.issueId, normalizedIssueId)];
       if (afterCommentId) {
         const anchor = await db
           .select({
@@ -1446,7 +1448,7 @@ export function issueService(db: Db) {
             createdAt: issueComments.createdAt,
           })
           .from(issueComments)
-          .where(and(eq(issueComments.issueId, issueId), eq(issueComments.id, afterCommentId)))
+          .where(and(eq(issueComments.issueId, normalizedIssueId), eq(issueComments.id, afterCommentId)))
           .then((rows) => rows[0] ?? null);
 
         if (!anchor) return [];
@@ -1481,7 +1483,8 @@ export function issueService(db: Db) {
     },
 
     getCommentCursor: async (issueId: string) => {
-      if (!isUuidLike(issueId)) {
+      const normalizedIssueId = asCanonicalUuid(issueId);
+      if (!normalizedIssueId) {
         return {
           totalComments: 0,
           latestCommentId: null,
@@ -1495,7 +1498,7 @@ export function issueService(db: Db) {
             latestCommentAt: issueComments.createdAt,
           })
           .from(issueComments)
-          .where(eq(issueComments.issueId, issueId))
+          .where(eq(issueComments.issueId, normalizedIssueId))
           .orderBy(desc(issueComments.createdAt), desc(issueComments.id))
           .limit(1)
           .then((rows) => rows[0] ?? null),
@@ -1504,7 +1507,7 @@ export function issueService(db: Db) {
             totalComments: sql<number>`count(*)::int`,
           })
           .from(issueComments)
-          .where(eq(issueComments.issueId, issueId))
+          .where(eq(issueComments.issueId, normalizedIssueId))
           .then((rows) => rows[0] ?? null),
       ]);
 
@@ -1516,12 +1519,13 @@ export function issueService(db: Db) {
     },
 
     getComment: (commentId: string) => {
-      if (!isUuidLike(commentId)) return Promise.resolve(null);
+      const normalizedCommentId = asCanonicalUuid(commentId);
+      if (!normalizedCommentId) return Promise.resolve(null);
       return instanceSettings.getGeneral().then(({ censorUsernameInLogs }) =>
         db
           .select()
           .from(issueComments)
-          .where(eq(issueComments.id, commentId))
+          .where(eq(issueComments.id, normalizedCommentId))
           .then((rows) => {
             const comment = rows[0] ?? null;
             return comment ? redactIssueComment(comment, censorUsernameInLogs) : null;
