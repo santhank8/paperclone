@@ -25,6 +25,7 @@ import { ChartCard, RunActivityChart, PriorityChart, IssueStatusChart, SuccessRa
 import { PageSkeleton } from "../components/PageSkeleton";
 import type { Agent, Issue } from "@paperclipai/shared";
 import { PluginSlotOutlet } from "@/plugins/slots";
+import { DashboardQuotaWidget } from "../components/DashboardQuotaWidget";
 
 function getRecentIssues(issues: Issue[]): Issue[] {
   return [...issues]
@@ -297,6 +298,8 @@ export function Dashboard() {
               <SuccessRateChart runs={runs ?? []} />
             </ChartCard>
           </div>
+
+          <DashboardQuotaWidget companyId={selectedCompanyId!} />
 
           <PluginSlotOutlet
             slotTypes={["dashboardWidget"]}

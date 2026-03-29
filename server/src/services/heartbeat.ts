@@ -61,6 +61,7 @@ import {
 const MAX_LIVE_LOG_CHUNK_BYTES = 8 * 1024;
 const HEARTBEAT_MAX_CONCURRENT_RUNS_DEFAULT = 1;
 const HEARTBEAT_MAX_CONCURRENT_RUNS_MAX = 10;
+const COMPANY_MAX_CONCURRENT_RUNS_DEFAULT = parseInt(process.env.PAPERCLIP_MAX_CONCURRENT_COMPANY_RUNS ?? "2", 10);
 const DEFERRED_WAKE_CONTEXT_KEY = "_paperclipWakeContext";
 const DETACHED_PROCESS_ERROR_CODE = "process_detached";
 const startLocksByAgent = new Map<string, Promise<void>>();
@@ -1628,6 +1629,21 @@ export function heartbeatService(db: Db) {
     return Number(count ?? 0);
   }
 
+  const THROTTLED_ADAPTER_TYPES = new Set(["claude_local", "gemini_local", "pi_local"]);
+
+  async function countRunningRunsForCompany(companyId: string) {
+    const runningRuns = await db
+      .select({ agentId: heartbeatRuns.agentId })
+      .from(heartbeatRuns)
+      .where(and(eq(heartbeatRuns.companyId, companyId), eq(heartbeatRuns.status, "running")));
+    let count = 0;
+    for (const r of runningRuns) {
+      const agent = await getAgent(r.agentId);
+      if (agent && THROTTLED_ADAPTER_TYPES.has(agent.adapterType)) count++;
+    }
+    return count;
+  }
+
   async function claimQueuedRun(run: typeof heartbeatRuns.$inferSelect) {
     if (run.status !== "queued") return run;
     const agent = await getAgent(run.agentId);
@@ -1648,6 +1664,15 @@ export function heartbeatService(db: Db) {
     if (budgetBlock) {
       await cancelRunInternal(run.id, budgetBlock.reason);
       return null;
+    }
+
+    // Company-level concurrency gate: only for throttled adapters (claude_local etc.)
+    if (THROTTLED_ADAPTER_TYPES.has(agent.adapterType)) {
+      const companyRunningCount = await countRunningRunsForCompany(run.companyId);
+      if (companyRunningCount >= COMPANY_MAX_CONCURRENT_RUNS_DEFAULT) {
+        logger.debug({ runId: run.id, agentId: agent.id, companyRunningCount }, "company concurrent run limit reached in claimQueuedRun, keeping queued");
+        return null;
+      }
     }
 
     const claimedAt = new Date();
@@ -2601,6 +2626,22 @@ export function heartbeatService(db: Db) {
         outcome = "failed";
       }
 
+      // Auto-retry on rate limit: re-queue the agent after a delay
+      const isRateLimited = outcome === "failed" && /rate.?limit/i.test(adapterResult.errorMessage ?? "");
+      const rateLimitRetryCount = (run.contextSnapshot as Record<string, unknown> | null)?._rateLimitRetryCount as number | undefined;
+      if (isRateLimited && (rateLimitRetryCount ?? 0) < 3) {
+        logger.warn({ runId, agentId: agent.id, retryCount: rateLimitRetryCount ?? 0 }, "rate limit detected, scheduling retry");
+        const delaySec = [30, 60, 120][rateLimitRetryCount ?? 0] ?? 120;
+        setTimeout(() => {
+          void enqueueWakeup(agent.id, {
+            source: "automation",
+            triggerDetail: "system",
+            reason: `rate-limit auto-retry (attempt ${(rateLimitRetryCount ?? 0) + 1}/3)`,
+            contextSnapshot: { _rateLimitRetryCount: (rateLimitRetryCount ?? 0) + 1 },
+          }).catch((err) => logger.warn({ err, agentId: agent.id }, "rate-limit retry enqueue failed"));
+        }, delaySec * 1000);
+      }
+
       let logSummary: { bytes: number; sha256?: string; compressed: boolean } | null = null;
       if (handle) {
         logSummary = await runLogStore.finalize(handle);
@@ -2715,6 +2756,45 @@ export function heartbeatService(db: Db) {
         }
       }
       await finalizeAgentStatus(agent.id, outcome);
+
+      // Auto-continue: only on succeeded runs that actually changed an issue status.
+      // Skip entirely if: auto-continue run, rate-limit retry, or failed outcome.
+      const ctx = (run.contextSnapshot as Record<string, unknown> | null) ?? {};
+      const wasAutoContinue = ctx._autoContinue === true;
+      const wasRateLimitRetry = (ctx._rateLimitRetryCount as number | undefined) != null;
+      if (outcome === "succeeded" && !wasAutoContinue && !wasRateLimitRetry) {
+        const remainingIssues = await db
+          .select({ id: issues.id })
+          .from(issues)
+          .where(and(
+            eq(issues.assigneeAgentId, agent.id),
+            inArray(issues.status, ["todo", "in_progress"]),
+          ))
+          .limit(1);
+        if (remainingIssues.length > 0) {
+          // Check if there are already queued/running runs for this agent — don't stack
+          const pendingRuns = await db
+            .select({ id: heartbeatRuns.id })
+            .from(heartbeatRuns)
+            .where(and(
+              eq(heartbeatRuns.agentId, agent.id),
+              inArray(heartbeatRuns.status, ["queued", "running"]),
+            ))
+            .limit(1);
+          if (pendingRuns.length === 0) {
+            const cooldownSec = 60;
+            logger.info({ agentId: agent.id, cooldownSec }, "agent has remaining assignments, auto-continuing after cooldown");
+            setTimeout(() => {
+              void enqueueWakeup(agent.id, {
+                source: "automation",
+                triggerDetail: "system",
+                reason: "auto-continue: remaining assigned issues",
+                contextSnapshot: { _autoContinue: true },
+              }).catch((err) => logger.warn({ err, agentId: agent.id }, "auto-continue enqueue failed"));
+            }, cooldownSec * 1000);
+          }
+        }
+      }
     } catch (err) {
       const message = redactCurrentUserText(
         err instanceof Error ? err.message : "Unknown adapter failure",

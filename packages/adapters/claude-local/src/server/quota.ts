@@ -190,10 +190,13 @@ function formatExtraUsageLabel(extraUsage: AnthropicExtraUsage): string | null {
   return `${formatCurrencyAmount(usedCredits, extraUsage.currency)} / ${formatCurrencyAmount(monthlyLimit, extraUsage.currency)}`;
 }
 
-/** Convert a 0-1 utilization fraction to a 0-100 integer percent. Returns null for null/undefined input. */
+/** Convert utilization to a 0-100 integer percent. Returns null for null/undefined input.
+ *  The Anthropic API may return either a 0-1 fraction or a 0-100 percentage.
+ *  Values > 1 are treated as already being percentages. */
 export function toPercent(utilization: number | null | undefined): number | null {
   if (utilization == null) return null;
-  return Math.min(100, Math.round(utilization * 100));
+  const pct = utilization > 1 ? utilization : utilization * 100;
+  return Math.min(100, Math.round(pct));
 }
 
 /** fetch with an abort-based timeout so a hanging provider api doesn't block the response indefinitely */
@@ -476,6 +479,14 @@ function formatProviderError(source: string, error: unknown): string {
   return `${source}: ${message}`;
 }
 
+/** In-memory cache for the last successful quota result */
+let lastGoodQuota: { result: ProviderQuotaResult; ts: number } | null = null;
+const ADAPTER_CACHE_TTL_MS = 15 * 60_000; // serve cached data for up to 15 min
+
+function isRateLimitError(msg: string): boolean {
+  return msg.toLowerCase().includes("rate limit");
+}
+
 export async function getQuotaWindows(): Promise<ProviderQuotaResult> {
   const authStatus = await readClaudeAuthStatus();
   const authDescription = describeClaudeSubscriptionAuth(authStatus);
@@ -486,17 +497,36 @@ export async function getQuotaWindows(): Promise<ProviderQuotaResult> {
   if (token) {
     try {
       const windows = await fetchClaudeQuota(token);
-      return { provider: "anthropic", source: CLAUDE_USAGE_SOURCE_OAUTH, ok: true, windows };
+      const result: ProviderQuotaResult = { provider: "anthropic", source: CLAUDE_USAGE_SOURCE_OAUTH, ok: true, windows };
+      lastGoodQuota = { result, ts: Date.now() };
+      return result;
     } catch (error) {
       errors.push(formatProviderError("Anthropic OAuth usage", error));
     }
   }
 
-  try {
-    const windows = await fetchClaudeCliQuota();
-    return { provider: "anthropic", source: CLAUDE_USAGE_SOURCE_CLI, ok: true, windows };
-  } catch (error) {
-    errors.push(formatProviderError("Claude CLI /usage", error));
+  // Skip CLI probe if we already hit a rate limit error from OAuth — the CLI
+  // probe will almost certainly hit the same rate limit and waste time.
+  const oauthRateLimited = errors.some(isRateLimitError);
+  if (!oauthRateLimited) {
+    try {
+      const windows = await fetchClaudeCliQuota();
+      const result: ProviderQuotaResult = { provider: "anthropic", source: CLAUDE_USAGE_SOURCE_CLI, ok: true, windows };
+      lastGoodQuota = { result, ts: Date.now() };
+      return result;
+    } catch (error) {
+      errors.push(formatProviderError("Claude CLI /usage", error));
+    }
+  }
+
+  // All live fetches failed — return cached data if recent enough
+  if (lastGoodQuota && Date.now() - lastGoodQuota.ts < ADAPTER_CACHE_TTL_MS) {
+    return {
+      ...lastGoodQuota.result,
+      source: lastGoodQuota.result.source
+        ? `${lastGoodQuota.result.source} (cached)`
+        : "cached",
+    };
   }
 
   if (hasNonEmptyProcessEnv("ANTHROPIC_API_KEY") && !authDescription) {
