@@ -41,9 +41,12 @@ export function queueIssueAssignmentWakeup(input: {
   const requestedByActorIdTrimmed = typeof input.requestedByActorId === "string"
     ? input.requestedByActorId.trim()
     : null;
-  const normalizedRequestedByActorId = requestedByActorIdTrimmed && isUuidLike(requestedByActorIdTrimmed)
-    ? requestedByActorIdTrimmed.toLowerCase()
-    : requestedByActorIdTrimmed;
+  const normalizedRequestedByActorId =
+    requestedByActorIdTrimmed == null || requestedByActorIdTrimmed.length === 0
+      ? null
+      : isUuidLike(requestedByActorIdTrimmed)
+        ? requestedByActorIdTrimmed.toLowerCase()
+        : requestedByActorIdTrimmed;
   if (
     !normalizedIssueId ||
     !normalizedAssigneeAgentId ||
