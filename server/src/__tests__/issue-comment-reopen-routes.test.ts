@@ -166,4 +166,31 @@ describe("issue comment reopen routes", () => {
     expect(res.status).toBe(201);
     expect(mockHeartbeatService.wakeup).not.toHaveBeenCalled();
   });
+
+  it("skips mention wakeup for patch comments when mentioned agent matches actor by case-insensitive id", async () => {
+    const actorAgentId = "22222222-2222-4222-8222-222222222222";
+    mockIssueService.getById.mockResolvedValue(makeIssue("todo"));
+    mockIssueService.update.mockImplementation(async (_id: string, patch: Record<string, unknown>) => ({
+      ...makeIssue("todo"),
+      ...patch,
+    }));
+    mockIssueService.findMentionedAgents.mockResolvedValueOnce([actorAgentId.toUpperCase()]);
+
+    const app = createApp({
+      type: "agent",
+      companyId: "company-1",
+      companyIds: ["company-1"],
+      agentId: ` ${actorAgentId.toUpperCase()} `,
+      runId: "44444444-4444-4444-8444-444444444444",
+      source: "agent_api_key",
+      isInstanceAdmin: false,
+    });
+
+    const res = await request(app)
+      .patch("/api/issues/11111111-1111-4111-8111-111111111111")
+      .send({ comment: "@self please review" });
+
+    expect(res.status).toBe(200);
+    expect(mockHeartbeatService.wakeup).not.toHaveBeenCalled();
+  });
 });

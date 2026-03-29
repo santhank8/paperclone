@@ -1092,9 +1092,15 @@ export function issueRoutes(db: Db, storage: StorageService) {
     // Merge all wakeups from this update into one enqueue per agent to avoid duplicate runs.
     void (async () => {
       const wakeups = new Map<string, Parameters<typeof heartbeat.wakeup>[1]>();
+      const normalizedIssueAssigneeAgentId = typeof issue.assigneeAgentId === "string"
+        ? issue.assigneeAgentId.trim().toLowerCase()
+        : null;
+      const normalizedActorAgentId = actor.actorType === "agent" && typeof actor.actorId === "string"
+        ? actor.actorId.trim().toLowerCase()
+        : null;
 
-      if (assigneeChanged && issue.assigneeAgentId && issue.status !== "backlog") {
-        wakeups.set(issue.assigneeAgentId, {
+      if (assigneeChanged && normalizedIssueAssigneeAgentId && issue.status !== "backlog") {
+        wakeups.set(normalizedIssueAssigneeAgentId, {
           source: "assignment",
           triggerDetail: "system",
           reason: "issue_assigned",
@@ -1105,8 +1111,8 @@ export function issueRoutes(db: Db, storage: StorageService) {
         });
       }
 
-      if (!assigneeChanged && statusChangedFromBacklog && issue.assigneeAgentId) {
-        wakeups.set(issue.assigneeAgentId, {
+      if (!assigneeChanged && statusChangedFromBacklog && normalizedIssueAssigneeAgentId) {
+        wakeups.set(normalizedIssueAssigneeAgentId, {
           source: "automation",
           triggerDetail: "system",
           reason: "issue_status_changed",
@@ -1126,9 +1132,13 @@ export function issueRoutes(db: Db, storage: StorageService) {
         }
 
         for (const mentionedId of mentionedIds) {
-          if (wakeups.has(mentionedId)) continue;
-          if (actor.actorType === "agent" && actor.actorId === mentionedId) continue;
-          wakeups.set(mentionedId, {
+          const normalizedMentionedId = typeof mentionedId === "string"
+            ? mentionedId.trim().toLowerCase()
+            : "";
+          if (!normalizedMentionedId) continue;
+          if (wakeups.has(normalizedMentionedId)) continue;
+          if (actor.actorType === "agent" && normalizedActorAgentId === normalizedMentionedId) continue;
+          wakeups.set(normalizedMentionedId, {
             source: "automation",
             triggerDetail: "system",
             reason: "issue_comment_mentioned",
