@@ -98,8 +98,8 @@ export function useInboxBadge(companyId: string | null | undefined) {
     enabled: !!companyId,
   });
 
-  const { data: mineIssuesRaw = [] } = useQuery({
-    queryKey: queryKeys.issues.listMineByMe(companyId!),
+  const { data: touchedIssuesRaw = [] } = useQuery({
+    queryKey: queryKeys.issues.listTouchedByMe(companyId!),
     queryFn: () =>
       issuesApi.list(companyId!, {
         touchedByUserId: "me",
@@ -109,7 +109,10 @@ export function useInboxBadge(companyId: string | null | undefined) {
     enabled: !!companyId,
   });
 
-  const mineIssues = useMemo(() => getRecentTouchedIssues(mineIssuesRaw), [mineIssuesRaw]);
+  const unreadTouchedIssues = useMemo(
+    () => getRecentTouchedIssues(touchedIssuesRaw).filter((issue) => issue.isUnreadForMe),
+    [touchedIssuesRaw],
+  );
 
   const { data: heartbeatRuns = [] } = useQuery({
     queryKey: queryKeys.heartbeats(companyId!),
@@ -124,9 +127,9 @@ export function useInboxBadge(companyId: string | null | undefined) {
         joinRequests,
         dashboard,
         heartbeatRuns,
-        mineIssues,
+        mineIssues: unreadTouchedIssues,
         dismissed,
       }),
-    [approvals, joinRequests, dashboard, heartbeatRuns, mineIssues, dismissed],
+    [approvals, joinRequests, dashboard, heartbeatRuns, unreadTouchedIssues, dismissed],
   );
 }
