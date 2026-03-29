@@ -420,7 +420,9 @@ export function issueService(db: Db) {
   }
 
   async function assertAssignableAgent(companyId: string, agentId: string) {
-    if (!isUuidLike(agentId)) throw unprocessable("Invalid assigneeAgentId");
+    const normalizedAgentId = asCanonicalUuid(agentId);
+    if (!normalizedAgentId) throw unprocessable("Invalid assigneeAgentId");
+    const normalizedCompanyId = asCanonicalUuid(companyId) ?? companyId;
     const assignee = await db
       .select({
         id: agents.id,
@@ -428,11 +430,11 @@ export function issueService(db: Db) {
         status: agents.status,
       })
       .from(agents)
-      .where(eq(agents.id, agentId))
+      .where(eq(agents.id, normalizedAgentId))
       .then((rows) => rows[0] ?? null);
 
     if (!assignee) throw notFound("Assignee agent not found");
-    if (assignee.companyId !== companyId) {
+    if (assignee.companyId !== normalizedCompanyId) {
       throw unprocessable("Assignee must belong to same company");
     }
     if (assignee.status === "pending_approval") {
@@ -462,8 +464,11 @@ export function issueService(db: Db) {
   }
 
   async function assertValidProjectWorkspace(companyId: string, projectId: string | null | undefined, projectWorkspaceId: string) {
-    if (!isUuidLike(projectWorkspaceId)) throw unprocessable("Invalid projectWorkspaceId");
-    if (projectId && !isUuidLike(projectId)) throw unprocessable("Invalid projectId");
+    const normalizedProjectWorkspaceId = asCanonicalUuid(projectWorkspaceId);
+    if (!normalizedProjectWorkspaceId) throw unprocessable("Invalid projectWorkspaceId");
+    const normalizedProjectId = projectId == null ? null : asCanonicalUuid(projectId);
+    if (projectId && !normalizedProjectId) throw unprocessable("Invalid projectId");
+    const normalizedCompanyId = asCanonicalUuid(companyId) ?? companyId;
     const workspace = await db
       .select({
         id: projectWorkspaces.id,
@@ -471,18 +476,21 @@ export function issueService(db: Db) {
         projectId: projectWorkspaces.projectId,
       })
       .from(projectWorkspaces)
-      .where(eq(projectWorkspaces.id, projectWorkspaceId))
+      .where(eq(projectWorkspaces.id, normalizedProjectWorkspaceId))
       .then((rows) => rows[0] ?? null);
     if (!workspace) throw notFound("Project workspace not found");
-    if (workspace.companyId !== companyId) throw unprocessable("Project workspace must belong to same company");
-    if (projectId && workspace.projectId !== projectId) {
+    if (workspace.companyId !== normalizedCompanyId) throw unprocessable("Project workspace must belong to same company");
+    if (normalizedProjectId && workspace.projectId !== normalizedProjectId) {
       throw unprocessable("Project workspace must belong to the selected project");
     }
   }
 
   async function assertValidExecutionWorkspace(companyId: string, projectId: string | null | undefined, executionWorkspaceId: string) {
-    if (!isUuidLike(executionWorkspaceId)) throw unprocessable("Invalid executionWorkspaceId");
-    if (projectId && !isUuidLike(projectId)) throw unprocessable("Invalid projectId");
+    const normalizedExecutionWorkspaceId = asCanonicalUuid(executionWorkspaceId);
+    if (!normalizedExecutionWorkspaceId) throw unprocessable("Invalid executionWorkspaceId");
+    const normalizedProjectId = projectId == null ? null : asCanonicalUuid(projectId);
+    if (projectId && !normalizedProjectId) throw unprocessable("Invalid projectId");
+    const normalizedCompanyId = asCanonicalUuid(companyId) ?? companyId;
     const workspace = await db
       .select({
         id: executionWorkspaces.id,
@@ -490,27 +498,31 @@ export function issueService(db: Db) {
         projectId: executionWorkspaces.projectId,
       })
       .from(executionWorkspaces)
-      .where(eq(executionWorkspaces.id, executionWorkspaceId))
+      .where(eq(executionWorkspaces.id, normalizedExecutionWorkspaceId))
       .then((rows) => rows[0] ?? null);
     if (!workspace) throw notFound("Execution workspace not found");
-    if (workspace.companyId !== companyId) throw unprocessable("Execution workspace must belong to same company");
-    if (projectId && workspace.projectId !== projectId) {
+    if (workspace.companyId !== normalizedCompanyId) throw unprocessable("Execution workspace must belong to same company");
+    if (normalizedProjectId && workspace.projectId !== normalizedProjectId) {
       throw unprocessable("Execution workspace must belong to the selected project");
     }
   }
 
   async function assertValidLabelIds(companyId: string, labelIds: string[], dbOrTx: any = db) {
     if (labelIds.length === 0) return;
-    if (labelIds.some((id) => !isUuidLike(id))) {
+    const normalizedCompanyId = asCanonicalUuid(companyId) ?? companyId;
+    const normalizedLabelIds = labelIds.map((id) => asCanonicalUuid(id));
+    if (normalizedLabelIds.some((id) => !id)) {
       throw unprocessable("One or more labels must be valid UUIDs");
     }
+    const canonicalLabelIds = normalizedLabelIds.filter((id): id is string => id != null);
     const existing = await dbOrTx
       .select({ id: labels.id })
       .from(labels)
-      .where(and(eq(labels.companyId, companyId), inArray(labels.id, labelIds)));
-    if (existing.length !== new Set(labelIds).size) {
+      .where(and(eq(labels.companyId, normalizedCompanyId), inArray(labels.id, canonicalLabelIds)));
+    if (existing.length !== new Set(canonicalLabelIds).size) {
       throw unprocessable("One or more labels are invalid for this company");
     }
+    return canonicalLabelIds;
   }
 
   async function syncIssueLabels(
@@ -520,11 +532,11 @@ export function issueService(db: Db) {
     dbOrTx: any = db,
   ) {
     const deduped = [...new Set(labelIds)];
-    await assertValidLabelIds(companyId, deduped, dbOrTx);
+    const normalizedLabelIds = await assertValidLabelIds(companyId, deduped, dbOrTx);
     await dbOrTx.delete(issueLabels).where(eq(issueLabels.issueId, issueId));
-    if (deduped.length === 0) return;
+    if (!normalizedLabelIds || normalizedLabelIds.length === 0) return;
     await dbOrTx.insert(issueLabels).values(
-      deduped.map((labelId) => ({
+      normalizedLabelIds.map((labelId) => ({
         issueId,
         labelId,
         companyId,
@@ -851,7 +863,8 @@ export function issueService(db: Db) {
       companyId: string,
       data: Omit<typeof issues.$inferInsert, "companyId"> & { labelIds?: string[] },
     ) => {
-      if (!isUuidLike(companyId)) throw unprocessable("Invalid companyId");
+      const normalizedCompanyId = asCanonicalUuid(companyId);
+      if (!normalizedCompanyId) throw unprocessable("Invalid companyId");
       const { labelIds: inputLabelIds, ...issueData } = data;
       assertOptionalUuidField(issueData.projectId, "projectId");
       assertOptionalUuidField(issueData.parentId, "parentId");
@@ -859,40 +872,46 @@ export function issueService(db: Db) {
       assertOptionalUuidField(issueData.assigneeAgentId, "assigneeAgentId");
       assertOptionalUuidField(issueData.projectWorkspaceId, "projectWorkspaceId");
       assertOptionalUuidField(issueData.executionWorkspaceId, "executionWorkspaceId");
+      if (issueData.projectId) issueData.projectId = issueData.projectId.trim().toLowerCase();
+      if (issueData.parentId) issueData.parentId = issueData.parentId.trim().toLowerCase();
+      if (issueData.goalId) issueData.goalId = issueData.goalId.trim().toLowerCase();
+      if (issueData.assigneeAgentId) issueData.assigneeAgentId = issueData.assigneeAgentId.trim().toLowerCase();
+      if (issueData.projectWorkspaceId) issueData.projectWorkspaceId = issueData.projectWorkspaceId.trim().toLowerCase();
+      if (issueData.executionWorkspaceId) issueData.executionWorkspaceId = issueData.executionWorkspaceId.trim().toLowerCase();
       const isolatedWorkspacesEnabled = (await instanceSettings.getExperimental()).enableIsolatedWorkspaces;
       if (!isolatedWorkspacesEnabled) {
         delete issueData.executionWorkspaceId;
         delete issueData.executionWorkspacePreference;
         delete issueData.executionWorkspaceSettings;
       }
-      if (data.assigneeAgentId && data.assigneeUserId) {
+      if (issueData.assigneeAgentId && issueData.assigneeUserId) {
         throw unprocessable("Issue can only have one assignee");
       }
-      if (data.assigneeAgentId) {
-        await assertAssignableAgent(companyId, data.assigneeAgentId);
+      if (issueData.assigneeAgentId) {
+        await assertAssignableAgent(normalizedCompanyId, issueData.assigneeAgentId);
       }
-      if (data.assigneeUserId) {
-        await assertAssignableUser(companyId, data.assigneeUserId);
+      if (issueData.assigneeUserId) {
+        await assertAssignableUser(normalizedCompanyId, issueData.assigneeUserId);
       }
-      if (data.projectWorkspaceId) {
-        await assertValidProjectWorkspace(companyId, data.projectId, data.projectWorkspaceId);
+      if (issueData.projectWorkspaceId) {
+        await assertValidProjectWorkspace(normalizedCompanyId, issueData.projectId, issueData.projectWorkspaceId);
       }
-      if (data.executionWorkspaceId) {
-        await assertValidExecutionWorkspace(companyId, data.projectId, data.executionWorkspaceId);
+      if (issueData.executionWorkspaceId) {
+        await assertValidExecutionWorkspace(normalizedCompanyId, issueData.projectId, issueData.executionWorkspaceId);
       }
-      if (data.status === "in_progress" && !data.assigneeAgentId && !data.assigneeUserId) {
+      if (issueData.status === "in_progress" && !issueData.assigneeAgentId && !issueData.assigneeUserId) {
         throw unprocessable("in_progress issues require an assignee");
       }
       return db.transaction(async (tx) => {
-        const defaultCompanyGoal = await getDefaultCompanyGoal(tx, companyId);
-        const projectGoalId = await getProjectDefaultGoalId(tx, companyId, issueData.projectId);
+        const defaultCompanyGoal = await getDefaultCompanyGoal(tx, normalizedCompanyId);
+        const projectGoalId = await getProjectDefaultGoalId(tx, normalizedCompanyId, issueData.projectId);
         let executionWorkspaceSettings =
           (issueData.executionWorkspaceSettings as Record<string, unknown> | null | undefined) ?? null;
         if (executionWorkspaceSettings == null && issueData.projectId) {
           const project = await tx
             .select({ executionWorkspacePolicy: projects.executionWorkspacePolicy })
             .from(projects)
-            .where(and(eq(projects.id, issueData.projectId), eq(projects.companyId, companyId)))
+            .where(and(eq(projects.id, issueData.projectId), eq(projects.companyId, normalizedCompanyId)))
             .then((rows) => rows[0] ?? null);
           executionWorkspaceSettings =
             defaultIssueExecutionWorkspaceSettingsForProject(
@@ -909,7 +928,7 @@ export function issueService(db: Db) {
               executionWorkspacePolicy: projects.executionWorkspacePolicy,
             })
             .from(projects)
-            .where(and(eq(projects.id, issueData.projectId), eq(projects.companyId, companyId)))
+            .where(and(eq(projects.id, issueData.projectId), eq(projects.companyId, normalizedCompanyId)))
             .then((rows) => rows[0] ?? null);
           const projectPolicy = parseProjectExecutionWorkspacePolicy(project?.executionWorkspacePolicy);
           projectWorkspaceId = projectPolicy?.defaultProjectWorkspaceId ?? null;
@@ -917,7 +936,10 @@ export function issueService(db: Db) {
             projectWorkspaceId = await tx
               .select({ id: projectWorkspaces.id })
               .from(projectWorkspaces)
-              .where(and(eq(projectWorkspaces.projectId, issueData.projectId), eq(projectWorkspaces.companyId, companyId)))
+              .where(and(
+                eq(projectWorkspaces.projectId, issueData.projectId),
+                eq(projectWorkspaces.companyId, normalizedCompanyId),
+              ))
               .orderBy(desc(projectWorkspaces.isPrimary), asc(projectWorkspaces.createdAt), asc(projectWorkspaces.id))
               .then((rows) => rows[0]?.id ?? null);
           }
@@ -925,7 +947,7 @@ export function issueService(db: Db) {
         const [company] = await tx
           .update(companies)
           .set({ issueCounter: sql`${companies.issueCounter} + 1` })
-          .where(eq(companies.id, companyId))
+          .where(eq(companies.id, normalizedCompanyId))
           .returning({ issueCounter: companies.issueCounter, issuePrefix: companies.issuePrefix });
         if (!company) throw notFound("Company not found");
 
@@ -943,7 +965,7 @@ export function issueService(db: Db) {
           }),
           ...(projectWorkspaceId ? { projectWorkspaceId } : {}),
           ...(executionWorkspaceSettings ? { executionWorkspaceSettings } : {}),
-          companyId,
+          companyId: normalizedCompanyId,
           issueNumber,
           identifier,
         } as typeof issues.$inferInsert;
@@ -959,7 +981,7 @@ export function issueService(db: Db) {
 
         const [issue] = await tx.insert(issues).values(values).returning();
         if (inputLabelIds) {
-          await syncIssueLabels(issue.id, companyId, inputLabelIds, tx);
+          await syncIssueLabels(issue.id, normalizedCompanyId, inputLabelIds, tx);
         }
         const [enriched] = await withIssueLabels(tx, [issue]);
         return enriched;

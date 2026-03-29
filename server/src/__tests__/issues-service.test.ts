@@ -2189,6 +2189,47 @@ describe("issueService.list participantAgentId", () => {
     expect(released?.checkoutRunId).toBeNull();
   });
 
+  it("normalizes assignee and label uuids during create for non-route callers", async () => {
+    const companyId = randomUUID();
+    const agentId = randomUUID();
+    const labelId = randomUUID();
+
+    await db.insert(companies).values({
+      id: companyId,
+      name: "Paperclip",
+      issuePrefix: `T${companyId.replace(/-/g, "").slice(0, 6).toUpperCase()}`,
+      requireBoardApprovalForNewAgents: false,
+    });
+
+    await db.insert(agents).values({
+      id: agentId,
+      companyId,
+      name: "CreateNormalizeAgent",
+      role: "engineer",
+      status: "active",
+      adapterType: "codex_local",
+      adapterConfig: {},
+      runtimeConfig: {},
+      permissions: {},
+    });
+
+    await db.insert(labels).values({
+      id: labelId,
+      companyId,
+      name: "ops",
+      color: "#0099FF",
+    });
+
+    const created = await svc.create(companyId, {
+      title: "Create UUID normalization",
+      assigneeAgentId: ` ${agentId.toUpperCase()} `,
+      labelIds: [` ${labelId.toUpperCase()} `],
+    } as any);
+
+    expect(created.assigneeAgentId).toBe(agentId);
+    expect(created.labelIds).toContain(labelId);
+  });
+
   it("returns unprocessable for malformed assigneeAgentId on create", async () => {
     await expect(
       svc.create(randomUUID(), {
