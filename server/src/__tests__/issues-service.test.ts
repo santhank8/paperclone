@@ -1783,6 +1783,30 @@ describe("issueService.list participantAgentId", () => {
     ).resolves.toBeNull();
   });
 
+  it("normalizes update issue uuid casing/whitespace for non-route callers", async () => {
+    const companyId = randomUUID();
+    const issueId = randomUUID();
+
+    await db.insert(companies).values({
+      id: companyId,
+      name: "Paperclip",
+      issuePrefix: `T${companyId.replace(/-/g, "").slice(0, 6).toUpperCase()}`,
+      requireBoardApprovalForNewAgents: false,
+    });
+
+    await db.insert(issues).values({
+      id: issueId,
+      companyId,
+      title: "before update",
+      status: "todo",
+      priority: "medium",
+    });
+
+    const updated = await svc.update(` ${issueId.toUpperCase()} `, { title: "after update" });
+    expect(updated?.id).toBe(issueId);
+    expect(updated?.title).toBe("after update");
+  });
+
   it("returns not found for malformed issue ids on assertCheckoutOwner", async () => {
     await expect(
       svc.assertCheckoutOwner("not-a-uuid", randomUUID(), null),
@@ -1846,6 +1870,29 @@ describe("issueService.list participantAgentId", () => {
 
   it("returns null for malformed issue ids on remove", async () => {
     await expect(svc.remove("not-a-uuid")).resolves.toBeNull();
+  });
+
+  it("normalizes remove issue uuid casing/whitespace for non-route callers", async () => {
+    const companyId = randomUUID();
+    const issueId = randomUUID();
+
+    await db.insert(companies).values({
+      id: companyId,
+      name: "Paperclip",
+      issuePrefix: `T${companyId.replace(/-/g, "").slice(0, 6).toUpperCase()}`,
+      requireBoardApprovalForNewAgents: false,
+    });
+
+    await db.insert(issues).values({
+      id: issueId,
+      companyId,
+      title: "remove normalization",
+      status: "todo",
+      priority: "medium",
+    });
+
+    const removed = await svc.remove(` ${issueId.toUpperCase()} `);
+    expect(removed?.id).toBe(issueId);
   });
 
   it("returns null for malformed label ids on getLabelById", async () => {

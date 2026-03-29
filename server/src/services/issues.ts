@@ -967,11 +967,12 @@ export function issueService(db: Db) {
     },
 
     update: async (id: string, data: Partial<typeof issues.$inferInsert> & { labelIds?: string[] }) => {
-      if (!isUuidLike(id)) return null;
+      const normalizedId = asCanonicalUuid(id);
+      if (!normalizedId) return null;
       const existing = await db
         .select()
         .from(issues)
-        .where(eq(issues.id, id))
+        .where(eq(issues.id, normalizedId))
         .then((rows) => rows[0] ?? null);
       if (!existing) return null;
 
@@ -1066,7 +1067,7 @@ export function issueService(db: Db) {
         const updated = await tx
           .update(issues)
           .set(patch)
-          .where(eq(issues.id, id))
+          .where(eq(issues.id, normalizedId))
           .returning()
           .then((rows) => rows[0] ?? null);
         if (!updated) return null;
@@ -1078,23 +1079,22 @@ export function issueService(db: Db) {
       });
     },
 
-    remove: (id: string) =>
-      !isUuidLike(id)
-        ? Promise.resolve(null)
-        :
-      db.transaction(async (tx) => {
+    remove: (id: string) => {
+      const normalizedId = asCanonicalUuid(id);
+      if (!normalizedId) return Promise.resolve(null);
+      return db.transaction(async (tx) => {
         const attachmentAssetIds = await tx
           .select({ assetId: issueAttachments.assetId })
           .from(issueAttachments)
-          .where(eq(issueAttachments.issueId, id));
+          .where(eq(issueAttachments.issueId, normalizedId));
         const issueDocumentIds = await tx
           .select({ documentId: issueDocuments.documentId })
           .from(issueDocuments)
-          .where(eq(issueDocuments.issueId, id));
+          .where(eq(issueDocuments.issueId, normalizedId));
 
         const removedIssue = await tx
           .delete(issues)
-          .where(eq(issues.id, id))
+          .where(eq(issues.id, normalizedId))
           .returning()
           .then((rows) => rows[0] ?? null);
 
@@ -1113,7 +1113,8 @@ export function issueService(db: Db) {
         if (!removedIssue) return null;
         const [enriched] = await withIssueLabels(tx, [removedIssue]);
         return enriched;
-      }),
+      });
+    },
 
     checkout: async (id: string, agentId: string, expectedStatuses: string[], checkoutRunId: string | null) => {
       const normalizedIssueId = asCanonicalUuid(id);
