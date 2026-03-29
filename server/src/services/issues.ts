@@ -74,6 +74,7 @@ export interface IssueFilters {
   labelId?: string;
   originKind?: string;
   originId?: string;
+  needsOwnerAction?: boolean;
   includeRoutineExecutions?: boolean;
   q?: string;
 }
@@ -650,6 +651,9 @@ export function issueService(db: Db) {
       if (filters?.parentId) conditions.push(eq(issues.parentId, filters.parentId));
       if (filters?.originKind) conditions.push(eq(issues.originKind, filters.originKind));
       if (filters?.originId) conditions.push(eq(issues.originId, filters.originId));
+      if (filters?.needsOwnerAction !== undefined) {
+        conditions.push(eq(issues.needsOwnerAction, filters.needsOwnerAction));
+      }
       if (filters?.labelId) {
         const labeledIssueIds = await db
           .select({ issueId: issueLabels.issueId })
