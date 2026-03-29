@@ -19,6 +19,11 @@ const mockIssueApprovalService = vi.hoisted(() => ({
   unlink: vi.fn(),
 }));
 
+const mockHeartbeat = vi.hoisted(() => ({
+  wakeup: vi.fn(async () => undefined),
+  reportRunActivity: vi.fn(async () => undefined),
+}));
+
 const mockWorkProductService = vi.hoisted(() => ({
   getById: vi.fn(),
 }));
@@ -34,10 +39,7 @@ vi.mock("../services/index.js", () => ({
   documentService: () => ({}),
   executionWorkspaceService: () => ({}),
   goalService: () => ({}),
-  heartbeatService: () => ({
-    wakeup: vi.fn(async () => undefined),
-    reportRunActivity: vi.fn(async () => undefined),
-  }),
+  heartbeatService: () => mockHeartbeat,
   issueApprovalService: () => mockIssueApprovalService,
   issueService: () => mockIssueService,
   logActivity: vi.fn(async () => undefined),
@@ -82,6 +84,8 @@ describe("issues routes UUID validation", () => {
     mockIssueService.getAttachmentById.mockResolvedValue(null);
     mockWorkProductService.getById.mockResolvedValue(null);
     mockIssueApprovalService.unlink.mockResolvedValue(undefined);
+    mockHeartbeat.wakeup.mockResolvedValue(undefined);
+    mockHeartbeat.reportRunActivity.mockResolvedValue(undefined);
   });
 
   it("returns 400 for invalid UUID-based list filters", async () => {
@@ -186,6 +190,33 @@ describe("issues routes UUID validation", () => {
     expect(res.status).toBe(401);
     expect(res.body.error).toContain("run id");
     expect(mockIssueService.checkout).not.toHaveBeenCalled();
+  });
+
+  it("does not enqueue assignee wakeup for checkout no-op when issue already owned in-progress", async () => {
+    const issueId = "11111111-1111-4111-8111-111111111111";
+    const agentId = "33333333-3333-4333-8333-333333333333";
+    mockIssueService.getById.mockResolvedValueOnce({
+      id: issueId,
+      companyId: COMPANY_ID,
+      status: "in_progress",
+      assigneeAgentId: agentId,
+      checkoutRunId: null,
+    });
+    mockIssueService.checkout.mockResolvedValueOnce({
+      id: issueId,
+      companyId: COMPANY_ID,
+      status: "in_progress",
+      assigneeAgentId: agentId,
+      checkoutRunId: null,
+    });
+
+    const res = await request(createApp())
+      .post(`/api/issues/${issueId}/checkout`)
+      .send({ agentId, expectedStatuses: ["in_progress"] });
+
+    expect(res.status).toBe(200);
+    expect(mockIssueService.checkout).toHaveBeenCalledTimes(1);
+    expect(mockHeartbeat.wakeup).not.toHaveBeenCalled();
   });
 
   it("returns 400 for invalid attachment ids before attachment lookup", async () => {

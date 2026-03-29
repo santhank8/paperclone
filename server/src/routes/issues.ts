@@ -1197,6 +1197,10 @@ export function issueRoutes(db: Db, storage: StorageService) {
 
     const checkoutRunId = requireAgentRunId(req, res);
     if (req.actor.type === "agent" && !checkoutRunId) return;
+    const checkoutAlreadyOwnedByRequestedAssignee =
+      issue.assigneeAgentId === req.body.agentId &&
+      issue.status === "in_progress" &&
+      (checkoutRunId ? issue.checkoutRunId === checkoutRunId : issue.checkoutRunId == null);
     const updated = await svc.checkout(id, req.body.agentId, req.body.expectedStatuses, checkoutRunId);
     const actor = getActorInfo(req);
 
@@ -1213,6 +1217,7 @@ export function issueRoutes(db: Db, storage: StorageService) {
     });
 
     if (
+      !checkoutAlreadyOwnedByRequestedAssignee &&
       shouldWakeAssigneeOnCheckout({
         actorType: req.actor.type,
         actorAgentId: req.actor.type === "agent" ? req.actor.agentId ?? null : null,
