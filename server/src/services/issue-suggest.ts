@@ -113,6 +113,10 @@ export async function suggestIssueFields(input: SuggestIssueInput): Promise<Issu
 
     proc.stdout.on("data", (chunk: Buffer) => {
       stdout += chunk.toString();
+      if (stdout.length > 512_000) {
+        proc.kill("SIGTERM");
+        reject(new Error("Claude CLI response exceeded size limit"));
+      }
     });
     proc.stderr.on("data", (chunk: Buffer) => {
       stderr += chunk.toString();
