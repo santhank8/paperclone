@@ -1,26 +1,26 @@
-# Agent Evals Framework Plan
+# Agent Evals 框架计划
 
-Date: 2026-03-13
+日期：2026-03-13
 
-## Context
+## 背景
 
-We need evals for the thing Paperclip actually ships:
+我们需要针对 Paperclip 实际交付内容的评估（evals）：
 
-- agent behavior produced by adapter config
-- prompt templates and bootstrap prompts
-- skill sets and skill instructions
-- model choice
-- runtime policy choices that affect outcomes and cost
+- 由 adapter 配置产生的 agent 行为
+- prompt 模板和 bootstrap prompts
+- 技能集与技能指令
+- 模型选择
+- 影响结果和成本的运行时策略选择
 
-We do **not** primarily need a fine-tuning pipeline.
-We need a regression framework that can answer:
+我们**并不**主要需要微调流水线。
+我们需要一个能回答以下问题的回归测试框架：
 
-- if we change prompts or skills, do agents still do the right thing?
-- if we switch models, what got better, worse, or more expensive?
-- if we optimize tokens, did we preserve task outcomes?
-- can we grow the suite over time from real Paperclip usage?
+- 如果我们修改 prompts 或技能，agents 是否仍然做正确的事情？
+- 如果我们切换模型，哪些方面变好了、变差了，或者变贵了？
+- 如果我们优化 token 用量，是否保留了任务结果？
+- 我们能否随时间从真实的 Paperclip 使用情况中扩充测试套件？
 
-This plan is based on:
+本计划基于：
 
 - `doc/GOAL.md`
 - `doc/PRODUCT.md`
@@ -33,41 +33,41 @@ This plan is based on:
 - LangSmith complex agent eval docs: <https://docs.langchain.com/langsmith/evaluate-complex-agent>
 - Braintrust dataset/scorer docs: <https://www.braintrust.dev/docs/annotate/datasets> and <https://www.braintrust.dev/docs/evaluate/write-scorers>
 
-## Recommendation
+## 建议
 
-Paperclip should take a **two-stage approach**:
+Paperclip 应采取**两阶段方法**：
 
-1. **Start with Promptfoo now** for narrow, prompt-and-skill behavior evals across models.
-2. **Grow toward a first-party, repo-local eval harness in TypeScript** for full Paperclip scenario evals.
+1. **现在先使用 Promptfoo**，针对跨模型的 prompt 和技能行为进行有针对性的评估。
+2. **逐步发展为 TypeScript 实现的、存储在 repo 内的第一方评估框架**，用于完整的 Paperclip 场景评估。
 
-So the recommendation is no longer “skip Promptfoo.” It is:
+因此，建议不再是”跳过 Promptfoo”，而是：
 
-- use Promptfoo as the fastest bootstrap layer
-- keep eval cases and fixtures in this repo
-- avoid making Promptfoo config the deepest long-term abstraction
+- 将 Promptfoo 作为最快的引导层
+- 将评估用例和 fixtures 保留在本 repo 中
+- 避免将 Promptfoo 配置作为最深层的长期抽象
 
-More specifically:
+更具体地说：
 
-1. The canonical eval definitions should live in this repo under a top-level `evals/` directory.
-2. `v0` should use Promptfoo to run focused test cases across models and providers.
-3. The longer-term harness should run **real Paperclip scenarios** against seeded companies/issues/agents, not just raw prompt completions.
-4. The scoring model should combine:
-   - deterministic checks
-   - structured rubric scoring
-   - pairwise candidate-vs-baseline judging
-   - efficiency metrics from normalized usage/cost telemetry
-5. The framework should compare **bundles**, not just models.
+1. 规范的评估定义应放在本 repo 的顶层 `evals/` 目录下。
+2. `v0` 应使用 Promptfoo 跨模型和 provider 运行有针对性的测试用例。
+3. 长期框架应针对预置的 companies/issues/agents 运行**真实的 Paperclip 场景**，而不仅仅是原始的 prompt completions。
+4. 评分模型应结合：
+   - 确定性检查
+   - 结构化评分标准（rubric scoring）
+   - 候选方案与基线的两两对比评判
+   - 来自标准化使用量/成本遥测的效率指标
+5. 框架应比较 **bundles**，而不仅仅是模型。
 
-A bundle is:
+一个 bundle 包括：
 
-- adapter type
+- adapter 类型
 - model id
-- prompt template(s)
-- bootstrap prompt template
-- skill allowlist / skill content version
-- relevant runtime flags
+- prompt 模板
+- bootstrap prompt 模板
+- 技能白名单 / 技能内容版本
+- 相关运行时标志
 
-That is the right unit because that is what actually changes behavior in Paperclip.
+这是正确的比较单元，因为它才是真正改变 Paperclip 行为的内容。
 
 ## Why This Is The Right Shape
 

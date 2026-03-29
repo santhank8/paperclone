@@ -1,61 +1,61 @@
-# Kitchen Sink Plugin Plan
+# Kitchen Sink 插件计划
 
-## Goal
+## 目标
 
-Add a new first-party example plugin, `Kitchen Sink (Example)`, that demonstrates every currently implemented Paperclip plugin API surface in one place.
+新增一个官方示例插件 `Kitchen Sink (Example)`，在一个地方集中演示当前已实现的所有 Paperclip 插件 API 表面。
 
-This plugin is meant to be:
+该插件的定位是：
 
-- a living reference implementation for contributors
-- a manual test harness for the plugin runtime
-- a discoverable demo of what plugins can actually do today
+- 为贡献者提供持续维护的参考实现
+- 作为插件运行时的手动测试工具
+- 直观地展示插件目前能做到的所有功能
 
-It is not meant to be a polished end-user product plugin.
+它并非面向最终用户的成熟产品插件。
 
-## Why
+## 背景
 
-The current plugin system has a real API surface, but it is spread across:
+当前插件系统已有真实的 API 表面，但这些内容分散在：
 
-- SDK docs
-- SDK types
-- plugin spec prose
-- two example plugins that each show only a narrow slice
+- SDK 文档
+- SDK 类型定义
+- 插件规范文档
+- 两个示例插件（各自只展示了一小部分功能）
 
-That makes it hard to answer basic questions like:
+这使得以下基本问题难以得到解答：
 
-- what can plugins render?
-- what can plugin workers actually do?
-- which surfaces are real versus aspirational?
-- how should a new plugin be structured in this repo?
+- 插件能渲染什么？
+- 插件 worker 实际上能做什么？
+- 哪些表面是真实可用的，哪些仅是规划中的？
+- 新插件在本仓库中应如何组织结构？
 
-The kitchen-sink plugin should answer those questions by example.
+kitchen-sink 插件应通过实例来回答这些问题。
 
-## Success Criteria
+## 成功标准
 
-The plugin is successful if a contributor can install it and, without reading the SDK first, discover and exercise the current plugin runtime surface area from inside Paperclip.
+如果贡献者无需事先阅读 SDK，就能在 Paperclip 内安装插件并探索、体验当前插件运行时的完整功能范围，则视为成功。
 
-Concretely:
+具体而言：
 
-- it installs from the bundled examples list
-- it exposes at least one demo for every implemented worker API surface
-- it exposes at least one demo for every host-mounted UI surface
-- it clearly labels local-only / trusted-only demos
-- it is safe enough for local development by default
-- it doubles as a regression harness for plugin runtime changes
+- 可从内置示例列表安装
+- 针对每个已实现的 worker API 表面至少提供一个演示
+- 针对每个宿主挂载的 UI 表面至少提供一个演示
+- 清晰标注仅限本地 / 仅限受信任环境的演示
+- 默认情况下对本地开发足够安全
+- 同时兼作插件运行时变更的回归测试工具
 
-## Constraints
+## 约束条件
 
-- Keep it instance-installed, not company-installed.
-- Treat this as a trusted/local example plugin.
-- Do not rely on cloud-safe runtime assumptions.
-- Avoid destructive defaults.
-- Avoid irreversible mutations unless they are clearly labeled and easy to undo.
+- 保持实例级安装，而非公司级安装。
+- 将其视为受信任的本地示例插件。
+- 不依赖云安全运行时假设。
+- 避免破坏性的默认行为。
+- 避免不可逆的数据变更，除非已清晰标注且易于撤销。
 
-## Source Of Truth For This Plan
+## 本计划的依据来源
 
-This plan is based on the currently implemented SDK/types/runtime, not only the long-horizon spec.
+本计划基于当前已实现的 SDK/类型/运行时，而非仅参考长期规划文档。
 
-Primary references:
+主要参考文件：
 
 - `packages/plugins/sdk/README.md`
 - `packages/plugins/sdk/src/types.ts`
@@ -63,11 +63,11 @@ Primary references:
 - `packages/shared/src/constants.ts`
 - `packages/shared/src/types/plugin.ts`
 
-## Current Surface Inventory
+## 当前表面功能清单
 
-### Worker/runtime APIs to demonstrate
+### 需要演示的 Worker/运行时 API
 
-These are the concrete `ctx` clients currently exposed by the SDK:
+以下是 SDK 当前暴露的具体 `ctx` 客户端：
 
 - `ctx.config`
 - `ctx.events`
@@ -91,9 +91,9 @@ These are the concrete `ctx` clients currently exposed by the SDK:
 - `ctx.metrics`
 - `ctx.logger`
 
-### UI surfaces to demonstrate
+### 需要演示的 UI 表面
 
-Surfaces defined in the SDK:
+SDK 中定义的表面：
 
 - `page`
 - `settingsPage`

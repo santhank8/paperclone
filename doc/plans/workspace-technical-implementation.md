@@ -115,27 +115,27 @@ issue 仍然是规划和所有权单元。
 
 这是第一个切片中的护栏和默认值辅助机制，而非严格的策略引擎。
 
-## Instance Settings
+## 实例设置
 
-Add a new `Experimental` section under `/instance/settings`.
+在 `/instance/settings` 下新增 `Experimental`（实验性功能）分区。
 
-### New setting
+### 新增设置项
 
 - `experimental.workspaces: boolean`
 
-Rules:
+规则：
 
-- default `false`
-- UI-only gate
-- stored in instance config or instance settings API response
-- backend routes and migrations remain available even when false
+- 默认值为 `false`
+- 仅为 UI 层开关
+- 存储在实例配置或实例设置 API 响应中
+- 即使该值为 false，后端路由和迁移仍保持可用
 
-### UI behavior when off
+### 关闭时的 UI 行为
 
-- hide workspace-specific issue controls
-- hide workspace-specific project configuration
-- hide issue `Work Product` tab if it would otherwise be empty
-- do not remove or invalidate any stored workspace data
+- 隐藏 workspace 专属的 issue 控件
+- 隐藏 workspace 专属的项目配置
+- 若 issue 的 `Work Product` 标签页内容为空，则将其隐藏
+- 不删除或使任何已存储的 workspace 数据失效
 
 ## Data Model
 

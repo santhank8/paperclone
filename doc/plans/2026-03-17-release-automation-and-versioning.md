@@ -1,8 +1,8 @@
-# Release Automation and Versioning Simplification Plan
+# 发布自动化与版本管理简化方案
 
-## Context
+## 背景
 
-Paperclip's current release flow is documented in `doc/RELEASING.md` and implemented through:
+Paperclip 当前的发布流程记录于 `doc/RELEASING.md`，并通过以下文件实现：
 
 - `.github/workflows/release.yml`
 - `scripts/release-lib.sh`
@@ -11,43 +11,43 @@ Paperclip's current release flow is documented in `doc/RELEASING.md` and impleme
 - `scripts/release.sh`
 - `scripts/create-github-release.sh`
 
-Today the model is:
+当前的工作模型是：
 
-1. pick `patch`, `minor`, or `major`
-2. create `release/X.Y.Z`
-3. draft `releases/vX.Y.Z.md`
-4. publish one or more canaries from that release branch
-5. publish stable from that same branch
-6. push tag + create GitHub Release
-7. merge the release branch back to `master`
+1. 选择 `patch`、`minor` 或 `major`
+2. 创建 `release/X.Y.Z`
+3. 起草 `releases/vX.Y.Z.md`
+4. 从该发布分支发布一个或多个 canary 版本
+5. 从同一分支发布稳定版
+6. 推送标签并创建 GitHub Release
+7. 将发布分支合并回 `master`
 
-That is workable, but it creates friction in exactly the places that should be cheap:
+这套流程虽然可行，但在本应低成本的环节引入了不必要的摩擦：
 
-- deciding `patch` vs `minor` vs `major`
-- cutting and carrying release branches
-- manually publishing canaries
-- thinking about changelog generation for canaries
-- handling npm credentials safely in a public repo
+- 决定用 `patch`、`minor` 还是 `major`
+- 创建并维护发布分支
+- 手动发布 canary 版本
+- 为 canary 版本考虑变更日志生成
+- 在公开仓库中安全管理 npm 凭证
 
-The target state from this discussion is simpler:
+本次讨论所期望达到的目标状态更为简洁：
 
-- every push to `master` publishes a canary automatically
-- stable releases are promoted deliberately from a vetted commit
-- versioning is date-driven instead of semantics-driven
-- stable publishing is secure even in a public open-source repository
-- changelog generation happens only for real stable releases
+- 每次推送到 `master` 都自动发布 canary 版本
+- 稳定版从经过验证的提交中有意识地晋升
+- 版本号以日期为驱动，而非语义化驱动
+- 即使在公开的开源仓库中，稳定版发布也是安全的
+- 变更日志生成仅针对真正的稳定版发布
 
-## Recommendation In One Sentence
+## 一句话建议
 
-Move Paperclip to semver-compatible calendar versioning, auto-publish canaries from `master`, promote stable from a chosen tested commit, and use npm trusted publishing plus GitHub environments so no long-lived npm or LLM token needs to live in Actions.
+将 Paperclip 迁移到与 semver 兼容的日历版本格式，从 `master` 自动发布 canary 版本，从选定的已测试提交中晋升稳定版，并使用 npm 可信发布与 GitHub 环境，从而无需在 Actions 中存储长期有效的 npm 或 LLM 令牌。
 
-## Core Decisions
+## 核心决策
 
-### 1. Use calendar versions, but keep semver syntax
+### 1. 使用日历版本，但保留 semver 语法
 
-The repo and npm tooling still assume semver-shaped version strings in many places. That does not mean Paperclip must keep semver as a product policy. It does mean the version format should remain semver-valid.
+仓库和 npm 工具链在许多地方仍假定版本字符串具有 semver 形式。这并不意味着 Paperclip 必须将 semver 作为产品策略，但版本格式应保持 semver 合法性。
 
-Recommended format:
+推荐格式：
 
 - stable: `YYYY.MDD.P`
 - canary: `YYYY.MDD.P-canary.N`

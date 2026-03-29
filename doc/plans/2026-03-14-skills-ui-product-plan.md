@@ -1,69 +1,69 @@
-# 2026-03-14 Skills UI Product Plan
+# 2026-03-14 技能 UI 产品计划
 
 Status: Proposed
 Date: 2026-03-14
-Audience: Product and engineering
+Audience: 产品与工程
 Related:
 - `doc/plans/2026-03-13-company-import-export-v2.md`
 - `doc/plans/2026-03-14-adapter-skill-sync-rollout.md`
 - `docs/companies/companies-spec.md`
 - `ui/src/pages/AgentDetail.tsx`
 
-## 1. Purpose
+## 1. 目的
 
-This document defines the product and UI plan for skill management in Paperclip.
+本文档定义了 Paperclip 中技能管理的产品与 UI 计划。
 
-The goal is to make skills understandable and manageable in the website without pretending that all adapters behave the same way.
+目标是让技能在网站上易于理解和管理，而不是假装所有适配器的行为都相同。
 
-This plan assumes:
+本计划的前提假设：
 
-- `SKILL.md` remains Agent Skills compatible
-- `skills.sh` compatibility is a V1 requirement
-- Paperclip company import/export can include skills as package content
-- adapters may support persistent skill sync, ephemeral skill mounting, read-only skill discovery, or no skill integration at all
+- `SKILL.md` 保持与 Agent Skills 兼容
+- `skills.sh` 兼容性是 V1 的必要条件
+- Paperclip 公司导入/导出可以将技能作为软件包内容包含在内
+- 适配器可能支持持久技能同步、临时技能挂载、只读技能发现，或完全不集成技能
 
-## 2. Current State
+## 2. 现状
 
-There is already a first-pass agent-level skill sync UI on `AgentDetail`.
+`AgentDetail` 上已经有一个初步的 Agent 级技能同步 UI。
 
-Today it supports:
+目前支持：
 
-- loading adapter skill sync state
-- showing unsupported adapters clearly
-- showing managed skills as checkboxes
-- showing external skills separately
-- syncing desired skills for adapters that implement the new API
+- 加载适配器技能同步状态
+- 清晰显示不受支持的适配器
+- 以复选框形式显示已托管技能
+- 单独显示外部技能
+- 为实现新 API 的适配器同步期望技能
 
-Current limitations:
+当前限制：
 
-1. There is no company-level skill library UI.
-2. There is no package import flow for skills in the website.
-3. There is no distinction between skill package management and per-agent skill attachment.
-4. There is no multi-agent desired-vs-actual view.
-5. The current UI is adapter-sync-oriented, not package-oriented.
-6. Unsupported adapters degrade safely, but not elegantly.
+1. 没有公司级技能库 UI。
+2. 网站上没有技能的软件包导入流程。
+3. 技能软件包管理与按 Agent 技能附加之间没有区分。
+4. 没有多 Agent 的期望状态与实际状态对比视图。
+5. 当前 UI 以适配器同步为导向，而非以软件包为导向。
+6. 不受支持的适配器会安全降级，但不够优雅。
 
-## 2.1 V1 Decisions
+## 2.1 V1 决策
 
-For V1, this plan assumes the following product decisions are already made:
+对于 V1，本计划假设以下产品决策已经确定：
 
-1. `skills.sh` compatibility is required.
-2. Agent-to-skill association in `AGENTS.md` is by shortname or slug.
-3. Company skills and agent skill attachments are separate concepts.
-4. Agent skills should move to their own tab rather than living inside configuration.
-5. Company import/export should eventually round-trip skill packages and agent skill attachments.
+1. 必须支持 `skills.sh` 兼容性。
+2. `AGENTS.md` 中 Agent 与技能的关联通过 shortname 或 slug 表示。
+3. 公司技能与 Agent 技能附加是独立的概念。
+4. Agent 技能应移至独立标签页，而不是嵌套在配置中。
+5. 公司导入/导出最终应能完整往返传递技能软件包和 Agent 技能附加信息。
 
-## 3. Product Principles
+## 3. 产品原则
 
-1. Skills are company assets first, agent attachments second.
-2. Package management and adapter sync are different concerns and should not be conflated in one screen.
-3. The UI must always tell the truth about what Paperclip knows:
-   - desired state in Paperclip
-   - actual state reported by the adapter
-   - whether the adapter can reconcile the two
-4. Agent Skills compatibility must remain visible in the product model.
-5. Agent-to-skill associations should be human-readable and shortname-based wherever possible.
-6. Unsupported adapters should still have a useful UI, not just a dead end.
+1. 技能首先是公司资产，其次才是 Agent 的附加项。
+2. 软件包管理与适配器同步是不同的关注点，不应在同一个界面中混为一谈。
+3. UI 必须始终如实展示 Paperclip 所知道的内容：
+   - Paperclip 中的期望状态
+   - 适配器上报的实际状态
+   - 适配器是否能够协调两者之间的差异
+4. Agent Skills 兼容性必须在产品模型中保持可见。
+5. Agent 与技能的关联应尽可能以人类可读的 shortname 为基础。
+6. 不受支持的适配器也应有可用的 UI，而不是仅仅显示死胡同。
 
 ## 4. User Model
 
