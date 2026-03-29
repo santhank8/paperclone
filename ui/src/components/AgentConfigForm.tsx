@@ -1359,6 +1359,7 @@ function ModelDropdown({
 }) {
   const [modelSearch, setModelSearch] = useState("");
   const [detectingModel, setDetectingModel] = useState(false);
+  const [detectError, setDetectError] = useState<string | null>(null);
   const selected = models.find((m) => m.id === value);
   const manualModel = modelSearch.trim();
   const canCreateManualModel = Boolean(
@@ -1405,13 +1406,18 @@ function ModelDropdown({
   async function handleDetectModel() {
     if (!onDetectModel) return;
     setDetectingModel(true);
+    setDetectError(null);
     try {
       const nextModel = await onDetectModel();
       if (nextModel) {
         onChange(nextModel);
         onOpenChange(false);
         setModelSearch("");
+      } else {
+        setDetectError("No model found in config");
       }
+    } catch (err) {
+      setDetectError(err instanceof Error ? err.message : "Detection failed");
     } finally {
       setDetectingModel(false);
     }
@@ -1473,6 +1479,9 @@ function ModelDropdown({
               </svg>
               {detectingModel ? "Detecting..." : (detectModelLabel ?? "Detect from config")}
             </button>
+          )}
+          {detectError && (
+            <p className="px-2 py-1 text-xs text-destructive">{detectError}</p>
           )}
           {value && !models.some((m) => m.id === value) && (
             <button
