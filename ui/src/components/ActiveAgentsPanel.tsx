@@ -10,6 +10,7 @@ import { queryKeys } from "../lib/queryKeys";
 import { cn, relativeTime } from "../lib/utils";
 import { ExternalLink } from "lucide-react";
 import { Identity } from "./Identity";
+import { useAgentActivity, formatActivity, toolColor } from "../context/AgentActivityContext";
 
 type FeedTone = "info" | "warn" | "error" | "assistant" | "tool";
 
@@ -195,6 +196,7 @@ interface ActiveAgentsPanelProps {
 }
 
 export function ActiveAgentsPanel({ companyId }: ActiveAgentsPanelProps) {
+  const agentActivity = useAgentActivity();
   const [feedByRun, setFeedByRun] = useState<Map<string, FeedItem[]>>(new Map());
   const seenKeysRef = useRef(new Set<string>());
   const pendingByRunRef = useRef(new Map<string, string>());
@@ -394,6 +396,7 @@ export function ActiveAgentsPanel({ companyId }: ActiveAgentsPanelProps) {
               issue={run.issueId ? issueById.get(run.issueId) : undefined}
               feed={feedByRun.get(run.id) ?? []}
               isActive={isRunActive(run)}
+              activity={agentActivity.get(run.agentId)}
             />
           ))}
         </div>
@@ -407,11 +410,13 @@ function AgentRunCard({
   issue,
   feed,
   isActive,
+  activity,
 }: {
   run: LiveRunForIssue;
   issue?: Issue;
   feed: FeedItem[];
   isActive: boolean;
+  activity?: import("../context/AgentActivityContext").AgentActivity;
 }) {
   const bodyRef = useRef<HTMLDivElement>(null);
   const recent = feed.slice(-20);
@@ -443,8 +448,13 @@ function AgentRunCard({
             </span>
           )}
           <Identity name={run.agentName} size="sm" />
-          {isActive && (
+          {isActive && !activity && (
             <span className="text-[11px] font-medium text-blue-600 dark:text-blue-400">Live</span>
+          )}
+          {isActive && activity && (
+            <span className={cn("text-[10px] font-medium truncate animate-pulse", toolColor(activity.toolName))}>
+              {formatActivity(activity)}
+            </span>
           )}
         </div>
         <Link
