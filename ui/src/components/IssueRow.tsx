@@ -55,13 +55,13 @@ export function IssueRow({
       )}
     >
       <span className="shrink-0 pt-px sm:hidden">
-        {mobileLeading ?? <StatusIcon status={issue.status} />}
+        {mobileLeading ?? <StatusIcon status={issue.status} needsOwnerAction={issue.needsOwnerAction} />}
       </span>
       <span className="flex min-w-0 flex-1 flex-col gap-1 sm:contents">
         <span className="sm:order-2 sm:min-w-0 sm:flex-1">
           <span className="line-clamp-2 text-sm sm:truncate sm:line-clamp-none">
             {issue.title}
-            {issue.status === "blocked" && issue.needsOwnerAction && (
+            {issue.needsOwnerAction && (
               <span className="ml-1.5 inline-flex items-center rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:bg-amber-900/50 dark:text-amber-300">
                 Needs you
               </span>
@@ -78,7 +78,7 @@ export function IssueRow({
           {desktopMetaLeading ?? (
             <>
               <span className="hidden shrink-0 sm:inline-flex">
-                <StatusIcon status={issue.status} />
+                <StatusIcon status={issue.status} needsOwnerAction={issue.needsOwnerAction} />
               </span>
               <span className="shrink-0 font-mono text-xs text-muted-foreground">
                 {identifier}
