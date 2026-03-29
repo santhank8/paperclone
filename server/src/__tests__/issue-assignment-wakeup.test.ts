@@ -1,0 +1,43 @@
+import { describe, expect, it, vi } from "vitest";
+import { queueIssueAssignmentWakeup } from "../services/issue-assignment-wakeup.js";
+
+describe("queueIssueAssignmentWakeup", () => {
+  it("enqueues wakeup for assigned non-backlog issues", async () => {
+    const wakeup = vi.fn(async () => undefined);
+
+    await queueIssueAssignmentWakeup({
+      heartbeat: { wakeup },
+      issue: {
+        id: "11111111-1111-4111-8111-111111111111",
+        assigneeAgentId: "22222222-2222-4222-8222-222222222222",
+        status: "todo",
+      },
+      reason: "issue_assigned",
+      mutation: "create",
+      contextSource: "test",
+    });
+
+    expect(wakeup).toHaveBeenCalledTimes(1);
+  });
+
+  it("skips wakeup when the assigned agent triggered the assignment", async () => {
+    const agentId = "22222222-2222-4222-8222-222222222222";
+    const wakeup = vi.fn(async () => undefined);
+
+    await queueIssueAssignmentWakeup({
+      heartbeat: { wakeup },
+      issue: {
+        id: "11111111-1111-4111-8111-111111111111",
+        assigneeAgentId: agentId,
+        status: "todo",
+      },
+      reason: "issue_assigned",
+      mutation: "update",
+      contextSource: "test",
+      requestedByActorType: "agent",
+      requestedByActorId: agentId,
+    });
+
+    expect(wakeup).not.toHaveBeenCalled();
+  });
+});
