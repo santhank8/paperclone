@@ -11,7 +11,6 @@ import {
   Settings,
   Blocks,
   Webhook,
-  MessageSquare,
   CalendarClock,
   PanelLeftClose,
   Briefcase,
@@ -120,6 +119,9 @@ export function Sidebar() {
           <SidebarNavItem to="/my-work" label="My Work" icon={Briefcase} />
         </div>
 
+        <SidebarSection label="Work">
+          <SidebarNavItem to="/issues" label="Issues" icon={CircleDot} />
+          <SidebarNavItem to="/runs" label="Runs" icon={Play} />
         <SidebarAgents />
 
         <SidebarProjects />
