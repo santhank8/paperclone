@@ -20,7 +20,7 @@ interface StatusIconProps {
 
 export function StatusIcon({ status, needsOwnerAction, onChange, className, showLabel }: StatusIconProps) {
   const [open, setOpen] = useState(false);
-  const isOwnerBlocked = status === "blocked" && needsOwnerAction;
+  const isOwnerBlocked = needsOwnerAction === true;
   const colorClass = isOwnerBlocked
     ? "text-amber-600 border-amber-600 dark:text-amber-400 dark:border-amber-400"
     : (issueStatusIcon[status] ?? issueStatusIconDefault);
