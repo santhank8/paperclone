@@ -355,6 +355,45 @@ describe("issues routes UUID validation", () => {
     );
   });
 
+  it("treats case-only assignee agent id patch as no reassignment change", async () => {
+    const issueId = "11111111-1111-4111-8111-111111111111";
+    const agentId = "33333333-3333-4333-8333-333333333333";
+    mockIssueService.getById.mockResolvedValueOnce({
+      id: issueId,
+      companyId: COMPANY_ID,
+      status: "todo",
+      assigneeAgentId: agentId,
+      assigneeUserId: null,
+      createdByUserId: "creator-user",
+    });
+    mockIssueService.update.mockResolvedValueOnce({
+      id: issueId,
+      companyId: COMPANY_ID,
+      status: "todo",
+      assigneeAgentId: agentId,
+      assigneeUserId: null,
+      createdByUserId: "creator-user",
+    });
+    const app = createApp({
+      type: "agent",
+      companyId: COMPANY_ID,
+      agentId: "44444444-4444-4444-8444-444444444444",
+      runId: "55555555-5555-4555-8555-555555555555",
+    });
+
+    const res = await request(app)
+      .patch(`/api/issues/${issueId}`)
+      .send({ assigneeAgentId: agentId.toUpperCase() });
+
+    expect(res.status).toBe(200);
+    expect(mockIssueService.update).toHaveBeenCalledWith(
+      issueId,
+      expect.objectContaining({
+        assigneeAgentId: agentId,
+      }),
+    );
+  });
+
   it("returns 400 for invalid attachment ids before attachment lookup", async () => {
     const res = await request(createApp()).get("/api/attachments/not-a-uuid/content");
     expect(res.status).toBe(400);

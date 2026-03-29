@@ -938,8 +938,15 @@ export function issueRoutes(db: Db, storage: StorageService) {
       return;
     }
     assertCompanyAccess(req, existing.companyId);
+    const normalizedPatchAssigneeAgentId = typeof req.body.assigneeAgentId === "string"
+      ? req.body.assigneeAgentId.trim().toLowerCase()
+      : req.body.assigneeAgentId;
+    const normalizedExistingAssigneeAgentIdForChange = typeof existing.assigneeAgentId === "string"
+      ? existing.assigneeAgentId.trim().toLowerCase()
+      : existing.assigneeAgentId;
     const assigneeWillChange =
-      (req.body.assigneeAgentId !== undefined && req.body.assigneeAgentId !== existing.assigneeAgentId) ||
+      (req.body.assigneeAgentId !== undefined &&
+        normalizedPatchAssigneeAgentId !== normalizedExistingAssigneeAgentIdForChange) ||
       (req.body.assigneeUserId !== undefined && req.body.assigneeUserId !== existing.assigneeUserId);
     const normalizedActorAgentId = typeof req.actor.agentId === "string"
       ? req.actor.agentId.trim().toLowerCase()
@@ -969,6 +976,9 @@ export function issueRoutes(db: Db, storage: StorageService) {
     const { comment: commentBody, reopen: reopenRequested, hiddenAt: hiddenAtRaw, ...updateFields } = req.body;
     if (hiddenAtRaw !== undefined) {
       updateFields.hiddenAt = hiddenAtRaw ? new Date(hiddenAtRaw) : null;
+    }
+    if (typeof updateFields.assigneeAgentId === "string") {
+      updateFields.assigneeAgentId = updateFields.assigneeAgentId.trim().toLowerCase();
     }
     if (commentBody && reopenRequested === true && isClosed && updateFields.status === undefined) {
       updateFields.status = "todo";
