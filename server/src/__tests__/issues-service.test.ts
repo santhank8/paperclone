@@ -641,6 +641,43 @@ describe("issueService.list participantAgentId", () => {
     expect(comments).toEqual([]);
   });
 
+  it("caps malformed explicit comment limits for non-route callers", async () => {
+    const companyId = randomUUID();
+    const issueId = randomUUID();
+
+    await db.insert(companies).values({
+      id: companyId,
+      name: "Paperclip",
+      issuePrefix: `T${companyId.replace(/-/g, "").slice(0, 6).toUpperCase()}`,
+      requireBoardApprovalForNewAgents: false,
+    });
+
+    await db.insert(issues).values({
+      id: issueId,
+      companyId,
+      title: "Malformed comment limit safety",
+      status: "todo",
+      priority: "medium",
+    });
+
+    await db.insert(issueComments).values(
+      Array.from({ length: 505 }, (_, index) => ({
+        issueId,
+        companyId,
+        body: `comment-${index}`,
+        createdAt: new Date(Date.UTC(2026, 0, 1, 0, 0, 0, index)),
+      })),
+    );
+
+    const comments = await svc.listComments(issueId, {
+      order: "asc",
+      limit: "not-a-number" as any,
+    });
+    expect(comments).toHaveLength(500);
+    expect(comments[0]?.body).toBe("comment-0");
+    expect(comments[499]?.body).toBe("comment-499");
+  });
+
   it("returns an empty comment page when issueId is malformed", async () => {
     const comments = await svc.listComments("not-a-uuid", {
       order: "asc",

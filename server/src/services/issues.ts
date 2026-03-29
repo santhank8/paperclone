@@ -1403,6 +1403,10 @@ export function issueService(db: Db) {
       const afterCommentIdRaw = asNonEmptyString(opts?.afterCommentId) ?? null;
       const afterCommentId = afterCommentIdRaw ? afterCommentIdRaw.toLowerCase() : null;
       const rawLimit = opts?.limit as unknown;
+      const hasExplicitLimit =
+        rawLimit !== undefined &&
+        rawLimit !== null &&
+        !(typeof rawLimit === "string" && rawLimit.trim().length === 0);
       const parsedLimit =
         typeof rawLimit === "number"
           ? rawLimit
@@ -1412,7 +1416,9 @@ export function issueService(db: Db) {
       const limit =
         typeof parsedLimit === "number" && Number.isFinite(parsedLimit) && parsedLimit > 0
           ? Math.min(Math.floor(parsedLimit), MAX_ISSUE_COMMENT_PAGE_LIMIT)
-          : null;
+          : hasExplicitLimit
+            ? MAX_ISSUE_COMMENT_PAGE_LIMIT
+            : null;
       if (afterCommentId && !isUuidLike(afterCommentId)) return [];
 
       const conditions = [eq(issueComments.issueId, issueId)];
