@@ -115,6 +115,14 @@ export function issueRoutes(db: Db, storage: StorageService) {
     throw unauthorized();
   }
 
+  async function canReleaseAnyIssue(req: Request, companyId: string) {
+    if (req.actor.type !== "agent") return false;
+    const actorAgentId = req.actor.agentId;
+    if (!actorAgentId) return false;
+    const actorAgent = await agentsSvc.getById(actorAgentId);
+    return Boolean(actorAgent && actorAgent.companyId === companyId && actorAgent.role === "ceo");
+  }
+
   function requireAgentRunId(req: Request, res: Response) {
     if (req.actor.type !== "agent") return null;
     const runId = req.actor.runId?.trim();
@@ -1263,11 +1271,13 @@ export function issueRoutes(db: Db, storage: StorageService) {
     if (!(await assertAgentRunCheckoutOwnership(req, res, existing))) return;
     const actorRunId = requireAgentRunId(req, res);
     if (req.actor.type === "agent" && !actorRunId) return;
+    const allowAnyIssueRelease = await canReleaseAnyIssue(req, existing.companyId);
 
     const released = await svc.release(
       id,
       req.actor.type === "agent" ? req.actor.agentId : undefined,
       actorRunId,
+      { allowAnyIssueRelease },
     );
     if (!released) {
       res.status(404).json({ error: "Issue not found" });
@@ -1286,7 +1296,7 @@ export function issueRoutes(db: Db, storage: StorageService) {
       entityId: released.id,
     });
 
-    if (existing.executionRunId && existing.executionRunId !== actor.runId) {
+    if (existing.executionRunId) {
       await cancelStaleExecutionRun({
         runId: existing.executionRunId,
         issueId: released.id,

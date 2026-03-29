@@ -2,12 +2,18 @@ import express from "express";
 import request from "supertest";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { issueRoutes } from "../routes/issues.js";
+import { conflict } from "../errors.js";
 import { errorHandler } from "../middleware/index.js";
 
 const mockIssueService = vi.hoisted(() => ({
+  assertCheckoutOwner: vi.fn(),
   getById: vi.fn(),
   update: vi.fn(),
   release: vi.fn(),
+}));
+
+const mockAgentService = vi.hoisted(() => ({
+  getById: vi.fn(),
 }));
 
 const mockHeartbeatService = vi.hoisted(() => ({
@@ -24,9 +30,7 @@ vi.mock("../services/index.js", () => ({
     canUser: vi.fn(),
     hasPermission: vi.fn(),
   }),
-  agentService: () => ({
-    getById: vi.fn(),
-  }),
+  agentService: () => mockAgentService,
   documentService: () => ({}),
   executionWorkspaceService: () => ({}),
   goalService: () => ({}),
@@ -41,11 +45,11 @@ vi.mock("../services/index.js", () => ({
   workProductService: () => ({}),
 }));
 
-function createApp() {
+function createApp(actor?: Record<string, unknown>) {
   const app = express();
   app.use(express.json());
   app.use((req, _res, next) => {
-    (req as any).actor = {
+    (req as any).actor = actor ?? {
       type: "board",
       userId: "local-board",
       companyIds: ["company-1"],
@@ -87,6 +91,8 @@ function makeRun(status: "queued" | "running" | "cancelled" = "queued") {
 describe("issue execution lock cleanup routes", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockIssueService.assertCheckoutOwner.mockResolvedValue({ adoptedFromRunId: null });
+    mockAgentService.getById.mockResolvedValue(null);
     mockHeartbeatService.getRun.mockResolvedValue(makeRun("queued"));
     mockHeartbeatService.cancelRun.mockResolvedValue(makeRun("cancelled"));
   });
@@ -129,7 +135,105 @@ describe("issue execution lock cleanup routes", () => {
     const res = await request(createApp()).post(`/api/issues/${existing.id}/release`);
 
     expect(res.status).toBe(200);
-    expect(mockIssueService.release).toHaveBeenCalledWith(existing.id, undefined, null);
+    expect(mockIssueService.release).toHaveBeenCalledWith(existing.id, undefined, null, { allowAnyIssueRelease: false });
     expect(mockHeartbeatService.cancelRun).toHaveBeenCalledWith("run-1", { suppressDeferredPromotion: true });
+  });
+
+  it("cancels current agent run on release to prevent lock recontamination", async () => {
+    const existing = makeIssue("todo");
+    mockIssueService.getById.mockResolvedValue(existing);
+    mockIssueService.release.mockResolvedValue({
+      ...existing,
+      status: "todo",
+      assigneeAgentId: null,
+      assigneeUserId: null,
+      checkoutRunId: null,
+      executionRunId: null,
+      executionAgentNameKey: null,
+      executionLockedAt: null,
+    });
+
+    const res = await request(createApp({
+      type: "agent",
+      companyId: "company-1",
+      agentId: "22222222-2222-4222-8222-222222222222",
+      runId: "run-1",
+    })).post(`/api/issues/${existing.id}/release`);
+
+    expect(res.status).toBe(200);
+    expect(mockIssueService.release).toHaveBeenCalledWith(
+      existing.id,
+      "22222222-2222-4222-8222-222222222222",
+      "run-1",
+      { allowAnyIssueRelease: false },
+    );
+    expect(mockHeartbeatService.cancelRun).toHaveBeenCalledWith("run-1", { suppressDeferredPromotion: true });
+  });
+
+  it("passes CEO override when releasing another agent's issue", async () => {
+    const existing = {
+      ...makeIssue("in_progress"),
+      assigneeAgentId: "33333333-3333-4333-8333-333333333333",
+      checkoutRunId: "run-assignee",
+      executionRunId: "run-assignee",
+    };
+    mockIssueService.getById.mockResolvedValue(existing);
+    mockIssueService.release.mockResolvedValue({
+      ...existing,
+      status: "todo",
+      assigneeAgentId: null,
+      assigneeUserId: null,
+      checkoutRunId: null,
+      executionRunId: null,
+      executionAgentNameKey: null,
+      executionLockedAt: null,
+    });
+    mockAgentService.getById.mockResolvedValue({
+      id: "ceo-agent",
+      companyId: "company-1",
+      role: "ceo",
+      permissions: null,
+    });
+
+    const res = await request(createApp({
+      type: "agent",
+      companyId: "company-1",
+      agentId: "ceo-agent",
+      runId: "run-ceo",
+    })).post(`/api/issues/${existing.id}/release`);
+
+    expect(res.status).toBe(200);
+    expect(mockIssueService.release).toHaveBeenCalledWith(existing.id, "ceo-agent", "run-ceo", {
+      allowAnyIssueRelease: true,
+    });
+  });
+
+  it("keeps non-CEO agent release under assignee-only rule", async () => {
+    const existing = {
+      ...makeIssue("in_progress"),
+      assigneeAgentId: "33333333-3333-4333-8333-333333333333",
+      checkoutRunId: "run-assignee",
+      executionRunId: "run-assignee",
+    };
+    mockIssueService.getById.mockResolvedValue(existing);
+    mockIssueService.release.mockRejectedValue(conflict("Only assignee can release issue"));
+    mockAgentService.getById.mockResolvedValue({
+      id: "worker-agent",
+      companyId: "company-1",
+      role: "engineer",
+      permissions: null,
+    });
+
+    const res = await request(createApp({
+      type: "agent",
+      companyId: "company-1",
+      agentId: "worker-agent",
+      runId: "run-worker",
+    })).post(`/api/issues/${existing.id}/release`);
+
+    expect(mockIssueService.release).toHaveBeenCalledWith(existing.id, "worker-agent", "run-worker", {
+      allowAnyIssueRelease: false,
+    });
+    expect(res.status).toBe(409);
   });
 });

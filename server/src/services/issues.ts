@@ -1281,7 +1281,12 @@ export function issueService(db: Db) {
       });
     },
 
-    release: async (id: string, actorAgentId?: string, actorRunId?: string | null) => {
+    release: async (
+      id: string,
+      actorAgentId?: string,
+      actorRunId?: string | null,
+      opts?: { allowAnyIssueRelease?: boolean },
+    ) => {
       const existing = await db
         .select()
         .from(issues)
@@ -1289,10 +1294,12 @@ export function issueService(db: Db) {
         .then((rows) => rows[0] ?? null);
 
       if (!existing) return null;
-      if (actorAgentId && existing.assigneeAgentId && existing.assigneeAgentId !== actorAgentId) {
+      const allowAnyIssueRelease = opts?.allowAnyIssueRelease === true;
+      if (!allowAnyIssueRelease && actorAgentId && existing.assigneeAgentId && existing.assigneeAgentId !== actorAgentId) {
         throw conflict("Only assignee can release issue");
       }
       if (
+        !allowAnyIssueRelease &&
         actorAgentId &&
         existing.status === "in_progress" &&
         existing.assigneeAgentId === actorAgentId &&
@@ -1313,6 +1320,9 @@ export function issueService(db: Db) {
           status: "todo",
           assigneeAgentId: null,
           checkoutRunId: null,
+          executionRunId: null,
+          executionAgentNameKey: null,
+          executionLockedAt: null,
           updatedAt: new Date(),
         })
         .where(eq(issues.id, id))
