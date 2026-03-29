@@ -13,5 +13,6 @@ export default defineConfig({
   test: {
     exclude: rootConfig.exclude,
     projects: rootConfig.projects,
+    setupFiles: ["./scripts/vitest-setup-ensure-plugin-build-deps.mjs"],
   },
 });

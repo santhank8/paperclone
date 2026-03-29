@@ -36,6 +36,15 @@ const CRITICAL_IMPORT_ALIASES = {
   "@paperclipai/adapter-utils/server-utils": "packages/adapter-utils/src/server-utils.ts",
   "@paperclipai/adapter-codex-local/server": "packages/adapters/codex-local/src/server/index.ts",
   "@paperclipai/adapter-cursor-local/server": "packages/adapters/cursor-local/src/server/index.ts",
+  "@paperclipai/plugin-sdk": "packages/plugins/sdk/src/index.ts",
+  "@paperclipai/plugin-sdk/protocol": "packages/plugins/sdk/src/protocol.ts",
+  "@paperclipai/plugin-sdk/types": "packages/plugins/sdk/src/types.ts",
+  "@paperclipai/plugin-sdk/ui": "packages/plugins/sdk/src/ui/index.ts",
+  "@paperclipai/plugin-sdk/ui/hooks": "packages/plugins/sdk/src/ui/hooks.ts",
+  "@paperclipai/plugin-sdk/ui/types": "packages/plugins/sdk/src/ui/types.ts",
+  "@paperclipai/plugin-sdk/testing": "packages/plugins/sdk/src/testing.ts",
+  "@paperclipai/plugin-sdk/bundlers": "packages/plugins/sdk/src/bundlers.ts",
+  "@paperclipai/plugin-sdk/dev-server": "packages/plugins/sdk/src/dev-server.ts",
 };
 
 function findMissingWorkspaceManifests(baseDir, fileExists) {

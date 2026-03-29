@@ -51,6 +51,9 @@ describe("vitest root config resolver", () => {
     expect(context.alias["@paperclipai/adapter-utils/server-utils"]).toBe(
       "/repo/packages/adapter-utils/src/server-utils.ts",
     );
+    expect(context.alias["@paperclipai/plugin-sdk"]).toBe(
+      "/repo/packages/plugins/sdk/src/index.ts",
+    );
   });
 
   it("fails fast when root manifests are missing", () => {
