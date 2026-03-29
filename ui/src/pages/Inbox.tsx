@@ -516,7 +516,7 @@ export function Inbox() {
 
   const pathSegment = location.pathname.split("/").pop() ?? "mine";
   const tab: InboxTab =
-    pathSegment === "mine" || pathSegment === "recent" || pathSegment === "all" || pathSegment === "unread"
+    pathSegment === "mine" || pathSegment === "action" || pathSegment === "recent" || pathSegment === "all" || pathSegment === "unread"
       ? pathSegment
       : "mine";
   const issueLinkState = useMemo(
@@ -608,6 +608,18 @@ export function Inbox() {
     enabled: !!selectedCompanyId,
   });
 
+  const {
+    data: actionIssuesRaw = [],
+    isLoading: isActionIssuesLoading,
+  } = useQuery({
+    queryKey: queryKeys.issues.listNeedsOwnerAction(selectedCompanyId!),
+    queryFn: () =>
+      issuesApi.list(selectedCompanyId!, {
+        needsOwnerAction: true,
+      }),
+    enabled: !!selectedCompanyId,
+  });
+
   const { data: heartbeatRuns, isLoading: isRunsLoading } = useQuery({
     queryKey: queryKeys.heartbeats(selectedCompanyId!),
     queryFn: () => heartbeatsApi.list(selectedCompanyId!),
@@ -620,13 +632,15 @@ export function Inbox() {
     () => touchedIssues.filter((issue) => issue.isUnreadForMe),
     [touchedIssues],
   );
+  const actionIssues = useMemo(() => getRecentTouchedIssues(actionIssuesRaw), [actionIssuesRaw]);
   const issuesToRender = useMemo(
     () => {
       if (tab === "mine") return mineIssues;
+      if (tab === "action") return actionIssues;
       if (tab === "unread") return unreadTouchedIssues;
       return touchedIssues;
     },
-    [tab, mineIssues, touchedIssues, unreadTouchedIssues],
+    [tab, mineIssues, actionIssues, touchedIssues, unreadTouchedIssues],
   );
 
   const agentById = useMemo(() => {
@@ -660,6 +674,9 @@ export function Inbox() {
     if (tab === "mine") {
       filtered = filtered.filter((a) => !dismissed.has(`approval:${a.id}`));
     }
+    if (tab === "action") {
+      filtered = filtered.filter((a) => ACTIONABLE_APPROVAL_STATUSES.has(a.status));
+    }
     return filtered;
   }, [approvals, tab, allApprovalFilter, dismissed]);
   const showJoinRequestsCategory =
@@ -672,6 +689,7 @@ export function Inbox() {
     allCategoryFilter === "everything" || allCategoryFilter === "failed_runs";
   const showAlertsCategory = allCategoryFilter === "everything" || allCategoryFilter === "alerts";
   const failedRunsForTab = useMemo(() => {
+    if (tab === "action") return [];
     if (tab === "all" && !showFailedRunsCategory) return [];
     return failedRuns;
   }, [failedRuns, tab, showFailedRunsCategory]);
@@ -679,6 +697,7 @@ export function Inbox() {
   const joinRequestsForTab = useMemo(() => {
     if (tab === "all" && !showJoinRequestsCategory) return [];
     if (tab === "mine") return joinRequests.filter((jr) => !dismissed.has(`join:${jr.id}`));
+    if (tab === "action") return [];
     return joinRequests;
   }, [joinRequests, tab, showJoinRequestsCategory, dismissed]);
 
@@ -942,6 +961,7 @@ export function Inbox() {
     !isIssuesLoading &&
     !isMineIssuesLoading &&
     !isTouchedIssuesLoading &&
+    !isActionIssuesLoading &&
     !isRunsLoading;
 
   const showSeparatorBefore = (key: SectionKey) => visibleSections.indexOf(key) > 0;
@@ -961,6 +981,10 @@ export function Inbox() {
                 {
                   value: "mine",
                   label: "Mine",
+                },
+                {
+                  value: "action",
+                  label: "Action",
                 },
                 {
                   value: "recent",
@@ -1037,6 +1061,8 @@ export function Inbox() {
           message={
             tab === "mine"
               ? "Inbox zero."
+              : tab === "action"
+              ? "Nothing needs your action right now."
               : tab === "unread"
               ? "No new inbox items."
               : tab === "recent"
@@ -1171,7 +1197,7 @@ export function Inbox() {
                     desktopMetaLeading={(
                       <>
                         <span className="hidden shrink-0 sm:inline-flex">
-                          <StatusIcon status={issue.status} />
+                          <StatusIcon status={issue.status} needsOwnerAction={issue.needsOwnerAction} />
                         </span>
                         <span className="shrink-0 font-mono text-xs text-muted-foreground">
                           {issue.identifier ?? issue.id.slice(0, 8)}
@@ -1204,6 +1230,11 @@ export function Inbox() {
                         : undefined
                     }
                     archiveDisabled={isArchiving || archiveIssueMutation.isPending}
+                    secondaryLine={
+                      issue.status === "blocked" && issue.description
+                        ? `Blocked: ${firstNonEmptyLine(issue.description) ?? ""}`
+                        : undefined
+                    }
                     trailingMeta={
                       issue.lastExternalCommentAt
                         ? `commented ${timeAgo(issue.lastExternalCommentAt)}`
