@@ -1283,10 +1283,16 @@ export function issueService(db: Db) {
     },
 
     assertCheckoutOwner: async (id: string, actorAgentId: string, actorRunId: string | null) => {
-      if (!isUuidLike(id)) throw notFound("Issue not found");
-      if (!isUuidLike(actorAgentId)) throw conflict("Issue run ownership conflict");
-      if (actorRunId && !isUuidLike(actorRunId)) throw conflict("Issue run ownership conflict");
-      const normalizedActorRunId = actorRunId ? actorRunId.toLowerCase() : null;
+      const normalizedIssueId = asCanonicalUuid(id);
+      if (!normalizedIssueId) throw notFound("Issue not found");
+      const normalizedActorAgentId = asCanonicalUuid(actorAgentId);
+      if (!normalizedActorAgentId) throw conflict("Issue run ownership conflict");
+      let normalizedActorRunId: string | null = null;
+      if (actorRunId) {
+        const parsedActorRunId = asCanonicalUuid(actorRunId);
+        if (!parsedActorRunId) throw conflict("Issue run ownership conflict");
+        normalizedActorRunId = parsedActorRunId;
+      }
 
       const current = await db
         .select({
@@ -1296,14 +1302,14 @@ export function issueService(db: Db) {
           checkoutRunId: issues.checkoutRunId,
         })
         .from(issues)
-        .where(eq(issues.id, id))
+        .where(eq(issues.id, normalizedIssueId))
         .then((rows) => rows[0] ?? null);
 
       if (!current) throw notFound("Issue not found");
 
       if (
         current.status === "in_progress" &&
-        current.assigneeAgentId === actorAgentId &&
+        current.assigneeAgentId === normalizedActorAgentId &&
         sameRunLock(current.checkoutRunId, normalizedActorRunId)
       ) {
         return { ...current, adoptedFromRunId: null as string | null };
@@ -1312,13 +1318,13 @@ export function issueService(db: Db) {
       if (
         normalizedActorRunId &&
         current.status === "in_progress" &&
-        current.assigneeAgentId === actorAgentId &&
+        current.assigneeAgentId === normalizedActorAgentId &&
         current.checkoutRunId &&
         current.checkoutRunId !== normalizedActorRunId
       ) {
         const adopted = await adoptStaleCheckoutRun({
-          issueId: id,
-          actorAgentId,
+          issueId: normalizedIssueId,
+          actorAgentId: normalizedActorAgentId,
           actorRunId: normalizedActorRunId,
           expectedCheckoutRunId: current.checkoutRunId,
         });
@@ -1336,31 +1342,37 @@ export function issueService(db: Db) {
         status: current.status,
         assigneeAgentId: current.assigneeAgentId,
         checkoutRunId: current.checkoutRunId,
-        actorAgentId,
+        actorAgentId: normalizedActorAgentId,
         actorRunId: normalizedActorRunId,
       });
     },
 
     release: async (id: string, actorAgentId?: string, actorRunId?: string | null) => {
-      if (!isUuidLike(id)) return null;
-      if (actorAgentId && !isUuidLike(actorAgentId)) throw conflict("Only assignee can release issue");
-      if (actorRunId && !isUuidLike(actorRunId)) throw conflict("Only checkout run can release issue");
-      const normalizedActorRunId = actorRunId ? actorRunId.toLowerCase() : null;
+      const normalizedIssueId = asCanonicalUuid(id);
+      if (!normalizedIssueId) return null;
+      const normalizedActorAgentId = actorAgentId ? asCanonicalUuid(actorAgentId) : null;
+      if (actorAgentId && !normalizedActorAgentId) throw conflict("Only assignee can release issue");
+      let normalizedActorRunId: string | null = null;
+      if (actorRunId) {
+        const parsedActorRunId = asCanonicalUuid(actorRunId);
+        if (!parsedActorRunId) throw conflict("Only checkout run can release issue");
+        normalizedActorRunId = parsedActorRunId;
+      }
 
       const existing = await db
         .select()
         .from(issues)
-        .where(eq(issues.id, id))
+        .where(eq(issues.id, normalizedIssueId))
         .then((rows) => rows[0] ?? null);
 
       if (!existing) return null;
-      if (actorAgentId && existing.assigneeAgentId && existing.assigneeAgentId !== actorAgentId) {
+      if (normalizedActorAgentId && existing.assigneeAgentId && existing.assigneeAgentId !== normalizedActorAgentId) {
         throw conflict("Only assignee can release issue");
       }
       if (
-        actorAgentId &&
+        normalizedActorAgentId &&
         existing.status === "in_progress" &&
-        existing.assigneeAgentId === actorAgentId &&
+        existing.assigneeAgentId === normalizedActorAgentId &&
         existing.checkoutRunId &&
         !sameRunLock(existing.checkoutRunId, normalizedActorRunId)
       ) {
@@ -1380,7 +1392,7 @@ export function issueService(db: Db) {
           checkoutRunId: null,
           updatedAt: new Date(),
         })
-        .where(eq(issues.id, id))
+        .where(eq(issues.id, normalizedIssueId))
         .returning()
         .then((rows) => rows[0] ?? null);
       if (!updated) return null;
