@@ -44,7 +44,6 @@ import { ClaudeLocalAdvancedFields } from "../adapters/claude-local/config-field
 import { CopilotCliAdvancedFields } from "../adapters/copilot-cli/config-fields";
 import { modelEffortSupport as copilotModelEffortSupport } from "@paperclipai/adapter-copilot-cli";
 import {
-  SHARED_ADAPTER_FIELDS,
   CURSOR_THINKING_MODELS,
   resolveCanonicalModel,
   translateModel,
@@ -266,17 +265,11 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
     }
     if (overlay.adapterType !== undefined) {
       patch.adapterType = overlay.adapterType;
-      // When adapter type changes, preserve all semantically shared fields from
-      // the old config (unless the user already overrode them in the overlay via
-      // the adapter-switch handler below, which pre-populates model + effort).
+      // When adapter type changes, preserve ALL existing config fields
+      // (including private/internal ones like dangerouslySkipPermissions,
+      // allowAll, etc.) unless the overlay explicitly overrides them.
       const existing = (agent.adapterConfig ?? {}) as Record<string, unknown>;
-      const preserved: Record<string, unknown> = {};
-      for (const field of SHARED_ADAPTER_FIELDS) {
-        if (existing[field] !== undefined && !(field in overlay.adapterConfig)) {
-          preserved[field] = existing[field];
-        }
-      }
-      patch.adapterConfig = { ...preserved, ...overlay.adapterConfig };
+      patch.adapterConfig = { ...existing, ...overlay.adapterConfig };
     } else if (Object.keys(overlay.adapterConfig).length > 0) {
       const existing = (agent.adapterConfig ?? {}) as Record<string, unknown>;
       patch.adapterConfig = { ...existing, ...overlay.adapterConfig };

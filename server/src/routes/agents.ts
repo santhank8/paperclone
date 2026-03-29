@@ -507,7 +507,7 @@ export function agentRoutes(db: Db) {
   }
 
   function shouldMaterializeRuntimeSkillsForAdapter(adapterType: string) {
-    return adapterType !== "claude_local" && adapterType !== "copilot_cli";
+    return adapterType !== "claude_local" && adapterType !== "copilot_cli" && adapterType !== "codex_local";
   }
 
   async function buildRuntimeSkillConfig(
@@ -1710,9 +1710,14 @@ export function agentRoutes(db: Db) {
       Object.prototype.hasOwnProperty.call(patchData, "adapterType") ||
       Object.prototype.hasOwnProperty.call(patchData, "adapterConfig");
     if (touchesAdapterConfiguration) {
-      const rawEffectiveAdapterConfig = Object.prototype.hasOwnProperty.call(patchData, "adapterConfig")
+      // Always start from the existing config so private/internal fields
+      // (e.g. dangerouslySkipPermissions, allowAll) are never silently
+      // dropped when a caller sends a partial adapterConfig patch.
+      const existingConfig = asRecord(existing.adapterConfig) ?? {};
+      const patchConfig = Object.prototype.hasOwnProperty.call(patchData, "adapterConfig")
         ? (asRecord(patchData.adapterConfig) ?? {})
-        : (asRecord(existing.adapterConfig) ?? {});
+        : {};
+      const rawEffectiveAdapterConfig = { ...existingConfig, ...patchConfig };
       const effectiveAdapterConfig = applyCreateDefaultsByAdapterType(
         requestedAdapterType,
         rawEffectiveAdapterConfig,
