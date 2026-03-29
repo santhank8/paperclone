@@ -1400,10 +1400,16 @@ export function issueService(db: Db) {
       const order = orderRaw === "asc" ? "asc" : "desc";
       if (!isUuidLike(issueId)) return [];
       const afterCommentId = asNonEmptyString(opts?.afterCommentId) ?? null;
-      const rawLimit = opts?.limit;
+      const rawLimit = opts?.limit as unknown;
+      const parsedLimit =
+        typeof rawLimit === "number"
+          ? rawLimit
+          : typeof rawLimit === "string" && rawLimit.trim().length > 0
+            ? Number(rawLimit.trim())
+            : null;
       const limit =
-        typeof rawLimit === "number" && Number.isFinite(rawLimit) && rawLimit > 0
-          ? Math.min(Math.floor(rawLimit), MAX_ISSUE_COMMENT_PAGE_LIMIT)
+        typeof parsedLimit === "number" && Number.isFinite(parsedLimit) && parsedLimit > 0
+          ? Math.min(Math.floor(parsedLimit), MAX_ISSUE_COMMENT_PAGE_LIMIT)
           : null;
       if (afterCommentId && !isUuidLike(afterCommentId)) return [];
 
