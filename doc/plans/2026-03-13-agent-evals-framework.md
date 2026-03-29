@@ -709,67 +709,67 @@ PR 行为：
 
 这足以开始捕获我们真正关心的各类回归。
 
-## Important Guardrails
+## 重要防护原则
 
-### 1. Do not rely on judge models alone
+### 1. 不要仅依赖评判模型
 
-Every important scenario needs deterministic checks first.
+每个重要场景都需要首先进行确定性检查。
 
-### 2. Do not gate PRs on a single noisy score
+### 2. 不要用单一嘈杂的分数来管控 PR
 
-Use pass/fail invariants plus a small number of stable rubric or pairwise checks.
+使用通过/失败不变量加上少量稳定的 rubric 或两两对比检查。
 
-### 3. Do not confuse benchmark score with product quality
+### 3. 不要将基准分数与产品质量混淆
 
-The suite must keep growing from real runs, otherwise it will become a toy benchmark.
+测试套件必须持续从真实运行中增长，否则它将变成一个玩具基准。
 
-### 4. Do not evaluate only final output
+### 4. 不要只评估最终输出
 
-Trajectory matters for agents:
+轨迹对 agents 很重要：
 
-- did they call the right Paperclip APIs?
-- did they ask for approval?
-- did they communicate progress?
-- did they choose the right issue?
+- 他们是否调用了正确的 Paperclip APIs？
+- 他们是否请求了审批？
+- 他们是否传达了进度？
+- 他们是否选择了正确的 issue？
 
-### 5. Do not make the framework vendor-shaped
+### 5. 不要让框架由特定厂商定义
 
-Our eval model should survive changes in:
+我们的评估模型应能承受以下方面的变化：
 
-- judge provider
-- candidate provider
-- adapter implementation
-- hosted tooling choices
+- 评判 provider
+- 候选 provider
+- adapter 实现
+- 托管工具选择
 
-## Open Questions
+## 待解决的问题
 
-1. Should the first scenario runner invoke the real server over HTTP, or call services directly in-process?
-   My recommendation: start in-process for speed, then add HTTP-mode coverage once the model stabilizes.
+1. 第一个场景运行器是否应该通过 HTTP 调用真实服务器，还是直接在进程内调用服务？
+   我的建议：从进程内调用开始以提高速度，等模型稳定后再添加 HTTP 模式覆盖。
 
-2. Should we support Python scorers in v1?
-   My recommendation: no. Keep v1 all-TypeScript.
+2. 是否应该在 v1 中支持 Python 评分器？
+   我的建议：不。v1 保持全 TypeScript。
 
-3. Should we commit baseline outputs?
-   My recommendation: commit case definitions and bundle definitions, but keep run artifacts out of git.
+3. 是否应该提交基线输出？
+   我的建议：提交用例定义和 bundle 定义，但将运行产物排除在 git 之外。
 
-4. Should we add hosted experiment tracking immediately?
-   My recommendation: no. Revisit after the local harness proves useful.
+4. 是否应该立即添加托管实验追踪？
+   我的建议：不。等本地框架证明有用后再重新评估。
 
-## Final Recommendation
+## 最终建议
 
-Start with Promptfoo for immediate, narrow model-and-prompt comparisons, then grow into a first-party `evals/` framework in TypeScript that evaluates **Paperclip scenarios and bundles**, not just prompts.
+先使用 Promptfoo 进行即时的、针对性的模型与 prompt 对比，然后发展为 TypeScript 实现的第一方 `evals/` 框架，用于评估 **Paperclip 场景和 bundles**，而不仅仅是 prompts。
 
-Use this structure:
+采用以下结构：
 
-- Promptfoo for `v0` bootstrap
-- deterministic hard checks as the foundation
-- rubric and pairwise judging for non-deterministic quality
-- normalized efficiency metrics as a separate axis
-- repo-local datasets that grow from real runs
+- Promptfoo 用于 `v0` 引导
+- 确定性硬性检查作为基础
+- 用于非确定性质量的 rubric 和两两对比评判
+- 作为独立轴的标准化效率指标
+- 从真实运行中增长的、存储在 repo 内的数据集
 
-Use external tools selectively:
+选择性地使用外部工具：
 
-- Promptfoo as the initial path for narrow prompt/provider tests
-- Braintrust or LangSmith later if we want hosted experiment management
+- Promptfoo 作为针对性 prompt/provider 测试的初始路径
+- 如果需要托管实验管理，之后引入 Braintrust 或 LangSmith
 
-But keep the canonical eval model inside the Paperclip repo and aligned to Paperclip’s actual control-plane behaviors.
+但将规范的评估模型保留在 Paperclip repo 内，并与 Paperclip 实际的控制面行为对齐。

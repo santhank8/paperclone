@@ -704,26 +704,26 @@ Paperclip 应单独存储：
 - 漂移解决操作
 - 多 Agent 技能使用与同步报告
 
-## 15. Design Risks
+## 15. 设计风险
 
-1. Overloading the agent page with package management will make the feature confusing.
-2. Treating unsupported adapters as broken rather than unmanaged will make the product feel inconsistent.
-3. Mixing external adapter-discovered skills with company-managed skills without clear labels will erode trust.
-4. If company skill records do not exist, import/export and UI will remain loosely coupled and round-trip fidelity will stay weak.
-5. If agent skill associations are path-based instead of shortname-based, the format will feel too technical and too Paperclip-specific.
+1. 将软件包管理叠加到 Agent 页面会让功能变得令人困惑。
+2. 将不受支持的适配器视为"损坏"而非"未托管"会让产品显得不一致。
+3. 在没有清晰标签的情况下将外部适配器发现的技能与公司托管技能混合，会削弱用户信任。
+4. 如果公司技能记录不存在，导入/导出与 UI 将保持松耦合，往返传递的保真度也会偏低。
+5. 如果 Agent 技能关联基于路径而非 shortname，格式将显得过于技术性且过于 Paperclip 特定。
 
-## 16. Recommendation
+## 16. 建议
 
-The next product step should be:
+下一个产品步骤应是：
 
-1. move skills out of agent configuration and into a dedicated `Skills` tab
-2. add a dedicated company-level `Skills` page as the library and package-management surface
-3. make company import/export target that company skill library, not the agent page directly
-4. preserve adapter-aware truth in the UI by clearly separating:
-   - desired
-   - actual
-   - external
-   - unmanaged
-5. keep agent-to-skill associations shortname-based in `AGENTS.md`
+1. 将技能从 Agent 配置中移出，放入专属的 `Skills` 标签页
+2. 添加专属的公司级 `Skills` 页面，作为库与软件包管理的界面
+3. 让公司导入/导出指向该公司技能库，而非直接指向 Agent 页面
+4. 通过清晰分离以下状态，在 UI 中保持适配器感知的真实性：
+   - desired（期望）
+   - actual（实际）
+   - external（外部）
+   - unmanaged（未托管）
+5. 在 `AGENTS.md` 中保持 Agent 与技能关联基于 shortname
 
-That gives Paperclip one coherent skill story instead of forcing package management, adapter sync, and agent configuration into the same screen.
+这将使 Paperclip 拥有一个连贯的技能叙述，而不是将软件包管理、适配器同步和 Agent 配置强行压缩在同一个界面中。

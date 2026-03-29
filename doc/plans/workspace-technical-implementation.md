@@ -692,40 +692,40 @@ V1 中，GitHub 是唯一具有更丰富语义的 provider。
 - 工作产物
 - 清理状态
 
-## Runtime and Adapter Behavior
+## 运行时与 Adapter 行为
 
-## 1. Local adapters
+## 1. 本地 Adapter
 
-For local adapters:
+对于本地 adapter：
 
-- continue to use existing cwd/worktree realization paths
-- persist the result as execution workspaces
-- attach runtime services and work product to the execution workspace and issue
+- 继续使用现有的 cwd/worktree 实例化路径
+- 将结果持久化为执行 workspace
+- 将运行时服务和工作产物挂载到执行 workspace 和 issue
 
-## 2. Remote or cloud adapters
+## 2. 远程或云端 Adapter
 
-For remote adapters:
+对于远程 adapter：
 
-- allow execution workspaces with null `cwd`
-- require provider metadata sufficient to identify the remote workspace/session
-- allow work product creation without any host-local process ownership
+- 允许执行 workspace 的 `cwd` 为 null
+- 要求提供足以标识远程 workspace/会话的 provider 元数据
+- 允许在不持有宿主机本地进程的情况下创建工作产物
 
-Examples:
+示例：
 
-- cloud coding agent opens a branch and PR on GitHub
-- Vercel preview URL is reported back as a preview work product
-- remote sandbox emits artifact URLs
+- 云端编码 agent 在 GitHub 上创建分支和 PR
+- Vercel 预览 URL 作为预览工作产物上报
+- 远程沙箱产出构件 URL
 
-## 3. Approval-aware PR workflow
+## 3. 支持审批的 PR 工作流
 
-V1 should support richer PR state tracking, but not a full review engine.
+V1 应支持更丰富的 PR 状态追踪，但不构建完整的审查引擎。
 
-### Required actions
+### 必须支持的操作
 
 - `open_pr`
 - `mark_ready`
 
-### Required review states
+### 必须支持的审查状态
 
 - `draft`
 - `ready_for_review`
@@ -734,46 +734,46 @@ V1 should support richer PR state tracking, but not a full review engine.
 - `merged`
 - `closed`
 
-### Storage approach
+### 存储方案
 
-- represent these as `issue_work_products` with `type='pull_request'`
-- use `status` and `review_state`
-- store provider-specific details in `metadata`
+- 以 `type='pull_request'` 的 `issue_work_products` 记录来表示上述状态
+- 使用 `status` 和 `review_state` 字段
+- 将 provider 专属详情存储在 `metadata` 中
 
-## Migration Plan
+## 迁移计划
 
-## 1. Existing installs
+## 1. 现有安装实例
 
-The migration posture is backward-compatible by default.
+迁移的基本立场是默认向后兼容。
 
-### Guarantees
+### 保证事项
 
-- no existing project must be edited before it keeps working
-- no existing issue flow should start requiring workspace input
-- all new nullable columns must preserve current behavior when absent
+- 现有项目无需编辑即可继续正常运行
+- 现有 issue 流程不应开始强制要求 workspace 输入
+- 所有新增的可空字段在缺失时必须保留当前行为
 
-## 2. Project workspace migration
+## 2. 项目 workspace 迁移
 
-Migrate `project_workspaces` in place.
+原地迁移 `project_workspaces`。
 
-### Backfill
+### 回填
 
-- derive `source_type`
-- copy `repo_ref` to `default_ref`
-- leave new optional fields null
+- 推导 `source_type`
+- 将 `repo_ref` 复制到 `default_ref`
+- 新增可选字段留空为 null
 
-## 3. Issue migration
+## 3. Issue 迁移
 
-Do not backfill `project_workspace_id` or `execution_workspace_id` on all existing issues.
+不对所有现有 issue 回填 `project_workspace_id` 或 `execution_workspace_id`。
 
-Reason:
+原因：
 
-- the safest migration is to preserve current runtime behavior and bind explicitly only when new workspace-aware flows are used
+- 最安全的迁移方式是保留当前运行时行为，仅在使用新的 workspace 感知流程时才进行显式绑定
 
-Interpret old issues as:
+将旧 issue 解读为：
 
 - `executionWorkspacePreference = inherit`
-- compatibility/shared behavior
+- 兼容性/共享行为
 
 ## 4. Runtime history migration
 
