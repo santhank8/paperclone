@@ -18,6 +18,7 @@ import {
   ensureAbsoluteDirectory,
   ensureCommandResolvable,
   ensurePathInEnv,
+  deriveAgentHomeFromInstructionsFilePath,
   renderTemplate,
   runChildProcess,
 } from "@paperclipai/adapter-utils/server-utils";
@@ -114,6 +115,8 @@ async function buildClaudeRuntimeConfig(input: ClaudeExecutionInput): Promise<Cl
   const workspaceRepoUrl = asString(workspaceContext.repoUrl, "") || null;
   const workspaceRepoRef = asString(workspaceContext.repoRef, "") || null;
   const workspaceBranch = asString(workspaceContext.branchName, "") || null;
+  const workspaceObservedBranch = asString(workspaceContext.observedBranchName, "") || null;
+  const workspaceObservedHead = asString(workspaceContext.observedHeadSha, "") || null;
   const workspaceWorktreePath = asString(workspaceContext.worktreePath, "") || null;
   const agentHome = asString(workspaceContext.agentHome, "") || null;
   const workspaceHints = Array.isArray(context.paperclipWorkspaces)
@@ -133,9 +136,7 @@ async function buildClaudeRuntimeConfig(input: ClaudeExecutionInput): Promise<Cl
     : [];
   const runtimePrimaryUrl = asString(context.paperclipRuntimePrimaryUrl, "");
   const configuredCwd = asString(config.cwd, "");
-  const useConfiguredInsteadOfAgentHome = workspaceSource === "agent_home" && configuredCwd.length > 0;
-  const effectiveWorkspaceCwd = useConfiguredInsteadOfAgentHome ? "" : workspaceCwd;
-  const cwd = effectiveWorkspaceCwd || configuredCwd || process.cwd();
+  const cwd = workspaceCwd || configuredCwd || process.cwd();
   await ensureAbsoluteDirectory(cwd, { createIfMissing: true });
 
   const envConfig = parseObject(config.env);
@@ -186,8 +187,8 @@ async function buildClaudeRuntimeConfig(input: ClaudeExecutionInput): Promise<Cl
   if (linkedIssueIds.length > 0) {
     env.PAPERCLIP_LINKED_ISSUE_IDS = linkedIssueIds.join(",");
   }
-  if (effectiveWorkspaceCwd) {
-    env.PAPERCLIP_WORKSPACE_CWD = effectiveWorkspaceCwd;
+  if (workspaceCwd) {
+    env.PAPERCLIP_WORKSPACE_CWD = workspaceCwd;
   }
   if (workspaceSource) {
     env.PAPERCLIP_WORKSPACE_SOURCE = workspaceSource;
@@ -207,6 +208,12 @@ async function buildClaudeRuntimeConfig(input: ClaudeExecutionInput): Promise<Cl
   if (workspaceBranch) {
     env.PAPERCLIP_WORKSPACE_BRANCH = workspaceBranch;
   }
+  if (workspaceObservedBranch) {
+    env.PAPERCLIP_WORKSPACE_OBSERVED_BRANCH = workspaceObservedBranch;
+  }
+  if (workspaceObservedHead) {
+    env.PAPERCLIP_WORKSPACE_OBSERVED_HEAD = workspaceObservedHead;
+  }
   if (workspaceWorktreePath) {
     env.PAPERCLIP_WORKSPACE_WORKTREE_PATH = workspaceWorktreePath;
   }
@@ -224,6 +231,13 @@ async function buildClaudeRuntimeConfig(input: ClaudeExecutionInput): Promise<Cl
   }
   if (runtimePrimaryUrl) {
     env.PAPERCLIP_RUNTIME_PRIMARY_URL = runtimePrimaryUrl;
+  }
+  const derivedAgentHome = deriveAgentHomeFromInstructionsFilePath(
+    asString(config.instructionsFilePath, ""),
+    cwd,
+  );
+  if (derivedAgentHome && !env.AGENT_HOME) {
+    env.AGENT_HOME = derivedAgentHome;
   }
 
   for (const [key, value] of Object.entries(envConfig)) {

@@ -17,6 +17,7 @@ import {
   readPaperclipRuntimeSkillEntries,
   resolvePaperclipDesiredSkillNames,
   removeMaintainerOnlySkillSymlinks,
+  deriveAgentHomeFromInstructionsFilePath,
   renderTemplate,
   joinPromptSections,
   runChildProcess,
@@ -170,9 +171,14 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
   const workspaceContext = parseObject(context.paperclipWorkspace);
   const workspaceCwd = asString(workspaceContext.cwd, "");
   const workspaceSource = asString(workspaceContext.source, "");
+  const workspaceStrategy = asString(workspaceContext.strategy, "");
   const workspaceId = asString(workspaceContext.workspaceId, "");
   const workspaceRepoUrl = asString(workspaceContext.repoUrl, "");
   const workspaceRepoRef = asString(workspaceContext.repoRef, "");
+  const workspaceBranch = asString(workspaceContext.branchName, "");
+  const workspaceObservedBranch = asString(workspaceContext.observedBranchName, "");
+  const workspaceObservedHead = asString(workspaceContext.observedHeadSha, "");
+  const workspaceWorktreePath = asString(workspaceContext.worktreePath, "");
   const agentHome = asString(workspaceContext.agentHome, "");
   const workspaceHints = Array.isArray(context.paperclipWorkspaces)
     ? context.paperclipWorkspaces.filter(
@@ -180,9 +186,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
       )
     : [];
   const configuredCwd = asString(config.cwd, "");
-  const useConfiguredInsteadOfAgentHome = workspaceSource === "agent_home" && configuredCwd.length > 0;
-  const effectiveWorkspaceCwd = useConfiguredInsteadOfAgentHome ? "" : workspaceCwd;
-  const cwd = effectiveWorkspaceCwd || configuredCwd || process.cwd();
+  const cwd = workspaceCwd || configuredCwd || process.cwd();
   await ensureAbsoluteDirectory(cwd, { createIfMissing: true });
   const cursorSkillEntries = await readPaperclipRuntimeSkillEntries(config, __moduleDir);
   const desiredCursorSkillNames = resolvePaperclipDesiredSkillNames(config, cursorSkillEntries);
@@ -236,11 +240,14 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
   if (linkedIssueIds.length > 0) {
     env.PAPERCLIP_LINKED_ISSUE_IDS = linkedIssueIds.join(",");
   }
-  if (effectiveWorkspaceCwd) {
-    env.PAPERCLIP_WORKSPACE_CWD = effectiveWorkspaceCwd;
+  if (workspaceCwd) {
+    env.PAPERCLIP_WORKSPACE_CWD = workspaceCwd;
   }
   if (workspaceSource) {
     env.PAPERCLIP_WORKSPACE_SOURCE = workspaceSource;
+  }
+  if (workspaceStrategy) {
+    env.PAPERCLIP_WORKSPACE_STRATEGY = workspaceStrategy;
   }
   if (workspaceId) {
     env.PAPERCLIP_WORKSPACE_ID = workspaceId;
@@ -251,11 +258,30 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
   if (workspaceRepoRef) {
     env.PAPERCLIP_WORKSPACE_REPO_REF = workspaceRepoRef;
   }
+  if (workspaceBranch) {
+    env.PAPERCLIP_WORKSPACE_BRANCH = workspaceBranch;
+  }
+  if (workspaceObservedBranch) {
+    env.PAPERCLIP_WORKSPACE_OBSERVED_BRANCH = workspaceObservedBranch;
+  }
+  if (workspaceObservedHead) {
+    env.PAPERCLIP_WORKSPACE_OBSERVED_HEAD = workspaceObservedHead;
+  }
+  if (workspaceWorktreePath) {
+    env.PAPERCLIP_WORKSPACE_WORKTREE_PATH = workspaceWorktreePath;
+  }
   if (agentHome) {
     env.AGENT_HOME = agentHome;
   }
   if (workspaceHints.length > 0) {
     env.PAPERCLIP_WORKSPACES_JSON = JSON.stringify(workspaceHints);
+  }
+  const derivedAgentHome = deriveAgentHomeFromInstructionsFilePath(
+    asString(config.instructionsFilePath, ""),
+    cwd,
+  );
+  if (derivedAgentHome && !env.AGENT_HOME) {
+    env.AGENT_HOME = derivedAgentHome;
   }
   for (const [k, v] of Object.entries(envConfig)) {
     if (typeof v === "string") env[k] = v;

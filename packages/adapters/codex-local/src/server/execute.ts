@@ -16,6 +16,7 @@ import {
   ensurePathInEnv,
   readPaperclipRuntimeSkillEntries,
   resolvePaperclipDesiredSkillNames,
+  deriveAgentHomeFromInstructionsFilePath,
   renderTemplate,
   joinPromptSections,
   runChildProcess,
@@ -238,6 +239,8 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
   const workspaceRepoUrl = asString(workspaceContext.repoUrl, "");
   const workspaceRepoRef = asString(workspaceContext.repoRef, "");
   const workspaceBranch = asString(workspaceContext.branchName, "");
+  const workspaceObservedBranch = asString(workspaceContext.observedBranchName, "");
+  const workspaceObservedHead = asString(workspaceContext.observedHeadSha, "");
   const workspaceWorktreePath = asString(workspaceContext.worktreePath, "");
   const agentHome = asString(workspaceContext.agentHome, "");
   const workspaceHints = Array.isArray(context.paperclipWorkspaces)
@@ -257,9 +260,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     : [];
   const runtimePrimaryUrl = asString(context.paperclipRuntimePrimaryUrl, "");
   const configuredCwd = asString(config.cwd, "");
-  const useConfiguredInsteadOfAgentHome = workspaceSource === "agent_home" && configuredCwd.length > 0;
-  const effectiveWorkspaceCwd = useConfiguredInsteadOfAgentHome ? "" : workspaceCwd;
-  const cwd = effectiveWorkspaceCwd || configuredCwd || process.cwd();
+  const cwd = workspaceCwd || configuredCwd || process.cwd();
   const envConfig = parseObject(config.env);
   const configuredCodexHome =
     typeof envConfig.CODEX_HOME === "string" && envConfig.CODEX_HOME.trim().length > 0
@@ -330,8 +331,8 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
   if (linkedIssueIds.length > 0) {
     env.PAPERCLIP_LINKED_ISSUE_IDS = linkedIssueIds.join(",");
   }
-  if (effectiveWorkspaceCwd) {
-    env.PAPERCLIP_WORKSPACE_CWD = effectiveWorkspaceCwd;
+  if (workspaceCwd) {
+    env.PAPERCLIP_WORKSPACE_CWD = workspaceCwd;
   }
   if (workspaceSource) {
     env.PAPERCLIP_WORKSPACE_SOURCE = workspaceSource;
@@ -351,6 +352,12 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
   if (workspaceBranch) {
     env.PAPERCLIP_WORKSPACE_BRANCH = workspaceBranch;
   }
+  if (workspaceObservedBranch) {
+    env.PAPERCLIP_WORKSPACE_OBSERVED_BRANCH = workspaceObservedBranch;
+  }
+  if (workspaceObservedHead) {
+    env.PAPERCLIP_WORKSPACE_OBSERVED_HEAD = workspaceObservedHead;
+  }
   if (workspaceWorktreePath) {
     env.PAPERCLIP_WORKSPACE_WORKTREE_PATH = workspaceWorktreePath;
   }
@@ -368,6 +375,13 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
   }
   if (runtimePrimaryUrl) {
     env.PAPERCLIP_RUNTIME_PRIMARY_URL = runtimePrimaryUrl;
+  }
+  const derivedAgentHome = deriveAgentHomeFromInstructionsFilePath(
+    asString(config.instructionsFilePath, ""),
+    cwd,
+  );
+  if (derivedAgentHome && !env.AGENT_HOME) {
+    env.AGENT_HOME = derivedAgentHome;
   }
   for (const [k, v] of Object.entries(envConfig)) {
     if (typeof v === "string") env[k] = v;
