@@ -117,6 +117,22 @@ describe("routine routes", () => {
     mockLogActivity.mockResolvedValue(undefined);
   });
 
+  it("returns 400 for malformed routine run limit query values", async () => {
+    const app = createApp({
+      type: "board",
+      userId: "board-user",
+      source: "session",
+      isInstanceAdmin: false,
+      companyIds: [companyId],
+    });
+
+    const res = await request(app).get(`/api/routines/${routineId}/runs?limit=not-a-number`);
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toContain("Invalid limit");
+    expect(mockRoutineService.listRuns).not.toHaveBeenCalled();
+  });
+
   it("requires tasks:assign permission for non-admin board routine creation", async () => {
     const app = createApp({
       type: "board",

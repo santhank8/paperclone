@@ -18,6 +18,15 @@ export function routineRoutes(db: Db) {
   const svc = routineService(db);
   const access = accessService(db);
 
+  function readQueryString(value: unknown): string | undefined {
+    if (typeof value === "string") return value;
+    if (Array.isArray(value)) {
+      const first = value.find((entry): entry is string => typeof entry === "string");
+      return first;
+    }
+    return undefined;
+  }
+
   async function assertBoardCanAssignTasks(req: Request, companyId: string) {
     assertCompanyAccess(req, companyId);
     if (req.actor.type !== "board") return;
@@ -137,8 +146,13 @@ export function routineRoutes(db: Db) {
       return;
     }
     assertCompanyAccess(req, routine.companyId);
-    const limit = Number(req.query.limit ?? 50);
-    const result = await svc.listRuns(routine.id, Number.isFinite(limit) ? limit : 50);
+    const limitRaw = readQueryString(req.query.limit);
+    const parsedLimit = limitRaw && limitRaw.trim().length > 0 ? Number(limitRaw) : 50;
+    if (!Number.isFinite(parsedLimit) || !Number.isInteger(parsedLimit) || parsedLimit <= 0) {
+      res.status(400).json({ error: "Invalid limit query parameter. Use a positive integer." });
+      return;
+    }
+    const result = await svc.listRuns(routine.id, parsedLimit);
     res.json(result);
   });
 
