@@ -461,6 +461,14 @@ describe("heartbeat orphaned process recovery", () => {
     const heartbeat = heartbeatService(db);
     await heartbeat.resumeQueuedRuns();
 
+    const repairedWakeup = await db
+      .select()
+      .from(agentWakeupRequests)
+      .where(eq(agentWakeupRequests.id, wakeupRequestId))
+      .then((rows) => rows[0] ?? null);
+    expect(repairedWakeup?.status).toBe("failed");
+    expect(repairedWakeup?.runId).toBeNull();
+
     const issue = await db
       .select()
       .from(issues)

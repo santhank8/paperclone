@@ -1947,6 +1947,32 @@ export function heartbeatService(db: Db) {
           return null;
         }
 
+        const repairableIssue = await tx
+          .select({ id: issues.id })
+          .from(issues)
+          .where(
+            and(
+              eq(issues.id, issueId),
+              eq(issues.companyId, agent.companyId),
+              eq(issues.assigneeAgentId, agent.id),
+              isNull(issues.executionRunId),
+            ),
+          )
+          .then((rows) => rows[0] ?? null);
+        if (!repairableIssue) {
+          await tx
+            .update(agentWakeupRequests)
+            .set({
+              status: "failed",
+              finishedAt: now,
+              error: "Queued wakeup could not be repaired because issue is no longer assigned and unlocked",
+              updatedAt: now,
+            })
+            .where(eq(agentWakeupRequests.id, current.id));
+
+          return null;
+        }
+
         // Repair issue-scoped orphaned wakeups so trading-org assignments/comments
         // are converted back into runnable heartbeats instead of waiting on timer drift.
         const newRun = await tx
