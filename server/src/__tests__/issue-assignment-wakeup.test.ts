@@ -97,4 +97,22 @@ describe("queueIssueAssignmentWakeup", () => {
 
     expect(wakeup).not.toHaveBeenCalled();
   });
+
+  it("skips wakeup when assignee id is whitespace-only", async () => {
+    const wakeup = vi.fn(async () => undefined);
+
+    await queueIssueAssignmentWakeup({
+      heartbeat: { wakeup },
+      issue: {
+        id: "11111111-1111-4111-8111-111111111111",
+        assigneeAgentId: "   ",
+        status: "todo",
+      },
+      reason: "issue_assigned",
+      mutation: "update",
+      contextSource: "test",
+    });
+
+    expect(wakeup).not.toHaveBeenCalled();
+  });
 });

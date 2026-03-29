@@ -38,7 +38,7 @@ export function queueIssueAssignmentWakeup(input: {
     ? input.requestedByActorId.trim().toLowerCase()
     : null;
   if (
-    !input.issue.assigneeAgentId ||
+    !normalizedAssigneeAgentId ||
     normalizedIssueStatus === "backlog" ||
     normalizedIssueStatus === "done" ||
     normalizedIssueStatus === "cancelled"
@@ -53,7 +53,7 @@ export function queueIssueAssignmentWakeup(input: {
   }
 
   return input.heartbeat
-    .wakeup(input.issue.assigneeAgentId, {
+    .wakeup(normalizedAssigneeAgentId, {
       source: "assignment",
       triggerDetail: "system",
       reason: input.reason,
