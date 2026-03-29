@@ -1218,7 +1218,7 @@ export function issueService(db: Db) {
         return enriched;
       }
 
-      if (current.executionRunId && checkoutRunId && current.executionRunId !== checkoutRunId) {
+      if (current.executionRunId && (!checkoutRunId || current.executionRunId !== checkoutRunId)) {
         const stale = await isTerminalOrMissingHeartbeatRun(current.executionRunId);
         if (stale) {
           await db
@@ -1235,6 +1235,23 @@ export function issueService(db: Db) {
                 eq(issues.executionRunId, current.executionRunId),
               ),
             );
+          const retryPredicates = [
+            eq(issues.id, id),
+            inArray(issues.status, expectedStatuses),
+            isNull(issues.executionRunId),
+            or(isNull(issues.assigneeAgentId), eq(issues.assigneeAgentId, agentId)),
+          ];
+          if (checkoutRunId) {
+            retryPredicates.push(
+              or(
+                isNull(issues.checkoutRunId),
+                and(
+                  eq(issues.checkoutRunId, checkoutRunId),
+                  eq(issues.assigneeAgentId, agentId),
+                ),
+              ),
+            );
+          }
           const retried = await db
             .update(issues)
             .set({
@@ -1246,21 +1263,7 @@ export function issueService(db: Db) {
               startedAt: new Date(),
               updatedAt: new Date(),
             })
-            .where(
-              and(
-                eq(issues.id, id),
-                inArray(issues.status, expectedStatuses),
-                isNull(issues.executionRunId),
-                or(isNull(issues.assigneeAgentId), eq(issues.assigneeAgentId, agentId)),
-                or(
-                  isNull(issues.checkoutRunId),
-                  and(
-                    eq(issues.checkoutRunId, checkoutRunId),
-                    eq(issues.assigneeAgentId, agentId),
-                  ),
-                ),
-              ),
-            )
+            .where(and(...retryPredicates))
             .returning()
             .then((rows) => rows[0] ?? null);
           if (retried) {
