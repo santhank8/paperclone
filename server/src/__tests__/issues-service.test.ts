@@ -481,4 +481,26 @@ describeEmbeddedPostgres("issueService checkout/release execution lock semantics
       svc.checkout(issueId, agentId, ["todo", "in_progress"], freshRunId),
     ).rejects.toThrow();
   });
+
+  it("checkout does not recover execution lock when run is still running", async () => {
+    const { companyId, agentId, staleRunId, freshRunId } = await seedFixture({ runStatus: "running" });
+    const issueId = randomUUID();
+
+    await db.insert(issues).values({
+      id: issueId,
+      companyId,
+      title: "Active lock issue",
+      status: "todo",
+      priority: "medium",
+      executionRunId: staleRunId,
+      executionAgentNameKey: "testagent",
+      executionLockedAt: new Date("2026-03-29T00:00:00.000Z"),
+      issueNumber: 1,
+      identifier: "T-1",
+    });
+
+    await expect(
+      svc.checkout(issueId, agentId, ["todo"], freshRunId),
+    ).rejects.toThrow();
+  });
 });
