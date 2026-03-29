@@ -1522,9 +1522,14 @@ export function issueRoutes(db: Db, storage: StorageService) {
     // Merge all wakeups from this comment into one enqueue per agent to avoid duplicate runs.
     void (async () => {
       const wakeups = new Map<string, Parameters<typeof heartbeat.wakeup>[1]>();
-      const assigneeId = currentIssue.assigneeAgentId;
+      const assigneeId = typeof currentIssue.assigneeAgentId === "string"
+        ? currentIssue.assigneeAgentId.trim().toLowerCase()
+        : null;
       const actorIsAgent = actor.actorType === "agent";
-      const selfComment = actorIsAgent && actor.actorId === assigneeId;
+      const normalizedActorAgentId = actorIsAgent && typeof actor.actorId === "string"
+        ? actor.actorId.trim().toLowerCase()
+        : null;
+      const selfComment = actorIsAgent && normalizedActorAgentId === assigneeId;
       const skipWake = selfComment || isClosed;
       if (assigneeId && (reopened || !skipWake)) {
         if (reopened) {
@@ -1584,9 +1589,13 @@ export function issueRoutes(db: Db, storage: StorageService) {
       }
 
       for (const mentionedId of mentionedIds) {
-        if (wakeups.has(mentionedId)) continue;
-        if (actorIsAgent && actor.actorId === mentionedId) continue;
-        wakeups.set(mentionedId, {
+        const normalizedMentionedId = typeof mentionedId === "string"
+          ? mentionedId.trim().toLowerCase()
+          : "";
+        if (!normalizedMentionedId) continue;
+        if (wakeups.has(normalizedMentionedId)) continue;
+        if (actorIsAgent && normalizedActorAgentId === normalizedMentionedId) continue;
+        wakeups.set(normalizedMentionedId, {
           source: "automation",
           triggerDetail: "system",
           reason: "issue_comment_mentioned",

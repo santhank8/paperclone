@@ -44,7 +44,7 @@ vi.mock("../services/index.js", () => ({
   workProductService: () => ({}),
 }));
 
-function createApp() {
+function createApp(actorOverride?: Record<string, unknown>) {
   const app = express();
   app.use(express.json());
   app.use((req, _res, next) => {
@@ -54,6 +54,7 @@ function createApp() {
       companyIds: ["company-1"],
       source: "local_implicit",
       isInstanceAdmin: false,
+      ...actorOverride,
     };
     next();
   });
@@ -142,5 +143,27 @@ describe("issue comment reopen routes", () => {
         }),
       }),
     );
+  });
+
+  it("skips assignee wakeup for agent self-comments when ids differ only by case", async () => {
+    const assigneeId = "22222222-2222-4222-8222-222222222222";
+    mockIssueService.getById.mockResolvedValue(makeIssue("todo"));
+
+    const app = createApp({
+      type: "agent",
+      companyId: "company-1",
+      companyIds: ["company-1"],
+      agentId: ` ${assigneeId.toUpperCase()} `,
+      runId: "44444444-4444-4444-8444-444444444444",
+      source: "agent_api_key",
+      isInstanceAdmin: false,
+    });
+
+    const res = await request(app)
+      .post("/api/issues/11111111-1111-4111-8111-111111111111/comments")
+      .send({ body: "self-comment" });
+
+    expect(res.status).toBe(201);
+    expect(mockHeartbeatService.wakeup).not.toHaveBeenCalled();
   });
 });
