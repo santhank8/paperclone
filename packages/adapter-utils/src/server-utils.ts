@@ -323,21 +323,396 @@ export async function ensureAbsoluteDirectory(
 
   try {
     await assertDirectory();
-  } catch (error) {
-    if (!opts.createIfMissing) {
-      throw error;
+    return;
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException).code;
+    if (!opts.createIfMissing || code !== "ENOENT") {
+      if (code === "ENOENT") {
+        throw new Error(`Working directory does not exist: "${cwd}"`);
+      }
+      throw err instanceof Error ? err : new Error(String(err));
     }
+  }
+
+  try {
     await fs.mkdir(cwd, { recursive: true });
     await assertDirectory();
+  } catch (err) {
+    const reason = err instanceof Error ? err.message : String(err);
+    throw new Error(`Could not create working directory "${cwd}": ${reason}`);
   }
 }
 
-export function createExecutionContextLabel(adapterType: string, locationLabel?: string | null) {
-  return locationLabel ? `${adapterType}:${locationLabel}` : adapterType;
+export async function resolvePaperclipSkillsDir(
+  moduleDir: string,
+  additionalCandidates: string[] = [],
+): Promise<string | null> {
+  const candidates = [
+    ...PAPERCLIP_SKILL_ROOT_RELATIVE_CANDIDATES.map((relativePath) => path.resolve(moduleDir, relativePath)),
+    ...additionalCandidates.map((candidate) => path.resolve(candidate)),
+  ];
+  const seenRoots = new Set<string>();
+
+  for (const root of candidates) {
+    if (seenRoots.has(root)) continue;
+    seenRoots.add(root);
+    const isDirectory = await fs.stat(root).then((stats) => stats.isDirectory()).catch(() => false);
+    if (isDirectory) return root;
+  }
+
+  return null;
 }
 
-export function ensureCommandResolvable(command: string, env: NodeJS.ProcessEnv, cwd: string) {
-  return resolveCommandPath(command, cwd, env);
+export async function listPaperclipSkillEntries(
+  moduleDir: string,
+  additionalCandidates: string[] = [],
+): Promise<PaperclipSkillEntry[]> {
+  const root = await resolvePaperclipSkillsDir(moduleDir, additionalCandidates);
+  if (!root) return [];
+
+  try {
+    const entries = await fs.readdir(root, { withFileTypes: true });
+    return entries
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => ({
+        key: `paperclipai/paperclip/${entry.name}`,
+        runtimeName: entry.name,
+        source: path.join(root, entry.name),
+        required: true,
+        requiredReason: "Bundled Paperclip skills are always available for local adapters.",
+      }));
+  } catch {
+    return [];
+  }
+}
+
+export async function readInstalledSkillTargets(skillsHome: string): Promise<Map<string, InstalledSkillTarget>> {
+  const entries = await fs.readdir(skillsHome, { withFileTypes: true }).catch(() => []);
+  const out = new Map<string, InstalledSkillTarget>();
+  for (const entry of entries) {
+    const fullPath = path.join(skillsHome, entry.name);
+    const linkedPath = entry.isSymbolicLink() ? await fs.readlink(fullPath).catch(() => null) : null;
+    out.set(entry.name, resolveInstalledEntryTarget(skillsHome, entry.name, entry, linkedPath));
+  }
+  return out;
+}
+
+export function buildPersistentSkillSnapshot(
+  options: PersistentSkillSnapshotOptions,
+): AdapterSkillSnapshot {
+  const {
+    adapterType,
+    availableEntries,
+    desiredSkills,
+    installed,
+    skillsHome,
+    locationLabel,
+    installedDetail,
+    missingDetail,
+    externalConflictDetail,
+    externalDetail,
+  } = options;
+  const availableByKey = new Map(availableEntries.map((entry) => [entry.key, entry]));
+  const desiredSet = new Set(desiredSkills);
+  const entries: AdapterSkillEntry[] = [];
+  const warnings = [...(options.warnings ?? [])];
+
+  for (const available of availableEntries) {
+    const installedEntry = installed.get(available.runtimeName) ?? null;
+    const desired = desiredSet.has(available.key);
+    let state: AdapterSkillEntry["state"] = "available";
+    let managed = false;
+    let detail: string | null = null;
+
+    if (installedEntry?.targetPath === available.source) {
+      managed = true;
+      state = desired ? "installed" : "stale";
+      detail = installedDetail ?? null;
+    } else if (installedEntry) {
+      state = "external";
+      detail = desired ? externalConflictDetail : externalDetail;
+    } else if (desired) {
+      state = "missing";
+      detail = missingDetail;
+    }
+
+    entries.push({
+      key: available.key,
+      runtimeName: available.runtimeName,
+      desired,
+      managed,
+      state,
+      sourcePath: available.source,
+      targetPath: path.join(skillsHome, available.runtimeName),
+      detail,
+      required: Boolean(available.required),
+      requiredReason: available.requiredReason ?? null,
+      ...buildManagedSkillOrigin(available),
+    });
+  }
+
+  for (const desiredSkill of desiredSkills) {
+    if (availableByKey.has(desiredSkill)) continue;
+    warnings.push(`Desired skill "${desiredSkill}" is not available from the Paperclip skills directory.`);
+    entries.push({
+      key: desiredSkill,
+      runtimeName: null,
+      desired: true,
+      managed: true,
+      state: "missing",
+      sourcePath: null,
+      targetPath: null,
+      detail: "Paperclip cannot find this skill in the local runtime skills directory.",
+      origin: "external_unknown",
+      originLabel: "External or unavailable",
+      readOnly: false,
+    });
+  }
+
+  for (const [name, installedEntry] of installed.entries()) {
+    if (availableEntries.some((entry) => entry.runtimeName === name)) continue;
+    entries.push({
+      key: name,
+      runtimeName: name,
+      desired: false,
+      managed: false,
+      state: "external",
+      origin: "user_installed",
+      originLabel: "User-installed",
+      locationLabel: skillLocationLabel(locationLabel),
+      readOnly: true,
+      sourcePath: null,
+      targetPath: installedEntry.targetPath ?? path.join(skillsHome, name),
+      detail: externalDetail,
+    });
+  }
+
+  entries.sort((left, right) => left.key.localeCompare(right.key));
+
+  return {
+    adapterType,
+    supported: true,
+    mode: "persistent",
+    desiredSkills,
+    entries,
+    warnings,
+  };
+}
+
+function normalizeConfiguredPaperclipRuntimeSkills(value: unknown): PaperclipSkillEntry[] {
+  if (!Array.isArray(value)) return [];
+  const out: PaperclipSkillEntry[] = [];
+  for (const rawEntry of value) {
+    const entry = parseObject(rawEntry);
+    const key = asString(entry.key, asString(entry.name, "")).trim();
+    const runtimeName = asString(entry.runtimeName, asString(entry.name, "")).trim();
+    const source = asString(entry.source, "").trim();
+    if (!key || !runtimeName || !source) continue;
+    out.push({
+      key,
+      runtimeName,
+      source,
+      required: asBoolean(entry.required, false),
+      requiredReason:
+        typeof entry.requiredReason === "string" && entry.requiredReason.trim().length > 0
+          ? entry.requiredReason.trim()
+          : null,
+    });
+  }
+  return out;
+}
+
+export async function readPaperclipRuntimeSkillEntries(
+  config: Record<string, unknown>,
+  moduleDir: string,
+  additionalCandidates: string[] = [],
+): Promise<PaperclipSkillEntry[]> {
+  const configuredEntries = normalizeConfiguredPaperclipRuntimeSkills(config.paperclipRuntimeSkills);
+  if (configuredEntries.length > 0) return configuredEntries;
+  return listPaperclipSkillEntries(moduleDir, additionalCandidates);
+}
+
+export async function readPaperclipSkillMarkdown(
+  moduleDir: string,
+  skillKey: string,
+): Promise<string | null> {
+  const normalized = skillKey.trim().toLowerCase();
+  if (!normalized) return null;
+
+  const entries = await listPaperclipSkillEntries(moduleDir);
+  const match = entries.find((entry) => entry.key === normalized);
+  if (!match) return null;
+
+  try {
+    return await fs.readFile(path.join(match.source, "SKILL.md"), "utf8");
+  } catch {
+    return null;
+  }
+}
+
+export function readPaperclipSkillSyncPreference(config: Record<string, unknown>): {
+  explicit: boolean;
+  desiredSkills: string[];
+} {
+  const raw = config.paperclipSkillSync;
+  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) {
+    return { explicit: false, desiredSkills: [] };
+  }
+  const syncConfig = raw as Record<string, unknown>;
+  const desiredValues = syncConfig.desiredSkills;
+  const desired = Array.isArray(desiredValues)
+    ? desiredValues
+        .filter((value): value is string => typeof value === "string")
+        .map((value) => value.trim())
+        .filter(Boolean)
+    : [];
+  return {
+    explicit: Object.prototype.hasOwnProperty.call(raw, "desiredSkills"),
+    desiredSkills: Array.from(new Set(desired)),
+  };
+}
+
+function canonicalizeDesiredPaperclipSkillReference(
+  reference: string,
+  availableEntries: Array<{ key: string; runtimeName?: string | null }>,
+): string {
+  const normalizedReference = reference.trim().toLowerCase();
+  if (!normalizedReference) return "";
+
+  const exactKey = availableEntries.find((entry) => entry.key.trim().toLowerCase() === normalizedReference);
+  if (exactKey) return exactKey.key;
+
+  const byRuntimeName = availableEntries.filter((entry) =>
+    typeof entry.runtimeName === "string" && entry.runtimeName.trim().toLowerCase() === normalizedReference,
+  );
+  if (byRuntimeName.length === 1) return byRuntimeName[0]!.key;
+
+  const slugMatches = availableEntries.filter((entry) =>
+    entry.key.trim().toLowerCase().split("/").pop() === normalizedReference,
+  );
+  if (slugMatches.length === 1) return slugMatches[0]!.key;
+
+  return normalizedReference;
+}
+
+export function resolvePaperclipDesiredSkillNames(
+  config: Record<string, unknown>,
+  availableEntries: Array<{ key: string; runtimeName?: string | null; required?: boolean }>,
+): string[] {
+  const preference = readPaperclipSkillSyncPreference(config);
+  const requiredSkills = availableEntries
+    .filter((entry) => entry.required)
+    .map((entry) => entry.key);
+  if (!preference.explicit) {
+    return Array.from(new Set(requiredSkills));
+  }
+  const desiredSkills = preference.desiredSkills
+    .map((reference) => canonicalizeDesiredPaperclipSkillReference(reference, availableEntries))
+    .filter(Boolean);
+  return Array.from(new Set([...requiredSkills, ...desiredSkills]));
+}
+
+export function writePaperclipSkillSyncPreference(
+  config: Record<string, unknown>,
+  desiredSkills: string[],
+): Record<string, unknown> {
+  const next = { ...config };
+  const raw = next.paperclipSkillSync;
+  const current =
+    typeof raw === "object" && raw !== null && !Array.isArray(raw)
+      ? { ...(raw as Record<string, unknown>) }
+      : {};
+  current.desiredSkills = Array.from(
+    new Set(
+      desiredSkills
+        .map((value) => value.trim())
+        .filter(Boolean),
+    ),
+  );
+  next.paperclipSkillSync = current;
+  return next;
+}
+
+export async function ensurePaperclipSkillSymlink(
+  source: string,
+  target: string,
+  linkSkill: (source: string, target: string) => Promise<void> = (linkSource, linkTarget) =>
+    fs.symlink(linkSource, linkTarget),
+): Promise<"created" | "repaired" | "skipped"> {
+  const existing = await fs.lstat(target).catch(() => null);
+  if (!existing) {
+    await linkSkill(source, target);
+    return "created";
+  }
+
+  if (!existing.isSymbolicLink()) {
+    return "skipped";
+  }
+
+  const linkedPath = await fs.readlink(target).catch(() => null);
+  if (!linkedPath) return "skipped";
+
+  const resolvedLinkedPath = path.resolve(path.dirname(target), linkedPath);
+  if (resolvedLinkedPath === source) {
+    return "skipped";
+  }
+
+  const linkedPathExists = await fs.stat(resolvedLinkedPath).then(() => true).catch(() => false);
+  if (linkedPathExists) {
+    return "skipped";
+  }
+
+  await fs.unlink(target);
+  await linkSkill(source, target);
+  return "repaired";
+}
+
+export async function removeMaintainerOnlySkillSymlinks(
+  skillsHome: string,
+  allowedSkillNames: Iterable<string>,
+): Promise<string[]> {
+  const allowed = new Set(Array.from(allowedSkillNames));
+  try {
+    const entries = await fs.readdir(skillsHome, { withFileTypes: true });
+    const removed: string[] = [];
+    for (const entry of entries) {
+      if (allowed.has(entry.name)) continue;
+
+      const target = path.join(skillsHome, entry.name);
+      const existing = await fs.lstat(target).catch(() => null);
+      if (!existing?.isSymbolicLink()) continue;
+
+      const linkedPath = await fs.readlink(target).catch(() => null);
+      if (!linkedPath) continue;
+
+      const resolvedLinkedPath = path.isAbsolute(linkedPath)
+        ? linkedPath
+        : path.resolve(path.dirname(target), linkedPath);
+      if (
+        !isMaintainerOnlySkillTarget(linkedPath) &&
+        !isMaintainerOnlySkillTarget(resolvedLinkedPath)
+      ) {
+        continue;
+      }
+
+      await fs.unlink(target);
+      removed.push(entry.name);
+    }
+
+    return removed;
+  } catch {
+    return [];
+  }
+}
+
+export async function ensureCommandResolvable(command: string, cwd: string, env: NodeJS.ProcessEnv) {
+  const resolved = await resolveCommandPath(command, cwd, env);
+  if (resolved) return;
+  if (command.includes("/") || command.includes("\\")) {
+    const absolute = path.isAbsolute(command) ? command : path.resolve(cwd, command);
+    throw new Error(`Command is not executable: "${command}" (resolved: "${absolute}")`);
+  }
+  throw new Error(`Command not found in PATH: "${command}"`);
 }
 
 export async function runChildProcess(
@@ -351,110 +726,116 @@ export async function runChildProcess(
     graceSec: number;
     onLog: (stream: "stdout" | "stderr", chunk: string) => Promise<void>;
     onLogError?: (err: unknown, runId: string, message: string) => void;
+    onSpawn?: (meta: { pid: number; startedAt: string }) => Promise<void>;
+    stdin?: string;
   },
 ): Promise<RunProcessResult> {
-  const spawnTarget = await resolveSpawnTarget(command, args, opts.cwd, opts.env);
-  const child = spawn(spawnTarget.command, spawnTarget.args, {
-    cwd: opts.cwd,
-    env: ensurePathInEnv(opts.env),
-    stdio: ["ignore", "pipe", "pipe"],
-  }) as ChildProcessWithEvents;
+  const onLogError = opts.onLogError ?? ((err, id, msg) => console.warn({ err, runId: id }, msg));
 
-  const startedAt = new Date().toISOString();
-  let stdout = "";
-  let stderr = "";
-  let exitCode: number | null = null;
-  let signal: string | null = null;
-  let timedOut = false;
+  return new Promise<RunProcessResult>((resolve, reject) => {
+    const rawMerged: NodeJS.ProcessEnv = { ...process.env, ...opts.env };
 
-  const logChunk = async (stream: "stdout" | "stderr", chunk: string) => {
-    try {
-      await opts.onLog(stream, chunk);
-    } catch (error) {
-      opts.onLogError?.(error, runId, `Failed to log ${stream} chunk`);
-    }
-  };
-
-  child.stdout?.on("data", (chunk: Buffer | string) => {
-    const text = chunk.toString();
-    stdout = appendWithCap(stdout, text, MAX_CAPTURE_BYTES);
-    void logChunk("stdout", text);
-  });
-
-  child.stderr?.on("data", (chunk: Buffer | string) => {
-    const text = chunk.toString();
-    stderr = appendWithCap(stderr, text, MAX_CAPTURE_BYTES);
-    void logChunk("stderr", text);
-  });
-
-  const result = await new Promise<RunProcessResult>((resolve, reject) => {
-    let timeout: NodeJS.Timeout | null = null;
-    if (opts.timeoutSec > 0) {
-      timeout = setTimeout(() => {
-        timedOut = true;
-        child.kill("SIGTERM");
-      }, opts.timeoutSec * 1000);
+    // Strip Claude Code nesting-guard env vars so spawned `claude` processes
+    // don't refuse to start with "cannot be launched inside another session".
+    // These vars leak in when the Paperclip server itself is started from
+    // within a Claude Code session (e.g. `npx paperclipai run` in a terminal
+    // owned by Claude Code) or when cron inherits a contaminated shell env.
+    const CLAUDE_CODE_NESTING_VARS = [
+      "CLAUDECODE",
+      "CLAUDE_CODE_ENTRYPOINT",
+      "CLAUDE_CODE_SESSION",
+      "CLAUDE_CODE_PARENT_SESSION",
+    ] as const;
+    for (const key of CLAUDE_CODE_NESTING_VARS) {
+      delete rawMerged[key];
     }
 
-    child.on("error", reject);
-    child.on("close", (code, closeSignal) => {
-      if (timeout) clearTimeout(timeout);
-      exitCode = code;
-      signal = closeSignal;
-      resolve({
-        exitCode,
-        signal,
-        timedOut,
-        stdout,
-        stderr,
-        pid: child.pid ?? null,
-        startedAt,
-      });
-    });
+    const mergedEnv = ensurePathInEnv(rawMerged);
+    void resolveSpawnTarget(command, args, opts.cwd, mergedEnv)
+      .then((target) => {
+        const child = spawn(target.command, target.args, {
+          cwd: opts.cwd,
+          env: mergedEnv,
+          shell: false,
+          stdio: [opts.stdin != null ? "pipe" : "ignore", "pipe", "pipe"],
+        }) as ChildProcessWithEvents;
+        const startedAt = new Date().toISOString();
+
+        if (opts.stdin != null && child.stdin) {
+          child.stdin.write(opts.stdin);
+          child.stdin.end();
+        }
+
+        if (typeof child.pid === "number" && child.pid > 0 && opts.onSpawn) {
+          void opts.onSpawn({ pid: child.pid, startedAt }).catch((err) => {
+            onLogError(err, runId, "failed to record child process metadata");
+          });
+        }
+
+        runningProcesses.set(runId, { child, graceSec: opts.graceSec });
+
+        let timedOut = false;
+        let stdout = "";
+        let stderr = "";
+        let logChain: Promise<void> = Promise.resolve();
+
+        const timeout =
+          opts.timeoutSec > 0
+            ? setTimeout(() => {
+                timedOut = true;
+                child.kill("SIGTERM");
+                setTimeout(() => {
+                  if (!child.killed) {
+                    child.kill("SIGKILL");
+                  }
+                }, Math.max(1, opts.graceSec) * 1000);
+              }, opts.timeoutSec * 1000)
+            : null;
+
+        child.stdout?.on("data", (chunk: unknown) => {
+          const text = String(chunk);
+          stdout = appendWithCap(stdout, text);
+          logChain = logChain
+            .then(() => opts.onLog("stdout", text))
+            .catch((err) => onLogError(err, runId, "failed to append stdout log chunk"));
+        });
+
+        child.stderr?.on("data", (chunk: unknown) => {
+          const text = String(chunk);
+          stderr = appendWithCap(stderr, text);
+          logChain = logChain
+            .then(() => opts.onLog("stderr", text))
+            .catch((err) => onLogError(err, runId, "failed to append stderr log chunk"));
+        });
+
+        child.on("error", (err: Error) => {
+          if (timeout) clearTimeout(timeout);
+          runningProcesses.delete(runId);
+          const errno = (err as NodeJS.ErrnoException).code;
+          const pathValue = mergedEnv.PATH ?? mergedEnv.Path ?? "";
+          const msg =
+            errno === "ENOENT"
+              ? `Failed to start command "${command}" in "${opts.cwd}". Verify adapter command, working directory, and PATH (${pathValue}).`
+              : `Failed to start command "${command}" in "${opts.cwd}": ${err.message}`;
+          reject(new Error(msg));
+        });
+
+        child.on("close", (code: number | null, signal: NodeJS.Signals | null) => {
+          if (timeout) clearTimeout(timeout);
+          runningProcesses.delete(runId);
+          void logChain.finally(() => {
+            resolve({
+              exitCode: code,
+              signal,
+              timedOut,
+              stdout,
+              stderr,
+              pid: child.pid ?? null,
+              startedAt,
+            });
+          });
+        });
+      })
+      .catch(reject);
   });
-
-  runningProcesses.delete(runId);
-  return result;
-}
-
-export function removeMaintainerOnlySkillSymlinks(
-  skillsHome: string,
-  entries: Array<{ name: string; kind: "file" | "directory" | "symlink"; path: string }>,
-) {
-  return entries.filter((entry) => !isMaintainerOnlySkillTarget(entry.path));
-}
-
-export function readPaperclipSkillSyncPreference() {
-  return false;
-}
-
-export function writePaperclipSkillSyncPreference() {
-  return undefined;
-}
-
-export function detectInstalledSkillTargets(
-  skillsHome: string,
-  dirents: Dirent[],
-) {
-  const installed = new Map<string, InstalledSkillTarget>();
-  for (const dirent of dirents) {
-    installed.set(dirent.name, resolveInstalledEntryTarget(skillsHome, dirent.name, dirent, null));
-  }
-  return installed;
-}
-
-export function snapshotPaperclipSkillState(options: PersistentSkillSnapshotOptions) {
-  return {
-    adapterType: options.adapterType,
-    availableEntries: options.availableEntries,
-    desiredSkills: options.desiredSkills,
-    installed: options.installed,
-    skillsHome: options.skillsHome,
-    locationLabel: options.locationLabel ?? null,
-    installedDetail: options.installedDetail ?? null,
-    missingDetail: options.missingDetail,
-    externalConflictDetail: options.externalConflictDetail,
-    externalDetail: options.externalDetail,
-    warnings: options.warnings ?? [],
-  };
 }
