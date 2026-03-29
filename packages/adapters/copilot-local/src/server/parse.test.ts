@@ -93,10 +93,57 @@ describe("isCopilotAuthError", () => {
   it("does NOT match unrelated output", () => {
     expect(isCopilotAuthError("task completed", "exit 0")).toBe(false);
     expect(isCopilotAuthError("wrote 401 bytes", "")).toBe(false);
+    expect(isCopilotAuthError("authentication middleware loaded", "")).toBe(false);
   });
 
   it("checks both stdout and stderr", () => {
     expect(isCopilotAuthError("No authentication information found", "")).toBe(true);
     expect(isCopilotAuthError("", "No authentication information found")).toBe(true);
+  });
+
+  it("detects 'authenticate with copilot' pattern", () => {
+    expect(isCopilotAuthError("", "Please authenticate with copilot first")).toBe(true);
+  });
+});
+
+describe("parseCopilotJsonl — tool execution", () => {
+  it("captures tool execution errors", () => {
+    const stdout = [
+      JSON.stringify({
+        type: "tool.execution_complete",
+        data: { toolCallId: "t1", success: false, result: { content: "Permission denied" } },
+      }),
+      JSON.stringify({
+        type: "result", sessionId: "s1", exitCode: 1,
+        usage: { premiumRequests: 1, totalApiDurationMs: 100, sessionDurationMs: 200, codeChanges: { linesAdded: 0, linesRemoved: 0, filesModified: [] } },
+      }),
+    ].join("\n");
+
+    const parsed = parseCopilotJsonl(stdout);
+    expect(parsed.errors).toContain("Permission denied");
+  });
+
+  it("ignores successful tool executions", () => {
+    const stdout = JSON.stringify({
+      type: "tool.execution_complete",
+      data: { toolCallId: "t1", success: true, result: { content: "ok" } },
+    });
+
+    const parsed = parseCopilotJsonl(stdout);
+    expect(parsed.errors).toHaveLength(0);
+  });
+
+  it("accumulates messages across multiple turns", () => {
+    const stdout = [
+      JSON.stringify({ type: "assistant.message", data: { messageId: "m1", content: "Turn 1 output", toolRequests: [], outputTokens: 5 } }),
+      JSON.stringify({ type: "assistant.message", data: { messageId: "m2", content: "", toolRequests: [{ name: "view" }], outputTokens: 10 } }),
+      JSON.stringify({ type: "assistant.message", data: { messageId: "m3", content: "Turn 2 output", toolRequests: [], outputTokens: 8 } }),
+      JSON.stringify({ type: "result", sessionId: "s1", exitCode: 0, usage: { premiumRequests: 1, totalApiDurationMs: 3000, sessionDurationMs: 5000, codeChanges: { linesAdded: 5, linesRemoved: 2, filesModified: ["a.ts"] } } }),
+    ].join("\n");
+
+    const parsed = parseCopilotJsonl(stdout);
+    expect(parsed.messages).toEqual(["Turn 1 output", "Turn 2 output"]);
+    expect(parsed.summary).toBe("Turn 1 output\n\nTurn 2 output");
+    expect(parsed.codeChanges).toEqual({ linesAdded: 5, linesRemoved: 2, filesModified: ["a.ts"] });
   });
 });

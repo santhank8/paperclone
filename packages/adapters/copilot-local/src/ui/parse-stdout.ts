@@ -50,7 +50,7 @@ export function parseCopilotStdoutLine(line: string, ts: string): TranscriptEntr
     for (const reqRaw of toolRequests) {
       const req = asRecord(reqRaw);
       if (!req) continue;
-      const toolName = typeof req.toolName === "string" ? req.toolName : "unknown";
+      const toolName = typeof req.name === "string" ? req.name : typeof req.toolName === "string" ? req.toolName : "unknown";
       const toolCallId = typeof req.toolCallId === "string" ? req.toolCallId : undefined;
       entries.push({
         kind: "tool_call",

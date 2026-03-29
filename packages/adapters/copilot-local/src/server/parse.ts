@@ -19,7 +19,7 @@ export interface CopilotParsedOutput {
 }
 
 const COPILOT_AUTH_ERROR_RE =
-  /no authentication information found|classic personal access tokens \(ghp_\) are not supported|not supported by copilot|authentication|copilot login/i;
+  /no authentication information found|classic personal access tokens \(ghp_\) are not supported|not supported by copilot|copilot login|authenticate with copilot|run.*copilot login/i;
 
 const COPILOT_UNKNOWN_SESSION_RE =
   /session.*not found|unknown session|no session found|invalid session|session does not exist/i;
