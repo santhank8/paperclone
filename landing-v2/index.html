@@ -479,6 +479,7 @@
       margin-bottom: 12px;
     }
     .step-card__icon { font-size: 28px; margin-bottom: 12px; }
+    .step-card__icon svg, .benefit-card__icon svg { color: var(--bb-lime); display: block; }
     .step-card__title {
       font-size: 16px;
       font-weight: 600;
@@ -893,7 +894,7 @@
           Começar gratuitamente →
         </a>
         <a href="https://github.com/paperclipai" class="btn-secondary" target="_blank" rel="noopener">
-          ⭐ GitHub
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:inline-block;vertical-align:middle;margin-right:4px"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg> GitHub
         </a>
       </div>
       <div class="hero__badges" data-animate data-animate-delay="4">
@@ -950,24 +951,25 @@
         <div class="steps-grid">
           <div class="step-card" data-animate>
             <div class="step-card__number">01</div>
-            
+            <div class="step-card__icon" aria-hidden="true"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></div>
             <h3 class="step-card__title">PM define</h3>
             <p class="step-card__desc">Morgan cria PRD e épicos a partir dos seus objetivos de negócio.</p>
           </div>
           <div class="step-card" data-animate data-animate-delay="1">
             <div class="step-card__number">02</div>
-            
+            <div class="step-card__icon" aria-hidden="true"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg></div>
             <h3 class="step-card__title">SM cria stories</h3>
             <p class="step-card__desc">River fragmenta em stories testáveis, prontas para desenvolvimento.</p>
           </div>
           <div class="step-card" data-animate data-animate-delay="2">
             <div class="step-card__number">03</div>
-            
+            <div class="step-card__icon" aria-hidden="true"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg></div>
             <h3 class="step-card__title">Dev implementa</h3>
             <p class="step-card__desc">Dex implementa story por story com QA automático a cada commit.</p>
           </div>
           <div class="step-card" data-animate data-animate-delay="3">
             <div class="step-card__number">04</div>
+            <div class="step-card__icon" aria-hidden="true"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M13 6h3a2 2 0 0 1 2 2v7"/><line x1="6" y1="9" x2="6" y2="21"/></svg></div>
             <h3 class="step-card__title">DevOps entrega</h3>
             <p class="step-card__desc">Gage faz push, abre PR e monitora o deploy. Você só aprova.</p>
           </div>
@@ -1047,17 +1049,17 @@
         </div>
         <div class="benefits-grid">
           <div class="benefit-card" data-animate>
-            
+            <div class="benefit-card__icon" aria-hidden="true"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="13 2 13 9 20 9 11 22 11 15 4 15 13 2"/></svg></div>
             <h3 class="benefit-card__title">Velocidade</h3>
             <p class="benefit-card__desc">Stories prontas para dev em horas, não dias. Deploy sem esperar um humano liberar o branch. Ciclo completo do backlog ao PR em um heartbeat.</p>
           </div>
           <div class="benefit-card" data-animate data-animate-delay="1">
-            
+            <div class="benefit-card__icon" aria-hidden="true"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg></div>
             <h3 class="benefit-card__title">Qualidade</h3>
             <p class="benefit-card__desc">QA Gate automático com 7 checks obrigatórios. Loop de correção até 5 iterações antes de qualquer PR ser aberto. Zero bypass de processo.</p>
           </div>
           <div class="benefit-card" data-animate data-animate-delay="2">
-            
+            <div class="benefit-card__icon" aria-hidden="true"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></div>
             <h3 class="benefit-card__title">Previsibilidade</h3>
             <p class="benefit-card__desc">Run trail completo de cada decisão de agente. Audit log para apresentar ao board. Você sabe exatamente o que foi feito, por quem e por quê.</p>
           </div>
