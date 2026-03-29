@@ -1,4 +1,4 @@
-import { and, eq, inArray, isNull } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import type { Db } from "@paperclipai/db";
 import {
   companyMemberships,
@@ -48,8 +48,9 @@ export function blockerEscalationService(db: Db) {
           eq(issueComments.authorAgentId, agentId),
         ),
       )
-      .orderBy(issueComments.createdAt)
-      .then((rows) => rows.at(-1) ?? null);
+      .orderBy(desc(issueComments.createdAt))
+      .limit(1)
+      .then((rows) => rows[0] ?? null);
     return comment?.body ?? null;
   }
 
@@ -117,16 +118,19 @@ export function blockerEscalationService(db: Db) {
 
       const issueRef = blockedIssue.identifier ?? blockedIssue.id.slice(0, 8);
       const title = `[Action needed] ${issueRef}: ${blockedIssue.title}`;
-      const description = [
+      const parts: string[] = [
         `This issue was automatically created because **${issueRef}** was marked as blocked.`,
-        "",
-        reason ? `**Reason from agent:**` : "",
-        reason ? `> ${reason.split("\n").join("\n> ")}` : "",
-        "",
+      ];
+      if (reason) {
+        parts.push("");
+        parts.push(`**Reason from agent:**`);
+        parts.push(`> ${reason.split("\n").join("\n> ")}`);
+      }
+      parts.push("");
+      parts.push(
         `Please review and take the necessary action. When you resolve this issue, **${issueRef}** will be automatically unblocked.`,
-      ]
-        .filter((line) => line !== "")
-        .join("\n");
+      );
+      const description = parts.join("\n");
 
       const blockerIssue = await svc.create(blockedIssue.companyId, {
         title,
@@ -341,6 +345,21 @@ export function blockerEscalationService(db: Db) {
         .values({ companyId, issueId, relatedIssueId, type })
         .returning();
       return relation;
+    },
+
+    /**
+     * Get a relation by ID (for authorization checks before mutation).
+     */
+    async getRelationById(id: string) {
+      const row = await db
+        .select({
+          id: issueRelations.id,
+          companyId: issueRelations.companyId,
+        })
+        .from(issueRelations)
+        .where(eq(issueRelations.id, id))
+        .then((rows) => rows[0] ?? null);
+      return row;
     },
 
     /**

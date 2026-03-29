@@ -1749,12 +1749,13 @@ export function issueRoutes(db: Db, storage: StorageService) {
 
   router.delete("/issue-relations/:relationId", async (req, res) => {
     const relationId = req.params.relationId as string;
-    const deleted = await blockerSvc.deleteRelation(relationId);
-    if (!deleted) {
+    const existing = await blockerSvc.getRelationById(relationId);
+    if (!existing) {
       res.status(404).json({ error: "Relation not found" });
       return;
     }
-    assertCompanyAccess(req, deleted.companyId);
+    assertCompanyAccess(req, existing.companyId);
+    await blockerSvc.deleteRelation(relationId);
     res.json({ ok: true });
   });
 
