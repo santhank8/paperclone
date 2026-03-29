@@ -1408,7 +1408,7 @@ export function issueRoutes(db: Db, storage: StorageService) {
       return;
     }
     const comment = await svc.getComment(commentId);
-    if (!comment || comment.issueId !== id) {
+    if (!comment || comment.issueId !== issue.id) {
       res.status(404).json({ error: "Comment not found" });
       return;
     }

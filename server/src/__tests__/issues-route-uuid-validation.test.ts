@@ -9,6 +9,7 @@ const COMPANY_ID = "11111111-1111-4111-8111-111111111111";
 const mockIssueService = vi.hoisted(() => ({
   list: vi.fn(),
   getById: vi.fn(),
+  getComment: vi.fn(),
   checkout: vi.fn(),
   update: vi.fn(),
   listComments: vi.fn(),
@@ -89,6 +90,12 @@ describe("issues routes UUID validation", () => {
       assigneeUserId: patch.assigneeUserId ?? null,
       createdByUserId: "creator-user",
     }));
+    mockIssueService.getComment.mockResolvedValue({
+      id: "33333333-3333-4333-8333-333333333333",
+      issueId: "22222222-2222-4222-8222-222222222222",
+      companyId: COMPANY_ID,
+      body: "ok",
+    });
     mockIssueService.listComments.mockResolvedValue([]);
     mockIssueService.getAttachmentById.mockResolvedValue(null);
     mockWorkProductService.getById.mockResolvedValue(null);
@@ -181,6 +188,28 @@ describe("issues routes UUID validation", () => {
     expect(res.status).toBe(400);
     expect(res.body.error).toContain("Invalid comment limit");
     expect(mockIssueService.listComments).not.toHaveBeenCalled();
+  });
+
+  it("returns a comment when the issue id path casing differs from stored canonical id", async () => {
+    const issueIdLower = "22222222-2222-4222-8222-222222222222";
+    const issueIdUpper = issueIdLower.toUpperCase();
+    const commentId = "33333333-3333-4333-8333-333333333333";
+    mockIssueService.getById.mockResolvedValueOnce({
+      id: issueIdLower,
+      companyId: COMPANY_ID,
+      status: "todo",
+    });
+    mockIssueService.getComment.mockResolvedValueOnce({
+      id: commentId,
+      issueId: issueIdLower,
+      companyId: COMPANY_ID,
+      body: "ok",
+    });
+
+    const res = await request(createApp()).get(`/api/issues/${issueIdUpper}/comments/${commentId}`);
+
+    expect(res.status).toBe(200);
+    expect(mockIssueService.getComment).toHaveBeenCalledWith(commentId);
   });
 
   it("returns 401 for agent checkout when runId is malformed non-string", async () => {
