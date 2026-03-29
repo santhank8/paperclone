@@ -152,7 +152,7 @@ export function SidebarAgents() {
                 )}
                 {runCount > 0 && activity && (
                   <span className="ml-auto shrink-0">
-                    <StatusDot status="running" size="sm" />
+                    <StatusDot status="running" size="sm" toolName={activity.toolName} />
                   </span>
                 )}
               </NavLink>

@@ -242,7 +242,7 @@ export function Agents() {
                 subtitleClassName={activity ? cn("animate-pulse", toolColor(activity.toolName)) : undefined}
                 to={switchAgentUrl(agent)}
                 leading={
-                  <StatusDot status={agent.status} size="md" />
+                  <StatusDot status={agent.status} size="md" toolName={activity?.toolName} />
                 }
                 trailing={
                   <div className="flex items-center gap-3">
@@ -345,7 +345,7 @@ function OrgTreeNode({
         to={agent ? agentSwitchUrl(currentPath, agent) : `/agents/${node.id}/dashboard`}
         className="flex items-center gap-3 px-3 py-2 hover:bg-accent/30 transition-colors w-full text-left no-underline text-inherit"
       >
-        <StatusDot status={node.status} size="md" className="shrink-0" />
+        <StatusDot status={node.status} size="md" className="shrink-0" toolName={activity?.toolName} />
         <div className="flex-1 min-w-0">
           <span className="text-sm font-medium">{node.name}</span>
           {activity ? (
