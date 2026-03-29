@@ -1648,8 +1648,23 @@ export function issueService(db: Db) {
       const rows = await db.select({ id: agents.id, name: agents.name })
         .from(agents).where(eq(agents.companyId, companyId));
       const resolved = new Set<string>(explicitAgentMentionIds);
+      const bodyLower = body.toLowerCase();
       for (const agent of rows) {
-        if (tokens.has(agent.name.toLowerCase())) {
+        const nameLower = agent.name.toLowerCase();
+        // Exact token match (single-word names)
+        if (tokens.has(nameLower)) {
+          resolved.add(agent.id);
+          continue;
+        }
+        // Partial match: @token appears as part of agent name (e.g. @CTO matches "CTO 박서준")
+        // or agent name words individually appear as @tokens (e.g. @박서준 matches "CTO 박서준")
+        const nameParts = nameLower.split(/\s+/);
+        if (nameParts.some((part) => tokens.has(part))) {
+          resolved.add(agent.id);
+          continue;
+        }
+        // Full name appears after @ in body (e.g. "@CTO 박서준" as consecutive words)
+        if (bodyLower.includes(`@${nameLower}`)) {
           resolved.add(agent.id);
         }
       }
