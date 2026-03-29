@@ -175,7 +175,7 @@ export function issueRoutes(db: Db, storage: StorageService) {
     if (!run || run.companyId !== input.companyId) return null;
     if (run.status !== "queued" && run.status !== "running") return null;
 
-    const cancelled = await heartbeat.cancelRun(run.id);
+    const cancelled = await heartbeat.cancelRun(run.id, { suppressDeferredPromotion: true });
     if (!cancelled) return null;
 
     await logActivity(db, {

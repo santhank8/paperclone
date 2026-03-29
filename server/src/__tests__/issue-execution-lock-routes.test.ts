@@ -114,7 +114,7 @@ describe("issue execution lock cleanup routes", () => {
 
     expect(res.status).toBe(200);
     expect(mockIssueService.update).toHaveBeenCalledWith(existing.id, { status: "blocked" });
-    expect(mockHeartbeatService.cancelRun).toHaveBeenCalledWith("run-1");
+    expect(mockHeartbeatService.cancelRun).toHaveBeenCalledWith("run-1", { suppressDeferredPromotion: true });
   });
 
   it("cancels stale queued run on release", async () => {
@@ -137,7 +137,7 @@ describe("issue execution lock cleanup routes", () => {
     expect(mockIssueService.release).toHaveBeenCalledWith(existing.id, undefined, null, {
       allowAssigneeOverride: false,
     });
-    expect(mockHeartbeatService.cancelRun).toHaveBeenCalledWith("run-1");
+    expect(mockHeartbeatService.cancelRun).toHaveBeenCalledWith("run-1", { suppressDeferredPromotion: true });
   });
 
   it("allows manager agent override on release", async () => {
