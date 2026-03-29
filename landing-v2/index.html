@@ -523,7 +523,11 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 22px;
+      font-family: var(--font-bb-mono);
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--bb-lime);
+      letter-spacing: 0.05em;
       margin-bottom: 16px;
     }
     .agent-card__name {
@@ -670,7 +674,7 @@
       align-items: flex-start;
     }
     .persona-card__solutions li::before {
-      content: '✓';
+      content: '+';
       color: var(--bb-lime);
       flex-shrink: 0;
       font-weight: 700;
@@ -718,7 +722,10 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 18px;
+      font-family: var(--font-bb-mono);
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--bb-lime);
     }
     .quote-card__name {
       font-size: 14px;
@@ -860,7 +867,7 @@
         <li><a href="https://discord.gg/paperclip" target="_blank" rel="noopener">Discord</a></li>
       </ul>
       <a href="https://app.paperclip.ing/signup" class="navbar__cta" target="_blank" rel="noopener">Começar grátis</a>
-      <button class="navbar__hamburger" id="hamburger" aria-label="Abrir menu" aria-expanded="false">☰</button>
+      <button class="navbar__hamburger" id="hamburger" aria-label="Abrir menu" aria-expanded="false">menu</button>
     </div>
     <div class="navbar__mobile-menu" id="mobile-menu" role="dialog" aria-label="Menu mobile">
       <a href="https://docs.paperclip.ing" target="_blank" rel="noopener">Docs</a>
@@ -943,25 +950,24 @@
         <div class="steps-grid">
           <div class="step-card" data-animate>
             <div class="step-card__number">01</div>
-            <div class="step-card__icon" aria-hidden="true">📋</div>
+            
             <h3 class="step-card__title">PM define</h3>
             <p class="step-card__desc">Morgan cria PRD e épicos a partir dos seus objetivos de negócio.</p>
           </div>
           <div class="step-card" data-animate data-animate-delay="1">
             <div class="step-card__number">02</div>
-            <div class="step-card__icon" aria-hidden="true">📝</div>
+            
             <h3 class="step-card__title">SM cria stories</h3>
             <p class="step-card__desc">River fragmenta em stories testáveis, prontas para desenvolvimento.</p>
           </div>
           <div class="step-card" data-animate data-animate-delay="2">
             <div class="step-card__number">03</div>
-            <div class="step-card__icon" aria-hidden="true">⚙️</div>
+            
             <h3 class="step-card__title">Dev implementa</h3>
             <p class="step-card__desc">Dex implementa story por story com QA automático a cada commit.</p>
           </div>
           <div class="step-card" data-animate data-animate-delay="3">
             <div class="step-card__number">04</div>
-            <div class="step-card__icon" aria-hidden="true">🚀</div>
             <h3 class="step-card__title">DevOps entrega</h3>
             <p class="step-card__desc">Gage faz push, abre PR e monitora o deploy. Você só aprova.</p>
           </div>
@@ -977,37 +983,37 @@
         <p class="section-subtitle" data-animate data-animate-delay="1">Cada agente tem escopo exclusivo, memória de projeto e opera dentro de um processo auditável.</p>
         <div class="agents-grid">
           <div class="agent-card" data-animate>
-            <div class="agent-card__avatar" aria-hidden="true">📊</div>
+            <div class="agent-card__avatar" aria-hidden="true">PM</div>
             <div class="agent-card__name">@morgan</div>
             <div class="agent-card__role">Product Manager</div>
             <div class="agent-card__capability">Define épicos, escreve PRDs e valida requirements antes do dev começar.</div>
           </div>
           <div class="agent-card" data-animate data-animate-delay="1">
-            <div class="agent-card__avatar" aria-hidden="true">🌊</div>
+            <div class="agent-card__avatar" aria-hidden="true">SM</div>
             <div class="agent-card__name">@river</div>
             <div class="agent-card__role">Scrum Master</div>
             <div class="agent-card__capability">Cria stories com critérios de aceite claros. Sprint planning sem reuniões.</div>
           </div>
           <div class="agent-card" data-animate data-animate-delay="2">
-            <div class="agent-card__avatar" aria-hidden="true">⚡</div>
+            <div class="agent-card__avatar" aria-hidden="true">DEV</div>
             <div class="agent-card__name">@dex</div>
             <div class="agent-card__role">Developer</div>
             <div class="agent-card__capability">Implementa código, escreve testes e corrige issues com CodeRabbit auto-healing.</div>
           </div>
           <div class="agent-card" data-animate data-animate-delay="1">
-            <div class="agent-card__avatar" aria-hidden="true">🔍</div>
+            <div class="agent-card__avatar" aria-hidden="true">QA</div>
             <div class="agent-card__name">@quinn</div>
             <div class="agent-card__role">QA Engineer</div>
             <div class="agent-card__capability">QA Gate com 7 checks. Self-healing loop até 5 iterações antes de qualquer PR.</div>
           </div>
           <div class="agent-card" data-animate data-animate-delay="2">
-            <div class="agent-card__avatar" aria-hidden="true">🚀</div>
+            <div class="agent-card__avatar" aria-hidden="true">OPS</div>
             <div class="agent-card__name">@gage</div>
             <div class="agent-card__role">DevOps</div>
             <div class="agent-card__capability">Autoridade exclusiva para git push, PR e CI/CD. Sem bypass de processo.</div>
           </div>
           <div class="agent-card" data-animate data-animate-delay="3">
-            <div class="agent-card__avatar" aria-hidden="true">🏗️</div>
+            <div class="agent-card__avatar" aria-hidden="true">ARC</div>
             <div class="agent-card__name">@aria</div>
             <div class="agent-card__role">Architect</div>
             <div class="agent-card__capability">Decisões de sistema, seleção de tecnologia, ADRs documentadas e rastreáveis.</div>
@@ -1041,17 +1047,17 @@
         </div>
         <div class="benefits-grid">
           <div class="benefit-card" data-animate>
-            <div class="benefit-card__icon" aria-hidden="true">⚡</div>
+            
             <h3 class="benefit-card__title">Velocidade</h3>
             <p class="benefit-card__desc">Stories prontas para dev em horas, não dias. Deploy sem esperar um humano liberar o branch. Ciclo completo do backlog ao PR em um heartbeat.</p>
           </div>
           <div class="benefit-card" data-animate data-animate-delay="1">
-            <div class="benefit-card__icon" aria-hidden="true">🛡️</div>
+            
             <h3 class="benefit-card__title">Qualidade</h3>
             <p class="benefit-card__desc">QA Gate automático com 7 checks obrigatórios. Loop de correção até 5 iterações antes de qualquer PR ser aberto. Zero bypass de processo.</p>
           </div>
           <div class="benefit-card" data-animate data-animate-delay="2">
-            <div class="benefit-card__icon" aria-hidden="true">📈</div>
+            
             <h3 class="benefit-card__title">Previsibilidade</h3>
             <p class="benefit-card__desc">Run trail completo de cada decisão de agente. Audit log para apresentar ao board. Você sabe exatamente o que foi feito, por quem e por quê.</p>
           </div>
@@ -1066,7 +1072,7 @@
         <h2 class="section-title" id="forwho-title" data-animate>Para qualquer líder.<br>Com qualquer perfil.</h2>
         <div class="personas-grid">
           <div class="persona-card" data-animate>
-            <div class="persona-card__avatar" aria-hidden="true">🎯</div>
+            <div class="persona-card__avatar" aria-hidden="true">CTO</div>
             <div class="persona-card__badge">CTO / VP Engineering</div>
             <h3 class="persona-card__title">Líder técnico</h3>
             <p class="persona-card__pain">"Meu time passa mais tempo em planning do que em coding."</p>
@@ -1077,7 +1083,7 @@
             </ul>
           </div>
           <div class="persona-card" data-animate data-animate-delay="1">
-            <div class="persona-card__avatar" aria-hidden="true">🚀</div>
+            <div class="persona-card__avatar" aria-hidden="true">CEO</div>
             <div class="persona-card__badge">Founder / CEO</div>
             <h3 class="persona-card__title">Founder não-técnico</h3>
             <p class="persona-card__pain">"Não tenho visibilidade do que meu time de dev está fazendo."</p>
@@ -1101,7 +1107,7 @@
             <div class="quote-card__mark" aria-hidden="true">"</div>
             <p class="quote-card__text">AIOX transformou como pensamos sobre desenvolvimento. Não é mais sobre 'o dev fez', é sobre 'o time fez' — e o time inclui agentes de IA com papéis claros.</p>
             <div class="quote-card__author">
-              <div class="quote-card__avatar" aria-hidden="true">👤</div>
+              <div class="quote-card__avatar" aria-hidden="true">EA</div>
               <div>
                 <div class="quote-card__name">Early Adopter</div>
                 <div class="quote-card__role">CTO, Startup Série A</div>
@@ -1112,7 +1118,7 @@
             <div class="quote-card__mark" aria-hidden="true">"</div>
             <p class="quote-card__text">O QA Gate sozinho valeu o investimento. Paramos de ter bugs críticos em produção. O agente revisando antes de cada PR é como ter um sênior sempre disponível.</p>
             <div class="quote-card__author">
-              <div class="quote-card__avatar" aria-hidden="true">👤</div>
+              <div class="quote-card__avatar" aria-hidden="true">EA</div>
               <div>
                 <div class="quote-card__name">Early Adopter</div>
                 <div class="quote-card__role">VP Engineering, SaaS B2B</div>
@@ -1123,7 +1129,7 @@
             <div class="quote-card__mark" aria-hidden="true">"</div>
             <p class="quote-card__text">Como founder não-técnico, finalmente tenho visibilidade real do que está sendo desenvolvido. O run trail é o melhor relatório de status que já tive.</p>
             <div class="quote-card__author">
-              <div class="quote-card__avatar" aria-hidden="true">👤</div>
+              <div class="quote-card__avatar" aria-hidden="true">EA</div>
               <div>
                 <div class="quote-card__name">Early Adopter</div>
                 <div class="quote-card__role">Founder, Startup de produto</div>
@@ -1181,7 +1187,7 @@
       </div>
       <div class="footer__bottom">
         <span>© 2026 Paperclip × AIOX. Todos os direitos reservados.</span>
-        <span class="footer__built-with">Construído com <span>AIOX Framework</span> 🤖</span>
+        <span class="footer__built-with">Construído com <span>AIOX Framework</span></span>
       </div>
     </div>
   </footer>
@@ -1207,7 +1213,7 @@
         { cmd: '@river *create-story', out: '→ LP2 Story 1.1 criada [Draft]' },
         { cmd: '@dex *implement', out: '→ 23 arquivos, 0 erros [InProgress]' },
         { cmd: '@quinn *qa-gate', out: '→ PASS — 7/7 checks [InReview]' },
-        { cmd: '@gage *push', out: '→ PR #42 aberto, deploy ✓ [Done]' },
+        { cmd: '@gage *push', out: '→ PR #42 aberto, deploy ok [Done]' },
       ];
       const container = document.getElementById('terminal-body');
       if (!container) return;
@@ -1287,7 +1293,7 @@
       btn.addEventListener('click', () => {
         const isOpen = menu.classList.toggle('open');
         btn.setAttribute('aria-expanded', isOpen);
-        btn.textContent = isOpen ? '✕' : '☰';
+        btn.textContent = isOpen ? 'fechar' : 'menu';
       });
     };
 
