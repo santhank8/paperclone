@@ -85,6 +85,7 @@ function SortableCompanyItem({
     attributes,
     listeners,
     setNodeRef,
+    setActivatorNodeRef,
     transform,
     transition,
     isDragging,
@@ -98,58 +99,55 @@ function SortableCompanyItem({
   };
 
   return (
-    <div ref={setNodeRef} style={style} {...attributes} {...listeners} className="overflow-visible">
-      <Tooltip delayDuration={300}>
-        <TooltipTrigger asChild>
-          <button
-            type="button"
-            onClick={() => {
-              onSelect();
-            }}
-            className="relative flex items-center justify-center group overflow-visible"
-            aria-label={company.name}
-          >
-            {/* Selection indicator pill */}
-            <div
-              className={cn(
-                "absolute left-[-14px] w-1 rounded-r-full bg-foreground transition-[height] duration-150",
-                isSelected
-                  ? "h-5"
-                  : "h-0 group-hover:h-2"
-              )}
-            />
-            <div
-              className={cn("relative overflow-visible transition-transform duration-150", isDragging && "scale-105")}
-            >
-              <CompanyPatternIcon
-                companyName={company.name}
-                logoUrl={company.logoUrl}
-                brandColor={company.brandColor}
-                className={cn(
-                  isSelected
-                    ? "rounded-[14px]"
-                    : "rounded-[22px] group-hover:rounded-[14px]",
-                  isDragging && "shadow-lg",
-                )}
-              />
-              {hasLiveAgents && (
-                <span className="pointer-events-none absolute -right-0.5 -top-0.5 z-10">
-                  <span className="relative flex h-2.5 w-2.5">
-                    <span className="absolute inline-flex h-full w-full animate-pulse rounded-full bg-blue-400 opacity-80" />
-                    <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-blue-500 ring-2 ring-background" />
-                  </span>
-                </span>
-              )}
-              {hasUnreadInbox && (
-                <span className="pointer-events-none absolute -bottom-0.5 -right-0.5 z-10 h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-background" />
-              )}
-            </div>
-          </button>
-        </TooltipTrigger>
-        <TooltipContent side="right" sideOffset={8}>
-          <p>{company.name}</p>
-        </TooltipContent>
-      </Tooltip>
+    <div ref={setNodeRef} style={style} className="overflow-visible">
+      <button
+        ref={setActivatorNodeRef}
+        type="button"
+        {...attributes}
+        {...listeners}
+        onClick={() => {
+          onSelect();
+        }}
+        className="relative flex items-center justify-center group overflow-visible"
+        aria-label={company.name}
+        title={company.name}
+      >
+        {/* Selection indicator pill */}
+        <div
+          className={cn(
+            "absolute left-[-14px] w-1 rounded-r-full bg-foreground transition-[height] duration-150",
+            isSelected
+              ? "h-5"
+              : "h-0 group-hover:h-2"
+          )}
+        />
+        <div
+          className={cn("relative overflow-visible transition-transform duration-150", isDragging && "scale-105")}
+        >
+          <CompanyPatternIcon
+            companyName={company.name}
+            logoUrl={company.logoUrl}
+            brandColor={company.brandColor}
+            className={cn(
+              isSelected
+                ? "rounded-[14px]"
+                : "rounded-[22px] group-hover:rounded-[14px]",
+              isDragging && "shadow-lg",
+            )}
+          />
+          {hasLiveAgents && (
+            <span className="pointer-events-none absolute -right-0.5 -top-0.5 z-10">
+              <span className="relative flex h-2.5 w-2.5">
+                <span className="absolute inline-flex h-full w-full animate-pulse rounded-full bg-blue-400 opacity-80" />
+                <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-blue-500 ring-2 ring-background" />
+              </span>
+            </span>
+          )}
+          {hasUnreadInbox && (
+            <span className="pointer-events-none absolute -bottom-0.5 -right-0.5 z-10 h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-background" />
+          )}
+        </div>
+      </button>
     </div>
   );
 }

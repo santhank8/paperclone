@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import type { AdapterEnvironmentTestResult } from "@paperclipai/shared";
+import type { AdapterEnvironmentTestResult, Company } from "@paperclipai/shared";
 import { useTranslation } from "react-i18next";
 import { useLocation, useNavigate, useParams } from "@/lib/router";
 import { useDialog } from "../context/DialogContext";
@@ -409,6 +409,10 @@ export function OnboardingWizard() {
     setError(null);
     try {
       const company = await companiesApi.create({ name: companyName.trim() });
+      queryClient.setQueryData<Company[]>(queryKeys.companies.all, (current = []) => [
+        company,
+        ...current.filter((entry) => entry.id !== company.id),
+      ]);
       setCreatedCompanyId(company.id);
       setCreatedCompanyPrefix(company.issuePrefix);
       setSelectedCompanyId(company.id);
