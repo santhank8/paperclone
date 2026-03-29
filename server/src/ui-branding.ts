@@ -1,3 +1,5 @@
+const DEFAULT_APP_NAME = "Paperclip";
+
 const FAVICON_BLOCK_START = "<!-- PAPERCLIP_FAVICON_START -->";
 const FAVICON_BLOCK_END = "<!-- PAPERCLIP_FAVICON_END -->";
 const RUNTIME_BRANDING_BLOCK_START = "<!-- PAPERCLIP_RUNTIME_BRANDING_START -->";
@@ -140,6 +142,29 @@ function createFaviconDataUrl(background: string, foreground: string): string {
   return `data:image/svg+xml,${encodeURIComponent(svg)}`;
 }
 
+// ── App Name ──────────────────────────────────────────────────────────────────
+
+/**
+ * Reads the application name from `PAPERCLIP_APP_NAME`.
+ * Defaults to "Paperclip" when unset or empty.
+ *
+ * Set this env var to rebrand a self-hosted Paperclip deployment without forking.
+ * Example: `PAPERCLIP_APP_NAME="Optimous Apex"`
+ */
+export function getAppName(env: NodeJS.ProcessEnv = process.env): string {
+  const name = env.PAPERCLIP_APP_NAME?.trim();
+  return name && name.length > 0 ? name : DEFAULT_APP_NAME;
+}
+
+/**
+ * Returns a `<meta name="paperclip-app-name">` tag when the app name differs from
+ * the default. The UI reads this tag to display the custom name in titles and headings.
+ */
+export function renderAppNameMeta(appName: string): string {
+  if (appName === DEFAULT_APP_NAME) return "";
+  return `<meta name="paperclip-app-name" content="${escapeHtmlAttribute(appName)}" />`;
+}
+
 export function isWorktreeUiBrandingEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
   return isTruthyEnvValue(env.PAPERCLIP_IN_WORKTREE);
 }
@@ -207,11 +232,33 @@ function replaceMarkedBlock(html: string, startMarker: string, endMarker: string
 
 export function applyUiBranding(html: string, env: NodeJS.ProcessEnv = process.env): string {
   const branding = getWorktreeUiBranding(env);
-  const withFavicon = replaceMarkedBlock(html, FAVICON_BLOCK_START, FAVICON_BLOCK_END, renderFaviconLinks(branding));
+  const appName = getAppName(env);
+
+  // Replace static title tags if the app name has been customised
+  let result = html;
+  if (appName !== DEFAULT_APP_NAME) {
+    const escaped = escapeHtmlAttribute(appName);
+    result = result.replace(
+      `<title>${DEFAULT_APP_NAME}</title>`,
+      `<title>${escaped}</title>`,
+    );
+    result = result.replace(
+      `<meta name="apple-mobile-web-app-title" content="${DEFAULT_APP_NAME}" />`,
+      `<meta name="apple-mobile-web-app-title" content="${escaped}" />`,
+    );
+  }
+
+  const withFavicon = replaceMarkedBlock(result, FAVICON_BLOCK_START, FAVICON_BLOCK_END, renderFaviconLinks(branding));
+
+  // Combine app-name meta + worktree meta into a single runtime block
+  const runtimeMeta = [renderAppNameMeta(appName), renderRuntimeBrandingMeta(branding)]
+    .filter(Boolean)
+    .join("\n");
+
   return replaceMarkedBlock(
     withFavicon,
     RUNTIME_BRANDING_BLOCK_START,
     RUNTIME_BRANDING_BLOCK_END,
-    renderRuntimeBrandingMeta(branding),
+    runtimeMeta,
   );
 }

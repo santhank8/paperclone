@@ -1,14 +1,18 @@
 import { describe, expect, it } from "vitest";
 import {
   applyUiBranding,
+  getAppName,
   getWorktreeUiBranding,
   isWorktreeUiBrandingEnabled,
+  renderAppNameMeta,
   renderFaviconLinks,
   renderRuntimeBrandingMeta,
 } from "../ui-branding.js";
 
 const TEMPLATE = `<!doctype html>
 <head>
+    <meta name="apple-mobile-web-app-title" content="Paperclip" />
+    <title>Paperclip</title>
     <!-- PAPERCLIP_RUNTIME_BRANDING_START -->
     <!-- PAPERCLIP_RUNTIME_BRANDING_END -->
     <!-- PAPERCLIP_FAVICON_START -->
@@ -78,5 +82,74 @@ describe("ui branding", () => {
     const defaultHtml = applyUiBranding(TEMPLATE, {});
     expect(defaultHtml).toContain('href="/favicon.svg"');
     expect(defaultHtml).not.toContain('name="paperclip-worktree-name"');
+  });
+});
+
+describe("PAPERCLIP_APP_NAME branding", () => {
+  it("returns 'Paperclip' when PAPERCLIP_APP_NAME is unset", () => {
+    expect(getAppName({})).toBe("Paperclip");
+  });
+
+  it("returns 'Paperclip' when PAPERCLIP_APP_NAME is empty or whitespace", () => {
+    expect(getAppName({ PAPERCLIP_APP_NAME: "" })).toBe("Paperclip");
+    expect(getAppName({ PAPERCLIP_APP_NAME: "   " })).toBe("Paperclip");
+  });
+
+  it("returns the custom name when PAPERCLIP_APP_NAME is set", () => {
+    expect(getAppName({ PAPERCLIP_APP_NAME: "Optimous Apex" })).toBe("Optimous Apex");
+    expect(getAppName({ PAPERCLIP_APP_NAME: "  My App  " })).toBe("My App");
+  });
+
+  it("renderAppNameMeta returns empty string for default name", () => {
+    expect(renderAppNameMeta("Paperclip")).toBe("");
+  });
+
+  it("renderAppNameMeta returns meta tag for custom name", () => {
+    const meta = renderAppNameMeta("Optimous Apex");
+    expect(meta).toContain('name="paperclip-app-name"');
+    expect(meta).toContain('content="Optimous Apex"');
+  });
+
+  it("renderAppNameMeta escapes HTML special characters in app name", () => {
+    const meta = renderAppNameMeta('My <App> & "Stuff"');
+    expect(meta).toContain("&lt;App&gt;");
+    expect(meta).toContain("&amp;");
+    expect(meta).toContain("&quot;");
+  });
+
+  it("applyUiBranding replaces <title> when PAPERCLIP_APP_NAME is set", () => {
+    const result = applyUiBranding(TEMPLATE, { PAPERCLIP_APP_NAME: "Optimous Apex" });
+    expect(result).toContain("<title>Optimous Apex</title>");
+    expect(result).not.toContain("<title>Paperclip</title>");
+  });
+
+  it("applyUiBranding replaces apple-mobile-web-app-title when PAPERCLIP_APP_NAME is set", () => {
+    const result = applyUiBranding(TEMPLATE, { PAPERCLIP_APP_NAME: "Optimous Apex" });
+    expect(result).toContain('content="Optimous Apex"');
+    expect(result).not.toContain('content="Paperclip"');
+  });
+
+  it("applyUiBranding injects paperclip-app-name meta tag into runtime branding block", () => {
+    const result = applyUiBranding(TEMPLATE, { PAPERCLIP_APP_NAME: "Optimous Apex" });
+    expect(result).toContain('name="paperclip-app-name"');
+    expect(result).toContain('content="Optimous Apex"');
+  });
+
+  it("applyUiBranding does NOT inject paperclip-app-name when using default name", () => {
+    const result = applyUiBranding(TEMPLATE, {});
+    expect(result).not.toContain('name="paperclip-app-name"');
+    expect(result).toContain("<title>Paperclip</title>");
+  });
+
+  it("applyUiBranding works with both PAPERCLIP_APP_NAME and worktree branding simultaneously", () => {
+    const result = applyUiBranding(TEMPLATE, {
+      PAPERCLIP_APP_NAME: "Optimous Apex",
+      PAPERCLIP_IN_WORKTREE: "true",
+      PAPERCLIP_WORKTREE_NAME: "apex-pr-12",
+      PAPERCLIP_WORKTREE_COLOR: "#ff6600",
+    });
+    expect(result).toContain('name="paperclip-app-name"');
+    expect(result).toContain('name="paperclip-worktree-name"');
+    expect(result).toContain("<title>Optimous Apex</title>");
   });
 });
