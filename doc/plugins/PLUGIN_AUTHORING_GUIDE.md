@@ -18,14 +18,14 @@ It is intentionally narrower than [PLUGIN_SPEC.md](./PLUGIN_SPEC.md). The spec i
 Use the scaffold package:
 
 ```bash
-pnpm --filter @paperclipai/create-paperclip-plugin build
+pnpm --filter @penclipai/create-paperclip-plugin build
 node packages/plugins/create-paperclip-plugin/dist/index.js @yourscope/plugin-name --output ./packages/plugins/examples
 ```
 
 For a plugin that lives outside the Paperclip repo:
 
 ```bash
-pnpm --filter @paperclipai/create-paperclip-plugin build
+pnpm --filter @penclipai/create-paperclip-plugin build
 node packages/plugins/create-paperclip-plugin/dist/index.js @yourscope/plugin-name \
   --output /absolute/path/to/plugin-repos \
   --sdk-path /absolute/path/to/paperclip/packages/plugins/sdk
@@ -40,9 +40,19 @@ That creates a package with:
 - `esbuild.config.mjs`
 - `rollup.config.mjs`
 
-Inside this monorepo, the scaffold uses `workspace:*` for `@paperclipai/plugin-sdk`.
+Inside this monorepo, the scaffold keeps compatibility imports from `@paperclipai/plugin-sdk*` and resolves them to the workspace packages published as `@penclipai/*`.
 
-Outside this monorepo, the scaffold snapshots `@paperclipai/plugin-sdk` from the local Paperclip checkout into a `.paperclip-sdk/` tarball so you can build and test a plugin without publishing anything to npm first.
+Outside this monorepo, the scaffold keeps those same compatibility imports and snapshots local compatibility tarballs into `.paperclip-sdk/` so the generated plugin can install immediately without waiting for npm publish.
+
+If you explicitly want published npm dependencies instead of local snapshots:
+
+```bash
+pnpm --filter @penclipai/create-paperclip-plugin build
+node packages/plugins/create-paperclip-plugin/dist/index.js @yourscope/plugin-name \
+  --output /absolute/path/to/plugin-repos \
+  --sdk-path /absolute/path/to/paperclip/packages/plugins/sdk \
+  --published
+```
 
 ## Recommended local workflow
 

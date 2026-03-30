@@ -8,7 +8,7 @@ import type {
   CompanyPortabilityExportResult,
   CompanyPortabilityManifest,
   Project,
-} from "@paperclipai/shared";
+} from "@penclipai/shared";
 import { useNavigate, useLocation } from "@/lib/router";
 import { useCompany } from "../context/CompanyContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
@@ -476,7 +476,7 @@ function generateReadmeFromSelection(
   lines.push(`## ${translate("companyExport.readme.gettingStarted")}`);
   lines.push("");
   lines.push("```bash");
-  lines.push("pnpm paperclipai company import this-github-url-or-folder");
+  lines.push("pnpm penclipai company import this-github-url-or-folder");
   lines.push("```");
   lines.push("");
   lines.push(translate("companyExport.readme.moreInfo"));

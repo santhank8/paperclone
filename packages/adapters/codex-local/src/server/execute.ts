@@ -1,7 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { inferOpenAiCompatibleBiller, type AdapterExecutionContext, type AdapterExecutionResult } from "@paperclipai/adapter-utils";
+import { inferOpenAiCompatibleBiller, type AdapterExecutionContext, type AdapterExecutionResult } from "@penclipai/adapter-utils";
 import {
   asString,
   asNumber,
@@ -19,7 +19,7 @@ import {
   renderTemplate,
   joinPromptSections,
   runChildProcess,
-} from "@paperclipai/adapter-utils/server-utils";
+} from "@penclipai/adapter-utils/server-utils";
 import { parseCodexJsonl, isCodexUnknownSessionError } from "./parse.js";
 import { pathExists, prepareManagedCodexHome, resolveManagedCodexHomeDir, resolveSharedCodexHomeDir } from "./codex-home.js";
 import { resolveCodexDesiredSkillNames } from "./skills.js";
@@ -459,10 +459,12 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
       ? renderTemplate(bootstrapPromptTemplate, templateData).trim()
       : "";
   const sessionHandoffNote = asString(context.paperclipSessionHandoffMarkdown, "").trim();
+  const localizationPromptNote = asString(context.paperclipLocalizationPromptMarkdown, "").trim();
   const prompt = joinPromptSections([
     instructionsPrefix,
     renderedBootstrapPrompt,
     sessionHandoffNote,
+    localizationPromptNote,
     renderedPrompt,
   ]);
   const promptMetrics = {
@@ -470,6 +472,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     instructionsChars,
     bootstrapPromptChars: renderedBootstrapPrompt.length,
     sessionHandoffChars: sessionHandoffNote.length,
+    localizationPromptChars: localizationPromptNote.length,
     heartbeatPromptChars: renderedPrompt.length,
   };
 

@@ -93,8 +93,9 @@ git merge upstream/master
 技术标识继续保留：
 
 - `paperclip`
-- `@paperclipai/*`
-- `paperclipai` CLI
+- `@penclipai/*`
+- `penclipai`
+- `penclipai` CLI
 - `PAPERCLIP_*`
 
 #### 本地化基础设施

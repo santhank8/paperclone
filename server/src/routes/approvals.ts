@@ -1,12 +1,12 @@
 import { Router } from "express";
-import type { Db } from "@paperclipai/db";
+import type { Db } from "@penclipai/db";
 import {
   addApprovalCommentSchema,
   createApprovalSchema,
   requestApprovalRevisionSchema,
   resolveApprovalSchema,
   resubmitApprovalSchema,
-} from "@paperclipai/shared";
+} from "@penclipai/shared";
 import { validate } from "../middleware/validate.js";
 import { logger } from "../middleware/logger.js";
 import {
@@ -18,6 +18,7 @@ import {
 } from "../services/index.js";
 import { assertBoard, assertCompanyAccess, getActorInfo } from "./authz.js";
 import { redactEventPayload } from "../redaction.js";
+import { resolveExplicitRequestUiLocale } from "../ui-locale.js";
 
 function redactApprovalPayload<T extends { payload: Record<string, unknown> }>(approval: T): T {
   return {
@@ -147,6 +148,7 @@ export function approvalRoutes(db: Db) {
       });
 
       if (approval.requestedByAgentId) {
+        const requestedUiLocale = resolveExplicitRequestUiLocale(req);
         try {
           const wakeRun = await heartbeat.wakeup(approval.requestedByAgentId, {
             source: "automation",
@@ -168,6 +170,7 @@ export function approvalRoutes(db: Db) {
               issueIds: linkedIssueIds,
               taskId: primaryIssueId,
               wakeReason: "approval_approved",
+              ...(requestedUiLocale ? { requestedUiLocale } : {}),
             },
           });
 

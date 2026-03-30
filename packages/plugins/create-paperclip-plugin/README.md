@@ -1,15 +1,15 @@
-# @paperclipai/create-paperclip-plugin
+# @penclipai/create-paperclip-plugin
 
 Scaffolding tool for creating new Paperclip plugins.
 
 ```bash
-npx @paperclipai/create-paperclip-plugin my-plugin
+npx @penclipai/create-paperclip-plugin my-plugin
 ```
 
 Or with options:
 
 ```bash
-npx @paperclipai/create-paperclip-plugin @acme/my-plugin \
+npx @penclipai/create-paperclip-plugin @acme/my-plugin \
   --template connector \
   --category connector \
   --display-name "Acme Connector" \
@@ -29,17 +29,20 @@ Generates:
 
 The scaffold intentionally uses plain React elements rather than host-provided UI kit components, because the current plugin runtime does not ship a stable shared component library yet.
 
-Inside this repo, the generated package uses `@paperclipai/plugin-sdk` via `workspace:*`.
+Inside this repo, the generated package keeps compatibility imports from `@paperclipai/plugin-sdk*` and resolves them to the workspace packages published as `@penclipai/*`.
 
-Outside this repo, the scaffold snapshots `@paperclipai/plugin-sdk` from your local Paperclip checkout into a `.paperclip-sdk/` tarball and points the generated package at that local file by default. You can override the SDK source explicitly:
+Outside this repo, the scaffold keeps those same compatibility imports and snapshots local compatibility tarballs into `.paperclip-sdk/` so the generated plugin can install immediately without waiting for npm publish.
+
+If you want the generated package to target already-published npm artifacts instead, pass `--published`:
 
 ```bash
 node packages/plugins/create-paperclip-plugin/dist/index.js @acme/my-plugin \
   --output /absolute/path/to/plugins \
-  --sdk-path /absolute/path/to/paperclip/packages/plugins/sdk
+  --sdk-path /absolute/path/to/paperclip/packages/plugins/sdk \
+  --published
 ```
 
-That gives you an outside-repo local development path before the SDK is published to npm.
+That keeps generated plugins compatible with both upstream Paperclip hosts and Penclip hosts without requiring dual-published packages.
 
 ## Workflow after scaffolding
 

@@ -3,7 +3,7 @@ import { promises as fs } from "node:fs";
 import { execFile } from "node:child_process";
 import path from "node:path";
 import { promisify } from "node:util";
-import type { Db } from "@paperclipai/db";
+import type { Db } from "@penclipai/db";
 import type {
   CompanyPortabilityAgentManifestEntry,
   CompanyPortabilityCollisionStrategy,
@@ -27,7 +27,7 @@ import type {
   CompanyPortabilitySidebarOrder,
   CompanyPortabilitySkillManifestEntry,
   CompanySkill,
-} from "@paperclipai/shared";
+} from "@penclipai/shared";
 import {
   ISSUE_PRIORITIES,
   ISSUE_STATUSES,
@@ -39,11 +39,11 @@ import {
   ROUTINE_TRIGGER_SIGNING_MODES,
   deriveProjectUrlKey,
   normalizeAgentUrlKey,
-} from "@paperclipai/shared";
+} from "@penclipai/shared";
 import {
   readPaperclipSkillSyncPreference,
   writePaperclipSkillSyncPreference,
-} from "@paperclipai/adapter-utils/server-utils";
+} from "@penclipai/adapter-utils/server-utils";
 import { notFound, unprocessable } from "../errors.js";
 import type { StorageService } from "../storage/types.js";
 import { accessService } from "./access.js";
@@ -175,13 +175,13 @@ function deriveManifestSkillKey(
   if (explicit) return explicit;
   const slug = normalizeSkillSlug(asString(frontmatter.slug) ?? fallbackSlug) ?? "skill";
   const sourceKind = asString(metadata?.sourceKind);
+  if (sourceKind === "paperclip_bundled") {
+    return `paperclipai/paperclip/${slug}`;
+  }
   const owner = normalizeSkillSlug(asString(metadata?.owner));
   const repo = normalizeSkillSlug(asString(metadata?.repo));
   if ((sourceType === "github" || sourceType === "skills_sh" || sourceKind === "github" || sourceKind === "skills_sh") && owner && repo) {
     return `${owner}/${repo}/${slug}`;
-  }
-  if (sourceKind === "paperclip_bundled") {
-    return `paperclipai/paperclip/${slug}`;
   }
   if (sourceType === "url" || sourceKind === "url") {
     try {

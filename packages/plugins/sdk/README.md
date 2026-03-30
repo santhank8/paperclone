@@ -1,6 +1,8 @@
-# `@paperclipai/plugin-sdk`
+# `@penclipai/plugin-sdk`
 
 Official TypeScript SDK for Paperclip plugin authors.
+
+Penclip publishes the SDK under `@penclipai/*`, but cross-host-compatible plugin source should keep importing the compatibility surface:
 
 - **Worker SDK:** `@paperclipai/plugin-sdk` — `definePlugin`, context, lifecycle
 - **UI SDK:** `@paperclipai/plugin-sdk/ui` — React hooks and slot props
@@ -9,6 +11,10 @@ Official TypeScript SDK for Paperclip plugin authors.
 - **Dev server:** `@paperclipai/plugin-sdk/dev-server` — static UI server + SSE reload
 
 Reference: `doc/plugins/PLUGIN_SPEC.md`
+
+The scaffold defaults to local compatibility tarballs for repo-external development, and `--published` switches it to npm alias installs against `@penclipai/*`.
+
+If you want a plugin to run in both Penclip and upstream Paperclip, keep your source imports on `@paperclipai/plugin-sdk*`. Treat `@penclipai/*` as the published package identity and alias target, not the default authoring surface.
 
 ## Package surface
 
@@ -34,7 +40,7 @@ In your plugin manifest you declare:
 ## Install
 
 ```bash
-pnpm add @paperclipai/plugin-sdk
+pnpm add @paperclipai/plugin-sdk@npm:@penclipai/plugin-sdk
 ```
 
 ## Current deployment caveats

@@ -2,7 +2,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { inferOpenAiCompatibleBiller, type AdapterExecutionContext, type AdapterExecutionResult } from "@paperclipai/adapter-utils";
+import { inferOpenAiCompatibleBiller, type AdapterExecutionContext, type AdapterExecutionResult } from "@penclipai/adapter-utils";
 import {
   asString,
   asNumber,
@@ -20,7 +20,7 @@ import {
   removeMaintainerOnlySkillSymlinks,
   renderTemplate,
   runChildProcess,
-} from "@paperclipai/adapter-utils/server-utils";
+} from "@penclipai/adapter-utils/server-utils";
 import { isPiUnknownSessionError, parsePiJsonl } from "./parse.js";
 import { ensurePiModelConfiguredAndAvailable } from "./models.js";
 
@@ -297,9 +297,11 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
       ? renderTemplate(bootstrapPromptTemplate, templateData).trim()
       : "";
   const sessionHandoffNote = asString(context.paperclipSessionHandoffMarkdown, "").trim();
+  const localizationPromptNote = asString(context.paperclipLocalizationPromptMarkdown, "").trim();
   const userPrompt = joinPromptSections([
     renderedBootstrapPrompt,
     sessionHandoffNote,
+    localizationPromptNote,
     renderedHeartbeatPrompt,
   ]);
   const promptMetrics = {
@@ -307,6 +309,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     promptChars: userPrompt.length,
     bootstrapPromptChars: renderedBootstrapPrompt.length,
     sessionHandoffChars: sessionHandoffNote.length,
+    localizationPromptChars: localizationPromptNote.length,
     heartbeatPromptChars: renderedHeartbeatPrompt.length,
   };
 

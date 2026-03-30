@@ -44,7 +44,7 @@ export async function runCommand(opts: RunOptions): Promise<void> {
   process.env.PAPERCLIP_CONFIG = configPath;
   loadPaperclipEnvFile(configPath);
 
-  p.intro(pc.bgCyan(pc.black(" paperclipai run ")));
+  p.intro(pc.bgCyan(pc.black(" penclipai run ")));
   p.log.message(pc.dim(`Home: ${paths.homeDir}`));
   p.log.message(pc.dim(`Instance: ${paths.instanceId}`));
   p.log.message(pc.dim(`Config: ${configPath}`));
@@ -52,7 +52,7 @@ export async function runCommand(opts: RunOptions): Promise<void> {
   if (!configExists(configPath)) {
     if (!process.stdin.isTTY || !process.stdout.isTTY) {
       p.log.error("No config found and terminal is non-interactive.");
-      p.log.message(`Run ${pc.cyan("paperclipai onboard")} once, then retry ${pc.cyan("paperclipai run")}.`);
+      p.log.message(`Run ${pc.cyan("penclipai onboard")} once, then retry ${pc.cyan("penclipai run")}.`);
       process.exit(1);
     }
 
@@ -141,7 +141,7 @@ function getMissingModuleSpecifier(err: unknown): string | null {
 function maybeEnableUiDevMiddleware(entrypoint: string): void {
   if (process.env.PAPERCLIP_UI_DEV_MIDDLEWARE !== undefined) return;
   const normalized = entrypoint.replaceAll("\\", "/");
-  if (normalized.endsWith("/server/src/index.ts") || normalized.endsWith("@paperclipai/server/src/index.ts")) {
+  if (normalized.endsWith("/server/src/index.ts") || normalized.endsWith("@penclipai/server/src/index.ts")) {
     process.env.PAPERCLIP_UI_DEV_MIDDLEWARE = "true";
   }
 }
@@ -156,17 +156,17 @@ async function importServerEntry(): Promise<StartedServer> {
     return await startServerFromModule(mod, devEntry);
   }
 
-  // Production mode: import the published @paperclipai/server package
+  // Production mode: import the published @penclipai/server package
   try {
-    const mod = await import("@paperclipai/server");
-    return await startServerFromModule(mod, "@paperclipai/server");
+    const mod = await import("@penclipai/server");
+    return await startServerFromModule(mod, "@penclipai/server");
   } catch (err) {
     const missingSpecifier = getMissingModuleSpecifier(err);
-    const missingServerEntrypoint = !missingSpecifier || missingSpecifier === "@paperclipai/server";
+    const missingServerEntrypoint = !missingSpecifier || missingSpecifier === "@penclipai/server";
     if (isModuleNotFoundError(err) && missingServerEntrypoint) {
       throw new Error(
         `Could not locate a Paperclip server entrypoint.\n` +
-          `Tried: ${devEntry}, @paperclipai/server\n` +
+          `Tried: ${devEntry}, @penclipai/server\n` +
           `${formatError(err)}`,
       );
     }

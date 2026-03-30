@@ -1,8 +1,9 @@
 /**
- * `@paperclipai/plugin-sdk` — Paperclip plugin worker-side SDK.
+ * `@penclipai/plugin-sdk` — published package for the Paperclip plugin worker-side SDK.
  *
- * This is the main entrypoint for plugin worker code.  For plugin UI bundles,
- * import from `@paperclipai/plugin-sdk/ui` instead.
+ * For cross-host-compatible plugin source, import worker code from
+ * `@paperclipai/plugin-sdk`. For plugin UI bundles, use
+ * `@paperclipai/plugin-sdk/ui`.
  *
  * @example
  * ```ts
@@ -206,9 +207,9 @@ export type {
   Goal,
 } from "./types.js";
 
-// Manifest and constant types re-exported from @paperclipai/shared
+// Manifest and constant types re-exported from @penclipai/shared
 // Plugin authors import manifest types from here so they have a single
-// dependency (@paperclipai/plugin-sdk) for all plugin authoring needs.
+// published dependency while keeping compatibility imports in source.
 export type {
   PaperclipPluginManifestV1,
   PluginJobDeclaration,
@@ -283,4 +284,4 @@ export {
   PLUGIN_WEBHOOK_DELIVERY_STATUSES,
   PLUGIN_EVENT_TYPES,
   PLUGIN_BRIDGE_ERROR_CODES,
-} from "@paperclipai/shared";
+} from "@penclipai/shared";

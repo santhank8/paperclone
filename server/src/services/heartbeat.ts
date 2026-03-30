@@ -3,8 +3,8 @@ import path from "node:path";
 import { execFile as execFileCallback } from "node:child_process";
 import { promisify } from "node:util";
 import { and, asc, desc, eq, gt, inArray, sql } from "drizzle-orm";
-import type { Db } from "@paperclipai/db";
-import type { BillingType } from "@paperclipai/shared";
+import type { Db } from "@penclipai/db";
+import type { BillingType, UiLocale } from "@penclipai/shared";
 import {
   agents,
   agentRuntimeState,
@@ -15,7 +15,7 @@ import {
   issues,
   projects,
   projectWorkspaces,
-} from "@paperclipai/db";
+} from "@penclipai/db";
 import { conflict, notFound } from "../errors.js";
 import { logger } from "../middleware/logger.js";
 import { publishLiveEvent } from "./live-events.js";
@@ -42,6 +42,7 @@ import {
 import { issueService } from "./issues.js";
 import { executionWorkspaceService } from "./execution-workspaces.js";
 import { workspaceOperationService } from "./workspace-operations.js";
+import { resolveRuntimeLocalizationPrompt } from "./agent-runtime-localization.js";
 import {
   buildExecutionWorkspaceAdapterConfig,
   gateProjectExecutionWorkspacePolicy,
@@ -56,7 +57,7 @@ import {
   hasSessionCompactionThresholds,
   resolveSessionCompactionPolicy,
   type SessionCompactionPolicy,
-} from "@paperclipai/adapter-utils";
+} from "@penclipai/adapter-utils";
 
 const MAX_LIVE_LOG_CHUNK_BYTES = 8 * 1024;
 const HEARTBEAT_MAX_CONCURRENT_RUNS_DEFAULT = 1;
@@ -75,6 +76,28 @@ const SESSIONED_LOCAL_ADAPTERS = new Set([
   "opencode_local",
   "pi_local",
 ]);
+const DEFAULT_AGENT_HOME_MEMORY_MARKDOWN = `# Memory
+
+Use this file for long-lived notes that should survive across heartbeats.
+`;
+
+async function writeFileIfMissing(filePath: string, contents: string): Promise<void> {
+  try {
+    await fs.writeFile(filePath, contents, { flag: "wx" });
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code !== "EEXIST") {
+      throw err;
+    }
+  }
+}
+
+export async function ensureDefaultAgentHome(agentId: string): Promise<string> {
+  const home = resolveDefaultAgentWorkspaceDir(agentId);
+  await fs.mkdir(path.join(home, "life", "archives"), { recursive: true });
+  await fs.mkdir(path.join(home, "memory"), { recursive: true });
+  await writeFileIfMissing(path.join(home, "MEMORY.md"), DEFAULT_AGENT_HOME_MEMORY_MARKDOWN);
+  return home;
+}
 
 function deriveRepoNameFromRepoUrl(repoUrl: string | null): string | null {
   const trimmed = repoUrl?.trim() ?? "";
@@ -640,6 +663,31 @@ function mergeCoalescedContextSnapshot(
     merged.wakeCommentId = commentId;
   }
   return merged;
+}
+
+function parseRequestedUiLocale(value: unknown): UiLocale | null {
+  if (typeof value !== "string") return null;
+  const normalized = value.trim().toLowerCase();
+  if (normalized.startsWith("zh")) return "zh-CN";
+  if (normalized.startsWith("en")) return "en";
+  return null;
+}
+
+export function resolveRequestedUiLocaleFromContextSnapshot(
+  contextSnapshot: Record<string, unknown> | null | undefined,
+): UiLocale | null {
+  return parseRequestedUiLocale(contextSnapshot?.requestedUiLocale);
+}
+
+export function resolveRuntimeLocalizationPromptForContextSnapshot(
+  contextSnapshot: Record<string, unknown> | null | undefined,
+  runtimeInput: Omit<Parameters<typeof resolveRuntimeLocalizationPrompt>[0], "locale"> = {},
+): string {
+  const requestedUiLocale = resolveRequestedUiLocaleFromContextSnapshot(contextSnapshot);
+  return resolveRuntimeLocalizationPrompt({
+    ...runtimeInput,
+    ...(requestedUiLocale ? { locale: requestedUiLocale } : {}),
+  });
 }
 
 function runTaskKey(run: typeof heartbeatRuns.$inferSelect) {
@@ -2270,13 +2318,15 @@ export function heartbeatService(db: Db) {
       repoRef: executionWorkspace.repoRef,
       branchName: executionWorkspace.branchName,
       worktreePath: executionWorkspace.worktreePath,
-      agentHome: await (async () => {
-        const home = resolveDefaultAgentWorkspaceDir(agent.id);
-        await fs.mkdir(home, { recursive: true });
-        return home;
-      })(),
+      agentHome: await ensureDefaultAgentHome(agent.id),
     };
     context.paperclipWorkspaces = resolvedWorkspace.workspaceHints;
+    const runtimeLocalizationPrompt = resolveRuntimeLocalizationPromptForContextSnapshot(context);
+    if (runtimeLocalizationPrompt) {
+      context.paperclipLocalizationPromptMarkdown = runtimeLocalizationPrompt;
+    } else {
+      delete context.paperclipLocalizationPromptMarkdown;
+    }
     const runtimeServiceIntents = (() => {
       const runtimeConfig = parseObject(resolvedConfig.workspaceRuntime);
       return Array.isArray(runtimeConfig.services)

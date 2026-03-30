@@ -3,7 +3,7 @@ import type { Dirent } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import type { AdapterExecutionContext, AdapterExecutionResult } from "@paperclipai/adapter-utils";
+import type { AdapterExecutionContext, AdapterExecutionResult } from "@penclipai/adapter-utils";
 import {
   asBoolean,
   asNumber,
@@ -22,7 +22,7 @@ import {
   redactEnvForLogs,
   renderTemplate,
   runChildProcess,
-} from "@paperclipai/adapter-utils/server-utils";
+} from "@penclipai/adapter-utils/server-utils";
 import { DEFAULT_GEMINI_LOCAL_MODEL } from "../index.js";
 import {
   describeGeminiFailure,
@@ -296,12 +296,14 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
   const sessionHandoffNote = asString(context.paperclipSessionHandoffMarkdown, "").trim();
   const paperclipEnvNote = renderPaperclipEnvNote(env);
   const apiAccessNote = renderApiAccessNote(env);
+  const localizationPromptNote = asString(context.paperclipLocalizationPromptMarkdown, "").trim();
   const prompt = joinPromptSections([
     instructionsPrefix,
     renderedBootstrapPrompt,
     sessionHandoffNote,
     paperclipEnvNote,
     apiAccessNote,
+    localizationPromptNote,
     renderedPrompt,
   ]);
   const promptMetrics = {
@@ -309,7 +311,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     instructionsChars: instructionsPrefix.length,
     bootstrapPromptChars: renderedBootstrapPrompt.length,
     sessionHandoffChars: sessionHandoffNote.length,
-    runtimeNoteChars: paperclipEnvNote.length + apiAccessNote.length,
+    runtimeNoteChars: paperclipEnvNote.length + apiAccessNote.length + localizationPromptNote.length,
     heartbeatPromptChars: renderedPrompt.length,
   };
 

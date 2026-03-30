@@ -1,10 +1,10 @@
 /**
- * `@paperclipai/plugin-sdk/ui` — Paperclip plugin UI SDK.
+ * `@penclipai/plugin-sdk/ui` — published package subpath for the Paperclip plugin UI SDK.
  *
- * Import this subpath from plugin UI bundles (React components that run in
- * the host frontend).  Do **not** import this from plugin worker code.
+ * For cross-host-compatible plugin source, import UI code from
+ * `@paperclipai/plugin-sdk/ui`. Do **not** import this from plugin worker code.
  *
- * The worker-side SDK is available from `@paperclipai/plugin-sdk` (root).
+ * The worker-side compatibility SDK is available from `@paperclipai/plugin-sdk`.
  *
  * @see PLUGIN_SPEC.md §19.0.1 — Plugin UI SDK
  * @see PLUGIN_SPEC.md §29.2 — SDK Versioning

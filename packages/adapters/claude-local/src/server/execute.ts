@@ -2,8 +2,8 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import type { AdapterExecutionContext, AdapterExecutionResult } from "@paperclipai/adapter-utils";
-import type { RunProcessResult } from "@paperclipai/adapter-utils/server-utils";
+import type { AdapterExecutionContext, AdapterExecutionResult } from "@penclipai/adapter-utils";
+import type { RunProcessResult } from "@penclipai/adapter-utils/server-utils";
 import {
   asString,
   asNumber,
@@ -20,7 +20,7 @@ import {
   ensurePathInEnv,
   renderTemplate,
   runChildProcess,
-} from "@paperclipai/adapter-utils/server-utils";
+} from "@penclipai/adapter-utils/server-utils";
 import {
   parseClaudeStreamJson,
   describeClaudeFailure,
@@ -391,15 +391,18 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
       ? renderTemplate(bootstrapPromptTemplate, templateData).trim()
       : "";
   const sessionHandoffNote = asString(context.paperclipSessionHandoffMarkdown, "").trim();
+  const localizationPromptNote = asString(context.paperclipLocalizationPromptMarkdown, "").trim();
   const prompt = joinPromptSections([
     renderedBootstrapPrompt,
     sessionHandoffNote,
+    localizationPromptNote,
     renderedPrompt,
   ]);
   const promptMetrics = {
     promptChars: prompt.length,
     bootstrapPromptChars: renderedBootstrapPrompt.length,
     sessionHandoffChars: sessionHandoffNote.length,
+    localizationPromptChars: localizationPromptNote.length,
     heartbeatPromptChars: renderedPrompt.length,
   };
 

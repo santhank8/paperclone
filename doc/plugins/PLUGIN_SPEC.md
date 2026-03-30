@@ -241,11 +241,11 @@ This on-disk model is the reason the current implementation expects a persistent
 
 Paperclip should add CLI commands:
 
-- `pnpm paperclipai plugin list`
-- `pnpm paperclipai plugin install <package[@version]>`
-- `pnpm paperclipai plugin uninstall <plugin-id>`
-- `pnpm paperclipai plugin upgrade <plugin-id> [version]`
-- `pnpm paperclipai plugin doctor <plugin-id>`
+- `pnpm penclipai plugin list`
+- `pnpm penclipai plugin install <package[@version]>`
+- `pnpm penclipai plugin uninstall <plugin-id>`
+- `pnpm penclipai plugin upgrade <plugin-id> [version]`
+- `pnpm penclipai plugin doctor <plugin-id>`
 
 These commands are instance-level operations.
 
@@ -915,6 +915,14 @@ export function DashboardWidget({ context }: PluginWidgetProps) {
 
 ### 19.0.1 Plugin UI SDK (`@paperclipai/plugin-sdk/ui`)
 
+For cross-host compatibility, plugin source code should import the UI SDK from `@paperclipai/plugin-sdk/ui`.
+
+- Default authoring surface: `@paperclipai/plugin-sdk/ui`
+- Penclip published package identity: `@penclipai/plugin-sdk`
+- Penclip install pattern: alias the published package while keeping source imports on the compatibility surface
+
+Do not switch plugin source imports to `@penclipai/plugin-sdk/ui` unless you are intentionally dropping upstream Paperclip compatibility.
+
 The SDK includes a `ui` subpath export that plugin frontends import. This subpath provides:
 
 - **Bridge hooks**: `usePluginData(key, params)`, `usePluginAction(key)`, `useHostContext()`
@@ -1318,7 +1326,7 @@ When a plugin is uninstalled, the host must handle plugin-owned data explicitly.
 3. Plugin-owned data (`plugin_state`, `plugin_entities`, `plugin_jobs`, `plugin_job_runs`, `plugin_webhook_deliveries`, `plugin_config`) is retained for a configurable grace period (default: 30 days).
 4. During the grace period, the operator can reinstall the same plugin and recover its state.
 5. After the grace period, the host purges all plugin-owned data for the uninstalled plugin.
-6. The operator may force-purge immediately via CLI: `pnpm paperclipai plugin purge <plugin-id>`.
+6. The operator may force-purge immediately via CLI: `pnpm penclipai plugin purge <plugin-id>`.
 
 ### 25.2 Upgrade Data Considerations
 
@@ -1441,7 +1449,7 @@ These events can be consumed by other plugins (e.g. a notification plugin) or su
 
 ## 27. Plugin Development And Testing
 
-### 27.1 `@paperclipai/plugin-test-harness`
+### 27.1 `@penclipai/plugin-test-harness`
 
 The host should publish a test harness package that plugin authors use for local development and testing.
 
@@ -1458,7 +1466,7 @@ The test harness provides:
 Example usage:
 
 ```ts
-import { createTestHarness } from "@paperclipai/plugin-test-harness";
+import { createTestHarness } from "@penclipai/plugin-test-harness";
 import manifest from "../dist/manifest.js";
 import { register } from "../dist/worker.js";
 
@@ -1481,7 +1489,7 @@ expect(data.syncedCount).toBeGreaterThan(0);
 
 For developing a plugin against a running Paperclip instance:
 
-- The operator installs the plugin from a local path: `pnpm paperclipai plugin install ./path/to/plugin`
+- The operator installs the plugin from a local path: `pnpm penclipai plugin install ./path/to/plugin`
 - The host watches the plugin directory for changes and restarts the worker on rebuild.
 - `devUiUrl` in plugin config can point to a local Vite dev server for UI hot-reload.
 - The plugin settings page shows real-time logs from the worker for debugging.
@@ -1523,21 +1531,32 @@ This spec directly supports the following plugin types:
 
 ### 29.2 SDK Versioning
 
-The host publishes a single SDK package for plugin authors:
+Penclip publishes a single SDK package for plugin authors:
 
-- `@paperclipai/plugin-sdk` — the complete plugin SDK
+- `@penclipai/plugin-sdk` — the complete plugin SDK
 
-The package uses subpath exports to separate worker and UI concerns:
+For cross-host-compatible plugin source code, the default authoring surface remains:
 
 - `@paperclipai/plugin-sdk` — worker-side SDK (context, events, state, tools, logger, `definePlugin`, `z`)
 - `@paperclipai/plugin-sdk/ui` — frontend SDK (bridge hooks, shared components, design tokens)
+
+In Penclip installs, those compatibility imports can be satisfied by aliasing to the published package:
+
+- `@paperclipai/plugin-sdk -> npm:@penclipai/plugin-sdk`
+
+Do not treat `@penclipai/plugin-sdk*` as the default source import path for plugins that should also run in upstream Paperclip.
+
+The package uses subpath exports to separate worker and UI concerns at publish time:
+
+- `@penclipai/plugin-sdk` — worker-side SDK (context, events, state, tools, logger, `definePlugin`, `z`)
+- `@penclipai/plugin-sdk/ui` — frontend SDK (bridge hooks, shared components, design tokens)
 
 A single package simplifies dependency management for plugin authors — one dependency, one version, one changelog. The subpath exports keep bundle separation clean: worker code imports from the root, UI code imports from `/ui`. Build tools tree-shake accordingly so the worker bundle does not include React components and the UI bundle does not include worker-only code.
 
 Versioning rules:
 
 1. **Semver**: The SDK follows strict semantic versioning. Major version bumps indicate breaking changes to either the worker or UI surface; minor versions add new features backwards-compatibly; patch versions are bug fixes only.
-2. **Tied to API version**: Each major SDK version corresponds to exactly one plugin `apiVersion`. When `@paperclipai/plugin-sdk@2.x` ships, it targets `apiVersion: 2`. Plugins built with SDK 1.x continue to declare `apiVersion: 1`.
+2. **Tied to API version**: Each major SDK version corresponds to exactly one plugin `apiVersion`. When `@penclipai/plugin-sdk@2.x` ships, it targets `apiVersion: 2`. Plugins built with SDK 1.x continue to declare `apiVersion: 1`.
 3. **Host multi-version support**: The host must support at least the current and one previous `apiVersion` simultaneously. This means plugins built against the previous SDK major version continue to work without modification. The host maintains separate IPC protocol handlers for each supported API version.
 4. **Minimum SDK version in manifest**: Plugins declare `sdkVersion` in the manifest as a semver range (e.g. `">=1.4.0 <2.0.0"`). The host validates this at install time and warns if the plugin's declared range is outside the host's supported SDK versions.
 5. **Deprecation timeline**: When a new `apiVersion` ships, the previous version enters a deprecation period of at least 6 months. During this period:
@@ -1564,7 +1583,7 @@ This matrix is published in the host docs and queryable via `GET /api/plugins/co
 
 When a new SDK version is released:
 
-1. Plugin author updates `@paperclipai/plugin-sdk` dependency.
+1. Plugin author updates the `@paperclipai/plugin-sdk` compatibility dependency and, in Penclip environments, repoints its alias target to the newer published `@penclipai/plugin-sdk` version.
 2. Plugin author follows the migration guide to update code.
 3. Plugin author updates `apiVersion` and `sdkVersion` in the manifest.
 4. Plugin author publishes a new plugin version.
@@ -1593,7 +1612,7 @@ When a new SDK version is released:
 - event filtering
 - graceful shutdown with configurable deadlines
 - plugin logging and health dashboard
-- `@paperclipai/plugin-test-harness`
+- `@penclipai/plugin-test-harness`
 - `create-paperclip-plugin` starter template
 - uninstall with data retention grace period
 - hot plugin lifecycle (install, uninstall, upgrade, config change without server restart)

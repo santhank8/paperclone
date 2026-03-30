@@ -43,9 +43,10 @@
 下列内容属于技术标识，默认不改：
 
 - GitHub 仓库名 `paperclip`
-- `package.json` 的 package name
-- `@paperclipai/*` workspace 包名
-- `paperclipai` CLI 命令
+- 公开 package 的 `package.json.name`
+- `@penclipai/*` workspace 包名
+- CLI npm package spec `penclipai`
+- `penclipai` CLI 命令
 - `PAPERCLIP_*` 环境变量
 - 内部 localStorage key
 - 内部 API 路径和数据结构

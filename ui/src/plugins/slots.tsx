@@ -35,7 +35,7 @@ import type {
   PluginUiSlotDeclaration,
   PluginUiSlotEntityType,
   PluginUiSlotType,
-} from "@paperclipai/shared";
+} from "@penclipai/shared";
 import { pluginsApi, type PluginUiContribution } from "@/api/plugins";
 import { authApi } from "@/api/auth";
 import { queryKeys } from "@/lib/queryKeys";
@@ -288,6 +288,10 @@ function rewriteBareSpecifiers(source: string): string {
     "'@paperclipai/plugin-sdk/ui'": `'${getShimBlobUrl("sdk-ui")}'`,
     '"@paperclipai/plugin-sdk/ui/hooks"': `"${getShimBlobUrl("sdk-ui")}"`,
     "'@paperclipai/plugin-sdk/ui/hooks'": `'${getShimBlobUrl("sdk-ui")}'`,
+    '"@penclipai/plugin-sdk/ui"': `"${getShimBlobUrl("sdk-ui")}"`,
+    "'@penclipai/plugin-sdk/ui'": `'${getShimBlobUrl("sdk-ui")}'`,
+    '"@penclipai/plugin-sdk/ui/hooks"': `"${getShimBlobUrl("sdk-ui")}"`,
+    "'@penclipai/plugin-sdk/ui/hooks'": `'${getShimBlobUrl("sdk-ui")}'`,
     '"react/jsx-runtime"': `"${getShimBlobUrl("react/jsx-runtime")}"`,
     "'react/jsx-runtime'": `'${getShimBlobUrl("react/jsx-runtime")}'`,
     '"react-dom/client"': `"${getShimBlobUrl("react-dom/client")}"`,
@@ -359,7 +363,7 @@ async function importPluginModule(url: string): Promise<Record<string, unknown>>
  * exports to the correct `pluginKey:exportName` registry keys.
  *
  * Plugin modules are loaded with bare-specifier rewriting so that imports
- * of `@paperclipai/plugin-sdk/ui`, `react`, and `react-dom` resolve to the
+ * of `@paperclipai/plugin-sdk/ui`, `@penclipai/plugin-sdk/ui`, `react`, and `react-dom` resolve to the
  * host-provided implementations via the bridge registry.
  *
  * Web-component registrations still work: if the module has a named export

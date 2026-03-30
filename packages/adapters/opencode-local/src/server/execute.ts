@@ -2,7 +2,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { inferOpenAiCompatibleBiller, type AdapterExecutionContext, type AdapterExecutionResult } from "@paperclipai/adapter-utils";
+import { inferOpenAiCompatibleBiller, type AdapterExecutionContext, type AdapterExecutionResult } from "@penclipai/adapter-utils";
 import {
   asString,
   asNumber,
@@ -19,10 +19,10 @@ import {
   runChildProcess,
   readPaperclipRuntimeSkillEntries,
   resolvePaperclipDesiredSkillNames,
-} from "@paperclipai/adapter-utils/server-utils";
+} from "@penclipai/adapter-utils/server-utils";
 import { isOpenCodeUnknownSessionError, parseOpenCodeJsonl } from "./parse.js";
 import { ensureOpenCodeModelConfiguredAndAvailable } from "./models.js";
-import { removeMaintainerOnlySkillSymlinks } from "@paperclipai/adapter-utils/server-utils";
+import { removeMaintainerOnlySkillSymlinks } from "@penclipai/adapter-utils/server-utils";
 import { prepareOpenCodeRuntimeConfig } from "./runtime-config.js";
 
 const __moduleDir = path.dirname(fileURLToPath(import.meta.url));
@@ -270,10 +270,12 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
         ? renderTemplate(bootstrapPromptTemplate, templateData).trim()
         : "";
     const sessionHandoffNote = asString(context.paperclipSessionHandoffMarkdown, "").trim();
+    const localizationPromptNote = asString(context.paperclipLocalizationPromptMarkdown, "").trim();
     const prompt = joinPromptSections([
       instructionsPrefix,
       renderedBootstrapPrompt,
       sessionHandoffNote,
+      localizationPromptNote,
       renderedPrompt,
     ]);
     const promptMetrics = {
@@ -281,6 +283,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
       instructionsChars: instructionsPrefix.length,
       bootstrapPromptChars: renderedBootstrapPrompt.length,
       sessionHandoffChars: sessionHandoffNote.length,
+      localizationPromptChars: localizationPromptNote.length,
       heartbeatPromptChars: renderedPrompt.length,
     };
 
