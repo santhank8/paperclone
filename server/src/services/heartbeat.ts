@@ -2373,9 +2373,10 @@ export function heartbeatService(db: Db) {
       return null;
     }
 
+    const BYPASS_LOCK_REASONS = ["issue_comment_mentioned", "board_comment"];
     const bypassIssueExecutionLock =
-      reason === "issue_comment_mentioned" ||
-      readNonEmptyString(enrichedContextSnapshot.wakeReason) === "issue_comment_mentioned";
+      BYPASS_LOCK_REASONS.includes(reason ?? "") ||
+      BYPASS_LOCK_REASONS.includes(readNonEmptyString(enrichedContextSnapshot.wakeReason) ?? "");
 
     if (issueId && !bypassIssueExecutionLock) {
       const agentNameKey = normalizeAgentNameKey(agent.name);
