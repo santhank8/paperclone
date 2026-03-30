@@ -1,4 +1,4 @@
-import { and, eq, gte, inArray, isNull, lt, sql } from "drizzle-orm";
+import { and, eq, gte, inArray, isNull, lt, or, sql } from "drizzle-orm";
 import type { Db } from "@paperclipai/db";
 import { agents, approvals, companies, costEvents, heartbeatRuns, issues } from "@paperclipai/db";
 import { notFound } from "../errors.js";
@@ -48,14 +48,23 @@ export function dashboardService(db: Db) {
         agentCounts[bucket] = (agentCounts[bucket] ?? 0) + count;
       }
 
-      // Stale running agents: status="running" but no active/queued run exists.
+      // Stale running agents: status="running" but either no active/queued run exists,
+      // or the agent hasn't completed a heartbeat in the last 30 minutes (hung process).
+      const staleRunningThreshold = new Date(Date.now() - 30 * 60 * 1000);
       const staleRunningAgentRows = await db
-        .select({ agentId: agents.id })
+        .select({ agentId: agents.id, lastHeartbeatAt: agents.lastHeartbeatAt })
         .from(agents)
         .where(and(eq(agents.companyId, companyId), eq(agents.status, "running")));
 
       let staleRunningAgents = 0;
-      for (const { agentId } of staleRunningAgentRows) {
+      for (const { agentId, lastHeartbeatAt } of staleRunningAgentRows) {
+        // Stale if no recent heartbeat — catches live-but-hung processes
+        const heartbeatIsStale = !lastHeartbeatAt || new Date(lastHeartbeatAt) < staleRunningThreshold;
+        if (heartbeatIsStale) {
+          staleRunningAgents += 1;
+          continue;
+        }
+        // Also stale if there are no active runs at all
         const [{ activeCount }] = await db
           .select({ activeCount: sql<number>`count(*)` })
           .from(heartbeatRuns)

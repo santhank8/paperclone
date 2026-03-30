@@ -2,7 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { execFile as execFileCallback } from "node:child_process";
 import { promisify } from "node:util";
-import { and, asc, desc, eq, gt, inArray, isNull, lt, not, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gt, inArray, isNull, lt, not, or, sql } from "drizzle-orm";
 import type { Db } from "@paperclipai/db";
 import type { BillingType, ExecutionWorkspace, ExecutionWorkspaceConfig } from "@paperclipai/shared";
 import {
@@ -1952,23 +1952,26 @@ export function heartbeatService(db: Db) {
     const staleThresholdMs = opts?.staleThresholdMs ?? 30 * 60 * 1000; // 30 minutes default
     const cutoff = new Date(Date.now() - staleThresholdMs);
 
-    // Find agents stuck in "running" that haven't been updated recently
+    // Find agents stuck in "running" that haven't completed a heartbeat recently.
+    // Use lastHeartbeatAt (not updatedAt) because updatedAt is bumped by any field change
+    // (e.g. task assignment), which would mask a genuinely stuck agent.
     const stuckAgents = await db
-      .select({ id: agents.id, companyId: agents.companyId, updatedAt: agents.updatedAt })
+      .select({ id: agents.id, companyId: agents.companyId, lastHeartbeatAt: agents.lastHeartbeatAt })
       .from(agents)
-      .where(and(eq(agents.status, "running"), lt(agents.updatedAt, cutoff)));
+      .where(and(eq(agents.status, "running"), or(isNull(agents.lastHeartbeatAt), lt(agents.lastHeartbeatAt, cutoff))));
 
     if (stuckAgents.length === 0) return { reset: 0, agentIds: [] };
 
     const reset: string[] = [];
     for (const agent of stuckAgents) {
-      // Only reset if there truly are no running or queued runs for this agent
-      const [{ activeCount }] = await db
-        .select({ activeCount: sql<number>`count(*)` })
+      // Skip if a run started AFTER the staleness cutoff — that run is legitimately new
+      // and hasn't had time to complete a heartbeat cycle yet.
+      const [{ recentCount }] = await db
+        .select({ recentCount: sql<number>`count(*)` })
         .from(heartbeatRuns)
-        .where(and(eq(heartbeatRuns.agentId, agent.id), inArray(heartbeatRuns.status, ["running", "queued"])));
+        .where(and(eq(heartbeatRuns.agentId, agent.id), inArray(heartbeatRuns.status, ["running", "queued"]), gt(heartbeatRuns.startedAt, cutoff)));
 
-      if (Number(activeCount) > 0) continue;
+      if (Number(recentCount) > 0) continue;
 
       const updated = await db
         .update(agents)
