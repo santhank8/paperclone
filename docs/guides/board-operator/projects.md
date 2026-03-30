@@ -109,7 +109,7 @@ You can **drag and drop** projects to reorder them — the order is saved per us
 - Start simple. A project only needs a name to be useful — description, repo, budget, and goals can all come later as the work takes shape.
 - Use archive instead of deleting projects you've finished with. Archiving preserves the history (issues, costs, activity) while keeping your sidebar clean.
 - If a project's budget hard stop triggers, you'll see the pause badge immediately on the project header. Increase the budget or disable hard stop to resume work.
-- The color dot in the sidebar is customizable — click the small color square on the project detail page header to pick from 12 colors. Useful for visual grouping when you have several active projects.
+- The color dot in the sidebar is customizable — click the small color square on the project detail page header to pick from ten colors. Useful for visual grouping when you have several active projects.
 
 ## Related
 
