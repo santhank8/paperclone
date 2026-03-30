@@ -15,6 +15,7 @@ import {
   chatMessages,
   chatSessions,
   costEvents,
+  issueComments,
   issues,
   projects,
   projectWorkspaces,
@@ -581,7 +582,7 @@ async function buildAgentSelfContext(
   const cwd = typeof config.cwd === "string" ? config.cwd : null;
   const issueId = readNonEmptyString(context.issueId);
 
-  const [companyRow, peerAgents, currentIssue] = await Promise.all([
+  const [companyRow, peerAgents, currentIssue, recentComments] = await Promise.all([
     db
       .select({ name: companies.name, issuePrefix: companies.issuePrefix })
       .from(companies)
@@ -616,6 +617,19 @@ async function buildAgentSelfContext(
           .where(and(eq(issues.id, issueId), eq(issues.companyId, agent.companyId)))
           .then((rows) => rows[0] ?? null)
       : null,
+    issueId
+      ? db
+          .select({
+            body: issueComments.body,
+            authorAgentId: issueComments.authorAgentId,
+            authorUserId: issueComments.authorUserId,
+            createdAt: issueComments.createdAt,
+          })
+          .from(issueComments)
+          .where(and(eq(issueComments.issueId, issueId), eq(issueComments.companyId, agent.companyId)))
+          .orderBy(desc(issueComments.createdAt))
+          .limit(20)
+      : [],
   ]);
 
   const lines: string[] = [];
@@ -657,6 +671,47 @@ async function buildAgentSelfContext(
       lines.push("```json");
       lines.push(truncated);
       lines.push("```");
+    }
+
+    if (recentComments.length > 0) {
+      // Build agent-id → name lookup for comment authors
+      const agentNameMap = new Map<string, string>();
+      agentNameMap.set(agent.id, agent.name);
+
+      // Resolve agent names for comment authors
+      const agentIds = [...new Set(recentComments.map((c) => c.authorAgentId).filter((id): id is string => id != null))];
+      if (agentIds.length > 0) {
+        const authorAgents = await db
+          .select({ id: agents.id, name: agents.name })
+          .from(agents)
+          .where(inArray(agents.id, agentIds));
+        for (const a of authorAgents) agentNameMap.set(a.id, a.name);
+      }
+
+      // Format comments (oldest-first for natural reading order)
+      const chronological = [...recentComments].reverse();
+      const COMMENTS_CHAR_CAP = 3000;
+      let totalChars = 0;
+      const commentLines: string[] = [];
+      for (const comment of chronological) {
+        const author = comment.authorAgentId
+          ? (agentNameMap.get(comment.authorAgentId) ?? "agent")
+          : (comment.authorUserId ?? "user");
+        const ts = comment.createdAt instanceof Date
+          ? comment.createdAt.toISOString().replace("T", " ").slice(0, 19)
+          : String(comment.createdAt);
+        const entry = `**${author}** (${ts}):\n${comment.body}`;
+        if (totalChars + entry.length > COMMENTS_CHAR_CAP) {
+          commentLines.push("_(earlier comments truncated)_");
+          break;
+        }
+        commentLines.push(entry);
+        totalChars += entry.length;
+      }
+
+      lines.push("");
+      lines.push("## Recent comments");
+      lines.push(commentLines.join("\n\n"));
     }
   }
 
