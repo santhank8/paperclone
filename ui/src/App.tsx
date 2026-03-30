@@ -325,9 +325,9 @@ export function App() {
         <Route path="invite/:token" element={<InviteLandingPage />} />
         <Route path="setup/admin" element={<VpsAdminSetupPage />} />
         <Route path="setup/domain" element={<VpsDomainSetupPage />} />
-        <Route path="setup/providers" element={<ProviderAuthPage showSkip />} />
 
         <Route element={<CloudAccessGate />}>
+          <Route path="setup/providers" element={<ProviderAuthPage showSkip />} />
           <Route index element={<CompanyRootRedirect />} />
           <Route path="onboarding" element={<OnboardingRoutePage />} />
           <Route path="instance" element={<Navigate to="/instance/settings/general" replace />} />

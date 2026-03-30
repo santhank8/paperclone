@@ -42,7 +42,6 @@ StandardError=journal
 SyslogIdentifier=paperclip
 
 # Security hardening
-NoNewPrivileges=true
 ProtectSystem=strict
 ReadWritePaths=/home/paperclip/.paperclip /opt/paperclip /tmp /etc/caddy
 PrivateTmp=false

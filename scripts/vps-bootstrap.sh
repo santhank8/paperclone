@@ -373,7 +373,6 @@ StandardError=journal
 SyslogIdentifier=paperclip
 
 # Security
-NoNewPrivileges=true
 ProtectSystem=strict
 ReadWritePaths=${PAPERCLIP_HOME}/.paperclip ${INSTALL_DIR} /tmp /etc/caddy
 PrivateTmp=false
