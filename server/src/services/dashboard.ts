@@ -1,6 +1,6 @@
-import { and, eq, gte, sql } from "drizzle-orm";
+import { and, eq, gte, inArray, isNull, lt, sql } from "drizzle-orm";
 import type { Db } from "@paperclipai/db";
-import { agents, approvals, companies, costEvents, issues } from "@paperclipai/db";
+import { agents, approvals, companies, costEvents, heartbeatRuns, issues } from "@paperclipai/db";
 import { notFound } from "../errors.js";
 import { budgetService } from "./budgets.js";
 
@@ -42,9 +42,25 @@ export function dashboardService(db: Db) {
       };
       for (const row of agentRows) {
         const count = Number(row.count);
-        // "idle" agents are operational — count them as active
+        // "idle" agents are operational — count them as active.
+        // "error" agents are NOT counted as active; they appear in the error bucket.
         const bucket = row.status === "idle" ? "active" : row.status;
         agentCounts[bucket] = (agentCounts[bucket] ?? 0) + count;
+      }
+
+      // Stale running agents: status="running" but no active/queued run exists.
+      const staleRunningAgentRows = await db
+        .select({ agentId: agents.id })
+        .from(agents)
+        .where(and(eq(agents.companyId, companyId), eq(agents.status, "running")));
+
+      let staleRunningAgents = 0;
+      for (const { agentId } of staleRunningAgentRows) {
+        const [{ activeCount }] = await db
+          .select({ activeCount: sql<number>`count(*)` })
+          .from(heartbeatRuns)
+          .where(and(eq(heartbeatRuns.agentId, agentId), inArray(heartbeatRuns.status, ["running", "queued"])));
+        if (Number(activeCount) === 0) staleRunningAgents += 1;
       }
 
       const taskCounts: Record<string, number> = {
@@ -60,6 +76,20 @@ export function dashboardService(db: Db) {
         if (row.status === "done") taskCounts.done += count;
         if (row.status !== "done" && row.status !== "cancelled") taskCounts.open += count;
       }
+
+      // Ghost tasks: in_progress with no checkout run for >1 hour
+      const ghostTaskCutoff = new Date(Date.now() - 60 * 60 * 1000);
+      const [{ ghostTasks }] = await db
+        .select({ ghostTasks: sql<number>`count(*)` })
+        .from(issues)
+        .where(
+          and(
+            eq(issues.companyId, companyId),
+            eq(issues.status, "in_progress"),
+            isNull(issues.checkoutRunId),
+            lt(issues.updatedAt, ghostTaskCutoff),
+          ),
+        );
 
       const now = new Date();
       const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -89,8 +119,12 @@ export function dashboardService(db: Db) {
           running: agentCounts.running,
           paused: agentCounts.paused,
           error: agentCounts.error,
+          staleRunning: staleRunningAgents,
         },
-        tasks: taskCounts,
+        tasks: {
+          ...taskCounts,
+          ghostTasks: Number(ghostTasks),
+        },
         costs: {
           monthSpendCents,
           monthBudgetCents: company.budgetMonthlyCents,

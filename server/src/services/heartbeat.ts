@@ -2,7 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { execFile as execFileCallback } from "node:child_process";
 import { promisify } from "node:util";
-import { and, asc, desc, eq, gt, inArray, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gt, inArray, isNull, lt, not, sql } from "drizzle-orm";
 import type { Db } from "@paperclipai/db";
 import type { BillingType, ExecutionWorkspace, ExecutionWorkspaceConfig } from "@paperclipai/shared";
 import {
@@ -1940,6 +1940,57 @@ export function heartbeatService(db: Db) {
       logger.warn({ reapedCount: reaped.length, runIds: reaped }, "reaped orphaned heartbeat runs");
     }
     return { reaped: reaped.length, runIds: reaped };
+  }
+
+  /**
+   * Reset agents whose status is "running" but have no active heartbeat runs.
+   * This handles the edge case where a run was cleaned up without calling
+   * finalizeAgentStatus, leaving the agent stuck in "running" indefinitely.
+   * Only resets agents that have been stuck for longer than staleThresholdMs.
+   */
+  async function resetStaleAgentStatus(opts?: { staleThresholdMs?: number }) {
+    const staleThresholdMs = opts?.staleThresholdMs ?? 30 * 60 * 1000; // 30 minutes default
+    const cutoff = new Date(Date.now() - staleThresholdMs);
+
+    // Find agents stuck in "running" that haven't been updated recently
+    const stuckAgents = await db
+      .select({ id: agents.id, companyId: agents.companyId, updatedAt: agents.updatedAt })
+      .from(agents)
+      .where(and(eq(agents.status, "running"), lt(agents.updatedAt, cutoff)));
+
+    if (stuckAgents.length === 0) return { reset: 0, agentIds: [] };
+
+    const reset: string[] = [];
+    for (const agent of stuckAgents) {
+      // Only reset if there truly are no running or queued runs for this agent
+      const [{ activeCount }] = await db
+        .select({ activeCount: sql<number>`count(*)` })
+        .from(heartbeatRuns)
+        .where(and(eq(heartbeatRuns.agentId, agent.id), inArray(heartbeatRuns.status, ["running", "queued"])));
+
+      if (Number(activeCount) > 0) continue;
+
+      const updated = await db
+        .update(agents)
+        .set({ status: "idle", updatedAt: new Date() })
+        .where(and(eq(agents.id, agent.id), eq(agents.status, "running")))
+        .returning({ id: agents.id })
+        .then((rows) => rows[0] ?? null);
+
+      if (updated) {
+        publishLiveEvent({
+          companyId: agent.companyId,
+          type: "agent.status",
+          payload: { agentId: agent.id, status: "idle", lastHeartbeatAt: null, outcome: "stale_reset" },
+        });
+        reset.push(agent.id);
+      }
+    }
+
+    if (reset.length > 0) {
+      logger.warn({ resetCount: reset.length, agentIds: reset }, "reset stale running agents to idle");
+    }
+    return { reset: reset.length, agentIds: reset };
   }
 
   async function resumeQueuedRuns() {
@@ -3942,6 +3993,8 @@ export function heartbeatService(db: Db) {
     reportRunActivity: clearDetachedRunWarning,
 
     reapOrphanedRuns,
+
+    resetStaleAgentStatus,
 
     resumeQueuedRuns,
 
