@@ -4,7 +4,7 @@ import { execFile as execFileCallback } from "node:child_process";
 import { promisify } from "node:util";
 import { and, asc, desc, eq, gt, inArray, sql } from "drizzle-orm";
 import type { Db } from "@paperclipai/db";
-import type { BillingType } from "@paperclipai/shared";
+import type { AgentAdapterType, BillingType } from "@paperclipai/shared";
 import {
   agents,
   agentRuntimeState,
@@ -20,7 +20,7 @@ import { conflict, notFound } from "../errors.js";
 import { logger } from "../middleware/logger.js";
 import { publishLiveEvent } from "./live-events.js";
 import { getRunLogStore, type RunLogHandle } from "./run-log-store.js";
-import { getServerAdapter, runningProcesses } from "../adapters/index.js";
+import { findServerAdapter, getServerAdapter, runningProcesses } from "../adapters/index.js";
 import type { AdapterExecutionResult, AdapterInvocationMeta, AdapterSessionCodec, UsageSummary } from "../adapters/index.js";
 import { createLocalAgentJwt } from "../agent-auth-jwt.js";
 import { parseObject, asBoolean, asNumber, appendWithCap, MAX_EXCERPT_BYTES } from "../adapters/utils.js";
@@ -57,6 +57,17 @@ import {
   resolveSessionCompactionPolicy,
   type SessionCompactionPolicy,
 } from "@paperclipai/adapter-utils";
+
+/**
+ * Maps each adapter type to its failover target. When the primary adapter
+ * fails, the heartbeat executor will automatically retry with the fallback
+ * adapter before marking the run as failed. Only one failover attempt is
+ * made — if the fallback also fails the run is marked failed as normal.
+ */
+const ADAPTER_FAILOVER_MAP: Partial<Record<AgentAdapterType, AgentAdapterType>> = {
+  claude_local: "codex_local",
+  codex_local: "claude_local",
+};
 
 const MAX_LIVE_LOG_CHUNK_BYTES = 8 * 1024;
 const HEARTBEAT_MAX_CONCURRENT_RUNS_DEFAULT = 1;
@@ -2512,7 +2523,7 @@ export function heartbeatService(db: Db) {
           "local agent jwt secret missing or invalid; running without injected PAPERCLIP_API_KEY",
         );
       }
-      const adapterResult = await adapter.execute({
+      let adapterResult = await adapter.execute({
         runId: run.id,
         agent,
         runtime: runtimeForAdapter,
@@ -2600,6 +2611,63 @@ export function heartbeatService(db: Db) {
       } else {
         outcome = "failed";
       }
+
+      // ── Adapter failover ──────────────────────────────────────────────
+      // When the primary adapter fails, try the configured fallback adapter
+      // exactly once. If the fallback also fails, the run is marked failed
+      // with the fallback's error. This provides resilience when one
+      // provider is temporarily unavailable.
+      const failoverTarget = ADAPTER_FAILOVER_MAP[agent.adapterType as AgentAdapterType];
+      if (outcome === "failed" && failoverTarget && findServerAdapter(failoverTarget)) {
+        const primaryError = adapterResult.errorMessage ?? "Adapter failed";
+        await onLog(
+          "stderr",
+          `[paperclip] Primary adapter "${agent.adapterType}" failed: ${primaryError}. Attempting failover to "${failoverTarget}"...\n`,
+        );
+        try {
+          const fallbackAdapter = getServerAdapter(failoverTarget);
+          const fallbackAuthToken = fallbackAdapter.supportsLocalAgentJwt
+            ? createLocalAgentJwt(agent.id, agent.companyId, failoverTarget, run.id)
+            : null;
+          const fallbackResult = await fallbackAdapter.execute({
+            runId: run.id,
+            agent: { ...agent, adapterType: failoverTarget },
+            runtime: runtimeForAdapter,
+            config: runtimeConfig,
+            context,
+            onLog,
+            onMeta: onAdapterMeta,
+            onSpawn: async (meta) => {
+              await persistRunProcessMetadata(run.id, meta);
+            },
+            authToken: fallbackAuthToken ?? undefined,
+          });
+          // Re-evaluate outcome with the fallback result
+          const latestRunFb = await getRun(run.id);
+          if (latestRunFb?.status === "cancelled") {
+            outcome = "cancelled";
+          } else if (fallbackResult.timedOut) {
+            outcome = "timed_out";
+          } else if ((fallbackResult.exitCode ?? 0) === 0 && !fallbackResult.errorMessage) {
+            outcome = "succeeded";
+            await onLog("stderr", `[paperclip] Failover to "${failoverTarget}" succeeded.\n`);
+          } else {
+            outcome = "failed";
+            await onLog(
+              "stderr",
+              `[paperclip] Failover to "${failoverTarget}" also failed: ${fallbackResult.errorMessage ?? "unknown error"}. Giving up.\n`,
+            );
+          }
+          // Use the fallback result for the rest of the run finalization
+          adapterResult = fallbackResult;
+        } catch (fbErr) {
+          await onLog(
+            "stderr",
+            `[paperclip] Failover to "${failoverTarget}" threw: ${fbErr instanceof Error ? fbErr.message : String(fbErr)}. Keeping original failure.\n`,
+          );
+        }
+      }
+      // ── End adapter failover ──────────────────────────────────────────
 
       let logSummary: { bytes: number; sha256?: string; compressed: boolean } | null = null;
       if (handle) {
