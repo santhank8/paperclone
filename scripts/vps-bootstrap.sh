@@ -374,6 +374,7 @@ SyslogIdentifier=paperclip
 NoNewPrivileges=true
 ProtectSystem=strict
 ReadWritePaths=${PAPERCLIP_HOME}/.paperclip ${INSTALL_DIR}
+PrivateTmp=false
 
 [Install]
 WantedBy=multi-user.target
