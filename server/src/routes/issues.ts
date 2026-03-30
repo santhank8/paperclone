@@ -380,7 +380,7 @@ export function issueRoutes(db: Db, storage: StorageService) {
   });
 
   router.get("/companies/:companyId/labels", async (req, res) => {
-    const companyId = req.params.companyId as string;
+    const companyId = (req.params.companyId as string).trim().toLowerCase();
     if (!assertValidCompanyId(res, companyId)) return;
     assertCompanyAccess(req, companyId);
     const result = await svc.listLabels(companyId);
@@ -388,7 +388,7 @@ export function issueRoutes(db: Db, storage: StorageService) {
   });
 
   router.post("/companies/:companyId/labels", validate(createIssueLabelSchema), async (req, res) => {
-    const companyId = req.params.companyId as string;
+    const companyId = (req.params.companyId as string).trim().toLowerCase();
     if (!assertValidCompanyId(res, companyId)) return;
     assertCompanyAccess(req, companyId);
     const label = await svc.createLabel(companyId, req.body);
@@ -904,7 +904,7 @@ export function issueRoutes(db: Db, storage: StorageService) {
   });
 
   router.post("/companies/:companyId/issues", validate(createIssueSchema), async (req, res) => {
-    const companyId = req.params.companyId as string;
+    const companyId = (req.params.companyId as string).trim().toLowerCase();
     if (!assertValidCompanyId(res, companyId)) return;
     assertCompanyAccess(req, companyId);
     if (req.body.assigneeAgentId || req.body.assigneeUserId) {

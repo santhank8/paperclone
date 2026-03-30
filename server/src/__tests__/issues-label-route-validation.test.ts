@@ -4,9 +4,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { issueRoutes } from "../routes/issues.js";
 import { errorHandler } from "../middleware/index.js";
 
+const COMPANY_ID = "11111111-1111-4111-8111-111111111111";
+
 const mockIssueService = vi.hoisted(() => ({
   getLabelById: vi.fn(),
   deleteLabel: vi.fn(),
+  listLabels: vi.fn(),
 }));
 
 vi.mock("../services/index.js", () => ({
@@ -41,7 +44,7 @@ function createApp() {
     (req as any).actor = {
       type: "board",
       userId: "local-board",
-      companyIds: ["company-1"],
+      companyIds: [COMPANY_ID],
       source: "local_implicit",
       isInstanceAdmin: false,
     };
@@ -57,6 +60,7 @@ describe("issue label route validation", () => {
     vi.clearAllMocks();
     mockIssueService.getLabelById.mockResolvedValue(null);
     mockIssueService.deleteLabel.mockResolvedValue(null);
+    mockIssueService.listLabels.mockResolvedValue([]);
   });
 
   it("returns 400 for malformed label ids instead of querying the DB", async () => {
@@ -66,5 +70,12 @@ describe("issue label route validation", () => {
     expect(res.body.error).toContain("Invalid labelId");
     expect(mockIssueService.getLabelById).not.toHaveBeenCalled();
     expect(mockIssueService.deleteLabel).not.toHaveBeenCalled();
+  });
+
+  it("normalizes companyId path for label listing", async () => {
+    const res = await request(createApp()).get(`/api/companies/%20${COMPANY_ID.toUpperCase()}%20/labels`);
+
+    expect(res.status).toBe(200);
+    expect(mockIssueService.listLabels).toHaveBeenCalledWith(COMPANY_ID);
   });
 });
