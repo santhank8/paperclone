@@ -11,6 +11,7 @@ import {
   heartbeatRuns,
   executionWorkspaces,
   issueAttachments,
+  issueInboxArchives,
   issueLabels,
   issueComments,
   issueDocuments,
@@ -66,8 +67,10 @@ export interface IssueFilters {
   participantAgentId?: string;
   assigneeUserId?: string;
   touchedByUserId?: string;
+  inboxArchivedByUserId?: string;
   unreadForUserId?: string;
   projectId?: string;
+  executionWorkspaceId?: string;
   parentId?: string;
   labelId?: string;
   originKind?: string;
@@ -212,6 +215,36 @@ function myLastTouchAtExpr(companyId: string, userId: string) {
   `;
 }
 
+function lastExternalCommentAtExpr(companyId: string, userId: string) {
+  return sql<Date | null>`
+    (
+      SELECT MAX(${issueComments.createdAt})
+      FROM ${issueComments}
+      WHERE ${issueComments.issueId} = ${issues.id}
+        AND ${issueComments.companyId} = ${companyId}
+        AND (
+          ${issueComments.authorUserId} IS NULL
+          OR ${issueComments.authorUserId} <> ${userId}
+        )
+    )
+  `;
+}
+
+function issueLastActivityAtExpr(companyId: string, userId: string) {
+  const lastExternalCommentAt = lastExternalCommentAtExpr(companyId, userId);
+  const myLastTouchAt = myLastTouchAtExpr(companyId, userId);
+  return sql<Date>`
+    COALESCE(
+      ${lastExternalCommentAt},
+      CASE
+        WHEN ${issues.updatedAt} > COALESCE(${myLastTouchAt}, to_timestamp(0))
+        THEN ${issues.updatedAt}
+        ELSE to_timestamp(0)
+      END
+    )
+  `;
+}
+
 function unreadForUserCondition(companyId: string, userId: string) {
   const touchedCondition = touchedByUserCondition(companyId, userId);
   const myLastTouchAt = myLastTouchAtExpr(companyId, userId);
@@ -229,6 +262,20 @@ function unreadForUserCondition(companyId: string, userId: string) {
           )
           AND ${issueComments.createdAt} > ${myLastTouchAt}
       )
+    )
+  `;
+}
+
+function inboxVisibleForUserCondition(companyId: string, userId: string) {
+  const issueLastActivityAt = issueLastActivityAtExpr(companyId, userId);
+  return sql<boolean>`
+    NOT EXISTS (
+      SELECT 1
+      FROM ${issueInboxArchives}
+      WHERE ${issueInboxArchives.issueId} = ${issues.id}
+        AND ${issueInboxArchives.companyId} = ${companyId}
+        AND ${issueInboxArchives.userId} = ${userId}
+        AND ${issueInboxArchives.archivedAt} >= ${issueLastActivityAt}
     )
   `;
 }
@@ -556,8 +603,9 @@ export function issueService(db: Db) {
     list: async (companyId: string, filters?: IssueFilters) => {
       const conditions = [eq(issues.companyId, companyId)];
       const touchedByUserId = filters?.touchedByUserId?.trim() || undefined;
+      const inboxArchivedByUserId = filters?.inboxArchivedByUserId?.trim() || undefined;
       const unreadForUserId = filters?.unreadForUserId?.trim() || undefined;
-      const contextUserId = unreadForUserId ?? touchedByUserId;
+      const contextUserId = unreadForUserId ?? touchedByUserId ?? inboxArchivedByUserId;
       const rawSearch = filters?.q?.trim() ?? "";
       const hasSearch = rawSearch.length > 0;
       const escapedSearch = hasSearch ? escapeLikePattern(rawSearch) : "";
@@ -593,10 +641,16 @@ export function issueService(db: Db) {
       if (touchedByUserId) {
         conditions.push(touchedByUserCondition(companyId, touchedByUserId));
       }
+      if (inboxArchivedByUserId) {
+        conditions.push(inboxVisibleForUserCondition(companyId, inboxArchivedByUserId));
+      }
       if (unreadForUserId) {
         conditions.push(unreadForUserCondition(companyId, unreadForUserId));
       }
       if (filters?.projectId) conditions.push(eq(issues.projectId, filters.projectId));
+      if (filters?.executionWorkspaceId) {
+        conditions.push(eq(issues.executionWorkspaceId, filters.executionWorkspaceId));
+      }
       if (filters?.parentId) conditions.push(eq(issues.parentId, filters.parentId));
       if (filters?.originKind) conditions.push(eq(issues.originKind, filters.originKind));
       if (filters?.originId) conditions.push(eq(issues.originId, filters.originId));
@@ -739,6 +793,56 @@ export function issueService(db: Db) {
         })
         .returning();
       return row;
+    },
+
+    markUnread: async (companyId: string, issueId: string, userId: string) => {
+      const deleted = await db
+        .delete(issueReadStates)
+        .where(
+          and(
+            eq(issueReadStates.companyId, companyId),
+            eq(issueReadStates.issueId, issueId),
+            eq(issueReadStates.userId, userId),
+          ),
+        )
+        .returning();
+      return deleted.length > 0;
+    },
+
+    archiveInbox: async (companyId: string, issueId: string, userId: string, archivedAt: Date = new Date()) => {
+      const now = new Date();
+      const [row] = await db
+        .insert(issueInboxArchives)
+        .values({
+          companyId,
+          issueId,
+          userId,
+          archivedAt,
+          updatedAt: now,
+        })
+        .onConflictDoUpdate({
+          target: [issueInboxArchives.companyId, issueInboxArchives.issueId, issueInboxArchives.userId],
+          set: {
+            archivedAt,
+            updatedAt: now,
+          },
+        })
+        .returning();
+      return row;
+    },
+
+    unarchiveInbox: async (companyId: string, issueId: string, userId: string) => {
+      const [row] = await db
+        .delete(issueInboxArchives)
+        .where(
+          and(
+            eq(issueInboxArchives.companyId, companyId),
+            eq(issueInboxArchives.issueId, issueId),
+            eq(issueInboxArchives.userId, userId),
+          ),
+        )
+        .returning();
+      return row ?? null;
     },
 
     getById: async (id: string) => {
