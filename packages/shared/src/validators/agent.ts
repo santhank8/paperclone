@@ -54,7 +54,18 @@ export const createAgentSchema = z.object({
   desiredSkills: z.array(z.string().min(1)).optional(),
   adapterType: z.enum(AGENT_ADAPTER_TYPES).optional().default("process"),
   adapterConfig: adapterConfigSchema.optional().default({}),
-  runtimeConfig: z.record(z.unknown()).optional().default({}),
+  runtimeConfig: z.record(z.unknown()).superRefine((value, ctx) => {
+    const strategy = value.workspaceStrategy;
+    if (strategy === undefined) return;
+    const valid = ["git_worktree", "project_primary"];
+    if (typeof strategy !== "string" || !valid.includes(strategy)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `runtimeConfig.workspaceStrategy must be "git_worktree" or "project_primary"`,
+        path: ["workspaceStrategy"],
+      });
+    }
+  }).optional().default({}),
   budgetMonthlyCents: z.number().int().nonnegative().optional().default(0),
   permissions: agentPermissionsSchema.optional(),
   metadata: z.record(z.unknown()).optional().nullable(),
