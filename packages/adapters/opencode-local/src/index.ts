@@ -32,11 +32,25 @@ export const models: Array<{ id: string; label: string }> = [
   { id: "google/gemini-2.0-flash", label: "Gemini 2.0 Flash (Google)" },
 
   // Ollama cloud models (ollama/model:cloud format)
-  { id: "ollama/qwen3.5:cloud", label: "Qwen 3.5 (Ollama Cloud)" },
-  { id: "ollama/qwen3.5:397b-cloud", label: "Qwen 3.5 397B (Ollama Cloud)" },
-  { id: "ollama/glm-5:cloud", label: "GLM-5 (Ollama Cloud)" },
-  { id: "ollama/minimax-m2.5:cloud", label: "MiniMax M2.5 (Ollama Cloud)" },
-  { id: "ollama/minimax-m2.7:cloud", label: "MiniMax M2.7 (Ollama Cloud)" },
+  // LLM
+  { id: "ollama/minimax-m2.7:cloud", label: "MiniMax M2.7 — Coding + Agentic (Ollama Cloud)" },
+  { id: "ollama/minimax-m2.5:cloud", label: "MiniMax M2.5 — Productivity (Ollama Cloud)" },
+  { id: "ollama/qwen3.5:cloud", label: "Qwen 3.5 — Multimodal Vision + Tools (Ollama Cloud)" },
+  { id: "ollama/qwen3.5:122b-cloud", label: "Qwen 3.5 122B (Ollama Cloud)" },
+  { id: "ollama/qwen3-next:cloud", label: "Qwen3 Next 80B — Efficient + Fast (Ollama Cloud)" },
+  { id: "ollama/glm-5:cloud", label: "GLM-5 744B MoE — Reasoning (Ollama Cloud)" },
+  { id: "ollama/kimi-k2.5:cloud", label: "Kimi K2.5 — Agentic + Vision (Ollama Cloud)" },
+  { id: "ollama/rnj-1:cloud", label: "RNJ-1 8B — Code + STEM (Ollama Cloud)" },
+  // Code
+  { id: "ollama/qwen3-coder-next:cloud", label: "Qwen3 Coder Next — Agentic Coding (Ollama Cloud)" },
+  { id: "ollama/devstral-small-2:cloud", label: "Devstral Small 2 24B — Multi-file Editing (Ollama Cloud)" },
+  { id: "ollama/devstral-2:cloud", label: "Devstral 2 123B — Tool-using Engineering (Ollama Cloud)" },
+  // Vision-Language
+  { id: "ollama/qwen3-vl:cloud", label: "Qwen3 VL — Vision Language (Ollama Cloud)" },
+  // MoE / Edge
+  { id: "ollama/nemotron-3-super:cloud", label: "Nemotron 3 Super 120B MoE (Ollama Cloud)" },
+  { id: "ollama/nemotron-3-nano:cloud", label: "Nemotron 3 Nano — Efficient Agentic (Ollama Cloud)" },
+  { id: "ollama/ministral-3:cloud", label: "Ministral 3 — Edge Optimized (Ollama Cloud)" },
 ];
 
   // Anthropic (latest)
