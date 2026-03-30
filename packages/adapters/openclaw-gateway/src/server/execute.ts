@@ -320,6 +320,10 @@ function buildPaperclipEnvForWake(ctx: AdapterExecutionContext, wakePayload: Wak
     PAPERCLIP_RUN_ID: ctx.runId,
   };
 
+  if (ctx.agent.name) {
+    paperclipEnv.PAPERCLIP_AGENT_NAME = ctx.agent.name;
+  }
+
   if (paperclipApiUrlOverride) {
     paperclipEnv.PAPERCLIP_API_URL = paperclipApiUrlOverride;
   }
