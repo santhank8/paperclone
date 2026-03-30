@@ -1,17 +1,17 @@
 import pc from "picocolors";
 import { printClaudeStreamEvent } from "@paperclipai/adapter-claude-local/cli";
 
-export function printLocalLocalStreamEvent(raw: string, debug: boolean): void {
+export function printHybridStreamEvent(raw: string, debug: boolean): void {
   const line = raw.trim();
   if (!line) return;
 
-  // LM Studio log lines from our adapter
-  if (line.startsWith("[paperclip] LM Studio:")) {
-    console.log(pc.cyan(line));
+  // Hybrid adapter log lines (fallback notices, local model logs)
+  if (line.startsWith("[hybrid]")) {
+    console.log(pc.yellow(line));
     return;
   }
 
-  // Paperclip fallback / routing notices
+  // Legacy prefix
   if (line.startsWith("[paperclip]")) {
     console.log(pc.yellow(line));
     return;

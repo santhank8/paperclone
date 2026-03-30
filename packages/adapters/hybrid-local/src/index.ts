@@ -1,5 +1,5 @@
-export const type = "local_local";
-export const label = "Local (Claude + LM Studio)";
+export const type = "hybrid_local";
+export const label = "Hybrid (local)";
 
 export const models = [
   // Claude models (routed to Claude CLI)
@@ -8,7 +8,7 @@ export const models = [
   { id: "claude-haiku-4-6", label: "Claude Haiku 4.6" },
   { id: "claude-sonnet-4-5-20250929", label: "Claude Sonnet 4.5" },
   { id: "claude-haiku-4-5-20251001", label: "Claude Haiku 4.5" },
-  // Local models (routed to LM Studio via OpenAI-compatible API)
+  // Local models (routed to OpenAI-compatible endpoint)
   { id: "qwen/qwen3.5-9b", label: "Qwen 3.5 9B (Local)" },
   { id: "qwen/qwen3.5-35b-a3b", label: "Qwen 3.5 35B A3B (Local)" },
   { id: "qwen2.5-coder:32b", label: "Qwen 2.5 Coder 32B (Local)" },
@@ -21,21 +21,24 @@ export function isClaudeModel(model: string): boolean {
   return model.startsWith("claude-") || model.startsWith("claude/");
 }
 
-export const agentConfigurationDoc = `# local_local agent configuration
+export const agentConfigurationDoc = `# hybrid_local agent configuration
 
-Adapter: local_local
+Adapter: hybrid_local
 
-A unified adapter that routes between Claude Code CLI and local LM Studio models.
+A hybrid adapter that routes between Claude Code CLI and any OpenAI-compatible
+local inference server (LM Studio, Ollama, LiteLLM, vLLM, etc.).
+
 Select a Claude model to run via the Claude CLI, or a local model to run via
-LM Studio's OpenAI-compatible API. Supports automatic fallback from Claude to
-a local model when Claude quota is exhausted or login is required.
+the configured OpenAI-compatible endpoint. Supports bidirectional fallback:
+- Claude model fails (quota/auth) → falls back to local model
+- Local model fails (server down/GPU busy) → falls back to Claude model
 
 Core fields:
 - cwd (string, optional): default absolute working directory fallback for the agent process
 - instructionsFilePath (string, optional): absolute path to a markdown instructions file injected at runtime
-- model (string, required): model id — Claude models (claude-*) route to CLI, others route to LM Studio
-- fallbackModel (string, optional): local model to fall back to when Claude is unavailable (default: first loaded LM Studio model)
-- localBaseUrl (string, optional): LM Studio API base URL (default: http://127.0.0.1:1234/v1)
+- model (string, required): model id — Claude models (claude-*) route to CLI, others route to local endpoint
+- fallbackModel (string, optional): model to fall back to when the primary is unavailable; can be Claude or local
+- localBaseUrl (string, optional): OpenAI-compatible API base URL (default: http://127.0.0.1:1234/v1)
 - effort (string, optional): reasoning effort for Claude runs (low|medium|high)
 - chrome (boolean, optional): pass --chrome when running Claude
 - promptTemplate (string, optional): run prompt template
@@ -52,14 +55,21 @@ Operational fields:
 
 Routing:
 - model starts with "claude-" → Claude CLI
-- all other models → LM Studio at localBaseUrl
+- all other models → OpenAI-compatible endpoint at localBaseUrl
 
-Fallback:
-- If Claude returns auth error or quota exceeded, the adapter automatically
-  retries with the configured fallbackModel via LM Studio.
+Fallback (bidirectional):
+- Claude model + quota/auth error → retry with fallbackModel via local endpoint
+- Local model + connection/timeout error → retry with fallbackModel via Claude CLI
+- Set fallbackModel to "" to disable fallback (fail on error)
+
+Compatible local backends:
+- LM Studio (default, http://127.0.0.1:1234/v1)
+- Ollama (http://127.0.0.1:11434/v1)
+- LiteLLM proxy (http://127.0.0.1:4000/v1)
+- Any OpenAI-compatible server
 
 Notes:
 - Claude runs inherit all claude_local behavior (sessions, skills, quota).
-- LM Studio runs are stateless (no session resume).
-- LM Studio must be running locally with a model loaded for local model routing to work.
+- Local runs are stateless (no session resume).
+- The local endpoint must be running with a model loaded for local routing to work.
 `;

@@ -32,7 +32,7 @@ type AdvancedAdapterType =
   | "cursor"
   | "openclaw_gateway"
   | "hermes_local"
-  | "local_local";
+  | "hybrid_local";
 
 const ADVANCED_ADAPTER_OPTIONS: Array<{
   value: AdvancedAdapterType;
@@ -86,10 +86,10 @@ const ADVANCED_ADAPTER_OPTIONS: Array<{
     desc: "Local Cursor agent",
   },
   {
-    value: "local_local",
-    label: "Local (Claude + LM Studio)",
+    value: "hybrid_local",
+    label: "Hybrid (local)",
     icon: Sparkles,
-    desc: "Routes between Claude CLI and local LM Studio models",
+    desc: "Claude CLI + local OpenAI-compatible models",
   },
   {
     value: "openclaw_gateway",

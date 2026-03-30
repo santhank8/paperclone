@@ -2,26 +2,26 @@ import type { TranscriptEntry } from "@paperclipai/adapter-utils";
 import { parseClaudeStdoutLine } from "@paperclipai/adapter-claude-local/ui";
 
 /**
- * Parse stdout lines from both Claude CLI (JSON stream) and LM Studio
- * (plain text prefixed with [paperclip]).
+ * Parse stdout lines from both Claude CLI (JSON stream) and local
+ * OpenAI-compatible endpoints (plain text prefixed with [hybrid]).
  *
  * Claude stream JSON lines are handled by the Claude parser.
- * LM Studio log lines are passed through as stdout entries.
+ * Hybrid adapter log lines are passed through as system entries.
  */
-export function parseLocalLocalStdoutLine(line: string, ts: string): TranscriptEntry[] {
+export function parseHybridStdoutLine(line: string, ts: string): TranscriptEntry[] {
   const trimmed = line.trim();
   if (!trimmed) return [];
 
-  // LM Studio log lines from our adapter
-  if (trimmed.startsWith("[paperclip] LM Studio:")) {
+  // Hybrid adapter log lines
+  if (trimmed.startsWith("[hybrid]")) {
     return [{ kind: "system", ts, text: trimmed }];
   }
 
-  // Paperclip fallback notice
+  // Legacy prefix
   if (trimmed.startsWith("[paperclip]")) {
     return [{ kind: "system", ts, text: trimmed }];
   }
 
-  // Try parsing as Claude stream JSON
+  // Delegate to Claude stream JSON parser
   return parseClaudeStdoutLine(line, ts);
 }

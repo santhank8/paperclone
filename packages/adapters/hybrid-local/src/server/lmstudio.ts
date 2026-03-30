@@ -66,7 +66,7 @@ export async function executeLocalModel(opts: {
 }): Promise<LMStudioResult> {
   const url = `${opts.baseUrl}/chat/completions`;
 
-  await opts.onLog("stdout", `[paperclip] LM Studio: POST ${url} model=${opts.model}\n`);
+  await opts.onLog("stdout", `[hybrid] Local: POST ${url} model=${opts.model}\n`);
 
   const response = await fetchWithTimeout(
     url,
@@ -100,7 +100,7 @@ export async function executeLocalModel(opts: {
     cachedInputTokens: 0,
   };
 
-  await opts.onLog("stdout", `[paperclip] LM Studio: completed (${usage.inputTokens} in / ${usage.outputTokens} out)\n`);
+  await opts.onLog("stdout", `[hybrid] Local: completed (${usage.inputTokens} in / ${usage.outputTokens} out)\n`);
 
   return {
     summary: content,

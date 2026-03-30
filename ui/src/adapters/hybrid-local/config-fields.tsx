@@ -8,7 +8,7 @@ import {
 const inputClass =
   "w-full rounded-md border border-border px-2.5 py-1.5 bg-transparent outline-none text-sm font-mono placeholder:text-muted-foreground/40";
 
-export function LocalLocalConfigFields(props: AdapterConfigFieldsProps) {
+export function HybridLocalConfigFields(props: AdapterConfigFieldsProps) {
   const { isCreate, values, set, config, eff, mark } = props;
 
   return (
@@ -16,10 +16,9 @@ export function LocalLocalConfigFields(props: AdapterConfigFieldsProps) {
       {/* Reuse all Claude config fields (model, cwd, instructions, workspace, etc.) */}
       <ClaudeLocalConfigFields {...props} />
 
-      {/* LM Studio specific fields */}
       <Field
-        label="LM Studio Base URL"
-        hint="LM Studio OpenAI-compatible API endpoint. Local models are routed here."
+        label="Local endpoint URL"
+        hint="OpenAI-compatible API endpoint for local models (LM Studio, Ollama, LiteLLM, etc.)"
       >
         <DraftInput
           value={
@@ -43,8 +42,8 @@ export function LocalLocalConfigFields(props: AdapterConfigFieldsProps) {
       </Field>
 
       <Field
-        label="Fallback Model"
-        hint="Local model to use when Claude is unavailable (quota/auth). Leave empty for auto-detection."
+        label="Fallback model"
+        hint="Model to use when the primary is unavailable. Can be Claude (e.g. claude-haiku-4-6) or local. Leave empty to disable fallback."
       >
         <DraftInput
           value={
@@ -63,7 +62,7 @@ export function LocalLocalConfigFields(props: AdapterConfigFieldsProps) {
           }
           immediate
           className={inputClass}
-          placeholder="qwen/qwen3.5-9b"
+          placeholder="claude-haiku-4-6 or qwen/qwen3.5-9b"
         />
       </Field>
     </>

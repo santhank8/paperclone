@@ -25,9 +25,9 @@ function readNonEmptyString(value: unknown): string | null {
 }
 
 /**
- * Session codec for local_local:
+ * Session codec for hybrid_local:
  * - Claude model runs produce session state (session id, cwd, workspace info)
- * - LM Studio runs are stateless (clearSession: true), so no session to persist
+ * - Local model runs are stateless (clearSession: true), so no session to persist
  * - We delegate to Claude's session codec for deserialization/serialization
  */
 export const sessionCodec: AdapterSessionCodec = {

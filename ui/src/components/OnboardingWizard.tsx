@@ -69,7 +69,7 @@ type AdapterType =
   | "cursor"
   | "http"
   | "openclaw_gateway"
-  | "local_local";
+  | "hybrid_local";
 
 const DEFAULT_TASK_DESCRIPTION = `You are the CEO. You set the direction for the company.
 
@@ -215,7 +215,7 @@ export function OnboardingWizard() {
     adapterType === "opencode_local" ||
     adapterType === "pi_local" ||
     adapterType === "cursor" ||
-    adapterType === "local_local";
+    adapterType === "hybrid_local";
   const effectiveAdapterCommand =
     command.trim() ||
     (adapterType === "codex_local"
@@ -230,7 +230,7 @@ export function OnboardingWizard() {
       ? "agent"
       : adapterType === "opencode_local"
       ? "opencode"
-      : adapterType === "local_local"
+      : adapterType === "hybrid_local"
       ? "claude"
       : "claude");
 
@@ -859,10 +859,10 @@ export function OnboardingWizard() {
                             desc: "Local multi-provider agent"
                           },
                           {
-                            value: "local_local" as const,
-                            label: "Local (Claude + LM Studio)",
+                            value: "hybrid_local" as const,
+                            label: "Hybrid (local)",
                             icon: Sparkles,
-                            desc: "Routes between Claude CLI and local LM Studio"
+                            desc: "Claude CLI + local OpenAI-compatible models"
                           },
                           {
                             value: "openclaw_gateway" as const,

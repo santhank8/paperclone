@@ -46,9 +46,9 @@ importers:
       '@paperclipai/adapter-gemini-local':
         specifier: workspace:*
         version: link:../packages/adapters/gemini-local
-      '@paperclipai/adapter-local-local':
+      '@paperclipai/adapter-hybrid-local':
         specifier: workspace:*
-        version: link:../packages/adapters/local-local
+        version: link:../packages/adapters/hybrid-local
       '@paperclipai/adapter-openclaw-gateway':
         specifier: workspace:*
         version: link:../packages/adapters/openclaw-gateway
@@ -169,7 +169,7 @@ importers:
         specifier: ^5.7.3
         version: 5.9.3
 
-  packages/adapters/local-local:
+  packages/adapters/hybrid-local:
     dependencies:
       '@paperclipai/adapter-claude-local':
         specifier: workspace:*
@@ -474,9 +474,9 @@ importers:
       '@paperclipai/adapter-gemini-local':
         specifier: workspace:*
         version: link:../packages/adapters/gemini-local
-      '@paperclipai/adapter-local-local':
+      '@paperclipai/adapter-hybrid-local':
         specifier: workspace:*
-        version: link:../packages/adapters/local-local
+        version: link:../packages/adapters/hybrid-local
       '@paperclipai/adapter-openclaw-gateway':
         specifier: workspace:*
         version: link:../packages/adapters/openclaw-gateway
@@ -631,9 +631,9 @@ importers:
       '@paperclipai/adapter-gemini-local':
         specifier: workspace:*
         version: link:../packages/adapters/gemini-local
-      '@paperclipai/adapter-local-local':
+      '@paperclipai/adapter-hybrid-local':
         specifier: workspace:*
-        version: link:../packages/adapters/local-local
+        version: link:../packages/adapters/hybrid-local
       '@paperclipai/adapter-openclaw-gateway':
         specifier: workspace:*
         version: link:../packages/adapters/openclaw-gateway

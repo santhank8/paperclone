@@ -79,18 +79,18 @@ import {
   models as hermesModels,
 } from "hermes-paperclip-adapter";
 import {
-  execute as localLocalExecute,
-  listSkills as localLocalListSkills,
-  syncSkills as localLocalSyncSkills,
-  testEnvironment as localLocalTestEnvironment,
-  sessionCodec as localLocalSessionCodec,
-  getQuotaWindows as localLocalGetQuotaWindows,
+  execute as hybridExecute,
+  listSkills as hybridListSkills,
+  syncSkills as hybridSyncSkills,
+  testEnvironment as hybridTestEnvironment,
+  sessionCodec as hybridSessionCodec,
+  getQuotaWindows as hybridGetQuotaWindows,
   listLMStudioModels,
-} from "@paperclipai/adapter-local-local/server";
+} from "@paperclipai/adapter-hybrid-local/server";
 import {
-  agentConfigurationDoc as localLocalAgentConfigurationDoc,
-  models as localLocalModels,
-} from "@paperclipai/adapter-local-local";
+  agentConfigurationDoc as hybridAgentConfigurationDoc,
+  models as hybridModels,
+} from "@paperclipai/adapter-hybrid-local";
 import { processAdapter } from "./process/index.js";
 import { httpAdapter } from "./http/index.js";
 
@@ -200,22 +200,22 @@ const hermesLocalAdapter: ServerAdapterModule = {
   detectModel: () => detectModelFromHermes(),
 };
 
-const localLocalAdapter: ServerAdapterModule = {
-  type: "local_local",
-  execute: localLocalExecute,
-  testEnvironment: localLocalTestEnvironment,
-  listSkills: localLocalListSkills,
-  syncSkills: localLocalSyncSkills,
-  sessionCodec: localLocalSessionCodec,
-  sessionManagement: getAdapterSessionManagement("local_local") ?? undefined,
-  models: localLocalModels,
+const hybridLocalAdapter: ServerAdapterModule = {
+  type: "hybrid_local",
+  execute: hybridExecute,
+  testEnvironment: hybridTestEnvironment,
+  listSkills: hybridListSkills,
+  syncSkills: hybridSyncSkills,
+  sessionCodec: hybridSessionCodec,
+  sessionManagement: getAdapterSessionManagement("hybrid_local") ?? undefined,
+  models: hybridModels,
   listModels: async () => {
-    const lmStudioModels = await listLMStudioModels("http://127.0.0.1:1234/v1").catch(() => []);
-    return [...localLocalModels, ...lmStudioModels.filter((m) => !localLocalModels.some((s) => s.id === m.id))];
+    const localModels = await listLMStudioModels("http://127.0.0.1:1234/v1").catch(() => []);
+    return [...hybridModels, ...localModels.filter((m) => !hybridModels.some((s) => s.id === m.id))];
   },
   supportsLocalAgentJwt: true,
-  agentConfigurationDoc: localLocalAgentConfigurationDoc,
-  getQuotaWindows: localLocalGetQuotaWindows,
+  agentConfigurationDoc: hybridAgentConfigurationDoc,
+  getQuotaWindows: hybridGetQuotaWindows,
 };
 
 const adaptersByType = new Map<string, ServerAdapterModule>(
@@ -228,7 +228,7 @@ const adaptersByType = new Map<string, ServerAdapterModule>(
     geminiLocalAdapter,
     openclawGatewayAdapter,
     hermesLocalAdapter,
-    localLocalAdapter,
+    hybridLocalAdapter,
     processAdapter,
     httpAdapter,
   ].map((a) => [a.type, a]),

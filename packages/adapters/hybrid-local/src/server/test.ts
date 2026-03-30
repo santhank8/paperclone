@@ -116,7 +116,7 @@ export async function testEnvironment(
   }
 
   return {
-    adapterType: "local_local",
+    adapterType: "hybrid_local",
     status: summarizeStatus(checks),
     checks,
     testedAt: new Date().toISOString(),

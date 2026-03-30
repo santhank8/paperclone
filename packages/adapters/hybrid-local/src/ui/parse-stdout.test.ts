@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { parseLocalLocalStdoutLine } from "./parse-stdout.js";
+import { parseHybridStdoutLine } from "./parse-stdout.js";
 
-describe("parseLocalLocalStdoutLine", () => {
+describe("parseHybridStdoutLine", () => {
   const ts = "2026-03-30T12:00:00.000Z";
 
   it("parses LM Studio log lines as system entries", () => {
-    const entries = parseLocalLocalStdoutLine(
+    const entries = parseHybridStdoutLine(
       "[paperclip] LM Studio: POST http://127.0.0.1:1234/v1/chat/completions model=qwen/qwen3.5-9b",
       ts,
     );
@@ -17,7 +17,7 @@ describe("parseLocalLocalStdoutLine", () => {
   });
 
   it("parses paperclip fallback notices as system entries", () => {
-    const entries = parseLocalLocalStdoutLine(
+    const entries = parseHybridStdoutLine(
       "[paperclip] Claude unavailable (claude_auth_required). Falling back to local model: qwen/qwen3.5-9b",
       ts,
     );
@@ -35,7 +35,7 @@ describe("parseLocalLocalStdoutLine", () => {
       model: "claude-sonnet-4-6",
     });
 
-    const entries = parseLocalLocalStdoutLine(line, ts);
+    const entries = parseHybridStdoutLine(line, ts);
 
     expect(entries).toHaveLength(1);
     expect(entries[0].kind).toBe("init");
@@ -50,7 +50,7 @@ describe("parseLocalLocalStdoutLine", () => {
       },
     });
 
-    const entries = parseLocalLocalStdoutLine(line, ts);
+    const entries = parseHybridStdoutLine(line, ts);
 
     expect(entries).toHaveLength(1);
     expect(entries[0].kind).toBe("assistant");
@@ -65,14 +65,14 @@ describe("parseLocalLocalStdoutLine", () => {
       total_cost_usd: 0.005,
     });
 
-    const entries = parseLocalLocalStdoutLine(line, ts);
+    const entries = parseHybridStdoutLine(line, ts);
 
     expect(entries).toHaveLength(1);
     expect(entries[0].kind).toBe("result");
   });
 
   it("returns empty array for empty lines", () => {
-    expect(parseLocalLocalStdoutLine("", ts)).toEqual([]);
-    expect(parseLocalLocalStdoutLine("   ", ts)).toEqual([]);
+    expect(parseHybridStdoutLine("", ts)).toEqual([]);
+    expect(parseHybridStdoutLine("   ", ts)).toEqual([]);
   });
 });
