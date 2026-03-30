@@ -39,6 +39,7 @@ Core fields:
 - model (string, required): model id — Claude models (claude-*) route to CLI, others route to local endpoint
 - fallbackModel (string, optional): model to fall back to when the primary is unavailable; can be Claude or local
 - localBaseUrl (string, optional): OpenAI-compatible API base URL (default: http://127.0.0.1:1234/v1)
+- quotaThresholdPercent (number, optional): Claude quota usage percent at which to pre-emptively skip to local (default: 80, set to 0 to disable)
 - effort (string, optional): reasoning effort for Claude runs (low|medium|high)
 - chrome (boolean, optional): pass --chrome when running Claude
 - promptTemplate (string, optional): run prompt template

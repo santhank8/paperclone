@@ -36,24 +36,30 @@ function isLocalResourceError(error: unknown): boolean {
   );
 }
 
-const QUOTA_THRESHOLD_PERCENT = 80;
+const DEFAULT_QUOTA_THRESHOLD_PERCENT = 80;
 
 /**
  * Proactive Claude quota check. Returns true if any quota window exceeds
  * the threshold, meaning Claude is likely to reject the request.
+ * Threshold is configurable via adapterConfig.quotaThresholdPercent (default: 80).
+ * Set to 0 to disable proactive quota checking.
  */
-async function isClaudeQuotaNearExhausted(onLog: AdapterExecutionContext["onLog"]): Promise<boolean> {
+async function isClaudeQuotaNearExhausted(
+  threshold: number,
+  onLog: AdapterExecutionContext["onLog"],
+): Promise<boolean> {
+  if (threshold <= 0) return false;
   try {
     const quota = await getQuotaWindows();
     if (!quota.ok || quota.windows.length === 0) return false;
 
     const exhausted = quota.windows.find(
-      (w) => w.usedPercent != null && w.usedPercent >= QUOTA_THRESHOLD_PERCENT,
+      (w) => w.usedPercent != null && w.usedPercent >= threshold,
     );
     if (exhausted) {
       await onLog(
         "stdout",
-        `[hybrid] Claude quota pre-check: "${exhausted.label}" at ${exhausted.usedPercent}% (threshold: ${QUOTA_THRESHOLD_PERCENT}%)\n`,
+        `[hybrid] Claude quota pre-check: "${exhausted.label}" at ${exhausted.usedPercent}% (threshold: ${threshold}%)\n`,
       );
       return true;
     }
@@ -117,12 +123,14 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     };
   }
 
+  const quotaThreshold = asNumber(config.quotaThresholdPercent, DEFAULT_QUOTA_THRESHOLD_PERCENT);
+
   if (isClaudeModel(model)) {
     const effectiveFallback = fallbackModel || firstLocalModelId();
 
     // Pre-check: is Claude quota near exhausted? Skip straight to local.
     if (effectiveFallback) {
-      const nearExhausted = await isClaudeQuotaNearExhausted(onLog);
+      const nearExhausted = await isClaudeQuotaNearExhausted(quotaThreshold, onLog);
       if (nearExhausted) {
         await onLog(
           "stdout",
@@ -137,7 +145,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
           fallbackTriggered: true,
           fallbackReason: "claude_quota_precheck",
           preCheckSkipped: true,
-          preCheckReason: `Claude quota >= ${QUOTA_THRESHOLD_PERCENT}%`,
+          preCheckReason: `Claude quota >= ${quotaThreshold}%`,
         });
       }
     }

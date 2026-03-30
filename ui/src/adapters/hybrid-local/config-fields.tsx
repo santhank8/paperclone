@@ -49,6 +49,31 @@ export function HybridLocalConfigFields(props: AdapterConfigFieldsProps) {
       </Field>
 
       <Field
+        label="Quota threshold %"
+        hint="Skip Claude and use local when Claude quota exceeds this %. Default: 80. Set to 0 to disable."
+      >
+        <input
+          type="number"
+          min={0}
+          max={100}
+          className={inputClass}
+          value={
+            isCreate
+              ? 80
+              : eff("adapterConfig", "quotaThresholdPercent", Number(config.quotaThresholdPercent ?? 80))
+          }
+          onChange={(e) => {
+            const v = Number(e.target.value);
+            if (isCreate) {
+              set?.({});
+            } else {
+              mark("adapterConfig", "quotaThresholdPercent", v);
+            }
+          }}
+        />
+      </Field>
+
+      <Field
         label="Fallback model"
         hint="Model to use when the primary is unavailable. Claude → local fallback, or local → Claude fallback. Leave as 'None' to disable."
       >
