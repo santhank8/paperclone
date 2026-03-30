@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { issuesApi } from "../api/issues";
 import { heartbeatsApi, type FailedRunForIssue } from "../api/heartbeats";
@@ -12,6 +12,11 @@ import { PriorityIcon } from "../components/PriorityIcon";
 import { EntityRow } from "../components/EntityRow";
 import { EmptyState } from "../components/EmptyState";
 import { PageSkeleton } from "../components/PageSkeleton";
+import {
+  Collapsible,
+  CollapsibleTrigger,
+  CollapsibleContent,
+} from "../components/ui/collapsible";
 import { formatDate } from "../lib/utils";
 import type { Issue, Approval } from "@paperclipai/shared";
 import {
@@ -21,40 +26,68 @@ import {
   CircleDot,
   Clock,
   Play,
+  ChevronRight,
 } from "lucide-react";
 
-function SectionHeader({
+function CollapsibleSection({
   icon: Icon,
   label,
   count,
   tone = "default",
+  defaultOpen = true,
+  children,
+  emptyMessage,
 }: {
   icon: typeof Briefcase;
   label: string;
   count: number;
   tone?: "default" | "danger" | "warning";
+  defaultOpen?: boolean;
+  children: React.ReactNode;
+  emptyMessage?: string;
 }) {
+  const [open, setOpen] = useState(defaultOpen);
   const toneClasses = {
     default: "text-muted-foreground",
     danger: "text-destructive",
     warning: "text-amber-500",
   };
+
   return (
-    <div className="flex items-center gap-2 mb-2">
-      <Icon className={`h-4 w-4 ${toneClasses[tone]}`} />
-      <h2 className="text-sm font-semibold text-foreground">{label}</h2>
-      <span
-        className={`text-xs font-mono px-1.5 py-0.5 rounded-md ${
-          tone === "danger"
-            ? "bg-destructive/10 text-destructive"
-            : tone === "warning"
-              ? "bg-amber-500/10 text-amber-500"
-              : "bg-muted text-muted-foreground"
-        }`}
-      >
-        {count}
-      </span>
-    </div>
+    <Collapsible open={open} onOpenChange={setOpen}>
+      <CollapsibleTrigger asChild>
+        <button
+          type="button"
+          className="flex w-full items-center gap-2 mb-2 group cursor-pointer select-none"
+        >
+          <ChevronRight
+            className={`h-3.5 w-3.5 text-muted-foreground transition-transform duration-150 ${open ? "rotate-90" : ""}`}
+          />
+          <Icon className={`h-4 w-4 ${toneClasses[tone]}`} />
+          <h2 className="text-sm font-semibold text-foreground">{label}</h2>
+          <span
+            className={`text-xs font-mono px-1.5 py-0.5 rounded-md ${
+              tone === "danger"
+                ? "bg-destructive/10 text-destructive"
+                : tone === "warning"
+                  ? "bg-amber-500/10 text-amber-500"
+                  : "bg-muted text-muted-foreground"
+            }`}
+          >
+            {count}
+          </span>
+        </button>
+      </CollapsibleTrigger>
+      <CollapsibleContent>
+        {count === 0 && emptyMessage ? (
+          <p className="text-sm text-muted-foreground pl-6">{emptyMessage}</p>
+        ) : (
+          <div className="border border-border rounded-lg overflow-hidden">
+            {children}
+          </div>
+        )}
+      </CollapsibleContent>
+    </Collapsible>
   );
 }
 
@@ -124,14 +157,6 @@ function ApprovalRow({ approval }: { approval: Approval }) {
         </span>
       }
     />
-  );
-}
-
-function SectionCard({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="border border-border rounded-lg overflow-hidden">
-      {children}
-    </div>
   );
 }
 
@@ -220,79 +245,58 @@ export function MyWork() {
         )}
       </div>
 
-      {/* Failed Runs — always show first when present */}
+      {/* Failed Runs — collapsed by default when >5 items */}
       {failed.length > 0 && (
-        <section>
-          <SectionHeader
-            icon={AlertTriangle}
-            label="Failed Runs"
-            count={failed.length}
-            tone="danger"
-          />
-          <SectionCard>
-            {failed.map((run) => (
-              <FailedRunRow key={run.id} run={run} />
-            ))}
-          </SectionCard>
-        </section>
+        <CollapsibleSection
+          icon={AlertTriangle}
+          label="Failed Runs"
+          count={failed.length}
+          tone="danger"
+          defaultOpen={failed.length <= 5}
+        >
+          {failed.map((run) => (
+            <FailedRunRow key={run.id} run={run} />
+          ))}
+        </CollapsibleSection>
       )}
 
       {/* Pending Approvals */}
       {approvals.length > 0 && (
-        <section>
-          <SectionHeader
-            icon={ShieldCheck}
-            label="Pending Approvals"
-            count={approvals.length}
-            tone="warning"
-          />
-          <SectionCard>
-            {approvals.map((approval) => (
-              <ApprovalRow key={approval.id} approval={approval} />
-            ))}
-          </SectionCard>
-        </section>
+        <CollapsibleSection
+          icon={ShieldCheck}
+          label="Pending Approvals"
+          count={approvals.length}
+          tone="warning"
+        >
+          {approvals.map((approval) => (
+            <ApprovalRow key={approval.id} approval={approval} />
+          ))}
+        </CollapsibleSection>
       )}
 
       {/* Assigned Issues */}
-      <section>
-        <SectionHeader
-          icon={CircleDot}
-          label="Assigned to Me"
-          count={assignedIssues.length}
-        />
-        {assignedIssues.length === 0 ? (
-          <p className="text-sm text-muted-foreground pl-6">
-            No issues assigned to you.
-          </p>
-        ) : (
-          <SectionCard>
-            {assignedIssues.map((issue) => (
-              <IssueRow key={issue.id} issue={issue} />
-            ))}
-          </SectionCard>
-        )}
-      </section>
+      <CollapsibleSection
+        icon={CircleDot}
+        label="Assigned to Me"
+        count={assignedIssues.length}
+        emptyMessage="No issues assigned to you."
+      >
+        {assignedIssues.map((issue) => (
+          <IssueRow key={issue.id} issue={issue} />
+        ))}
+      </CollapsibleSection>
 
       {/* Recently Touched */}
-      <section>
-        <SectionHeader
-          icon={Clock}
-          label="Recently Touched"
-          count={recentlyTouched.length}
-        />
-        {recentlyTouched.length === 0 ? (
-          <p className="text-sm text-muted-foreground pl-6">
-            No recently touched issues.
-          </p>
-        ) : (
-          <SectionCard>
-            {recentlyTouched.map((issue) => (
-              <IssueRow key={issue.id} issue={issue} />
-            ))}
-          </SectionCard>
-        )}
-      </section>
+      <CollapsibleSection
+        icon={Clock}
+        label="Recently Touched"
+        count={recentlyTouched.length}
+        emptyMessage="No recently touched issues."
+      >
+        {recentlyTouched.map((issue) => (
+          <IssueRow key={issue.id} issue={issue} />
+        ))}
+      </CollapsibleSection>
 
       {totalItems === 0 && (
         <EmptyState
