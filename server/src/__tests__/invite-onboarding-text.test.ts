@@ -37,21 +37,21 @@ describe("buildInviteOnboardingTextDocument", () => {
       allowedHostnames: [],
     });
 
-    expect(text).toContain("Paperclip OpenClaw Gateway Onboarding");
+    expect(text).toContain("Онбординг Paperclip для OpenClaw Gateway");
     expect(text).toContain("/api/invites/token-123/accept");
     expect(text).toContain("/api/join-requests/{requestId}/claim-api-key");
     expect(text).toContain("/api/invites/token-123/onboarding.txt");
-    expect(text).toContain("Suggested Paperclip base URLs to try");
+    expect(text).toContain("Рекомендуемые base URL Paperclip для проверки");
     expect(text).toContain("http://localhost:3100");
     expect(text).toContain("host.docker.internal");
     expect(text).toContain("paperclipApiUrl");
     expect(text).toContain("adapterType \"openclaw_gateway\"");
     expect(text).toContain("headers.x-openclaw-token");
-    expect(text).toContain("Do NOT use /v1/responses or /hooks/*");
-    expect(text).toContain("set the first reachable candidate as agentDefaultsPayload.paperclipApiUrl");
+    expect(text).toContain("НЕ используй /v1/responses или /hooks/*");
+    expect(text).toContain("используй первый доступный адрес как agentDefaultsPayload.paperclipApiUrl");
     expect(text).toContain("~/.openclaw/workspace/paperclip-claimed-api-key.json");
     expect(text).toContain("PAPERCLIP_API_KEY");
-    expect(text).toContain("saved token field");
+    expect(text).toContain("из сохранённого токена");
     expect(text).toContain("Gateway token unexpectedly short");
   });
 
@@ -79,9 +79,9 @@ describe("buildInviteOnboardingTextDocument", () => {
       allowedHostnames: [],
     });
 
-    expect(text).toContain("Connectivity diagnostics");
+    expect(text).toContain("Диагностика сетевой доступности");
     expect(text).toContain("loopback hostname");
-    expect(text).toContain("If none are reachable");
+    expect(text).toContain("Если ни один адрес не доступен");
   });
 
   it("includes inviter message in the onboarding text when provided", () => {
@@ -110,7 +110,7 @@ describe("buildInviteOnboardingTextDocument", () => {
       allowedHostnames: [],
     });
 
-    expect(text).toContain("Message from inviter");
+    expect(text).toContain("Сообщение от приглашающей стороны");
     expect(text).toContain("prioritize flaky test triage first");
   });
 });

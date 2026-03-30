@@ -22,6 +22,7 @@ import {
 import { cn } from "@/lib/utils";
 import { OpenCodeLogoIcon } from "./OpenCodeLogoIcon";
 import { HermesIcon } from "./HermesIcon";
+import { useI18n } from "../context/I18nContext";
 
 type AdvancedAdapterType =
   | "claude_local"
@@ -93,6 +94,7 @@ const ADVANCED_ADAPTER_OPTIONS: Array<{
 ];
 
 export function NewAgentDialog() {
+  const { translateText } = useI18n();
   const { newAgentOpen, closeNewAgent, openNewIssue } = useDialog();
   const { selectedCompanyId } = useCompany();
   const navigate = useNavigate();
@@ -110,8 +112,8 @@ export function NewAgentDialog() {
     closeNewAgent();
     openNewIssue({
       assigneeAgentId: ceoAgent?.id,
-      title: "Create a new agent",
-      description: "(type in what kind of agent you want here)",
+      title: translateText("Create a new agent"),
+      description: translateText("(type in what kind of agent you want here)"),
     });
   }
 
@@ -141,7 +143,7 @@ export function NewAgentDialog() {
       >
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-2.5 border-b border-border">
-          <span className="text-sm text-muted-foreground">Add a new agent</span>
+          <span className="text-sm text-muted-foreground">{translateText("Add a new agent")}</span>
           <Button
             variant="ghost"
             size="icon-xs"
@@ -164,15 +166,13 @@ export function NewAgentDialog() {
                   <Sparkles className="h-6 w-6 text-foreground" />
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  We recommend letting your CEO handle agent setup — they know the
-                  org structure and can configure reporting, permissions, and
-                  adapters.
+                  {translateText("We recommend letting your CEO handle agent setup — they know the org structure and can configure reporting, permissions, and adapters.")}
                 </p>
               </div>
 
               <Button className="w-full" size="lg" onClick={handleAskCeo}>
                 <Bot className="h-4 w-4 mr-2" />
-                Ask the CEO to create a new agent
+                {translateText("Ask the CEO to create a new agent")}
               </Button>
 
               {/* Advanced link */}
@@ -181,7 +181,7 @@ export function NewAgentDialog() {
                   className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2 transition-colors"
                   onClick={handleAdvancedConfig}
                 >
-                  I want advanced configuration myself
+                  {translateText("I want advanced configuration myself")}
                 </button>
               </div>
             </>
@@ -193,10 +193,10 @@ export function NewAgentDialog() {
                   onClick={() => setShowAdvancedCards(false)}
                 >
                   <ArrowLeft className="h-3.5 w-3.5" />
-                  Back
+                  {translateText("Back")}
                 </button>
                 <p className="text-sm text-muted-foreground">
-                  Choose your adapter type for advanced setup.
+                  {translateText("Choose your adapter type for advanced setup.")}
                 </p>
               </div>
 
@@ -211,13 +211,13 @@ export function NewAgentDialog() {
                   >
                     {opt.recommended && (
                       <span className="absolute -top-1.5 right-1.5 bg-green-500 text-white text-[9px] font-semibold px-1.5 py-0.5 rounded-full leading-none">
-                        Recommended
+                        {translateText("Recommended")}
                       </span>
                     )}
                     <opt.icon className="h-4 w-4" />
                     <span className="font-medium">{opt.label}</span>
                     <span className="text-muted-foreground text-[10px]">
-                      {opt.desc}
+                      {translateText(opt.desc)}
                     </span>
                   </button>
                 ))}

@@ -12,8 +12,10 @@ import { PageSkeleton } from "../components/PageSkeleton";
 import { formatDate, projectUrl } from "../lib/utils";
 import { Button } from "@/components/ui/button";
 import { Hexagon, Plus } from "lucide-react";
+import { useI18n } from "../context/I18nContext";
 
 export function Projects() {
+  const { translateText } = useI18n();
   const { selectedCompanyId } = useCompany();
   const { openNewProject } = useDialog();
   const { setBreadcrumbs } = useBreadcrumbs();
@@ -33,7 +35,7 @@ export function Projects() {
   );
 
   if (!selectedCompanyId) {
-    return <EmptyState icon={Hexagon} message="Select a company to view projects." />;
+    return <EmptyState icon={Hexagon} message={translateText("Select a company to view projects.")} />;
   }
 
   if (isLoading) {
@@ -45,7 +47,7 @@ export function Projects() {
       <div className="flex items-center justify-end">
         <Button size="sm" variant="outline" onClick={openNewProject}>
           <Plus className="h-4 w-4 mr-1" />
-          Add Project
+          {translateText("Add Project")}
         </Button>
       </div>
 
@@ -54,8 +56,8 @@ export function Projects() {
       {!isLoading && projects.length === 0 && (
         <EmptyState
           icon={Hexagon}
-          message="No projects yet."
-          action="Add Project"
+          message={translateText("No projects yet.")}
+          action={translateText("Add Project")}
           onAction={openNewProject}
         />
       )}

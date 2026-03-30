@@ -57,6 +57,7 @@ import {
   X
 } from "lucide-react";
 import { HermesIcon } from "./HermesIcon";
+import { useI18n } from "../context/I18nContext";
 
 type Step = 1 | 2 | 3 | 4;
 type AdapterType =
@@ -70,13 +71,20 @@ type AdapterType =
   | "http"
   | "openclaw_gateway";
 
-const DEFAULT_TASK_DESCRIPTION = `You are the CEO. You set the direction for the company.
+const DEFAULT_TASK_DESCRIPTION_EN = `You are the CEO. You set the direction for the company.
 
 - hire a founding engineer
 - write a hiring plan
 - break the roadmap into concrete tasks and start delegating work`;
 
+const DEFAULT_TASK_DESCRIPTION_RU = `Ты CEO компании. Ты задаёшь направление её развитию.
+
+- найми первого инженера
+- составь план найма
+- разбей дорожную карту на конкретные задачи и начни делегировать работу`;
+
 export function OnboardingWizard() {
+  const { locale, translateText } = useI18n();
   const { onboardingOpen, onboardingOptions, closeOnboarding } = useDialog();
   const { companies, setSelectedCompanyId, loading: companiesLoading } = useCompany();
   const queryClient = useQueryClient();
@@ -130,10 +138,12 @@ export function OnboardingWizard() {
 
   // Step 3
   const [taskTitle, setTaskTitle] = useState(
-    "Hire your first engineer and create a hiring plan"
+    locale === "ru"
+      ? "Найми первого инженера и составь план найма"
+      : "Hire your first engineer and create a hiring plan"
   );
   const [taskDescription, setTaskDescription] = useState(
-    DEFAULT_TASK_DESCRIPTION
+    locale === "ru" ? DEFAULT_TASK_DESCRIPTION_RU : DEFAULT_TASK_DESCRIPTION_EN
   );
 
   // Auto-grow textarea for task description
@@ -299,8 +309,12 @@ export function OnboardingWizard() {
     setAdapterEnvLoading(false);
     setForceUnsetAnthropicApiKey(false);
     setUnsetAnthropicLoading(false);
-    setTaskTitle("Hire your first engineer and create a hiring plan");
-    setTaskDescription(DEFAULT_TASK_DESCRIPTION);
+    setTaskTitle(
+      locale === "ru"
+        ? "Найми первого инженера и составь план найма"
+        : "Hire your first engineer and create a hiring plan"
+    );
+    setTaskDescription(locale === "ru" ? DEFAULT_TASK_DESCRIPTION_RU : DEFAULT_TASK_DESCRIPTION_EN);
     setCreatedCompanyId(null);
     setCreatedCompanyPrefix(null);
     setCreatedCompanyGoalId(null);
@@ -650,10 +664,10 @@ export function OnboardingWizard() {
               <div className="flex items-center gap-0 mb-8 border-b border-border">
                 {(
                   [
-                    { step: 1 as Step, label: "Company", icon: Building2 },
-                    { step: 2 as Step, label: "Agent", icon: Bot },
-                    { step: 3 as Step, label: "Task", icon: ListTodo },
-                    { step: 4 as Step, label: "Launch", icon: Rocket }
+                    { step: 1 as Step, label: locale === "ru" ? "Компания" : "Company", icon: Building2 },
+                    { step: 2 as Step, label: locale === "ru" ? "Агент" : "Agent", icon: Bot },
+                    { step: 3 as Step, label: locale === "ru" ? "Задача" : "Task", icon: ListTodo },
+                    { step: 4 as Step, label: locale === "ru" ? "Запуск" : "Launch", icon: Rocket }
                   ] as const
                 ).map(({ step: s, label, icon: Icon }) => (
                   <button
@@ -681,9 +695,11 @@ export function OnboardingWizard() {
                       <Building2 className="h-5 w-5 text-muted-foreground" />
                     </div>
                     <div>
-                      <h3 className="font-medium">Name your company</h3>
+                      <h3 className="font-medium">{locale === "ru" ? "Назовите компанию" : "Name your company"}</h3>
                       <p className="text-xs text-muted-foreground">
-                        This is the organization your agents will work for.
+                        {locale === "ru"
+                          ? "Это организация, в которой будут работать ваши агенты."
+                          : "This is the organization your agents will work for."}
                       </p>
                     </div>
                   </div>
@@ -696,7 +712,7 @@ export function OnboardingWizard() {
                           : "text-muted-foreground group-focus-within:text-foreground"
                       )}
                     >
-                      Company name
+                      {translateText("Company name")}
                     </label>
                     <input
                       className="w-full rounded-md border border-border bg-transparent px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/50"
@@ -715,11 +731,11 @@ export function OnboardingWizard() {
                           : "text-muted-foreground group-focus-within:text-foreground"
                       )}
                     >
-                      Mission / goal (optional)
+                      {locale === "ru" ? "Миссия / цель (необязательно)" : "Mission / goal (optional)"}
                     </label>
                     <textarea
                       className="w-full rounded-md border border-border bg-transparent px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/50 resize-none min-h-[60px]"
-                      placeholder="What is this company trying to achieve?"
+                      placeholder={locale === "ru" ? "Чего должна достичь эта компания?" : "What is this company trying to achieve?"}
                       value={companyGoal}
                       onChange={(e) => setCompanyGoal(e.target.value)}
                     />
@@ -734,15 +750,15 @@ export function OnboardingWizard() {
                       <Bot className="h-5 w-5 text-muted-foreground" />
                     </div>
                     <div>
-                      <h3 className="font-medium">Create your first agent</h3>
+                      <h3 className="font-medium">{locale === "ru" ? "Создайте первого агента" : "Create your first agent"}</h3>
                       <p className="text-xs text-muted-foreground">
-                        Choose how this agent will run tasks.
+                        {locale === "ru" ? "Выберите, как этот агент будет выполнять задачи." : "Choose how this agent will run tasks."}
                       </p>
                     </div>
                   </div>
                   <div>
                     <label className="text-xs text-muted-foreground mb-1 block">
-                      Agent name
+                      {locale === "ru" ? "Имя агента" : "Agent name"}
                     </label>
                     <input
                       className="w-full rounded-md border border-border bg-transparent px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/50"
@@ -1175,11 +1191,11 @@ export function OnboardingWizard() {
                   </div>
                   <div>
                     <label className="text-xs text-muted-foreground mb-1 block">
-                      Task title
+                      {locale === "ru" ? "Название задачи" : "Task title"}
                     </label>
                     <input
                       className="w-full rounded-md border border-border bg-transparent px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/50"
-                      placeholder="e.g. Research competitor pricing"
+                      placeholder={locale === "ru" ? "Например: Исследовать цены конкурентов" : "e.g. Research competitor pricing"}
                       value={taskTitle}
                       onChange={(e) => setTaskTitle(e.target.value)}
                       autoFocus
@@ -1187,12 +1203,12 @@ export function OnboardingWizard() {
                   </div>
                   <div>
                     <label className="text-xs text-muted-foreground mb-1 block">
-                      Description (optional)
+                      {locale === "ru" ? "Описание (необязательно)" : "Description (optional)"}
                     </label>
                     <textarea
                       ref={textareaRef}
                       className="w-full rounded-md border border-border bg-transparent px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/50 resize-none min-h-[120px] max-h-[300px] overflow-y-auto"
-                      placeholder="Add more detail about what the agent should do..."
+                      placeholder={locale === "ru" ? "Добавьте больше деталей о том, что должен сделать агент..." : "Add more detail about what the agent should do..."}
                       value={taskDescription}
                       onChange={(e) => setTaskDescription(e.target.value)}
                     />
@@ -1207,10 +1223,11 @@ export function OnboardingWizard() {
                       <Rocket className="h-5 w-5 text-muted-foreground" />
                     </div>
                     <div>
-                      <h3 className="font-medium">Ready to launch</h3>
+                      <h3 className="font-medium">{locale === "ru" ? "Готово к запуску" : "Ready to launch"}</h3>
                       <p className="text-xs text-muted-foreground">
-                        Everything is set up. Launching now will create the
-                        starter task, wake the agent, and open the issue.
+                        {locale === "ru"
+                          ? "Всё настроено. Запуск сейчас создаст стартовую задачу, разбудит агента и откроет issue."
+                          : "Everything is set up. Launching now will create the starter task, wake the agent, and open the issue."}
                       </p>
                     </div>
                   </div>
@@ -1221,7 +1238,7 @@ export function OnboardingWizard() {
                         <p className="text-sm font-medium truncate">
                           {companyName}
                         </p>
-                        <p className="text-xs text-muted-foreground">Company</p>
+                        <p className="text-xs text-muted-foreground">{locale === "ru" ? "Компания" : "Company"}</p>
                       </div>
                       <Check className="h-4 w-4 text-green-500 shrink-0" />
                     </div>
@@ -1243,7 +1260,7 @@ export function OnboardingWizard() {
                         <p className="text-sm font-medium truncate">
                           {taskTitle}
                         </p>
-                        <p className="text-xs text-muted-foreground">Task</p>
+                        <p className="text-xs text-muted-foreground">{locale === "ru" ? "Задача" : "Task"}</p>
                       </div>
                       <Check className="h-4 w-4 text-green-500 shrink-0" />
                     </div>
@@ -1254,7 +1271,7 @@ export function OnboardingWizard() {
               {/* Error */}
               {error && (
                 <div className="mt-3">
-                  <p className="text-xs text-destructive">{error}</p>
+                  <p className="text-xs text-destructive">{translateText(error)}</p>
                 </div>
               )}
 
@@ -1269,7 +1286,7 @@ export function OnboardingWizard() {
                       disabled={loading}
                     >
                       <ArrowLeft className="h-3.5 w-3.5 mr-1" />
-                      Back
+                      {locale === "ru" ? "Назад" : "Back"}
                     </Button>
                   )}
                 </div>
@@ -1285,7 +1302,7 @@ export function OnboardingWizard() {
                       ) : (
                         <ArrowRight className="h-3.5 w-3.5 mr-1" />
                       )}
-                      {loading ? "Creating..." : "Next"}
+                      {loading ? (locale === "ru" ? "Создаю..." : "Creating...") : (locale === "ru" ? "Далее" : "Next")}
                     </Button>
                   )}
                   {step === 2 && (
@@ -1301,7 +1318,7 @@ export function OnboardingWizard() {
                       ) : (
                         <ArrowRight className="h-3.5 w-3.5 mr-1" />
                       )}
-                      {loading ? "Creating..." : "Next"}
+                      {loading ? (locale === "ru" ? "Создаю..." : "Creating...") : (locale === "ru" ? "Далее" : "Next")}
                     </Button>
                   )}
                   {step === 3 && (
@@ -1315,7 +1332,7 @@ export function OnboardingWizard() {
                       ) : (
                         <ArrowRight className="h-3.5 w-3.5 mr-1" />
                       )}
-                      {loading ? "Creating..." : "Next"}
+                      {loading ? (locale === "ru" ? "Создаю..." : "Creating...") : (locale === "ru" ? "Далее" : "Next")}
                     </Button>
                   )}
                   {step === 4 && (
@@ -1325,7 +1342,9 @@ export function OnboardingWizard() {
                       ) : (
                         <ArrowRight className="h-3.5 w-3.5 mr-1" />
                       )}
-                      {loading ? "Creating..." : "Create & Open Issue"}
+                      {loading
+                        ? (locale === "ru" ? "Создаю..." : "Creating...")
+                        : (locale === "ru" ? "Создать и открыть issue" : "Create & Open Issue")}
                     </Button>
                   )}
                 </div>

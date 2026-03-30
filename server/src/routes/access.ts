@@ -1123,11 +1123,11 @@ export function buildInviteOnboardingTextDocument(
   };
 
   appendBlock(`
-    # Paperclip OpenClaw Gateway Onboarding
+    # Онбординг Paperclip для OpenClaw Gateway
 
-    This document is meant to be readable by both humans and agents.
+    Этот документ должен быть понятен и человеку, и агенту.
 
-    ## Invite
+    ## Приглашение
     - inviteType: ${invite.inviteType}
     - allowedJoinTypes: ${invite.allowedJoinTypes}
     - expiresAt: ${invite.expiresAt.toISOString()}
@@ -1135,28 +1135,28 @@ export function buildInviteOnboardingTextDocument(
 
   if (onboarding.inviteMessage) {
     appendBlock(`
-      ## Message from inviter
+      ## Сообщение от приглашающей стороны
       ${onboarding.inviteMessage}
     `);
   }
 
   appendBlock(`
-    ## Step 0
+    ## Шаг 0
 
-    Get the OpenClaw gateway auth token (THIS MUST BE SENT)
-    Token lives in:
+    Получи auth token OpenClaw gateway (ЕГО НУЖНО ОБЯЗАТЕЛЬНО ПЕРЕДАТЬ)
+    Токен хранится здесь:
 
     ~/.openclaw/openclaw.json -> gateway.auth.token
-    Extract:
+    Извлеки его:
 
     TOKEN="$(node -p 'require(process.env.HOME+\"/.openclaw/openclaw.json\").gateway.auth.token')"
     test -n "$TOKEN" || (echo "Missing TOKEN" && exit 1)
     test "\${#TOKEN}" -ge 16 || (echo "Gateway token unexpectedly short (\${#TOKEN})" && exit 1)
 
-    3) IMPORTANT: Don't accidentally drop the token when generating JSON
-    If you build JSON with Node, pass the token explicitly (argv), don't rely on an un-exported env var.
+    3) ВАЖНО: не потеряй токен при генерации JSON
+    Если собираешь JSON через Node, передавай токен явно (argv), а не надейся на неэкспортированную env-переменную.
 
-    Safe payload build looks sort of like this (substitute where necessary):
+    Безопасная сборка payload выглядит примерно так (замени значения там, где нужно):
 
     BODY="$(node -e '
       const token = process.argv[1];
@@ -1179,21 +1179,21 @@ export function buildInviteOnboardingTextDocument(
       process.stdout.write(JSON.stringify(body));
     ' "$TOKEN")"
 
-    ## Step 1: Submit agent join request
+    ## Шаг 1: Отправь join request агента
     ${onboarding.registrationEndpoint.method} ${
     onboarding.registrationEndpoint.url
   }
 
-    IMPORTANT: You MUST include agentDefaultsPayload.headers.x-openclaw-token with your gateway token.
-    Legacy x-openclaw-auth is also accepted, but x-openclaw-token is preferred.
-    Use adapterType "openclaw_gateway" and a ws:// or wss:// gateway URL.
-    Pairing mode requirement:
-    - Keep device auth enabled (recommended). If devicePrivateKeyPem is omitted, Paperclip generates and persists one during join so pairing approvals are stable.
-    - You may set disableDeviceAuth=true only for special environments that cannot support pairing.
-    - First run may return "pairing required" once; approve the pending pairing request in OpenClaw, then retry.
-    Do NOT use /v1/responses or /hooks/* in this gateway join flow.
+    ВАЖНО: ты ОБЯЗАН включить agentDefaultsPayload.headers.x-openclaw-token с токеном gateway.
+    Устаревший x-openclaw-auth тоже принимается, но x-openclaw-token предпочтительнее.
+    Используй adapterType "openclaw_gateway" и ws:// или wss:// gateway URL.
+    Требования для pairing mode:
+    - Оставляй device auth включённым (рекомендуется). Если devicePrivateKeyPem не передан, Paperclip сгенерирует и сохранит его во время join, чтобы pairing approvals были стабильными.
+    - Устанавливай disableDeviceAuth=true только в специальных окружениях, где pairing нельзя использовать.
+    - На первом запуске может один раз вернуться "pairing required"; одобри ожидающий pairing request в OpenClaw и повтори попытку.
+    НЕ используй /v1/responses или /hooks/* в этом gateway join flow.
 
-    Body (JSON):
+    Тело запроса (JSON):
     {
       "requestType": "agent",
       "agentName": "My OpenClaw Agent",
@@ -1210,33 +1210,33 @@ export function buildInviteOnboardingTextDocument(
       }
     }
 
-    Expected response includes:
+    Ожидаемый ответ включает:
     - request id
-    - one-time claimSecret
+    - одноразовый claimSecret
     - claimApiKeyPath
 
-    ## Step 2: Wait for board approval
-    The board approves the join request in Paperclip before key claim is allowed.
+    ## Шаг 2: Дождись одобрения board
+    Board должен одобрить join request в Paperclip до того, как можно будет забрать ключ.
 
-    ## Step 3: Claim API key (one-time)
+    ## Шаг 3: Забери API key (одноразово)
     ${
       onboarding.claimEndpointTemplate.method
     } /api/join-requests/{requestId}/claim-api-key
 
-    Body (JSON):
+    Тело запроса (JSON):
     {
       "claimSecret": "<one-time-claim-secret>"
     }
 
-    On successful claim, save the full JSON response to:
+    После успешного claim сохрани полный JSON-ответ сюда:
 
     - ~/.openclaw/workspace/paperclip-claimed-api-key.json
     chmod 600 ~/.openclaw/workspace/paperclip-claimed-api-key.json
 
-    And set the PAPERCLIP_API_KEY and PAPERCLIP_API_URL in your environment variables as specified here:
+    Затем выставь PAPERCLIP_API_KEY и PAPERCLIP_API_URL в переменных окружения, как описано здесь:
     https://docs.openclaw.ai/help/environment
 
-    e.g. 
+    Например:
 
     {
       env: {
@@ -1245,26 +1245,26 @@ export function buildInviteOnboardingTextDocument(
       },
     }
 
-    Then set PAPERCLIP_API_KEY and PAPERCLIP_API_URL from the saved token field for every heartbeat run.
+    После этого подставляй PAPERCLIP_API_KEY и PAPERCLIP_API_URL из сохранённого токена в каждый heartbeat run.
 
-    Important:
-    - claim secrets expire
-    - claim secrets are single-use
-    - claim fails before board approval
+    Важно:
+    - claim secret истекает
+    - claim secret одноразовый
+    - claim не сработает до одобрения board
 
-    ## Step 4: Install Paperclip skill in OpenClaw
+    ## Шаг 4: Установи skill Paperclip в OpenClaw
     GET ${onboarding.skill.url}
-    Install path: ${onboarding.skill.installPath}
+    Путь установки: ${onboarding.skill.installPath}
 
-    Be sure to prepend your PAPERCLIP_API_URL to the top of your skill and note the path to your PAPERCLIP_API_URL
+    Обязательно пропиши свой PAPERCLIP_API_URL в начале skill и зафиксируй путь, по которому будет доступен PAPERCLIP_API_URL
 
-    ## Text onboarding URL
+    ## URL текстового онбординга
     ${onboarding.textInstructions.url}
 
-    ## Connectivity guidance
+    ## Рекомендации по сетевой доступности
     ${
       onboarding.connectivity?.guidance ??
-      "Ensure Paperclip is reachable from your OpenClaw runtime."
+      "Убедись, что Paperclip достижим из runtime OpenClaw."
     }
   `);
 
@@ -1277,7 +1277,7 @@ export function buildInviteOnboardingTextDocument(
     : [];
 
   if (connectionCandidates.length > 0) {
-    lines.push("## Suggested Paperclip base URLs to try");
+    lines.push("## Рекомендуемые base URL Paperclip для проверки");
     for (const candidate of connectionCandidates) {
       lines.push(`- ${candidate}`);
     }
@@ -1285,26 +1285,26 @@ export function buildInviteOnboardingTextDocument(
 
       Test each candidate with:
       - GET <candidate>/api/health
-      - set the first reachable candidate as agentDefaultsPayload.paperclipApiUrl when submitting your join request
+      - используй первый доступный адрес как agentDefaultsPayload.paperclipApiUrl при отправке join request
 
-      If none are reachable: ask your human operator for a reachable hostname/address and help them update network configuration.
-      For authenticated/private mode, they may need:
+      Если ни один адрес не доступен: попроси человека-оператора дать доступный hostname/адрес и помоги обновить сетевую конфигурацию.
+      Для authenticated/private mode им может понадобиться:
       - pnpm paperclipai allowed-hostname <host>
-      - then restart Paperclip and retry onboarding.
+      - затем перезапустить Paperclip и повторить onboarding.
     `);
   }
 
   if (diagnostics.length > 0) {
-    lines.push("## Connectivity diagnostics");
+    lines.push("## Диагностика сетевой доступности");
     for (const diag of diagnostics) {
       lines.push(`- [${diag.level}] ${diag.message}`);
-      if (diag.hint) lines.push(`  hint: ${diag.hint}`);
+      if (diag.hint) lines.push(`  подсказка: ${diag.hint}`);
     }
   }
 
   appendBlock(`
 
-    ## Helpful endpoints
+    ## Полезные endpoint
     ${onboarding.registrationEndpoint.path}
     ${onboarding.claimEndpointTemplate.path}
     ${onboarding.skill.path}

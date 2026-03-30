@@ -10,6 +10,7 @@ import { queryKeys } from "../lib/queryKeys";
 import { Button } from "@/components/ui/button";
 import { Settings, Check, Download, Upload } from "lucide-react";
 import { CompanyPatternIcon } from "../components/CompanyPatternIcon";
+import { useI18n } from "../context/I18nContext";
 import {
   Field,
   ToggleField,
@@ -23,6 +24,7 @@ type AgentSnippetInput = {
 };
 
 export function CompanySettings() {
+  const { translateText } = useI18n();
   const {
     companies,
     selectedCompany,
@@ -128,7 +130,7 @@ export function CompanySettings() {
     },
     onError: (err) => {
       setInviteError(
-        err instanceof Error ? err.message : "Failed to create invite"
+        err instanceof Error ? err.message : translateText("Failed to create invite")
       );
     }
   });
@@ -199,15 +201,15 @@ export function CompanySettings() {
 
   useEffect(() => {
     setBreadcrumbs([
-      { label: selectedCompany?.name ?? "Company", href: "/dashboard" },
-      { label: "Settings" }
+      { label: selectedCompany?.name ?? translateText("Company"), href: "/dashboard" },
+      { label: translateText("Settings") }
     ]);
-  }, [setBreadcrumbs, selectedCompany?.name]);
+  }, [setBreadcrumbs, selectedCompany?.name, translateText]);
 
   if (!selectedCompany) {
     return (
       <div className="text-sm text-muted-foreground">
-        No company selected. Select a company from the switcher above.
+        {translateText("No company selected. Select a company from the switcher above.")}
       </div>
     );
   }
@@ -224,16 +226,16 @@ export function CompanySettings() {
     <div className="max-w-2xl space-y-6">
       <div className="flex items-center gap-2">
         <Settings className="h-5 w-5 text-muted-foreground" />
-        <h1 className="text-lg font-semibold">Company Settings</h1>
+        <h1 className="text-lg font-semibold">{translateText("Company Settings")}</h1>
       </div>
 
       {/* General */}
       <div className="space-y-4">
         <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-          General
+          {translateText("General")}
         </div>
         <div className="space-y-3 rounded-md border border-border px-4 py-4">
-          <Field label="Company name" hint="The display name for your company.">
+          <Field label={translateText("Company name")} hint={translateText("The display name for your company.")}>
             <input
               className="w-full rounded-md border border-border bg-transparent px-2.5 py-1.5 text-sm outline-none"
               type="text"
@@ -242,14 +244,14 @@ export function CompanySettings() {
             />
           </Field>
           <Field
-            label="Description"
-            hint="Optional description shown in the company profile."
+            label={translateText("Description")}
+            hint={translateText("Optional description shown in the company profile.")}
           >
             <input
               className="w-full rounded-md border border-border bg-transparent px-2.5 py-1.5 text-sm outline-none"
               type="text"
               value={description}
-              placeholder="Optional company description"
+              placeholder={translateText("Optional company description")}
               onChange={(e) => setDescription(e.target.value)}
             />
           </Field>
@@ -259,7 +261,7 @@ export function CompanySettings() {
       {/* Appearance */}
       <div className="space-y-4">
         <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-          Appearance
+          {translateText("Appearance")}
         </div>
         <div className="space-y-3 rounded-md border border-border px-4 py-4">
           <div className="flex items-start gap-4">
@@ -273,8 +275,8 @@ export function CompanySettings() {
             </div>
             <div className="flex-1 space-y-3">
               <Field
-                label="Logo"
-                hint="Upload a PNG, JPEG, WEBP, GIF, or SVG logo image."
+                label={translateText("Logo")}
+                hint={translateText("Upload a PNG, JPEG, WEBP, GIF, or SVG logo image.")}
               >
                 <div className="space-y-2">
                   <input
@@ -291,7 +293,7 @@ export function CompanySettings() {
                         onClick={handleClearLogo}
                         disabled={clearLogoMutation.isPending}
                       >
-                        {clearLogoMutation.isPending ? "Removing..." : "Remove logo"}
+                        {clearLogoMutation.isPending ? translateText("Removing...") : translateText("Remove logo")}
                       </Button>
                     </div>
                   )}
@@ -300,7 +302,7 @@ export function CompanySettings() {
                       {logoUploadError ??
                         (logoUploadMutation.error instanceof Error
                           ? logoUploadMutation.error.message
-                          : "Logo upload failed")}
+                          : translateText("Logo upload failed"))}
                     </span>
                   )}
                   {clearLogoMutation.isError && (
@@ -309,13 +311,13 @@ export function CompanySettings() {
                     </span>
                   )}
                   {logoUploadMutation.isPending && (
-                    <span className="text-xs text-muted-foreground">Uploading logo...</span>
+                    <span className="text-xs text-muted-foreground">{translateText("Uploading logo...")}</span>
                   )}
                 </div>
               </Field>
               <Field
-                label="Brand color"
-                hint="Sets the hue for the company icon. Leave empty for auto-generated color."
+                label={translateText("Brand color")}
+                hint={translateText("Sets the hue for the company icon. Leave empty for auto-generated color.")}
               >
                 <div className="flex items-center gap-2">
                   <input
@@ -333,7 +335,7 @@ export function CompanySettings() {
                         setBrandColor(v);
                       }
                     }}
-                    placeholder="Auto"
+                    placeholder={translateText("Auto")}
                     className="w-28 rounded-md border border-border bg-transparent px-2.5 py-1.5 text-sm font-mono outline-none"
                   />
                   {brandColor && (
@@ -343,7 +345,7 @@ export function CompanySettings() {
                       onClick={() => setBrandColor("")}
                       className="text-xs text-muted-foreground"
                     >
-                      Clear
+                      {translateText("Clear")}
                     </Button>
                   )}
                 </div>
@@ -361,16 +363,16 @@ export function CompanySettings() {
             onClick={handleSaveGeneral}
             disabled={generalMutation.isPending || !companyName.trim()}
           >
-            {generalMutation.isPending ? "Saving..." : "Save changes"}
+            {generalMutation.isPending ? translateText("Saving...") : translateText("Save changes")}
           </Button>
           {generalMutation.isSuccess && (
-            <span className="text-xs text-muted-foreground">Saved</span>
+            <span className="text-xs text-muted-foreground">{translateText("Saved")}</span>
           )}
           {generalMutation.isError && (
             <span className="text-xs text-destructive">
               {generalMutation.error instanceof Error
                   ? generalMutation.error.message
-                  : "Failed to save"}
+                  : translateText("Failed to save")}
             </span>
           )}
         </div>
@@ -379,12 +381,12 @@ export function CompanySettings() {
       {/* Hiring */}
       <div className="space-y-4">
         <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-          Hiring
+          {translateText("Hiring")}
         </div>
         <div className="rounded-md border border-border px-4 py-3">
           <ToggleField
-            label="Require board approval for new hires"
-            hint="New agent hires stay pending until approved by board."
+            label={translateText("Require board approval for new hires")}
+            hint={translateText("New agent hires stay pending until approved by board.")}
             checked={!!selectedCompany.requireBoardApprovalForNewAgents}
             onChange={(v) => settingsMutation.mutate(v)}
           />
@@ -394,14 +396,14 @@ export function CompanySettings() {
       {/* Invites */}
       <div className="space-y-4">
         <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-          Invites
+          {translateText("Invites")}
         </div>
         <div className="space-y-3 rounded-md border border-border px-4 py-4">
           <div className="flex items-center gap-1.5">
             <span className="text-xs text-muted-foreground">
-              Generate an OpenClaw agent invite snippet.
+              {translateText("Generate an OpenClaw agent invite snippet.")}
             </span>
-            <HintIcon text="Creates a short-lived OpenClaw agent invite and renders a copy-ready prompt." />
+            <HintIcon text={translateText("Creates a short-lived OpenClaw agent invite and renders a copy-ready prompt.")} />
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <Button
@@ -410,8 +412,8 @@ export function CompanySettings() {
               disabled={inviteMutation.isPending}
             >
               {inviteMutation.isPending
-                ? "Generating..."
-                : "Generate OpenClaw Invite Prompt"}
+                ? translateText("Generating...")
+                : translateText("Generate OpenClaw Invite Prompt")}
             </Button>
           </div>
           {inviteError && (
@@ -421,7 +423,7 @@ export function CompanySettings() {
             <div className="rounded-md border border-border bg-muted/30 p-2">
               <div className="flex items-center justify-between gap-2">
                 <div className="text-xs text-muted-foreground">
-                  OpenClaw Invite Prompt
+                  {translateText("OpenClaw Invite Prompt")}
                 </div>
                 {snippetCopied && (
                   <span
@@ -429,7 +431,7 @@ export function CompanySettings() {
                     className="flex items-center gap-1 text-xs text-green-600 animate-pulse"
                   >
                     <Check className="h-3 w-3" />
-                    Copied
+                    {translateText("Copied")}
                   </span>
                 )}
               </div>
@@ -454,7 +456,7 @@ export function CompanySettings() {
                       }
                     }}
                   >
-                    {snippetCopied ? "Copied snippet" : "Copy snippet"}
+                    {snippetCopied ? translateText("Copied snippet") : translateText("Copy snippet")}
                   </Button>
                 </div>
               </div>
@@ -466,24 +468,24 @@ export function CompanySettings() {
       {/* Import / Export */}
       <div className="space-y-4">
         <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-          Company Packages
+          {translateText("Company Packages")}
         </div>
         <div className="rounded-md border border-border px-4 py-4">
           <p className="text-sm text-muted-foreground">
-            Import and export have moved to dedicated pages accessible from the{" "}
-            <a href="/org" className="underline hover:text-foreground">Org Chart</a> header.
+            {translateText("Import and export have moved to dedicated pages accessible from the")}{" "}
+            <a href="/org" className="underline hover:text-foreground">{translateText("Org Chart")}</a>.
           </p>
           <div className="mt-3 flex items-center gap-2">
             <Button size="sm" variant="outline" asChild>
               <a href="/company/export">
                 <Download className="mr-1.5 h-3.5 w-3.5" />
-                Export
+                {translateText("Export")}
               </a>
             </Button>
             <Button size="sm" variant="outline" asChild>
               <a href="/company/import">
                 <Upload className="mr-1.5 h-3.5 w-3.5" />
-                Import
+                {translateText("Import")}
               </a>
             </Button>
           </div>
@@ -493,12 +495,11 @@ export function CompanySettings() {
       {/* Danger Zone */}
       <div className="space-y-4">
         <div className="text-xs font-medium text-destructive uppercase tracking-wide">
-          Danger Zone
+          {translateText("Danger Zone")}
         </div>
         <div className="space-y-3 rounded-md border border-destructive/40 bg-destructive/5 px-4 py-4">
           <p className="text-sm text-muted-foreground">
-            Archive this company to hide it from the sidebar. This persists in
-            the database.
+            {translateText("Archive this company to hide it from the sidebar. This persists in the database.")}
           </p>
           <div className="flex items-center gap-2">
             <Button
@@ -511,7 +512,7 @@ export function CompanySettings() {
               onClick={() => {
                 if (!selectedCompanyId) return;
                 const confirmed = window.confirm(
-                  `Archive company "${selectedCompany.name}"? It will be hidden from the sidebar.`
+                  `${translateText("Archive company")} "${selectedCompany.name}"?`
                 );
                 if (!confirmed) return;
                 const nextCompanyId =
@@ -527,16 +528,16 @@ export function CompanySettings() {
               }}
             >
               {archiveMutation.isPending
-                ? "Archiving..."
+                ? translateText("Archiving...")
                 : selectedCompany.status === "archived"
-                ? "Already archived"
-                : "Archive company"}
+                ? translateText("Already archived")
+                : translateText("Archive company")}
             </Button>
             {archiveMutation.isError && (
               <span className="text-xs text-destructive">
                 {archiveMutation.error instanceof Error
                   ? archiveMutation.error.message
-                  : "Failed to archive company"}
+                  : translateText("Failed to archive company")}
               </span>
             )}
           </div>
@@ -557,52 +558,52 @@ function buildAgentSnippet(input: AgentSnippetInput) {
 
   const connectivityBlock =
     candidateUrls.length === 0
-      ? `No candidate URLs are available. Ask your user to configure a reachable hostname in Paperclip, then retry.
-Suggested steps:
-- choose a hostname that resolves to the Paperclip host from your runtime
-- run: pnpm paperclipai allowed-hostname <host>
-- restart Paperclip
-- verify with: curl -fsS http://<host>:3100/api/health
-- regenerate this invite snippet`
-      : `If none are reachable, ask your user to add a reachable hostname in Paperclip, restart, and retry.
-Suggested command:
+      ? `Сейчас нет доступных candidate URL. Попроси пользователя настроить в Paperclip hostname, который достижим из твоего runtime, и затем повтори попытку.
+Рекомендуемые шаги:
+- выбрать hostname, который резолвится до хоста Paperclip из твоего runtime
+- выполнить: pnpm paperclipai allowed-hostname <host>
+- перезапустить Paperclip
+- проверить: curl -fsS http://<host>:3100/api/health
+- заново сгенерировать этот invite snippet`
+      : `Если ни один адрес не доступен, попроси пользователя добавить в Paperclip достижимый hostname, перезапустить сервер и повторить попытку.
+Рекомендуемая команда:
 - pnpm paperclipai allowed-hostname <host>
-Then verify with: curl -fsS <base-url>/api/health`;
+Потом проверь: curl -fsS <base-url>/api/health`;
 
   const resolutionLine = resolutionTestUrl
-    ? `\nYou MUST test Paperclip-to-gateway reachability, call: ${resolutionTestUrl}?url=<urlencoded-gateway-url> (using the hostname that worked above). Do not assume your 172.x is necessarily reachable from Paperclip. Test it. `
+    ? `\nТы ОБЯЗАН проверить доступность gateway из Paperclip, вызвав: ${resolutionTestUrl}?url=<urlencoded-gateway-url> (используя hostname, который сработал выше). Не предполагай, что твой адрес 172.x точно достижим из Paperclip. Проверь это явно. `
     : "";
 
-  return `You're invited to join a Paperclip organization.
+  return `Тебя приглашают подключиться к организации Paperclip.
 
-The URLs you should try are:
+Попробуй такие URL:
 ${candidateList}
 
-Connectivity guidance:
-If you are running on a different machine than Paperclip, Paperclip must be reachable at one of the hostnames used above.
-Verify the hostname works from your runtime with: GET <base-url>/api/health
+Подсказки по сетевой доступности:
+Если ты работаешь на другой машине, чем Paperclip, сервер Paperclip должен быть доступен по одному из hostname выше.
+Проверь доступность из своего runtime через: GET <base-url>/api/health
 
 ${connectivityBlock}
 
-For your "agentName", just use your own agent name (OpenClaw or whatever your name is) and send it directly.
-You also need to send a gateway URL that Paperclip can access. Check your config and include that URL.${resolutionLine}
+В поле "agentName" просто укажи своё имя агента (OpenClaw или то имя, которым ты пользуешься) и отправь его как есть.
+Также тебе нужно передать gateway URL, который доступен самому Paperclip. Проверь свою конфигурацию и включи этот URL.${resolutionLine}
 
 ---
 
-This onboarding flow is for OpenClaw Gateway.
-When you submit the join request, use:
+Этот onboarding flow предназначен для OpenClaw Gateway.
+Когда будешь отправлять join request, используй:
 - \`adapterType: "openclaw_gateway"\`
-- \`agentDefaultsPayload.url\` as your \`ws://\` or \`wss://\` gateway URL
-- \`agentDefaultsPayload.headers["x-openclaw-token"]\` with your gateway token
-- (legacy accepted) \`agentDefaultsPayload.headers["x-openclaw-auth"]\`
-- Keep device auth enabled (recommended). If \`devicePrivateKeyPem\` is omitted, Paperclip will generate and persist one during join so pairing approvals remain stable.
-- Only use \`disableDeviceAuth=true\` for special environments where pairing cannot be completed.
+- \`agentDefaultsPayload.url\` как твой \`ws://\` или \`wss://\` gateway URL
+- \`agentDefaultsPayload.headers["x-openclaw-token"]\` с твоим gateway token
+- (устаревший, но допустимый вариант) \`agentDefaultsPayload.headers["x-openclaw-auth"]\`
+- Оставляй device auth включённым (рекомендуется). Если \`devicePrivateKeyPem\` не передан, Paperclip сгенерирует и сохранит его во время join, чтобы pairing approvals были стабильными.
+- Используй \`disableDeviceAuth=true\` только в специальных окружениях, где pairing невозможно завершить.
 
-Do NOT use \`/v1/responses\` or \`/hooks/*\` in this join flow.
+НЕ используй \`/v1/responses\` или \`/hooks/*\` в этом join flow.
 
-Before you do anything, please respond to your user that you understand the instructions and you're going to work on them. Then do the step above in another session called "paperclip-onboarding" and then tell your user when you're done. Update your user in intermediate steps along the way so they know what's going on.
+Перед тем как что-либо делать, сначала ответь пользователю, что ты понял инструкции и начинаешь работу. Затем выполни шаги выше в отдельной сессии под названием "paperclip-onboarding" и сообщи пользователю, когда закончишь. По ходу дела давай короткие промежуточные обновления, чтобы пользователь понимал, что происходит.
 
-Then after you've connected to Paperclip (exchanged keys etc.) you MUST review and follow the onboarding instructions in onboarding.txt they give you.
+После подключения к Paperclip (обмена ключами и т.д.) ты ОБЯЗАН прочитать и выполнить инструкции из onboarding.txt, который тебе выдадут.
 
 `;
 }
