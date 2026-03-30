@@ -79,6 +79,14 @@ describe("issue label route validation", () => {
     expect(mockIssueService.deleteLabel).not.toHaveBeenCalled();
   });
 
+  it("normalizes labelId path before lookup", async () => {
+    const labelId = "22222222-2222-4222-8222-222222222222";
+    const res = await request(createApp()).delete(`/api/labels/%20${labelId.toUpperCase()}%20`);
+
+    expect(res.status).toBe(404);
+    expect(mockIssueService.getLabelById).toHaveBeenCalledWith(labelId);
+  });
+
   it("normalizes companyId path for label listing", async () => {
     const res = await request(createApp()).get(`/api/companies/%20${COMPANY_ID.toUpperCase()}%20/labels`);
 

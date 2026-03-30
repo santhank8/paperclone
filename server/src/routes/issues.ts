@@ -415,17 +415,18 @@ export function issueRoutes(db: Db, storage: StorageService) {
 
   router.delete("/labels/:labelId", async (req, res) => {
     const labelId = req.params.labelId as string;
-    if (!isUuidLike(labelId)) {
+    const normalizedLabelId = typeof labelId === "string" ? labelId.trim().toLowerCase() : "";
+    if (!isUuidLike(normalizedLabelId)) {
       res.status(400).json({ error: "Invalid labelId" });
       return;
     }
-    const existing = await svc.getLabelById(labelId);
+    const existing = await svc.getLabelById(normalizedLabelId);
     if (!existing) {
       res.status(404).json({ error: "Label not found" });
       return;
     }
     assertCompanyAccess(req, existing.companyId);
-    const removed = await svc.deleteLabel(labelId);
+    const removed = await svc.deleteLabel(normalizedLabelId);
     if (!removed) {
       res.status(404).json({ error: "Label not found" });
       return;
