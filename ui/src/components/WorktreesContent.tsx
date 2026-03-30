@@ -210,34 +210,40 @@ export function WorktreesContent({ companyId, projectId }: WorktreesContentProps
 
   const triggerReviewMutation = useMutation({
     mutationFn: async (issueId: string) => {
-      // 1. Fetch comments to find last @mention
       const comments = await issuesApi.listComments(issueId);
       if (!comments.length) throw new Error("No comments on this issue");
 
-      // Walk backwards through comments to find the last @mention
       const agents = await agentsApi.list(companyId);
       const agentByName = new Map(agents.map((a) => [a.name.toLowerCase(), a]));
+      const agentByUrlKey = new Map(agents.map((a) => [a.urlKey.toLowerCase(), a]));
+
+      // Agents use Markdown-link mentions: @[Agent Name](/PREFIX/agents/url-key)
+      // Also support plain @Name for manually-typed mentions.
+      const markdownMentionRe = /@\[([^\]]+)\]\([^)]*\/agents\/([^)]+)\)/g;
+      const plainMentionRe = /@([\w][\w\s]*[\w])/g;
 
       for (let i = comments.length - 1; i >= 0; i--) {
         const body = comments[i]!.body;
-        // Match @Name patterns (multi-word: @Engineering Manager, @QA Lead, etc.)
-        const mentions = [...body.matchAll(/@([\w][\w\s]*[\w])/g)].map((m) => m[1]!.trim().toLowerCase());
-        for (const mention of mentions) {
-          const agent = agentByName.get(mention);
+
+        // Prefer Markdown link mentions (the format agents actually use)
+        for (const match of body.matchAll(markdownMentionRe)) {
+          const urlKey = match[2]!.trim().toLowerCase();
+          const name = match[1]!.trim().toLowerCase();
+          const agent = agentByUrlKey.get(urlKey) ?? agentByName.get(name);
           if (agent) {
             await agentsApi.invoke(agent.id, companyId);
             return { agentName: agent.name };
           }
         }
-      }
 
-      // Fallback: if no @mention matched, invoke the assigned agent if present
-      const assignedAgent = agents.find((a) =>
-        comments.some((c) => c.authorAgentId === a.id),
-      );
-      if (assignedAgent) {
-        await agentsApi.invoke(assignedAgent.id, companyId);
-        return { agentName: assignedAgent.name };
+        // Fall back to plain @Name mentions
+        for (const match of body.matchAll(plainMentionRe)) {
+          const agent = agentByName.get(match[1]!.trim().toLowerCase());
+          if (agent) {
+            await agentsApi.invoke(agent.id, companyId);
+            return { agentName: agent.name };
+          }
+        }
       }
 
       throw new Error("No @mentioned agent found in comments");
