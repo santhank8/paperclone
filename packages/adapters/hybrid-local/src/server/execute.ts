@@ -2,7 +2,10 @@ import type { AdapterExecutionContext, AdapterExecutionResult } from "@paperclip
 import { asString, asNumber, renderTemplate, joinPromptSections } from "@paperclipai/adapter-utils/server-utils";
 import { execute as claudeExecute } from "@paperclipai/adapter-claude-local/server";
 import { isClaudeModel, models as staticModels } from "../index.js";
-import { executeLocalModel, resolveBaseUrl } from "./lmstudio.js";
+import { executeLocalModel, resolveBaseUrl, testLMStudioAvailability } from "./lmstudio.js";
+import { getQuotaWindows } from "./quota.js";
+
+// --- Helpers ---
 
 function firstLocalModelId(): string {
   const local = staticModels.find((m) => !isClaudeModel(m.id));
@@ -33,10 +36,76 @@ function isLocalResourceError(error: unknown): boolean {
   );
 }
 
+const QUOTA_THRESHOLD_PERCENT = 80;
+
+/**
+ * Proactive Claude quota check. Returns true if any quota window exceeds
+ * the threshold, meaning Claude is likely to reject the request.
+ */
+async function isClaudeQuotaNearExhausted(onLog: AdapterExecutionContext["onLog"]): Promise<boolean> {
+  try {
+    const quota = await getQuotaWindows();
+    if (!quota.ok || quota.windows.length === 0) return false;
+
+    const exhausted = quota.windows.find(
+      (w) => w.usedPercent != null && w.usedPercent >= QUOTA_THRESHOLD_PERCENT,
+    );
+    if (exhausted) {
+      await onLog(
+        "stdout",
+        `[hybrid] Claude quota pre-check: "${exhausted.label}" at ${exhausted.usedPercent}% (threshold: ${QUOTA_THRESHOLD_PERCENT}%)\n`,
+      );
+      return true;
+    }
+    return false;
+  } catch {
+    // Quota check failed — don't block execution, proceed normally
+    return false;
+  }
+}
+
+/**
+ * Proactive local endpoint health check. Returns true if the endpoint
+ * responds to GET /v1/models within 3 seconds.
+ */
+async function isLocalEndpointHealthy(baseUrl: string): Promise<boolean> {
+  const result = await testLMStudioAvailability(baseUrl);
+  return result.available;
+}
+
+// --- Routing metadata ---
+
+interface RoutingMeta {
+  primaryModel: string;
+  primaryBackend: "claude_cli" | "openai_compatible";
+  fallbackModel: string | null;
+  fallbackBackend: "claude_cli" | "openai_compatible" | null;
+  fallbackTriggered: boolean;
+  fallbackReason: string | null;
+  preCheckSkipped: boolean;
+  preCheckReason: string | null;
+}
+
+function attachRoutingMeta(
+  result: AdapterExecutionResult,
+  meta: RoutingMeta,
+): AdapterExecutionResult {
+  return {
+    ...result,
+    resultJson: {
+      ...result.resultJson,
+      _hybrid: meta,
+    },
+  };
+}
+
+// --- Main execute ---
+
 export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExecutionResult> {
-  const { config } = ctx;
+  const { config, onLog } = ctx;
   const model = asString(config.model, "");
   const fallbackModel = asString(config.fallbackModel, "");
+  const localBaseUrl = resolveBaseUrl(config.localBaseUrl);
 
   if (!model) {
     return {
@@ -49,43 +118,114 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
   }
 
   if (isClaudeModel(model)) {
-    return executeClaudeWithFallback(ctx, model, fallbackModel || firstLocalModelId());
+    const effectiveFallback = fallbackModel || firstLocalModelId();
+
+    // Pre-check: is Claude quota near exhausted? Skip straight to local.
+    if (effectiveFallback) {
+      const nearExhausted = await isClaudeQuotaNearExhausted(onLog);
+      if (nearExhausted) {
+        await onLog(
+          "stdout",
+          `[hybrid] Claude quota near limit — skipping to local model: ${effectiveFallback}\n`,
+        );
+        const result = await executeLocal(ctx, effectiveFallback);
+        return attachRoutingMeta(result, {
+          primaryModel: model,
+          primaryBackend: "claude_cli",
+          fallbackModel: effectiveFallback,
+          fallbackBackend: "openai_compatible",
+          fallbackTriggered: true,
+          fallbackReason: "claude_quota_precheck",
+          preCheckSkipped: true,
+          preCheckReason: `Claude quota >= ${QUOTA_THRESHOLD_PERCENT}%`,
+        });
+      }
+    }
+
+    return executeClaudeWithFallback(ctx, model, effectiveFallback);
+  }
+
+  // Local model as primary
+  // Pre-check: is the local endpoint reachable?
+  if (fallbackModel && isClaudeModel(fallbackModel)) {
+    const healthy = await isLocalEndpointHealthy(localBaseUrl);
+    if (!healthy) {
+      await onLog(
+        "stdout",
+        `[hybrid] Local endpoint not reachable at ${localBaseUrl} — skipping to Claude: ${fallbackModel}\n`,
+      );
+      const claudeCtx: AdapterExecutionContext = {
+        ...ctx,
+        config: { ...ctx.config, model: fallbackModel },
+      };
+      const result = await claudeExecute(claudeCtx);
+      return attachRoutingMeta(result, {
+        primaryModel: model,
+        primaryBackend: "openai_compatible",
+        fallbackModel,
+        fallbackBackend: "claude_cli",
+        fallbackTriggered: true,
+        fallbackReason: "local_endpoint_precheck",
+        preCheckSkipped: true,
+        preCheckReason: `Local endpoint unreachable at ${localBaseUrl}`,
+      });
+    }
   }
 
   return executeLocalWithFallback(ctx, model, fallbackModel);
 }
 
-/**
- * Primary: Claude CLI. Fallback: local model (on quota/auth error).
- */
+// --- Claude primary with local fallback ---
+
 async function executeClaudeWithFallback(
   ctx: AdapterExecutionContext,
-  _model: string,
+  model: string,
   fallbackModel: string,
 ): Promise<AdapterExecutionResult> {
   const { onLog } = ctx;
 
   const claudeResult = await claudeExecute(ctx);
 
+  // Success or non-quota error — return as-is
   if ((claudeResult.exitCode === 0 && !claudeResult.errorMessage) || !isClaudeQuotaOrAuthError(claudeResult)) {
-    return claudeResult;
+    return attachRoutingMeta(claudeResult, {
+      primaryModel: model,
+      primaryBackend: "claude_cli",
+      fallbackModel: fallbackModel || null,
+      fallbackBackend: fallbackModel ? "openai_compatible" : null,
+      fallbackTriggered: false,
+      fallbackReason: null,
+      preCheckSkipped: false,
+      preCheckReason: null,
+    });
   }
 
+  // No fallback configured
   if (!fallbackModel) {
     return claudeResult;
   }
 
+  const reason = claudeResult.errorCode ?? claudeResult.errorMessage ?? "unknown";
   await onLog(
     "stdout",
-    `[hybrid] Claude unavailable (${claudeResult.errorCode ?? claudeResult.errorMessage}). Falling back to local model: ${fallbackModel}\n`,
+    `[hybrid] Claude unavailable (${reason}). Falling back to local model: ${fallbackModel}\n`,
   );
 
-  return executeLocal(ctx, fallbackModel);
+  const result = await executeLocal(ctx, fallbackModel);
+  return attachRoutingMeta(result, {
+    primaryModel: model,
+    primaryBackend: "claude_cli",
+    fallbackModel,
+    fallbackBackend: "openai_compatible",
+    fallbackTriggered: true,
+    fallbackReason: reason,
+    preCheckSkipped: false,
+    preCheckReason: null,
+  });
 }
 
-/**
- * Primary: local OpenAI-compatible endpoint. Fallback: Claude CLI (on connection/resource error).
- */
+// --- Local primary with Claude fallback ---
+
 async function executeLocalWithFallback(
   ctx: AdapterExecutionContext,
   model: string,
@@ -94,10 +234,22 @@ async function executeLocalWithFallback(
   const { onLog } = ctx;
 
   try {
-    return await executeLocal(ctx, model);
+    const result = await executeLocal(ctx, model);
+    return attachRoutingMeta(result, {
+      primaryModel: model,
+      primaryBackend: "openai_compatible",
+      fallbackModel: fallbackModel || null,
+      fallbackBackend: fallbackModel && isClaudeModel(fallbackModel) ? "claude_cli" : fallbackModel ? "openai_compatible" : null,
+      fallbackTriggered: false,
+      fallbackReason: null,
+      preCheckSkipped: false,
+      preCheckReason: null,
+    });
   } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+
+    // No viable Claude fallback
     if (!fallbackModel || !isClaudeModel(fallbackModel)) {
-      const message = error instanceof Error ? error.message : String(error);
       const isTimeout = message.toLowerCase().includes("aborted") || message.toLowerCase().includes("timeout");
       return {
         exitCode: 1,
@@ -109,8 +261,8 @@ async function executeLocalWithFallback(
       };
     }
 
+    // Not a resource error — real failure, don't fall back
     if (!isLocalResourceError(error)) {
-      const message = error instanceof Error ? error.message : String(error);
       return {
         exitCode: 1,
         signal: null,
@@ -123,20 +275,29 @@ async function executeLocalWithFallback(
 
     await onLog(
       "stdout",
-      `[hybrid] Local model unavailable (${error instanceof Error ? error.message : String(error)}). Falling back to Claude: ${fallbackModel}\n`,
+      `[hybrid] Local model unavailable (${message}). Falling back to Claude: ${fallbackModel}\n`,
     );
 
     const claudeCtx: AdapterExecutionContext = {
       ...ctx,
       config: { ...ctx.config, model: fallbackModel },
     };
-    return claudeExecute(claudeCtx);
+    const result = await claudeExecute(claudeCtx);
+    return attachRoutingMeta(result, {
+      primaryModel: model,
+      primaryBackend: "openai_compatible",
+      fallbackModel,
+      fallbackBackend: "claude_cli",
+      fallbackTriggered: true,
+      fallbackReason: message,
+      preCheckSkipped: false,
+      preCheckReason: null,
+    });
   }
 }
 
-/**
- * Execute via the local OpenAI-compatible endpoint.
- */
+// --- Local execution ---
+
 async function executeLocal(
   ctx: AdapterExecutionContext,
   model: string,
