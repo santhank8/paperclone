@@ -186,6 +186,7 @@ ${domain} {
     }
 
     // Update the Paperclip config file to use the new domain as publicBaseUrl
+    const httpsUrl = `https://${domain}`;
     try {
       const fsPromises = await import("node:fs/promises");
       const configPath = process.env.PAPERCLIP_CONFIG
@@ -193,12 +194,28 @@ ${domain} {
       const raw = await fsPromises.readFile(configPath, "utf-8");
       const config = JSON.parse(raw);
       if (config.auth) {
-        config.auth.publicBaseUrl = `https://${domain}`;
+        config.auth.publicBaseUrl = httpsUrl;
       }
       await fsPromises.writeFile(configPath, JSON.stringify(config, null, 2), "utf-8");
       logger.info({ domain }, "Updated config publicBaseUrl");
     } catch (err) {
-      logger.warn({ err, domain }, "Could not update config file publicBaseUrl. A restart with updated PAPERCLIP_PUBLIC_URL may be needed.");
+      logger.warn({ err, domain }, "Could not update config file publicBaseUrl");
+    }
+
+    // Update the systemd service PAPERCLIP_PUBLIC_URL so it matches after restart
+    try {
+      const serviceFile = "/etc/systemd/system/paperclip.service";
+      const fsPromises = await import("node:fs/promises");
+      const serviceContent = await fsPromises.readFile(serviceFile, "utf-8");
+      const updated = serviceContent.replace(
+        /Environment=PAPERCLIP_PUBLIC_URL=.*/,
+        `Environment=PAPERCLIP_PUBLIC_URL=${httpsUrl}`,
+      );
+      await fsPromises.writeFile(serviceFile, updated, "utf-8");
+      await execFileAsync("/usr/bin/sudo", ["/usr/bin/systemctl", "daemon-reload"]);
+      logger.info({ domain }, "Updated systemd PAPERCLIP_PUBLIC_URL");
+    } catch (err) {
+      logger.warn({ err, domain }, "Could not update systemd service file. You may need to update PAPERCLIP_PUBLIC_URL manually.");
     }
 
     // Save domain to instance settings

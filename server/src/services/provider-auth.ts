@@ -121,11 +121,20 @@ function getAgentHomeDir(): string {
 
 function buildCommonAuthEnv(): NodeJS.ProcessEnv {
   const home = getAgentHomeDir();
+  // Ensure ~/.local/bin is in PATH so claude/codex CLIs are found
+  const extraPaths = [
+    join(home, ".local", "bin"),
+    "/usr/local/bin",
+    "/usr/bin",
+  ];
+  const currentPath = process.env.PATH || "";
+  const path = [...extraPaths, currentPath].join(":");
   return {
     ...process.env,
     FORCE_COLOR: "0",
     HOME: home,
     NO_COLOR: "1",
+    PATH: path,
     TERM: "dumb",
     USERPROFILE: home,
   };
@@ -221,10 +230,23 @@ function parseScopeList(value: unknown): string[] {
 
 async function anthropicAuthDetected(): Promise<boolean> {
   const home = getAgentHomeDir();
-  return (
-    (await pathExists(join(home, ".claude", ".credentials.json"))) ||
-    (await pathExists(join(home, ".claude.json")))
-  );
+
+  // Check for actual credentials file (not the CLI config)
+  const credentialsPath = join(home, ".claude", ".credentials.json");
+  if (await pathExists(credentialsPath)) return true;
+
+  // .claude.json might be just CLI config (installMethod, etc.) -- check for actual auth data
+  const legacyPath = join(home, ".claude.json");
+  if (await pathExists(legacyPath)) {
+    try {
+      const { readFile } = await import("node:fs/promises");
+      const content = JSON.parse(await readFile(legacyPath, "utf-8")) as Record<string, unknown>;
+      // Only count as authenticated if it has actual auth tokens/account info
+      if (content.oauthAccount || content.sessionKey || content.apiKey) return true;
+    } catch { /* ignore parse errors */ }
+  }
+
+  return false;
 }
 
 function parseAuthStatusPayload(result: Pick<SpawnSyncReturns<string>, "stdout">): AnthropicAuthSnapshot | null {
