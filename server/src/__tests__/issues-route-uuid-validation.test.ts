@@ -140,6 +140,20 @@ describe("issues routes UUID validation", () => {
     expect(mockIssueService.getById).toHaveBeenCalledWith(issueIdLower);
   });
 
+  it("trims UUID issue id path params before service calls", async () => {
+    const issueIdLower = "11111111-1111-4111-8111-111111111111";
+    mockIssueService.getById.mockResolvedValueOnce({
+      id: issueIdLower,
+      companyId: COMPANY_ID,
+      status: "todo",
+    });
+
+    const res = await request(createApp()).get(`/api/issues/%20${issueIdLower.toUpperCase()}%20/comments`);
+
+    expect(res.status).toBe(200);
+    expect(mockIssueService.getById).toHaveBeenCalledWith(issueIdLower);
+  });
+
   it("returns 400 for invalid comment cursor in comment list query", async () => {
     const res = await request(createApp()).get(
       "/api/issues/11111111-1111-4111-8111-111111111111/comments?after=not-a-uuid",

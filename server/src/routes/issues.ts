@@ -185,17 +185,18 @@ export function issueRoutes(db: Db, storage: StorageService) {
   }
 
   async function normalizeIssueIdentifier(rawId: string): Promise<string> {
-    if (/^[A-Z]+-\d+$/i.test(rawId)) {
-      const issue = await svc.getByIdentifier(rawId);
+    const normalizedRawId = typeof rawId === "string" ? rawId.trim() : "";
+    if (/^[A-Z]+-\d+$/i.test(normalizedRawId)) {
+      const issue = await svc.getByIdentifier(normalizedRawId);
       if (issue) {
         return issue.id;
       }
       throw new HttpError(404, "Issue not found");
     }
-    if (!isUuidLike(rawId)) {
+    if (!isUuidLike(normalizedRawId)) {
       throw new HttpError(400, "Invalid issue id. Use UUID or identifier like PAP-123.");
     }
-    return rawId.trim().toLowerCase();
+    return normalizedRawId.toLowerCase();
   }
 
   async function resolveIssueProjectAndGoal(issue: {
