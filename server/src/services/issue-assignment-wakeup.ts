@@ -64,7 +64,12 @@ export function queueIssueAssignmentWakeup(input: {
   ) {
     return;
   }
-  const requestedByActorIdForPayload = input.requestedByActorType
+  const requestedByActorTypeForPayload =
+    input.requestedByActorType === "agent" &&
+    !(normalizedRequestedByActorId && isUuidLike(normalizedRequestedByActorId))
+      ? undefined
+      : input.requestedByActorType;
+  const requestedByActorIdForPayload = requestedByActorTypeForPayload
     ? normalizedRequestedByActorId
     : null;
 
@@ -74,7 +79,7 @@ export function queueIssueAssignmentWakeup(input: {
       triggerDetail: "system",
       reason: input.reason,
       payload: { issueId: normalizedIssueId || input.issue.id, mutation: input.mutation },
-      requestedByActorType: input.requestedByActorType,
+      requestedByActorType: requestedByActorTypeForPayload,
       requestedByActorId: requestedByActorIdForPayload,
       contextSnapshot: { issueId: normalizedIssueId || input.issue.id, source: input.contextSource },
     })
