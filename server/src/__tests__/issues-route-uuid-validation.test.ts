@@ -175,6 +175,26 @@ describe("issues routes UUID validation", () => {
     expect(mockIssueService.getById).toHaveBeenCalledWith(issueIdLower);
   });
 
+  it("trims identifier path params before issue lookup", async () => {
+    const issueIdLower = "11111111-1111-4111-8111-111111111111";
+    mockIssueService.getByIdentifier.mockResolvedValueOnce({
+      id: issueIdLower,
+      companyId: COMPANY_ID,
+      status: "todo",
+    });
+    mockIssueService.getById.mockResolvedValueOnce({
+      id: issueIdLower,
+      companyId: COMPANY_ID,
+      status: "todo",
+    });
+
+    const res = await request(createApp()).get("/api/issues/%20pap-123%20/comments");
+
+    expect(res.status).toBe(200);
+    expect(mockIssueService.getByIdentifier).toHaveBeenCalledWith("pap-123");
+    expect(mockIssueService.getById).toHaveBeenCalledWith(issueIdLower);
+  });
+
   it("returns 400 for invalid comment cursor in comment list query", async () => {
     const res = await request(createApp()).get(
       "/api/issues/11111111-1111-4111-8111-111111111111/comments?after=not-a-uuid",
