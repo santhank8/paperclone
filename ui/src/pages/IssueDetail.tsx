@@ -883,7 +883,7 @@ export function IssueDetail() {
         }}
         className="flex flex-wrap gap-2"
         itemClassName="inline-flex"
-        missingBehavior="placeholder"
+        missingBehavior="hidden"
       />
 
       <PluginLauncherOutlet
@@ -910,7 +910,7 @@ export function IssueDetail() {
         }}
         className="space-y-3"
         itemClassName="rounded-lg border border-border p-3"
-        missingBehavior="placeholder"
+        missingBehavior="hidden"
       />
 
       <IssueDocumentsSection
