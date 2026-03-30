@@ -45,7 +45,6 @@ import {
   Folder,
   FolderOpen,
   Github,
-  Layers,
   Link2,
   Loader2,
   ExternalLink,
@@ -338,7 +337,6 @@ function AgentSkillBrowser({
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(false);
-  const [loaded, setLoaded] = useState(false);
   const [page, setPage] = useState(1);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const sentinelRef = useRef<HTMLDivElement>(null);
@@ -372,12 +370,10 @@ function AgentSkillBrowser({
     } finally {
       setLoading(false);
       setLoadingMore(false);
-      setLoaded(true);
     }
   }, []);
 
   useEffect(() => {
-    if (!loaded) doSearch("", "", "top");
     fetch(AGENTSKILL_CATEGORIES_API, { headers: { Accept: "application/json" } })
       .then((r) => r.json())
       .then((d: { data: Array<{ slug: string; name: string; count: number }> }) => {
@@ -389,7 +385,7 @@ function AgentSkillBrowser({
         );
       })
       .catch(() => {});
-  }, [loaded, doSearch]);
+  }, []);
 
   useEffect(() => {
     setResults([]);
@@ -463,7 +459,7 @@ function AgentSkillBrowser({
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             Loading skills...
           </div>
-        ) : results.length === 0 && loaded ? (
+        ) : results.length === 0 && !loading ? (
           <div className="py-12 text-center text-sm text-muted-foreground">
             No skills found. Try a different search.
           </div>
@@ -681,7 +677,7 @@ function AgentSkillsetBrowser({
                           <p className="mt-0.5 truncate text-muted-foreground">{skill.description}</p>
                         </div>
                         <div className="flex shrink-0 items-center gap-3">
-                          <span className={cn("flex items-center gap-0.5", scoreColor(skill.qualityReview?.score ?? 0))} title="Quality">
+                          <span className={cn("flex items-center gap-0.5", skill.qualityReview ? scoreColor(skill.qualityReview.score) : "text-muted-foreground")} title="Quality">
                             <Sparkles className="h-3 w-3" />
                             {skill.qualityReview?.score ?? "?"}
                           </span>

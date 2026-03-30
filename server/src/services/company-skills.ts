@@ -2300,7 +2300,7 @@ export function companySkillService(db: Db) {
   ): Promise<{ skills: CompanySkill[]; warnings: string[] }> {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 15_000);
-    const apiUrl = `https://agentskill.sh/api/agent/skills/${encodeURIComponent(agentSkillSlug)}/install`;
+    const apiUrl = `https://agentskill.sh/api/agent/skills/${agentSkillSlug.split("/").map(encodeURIComponent).join("/")}/install`;
     let response: Response;
     try {
       response = await fetch(apiUrl, {
