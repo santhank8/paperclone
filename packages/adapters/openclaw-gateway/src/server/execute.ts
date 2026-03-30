@@ -1062,7 +1062,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
   const sessionKey = resolveSessionKey({
     strategy: sessionKeyStrategy,
     configuredSessionKey,
-    agentId: nonEmpty(ctx.config.agentId),
+    agentId: ctx.agent.id,
     runId: ctx.runId,
     issueId: wakePayload.issueId,
   });
