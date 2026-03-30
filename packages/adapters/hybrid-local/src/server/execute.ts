@@ -88,7 +88,7 @@ interface RoutingMeta {
   fallbackBackend: "claude_cli" | "openai_compatible" | null;
   fallbackTriggered: boolean;
   fallbackReason: string | null;
-  preCheckSkipped: boolean;
+  preCheckTriggered: boolean;
   preCheckReason: string | null;
 }
 
@@ -99,7 +99,7 @@ function attachRoutingMeta(
   return {
     ...result,
     resultJson: {
-      ...result.resultJson,
+      ...(result.resultJson ?? {}),
       _hybrid: meta,
     },
   };
@@ -144,7 +144,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
           fallbackBackend: "openai_compatible",
           fallbackTriggered: true,
           fallbackReason: "claude_quota_precheck",
-          preCheckSkipped: true,
+          preCheckTriggered: true,
           preCheckReason: `Claude quota >= ${quotaThreshold}%`,
         });
       }
@@ -174,7 +174,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
         fallbackBackend: "claude_cli",
         fallbackTriggered: true,
         fallbackReason: "local_endpoint_precheck",
-        preCheckSkipped: true,
+        preCheckTriggered: true,
         preCheckReason: `Local endpoint unreachable at ${localBaseUrl}`,
       });
     }
@@ -203,7 +203,7 @@ async function executeClaudeWithFallback(
       fallbackBackend: fallbackModel ? "openai_compatible" : null,
       fallbackTriggered: false,
       fallbackReason: null,
-      preCheckSkipped: false,
+      preCheckTriggered: false,
       preCheckReason: null,
     });
   }
@@ -227,7 +227,7 @@ async function executeClaudeWithFallback(
     fallbackBackend: "openai_compatible",
     fallbackTriggered: true,
     fallbackReason: reason,
-    preCheckSkipped: false,
+    preCheckTriggered: false,
     preCheckReason: null,
   });
 }
@@ -250,7 +250,7 @@ async function executeLocalWithFallback(
       fallbackBackend: fallbackModel && isClaudeModel(fallbackModel) ? "claude_cli" : fallbackModel ? "openai_compatible" : null,
       fallbackTriggered: false,
       fallbackReason: null,
-      preCheckSkipped: false,
+      preCheckTriggered: false,
       preCheckReason: null,
     });
   } catch (error) {
@@ -298,7 +298,7 @@ async function executeLocalWithFallback(
       fallbackBackend: "claude_cli",
       fallbackTriggered: true,
       fallbackReason: message,
-      preCheckSkipped: false,
+      preCheckTriggered: false,
       preCheckReason: null,
     });
   }
