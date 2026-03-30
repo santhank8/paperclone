@@ -680,6 +680,25 @@ export function NewIssueDialog() {
     }
   }
 
+  function handlePaste(e: React.ClipboardEvent) {
+    // Only intercept pastes that contain image files from the clipboard
+    // (e.g. screenshot paste via Cmd/Ctrl+V). If the paste originates from
+    // inside the MarkdownEditor description field the editor's own imagePlugin
+    // will handle it, so we check the event target to avoid double-processing.
+    const target = e.target as HTMLElement | null;
+    if (target?.closest?.(".paperclip-mdxeditor")) return;
+
+    const files = Array.from(e.clipboardData.items)
+      .filter((item) => item.kind === "file" && item.type.startsWith("image/"))
+      .map((item) => item.getAsFile())
+      .filter((file): file is File => file !== null);
+
+    if (files.length === 0) return;
+
+    e.preventDefault();
+    stageFiles(files);
+  }
+
   function stageFiles(files: File[]) {
     if (files.length === 0) return;
     setStagedFiles((current) => {
@@ -869,9 +888,15 @@ export function NewIssueDialog() {
           "p-0 gap-0 flex flex-col max-h-[calc(100dvh-2rem)]",
           expanded
             ? "sm:max-w-2xl h-[calc(100dvh-2rem)]"
-            : "sm:max-w-lg"
+            : "sm:max-w-lg",
+          isFileDragOver && "ring-2 ring-primary/60",
         )}
         onKeyDown={handleKeyDown}
+        onPaste={handlePaste}
+        onDragEnter={handleFileDragEnter}
+        onDragOver={handleFileDragOver}
+        onDragLeave={handleFileDragLeave}
+        onDrop={handleFileDrop}
         onEscapeKeyDown={(event) => {
           if (createIssue.isPending) {
             event.preventDefault();
@@ -1230,10 +1255,6 @@ export function NewIssueDialog() {
         {/* Description */}
         <div
           className={cn("px-4 pb-2 overflow-y-auto min-h-0 border-t border-border/60 pt-3", expanded ? "flex-1" : "")}
-          onDragEnter={handleFileDragEnter}
-          onDragOver={handleFileDragOver}
-          onDragLeave={handleFileDragLeave}
-          onDrop={handleFileDrop}
         >
           <div
             className={cn(
@@ -1467,6 +1488,16 @@ export function NewIssueDialog() {
             </Button>
           </div>
         </div>
+
+        {/* Full-dialog drop zone overlay */}
+        {isFileDragOver && (
+          <div className="pointer-events-none absolute inset-2 z-50 flex items-center justify-center rounded-lg border-2 border-dashed border-primary/60 bg-primary/5">
+            <div className="flex flex-col items-center gap-1.5 text-primary">
+              <Paperclip className="h-6 w-6" />
+              <span className="text-sm font-medium">Drop files to attach</span>
+            </div>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );
