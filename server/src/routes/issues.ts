@@ -254,7 +254,7 @@ export function issueRoutes(db: Db, storage: StorageService) {
   });
 
   router.get("/companies/:companyId/issues", async (req, res) => {
-    const companyId = req.params.companyId as string;
+    const companyId = (req.params.companyId as string).trim().toLowerCase();
     if (!assertValidCompanyId(res, companyId)) return;
     assertCompanyAccess(req, companyId);
     const statusFilter = readQueryString(req.query.status)?.trim();

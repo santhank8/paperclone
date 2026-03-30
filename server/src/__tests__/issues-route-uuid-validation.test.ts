@@ -118,6 +118,16 @@ describe("issues routes UUID validation", () => {
     expect(mockIssueService.list).not.toHaveBeenCalled();
   });
 
+  it("trims and normalizes companyId path on company-scoped issue routes", async () => {
+    const res = await request(createApp()).get(`/api/companies/%20${COMPANY_ID.toUpperCase()}%20/issues`);
+
+    expect(res.status).toBe(200);
+    expect(mockIssueService.list).toHaveBeenCalledWith(
+      COMPANY_ID,
+      expect.any(Object),
+    );
+  });
+
   it("returns 400 for invalid issue id path on comments routes", async () => {
     const res = await request(createApp()).get("/api/issues/not-a-uuid/comments");
     expect(res.status).toBe(400);
