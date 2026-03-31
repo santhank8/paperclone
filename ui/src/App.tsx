@@ -351,6 +351,7 @@ export function App() {
           <Route path="projects/:projectId/configuration" element={<UnprefixedBoardRedirect />} />
           <Route path="library" element={<UnprefixedBoardRedirect />} />
           <Route path="playbooks" element={<UnprefixedBoardRedirect />} />
+          <Route path="performance" element={<UnprefixedBoardRedirect />} />
           <Route path="tests/ux/runs" element={<UnprefixedBoardRedirect />} />
           <Route path=":companyPrefix" element={<Layout />}>
             {boardRoutes()}
