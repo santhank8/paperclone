@@ -69,6 +69,19 @@ type AdapterType =
   | "http"
   | "openclaw_gateway";
 
+interface RosterItem {
+  id: string;
+  templateKey: string;
+  name: string;
+  role: string;
+  reportsTo: string | null;
+  suggestedAdapter: string;
+  title: string;
+}
+
+let rosterIdCounter = 0;
+function nextRosterId() { return `roster-${++rosterIdCounter}`; }
+
 const DEFAULT_TASK_DESCRIPTION = `You are the CEO. You set the direction for the company.
 
 - hire a founding engineer
@@ -114,6 +127,7 @@ export function OnboardingWizard() {
   // Step 2
   const [step2Mode, setStep2Mode] = useState<"pack" | "manual">("pack");
   const [selectedPackKey, setSelectedPackKey] = useState<string | null>(null);
+  const [rosterItems, setRosterItems] = useState<RosterItem[]>([]);
   const [packCreating, setPackCreating] = useState(false);
   const [packProgress, setPackProgress] = useState<{ done: number; total: number } | null>(null);
   const [agentName, setAgentName] = useState("CEO");
@@ -494,36 +508,33 @@ export function OnboardingWizard() {
   }
 
   async function handlePackDeploy() {
-    if (!createdCompanyId || !selectedPackKey || !teamPacks) return;
-    const pack = teamPacks.find((p) => p.key === selectedPackKey);
-    if (!pack) return;
+    if (!createdCompanyId || rosterItems.length === 0) return;
 
     setPackCreating(true);
     setError(null);
-    setPackProgress({ done: 0, total: pack.roles.length });
+    setPackProgress({ done: 0, total: rosterItems.length });
 
-    // Build adapter config from current adapter settings
     const config = buildAdapterConfig();
     const agentIdByTemplateKey = new Map<string, string>();
 
     try {
-      // Create agents in order (CEO first, then reports)
-      const sortedRoles = [...pack.roles].sort((a, b) => {
+      // Sort: roots first (no reportsTo), then children
+      const sorted = [...rosterItems].sort((a, b) => {
         if (!a.reportsTo) return -1;
         if (!b.reportsTo) return 1;
         return 0;
       });
 
-      for (let i = 0; i < sortedRoles.length; i++) {
-        const role = sortedRoles[i];
-        const reportsToAgentId = role.reportsTo ? agentIdByTemplateKey.get(role.reportsTo) ?? null : null;
+      for (let i = 0; i < sorted.length; i++) {
+        const item = sorted[i];
+        const reportsToAgentId = item.reportsTo ? agentIdByTemplateKey.get(item.reportsTo) ?? null : null;
 
         const agent = await agentsApi.create(createdCompanyId, {
-          name: role.title,
-          role: role.role,
-          title: role.title,
+          name: item.name.trim() || item.title,
+          role: item.role,
+          title: item.title,
           reportsTo: reportsToAgentId,
-          adapterType: role.suggestedAdapter || adapterType,
+          adapterType: item.suggestedAdapter || adapterType,
           adapterConfig: config,
           runtimeConfig: {
             heartbeat: {
@@ -536,9 +547,9 @@ export function OnboardingWizard() {
           },
         });
 
-        agentIdByTemplateKey.set(role.key, agent.id);
+        agentIdByTemplateKey.set(item.templateKey, agent.id);
         if (i === 0) setCreatedAgentId(agent.id);
-        setPackProgress({ done: i + 1, total: sortedRoles.length });
+        setPackProgress({ done: i + 1, total: sorted.length });
       }
 
       queryClient.invalidateQueries({ queryKey: queryKeys.agents.list(createdCompanyId) });
@@ -834,7 +845,18 @@ export function OnboardingWizard() {
                               ? "border-foreground bg-accent"
                               : "border-border hover:bg-accent/50",
                           )}
-                          onClick={() => setSelectedPackKey(pack.key)}
+                          onClick={() => {
+                            setSelectedPackKey(pack.key);
+                            setRosterItems(pack.roles.map((r) => ({
+                              id: nextRosterId(),
+                              templateKey: r.key,
+                              name: r.title,
+                              role: r.role,
+                              reportsTo: r.reportsTo,
+                              suggestedAdapter: r.suggestedAdapter,
+                              title: r.title,
+                            })));
+                          }}
                           disabled={packCreating}
                         >
                           <div className="flex items-center justify-between mb-1">
@@ -851,6 +873,52 @@ export function OnboardingWizard() {
                           </div>
                         </button>
                       ))}
+                      {/* Roster customization */}
+                      {selectedPackKey && rosterItems.length > 0 && !packCreating && (
+                        <div className="space-y-2 border border-border rounded-lg p-3">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Customize Roster</span>
+                            <span className="text-[10px] text-muted-foreground">{rosterItems.length} agents</span>
+                          </div>
+                          <div className="space-y-1.5">
+                            {rosterItems.map((item) => (
+                              <div key={item.id} className="flex items-center gap-2">
+                                <input
+                                  className="flex-1 min-w-0 rounded border border-border bg-transparent px-2 py-1.5 text-xs outline-none focus:ring-1 focus:ring-ring"
+                                  value={item.name}
+                                  onChange={(e) => setRosterItems((prev) => prev.map((r) => r.id === item.id ? { ...r, name: e.target.value } : r))}
+                                  placeholder={item.title}
+                                />
+                                <span className="text-[10px] text-muted-foreground shrink-0 w-16 truncate" title={item.title}>{item.title}</span>
+                                <button
+                                  className="text-muted-foreground hover:text-foreground transition-colors shrink-0 px-1"
+                                  title={`Duplicate ${item.title}`}
+                                  onClick={() => setRosterItems((prev) => {
+                                    const idx = prev.findIndex((r) => r.id === item.id);
+                                    const dup: RosterItem = { ...item, id: nextRosterId(), name: `${item.title} 2` };
+                                    const next = [...prev];
+                                    next.splice(idx + 1, 0, dup);
+                                    return next;
+                                  })}
+                                >
+                                  +
+                                </button>
+                                {rosterItems.length > 1 && (
+                                  <button
+                                    className="text-muted-foreground hover:text-red-400 transition-colors shrink-0 px-1"
+                                    title={`Remove ${item.name}`}
+                                    onClick={() => setRosterItems((prev) => prev.filter((r) => r.id !== item.id))}
+                                  >
+                                    <X className="h-3 w-3" />
+                                  </button>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                          <p className="text-[10px] text-muted-foreground">Rename agents, click + to duplicate a role, or x to remove.</p>
+                        </div>
+                      )}
+
                       {packProgress && (
                         <div className="space-y-1.5">
                           <div className="flex items-center justify-between text-xs">
@@ -1428,7 +1496,7 @@ export function OnboardingWizard() {
                   {step === 2 && step2Mode === "pack" && (
                     <Button
                       size="sm"
-                      disabled={!selectedPackKey || packCreating}
+                      disabled={!selectedPackKey || rosterItems.length === 0 || packCreating}
                       onClick={handlePackDeploy}
                     >
                       {packCreating ? (
