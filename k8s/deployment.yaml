@@ -65,7 +65,7 @@ metadata:
   name: paperclip
   namespace: paperclip
 spec:
-  replicas: 1
+  replicas: 2
   strategy:
     type: Recreate
   selector:
