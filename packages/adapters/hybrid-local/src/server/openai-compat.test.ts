@@ -3,23 +3,23 @@ import { resolveBaseUrl } from "./openai-compat.js";
 
 describe("resolveBaseUrl", () => {
   it("returns the default URL when config is undefined", () => {
-    expect(resolveBaseUrl(undefined)).toBe("http://127.0.0.1:1234/v1");
+    expect(resolveBaseUrl(undefined)).toBe("http://127.0.0.1:11434/v1");
   });
 
   it("returns the default URL when config is empty string", () => {
-    expect(resolveBaseUrl("")).toBe("http://127.0.0.1:1234/v1");
+    expect(resolveBaseUrl("")).toBe("http://127.0.0.1:11434/v1");
   });
 
   it("returns the default URL when config is whitespace", () => {
-    expect(resolveBaseUrl("   ")).toBe("http://127.0.0.1:1234/v1");
+    expect(resolveBaseUrl("   ")).toBe("http://127.0.0.1:11434/v1");
   });
 
   it("returns the default URL when config is null", () => {
-    expect(resolveBaseUrl(null)).toBe("http://127.0.0.1:1234/v1");
+    expect(resolveBaseUrl(null)).toBe("http://127.0.0.1:11434/v1");
   });
 
   it("returns the default URL when config is a number", () => {
-    expect(resolveBaseUrl(42)).toBe("http://127.0.0.1:1234/v1");
+    expect(resolveBaseUrl(42)).toBe("http://127.0.0.1:11434/v1");
   });
 
   it("uses the configured URL when provided", () => {
