@@ -162,6 +162,7 @@ interface IssuesListProps {
   error?: Error | null;
   agents?: Agent[];
   projects?: ProjectOption[];
+  goals?: Array<{ id: string; title: string }>;
   liveIssueIds?: Set<string>;
   projectId?: string;
   viewStateKey: string;
@@ -219,6 +220,7 @@ export function IssuesList({
   error,
   agents,
   projects,
+  goals,
   liveIssueIds,
   projectId,
   viewStateKey,
@@ -295,6 +297,11 @@ export function IssuesList({
     if (!id || !agents) return null;
     return agents.find((a) => a.id === id)?.name ?? null;
   }, [agents]);
+
+  const goalName = useCallback((id: string | null) => {
+    if (!id || !goals) return null;
+    return goals.find((g) => g.id === id)?.title ?? null;
+  }, [goals]);
 
   const filtered = useMemo(() => {
     const sourceIssues = normalizedIssueSearch.length > 0 ? searchedIssues : issues;
@@ -749,6 +756,20 @@ export function IssuesList({
                   mobileMeta={timeAgo(issue.updatedAt)}
                   desktopTrailing={(
                     <>
+                      {issue.goalId && goalName(issue.goalId) && (
+                        <span className="hidden items-center md:flex">
+                          <span className="inline-flex items-center rounded-full bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-600 dark:text-emerald-400 truncate max-w-[120px]">
+                            {goalName(issue.goalId)}
+                          </span>
+                        </span>
+                      )}
+                      {issue.status === "blocked" && issue.description?.includes("Depends on:") && (
+                        <span className="hidden items-center md:flex">
+                          <span className="inline-flex items-center rounded-full bg-red-500/10 px-1.5 py-0.5 text-[10px] font-medium text-red-600 dark:text-red-400">
+                            Blocked
+                          </span>
+                        </span>
+                      )}
                       {(issue.labels ?? []).length > 0 && (
                         <span className="hidden items-center gap-1 overflow-hidden md:flex md:max-w-[240px]">
                           {(issue.labels ?? []).slice(0, 3).map((label) => (
