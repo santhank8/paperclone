@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import manifest from '../manifest';
+import manifest from '../manifest.js';
+
+// Type helpers for testing
+type ToolDef = {
+  name: string;
+  description: string;
+  parametersSchema: Record<string, unknown>;
+};
 
 describe('Ruflo MCP Bridge Plugin', () => {
   describe('manifest validation', () => {
@@ -23,7 +30,7 @@ describe('Ruflo MCP Bridge Plugin', () => {
         'hooks_route',
       ];
 
-      const declaredTools = manifest.tools!.map((t) => t.name);
+      const declaredTools = manifest.tools!.map((t: ToolDef) => t.name);
 
       expectedTools.forEach((tool) => {
         expect(declaredTools).toContain(tool);
@@ -33,13 +40,13 @@ describe('Ruflo MCP Bridge Plugin', () => {
     });
 
     it('should have unique tool names', () => {
-      const names = manifest.tools!.map((t) => t.name);
+      const names = manifest.tools!.map((t: ToolDef) => t.name);
       const unique = new Set(names);
       expect(names.length).toBe(unique.size);
     });
 
     it('should have valid tool schemas', () => {
-      manifest.tools!.forEach((tool) => {
+      manifest.tools!.forEach((tool: ToolDef) => {
         expect(tool.name).toBeDefined();
         expect(typeof tool.name).toBe('string');
         expect(tool.description).toBeDefined();
@@ -51,7 +58,7 @@ describe('Ruflo MCP Bridge Plugin', () => {
   });
 
   describe('agent_spawn tool schema', () => {
-    const tool = manifest.tools!.find((t) => t.name === 'agent_spawn');
+    const tool = manifest.tools!.find((t: ToolDef) => t.name === 'agent_spawn');
 
     it('should exist', () => {
       expect(tool).toBeDefined();
@@ -85,7 +92,7 @@ describe('Ruflo MCP Bridge Plugin', () => {
   });
 
   describe('swarm_init tool schema', () => {
-    const tool = manifest.tools!.find((t) => t.name === 'swarm_init');
+    const tool = manifest.tools!.find((t: ToolDef) => t.name === 'swarm_init');
 
     it('should exist', () => {
       expect(tool).toBeDefined();
@@ -122,7 +129,7 @@ describe('Ruflo MCP Bridge Plugin', () => {
   });
 
   describe('memory_store tool schema', () => {
-    const tool = manifest.tools!.find((t) => t.name === 'memory_store');
+    const tool = manifest.tools!.find((t: ToolDef) => t.name === 'memory_store');
 
     it('should exist', () => {
       expect(tool).toBeDefined();
@@ -158,7 +165,7 @@ describe('Ruflo MCP Bridge Plugin', () => {
   });
 
   describe('memory_search tool schema', () => {
-    const tool = manifest.tools!.find((t) => t.name === 'memory_search');
+    const tool = manifest.tools!.find((t: ToolDef) => t.name === 'memory_search');
 
     it('should exist', () => {
       expect(tool).toBeDefined();
@@ -189,7 +196,7 @@ describe('Ruflo MCP Bridge Plugin', () => {
   });
 
   describe('workflow_create tool schema', () => {
-    const tool = manifest.tools!.find((t) => t.name === 'workflow_create');
+    const tool = manifest.tools!.find((t: ToolDef) => t.name === 'workflow_create');
 
     it('should exist', () => {
       expect(tool).toBeDefined();
@@ -217,7 +224,7 @@ describe('Ruflo MCP Bridge Plugin', () => {
   });
 
   describe('workflow_execute tool schema', () => {
-    const tool = manifest.tools!.find((t) => t.name === 'workflow_execute');
+    const tool = manifest.tools!.find((t: ToolDef) => t.name === 'workflow_execute');
 
     it('should exist', () => {
       expect(tool).toBeDefined();
@@ -240,7 +247,7 @@ describe('Ruflo MCP Bridge Plugin', () => {
   });
 
   describe('coordination_orchestrate tool schema', () => {
-    const tool = manifest.tools!.find((t) => t.name === 'coordination_orchestrate');
+    const tool = manifest.tools!.find((t: ToolDef) => t.name === 'coordination_orchestrate');
 
     it('should exist', () => {
       expect(tool).toBeDefined();
@@ -271,7 +278,7 @@ describe('Ruflo MCP Bridge Plugin', () => {
   });
 
   describe('autopilot_status tool schema', () => {
-    const tool = manifest.tools!.find((t) => t.name === 'autopilot_status');
+    const tool = manifest.tools!.find((t: ToolDef) => t.name === 'autopilot_status');
 
     it('should exist', () => {
       expect(tool).toBeDefined();
@@ -284,7 +291,7 @@ describe('Ruflo MCP Bridge Plugin', () => {
   });
 
   describe('hooks_route tool schema', () => {
-    const tool = manifest.tools!.find((t) => t.name === 'hooks_route');
+    const tool = manifest.tools!.find((t: ToolDef) => t.name === 'hooks_route');
 
     it('should exist', () => {
       expect(tool).toBeDefined();
