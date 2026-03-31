@@ -25,7 +25,7 @@ export function HybridLocalConfigFields(props: AdapterConfigFieldsProps) {
 
       <Field
         label="Local endpoint URL"
-        hint="OpenAI-compatible API endpoint for local models (LM Studio, Ollama, LiteLLM, etc.)"
+        hint="OpenAI-compatible API endpoint. Defaults to Ollama on 11434 (LM Studio: 1234, LiteLLM: 4000)"
       >
         <DraftInput
           value={
@@ -75,7 +75,7 @@ export function HybridLocalConfigFields(props: AdapterConfigFieldsProps) {
 
       <Field
         label="Fallback model"
-        hint="Model to use when the primary is unavailable. Claude → local fallback, or local → Claude fallback. Leave as 'None' to disable."
+        hint="Fallback when primary is unavailable. For local models: qwen2.5-coder best for tools, llama3.1 for long context. Leave as 'None' to disable fallback."
       >
         <select
           className={selectClass}

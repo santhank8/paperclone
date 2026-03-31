@@ -33,7 +33,7 @@ Core fields:
 - instructionsFilePath (string, optional): absolute path to a markdown instructions file injected at runtime
 - model (string, required): model id — Claude models (claude-*) route to CLI, others route to local endpoint
 - fallbackModel (string, optional): model to fall back to when the primary is unavailable; can be Claude or local
-- localBaseUrl (string, optional): OpenAI-compatible API base URL (default: http://127.0.0.1:1234/v1)
+- localBaseUrl (string, optional): OpenAI-compatible API base URL (default: http://127.0.0.1:11434/v1)
 - quotaThresholdPercent (number, optional): Claude quota usage percent at which to pre-emptively skip to local (default: 80, set to 0 to disable)
 - effort (string, optional): reasoning effort for Claude runs (low|medium|high)
 - chrome (boolean, optional): pass --chrome when running Claude
@@ -59,13 +59,44 @@ Fallback (bidirectional):
 - Set fallbackModel to "" to disable fallback (fail on error)
 
 Compatible local backends:
-- LM Studio (default, http://127.0.0.1:1234/v1)
-- Ollama (http://127.0.0.1:11434/v1)
+- Ollama (default, http://127.0.0.1:11434/v1)
+- LM Studio (http://127.0.0.1:1234/v1)
 - LiteLLM proxy (http://127.0.0.1:4000/v1)
 - Any OpenAI-compatible server
+
+Local model selection:
+
+RECOMMENDED: qwen2.5-coder (7b/32b variants)
+- Best tool-calling support among open models
+- Strong code generation and reasoning
+- 7b: ~7GB VRAM, 32b: ~24GB VRAM
+- Expected token burn: 2-4x Claude for equivalent task
+- Best for: CI/CD, code review, testing, debugging
+
+ALTERNATIVE: llama3.1 (8b/70b variants)
+- Larger context window (128k tokens)
+- Good general reasoning
+- 8b: ~8GB VRAM, 70b: ~40GB VRAM
+- Expected token burn: 3-5x Claude
+- Best for: Long-context tasks, research, analysis
+
+ALTERNATIVE: mistral (7b/12b variants)
+- Fast inference, smaller models
+- Good for latency-critical tasks
+- 7b: ~6GB VRAM, 12b: ~10GB VRAM
+- Expected token burn: 5-8x Claude
+- Best for: Lightweight tasks, streaming responses
+
+LOCAL VS CLAUDE COSTS:
+- Local: Zero API costs, but GPU compute cost (~$0.50-2.00/hour on consumer GPU)
+- Claude: API costs ($3-30 per million tokens depending on model)
+- Break-even point: ~5M tokens of equivalent work using qwen2.5-coder (7b)
+- Most cost-effective: Use local + Claude fallback for quota management
 
 Notes:
 - Claude runs inherit all claude_local behavior (sessions, skills, quota).
 - Local runs are stateless (no session resume).
 - The local endpoint must be running with a model loaded for local routing to work.
+- Token limits: 30 tool turns max, 100k tokens total, 5 tools per turn max, 1MB output per command.
+- Guards: Dangerous command blocklist (rm -rf, sudo, dd, fdisk, format, shutdown, reboot, halt, poweroff, pkill, kill -9).
 `;

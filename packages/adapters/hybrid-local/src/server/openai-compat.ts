@@ -17,6 +17,12 @@ const DANGEROUS_PATTERNS = [
   /\bdd\b/, // disk dumping
   /\bfdisk\b/, // partition manipulation
   /\bformat\b/, // format drives
+  /\bshutdown\b/, // shutdown/reboot
+  /\breboot\b/, // reboot system
+  /\bhalt\b/, // halt system
+  /\bpoweroff\b/, // power off
+  /\bpkill\b/, // kill processes by name
+  /\bkill\s+-9\b/, // forcefully kill processes
 ];
 
 function isDangerousCommand(command: string): boolean {
