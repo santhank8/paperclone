@@ -13,6 +13,7 @@ In simple terms:
 - It watches the tools, services, and competitors that could affect your business.
 - It decides what changed and whether the change matters.
 - It prepares work automatically: issues, plans, draft pull requests, tests, and low-risk merges.
+- It actively looks for new tools, features, and opportunities that could make your products better or your team faster.
 - It stays quiet unless a change is important enough that a human decision is actually needed.
 
 This is not a second Paperclip server. It is a new company living inside the same Paperclip you already use.
@@ -35,6 +36,8 @@ That creates two problems:
 2. Even when changes are noticed, someone still has to read them, interpret them, and decide what to do next.
 
 `The Monitor Agency` solves that by making monitoring part of operations instead of a manual chore.
+
+It should also help you get ahead, not just avoid problems. That means it should look for useful new AI tools, feature ideas, and market openings before you ask for them.
 
 ## What It Is
 
@@ -80,6 +83,17 @@ This lane watches business and market changes:
 - partnerships
 - other market signals that suggest a strategy change
 
+### 3. Opportunity Monitoring
+
+This lane looks for things that could make your business faster, better, or more profitable:
+
+- new AI tools that could save time
+- new products or services worth integrating
+- new workflows that reduce manual work
+- new feature ideas for your own products
+- new market openings created by technology shifts
+- new ways to package, automate, or sell what you already do
+
 ## How It Works In Plain English
 
 Think of it like a small operations team.
@@ -108,6 +122,7 @@ It asks:
 - Does this affect us?
 - Is this small, risky, urgent, or strategic?
 - Does it need code, planning, or no action at all?
+- Is this a threat, an opportunity, or both?
 
 ### Step 3. Act
 
@@ -120,6 +135,7 @@ Depending on the answer, it can:
 - run tests
 - merge low-risk updates automatically
 - create a major-decision escalation for you
+- create a proactive proposal when it finds something worth exploiting
 
 ### Step 4. Escalate Only When Needed
 
@@ -144,6 +160,7 @@ Projects:
 
 - `Platform Monitoring`
 - `Strategic Monitoring`
+- `Opportunity Pipeline`
 - `Escalations`
 
 ## Agent Roles
@@ -167,6 +184,10 @@ Monitors model providers, APIs, pricing, policy shifts, and platform changes.
 ### Market Intel
 
 Tracks competitor and industry changes and turns those into strategy work when useful.
+
+### Opportunity Hunter
+
+Looks for new AI tools, product ideas, automation opportunities, and workflow improvements that could help you move faster or make more money.
 
 ### Executive Escalation
 
@@ -199,6 +220,7 @@ That means it is allowed to:
 - open draft pull requests automatically
 - run tests automatically
 - merge low-risk changes automatically
+- create proactive proposals automatically
 
 It is not intended to wait for a human on routine work.
 
@@ -236,6 +258,7 @@ You only get interrupted for major decisions such as:
 - important failing validation
 - likely breaking provider changes
 - strategic actions with meaningful business consequences
+- major opportunities worth funding, shipping, or prioritizing
 - changes involving money, permissions, or irreversible action
 
 This means you are not expected to monitor drafts, logs, releases, or technical severity yourself.
@@ -258,6 +281,7 @@ This design is successful when:
 
 - important upstream and market changes are detected without human checking
 - low-risk updates are handled automatically
+- valuable new tools and feature opportunities are surfaced proactively
 - risky changes are translated into plain-English decisions
 - you are interrupted rarely
 - the company reduces maintenance burden instead of creating a new one
@@ -271,6 +295,7 @@ Start with a conservative first phase:
 - open draft PRs automatically
 - run validation automatically
 - auto-merge only clearly low-risk changes
+- create opportunity proposals when confidence is high
 - log all actions inside `The Monitor Agency`
 
 This provides real autonomy without giving the company unlimited power on day one.
