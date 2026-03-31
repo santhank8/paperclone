@@ -50,12 +50,27 @@ const DEFAULT_QUOTA_THRESHOLD_PERCENT = 80;
  */
 async function isClaudeQuotaNearExhausted(
   threshold: number,
+  hasFallback: boolean,
   onLog: AdapterExecutionContext["onLog"],
 ): Promise<boolean> {
   if (threshold <= 0) return false;
   try {
     const quota = await getQuotaWindows();
-    if (!quota.ok || quota.windows.length === 0) return false;
+
+    // Quota check failed or returned no windows.
+    // If a fallback is configured, treat as exhausted (fail-closed) so we
+    // don't silently burn Claude attempts when the CLI /usage command is
+    // broken. If no fallback, fail-open so the agent can still run.
+    if (!quota.ok || quota.windows.length === 0) {
+      if (hasFallback) {
+        await onLog(
+          "stdout",
+          `[hybrid] Claude quota pre-check unavailable (${quota.error ?? "no windows"}) — routing to fallback\n`,
+        );
+        return true;
+      }
+      return false;
+    }
 
     const exhausted = quota.windows.find(
       (w) => w.usedPercent != null && w.usedPercent >= threshold,
@@ -69,7 +84,7 @@ async function isClaudeQuotaNearExhausted(
     }
     return false;
   } catch {
-    // Quota check failed — don't block execution, proceed normally
+    // Unexpected error in quota check — fail-open so the agent can still run
     return false;
   }
 }
@@ -134,7 +149,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
 
     // Pre-check: is Claude quota near exhausted? Skip straight to local.
     if (effectiveFallback) {
-      const nearExhausted = await isClaudeQuotaNearExhausted(quotaThreshold, onLog);
+      const nearExhausted = await isClaudeQuotaNearExhausted(quotaThreshold, true, onLog);
       if (nearExhausted) {
         await onLog(
           "stdout",
