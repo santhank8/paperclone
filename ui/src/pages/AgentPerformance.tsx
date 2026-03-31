@@ -470,6 +470,8 @@ export function AgentPerformance() {
           <div className="rounded-xl border border-border p-4 space-y-3">
             <div className="flex items-center justify-between gap-3">
               <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Performance by Project</h4>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground shrink-0">Project:</span>
               <Select value={effectiveProjectId} onValueChange={setSelectedProjectId}>
                 <SelectTrigger className="w-[200px] h-8 text-xs">
                   <SelectValue placeholder="Select project" />
@@ -485,6 +487,7 @@ export function AgentPerformance() {
                   ))}
                 </SelectContent>
               </Select>
+              </div>
             </div>
 
             {selectedProject && (
