@@ -150,6 +150,7 @@
           {
             "group": "Available Plugins",
             "pages": [
+              "plugins/hermes-integration",
               "plugins/playwright-mcp",
               "plugins/ruflo-bridge",
               "plugins/skills-hub"
