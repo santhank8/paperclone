@@ -56,6 +56,13 @@ export function routineRoutes(db: Db) {
     res.json(result);
   });
 
+  router.post("/companies/:companyId/routines/seed", async (req, res) => {
+    const companyId = req.params.companyId as string;
+    assertCompanyAccess(req, companyId);
+    const result = await svc.seedDefaults(companyId);
+    res.json(result);
+  });
+
   router.post("/companies/:companyId/routines", validate(createRoutineSchema), async (req, res) => {
     const companyId = req.params.companyId as string;
     await assertBoardCanAssignTasks(req, companyId);
