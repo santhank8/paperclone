@@ -169,7 +169,7 @@ function AgentSkillReview({
     if (rating === 0) return;
     setSubmitting(true);
     try {
-      await fetch(`https://agentskill.sh/api/skills/${slug.split("/").map(encodeURIComponent).join("/")}/agent-feedback`, {
+      const res = await fetch(`https://agentskill.sh/api/skills/${slug.split("/").map(encodeURIComponent).join("/")}/agent-feedback`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -180,6 +180,7 @@ function AgentSkillReview({
           sessionId: `paperclip-${slug}-${Date.now()}`,
         }),
       });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       setSubmitted(true);
       onSubmitted?.();
     } catch {
@@ -187,6 +188,7 @@ function AgentSkillReview({
     } finally {
       setSubmitting(false);
     }
+  }
   }
 
   if (submitted) {
