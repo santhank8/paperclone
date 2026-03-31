@@ -5,7 +5,7 @@ Run Paperclip in Docker without installing Node or pnpm locally.
 ## One-liner (build + run)
 
 ```sh
-docker build -t paperclip-local . && \
+docker build -t paperclip-local -f docker/Dockerfile . && \
 docker run --name paperclip \
   -p 3100:3100 \
   -e HOST=0.0.0.0 \
@@ -28,7 +28,7 @@ All persisted under your bind mount (`./data/docker-paperclip` in the example ab
 ## Compose Quickstart
 
 ```sh
-docker compose -f docker-compose.quickstart.yml up --build
+docker compose -f docker/docker-compose.quickstart.yml up --build
 ```
 
 Defaults:
@@ -39,7 +39,7 @@ Defaults:
 Optional overrides:
 
 ```sh
-PAPERCLIP_PORT=3200 PAPERCLIP_DATA_DIR=./data/pc docker compose -f docker-compose.quickstart.yml up --build
+PAPERCLIP_PORT=3200 PAPERCLIP_DATA_DIR=../data/pc docker compose -f docker/docker-compose.quickstart.yml up --build
 ```
 
 If you change host port or use a non-local domain, set `PAPERCLIP_PUBLIC_URL` to the external URL you will use in browser/auth flows.
@@ -133,4 +133,4 @@ Notes:
 - In authenticated mode, the smoke script defaults `SMOKE_AUTO_BOOTSTRAP=true` and drives the real bootstrap path automatically: it signs up a real user, runs `paperclipai auth bootstrap-ceo` inside the container to mint a real bootstrap invite, accepts that invite over HTTP, and verifies board session access.
 - Run the script in the foreground to watch the onboarding flow; stop with `Ctrl+C` after validation.
 - Set `SMOKE_DETACH=true` to leave the container running for automation and optionally write shell-ready metadata to `SMOKE_METADATA_FILE`.
-- The image definition is in `Dockerfile.onboard-smoke`.
+- The image definition is in `docker/Dockerfile.onboard-smoke`.
