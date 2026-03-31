@@ -7,6 +7,7 @@ import { useCompany } from "../context/CompanyContext";
 import { companiesApi } from "../api/companies";
 import { goalsApi } from "../api/goals";
 import { agentsApi } from "../api/agents";
+import { teamTemplatesApi, type TeamPack } from "../api/teamTemplates";
 import { issuesApi } from "../api/issues";
 import { projectsApi } from "../api/projects";
 import { queryKeys } from "../lib/queryKeys";
@@ -111,6 +112,10 @@ export function OnboardingWizard() {
   const [companyGoal, setCompanyGoal] = useState("");
 
   // Step 2
+  const [step2Mode, setStep2Mode] = useState<"pack" | "manual">("pack");
+  const [selectedPackKey, setSelectedPackKey] = useState<string | null>(null);
+  const [packCreating, setPackCreating] = useState(false);
+  const [packProgress, setPackProgress] = useState<{ done: number; total: number } | null>(null);
   const [agentName, setAgentName] = useState("CEO");
   const [adapterType, setAdapterType] = useState<AdapterType>("claude_local");
   const [model, setModel] = useState("");
@@ -191,6 +196,12 @@ export function OnboardingWizard() {
   useEffect(() => {
     if (step === 3) autoResizeTextarea();
   }, [step, taskDescription, autoResizeTextarea]);
+
+  const { data: teamPacks } = useQuery({
+    queryKey: ["team-templates", "packs"],
+    queryFn: () => teamTemplatesApi.listPacks(),
+    enabled: effectiveOnboardingOpen && step === 2,
+  });
 
   const {
     data: adapterModels,
@@ -482,6 +493,64 @@ export function OnboardingWizard() {
     }
   }
 
+  async function handlePackDeploy() {
+    if (!createdCompanyId || !selectedPackKey || !teamPacks) return;
+    const pack = teamPacks.find((p) => p.key === selectedPackKey);
+    if (!pack) return;
+
+    setPackCreating(true);
+    setError(null);
+    setPackProgress({ done: 0, total: pack.roles.length });
+
+    // Build adapter config from current adapter settings
+    const config = buildAdapterConfig();
+    const agentIdByTemplateKey = new Map<string, string>();
+
+    try {
+      // Create agents in order (CEO first, then reports)
+      const sortedRoles = [...pack.roles].sort((a, b) => {
+        if (!a.reportsTo) return -1;
+        if (!b.reportsTo) return 1;
+        return 0;
+      });
+
+      for (let i = 0; i < sortedRoles.length; i++) {
+        const role = sortedRoles[i];
+        const reportsToAgentId = role.reportsTo ? agentIdByTemplateKey.get(role.reportsTo) ?? null : null;
+
+        const agent = await agentsApi.create(createdCompanyId, {
+          name: role.title,
+          role: role.role,
+          title: role.title,
+          reportsTo: reportsToAgentId,
+          adapterType: role.suggestedAdapter || adapterType,
+          adapterConfig: config,
+          runtimeConfig: {
+            heartbeat: {
+              enabled: true,
+              intervalSec: 3600,
+              wakeOnDemand: true,
+              cooldownSec: 10,
+              maxConcurrentRuns: 1,
+            },
+          },
+        });
+
+        agentIdByTemplateKey.set(role.key, agent.id);
+        if (i === 0) setCreatedAgentId(agent.id);
+        setPackProgress({ done: i + 1, total: sortedRoles.length });
+      }
+
+      queryClient.invalidateQueries({ queryKey: queryKeys.agents.list(createdCompanyId) });
+      setStep(3);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to create team");
+    } finally {
+      setPackCreating(false);
+      setPackProgress(null);
+    }
+  }
+
   async function handleUnsetAnthropicApiKey() {
     if (!createdCompanyId || unsetAnthropicLoading) return;
     setUnsetAnthropicLoading(true);
@@ -600,7 +669,8 @@ export function OnboardingWizard() {
     if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
       e.preventDefault();
       if (step === 1 && companyName.trim()) handleStep1Next();
-      else if (step === 2 && agentName.trim()) handleStep2Next();
+      else if (step === 2 && step2Mode === "pack" && selectedPackKey) handlePackDeploy();
+      else if (step === 2 && step2Mode === "manual" && agentName.trim()) handleStep2Next();
       else if (step === 3 && taskTitle.trim()) handleStep3Next();
       else if (step === 4) handleLaunch();
     }
@@ -729,12 +799,74 @@ export function OnboardingWizard() {
                       <Bot className="h-5 w-5 text-muted-foreground" />
                     </div>
                     <div>
-                      <h3 className="font-medium">Create your first agent</h3>
+                      <h3 className="font-medium">Build your team</h3>
                       <p className="text-xs text-muted-foreground">
-                        Choose how this agent will run tasks.
+                        Deploy a pre-built team or create a single agent.
                       </p>
                     </div>
                   </div>
+
+                  {/* Mode toggle */}
+                  <div className="flex items-center gap-1 border border-border rounded-md overflow-hidden">
+                    <button
+                      className={cn("flex-1 px-3 py-1.5 text-xs transition-colors", step2Mode === "pack" ? "bg-accent text-foreground" : "text-muted-foreground hover:text-foreground")}
+                      onClick={() => setStep2Mode("pack")}
+                    >
+                      Team Pack
+                    </button>
+                    <button
+                      className={cn("flex-1 px-3 py-1.5 text-xs transition-colors", step2Mode === "manual" ? "bg-accent text-foreground" : "text-muted-foreground hover:text-foreground")}
+                      onClick={() => setStep2Mode("manual")}
+                    >
+                      Single Agent
+                    </button>
+                  </div>
+
+                  {/* Team Pack selection */}
+                  {step2Mode === "pack" && (
+                    <div className="space-y-3">
+                      {(teamPacks ?? []).map((pack) => (
+                        <button
+                          key={pack.key}
+                          className={cn(
+                            "w-full text-left rounded-lg border p-4 transition-colors",
+                            selectedPackKey === pack.key
+                              ? "border-foreground bg-accent"
+                              : "border-border hover:bg-accent/50",
+                          )}
+                          onClick={() => setSelectedPackKey(pack.key)}
+                          disabled={packCreating}
+                        >
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-sm font-medium">{pack.name}</span>
+                            <span className="text-xs text-muted-foreground">{pack.roleCount} agents</span>
+                          </div>
+                          <p className="text-xs text-muted-foreground">{pack.description}</p>
+                          <div className="flex flex-wrap gap-1 mt-2">
+                            {pack.roles.map((role) => (
+                              <span key={role.key} className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-[10px] text-muted-foreground">
+                                {role.title}
+                              </span>
+                            ))}
+                          </div>
+                        </button>
+                      ))}
+                      {packProgress && (
+                        <div className="space-y-1.5">
+                          <div className="flex items-center justify-between text-xs">
+                            <span>Creating agents...</span>
+                            <span>{packProgress.done}/{packProgress.total}</span>
+                          </div>
+                          <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                            <div className="h-full bg-blue-500 rounded-full transition-[width] duration-300" style={{ width: `${(packProgress.done / packProgress.total) * 100}%` }} />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Manual single agent (existing UI) */}
+                  {step2Mode === "manual" && (<>
                   <div>
                     <label className="text-xs text-muted-foreground mb-1 block">
                       Agent name
@@ -1144,6 +1276,7 @@ export function OnboardingWizard() {
                       />
                     </div>
                   )}
+                  </>)}
                 </div>
               )}
 
@@ -1276,7 +1409,7 @@ export function OnboardingWizard() {
                       {loading ? "Creating..." : "Next"}
                     </Button>
                   )}
-                  {step === 2 && (
+                  {step === 2 && step2Mode === "manual" && (
                     <Button
                       size="sm"
                       disabled={
@@ -1290,6 +1423,20 @@ export function OnboardingWizard() {
                         <ArrowRight className="h-3.5 w-3.5 mr-1" />
                       )}
                       {loading ? "Creating..." : "Next"}
+                    </Button>
+                  )}
+                  {step === 2 && step2Mode === "pack" && (
+                    <Button
+                      size="sm"
+                      disabled={!selectedPackKey || packCreating}
+                      onClick={handlePackDeploy}
+                    >
+                      {packCreating ? (
+                        <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+                      ) : (
+                        <Rocket className="h-3.5 w-3.5 mr-1" />
+                      )}
+                      {packCreating ? `Deploying team...` : "Deploy Team"}
                     </Button>
                   )}
                   {step === 3 && (
