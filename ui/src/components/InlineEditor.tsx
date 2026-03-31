@@ -5,7 +5,7 @@ import { useAutosaveIndicator } from "../hooks/useAutosaveIndicator";
 
 interface InlineEditorProps {
   value: string;
-  onSave: (value: string | null) => void | Promise<unknown>;
+  onSave: (value: string) => void | Promise<unknown>;
   as?: "h1" | "h2" | "p" | "span";
   className?: string;
   placeholder?: string;
@@ -82,10 +82,11 @@ export function InlineEditor({
   }, [editing, multiline]);
 
   const commit = useCallback(async (nextValue = draft) => {
-    const valueToSave: string | null = nextValue.trim() || null;
+    const valueToSave = nextValue.trim();
+    const valueChanged = valueToSave !== value;
     const shouldSave = nullable
-      ? valueToSave !== value
-      : Boolean(valueToSave && valueToSave !== value);
+      ? valueChanged
+      : Boolean(valueToSave && valueChanged);
     if (shouldSave) {
       await Promise.resolve(onSave(valueToSave));
     } else {

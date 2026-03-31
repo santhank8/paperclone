@@ -63,7 +63,7 @@ describe("InlineEditor", () => {
     });
 
     expect(onSave).toHaveBeenCalledTimes(1);
-    expect(onSave).toHaveBeenCalledWith(null);
+    expect(onSave).toHaveBeenCalledWith("");
 
     act(() => {
       root.unmount();
