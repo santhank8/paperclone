@@ -433,21 +433,11 @@ function appendWakeText(baseText: string, wakeText: string): string {
 
 function buildStandardPaperclipPayload(
   ctx: AdapterExecutionContext,
-  wakePayload: WakePayload,
+  _wakePayload: WakePayload,
   paperclipEnv: Record<string, string>,
   payloadTemplate: Record<string, unknown>,
 ): Record<string, unknown> {
   const templatePaperclip = parseObject(payloadTemplate.paperclip);
-  const workspace = asRecord(ctx.context.paperclipWorkspace);
-  const workspaces = Array.isArray(ctx.context.paperclipWorkspaces)
-    ? ctx.context.paperclipWorkspaces.filter((entry): entry is Record<string, unknown> => Boolean(asRecord(entry)))
-    : [];
-  const configuredWorkspaceRuntime = parseObject(ctx.config.workspaceRuntime);
-  const runtimeServiceIntents = Array.isArray(ctx.context.paperclipRuntimeServiceIntents)
-    ? ctx.context.paperclipRuntimeServiceIntents.filter(
-        (entry): entry is Record<string, unknown> => Boolean(asRecord(entry)),
-      )
-    : [];
 
   const standardPaperclip: Record<string, unknown> = {
     auth: {
