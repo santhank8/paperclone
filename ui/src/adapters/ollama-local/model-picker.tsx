@@ -275,39 +275,46 @@ export function OllamaModelPicker({
         for (const line of lines) {
           const trimmed = line.trim();
           if (!trimmed) continue;
+          let obj: {
+            status?: string;
+            total?: number;
+            completed?: number;
+            error?: string;
+          };
           try {
-            const obj = JSON.parse(trimmed) as {
+            obj = JSON.parse(trimmed) as {
               status?: string;
               total?: number;
               completed?: number;
               error?: string;
             };
-
-            if (obj.error) throw new Error(obj.error);
-
-            let percent = _globalDownloads.get(modelId)?.percent ?? 0;
-            if (obj.total && obj.completed) {
-              percent = Math.round((obj.completed / obj.total) * 100);
-            }
-
-            if (obj.status === "success") {
-              setDownloadState(modelId, { status: "done", statusText: "Installed!", percent: 100 });
-              _globalAborts.delete(modelId);
-              onRefreshRef.current?.();
-              return;
-            }
-
-            // Filter out raw hash lines like "pulling 60e05f2100…"
-            const rawStatus = obj.status ?? "Downloading…";
-            const isHashLine = /^pulling\s+[0-9a-f]{8,}/i.test(rawStatus);
-            const statusText = isHashLine
-              ? (_globalDownloads.get(modelId)?.statusText ?? "Downloading…")
-              : rawStatus;
-
-            setDownloadState(modelId, { status: "pulling", statusText, percent });
           } catch {
             // non-fatal parse errors — skip
+            continue;
           }
+
+          if (obj.error) throw new Error(obj.error);
+
+          let percent = _globalDownloads.get(modelId)?.percent ?? 0;
+          if (obj.total && obj.completed) {
+            percent = Math.round((obj.completed / obj.total) * 100);
+          }
+
+          if (obj.status === "success") {
+            setDownloadState(modelId, { status: "done", statusText: "Installed!", percent: 100 });
+            _globalAborts.delete(modelId);
+            onRefreshRef.current?.();
+            return;
+          }
+
+          // Filter out raw hash lines like "pulling 60e05f2100…"
+          const rawStatus = obj.status ?? "Downloading…";
+          const isHashLine = /^pulling\s+[0-9a-f]{8,}/i.test(rawStatus);
+          const statusText = isHashLine
+            ? (_globalDownloads.get(modelId)?.statusText ?? "Downloading…")
+            : rawStatus;
+
+          setDownloadState(modelId, { status: "pulling", statusText, percent });
         }
       }
 
