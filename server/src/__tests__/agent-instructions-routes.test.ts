@@ -3,6 +3,7 @@ import request from "supertest";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { agentRoutes } from "../routes/agents.js";
 import { errorHandler } from "../middleware/index.js";
+import { DEFAULT_OLLAMA_MODEL } from "@paperclipai/adapter-ollama-local";
 
 const mockAgentService = vi.hoisted(() => ({
   getById: vi.fn(),
@@ -315,4 +316,42 @@ describe("agent instructions bundle routes", () => {
     expect(res.body.adapterConfig.instructionsEntryFile).toBeUndefined();
     expect(res.body.adapterConfig.instructionsFilePath).toBeUndefined();
   });
+
+  it("applies the default Ollama model when switching adapter type", async () => {
+    mockAgentService.getById.mockResolvedValue({
+      ...makeAgent(),
+      adapterType: "codex_local",
+      adapterConfig: {
+        instructionsBundleMode: "managed",
+        instructionsRootPath: "/tmp/agent-1",
+        instructionsEntryFile: "AGENTS.md",
+        instructionsFilePath: "/tmp/agent-1/AGENTS.md",
+        model: "gpt-5.4",
+      },
+    });
+
+    const res = await request(createApp())
+      .patch("/api/agents/11111111-1111-4111-8111-111111111111?companyId=company-1")
+      .send({
+        adapterType: "ollama_local",
+        adapterConfig: {},
+      });
+
+    expect(res.status, JSON.stringify(res.body)).toBe(200);
+    expect(mockAgentService.update).toHaveBeenCalledWith(
+      "11111111-1111-4111-8111-111111111111",
+      expect.objectContaining({
+        adapterType: "ollama_local",
+        adapterConfig: expect.objectContaining({
+          model: DEFAULT_OLLAMA_MODEL,
+          instructionsBundleMode: "managed",
+          instructionsRootPath: "/tmp/agent-1",
+          instructionsEntryFile: "AGENTS.md",
+          instructionsFilePath: "/tmp/agent-1/AGENTS.md",
+        }),
+      }),
+      expect.any(Object),
+    );
+  });
+
 });

@@ -3,6 +3,7 @@ import request from "supertest";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { agentRoutes } from "../routes/agents.js";
 import { errorHandler } from "../middleware/index.js";
+import { DEFAULT_OLLAMA_MODEL } from "@paperclipai/adapter-ollama-local";
 
 const mockAgentService = vi.hoisted(() => ({
   getById: vi.fn(),
@@ -459,4 +460,30 @@ describe("agent skill routes", () => {
       | undefined;
     expect(approvalInput?.payload?.adapterConfig?.promptTemplate).toBeUndefined();
   });
+
+  it("defaults Ollama model and materializes managed instructions for direct create", async () => {
+    const res = await request(createApp())
+      .post("/api/companies/company-1/agents")
+      .send({
+        name: "Ollama Agent",
+        role: "engineer",
+        adapterType: "ollama_local",
+        adapterConfig: {},
+      });
+
+    expect(res.status, JSON.stringify(res.body)).toBe(201);
+    expect(mockAgentService.create).toHaveBeenCalledWith(
+      "company-1",
+      expect.objectContaining({
+        adapterType: "ollama_local",
+        adapterConfig: expect.objectContaining({ model: DEFAULT_OLLAMA_MODEL }),
+      }),
+    );
+    expect(mockAgentInstructionsService.materializeManagedBundle).toHaveBeenCalledWith(
+      expect.objectContaining({ adapterType: "ollama_local" }),
+      expect.objectContaining({ "AGENTS.md": expect.any(String) }),
+      { entryFile: "AGENTS.md", replaceExisting: false },
+    );
+  });
+
 });
