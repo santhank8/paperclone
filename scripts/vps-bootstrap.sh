@@ -256,7 +256,13 @@ clone_and_build() {
 
 install_cli_tools() {
   mkdir -p "${PAPERCLIP_HOME}/.claude" "${PAPERCLIP_HOME}/.codex"
-  touch "${PAPERCLIP_HOME}/.claude.json"
+  if [[ ! -f "${PAPERCLIP_HOME}/.claude.json" ]]; then
+    printf '{}\n' > "${PAPERCLIP_HOME}/.claude.json"
+  elif ! jq empty "${PAPERCLIP_HOME}/.claude.json" >/dev/null 2>&1; then
+    warn "Resetting invalid Claude configuration at ${PAPERCLIP_HOME}/.claude.json"
+    printf '{}\n' > "${PAPERCLIP_HOME}/.claude.json"
+  fi
+  chmod 600 "${PAPERCLIP_HOME}/.claude.json"
   chown -R "${PAPERCLIP_USER}":"${PAPERCLIP_USER}" "${PAPERCLIP_HOME}/.claude" "${PAPERCLIP_HOME}/.codex" "${PAPERCLIP_HOME}/.claude.json"
 
   # Ensure ~/.local/bin is in PATH for the paperclip user
@@ -271,11 +277,17 @@ install_cli_tools() {
     success "Claude Code CLI already installed"
   else
     info "Installing Claude Code CLI..."
-    sudo -u "${PAPERCLIP_USER}" bash -c \
-      'export PATH="$HOME/.local/bin:$PATH" && curl -fsSL https://claude.ai/install.sh | bash' 2>&1 | tail -3 || {
+    if sudo -u "${PAPERCLIP_USER}" bash -lc \
+      'export PATH="$HOME/.local/bin:$PATH" && curl -fsSL https://claude.ai/install.sh | bash'; then
+      if sudo -u "${PAPERCLIP_USER}" bash -lc 'export PATH="$HOME/.local/bin:$PATH" && command -v claude >/dev/null'; then
+        success "Claude Code CLI installed"
+      else
+        warn "Claude Code installer completed but 'claude' is not on PATH for ${PAPERCLIP_USER}"
+      fi
+    else
       warn "Claude Code install failed. You can install it later:"
       warn "  su - ${PAPERCLIP_USER} && curl -fsSL https://claude.ai/install.sh | bash"
-    }
+    fi
   fi
 
   # Codex (install globally as root since npm global dir is /usr/lib/node_modules)
@@ -283,10 +295,16 @@ install_cli_tools() {
     success "Codex CLI already installed"
   else
     info "Installing Codex CLI..."
-    npm install --global @openai/codex@latest 2>&1 | tail -1 || {
+    if npm install --global @openai/codex@latest; then
+      if command -v codex &>/dev/null; then
+        success "Codex CLI installed"
+      else
+        warn "Codex install completed but 'codex' is not on PATH"
+      fi
+    else
       warn "Codex install failed. You can install it later:"
       warn "  sudo npm install --global @openai/codex@latest"
-    }
+    fi
   fi
 }
 
