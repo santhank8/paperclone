@@ -138,6 +138,21 @@ function resolveSessionKey(input: {
   return fallback;
 }
 
+function scopeSessionKeyForAgent(sessionKey: string, agentId: string | null): string {
+  const trimmedSessionKey = sessionKey.trim();
+  const trimmedAgentId = agentId?.trim() ?? "";
+  if (!trimmedSessionKey || !trimmedAgentId) return trimmedSessionKey;
+
+  const scopedMatch = trimmedSessionKey.match(/^agent:([^:]+):(.+)$/);
+  if (!scopedMatch) {
+    return `agent:${trimmedAgentId}:${trimmedSessionKey}`;
+  }
+
+  const [, existingAgentId, suffix] = scopedMatch;
+  if (existingAgentId === trimmedAgentId) return trimmedSessionKey;
+  return `agent:${trimmedAgentId}:${suffix}`;
+}
+
 function isLoopbackHost(hostname: string): boolean {
   const value = hostname.trim().toLowerCase();
   return value === "localhost" || value === "127.0.0.1" || value === "::1";
@@ -1055,14 +1070,18 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
   const paperclipEnv = buildPaperclipEnvForWake(ctx, wakePayload);
   const wakeText = buildWakeText(wakePayload, paperclipEnv);
 
+  const configuredAgentId = nonEmpty(ctx.config.agentId);
   const sessionKeyStrategy = normalizeSessionKeyStrategy(ctx.config.sessionKeyStrategy);
   const configuredSessionKey = nonEmpty(ctx.config.sessionKey);
-  const sessionKey = resolveSessionKey({
-    strategy: sessionKeyStrategy,
-    configuredSessionKey,
-    runId: ctx.runId,
-    issueId: wakePayload.issueId,
-  });
+  const sessionKey = scopeSessionKeyForAgent(
+    resolveSessionKey({
+      strategy: sessionKeyStrategy,
+      configuredSessionKey,
+      runId: ctx.runId,
+      issueId: wakePayload.issueId,
+    }),
+    configuredAgentId,
+  );
 
   const templateMessage = nonEmpty(payloadTemplate.message) ?? nonEmpty(payloadTemplate.text);
   const message = templateMessage ? appendWakeText(templateMessage, wakeText) : wakeText;
@@ -1076,9 +1095,22 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
   };
   delete agentParams.text;
 
-  const configuredAgentId = nonEmpty(ctx.config.agentId);
   if (configuredAgentId && !nonEmpty(agentParams.agentId)) {
     agentParams.agentId = configuredAgentId;
+  }
+
+  const configuredModel = nonEmpty(ctx.config.model);
+  if (configuredModel && !nonEmpty(agentParams.model)) {
+    agentParams.model = configuredModel;
+  }
+
+  const configuredThinking =
+    nonEmpty(ctx.config.thinking) ??
+    nonEmpty(ctx.config.effort) ??
+    nonEmpty(ctx.config.modelReasoningEffort) ??
+    nonEmpty(ctx.config.reasoningEffort);
+  if (configuredThinking && !nonEmpty(agentParams.thinking)) {
+    agentParams.thinking = configuredThinking;
   }
 
   if (typeof agentParams.timeout !== "number") {
