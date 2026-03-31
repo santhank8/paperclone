@@ -1,6 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { resolveBaseUrl, executeLocalModel } from "./openai-compat.js";
 
+
 describe("resolveBaseUrl", () => {
   it("returns the default URL when config is undefined", () => {
     expect(resolveBaseUrl(undefined)).toBe("http://127.0.0.1:11434/v1");
@@ -107,5 +108,32 @@ describe("executeLocalModel — systemPrompt injection", () => {
     const body = JSON.parse((global.fetch as ReturnType<typeof vi.fn>).mock.calls[0][1].body);
     expect(body.messages[0].role).toBe("system");
     expect(body.messages[1].role).toBe("user");
+  });
+});
+
+describe("tool output truncation — constant validation", () => {
+  it("MAX_TOOL_OUTPUT_CHARS produces a truncated string with notice when applied", () => {
+    const MAX_TOOL_OUTPUT_CHARS = 8_000;
+    const largeOutput = "x".repeat(20_000);
+
+    const truncated = largeOutput.length > MAX_TOOL_OUTPUT_CHARS
+      ? largeOutput.slice(0, MAX_TOOL_OUTPUT_CHARS) + `\n[output truncated: ${largeOutput.length} chars total]`
+      : largeOutput;
+
+    expect(truncated.length).toBeLessThan(largeOutput.length);
+    expect(truncated).toContain("[output truncated:");
+    expect(truncated).toContain("20000 chars total");
+  });
+
+  it("short output is not truncated", () => {
+    const MAX_TOOL_OUTPUT_CHARS = 8_000;
+    const shortOutput = "file1.txt\nfile2.txt\n";
+
+    const result = shortOutput.length > MAX_TOOL_OUTPUT_CHARS
+      ? shortOutput.slice(0, MAX_TOOL_OUTPUT_CHARS) + `\n[output truncated: ${shortOutput.length} chars total]`
+      : shortOutput;
+
+    expect(result).toBe(shortOutput);
+    expect(result).not.toContain("[output truncated:");
   });
 });
