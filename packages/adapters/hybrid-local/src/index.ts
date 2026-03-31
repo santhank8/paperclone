@@ -35,6 +35,7 @@ Core fields:
 - fallbackModel (string, optional): model to fall back to when the primary is unavailable; can be Claude or local
 - localBaseUrl (string, optional): OpenAI-compatible API base URL (default: http://127.0.0.1:11434/v1)
 - quotaThresholdPercent (number, optional): Claude quota usage percent at which to pre-emptively skip to local (default: 80, set to 0 to disable)
+- allowExtraCredit (boolean, optional): whether Claude can continue past quota policy; default false (recommended)
 - effort (string, optional): reasoning effort for Claude runs (low|medium|high)
 - chrome (boolean, optional): pass --chrome when running Claude
 - promptTemplate (string, optional): run prompt template
@@ -57,6 +58,10 @@ Fallback (bidirectional):
 - Claude model + quota/auth error → retry with fallbackModel via local endpoint
 - Local model + connection/timeout error → retry with fallbackModel via Claude CLI
 - Set fallbackModel to "" to disable fallback (fail on error)
+
+Cost policy:
+- allowExtraCredit=false (default) enforces fail-closed quota behavior for Claude routing.
+- If quota pre-check is unavailable and fallbackModel is unset, Claude run is blocked.
 
 Compatible local backends:
 - Ollama (default, http://127.0.0.1:11434/v1)

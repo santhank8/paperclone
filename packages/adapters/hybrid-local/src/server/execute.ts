@@ -1,5 +1,5 @@
 import type { AdapterExecutionContext, AdapterExecutionResult } from "@paperclipai/adapter-utils";
-import { asString, asNumber, renderTemplate, joinPromptSections } from "@paperclipai/adapter-utils/server-utils";
+import { asString, asNumber, asBoolean, renderTemplate, joinPromptSections } from "@paperclipai/adapter-utils/server-utils";
 import { execute as claudeExecute } from "@paperclipai/adapter-claude-local/server";
 import { isClaudeModel, models as staticModels } from "../index.js";
 import { executeLocalModel, resolveBaseUrl, testOpenAICompatAvailability } from "./openai-compat.js";
@@ -12,7 +12,14 @@ function isClaudeQuotaOrAuthError(result: AdapterExecutionResult): boolean {
   if (result.errorCode === "claude_auth_required") return true;
   if (result.errorMeta && "loginUrl" in result.errorMeta) return true;
   const msg = (result.errorMessage ?? "").toLowerCase();
-  return msg.includes("rate limit") || msg.includes("quota") || msg.includes("not logged in");
+  return (
+    msg.includes("rate limit") ||
+    msg.includes("quota") ||
+    msg.includes("not logged in") ||
+    msg.includes("out of credits") ||
+    msg.includes("out_of_credits") ||
+    msg.includes("extra usage")
+  );
 }
 
 function isLocalResourceError(error: unknown): boolean {
@@ -125,6 +132,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
   const { config, onLog, context } = ctx;
   const model = asString(config.model, "");
   const fallbackModel = asString(config.fallbackModel, "");
+  const allowExtraCredit = asBoolean(config.allowExtraCredit, false);
   const localBaseUrl = resolveBaseUrl(config.localBaseUrl);
 
   if (!model) {
@@ -144,10 +152,29 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     // This prevents unexpected token consumption without user knowledge
     const effectiveFallback = fallbackModel;
 
-    // Pre-check: is Claude quota near exhausted? Skip straight to local (only if fallback configured).
-    if (effectiveFallback) {
-      const nearExhausted = await isClaudeQuotaNearExhausted(quotaThreshold, true, onLog);
+    // Pre-check: is Claude quota near exhausted?
+    // - With fallback configured: skip to fallback when near/exhausted
+    // - With allowExtraCredit=false: fail closed when quota pre-check is unavailable
+    const shouldPreCheckQuota = Boolean(effectiveFallback) || !allowExtraCredit;
+    if (shouldPreCheckQuota) {
+      const nearExhausted = await isClaudeQuotaNearExhausted(
+        quotaThreshold,
+        shouldPreCheckQuota,
+        onLog,
+      );
       if (nearExhausted) {
+        if (!effectiveFallback) {
+          return {
+            exitCode: 1,
+            signal: null,
+            timedOut: false,
+            errorCode: "extra_credit_disabled",
+            errorMessage:
+              `Claude quota pre-check indicates quota >= ${quotaThreshold}% (or unavailable), and extra credit is disabled. Configure fallbackModel to route locally.`,
+            clearSession: false,
+          };
+        }
+
         await onLog(
           "stdout",
           `[hybrid] Claude quota near limit — skipping to local model: ${effectiveFallback}\n`,

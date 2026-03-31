@@ -2,6 +2,7 @@ import type { AdapterConfigFieldsProps } from "../types";
 import { ClaudeLocalConfigFields } from "../claude-local/config-fields";
 import {
   Field,
+  ToggleField,
   DraftInput,
 } from "../../components/agent-config-primitives";
 
@@ -72,6 +73,21 @@ export function HybridLocalConfigFields(props: AdapterConfigFieldsProps) {
           }}
         />
       </Field>
+
+      <ToggleField
+        label="Allow extra credit"
+        hint="When off (recommended), Claude is blocked once quota reaches the threshold and Paperclip fails closed if quota status is unavailable."
+        checked={
+          isCreate
+            ? false
+            : eff("adapterConfig", "allowExtraCredit", config.allowExtraCredit === true)
+        }
+        onChange={(v) =>
+          isCreate
+            ? set?.({})
+            : mark("adapterConfig", "allowExtraCredit", v)
+        }
+      />
 
       <Field
         label="Fallback model"

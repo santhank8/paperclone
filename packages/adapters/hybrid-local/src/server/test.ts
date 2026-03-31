@@ -20,23 +20,32 @@ export async function testEnvironment(
   const checks: AdapterEnvironmentCheck[] = [];
   const config = parseObject(ctx.config);
   const model = asString(config.model, "");
+  const fallbackModel = asString(config.fallbackModel, "");
   const localBaseUrl = resolveBaseUrl(config.localBaseUrl);
+  const needsClaude = isClaudeModel(model) || (fallbackModel.length > 0 && isClaudeModel(fallbackModel));
 
-  // Run Claude CLI checks in parallel with local endpoint checks
+  // Only run Claude checks when this config can route to Claude
+  // (Claude primary or Claude fallback). For local-only configs, skip them
+  // to avoid noisy warnings from an unused backend.
   const [claudeResult, localResult] = await Promise.all([
-    claudeTestEnvironment(ctx).catch((err) => null),
+    needsClaude ? claudeTestEnvironment(ctx).catch((_err) => null) : Promise.resolve(null),
     testOpenAICompatAvailability(localBaseUrl),
   ]);
 
   // Claude CLI checks
   if (claudeResult) {
     for (const check of claudeResult.checks) {
+      const adjustedLevel =
+        !needsClaude && check.level === "error"
+          ? "warn"
+          : check.level;
       checks.push({
         ...check,
+        level: adjustedLevel,
         code: `local_${check.code}`,
       });
     }
-  } else {
+  } else if (needsClaude) {
     checks.push({
       code: "local_claude_check_failed",
       level: "warn",
@@ -98,7 +107,7 @@ export async function testEnvironment(
   }
 
   // Summary check for the combined adapter
-  const hasClaude = claudeResult?.status !== "fail";
+  const hasClaude = needsClaude ? claudeResult?.status !== "fail" : true;
   const hasLocal = localResult.available;
   if (!hasClaude && !hasLocal) {
     checks.push({

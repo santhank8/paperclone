@@ -11,7 +11,14 @@ function isClaudeQuotaOrAuthError(result: {
   if (result.errorCode === "claude_auth_required") return true;
   if (result.errorMeta && "loginUrl" in result.errorMeta) return true;
   const msg = (result.errorMessage ?? "").toLowerCase();
-  return msg.includes("rate limit") || msg.includes("quota") || msg.includes("not logged in");
+  return (
+    msg.includes("rate limit") ||
+    msg.includes("quota") ||
+    msg.includes("not logged in") ||
+    msg.includes("out of credits") ||
+    msg.includes("out_of_credits") ||
+    msg.includes("extra usage")
+  );
 }
 
 function isLocalResourceError(error: unknown): boolean {
@@ -50,6 +57,10 @@ describe("isClaudeQuotaOrAuthError", () => {
 
   it("detects not logged in message", () => {
     expect(isClaudeQuotaOrAuthError({ errorMessage: "Claude is not logged in" })).toBe(true);
+  });
+
+  it("detects out of credits message", () => {
+    expect(isClaudeQuotaOrAuthError({ errorMessage: "You're out of credits for extra usage" })).toBe(true);
   });
 
   it("returns false for generic errors", () => {
