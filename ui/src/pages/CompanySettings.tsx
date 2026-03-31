@@ -183,7 +183,7 @@ export function CompanySettings() {
       window.location.href = "/auth";
     },
     onError: () => {
-      pushToast("Sign out failed. Please try again.", "error");
+      pushToast({ title: "Sign out failed. Please try again.", tone: "error" });
     },
   });
 
