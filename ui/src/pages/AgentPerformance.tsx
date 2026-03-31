@@ -488,7 +488,10 @@ export function AgentPerformance() {
 interface Insight {
   type: "warning" | "suggestion" | "positive";
   agent: string;
+  agentId: string | null;
   message: string;
+  actionLabel: string;
+  actionHref: string;
 }
 
 function generateInsights(rows: AgentPerfRow[]): Insight[] {
@@ -506,25 +509,36 @@ function generateInsights(rows: AgentPerfRow[]): Insight[] {
       insights.push({
         type: "warning",
         agent: "Team",
-        message: `${spendingAgents.length} agent${spendingAgents.length === 1 ? "" : "s"} have consumed tokens (${formatCents(spendingAgents.reduce((s, r) => s + r.totalSpendCents, 0))} total) but completed 0 tasks. Agents may be running heartbeat checks without assigned work. Create and assign issues to start tracking output.`,
+        agentId: null,
+        message: `${spendingAgents.length} agent${spendingAgents.length === 1 ? "" : "s"} have consumed tokens (${formatCents(spendingAgents.reduce((s, r) => s + r.totalSpendCents, 0))} total) but completed 0 tasks. Create and assign issues to start tracking output.`,
+        actionLabel: "Create issue",
+        actionHref: "/issues",
       });
     }
   }
 
   for (const row of rows) {
+    const agentHref = `/agents/${row.agentId}`;
+
     // Idle agents — no tasks done and no work in progress
     if (row.tasksDone === 0 && row.tasksInProgress === 0) {
       if (row.totalSpendCents > 0) {
         insights.push({
           type: "warning",
           agent: row.name,
-          message: `${row.name} has spent ${formatCents(row.totalSpendCents)} but completed 0 tasks. Spending is from heartbeat/maintenance runs. Assign issues to get productive output.`,
+          agentId: row.agentId,
+          message: `${row.name} has spent ${formatCents(row.totalSpendCents)} but completed 0 tasks. Spending is from heartbeat runs without assigned work.`,
+          actionLabel: "Assign work",
+          actionHref: "/issues",
         });
       } else {
         insights.push({
           type: "suggestion",
           agent: row.name,
-          message: `${row.name} has no completed or active tasks. Consider assigning work or reviewing their role configuration.`,
+          agentId: row.agentId,
+          message: `${row.name} has no completed or active tasks.`,
+          actionLabel: "Configure agent",
+          actionHref: agentHref,
         });
       }
       continue;
@@ -535,7 +549,10 @@ function generateInsights(rows: AgentPerfRow[]): Insight[] {
       insights.push({
         type: "suggestion",
         agent: row.name,
-        message: `${row.name} costs ${formatCents(Math.round(row.costPerTask))}/task (${Math.round(row.costPerTask / avgCost)}x team avg). Try switching to a smaller model, reducing context size, or breaking tasks into smaller units.`,
+        agentId: row.agentId,
+        message: `${row.name} costs ${formatCents(Math.round(row.costPerTask))}/task (${Math.round(row.costPerTask / avgCost)}x team avg). Switch to a smaller model or reduce context size.`,
+        actionLabel: "Edit model config",
+        actionHref: agentHref,
       });
     }
 
@@ -544,7 +561,10 @@ function generateInsights(rows: AgentPerfRow[]): Insight[] {
       insights.push({
         type: "suggestion",
         agent: row.name,
-        message: `${row.name} averages ${row.avgCloseH.toFixed(1)}h per task (${Math.round(row.avgCloseH / avgCloseH)}x team avg). Review their SOUL.md for overly broad instructions, or simplify assigned tasks.`,
+        agentId: row.agentId,
+        message: `${row.name} averages ${row.avgCloseH.toFixed(1)}h per task (${Math.round(row.avgCloseH / avgCloseH)}x team avg). Simplify instructions or break tasks smaller.`,
+        actionLabel: "Edit SOUL.md",
+        actionHref: agentHref,
       });
     }
 
@@ -553,7 +573,10 @@ function generateInsights(rows: AgentPerfRow[]): Insight[] {
       insights.push({
         type: "warning",
         agent: row.name,
-        message: `${row.name} has a ${row.completionRate}% completion rate. Many tasks are being cancelled. Review task assignments for role fit.`,
+        agentId: row.agentId,
+        message: `${row.name} has a ${row.completionRate}% completion rate — too many cancelled tasks.`,
+        actionLabel: "Review assignments",
+        actionHref: `/issues?assignee=${row.agentId}`,
       });
     }
 
@@ -562,7 +585,10 @@ function generateInsights(rows: AgentPerfRow[]): Insight[] {
       insights.push({
         type: "positive",
         agent: row.name,
-        message: `${row.name} is a top performer — efficient, fast, and reliable. Consider assigning higher-priority work.`,
+        agentId: row.agentId,
+        message: `${row.name} is a top performer — efficient, fast, and reliable.`,
+        actionLabel: "Assign high-priority work",
+        actionHref: "/issues",
       });
     }
   }
@@ -599,7 +625,21 @@ function PerformanceInsights({ rows }: { rows: AgentPerfRow[] }) {
             {insight.type === "warning" && <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5 text-red-400" />}
             {insight.type === "suggestion" && <TrendingDown className="h-4 w-4 shrink-0 mt-0.5 text-amber-400" />}
             {insight.type === "positive" && <CheckCircle2 className="h-4 w-4 shrink-0 mt-0.5 text-emerald-400" />}
-            <span className="text-muted-foreground">{insight.message}</span>
+            <div className="flex-1 min-w-0">
+              <span className="text-muted-foreground">{insight.message}</span>
+              <span className="mx-1.5">·</span>
+              <Link
+                to={insight.actionHref}
+                className={cn(
+                  "text-xs font-medium underline underline-offset-2 transition-colors",
+                  insight.type === "warning" && "text-red-400 hover:text-red-300",
+                  insight.type === "suggestion" && "text-amber-400 hover:text-amber-300",
+                  insight.type === "positive" && "text-emerald-400 hover:text-emerald-300",
+                )}
+              >
+                {insight.actionLabel} &rarr;
+              </Link>
+            </div>
           </div>
         ))}
       </div>
