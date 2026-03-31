@@ -480,20 +480,25 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
         } as Record<string, unknown>)
       : null;
     const clearSessionForMaxTurns = isCopilotMaxTurnsResult(parsedStream.resultJson);
+    const hasSuccessfulFinalResult =
+      describeCopilotFailure(parsedStream.resultJson, {
+        rateLimitMessage: rateLimitMeta.isRateLimited ? rateLimitMeta.message : null,
+      }) == null;
+    const requiresLogin = loginMeta.requiresLogin && !hasSuccessfulFinalResult;
 
     return {
       exitCode: proc.exitCode,
       signal: proc.signal,
       timedOut: false,
       errorMessage:
-        loginMeta.requiresLogin || (proc.exitCode ?? 0) !== 0
+        requiresLogin || (proc.exitCode ?? 0) !== 0
           ? describeCopilotFailure(parsedStream.resultJson, {
               rateLimitMessage: rateLimitMeta.isRateLimited ? rateLimitMeta.message : null,
             }) ??
             `Copilot exited with code ${proc.exitCode ?? -1}`
           : null,
       errorCode:
-        loginMeta.requiresLogin ? "copilot_auth_required" : rateLimitMeta.isRateLimited ? "rate_limit" : null,
+        requiresLogin ? "copilot_auth_required" : rateLimitMeta.isRateLimited ? "rate_limit" : null,
       usage: parsedStream.usage ?? undefined,
       sessionId: resolvedSessionId,
       sessionParams: resolvedSessionParams,
