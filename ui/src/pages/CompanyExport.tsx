@@ -454,7 +454,7 @@ function generateReadmeFromSelection(
     lines.push("|-------|------|------------|");
     for (const agent of agents) {
       const roleLabel = ROLE_LABELS[agent.role] ?? agent.role;
-      const reportsTo = agent.reportsToSlug ?? "\u2014";
+      const reportsTo = (agent.managerSlugs ?? []).join(", ") || "\u2014";
       lines.push(`| ${agent.name} | ${roleLabel} | ${reportsTo} |`);
     }
     lines.push("");

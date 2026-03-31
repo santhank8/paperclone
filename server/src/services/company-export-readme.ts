@@ -36,8 +36,10 @@ export function generateOrgChartMermaid(agents: CompanyPortabilityManifest["agen
   // Edges from parent to child
   const slugSet = new Set(agents.map((a) => a.slug));
   for (const agent of agents) {
-    if (agent.reportsToSlug && slugSet.has(agent.reportsToSlug)) {
-      lines.push(`    ${mermaidId(agent.reportsToSlug)} --> ${mermaidId(agent.slug)}`);
+    for (const managerSlug of agent.managerSlugs ?? []) {
+      if (slugSet.has(managerSlug)) {
+        lines.push(`    ${mermaidId(managerSlug)} --> ${mermaidId(agent.slug)}`);
+      }
     }
   }
 
@@ -122,7 +124,7 @@ export function generateReadme(
     lines.push("|-------|------|------------|");
     for (const agent of manifest.agents) {
       const roleLabel = ROLE_LABELS[agent.role] ?? agent.role;
-      const reportsTo = agent.reportsToSlug ?? "\u2014";
+      const reportsTo = (agent.managerSlugs ?? []).join(", ") || "\u2014";
       lines.push(`| ${agent.name} | ${roleLabel} | ${reportsTo} |`);
     }
     lines.push("");

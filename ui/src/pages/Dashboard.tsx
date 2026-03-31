@@ -254,7 +254,7 @@ export function Dashboard() {
               to="/approvals"
               description={
                 <span>
-                  {data.staleTasks} stale tasks
+                  {data.tasks.blocked} blocked tasks
                 </span>
               }
             />

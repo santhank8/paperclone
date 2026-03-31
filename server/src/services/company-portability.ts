@@ -59,7 +59,7 @@ import { issueService } from "./issues.js";
 import { projectService } from "./projects.js";
 import { routineService } from "./routines.js";
 
-/** Build OrgNode tree from manifest agent list (slug + reportsToSlug). */
+/** Build OrgNode tree from manifest agent list (managerSlugs). */
 function buildOrgTreeFromManifest(agents: CompanyPortabilityManifest["agents"]): OrgNode[] {
   const ROLE_LABELS: Record<string, string> = {
     ceo: "Chief Executive", cto: "Technology", cmo: "Marketing",
@@ -69,10 +69,10 @@ function buildOrgTreeFromManifest(agents: CompanyPortabilityManifest["agents"]):
   const bySlug = new Map(agents.map((a) => [a.slug, a]));
   const childrenOf = new Map<string | null, typeof agents>();
   for (const a of agents) {
-    const parent = a.reportsToSlug ?? null;
-    const list = childrenOf.get(parent) ?? [];
+    const parentSlug = (a.managerSlugs ?? [])[0] ?? null;
+    const list = childrenOf.get(parentSlug) ?? [];
     list.push(a);
-    childrenOf.set(parent, list);
+    childrenOf.set(parentSlug, list);
   }
   const build = (parentSlug: string | null): OrgNode[] => {
     const members = childrenOf.get(parentSlug) ?? [];
@@ -84,13 +84,13 @@ function buildOrgTreeFromManifest(agents: CompanyPortabilityManifest["agents"]):
       reports: build(m.slug),
     }));
   };
-  // Find roots: agents whose reportsToSlug is null or points to a non-existent slug
-  const roots = agents.filter((a) => !a.reportsToSlug || !bySlug.has(a.reportsToSlug));
+  // Find roots: agents with no managerSlugs or whose manager doesn't exist
+  const roots = agents.filter((a) => (a.managerSlugs ?? []).length === 0 || !(a.managerSlugs ?? []).some((s) => bySlug.has(s)));
   const rootSlugs = new Set(roots.map((r) => r.slug));
   // Start from null parent, but also include orphans
   const tree = build(null);
   for (const root of roots) {
-    if (root.reportsToSlug && !bySlug.has(root.reportsToSlug)) {
+    if ((root.managerSlugs ?? []).length > 0 && !(root.managerSlugs ?? []).some((s) => bySlug.has(s))) {
       // Orphan root (parent slug doesn't exist)
       tree.push({
         id: root.slug,
@@ -1345,16 +1345,17 @@ function normalizePortableSidebarOrder(value: unknown): CompanyPortabilitySideba
   return sidebar.agents.length > 0 || sidebar.projects.length > 0 ? sidebar : null;
 }
 
-function sortAgentsBySidebarOrder<T extends { id: string; name: string; reportsTo: string | null }>(agents: T[]) {
+function sortAgentsBySidebarOrder<T extends { id: string; name: string; managerIds: string[] }>(agents: T[]) {
   if (agents.length === 0) return [];
 
   const byId = new Map(agents.map((agent) => [agent.id, agent]));
   const childrenOf = new Map<string | null, T[]>();
   for (const agent of agents) {
-    const parentId = agent.reportsTo && byId.has(agent.reportsTo) ? agent.reportsTo : null;
-    const siblings = childrenOf.get(parentId) ?? [];
+    const parentId = (agent.managerIds ?? [])[0] ?? null;
+    const effectiveParent = parentId && byId.has(parentId) ? parentId : null;
+    const siblings = childrenOf.get(effectiveParent) ?? [];
     siblings.push(agent);
-    childrenOf.set(parentId, siblings);
+    childrenOf.set(effectiveParent, siblings);
   }
 
   for (const siblings of childrenOf.values()) {
@@ -2351,7 +2352,7 @@ function buildManifestFromPackageFiles(
       title,
       icon: asString(extension.icon),
       capabilities: asString(extension.capabilities),
-      reportsToSlug: asString(frontmatter.reportsTo) ?? asString(extension.reportsTo),
+      managerSlugs: [asString(frontmatter.reportsTo) ?? asString(extension.reportsTo)].filter((s): s is string => !!s),
       adapterType: asString(extensionAdapter?.type) ?? "process",
       adapterConfig,
       runtimeConfig,
@@ -3045,7 +3046,7 @@ export function companyPortabilityService(db: Db, storage?: StorageService) {
             .slice(envInputsStart)
             .filter((inputValue) => inputValue.agentSlug === slug),
         );
-        const reportsToSlug = agent.reportsTo ? (idToSlug.get(agent.reportsTo) ?? null) : null;
+        const managerSlugs = (agent.managerIds ?? []).map((mid) => idToSlug.get(mid)).filter((s): s is string => !!s);
         const desiredSkills = readPaperclipSkillSyncPreference(
           (agent.adapterConfig as Record<string, unknown>) ?? {},
         ).desiredSkills;
@@ -3062,7 +3063,7 @@ export function companyPortabilityService(db: Db, storage?: StorageService) {
               stripEmptyValues({
                 name: agent.name,
                 title: agent.title ?? null,
-                reportsTo: reportsToSlug,
+                reportsTo: managerSlugs[0] ?? null,
                 skills: desiredSkills.length > 0 ? desiredSkills : undefined,
               }) as Record<string, unknown>,
               content,
@@ -3983,14 +3984,16 @@ export function companyPortabilityService(db: Db, storage?: StorageService) {
       for (const manifestAgent of plan.selectedAgents) {
         const agentId = importedSlugToAgentId.get(manifestAgent.slug);
         if (!agentId) continue;
-        const managerSlug = manifestAgent.reportsToSlug;
-        if (!managerSlug) continue;
-        const managerId = importedSlugToAgentId.get(managerSlug) ?? existingSlugToAgentId.get(managerSlug) ?? null;
-        if (!managerId || managerId === agentId) continue;
+        const mgrSlugs = manifestAgent.managerSlugs ?? [];
+        if (mgrSlugs.length === 0) continue;
+        const managerIds = mgrSlugs
+          .map((s) => importedSlugToAgentId.get(s) ?? existingSlugToAgentId.get(s) ?? null)
+          .filter((id): id is string => !!id && id !== agentId);
+        if (managerIds.length === 0) continue;
         try {
-          await agents.update(agentId, { reportsTo: managerId });
+          await agents.update(agentId, { managerIds } as any);
         } catch {
-          warnings.push(`Could not assign manager ${managerSlug} for imported agent ${manifestAgent.slug}.`);
+          warnings.push(`Could not assign managers ${mgrSlugs.join(", ")} for imported agent ${manifestAgent.slug}.`);
         }
       }
     }

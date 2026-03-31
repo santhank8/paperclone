@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import type { Agent, Issue, LiveEvent } from "@paperclipai/shared";
 import type { RunForIssue } from "../api/activity";
@@ -10,6 +10,15 @@ import { useToast } from "./ToastContext";
 import { queryKeys } from "../lib/queryKeys";
 import { toCompanyRelativePath } from "../lib/company-routes";
 import { useLocation } from "../lib/router";
+
+// Context for exposing WS connection state to consumers
+interface LiveUpdatesContextValue {
+  isConnected: boolean;
+}
+const LiveUpdatesContext = createContext<LiveUpdatesContextValue>({ isConnected: false });
+export function useLiveUpdates() {
+  return useContext(LiveUpdatesContext);
+}
 
 const TOAST_COOLDOWN_WINDOW_MS = 10_000;
 const TOAST_COOLDOWN_MAX = 3;
@@ -719,6 +728,7 @@ export function LiveUpdatesProvider({ children }: { children: ReactNode }) {
   const { pushToast } = useToast();
   const location = useLocation();
   const gateRef = useRef<ToastGate>({ cooldownHits: new Map(), suppressUntil: 0 });
+  const [isConnected, setIsConnected] = useState(false);
   const pathnameRef = useRef(location.pathname);
   const { data: session, status: sessionStatus } = useQuery({
     queryKey: queryKeys.auth.session,
@@ -786,6 +796,7 @@ export function LiveUpdatesProvider({ children }: { children: ReactNode }) {
           gateRef.current.suppressUntil = Date.now() + RECONNECT_SUPPRESS_MS;
         }
         reconnectAttempt = 0;
+        setIsConnected(true);
       };
 
       nextSocket.onmessage = (message) => {
@@ -811,6 +822,7 @@ export function LiveUpdatesProvider({ children }: { children: ReactNode }) {
       nextSocket.onclose = () => {
         if (socket !== nextSocket) return;
         socket = null;
+        setIsConnected(false);
         if (closed) return;
         scheduleReconnect();
       };
@@ -831,5 +843,9 @@ export function LiveUpdatesProvider({ children }: { children: ReactNode }) {
     };
   }, [queryClient, liveCompanyId, pushToast, canConnectSocket, socketAuthKey]);
 
-  return <>{children}</>;
+  return (
+    <LiveUpdatesContext.Provider value={{ isConnected }}>
+      {children}
+    </LiveUpdatesContext.Provider>
+  );
 }

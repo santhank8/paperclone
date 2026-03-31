@@ -507,7 +507,7 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
             <Field label="Reports to" hint={help.reportsTo}>
               <ReportsToPicker
                 agents={companyAgents}
-                value={eff("identity", "reportsTo", props.agent.reportsTo ?? null)}
+                value={eff("identity", "reportsTo", (props.agent.managerIds ?? [])[0] ?? null)}
                 onChange={(id) => mark("identity", "reportsTo", id)}
                 excludeAgentIds={[props.agent.id]}
                 chooseLabel="Choose manager…"

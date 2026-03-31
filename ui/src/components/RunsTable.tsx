@@ -70,7 +70,7 @@ export function RunsTable({ runs }: { runs: DashboardRun[] }) {
                 onClick={() => navigate(`/agents/${run.agentId}/runs`)}
               >
                 <td className="px-3 py-2">
-                  <Identity name={run.agentName} size="sm" />
+                  <Identity name={run.agentName ?? "Unknown"} size="sm" />
                 </td>
                 <td className="px-3 py-2 max-w-[200px] truncate">
                   {run.issueIdentifier ? (
