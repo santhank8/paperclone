@@ -2016,12 +2016,16 @@ export function agentRoutes(db: Db) {
       return;
     }
 
+    // Merge request body payload into context snapshot so callers can pass
+    // issueId and other context fields via the invoke endpoint.
+    const payload = typeof req.body?.payload === "object" && req.body.payload !== null ? req.body.payload : {};
     const run = await heartbeat.invoke(
       id,
       "on_demand",
       {
         triggeredBy: req.actor.type,
         actorId: req.actor.type === "agent" ? req.actor.agentId : req.actor.userId,
+        ...payload,
       },
       "manual",
       {

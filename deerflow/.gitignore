@@ -1,0 +1,6 @@
+.deer-flow/
+.langgraph_api/
+__pycache__/
+*.pyc
+.venv/
+Oh_My_Gauss/

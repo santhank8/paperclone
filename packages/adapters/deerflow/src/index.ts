@@ -15,7 +15,8 @@ Core fields:
 - deerflowUrl (string, optional): LangGraph API base URL (default: http://deerflow-langgraph:2024)
 - gatewayUrl (string, optional): Gateway API URL (default: http://deerflow-gateway:8001)
 - model (string, optional): LLM model name (e.g., "claude-sonnet-4-6")
-- skill (string, optional): DeerFlow skill to activate (e.g., "deep-research", "data-analysis")
+- skill (string, optional): Legacy single-skill hint (prefer UI skill management instead)
+- paperclipSkillSync (object, optional): { desiredSkills: ["skill-name", ...] } — skills injected into each run
 - thinkingEnabled (boolean, optional): enable extended thinking (default: true)
 - subagentEnabled (boolean, optional): enable sub-agent delegation (default: true)
 - timeoutSec (number, optional): execution timeout in seconds (default: 600)

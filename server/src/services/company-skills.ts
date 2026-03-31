@@ -630,6 +630,12 @@ export function parseSkillImportSourceInput(rawInput: string): ParsedSkillImport
     };
   }
 
+  // Note: clawskills.sh URLs (e.g. https://clawskills.sh/skills/author-skillname)
+  // are NOT parsed here because the author-skillname split is ambiguous when both
+  // contain hyphens. Instead, agents should use the importSource URL from the
+  // GET /companies/:companyId/skills/search endpoint, which returns a properly
+  // scoped GitHub URL.
+
   return {
     resolvedSource: normalizedSource,
     requestedSkillSlug,

@@ -22,6 +22,7 @@ The canonical model is:
 
 ## Core Endpoints
 
+- `GET /api/companies/:companyId/skills/search?q=<query>` — **Search the OpenClaw registry**
 - `GET /api/companies/:companyId/skills`
 - `GET /api/companies/:companyId/skills/:skillId`
 - `POST /api/companies/:companyId/skills/import`
@@ -31,6 +32,38 @@ The canonical model is:
 - `POST /api/agents/:agentId/skills/sync`
 - `POST /api/companies/:companyId/agent-hires`
 - `POST /api/companies/:companyId/agents`
+
+## Search For Skills Before Starting A Task
+
+**Before starting any assigned task**, search the OpenClaw registry for skills that might help. This lets you discover specialized tools, workflows, and techniques that improve your output quality.
+
+```sh
+curl -sS "$PAPERCLIP_API_URL/api/companies/$PAPERCLIP_COMPANY_ID/skills/search?q=react+testing" \
+  -H "Authorization: Bearer $PAPERCLIP_API_KEY"
+```
+
+The search uses keyword matching against 5000+ community skills — describe what you need. Good queries:
+- `"frontend component testing"` — find testing workflows
+- `"api design patterns"` — find architecture skills
+- `"code review checklist"` — find review skills
+- `"deployment automation"` — find deployment skills
+
+The response includes:
+- `items[].name` — skill name
+- `items[].description` — what the skill does
+- `items[].tags` — category tags
+- `items[].importSource` — **use this URL** as the `source` for import (GitHub URL scoped to the skill directory)
+- `items[].source` — clawskills.sh browsing URL (for reference only, not for import)
+
+**Workflow when you find a useful skill:**
+
+1. Search: `GET /api/companies/:companyId/skills/search?q=<what you need>`
+2. Pick the best match and use its `importSource` value
+3. Import: `POST /api/companies/:companyId/skills/import` with `{"source": "<importSource>"}`
+4. Assign to yourself: `POST /api/agents/:agentId/skills/sync` with the new skill key
+5. Start the task with the skill loaded
+
+If a search returns no results or the results aren't relevant, proceed with your existing skills.
 
 ## Install A Skill Into The Company
 
