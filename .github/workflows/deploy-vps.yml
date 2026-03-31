@@ -1,0 +1,54 @@
+name: Deploy to VPS
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-vps
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: Deploy to Ironworks VPS
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: root
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script_stop: true
+          command_timeout: 15m
+          script: |
+            set -euo pipefail
+            cd /root/ironworks
+
+            echo "==> Pulling latest from master..."
+            git fetch origin master
+            git reset --hard origin/master
+
+            echo "==> Rebuilding Docker image..."
+            docker compose -f docker-compose.quickstart.yml build --no-cache
+
+            echo "==> Restarting container..."
+            docker compose -f docker-compose.quickstart.yml up -d
+
+            echo "==> Pruning old images..."
+            docker image prune -f
+
+            echo "==> Waiting for health check..."
+            for i in $(seq 1 30); do
+              if curl -sf http://localhost:3100/api/health > /dev/null 2>&1; then
+                echo "==> Ironworks is healthy!"
+                exit 0
+              fi
+              sleep 2
+            done
+
+            echo "==> WARNING: Health check timed out after 60s"
+            docker compose -f docker-compose.quickstart.yml logs --tail=50
+            exit 1
