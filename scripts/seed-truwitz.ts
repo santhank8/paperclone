@@ -43,7 +43,13 @@ function claudeConfig(opts: {
     promptTemplate: opts.promptTemplate,
     dangerouslySkipPermissions: true,
     maxTurnsPerRun: 30,
-    env: opts.env ?? {},
+    env: {
+      // Blank out ANTHROPIC_API_KEY so Claude Code uses subscription billing
+      // (flat cost regardless of how many agents fire).
+      // Remove this line if you want API token billing instead.
+      ANTHROPIC_API_KEY: "",
+      ...opts.env,
+    },
   };
 }
 
