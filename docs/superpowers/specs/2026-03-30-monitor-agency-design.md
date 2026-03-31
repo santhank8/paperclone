@@ -57,7 +57,7 @@ It is separate from your other companies so its work does not clutter normal pro
 
 ## What It Watches
 
-The company has two major lanes of work.
+The company has four major lanes of work.
 
 ### 1. Platform Monitoring
 
@@ -109,6 +109,41 @@ This lane is specifically about finding useful AI capabilities before they are w
 - new AI companies or services worth hiring or integrating
 - new workflows that give leverage without requiring a full rebuild
 
+## Watch Registry
+
+The company should not operate on a vague idea of "everything."
+
+It needs a concrete watch registry that says exactly what is being monitored.
+
+Each registry entry should include:
+
+- source type
+- source identifier
+- why it is being watched
+- priority level
+- polling cadence
+- mute or disable status
+- owning project or lane
+- last checked time
+- last meaningful change seen
+
+Examples of source types:
+
+- GitHub repository
+- release feed
+- changelog page
+- pricing page
+- documentation page
+- provider status or policy page
+- competitor website
+- product announcement source
+- skill registry
+- MCP source
+- plugin source
+- AI company or service source
+
+This registry turns the mission into a concrete operating list.
+
 ## How It Works In Plain English
 
 Think of it like a small operations team.
@@ -153,6 +188,120 @@ Depending on the answer, it can:
 - create a major-decision escalation for you
 - create a proactive proposal when it finds something worth exploiting
 - recommend a build-versus-buy decision when a new capability appears
+
+## Decision Matrix
+
+The company needs explicit rules for what it is allowed to do.
+
+Every detected item should be scored on at least two dimensions:
+
+- risk
+- confidence
+
+Suggested risk levels:
+
+- `low`
+- `medium`
+- `high`
+- `critical`
+
+Suggested confidence levels:
+
+- `low`
+- `medium`
+- `high`
+
+Examples of how these combine:
+
+- low risk + high confidence: auto-handle if validation passes
+- medium risk + high confidence: create issue or draft PR and validate
+- high risk: never auto-merge, escalate internally
+- critical: immediate escalation path
+- low confidence: do not take irreversible action
+
+This is how words like `low-risk` become usable by the system.
+
+## Validation Matrix
+
+Different kinds of changes need different kinds of checks.
+
+The company should not use one generic "run tests" step for everything.
+
+Examples:
+
+- dependency update: relevant tests, lockfile integrity, smoke check
+- provider API change: integration check, auth check, pricing impact review
+- deployment change: environment validation, rollout safety checks
+- documentation or policy change: source verification and impact classification
+- new tool recommendation: usefulness score, integration difficulty, confidence score
+- strategic recommendation: evidence threshold and source corroboration
+
+If the required validation for a change type does not exist yet, the system should fail closed rather than silently treating the change as safe.
+
+## Memory and Deduplication
+
+The company needs memory of what it has already seen and decided.
+
+Without that, it will keep rediscovering the same things.
+
+It should record:
+
+- source item fingerprint
+- first seen time
+- last seen time
+- prior classification
+- prior recommendation
+- prior action taken
+- cooldown window before re-raising the same item
+
+Examples:
+
+- a tool already rejected should not be suggested every week
+- a previously accepted MCP should not be rediscovered as if it were new
+- a release already merged should not reopen the same work
+
+## Routing and Handoff
+
+`The Monitor Agency` should not own every downstream task forever.
+
+Recommended rule:
+
+- monitoring, triage, validation, and low-risk maintenance stay inside `The Monitor Agency`
+- product opportunities get routed into the relevant product company or project
+- strategic opportunities get routed as plans or decision items
+- technical maintenance that can be safely completed stays with the agency
+
+This makes the company the scout and operator for discovery and upkeep, while still allowing real business work to land in the right place.
+
+## Budget and Quotas
+
+Because this company watches many sources, it needs limits.
+
+It should have:
+
+- per-lane budget targets
+- polling limits
+- source count limits
+- backoff rules for low-value sources
+- caps on how many new items can be raised in a given period
+
+This keeps the system useful instead of noisy or expensive.
+
+## Source Reliability
+
+Not all sources deserve equal trust.
+
+The company should use explicit source weighting.
+
+Examples:
+
+- official docs and release notes: high trust
+- source code and commits: high trust
+- pricing or policy pages from providers: high trust
+- competitor marketing pages: medium trust
+- social posts, hype threads, and commentary: low trust unless corroborated
+
+For strategic or capability recommendations, major decisions should require multiple trustworthy signals rather than one exciting source.
 
 ### Step 4. Escalate Only When Needed
 
@@ -247,6 +396,12 @@ That means it is allowed to:
 
 It is not intended to wait for a human on routine work.
 
+Recommended operating rule:
+
+- the agency originates, triages, validates, and completes low-risk work
+- it routes product and strategic work to the appropriate destination once the opportunity is clear
+- it does not directly commit money, procurement, or hiring decisions without approval
+
 ## Safety Rules
 
 Autonomy is bounded by guardrails.
@@ -269,6 +424,10 @@ Sensitive areas include:
 
 If a change touches one of those areas, the company should hold it for deeper internal triage and only escalate if a real decision is required.
 
+Additional safety rule:
+
+- low confidence should block irreversible action, even when the apparent risk is low
+
 ## Communication Policy
 
 The communication model is intentionally quiet.
@@ -286,6 +445,78 @@ You only get interrupted for major decisions such as:
 - changes involving money, permissions, or irreversible action
 
 This means you are not expected to monitor drafts, logs, releases, or technical severity yourself.
+
+This also means the messages that do reach you should already answer:
+
+- what happened
+- why it matters
+- what the recommended action is
+- what happens if you do nothing
+
+## Delivery and Notifications
+
+The company should separate execution from reading and alerts.
+
+Recommended delivery architecture:
+
+- Paperclip: system of record
+- Notion: executive briefing surface
+- Telegram via Theo/OpenClaw: notification and escalation channel
+
+### Paperclip As The System Of Record
+
+Paperclip should keep the real operational state:
+
+- issues
+- plans
+- PRs
+- validation results
+- routing decisions
+- logs of what the agency did
+
+### Notion As The Reading Surface
+
+Notion should be used for polished human-readable briefings such as:
+
+- daily digest
+- weekly digest
+- opportunity memos
+- capability reports
+- strategy summaries
+- recommended actions in plain English
+
+Why:
+
+- easier to read
+- better for narrative summaries
+- better for reviewing multiple items at once
+- better than chat for longer executive briefings
+
+### Telegram As The Delivery Layer
+
+Telegram should be used for short messages that point you to what matters.
+
+Recommended Telegram message types:
+
+- urgent decision alert
+- new digest available
+- proactive suggestion
+- high-priority capability recommendation
+
+Each Telegram message should be short and include:
+
+- what happened
+- why it matters
+- the top recommended action
+- a Notion link for full reading when appropriate
+
+### Recommended Channel Rules
+
+- urgent items: Telegram immediately, with optional Notion detail
+- routine digest: write in Notion, then send Telegram summary plus link
+- proactive suggestions: short Telegram summary, with Notion page if the recommendation is substantial
+
+This keeps Telegram lightweight while making Notion the place where you actually read the full update.
 
 ## Why Separate Company Instead of Separate Server
 
@@ -310,6 +541,9 @@ This design is successful when:
 - risky changes are translated into plain-English decisions
 - you are interrupted rarely
 - the company reduces maintenance burden instead of creating a new one
+- it avoids repeated duplicate recommendations
+- it stays within acceptable operating cost and noise levels
+- it delivers readable executive briefings without requiring you to live inside Paperclip
 
 ## Rollout Recommendation
 
