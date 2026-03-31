@@ -167,7 +167,8 @@ export function isClaudeMaxTurnsResult(parsed: Record<string, unknown> | null | 
   return /max(?:imum)?\s+turns?/i.test(resultText);
 }
 
-export function isClaudeUnknownSessionError(parsed: Record<string, unknown>): boolean {
+export function isClaudeUnknownSessionError(parsed: Record<string, unknown> | null | undefined): boolean {
+  if (!parsed) return false;
   const resultText = asString(parsed.result, "").trim();
   const allMessages = [resultText, ...extractClaudeErrorMessages(parsed)]
     .map((msg) => msg.trim())
@@ -175,5 +176,17 @@ export function isClaudeUnknownSessionError(parsed: Record<string, unknown>): bo
 
   return allMessages.some((msg) =>
     /no conversation found with session id|unknown session|session .* not found/i.test(msg),
+  );
+}
+
+export function isClaudeContextWindowError(parsed: Record<string, unknown> | null | undefined): boolean {
+  if (!parsed) return false;
+  const resultText = asString(parsed.result, "").trim();
+  const allMessages = [resultText, ...extractClaudeErrorMessages(parsed)]
+    .map((msg) => msg.trim())
+    .filter(Boolean);
+
+  return allMessages.some((msg) =>
+    /reached\s+its\s+context\s+window\s+limit|context.window.limit|context.limit.reached|context.length.exceeded|token.limit|maximum.context/i.test(msg),
   );
 }
