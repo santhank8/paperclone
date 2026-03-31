@@ -8,7 +8,8 @@ import {
 } from "@paperclipai/adapter-utils/server-utils";
 
 const MODELS_CACHE_TTL_MS = 60_000;
-const MODELS_DISCOVERY_TIMEOUT_MS = 20_000;
+const MODELS_DISCOVERY_TIMEOUT_MS = 60_000; // Increased from 20s to handle large model lists
+const VALIDATED_MODELS_CACHE_TTL_MS = 86_400_000; // 24 hours
 
 function resolveOpenCodeCommand(input: unknown): string {
   const envOverride =
@@ -20,6 +21,7 @@ function resolveOpenCodeCommand(input: unknown): string {
 }
 
 const discoveryCache = new Map<string, { expiresAt: number; models: AdapterModel[] }>();
+const validatedModelsCache = new Map<string, { expiresAt: number }>();
 const VOLATILE_ENV_KEY_PREFIXES = ["PAPERCLIP_", "npm_", "NPM_"] as const;
 const VOLATILE_ENV_KEY_EXACT = new Set(["PWD", "OLDPWD", "SHLVL", "_", "TERM_SESSION_ID", "HOME"]);
 
@@ -100,6 +102,24 @@ function pruneExpiredDiscoveryCache(now: number) {
   }
 }
 
+function pruneExpiredValidatedModelsCache(now: number) {
+  for (const [model, value] of validatedModelsCache.entries()) {
+    if (value.expiresAt <= now) validatedModelsCache.delete(model);
+  }
+}
+
+function isModelValidated(model: string): boolean {
+  const now = Date.now();
+  pruneExpiredValidatedModelsCache(now);
+  const cached = validatedModelsCache.get(model);
+  return cached !== undefined && cached.expiresAt > now;
+}
+
+function markModelValidated(model: string): void {
+  const now = Date.now();
+  validatedModelsCache.set(model, { expiresAt: now + VALIDATED_MODELS_CACHE_TTL_MS });
+}
+
 export async function discoverOpenCodeModels(input: {
   command?: unknown;
   cwd?: unknown;
@@ -137,7 +157,17 @@ export async function discoverOpenCodeModels(input: {
   );
 
   if (result.timedOut) {
-    throw new Error(`\`opencode models\` timed out after ${MODELS_DISCOVERY_TIMEOUT_MS / 1000}s.`);
+    // Graceful degradation: return partial results if timeout occurs
+    // This helps with large model lists from providers like OpenRouter
+    const parsed = parseModelsOutput(result.stdout);
+    if (parsed.length > 0) {
+      console.warn(
+        `[paperclip-opencode] \`opencode models\` timed out after ${MODELS_DISCOVERY_TIMEOUT_MS / 1000}s, ` +
+        `returning ${parsed.length} partial results. Consider increasing timeout or using model validation cache.`
+      );
+      return sortModels(parsed);
+    }
+    throw new Error(`\`opencode models\` timed out after ${MODELS_DISCOVERY_TIMEOUT_MS / 1000}s with no results.`);
   }
   if ((result.exitCode ?? 1) !== 0) {
     const detail = firstNonEmptyLine(result.stderr) || firstNonEmptyLine(result.stdout);
@@ -177,6 +207,16 @@ export async function ensureOpenCodeModelConfiguredAndAvailable(input: {
     throw new Error("OpenCode requires `adapterConfig.model` in provider/model format.");
   }
 
+  // Check if user wants to skip model validation entirely
+  if (process.env.PAPERCLIP_SKIP_MODEL_VALIDATION === "true") {
+    return [];
+  }
+
+  // Check if this model was recently validated successfully
+  if (isModelValidated(model)) {
+    return [];
+  }
+
   const models = await discoverOpenCodeModelsCached({
     command: input.command,
     cwd: input.cwd,
@@ -194,6 +234,9 @@ export async function ensureOpenCodeModelConfiguredAndAvailable(input: {
     );
   }
 
+  // Cache successful validation for 24 hours
+  markModelValidated(model);
+
   return models;
 }
 
@@ -207,4 +250,5 @@ export async function listOpenCodeModels(): Promise<AdapterModel[]> {
 
 export function resetOpenCodeModelsCacheForTests() {
   discoveryCache.clear();
+  validatedModelsCache.clear();
 }
