@@ -381,8 +381,9 @@ export function Costs() {
     queryKey: queryKeys.usageQuotaWindows(companyId),
     queryFn: () => costsApi.quotaWindows(companyId),
     enabled: !!selectedCompanyId && mainTab === "providers",
-    refetchInterval: 300_000,
-    staleTime: 60_000,
+    refetchInterval: 30_000,
+    staleTime: 10_000,
+    refetchOnMount: "always",
   });
 
   const byProvider = useMemo(() => {
