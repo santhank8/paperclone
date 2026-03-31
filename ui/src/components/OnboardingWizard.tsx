@@ -517,6 +517,18 @@ export function OnboardingWizard() {
     const config = buildAdapterConfig();
     const agentIdByTemplateKey = new Map<string, string>();
 
+    // Pre-fetch all role template details (SOUL.md + AGENTS.md content)
+    const templateDetails = new Map<string, { soul: string; agents: string }>();
+    try {
+      const uniqueKeys = [...new Set(rosterItems.map((r) => r.templateKey))];
+      const details = await Promise.all(uniqueKeys.map((key) => teamTemplatesApi.getRole(key)));
+      for (const detail of details) {
+        templateDetails.set(detail.key, { soul: detail.soul, agents: detail.agents });
+      }
+    } catch {
+      // Continue without templates — agents will get default instructions
+    }
+
     try {
       // Sort: roots first (no reportsTo), then children
       const sorted = [...rosterItems].sort((a, b) => {
@@ -528,6 +540,13 @@ export function OnboardingWizard() {
       for (let i = 0; i < sorted.length; i++) {
         const item = sorted[i];
         const reportsToAgentId = item.reportsTo ? agentIdByTemplateKey.get(item.reportsTo) ?? null : null;
+        const template = templateDetails.get(item.templateKey);
+
+        // Pass AGENTS.md content as promptTemplate so the server materializes it
+        const agentConfig = { ...config };
+        if (template) {
+          agentConfig.promptTemplate = template.agents;
+        }
 
         const agent = await agentsApi.create(createdCompanyId, {
           name: item.name.trim() || item.title,
@@ -535,7 +554,7 @@ export function OnboardingWizard() {
           title: item.title,
           reportsTo: reportsToAgentId,
           adapterType: item.suggestedAdapter || adapterType,
-          adapterConfig: config,
+          adapterConfig: agentConfig,
           runtimeConfig: {
             heartbeat: {
               enabled: true,
