@@ -104,14 +104,6 @@ describe("adapter model listing", () => {
     expect(first.some((model) => model.id === "composer-1")).toBe(true);
   });
 
-<<<<<<< feat/local-local-adapter
-  it("returns no opencode models when opencode command is unavailable", async () => {
-    process.env.PAPERCLIP_OPENCODE_COMMAND = "__paperclip_missing_opencode_command__";
-
-    const models = await listAdapterModels("opencode_local");
-    expect(models).toEqual([]);
-  });
-
   it("uses provided localBaseUrl for hybrid_local model discovery", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue({
       ok: true,
@@ -130,6 +122,4 @@ describe("adapter model listing", () => {
     );
     expect(models.some((m) => m.id === "qwen3-coder:latest")).toBe(true);
   });
-=======
->>>>>>> master
 });

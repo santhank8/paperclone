@@ -55,8 +55,8 @@ Routing:
 - all other models → OpenAI-compatible endpoint at localBaseUrl
 
 Fallback (bidirectional):
-- Claude model + quota/auth error → retry with fallbackModel via local endpoint
-- Local model + connection/timeout error → retry with fallbackModel via Claude CLI
+- Claude model + quota/auth error → retry with fallbackModel (Claude or local, based on model id)
+- Local model + connection/timeout error → retry with fallbackModel (Claude or local, based on model id)
 - Set fallbackModel to "" to disable fallback (fail on error)
 
 Cost policy:

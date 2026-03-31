@@ -189,16 +189,22 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
           };
         }
 
+        const fallbackIsClaude = isClaudeModel(effectiveFallback);
         await onLog(
           "stdout",
-          `[hybrid] Claude quota near limit — skipping to local model: ${effectiveFallback}\n`,
+          `[hybrid] Claude quota near limit — skipping to ${fallbackIsClaude ? "Claude" : "local"} model: ${effectiveFallback}\n`,
         );
-        const result = await executeLocal(ctx, effectiveFallback);
+        const result = fallbackIsClaude
+          ? await claudeExecute({
+              ...ctx,
+              config: { ...ctx.config, model: effectiveFallback },
+            })
+          : await executeLocal(ctx, effectiveFallback);
         return attachRoutingMeta(result, {
           primaryModel: model,
           primaryBackend: "claude_cli",
           fallbackModel: effectiveFallback,
-          fallbackBackend: "openai_compatible",
+          fallbackBackend: fallbackIsClaude ? "claude_cli" : "openai_compatible",
           fallbackTriggered: true,
           fallbackReason: "claude_quota_precheck",
           preCheckTriggered: true,

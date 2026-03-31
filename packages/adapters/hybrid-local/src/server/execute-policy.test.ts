@@ -82,5 +82,64 @@ describe("hybrid_local quota policy enforcement", () => {
     expect(String(result.errorMessage ?? "")).toContain("Claude fallback is blocked by quota policy");
     expect(mocks.claudeExecute).not.toHaveBeenCalled();
   });
-});
 
+  it("uses Claude backend when quota precheck fallbackModel is Claude", async () => {
+    mocks.getQuotaWindows.mockResolvedValue({
+      provider: "anthropic",
+      ok: true,
+      windows: [
+        {
+          label: "Current week (all models)",
+          usedPercent: 95,
+          resetsAt: null,
+          valueLabel: null,
+          detail: null,
+        },
+      ],
+    });
+
+    mocks.claudeExecute.mockResolvedValue({
+      exitCode: 0,
+      signal: null,
+      timedOut: false,
+      resultJson: { ok: true },
+    });
+
+    const { execute } = await import("./execute.js");
+
+    const result = await execute({
+      runId: "run-2",
+      agent: {
+        id: "agent-1",
+        companyId: "company-1",
+        name: "Agent One",
+      },
+      config: {
+        model: "claude-sonnet-4-6",
+        fallbackModel: "claude-haiku-4-5-20251001",
+        allowExtraCredit: true,
+        quotaThresholdPercent: 80,
+      },
+      context: {
+        paperclipWorkspace: { cwd: process.cwd() },
+      },
+      onLog: async () => {},
+      onMeta: async () => {},
+    } as never);
+
+    expect(mocks.claudeExecute).toHaveBeenCalledTimes(1);
+    expect(mocks.claudeExecute).toHaveBeenCalledWith(
+      expect.objectContaining({
+        config: expect.objectContaining({ model: "claude-haiku-4-5-20251001" }),
+      }),
+    );
+    expect(mocks.executeLocalModel).not.toHaveBeenCalled();
+    expect((result.resultJson as Record<string, unknown>)._hybrid).toEqual(
+      expect.objectContaining({
+        fallbackModel: "claude-haiku-4-5-20251001",
+        fallbackBackend: "claude_cli",
+        fallbackReason: "claude_quota_precheck",
+      }),
+    );
+  });
+});
