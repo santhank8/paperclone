@@ -259,7 +259,22 @@ Only REQUIRED fixes appear in the "Required Fixes" list. Optional fixes go in no
 
 ---
 
-## 5. Complete Eval Report Format
+## 5. File Path Conventions
+
+The eval report MUST be saved to a standard location so downstream agents can find it:
+
+**Canonical path**: `./sprints/[sprint-id]/eval-[TASK-ID].md`
+
+Example:
+- Sprint ID: `2026-03-31-sprint-42`
+- Task ID: `TASK-001`
+- Full path: `./sprints/2026-03-31-sprint-42/eval-TASK-001.md`
+
+**Why this matters**: Sprint Delivery checks for the eval report at this path before deploying. If you save it anywhere else, the pre-deployment check will silently pass on a missing file, and bad work will ship.
+
+---
+
+## 6. Complete Eval Report Format
 
 ```markdown
 # Eval Report — [TASK-ID]: [Feature Title]

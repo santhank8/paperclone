@@ -183,3 +183,118 @@ When a session gets long (>80k tokens) or between major phases:
 4. **First action in new session**: Read the handoff artifact and the last 3 sprint artifacts
 
 This is not failure — this is the protocol. Structured artifacts carry state better than long conversation history.
+
+---
+
+## 7. Paperclip Coordination Protocol
+
+When running under Paperclip heartbeat, every phase transition must both write the disk artifact AND coordinate via the Paperclip API. This section defines the mechanical operations required.
+
+### Role Slugs
+
+Every agent in Sprint Co maps to a Paperclip agent slug:
+
+| Agent | Slug |
+|-------|------|
+| Sprint Orchestrator | `sprint-orchestrator` |
+| Sprint Lead | `sprint-lead` |
+| Product Planner | `product-planner` |
+| Engineer Alpha | `engineer-alpha` |
+| Engineer Beta | `engineer-beta` |
+| QA Engineer | `qa-engineer` |
+| Delivery Engineer | `delivery-engineer` |
+
+### Signal Definitions
+
+**"Signal [role]" means:** Post a comment on the current sprint's Paperclip task (`$PAPERCLIP_TASK_ID`), @-mention the target agent slug, and optionally update the task status. The exact operation is:
+
+```
+POST /api/issues/{issueId}/comments
+{
+  "body": "@[role-slug] [message describing handoff]",
+  "headers": { "X-Paperclip-Run-Id": "$PAPERCLIP_RUN_ID" }
+}
+```
+
+And optionally:
+```
+PATCH /api/issues/{issueId}
+{
+  "assigneeAgentId": "[resolved target agent ID]",
+  "status": "[todo | blocked | done]",
+  "headers": { "X-Paperclip-Run-Id": "$PAPERCLIP_RUN_ID" }
+}
+```
+
+### Signal Types
+
+**Signal QA** (Feature complete → QA testing)
+- Trigger: Feature handoff artifact ready
+- Operation:
+  1. POST comment: "@qa-engineer Feature ready for evaluation at ./sprints/[sprint-id]/handoff-[agent].md"
+  2. PATCH task: `assigneeAgentId` = qa-engineer's agent ID, `status` = `todo`
+
+**Signal Delivery Engineer** (QA PASS → Deployment)
+- Trigger: QA passes feature
+- Operation:
+  1. POST comment: "@delivery-engineer Ready to deploy. QA passed. See eval-report.md"
+  2. PATCH task: `assigneeAgentId` = delivery-engineer's agent ID, `status` = `todo`
+
+**Signal Engineer [Alpha/Beta]** (Rework requested)
+- Trigger: QA failed feature or delivery blocker
+- Operation:
+  1. POST comment: "@engineer-alpha Failed: [specific issues]. Rework needed."
+  2. PATCH task: `assigneeAgentId` = [engineer agent ID], `status` = `todo`
+
+**Signal Sprint Lead** (Escalation)
+- Trigger: Blocker cannot be resolved by current agent
+- Operation:
+  1. POST comment: "@sprint-lead Escalation needed: [blocker description]. Already tried: [attempts]"
+  2. PATCH task: `status` = `blocked` (NO reassign to lead)
+
+**Signal Sprint Orchestrator** (Over-budget or critical blocker)
+- Trigger: Agent over time budget or critical infrastructure failure
+- Operation:
+  1. POST comment: "@sprint-orchestrator Over budget by [X] min. Current status: [summary]"
+  2. PATCH task: `status` = `blocked` (NO reassign)
+
+### Status Values
+
+The Paperclip task representing the sprint uses these status values:
+
+- **`todo`**: Sprint is in progress, waiting for current agent to finish
+- **`blocked`**: A blocker has been encountered; requires escalation or decision-making
+- **`done`**: Sprint completed and deployed
+
+### Required Headers
+
+All Paperclip API calls MUST include the `X-Paperclip-Run-Id` header:
+```
+X-Paperclip-Run-Id: $PAPERCLIP_RUN_ID
+```
+
+This header ties all operations within a single sprint execution to one audit trail.
+
+### Environment Variables
+
+These variables are injected by Paperclip at runtime:
+
+- `PAPERCLIP_TASK_ID` — ID of the sprint task (e.g., "issues/12345")
+- `PAPERCLIP_RUN_ID` — Unique ID for this sprint execution
+- `PAPERCLIP_API_URL` — Base URL for Paperclip API (e.g., "https://api.paperclip.ai")
+- `PAPERCLIP_API_KEY` — Authentication token for API calls
+
+### Handoff Artifact Update (for Section 2)
+
+When writing handoff artifacts under Paperclip, add a **Paperclip Signal** section:
+
+```markdown
+## Paperclip Signal
+
+**Signal Type**: [QA | Delivery | Engineer | Lead | Orchestrator]
+**Target Role**: [role-slug]
+**Message**: [message for comment]
+**Reassign?**: [yes with role-slug | no]
+```
+
+This metadata ensures the next phase knows exactly what signal the previous agent intended to send.

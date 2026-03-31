@@ -62,7 +62,7 @@ wrangler pages deploy dist/ \
 ### Pages Configuration (wrangler.toml)
 ```toml
 name = "sprint-[sprint-id]"
-compatibility_date = "2024-01-01"
+compatibility_date = "YYYY-MM-DD" # Use today's date (e.g., 2026-03-31)
 
 [site]
 bucket = "./dist"
@@ -97,7 +97,7 @@ wrangler deploy
 ```toml
 name = "sprint-[sprint-id]"
 main = "dist/worker.js"
-compatibility_date = "2024-01-01"
+compatibility_date = "YYYY-MM-DD" # Use today's date (e.g., 2026-03-31)
 compatibility_flags = ["nodejs_compat"]
 
 [vars]

@@ -148,6 +148,7 @@ Before finalizing the spec, check:
 **Planner**: Product Planner
 **Date**: [YYYY-MM-DD]
 **Sprint Window**: 3 hours from [HH:MM]
+**Paperclip Sprint Issue**: [issue-id from $PAPERCLIP_TASK_ID]
 
 ---
 

@@ -137,6 +137,23 @@ Run this **before every handoff**. Be honest — QA will find what you hide.
 [ ] Loading state is handled (what does the user see while waiting?)
 ```
 
+### Product Depth
+```
+[ ] Feature is at least at the level described in the task acceptance criteria
+[ ] Edge cases are handled (loading errors, validation failures, race conditions)
+[ ] API boundaries are clean (no leaking internal state)
+[ ] User feedback is clear (errors, success states, what's happening)
+```
+
+### Visual Design
+```
+[ ] Renders correctly at 1280px wide (standard desktop)
+[ ] Renders correctly at 768px wide (tablet minimum)
+[ ] No text overflow or layout breaks
+[ ] Interactive elements look interactive (cursor, hover state)
+[ ] Color contrast is readable
+```
+
 ### Code Quality
 ```
 [ ] No unhandled Promise rejections
@@ -144,15 +161,6 @@ Run this **before every handoff**. Be honest — QA will find what you hide.
 [ ] No console.error without user-facing feedback
 [ ] No hardcoded values that should be env vars
 [ ] No obvious security issues (SQL injection, XSS, auth bypass)
-```
-
-### UI Quality
-```
-[ ] Renders correctly at 1280px wide (standard desktop)
-[ ] Renders correctly at 768px wide (tablet minimum)
-[ ] No text overflow or layout breaks
-[ ] Interactive elements look interactive (cursor, hover state)
-[ ] Color contrast is readable
 ```
 
 ### Test Readiness
@@ -169,9 +177,24 @@ Run this **before every handoff**. Be honest — QA will find what you hide.
 
 ---
 
-## 4. Handoff Artifact Format
+## 4. Handoff File Path Convention
 
-```markdown
+Your handoff artifact MUST be saved to a standard location so the next agent can find it:
+
+**Canonical path**: `./sprints/[sprint-id]/handoff-[AGENT].md`
+
+Example:
+- Sprint ID: `2026-03-31-sprint-42`
+- Agent: `engineer-alpha`
+- Full path: `./sprints/2026-03-31-sprint-42/handoff-engineer-alpha.md`
+
+This ensures QA can locate your work without guessing. If you save it anywhere else, the next agent will waste time looking for it.
+
+---
+
+## 5. Handoff Artifact Format
+
+````markdown
 # Handoff — [TASK-ID]: [Feature Title]
 
 **Engineer**: [alpha | beta]
@@ -212,9 +235,9 @@ npm run dev
 ## Self-Evaluation
 | Criterion | Score | Notes |
 |-----------|-------|-------|
-| Functionality | 8/10 | Core flow works; delete not implemented |
+| Functionality | 8/10 | Core flow works; meets acceptance criteria |
+| Product Depth | 8/10 | All edge cases handled; API clean |
 | Visual Design | 7/10 | Basic but clean; no custom icons yet |
-| Edge Cases | Partial | Empty state done; error state basic |
 | Code Quality | 8/10 | TS typed, error handling in place |
 
 ## Known Issues
@@ -223,7 +246,7 @@ npm run dev
 
 ## QA Notes
 [Anything specific you want QA to focus on or be careful about]
-```
+````
 
 ---
 
