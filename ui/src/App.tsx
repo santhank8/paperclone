@@ -48,7 +48,10 @@ import { queryKeys } from "./lib/queryKeys";
 import { useCompany } from "./context/CompanyContext";
 import { useDialog } from "./context/DialogContext";
 import { loadLastInboxTab } from "./lib/inbox";
-import { shouldRedirectCompanylessRouteToOnboarding } from "./lib/onboarding-route";
+import {
+  shouldRedirectCompanylessRouteToOnboarding,
+  shouldRedirectGlobalOnboardingToBoard,
+} from "./lib/onboarding-route";
 
 function BootstrapPendingPage({ hasActiveInvite = false }: { hasActiveInvite?: boolean }) {
   return (
@@ -193,9 +196,20 @@ function LegacySettingsRedirect() {
 }
 
 function OnboardingRoutePage() {
+  const location = useLocation();
   const { companies } = useCompany();
   const { openOnboarding } = useDialog();
   const { companyPrefix } = useParams<{ companyPrefix?: string }>();
+
+  if (
+    shouldRedirectGlobalOnboardingToBoard({
+      pathname: location.pathname,
+      hasCompanies: companies.length > 0,
+    })
+  ) {
+    return <Navigate to="/" replace />;
+  }
+
   const matchedCompany = companyPrefix
     ? companies.find((company) => company.issuePrefix.toUpperCase() === companyPrefix.toUpperCase()) ?? null
     : null;
