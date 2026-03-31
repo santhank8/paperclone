@@ -541,6 +541,113 @@ How do we know the project succeeded?
 - Budget cap: [amount]
 - Cost tracking: monitored via the Costs page, filtered by this project`,
         },
+        {
+          title: "Performance Improvement Plan Template",
+          body: `# Performance Improvement Plan (PIP) Template
+
+Use this template when an agent receives a D or F rating for two or more consecutive weeks. The VP of HR owns this process. CEO approval is required before termination.
+
+---
+
+## Agent Information
+
+- **Agent Name:** [name]
+- **Role:** [role]
+- **Current Rating:** [D or F]
+- **Rating Duration:** [how many weeks at this rating]
+- **Manager:** [direct manager name]
+- **PIP Start Date:** [date]
+- **Review Date:** [date, typically 2 weeks from start]
+
+## Current Performance
+
+| Metric | Agent Value | Team Average | Gap |
+|---|---|---|---|
+| Cost per Task | [amount] | [amount] | [x times above avg] |
+| Avg Close Time | [hours] | [hours] | [x times slower] |
+| Tasks/Day | [number] | [number] | [percent below avg] |
+| Completion Rate | [percent] | [percent] | [difference] |
+
+## Root Cause Analysis
+
+Before prescribing fixes, identify why the agent is underperforming. Check each:
+
+- [ ] **Instructions unclear** - Is the SOUL.md specific enough? Does AGENTS.md clearly define scope and process?
+- [ ] **Wrong model** - Is the agent using a model that is too expensive or not capable enough for their tasks?
+- [ ] **Task mismatch** - Are the assigned tasks appropriate for this agent role and capabilities?
+- [ ] **Overloaded** - Does the agent have too many concurrent tasks? Check the Workload Distribution view.
+- [ ] **Dependency bottleneck** - Is the agent blocked waiting on other agents? Check for blocked issues.
+- [ ] **Skill gap** - Is the agent missing skills it needs? Check the Skills tab on their detail page.
+- [ ] **Configuration issue** - Are there adapter errors or environment problems in the run transcripts?
+
+## Improvement Actions
+
+Based on the root cause analysis, select the appropriate actions:
+
+### If instructions are unclear:
+1. Rewrite SOUL.md with more specific guidance for common task types
+2. Add examples of expected output format to AGENTS.md
+3. Reduce scope: fewer responsibilities, more focus
+
+### If wrong model:
+1. Switch from Opus to Sonnet (or Sonnet to Haiku) if tasks are straightforward
+2. Switch from Haiku/Sonnet to Opus if tasks require complex reasoning
+3. Document the model change and expected cost impact
+
+### If task mismatch:
+1. Reassign complex tasks to a more capable agent
+2. Break large tasks into smaller, more specific subtasks
+3. Consider reassigning the agent to a different project
+
+### If overloaded:
+1. Redistribute tasks to other agents with capacity
+2. Reduce the agent concurrent task limit
+3. Consider hiring an additional agent for the same role
+
+### If configuration issue:
+1. Review recent run transcripts for errors
+2. Check adapter environment (API keys, permissions)
+3. Reset sessions and test with a simple task
+
+## Success Criteria
+
+The agent must meet ALL of the following by the review date:
+
+- [ ] Rating improved to C or above
+- [ ] Cost per task within 1.5x of team average
+- [ ] At least 3 tasks completed successfully
+- [ ] No failed runs in the review period
+- [ ] Manager confirms improved output quality
+
+## Timeline
+
+| Date | Action | Owner |
+|---|---|---|
+| [start date] | PIP begins, actions implemented | VP of HR |
+| [start + 3 days] | First progress check | Manager |
+| [start + 7 days] | Mid-point review | VP of HR + Manager |
+| [start + 14 days] | Final review | VP of HR + CEO |
+
+## Outcomes
+
+At the final review, one of three outcomes:
+
+1. **PIP Passed** - Agent meets success criteria. Remove from PIP. Document improvement. Continue monitoring for 30 days.
+2. **PIP Extended** - Agent shows progress but has not met all criteria. Extend PIP by one week with adjusted targets.
+3. **Termination Recommended** - Agent has not improved. VP of HR recommends termination to CEO with documented evidence. Follow the offboarding checklist.
+
+## Sign-off
+
+| Role | Name | Date | Decision |
+|---|---|---|---|
+| VP of HR | [name] | [date] | [initiated / reviewed] |
+| Manager | [name] | [date] | [agrees / disagrees] |
+| CEO | [name] | [date] | [approved / denied] |
+
+---
+
+*Store the completed PIP in the Knowledge Base with the agent name and date. Link it from the agent Performance Review issue.*`,
+        },
       ];
 
       let count = 0;
