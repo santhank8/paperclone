@@ -76,6 +76,7 @@ interface RosterItem {
   role: string;
   reportsTo: string | null;
   suggestedAdapter: string;
+  skills: string[];
   title: string;
 }
 
@@ -568,6 +569,16 @@ export function OnboardingWizard() {
 
         agentIdByTemplateKey.set(item.templateKey, agent.id);
         if (i === 0) setCreatedAgentId(agent.id);
+
+        // Sync role template skills to the new agent
+        if (item.skills.length > 0) {
+          try {
+            await agentsApi.syncSkills(agent.id, item.skills, createdCompanyId);
+          } catch {
+            // Non-fatal — agent is created, skills can be assigned later
+          }
+        }
+
         setPackProgress({ done: i + 1, total: sorted.length });
       }
 
@@ -873,6 +884,7 @@ export function OnboardingWizard() {
                               role: r.role,
                               reportsTo: r.reportsTo,
                               suggestedAdapter: r.suggestedAdapter,
+                              skills: r.skills ?? [],
                               title: r.title,
                             })));
                           }}

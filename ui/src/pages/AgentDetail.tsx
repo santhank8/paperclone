@@ -65,6 +65,7 @@ import {
   Eye,
   EyeOff,
   Copy,
+  CopyPlus,
   ChevronRight,
   ChevronDown,
   ArrowLeft,
@@ -694,6 +695,39 @@ export function AgentDetail() {
     },
   });
 
+  const cloneAgent = useMutation({
+    mutationFn: async () => {
+      if (!agent || !resolvedCompanyId) throw new Error("No agent to clone");
+      const cloned = await agentsApi.create(resolvedCompanyId, {
+        name: `${agent.name} (Copy)`,
+        role: agent.role,
+        title: agent.title ?? undefined,
+        reportsTo: agent.reportsTo ?? undefined,
+        adapterType: agent.adapterType,
+        adapterConfig: agent.adapterConfig ?? {},
+        runtimeConfig: agent.runtimeConfig ?? {},
+      });
+      // Sync skills from source agent
+      const skillSync = (agent.adapterConfig as Record<string, unknown> | null)?.ironworksSkillSync as { desiredSkills?: string[] } | undefined;
+      if (skillSync?.desiredSkills?.length) {
+        try {
+          await agentsApi.syncSkills(cloned.id, skillSync.desiredSkills, resolvedCompanyId);
+        } catch { /* non-fatal */ }
+      }
+      return cloned;
+    },
+    onSuccess: (cloned) => {
+      setActionError(null);
+      if (resolvedCompanyId) {
+        queryClient.invalidateQueries({ queryKey: queryKeys.agents.list(resolvedCompanyId) });
+      }
+      navigate(`/agents/${cloned.urlKey ?? cloned.id}`);
+    },
+    onError: (err) => {
+      setActionError(err instanceof Error ? err.message : "Clone failed");
+    },
+  });
+
   const budgetMutation = useMutation({
     mutationFn: (amount: number) =>
       budgetsApi.upsertPolicy(resolvedCompanyId!, {
@@ -885,6 +919,17 @@ export function AgentDetail() {
               >
                 <RotateCcw className="h-3 w-3" />
                 Reset Sessions
+              </button>
+              <button
+                className="flex items-center gap-2 w-full px-2 py-1.5 text-xs rounded hover:bg-accent/50"
+                onClick={() => {
+                  cloneAgent.mutate();
+                  setMoreOpen(false);
+                }}
+                disabled={cloneAgent.isPending}
+              >
+                <CopyPlus className="h-3 w-3" />
+                {cloneAgent.isPending ? "Cloning..." : "Clone Agent"}
               </button>
               <button
                 className="flex items-center gap-2 w-full px-2 py-1.5 text-xs rounded hover:bg-accent/50 text-destructive"
