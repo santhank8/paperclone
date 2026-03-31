@@ -1,24 +1,90 @@
 # Plugin System — Próxima Iteração
 
-**Last Updated:** 2026-03-31 20:30 UTC
+**Last Updated:** 2026-03-31 21:30 UTC
 
 ---
 
-## ✅ Concluído Nesta Sessão
+## ✅ Concluído (2026-03-31)
 
-### Testes Unitários de Worker — COMPLETO
+### Testes Unitários de Schema — COMPLETO
 
-**Status anterior (documento desatualizado):**
-- Playwright MCP: 28 testes unitários ✅
-- Ruflo Bridge + Skills Hub: **ZERO testes unitários** ❌
+**Status:** 112 testes de schema validando manifestos e parâmetros de tools.
 
-**Status atual (2026-03-31 20:30 UTC):**
-| Plugin | Testes | Arquivo | Status |
-|--------|--------|---------|--------|
-| Playwright MCP | 28 testes | `src/__tests__/worker.test.ts` | ✅ Completa |
-| Ruflo Bridge | 47 testes | `src/__tests__/worker.test.ts` | ✅ Completa |
-| Skills Hub | 37 testes | `src/__tests__/worker.test.ts` | ✅ Completa |
-| **Total** | **112 testes** | 3 arquivos | ✅ **Completa** |
+| Plugin | Testes | Arquivo | Validação |
+|--------|--------|---------|-----------|
+| Playwright MCP | 28 testes | `src/__tests__/worker.test.ts` | ✅ Schema + parâmetros |
+| Ruflo Bridge | 47 testes | `src/__tests__/worker.test.ts` | ✅ Schema + parâmetros |
+| Skills Hub | 37 testes | `src/__tests__/worker.test.ts` | ✅ Schema + parâmetros |
+| **Total** | **112 testes** | 3 arquivos | ✅ **Passing** |
+
+**Validação:**
+```bash
+pnpm test -- plugin-unit
+# → 112 testes passando
+# → Duration: ~2s
+```
+
+---
+
+## 🎯 Próxima Prioridade: Testes de Integração (Contexto Mockado)
+
+**Status:** PENDENTE — maior ROI em confiabilidade
+
+**Gap atual:**
+- Testes atuais validam apenas schemas de manifesto
+- Não validam execução real dos workers com contexto mockado
+- Não testam error handling, entity operations, tool registration dinâmica
+
+**Oportunidade:**
+Adicionar testes de integração usando `createTestHarness()` do SDK que mockam o `PluginContext` e validam:
+- Tool registration no boot do worker
+- Execução de handlers com inputs válidos/inválidos
+- Entity upsert/find operations
+- Error handling e fallbacks
+- Response formatting
+
+**Esforço estimado:** 4-6 horas, ~50-80 testes de integração
+
+**Infraestrutura disponível:**
+SDK já exporta `createTestHarness()` em `@paperclipai/plugin-sdk/testing` com:
+- `ctx.entities.upsert/find/delete` mockado
+- `ctx.tools.register/execute` mockado
+- `ctx.events.on/emit` mockado
+- `ctx.state.get/set` mockado
+- `ctx.logger`, `ctx.config`, `ctx.http`, `ctx.assets` mockados
+- `seed()` para companies, projects, issues, agents, goals
+- `executeTool()` para invocar handlers diretamente
+
+**Padrão sugerido:**
+```typescript
+// Exemplo: ruflo-bridge/src/__tests__/integration.test.ts
+import { createTestHarness } from '@paperclipai/plugin-sdk/testing';
+import manifest from '../manifest';
+import worker from '../worker';
+
+describe('Ruflo Bridge Integration', () => {
+  it('should register all 9 tools on boot', async () => {
+    const harness = createTestHarness({ manifest });
+    await worker.default(harness.ctx);
+    
+    // Assert tool registration
+    expect(harness.ctx.tools.register).toHaveBeenCalledTimes(9);
+  });
+
+  it('should execute agent_spawn with valid params', async () => {
+    const harness = createTestHarness({ manifest });
+    await worker.default(harness.ctx);
+    
+    const result = await harness.executeTool('agent_spawn', {
+      agentType: 'coder',
+      task: 'Fix bug #123'
+    });
+    
+    expect(result.content).toContain('success');
+    expect(result.content).toContain('agentId');
+  });
+});
+```
 
 **Cobertura por plugin:**
 
