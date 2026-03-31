@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@/lib/router";
-import { ChevronDown, ChevronRight, MoreHorizontal, Play, Plus, Repeat } from "lucide-react";
+import { ChevronDown, ChevronRight, MoreHorizontal, Play, Plus, Repeat, Search } from "lucide-react";
 import { routinesApi } from "../api/routines";
 import { agentsApi } from "../api/agents";
 import { projectsApi } from "../api/projects";
@@ -16,6 +16,7 @@ import { AgentIcon } from "../components/AgentIconPicker";
 import { InlineEntitySelector, type InlineEntityOption } from "../components/InlineEntitySelector";
 import { MarkdownEditor, type MarkdownEditorRef } from "../components/MarkdownEditor";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -68,6 +69,7 @@ export function Routines() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const { pushToast } = useToast();
+  const [routineSearch, setRoutineSearch] = useState("");
   const descriptionEditorRef = useRef<MarkdownEditorRef>(null);
   const titleInputRef = useRef<HTMLTextAreaElement | null>(null);
   const assigneeSelectorRef = useRef<HTMLButtonElement | null>(null);
@@ -494,6 +496,19 @@ export function Routines() {
         </Card>
       ) : null}
 
+      {/* Search */}
+      {(routines ?? []).length > 0 && (
+        <div className="relative w-48 sm:w-64">
+          <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={routineSearch}
+            onChange={(e) => setRoutineSearch(e.target.value)}
+            placeholder="Search routines..."
+            className="pl-7 text-xs sm:text-sm"
+          />
+        </div>
+      )}
+
       <div>
         {(routines ?? []).length === 0 ? (
           <div className="py-12">
@@ -511,12 +526,13 @@ export function Routines() {
                   <th className="px-3 py-2 font-medium">Project</th>
                   <th className="px-3 py-2 font-medium">Agent</th>
                   <th className="px-3 py-2 font-medium">Last run</th>
+                  <th className="px-3 py-2 font-medium">Next run</th>
                   <th className="px-3 py-2 font-medium">Enabled</th>
                   <th className="w-12 px-3 py-2" />
                 </tr>
               </thead>
               <tbody>
-                {(routines ?? []).map((routine) => {
+                {(routines ?? []).filter((r) => !routineSearch.trim() || r.title.toLowerCase().includes(routineSearch.toLowerCase())).map((routine) => {
                   const enabled = routine.status === "active";
                   const isArchived = routine.status === "archived";
                   const isStatusPending = statusMutationRoutineId === routine.id;
@@ -571,6 +587,19 @@ export function Routines() {
                         {routine.lastRun ? (
                           <div className="mt-1 text-xs">{routine.lastRun.status.replaceAll("_", " ")}</div>
                         ) : null}
+                      </td>
+                      <td className="px-3 py-2.5 text-muted-foreground text-xs">
+                        {(() => {
+                          const nextTrigger = routine.triggers?.find((t) => t.enabled && t.nextRunAt);
+                          if (!nextTrigger?.nextRunAt) return <span>—</span>;
+                          const d = new Date(nextTrigger.nextRunAt);
+                          return (
+                            <div>
+                              <div>{d.toLocaleDateString("en-US", { month: "short", day: "numeric" })}</div>
+                              <div className="text-muted-foreground/70">{d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}</div>
+                            </div>
+                          );
+                        })()}
                       </td>
                       <td className="px-3 py-2.5" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center gap-3">

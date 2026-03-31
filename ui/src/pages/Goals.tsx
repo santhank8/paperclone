@@ -1,11 +1,14 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
+  ArrowUpDown,
   CheckCircle2,
   Circle,
   Clock,
+  Filter,
   Loader2,
   Plus,
+  Search,
   ShieldAlert,
   Target,
   Users,
@@ -22,6 +25,8 @@ import { EmptyState } from "../components/EmptyState";
 import { PageSkeleton } from "../components/PageSkeleton";
 import { StatusBadge } from "../components/StatusBadge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Link } from "@/lib/router";
 
 /* ------------------------------------------------------------------ */
@@ -154,10 +159,16 @@ function GoalCard({
 /*  Main Goals Page                                                    */
 /* ------------------------------------------------------------------ */
 
+type GoalSortField = "title" | "progress" | "updated";
+type GoalStatusFilter = "all" | "planned" | "active" | "achieved" | "cancelled";
+
 export function Goals() {
   const { selectedCompanyId } = useCompany();
   const { openNewGoal } = useDialog();
   const { setBreadcrumbs } = useBreadcrumbs();
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<GoalStatusFilter>("all");
+  const [sortField, setSortField] = useState<GoalSortField>("updated");
 
   useEffect(() => {
     setBreadcrumbs([{ label: "Goals" }]);
@@ -184,11 +195,25 @@ export function Goals() {
     return map;
   }, [progressData]);
 
-  // Organize goals: root goals (no parent) at top, sub-goals nested
-  const rootGoals = useMemo(
-    () => (goals ?? []).filter((g) => !g.parentId),
-    [goals],
-  );
+  // Filter, search, sort root goals
+  const rootGoals = useMemo(() => {
+    let filtered = (goals ?? []).filter((g) => !g.parentId);
+    if (statusFilter !== "all") filtered = filtered.filter((g) => g.status === statusFilter);
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      filtered = filtered.filter((g) => g.title.toLowerCase().includes(q) || g.description?.toLowerCase().includes(q));
+    }
+    filtered.sort((a, b) => {
+      if (sortField === "title") return a.title.localeCompare(b.title);
+      if (sortField === "progress") {
+        const pa = progressMap.get(a.id)?.progressPercent ?? 0;
+        const pb = progressMap.get(b.id)?.progressPercent ?? 0;
+        return pb - pa;
+      }
+      return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+    });
+    return filtered;
+  }, [goals, statusFilter, search, sortField, progressMap]);
 
   const childrenMap = useMemo(() => {
     const map = new Map<string, Goal[]>();
@@ -237,6 +262,47 @@ export function Goals() {
       </div>
 
       {error && <p className="text-sm text-destructive">{error.message}</p>}
+
+      {/* Toolbar */}
+      {totalGoals > 0 && (
+        <div className="flex items-center justify-between gap-2">
+          <div className="relative w-48 sm:w-64">
+            <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search goals..."
+              className="pl-7 text-xs sm:text-sm"
+            />
+          </div>
+          <div className="flex items-center gap-1.5">
+            <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as GoalStatusFilter)}>
+              <SelectTrigger className="h-8 w-[120px] text-xs">
+                <Filter className="h-3 w-3 mr-1" />
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All statuses</SelectItem>
+                <SelectItem value="planned">Planned</SelectItem>
+                <SelectItem value="active">Active</SelectItem>
+                <SelectItem value="achieved">Achieved</SelectItem>
+                <SelectItem value="cancelled">Cancelled</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={sortField} onValueChange={(v) => setSortField(v as GoalSortField)}>
+              <SelectTrigger className="h-8 w-[120px] text-xs">
+                <ArrowUpDown className="h-3 w-3 mr-1" />
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="updated">Last updated</SelectItem>
+                <SelectItem value="progress">Progress</SelectItem>
+                <SelectItem value="title">Title</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      )}
 
       {/* Empty state */}
       {totalGoals === 0 && (

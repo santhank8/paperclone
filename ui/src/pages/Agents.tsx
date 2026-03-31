@@ -17,7 +17,8 @@ import { relativeTime, cn, agentRouteRef, agentUrl } from "../lib/utils";
 import { PageTabBar } from "../components/PageTabBar";
 import { Tabs } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { Bot, Plus, List, GitBranch, SlidersHorizontal } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Bot, Plus, List, GitBranch, Search, SlidersHorizontal } from "lucide-react";
 import { AGENT_ROLE_LABELS, type Agent } from "@ironworksai/shared";
 
 const adapterLabels: Record<string, string> = {
@@ -76,6 +77,7 @@ export function Agents() {
   const effectiveView: "list" | "org" = forceListView ? "list" : view;
   const [showTerminated, setShowTerminated] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [agentSearch, setAgentSearch] = useState("");
 
   const { data: agents, isLoading, error } = useQuery({
     queryKey: queryKeys.agents.list(selectedCompanyId!),
@@ -129,7 +131,9 @@ export function Agents() {
     return <PageSkeleton variant="list" />;
   }
 
-  const filtered = filterAgents(agents ?? [], tab, showTerminated);
+  const filtered = filterAgents(agents ?? [], tab, showTerminated).filter((a) =>
+    !agentSearch.trim() || a.name.toLowerCase().includes(agentSearch.toLowerCase()) || (a.title ?? "").toLowerCase().includes(agentSearch.toLowerCase()),
+  );
   const filteredOrg = filterOrgTree(orgTree ?? [], tab, showTerminated);
 
   return (
@@ -148,6 +152,16 @@ export function Agents() {
           />
         </Tabs>
         <div className="flex items-center gap-2">
+          {/* Search */}
+          <div className="relative w-40 sm:w-52">
+            <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={agentSearch}
+              onChange={(e) => setAgentSearch(e.target.value)}
+              placeholder="Search agents..."
+              className="pl-7 text-xs h-8"
+            />
+          </div>
           {/* Filters */}
           <div className="relative">
             <button
