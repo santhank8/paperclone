@@ -141,6 +141,10 @@ export {
   type CreateIssueAttachmentMetadata,
   type IssueDocumentFormat,
   type UpsertIssueDocument,
+  createIssueRelationSchema,
+  resolveBlockerSchema,
+  type CreateIssueRelation,
+  type ResolveBlocker,
 } from "./issue.js";
 
 export {
