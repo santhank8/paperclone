@@ -13,6 +13,7 @@ import {
   handleCommandError,
   printOutput,
   resolveCommandContext,
+  unescapeText,
   type BaseClientOptions,
 } from "./common.js";
 
@@ -151,8 +152,8 @@ export function registerIssueCommands(program: Command): void {
         try {
           const ctx = resolveCommandContext(opts, { requireCompany: true });
           const payload = createIssueSchema.parse({
-            title: opts.title,
-            description: opts.description,
+            title: unescapeText(opts.title),
+            description: unescapeText(opts.description),
             status: opts.status,
             priority: opts.priority,
             assigneeAgentId: opts.assigneeAgentId,
@@ -193,8 +194,8 @@ export function registerIssueCommands(program: Command): void {
         try {
           const ctx = resolveCommandContext(opts);
           const payload = updateIssueSchema.parse({
-            title: opts.title,
-            description: opts.description,
+            title: unescapeText(opts.title),
+            description: unescapeText(opts.description),
             status: opts.status,
             priority: opts.priority,
             assigneeAgentId: opts.assigneeAgentId,
@@ -203,7 +204,7 @@ export function registerIssueCommands(program: Command): void {
             parentId: opts.parentId,
             requestDepth: parseOptionalInt(opts.requestDepth),
             billingCode: opts.billingCode,
-            comment: opts.comment,
+            comment: unescapeText(opts.comment),
             hiddenAt: parseHiddenAt(opts.hiddenAt),
           });
 
@@ -226,7 +227,7 @@ export function registerIssueCommands(program: Command): void {
         try {
           const ctx = resolveCommandContext(opts);
           const payload = addIssueCommentSchema.parse({
-            body: opts.body,
+            body: unescapeText(opts.body),
             reopen: opts.reopen,
           });
           const comment = await ctx.api.post<IssueComment>(`/api/issues/${issueId}/comments`, payload);
