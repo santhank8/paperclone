@@ -259,6 +259,25 @@ async function applyPendingMigrationsManually(
       );
       if (existingEntry) continue;
 
+      // Check if the migration's schema changes are already present in the database
+      // even though the journal entry is missing. This handles the case where the DB was
+      // migrated by a different mechanism (e.g. direct SQL restore, platform provisioning)
+      // but the Drizzle journal table was reset or lost. Without this check, re-running
+      // CREATE TABLE statements on existing tables causes a fatal 42P07 error.
+      const alreadyApplied = await migrationContentAlreadyApplied(sql, migrationContent);
+      if (alreadyApplied) {
+        // All schema objects already exist — just record the journal entry so we don't retry.
+        await recordMigrationHistoryEntry(
+          sql,
+          qualifiedTable,
+          columnNames,
+          migrationFile,
+          hash,
+          folderMillisByFileName.get(migrationFile) ?? Date.now(),
+        );
+        continue;
+      }
+
       await runInTransaction(sql, async () => {
         for (const statement of splitMigrationStatements(migrationContent)) {
           await sql.unsafe(statement);
