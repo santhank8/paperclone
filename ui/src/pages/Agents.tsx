@@ -33,6 +33,36 @@ const adapterLabels: Record<string, string> = {
   http: "HTTP",
 };
 
+const CLOUD_ADAPTER_TYPES = new Set([
+  "claude_local", "codex_local", "opencode_local",
+  "pi_local", "cursor", "hermes_local", "openclaw_gateway",
+]);
+
+function CapabilityTierBadge({ agent }: { agent: Agent }) {
+  if (agent.adapterType === "deerflow") {
+    return (
+      <span className="px-1.5 py-0.5 text-[10px] font-medium rounded-sm bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20">
+        Local
+      </span>
+    );
+  }
+  if (CLOUD_ADAPTER_TYPES.has(agent.adapterType)) {
+    if (agent.assistantAgentId) {
+      return (
+        <span className="px-1.5 py-0.5 text-[10px] font-medium rounded-sm bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+          Cloud + Local
+        </span>
+      );
+    }
+    return (
+      <span className="px-1.5 py-0.5 text-[10px] font-medium rounded-sm bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
+        Cloud Only
+      </span>
+    );
+  }
+  return null;
+}
+
 const roleLabels = AGENT_ROLE_LABELS as Record<string, string>;
 
 type FilterTab = "all" | "active" | "paused" | "error";
@@ -267,6 +297,7 @@ export function Agents() {
                       <span className="text-xs text-muted-foreground font-mono w-14 text-right">
                         {adapterLabels[agent.adapterType] ?? agent.adapterType}
                       </span>
+                      <CapabilityTierBadge agent={agent} />
                       <span className="text-xs text-muted-foreground w-16 text-right">
                         {agent.lastHeartbeatAt ? relativeTime(agent.lastHeartbeatAt) : "—"}
                       </span>
@@ -368,6 +399,7 @@ function OrgTreeNode({
                 <span className="text-xs text-muted-foreground font-mono w-14 text-right">
                   {adapterLabels[agent.adapterType] ?? agent.adapterType}
                 </span>
+                <CapabilityTierBadge agent={agent} />
                 <span className="text-xs text-muted-foreground w-16 text-right">
                   {agent.lastHeartbeatAt ? relativeTime(agent.lastHeartbeatAt) : "—"}
                 </span>
