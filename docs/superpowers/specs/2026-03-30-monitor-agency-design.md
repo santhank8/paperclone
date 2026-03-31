@@ -14,6 +14,7 @@ In simple terms:
 - It decides what changed and whether the change matters.
 - It prepares work automatically: issues, plans, draft pull requests, tests, and low-risk merges.
 - It actively looks for new tools, features, and opportunities that could make your products better or your team faster.
+- It actively looks for new AI capabilities you may not even know exist yet, so you do not have to rely on luck or random discovery.
 - It stays quiet unless a change is important enough that a human decision is actually needed.
 
 This is not a second Paperclip server. It is a new company living inside the same Paperclip you already use.
@@ -38,6 +39,8 @@ That creates two problems:
 `The Monitor Agency` solves that by making monitoring part of operations instead of a manual chore.
 
 It should also help you get ahead, not just avoid problems. That means it should look for useful new AI tools, feature ideas, and market openings before you ask for them.
+
+Part of the reason this matters is that modern AI moves too fast for a normal person to track comfortably. Good tools, new agent products, useful MCPs, and valuable workflows can appear at any time. If nobody is actively scouting, you only learn about them by accident.
 
 ## What It Is
 
@@ -94,6 +97,18 @@ This lane looks for things that could make your business faster, better, or more
 - new market openings created by technology shifts
 - new ways to package, automate, or sell what you already do
 
+### 4. Capability Discovery
+
+This lane is specifically about finding useful AI capabilities before they are widely known inside your business:
+
+- new AI tools
+- new skills worth installing
+- new MCPs and plugins
+- new agent frameworks
+- new specialist AI agents
+- new AI companies or services worth hiring or integrating
+- new workflows that give leverage without requiring a full rebuild
+
 ## How It Works In Plain English
 
 Think of it like a small operations team.
@@ -123,6 +138,7 @@ It asks:
 - Is this small, risky, urgent, or strategic?
 - Does it need code, planning, or no action at all?
 - Is this a threat, an opportunity, or both?
+- Is this something we should build, buy, integrate, hire, or ignore?
 
 ### Step 3. Act
 
@@ -136,6 +152,7 @@ Depending on the answer, it can:
 - merge low-risk updates automatically
 - create a major-decision escalation for you
 - create a proactive proposal when it finds something worth exploiting
+- recommend a build-versus-buy decision when a new capability appears
 
 ### Step 4. Escalate Only When Needed
 
@@ -161,6 +178,7 @@ Projects:
 - `Platform Monitoring`
 - `Strategic Monitoring`
 - `Opportunity Pipeline`
+- `Capability Discovery`
 - `Escalations`
 
 ## Agent Roles
@@ -188,6 +206,10 @@ Tracks competitor and industry changes and turns those into strategy work when u
 ### Opportunity Hunter
 
 Looks for new AI tools, product ideas, automation opportunities, and workflow improvements that could help you move faster or make more money.
+
+### Capability Scout
+
+Looks for new skills, MCPs, plugins, agents, services, and AI companies that could give you leverage, and recommends whether to test them, adopt them, integrate them, or hire them.
 
 ### Executive Escalation
 
@@ -221,6 +243,7 @@ That means it is allowed to:
 - run tests automatically
 - merge low-risk changes automatically
 - create proactive proposals automatically
+- recommend new capabilities automatically
 
 It is not intended to wait for a human on routine work.
 
@@ -259,6 +282,7 @@ You only get interrupted for major decisions such as:
 - likely breaking provider changes
 - strategic actions with meaningful business consequences
 - major opportunities worth funding, shipping, or prioritizing
+- major new capabilities worth adopting, integrating, or hiring
 - changes involving money, permissions, or irreversible action
 
 This means you are not expected to monitor drafts, logs, releases, or technical severity yourself.
@@ -282,6 +306,7 @@ This design is successful when:
 - important upstream and market changes are detected without human checking
 - low-risk updates are handled automatically
 - valuable new tools and feature opportunities are surfaced proactively
+- important new AI capabilities are discovered before you would normally hear about them
 - risky changes are translated into plain-English decisions
 - you are interrupted rarely
 - the company reduces maintenance burden instead of creating a new one
@@ -296,6 +321,7 @@ Start with a conservative first phase:
 - run validation automatically
 - auto-merge only clearly low-risk changes
 - create opportunity proposals when confidence is high
+- create capability recommendations when confidence is high
 - log all actions inside `The Monitor Agency`
 
 This provides real autonomy without giving the company unlimited power on day one.
