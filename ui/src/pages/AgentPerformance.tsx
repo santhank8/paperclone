@@ -437,47 +437,61 @@ export function AgentPerformance() {
       )}
 
       {/* Performance by Project */}
-      {rows.length > 0 && projects && projects.length > 0 && issues && issues.length > 0 && (
+      {/* Performance by Project — projects as rows, agents as columns */}
+      {rows.length > 0 && projects && projects.length > 0 && (
         <div className="rounded-xl border border-border p-4 space-y-3">
           <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Performance by Project</h4>
-          <p className="text-xs text-muted-foreground">How each agent performs across different projects.</p>
+          <p className="text-xs text-muted-foreground">Issue distribution across projects and agents.</p>
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead>
                 <tr className="border-b border-border">
-                  <th className="px-3 py-2 text-left font-medium text-muted-foreground">Agent</th>
-                  {projects.filter((p) => !p.archivedAt).map((p) => (
-                    <th key={p.id} className="px-3 py-2 text-center font-medium text-muted-foreground">
-                      <div className="flex items-center justify-center gap-1">
-                        <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: p.color ?? "#6366f1" }} />
-                        <span className="truncate max-w-[80px]">{p.name}</span>
-                      </div>
+                  <th className="px-3 py-2 text-left font-medium text-muted-foreground">Project</th>
+                  {rows.map((r) => (
+                    <th key={r.agentId} className="px-3 py-2 text-center font-medium text-muted-foreground">
+                      <span className="truncate max-w-[80px] inline-block">{r.name}</span>
                     </th>
                   ))}
+                  <th className="px-3 py-2 text-center font-medium text-muted-foreground">Total</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/50">
-                {rows.filter((r) => r.tasksDone > 0 || r.tasksInProgress > 0).map((r) => (
-                  <tr key={r.agentId} className="hover:bg-accent/20">
-                    <td className="px-3 py-2 font-medium">{r.name}</td>
-                    {projects.filter((p) => !p.archivedAt).map((p) => {
-                      const projIssues = (issues ?? []).filter((i) => i.assigneeAgentId === r.agentId && i.projectId === p.id);
-                      const done = projIssues.filter((i) => i.status === "done").length;
-                      const active = projIssues.filter((i) => i.status === "in_progress" || i.status === "todo").length;
-                      const total = projIssues.length;
-                      if (total === 0) return <td key={p.id} className="px-3 py-2 text-center text-muted-foreground/30">—</td>;
-                      return (
-                        <td key={p.id} className="px-3 py-2 text-center">
-                          <span className="text-emerald-400">{done}</span>
-                          {active > 0 && <span className="text-blue-400 ml-1">+{active}</span>}
-                          <span className="text-muted-foreground ml-1">/ {total}</span>
-                        </td>
-                      );
-                    })}
-                  </tr>
-                ))}
+                {projects.filter((p) => !p.archivedAt).map((p) => {
+                  const projectIssues = (issues ?? []).filter((i) => i.projectId === p.id);
+                  if (projectIssues.length === 0) return null;
+                  return (
+                    <tr key={p.id} className="hover:bg-accent/20">
+                      <td className="px-3 py-2 font-medium">
+                        <div className="flex items-center gap-1.5">
+                          <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: p.color ?? "#6366f1" }} />
+                          <span>{p.name}</span>
+                        </div>
+                      </td>
+                      {rows.map((r) => {
+                        const agentProjectIssues = projectIssues.filter((i) => i.assigneeAgentId === r.agentId);
+                        const done = agentProjectIssues.filter((i) => i.status === "done").length;
+                        const active = agentProjectIssues.filter((i) => i.status === "in_progress" || i.status === "todo" || i.status === "in_review").length;
+                        const total = agentProjectIssues.length;
+                        if (total === 0) return <td key={r.agentId} className="px-3 py-2 text-center text-muted-foreground/30">—</td>;
+                        return (
+                          <td key={r.agentId} className="px-3 py-2 text-center">
+                            <span className="text-emerald-400">{done}</span>
+                            {active > 0 && <span className="text-blue-400 ml-1">+{active}</span>}
+                            <span className="text-muted-foreground ml-1">/ {total}</span>
+                          </td>
+                        );
+                      })}
+                      <td className="px-3 py-2 text-center font-medium">{projectIssues.length}</td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
+          </div>
+          <div className="flex items-center gap-4 text-[10px] text-muted-foreground pt-1">
+            <span className="flex items-center gap-1"><span className="text-emerald-400 font-medium">N</span> done</span>
+            <span className="flex items-center gap-1"><span className="text-blue-400 font-medium">+N</span> active</span>
+            <span className="flex items-center gap-1"><span className="text-muted-foreground">/ N</span> total</span>
           </div>
         </div>
       )}
