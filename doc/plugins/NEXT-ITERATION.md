@@ -248,97 +248,118 @@ Transformar em referência completa:
 
 ---
 
-## Padrão de Teste (copiar de Playwright MCP)
+## Padrão de Teste de Integração (usar createTestHarness do SDK)
 
 ```typescript
-// packages/plugins/ruflo-bridge/src/__tests__/worker.test.ts
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import worker from '../worker.js';
-import type { PluginContext, ToolResult } from '@paperclipai/plugin-sdk';
+// packages/plugins/ruflo-bridge/src/__tests__/integration.test.ts
+import { describe, it, expect } from 'vitest';
+import { createTestHarness } from '@paperclipai/plugin-sdk/testing';
+import manifest from '../manifest';
+import worker from '../worker';
 
-function createMockContext(): PluginContext {
-  return {
-    logger: {
-      info: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn(),
-    },
-    entities: {
-      upsert: vi.fn(),
-      find: vi.fn(),
-      delete: vi.fn(),
-    },
-    tools: {
-      register: vi.fn(),
-    },
-    assets: {
-      read: vi.fn(),
-      write: vi.fn(),
-    },
-  } as unknown as PluginContext;
-}
-
-describe('Ruflo Bridge Worker', () => {
-  let ctx: PluginContext;
-
-  beforeEach(() => {
-    ctx = createMockContext();
+describe('Ruflo Bridge Integration', () => {
+  describe('Tool Registration', () => {
+    it('should register all 9 tools on boot', async () => {
+      const harness = createTestHarness({ manifest });
+      await worker.default(harness.ctx);
+      
+      // SDK test harness tracks tool registrations
+      expect(harness.ctx.tools.register).toHaveBeenCalledTimes(9);
+      
+      const registeredTools = (harness.ctx.tools.register as any).mock.calls.map(c => c[0]);
+      expect(registeredTools).toContain('agent_spawn');
+      expect(registeredTools).toContain('swarm_init');
+      expect(registeredTools).toContain('memory_store');
+      // ... all 9 tools
+    });
   });
 
-  describe('agent_spawn tool', () => {
-    it('spawns agent with required params', async () => {
-      vi.mocked(ctx.entities.upsert).mockResolvedValue({
-        id: 'agent-123',
-        entityType: 'ruflo_agent',
-        data: { status: 'spawned' },
+  describe('agent_spawn Tool Execution', () => {
+    it('should spawn agent with required params', async () => {
+      const harness = createTestHarness({ manifest });
+      await worker.default(harness.ctx);
+      
+      const result = await harness.executeTool('agent_spawn', {
+        agentType: 'coder',
+        task: 'Fix bug #123'
       });
-
-      const tool = worker.tools?.find(t => t.name === 'agent_spawn');
-      const result = await tool?.handler(
-        { agentType: 'coder', task: 'fix bug' },
-        {} as any
-      );
-
-      expect(result?.content).toContain('agent-123');
-      expect(ctx.entities.upsert).toHaveBeenCalledWith(
-        expect.objectContaining({
-          entityType: 'ruflo_agent',
-          data: expect.objectContaining({
-            agentType: 'coder',
-            task: 'fix bug',
-          }),
-        })
-      );
+      
+      const data = JSON.parse(result.content);
+      expect(data.success).toBe(true);
+      expect(data.agentId).toBeDefined();
+      
+      // Assert entity was created
+      const entities = Array.from(harness.ctx.entities.store.values());
+      const agent = entities.find(e => e.entityType === 'ruflo_agent');
+      expect(agent).toBeDefined();
+      expect(agent.data.agentType).toBe('coder');
     });
 
-    it('fails without required agentType', async () => {
-      const tool = worker.tools?.find(t => t.name === 'agent_spawn');
+    it('should fail without required agentType', async () => {
+      const harness = createTestHarness({ manifest });
+      await worker.default(harness.ctx);
       
       await expect(async () => {
-        await tool?.handler({}, {} as any);
+        await harness.executeTool('agent_spawn', {});
       }).rejects.toThrow();
+    });
+  });
+
+  describe('swarm_init Tool Execution', () => {
+    it('should initialize swarm with default topology', async () => {
+      const harness = createTestHarness({ manifest });
+      await worker.default(harness.ctx);
+      
+      const result = await harness.executeTool('swarm_init', {});
+      
+      const data = JSON.parse(result.content);
+      expect(data.success).toBe(true);
+      expect(data.swarmId).toBeDefined();
+      expect(data.topology).toBe('hierarchical-mesh'); // default
     });
   });
 });
 ```
 
+**Nota:** O padrão antigo (acima) usava mock manual. Preferir `createTestHarness()` que:
+- Já enforces capability checks do manifesto
+- Mocka todas as APIs do host consistentemente
+- Fornece `executeTool()` helper
+- Rastreia entity operations automaticamente
+- Seed companies/projects/issues para testes realistas
+
 ---
 
-## Critérios de Aceite
+## Critérios de Aceite — Testes de Integração
 
-### Ruflo Bridge
-- [ ] 9 tools testadas (100% coverage)
-- [ ] Mínimo 10 testes por tool (happy path + errors)
-- [ ] Total: ~90-100 testes
-- [ ] Vitest config igual a playwright-mcp
-- [ ] `pnpm test --filter @paperclipai/plugin-ruflo-bridge` passa
+### Ruflo Bridge (9 tools)
+- [ ] Tool registration: assert todas 9 tools registradas no boot
+- [ ] Happy path: 1 teste por tool com params válidos
+- [ ] Error handling: 1-2 testes por tool com params inválidos/missing
+- [ ] Entity operations: assert ctx.entities.upsert chamado corretamente
+- [ ] Total estimado: ~30-40 testes de integração
+- [ ] Usar `createTestHarness()` do SDK
 
-### Skills Hub
-- [ ] 12 tools testadas (100% coverage)
-- [ ] Mínimo 12 testes por tool
-- [ ] Total: ~140-150 testes
-- [ ] Vitest config igual a playwright-mcp
-- [ ] `pnpm test --filter @paperclipai/plugin-skills-hub` passa
+### Skills Hub (12 tools)
+- [ ] Tool registration: assert todas 12 tools registradas no boot
+- [ ] Happy path: 1 teste por tool com params válidos
+- [ ] Error handling: 1-2 testes por tool com params inválidos/missing
+- [ ] Total estimado: ~40-50 testes de integração
+- [ ] Usar `createTestHarness()` do SDK
+
+### Playwright MCP (10 tools)
+- [ ] Tool registration: assert todas 10 tools registradas no boot
+- [ ] Happy path: 1 teste por tool com params válidos
+- [ ] Error handling: 1-2 testes por tool com params inválidos
+- [ ] Total estimado: ~30-35 testes de integração
+- [ ] Usar `createTestHarness()` do SDK
+
+### Validação Final
+- [ ] `pnpm test --filter @paperclipai/plugin-ruflo-bridge` passa (>75 testes totais)
+- [ ] `pnpm test --filter @paperclipai/plugin-skills-hub` passa (>85 testes totais)
+- [ ] `pnpm test --filter @paperclipai/plugin-playwright-mcp` passa (>55 testes totais)
+- [ ] `./scripts/validate-plugins.sh` inclui novos testes
+- [ ] Commit: `test(plugins): add integration tests for all plugin workers`
 
 ---
 
