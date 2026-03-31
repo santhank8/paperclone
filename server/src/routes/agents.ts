@@ -62,6 +62,8 @@ import {
   loadDefaultAgentInstructionsBundle,
   resolveDefaultAgentInstructionsBundleRole,
 } from "../services/default-agent-instructions.js";
+import { isDeerflowAvailable, DEERFLOW_LANGGRAPH_URL, DEERFLOW_GATEWAY_URL } from "../services/deerflow.js";
+import { logger } from "../middleware/logger.js";
 
 export function agentRoutes(db: Db) {
   const DEFAULT_INSTRUCTIONS_PATH_KEYS: Record<string, string> = {
@@ -1426,6 +1428,46 @@ export function agentRoutes(db: Db) {
         },
         actor.actorType === "user" ? actor.actorId : null,
       );
+    }
+
+    // Auto-provision DeerFlow assistant for cloud adapter agents
+    const CLOUD_ADAPTER_TYPES = new Set([
+      "claude_local", "codex_local", "opencode_local",
+      "pi_local", "cursor", "hermes_local", "openclaw_gateway",
+    ]);
+
+    if (CLOUD_ADAPTER_TYPES.has(agent.adapterType)) {
+      const deerflowUp = await isDeerflowAvailable();
+      if (deerflowUp) {
+        try {
+          const assistant = await svc.create(companyId, {
+            name: `${agent.name} (DeerFlow Assistant)`,
+            role: "general",
+            adapterType: "deerflow",
+            adapterConfig: {
+              deerflowUrl: DEERFLOW_LANGGRAPH_URL,
+              gatewayUrl: DEERFLOW_GATEWAY_URL,
+            },
+            runtimeConfig: {},
+            permissions: {},
+            metadata: { autoProvisioned: true, parentAgentId: agent.id },
+          });
+          // Link the cloud agent to its DeerFlow assistant
+          await db
+            .update(agentsTable)
+            .set({ assistantAgentId: assistant.id })
+            .where(eq(agentsTable.id, agent.id));
+          logger.info(
+            { agentId: agent.id, assistantId: assistant.id },
+            "Auto-provisioned DeerFlow assistant",
+          );
+          // Reflect the link in the response
+          (agent as Record<string, unknown>).assistantAgentId = assistant.id;
+        } catch (err) {
+          // Non-fatal — agent works without assistant
+          logger.warn({ agentId: agent.id, err }, "Failed to auto-provision DeerFlow assistant");
+        }
+      }
     }
 
     res.status(201).json(agent);

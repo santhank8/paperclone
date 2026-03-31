@@ -1,0 +1,1 @@
+ALTER TABLE "agents" ADD COLUMN "assistant_agent_id" uuid;
