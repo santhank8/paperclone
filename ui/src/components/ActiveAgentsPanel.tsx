@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import type { Issue } from "@ironworksai/shared";
 import { heartbeatsApi, type LiveRunForIssue } from "../api/heartbeats";
 import { issuesApi } from "../api/issues";
+import { projectsApi } from "../api/projects";
 import type { TranscriptEntry } from "../adapters";
 import { queryKeys } from "../lib/queryKeys";
 import { cn, relativeTime } from "../lib/utils";
@@ -35,6 +36,12 @@ export function ActiveAgentsPanel({ companyId }: ActiveAgentsPanelProps) {
     enabled: runs.length > 0,
   });
 
+  const { data: projects } = useQuery({
+    queryKey: queryKeys.projects.list(companyId),
+    queryFn: () => projectsApi.list(companyId),
+    enabled: runs.length > 0,
+  });
+
   const issueById = useMemo(() => {
     const map = new Map<string, Issue>();
     for (const issue of issues ?? []) {
@@ -42,6 +49,14 @@ export function ActiveAgentsPanel({ companyId }: ActiveAgentsPanelProps) {
     }
     return map;
   }, [issues]);
+
+  const projectById = useMemo(() => {
+    const map = new Map<string, { name: string; color: string | null }>();
+    for (const p of projects ?? []) {
+      map.set(p.id, { name: p.name, color: p.color });
+    }
+    return map;
+  }, [projects]);
 
   const { transcriptByRun, hasOutputForRun } = useLiveRunTranscripts({
     runs,
@@ -65,6 +80,10 @@ export function ActiveAgentsPanel({ companyId }: ActiveAgentsPanelProps) {
               key={run.id}
               run={run}
               issue={run.issueId ? issueById.get(run.issueId) : undefined}
+              project={(() => {
+                const issue = run.issueId ? issueById.get(run.issueId) : undefined;
+                return issue?.projectId ? projectById.get(issue.projectId) : undefined;
+              })()}
               transcript={transcriptByRun.get(run.id) ?? []}
               hasOutput={hasOutputForRun(run.id)}
               isActive={isRunActive(run)}
@@ -79,12 +98,14 @@ export function ActiveAgentsPanel({ companyId }: ActiveAgentsPanelProps) {
 function AgentRunCard({
   run,
   issue,
+  project,
   transcript,
   hasOutput,
   isActive,
 }: {
   run: LiveRunForIssue;
   issue?: Issue;
+  project?: { name: string; color: string | null };
   transcript: TranscriptEntry[];
   hasOutput: boolean;
   isActive: boolean;
@@ -112,6 +133,21 @@ function AgentRunCard({
             </div>
             <div className="mt-2 flex items-center gap-2 text-[11px] text-muted-foreground">
               <span>{isActive ? "Live now" : run.finishedAt ? `Finished ${relativeTime(run.finishedAt)}` : `Started ${relativeTime(run.createdAt)}`}</span>
+              {project && (
+                <span
+                  className="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium truncate max-w-[120px]"
+                  style={{
+                    backgroundColor: `${project.color ?? "#6366f1"}1a`,
+                    color: project.color ?? "#6366f1",
+                  }}
+                >
+                  <span
+                    className="h-1.5 w-1.5 shrink-0 rounded-full"
+                    style={{ backgroundColor: project.color ?? "#6366f1" }}
+                  />
+                  {project.name}
+                </span>
+              )}
             </div>
           </div>
 
