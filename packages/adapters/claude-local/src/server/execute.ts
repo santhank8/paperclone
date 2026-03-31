@@ -26,7 +26,9 @@ import {
   parseClaudeStreamJson,
   describeClaudeFailure,
   detectClaudeLoginRequired,
+  isClaudeErrorResult,
   isClaudeMaxTurnsResult,
+  isClaudePromptTooLongResult,
   isClaudeUnknownSessionError,
 } from "./parse.js";
 import { resolveClaudeDesiredSkillNames } from "./skills.js";
@@ -552,13 +554,14 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
       } as Record<string, unknown>)
       : null;
     const clearSessionForMaxTurns = isClaudeMaxTurnsResult(parsed);
+    const hasClaudeResultError = isClaudeErrorResult(parsed);
 
     return {
       exitCode: proc.exitCode,
       signal: proc.signal,
       timedOut: false,
       errorMessage:
-        (proc.exitCode ?? 0) === 0
+        (proc.exitCode ?? 0) === 0 && !hasClaudeResultError
           ? null
           : describeClaudeFailure(parsed) ?? `Claude exited with code ${proc.exitCode ?? -1}`,
       errorCode: loginMeta.requiresLogin ? "claude_auth_required" : null,
@@ -590,6 +593,21 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
       await onLog(
         "stdout",
         `[paperclip] Claude resume session "${sessionId}" is unavailable; retrying with a fresh session.\n`,
+      );
+      const retry = await runAttempt(null);
+      return toAdapterResult(retry, { fallbackSessionId: null, clearSessionOnMissingSession: true });
+    }
+
+    if (
+      sessionId &&
+      !initial.proc.timedOut &&
+      initial.parsed &&
+      isClaudeErrorResult(initial.parsed) &&
+      isClaudePromptTooLongResult(initial.parsed)
+    ) {
+      await onLog(
+        "stdout",
+        `[paperclip] Claude session "${sessionId}" exceeded the prompt/context limit; retrying with a fresh session.\n`,
       );
       const retry = await runAttempt(null);
       return toAdapterResult(retry, { fallbackSessionId: null, clearSessionOnMissingSession: true });

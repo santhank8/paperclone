@@ -2,6 +2,8 @@ import type { UsageSummary } from "@paperclipai/adapter-utils";
 import { asString, asNumber, parseObject, parseJson } from "@paperclipai/adapter-utils/server-utils";
 
 const CLAUDE_AUTH_REQUIRED_RE = /(?:not\s+logged\s+in|please\s+log\s+in|please\s+run\s+`?claude\s+login`?|login\s+required|requires\s+login|unauthorized|authentication\s+required)/i;
+const CLAUDE_PROMPT_TOO_LONG_RE =
+  /(?:prompt is too long|input is too long|context (?:window|length) (?:exceeded|too large|too long)|too many tokens|maximum context length)/i;
 const URL_RE = /(https?:\/\/[^\s'"`<>()[\]{};,!?]+[^\s'"`<>()[\]{};,!.?:]+)/gi;
 
 export function parseClaudeStreamJson(stdout: string) {
@@ -140,6 +142,7 @@ export function detectClaudeLoginRequired(input: {
 
 export function describeClaudeFailure(parsed: Record<string, unknown>): string | null {
   const subtype = asString(parsed.subtype, "");
+  const isError = parsed.is_error === true;
   const resultText = asString(parsed.result, "").trim();
   const errors = extractClaudeErrorMessages(parsed);
 
@@ -149,9 +152,18 @@ export function describeClaudeFailure(parsed: Record<string, unknown>): string |
   }
 
   const parts = ["Claude run failed"];
-  if (subtype) parts.push(`subtype=${subtype}`);
+  if (subtype && subtype.toLowerCase() !== "success") parts.push(`subtype=${subtype}`);
+  else if (isError) parts.push("error");
   if (detail) parts.push(detail);
   return parts.length > 1 ? parts.join(": ") : null;
+}
+
+export function isClaudeErrorResult(parsed: Record<string, unknown> | null | undefined): boolean {
+  if (!parsed) return false;
+  if (parsed.is_error === true) return true;
+
+  const subtype = asString(parsed.subtype, "").trim().toLowerCase();
+  return subtype === "error" || subtype === "failed";
 }
 
 export function isClaudeMaxTurnsResult(parsed: Record<string, unknown> | null | undefined): boolean {
@@ -176,4 +188,15 @@ export function isClaudeUnknownSessionError(parsed: Record<string, unknown>): bo
   return allMessages.some((msg) =>
     /no conversation found with session id|unknown session|session .* not found/i.test(msg),
   );
+}
+
+export function isClaudePromptTooLongResult(parsed: Record<string, unknown> | null | undefined): boolean {
+  if (!parsed) return false;
+
+  const resultText = asString(parsed.result, "").trim();
+  const allMessages = [resultText, ...extractClaudeErrorMessages(parsed)]
+    .map((msg) => msg.trim())
+    .filter(Boolean);
+
+  return allMessages.some((msg) => CLAUDE_PROMPT_TOO_LONG_RE.test(msg));
 }

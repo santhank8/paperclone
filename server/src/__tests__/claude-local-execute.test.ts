@@ -25,6 +25,50 @@ console.log(JSON.stringify({ type: "result", session_id: "claude-session-1", res
   await fs.chmod(commandPath, 0o755);
 }
 
+async function writeFakeClaudeErrorCommand(commandPath: string): Promise<void> {
+  const script = `#!/usr/bin/env node
+console.log(JSON.stringify({ type: "system", subtype: "init", session_id: "claude-session-1", model: "claude-sonnet" }));
+console.log(JSON.stringify({
+  type: "result",
+  session_id: "claude-session-1",
+  subtype: "success",
+  is_error: true,
+  result: "Prompt is too long",
+  usage: { input_tokens: 0, cache_read_input_tokens: 0, output_tokens: 0 }
+}));
+`;
+  await fs.writeFile(commandPath, script, "utf8");
+  await fs.chmod(commandPath, 0o755);
+}
+
+async function writeFakeClaudePromptRetryCommand(commandPath: string): Promise<void> {
+  const script = `#!/usr/bin/env node
+const resumed = process.argv.includes("--resume");
+if (resumed) {
+  console.log(JSON.stringify({ type: "system", subtype: "init", session_id: "claude-session-old", model: "claude-sonnet" }));
+  console.log(JSON.stringify({
+    type: "result",
+    session_id: "claude-session-old",
+    subtype: "success",
+    is_error: true,
+    result: "Prompt is too long",
+    usage: { input_tokens: 0, cache_read_input_tokens: 0, output_tokens: 0 }
+  }));
+} else {
+  console.log(JSON.stringify({ type: "system", subtype: "init", session_id: "claude-session-fresh", model: "claude-sonnet" }));
+  console.log(JSON.stringify({ type: "assistant", session_id: "claude-session-fresh", message: { content: [{ type: "text", text: "fresh retry worked" }] } }));
+  console.log(JSON.stringify({
+    type: "result",
+    session_id: "claude-session-fresh",
+    result: "fresh retry worked",
+    usage: { input_tokens: 2, cache_read_input_tokens: 0, output_tokens: 3 }
+  }));
+}
+`;
+  await fs.writeFile(commandPath, script, "utf8");
+  await fs.chmod(commandPath, 0o755);
+}
+
 describe("claude execute", () => {
   it("logs HOME, CLAUDE_CONFIG_DIR, and the resolved executable path in invocation metadata", async () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), "paperclip-claude-execute-meta-"));
@@ -93,6 +137,109 @@ describe("claude execute", () => {
       else process.env.PATH = previousPath;
       if (previousClaudeConfigDir === undefined) delete process.env.CLAUDE_CONFIG_DIR;
       else process.env.CLAUDE_CONFIG_DIR = previousClaudeConfigDir;
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("treats claude result errors as failures even when the process exits cleanly", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "paperclip-claude-execute-error-"));
+    const workspace = path.join(root, "workspace");
+    const binDir = path.join(root, "bin");
+    const commandPath = path.join(binDir, "claude");
+    await fs.mkdir(workspace, { recursive: true });
+    await fs.mkdir(binDir, { recursive: true });
+    await writeFakeClaudeErrorCommand(commandPath);
+
+    const previousPath = process.env.PATH;
+    process.env.PATH = `${binDir}${path.delimiter}${process.env.PATH ?? ""}`;
+
+    try {
+      const result = await execute({
+        runId: "run-error",
+        agent: {
+          id: "agent-1",
+          companyId: "company-1",
+          name: "Claude Coder",
+          adapterType: "claude_local",
+          adapterConfig: {},
+        },
+        runtime: {
+          sessionId: null,
+          sessionParams: null,
+          sessionDisplayId: null,
+          taskKey: null,
+        },
+        config: {
+          command: "claude",
+          cwd: workspace,
+          promptTemplate: "Follow the paperclip heartbeat.",
+        },
+        context: {},
+        authToken: "run-jwt-token",
+        onLog: async () => {},
+      });
+
+      expect(result.exitCode).toBe(0);
+      expect(result.errorMessage).toBe("Claude run failed: error: Prompt is too long");
+    } finally {
+      if (previousPath === undefined) delete process.env.PATH;
+      else process.env.PATH = previousPath;
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("retries with a fresh session when a resumed session hits the prompt limit", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "paperclip-claude-execute-retry-"));
+    const workspace = path.join(root, "workspace");
+    const binDir = path.join(root, "bin");
+    const commandPath = path.join(binDir, "claude");
+    const logChunks: string[] = [];
+    await fs.mkdir(workspace, { recursive: true });
+    await fs.mkdir(binDir, { recursive: true });
+    await writeFakeClaudePromptRetryCommand(commandPath);
+
+    const previousPath = process.env.PATH;
+    process.env.PATH = `${binDir}${path.delimiter}${process.env.PATH ?? ""}`;
+
+    try {
+      const result = await execute({
+        runId: "run-retry",
+        agent: {
+          id: "agent-1",
+          companyId: "company-1",
+          name: "Claude Coder",
+          adapterType: "claude_local",
+          adapterConfig: {},
+        },
+        runtime: {
+          sessionId: "claude-session-old",
+          sessionParams: {
+            sessionId: "claude-session-old",
+            cwd: workspace,
+          },
+          sessionDisplayId: "claude-session-old",
+          taskKey: null,
+        },
+        config: {
+          command: "claude",
+          cwd: workspace,
+          promptTemplate: "Follow the paperclip heartbeat.",
+        },
+        context: {},
+        authToken: "run-jwt-token",
+        onLog: async (_stream, chunk) => {
+          logChunks.push(chunk);
+        },
+      });
+
+      expect(result.exitCode).toBe(0);
+      expect(result.errorMessage).toBeNull();
+      expect(result.summary).toBe("fresh retry worked");
+      expect(result.sessionId).toBe("claude-session-fresh");
+      expect(logChunks.join("")).toContain("retrying with a fresh session");
+    } finally {
+      if (previousPath === undefined) delete process.env.PATH;
+      else process.env.PATH = previousPath;
       await fs.rm(root, { recursive: true, force: true });
     }
   });

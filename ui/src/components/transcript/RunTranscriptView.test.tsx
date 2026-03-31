@@ -81,4 +81,46 @@ describe("RunTranscriptView", () => {
       text: "Working on the task.",
     });
   });
+
+  it("renders prompt-limit session recovery as a friendly session event", () => {
+    const entries: TranscriptEntry[] = [
+      {
+        kind: "system",
+        ts: "2026-03-12T00:00:00.000Z",
+        text: "[paperclip] Claude session \"claude-session-old\" exceeded the prompt/context limit; retrying with a fresh session.",
+      },
+    ];
+
+    const blocks = normalizeTranscript(entries, false);
+
+    expect(blocks).toHaveLength(1);
+    expect(blocks[0]).toMatchObject({
+      type: "event",
+      label: "session",
+      tone: "warn",
+      text: "Claude context became too large, so Paperclip automatically switched to a fresh session and retried.",
+      detail: "[paperclip] Claude session \"claude-session-old\" exceeded the prompt/context limit; retrying with a fresh session.",
+    });
+  });
+
+  it("renders missing-session recovery as a friendly session event", () => {
+    const entries: TranscriptEntry[] = [
+      {
+        kind: "system",
+        ts: "2026-03-12T00:00:00.000Z",
+        text: "[paperclip] Claude resume session \"claude-session-old\" is unavailable; retrying with a fresh session.",
+      },
+    ];
+
+    const blocks = normalizeTranscript(entries, false);
+
+    expect(blocks).toHaveLength(1);
+    expect(blocks[0]).toMatchObject({
+      type: "event",
+      label: "session",
+      tone: "warn",
+      text: "The saved Claude session was unavailable, so Paperclip automatically retried with a fresh session.",
+      detail: "[paperclip] Claude resume session \"claude-session-old\" is unavailable; retrying with a fresh session.",
+    });
+  });
 });

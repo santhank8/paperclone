@@ -1,5 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
-import { isClaudeMaxTurnsResult } from "@paperclipai/adapter-claude-local/server";
+import {
+  describeClaudeFailure,
+  isClaudeErrorResult,
+  isClaudeMaxTurnsResult,
+  isClaudePromptTooLongResult,
+} from "@paperclipai/adapter-claude-local/server";
 import { parseClaudeStdoutLine } from "@paperclipai/adapter-claude-local/ui";
 import { printClaudeStreamEvent } from "@paperclipai/adapter-claude-local/cli";
 
@@ -28,6 +33,38 @@ describe("claude_local max-turn detection", () => {
         stop_reason: "end_turn",
       }),
     ).toBe(false);
+  });
+});
+
+describe("claude_local error result handling", () => {
+  it("treats result payloads with is_error=true as failures", () => {
+    expect(
+      isClaudeErrorResult({
+        subtype: "success",
+        is_error: true,
+        result: "Prompt is too long",
+      }),
+    ).toBe(true);
+  });
+
+  it("omits misleading success subtype from failure text", () => {
+    expect(
+      describeClaudeFailure({
+        subtype: "success",
+        is_error: true,
+        result: "Prompt is too long",
+      }),
+    ).toBe("Claude run failed: error: Prompt is too long");
+  });
+
+  it("detects prompt-too-long failures from result text", () => {
+    expect(
+      isClaudePromptTooLongResult({
+        subtype: "success",
+        is_error: true,
+        result: "Prompt is too long",
+      }),
+    ).toBe(true);
   });
 });
 

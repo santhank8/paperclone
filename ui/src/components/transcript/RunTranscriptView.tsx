@@ -296,6 +296,35 @@ function parseSystemActivity(text: string): { activityId?: string; name: string;
   };
 }
 
+function parsePaperclipSystemEvent(text: string): {
+  label: string;
+  tone: "info" | "warn" | "error" | "neutral";
+  text: string;
+  detail?: string;
+} | null {
+  const normalized = compactWhitespace(text).toLowerCase();
+
+  if (normalized.includes("exceeded the prompt/context limit; retrying with a fresh session")) {
+    return {
+      label: "session",
+      tone: "warn",
+      text: "Claude context became too large, so Paperclip automatically switched to a fresh session and retried.",
+      detail: text,
+    };
+  }
+
+  if (normalized.includes("resume session") && normalized.includes("is unavailable; retrying with a fresh session")) {
+    return {
+      label: "session",
+      tone: "warn",
+      text: "The saved Claude session was unavailable, so Paperclip automatically retried with a fresh session.",
+      detail: text,
+    };
+  }
+
+  return null;
+}
+
 function shouldHideNiceModeStderr(text: string): boolean {
   const normalized = compactWhitespace(text).toLowerCase();
   return normalized.startsWith("[paperclip] skipping saved session resume");
@@ -541,6 +570,18 @@ export function normalizeTranscript(entries: TranscriptEntry[], streaming: boole
             pendingActivityBlocks.set(activity.activityId, block);
           }
         }
+        continue;
+      }
+      const systemEvent = parsePaperclipSystemEvent(entry.text);
+      if (systemEvent) {
+        blocks.push({
+          type: "event",
+          ts: entry.ts,
+          label: systemEvent.label,
+          tone: systemEvent.tone,
+          text: systemEvent.text,
+          detail: systemEvent.detail,
+        });
         continue;
       }
       blocks.push({
