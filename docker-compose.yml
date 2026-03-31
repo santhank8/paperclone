@@ -27,8 +27,15 @@ services:
       PAPERCLIP_DEPLOYMENT_EXPOSURE: "private"
       PAPERCLIP_PUBLIC_URL: "${PAPERCLIP_PUBLIC_URL:-http://localhost:3100}"
       BETTER_AUTH_SECRET: "${BETTER_AUTH_SECRET:?BETTER_AUTH_SECRET must be set}"
+      # Make `claude` available as a command anywhere in the container
+      PATH: /claude-bin/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+      # Point claude to the shared credentials
+      CLAUDE_CONFIG_DIR: /claude-config
     volumes:
       - paperclip-data:/paperclip
+      - claude-bin:/claude-bin:ro
+      # Mount the credentials volume read-only — claude reads tokens from here
+      - claude-config:/claude-config:ro
     depends_on:
       db:
         condition: service_healthy
@@ -36,3 +43,7 @@ services:
 volumes:
   pgdata:
   paperclip-data:
+  claude-bin:
+    external: true
+  claude-config:
+    external: true
