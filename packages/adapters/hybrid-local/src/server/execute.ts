@@ -4,6 +4,7 @@ import { execute as claudeExecute } from "@paperclipai/adapter-claude-local/serv
 import { isClaudeModel, models as staticModels } from "../index.js";
 import { executeLocalModel, resolveBaseUrl, testOpenAICompatAvailability } from "./openai-compat.js";
 import { getQuotaWindows } from "./quota.js";
+import { readFile } from "node:fs/promises";
 
 // --- Helpers ---
 
@@ -357,10 +358,26 @@ async function executeLocal(
     ? (config.cwd as string).trim()
     : null;
 
+  // Read instructionsFilePath as system prompt if configured.
+  // Gives local models the same architectural context that Claude agents get
+  // from their instructions file (e.g. CLAUDE.md). Silently skipped if the
+  // file is missing or unreadable — the run proceeds without it.
+  const instructionsFilePath = asString(config.instructionsFilePath, "").trim();
+  let systemPrompt: string | undefined;
+  if (instructionsFilePath) {
+    try {
+      systemPrompt = await readFile(instructionsFilePath, "utf-8");
+      await onLog("stdout", `[hybrid] Loaded system prompt from ${instructionsFilePath} (${systemPrompt.length} chars)\n`);
+    } catch {
+      await onLog("stdout", `[hybrid] instructionsFilePath not found, skipping: ${instructionsFilePath}\n`);
+    }
+  }
+
   const result = await executeLocalModel({
     baseUrl: localBaseUrl,
     model,
     prompt,
+    systemPrompt,
     cwd: explicitCwd ?? process.cwd(),
     enableTools: explicitCwd !== null,
     timeoutMs: timeoutSec * 1000,

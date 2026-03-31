@@ -159,16 +159,20 @@ export async function executeLocalModel(opts: {
   baseUrl: string;
   model: string;
   prompt: string;
+  systemPrompt?: string;
   cwd: string;
   enableTools: boolean;
   timeoutMs: number;
   onLog: (stream: "stdout" | "stderr", chunk: string) => Promise<void>;
 }): Promise<OpenAICompatResult> {
-  const { baseUrl, model, prompt, cwd, enableTools, timeoutMs, onLog } = opts;
+  const { baseUrl, model, prompt, systemPrompt, cwd, enableTools, timeoutMs, onLog } = opts;
   const url = `${baseUrl}/chat/completions`;
   const deadline = Date.now() + timeoutMs;
 
-  const messages: Message[] = [{ role: "user", content: prompt }];
+  const messages: Message[] = [
+    ...(systemPrompt ? [{ role: "system" as const, content: systemPrompt }] : []),
+    { role: "user" as const, content: prompt },
+  ];
   let totalUsage: UsageSummary = { inputTokens: 0, outputTokens: 0, cachedInputTokens: 0 };
   let responseModel = model;
   let lastContent = "";
