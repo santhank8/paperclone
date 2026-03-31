@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, ne, sql } from "drizzle-orm";
 import type { Db } from "@paperclipai/db";
 import { agents, approvals, companies, costEvents, heartbeatRuns, issues } from "@paperclipai/db";
 import { notFound } from "../errors.js";
@@ -119,14 +119,18 @@ export function dashboardService(db: Db) {
           finishedAt: heartbeatRuns.finishedAt,
           errorCode: heartbeatRuns.errorCode,
           usageJson: heartbeatRuns.usageJson,
-          createdAt: heartbeatRuns.id, // use id as proxy; actual createdAt not on schema
+          createdAt: heartbeatRuns.createdAt,
         })
         .from(heartbeatRuns)
         .leftJoin(agents, eq(heartbeatRuns.agentId, agents.id))
-        .where(eq(heartbeatRuns.companyId, companyId))
+        .where(and(
+          eq(heartbeatRuns.companyId, companyId),
+          ne(heartbeatRuns.invocationSource, "checkout_upsert"),
+        ))
         .orderBy(desc(heartbeatRuns.startedAt))
         .limit(50);
 
+      // Batch lookup issue titles
       const issueIds = [...new Set(rows.map((r) => r.issueId).filter(Boolean))] as string[];
       const issueMap = new Map<string, { title: string; identifier: string | null }>();
       if (issueIds.length > 0) {
@@ -135,7 +139,7 @@ export function dashboardService(db: Db) {
           .from(issues)
           .where(inArray(issues.id, issueIds));
         for (const row of issueRows) {
-          issueMap.set(row.id, { title: row.title, identifier: row.identifier ?? null });
+          issueMap.set(row.id, { title: row.title, identifier: row.identifier });
         }
       }
 
@@ -152,19 +156,19 @@ export function dashboardService(db: Db) {
         return {
           id: r.id,
           agentId: r.agentId,
-          agentName: r.agentName ?? null,
-          issueId: r.issueId ?? null,
+          agentName: r.agentName ?? "Unknown",
+          issueId: r.issueId,
           issueTitle: issue?.title ?? null,
           issueIdentifier: issue?.identifier ?? null,
           status: r.status,
           invocationSource: r.invocationSource,
-          startedAt: r.startedAt?.toISOString() ?? null,
-          finishedAt: r.finishedAt?.toISOString() ?? null,
+          startedAt: r.startedAt,
+          finishedAt: r.finishedAt,
           durationMs,
           inputTokens,
           outputTokens,
-          errorCode: r.errorCode ?? null,
-          createdAt: r.id, // stable sort key
+          errorCode: r.errorCode,
+          createdAt: r.createdAt,
         };
       });
     },
@@ -185,6 +189,7 @@ export function dashboardService(db: Db) {
         .where(
           and(
             eq(heartbeatRuns.companyId, companyId),
+            ne(heartbeatRuns.invocationSource, "checkout_upsert"),
             gte(heartbeatRuns.startedAt, fourteenDaysAgo),
           ),
         );
@@ -195,9 +200,9 @@ export function dashboardService(db: Db) {
         succeededRuns: Number(stats.succeededRuns),
         failedRuns: Number(stats.failedRuns),
         successRate: totalRuns > 0 ? Number(((Number(stats.succeededRuns) / totalRuns) * 100).toFixed(1)) : 0,
-        avgDurationMs: stats.avgDurationMs != null ? Number(stats.avgDurationMs) : null,
-        avgInputTokens: stats.avgInputTokens != null ? Number(stats.avgInputTokens) : null,
-        avgOutputTokens: stats.avgOutputTokens != null ? Number(stats.avgOutputTokens) : null,
+        avgDurationMs: stats.avgDurationMs ? Number(stats.avgDurationMs) : null,
+        avgInputTokens: stats.avgInputTokens ? Number(stats.avgInputTokens) : null,
+        avgOutputTokens: stats.avgOutputTokens ? Number(stats.avgOutputTokens) : null,
       };
     },
   };

@@ -1433,7 +1433,7 @@ export function agentJoinGrantsFromDefaults(
 type JoinRequestManagerCandidate = {
   id: string;
   role: string;
-  reportsTo: string | null;
+  managerIds: string[];
 };
 
 export function resolveJoinRequestAgentManagerId(
@@ -1444,7 +1444,7 @@ export function resolveJoinRequestAgentManagerId(
   );
   if (ceoCandidates.length === 0) return null;
   const rootCeo = ceoCandidates.find(
-    (candidate) => candidate.reportsTo === null
+    (candidate) => candidate.managerIds.length === 0
   );
   return (rootCeo ?? ceoCandidates[0] ?? null)?.id ?? null;
 }
@@ -2614,7 +2614,7 @@ export function accessRoutes(
           role: "general",
           title: null,
           status: "idle",
-          reportsTo: managerId,
+          managerIds: [managerId],
           capabilities: existing.capabilities ?? null,
           adapterType: existing.adapterType ?? "process",
           adapterConfig:

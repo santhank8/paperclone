@@ -204,7 +204,20 @@ export function agentRoutes(db: Db) {
   }
 
   async function assertCanReadConfigurations(req: Request, companyId: string) {
-    return assertCanCreateAgentsForCompany(req, companyId);
+    assertCompanyAccess(req, companyId);
+    // Board users: check agents:create (existing behavior)
+    if (req.actor.type === "board") {
+      return assertCanCreateAgentsForCompany(req, companyId);
+    }
+    // Agents: allow read access if same company (agents can see peers for delegation)
+    if (req.actor.agentId) {
+      const actorAgent = await svc.getById(req.actor.agentId);
+      if (!actorAgent || actorAgent.companyId !== companyId) {
+        throw forbidden("Agent key cannot access another company");
+      }
+      return actorAgent;
+    }
+    throw forbidden("Authentication required");
   }
 
   async function actorCanReadConfigurationsForCompany(req: Request, companyId: string) {
@@ -216,8 +229,7 @@ export function agentRoutes(db: Db) {
     if (!req.actor.agentId) return false;
     const actorAgent = await svc.getById(req.actor.agentId);
     if (!actorAgent || actorAgent.companyId !== companyId) return false;
-    const allowedByGrant = await access.hasPermission(companyId, "agent", actorAgent.id, "agents:create");
-    return allowedByGrant || canCreateAgents(actorAgent);
+    return true; // Agents can read peer info within same company
   }
 
   async function assertCanUpdateAgent(req: Request, targetAgent: { id: string; companyId: string }) {
@@ -601,7 +613,7 @@ export function agentRoutes(db: Db) {
       role: agent.role,
       title: agent.title,
       status: agent.status,
-      reportsTo: agent.reportsTo,
+      managerIds: agent.managerIds,
       adapterType: agent.adapterType,
       adapterConfig: redactEventPayload(agent.adapterConfig),
       runtimeConfig: redactEventPayload(agent.runtimeConfig),
@@ -651,6 +663,7 @@ export function agentRoutes(db: Db) {
       name: String(node.name),
       role: String(node.role),
       status: String(node.status),
+      managerIds: Array.isArray(node.managerIds) ? node.managerIds : [],
       reports,
     };
   }
@@ -1261,7 +1274,7 @@ export function agentRoutes(db: Db) {
           role: normalizedHireInput.role,
           title: normalizedHireInput.title ?? null,
           icon: normalizedHireInput.icon ?? null,
-          reportsTo: normalizedHireInput.reportsTo ?? null,
+          managerIds: normalizedHireInput.managerIds ?? [],
           capabilities: normalizedHireInput.capabilities ?? null,
           adapterType: requestedAdapterType,
           adapterConfig: requestedAdapterConfig,

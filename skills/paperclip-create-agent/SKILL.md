@@ -1,5 +1,6 @@
 ---
 name: paperclip-create-agent
+tags: [meta]
 description: >
   Create new agents in Paperclip with governance-aware hiring. Use when you need
   to inspect adapter configuration options, compare existing agent configs,
@@ -59,7 +60,7 @@ curl -sS "$PAPERCLIP_API_URL/llms/agent-icons.txt" \
 6. Draft the new hire config:
 - role/title/name
 - icon (required in practice; use one from `/llms/agent-icons.txt`)
-- reporting line (`reportsTo`)
+- reporting line (`managerIds`)
 - adapter type
 - optional `desiredSkills` from the company skill library when this role needs installed skills on day one
 - adapter and runtime config aligned to this environment
@@ -78,7 +79,7 @@ curl -sS -X POST "$PAPERCLIP_API_URL/api/companies/$PAPERCLIP_COMPANY_ID/agent-h
     "role": "cto",
     "title": "Chief Technology Officer",
     "icon": "crown",
-    "reportsTo": "<ceo-agent-id>",
+    "managerIds": ["<ceo-agent-id>"],
     "capabilities": "Owns technical roadmap, architecture, staffing, execution",
     "desiredSkills": ["vercel-labs/agent-browser/agent-browser"],
     "adapterType": "codex_local",

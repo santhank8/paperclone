@@ -14,6 +14,23 @@ import type {
 } from "@paperclipai/shared";
 import { api } from "./client";
 
+export interface CostDaily {
+  date: string;
+  costCents: number;
+  heartbeats: number;
+  inputTokens: number;
+  outputTokens: number;
+}
+
+export interface CostVelocity {
+  centsPerHour: number;
+  heartbeatsPerHour: number;
+  topAgentId: string;
+  topAgentCents: number;
+  windowMinutes: number;
+}
+
+
 function dateParams(from?: string, to?: string): string {
   const params = new URLSearchParams();
   if (from) params.set("from", from);
@@ -47,6 +64,16 @@ export const costsApi = {
     api.get<CostWindowSpendRow[]>(`/companies/${companyId}/costs/window-spend`),
   quotaWindows: (companyId: string) =>
     api.get<ProviderQuotaResult[]>(`/companies/${companyId}/costs/quota-windows`),
+  daily: (companyId: string, from?: string, to?: string, granularity?: "day" | "hour") => {
+    const params = new URLSearchParams();
+    if (from) params.set("from", from);
+    if (to) params.set("to", to);
+    if (granularity) params.set("granularity", granularity);
+    const qs = params.toString();
+    return api.get<CostDaily[]>(`/companies/${companyId}/costs/daily${qs ? `?${qs}` : ""}`);
+  },
+  velocity: (companyId: string) =>
+    api.get<CostVelocity>(`/companies/${companyId}/costs/velocity`),
 };
 
 function dateParamsWithLimit(from?: string, to?: string, limit?: number): string {

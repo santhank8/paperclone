@@ -57,8 +57,6 @@ export function RunsTable({ runs }: { runs: DashboardRun[] }) {
               <th className="text-left px-3 py-2 font-medium text-muted-foreground">Agent</th>
               <th className="text-left px-3 py-2 font-medium text-muted-foreground">Task</th>
               <th className="text-left px-3 py-2 font-medium text-muted-foreground">Status</th>
-              <th className="text-right px-3 py-2 font-medium text-muted-foreground">Tokens In</th>
-              <th className="text-right px-3 py-2 font-medium text-muted-foreground">Tokens Out</th>
               <th className="text-right px-3 py-2 font-medium text-muted-foreground">Duration</th>
               <th className="text-left px-3 py-2 font-medium text-muted-foreground">Source</th>
               <th className="text-right px-3 py-2 font-medium text-muted-foreground">When</th>
@@ -72,18 +70,14 @@ export function RunsTable({ runs }: { runs: DashboardRun[] }) {
                 onClick={() => navigate(`/agents/${run.agentId}/runs`)}
               >
                 <td className="px-3 py-2">
-                  {run.agentName ? (
-                    <Identity name={run.agentName} size="sm" />
-                  ) : (
-                    <span className="text-muted-foreground text-xs font-mono">{run.agentId.slice(0, 8)}</span>
-                  )}
+                  <Identity name={run.agentName} size="sm" />
                 </td>
                 <td className="px-3 py-2 max-w-[200px] truncate">
                   {run.issueIdentifier ? (
                     <Link
                       to={`/issues/${run.issueIdentifier}`}
                       className="text-foreground hover:underline"
-                      onClick={(e) => e.stopPropagation()}
+                      onClick={(e: React.MouseEvent) => e.stopPropagation()}
                     >
                       {run.issueTitle ?? run.issueIdentifier}
                     </Link>
@@ -92,14 +86,10 @@ export function RunsTable({ runs }: { runs: DashboardRun[] }) {
                   )}
                 </td>
                 <td className="px-3 py-2">
-                  <span
-                    className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${STATUS_COLORS[run.status] ?? STATUS_COLORS.queued}`}
-                  >
+                  <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${STATUS_COLORS[run.status] ?? STATUS_COLORS.queued}`}>
                     {run.status}
                   </span>
                 </td>
-                <td className="px-3 py-2 text-right tabular-nums">{formatTokens(run.inputTokens)}</td>
-                <td className="px-3 py-2 text-right tabular-nums">{formatTokens(run.outputTokens)}</td>
                 <td className="px-3 py-2 text-right tabular-nums">{formatDuration(run.durationMs)}</td>
                 <td className="px-3 py-2">
                   <span className="text-xs text-muted-foreground">

@@ -36,7 +36,7 @@ Request body matches agent create shape:
   "role": "cto",
   "title": "Chief Technology Officer",
   "icon": "crown",
-  "reportsTo": "uuid-or-null",
+  "managerIds": ["uuid"],
   "capabilities": "Owns architecture and engineering execution",
   "desiredSkills": ["vercel-labs/agent-browser/agent-browser"],
   "adapterType": "claude_local",

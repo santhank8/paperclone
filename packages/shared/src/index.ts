@@ -69,6 +69,8 @@ export {
   PLUGIN_WEBHOOK_DELIVERY_STATUSES,
   PLUGIN_EVENT_TYPES,
   PLUGIN_BRIDGE_ERROR_CODES,
+  MEMORY_SCOPE_TYPES,
+  MEMORY_CATEGORIES,
   type CompanyStatus,
   type DeploymentMode,
   type DeploymentExposure,
@@ -134,6 +136,8 @@ export {
   type PluginWebhookDeliveryStatus,
   type PluginEventType,
   type PluginBridgeErrorCode,
+  type MemoryScopeType,
+  type MemoryCategory,
 } from "./constants.js";
 
 export type {
@@ -323,6 +327,7 @@ export type {
   PluginWebhookDeliveryRecord,
   QuotaWindow,
   ProviderQuotaResult,
+  Memory,
 } from "./types/index.js";
 
 export {
@@ -422,6 +427,10 @@ export {
   updateGoalSchema,
   type CreateGoal,
   type UpdateGoal,
+  createMemorySchema,
+  queryMemoriesSchema,
+  type CreateMemory,
+  type QueryMemories,
   createApprovalSchema,
   upsertBudgetPolicySchema,
   resolveBudgetIncidentSchema,

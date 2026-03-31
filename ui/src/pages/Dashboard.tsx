@@ -18,14 +18,12 @@ import { PriorityIcon } from "../components/PriorityIcon";
 import { ActivityRow } from "../components/ActivityRow";
 import { Identity } from "../components/Identity";
 import { timeAgo } from "../lib/timeAgo";
-import { cn, formatCents } from "../lib/utils";
-import { Activity, Bot, CheckCircle, CircleDot, Clock, DollarSign, LayoutDashboard, ShieldCheck, Zap } from "lucide-react";
+import { Bot, CircleDot, ShieldCheck, LayoutDashboard, Activity, CheckCircle, Clock } from "lucide-react";
 import { ActiveAgentsPanel } from "../components/ActiveAgentsPanel";
 import { RunsTable } from "../components/RunsTable";
-import { ChartCard, RunActivityChart, PriorityChart, IssueStatusChart, SuccessRateChart } from "../components/ActivityCharts";
+import { ChartCard, RunActivityChart, PriorityChart, IssueStatusChart } from "../components/ActivityCharts";
 import { PageSkeleton } from "../components/PageSkeleton";
 import type { Agent, Issue } from "@paperclipai/shared";
-import { PluginSlotOutlet } from "@/plugins/slots";
 
 function getRecentIssues(issues: Issue[]): Issue[] {
   return [...issues]
@@ -223,7 +221,7 @@ export function Dashboard() {
 
       {data && (
         <>
-          <div className="grid grid-cols-2 xl:grid-cols-4 gap-1 sm:gap-2">
+          <div className="grid grid-cols-2 xl:grid-cols-3 gap-1 sm:gap-2">
             <MetricCard
               icon={Bot}
               value={data.agents.active + data.agents.running + data.agents.paused + data.agents.error}
@@ -250,32 +248,19 @@ export function Dashboard() {
               }
             />
             <MetricCard
-              icon={DollarSign}
-              value={formatCents(data.costs.monthSpendCents)}
-              label="Month Spend"
-              to="/costs"
-              description={
-                <span>
-                  {data.costs.monthBudgetCents > 0
-                    ? `${data.costs.monthUtilizationPercent}% of ${formatCents(data.costs.monthBudgetCents)} budget`
-                    : "Unlimited budget"}
-                </span>
-              }
-            />
-            <MetricCard
               icon={ShieldCheck}
               value={data.pendingApprovals}
               label="Pending Approvals"
               to="/approvals"
               description={
                 <span>
-                  Awaiting board review
+                  {data.staleTasks} stale tasks
                 </span>
               }
             />
           </div>
 
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
             <ChartCard title="Run Activity" subtitle="Last 14 days">
               <RunActivityChart runs={runs ?? []} />
             </ChartCard>
@@ -285,13 +270,11 @@ export function Dashboard() {
             <ChartCard title="Issues by Status" subtitle="Last 14 days">
               <IssueStatusChart issues={issues ?? []} />
             </ChartCard>
-            <ChartCard title="Success Rate" subtitle="Last 14 days">
-              <SuccessRateChart runs={runs ?? []} />
-            </ChartCard>
           </div>
 
+          {/* Agent Performance */}
           {runStats && (
-            <div className="grid grid-cols-2 xl:grid-cols-4 gap-1 sm:gap-2">
+            <div className="grid grid-cols-2 xl:grid-cols-3 gap-1 sm:gap-2">
               <MetricCard
                 icon={Activity}
                 value={runStats.totalRuns}
@@ -310,20 +293,6 @@ export function Dashboard() {
                 value={runStats.avgDurationMs != null ? `${Math.round(runStats.avgDurationMs / 1000)}s` : "—"}
                 label="Avg Duration"
               />
-              <MetricCard
-                icon={Zap}
-                value={
-                  runStats.avgInputTokens != null && runStats.avgOutputTokens != null
-                    ? (runStats.avgInputTokens + runStats.avgOutputTokens).toLocaleString()
-                    : "—"
-                }
-                label="Avg Tokens/Run"
-                description={
-                  runStats.avgInputTokens != null
-                    ? <span>{runStats.avgInputTokens.toLocaleString()} in, {(runStats.avgOutputTokens ?? 0).toLocaleString()} out</span>
-                    : undefined
-                }
-              />
             </div>
           )}
 
@@ -335,13 +304,6 @@ export function Dashboard() {
               <RunsTable runs={dashboardRuns} />
             </div>
           )}
-
-          <PluginSlotOutlet
-            slotTypes={["dashboardWidget"]}
-            context={{ companyId: selectedCompanyId }}
-            className="grid gap-4 md:grid-cols-2"
-            itemClassName="rounded-lg border bg-card p-4 shadow-sm"
-          />
 
           <div className="grid md:grid-cols-2 gap-4">
             {/* Recent Activity */}
@@ -380,36 +342,26 @@ export function Dashboard() {
                     <Link
                       key={issue.id}
                       to={`/issues/${issue.identifier ?? issue.id}`}
-                      className="px-4 py-3 text-sm cursor-pointer hover:bg-accent/50 transition-colors no-underline text-inherit block"
+                      className="px-4 py-2 text-sm cursor-pointer hover:bg-accent/50 transition-colors no-underline text-inherit block"
                     >
-                      <div className="flex items-start gap-2 sm:items-center sm:gap-3">
-                        {/* Status icon - left column on mobile */}
-                        <span className="shrink-0 sm:hidden">
-                          <StatusIcon status={issue.status} />
-                        </span>
-
-                        {/* Right column on mobile: title + metadata stacked */}
-                        <span className="flex min-w-0 flex-1 flex-col gap-1 sm:contents">
-                          <span className="line-clamp-2 text-sm sm:order-2 sm:flex-1 sm:min-w-0 sm:line-clamp-none sm:truncate">
-                            {issue.title}
-                          </span>
-                          <span className="flex items-center gap-2 sm:order-1 sm:shrink-0">
-                            <span className="hidden sm:inline-flex"><PriorityIcon priority={issue.priority} /></span>
-                            <span className="hidden sm:inline-flex"><StatusIcon status={issue.status} /></span>
-                            <span className="text-xs font-mono text-muted-foreground">
-                              {issue.identifier ?? issue.id.slice(0, 8)}
-                            </span>
+                      <div className="flex gap-3">
+                        <div className="flex items-start gap-2 min-w-0 flex-1">
+                          <div className="flex items-center gap-2 shrink-0 mt-0.5">
+                            <PriorityIcon priority={issue.priority} />
+                            <StatusIcon status={issue.status} />
+                          </div>
+                          <p className="min-w-0 flex-1 truncate">
+                            <span>{issue.title}</span>
                             {issue.assigneeAgentId && (() => {
                               const name = agentName(issue.assigneeAgentId);
                               return name
-                                ? <span className="hidden sm:inline-flex"><Identity name={name} size="sm" /></span>
+                                ? <span className="hidden sm:inline"><Identity name={name} size="sm" className="ml-2 inline-flex" /></span>
                                 : null;
                             })()}
-                            <span className="text-xs text-muted-foreground sm:hidden">&middot;</span>
-                            <span className="text-xs text-muted-foreground shrink-0 sm:order-last">
-                              {timeAgo(issue.updatedAt)}
-                            </span>
-                          </span>
+                          </p>
+                        </div>
+                        <span className="text-xs text-muted-foreground shrink-0 pt-0.5">
+                          {timeAgo(issue.updatedAt)}
                         </span>
                       </div>
                     </Link>

@@ -11,6 +11,9 @@ export default defineConfig({
       lexical: path.resolve(__dirname, "./node_modules/lexical/Lexical.mjs"),
     },
   },
+  build: {
+    chunkSizeWarningLimit: 2500,
+  },
   server: {
     port: 5173,
     proxy: {

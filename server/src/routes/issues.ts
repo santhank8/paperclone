@@ -1,7 +1,9 @@
 import { Router, type Request, type Response } from "express";
 import multer from "multer";
 import { z } from "zod";
+import { and, eq, ne } from "drizzle-orm";
 import type { Db } from "@paperclipai/db";
+import { issues } from "@paperclipai/db";
 import {
   addIssueCommentSchema,
   createIssueAttachmentMetadataSchema,
@@ -32,6 +34,7 @@ import {
   workProductService,
 } from "../services/index.js";
 import { logger } from "../middleware/logger.js";
+import { publishLiveEvent } from "../services/live-events.js";
 import { forbidden, HttpError, unauthorized } from "../errors.js";
 import { assertCompanyAccess, getActorInfo } from "./authz.js";
 import { shouldWakeAssigneeOnCheckout } from "./issues-checkout-wakeup.js";
@@ -945,6 +948,27 @@ export function issueRoutes(db: Db, storage: StorageService) {
       requestedByActorId: actor.actorId,
     });
 
+    // Auto-wake the CEO agent when any issue is created
+    void (async () => {
+      try {
+        const allAgents = await agentsSvc.list(companyId);
+        const ceo = allAgents.find((a) => a.role === "ceo" && a.status !== "paused" && a.status !== "terminated");
+        if (ceo && ceo.id !== issue.assigneeAgentId) {
+          await heartbeat.wakeup(ceo.id, {
+            source: "automation",
+            triggerDetail: "system",
+            reason: "issue_created",
+            payload: { issueId: issue.id, mutation: "create" },
+            requestedByActorType: actor.actorType,
+            requestedByActorId: actor.actorId,
+            contextSnapshot: { issueId: issue.id, source: "issue.create.ceo_notify" },
+          });
+        }
+      } catch (err) {
+        logger.warn({ err, issueId: issue.id }, "failed to wake CEO on issue create");
+      }
+    })();
+
     res.status(201).json(issue);
   });
 
@@ -1096,6 +1120,19 @@ export function issueRoutes(db: Db, storage: StorageService) {
       },
     });
 
+    if (updateFields.status && updateFields.status !== existing.status) {
+      publishLiveEvent({
+        companyId: issue.companyId,
+        type: "issue.status_changed",
+        payload: {
+          issueId: issue.id,
+          status: updateFields.status,
+          previousStatus: existing.status,
+          assigneeAgentId: issue.assigneeAgentId,
+        },
+      });
+    }
+
     let comment = null;
     if (commentBody) {
       comment = await svc.addComment(id, commentBody, {
@@ -1126,16 +1163,22 @@ export function issueRoutes(db: Db, storage: StorageService) {
     }
 
     const assigneeChanged = assigneeWillChange;
+    const assigneeExplicitlySpecified =
+      req.body.assigneeAgentId !== undefined && !!issue.assigneeAgentId;
     const statusChangedFromBacklog =
       existing.status === "backlog" &&
       issue.status !== "backlog" &&
       req.body.status !== undefined;
+    const statusChangedToNonBacklog =
+      req.body.status !== undefined &&
+      issue.status !== "backlog" &&
+      existing.status !== issue.status;
 
     // Merge all wakeups from this update into one enqueue per agent to avoid duplicate runs.
     void (async () => {
       const wakeups = new Map<string, Parameters<typeof heartbeat.wakeup>[1]>();
 
-      if (assigneeChanged && issue.assigneeAgentId && issue.status !== "backlog") {
+      if ((assigneeChanged || assigneeExplicitlySpecified) && issue.assigneeAgentId) {
         wakeups.set(issue.assigneeAgentId, {
           source: "assignment",
           triggerDetail: "system",
@@ -1155,7 +1198,7 @@ export function issueRoutes(db: Db, storage: StorageService) {
         });
       }
 
-      if (!assigneeChanged && statusChangedFromBacklog && issue.assigneeAgentId) {
+      if (!assigneeChanged && !assigneeExplicitlySpecified && (statusChangedFromBacklog || statusChangedToNonBacklog) && issue.assigneeAgentId) {
         wakeups.set(issue.assigneeAgentId, {
           source: "automation",
           triggerDetail: "system",
@@ -1202,6 +1245,66 @@ export function issueRoutes(db: Db, storage: StorageService) {
               source: "comment.mention",
             },
           });
+        }
+      }
+
+      // Wake parent issue's assignee when a child is completed
+      if (
+        req.body.status === "done" &&
+        existing.status !== "done" &&
+        issue.parentId
+      ) {
+        try {
+          const parent = await svc.getById(issue.parentId);
+          if (parent?.assigneeAgentId && !wakeups.has(parent.assigneeAgentId)) {
+            wakeups.set(parent.assigneeAgentId, {
+              source: "automation",
+              triggerDetail: "system",
+              reason: "issue_status_changed",
+              payload: { issueId: parent.id, childIssueId: issue.id, mutation: "child_completed" },
+              requestedByActorType: actor.actorType,
+              requestedByActorId: actor.actorId,
+              contextSnapshot: { issueId: parent.id, source: "issue.child_completed" },
+            });
+          }
+        } catch (err) {
+          logger.warn({ err, issueId: issue.id }, "failed to resolve parent issue for child completion wakeup");
+        }
+
+        // Unblock sibling issues and wake their assignees
+        try {
+          const blockedSiblings = await db
+            .select({
+              id: issues.id,
+              assigneeAgentId: issues.assigneeAgentId,
+              identifier: issues.identifier,
+            })
+            .from(issues)
+            .where(
+              and(
+                eq(issues.parentId, issue.parentId!),
+                eq(issues.status, "blocked"),
+                ne(issues.id, issue.id),
+              ),
+            );
+
+          for (const sibling of blockedSiblings) {
+            await svc.update(sibling.id, { status: "todo" });
+            logger.info({ issueId: sibling.id, identifier: sibling.identifier, unblockedBy: issue.id }, "auto-unblocked sibling issue");
+            if (sibling.assigneeAgentId && !wakeups.has(sibling.assigneeAgentId)) {
+              wakeups.set(sibling.assigneeAgentId, {
+                source: "automation",
+                triggerDetail: "system",
+                reason: "issue_assigned",
+                payload: { issueId: sibling.id, mutation: "sibling_unblocked" },
+                requestedByActorType: actor.actorType,
+                requestedByActorId: actor.actorId,
+                contextSnapshot: { issueId: sibling.id, source: "issue.sibling_unblocked" },
+              });
+            }
+          }
+        } catch (err) {
+          logger.warn({ err, issueId: issue.id }, "failed to unblock sibling issues");
         }
       }
 
@@ -1359,6 +1462,90 @@ export function issueRoutes(db: Db, storage: StorageService) {
     res.json(released);
   });
 
+  router.post("/issues/:id/retrigger", async (req, res) => {
+    const id = req.params.id as string;
+    const issue = await svc.getById(id);
+    if (!issue) {
+      res.status(404).json({ error: "Issue not found" });
+      return;
+    }
+    assertCompanyAccess(req, issue.companyId);
+
+    if (!issue.assigneeAgentId) {
+      res.status(422).json({ error: "Issue has no assigned agent" });
+      return;
+    }
+
+    const actor = getActorInfo(req);
+    let cancelledRunId: string | null = null;
+
+    // Cancel any active run tied to this issue
+    if (issue.executionRunId) {
+      try {
+        const cancelled = await heartbeat.cancelRun(issue.executionRunId);
+        if (cancelled && (cancelled.status === "cancelled")) {
+          cancelledRunId = cancelled.id;
+          await logActivity(db, {
+            companyId: issue.companyId,
+            actorType: actor.actorType,
+            actorId: actor.actorId,
+            agentId: actor.agentId,
+            runId: actor.runId,
+            action: "heartbeat.cancelled",
+            entityType: "heartbeat_run",
+            entityId: cancelled.id,
+            details: {
+              agentId: cancelled.agentId,
+              source: "issue_retrigger",
+              issueId: issue.id,
+            },
+          });
+        }
+      } catch (err) {
+        logger.warn({ err, issueId: issue.id }, "failed to cancel existing run during retrigger");
+      }
+    }
+
+    // Fire a fresh wake
+    const run = await heartbeat.wakeup(issue.assigneeAgentId, {
+      source: "on_demand",
+      triggerDetail: "manual",
+      reason: "issue_retrigger",
+      payload: { issueId: issue.id, mutation: "retrigger" },
+      requestedByActorType: actor.actorType,
+      requestedByActorId: actor.actorId,
+      contextSnapshot: {
+        issueId: issue.id,
+        source: "issue.retrigger",
+        ...(cancelledRunId ? { cancelledRunId } : {}),
+      },
+    });
+
+    await logActivity(db, {
+      companyId: issue.companyId,
+      actorType: actor.actorType,
+      actorId: actor.actorId,
+      agentId: actor.agentId,
+      runId: actor.runId,
+      action: "issue.retriggered",
+      entityType: "issue",
+      entityId: issue.id,
+      details: {
+        assigneeAgentId: issue.assigneeAgentId,
+        identifier: issue.identifier,
+        ...(cancelledRunId ? { cancelledRunId } : {}),
+      },
+    });
+
+    res.json({
+      ok: true,
+      issueId: issue.id,
+      agentId: issue.assigneeAgentId,
+      run,
+      cancelledRunId,
+    });
+  });
+
   router.get("/issues/:id/comments", async (req, res) => {
     const id = req.params.id as string;
     const issue = await svc.getById(id);
@@ -1454,6 +1641,17 @@ export function issueRoutes(db: Db, storage: StorageService) {
           reopenedFrom: reopenFromStatus,
           source: "comment",
           identifier: currentIssue.identifier,
+        },
+      });
+
+      publishLiveEvent({
+        companyId: currentIssue.companyId,
+        type: "issue.status_changed",
+        payload: {
+          issueId: currentIssue.id,
+          status: "todo",
+          previousStatus: reopenFromStatus,
+          assigneeAgentId: currentIssue.assigneeAgentId,
         },
       });
     }
