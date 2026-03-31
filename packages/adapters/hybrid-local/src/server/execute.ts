@@ -8,11 +8,6 @@ import { readFile } from "node:fs/promises";
 
 // --- Helpers ---
 
-function firstLocalModelId(): string {
-  const local = staticModels.find((m) => !isClaudeModel(m.id));
-  return local?.id ?? "qwen/qwen3.5-9b";
-}
-
 function isClaudeQuotaOrAuthError(result: AdapterExecutionResult): boolean {
   if (result.errorCode === "claude_auth_required") return true;
   if (result.errorMeta && "loginUrl" in result.errorMeta) return true;
@@ -145,9 +140,11 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
   const quotaThreshold = asNumber(config.quotaThresholdPercent, DEFAULT_QUOTA_THRESHOLD_PERCENT);
 
   if (isClaudeModel(model)) {
-    const effectiveFallback = fallbackModel || firstLocalModelId();
+    // Require explicit fallback configuration - don't auto-select local models
+    // This prevents unexpected token consumption without user knowledge
+    const effectiveFallback = fallbackModel;
 
-    // Pre-check: is Claude quota near exhausted? Skip straight to local.
+    // Pre-check: is Claude quota near exhausted? Skip straight to local (only if fallback configured).
     if (effectiveFallback) {
       const nearExhausted = await isClaudeQuotaNearExhausted(quotaThreshold, true, onLog);
       if (nearExhausted) {
