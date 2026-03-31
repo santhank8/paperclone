@@ -5,13 +5,14 @@ import { useAutosaveIndicator } from "../hooks/useAutosaveIndicator";
 
 interface InlineEditorProps {
   value: string;
-  onSave: (value: string) => void | Promise<unknown>;
+  onSave: (value: string | null) => void | Promise<unknown>;
   as?: "h1" | "h2" | "p" | "span";
   className?: string;
   placeholder?: string;
   multiline?: boolean;
   imageUploadHandler?: (file: File) => Promise<string>;
   mentions?: MentionOption[];
+  nullable?: boolean;
 }
 
 /** Shared padding so display and edit modes occupy the exact same box. */
@@ -26,6 +27,7 @@ export function InlineEditor({
   className,
   placeholder = "Click to edit...",
   multiline = false,
+  nullable = false,
   imageUploadHandler,
   mentions,
 }: InlineEditorProps) {
@@ -80,16 +82,19 @@ export function InlineEditor({
   }, [editing, multiline]);
 
   const commit = useCallback(async (nextValue = draft) => {
-    const trimmed = nextValue.trim();
-    if (trimmed && trimmed !== value) {
-      await Promise.resolve(onSave(trimmed));
+    const valueToSave: string | null = nextValue.trim() || null;
+    const shouldSave = nullable
+      ? valueToSave !== value
+      : Boolean(valueToSave && valueToSave !== value);
+    if (shouldSave) {
+      await Promise.resolve(onSave(valueToSave));
     } else {
       setDraft(value);
     }
     if (!multiline) {
       setEditing(false);
     }
-  }, [draft, multiline, onSave, value]);
+  }, [draft, multiline, nullable, onSave, value]);
 
   function handleKeyDown(e: React.KeyboardEvent) {
     if (e.key === "Enter" && !multiline) {
