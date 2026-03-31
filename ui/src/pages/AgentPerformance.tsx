@@ -498,14 +498,35 @@ function generateInsights(rows: AgentPerfRow[]): Insight[] {
   const avgClose = withTasks.filter((r) => r.avgCloseH !== null);
   const avgCloseH = avgClose.length > 0 ? avgClose.reduce((s, r) => s + r.avgCloseH!, 0) / avgClose.length : 0;
 
-  for (const row of rows) {
-    // Idle agents — no tasks done
-    if (row.tasksDone === 0 && row.tasksInProgress === 0 && row.status === "active") {
+  // Check if no agents have completed any tasks
+  const anyTasksDone = rows.some((r) => r.tasksDone > 0);
+  if (!anyTasksDone && rows.length > 0) {
+    const spendingAgents = rows.filter((r) => r.totalSpendCents > 0);
+    if (spendingAgents.length > 0) {
       insights.push({
         type: "warning",
-        agent: row.name,
-        message: `${row.name} has no completed or active tasks. Consider assigning work or reviewing their role configuration.`,
+        agent: "Team",
+        message: `${spendingAgents.length} agent${spendingAgents.length === 1 ? "" : "s"} have consumed tokens (${formatCents(spendingAgents.reduce((s, r) => s + r.totalSpendCents, 0))} total) but completed 0 tasks. Agents may be running heartbeat checks without assigned work. Create and assign issues to start tracking output.`,
       });
+    }
+  }
+
+  for (const row of rows) {
+    // Idle agents — no tasks done and no work in progress
+    if (row.tasksDone === 0 && row.tasksInProgress === 0) {
+      if (row.totalSpendCents > 0) {
+        insights.push({
+          type: "warning",
+          agent: row.name,
+          message: `${row.name} has spent ${formatCents(row.totalSpendCents)} but completed 0 tasks. Spending is from heartbeat/maintenance runs. Assign issues to get productive output.`,
+        });
+      } else {
+        insights.push({
+          type: "suggestion",
+          agent: row.name,
+          message: `${row.name} has no completed or active tasks. Consider assigning work or reviewing their role configuration.`,
+        });
+      }
       continue;
     }
 
@@ -554,7 +575,6 @@ function generateInsights(rows: AgentPerfRow[]): Insight[] {
 
 function PerformanceInsights({ rows }: { rows: AgentPerfRow[] }) {
   const insights = useMemo(() => generateInsights(rows), [rows]);
-  if (insights.length === 0) return null;
 
   return (
     <div className="rounded-xl border border-border p-4 space-y-3">
@@ -562,8 +582,11 @@ function PerformanceInsights({ rows }: { rows: AgentPerfRow[] }) {
         <Lightbulb className="h-3.5 w-3.5" />
         Performance Insights
       </h4>
+      {insights.length === 0 ? (
+        <p className="text-sm text-muted-foreground">No insights yet. Insights will appear as agents complete tasks and build up performance history.</p>
+      ) : (
       <div className="space-y-2">
-        {insights.slice(0, 6).map((insight, i) => (
+        {insights.slice(0, 8).map((insight, i) => (
           <div
             key={`${insight.agent}-${i}`}
             className={cn(
@@ -580,6 +603,7 @@ function PerformanceInsights({ rows }: { rows: AgentPerfRow[] }) {
           </div>
         ))}
       </div>
+      )}
     </div>
   );
 }
