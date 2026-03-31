@@ -21,6 +21,11 @@ import { MarkdownBody } from "../components/MarkdownBody";
 import { MarkdownEditor } from "../components/MarkdownEditor";
 import { PageSkeleton } from "../components/PageSkeleton";
 import {
+  buildCompanySkillSaveContent,
+  getCompanySkillEditorDraft,
+  splitSkillFrontmatter,
+} from "../lib/company-skill-editor";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -76,32 +81,7 @@ function VercelMark(props: SVGProps<SVGSVGElement>) {
 }
 
 function stripFrontmatter(markdown: string) {
-  const normalized = markdown.replace(/\r\n/g, "\n");
-  if (!normalized.startsWith("---\n")) return normalized.trim();
-  const closing = normalized.indexOf("\n---\n", 4);
-  if (closing < 0) return normalized.trim();
-  return normalized.slice(closing + 5).trim();
-}
-
-function splitFrontmatter(markdown: string): { frontmatter: string | null; body: string } {
-  const normalized = markdown.replace(/\r\n/g, "\n");
-  if (!normalized.startsWith("---\n")) {
-    return { frontmatter: null, body: normalized };
-  }
-  const closing = normalized.indexOf("\n---\n", 4);
-  if (closing < 0) {
-    return { frontmatter: null, body: normalized };
-  }
-  return {
-    frontmatter: normalized.slice(4, closing).trim(),
-    body: normalized.slice(closing + 5).trimStart(),
-  };
-}
-
-function mergeFrontmatter(markdown: string, body: string) {
-  const parsed = splitFrontmatter(markdown);
-  if (!parsed.frontmatter) return body;
-  return ["---", parsed.frontmatter, "---", "", body].join("\n");
+  return splitSkillFrontmatter(markdown).body.trim();
 }
 
 function buildTree(entries: CompanySkillFileInventoryEntry[]) {
@@ -727,7 +707,7 @@ function SkillPane({
         ) : !file ? (
           <div className="text-sm text-muted-foreground">Select a file to inspect.</div>
         ) : editMode && file.editable ? (
-          file.markdown ? (
+          file.markdown && viewMode === "preview" ? (
             <MarkdownEditor
               value={draft}
               onChange={setDraft}
@@ -859,14 +839,20 @@ export function CompanySkills() {
   useEffect(() => {
     if (fileQuery.data) {
       setDisplayedFile(fileQuery.data);
-      setDraft(fileQuery.data.markdown ? splitFrontmatter(fileQuery.data.content).body : fileQuery.data.content);
     }
   }, [fileQuery.data]);
+
+  useEffect(() => {
+    const nextFile = fileQuery.data ?? displayedFile;
+    if (!nextFile || editMode) return;
+    setDraft(getCompanySkillEditorDraft(nextFile, viewMode));
+  }, [displayedFile, editMode, fileQuery.data, viewMode]);
 
   useEffect(() => {
     if (selectedSkillId) return;
     setDisplayedDetail(null);
     setDisplayedFile(null);
+    setDraft("");
   }, [selectedSkillId]);
 
   const activeDetail = detailQuery.data ?? displayedDetail;
@@ -975,15 +961,16 @@ export function CompanySkills() {
       selectedCompanyId!,
       selectedSkillId!,
       selectedPath,
-      activeFile?.markdown ? mergeFrontmatter(activeFile.content, draft) : draft,
+      buildCompanySkillSaveContent(activeFile, draft, viewMode),
     ),
     onSuccess: async (result) => {
+      setDisplayedFile(result);
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: queryKeys.companySkills.list(selectedCompanyId!) }),
         queryClient.invalidateQueries({ queryKey: queryKeys.companySkills.detail(selectedCompanyId!, selectedSkillId!) }),
         queryClient.invalidateQueries({ queryKey: queryKeys.companySkills.file(selectedCompanyId!, selectedSkillId!, selectedPath) }),
       ]);
-      setDraft(result.markdown ? splitFrontmatter(result.content).body : result.content);
+      setDraft(getCompanySkillEditorDraft(result, viewMode));
       setEditMode(false);
       pushToast({
         tone: "success",
@@ -996,6 +983,41 @@ export function CompanySkills() {
         tone: "error",
         title: "Save failed",
         body: error instanceof Error ? error.message : "Failed to save skill file.",
+      });
+    },
+  });
+
+  const deleteSkill = useMutation({
+    mutationFn: () => companySkillsApi.delete(selectedCompanyId!, selectedSkillId!),
+    onSuccess: async (deletedSkill) => {
+      const remainingSkills = (skillsQuery.data ?? []).filter((skill) => skill.id !== deletedSkill.id);
+      queryClient.setQueryData(queryKeys.companySkills.list(selectedCompanyId!), remainingSkills);
+      queryClient.removeQueries({
+        queryKey: queryKeys.companySkills.detail(selectedCompanyId!, deletedSkill.id),
+      });
+      queryClient.removeQueries({
+        queryKey: ["company-skills", selectedCompanyId!, deletedSkill.id, "file"],
+      });
+      queryClient.removeQueries({
+        queryKey: queryKeys.companySkills.updateStatus(selectedCompanyId!, deletedSkill.id),
+      });
+      setDisplayedDetail(null);
+      setDisplayedFile(null);
+      setEditMode(false);
+      setDraft("");
+      await queryClient.invalidateQueries({ queryKey: queryKeys.companySkills.list(selectedCompanyId!) });
+      navigate(remainingSkills[0] ? skillRoute(remainingSkills[0].id) : "/skills", { replace: true });
+      pushToast({
+        tone: "success",
+        title: "Skill deleted",
+        body: deletedSkill.name,
+      });
+    },
+    onError: (error) => {
+      pushToast({
+        tone: "error",
+        title: "Delete failed",
+        body: error instanceof Error ? error.message : "Failed to delete skill.",
       });
     },
   });
