@@ -1,12 +1,40 @@
 #!/bin/sh
 set -e
 
-# Run onboard first to create config if it doesn't exist
-if [ ! -f "/paperclip/instances/default/config.json" ]; then
+CONFIG_DIR="/paperclip/instances/default"
+CONFIG_FILE="$CONFIG_DIR/config.json"
+
+# Create config.json if it doesn't exist
+if [ ! -f "$CONFIG_FILE" ]; then
   echo "============================================"
-  echo "Running onboard to initialize Paperclip..."
+  echo "Creating Paperclip config..."
   echo "============================================"
-  pnpm paperclipai onboard --defaults || true
+  mkdir -p "$CONFIG_DIR"
+  cat > "$CONFIG_FILE" << 'CONFIGEOF'
+{
+  "$meta": {
+    "version": 1,
+    "updatedAt": "2026-03-31T00:00:00.000Z",
+    "source": "docker-entrypoint"
+  },
+  "database": {
+    "mode": "external-postgres"
+  },
+  "logging": {
+    "mode": "stdout"
+  },
+  "server": {
+    "deploymentMode": "authenticated",
+    "deploymentExposure": "private"
+  },
+  "auth": {
+    "baseUrlMode": "auto"
+  },
+  "storage": {},
+  "secrets": {}
+}
+CONFIGEOF
+  echo "Config created at $CONFIG_FILE"
 fi
 
 # Start the server in the background
