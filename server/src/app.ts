@@ -1,4 +1,5 @@
 import express, { Router, type Request as ExpressRequest } from "express";
+import helmet from "helmet";
 import path from "node:path";
 import fs from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -93,6 +94,27 @@ export async function createApp(
   },
 ) {
   const app = express();
+
+  // ── Security Headers ──
+  // Helmet sets CSP, HSTS, X-Frame-Options, X-Content-Type-Options, Referrer-Policy,
+  // disables X-Powered-By, and more. CSP is relaxed for inline styles (Tailwind)
+  // and Google Fonts. In vite-dev mode, CSP allows unsafe-eval for HMR.
+  app.use(helmet({
+    contentSecurityPolicy: opts.uiMode === "vite-dev" ? false : {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+        fontSrc: ["'self'", "https://fonts.gstatic.com"],
+        imgSrc: ["'self'", "data:", "blob:"],
+        connectSrc: ["'self'", "https://api.anthropic.com", "https://api.openai.com", "https://generativelanguage.googleapis.com"],
+        frameSrc: ["'none'"],
+        objectSrc: ["'none'"],
+        baseUri: ["'self'"],
+      },
+    },
+    crossOriginEmbedderPolicy: false,
+  }));
 
   // ── HTTP Compression ──
   // Use Node.js built-in zlib for gzip/deflate compression on API responses.
@@ -202,8 +224,8 @@ export async function createApp(
   api.get("/companies/:id/goals", cacheControl(60));
   api.get("/companies/:id/issues", cacheControl(15));
   api.get("/companies/:id/activity", cacheControl(10));
-  api.get("/companies/:id/costs/*", cacheControl(60));
-  api.get("/companies/:id/knowledge/*", cacheControl(120));
+  api.get("/companies/:id/costs/*path", cacheControl(60));
+  api.get("/companies/:id/knowledge/*path", cacheControl(120));
 
   api.use(
     "/health",

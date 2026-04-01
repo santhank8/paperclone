@@ -48,6 +48,10 @@
   "pnpm": {
     "patchedDependencies": {
       "embedded-postgres@18.1.0-beta.16": "patches/embedded-postgres@18.1.0-beta.16.patch"
+    },
+    "overrides": {
+      "path-to-regexp": ">=8.4.1",
+      "fast-xml-parser": ">=5.3.7"
     }
   }
 }
