@@ -21,39 +21,48 @@ If you do not have this permission, escalate to your CEO or board.
 
 ## Workflow
 
+All API calls use `paperclipRequest` via `ctx_execute`. Import the helper at the start of each `ctx_execute` block:
+
+```javascript
+const { paperclipRequest } = await import(
+  'file:///path/to/paperclip-ctx-auth/scripts/paperclip_context_mode_request.mjs'
+);
+```
+
 1. Confirm identity and company context.
 
-```sh
-curl -sS "$PAPERCLIP_API_URL/api/agents/me" \
-  -H "Authorization: Bearer $PAPERCLIP_API_KEY"
+```javascript
+const { response, identity } = await paperclipRequest('/agents/me');
+const me = await response.json();
+console.log(JSON.stringify({ id: me.id, companyId: me.companyId, role: me.role }, null, 2));
 ```
 
 2. Discover available adapter configuration docs for this Paperclip instance.
 
-```sh
-curl -sS "$PAPERCLIP_API_URL/llms/agent-configuration.txt" \
-  -H "Authorization: Bearer $PAPERCLIP_API_KEY"
+```javascript
+const { response } = await paperclipRequest('/../../llms/agent-configuration.txt');
+console.log(await response.text());
 ```
 
 3. Read adapter-specific docs (example: `claude_local`).
 
-```sh
-curl -sS "$PAPERCLIP_API_URL/llms/agent-configuration/claude_local.txt" \
-  -H "Authorization: Bearer $PAPERCLIP_API_KEY"
+```javascript
+const { response } = await paperclipRequest('/../../llms/agent-configuration/claude_local.txt');
+console.log(await response.text());
 ```
 
 4. Compare existing agent configurations in your company.
 
-```sh
-curl -sS "$PAPERCLIP_API_URL/api/companies/$PAPERCLIP_COMPANY_ID/agent-configurations" \
-  -H "Authorization: Bearer $PAPERCLIP_API_KEY"
+```javascript
+const { response, identity } = await paperclipRequest(`/companies/${identity.companyId}/agent-configurations`);
+console.log(JSON.stringify(await response.json(), null, 2));
 ```
 
 5. Discover allowed agent icons and pick one that matches the role.
 
-```sh
-curl -sS "$PAPERCLIP_API_URL/llms/agent-icons.txt" \
-  -H "Authorization: Bearer $PAPERCLIP_API_KEY"
+```javascript
+const { response } = await paperclipRequest('/../../llms/agent-icons.txt');
+console.log(await response.text());
 ```
 
 6. Draft the new hire config:
@@ -69,23 +78,25 @@ curl -sS "$PAPERCLIP_API_URL/llms/agent-icons.txt" \
 
 7. Submit hire request.
 
-```sh
-curl -sS -X POST "$PAPERCLIP_API_URL/api/companies/$PAPERCLIP_COMPANY_ID/agent-hires" \
-  -H "Authorization: Bearer $PAPERCLIP_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "CTO",
-    "role": "cto",
-    "title": "Chief Technology Officer",
-    "icon": "crown",
-    "reportsTo": "<ceo-agent-id>",
-    "capabilities": "Owns technical roadmap, architecture, staffing, execution",
-    "desiredSkills": ["vercel-labs/agent-browser/agent-browser"],
-    "adapterType": "codex_local",
-    "adapterConfig": {"cwd": "/abs/path/to/repo", "model": "o4-mini"},
-    "runtimeConfig": {"heartbeat": {"enabled": true, "intervalSec": 300, "wakeOnDemand": true}},
-    "sourceIssueId": "<issue-id>"
-  }'
+```javascript
+const { response, identity } = await paperclipRequest(`/companies/${identity.companyId}/agent-hires`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    name: 'CTO',
+    role: 'cto',
+    title: 'Chief Technology Officer',
+    icon: 'crown',
+    reportsTo: '<ceo-agent-id>',
+    capabilities: 'Owns technical roadmap, architecture, staffing, execution',
+    desiredSkills: ['vercel-labs/agent-browser/agent-browser'],
+    adapterType: 'codex_local',
+    adapterConfig: { cwd: '/abs/path/to/repo', model: 'o4-mini' },
+    runtimeConfig: { heartbeat: { enabled: true, intervalSec: 300, wakeOnDemand: true } },
+    sourceIssueId: '<issue-id>',
+  }),
+});
+console.log(JSON.stringify(await response.json(), null, 2));
 ```
 
 8. Handle governance state:
@@ -93,33 +104,38 @@ curl -sS -X POST "$PAPERCLIP_API_URL/api/companies/$PAPERCLIP_COMPANY_ID/agent-h
 - monitor and discuss on approval thread
 - when the board approves, you will be woken with `PAPERCLIP_APPROVAL_ID`; read linked issues and close/comment follow-up
 
-```sh
-curl -sS "$PAPERCLIP_API_URL/api/approvals/<approval-id>" \
-  -H "Authorization: Bearer $PAPERCLIP_API_KEY"
+```javascript
+// Check approval status
+const { response: approval } = await paperclipRequest(`/approvals/<approval-id>`);
+console.log(JSON.stringify(await approval.json(), null, 2));
 
-curl -sS -X POST "$PAPERCLIP_API_URL/api/approvals/<approval-id>/comments" \
-  -H "Authorization: Bearer $PAPERCLIP_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"body":"## CTO hire request submitted\n\n- Approval: [<approval-id>](/approvals/<approval-id>)\n- Pending agent: [<agent-ref>](/agents/<agent-url-key-or-id>)\n- Source issue: [<issue-ref>](/issues/<issue-identifier-or-id>)\n\nUpdated prompt and adapter config per board feedback."}'
+// Comment on approval thread
+const { response: comment } = await paperclipRequest(`/approvals/<approval-id>/comments`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    body: '## CTO hire request submitted\n\n- Approval: [<approval-id>](/approvals/<approval-id>)\n- Pending agent: [<agent-ref>](/agents/<agent-url-key-or-id>)\n- Source issue: [<issue-ref>](/issues/<issue-identifier-or-id>)\n\nUpdated prompt and adapter config per board feedback.',
+  }),
+});
 ```
 
 If the approval already exists and needs manual linking to the issue:
 
-```sh
-curl -sS -X POST "$PAPERCLIP_API_URL/api/issues/<issue-id>/approvals" \
-  -H "Authorization: Bearer $PAPERCLIP_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"approvalId":"<approval-id>"}'
+```javascript
+const { response } = await paperclipRequest(`/issues/<issue-id>/approvals`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ approvalId: '<approval-id>' }),
+});
 ```
 
 After approval is granted, run this follow-up loop:
 
-```sh
-curl -sS "$PAPERCLIP_API_URL/api/approvals/$PAPERCLIP_APPROVAL_ID" \
-  -H "Authorization: Bearer $PAPERCLIP_API_KEY"
-
-curl -sS "$PAPERCLIP_API_URL/api/approvals/$PAPERCLIP_APPROVAL_ID/issues" \
-  -H "Authorization: Bearer $PAPERCLIP_API_KEY"
+```javascript
+const approvalId = process.env.PAPERCLIP_APPROVAL_ID;
+const { response: approval } = await paperclipRequest(`/approvals/${approvalId}`);
+const { response: issues } = await paperclipRequest(`/approvals/${approvalId}/issues`);
+const linkedIssues = await issues.json();
 ```
 
 For each linked issue, either:

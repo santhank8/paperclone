@@ -12,6 +12,9 @@ import { instanceSettingsService } from "./instance-settings.js";
 
 const PLUGIN_EVENT_SET: ReadonlySet<string> = new Set(PLUGIN_EVENT_TYPES);
 
+/** Sentinel run_id used by pcli. No real heartbeat_runs row exists for this UUID. */
+const PCLI_SENTINEL_RUN_ID = "00000000-0000-0000-0000-000000000000";
+
 let _pluginEventBus: PluginEventBus | null = null;
 
 /** Wire the plugin event bus so domain events are forwarded to plugins. */
@@ -42,7 +45,12 @@ export async function logActivity(db: Db, input: LogActivityInput) {
   const redactedDetails = sanitizedDetails
     ? redactCurrentUserValue(sanitizedDetails, currentUserRedactionOptions)
     : null;
-  await db.insert(activityLog).values({
+
+  // Null out the pcli sentinel before the insert to avoid a round-trip FK error.
+  const resolvedRunId =
+    input.runId === PCLI_SENTINEL_RUN_ID ? null : (input.runId ?? null);
+
+  const row = {
     companyId: input.companyId,
     actorType: input.actorType,
     actorId: input.actorId,
@@ -50,9 +58,26 @@ export async function logActivity(db: Db, input: LogActivityInput) {
     entityType: input.entityType,
     entityId: input.entityId,
     agentId: input.agentId ?? null,
-    runId: input.runId ?? null,
+    runId: resolvedRunId,
     details: redactedDetails,
-  });
+  };
+  try {
+    await db.insert(activityLog).values(row);
+  } catch (err: unknown) {
+    // If the run_id FK is violated (e.g. pcli JWT with a synthetic run_id that
+    // was never a real heartbeat run), retry without the run_id rather than
+    // surfacing a 500 to the caller.
+    const isRunIdFkViolation =
+      typeof err === "object" &&
+      err !== null &&
+      (err as Record<string, unknown>)["code"] === "23503" &&
+      String((err as Record<string, unknown>)["constraint_name"] ?? "").includes("run_id");
+    if (isRunIdFkViolation) {
+      await db.insert(activityLog).values({ ...row, runId: null });
+    } else {
+      throw err;
+    }
+  }
 
   publishLiveEvent({
     companyId: input.companyId,

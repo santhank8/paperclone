@@ -229,65 +229,6 @@ type UsageTotals = {
   outputTokens: number;
 };
 
-function readAuxiliaryUsageMetrics(result: AdapterExecutionResult): Record<string, unknown> {
-  const premiumRequests = asNumber(result.premiumRequests, Number.NaN);
-  return Number.isFinite(premiumRequests)
-    ? { premiumRequests: Math.max(0, Math.floor(premiumRequests)) }
-    : {};
-}
-
-export function buildHeartbeatUsageJson(input: {
-  normalizedUsage: UsageTotals | null;
-  rawUsage: UsageTotals | null;
-  derivedFromSessionTotals: boolean;
-  persistedSessionId: string | null;
-  sessionReused: boolean;
-  taskSessionReused: boolean;
-  freshSession: boolean;
-  sessionRotated: boolean;
-  sessionRotationReason: string | null;
-  adapterResult: AdapterExecutionResult;
-  costUsdForUsage: number | null;
-  resolvedCost: { rawUnits: string | null; rawUnitType: string | null };
-}): Record<string, unknown> | null {
-  const auxiliaryUsageMetrics = readAuxiliaryUsageMetrics(input.adapterResult);
-  if (
-    !input.normalizedUsage &&
-    input.adapterResult.costUsd == null &&
-    input.adapterResult.costRawUnits == null &&
-    Object.keys(auxiliaryUsageMetrics).length === 0
-  ) {
-    return null;
-  }
-
-  return {
-    ...(input.normalizedUsage ?? {}),
-    ...(input.rawUsage
-      ? {
-          rawInputTokens: input.rawUsage.inputTokens,
-          rawCachedInputTokens: input.rawUsage.cachedInputTokens,
-          rawOutputTokens: input.rawUsage.outputTokens,
-        }
-      : {}),
-    ...(input.derivedFromSessionTotals ? { usageSource: "session_delta" } : {}),
-    ...(input.persistedSessionId ? { persistedSessionId: input.persistedSessionId } : {}),
-    sessionReused: input.sessionReused,
-    taskSessionReused: input.taskSessionReused,
-    freshSession: input.freshSession,
-    sessionRotated: input.sessionRotated,
-    sessionRotationReason: input.sessionRotationReason,
-    provider: readNonEmptyString(input.adapterResult.provider) ?? "unknown",
-    biller: resolveLedgerBiller(input.adapterResult),
-    model: readNonEmptyString(input.adapterResult.model) ?? "unknown",
-    ...auxiliaryUsageMetrics,
-    ...(input.costUsdForUsage != null ? { costUsd: input.costUsdForUsage } : {}),
-    ...(input.resolvedCost.rawUnits != null
-      ? { costRawUnits: Number(input.resolvedCost.rawUnits), costRawUnitType: input.resolvedCost.rawUnitType }
-      : {}),
-    billingType: normalizeLedgerBillingType(input.adapterResult.billingType),
-  };
-}
-
 type SessionCompactionDecision = {
   rotate: boolean;
   reason: string | null;
@@ -900,7 +841,7 @@ export function heartbeatService(db: Db) {
   async function getLatestRunForSession(
     agentId: string,
     sessionId: string,
-    opts?: { excludeRunId?: string | null },
+    opts?: { excludeRunId?: string | null; requireNonZeroUsage?: boolean },
   ) {
     const conditions = [
       eq(heartbeatRuns.agentId, agentId),
@@ -908,6 +849,13 @@ export function heartbeatService(db: Db) {
     ];
     if (opts?.excludeRunId) {
       conditions.push(sql`${heartbeatRuns.id} <> ${opts.excludeRunId}`);
+    }
+    if (opts?.requireNonZeroUsage) {
+      // Skip runs that recorded no token usage (e.g. quick failures) — they don't
+      // advance the session context and must not be used as a delta baseline.
+      conditions.push(
+        sql`COALESCE((${heartbeatRuns.usageJson}->>'rawInputTokens')::numeric, (${heartbeatRuns.usageJson}->>'inputTokens')::numeric, 0) > 0`,
+      );
     }
     return db
       .select()
@@ -946,7 +894,10 @@ export function heartbeatService(db: Db) {
       };
     }
 
-    const previousRun = await getLatestRunForSession(agentId, sessionId, { excludeRunId: runId });
+    const previousRun = await getLatestRunForSession(agentId, sessionId, {
+      excludeRunId: runId,
+      requireNonZeroUsage: true,
+    });
     const previousRawUsage = readRawUsageTotals(previousRun?.usageJson);
     return {
       normalizedUsage: deriveNormalizedUsageDelta(rawUsage, previousRawUsage),
@@ -2128,8 +2079,14 @@ export function heartbeatService(db: Db) {
       .where(eq(heartbeatRuns.status, "queued"));
 
     const agentIds = [...new Set(queuedRuns.map((r) => r.agentId))];
+    logger.info({ agentCount: agentIds.length, queuedCount: queuedRuns.length }, "resumeQueuedRuns: found queued runs");
     for (const agentId of agentIds) {
-      await startNextQueuedRunForAgent(agentId);
+      try {
+        const result = await startNextQueuedRunForAgent(agentId);
+        logger.info({ agentId, claimedCount: Array.isArray(result) ? result.length : 0 }, "resumeQueuedRuns: startNextQueuedRunForAgent completed");
+      } catch (err) {
+        logger.error({ err, agentId }, "resumeQueuedRuns: startNextQueuedRunForAgent threw");
+      }
     }
   }
 
@@ -2903,20 +2860,34 @@ export function heartbeatService(db: Db) {
       );
       const _costUsdForUsage = _resolvedCost.costCents > 0 ? _resolvedCost.costCents / 100 : null;
 
-      const usageJson = buildHeartbeatUsageJson({
-        normalizedUsage,
-        rawUsage,
-        derivedFromSessionTotals: sessionUsageResolution.derivedFromSessionTotals,
-        persistedSessionId: nextSessionState.displayId ?? nextSessionState.legacySessionId,
-        sessionReused: runtimeForAdapter.sessionId != null || runtimeForAdapter.sessionDisplayId != null,
-        taskSessionReused: taskSessionForRun != null,
-        freshSession: runtimeForAdapter.sessionId == null && runtimeForAdapter.sessionDisplayId == null,
-        sessionRotated: sessionCompaction.rotate,
-        sessionRotationReason: sessionCompaction.reason,
-        adapterResult,
-        costUsdForUsage: _costUsdForUsage,
-        resolvedCost: _resolvedCost,
-      });
+      const usageJson =
+        normalizedUsage || adapterResult.costUsd != null || adapterResult.costRawUnits != null
+          ? ({
+              ...(normalizedUsage ?? {}),
+              ...(rawUsage ? {
+                rawInputTokens: rawUsage.inputTokens,
+                rawCachedInputTokens: rawUsage.cachedInputTokens,
+                rawOutputTokens: rawUsage.outputTokens,
+              } : {}),
+              ...(sessionUsageResolution.derivedFromSessionTotals ? { usageSource: "session_delta" } : {}),
+              ...((nextSessionState.displayId ?? nextSessionState.legacySessionId)
+                ? { persistedSessionId: nextSessionState.displayId ?? nextSessionState.legacySessionId }
+                : {}),
+              sessionReused: runtimeForAdapter.sessionId != null || runtimeForAdapter.sessionDisplayId != null,
+              taskSessionReused: taskSessionForRun != null,
+              freshSession: runtimeForAdapter.sessionId == null && runtimeForAdapter.sessionDisplayId == null,
+              sessionRotated: sessionCompaction.rotate,
+              sessionRotationReason: sessionCompaction.reason,
+              provider: readNonEmptyString(adapterResult.provider) ?? "unknown",
+              biller: resolveLedgerBiller(adapterResult),
+              model: readNonEmptyString(adapterResult.model) ?? "unknown",
+              ...(_costUsdForUsage != null ? { costUsd: _costUsdForUsage } : {}),
+              ...(_resolvedCost.rawUnits != null
+                ? { costRawUnits: Number(_resolvedCost.rawUnits), costRawUnitType: _resolvedCost.rawUnitType }
+                : {}),
+              billingType: normalizeLedgerBillingType(adapterResult.billingType),
+            } as Record<string, unknown>)
+          : null;
 
       await setRunStatus(run.id, status, {
         finishedAt: new Date(),

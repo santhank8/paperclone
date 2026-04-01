@@ -49,26 +49,37 @@ Import using a **skills.sh URL**, a key-style source string, a GitHub URL, or a 
 
 ### Example: skills.sh import (preferred)
 
-```sh
-pcurl -X POST -H "Content-Type: application/json" \
-  -d '{"source":"https://skills.sh/google-labs-code/stitch-skills/design-md"}' \
-  /api/companies/{companyId}/skills/import
+```javascript
+const { paperclipRequest } = await import(
+  'file:///path/to/paperclip-ctx-auth/scripts/paperclip_context_mode_request.mjs'
+);
+const { identity } = await paperclipRequest('/agents/me').then(r => r);
+
+await paperclipRequest(`/companies/${identity.companyId}/skills/import`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ source: 'https://skills.sh/google-labs-code/stitch-skills/design-md' }),
+});
 ```
 
 Or equivalently using the key-style string:
 
-```sh
-pcurl -X POST -H "Content-Type: application/json" \
-  -d '{"source":"google-labs-code/stitch-skills/design-md"}' \
-  /api/companies/{companyId}/skills/import
+```javascript
+await paperclipRequest(`/companies/${identity.companyId}/skills/import`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ source: 'google-labs-code/stitch-skills/design-md' }),
+});
 ```
 
 ### Example: GitHub import
 
-```sh
-pcurl -X POST -H "Content-Type: application/json" \
-  -d '{"source":"https://github.com/vercel-labs/agent-browser"}' \
-  /api/companies/{companyId}/skills/import
+```javascript
+await paperclipRequest(`/companies/${identity.companyId}/skills/import`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ source: 'https://github.com/vercel-labs/agent-browser' }),
+});
 ```
 
 You can also use source strings such as:
@@ -79,23 +90,26 @@ You can also use source strings such as:
 
 If the task is to discover skills from the company project workspaces first:
 
-```sh
-pcurl -X POST -H "Content-Type: application/json" -d '{}' \
-  /api/companies/{companyId}/skills/scan-projects
+```javascript
+await paperclipRequest(`/companies/${identity.companyId}/skills/scan-projects`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({}),
+});
 ```
 
 ## Inspect What Was Installed
 
-```sh
-pcurl /api/companies/{companyId}/skills
+```javascript
+const { response } = await paperclipRequest(`/companies/${identity.companyId}/skills`);
+const skills = await response.json();
 ```
 
 Read the skill entry and its `SKILL.md`:
 
-```sh
-pcurl /api/companies/{companyId}/skills/<skill-id>
-
-pcurl /api/companies/{companyId}/skills/<skill-id>/files?path=SKILL.md
+```javascript
+const { response: skillRes } = await paperclipRequest(`/companies/${identity.companyId}/skills/${skillId}`);
+const { response: fileRes } = await paperclipRequest(`/companies/${identity.companyId}/skills/${skillId}/files?path=SKILL.md`);
 ```
 
 ## Assign Skills To An Existing Agent
@@ -108,34 +122,52 @@ pcurl /api/companies/{companyId}/skills/<skill-id>/files?path=SKILL.md
 
 The server persists canonical company skill keys.
 
-```sh
-pcurl -X POST -H "Content-Type: application/json" \
-  -d '{"desiredSkills":["vercel-labs/agent-browser/agent-browser"]}' \
-  /api/agents/<agent-id>/skills/sync
+```javascript
+await paperclipRequest(`/agents/${agentId}/skills/sync`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ desiredSkills: ['vercel-labs/agent-browser/agent-browser'] }),
+});
 ```
 
 If you need the current state first:
 
-```sh
-pcurl /api/agents/<agent-id>/skills
+```javascript
+const { response } = await paperclipRequest(`/agents/${agentId}/skills`);
 ```
 
 ## Include Skills During Hire Or Create
 
 Use the same company skill keys or references in `desiredSkills` when hiring or creating an agent:
 
-```sh
-pcurl -X POST -H "Content-Type: application/json" \
-  -d '{"name":"QA Browser Agent","role":"qa","adapterType":"codex_local","adapterConfig":{"cwd":"/abs/path/to/repo"},"desiredSkills":["agent-browser"]}' \
-  /api/companies/{companyId}/agent-hires
+```javascript
+await paperclipRequest(`/companies/${identity.companyId}/agent-hires`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    name: 'QA Browser Agent',
+    role: 'qa',
+    adapterType: 'codex_local',
+    adapterConfig: { cwd: '/abs/path/to/repo' },
+    desiredSkills: ['agent-browser'],
+  }),
+});
 ```
 
 For direct create without approval:
 
-```sh
-pcurl -X POST -H "Content-Type: application/json" \
-  -d '{"name":"QA Browser Agent","role":"qa","adapterType":"codex_local","adapterConfig":{"cwd":"/abs/path/to/repo"},"desiredSkills":["agent-browser"]}' \
-  /api/companies/{companyId}/agents
+```javascript
+await paperclipRequest(`/companies/${identity.companyId}/agents`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    name: 'QA Browser Agent',
+    role: 'qa',
+    adapterType: 'codex_local',
+    adapterConfig: { cwd: '/abs/path/to/repo' },
+    desiredSkills: ['agent-browser'],
+  }),
+});
 ```
 
 ## Notes

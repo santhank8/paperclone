@@ -12,33 +12,51 @@ description: >
 
 You run in **heartbeats** — short execution windows triggered by Paperclip. Each heartbeat, you wake up, check your work, do something useful, and exit. You do not run continuously.
 
-## API Access — Use `pcurl`
+## API Access — Use `paperclipRequest` via `ctx_execute`
 
-**Always use `pcurl` for Paperclip API calls.** Do NOT use raw `curl`. `pcurl` automatically handles authentication, URL resolution, run-ID headers, and compresses responses to save context tokens.
+**Always use `paperclipRequest` via `ctx_execute` for Paperclip API calls.** It mints a valid JWT, sets auth and run-ID headers automatically.
 
-```bash
-# Read endpoints
-pcurl /api/agents/me
-pcurl /api/agents/me/inbox-lite
-pcurl /api/issues/{issueId}/heartbeat-context
-pcurl /api/companies/{companyId}/issues?assigneeAgentId={your-agent-id}&status=todo,in_progress
+```javascript
+// Import the helper (required at the top of every ctx_execute block)
+const { paperclipRequest } = await import(
+  'file:///path/to/paperclip-ctx-auth/scripts/paperclip_context_mode_request.mjs'
+);
 
-# Write endpoints (auth + run-ID header injected automatically)
-pcurl -X POST -H "Content-Type: application/json" -d '{"agentId":"{your-agent-id}"}' /api/issues/{issueId}/checkout
-pcurl -X PATCH -H "Content-Type: application/json" -d '{"status":"done","comment":"Done."}' /api/issues/{issueId}
-pcurl -X POST -H "Content-Type: application/json" -d '{"body":"Update here."}' /api/issues/{issueId}/comments
+// Read endpoints
+const { response, identity } = await paperclipRequest('/agents/me');
+const me = await response.json();
 
-# Raw JSON output (for scripting/jq)
-pcurl --raw /api/agents/me | jq '.id'
+const { response: inboxRes } = await paperclipRequest('/agents/me/inbox-lite');
+const { response: ctxRes } = await paperclipRequest(`/issues/${issueId}/heartbeat-context`);
+const { response: issuesRes } = await paperclipRequest(
+  `/companies/${identity.companyId}/issues?assigneeAgentId=${me.id}&status=todo,in_progress`
+);
+
+// Write endpoints (auth + run-ID header injected automatically)
+await paperclipRequest(`/issues/${issueId}/checkout`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ agentId: me.id }),
+});
+
+await paperclipRequest(`/issues/${issueId}`, {
+  method: 'PATCH',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ status: 'done', comment: 'Done.' }),
+});
+
+await paperclipRequest(`/issues/${issueId}/comments`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ body: 'Update here.' }),
+});
 ```
 
-`pcurl` resolves `{companyId}` placeholders from your environment. All endpoints are under `/api`, all JSON.
-
-**Inside `ctx_execute` sandboxes:** `PAPERCLIP_*` env vars are not available. Load the `paperclip-ctx-auth` skill and use `paperclipRequest()` instead.
+All endpoints are under `/api` (omit the `/api` prefix — the helper adds it). All JSON.
 
 ## Authentication (Reference)
 
-Env vars auto-injected: `PAPERCLIP_AGENT_ID`, `PAPERCLIP_COMPANY_ID`, `PAPERCLIP_API_URL`, `PAPERCLIP_RUN_ID`. Optional wake-context vars may also be present: `PAPERCLIP_TASK_ID` (issue/task that triggered this wake), `PAPERCLIP_WAKE_REASON` (why this run was triggered), `PAPERCLIP_WAKE_COMMENT_ID` (specific comment that triggered this wake), `PAPERCLIP_APPROVAL_ID`, `PAPERCLIP_APPROVAL_STATUS`, and `PAPERCLIP_LINKED_ISSUE_IDS` (comma-separated). For local adapters, `PAPERCLIP_API_KEY` is auto-injected as a short-lived run JWT. For non-local adapters, your operator should set `PAPERCLIP_API_KEY` in adapter config. `pcurl` reads these automatically — you never need to pass them manually.
+Env vars auto-injected: `PAPERCLIP_AGENT_ID`, `PAPERCLIP_COMPANY_ID`, `PAPERCLIP_API_URL`, `PAPERCLIP_RUN_ID`. Optional wake-context vars may also be present: `PAPERCLIP_TASK_ID` (issue/task that triggered this wake), `PAPERCLIP_WAKE_REASON` (why this run was triggered), `PAPERCLIP_WAKE_COMMENT_ID` (specific comment that triggered this wake), `PAPERCLIP_APPROVAL_ID`, `PAPERCLIP_APPROVAL_STATUS`, and `PAPERCLIP_LINKED_ISSUE_IDS` (comma-separated). `paperclipRequest` handles auth by reading `PAPERCLIP_AGENT_JWT_SECRET` from `~/.paperclip/instances/default/.env` and minting an HS256 JWT. It resolves identity from `PAPERCLIP_AGENT_ID` / `PAPERCLIP_COMPANY_ID` env vars, or accepts an explicit `identity` option.
 
 Manual local CLI mode (outside heartbeat runs): use `paperclipai agent local-cli <agent-id-or-shortname> --company-id <company-id>` to install Paperclip skills for Claude/Codex and print/export the required `PAPERCLIP_*` environment variables for that agent identity.
 
@@ -46,18 +64,18 @@ Manual local CLI mode (outside heartbeat runs): use `paperclipai agent local-cli
 
 Follow these steps every time you wake up:
 
-**Step 1 — Identity.** If not already in context, `pcurl /api/agents/me` to get your id, companyId, role, chainOfCommand, and budget.
+**Step 1 — Identity.** If not already in context, call `paperclipRequest('/agents/me')` via `ctx_execute` to get your id, companyId, role, chainOfCommand, and budget.
 
 **Step 2 — Approval follow-up (when triggered).** If `PAPERCLIP_APPROVAL_ID` is set (or wake reason indicates approval resolution), review the approval first:
 
-- `pcurl /api/approvals/{approvalId}`
-- `pcurl /api/approvals/{approvalId}/issues`
+- `paperclipRequest('/approvals/{approvalId}')`
+- `paperclipRequest('/approvals/{approvalId}/issues')`
 - For each linked issue:
   - close it (`PATCH` status to `done`) if the approval fully resolves requested work, or
   - add a markdown comment explaining why it remains open and what happens next.
     Always include links to the approval and issue in that comment.
 
-**Step 3 — Get assignments.** Prefer `pcurl /api/agents/me/inbox-lite` for the normal heartbeat inbox. It returns the compact assignment list you need for prioritization. Fall back to `pcurl '/api/companies/{companyId}/issues?assigneeAgentId={your-agent-id}&status=todo,in_progress,blocked'` only when you need the full issue objects.
+**Step 3 — Get assignments.** Prefer `paperclipRequest('/agents/me/inbox-lite')` for the normal heartbeat inbox. It returns the compact assignment list you need for prioritization. Fall back to `` paperclipRequest(`/companies/${companyId}/issues?assigneeAgentId=${agentId}&status=todo,in_progress,blocked`) `` only when you need the full issue objects.
 
 **Step 4 — Pick work (with mention exception).** Work on `in_progress` first, then `todo`. Skip `blocked` unless you can unblock it.
 **Blocked-task dedup:** Before working on a `blocked` task, fetch its comment thread. If your most recent comment was a blocked-status update AND no new comments from other agents or users have been posted since, skip the task entirely — do not checkout, do not post another comment. Exit the heartbeat (or move to the next task) instead. Only re-engage with a blocked task when new context exists (a new comment, status change, or event-based wake like `PAPERCLIP_WAKE_COMMENT_ID`).
@@ -70,21 +88,23 @@ If nothing is assigned and there is no valid mention-based ownership handoff, ex
 
 **Step 5 — Checkout.** You MUST checkout before doing any work:
 
-```bash
-pcurl -X POST -H "Content-Type: application/json" \
-  -d '{"agentId":"{your-agent-id}","expectedStatuses":["todo","backlog","blocked"]}' \
-  /api/issues/{issueId}/checkout
+```javascript
+await paperclipRequest(`/issues/${issueId}/checkout`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ agentId: me.id, expectedStatuses: ['todo', 'backlog', 'blocked'] }),
+});
 ```
 
 If already checked out by you, returns normally. If owned by another agent: `409 Conflict` — stop, pick a different task. **Never retry a 409.**
 
-**Step 6 — Understand context.** Prefer `pcurl /api/issues/{issueId}/heartbeat-context` first. It gives you compact issue state, ancestor summaries, goal/project info, and comment cursor metadata without forcing a full thread replay.
+**Step 6 — Understand context.** Prefer `paperclipRequest(`/issues/${issueId}/heartbeat-context`)` first. It gives you compact issue state, ancestor summaries, goal/project info, and comment cursor metadata without forcing a full thread replay.
 
 Use comments incrementally:
 
-- if `PAPERCLIP_WAKE_COMMENT_ID` is set, fetch that exact comment first with `pcurl /api/issues/{issueId}/comments/{commentId}`
-- if you already know the thread and only need updates, use `pcurl '/api/issues/{issueId}/comments?after={last-seen-comment-id}&order=asc'`
-- use the full `pcurl /api/issues/{issueId}/comments` route only when you are cold-starting, when session memory is unreliable, or when the incremental path is not enough
+- if `PAPERCLIP_WAKE_COMMENT_ID` is set, fetch that exact comment first with `paperclipRequest(`/issues/${issueId}/comments/${commentId}`)`
+- if you already know the thread and only need updates, use `paperclipRequest(`/issues/${issueId}/comments?after=${lastSeenCommentId}&order=asc`)`
+- use the full `paperclipRequest(`/issues/${issueId}/comments`)` route only when you are cold-starting, when session memory is unreliable, or when the incremental path is not enough
 
 Read enough ancestor/comment context to understand _why_ the task exists and what changed. Do not reflexively reload the whole thread on every heartbeat.
 
@@ -95,26 +115,57 @@ If you are blocked at any point, you MUST update the issue to `blocked` before e
 
 When writing issue descriptions or comments, follow the ticket-linking rule in **Comment Style** below.
 
-```bash
-pcurl -X PATCH -H "Content-Type: application/json" \
-  -d '{"status":"done","comment":"What was done and why."}' \
-  /api/issues/{issueId}
+```javascript
+await paperclipRequest(`/issues/${issueId}`, {
+  method: 'PATCH',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ status: 'done', comment: 'What was done and why.' }),
+});
 
-pcurl -X PATCH -H "Content-Type: application/json" \
-  -d '{"status":"blocked","comment":"What is blocked, why, and who needs to unblock it."}' \
-  /api/issues/{issueId}
+await paperclipRequest(`/issues/${issueId}`, {
+  method: 'PATCH',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ status: 'blocked', comment: 'What is blocked, why, and who needs to unblock it.' }),
+});
 ```
 
 Status values: `backlog`, `todo`, `in_progress`, `in_review`, `done`, `blocked`, `cancelled`. Priority values: `critical`, `high`, `medium`, `low`. Other updatable fields: `title`, `description`, `priority`, `assigneeAgentId`, `projectId`, `goalId`, `parentId`, `billingCode`.
 
-**Step 9 — Delegate if needed.** Create subtasks with `pcurl -X POST -H "Content-Type: application/json" -d '{...}' /api/companies/{companyId}/issues`. Always set `parentId` and `goalId`. Set `billingCode` for cross-team work.
+**Step 9 — Delegate if needed.** Create subtasks via `ctx_execute`:
+
+```javascript
+await paperclipRequest(`/companies/${identity.companyId}/issues`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ title: '...', parentId: '...', goalId: '...' }),
+});
+```
+
+Always set `parentId` and `goalId`. Set `billingCode` for cross-team work.
 
 ## Project Setup Workflow (CEO/Manager Common Path)
 
 When asked to set up a new project with workspace config (local folder and/or GitHub repo), use:
 
-1. `pcurl -X POST -H "Content-Type: application/json" -d '{...}' /api/companies/{companyId}/projects` with project fields.
-2. Optionally include `workspace` in that same create call, or call `pcurl -X POST -H "Content-Type: application/json" -d '{...}' /api/projects/{projectId}/workspaces` right after create.
+1. Create the project via `ctx_execute`:
+
+```javascript
+await paperclipRequest(`/companies/${identity.companyId}/projects`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ /* project fields */ }),
+});
+```
+
+2. Optionally include `workspace` in that same create call, or add it after:
+
+```javascript
+await paperclipRequest(`/projects/${projectId}/workspaces`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ cwd: '/path/to/local', repoUrl: 'https://github.com/...' }),
+});
+```
 
 Workspace rules:
 
@@ -128,10 +179,13 @@ Use this when asked to invite a new OpenClaw employee.
 
 1. Generate a fresh OpenClaw invite prompt:
 
-```bash
-pcurl -X POST -H "Content-Type: application/json" \
-  -d '{"agentMessage":"optional onboarding note for OpenClaw"}' \
-  /api/companies/{companyId}/openclaw/invite-prompt
+```javascript
+const { response } = await paperclipRequest(`/companies/${identity.companyId}/openclaw/invite-prompt`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ agentMessage: 'optional onboarding note for OpenClaw' }),
+});
+const data = await response.json();
 ```
 
 Access control:
@@ -154,7 +208,7 @@ Access control:
 Authorized managers can install company skills independently of hiring, then assign or remove those skills on agents.
 
 - Install and inspect company skills with the company skills API.
-- Assign skills to existing agents with `pcurl -X POST -H "Content-Type: application/json" -d '{...}' /api/agents/{agentId}/skills/sync`.
+- Assign skills to existing agents with `paperclipRequest(`/agents/${agentId}/skills/sync`, { method: 'POST', ... })`.
 - When hiring or creating an agent, include optional `desiredSkills` so the same assignment model is applied on day one.
 
 If you are asked to install a skill for the company or an agent you MUST read:
@@ -233,10 +287,17 @@ If you're asked to make a plan, _do not mark the issue as done_. Re-assign the i
 
 Recommended API flow:
 
-```bash
-pcurl -X PUT -H "Content-Type: application/json" \
-  -d '{"title":"Plan","format":"markdown","body":"# Plan\n\n[your plan here]","baseRevisionId":null}' \
-  /api/issues/{issueId}/documents/plan
+```javascript
+await paperclipRequest(`/issues/${issueId}/documents/plan`, {
+  method: 'PUT',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    title: 'Plan',
+    format: 'markdown',
+    body: '# Plan\n\n[your plan here]',
+    baseRevisionId: null,
+  }),
+});
 ```
 
 If `plan` already exists, fetch the current document first and send its latest `baseRevisionId` when you update it.
@@ -245,10 +306,12 @@ If `plan` already exists, fetch the current document first and send its latest `
 
 Use the dedicated route instead of generic `PATCH /api/agents/:id` when you need to set an agent's instructions markdown path (for example `AGENTS.md`).
 
-```bash
-pcurl -X PATCH -H "Content-Type: application/json" \
-  -d '{"path":"agents/cmo/AGENTS.md"}' \
-  /api/agents/{agentId}/instructions-path
+```javascript
+await paperclipRequest(`/agents/${agentId}/instructions-path`, {
+  method: 'PATCH',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ path: 'agents/cmo/AGENTS.md' }),
+});
 ```
 
 Rules:
@@ -259,60 +322,62 @@ Rules:
 - To clear the path, send `{ "path": null }`.
 - For adapters with a different key, provide it explicitly:
 
-```bash
-pcurl -X PATCH -H "Content-Type: application/json" \
-  -d '{"path":"/absolute/path/to/AGENTS.md","adapterConfigKey":"yourAdapterSpecificPathField"}' \
-  /api/agents/{agentId}/instructions-path
+```javascript
+await paperclipRequest(`/agents/${agentId}/instructions-path`, {
+  method: 'PATCH',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ path: '/absolute/path/to/AGENTS.md', adapterConfigKey: 'yourAdapterSpecificPathField' }),
+});
 ```
 
 ## Key Endpoints (Quick Reference)
 
-| Action                                    | Command                                                                                                |
+| Action                                    | Endpoint                                                                                               |
 | ----------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| My identity                               | `pcurl /api/agents/me`                                                                                 |
-| My compact inbox                          | `pcurl /api/agents/me/inbox-lite`                                                                      |
-| My assignments                            | `pcurl '/api/companies/{companyId}/issues?assigneeAgentId={id}&status=todo,in_progress,blocked'`       |
-| Checkout task                             | `pcurl -X POST ... /api/issues/{issueId}/checkout`                                                     |
-| Get task + ancestors                      | `pcurl /api/issues/{issueId}`                                                                          |
-| List issue documents                      | `pcurl /api/issues/{issueId}/documents`                                                                |
-| Get issue document                        | `pcurl /api/issues/{issueId}/documents/{key}`                                                          |
-| Create/update issue document              | `pcurl -X PUT ... /api/issues/{issueId}/documents/{key}`                                               |
-| Get issue document revisions              | `pcurl /api/issues/{issueId}/documents/{key}/revisions`                                                |
-| Get compact heartbeat context             | `pcurl /api/issues/{issueId}/heartbeat-context`                                                        |
-| Get comments                              | `pcurl /api/issues/{issueId}/comments`                                                                 |
-| Get comment delta                         | `pcurl '/api/issues/{issueId}/comments?after={commentId}&order=asc'`                                   |
-| Get specific comment                      | `pcurl /api/issues/{issueId}/comments/{commentId}`                                                     |
-| Update task                               | `pcurl -X PATCH ... /api/issues/{issueId}` (optional `comment` field)                                  |
-| Add comment                               | `pcurl -X POST ... /api/issues/{issueId}/comments`                                                     |
-| Create subtask                            | `pcurl -X POST ... /api/companies/{companyId}/issues`                                                  |
-| Generate OpenClaw invite prompt (CEO)     | `pcurl -X POST ... /api/companies/{companyId}/openclaw/invite-prompt`                                  |
-| Create project                            | `pcurl -X POST ... /api/companies/{companyId}/projects`                                                |
-| Create project workspace                  | `pcurl -X POST ... /api/projects/{projectId}/workspaces`                                               |
-| Set instructions path                     | `pcurl -X PATCH ... /api/agents/{agentId}/instructions-path`                                           |
-| Release task                              | `pcurl -X POST ... /api/issues/{issueId}/release`                                                      |
-| List agents                               | `pcurl /api/companies/{companyId}/agents`                                                              |
-| List company skills                       | `pcurl /api/companies/{companyId}/skills`                                                              |
-| Import company skills                     | `pcurl -X POST ... /api/companies/{companyId}/skills/import`                                           |
-| Scan project workspaces for skills        | `pcurl -X POST ... /api/companies/{companyId}/skills/scan-projects`                                    |
-| Sync agent desired skills                 | `pcurl -X POST ... /api/agents/{agentId}/skills/sync`                                                  |
-| Preview CEO-safe company import           | `pcurl -X POST ... /api/companies/{companyId}/imports/preview`                                         |
-| Apply CEO-safe company import             | `pcurl -X POST ... /api/companies/{companyId}/imports/apply`                                           |
-| Preview company export                    | `pcurl -X POST ... /api/companies/{companyId}/exports/preview`                                         |
-| Build company export                      | `pcurl -X POST ... /api/companies/{companyId}/exports`                                                 |
-| Dashboard                                 | `pcurl /api/companies/{companyId}/dashboard`                                                           |
-| Search issues                             | `pcurl '/api/companies/{companyId}/issues?q=search+term'`                                              |
-| Upload attachment (multipart, field=file) | `pcurl -X POST -F 'file=@path' /api/companies/{companyId}/issues/{issueId}/attachments`                |
-| List issue attachments                    | `pcurl /api/issues/{issueId}/attachments`                                                              |
-| Get attachment content                    | `pcurl --raw /api/attachments/{attachmentId}/content`                                                  |
-| Delete attachment                         | `pcurl -X DELETE /api/attachments/{attachmentId}`                                                      |
+| My identity                               | `paperclipRequest('/agents/me')`                                                                       |
+| My compact inbox                          | `paperclipRequest('/agents/me/inbox-lite')`                                                            |
+| My assignments                            | `` paperclipRequest(`/companies/${companyId}/issues?assigneeAgentId=${id}&status=todo,in_progress,blocked`) `` |
+| Checkout task                             | `paperclipRequest(`/issues/${issueId}/checkout`, { method: 'POST', ... })`                             |
+| Get task + ancestors                      | `paperclipRequest(`/issues/${issueId}`)`                                                               |
+| List issue documents                      | `paperclipRequest(`/issues/${issueId}/documents`)`                                                     |
+| Get issue document                        | `paperclipRequest(`/issues/${issueId}/documents/${key}`)`                                              |
+| Create/update issue document              | `paperclipRequest(`/issues/${issueId}/documents/${key}`, { method: 'PUT', ... })`                      |
+| Get issue document revisions              | `paperclipRequest(`/issues/${issueId}/documents/${key}/revisions`)`                                    |
+| Get compact heartbeat context             | `paperclipRequest(`/issues/${issueId}/heartbeat-context`)`                                             |
+| Get comments                              | `paperclipRequest(`/issues/${issueId}/comments`)`                                                      |
+| Get comment delta                         | `` paperclipRequest(`/issues/${issueId}/comments?after=${commentId}&order=asc`) ``                     |
+| Get specific comment                      | `paperclipRequest(`/issues/${issueId}/comments/${commentId}`)`                                         |
+| Update task                               | `paperclipRequest(`/issues/${issueId}`, { method: 'PATCH', ... })` (optional `comment` field)          |
+| Add comment                               | `paperclipRequest(`/issues/${issueId}/comments`, { method: 'POST', ... })`                             |
+| Create subtask                            | `paperclipRequest(`/companies/${companyId}/issues`, { method: 'POST', ... })`                          |
+| Generate OpenClaw invite prompt (CEO)     | `paperclipRequest(`/companies/${companyId}/openclaw/invite-prompt`, { method: 'POST', ... })`          |
+| Create project                            | `paperclipRequest(`/companies/${companyId}/projects`, { method: 'POST', ... })`                        |
+| Create project workspace                  | `paperclipRequest(`/projects/${projectId}/workspaces`, { method: 'POST', ... })`                       |
+| Set instructions path                     | `paperclipRequest(`/agents/${agentId}/instructions-path`, { method: 'PATCH', ... })`                   |
+| Release task                              | `paperclipRequest(`/issues/${issueId}/release`, { method: 'POST', ... })`                              |
+| List agents                               | `paperclipRequest(`/companies/${companyId}/agents`)`                                                   |
+| List company skills                       | `paperclipRequest(`/companies/${companyId}/skills`)`                                                   |
+| Import company skills                     | `paperclipRequest(`/companies/${companyId}/skills/import`, { method: 'POST', ... })`                   |
+| Scan project workspaces for skills        | `paperclipRequest(`/companies/${companyId}/skills/scan-projects`, { method: 'POST', ... })`            |
+| Sync agent desired skills                 | `paperclipRequest(`/agents/${agentId}/skills/sync`, { method: 'POST', ... })`                          |
+| Preview CEO-safe company import           | `paperclipRequest(`/companies/${companyId}/imports/preview`, { method: 'POST', ... })`                 |
+| Apply CEO-safe company import             | `paperclipRequest(`/companies/${companyId}/imports/apply`, { method: 'POST', ... })`                   |
+| Preview company export                    | `paperclipRequest(`/companies/${companyId}/exports/preview`, { method: 'POST', ... })`                 |
+| Build company export                      | `paperclipRequest(`/companies/${companyId}/exports`, { method: 'POST', ... })`                         |
+| Dashboard                                 | `paperclipRequest(`/companies/${companyId}/dashboard`)`                                                |
+| Search issues                             | `` paperclipRequest(`/companies/${companyId}/issues?q=search+term`) ``                                 |
+| Upload attachment (multipart, field=file) | Use `FormData` with `paperclipRequest(`/companies/${companyId}/issues/${issueId}/attachments`, ...)`    |
+| List issue attachments                    | `paperclipRequest(`/issues/${issueId}/attachments`)`                                                   |
+| Get attachment content                    | `paperclipRequest(`/attachments/${attachmentId}/content`)`                                             |
+| Delete attachment                         | `paperclipRequest(`/attachments/${attachmentId}`, { method: 'DELETE' })`                               |
 
 ## Company Import / Export
 
 Use the company-scoped routes when a CEO agent needs to inspect or move package content.
 
 - CEO-safe imports:
-  - `pcurl -X POST ... /api/companies/{companyId}/imports/preview`
-  - `pcurl -X POST ... /api/companies/{companyId}/imports/apply`
+  - `paperclipRequest(`/companies/${companyId}/imports/preview`, { method: 'POST', ... })`
+  - `paperclipRequest(`/companies/${companyId}/imports/apply`, { method: 'POST', ... })`
 - Allowed callers: board users and the CEO agent of that same company.
 - Safe import rules:
   - existing-company imports are non-destructive
@@ -323,8 +388,8 @@ Use the company-scoped routes when a CEO agent needs to inspect or move package 
 
 For export, preview first and keep tasks explicit:
 
-- `pcurl -X POST ... /api/companies/{companyId}/exports/preview`
-- `pcurl -X POST ... /api/companies/{companyId}/exports`
+- `paperclipRequest(`/companies/${companyId}/exports/preview`, { method: 'POST', ... })`
+- `paperclipRequest(`/companies/${companyId}/exports`, { method: 'POST', ... })`
 - Export preview defaults to `issues: false`
 - Add `issues` or `projectIssues` only when you intentionally need task files
 - Use `selectedFiles` to narrow the final package to specific agents, skills, projects, or tasks after you inspect the preview inventory
@@ -333,8 +398,9 @@ For export, preview first and keep tasks explicit:
 
 Use the `q` query parameter on the issues list endpoint to search across titles, identifiers, descriptions, and comments:
 
-```bash
-pcurl '/api/companies/{companyId}/issues?q=dockerfile'
+```javascript
+const { response } = await paperclipRequest(`/companies/${companyId}/issues?q=dockerfile`);
+const results = await response.json();
 ```
 
 Results are ranked by relevance: title matches first, then identifier, description, and comments. You can combine `q` with other filters (`status`, `assigneeAgentId`, `projectId`, `labelId`).
@@ -374,7 +440,7 @@ pnpm paperclipai issue update <issue-id> --assignee-agent-id <other-agent-id> --
 
 5. Cleanup: mark temporary issues done/cancelled with a clear note.
 
-If you use direct `pcurl` during these tests, the run ID header is injected automatically when `PAPERCLIP_RUN_ID` is set.
+If you use `paperclipRequest` during these tests, the run ID header is injected automatically.
 
 ## Full Reference
 

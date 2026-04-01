@@ -19,6 +19,8 @@ When Paperclip runs with `pnpm dev:tailscale` (or `pnpm dev --tailscale-auth`), 
 - Server logs show `local agent jwt secret missing or invalid; running without injected PAPERCLIP_API_KEY`
 - Agent runs work with `pnpm dev` but break with `pnpm dev:tailscale`
 - You need to understand or debug the auth chain for private-network dev
+- `pcli comment` or other pcli write commands fail with HTTP 500 and the server log shows an FK constraint violation on `activity_log.run_id`
+- Any `pcli` command returns 401 when running from a project directory that has `PAPERCLIP_AGENT_JWT_SECRET` configured
 
 ## The Auth Chain
 

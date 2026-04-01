@@ -259,14 +259,15 @@ function runMetrics(run: HeartbeatRun) {
     "cached_input_tokens",
     "cache_read_input_tokens",
   );
-  const cost =
-    visibleRunCostUsd(usage, result);
+  const cost = visibleRunCostUsd(usage, result);
+  const billingType = typeof usage?.billingType === "string" ? usage.billingType : null;
   return {
     input,
     output,
     cached,
     cost,
     totalTokens: input + output,
+    billingType,
   };
 }
 
@@ -2711,7 +2712,11 @@ function RunListItem({ run, isSelected, agentId }: { run: HeartbeatRun; isSelect
       {(metrics.totalTokens > 0 || metrics.cost > 0) && (
         <div className="flex items-center gap-2 pl-5.5 text-[11px] text-muted-foreground tabular-nums">
           {metrics.totalTokens > 0 && <span>{formatTokens(metrics.totalTokens)} tok</span>}
-          {metrics.cost > 0 && <span>${metrics.cost.toFixed(3)}</span>}
+          {metrics.cost > 0 && (
+            metrics.billingType === "credits"
+              ? <span>{metrics.cost.toFixed(2)} credits</span>
+              : <span>${metrics.cost.toFixed(3)}</span>
+          )}
         </div>
       )}
     </Link>
