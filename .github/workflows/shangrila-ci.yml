@@ -67,8 +67,8 @@ jobs:
         run: |
           docker run -d \
             --name shangrila-smoke \
-            -p 3100:3100 \
-            -e HOST=0.0.0.0 \
+            --network host \
+            -e HOST=127.0.0.1 \
             -e PORT=3100 \
             -e SERVE_UI=true \
             -e PAPERCLIP_HOME=/paperclip \
