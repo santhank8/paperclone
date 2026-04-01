@@ -27,6 +27,8 @@ type WakePayload = {
   approvalId: string | null;
   approvalStatus: string | null;
   issueIds: string[];
+  chatRoomId: string | null;
+  chatMessageId: string | null;
 };
 
 type GatewayDeviceIdentity = {
@@ -305,6 +307,8 @@ function buildWakePayload(ctx: AdapterExecutionContext): WakePayload {
           (value): value is string => typeof value === "string" && value.trim().length > 0,
         )
       : [],
+    chatRoomId: nonEmpty(context.chatRoomId),
+    chatMessageId: nonEmpty(context.messageId),
   };
 }
 
@@ -338,6 +342,12 @@ function buildPaperclipEnvForWake(ctx: AdapterExecutionContext, wakePayload: Wak
   if (wakePayload.issueIds.length > 0) {
     paperclipEnv.PAPERCLIP_LINKED_ISSUE_IDS = wakePayload.issueIds.join(",");
   }
+  if (wakePayload.chatRoomId) {
+    paperclipEnv.PAPERCLIP_CHAT_ROOM_ID = wakePayload.chatRoomId;
+  }
+  if (wakePayload.chatMessageId) {
+    paperclipEnv.PAPERCLIP_CHAT_MESSAGE_ID = wakePayload.chatMessageId;
+  }
 
   return paperclipEnv;
 }
@@ -359,6 +369,8 @@ function buildWakeText(
     "PAPERCLIP_APPROVAL_ID",
     "PAPERCLIP_APPROVAL_STATUS",
     "PAPERCLIP_LINKED_ISSUE_IDS",
+    "PAPERCLIP_CHAT_ROOM_ID",
+    "PAPERCLIP_CHAT_MESSAGE_ID",
   ];
 
   const envLines: string[] = [];

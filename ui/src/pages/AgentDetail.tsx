@@ -11,6 +11,8 @@ import { companySkillsApi } from "../api/companySkills";
 import { budgetsApi } from "../api/budgets";
 import { heartbeatsApi } from "../api/heartbeats";
 import { instanceSettingsApi } from "../api/instanceSettings";
+import { chatApi } from "../api/chat";
+import { ChatRoom } from "../components/ChatRoom";
 import { ApiError } from "../api/client";
 import { ChartCard, RunActivityChart, PriorityChart, IssueStatusChart, SuccessRateChart } from "../components/ActivityCharts";
 import { activityApi } from "../api/activity";
@@ -222,13 +224,14 @@ function scrollToContainerBottom(container: ScrollContainer, behavior: ScrollBeh
   container.scrollTo({ top: container.scrollHeight, behavior });
 }
 
-type AgentDetailView = "dashboard" | "instructions" | "configuration" | "skills" | "runs" | "budget";
+type AgentDetailView = "dashboard" | "instructions" | "configuration" | "skills" | "runs" | "chat" | "budget";
 
 function parseAgentDetailView(value: string | null): AgentDetailView {
   if (value === "instructions" || value === "prompts") return "instructions";
   if (value === "configure" || value === "configuration") return "configuration";
   if (value === "skills") return "skills";
   if (value === "budget") return "budget";
+  if (value === "chat") return "chat";
   if (value === "runs") return value;
   return "dashboard";
 }
@@ -649,6 +652,8 @@ export function AgentDetail() {
             ? "skills"
             : activeView === "runs"
               ? "runs"
+              : activeView === "chat"
+                ? "chat"
               : activeView === "budget"
                 ? "budget"
               : "dashboard";
@@ -772,6 +777,8 @@ export function AgentDetail() {
       //   crumbs.push({ label: "Skills" });
       } else if (activeView === "runs") {
         crumbs.push({ label: "Runs" });
+      } else if (activeView === "chat") {
+        crumbs.push({ label: "Chat" });
       } else if (activeView === "budget") {
         crumbs.push({ label: "Budget" });
       } else {
@@ -913,6 +920,7 @@ export function AgentDetail() {
               { value: "skills", label: "Skills" },
               { value: "configuration", label: "Configuration" },
               { value: "runs", label: "Runs" },
+              { value: "chat", label: "Chat" },
               { value: "budget", label: "Budget" },
             ]}
             value={activeView}
@@ -1038,6 +1046,10 @@ export function AgentDetail() {
         />
       )}
 
+      {activeView === "chat" && resolvedCompanyId && (
+        <AgentChatTab agentId={agent.id} companyId={resolvedCompanyId} />
+      )}
+
       {activeView === "budget" && resolvedCompanyId ? (
         <div className="max-w-3xl">
           <BudgetPolicyCard
@@ -1053,6 +1065,41 @@ export function AgentDetail() {
 }
 
 /* ---- Helper components ---- */
+
+function AgentChatTab({ agentId, companyId }: { agentId: string; companyId: string }) {
+  const { data: agents = [] } = useQuery({
+    queryKey: queryKeys.agents.list(companyId),
+    queryFn: () => agentsApi.list(companyId),
+  });
+  const agentMap = useMemo(() => {
+    const map = new Map<string, Agent>();
+    for (const a of agents) map.set(a.id, a);
+    return map;
+  }, [agents]);
+
+  const { data: room, isLoading } = useQuery({
+    queryKey: [...queryKeys.chat.rooms(companyId), "direct", agentId],
+    queryFn: async () => {
+      const rooms = await chatApi.listRooms(companyId);
+      const existing = rooms.find((r) => r.kind === "direct" && r.agentId === agentId);
+      if (existing) return existing;
+      return chatApi.getOrCreateRoom(companyId, { kind: "direct", agentId });
+    },
+  });
+
+  if (isLoading) {
+    return <div className="text-sm text-muted-foreground py-8 text-center">Loading chat...</div>;
+  }
+  if (!room) {
+    return <div className="text-sm text-muted-foreground py-8 text-center">Could not load chat room.</div>;
+  }
+
+  return (
+    <div className="h-[600px] border border-border rounded-lg overflow-hidden">
+      <ChatRoom roomId={room.id} agentMap={agentMap} />
+    </div>
+  );
+}
 
 function SummaryRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (

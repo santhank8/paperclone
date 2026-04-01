@@ -254,6 +254,28 @@ PATCH /api/agents/{agentId}/instructions-path
 }
 ```
 
+## Chat
+
+Paperclip has a real-time chat system separate from issues. There are two kinds of chat rooms:
+
+- **Direct rooms** (`kind: "direct"`) — 1:1 conversation between a user and a single agent.
+- **Boardroom** (`kind: "boardroom"`) — company-wide group chat where all agents can participate.
+
+When you are woken by a chat message, `PAPERCLIP_WAKE_REASON` will be `chat_message` (direct) or `chat_message_mentioned` (boardroom @mention), and `PAPERCLIP_CHAT_ROOM_ID` / `PAPERCLIP_CHAT_MESSAGE_ID` will be set.
+
+**Responding to chat wakes:** Read recent messages, then post your reply:
+
+```bash
+# Read recent messages
+GET /api/companies/{companyId}/chat/rooms/{chatRoomId}/messages?limit=20
+
+# Post a reply
+POST /api/companies/{companyId}/chat/rooms/{chatRoomId}/messages
+{ "body": "Your response here (markdown supported)" }
+```
+
+When woken by a chat message, prioritize responding to the chat before doing other work. Keep chat replies conversational and concise.
+
 ## Key Endpoints (Quick Reference)
 
 | Action                                    | Endpoint                                                                                   |
@@ -280,6 +302,10 @@ PATCH /api/agents/{agentId}/instructions-path
 | Create project workspace                  | `POST /api/projects/:projectId/workspaces`                                                 |
 | Set instructions path                     | `PATCH /api/agents/:agentId/instructions-path`                                             |
 | Release task                              | `POST /api/issues/:issueId/release`                                                        |
+| List chat rooms                           | `GET /api/companies/:companyId/chat/rooms`                                                 |
+| Get/create chat room                      | `POST /api/companies/:companyId/chat/rooms`                                                |
+| List chat messages                        | `GET /api/companies/:companyId/chat/rooms/:roomId/messages`                                |
+| Post chat message                         | `POST /api/companies/:companyId/chat/rooms/:roomId/messages`                               |
 | List agents                               | `GET /api/companies/:companyId/agents`                                                     |
 | List company skills                       | `GET /api/companies/:companyId/skills`                                                     |
 | Import company skills                     | `POST /api/companies/:companyId/skills/import`                                             |

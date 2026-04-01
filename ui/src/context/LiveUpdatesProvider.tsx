@@ -661,6 +661,16 @@ function handleLiveEvent(
       gatedPushToast(gate, pushToast, `activity:${action ?? "unknown"}`, toast);
     }
   }
+
+  if (event.type === "chat.message.created") {
+    const chatRoomId = readString(payload.chatRoomId);
+    if (chatRoomId) {
+      queryClient.invalidateQueries({ queryKey: queryKeys.chat.messages(chatRoomId) });
+    }
+    if (expectedCompanyId) {
+      queryClient.invalidateQueries({ queryKey: queryKeys.chat.rooms(expectedCompanyId) });
+    }
+  }
 }
 
 function resolveLiveCompanyId(

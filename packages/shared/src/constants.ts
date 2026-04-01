@@ -327,6 +327,7 @@ export const LIVE_EVENT_TYPES = [
   "agent.status",
   "activity.logged",
   "plugin.ui.updated",
+  "chat.message.created",
   "plugin.worker.crashed",
   "plugin.worker.restarted",
 ] as const;

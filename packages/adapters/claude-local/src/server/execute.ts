@@ -195,6 +195,20 @@ async function buildClaudeRuntimeConfig(input: ClaudeExecutionInput): Promise<Cl
   if (wakePayloadJson) {
     env.PAPERCLIP_WAKE_PAYLOAD_JSON = wakePayloadJson;
   }
+  const chatRoomId =
+    typeof context.chatRoomId === "string" && context.chatRoomId.trim().length > 0
+      ? context.chatRoomId.trim()
+      : null;
+  const chatMessageId =
+    typeof context.messageId === "string" && context.messageId.trim().length > 0
+      ? context.messageId.trim()
+      : null;
+  if (chatRoomId) {
+    env.PAPERCLIP_CHAT_ROOM_ID = chatRoomId;
+  }
+  if (chatMessageId) {
+    env.PAPERCLIP_CHAT_MESSAGE_ID = chatMessageId;
+  }
   if (effectiveWorkspaceCwd) {
     env.PAPERCLIP_WORKSPACE_CWD = effectiveWorkspaceCwd;
   }
