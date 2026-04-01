@@ -51,6 +51,8 @@ index 93cddf8..23e6762 100644
 +   \`curl -s -X POST "{{paperclipApiUrl}}/issues/PARENT_ISSUE_ID/comments" "\${AUTH[@]}" "\${RUN[@]}" -H "Content-Type: application/json" -d '{"body":"{{agentName}} completed {{taskId}}. Summary: <brief>"}'\`
  {{/taskId}}
  
+@@ -68,8 +68,9 @@ Title: {{taskTitle}}
+ 
  {{#commentId}}
  ## Comment on This Issue
  
@@ -135,4 +137,4 @@ index 93cddf8..23e6762 100644
 +        env.PAPERCLIP_WAKE_REASON = wakeReason;
      const userEnv = config.env;
      if (userEnv && typeof userEnv === "object") {
-         Object.assign(env, userEnv);
+         Object.assign(env, userEnv);e)
