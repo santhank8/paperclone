@@ -652,7 +652,7 @@ export function CompanyImport() {
     () =>
       listUIAdapters().map((adapter) => ({
         value: adapter.type,
-        label: localizedAdapterLabels[adapter.type] ?? adapterLabels[adapter.type] ?? adapter.label,
+        label: localizedAdapterLabels[adapter.type] ?? adapterLabels[adapter.type] ?? adapter.type,
       })),
     [localizedAdapterLabels],
   );

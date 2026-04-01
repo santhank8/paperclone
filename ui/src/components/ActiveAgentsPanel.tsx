@@ -91,6 +91,7 @@ function AgentRunCard({
   hasOutput: boolean;
   isActive: boolean;
 }) {
+  const { t } = useI18n();
   return (
     <div className={cn(
       "flex h-[320px] flex-col overflow-hidden rounded-xl border shadow-sm",
@@ -150,7 +151,7 @@ function AgentRunCard({
           streaming={isActive}
           collapseStdout
           thinkingClassName="!text-[10px] !leading-4"
-          emptyMessage={hasOutput ? "Waiting for transcript parsing..." : isActive ? "Waiting for output..." : "No transcript captured."}
+          emptyMessage={hasOutput ? t("liveWidget.waitingParsing") : isActive ? t("liveWidget.waitingOutput") : t("liveWidget.noTranscriptCaptured")}
         />
       </div>
     </div>

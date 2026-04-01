@@ -54,6 +54,7 @@ export const transcriptMessages: Record<ActiveLocale, MessageTree> = {
       openRun: "Open run",
       waitingParsing: "Waiting for transcript parsing...",
       waitingOutput: "Waiting for run output...",
+      noTranscriptCaptured: "No transcript captured.",
     },
   },
   ko: {
@@ -109,6 +110,7 @@ export const transcriptMessages: Record<ActiveLocale, MessageTree> = {
       openRun: "실행 열기",
       waitingParsing: "트랜스크립트 파싱 대기 중...",
       waitingOutput: "실행 출력 대기 중...",
+      noTranscriptCaptured: "트랜스크립트가 없습니다.",
     },
   },
   ja: {
@@ -164,6 +166,7 @@ export const transcriptMessages: Record<ActiveLocale, MessageTree> = {
       openRun: "実行を開く",
       waitingParsing: "トランスクリプト解析を待機中...",
       waitingOutput: "実行出力を待機中...",
+      noTranscriptCaptured: "トランスクリプトはまだありません。",
     },
   },
 };
