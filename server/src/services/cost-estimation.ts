@@ -19,7 +19,6 @@ type ModelPricing = {
   outputUsdPerMillion: number;
   longContextThresholdPromptTokens?: number;
   longContextInputMultiplier?: number;
-  longContextCachedInputMultiplier?: number;
   longContextOutputMultiplier?: number;
 };
 
@@ -35,13 +34,17 @@ const OPENAI_MODEL_PRICING: Array<{ match: (model: string) => boolean; pricing: 
       longContextThresholdPromptTokens: 272_000,
       longContextInputMultiplier: 2,
       // OpenAI documents the long-context uplift for input/output on GPT-5.4.
-      // We apply the same input uplift to cached input because cached prompt
-      // tokens still consume the long-context window and are billed as discounted input.
-      longContextCachedInputMultiplier: 2,
+      // We do not apply an extra uplift to cached input because the cached-token
+      // pricing is documented separately and the long-context docs do not state
+      // an additional cached-input multiplier.
       longContextOutputMultiplier: 1.5,
     },
   },
 ];
+
+function resolveUncachedInputTokens(usage: CostUsageTotals): number {
+  return Math.max(0, usage.inputTokens - usage.cachedInputTokens);
+}
 
 function normalizeKnownParty(value: string | null | undefined): string | null {
   if (typeof value !== "string") return null;
@@ -78,17 +81,13 @@ function resolveLongContextShare(input: {
   const threshold = input.pricing.longContextThresholdPromptTokens ?? 0;
   if (threshold <= 0) return 0;
 
-  const deltaPromptTokens = Math.max(0, input.usage.inputTokens + input.usage.cachedInputTokens);
+  const deltaPromptTokens = Math.max(0, input.usage.inputTokens);
   if (deltaPromptTokens <= 0) return 0;
 
-  const currentPromptTokens = Math.max(
-    0,
-    (input.rawUsage?.inputTokens ?? input.usage.inputTokens) +
-      (input.rawUsage?.cachedInputTokens ?? input.usage.cachedInputTokens),
-  );
+  const currentPromptTokens = Math.max(0, input.rawUsage?.inputTokens ?? input.usage.inputTokens);
   const previousPromptTokens =
     input.previousRawUsage
-      ? Math.max(0, input.previousRawUsage.inputTokens + input.previousRawUsage.cachedInputTokens)
+      ? Math.max(0, input.previousRawUsage.inputTokens)
       : Math.max(0, currentPromptTokens - deltaPromptTokens);
 
   if (previousPromptTokens >= threshold) return 1;
@@ -122,19 +121,17 @@ export function estimateMeteredCostUsd(input: {
     pricing,
   });
   const standardShare = 1 - longContextShare;
+  const uncachedInputTokens = resolveUncachedInputTokens(input.usage);
   const inputMultiplier = standardShare + longContextShare * (pricing.longContextInputMultiplier ?? 1);
-  const cachedInputMultiplier =
-    standardShare + longContextShare * (pricing.longContextCachedInputMultiplier ?? pricing.longContextInputMultiplier ?? 1);
   const outputMultiplier = standardShare + longContextShare * (pricing.longContextOutputMultiplier ?? 1);
 
   const inputCostUsd =
-    (input.usage.inputTokens / TOKENS_PER_MILLION) *
+    (uncachedInputTokens / TOKENS_PER_MILLION) *
     pricing.inputUsdPerMillion *
     inputMultiplier;
   const cachedInputCostUsd =
     (input.usage.cachedInputTokens / TOKENS_PER_MILLION) *
-    pricing.cachedInputUsdPerMillion *
-    cachedInputMultiplier;
+    pricing.cachedInputUsdPerMillion;
   const outputCostUsd =
     (input.usage.outputTokens / TOKENS_PER_MILLION) *
     pricing.outputUsdPerMillion *

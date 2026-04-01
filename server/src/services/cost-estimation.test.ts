@@ -2,15 +2,15 @@ import { describe, expect, it } from "vitest";
 import { estimateMeteredCostUsd, resolveBilledCost } from "./cost-estimation.js";
 
 describe("estimateMeteredCostUsd", () => {
-  it("estimates gpt-5.4 standard metered cost from token usage", () => {
+  it("treats cached input as a subset of total input tokens", () => {
     const estimated = estimateMeteredCostUsd({
       provider: "openai",
       biller: "openai",
       model: "gpt-5.4",
       billingType: "metered_api",
       usage: {
-        inputTokens: 1_000_000,
-        cachedInputTokens: 1_000_000,
+        inputTokens: 200_000,
+        cachedInputTokens: 50_000,
         outputTokens: 1_000_000,
       },
       rawUsage: {
@@ -20,10 +20,10 @@ describe("estimateMeteredCostUsd", () => {
       },
     });
 
-    expect(estimated).toBeCloseTo(17.75, 6);
+    expect(estimated).toBeCloseTo(15.3875, 6);
   });
 
-  it("applies the long-context uplift only to the portion above the threshold", () => {
+  it("applies the long-context uplift to uncached input and output only", () => {
     const estimated = estimateMeteredCostUsd({
       provider: "openai",
       biller: "openai",
@@ -35,18 +35,18 @@ describe("estimateMeteredCostUsd", () => {
         outputTokens: 10_000,
       },
       rawUsage: {
-        inputTokens: 260_000,
+        inputTokens: 350_000,
         cachedInputTokens: 90_000,
         outputTokens: 25_000,
       },
       previousRawUsage: {
-        inputTokens: 180_000,
+        inputTokens: 230_000,
         cachedInputTokens: 50_000,
         outputTokens: 15_000,
       },
     });
 
-    expect(estimated).toBeCloseTo(0.6195, 6);
+    expect(estimated).toBeCloseTo(0.5695, 6);
   });
 });
 
@@ -82,18 +82,18 @@ describe("resolveBilledCost", () => {
       billingType: "metered_api",
       usage: {
         inputTokens: 1_000_000,
-        cachedInputTokens: 0,
+        cachedInputTokens: 400_000,
         outputTokens: 0,
       },
       rawUsage: {
         inputTokens: 1_000_000,
-        cachedInputTokens: 0,
+        cachedInputTokens: 400_000,
         outputTokens: 0,
       },
     });
 
-    expect(resolved.costUsd).toBeCloseTo(4.32, 6);
-    expect(resolved.costCents).toBe(432);
+    expect(resolved.costUsd).toBeCloseTo(2.692, 6);
+    expect(resolved.costCents).toBe(269);
     expect(resolved.estimated).toBe(true);
     expect(resolved.source).toBe("openai_model_pricing");
   });
