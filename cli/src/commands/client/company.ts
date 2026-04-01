@@ -504,7 +504,7 @@ function summarizePlanCounts(
   plans: Array<{ action: "create" | "update" | "skip" }>,
   noun: string,
 ): string {
-  if (plans.length === 0) return `0 ${pluralize(0, noun)} selected`;
+  if (plans.length === 0) return "none";
   const createCount = plans.filter((plan) => plan.action === "create").length;
   const updateCount = plans.filter((plan) => plan.action === "update").length;
   const skipCount = plans.filter((plan) => plan.action === "skip").length;
@@ -516,7 +516,7 @@ function summarizePlanCounts(
 }
 
 function summarizeImportAgentResults(agents: CompanyPortabilityImportResult["agents"]): string {
-  if (agents.length === 0) return "0 agents changed";
+  if (agents.length === 0) return "none";
   const created = agents.filter((agent) => agent.action === "created").length;
   const updated = agents.filter((agent) => agent.action === "updated").length;
   const skipped = agents.filter((agent) => agent.action === "skipped").length;
@@ -528,7 +528,7 @@ function summarizeImportAgentResults(agents: CompanyPortabilityImportResult["age
 }
 
 function summarizeImportProjectResults(projects: CompanyPortabilityImportResult["projects"]): string {
-  if (projects.length === 0) return "0 projects changed";
+  if (projects.length === 0) return "none";
   const created = projects.filter((project) => project.action === "created").length;
   const updated = projects.filter((project) => project.action === "updated").length;
   const skipped = projects.filter((project) => project.action === "skipped").length;
