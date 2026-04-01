@@ -7,7 +7,7 @@ import { parseQwenOutput } from "./parse.js";
 export async function execute(
   ctx: AdapterExecutionContext
 ): Promise<AdapterExecutionResult> {
-  const { onLog, agent, runtime, config } = ctx;
+  const { onLog, config } = ctx;
 
   const ollamaUrl =
     (config.ollama_url as string) || "http://localhost:11434";
