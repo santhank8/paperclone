@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "@/lib/router";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { agentsApi, type OrgNode } from "../api/agents";
 import { seatsApi } from "../api/seats";
 import { useCompany } from "../context/CompanyContext";
@@ -14,19 +14,15 @@ import { ChevronRight, GitBranch, RefreshCcw, UserPlus, UserMinus } from "lucide
 import { cn } from "../lib/utils";
 import { orgNodeBadges } from "../lib/org-node-display";
 import { orgNodeCanManageSeat, primarySeatAction } from "../lib/seat-actions";
-import { formatDelegatedPermissions, seatPermissionOptions } from "../lib/seat-permissions";
+import { formatDelegatedPermissions } from "../lib/seat-permissions";
+import { formatSeatPauseReason, formatSeatPauseReasons } from "../lib/seat-pause";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Input } from "@/components/ui/input";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { useSeatManagement } from "../hooks/useSeatManagement";
+import { SeatAttachDialog } from "../components/SeatAttachDialog";
+import { SeatPauseDialog } from "../components/SeatPauseDialog";
+import { SeatPermissionsDialog } from "../components/SeatPermissionsDialog";
+import { useI18n } from "../i18n";
 
 function OrgTree({
   nodes,
@@ -204,20 +200,47 @@ function OrgTreeNode({
 }
 
 export function Org() {
+  const { t } = useI18n();
   const { selectedCompanyId } = useCompany();
   const { setBreadcrumbs } = useBreadcrumbs();
   const { pushToast } = useToast();
-  const queryClient = useQueryClient();
-  const [attachDialogNode, setAttachDialogNode] = useState<OrgNode | null>(null);
-  const [selectedSeatNode, setSelectedSeatNode] = useState<OrgNode | null>(null);
-  const [attachUserId, setAttachUserId] = useState("");
-  const [permissionsDialogNode, setPermissionsDialogNode] = useState<OrgNode | null>(null);
-  const [selectedPermissions, setSelectedPermissions] = useState<string[]>([]);
-  const [mutationPendingSeatId, setMutationPendingSeatId] = useState<string | null>(null);
+  const {
+    attachDialogNode,
+    attachHuman,
+    attachUserId,
+    attachableMembers,
+    detachHuman,
+    invalidateSeatViews,
+    isLoadingCompanyMembers,
+    mutationPendingSeatId,
+    openAttachDialog,
+    openPauseDialog,
+    openPermissionsDialog,
+    pauseDialogNode,
+    pauseSeat,
+    permissionsDialogNode,
+    resumeSeat,
+    selectedPermissions,
+    selectedPauseReason,
+    selectedSeatDetail,
+    selectedSeatNode,
+    setAttachDialogNode,
+    setAttachUserId,
+    setPauseDialogNode,
+    setPermissionsDialogNode,
+    setSelectedPermissions,
+    setSelectedPauseReason,
+    setSelectedSeatNode,
+    submitAttach,
+    submitPause,
+    submitPermissions,
+    submitResume,
+    updateSeatPermissions,
+  } = useSeatManagement(selectedCompanyId);
 
   useEffect(() => {
-    setBreadcrumbs([{ label: "Org Chart" }]);
-  }, [setBreadcrumbs]);
+    setBreadcrumbs([{ label: t("orgChart.title") }]);
+  }, [setBreadcrumbs, t]);
 
   const { data, isLoading, error } = useQuery({
     queryKey: queryKeys.org(selectedCompanyId!),
@@ -225,42 +248,21 @@ export function Org() {
     enabled: !!selectedCompanyId,
   });
 
-  const { data: seatDetail } = useQuery({
-    queryKey: permissionsDialogNode?.seatId ? queryKeys.seats.detail(selectedCompanyId!, permissionsDialogNode.seatId) : ["seats", "detail", "none"],
-    queryFn: () => seatsApi.detail(selectedCompanyId!, permissionsDialogNode!.seatId!),
-    enabled: !!selectedCompanyId && !!permissionsDialogNode?.seatId,
-  });
-  const { data: selectedSeatDetail } = useQuery({
-    queryKey: selectedSeatNode?.seatId ? queryKeys.seats.detail(selectedCompanyId!, selectedSeatNode.seatId) : ["seats", "detail", "selected-none"],
-    queryFn: () => seatsApi.detail(selectedCompanyId!, selectedSeatNode!.seatId!),
-    enabled: !!selectedCompanyId && !!selectedSeatNode?.seatId,
-  });
-
-  const invalidateSeatViews = async () => {
-    if (!selectedCompanyId) return;
-    await Promise.all([
-      queryClient.invalidateQueries({ queryKey: queryKeys.org(selectedCompanyId) }),
-      queryClient.invalidateQueries({ queryKey: queryKeys.agents.list(selectedCompanyId) }),
-      queryClient.invalidateQueries({ queryKey: queryKeys.issues.list(selectedCompanyId) }),
-      queryClient.invalidateQueries({ queryKey: queryKeys.sidebarBadges(selectedCompanyId) }),
-    ]);
-  };
-
   const backfillSeats = useMutation({
     mutationFn: () => seatsApi.backfill(selectedCompanyId!),
     onSuccess: async (result) => {
       await invalidateSeatViews();
       pushToast({
         tone: "success",
-        title: "Seat backfill complete",
+        title: t("orgChart.backfillComplete"),
         body: `${result.seatsCreated} seats created, ${result.ownershipBackfills.issues} issue owners backfilled.`,
       });
     },
     onError: (error) => {
       pushToast({
         tone: "error",
-        title: "Seat backfill failed",
-        body: error instanceof Error ? error.message : "Unknown error",
+        title: t("orgChart.backfillFailed"),
+        body: error instanceof Error ? error.message : t("orgChart.unknownError"),
       });
     },
   });
@@ -271,105 +273,21 @@ export function Org() {
       await invalidateSeatViews();
       pushToast({
         tone: "success",
-        title: "Seat modes reconciled",
+        title: t("orgChart.reconciled"),
         body: `${result.updatedSeatCount} of ${result.scannedSeatCount} seats updated.`,
       });
     },
     onError: (error) => {
       pushToast({
         tone: "error",
-        title: "Seat mode reconciliation failed",
-        body: error instanceof Error ? error.message : "Unknown error",
+        title: t("orgChart.reconcileFailed"),
+        body: error instanceof Error ? error.message : t("orgChart.unknownError"),
       });
     },
   });
-
-  const attachHuman = useMutation({
-    mutationFn: async ({ seatId, userId }: { seatId: string; userId: string }) => {
-      setMutationPendingSeatId(seatId);
-      return seatsApi.attachHuman(selectedCompanyId!, seatId, userId);
-    },
-    onSuccess: async () => {
-      await invalidateSeatViews();
-      setAttachDialogNode(null);
-      setAttachUserId("");
-      pushToast({
-        tone: "success",
-        title: "Human attached to seat",
-      });
-    },
-    onError: (error) => {
-      pushToast({
-        tone: "error",
-        title: "Attach failed",
-        body: error instanceof Error ? error.message : "Unknown error",
-      });
-    },
-    onSettled: () => {
-      setMutationPendingSeatId(null);
-    },
-  });
-
-  const detachHuman = useMutation({
-    mutationFn: async (seatId: string) => {
-      setMutationPendingSeatId(seatId);
-      return seatsApi.detachHuman(selectedCompanyId!, seatId, null);
-    },
-    onSuccess: async (result) => {
-      await invalidateSeatViews();
-      pushToast({
-        tone: "success",
-        title: "Human detached from seat",
-        body:
-          result.fallbackReassignedIssueCount > 0
-            ? `${result.fallbackReassignedIssueCount} issues were reassigned to the fallback agent.`
-            : "No open issues needed reassignment.",
-      });
-    },
-    onError: (error) => {
-      pushToast({
-        tone: "error",
-        title: "Detach failed",
-        body: error instanceof Error ? error.message : "Unknown error",
-      });
-    },
-    onSettled: () => {
-      setMutationPendingSeatId(null);
-    },
-  });
-
-  const updateSeatPermissions = useMutation({
-    mutationFn: async ({ seatId, delegatedPermissions }: { seatId: string; delegatedPermissions: string[] }) => {
-      setMutationPendingSeatId(seatId);
-      return seatsApi.update(selectedCompanyId!, seatId, { delegatedPermissions });
-    },
-    onSuccess: async (result) => {
-      await invalidateSeatViews();
-      await queryClient.invalidateQueries({ queryKey: queryKeys.seats.detail(selectedCompanyId!, result.id) });
-      setPermissionsDialogNode(null);
-      setSelectedPermissions([]);
-      pushToast({ tone: "success", title: "Seat permissions updated" });
-    },
-    onError: (error) => {
-      pushToast({
-        tone: "error",
-        title: "Permission update failed",
-        body: error instanceof Error ? error.message : "Unknown error",
-      });
-    },
-    onSettled: () => {
-      setMutationPendingSeatId(null);
-    },
-  });
-
-  useEffect(() => {
-    if (seatDetail && permissionsDialogNode?.seatId === seatDetail.id) {
-      setSelectedPermissions(seatDetail.delegatedPermissions);
-    }
-  }, [seatDetail, permissionsDialogNode]);
 
   if (!selectedCompanyId) {
-    return <EmptyState icon={GitBranch} message="Select a company to view org chart." />;
+    return <EmptyState icon={GitBranch} message={t("orgChart.selectCompany")} />;
   }
 
   if (isLoading) {
@@ -386,7 +304,7 @@ export function Org() {
           disabled={backfillSeats.isPending}
         >
           <RefreshCcw className="mr-1.5 h-3.5 w-3.5" />
-          {backfillSeats.isPending ? "Backfilling…" : "Backfill Seats"}
+          {backfillSeats.isPending ? t("orgChart.backfilling") : t("orgChart.backfillSeats")}
         </Button>
         <Button
           size="sm"
@@ -395,7 +313,7 @@ export function Org() {
           disabled={reconcileModes.isPending}
         >
           <RefreshCcw className="mr-1.5 h-3.5 w-3.5" />
-          {reconcileModes.isPending ? "Reconciling…" : "Reconcile Modes"}
+          {reconcileModes.isPending ? t("orgChart.reconciling") : t("orgChart.reconcileModes")}
         </Button>
       </div>
 
@@ -404,7 +322,7 @@ export function Org() {
       {data && data.length === 0 && (
         <EmptyState
           icon={GitBranch}
-          message="No agents in the organization. Create agents to build your org chart."
+          message={t("orgChart.noAgents")}
         />
       )}
 
@@ -415,65 +333,78 @@ export function Org() {
               nodes={data}
               hrefFn={(id) => `/agents/${id}`}
               onSelect={setSelectedSeatNode}
-              onAttach={(node) => {
-                setAttachDialogNode(node);
-                setAttachUserId("");
-              }}
+              onAttach={openAttachDialog}
               onDetach={(node) => {
                 if (!node.seatId) return;
                 detachHuman.mutate(node.seatId);
               }}
-              onEditPermissions={(node) => {
-                setPermissionsDialogNode(node);
-                setSelectedPermissions([]);
-              }}
+              onEditPermissions={(node) => openPermissionsDialog(node)}
               mutationPendingSeatId={mutationPendingSeatId}
             />
           </div>
 
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-base">Seat Detail</CardTitle>
+              <CardTitle className="text-base">{t("orgChart.seatDetail")}</CardTitle>
               <CardDescription>
                 {selectedSeatDetail?.name
-                  ? `${selectedSeatDetail.name} seat 상태와 위임 권한`
-                  : "Seat를 선택하면 여기에서 상태를 확인할 수 있습니다."}
+                  ? t("orgChart.seatDetailDescription", { name: selectedSeatDetail.name })
+                  : t("orgChart.selectSeat")}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4 text-sm">
               {!selectedSeatDetail ? (
-                <p className="text-muted-foreground">Org 트리에서 `Details`를 눌러 seat 정보를 확인하세요.</p>
+                <p className="text-muted-foreground">{t("orgChart.selectDetails")}</p>
               ) : (
                 <>
                   <div className="space-y-1">
                     <div className="font-medium">{selectedSeatDetail.name}</div>
-                    <div className="text-muted-foreground">{selectedSeatDetail.title || "No title"}</div>
+                    <div className="text-muted-foreground">{selectedSeatDetail.title || t("orgChart.noTitle")}</div>
                   </div>
                   <dl className="grid grid-cols-[110px_1fr] gap-x-3 gap-y-2 text-sm">
-                    <dt className="text-muted-foreground">Slug</dt>
+                    <dt className="text-muted-foreground">{t("common.slug")}</dt>
                     <dd className="truncate">{selectedSeatDetail.slug}</dd>
-                    <dt className="text-muted-foreground">Seat Type</dt>
+                    <dt className="text-muted-foreground">{t("common.seatType")}</dt>
                     <dd>{selectedSeatDetail.seatType}</dd>
-                    <dt className="text-muted-foreground">Mode</dt>
+                    <dt className="text-muted-foreground">{t("common.mode")}</dt>
                     <dd>{selectedSeatDetail.operatingMode}</dd>
-                    <dt className="text-muted-foreground">Status</dt>
+                    <dt className="text-muted-foreground">{t("common.status")}</dt>
                     <dd>{selectedSeatDetail.status}</dd>
-                    <dt className="text-muted-foreground">Human</dt>
-                    <dd>{selectedSeatDetail.currentHumanUserId || "None"}</dd>
-                    <dt className="text-muted-foreground">Default Agent</dt>
-                    <dd className="truncate">{selectedSeatDetail.defaultAgentId || "None"}</dd>
-                    <dt className="text-muted-foreground">Delegated</dt>
-                    <dd>{formatDelegatedPermissions(selectedSeatDetail.delegatedPermissions) || "none"}</dd>
+                    <dt className="text-muted-foreground">{t("common.pauseReason")}</dt>
+                    <dd>{formatSeatPauseReason(selectedSeatDetail.pauseReason) || t("common.none")}</dd>
+                    <dt className="text-muted-foreground">{t("common.pauseStack")}</dt>
+                    <dd>{formatSeatPauseReasons(selectedSeatDetail.pauseReasons)}</dd>
+                    <dt className="text-muted-foreground">{t("common.human")}</dt>
+                    <dd>{selectedSeatDetail.currentHumanUserId || t("common.none")}</dd>
+                    <dt className="text-muted-foreground">{t("common.defaultAgent")}</dt>
+                    <dd className="truncate">{selectedSeatDetail.defaultAgentId || t("common.none")}</dd>
+                    <dt className="text-muted-foreground">{t("common.delegated")}</dt>
+                    <dd>{formatDelegatedPermissions(selectedSeatDetail.delegatedPermissions) || t("common.none")}</dd>
                   </dl>
                   <div className="flex flex-wrap gap-2 pt-1">
+                    {selectedSeatNode?.seatId ? (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => openPauseDialog(selectedSeatNode, selectedSeatDetail.pauseReason === "maintenance" ? "maintenance" : "manual_admin")}
+                      >
+                        Pause
+                      </Button>
+                    ) : null}
+                    {selectedSeatNode?.seatId && selectedSeatDetail.pauseReasons.some((reason) => reason !== "budget_enforcement") ? (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => submitResume(selectedSeatNode.seatId!, null)}
+                      >
+                        Resume Operator Pause
+                      </Button>
+                    ) : null}
                     {selectedSeatNode && primarySeatAction(selectedSeatNode) === "attach" ? (
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => {
-                          setAttachDialogNode(selectedSeatNode);
-                          setAttachUserId("");
-                        }}
+                        onClick={() => openAttachDialog(selectedSeatNode)}
                       >
                         <UserPlus className="mr-1.5 h-3.5 w-3.5" />
                         Attach
@@ -492,11 +423,7 @@ export function Org() {
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={() => {
-                        if (!selectedSeatNode) return;
-                        setPermissionsDialogNode(selectedSeatNode);
-                        setSelectedPermissions(selectedSeatDetail.delegatedPermissions);
-                      }}
+                      onClick={() => selectedSeatNode && openPermissionsDialog(selectedSeatNode, selectedSeatDetail.delegatedPermissions)}
                     >
                       Edit Permissions
                     </Button>
@@ -508,93 +435,37 @@ export function Org() {
         </div>
       )}
 
-      <Dialog open={Boolean(attachDialogNode)} onOpenChange={(open) => !open && setAttachDialogNode(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Attach Human Operator</DialogTitle>
-            <DialogDescription>
-              {attachDialogNode?.name ? `${attachDialogNode.name} seat에 human operator를 붙입니다.` : "Seat에 human operator를 붙입니다."}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-2">
-            <label className="text-sm font-medium">User ID</label>
-            <Input
-              value={attachUserId}
-              onChange={(e) => setAttachUserId(e.target.value)}
-              placeholder="user-123"
-            />
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setAttachDialogNode(null)}>
-              Cancel
-            </Button>
-            <Button
-              onClick={() => {
-                if (!attachDialogNode?.seatId || !attachUserId.trim()) return;
-                attachHuman.mutate({ seatId: attachDialogNode.seatId, userId: attachUserId.trim() });
-              }}
-              disabled={!attachDialogNode?.seatId || !attachUserId.trim() || attachHuman.isPending}
-            >
-              {attachHuman.isPending ? "Attaching…" : "Attach"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <SeatAttachDialog
+        open={Boolean(attachDialogNode)}
+        seatName={attachDialogNode?.name}
+        userId={attachUserId}
+        memberOptions={attachableMembers}
+        isLoadingMembers={isLoadingCompanyMembers}
+        isPending={attachHuman.isPending}
+        onOpenChange={(open) => !open && setAttachDialogNode(null)}
+        onUserIdChange={setAttachUserId}
+        onSubmit={submitAttach}
+      />
 
-      <Dialog open={Boolean(permissionsDialogNode)} onOpenChange={(open) => !open && setPermissionsDialogNode(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Edit Delegated Permissions</DialogTitle>
-            <DialogDescription>
-              {permissionsDialogNode?.name
-                ? `${permissionsDialogNode.name} seat에 위임 권한을 설정합니다.`
-                : "Seat delegated permissions를 설정합니다."}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Delegated Permissions</label>
-            <div className="space-y-2 rounded-md border border-border p-3">
-              {seatPermissionOptions.map((option) => {
-                const checked = selectedPermissions.includes(option.key);
-                return (
-                  <label key={option.key} className="flex items-center gap-2 text-sm">
-                    <Checkbox
-                      checked={checked}
-                      onCheckedChange={(next) => {
-                        setSelectedPermissions((current) => {
-                          if (next) return Array.from(new Set([...current, option.key]));
-                          return current.filter((value) => value !== option.key);
-                        });
-                      }}
-                    />
-                    <span>{option.label}</span>
-                  </label>
-                );
-              })}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Current: {formatDelegatedPermissions(selectedPermissions) || "none"}
-            </p>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setPermissionsDialogNode(null)}>
-              Cancel
-            </Button>
-            <Button
-              onClick={() => {
-                if (!permissionsDialogNode?.seatId) return;
-                updateSeatPermissions.mutate({
-                  seatId: permissionsDialogNode.seatId,
-                  delegatedPermissions: selectedPermissions,
-                });
-              }}
-              disabled={!permissionsDialogNode?.seatId || updateSeatPermissions.isPending}
-            >
-              {updateSeatPermissions.isPending ? "Saving…" : "Save"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <SeatPauseDialog
+        open={Boolean(pauseDialogNode)}
+        seatName={pauseDialogNode?.name}
+        pauseReason={selectedPauseReason}
+        isPending={pauseSeat.isPending || resumeSeat.isPending}
+        onOpenChange={(open) => !open && setPauseDialogNode(null)}
+        onPauseReasonChange={setSelectedPauseReason}
+        onSubmit={submitPause}
+      />
+
+      <SeatPermissionsDialog
+        open={Boolean(permissionsDialogNode)}
+        seatName={permissionsDialogNode?.name}
+        selectedPermissions={selectedPermissions}
+        isPending={updateSeatPermissions.isPending}
+        onOpenChange={(open) => !open && setPermissionsDialogNode(null)}
+        onSelectedPermissionsChange={setSelectedPermissions}
+        onSubmit={submitPermissions}
+      />
     </div>
   );
 }

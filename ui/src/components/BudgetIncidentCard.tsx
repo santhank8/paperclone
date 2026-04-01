@@ -6,6 +6,7 @@ import { incidentPauseMessage } from "../lib/budget-scope-display";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { useI18n } from "../i18n";
 
 function centsInputValue(value: number) {
   return (value / 100).toFixed(2);
@@ -30,10 +31,15 @@ export function BudgetIncidentCard({
   isMutating?: boolean;
   onInspect?: (() => void) | undefined;
 }) {
+  const { t } = useI18n();
   const [draftAmount, setDraftAmount] = useState(
     centsInputValue(Math.max(incident.amountObserved + 1000, incident.amountLimit)),
   );
   const parsed = parseDollarInput(draftAmount);
+  const spendingText = t("budgetIncident.spendingReached", {
+    observed: formatCents(incident.amountObserved),
+    limit: formatCents(incident.amountLimit),
+  });
 
   return (
     <Card className="overflow-hidden border-red-500/20 bg-[linear-gradient(180deg,rgba(255,70,70,0.10),rgba(255,255,255,0.02))]">
@@ -41,11 +47,11 @@ export function BudgetIncidentCard({
         <div className="flex items-start justify-between gap-3">
           <div>
             <div className="text-[11px] uppercase tracking-[0.22em] text-red-200/80">
-              {incident.scopeType} hard stop
+              {incident.scopeType} {t("budgetIncident.hardStop")}
             </div>
             <CardTitle className="mt-1 text-base text-red-50">{incident.scopeName}</CardTitle>
             <CardDescription className="mt-1 text-red-100/70">
-              Spending reached {formatCents(incident.amountObserved)} against a limit of {formatCents(incident.amountLimit)}.
+              {spendingText}
             </CardDescription>
           </div>
           <div className="rounded-full border border-red-400/30 bg-red-500/10 p-2 text-red-200">
@@ -55,7 +61,7 @@ export function BudgetIncidentCard({
         {onInspect ? (
           <div className="flex justify-end">
             <Button size="sm" variant="ghost" className="h-7 px-2 text-[11px] text-red-100/80" onClick={onInspect}>
-              Details
+              {t("budgetIncident.details")}
             </Button>
           </div>
         ) : null}
@@ -68,7 +74,7 @@ export function BudgetIncidentCard({
 
         <div className="rounded-xl border border-border/60 bg-background/60 p-3">
           <label className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-            New budget (USD)
+            {t("budgetIncident.newBudget")}
           </label>
           <div className="mt-2 flex flex-col gap-3 sm:flex-row">
             <Input
@@ -85,19 +91,19 @@ export function BudgetIncidentCard({
               }}
             >
               <ArrowUpRight className="h-4 w-4" />
-              {isMutating ? "Applying..." : "Raise budget & resume"}
+              {isMutating ? t("budgetIncident.applying") : t("budgetIncident.raiseAndResume")}
             </Button>
           </div>
           {parsed !== null && parsed <= incident.amountObserved ? (
             <p className="mt-2 text-xs text-red-200/80">
-              The new budget must exceed current observed spend.
+              {t("budgetIncident.exceedSpend")}
             </p>
           ) : null}
         </div>
 
         <div className="flex justify-end">
           <Button variant="ghost" className="text-muted-foreground" disabled={isMutating} onClick={onKeepPaused}>
-            Keep paused
+            {t("budgetIncident.keepPaused")}
           </Button>
         </div>
       </CardContent>
