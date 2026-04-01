@@ -46,6 +46,7 @@ import {
   FileText,
   Loader2,
   X,
+  Link2,
 } from "lucide-react";
 import { cn } from "../lib/utils";
 import { extractProviderIdWithFallback } from "../lib/model-utils";
@@ -291,11 +292,27 @@ export function NewIssueDialog() {
   const [dialogCompanyId, setDialogCompanyId] = useState<string | null>(null);
   const [stagedFiles, setStagedFiles] = useState<StagedIssueFile[]>([]);
   const [isFileDragOver, setIsFileDragOver] = useState(false);
+  const [relatedIssues, setRelatedIssues] = useState<Array<{ id: string; identifier: string; title: string }>>([]);
+  const [relatedSearch, setRelatedSearch] = useState("");
+  const [relatedOpen, setRelatedOpen] = useState(false);
   const draftTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const executionWorkspaceDefaultProjectId = useRef<string | null>(null);
 
   const effectiveCompanyId = dialogCompanyId ?? selectedCompanyId;
   const dialogCompany = companies.find((c) => c.id === effectiveCompanyId) ?? selectedCompany;
+
+  // Related issues search
+  const { data: relatedSearchResults } = useQuery({
+    queryKey: queryKeys.issues.search(effectiveCompanyId ?? "", relatedSearch),
+    queryFn: () => issuesApi.list(effectiveCompanyId!, { q: relatedSearch }),
+    enabled: Boolean(effectiveCompanyId && relatedSearch.length >= 2 && relatedOpen),
+  });
+  const filteredRelatedResults = useMemo(
+    () => (relatedSearchResults ?? [])
+      .filter((issue) => !relatedIssues.some((r) => r.id === issue.id))
+      .slice(0, 10),
+    [relatedSearchResults, relatedIssues],
+  );
 
   // Popover states
   const [statusOpen, setStatusOpen] = useState(false);
@@ -609,6 +626,9 @@ export function NewIssueDialog() {
     setDialogCompanyId(null);
     setStagedFiles([]);
     setIsFileDragOver(false);
+    setRelatedIssues([]);
+    setRelatedSearch("");
+    setRelatedOpen(false);
     setCompanyOpen(false);
     executionWorkspaceDefaultProjectId.current = null;
   }
@@ -659,7 +679,14 @@ export function NewIssueDialog() {
       companyId: effectiveCompanyId,
       stagedFiles,
       title: title.trim(),
-      description: description.trim() || undefined,
+      description: (() => {
+        let desc = description.trim();
+        if (relatedIssues.length > 0) {
+          const refs = relatedIssues.map((r) => r.identifier).join(", ");
+          desc = desc ? `${desc}\n\nRelated: ${refs}` : `Related: ${refs}`;
+        }
+        return desc || undefined;
+      })(),
       status,
       priority: priority || "medium",
       ...(selectedAssigneeAgentId ? { assigneeAgentId: selectedAssigneeAgentId } : {}),
@@ -1395,6 +1422,77 @@ export function NewIssueDialog() {
             <Tag className="h-3 w-3" />
             Labels
           </button>
+
+          {/* Related issues chip */}
+          <Popover open={relatedOpen} onOpenChange={(open) => { setRelatedOpen(open); if (!open) setRelatedSearch(""); }}>
+            <PopoverTrigger asChild>
+              <button className={cn(
+                "inline-flex items-center gap-1.5 rounded-md border border-border px-2 py-1 text-xs hover:bg-accent/50 transition-colors",
+                relatedIssues.length > 0 ? "text-foreground" : "text-muted-foreground",
+              )}>
+                <Link2 className="h-3 w-3" />
+                {relatedIssues.length > 0 ? `Related (${relatedIssues.length})` : "Related"}
+              </button>
+            </PopoverTrigger>
+            <PopoverContent className="w-72 p-2" align="start">
+              <input
+                type="text"
+                value={relatedSearch}
+                onChange={(e) => setRelatedSearch(e.target.value)}
+                placeholder="Search issues by title or ID..."
+                className="w-full rounded-md border border-border bg-transparent px-2 py-1.5 text-xs outline-none placeholder:text-muted-foreground/50 mb-2"
+                autoFocus
+              />
+              {/* Selected related issues */}
+              {relatedIssues.length > 0 && (
+                <div className="flex flex-wrap gap-1 mb-2">
+                  {relatedIssues.map((issue) => (
+                    <span key={issue.id} className="inline-flex items-center gap-1 rounded bg-accent px-1.5 py-0.5 text-[11px]">
+                      <span className="font-mono text-muted-foreground">{issue.identifier}</span>
+                      <button
+                        onClick={() => setRelatedIssues((prev) => prev.filter((r) => r.id !== issue.id))}
+                        className="hover:text-destructive"
+                      >
+                        <X className="h-2.5 w-2.5" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+              {/* Search results */}
+              {relatedSearch.length >= 2 && (
+                <div className="max-h-48 overflow-y-auto">
+                  {filteredRelatedResults.length === 0 ? (
+                    <p className="text-xs text-muted-foreground px-1 py-2">No matching issues</p>
+                  ) : (
+                    filteredRelatedResults.map((issue) => (
+                      <button
+                        key={issue.id}
+                        className="flex items-start gap-2 w-full px-2 py-1.5 text-xs rounded hover:bg-accent/50 text-left"
+                        disabled={relatedIssues.length >= 5}
+                        onClick={() => {
+                          if (relatedIssues.length < 5) {
+                            setRelatedIssues((prev) => [...prev, {
+                              id: issue.id,
+                              identifier: issue.identifier ?? issue.id.slice(0, 8),
+                              title: issue.title,
+                            }]);
+                            setRelatedSearch("");
+                          }
+                        }}
+                      >
+                        <span className="font-mono text-muted-foreground shrink-0">{issue.identifier}</span>
+                        <span className="truncate">{issue.title}</span>
+                      </button>
+                    ))
+                  )}
+                </div>
+              )}
+              {relatedIssues.length >= 5 && (
+                <p className="text-[11px] text-muted-foreground mt-1">Maximum 5 related issues</p>
+              )}
+            </PopoverContent>
+          </Popover>
 
           <input
             ref={stageFileInputRef}
