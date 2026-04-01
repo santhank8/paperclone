@@ -12,12 +12,6 @@ import { useI18n } from "../i18n";
 
 type Platform = "mac" | "windows" | "linux";
 
-const platforms: { id: Platform; label: string; icon: typeof Apple }[] = [
-  { id: "mac", label: "macOS", icon: Apple },
-  { id: "windows", label: "Windows", icon: Monitor },
-  { id: "linux", label: "Linux", icon: Terminal },
-];
-
 function detectPlatform(): Platform {
   const ua = navigator.userAgent.toLowerCase();
   if (ua.includes("mac")) return "mac";
@@ -36,6 +30,12 @@ export function PathInstructionsModal({
 }: PathInstructionsModalProps) {
   const { t } = useI18n();
   const [platform, setPlatform] = useState<Platform>(detectPlatform);
+
+  const platforms: { id: Platform; label: string; icon: typeof Apple }[] = [
+    { id: "mac", label: t("pathModal.macLabel"), icon: Apple },
+    { id: "windows", label: t("pathModal.windowsLabel"), icon: Monitor },
+    { id: "linux", label: t("pathModal.terminalLabel"), icon: Terminal },
+  ];
 
   const current = {
     steps: platform === "mac"

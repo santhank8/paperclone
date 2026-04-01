@@ -60,12 +60,6 @@ const defaultViewState: IssueViewState = {
   collapsedGroups: [],
 };
 
-const quickFilterPresets = [
-  { label: "All", statuses: [] as string[] },
-  { label: "Active", statuses: ["todo", "in_progress", "in_review", "blocked"] },
-  { label: "Backlog", statuses: ["backlog"] },
-  { label: "Done", statuses: ["done", "cancelled"] },
-];
 const ISSUE_SEARCH_COMMIT_DELAY_MS = 150;
 
 function getViewState(key: string): IssueViewState {
@@ -237,6 +231,12 @@ export function IssuesList({
   });
   const currentUserId = session?.user?.id ?? session?.session?.userId ?? null;
   const tt = (key: string, vars?: Record<string, string | number>) => t(`issues.list.${key}`, vars);
+  const quickFilterPresets = useMemo(() => [
+    { label: tt("all"), statuses: [] as string[] },
+    { label: tt("active"), statuses: ["todo", "in_progress", "in_review", "blocked"] },
+    { label: tt("backlog"), statuses: ["backlog"] },
+    { label: tt("done"), statuses: ["done", "cancelled"] },
+  ], [tt]);
 
   // Scope the storage key per company so folding/view state is independent across companies.
   const scopedKey = selectedCompanyId ? `${viewStateKey}:${selectedCompanyId}` : viewStateKey;

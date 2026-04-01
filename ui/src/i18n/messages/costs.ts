@@ -78,6 +78,9 @@ export const costsMessages: Record<ActiveLocale, MessageTree> = {
       seatPolicies: "Seat policies",
       seatPoliciesDescription: "Budget policies applied to this seat scope.",
       noSeatPolicies: "There are no seat policies.",
+      seatAttribution: "Seat attribution",
+      issueOwnerSeat: "Issue owner seat",
+      agentSeatFallback: "Agent seat fallback",
       tabs: {
         overview: "Overview",
         budgets: "Budgets",
@@ -183,6 +186,9 @@ export const costsMessages: Record<ActiveLocale, MessageTree> = {
       seatPolicies: "Seat 정책",
       seatPoliciesDescription: "이 seat 범위에 적용되는 budget policy입니다.",
       noSeatPolicies: "Seat policy가 없습니다.",
+      seatAttribution: "좌석 귀속",
+      issueOwnerSeat: "이슈 소유자 좌석",
+      agentSeatFallback: "에이전트 좌석 fallback",
       tabs: {
         overview: "개요",
         budgets: "예산",
@@ -269,6 +275,9 @@ export const costsMessages: Record<ActiveLocale, MessageTree> = {
       seatPolicies: "Seat ポリシー",
       seatPoliciesDescription: "この seat スコープに適用される budget policy です。",
       noSeatPolicies: "Seat policy はありません。",
+      seatAttribution: "シート帰属",
+      issueOwnerSeat: "イシュー所有者シート",
+      agentSeatFallback: "エージェントシート fallback",
       tabs: {
         overview: "概要",
         budgets: "予算",

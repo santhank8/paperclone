@@ -1,4 +1,5 @@
 import { formatCents } from "@/lib/utils";
+import { useI18n } from "../i18n";
 
 interface SeatAttributionBreakdownProps {
   issueOwnerSeatCostCents: number;
@@ -18,25 +19,26 @@ export function SeatAttributionBreakdown({
   unattributedCostCents,
   compact = false,
 }: SeatAttributionBreakdownProps) {
+  const { t } = useI18n();
   const total = issueOwnerSeatCostCents + agentSeatCostCents + unattributedCostCents;
   if (total <= 0) return null;
 
   const segments = [
     {
       key: "issue-owner-seat",
-      label: "Issue owner seat",
+      label: t("costs.issueOwnerSeat"),
       value: issueOwnerSeatCostCents,
       className: "bg-emerald-400/80",
     },
     {
       key: "agent-seat",
-      label: "Agent seat fallback",
+      label: t("costs.agentSeatFallback"),
       value: agentSeatCostCents,
       className: "bg-sky-400/80",
     },
     {
       key: "unattributed",
-      label: "Unattributed",
+      label: t("costs.unattributed"),
       value: unattributedCostCents,
       className: "bg-zinc-500/80",
     },
@@ -45,7 +47,7 @@ export function SeatAttributionBreakdown({
   return (
     <div className={compact ? "space-y-1.5" : "space-y-2"}>
       <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-        Seat attribution
+        {t("costs.seatAttribution")}
       </p>
       <div className="flex h-2 w-full overflow-hidden border border-border">
         {segments.map((segment) => (
