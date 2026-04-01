@@ -1,0 +1,27 @@
+name: Deploy
+
+on:
+  workflow_run:
+    workflows: ["Shangrila CI"]
+    types:
+      - completed
+    branches:
+      - shangrila/main
+
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: [self-hosted, shangrila]
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
+    timeout-minutes: 15
+
+    steps:
+      - name: Run deploy script
+        run: bash /home/ubuntu/shared/shangrila/scripts/deploy.sh

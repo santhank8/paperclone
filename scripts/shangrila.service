@@ -1,0 +1,25 @@
+[Unit]
+Description=Shangrila (Paperclip fork)
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/home/ubuntu/shared/shangrila
+EnvironmentFile=/home/ubuntu/shared/shangrila/.env
+ExecStart=/usr/bin/node --import ./server/node_modules/tsx/dist/loader.mjs server/dist/index.js
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=shangrila
+
+Environment=NODE_ENV=production
+Environment=PAPERCLIP_HOME=/home/ubuntu/.paperclip
+Environment=PAPERCLIP_MIGRATION_PROMPT=never
+Environment=PAPERCLIP_MIGRATION_AUTO_APPLY=true
+Environment=HOST=0.0.0.0
+
+[Install]
+WantedBy=multi-user.target
