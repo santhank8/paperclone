@@ -13,9 +13,13 @@ function formatStdoutEvent(line: string, debug: boolean): void {
   }
 }
 
+export { formatStdoutEvent };
+
 export const module: CLIAdapterModule = {
   type: metadata.type,
   formatStdoutEvent,
 };
+
+export default module;
 
 export default module;
