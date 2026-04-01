@@ -59,7 +59,10 @@ export function issueRoutes(db: Db, storage: StorageService) {
 
   function withContentPath<T extends { id: string }>(attachment: T, req?: Request) {
     const contentPath = `/api/attachments/${attachment.id}/content`;
-    const contentUrl = req ? `${req.protocol}://${req.get("host")}${contentPath}` : null;
+    const forwardedProto = req?.get("x-forwarded-proto")?.split(",")[0]?.trim();
+    const protocol = forwardedProto || req?.protocol;
+    const host = req?.get("host");
+    const contentUrl = protocol && host ? `${protocol}://${host}${contentPath}` : null;
     return {
       ...attachment,
       contentPath,
