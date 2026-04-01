@@ -2,6 +2,7 @@ import { type ClassValue, clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
 import { deriveAgentUrlKey, deriveProjectUrlKey } from "@paperclipai/shared";
 import type { BillingType, FinanceDirection, FinanceEventKind } from "@paperclipai/shared";
+import { formatMessage } from "../i18n";
 import { getRuntimeLocale } from "../i18n/runtime";
 
 export function cn(...inputs: ClassValue[]) {
@@ -63,38 +64,41 @@ export function formatTokens(n: number): string {
 
 /** Map a raw provider slug to a display-friendly name. */
 export function providerDisplayName(provider: string): string {
-  const map: Record<string, string> = {
-    anthropic: "Anthropic",
-    openai: "OpenAI",
-    openrouter: "OpenRouter",
-    chatgpt: "ChatGPT",
-    google: "Google",
-    cursor: "Cursor",
-    jetbrains: "JetBrains AI",
-  };
-  return map[provider.toLowerCase()] ?? provider;
+  const locale = getRuntimeLocale();
+  const key = {
+    anthropic: "display.provider.anthropic",
+    openai: "display.provider.openai",
+    openrouter: "display.provider.openrouter",
+    chatgpt: "display.provider.chatgpt",
+    google: "display.provider.google",
+    cursor: "display.provider.cursor",
+    jetbrains: "display.provider.jetbrains",
+  }[provider.toLowerCase()];
+  return key ? formatMessage(locale, key) : provider;
 }
 
 export function billingTypeDisplayName(billingType: BillingType): string {
-  const map: Record<BillingType, string> = {
-    metered_api: "Metered API",
-    subscription_included: "Subscription",
-    subscription_overage: "Subscription overage",
-    credits: "Credits",
-    fixed: "Fixed",
-    unknown: "Unknown",
-  };
-  return map[billingType];
+  const locale = getRuntimeLocale();
+  const key = {
+    metered_api: "display.billingType.metered_api",
+    subscription_included: "display.billingType.subscription_included",
+    subscription_overage: "display.billingType.subscription_overage",
+    credits: "display.billingType.credits",
+    fixed: "display.billingType.fixed",
+    unknown: "display.billingType.unknown",
+  }[billingType];
+  return key ? formatMessage(locale, key) : billingType;
 }
 
 export function quotaSourceDisplayName(source: string): string {
-  const map: Record<string, string> = {
-    "anthropic-oauth": "Anthropic OAuth",
-    "claude-cli": "Claude CLI",
-    "codex-rpc": "Codex app server",
-    "codex-wham": "ChatGPT WHAM",
-  };
-  return map[source] ?? source;
+  const locale = getRuntimeLocale();
+  const key = {
+    "anthropic-oauth": "display.quotaSource.anthropicOauth",
+    "claude-cli": "display.quotaSource.claudeCli",
+    "codex-rpc": "display.quotaSource.codexRpc",
+    "codex-wham": "display.quotaSource.codexWham",
+  }[source];
+  return key ? formatMessage(locale, key) : source;
 }
 
 function coerceBillingType(value: unknown): BillingType | null {
@@ -130,27 +134,15 @@ export function visibleRunCostUsd(
 }
 
 export function financeEventKindDisplayName(eventKind: FinanceEventKind): string {
-  const map: Record<FinanceEventKind, string> = {
-    inference_charge: "Inference charge",
-    platform_fee: "Platform fee",
-    credit_purchase: "Credit purchase",
-    credit_refund: "Credit refund",
-    credit_expiry: "Credit expiry",
-    byok_fee: "BYOK fee",
-    gateway_overhead: "Gateway overhead",
-    log_storage_charge: "Log storage",
-    logpush_charge: "Logpush",
-    provisioned_capacity_charge: "Provisioned capacity",
-    training_charge: "Training",
-    custom_model_import_charge: "Custom model import",
-    custom_model_storage_charge: "Custom model storage",
-    manual_adjustment: "Manual adjustment",
-  };
-  return map[eventKind];
+  const locale = getRuntimeLocale();
+  const key = `display.financeEventKind.${eventKind}`;
+  const value = formatMessage(locale, key);
+  return value === key ? eventKind : value;
 }
 
 export function financeDirectionDisplayName(direction: FinanceDirection): string {
-  return direction === "credit" ? "Credit" : "Debit";
+  const locale = getRuntimeLocale();
+  return formatMessage(locale, direction === "credit" ? "display.financeDirection.credit" : "display.financeDirection.debit");
 }
 
 /** Build an issue URL using the human-readable identifier when available. */

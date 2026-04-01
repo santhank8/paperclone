@@ -24,6 +24,7 @@ import {
 } from "../lib/model-utils";
 import { getUIAdapter } from "../adapters";
 import { defaultCreateValues } from "./agent-config-defaults";
+import { useAdapterLabels } from "./agent-config-primitives";
 import { parseOnboardingGoalInput } from "../lib/onboarding-goal";
 import {
   buildOnboardingIssuePayload,
@@ -73,6 +74,7 @@ type AdapterType =
 
 export function OnboardingWizard() {
   const { t, locale } = useI18n();
+  const adapterLabels = useAdapterLabels();
   const { onboardingOpen, onboardingOptions, closeOnboarding } = useDialog();
   const { companies, setSelectedCompanyId, loading: companiesLoading } = useCompany();
   const queryClient = useQueryClient();
@@ -1212,7 +1214,7 @@ export function OnboardingWizard() {
                           {agentName}
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          {getUIAdapter(adapterType).label}
+                          {adapterLabels[adapterType] ?? getUIAdapter(adapterType).label}
                         </p>
                       </div>
                       <Check className="h-4 w-4 text-green-500 shrink-0" />
@@ -1334,6 +1336,7 @@ function AdapterEnvironmentResult({
   result: AdapterEnvironmentTestResult;
 }) {
   const { t } = useI18n();
+  const adapterLabels = useAdapterLabels();
   const statusLabel =
     result.status === "pass"
       ? t("onboarding.passed")
