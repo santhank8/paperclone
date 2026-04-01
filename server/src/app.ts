@@ -1,5 +1,4 @@
 import express, { Router, type Request as ExpressRequest } from "express";
-import iconvLite from "iconv-lite";
 import path from "node:path";
 import fs from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -90,9 +89,9 @@ export async function createApp(
   // On Windows with CJK system locales (CP949/CP932/GBK), curl encodes -d argument
   // strings using the ANSI Code Page. express.json() decodes the bytes as UTF-8,
   // replacing each invalid sequence with U+FFFD. If corruption is detected, try
-  // re-decoding the raw body as each CJK encoding in turn and use the first result
-  // that contains no replacement characters.
-  const CJK_ENCODINGS = ["CP949", "CP932", "GBK"] as const;
+  // re-decoding the raw body as each CJK encoding in turn (via the built-in
+  // TextDecoder) and use the first result that contains no replacement characters.
+  const CJK_ENCODINGS = ["euc-kr", "shift_jis", "gbk"] as const;
   app.use((req, _res, next) => {
     const rawBody = (req as unknown as { rawBody?: Buffer }).rawBody;
     if (!rawBody || req.method === "GET" || req.method === "HEAD") return next();
@@ -102,7 +101,7 @@ export async function createApp(
     if (!bodyStr.includes("\uFFFD")) return next();
     for (const encoding of CJK_ENCODINGS) {
       try {
-        const reDecoded = iconvLite.decode(rawBody, encoding);
+        const reDecoded = new TextDecoder(encoding, { fatal: false }).decode(rawBody);
         if (!reDecoded.includes("\uFFFD")) {
           req.body = JSON.parse(reDecoded) as unknown;
           break;
