@@ -79,12 +79,6 @@ export interface GitHubRelease {
   prerelease: boolean;
 }
 
-export interface GitHubOrgMember {
-  login: string;
-  avatar_url: string;
-  type: string;
-}
-
 // ── GitHub Actions types ──────────────────────────────────────────────
 
 export interface WorkflowRun {
@@ -109,24 +103,6 @@ export interface WorkflowRun {
 export interface WorkflowRunsResponse {
   total_count: number;
   workflow_runs: WorkflowRun[];
-}
-
-export interface Workflow {
-  id: number;
-  name: string;
-  path: string;
-  state: "active" | "disabled_manually" | "disabled_inactivity" | string;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface WorkflowsResponse {
-  total_count: number;
-  workflows: Workflow[];
-}
-
-export interface WorkflowRunTiming {
-  run_duration_ms: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -178,14 +154,6 @@ export class GitHubClient {
       `/orgs/${this.org}/repos`,
       { type: "all", sort: "pushed", direction: "desc" },
       10,
-    );
-  }
-
-  async listOrgMembers(): Promise<GitHubOrgMember[]> {
-    return this.paginate<GitHubOrgMember>(
-      `/orgs/${this.org}/members`,
-      {},
-      5,
     );
   }
 
@@ -250,14 +218,6 @@ export class GitHubClient {
   }
 
   // ── GitHub Actions endpoints ────────────────────────────────────────
-
-  async listWorkflows(repo: string): Promise<Workflow[]> {
-    const res = await this.get<WorkflowsResponse>(
-      `/repos/${this.org}/${repo}/actions/workflows`,
-      { per_page: "100" },
-    );
-    return res.workflows;
-  }
 
   async listWorkflowRuns(
     repo: string,

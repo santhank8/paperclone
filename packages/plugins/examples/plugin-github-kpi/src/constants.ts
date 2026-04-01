@@ -30,7 +30,6 @@ export const TOOL_NAMES = {
 export const DEFAULT_CONFIG = {
   orgName: "",
   githubTokenRef: "",
-  syncIntervalMinutes: 15,
   repoFilter: [] as string[],
   repoExclude: [] as string[],
 } as const;
