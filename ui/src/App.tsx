@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Layout } from "./components/Layout";
 import { OnboardingWizard } from "./components/OnboardingWizard";
 import { authApi } from "./api/auth";
+import { accessApi } from "./api/access";
 import { healthApi } from "./api/health";
 import { Dashboard } from "./pages/Dashboard";
 import { Companies } from "./pages/Companies";
@@ -50,6 +51,13 @@ import { useCompany } from "./context/CompanyContext";
 import { useDialog } from "./context/DialogContext";
 import { loadLastInboxTab } from "./lib/inbox";
 import { shouldRedirectCompanylessRouteToOnboarding } from "./lib/onboarding-route";
+
+function canCreateCompanyFromAccess(
+  snapshot: { source?: string; isInstanceAdmin?: boolean } | null | undefined,
+): boolean {
+  if (!snapshot) return false;
+  return snapshot.source === "local_implicit" || Boolean(snapshot.isInstanceAdmin);
+}
 
 function BootstrapPendingPage({ hasActiveInvite = false }: { hasActiveInvite?: boolean }) {
   return (
@@ -198,6 +206,12 @@ function OnboardingRoutePage() {
   const { companies } = useCompany();
   const { openOnboarding } = useDialog();
   const { companyPrefix } = useParams<{ companyPrefix?: string }>();
+  const boardAccessQuery = useQuery({
+    queryKey: queryKeys.access.me,
+    queryFn: () => accessApi.getBoardAccessSnapshot(),
+    retry: false,
+  });
+  const canCreateCompany = canCreateCompanyFromAccess(boardAccessQuery.data);
   const matchedCompany = companyPrefix
     ? companies.find((company) => company.issuePrefix.toUpperCase() === companyPrefix.toUpperCase()) ?? null
     : null;
@@ -212,6 +226,24 @@ function OnboardingRoutePage() {
     : companies.length > 0
       ? "Run onboarding again to create another company and seed its first agent."
       : "Get started by creating a company and your first agent.";
+
+  if (boardAccessQuery.isLoading) {
+    return <div className="mx-auto max-w-xl py-10 text-sm text-muted-foreground">Loading...</div>;
+  }
+
+  if (!matchedCompany && !canCreateCompany) {
+    return (
+      <div className="mx-auto max-w-xl py-10">
+        <div className="rounded-lg border border-border bg-card p-6">
+          <h1 className="text-xl font-semibold">No company access yet</h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            You need a company invite or instance admin access to continue. Ask an instance admin to invite you to a
+            company.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-xl py-10">
@@ -237,8 +269,14 @@ function OnboardingRoutePage() {
 function CompanyRootRedirect() {
   const { companies, selectedCompany, loading } = useCompany();
   const location = useLocation();
+  const boardAccessQuery = useQuery({
+    queryKey: queryKeys.access.me,
+    queryFn: () => accessApi.getBoardAccessSnapshot(),
+    retry: false,
+  });
+  const canCreateCompany = canCreateCompanyFromAccess(boardAccessQuery.data);
 
-  if (loading) {
+  if (loading || boardAccessQuery.isLoading) {
     return <div className="mx-auto max-w-xl py-10 text-sm text-muted-foreground">Loading...</div>;
   }
 
@@ -248,11 +286,12 @@ function CompanyRootRedirect() {
       shouldRedirectCompanylessRouteToOnboarding({
         pathname: location.pathname,
         hasCompanies: false,
+        canCreateCompany,
       })
     ) {
       return <Navigate to="/onboarding" replace />;
     }
-    return <NoCompaniesStartPage />;
+    return <NoCompaniesStartPage canCreateCompany={canCreateCompany} />;
   }
 
   return <Navigate to={`/${targetCompany.issuePrefix}/dashboard`} replace />;
@@ -261,8 +300,14 @@ function CompanyRootRedirect() {
 function UnprefixedBoardRedirect() {
   const location = useLocation();
   const { companies, selectedCompany, loading } = useCompany();
+  const boardAccessQuery = useQuery({
+    queryKey: queryKeys.access.me,
+    queryFn: () => accessApi.getBoardAccessSnapshot(),
+    retry: false,
+  });
+  const canCreateCompany = canCreateCompanyFromAccess(boardAccessQuery.data);
 
-  if (loading) {
+  if (loading || boardAccessQuery.isLoading) {
     return <div className="mx-auto max-w-xl py-10 text-sm text-muted-foreground">Loading...</div>;
   }
 
@@ -272,11 +317,12 @@ function UnprefixedBoardRedirect() {
       shouldRedirectCompanylessRouteToOnboarding({
         pathname: location.pathname,
         hasCompanies: false,
+        canCreateCompany,
       })
     ) {
       return <Navigate to="/onboarding" replace />;
     }
-    return <NoCompaniesStartPage />;
+    return <NoCompaniesStartPage canCreateCompany={canCreateCompany} />;
   }
 
   return (
@@ -287,8 +333,22 @@ function UnprefixedBoardRedirect() {
   );
 }
 
-function NoCompaniesStartPage() {
+function NoCompaniesStartPage({ canCreateCompany }: { canCreateCompany: boolean }) {
   const { openOnboarding } = useDialog();
+
+  if (!canCreateCompany) {
+    return (
+      <div className="mx-auto max-w-xl py-10">
+        <div className="rounded-lg border border-border bg-card p-6">
+          <h1 className="text-xl font-semibold">No company access yet</h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            You need a company invite or instance admin access to continue. Ask an instance admin to invite you to a
+            company.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-xl py-10">

@@ -82,6 +82,15 @@ type CliAuthChallengeStatus = {
   currentUserId: string | null;
 };
 
+type BoardAccessSnapshot = {
+  user: { id: string; name: string | null; email: string | null } | null;
+  userId: string;
+  isInstanceAdmin: boolean;
+  companyIds: string[];
+  source: "session" | "board_key" | "local_implicit" | "none";
+  keyId: string | null;
+};
+
 type CompanyInviteCreated = {
   id: string;
   token: string;
@@ -95,6 +104,8 @@ type CompanyInviteCreated = {
 };
 
 export const accessApi = {
+  getBoardAccessSnapshot: () => api.get<BoardAccessSnapshot>("/cli-auth/me"),
+
   createCompanyInvite: (
     companyId: string,
     input: {

@@ -29,6 +29,16 @@ describe("resolveRouteOnboardingOptions", () => {
     ).toEqual({ initialStep: 1 });
   });
 
+  it("does not open global onboarding when company creation is disallowed", () => {
+    expect(
+      resolveRouteOnboardingOptions({
+        pathname: "/onboarding",
+        companies: [],
+        canCreateCompany: false,
+      }),
+    ).toBeNull();
+  });
+
   it("opens agent creation when the prefixed company exists", () => {
     expect(
       resolveRouteOnboardingOptions({
@@ -47,6 +57,17 @@ describe("resolveRouteOnboardingOptions", () => {
         companies: [],
       }),
     ).toEqual({ initialStep: 1 });
+  });
+
+  it("does not fall back to company creation for unknown prefix without create access", () => {
+    expect(
+      resolveRouteOnboardingOptions({
+        pathname: "/pap/onboarding",
+        companyPrefix: "pap",
+        companies: [],
+        canCreateCompany: false,
+      }),
+    ).toBeNull();
   });
 });
 
@@ -74,6 +95,16 @@ describe("shouldRedirectCompanylessRouteToOnboarding", () => {
       shouldRedirectCompanylessRouteToOnboarding({
         pathname: "/issues",
         hasCompanies: true,
+      }),
+    ).toBe(false);
+  });
+
+  it("does not redirect when company creation is disallowed", () => {
+    expect(
+      shouldRedirectCompanylessRouteToOnboarding({
+        pathname: "/issues",
+        hasCompanies: false,
+        canCreateCompany: false,
       }),
     ).toBe(false);
   });

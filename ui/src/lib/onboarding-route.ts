@@ -21,12 +21,14 @@ export function resolveRouteOnboardingOptions(params: {
   pathname: string;
   companyPrefix?: string;
   companies: OnboardingRouteCompany[];
+  canCreateCompany?: boolean;
 }): { initialStep: 1 | 2; companyId?: string } | null {
-  const { pathname, companyPrefix, companies } = params;
+  const { pathname, companyPrefix, companies, canCreateCompany = true } = params;
 
   if (!isOnboardingPath(pathname)) return null;
 
   if (!companyPrefix) {
+    if (!canCreateCompany) return null;
     return { initialStep: 1 };
   }
 
@@ -37,6 +39,7 @@ export function resolveRouteOnboardingOptions(params: {
     ) ?? null;
 
   if (!matchedCompany) {
+    if (!canCreateCompany) return null;
     return { initialStep: 1 };
   }
 
@@ -46,6 +49,7 @@ export function resolveRouteOnboardingOptions(params: {
 export function shouldRedirectCompanylessRouteToOnboarding(params: {
   pathname: string;
   hasCompanies: boolean;
+  canCreateCompany?: boolean;
 }): boolean {
-  return !params.hasCompanies && !isOnboardingPath(params.pathname);
+  return !params.hasCompanies && (params.canCreateCompany ?? true) && !isOnboardingPath(params.pathname);
 }
