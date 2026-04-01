@@ -34,6 +34,7 @@ import { request as httpRequest } from "node:http";
 import { request as httpsRequest } from "node:https";
 import { isIP } from "node:net";
 import { logger } from "../middleware/logger.js";
+import type { PluginToolDispatcher } from "./plugin-tool-dispatcher.js";
 
 // ---------------------------------------------------------------------------
 // SSRF protection for plugin HTTP fetch
@@ -442,13 +443,14 @@ export function buildHostServices(
   pluginKey: string,
   eventBus: PluginEventBus,
   notifyWorker?: (method: string, params: unknown) => void,
+  toolDispatcher?: PluginToolDispatcher,
 ): HostServices & { dispose(): void } {
   const registry = pluginRegistryService(db);
   const stateStore = pluginStateStore(db);
   const secretsHandler = createPluginSecretsHandler({ db, pluginId });
   const companies = companyService(db);
   const agents = agentService(db);
-  const heartbeat = heartbeatService(db);
+  const heartbeat = heartbeatService(db, toolDispatcher);
   const projects = projectService(db);
   const issues = issueService(db);
   const documents = documentService(db);

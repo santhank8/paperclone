@@ -139,22 +139,7 @@ export async function createApp(
       companyDeletionEnabled: opts.companyDeletionEnabled,
     }),
   );
-  api.use("/companies", companyRoutes(db, opts.storageService));
-  api.use(companySkillRoutes(db));
-  api.use(agentRoutes(db));
-  api.use(assetRoutes(db, opts.storageService));
-  api.use(projectRoutes(db));
-  api.use(issueRoutes(db, opts.storageService));
-  api.use(routineRoutes(db));
-  api.use(executionWorkspaceRoutes(db));
-  api.use(goalRoutes(db));
-  api.use(approvalRoutes(db));
-  api.use(secretRoutes(db));
-  api.use(costRoutes(db));
-  api.use(activityRoutes(db));
-  api.use(dashboardRoutes(db));
-  api.use(sidebarBadgeRoutes(db));
-  api.use(instanceSettingsRoutes(db));
+  // Initialize plugin infrastructure before route mounting so toolDispatcher is available
   const hostServicesDisposers = new Map<string, () => void>();
   const workerManager = createPluginWorkerManager();
   const pluginRegistry = pluginRegistryService(db);
@@ -178,6 +163,23 @@ export async function createApp(
     scheduler,
     jobStore,
   });
+
+  api.use("/companies", companyRoutes(db, opts.storageService));
+  api.use(companySkillRoutes(db));
+  api.use(agentRoutes(db, toolDispatcher));
+  api.use(assetRoutes(db, opts.storageService));
+  api.use(projectRoutes(db));
+  api.use(issueRoutes(db, opts.storageService, toolDispatcher));
+  api.use(routineRoutes(db));
+  api.use(executionWorkspaceRoutes(db));
+  api.use(goalRoutes(db));
+  api.use(approvalRoutes(db, toolDispatcher));
+  api.use(secretRoutes(db));
+  api.use(costRoutes(db, toolDispatcher));
+  api.use(activityRoutes(db));
+  api.use(dashboardRoutes(db));
+  api.use(sidebarBadgeRoutes(db));
+  api.use(instanceSettingsRoutes(db));
   const hostServiceCleanup = createPluginHostServiceCleanup(lifecycle, hostServicesDisposers);
   const loader = pluginLoader(
     db,
@@ -198,7 +200,7 @@ export async function createApp(
           const handle = workerManager.getWorker(pluginId);
           if (handle) handle.notify(method, params);
         };
-        const services = buildHostServices(db, pluginId, manifest.id, eventBus, notifyWorker);
+        const services = buildHostServices(db, pluginId, manifest.id, eventBus, notifyWorker, toolDispatcher);
         hostServicesDisposers.set(pluginId, () => services.dispose());
         return createHostClientHandlers({
           pluginId,
@@ -316,5 +318,5 @@ export async function createApp(
     void flushPluginLogBuffer();
   });
 
-  return app;
+  return Object.assign(app, { toolDispatcher });
 }

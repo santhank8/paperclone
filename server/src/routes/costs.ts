@@ -20,10 +20,11 @@ import {
 import { assertBoard, assertCompanyAccess, getActorInfo } from "./authz.js";
 import { fetchAllQuotaWindows } from "../services/quota-windows.js";
 import { badRequest } from "../errors.js";
+import type { PluginToolDispatcher } from "../services/plugin-tool-dispatcher.js";
 
-export function costRoutes(db: Db) {
+export function costRoutes(db: Db, toolDispatcher?: PluginToolDispatcher) {
   const router = Router();
-  const heartbeat = heartbeatService(db);
+  const heartbeat = heartbeatService(db, toolDispatcher);
   const budgetHooks = {
     cancelWorkForScope: heartbeat.cancelBudgetScopeWork,
   };

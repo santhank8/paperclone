@@ -33,6 +33,12 @@ import { resolveClaudeDesiredSkillNames } from "./skills.js";
 
 const __moduleDir = path.dirname(fileURLToPath(import.meta.url));
 
+// MCP server script candidates — compiled .js in same dir (production) or dist/ (dev via tsx)
+const PLUGIN_TOOLS_MCP_CANDIDATES = [
+  path.resolve(__moduleDir, "plugin-tools-mcp.js"),                 // production: dist/server/
+  path.resolve(__moduleDir, "../../dist/server/plugin-tools-mcp.js"), // dev: src/server/ → dist/server/
+];
+
 /**
  * Create a tmpdir with `.claude/skills/` containing symlinks to skills from
  * the repo's `skills/` directory, so `--add-dir` makes Claude Code discover
@@ -57,6 +63,50 @@ async function buildSkillsDir(config: Record<string, unknown>): Promise<string> 
     );
   }
   return tmp;
+}
+
+/**
+ * Resolve the plugin-tools-mcp script.
+ * Checks the same-directory compiled .js first (production: dist/server/),
+ * then falls back to dist/ relative to the package root (dev build).
+ */
+async function resolvePluginToolsMcpScript(): Promise<string | null> {
+  for (const candidate of PLUGIN_TOOLS_MCP_CANDIDATES) {
+    const exists = await fs.stat(candidate).then(() => true).catch(() => false);
+    if (exists) return candidate;
+  }
+  return null;
+}
+
+/**
+ * If plugin tools are available, write a tools JSON file and an MCP config
+ * that points Claude Code at the plugin-tools-mcp stdio server.
+ * Returns the path to the MCP config file, or null if no tools.
+ */
+async function buildPluginToolsMcpConfig(
+  skillsDir: string,
+  pluginTools: unknown[],
+): Promise<string | null> {
+  if (pluginTools.length === 0) return null;
+
+  const mcpScript = await resolvePluginToolsMcpScript();
+  if (!mcpScript) return null;
+
+  const toolsPath = path.join(skillsDir, "plugin-tools.json");
+  await fs.writeFile(toolsPath, JSON.stringify(pluginTools), "utf-8");
+
+  const mcpConfig = {
+    mcpServers: {
+      "paperclip-plugin-tools": {
+        command: "node",
+        args: [mcpScript, toolsPath],
+      },
+    },
+  };
+  const mcpConfigPath = path.join(skillsDir, "mcp-config.json");
+  await fs.writeFile(mcpConfigPath, JSON.stringify(mcpConfig), "utf-8");
+
+  return mcpConfigPath;
 }
 
 interface ClaudeExecutionInput {
@@ -354,6 +404,10 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
   const billingType = resolveClaudeBillingType(effectiveEnv);
   const skillsDir = await buildSkillsDir(config);
 
+  // Build MCP config for plugin tools if any are available
+  const pluginTools = Array.isArray(context.pluginTools) ? context.pluginTools : [];
+  const mcpConfigPath = await buildPluginToolsMcpConfig(skillsDir, pluginTools);
+
   // When instructionsFilePath is configured, create a combined temp file that
   // includes both the file content and the path directive, so we only need
   // --append-system-prompt-file (Claude CLI forbids using both flags together).
@@ -428,6 +482,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
       args.push("--append-system-prompt-file", effectiveInstructionsFilePath);
     }
     args.push("--add-dir", skillsDir);
+    if (mcpConfigPath) args.push("--mcp-config", mcpConfigPath);
     if (extraArgs.length > 0) args.push(...extraArgs);
     return args;
   };

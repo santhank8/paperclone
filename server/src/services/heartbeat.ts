@@ -59,6 +59,7 @@ import {
   resolveSessionCompactionPolicy,
   type SessionCompactionPolicy,
 } from "@paperclipai/adapter-utils";
+import type { PluginToolDispatcher } from "./plugin-tool-dispatcher.js";
 
 const MAX_LIVE_LOG_CHUNK_BYTES = 8 * 1024;
 const HEARTBEAT_MAX_CONCURRENT_RUNS_DEFAULT = 1;
@@ -878,7 +879,7 @@ function resolveNextSessionState(input: {
   };
 }
 
-export function heartbeatService(db: Db) {
+export function heartbeatService(db: Db, toolDispatcher?: PluginToolDispatcher) {
   const instanceSettings = instanceSettingsService(db);
   const getCurrentUserRedactionOptions = async () => ({
     enabled: (await instanceSettings.getGeneral()).censorUsernameInLogs,
@@ -2654,12 +2655,15 @@ export function heartbeatService(db: Db) {
           "local agent jwt secret missing or invalid; running without injected PAPERCLIP_API_KEY",
         );
       }
+      // Gather plugin tools if dispatcher is available
+      const pluginTools = toolDispatcher?.listToolsForAgent() ?? [];
+
       const adapterResult = await adapter.execute({
         runId: run.id,
         agent,
         runtime: runtimeForAdapter,
         config: runtimeConfig,
-        context,
+        context: { ...context, pluginTools },
         onLog,
         onMeta: onAdapterMeta,
         onSpawn: async (meta) => {
