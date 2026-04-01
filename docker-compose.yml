@@ -42,9 +42,9 @@ services:
       - paperclip-claude-adi6ix_claude-config:/claude-config-shared:ro
       # ── OpenCode integration ─────────────────────────────────────────
       # Mount the binary volume read-only — your app should never write here
-      - opencode-bin:/opencode-bin:ro
+      - paperclip-opencode-kczeg5_opencode-bin:/opencode-bin:ro
       # Mount the config volume read-only — opencode reads credentials from here
-      - opencode-config:/opencode-config:ro
+      - paperclip-opencode-kczeg5_opencode-config:/opencode-config:ro
       # ─────────────────────────────────────────────────────────────────
     depends_on:
       db:
