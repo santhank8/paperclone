@@ -433,6 +433,20 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
   // ── Extract issue context ──────────────────────────────────
   const issueId = asString(context.issueId || context.taskId, "");
   const wakeReason = asString(context.wakeReason, "");
+  const chatRoomId =
+    typeof context.chatRoomId === "string" && context.chatRoomId.trim().length > 0
+      ? context.chatRoomId.trim()
+      : null;
+  const chatMessageId =
+    typeof context.messageId === "string" && context.messageId.trim().length > 0
+      ? context.messageId.trim()
+      : null;
+  if (chatRoomId) {
+    process.env.PAPERCLIP_CHAT_ROOM_ID = chatRoomId;
+  }
+  if (chatMessageId) {
+    process.env.PAPERCLIP_CHAT_MESSAGE_ID = chatMessageId;
+  }
   let issueBlock = "";
   let jwtAuthHeader = "";
   // ── Generate JWT for internal API access ────────────────────

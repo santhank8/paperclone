@@ -97,6 +97,10 @@ export const queryKeys = {
     schedulerHeartbeats: ["instance", "scheduler-heartbeats"] as const,
     experimentalSettings: ["instance", "experimental-settings"] as const,
   },
+  chat: {
+    rooms: (companyId: string) => ["chat", "rooms", companyId] as const,
+    messages: (roomId: string) => ["chat", "messages", roomId] as const,
+  },
   health: ["health"] as const,
   secrets: {
     list: (companyId: string) => ["secrets", companyId] as const,

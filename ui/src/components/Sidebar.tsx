@@ -9,6 +9,7 @@ import {
   SquarePen,
   Network,
   Boxes,
+  MessageSquare,
   Repeat,
   Settings,
 } from "lucide-react";
@@ -111,6 +112,7 @@ export function Sidebar() {
           <SidebarNavItem to="/org" label="Org" icon={Network} />
           <SidebarNavItem to="/skills" label="Skills" icon={Boxes} />
           <SidebarNavItem to="/costs" label="Costs" icon={DollarSign} />
+          <SidebarNavItem to="/chat" label="Boardroom" icon={MessageSquare} />
           <SidebarNavItem to="/activity" label="Activity" icon={History} />
           <SidebarNavItem to="/company/settings" label="Settings" icon={Settings} />
         </SidebarSection>

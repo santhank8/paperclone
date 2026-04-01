@@ -419,6 +419,43 @@ export function buildPaperclipEnv(agent: { id: string; companyId: string }): Rec
   return vars;
 }
 
+/**
+ * Extract standard Paperclip context env vars from an adapter execution context.
+ * Adapters should merge these into the child process environment.
+ */
+export function buildPaperclipContextEnv(context: Record<string, unknown>): Record<string, string> {
+  const env: Record<string, string> = {};
+  const str = (v: unknown) => typeof v === "string" && v.trim().length > 0 ? v.trim() : null;
+
+  const taskId = str(context.taskId) ?? str(context.issueId);
+  if (taskId) env.PAPERCLIP_TASK_ID = taskId;
+
+  const wakeReason = str(context.wakeReason);
+  if (wakeReason) env.PAPERCLIP_WAKE_REASON = wakeReason;
+
+  const wakeCommentId = str(context.wakeCommentId) ?? str(context.commentId);
+  if (wakeCommentId) env.PAPERCLIP_WAKE_COMMENT_ID = wakeCommentId;
+
+  const approvalId = str(context.approvalId);
+  if (approvalId) env.PAPERCLIP_APPROVAL_ID = approvalId;
+
+  const approvalStatus = str(context.approvalStatus);
+  if (approvalStatus) env.PAPERCLIP_APPROVAL_STATUS = approvalStatus;
+
+  const issueIds = Array.isArray(context.issueIds)
+    ? context.issueIds.filter((v): v is string => typeof v === "string" && v.trim().length > 0)
+    : [];
+  if (issueIds.length > 0) env.PAPERCLIP_LINKED_ISSUE_IDS = issueIds.join(",");
+
+  const chatRoomId = str(context.chatRoomId);
+  if (chatRoomId) env.PAPERCLIP_CHAT_ROOM_ID = chatRoomId;
+
+  const chatMessageId = str(context.messageId);
+  if (chatMessageId) env.PAPERCLIP_CHAT_MESSAGE_ID = chatMessageId;
+
+  return env;
+}
+
 export function defaultPathForPlatform() {
   if (process.platform === "win32") {
     return "C:\\Windows\\System32;C:\\Windows;C:\\Windows\\System32\\Wbem";

@@ -251,6 +251,8 @@ export type {
   AgentTaskSession,
   AgentWakeupRequest,
   InstanceSchedulerHeartbeatAgent,
+  ChatRoom,
+  ChatMessage,
   LiveEvent,
   DashboardSummary,
   ActivityEvent,

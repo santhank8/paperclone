@@ -50,3 +50,7 @@ tests/release-smoke/test-results/
 tests/release-smoke/playwright-report/
 .superset/
 .claude/worktrees/
+
+# Generated benchmark artifacts (regenerate with pnpm llm:research)
+docs/local-llm-capability/results.json
+docs/local-llm-capability/report.md

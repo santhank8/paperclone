@@ -1,0 +1,10 @@
+[
+  { "id": "llama3.1:8b-instruct-q4_K_M", "family": "llama", "budgetGb": 8, "backend": "ollama" },
+  { "id": "qwen2.5:7b-instruct-q4_K_M", "family": "qwen", "budgetGb": 8, "backend": "ollama" },
+  { "id": "qwen2.5-coder:7b-instruct-q4_K_M", "family": "qwen", "budgetGb": 8, "backend": "ollama" },
+  { "id": "phi3.5:mini-instruct-q4_K_M", "family": "phi", "budgetGb": 8, "backend": "ollama" },
+  { "id": "gemma2:2b-instruct-q4_K_M", "family": "gemma", "budgetGb": 8, "backend": "ollama" },
+  { "id": "mistral:7b-instruct-v0.3-q4_K_M", "family": "mistral", "budgetGb": 8, "backend": "ollama" },
+  { "id": "smollm2:1.7b-instruct-q8_0", "family": "smollm", "budgetGb": 8, "backend": "ollama" },
+  { "id": "deepseek-r1:7b-q4_K_M", "family": "deepseek", "budgetGb": 8, "backend": "ollama" }
+]

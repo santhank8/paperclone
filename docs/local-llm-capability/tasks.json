@@ -1,0 +1,12 @@
+[
+  {
+    "id": "research-summary",
+    "prompt": "Research the issue context and produce a 4-bullet summary. You must call at least one tool before final answer.",
+    "requiredToolCalls": 1
+  },
+  {
+    "id": "task-summarization",
+    "prompt": "Summarize assigned tasks and next actions in concise bullets. You must call at least one tool before final answer.",
+    "requiredToolCalls": 1
+  }
+]
