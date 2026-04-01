@@ -145,7 +145,7 @@ const BUNDLED_PLUGIN_EXAMPLES: AvailablePluginExample[] = [
     displayName: "GitHub Org KPI Tracker",
     description: "Tracks GitHub organisation-wide metrics — commit velocity, PR cycle times, CI/CD health, contributor activity — with an interactive org ecosystem graph and repo drill-down.",
     localPath: "packages/plugins/examples/plugin-github-kpi",
-    tag: "connector",
+    tag: "example",
   },
 ];
 
