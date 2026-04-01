@@ -44,6 +44,11 @@ const openclawGatewayCLIAdapter: CLIAdapterModule = {
   formatStdoutEvent: printOpenClawGatewayStreamEvent,
 };
 
+const claudeContainerCLIAdapter: CLIAdapterModule = {
+  type: "claude_container",
+  formatStdoutEvent: printClaudeStreamEvent,
+};
+
 const adaptersByType = new Map<string, CLIAdapterModule>(
   [
     claudeLocalCLIAdapter,
@@ -53,6 +58,7 @@ const adaptersByType = new Map<string, CLIAdapterModule>(
     cursorLocalCLIAdapter,
     geminiLocalCLIAdapter,
     openclawGatewayCLIAdapter,
+    claudeContainerCLIAdapter,
     processCLIAdapter,
     httpCLIAdapter,
   ].map((a) => [a.type, a]),
