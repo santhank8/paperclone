@@ -920,7 +920,7 @@ export function DesignGuide() {
                 <PriorityIcon priority="high" />
               </>
             }
-            identifier="PAP-001"
+            identifier="DEMO-001"
             title={tr("Implement authentication flow")}
             subtitle={tr("Assigned to Agent Alpha")}
             trailing={<StatusBadge status="in_progress" />}
@@ -933,7 +933,7 @@ export function DesignGuide() {
                 <PriorityIcon priority="medium" />
               </>
             }
-            identifier="PAP-002"
+            identifier="DEMO-002"
             title={tr("Set up CI/CD pipeline")}
             subtitle={tr("Completed 2 days ago")}
             trailing={<StatusBadge status="done" />}
@@ -946,7 +946,7 @@ export function DesignGuide() {
                 <PriorityIcon priority="low" />
               </>
             }
-            identifier="PAP-003"
+            identifier="DEMO-003"
             title={tr("Write API documentation")}
             trailing={<StatusBadge status="todo" />}
             onClick={() => {}}
@@ -958,9 +958,9 @@ export function DesignGuide() {
                 <PriorityIcon priority="critical" />
               </>
             }
-            identifier="PAP-004"
+            identifier="DEMO-004"
             title={tr("Deploy to production")}
-            subtitle={tr("Blocked by PAP-001")}
+            subtitle={tr("Blocked by DEMO-001")}
             trailing={<StatusBadge status="blocked" />}
             selected
           />
@@ -998,17 +998,17 @@ export function DesignGuide() {
       <Section title={copy.avatars}>
         <SubSection title={tr("Sizes")}>
           <div className="flex items-center gap-3">
-            <Avatar size="sm"><AvatarFallback>SM</AvatarFallback></Avatar>
-            <Avatar><AvatarFallback>DF</AvatarFallback></Avatar>
-            <Avatar size="lg"><AvatarFallback>LG</AvatarFallback></Avatar>
+            <Avatar size="sm"><AvatarFallback>DG</AvatarFallback></Avatar>
+            <Avatar><AvatarFallback>AV</AvatarFallback></Avatar>
+            <Avatar size="lg"><AvatarFallback>XL</AvatarFallback></Avatar>
           </div>
         </SubSection>
 
         <SubSection title={tr("Group")}>
           <AvatarGroup>
-            <Avatar><AvatarFallback>A1</AvatarFallback></Avatar>
-            <Avatar><AvatarFallback>A2</AvatarFallback></Avatar>
-            <Avatar><AvatarFallback>A3</AvatarFallback></Avatar>
+            <Avatar><AvatarFallback>AA</AvatarFallback></Avatar>
+            <Avatar><AvatarFallback>AB</AvatarFallback></Avatar>
+            <Avatar><AvatarFallback>AC</AvatarFallback></Avatar>
             <AvatarGroupCount>+5</AvatarGroupCount>
           </AvatarGroup>
         </SubSection>
@@ -1138,9 +1138,9 @@ export function DesignGuide() {
       <Section title={copy.logViewer}>
         <div className="bg-neutral-950 rounded-lg p-3 font-mono text-xs max-h-80 overflow-y-auto">
           <div className="text-foreground">[12:00:01] INFO  {tr("Agent started successfully")}</div>
-          <div className="text-foreground">[12:00:02] INFO  {tr("Processing task PAP-001")}</div>
+          <div className="text-foreground">[12:00:02] INFO  {tr("Processing task DEMO-001")}</div>
           <div className="text-yellow-400">[12:00:05] WARN  {tr("Rate limit approaching (80%)")}</div>
-          <div className="text-foreground">[12:00:08] INFO  {tr("Task PAP-001 completed")}</div>
+          <div className="text-foreground">[12:00:08] INFO  {tr("Task DEMO-001 completed")}</div>
           <div className="text-red-400">[12:00:12] ERROR {tr("Connection timeout to upstream service")}</div>
           <div className="text-blue-300">[12:00:12] SYS   {tr("Retrying connection in 5s...")}</div>
           <div className="text-foreground">[12:00:17] INFO  {tr("Reconnected successfully")}</div>
@@ -1236,13 +1236,13 @@ export function DesignGuide() {
           <div className="border border-border rounded-b-md">
             <EntityRow
               leading={<PriorityIcon priority="high" />}
-              identifier="PAP-101"
+              identifier="DEMO-101"
               title={tr("Build agent heartbeat system")}
               onClick={() => {}}
             />
             <EntityRow
               leading={<PriorityIcon priority="medium" />}
-              identifier="PAP-102"
+              identifier="DEMO-102"
               title={tr("Add cost tracking dashboard")}
               onClick={() => {}}
             />
@@ -1294,12 +1294,12 @@ export function DesignGuide() {
             </thead>
             <tbody>
               <tr className="border-b border-border">
-                <td className="px-3 py-2">claude-sonnet-4-20250514</td>
+                <td className="px-3 py-2">provider/model-alpha</td>
                 <td className="px-3 py-2 font-mono">1.2M</td>
                 <td className="px-3 py-2 font-mono">$18.00</td>
               </tr>
               <tr className="border-b border-border">
-                <td className="px-3 py-2">claude-haiku-4-20250506</td>
+                <td className="px-3 py-2">provider/model-beta</td>
                 <td className="px-3 py-2 font-mono">500k</td>
                 <td className="px-3 py-2 font-mono">$1.25</td>
               </tr>
@@ -1359,23 +1359,23 @@ export function DesignGuide() {
       <Section title={copy.commonIcons}>
         <div className="grid grid-cols-4 md:grid-cols-6 gap-4">
           {[
-            ["Inbox", Inbox],
-            ["ListTodo", ListTodo],
-            ["CircleDot", CircleDot],
-            ["Hexagon", Hexagon],
-            ["Target", Target],
-            ["LayoutDashboard", LayoutDashboard],
-            ["Bot", Bot],
-            ["DollarSign", DollarSign],
-            ["History", History],
-            ["Search", Search],
-            ["Plus", Plus],
-            ["Trash2", Trash2],
-            ["Settings", Settings],
-            ["User", User],
-            ["Mail", Mail],
-            ["Upload", Upload],
-            ["Zap", Zap],
+            [tr("Inbox"), Inbox],
+            [tr("List"), ListTodo],
+            [tr("Issues"), CircleDot],
+            [tr("Projects"), Hexagon],
+            [tr("Target"), Target],
+            [tr("Dashboard"), LayoutDashboard],
+            [tr("Agents"), Bot],
+            [tr("Costs"), DollarSign],
+            [tr("History"), History],
+            [tr("Search"), Search],
+            [tr("Add"), Plus],
+            [tr("Delete"), Trash2],
+            [tr("Settings"), Settings],
+            [tr("User"), User],
+            [tr("Mail"), Mail],
+            [tr("Upload"), Upload],
+            [tr("Automation"), Zap],
           ].map(([name, Icon]) => {
             const LucideIcon = Icon as React.FC<{ className?: string }>;
             return (

@@ -78,6 +78,7 @@ Covered in the sweep:
 - the latest follow-up localized the remaining adapter instruction-file labels/placeholders across local adapter config forms, added `pi_local` coverage to localized adapter label maps, moved the advanced new-agent adapter chooser onto shared onboarding catalogs, and localized transcript init/system/tool fallback labels plus model/session event summaries
 - the newest cleanup pass localized the OpenClaw invite prompt snippet, live-run transcript empty states, and the last user-facing adapter fallback consumers that previously fell through to raw adapter module labels
 - a final follow-up moved adapter module labels and fallback maps onto runtime locale helpers, leaving only demo/reference tokens and catalog data as expected remaining English literals
+- a developer workflow guide now lives at `docs/guides/agent-developer/ui-localization.md`, and the remaining demo/reference tokens were normalized into generic sample data so the residual English in UI sources is expected catalog or fixture content rather than unmanaged UI copy
 
 Remaining follow-up is intentionally narrower:
 - residual demo/reference tokens such as model identifiers, icon names, and fixture-only placeholders in internal reference screens
