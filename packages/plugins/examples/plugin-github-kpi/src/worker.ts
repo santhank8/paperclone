@@ -210,7 +210,7 @@ async function syncGitHubData(ctx: PluginContext): Promise<KpiSnapshot> {
   let totalCycleMinutes: number[] = [];
   let totalIssueResolutionHours: number[] = [];
   let totalDeploys = 0;
-  let latestReleaseGlobal: { tag: string; date: string } | null = null as { tag: string; date: string } | null;
+  let latestReleaseGlobal: { tag: string; date: string } | null = null;
 
   // CI/CD aggregation
   const allWorkflowRuns: (WorkflowRun & { _repo: string })[] = [];
