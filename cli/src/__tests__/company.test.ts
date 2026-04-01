@@ -100,6 +100,16 @@ describe("resolveCompanyImportApplyConfirmationMode", () => {
       })
     ).toThrow(/with --json requires --yes/i);
   });
+
+  it("requires --yes for json apply even in interactive mode", () => {
+    expect(() =>
+      resolveCompanyImportApplyConfirmationMode({
+        yes: false,
+        interactive: true,
+        json: true,
+      })
+    ).toThrow(/with --json requires --yes/i);
+  });
 });
 
 describe("buildCompanyDashboardUrl", () => {
