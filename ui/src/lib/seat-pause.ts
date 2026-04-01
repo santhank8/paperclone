@@ -1,18 +1,20 @@
 import type { SeatPauseReason } from "@paperclipai/shared";
+import { formatMessage } from "../i18n";
+import { getRuntimeLocale } from "../i18n/runtime";
 
-const SEAT_PAUSE_REASON_LABELS: Record<SeatPauseReason, string> = {
-  budget_enforcement: "Budget enforcement",
-  manual_admin: "Manual admin",
-  maintenance: "Maintenance",
+const REASON_KEYS: Record<SeatPauseReason, string> = {
+  budget_enforcement: "seatPause.budgetEnforcement",
+  manual_admin: "seatPause.manualAdmin",
+  maintenance: "seatPause.maintenance",
 };
 
 export function formatSeatPauseReason(reason: SeatPauseReason | null | undefined): string | null {
   if (!reason) return null;
-  return SEAT_PAUSE_REASON_LABELS[reason] ?? reason;
+  return formatMessage(getRuntimeLocale(), REASON_KEYS[reason] ?? reason);
 }
 
 export function formatSeatPauseReasons(reasons: SeatPauseReason[] | null | undefined): string {
-  if (!reasons || reasons.length === 0) return "none";
+  if (!reasons || reasons.length === 0) return formatMessage(getRuntimeLocale(), "seatPause.none");
   return reasons
     .map((reason) => formatSeatPauseReason(reason) ?? reason)
     .join(", ");

@@ -1,5 +1,7 @@
 import type { PermissionKey } from "@paperclipai/shared";
 import { PERMISSION_KEYS } from "@paperclipai/shared";
+import { formatMessage } from "../i18n";
+import { getRuntimeLocale } from "../i18n/runtime";
 
 export function formatDelegatedPermissions(values: string[]): string {
   return values.join(", ");
@@ -16,16 +18,19 @@ export function parseDelegatedPermissions(input: string): string[] {
   );
 }
 
-const LABELS: Record<string, string> = {
-  "agents:create": "Create agents",
-  "users:invite": "Invite users",
-  "users:manage_permissions": "Manage permissions",
-  "tasks:assign": "Assign tasks",
-  "tasks:assign_scope": "Assign tasks in scope",
-  "joins:approve": "Approve joins",
+const LABEL_KEYS: Record<string, string> = {
+  "agents:create": "seatPermissions.createAgents",
+  "users:invite": "seatPermissions.inviteUsers",
+  "users:manage_permissions": "seatPermissions.managePermissions",
+  "tasks:assign": "seatPermissions.assignTasks",
+  "tasks:assign_scope": "seatPermissions.assignTasksInScope",
+  "joins:approve": "seatPermissions.approveJoins",
 };
 
-export const seatPermissionOptions = PERMISSION_KEYS.map((key) => ({
-  key,
-  label: LABELS[key] ?? key,
-})) as Array<{ key: PermissionKey; label: string }>;
+export function getSeatPermissionOptions() {
+  const locale = getRuntimeLocale();
+  return PERMISSION_KEYS.map((key) => ({
+    key,
+    label: formatMessage(locale, LABEL_KEYS[key] ?? key),
+  })) as Array<{ key: PermissionKey; label: string }>;
+}

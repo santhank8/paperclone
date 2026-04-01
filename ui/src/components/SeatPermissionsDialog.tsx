@@ -10,7 +10,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useI18n } from "../i18n";
-import { formatDelegatedPermissions, seatPermissionOptions } from "../lib/seat-permissions";
+import { formatDelegatedPermissions, getSeatPermissionOptions } from "../lib/seat-permissions";
 
 export function SeatPermissionsDialog({
   open,
@@ -30,6 +30,7 @@ export function SeatPermissionsDialog({
   onSubmit: () => void;
 }) {
   const { t } = useI18n();
+  const seatPermissionOptions = getSeatPermissionOptions();
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
