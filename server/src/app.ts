@@ -36,12 +36,14 @@ import { aiGenerateRoutes } from "./routes/ai-generate.js";
 import { privacyRoutes, startRetentionScheduler } from "./routes/privacy.js";
 import { goalStatsRoutes } from "./routes/goal-stats.js";
 import { aiGoalBreakdownRoutes } from "./routes/ai-goal-breakdown.js";
-import { pluginRoutes } from "./routes/plugins.js";
-import { pluginUiStaticRoutes } from "./routes/plugin-ui-static.js";
+// Plugin system disabled — not needed for V1 productization
+// import { pluginRoutes } from "./routes/plugins.js";
+// import { pluginUiStaticRoutes } from "./routes/plugin-ui-static.js";
 import { applyUiBranding } from "./ui-branding.js";
 import { logger } from "./middleware/logger.js";
-import { DEFAULT_LOCAL_PLUGIN_DIR, pluginLoader } from "./services/plugin-loader.js";
-import { createPluginWorkerManager } from "./services/plugin-worker-manager.js";
+// Plugin system disabled
+// import { DEFAULT_LOCAL_PLUGIN_DIR, pluginLoader } from "./services/plugin-loader.js";
+// import { createPluginWorkerManager } from "./services/plugin-worker-manager.js";
 import { createPluginJobScheduler } from "./services/plugin-job-scheduler.js";
 import { pluginJobStore } from "./services/plugin-job-store.js";
 import { createPluginToolDispatcher } from "./services/plugin-tool-dispatcher.js";
@@ -175,69 +177,13 @@ export async function createApp(
   // Start daily data retention cleanup
   startRetentionScheduler(db);
 
-  const hostServicesDisposers = new Map<string, () => void>();
-  const workerManager = createPluginWorkerManager();
+  // ── Plugin system disabled for V1 productization ──
+  // The plugin system adds complexity without customer value at this stage.
+  // Re-enable when extension marketplace is needed (100+ clients).
+  // Original code preserved in git history.
   const pluginRegistry = pluginRegistryService(db);
   const eventBus = createPluginEventBus();
   setPluginEventBus(eventBus);
-  const jobStore = pluginJobStore(db);
-  const lifecycle = pluginLifecycleManager(db, { workerManager });
-  const scheduler = createPluginJobScheduler({
-    db,
-    jobStore,
-    workerManager,
-  });
-  const toolDispatcher = createPluginToolDispatcher({
-    workerManager,
-    lifecycleManager: lifecycle,
-    db,
-  });
-  const jobCoordinator = createPluginJobCoordinator({
-    db,
-    lifecycle,
-    scheduler,
-    jobStore,
-  });
-  const hostServiceCleanup = createPluginHostServiceCleanup(lifecycle, hostServicesDisposers);
-  const loader = pluginLoader(
-    db,
-    { localPluginDir: opts.localPluginDir ?? DEFAULT_LOCAL_PLUGIN_DIR },
-    {
-      workerManager,
-      eventBus,
-      jobScheduler: scheduler,
-      jobStore,
-      toolDispatcher,
-      lifecycleManager: lifecycle,
-      instanceInfo: {
-        instanceId: opts.instanceId ?? "default",
-        hostVersion: opts.hostVersion ?? "0.0.0",
-      },
-      buildHostHandlers: (pluginId, manifest) => {
-        const notifyWorker = (method: string, params: unknown) => {
-          const handle = workerManager.getWorker(pluginId);
-          if (handle) handle.notify(method, params);
-        };
-        const services = buildHostServices(db, pluginId, manifest.id, eventBus, notifyWorker);
-        hostServicesDisposers.set(pluginId, () => services.dispose());
-        return createHostClientHandlers({
-          pluginId,
-          capabilities: manifest.capabilities,
-          services,
-        });
-      },
-    },
-  );
-  api.use(
-    pluginRoutes(
-      db,
-      loader,
-      { scheduler, jobStore },
-      { workerManager },
-      { toolDispatcher },
-      { workerManager },
-    ),
-  );
   api.use(
     accessRoutes(db, {
       deploymentMode: opts.deploymentMode,
@@ -250,9 +196,10 @@ export async function createApp(
   app.use("/api", (_req, res) => {
     res.status(404).json({ error: "API route not found" });
   });
-  app.use(pluginUiStaticRoutes(db, {
-    localPluginDir: opts.localPluginDir ?? DEFAULT_LOCAL_PLUGIN_DIR,
-  }));
+  // Plugin UI static routes disabled
+  // app.use(pluginUiStaticRoutes(db, {
+  //   localPluginDir: opts.localPluginDir ?? DEFAULT_LOCAL_PLUGIN_DIR,
+  // }));
 
   const __dirname = path.dirname(fileURLToPath(import.meta.url));
   if (opts.uiMode === "static") {
@@ -306,35 +253,9 @@ export async function createApp(
 
   app.use(errorHandler);
 
-  jobCoordinator.start();
-  scheduler.start();
-  void toolDispatcher.initialize().catch((err) => {
-    logger.error({ err }, "Failed to initialize plugin tool dispatcher");
-  });
-  const devWatcher = opts.uiMode === "vite-dev"
-    ? createPluginDevWatcher(
-      lifecycle,
-      async (pluginId) => (await pluginRegistry.getById(pluginId))?.packagePath ?? null,
-    )
-    : null;
-  void loader.loadAll().then((result) => {
-    if (!result) return;
-    for (const loaded of result.results) {
-      if (devWatcher && loaded.success && loaded.plugin.packagePath) {
-        devWatcher.watch(loaded.plugin.id, loaded.plugin.packagePath);
-      }
-    }
-  }).catch((err) => {
-    logger.error({ err }, "Failed to load ready plugins on startup");
-  });
-  process.once("exit", () => {
-    devWatcher?.close();
-    hostServiceCleanup.disposeAll();
-    hostServiceCleanup.teardown();
-  });
-  process.once("beforeExit", () => {
-    void flushPluginLogBuffer();
-  });
+  // Plugin startup disabled
+  // jobCoordinator.start();
+  // scheduler.start();
 
   return app;
 }
