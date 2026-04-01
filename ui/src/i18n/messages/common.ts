@@ -110,7 +110,9 @@ export const commonMessages: Record<ActiveLocale, MessageTree> = {
       changeStatus: "status -> {{value}}",
       changePriority: "priority -> {{value}}",
       reassigned: "reassigned",
-      unassigned: "unassigned"
+      unassigned: "unassigned",
+      titleChanged: "title changed",
+      descriptionChanged: "description changed"
     },
   },
   ko: {
@@ -222,7 +224,9 @@ export const commonMessages: Record<ActiveLocale, MessageTree> = {
       changeStatus: "상태 -> {{value}}",
       changePriority: "우선순위 -> {{value}}",
       reassigned: "재할당됨",
-      unassigned: "할당 해제됨"
+      unassigned: "할당 해제됨",
+      titleChanged: "제목 변경",
+      descriptionChanged: "설명 변경"
     },
   },
   ja: {
@@ -334,7 +338,9 @@ export const commonMessages: Record<ActiveLocale, MessageTree> = {
       changeStatus: "状態 -> {{value}}",
       changePriority: "優先度 -> {{value}}",
       reassigned: "再割り当て",
-      unassigned: "割り当て解除"
+      unassigned: "割り当て解除",
+      titleChanged: "タイトル変更",
+      descriptionChanged: "説明変更"
     },
   },
 };

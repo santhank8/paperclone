@@ -273,10 +273,10 @@ function describeIssueUpdate(details: Record<string, unknown> | null): string | 
   }
   if (details.reopened === true) {
     const from = readString(details.reopenedFrom);
-    changes.push(from ? `reopened from ${from.replace(/_/g, " ")}` : "reopened");
+    changes.push(from ? formatMessage(getRuntimeLocale(), "liveUpdates.reopenedFrom", { status: localizedStatusLabel(from) }) : formatMessage(getRuntimeLocale(), "liveUpdates.reopened"));
   }
-  if (typeof details.title === "string") changes.push("title changed");
-  if (typeof details.description === "string") changes.push("description changed");
+  if (typeof details.title === "string") changes.push(formatMessage(getRuntimeLocale(), "liveUpdates.titleChanged"));
+  if (typeof details.description === "string") changes.push(formatMessage(getRuntimeLocale(), "liveUpdates.descriptionChanged"));
   if (changes.length > 0) return changes.join(", ");
   return null;
 }
