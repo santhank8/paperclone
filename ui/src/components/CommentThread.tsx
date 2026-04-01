@@ -353,9 +353,10 @@ export function CommentThread({
       createdAtMs: new Date(run.startedAt ?? run.createdAt).getTime(),
       run,
     }));
+    // Sort newest-first; all tie-breakers are also reversed to be consistent.
     return [...commentItems, ...runItems].sort((a, b) => {
-      if (a.createdAtMs !== b.createdAtMs) return a.createdAtMs - b.createdAtMs;
-      if (a.kind === b.kind) return a.id.localeCompare(b.id);
+      if (a.createdAtMs !== b.createdAtMs) return b.createdAtMs - a.createdAtMs;
+      if (a.kind === b.kind) return b.id.localeCompare(a.id);
       return a.kind === "comment" ? -1 : 1;
     });
   }, [comments, linkedRuns]);
@@ -469,7 +470,9 @@ export function CommentThread({
     <div className="space-y-4">
       <h3 className="text-sm font-semibold">Comments &amp; Runs ({timeline.length + queuedComments.length})</h3>
 
-      {timeline.length > 0 ? (
+      {liveRunSlot}
+      
+                  {timeline.length > 0 ? (
         <TimelineList
           timeline={timeline}
           agentMap={agentMap}
@@ -478,8 +481,6 @@ export function CommentThread({
           highlightCommentId={highlightCommentId}
         />
       ) : null}
-
-      {liveRunSlot}
 
       {queuedComments.length > 0 && (
         <div className="space-y-3">
