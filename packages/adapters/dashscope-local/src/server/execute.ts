@@ -1,0 +1,252 @@
+import * as http from "node:http";
+import * as https from "node:https";
+import { URL } from "node:url";
+import type { AdapterExecutionContext, AdapterExecutionResult } from "@paperclipai/adapter-utils";
+import {
+  asString,
+  asNumber,
+  parseObject,
+  buildPaperclipEnv,
+  joinPromptSections,
+  renderTemplate,
+} from "@paperclipai/adapter-utils/server-utils";
+
+interface DashScopeMessage {
+  role: "system" | "user" | "assistant";
+  content: string;
+}
+
+interface DashScopeRequest {
+  model: string;
+  input: {
+    messages: DashScopeMessage[];
+  };
+  parameters: {
+    temperature?: number;
+    top_p?: number;
+    max_tokens?: number;
+  };
+}
+
+interface DashScopeUsage {
+  input_tokens: number;
+  output_tokens: number;
+}
+
+interface DashScopeResponse {
+  output: {
+    text: string;
+    finish_reason?: string;
+  };
+  usage: DashScopeUsage;
+  request_id: string;
+}
+
+async function callDashScopeAPI(
+  apiKey: string,
+  model: string,
+  messages: DashScopeMessage[],
+  options: {
+    temperature?: number;
+    topP?: number;
+    maxTokens?: number;
+    timeoutSec?: number;
+  },
+): Promise<{ response: DashScopeResponse; latencyMs: number }> {
+  const url = new URL("https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation");
+  
+  const requestBody: DashScopeRequest = {
+    model,
+    input: { messages },
+    parameters: {
+      ...(options.temperature !== undefined && { temperature: options.temperature }),
+      ...(options.topP !== undefined && { top_p: options.topP }),
+      ...(options.maxTokens !== undefined && { max_tokens: options.maxTokens }),
+    },
+  };
+
+  const body = JSON.stringify(requestBody);
+  const startTime = Date.now();
+
+  return new Promise((resolve, reject) => {
+    const req = https.request(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${apiKey}`,
+        "Content-Length": Buffer.byteLength(body),
+      },
+      timeout: (options.timeoutSec ?? 120) * 1000,
+    }, (res) => {
+      let responseData = "";
+      res.on("data", (chunk) => { responseData += chunk; });
+      res.on("end", () => {
+        const latencyMs = Date.now() - startTime;
+        if (res.statusCode !== 200) {
+          reject(new Error(`DashScope API error: ${res.statusCode} ${res.statusMessage}\n${responseData}`));
+          return;
+        }
+        try {
+          const response: DashScopeResponse = JSON.parse(responseData);
+          resolve({ response, latencyMs });
+        } catch (e) {
+          reject(new Error(`Failed to parse DashScope response: ${e}\n${responseData}`));
+        }
+      });
+    });
+
+    req.on("error", reject);
+    req.on("timeout", () => {
+      req.destroy();
+      reject(new Error(`DashScope API timeout after ${options.timeoutSec ?? 120}s`));
+    });
+
+    req.write(body);
+    req.end();
+  });
+}
+
+interface DashScopeExecutionInput {
+  runId: string;
+  agent: AdapterExecutionContext["agent"];
+  config: Record<string, unknown>;
+  context: Record<string, unknown>;
+  authToken?: string;
+}
+
+function buildDashScopeRuntimeConfig(input: DashScopeExecutionInput) {
+  const { config, context } = input;
+  
+  const workspaceContext = parseObject(context.paperclipWorkspace ?? {});
+  const cwd = asString(workspaceContext.cwd, "") || asString(config.cwd, "") || process.cwd();
+  
+  const envConfig = parseObject(config.env ?? {});
+  const env: Record<string, string> = { ...buildPaperclipEnv(input.agent) };
+  env.PAPERCLIP_RUN_ID = input.runId;
+  
+  for (const [key, value] of Object.entries(envConfig)) {
+    if (typeof value === "string") env[key] = value;
+  }
+  
+  if (input.authToken && !env.DASHSCOPE_API_KEY) {
+    env.DASHSCOPE_API_KEY = input.authToken;
+  }
+
+  return { cwd, env };
+}
+
+export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExecutionResult> {
+  const { runId, agent, config, context, onLog, authToken } = ctx;
+
+  const model = asString(config.model, "");
+  const temperature = asNumber(config.temperature, 0.7);
+  const topP = asNumber(config.topP, 0.8);
+  const maxTokens = asNumber(config.maxTokens, 0);
+  const timeoutSec = asNumber(config.timeoutSec, 120);
+  
+  const promptTemplate = asString(
+    config.promptTemplate,
+    "You are agent {{agent.id}} ({{agent.name}}). Continue your Paperclip work.",
+  );
+  const instructionsFilePath = asString(config.instructionsFilePath, "").trim();
+  
+  const templateData = {
+    agentId: agent.id,
+    companyId: agent.companyId,
+    runId,
+    company: { id: agent.companyId },
+    agent,
+    run: { id: runId, source: "on_demand" },
+    context,
+  };
+  const renderedPrompt = renderTemplate(promptTemplate, templateData);
+  const sessionHandoffNote = asString(context.paperclipSessionHandoffMarkdown, "").trim();
+  const prompt = joinPromptSections([sessionHandoffNote, renderedPrompt]);
+
+  const runtimeConfig = buildDashScopeRuntimeConfig({ runId, agent, config, context, authToken });
+  const apiKey = runtimeConfig.env.DASHSCOPE_API_KEY;
+
+  if (!apiKey) {
+    return {
+      exitCode: 1,
+      signal: null,
+      timedOut: false,
+      errorMessage: "DashScope API key not found. Set DASHSCOPE_API_KEY in config.env or provide authToken.",
+      errorCode: "auth_required",
+      errorMeta: { missingEnv: "DASHSCOPE_API_KEY" },
+    };
+  }
+
+  if (!model) {
+    return {
+      exitCode: 1,
+      signal: null,
+      timedOut: false,
+      errorMessage: "Model not specified. Set config.model to a valid DashScope model (e.g., qwen-max, qwen-plus).",
+      errorCode: "invalid_config",
+    };
+  }
+
+  await onLog("stdout", `[paperclip] Calling DashScope API with model: ${model}\n`);
+
+  const messages: DashScopeMessage[] = [
+    { role: "system", content: "You are a helpful AI assistant integrated with Paperclip." },
+    { role: "user", content: prompt },
+  ];
+
+  try {
+    const { response, latencyMs } = await callDashScopeAPI(apiKey, model, messages, {
+      temperature,
+      topP,
+      maxTokens: maxTokens > 0 ? maxTokens : undefined,
+      timeoutSec,
+    });
+
+    await onLog("stdout", `[paperclip] DashScope response in ${latencyMs}ms\n`);
+    await onLog("stdout", `[paperclip] Tokens: input=${response.usage.input_tokens}, output=${response.usage.output_tokens}\n`);
+
+    const outputText = response.output.text ?? "";
+    const finishReason = response.output.finish_reason ?? "stop";
+
+    return {
+      exitCode: 0,
+      signal: null,
+      timedOut: false,
+      errorMessage: null,
+      errorCode: null,
+      usage: {
+        inputTokens: response.usage.input_tokens,
+        cachedInputTokens: 0,
+        outputTokens: response.usage.output_tokens,
+      },
+      sessionId: null,
+      sessionParams: null,
+      sessionDisplayId: null,
+      provider: "dashscope",
+      biller: "dashscope",
+      model,
+      billingType: "api",
+      costUsd: 0,
+      resultJson: {
+        output: response.output,
+        usage: response.usage,
+        request_id: response.request_id,
+        latency_ms: latencyMs,
+      },
+      summary: outputText,
+      clearSession: false,
+    };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    await onLog("stderr", `[paperclip] DashScope error: ${errorMessage}\n`);
+    
+    return {
+      exitCode: 1,
+      signal: null,
+      timedOut: false,
+      errorMessage,
+      errorCode: "api_error",
+      errorMeta: { model, provider: "dashscope" },
+    };
+  }
+}
