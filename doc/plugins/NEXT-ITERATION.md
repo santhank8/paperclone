@@ -84,15 +84,15 @@ pnpm test --filter @paperclipai/plugin-ruflo-bridge
 
 **Total geral de testes de plugins:** 151 testes (112 schema + 39 integração)
 
-### Testes Totais do Repo — 785/787 PASSING
+### Testes Totais do Repo — 847/849 PASSING (99.8%)
 
 **Status:** 2 testes flaky conhecidos (timeout I/O no server, não relacionado a plugins).
 
 ```bash
 pnpm test --reporter=verbose
-# → 785 passing, 29 skipped, 2 failed (timeout)
+# → 847 passing, 29 skipped, 2 failed (timeout)
 # → Test Files: 144 passed, 2 failed, 6 skipped (152 total)
-# → Duration: 101s
+# → Duration: 132s
 ```
 
 **Testes flaky:**
@@ -100,6 +100,10 @@ pnpm test --reporter=verbose
 2. `server/src/__tests__/workspace-runtime.test.ts` — timeout 5s (I/O com git repo temporário)
 
 **Ação:** Não bloqueiam merges — são conhecidos e não relacionados a mudanças recentes.
+
+**Novos testes desde última atualização:**
+- +62 testes (Skills Hub integration)
+- Total plugins: 213 testes (112 schema + 101 integration)
 
 ---
 
