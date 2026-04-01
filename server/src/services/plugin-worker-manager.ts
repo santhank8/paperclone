@@ -21,6 +21,7 @@
 import { fork, type ChildProcess } from "node:child_process";
 import { EventEmitter } from "node:events";
 import { createInterface, type Interface as ReadlineInterface } from "node:readline";
+import { pathToFileURL } from "node:url";
 import type { PaperclipPluginManifestV1 } from "@paperclipai/shared";
 import {
   JSONRPC_VERSION,
@@ -147,6 +148,19 @@ export function formatWorkerFailureMessage(message: string, stderrExcerpt: strin
   if (!excerpt) return message;
   if (message.includes(excerpt)) return message;
   return `${message}\n\nWorker stderr:\n${excerpt}`;
+}
+
+/**
+ * Node's ESM loader on Windows expects absolute paths as file:// URLs.
+ * Normalize fork entrypoints so ESM workers can boot reliably cross-platform.
+ */
+export function normalizeForkEntrypoint(
+  modulePath: string,
+  platform: NodeJS.Platform = process.platform,
+): string {
+  return platform === "win32" && modulePath.match(/^[A-Za-z]:[\\/]/)
+    ? pathToFileURL(modulePath).href
+    : modulePath;
 }
 
 /**
@@ -616,7 +630,7 @@ export function createPluginWorkerHandle(
       TZ: process.env.TZ ?? "UTC",
     };
 
-    const child = fork(options.entrypointPath, [], {
+    const child = fork(normalizeForkEntrypoint(options.entrypointPath), [], {
       stdio: ["pipe", "pipe", "pipe", "ipc"],
       execArgv: options.execArgv ?? [],
       env: workerEnv,
