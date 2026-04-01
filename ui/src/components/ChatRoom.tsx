@@ -10,19 +10,23 @@ import { chatApi } from "../api/chat";
 import { useCompany } from "../context/CompanyContext";
 import { queryKeys } from "../lib/queryKeys";
 import { cn, formatDateTime } from "../lib/utils";
+import { useChatTypingAgents } from "../hooks/useChatTypingAgents";
 
 interface ChatRoomProps {
   roomId: string;
+  /** For direct rooms, the agent on the other side. null for boardroom. */
+  roomAgentId?: string | null;
   agentMap?: Map<string, Agent>;
 }
 
-export function ChatRoom({ roomId, agentMap }: ChatRoomProps) {
+export function ChatRoom({ roomId, roomAgentId, agentMap }: ChatRoomProps) {
   const { selectedCompanyId } = useCompany();
   const queryClient = useQueryClient();
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const [draft, setDraft] = useState("");
   const [autoScroll, setAutoScroll] = useState(true);
+  const typingAgentIds = useChatTypingAgents(selectedCompanyId ?? null, roomId, roomAgentId ?? null);
 
   const { data: messages = [], isLoading } = useQuery({
     queryKey: queryKeys.chat.messages(roomId),
@@ -130,6 +134,11 @@ export function ChatRoom({ roomId, agentMap }: ChatRoomProps) {
         ))}
       </div>
 
+      {/* Typing indicator */}
+      {typingAgentIds.size > 0 && agentMap && (
+        <TypingIndicator agentIds={typingAgentIds} agentMap={agentMap} />
+      )}
+
       {/* Composer */}
       <div className="border-t border-border px-4 py-3">
         <div className="flex items-end gap-2">
@@ -167,6 +176,44 @@ export function ChatRoom({ roomId, agentMap }: ChatRoomProps) {
           </p>
         )}
       </div>
+    </div>
+  );
+}
+
+function TypingIndicator({
+  agentIds,
+  agentMap,
+}: {
+  agentIds: Set<string>;
+  agentMap: Map<string, Agent>;
+}) {
+  const agents = [...agentIds]
+    .map((id) => agentMap.get(id))
+    .filter((a): a is Agent => !!a);
+
+  if (agents.length === 0) return null;
+
+  const label =
+    agents.length === 1
+      ? `${agents[0].name} is typing`
+      : agents.length === 2
+        ? `${agents[0].name} and ${agents[1].name} are typing`
+        : `${agents[0].name} and ${agents.length - 1} others are typing`;
+
+  return (
+    <div className="px-4 py-1.5 text-xs text-muted-foreground flex items-center gap-2">
+      <span className="inline-flex items-center gap-1">
+        <AgentIcon
+          icon={(agents[0] as any).iconName ?? "bot"}
+          className="h-3.5 w-3.5 text-muted-foreground"
+        />
+        <span>{label}</span>
+      </span>
+      <span className="inline-flex gap-0.5" aria-hidden>
+        <span className="typing-dot h-1 w-1 rounded-full bg-muted-foreground/60 animate-[typing-pulse_1.4s_ease-in-out_infinite]" />
+        <span className="typing-dot h-1 w-1 rounded-full bg-muted-foreground/60 animate-[typing-pulse_1.4s_ease-in-out_0.2s_infinite]" />
+        <span className="typing-dot h-1 w-1 rounded-full bg-muted-foreground/60 animate-[typing-pulse_1.4s_ease-in-out_0.4s_infinite]" />
+      </span>
     </div>
   );
 }

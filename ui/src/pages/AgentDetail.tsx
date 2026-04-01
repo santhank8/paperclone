@@ -1096,7 +1096,7 @@ function AgentChatTab({ agentId, companyId }: { agentId: string; companyId: stri
 
   return (
     <div className="h-[600px] border border-border rounded-lg overflow-hidden">
-      <ChatRoom roomId={room.id} agentMap={agentMap} />
+      <ChatRoom roomId={room.id} roomAgentId={agentId} agentMap={agentMap} />
     </div>
   );
 }
