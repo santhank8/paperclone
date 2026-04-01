@@ -27,15 +27,18 @@ services:
       PAPERCLIP_DEPLOYMENT_EXPOSURE: "private"
       PAPERCLIP_PUBLIC_URL: "${PAPERCLIP_PUBLIC_URL:-http://localhost:3100}"
       BETTER_AUTH_SECRET: "${BETTER_AUTH_SECRET:?BETTER_AUTH_SECRET must be set}"
+      ANTHROPIC_API_KEY: "${ANTHROPIC_API_KEY:-}"
       # Make `claude` available as a command anywhere in the container
       PATH: /claude-bin/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-      # Point claude to the shared credentials
-      CLAUDE_CONFIG_DIR: /claude-config
+      # Writable config dir — credentials are copied here from the shared volume on startup
+      CLAUDE_CONFIG_DIR: /paperclip/.claude-config
     volumes:
       - paperclip-data:/paperclip
       - paperclip-claude-adi6ix_claude-bin:/claude-bin:ro
-      # Mount the credentials volume read-only — claude reads tokens from here
-      - paperclip-claude-adi6ix_claude-config:/claude-config:ro
+      # Mount the credentials volume read-only at a staging path — the entrypoint
+      # copies credentials into the writable CLAUDE_CONFIG_DIR on startup.
+      # Claude CLI needs write access to its config dir for sessions and analytics.
+      - paperclip-claude-adi6ix_claude-config:/claude-config-shared:ro
     depends_on:
       db:
         condition: service_healthy
