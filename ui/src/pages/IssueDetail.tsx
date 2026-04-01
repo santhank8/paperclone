@@ -27,6 +27,7 @@ import {
 } from "../lib/optimistic-issue-comments";
 import { useProjectOrder } from "../hooks/useProjectOrder";
 import { relativeTime, cn, formatTokens, visibleRunCostUsd } from "../lib/utils";
+import { localizedPriorityLabel, localizedStatusLabel } from "../lib/displayLabels";
 import { InlineEditor } from "../components/InlineEditor";
 import { CommentThread } from "../components/CommentThread";
 import { IssueDocumentsSection } from "../components/IssueDocumentsSection";
@@ -38,6 +39,7 @@ import { ScrollToBottom } from "../components/ScrollToBottom";
 import { StatusIcon } from "../components/StatusIcon";
 import { PriorityIcon } from "../components/PriorityIcon";
 import { StatusBadge } from "../components/StatusBadge";
+import { approvalLabel } from "../components/ApprovalPayload";
 import { Identity } from "../components/Identity";
 import { PluginSlotMount, PluginSlotOutlet, usePluginSlots } from "@/plugins/slots";
 import { PluginLauncherOutlet } from "@/plugins/launchers";
@@ -100,8 +102,10 @@ const ACTION_KEYS: Record<string, string> = {
   "approval.rejected": "issueDetail.actions.rejected",
 };
 
-function humanizeValue(value: unknown): string {
+function humanizeValue(value: unknown, kind: "status" | "priority" | null = null): string {
   if (typeof value !== "string") return String(value ?? "none");
+  if (kind === "status") return localizedStatusLabel(value);
+  if (kind === "priority") return localizedPriorityLabel(value);
   return value.replace(/_/g, " ");
 }
 
@@ -167,16 +171,16 @@ function formatAction(
       const from = previous.status;
       parts.push(
         from
-          ? t("issueDetail.actions.changedStatusFromTo", { from: humanizeValue(from), to: humanizeValue(details.status) })
-          : t("issueDetail.actions.changedStatusTo", { to: humanizeValue(details.status) })
+          ? t("issueDetail.actions.changedStatusFromTo", { from: humanizeValue(from, "status"), to: humanizeValue(details.status, "status") })
+          : t("issueDetail.actions.changedStatusTo", { to: humanizeValue(details.status, "status") })
       );
     }
     if (details.priority !== undefined) {
       const from = previous.priority;
       parts.push(
         from
-          ? t("issueDetail.actions.changedPriorityFromTo", { from: humanizeValue(from), to: humanizeValue(details.priority) })
-          : t("issueDetail.actions.changedPriorityTo", { to: humanizeValue(details.priority) })
+          ? t("issueDetail.actions.changedPriorityFromTo", { from: humanizeValue(from, "priority"), to: humanizeValue(details.priority, "priority") })
+          : t("issueDetail.actions.changedPriorityTo", { to: humanizeValue(details.priority, "priority") })
       );
     }
     if (details.assigneeAgentId !== undefined || details.assigneeUserId !== undefined) {
@@ -1388,7 +1392,7 @@ export function IssueDetail() {
                   <div className="flex items-center gap-2">
                     <StatusBadge status={approval.status} />
                     <span className="font-medium">
-                      {approval.type.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}
+                      {approvalLabel(approval.type, approval.payload as Record<string, unknown> | null)}
                     </span>
                     <span className="font-mono text-muted-foreground">{approval.id.slice(0, 8)}</span>
                   </div>

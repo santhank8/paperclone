@@ -2,6 +2,7 @@ import { Link } from "@/lib/router";
 import { Identity } from "./Identity";
 import { timeAgo } from "../lib/timeAgo";
 import { cn } from "../lib/utils";
+import { localizedPriorityLabel, localizedStatusLabel } from "../lib/displayLabels";
 import { useI18n } from "../i18n";
 import { deriveProjectUrlKey, type ActivityEvent, type Agent } from "@paperclipai/shared";
 
@@ -45,8 +46,10 @@ const ACTION_KEYS: Record<string, string> = {
   "company.budget_updated": "activity.actions.company.budgetUpdated",
 };
 
-function humanizeValue(value: unknown): string {
+function humanizeValue(value: unknown, kind: "status" | "priority" | null = null): string {
   if (typeof value !== "string") return String(value ?? "none");
+  if (kind === "status") return localizedStatusLabel(value);
+  if (kind === "priority") return localizedPriorityLabel(value);
   return value.replace(/_/g, " ");
 }
 
@@ -60,14 +63,14 @@ function formatVerb(
     if (details.status !== undefined) {
       const from = previous.status;
       return from
-        ? t("activity.actions.issue.changedStatusFromTo", { from: humanizeValue(from), to: humanizeValue(details.status) })
-        : t("activity.actions.issue.changedStatusTo", { to: humanizeValue(details.status) });
+        ? t("activity.actions.issue.changedStatusFromTo", { from: humanizeValue(from, "status"), to: humanizeValue(details.status, "status") })
+        : t("activity.actions.issue.changedStatusTo", { to: humanizeValue(details.status, "status") });
     }
     if (details.priority !== undefined) {
       const from = previous.priority;
       return from
-        ? t("activity.actions.issue.changedPriorityFromTo", { from: humanizeValue(from), to: humanizeValue(details.priority) })
-        : t("activity.actions.issue.changedPriorityTo", { to: humanizeValue(details.priority) });
+        ? t("activity.actions.issue.changedPriorityFromTo", { from: humanizeValue(from, "priority"), to: humanizeValue(details.priority, "priority") })
+        : t("activity.actions.issue.changedPriorityTo", { to: humanizeValue(details.priority, "priority") });
     }
   }
   const key = ACTION_KEYS[action];

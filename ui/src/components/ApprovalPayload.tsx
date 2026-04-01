@@ -1,16 +1,18 @@
 import { UserPlus, Lightbulb, ShieldAlert, ShieldCheck } from "lucide-react";
 import { formatCents } from "../lib/utils";
-import { useI18n } from "../i18n";
+import { formatMessage, useI18n } from "../i18n";
+import { getRuntimeLocale } from "../i18n/runtime";
 
-export const typeLabel: Record<string, string> = {
-  hire_agent: "Hire Agent",
-  approve_ceo_strategy: "CEO Strategy",
-  budget_override_required: "Budget Override",
-};
+function approvalTypeLabel(type: string) {
+  if (type === "hire_agent") return formatMessage(getRuntimeLocale(), "approvals.types.hireAgent");
+  if (type === "approve_ceo_strategy") return formatMessage(getRuntimeLocale(), "approvals.types.ceoStrategy");
+  if (type === "budget_override_required") return formatMessage(getRuntimeLocale(), "approvals.types.budgetOverride");
+  return type.replace(/_/g, " ");
+}
 
 /** Build a contextual label for an approval, e.g. "Hire Agent: Designer" */
 export function approvalLabel(type: string, payload?: Record<string, unknown> | null): string {
-  const base = typeLabel[type] ?? type;
+  const base = approvalTypeLabel(type);
   if (type === "hire_agent" && payload?.name) {
     return `${base}: ${String(payload.name)}`;
   }
@@ -95,7 +97,7 @@ export function CeoStrategyPayload({ payload }: { payload: Record<string, unknow
   const plan = payload.plan ?? payload.description ?? payload.strategy ?? payload.text;
   return (
     <div className="mt-3 space-y-1.5 text-sm">
-      <PayloadField label="Title" value={payload.title} />
+      <PayloadField label={formatMessage(getRuntimeLocale(), "approvals.payload.title")} value={payload.title} />
       {!!plan && (
         <div className="mt-2 rounded-md bg-muted/40 px-3 py-2 text-sm text-muted-foreground whitespace-pre-wrap font-mono text-xs max-h-48 overflow-y-auto">
           {String(plan)}
@@ -115,12 +117,12 @@ export function BudgetOverridePayload({ payload }: { payload: Record<string, unk
   const observedAmount = typeof payload.observedAmount === "number" ? payload.observedAmount : null;
   return (
     <div className="mt-3 space-y-1.5 text-sm">
-      <PayloadField label="Scope" value={payload.scopeName ?? payload.scopeType} />
-      <PayloadField label="Window" value={payload.windowKind} />
-      <PayloadField label="Metric" value={payload.metric} />
+      <PayloadField label={formatMessage(getRuntimeLocale(), "approvals.payload.scope")} value={payload.scopeName ?? payload.scopeType} />
+      <PayloadField label={formatMessage(getRuntimeLocale(), "approvals.payload.window")} value={payload.windowKind} />
+      <PayloadField label={formatMessage(getRuntimeLocale(), "approvals.payload.metric")} value={payload.metric} />
       {(budgetAmount !== null || observedAmount !== null) ? (
         <div className="rounded-md bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
-          Limit {budgetAmount !== null ? formatCents(budgetAmount) : "—"} · Observed {observedAmount !== null ? formatCents(observedAmount) : "—"}
+{formatMessage(getRuntimeLocale(), "approvals.payload.limitObserved", { limit: budgetAmount !== null ? formatCents(budgetAmount) : "—", observed: observedAmount !== null ? formatCents(observedAmount) : "—" })}
         </div>
       ) : null}
       {!!payload.guidance && (

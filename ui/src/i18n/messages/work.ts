@@ -350,6 +350,18 @@ export const workMessages: Record<ActiveLocale, MessageTree> = {
         revisionRequested: "Revision requested",
         pending: "Pending",
       },
+      types: {
+        hireAgent: "Hire Agent",
+        ceoStrategy: "CEO Strategy",
+        budgetOverride: "Budget Override",
+      },
+      payload: {
+        title: "Title",
+        scope: "Scope",
+        window: "Window",
+        metric: "Metric",
+        limitObserved: "Limit {{limit}} · Observed {{observed}}",
+      },
     },
     approvalDetail: {
       notFound: "Approval not found.",
@@ -978,6 +990,18 @@ export const workMessages: Record<ActiveLocale, MessageTree> = {
         rejected: "거절됨",
         revisionRequested: "수정 요청됨",
         pending: "대기 중",
+      },
+      types: {
+        hireAgent: "에이전트 채용",
+        ceoStrategy: "CEO 전략",
+        budgetOverride: "예산 예외 승인",
+      },
+      payload: {
+        title: "제목",
+        scope: "범위",
+        window: "기간",
+        metric: "지표",
+        limitObserved: "한도 {{limit}} · 관측값 {{observed}}",
       },
     },
     approvalDetail: {

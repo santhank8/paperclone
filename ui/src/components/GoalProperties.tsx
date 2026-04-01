@@ -28,8 +28,12 @@ function PropertyRow({ label, children }: { label: string; children: React.React
   );
 }
 
-function label(s: string): string {
-  return s.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+function goalLevelLabel(level: string, t: (key: string) => string): string {
+  if (level === "company") return t("newGoalDialog.levels.company");
+  if (level === "team") return t("newGoalDialog.levels.team");
+  if (level === "agent") return t("newGoalDialog.levels.agent");
+  if (level === "task") return t("newGoalDialog.levels.task");
+  return level.replace(/_/g, " ");
 }
 
 function PickerButton({
@@ -37,11 +41,13 @@ function PickerButton({
   options,
   onChange,
   children,
+  formatLabel,
 }: {
   current: string;
   options: readonly string[];
   onChange: (value: string) => void;
   children: React.ReactNode;
+  formatLabel?: (value: string) => string;
 }) {
   const [open, setOpen] = useState(false);
   return (
@@ -63,7 +69,7 @@ function PickerButton({
               setOpen(false);
             }}
           >
-            {label(opt)}
+            {formatLabel ? formatLabel(opt) : opt}
           </Button>
         ))}
       </PopoverContent>
@@ -118,11 +124,12 @@ export function GoalProperties({ goal, onUpdate }: GoalPropertiesProps) {
               current={goal.level}
               options={GOAL_LEVELS}
               onChange={(level) => onUpdate({ level })}
+              formatLabel={(level) => goalLevelLabel(level, t)}
             >
               <span className="text-sm capitalize">{goal.level}</span>
             </PickerButton>
           ) : (
-            <span className="text-sm capitalize">{goal.level}</span>
+            <span className="text-sm">{goalLevelLabel(goal.level, t)}</span>
           )}
         </PropertyRow>
 
