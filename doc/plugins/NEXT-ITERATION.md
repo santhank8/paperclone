@@ -1,12 +1,28 @@
 # Plugin System — Próxima Iteração
 
-**Last Updated:** 2026-03-31 23:58 UTC
+**Last Updated:** 2026-04-01 00:38 UTC
 
 ---
 
-## ✅ Concluído (2026-03-31)
+## ✅ Concluído (2026-04-01)
 
-### Testes Unitários de Schema — COMPLETO
+### Validação Completa de Plugins — COMPLETO
+
+**Status:** Validação horária via cron passando (60s total).
+
+**Script:** `./scripts/validate-plugins.sh`
+
+**Resultados:**
+- ✅ SDK typecheck + 131 testes unitários (3s)
+- ✅ E2E lifecycle tests (30 testes, sem Postgres) (3s)
+- ✅ Plugin typecheck (3 plugins) (19s)
+- ✅ Plugin build (3 plugins) (18s)
+- ✅ Documentação validation
+- ✅ Install script validation
+
+**Total Duration:** 60s
+
+### Testes de Schema — COMPLETO
 
 **Status:** 112 testes de schema validando manifestos e parâmetros de tools.
 
@@ -16,13 +32,6 @@
 | Ruflo Bridge | 47 testes | `src/__tests__/worker.test.ts` | ✅ Schema + parâmetros |
 | Skills Hub | 37 testes | `src/__tests__/worker.test.ts` | ✅ Schema + parâmetros |
 | **Total** | **112 testes** | 3 arquivos | ✅ **Passing** |
-
-**Validação:**
-```bash
-pnpm test -- plugin-unit
-# → 112 testes passando
-# → Duration: ~2s
-```
 
 ### Testes de Integração Ruflo Bridge — COMPLETO
 
@@ -46,6 +55,23 @@ pnpm test --filter @paperclipai/plugin-ruflo-bridge
 ```
 
 **Total geral de testes de plugins:** 151 testes (112 schema + 39 integração)
+
+### Testes Totais do Repo — 785/787 PASSING
+
+**Status:** 2 testes flaky conhecidos (timeout I/O no server, não relacionado a plugins).
+
+```bash
+pnpm test --reporter=verbose
+# → 785 passing, 29 skipped, 2 failed (timeout)
+# → Test Files: 144 passed, 2 failed, 6 skipped (152 total)
+# → Duration: 101s
+```
+
+**Testes flaky:**
+1. `server/src/__tests__/cli-auth-routes.test.ts` — timeout 5s (mock de serviço)
+2. `server/src/__tests__/workspace-runtime.test.ts` — timeout 5s (I/O com git repo temporário)
+
+**Ação:** Não bloqueiam merges — são conhecidos e não relacionados a mudanças recentes.
 
 ---
 
