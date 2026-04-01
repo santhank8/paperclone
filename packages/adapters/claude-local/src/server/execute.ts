@@ -430,7 +430,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
           model: asString(batchResult.model, model),
           costUsd: asNumber(batchResult.costUsd, 0),
           summary: asString(batchResult.summary, ""),
-          resultJson: batchResult.resultData,
+          resultJson: batchResult.resultData as Record<string, unknown> | null | undefined,
         };
       } else {
         // Batch failed - fall back to sync CLI execution if configured
@@ -473,6 +473,36 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
       };
     }
   }
+
+  const runtimeSessionId = asString(runtimeSessionParams.sessionId, runtime.sessionId ?? "");
+  const runtimeSessionCwd = asString(runtimeSessionParams.cwd, "");
+  const alwaysFresh = sessionPolicy === "always_fresh";
+  const canResumeSession =
+    !alwaysFresh &&
+    runtimeSessionId.length > 0 &&
+    (runtimeSessionCwd.length === 0 || path.resolve(runtimeSessionCwd) === path.resolve(cwd));
+  const sessionId = canResumeSession ? runtimeSessionId : null;
+  if (runtimeSessionId && !canResumeSession && !alwaysFresh) {
+    await onLog(
+      "stdout",
+      `[paperclip] Claude session "${runtimeSessionId}" was saved for cwd "${runtimeSessionCwd}" and will not be resumed in "${cwd}".\n`,
+    );
+  }
+  const bootstrapPromptTemplate = asString(config.bootstrapPromptTemplate, "");
+  const templateData = {
+    agentId: agent.id,
+    companyId: agent.companyId,
+    runId,
+    company: { id: agent.companyId },
+    agent,
+    run: { id: runId, source: "on_demand" },
+    context,
+  };
+  const renderedPrompt = renderTemplate(promptTemplate, templateData);
+  const renderedBootstrapPrompt =
+    !sessionId && bootstrapPromptTemplate.trim().length > 0
+      ? renderTemplate(bootstrapPromptTemplate, templateData).trim()
+      : "";
 
   // Check if we should batch this new task
   if (batchMode !== "never") {
@@ -531,35 +561,6 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     }
   }
 
-  const runtimeSessionId = asString(runtimeSessionParams.sessionId, runtime.sessionId ?? "");
-  const runtimeSessionCwd = asString(runtimeSessionParams.cwd, "");
-  const alwaysFresh = sessionPolicy === "always_fresh";
-  const canResumeSession =
-    !alwaysFresh &&
-    runtimeSessionId.length > 0 &&
-    (runtimeSessionCwd.length === 0 || path.resolve(runtimeSessionCwd) === path.resolve(cwd));
-  const sessionId = canResumeSession ? runtimeSessionId : null;
-  if (runtimeSessionId && !canResumeSession && !alwaysFresh) {
-    await onLog(
-      "stdout",
-      `[paperclip] Claude session "${runtimeSessionId}" was saved for cwd "${runtimeSessionCwd}" and will not be resumed in "${cwd}".\n`,
-    );
-  }
-  const bootstrapPromptTemplate = asString(config.bootstrapPromptTemplate, "");
-  const templateData = {
-    agentId: agent.id,
-    companyId: agent.companyId,
-    runId,
-    company: { id: agent.companyId },
-    agent,
-    run: { id: runId, source: "on_demand" },
-    context,
-  };
-  const renderedPrompt = renderTemplate(promptTemplate, templateData);
-  const renderedBootstrapPrompt =
-    !sessionId && bootstrapPromptTemplate.trim().length > 0
-      ? renderTemplate(bootstrapPromptTemplate, templateData).trim()
-      : "";
   const sessionHandoffNote = asString(context.paperclipSessionHandoffMarkdown, "").trim();
   const prompt = joinPromptSections([
     renderedBootstrapPrompt,
