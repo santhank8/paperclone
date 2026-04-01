@@ -1,32 +1,62 @@
 # Plugin System — Próxima Iteração
 
-**Last Updated:** 2026-04-01 04:47 UTC
+**Last Updated:** 2026-04-01 05:42 UTC
 
 ---
 
-## ✅ Concluído (2026-04-01 04:47 UTC)
+## ✅ Concluído (2026-04-01 05:42 UTC)
+
+### Testes de Integração Playwright MCP — COMPLETO
+
+**Status:** 26 testes de integração adicionados ao Playwright MCP.
+
+**Arquivo:** `packages/plugins/playwright-mcp/src/__tests__/integration.test.ts` (388 linhas)
+
+**Cobertura:**
+- Tool registration: 10 tools (4 sem params obrigatórios)
+- browser_navigate: URL, waitUntil, timeout
+- browser_click: selector, waitForNavigation, button, count
+- browser_fill: selector, value, clear
+- browser_screenshot: fullPage, selector, format, quality
+- browser_extract: selectors, multiple
+- browser_evaluate: script execution
+- browser_wait_for: selector, state, timeout
+- browser_get_url, browser_get_title, browser_close
+- Error handling: graceful error responses
+- Plugin metadata validation
+
+**Padrão:** Mock do Playwright + `createTestHarness` do SDK para execução real das tools.
+
+**Validação:**
+```bash
+pnpm test --filter @paperclipai/plugin-playwright-mcp
+# → 54 testes passando (28 schema + 26 integração)
+# → Duration: ~5s
+```
+
+**Total geral de testes de plugins:** 239 testes (112 schema + 127 integração)
 
 ### Validação Autônoma Completa — 100% Saúde
 
-**Testes totais:** 849/849 passing (100%)
+**Testes totais:** 875/875 passing (100%)
 **Health Score:** 10/10
 **Plugins production:** 3 (playwright-mcp: 10 tools, ruflo-bridge: 9 tools, skills-hub: 12 tools)
-**Testes de plugins:** 213 testes (112 schema + 101 integração)
-**Validação cron:** Horária, ~68s duration
+**Testes de plugins:** 239 testes (112 schema + 127 integração)
+**Validação cron:** Horária, ~66s duration
 
 **Build validation:**
 - playwright-mcp: 10.8KB worker.js ✅
 - ruflo-bridge: 10.3KB worker.js ✅
 - skills-hub: 13.3KB worker.js ✅
 
-**Validação executada (2026-04-01 04:47 UTC):**
+**Validação executada (2026-04-01 05:42 UTC):**
 ```
 [0/7] Script Self-Tests... ✅ (0s)
 [1/7] SDK Typecheck... ✅ (16s)
-[2/7] SDK Unit Tests... ✅ 131/131 (4s)
+[2/7] SDK Unit Tests... ✅ 131/131 (5s)
 [3/7] Plugin E2E Lifecycle Tests... ✅ 30/30 (4s)
-[4/7] Plugin Typecheck... ✅ all 3 plugins (23s)
-[5/7] Plugin Build... ✅ all 3 plugins (21s)
+[4/7] Plugin Typecheck... ✅ all 3 plugins (22s)
+[5/7] Plugin Build... ✅ all 3 plugins (22s)
 [6/7] Documentation Validation... ✅ (0s)
 [7/7] Install Script Validation... ✅ (0s)
 ```
@@ -35,12 +65,12 @@
 
 | Plugin | Schema Tests | Integration Tests | Total | Status |
 |--------|-------------|-------------------|-------|--------|
-| Playwright MCP | 28 | 0 (pendente) | 28 | ✅ |
+| Playwright MCP | 28 | 26 | 54 | ✅ |
 | Ruflo Bridge | 47 | 39 | 86 | ✅ |
 | Skills Hub | 37 | 62 | 99 | ✅ |
-| **Total** | **112** | **101** | **213** | ✅ |
+| **Total** | **112** | **127** | **239** | ✅ |
 
-**Gap identificado:** Playwright MCP não tem testes de integração (apenas schema). Padrão de mock do Playwright requer configuração especial de ESM mocks que não foi resolvida nesta sessão.
+**Gap resolvido:** Playwright MCP agora possui 26 testes de integração cobrindo todas as 10 tools.
 
 ---
 
