@@ -1,4 +1,4 @@
-import { spawn } from "node:child_process";
+import { spawn, execSync } from "node:child_process";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -301,4 +301,22 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     summary: parsedStream.summary || undefined,
     clearSession,
   };
+}
+
+export async function cleanupOrphanedContainers(): Promise<void> {
+  try {
+    const output = execSync(
+      'docker ps -a --filter "name=paperclip-run-" --format "{{.Names}}"',
+      { timeout: 10_000, encoding: "utf-8" },
+    );
+    const names = output
+      .split("\n")
+      .map((n) => n.trim())
+      .filter(Boolean);
+    if (names.length > 0) {
+      execSync(`docker rm -f ${names.join(" ")}`, { timeout: 30_000 });
+    }
+  } catch {
+    // Best-effort cleanup — don't crash if Docker is unavailable
+  }
 }

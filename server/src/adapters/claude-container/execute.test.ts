@@ -1,5 +1,13 @@
-import { describe, expect, it } from "vitest";
-import { buildDockerArgs } from "./execute.js";
+import { describe, expect, it, vi, beforeEach } from "vitest";
+
+vi.mock("node:child_process", async (importOriginal) => {
+  const cp = await importOriginal<typeof import("node:child_process")>();
+  return { ...cp, execSync: vi.fn() };
+});
+
+import { buildDockerArgs, cleanupOrphanedContainers } from "./execute.js";
+import { execSync } from "node:child_process";
+const mockedExecSync = vi.mocked(execSync);
 
 describe("buildDockerArgs", () => {
   it("builds correct docker run arguments", () => {
@@ -45,5 +53,43 @@ describe("buildDockerArgs", () => {
     const envArgs = args.filter((_, i) => args[i - 1] === "-e");
     expect(envArgs).toContain("ANTHROPIC_API_KEY=sk-test");
     expect(envArgs).toContain("HOME=/home/user");
+  });
+});
+
+describe("cleanupOrphanedContainers", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("removes containers matching paperclip-run-* pattern", async () => {
+    mockedExecSync.mockImplementation((cmd: string) => {
+      if (typeof cmd === "string" && cmd.includes("docker ps")) {
+        return "paperclip-run-old-1\npaperclip-run-old-2\n";
+      }
+      return "";
+    });
+
+    await cleanupOrphanedContainers();
+
+    const rmCall = mockedExecSync.mock.calls.find(
+      (call) => typeof call[0] === "string" && call[0].includes("docker rm -f"),
+    );
+    expect(rmCall).toBeDefined();
+    expect(rmCall![0]).toContain("paperclip-run-old-1");
+    expect(rmCall![0]).toContain("paperclip-run-old-2");
+  });
+
+  it("does nothing when no orphaned containers exist", async () => {
+    mockedExecSync.mockImplementation((cmd: string) => {
+      if (typeof cmd === "string" && cmd.includes("docker ps")) return "";
+      return "";
+    });
+
+    await cleanupOrphanedContainers();
+
+    const rmCall = mockedExecSync.mock.calls.find(
+      (call) => typeof call[0] === "string" && call[0].includes("docker rm"),
+    );
+    expect(rmCall).toBeUndefined();
   });
 });
