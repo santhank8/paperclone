@@ -35,6 +35,10 @@ interface CommentReassignment {
   assigneeUserId: string | null;
 }
 
+function timelineItemDomId(item: TimelineItem): string {
+  return item.kind === "comment" ? `comment-${item.comment.id}` : `run-${item.run.runId}`;
+}
+
 interface CommentThreadProps {
   comments: CommentWithRunMeta[];
   queuedComments?: CommentWithRunMeta[];
@@ -265,7 +269,11 @@ const TimelineList = memo(function TimelineList({
         if (item.kind === "run") {
           const run = item.run;
           return (
-            <div key={`run:${run.runId}`} className="border border-border bg-accent/20 p-3 overflow-hidden min-w-0 rounded-sm">
+            <div
+              key={`run:${run.runId}`}
+              id={`run-${run.runId}`}
+              className="border border-border bg-accent/20 p-3 overflow-hidden min-w-0 rounded-sm"
+            >
               <div className="flex items-center justify-between mb-2">
                 <Link to={`/agents/${run.agentId}`} className="hover:underline">
                   <Identity
@@ -339,6 +347,7 @@ export function CommentThread({
   const draftTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const location = useLocation();
   const hasScrolledRef = useRef(false);
+  const hasAutoScrolledToLatestRef = useRef(false);
 
   const timeline = useMemo<TimelineItem[]>(() => {
     const commentItems: TimelineItem[] = comments.map((comment) => ({
@@ -415,6 +424,18 @@ export function CommentThread({
       return () => clearTimeout(timer);
     }
   }, [location.hash, comments, queuedComments]);
+
+  useEffect(() => {
+    if (hasAutoScrolledToLatestRef.current) return;
+    if (location.hash) return;
+    if (timeline.length === 0) return;
+
+    const latestElement = document.getElementById(timelineItemDomId(timeline[timeline.length - 1]!));
+    if (!latestElement) return;
+
+    hasAutoScrolledToLatestRef.current = true;
+    latestElement.scrollIntoView({ behavior: "auto", block: "end" });
+  }, [location.hash, timeline]);
 
   async function handleSubmit() {
     const trimmed = body.trim();

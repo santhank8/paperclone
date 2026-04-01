@@ -113,4 +113,32 @@ describe("IssueRow", () => {
       root.unmount();
     });
   });
+
+  it("marks an unread issue as read when the row itself is opened", () => {
+    const root = createRoot(container);
+    const onMarkRead = vi.fn();
+
+    act(() => {
+      root.render(
+        <IssueRow
+          issue={createIssue({ isUnreadForMe: true })}
+          unreadState="visible"
+          onMarkRead={onMarkRead}
+        />,
+      );
+    });
+
+    const link = container.querySelector("[data-inbox-issue-link]") as HTMLAnchorElement | null;
+    expect(link).not.toBeNull();
+
+    act(() => {
+      link?.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+    });
+
+    expect(onMarkRead).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      root.unmount();
+    });
+  });
 });

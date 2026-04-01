@@ -25,6 +25,14 @@ import {
   type OptimisticIssueComment,
 } from "../lib/optimistic-issue-comments";
 import { useProjectOrder } from "../hooks/useProjectOrder";
+import {
+  hasIssueDetailDeepLink,
+  isIssueDetailNearBottom,
+  shouldAutoScrollIssueDetailOnOpen,
+  shouldContinueFollowingIssueDetail,
+} from "../lib/issue-detail-scroll";
+import { buildIssueDetailCompanyInvalidationKeys } from "../lib/issue-detail-invalidation";
+import { buildIssueReadMarker, shouldMarkIssueRead } from "../lib/issue-read-marker";
 import { relativeTime, cn, formatTokens, visibleRunCostUsd } from "../lib/utils";
 import { InlineEditor } from "../components/InlineEditor";
 import { CommentThread } from "../components/CommentThread";
@@ -73,6 +81,12 @@ type IssueDetailComment = (IssueComment | OptimisticIssueComment) & {
   interruptedRunId?: string | null;
   queueState?: "queued";
   queueTargetRunId?: string | null;
+};
+
+type IssueDetailScrollContainer = Window | HTMLElement;
+type IssueDetailScrollSnapshot = {
+  scrollHeight: number;
+  distanceFromBottom: number;
 };
 
 const ACTION_LABELS: Record<string, string> = {
@@ -208,6 +222,63 @@ function ActorIdentity({ evt, agentMap }: { evt: ActivityEvent; agentMap: Map<st
   return <Identity name={id || "Unknown"} size="sm" />;
 }
 
+function resolveIssueDetailScrollContainer(): IssueDetailScrollContainer {
+  const mainContent = document.getElementById("main-content");
+
+  if (mainContent instanceof HTMLElement) {
+    const overflowY = window.getComputedStyle(mainContent).overflowY;
+    const usesOwnScroll =
+      (overflowY === "auto" || overflowY === "scroll" || overflowY === "overlay")
+      && mainContent.scrollHeight > mainContent.clientHeight + 1;
+
+    if (usesOwnScroll) {
+      return mainContent;
+    }
+  }
+
+  return window;
+}
+
+function isIssueDetailWindowContainer(container: IssueDetailScrollContainer): container is Window {
+  return container === window;
+}
+
+function readIssueDetailScrollSnapshot(container: IssueDetailScrollContainer): IssueDetailScrollSnapshot {
+  if (isIssueDetailWindowContainer(container)) {
+    const pageHeight = Math.max(
+      document.documentElement.scrollHeight,
+      document.body.scrollHeight,
+    );
+    const viewportBottom = window.scrollY + window.innerHeight;
+    return {
+      scrollHeight: pageHeight,
+      distanceFromBottom: Math.max(0, pageHeight - viewportBottom),
+    };
+  }
+
+  const viewportBottom = container.scrollTop + container.clientHeight;
+  return {
+    scrollHeight: container.scrollHeight,
+    distanceFromBottom: Math.max(0, container.scrollHeight - viewportBottom),
+  };
+}
+
+function scrollIssueDetailToBottom(
+  container: IssueDetailScrollContainer,
+  behavior: ScrollBehavior = "auto",
+) {
+  if (isIssueDetailWindowContainer(container)) {
+    const pageHeight = Math.max(
+      document.documentElement.scrollHeight,
+      document.body.scrollHeight,
+    );
+    window.scrollTo({ top: pageHeight, behavior });
+    return;
+  }
+
+  container.scrollTo({ top: container.scrollHeight, behavior });
+}
+
 export function IssueDetail() {
   const { issueId } = useParams<{ issueId: string }>();
   const { selectedCompanyId } = useCompany();
@@ -228,7 +299,13 @@ export function IssueDetail() {
   const [attachmentDragActive, setAttachmentDragActive] = useState(false);
   const [optimisticComments, setOptimisticComments] = useState<OptimisticIssueComment[]>([]);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const lastMarkedReadIssueIdRef = useRef<string | null>(null);
+  const lastMarkedReadMarkerRef = useRef<string | null>(null);
+  const hasAutoPositionedRef = useRef(false);
+  const isFollowingLatestRef = useRef(false);
+  const lastScrollSnapshotRef = useRef<IssueDetailScrollSnapshot>({
+    scrollHeight: 0,
+    distanceFromBottom: Number.POSITIVE_INFINITY,
+  });
 
   const { data: issue, isLoading, error } = useQuery({
     queryKey: queryKeys.issues.detail(issueId!),
@@ -473,6 +550,12 @@ export function IssueDetail() {
     [commentsWithRunMeta],
   );
 
+  const latestActivityCount = timelineComments.length + queuedComments.length + timelineRuns.length + (hasLiveRuns ? 1 : 0);
+  const companyInvalidationKeys = useMemo(
+    () => buildIssueDetailCompanyInvalidationKeys(issue?.companyId ?? null, selectedCompanyId),
+    [issue?.companyId, selectedCompanyId],
+  );
+
   const issueCostSummary = useMemo(() => {
     let input = 0;
     let output = 0;
@@ -521,23 +604,16 @@ export function IssueDetail() {
     queryClient.invalidateQueries({ queryKey: queryKeys.issues.documents(issueId!) });
     queryClient.invalidateQueries({ queryKey: queryKeys.issues.liveRuns(issueId!) });
     queryClient.invalidateQueries({ queryKey: queryKeys.issues.activeRun(issueId!) });
-    if (selectedCompanyId) {
-      queryClient.invalidateQueries({ queryKey: queryKeys.issues.list(selectedCompanyId) });
-      queryClient.invalidateQueries({ queryKey: queryKeys.issues.listMineByMe(selectedCompanyId) });
-      queryClient.invalidateQueries({ queryKey: queryKeys.issues.listTouchedByMe(selectedCompanyId) });
-      queryClient.invalidateQueries({ queryKey: queryKeys.issues.listUnreadTouchedByMe(selectedCompanyId) });
-      queryClient.invalidateQueries({ queryKey: queryKeys.sidebarBadges(selectedCompanyId) });
+    for (const queryKey of companyInvalidationKeys) {
+      queryClient.invalidateQueries({ queryKey });
     }
   };
 
   const markIssueRead = useMutation({
     mutationFn: (id: string) => issuesApi.markRead(id),
     onSuccess: () => {
-      if (selectedCompanyId) {
-        queryClient.invalidateQueries({ queryKey: queryKeys.issues.listMineByMe(selectedCompanyId) });
-        queryClient.invalidateQueries({ queryKey: queryKeys.issues.listTouchedByMe(selectedCompanyId) });
-        queryClient.invalidateQueries({ queryKey: queryKeys.issues.listUnreadTouchedByMe(selectedCompanyId) });
-        queryClient.invalidateQueries({ queryKey: queryKeys.sidebarBadges(selectedCompanyId) });
+      for (const queryKey of companyInvalidationKeys) {
+        queryClient.invalidateQueries({ queryKey });
       }
     },
   });
@@ -794,10 +870,99 @@ export function IssueDetail() {
 
   useEffect(() => {
     if (!issue?.id) return;
-    if (lastMarkedReadIssueIdRef.current === issue.id) return;
-    lastMarkedReadIssueIdRef.current = issue.id;
+    if (!shouldMarkIssueRead(issue, lastMarkedReadMarkerRef.current)) return;
+    lastMarkedReadMarkerRef.current = buildIssueReadMarker(issue);
     markIssueRead.mutate(issue.id);
-  }, [issue?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [issue]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    hasAutoPositionedRef.current = false;
+    isFollowingLatestRef.current = false;
+    lastScrollSnapshotRef.current = {
+      scrollHeight: 0,
+      distanceFromBottom: Number.POSITIVE_INFINITY,
+    };
+  }, [issueId]);
+
+  useEffect(() => {
+    if (detailTab !== "comments") return;
+
+    const updateFollowingState = () => {
+      const container = resolveIssueDetailScrollContainer();
+      const snapshot = readIssueDetailScrollSnapshot(container);
+      lastScrollSnapshotRef.current = snapshot;
+      isFollowingLatestRef.current = isIssueDetailNearBottom(snapshot.distanceFromBottom);
+    };
+
+    const container = resolveIssueDetailScrollContainer();
+    updateFollowingState();
+
+    if (isIssueDetailWindowContainer(container)) {
+      window.addEventListener("scroll", updateFollowingState, { passive: true });
+    } else {
+      container.addEventListener("scroll", updateFollowingState, { passive: true });
+    }
+    window.addEventListener("resize", updateFollowingState);
+
+    return () => {
+      if (isIssueDetailWindowContainer(container)) {
+        window.removeEventListener("scroll", updateFollowingState);
+      } else {
+        container.removeEventListener("scroll", updateFollowingState);
+      }
+      window.removeEventListener("resize", updateFollowingState);
+    };
+  }, [detailTab, issueId]);
+
+  useEffect(() => {
+    if (detailTab !== "comments") return;
+
+    const frame = window.requestAnimationFrame(() => {
+      if (!hasAutoPositionedRef.current) {
+        if (hasIssueDetailDeepLink(location.hash)) {
+          hasAutoPositionedRef.current = true;
+          const container = resolveIssueDetailScrollContainer();
+          lastScrollSnapshotRef.current = readIssueDetailScrollSnapshot(container);
+          isFollowingLatestRef.current = false;
+          return;
+        }
+
+        if (!shouldAutoScrollIssueDetailOnOpen({ hash: location.hash, activityCount: latestActivityCount })) {
+          return;
+        }
+
+        const container = resolveIssueDetailScrollContainer();
+        scrollIssueDetailToBottom(container, "auto");
+        lastScrollSnapshotRef.current = readIssueDetailScrollSnapshot(container);
+        hasAutoPositionedRef.current = true;
+        isFollowingLatestRef.current = true;
+        return;
+      }
+
+      if (!isFollowingLatestRef.current) return;
+
+      const container = resolveIssueDetailScrollContainer();
+      const current = readIssueDetailScrollSnapshot(container);
+      const previous = lastScrollSnapshotRef.current;
+
+      if (!shouldContinueFollowingIssueDetail({
+        previousScrollHeight: previous.scrollHeight,
+        previousDistanceFromBottom: previous.distanceFromBottom,
+        currentScrollHeight: current.scrollHeight,
+        currentDistanceFromBottom: current.distanceFromBottom,
+      })) {
+        lastScrollSnapshotRef.current = current;
+        isFollowingLatestRef.current = false;
+        return;
+      }
+
+      scrollIssueDetailToBottom(container, "auto");
+      lastScrollSnapshotRef.current = readIssueDetailScrollSnapshot(container);
+      isFollowingLatestRef.current = true;
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, [detailTab, latestActivityCount, location.hash]);
 
   useEffect(() => {
     if (issue) {
