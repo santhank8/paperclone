@@ -142,13 +142,18 @@ If you are asked to install a skill for the company or an agent you MUST read:
 - **Windows encoding — never inline non-ASCII text in curl `-d`/`--data` arguments.**
   On Windows with a CJK system locale (CP949, CP932, GBK, etc.), curl encodes command-line
   argument strings using the ANSI Code Page, corrupting any non-ASCII content before it reaches
-  the server. Use a temp file instead:
+  the server. Write the JSON to a UTF-8 file first, then pass it with `--data-binary @file`.
+  Use Python (available on all platforms) to guarantee UTF-8 encoding:
 
-  ```bash
-  cat > /tmp/payload.json << 'EOF'
-  {"title": "한글 제목"}
-  EOF
-  curl ... --data-binary @/tmp/payload.json
+  ```python
+  # Step 1 — write payload as UTF-8 (works on Windows, macOS, Linux)
+  python3 -c "
+  import json
+  data = {'title': '한글 제목'}
+  open('payload.json', 'w', encoding='utf-8').write(json.dumps(data, ensure_ascii=False))
+  "
+  # Step 2 — send with curl
+  curl ... --data-binary @payload.json
   ```
 
   This applies to all non-ASCII content in request bodies (issue titles, descriptions, comments).
