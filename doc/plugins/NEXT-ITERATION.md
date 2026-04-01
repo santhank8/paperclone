@@ -74,11 +74,11 @@ pnpm test --filter @paperclipai/plugin-playwright-mcp
 
 ### Validação Autônoma Completa — 100% Saúde
 
-**Testes totais:** 875/875 passing (100%)
+**Testes totais:** 849/849 passing (100%)
 **Health Score:** 10/10
 **Plugins production:** 3 (playwright-mcp: 10 tools, ruflo-bridge: 9 tools, skills-hub: 12 tools)
 **Testes de plugins:** 239 testes (112 schema + 127 integração)
-**Validação cron:** Horária, ~66s duration
+**Validação cron:** Horária, ~55s duration
 
 **Build validation:**
 - playwright-mcp: 10.8KB worker.js ✅
