@@ -72,11 +72,10 @@ Covered in the sweep:
 - internal/demo transcript and design reference pages used by the team while iterating on UI behavior
 - follow-up externalization passes moved more goal/project/org/workspace/property strings out of TSX and into message catalogs
 - later passes also moved workspace-close, live-run, budget-incident, issue-document, and more shared UI labels into catalogs
-- the latest cleanup pass moved transcript UX lab and design-guide locale tables out of TSX into dedicated i18n data, removing the remaining direct per-locale branching from current UI sources
+- the latest cleanup pass moved transcript UX lab and design-guide locale tables out of TSX into catalog data under `ui/src/i18n/messages/demo.ts`, removing the remaining direct per-locale branching from current UI sources
 
 Remaining follow-up is intentionally narrower:
 - residual demo/sample literals, placeholder-only fixture text, and locale-sensitive sample data in internal reference screens
-- deciding whether dedicated demo/internal i18n data should merge into the standard message tree
 - adding guardrails so newly introduced user-facing strings do not bypass the i18n layer
 - a lightweight guardrail now exists via `pnpm check:i18n`, and `@paperclipai/ui` runs it in `pretypecheck` to block the old transitional locale-branch patterns from coming back
 

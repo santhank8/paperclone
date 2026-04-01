@@ -1,4 +1,4 @@
-import type { ActiveLocale } from "./types";
+import type { ActiveLocale } from "../types";
 
 type DemoTable = Record<string, Record<ActiveLocale, string>>;
 
@@ -18,17 +18,20 @@ const designGuideTable: DemoTable = {
   "Add cost tracking dashboard": { en: "Add cost tracking dashboard", ko: "비용 추적 대시보드 추가", ja: "コスト追跡ダッシュボード追加" },
   "advanced filters": { en: "advanced filters", ko: "고급 필터", ja: "高度フィルター" },
   "Agent": { en: "Agent", ko: "에이전트", ja: "エージェント" },
+  "Agent Alpha": { en: "Agent Alpha", ko: "에이전트 알파", ja: "エージェント・アルファ" },
   "Agent heartbeat": { en: "Agent heartbeat", ko: "에이전트 하트비트", ja: "エージェント heartbeat" },
   "Agent started successfully": { en: "Agent started successfully", ko: "에이전트가 성공적으로 시작됨", ja: "エージェントが正常に起動" },
   "Agent status dots": { en: "Agent status dots", ko: "에이전트 상태 점", ja: "エージェント状態ドット" },
   "Agents": { en: "Agents", ko: "에이전트", ja: "エージェント" },
   "API keys have been added to the vault. Please proceed.": { en: "API keys have been added to the vault. Please proceed.", ko: "API 키를 vault에 추가했습니다. 계속 진행하세요.", ja: "API キーを vault に追加しました。続行してください。" },
+  "Alpha": { en: "Alpha", ko: "알파", ja: "アルファ" },
   "App components": { en: "App components", ko: "앱 컴포넌트", ja: "アプリコンポーネント" },
   "Assigned to Agent Alpha": { en: "Assigned to Agent Alpha", ko: "Agent Alpha에게 할당됨", ja: "Agent Alpha に割り当て" },
   "Assignee": { en: "Assignee", ko: "담당자", ja: "担当者" },
   "Avatars": { en: "Avatars", ko: "아바타", ja: "アバター" },
   "Background": { en: "Background", ko: "배경", ja: "背景" },
   "Backlog": { en: "Backlog", ko: "백로그", ja: "バックログ" },
+  "Backend Service": { en: "Backend Service", ko: "백엔드 서비스", ja: "バックエンドサービス" },
   "Badges": { en: "Badges", ko: "배지", ja: "バッジ" },
   "Blocked by PAP-001": { en: "Blocked by PAP-001", ko: "PAP-001에 의해 차단됨", ja: "PAP-001 によりブロック" },
   "Body text": { en: "Body text", ko: "본문 텍스트", ja: "本文テキスト" },
@@ -80,6 +83,7 @@ const designGuideTable: DemoTable = {
   "Critical": { en: "Critical", ko: "치명", ja: "重大" },
   "current": { en: "current", ko: "현재", ja: "現在" },
   "Current value": { en: "Current value", ko: "현재 값", ja: "現在の値" },
+  "CEO Agent": { en: "CEO Agent", ko: "CEO 에이전트", ja: "CEO エージェント" },
   "Custom initials": { en: "Custom initials", ko: "사용자 지정 이니셜", ja: "カスタムイニシャル" },
   "Dashboard": { en: "Dashboard", ko: "대시보드", ja: "ダッシュボード" },
   "Default": { en: "Default", ko: "기본", ja: "デフォルト" },
@@ -191,6 +195,7 @@ const designGuideTable: DemoTable = {
   "Progress Bars (Budget)": { en: "Progress Bars (Budget)", ko: "진행 바 (예산)", ja: "進行バー (予算)" },
   "Projects": { en: "Projects", ko: "프로젝트", ja: "プロジェクト" },
   "Property Row Pattern": { en: "Property Row Pattern", ko: "속성 행 패턴", ja: "プロパティ行パターン" },
+  "Quality Assurance Lead": { en: "Quality Assurance Lead", ko: "품질 보증 리드", ja: "品質保証リード" },
   "Quick Actions": { en: "Quick Actions", ko: "빠른 작업", ja: "クイック操作" },
   "Radius": { en: "Radius", ko: "라운드", ja: "角丸" },
   "Rate limit approaching (80%)": { en: "Rate limit approaching (80%)", ko: "요청 한도 임박 (80%)", ja: "レート制限が近づいています (80%)" },

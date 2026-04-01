@@ -125,7 +125,7 @@ import { PageSkeleton } from "@/components/PageSkeleton";
 import { Identity } from "@/components/Identity";
 import { useI18n } from "../i18n";
 import { formatDate } from "../lib/utils";
-import { designGuideText } from "../i18n/demoText";
+import { designGuideText } from "../i18n/messages/demo";
 
 /* ------------------------------------------------------------------ */
 /*  Section wrapper                                                    */
@@ -994,22 +994,22 @@ export function DesignGuide() {
       <Section title={copy.identity}>
         <SubSection title={tr("Sizes")}>
           <div className="flex items-center gap-6">
-            <Identity name="Agent Alpha" size="sm" />
-            <Identity name="Agent Alpha" />
-            <Identity name="Agent Alpha" size="lg" />
+            <Identity name={tr("Agent Alpha")} size="sm" />
+            <Identity name={tr("Agent Alpha")} />
+            <Identity name={tr("Agent Alpha")} size="lg" />
           </div>
         </SubSection>
 
         <SubSection title={tr("Initials derivation")}>
           <div className="flex flex-col gap-2">
-            <Identity name="CEO Agent" size="sm" />
-            <Identity name="Alpha" size="sm" />
-            <Identity name="Quality Assurance Lead" size="sm" />
+            <Identity name={tr("CEO Agent")} size="sm" />
+            <Identity name={tr("Alpha")} size="sm" />
+            <Identity name={tr("Quality Assurance Lead")} size="sm" />
           </div>
         </SubSection>
 
         <SubSection title={tr("Custom initials")}>
-          <Identity name="Backend Service" initials="BS" size="sm" />
+          <Identity name={tr("Backend Service")} initials="BS" size="sm" />
         </SubSection>
       </Section>
 
@@ -1145,7 +1145,7 @@ export function DesignGuide() {
             <span className="text-xs text-muted-foreground">{tr("Assignee")}</span>
             <div className="flex items-center gap-1.5">
               <Avatar size="sm"><AvatarFallback>A</AvatarFallback></Avatar>
-              <span className="text-xs">Agent Alpha</span>
+              <span className="text-xs">{tr("Agent Alpha")}</span>
             </div>
           </div>
           <div className="flex items-center justify-between py-1.5">

@@ -8,7 +8,7 @@ import { RunTranscriptView, type TranscriptDensity, type TranscriptMode } from "
 import { runTranscriptFixtureEntries, runTranscriptFixtureMeta } from "../fixtures/runTranscriptFixtures";
 import { ExternalLink, FlaskConical, LayoutPanelLeft, MonitorCog, PanelsTopLeft, RadioTower } from "lucide-react";
 import { useI18n } from "../i18n";
-import { runTranscriptUxLabText } from "../i18n/demoText";
+import { runTranscriptUxLabText } from "../i18n/messages/demo";
 
 type SurfaceId = "detail" | "live" | "dashboard";
 
