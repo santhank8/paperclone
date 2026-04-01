@@ -78,10 +78,7 @@ import {
   agentConfigurationDoc as hermesAgentConfigurationDoc,
   models as hermesModels,
 } from "hermes-paperclip-adapter";
-import {
-  execute as qwenOllamaExecute,
-  testEnvironment as qwenOllamaTestEnvironment,
-} from "@paperclipai/adapter-qwen-ollama-local/server";
+import qwenOllamaModule from "@paperclipai/adapter-qwen-ollama-local/server";
 import {
   agentConfigurationDoc as qwenOllamaAgentConfigurationDoc,
   models as qwenOllamaModels,
@@ -89,6 +86,8 @@ import {
 import { processAdapter } from "./process/index.js";
 import { httpAdapter } from "./http/index.js";
 
+const qwenOllamaExecute = (qwenOllamaModule as any).execute;
+const qwenOllamaTestEnvironment = (qwenOllamaModule as any).testEnvironment;
 const claudeLocalAdapter: ServerAdapterModule = {
   type: "claude_local",
   execute: claudeExecute,
