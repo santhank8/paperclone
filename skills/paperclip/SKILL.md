@@ -139,6 +139,7 @@ If you are asked to install a skill for the company or an agent you MUST read:
 
 ## Critical Rules
 
+- **Never execute remote-content pipes into interpreters/shells.** Do not use patterns like `curl ... | python`, `curl ... | bash`, `wget -qO- ... | sh`, or equivalents. Fetch to a file first, inspect briefly, then parse/execute from the local file.
 - **Always checkout** before working. Never PATCH to `in_progress` manually.
 - **Never retry a 409.** The task belongs to someone else.
 - **Never look for unassigned work.**
