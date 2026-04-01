@@ -465,7 +465,7 @@ export function normalizeTranscript(entries: TranscriptEntry[], streaming: boole
           type: "tool",
           ts: entry.ts,
           endTs: entry.ts,
-          name: entry.toolName ?? "tool",
+          name: entry.toolName ?? formatMessage(locale, "transcript.tool"),
           toolUseId: entry.toolUseId,
           input: null,
           result: entry.content,
@@ -482,7 +482,9 @@ export function normalizeTranscript(entries: TranscriptEntry[], streaming: boole
         ts: entry.ts,
         label: "init",
         tone: "info",
-        text: `model ${entry.model}${entry.sessionId ? ` • session ${entry.sessionId}` : ""}`,
+        text: entry.sessionId
+          ? formatMessage(locale, "transcript.modelSummaryWithSession", { model: entry.model, sessionId: entry.sessionId })
+          : formatMessage(locale, "transcript.modelSummary", { model: entry.model }),
       });
       continue;
     }
@@ -549,7 +551,7 @@ export function normalizeTranscript(entries: TranscriptEntry[], streaming: boole
       blocks.push({
         type: "event",
         ts: entry.ts,
-        label: formatMessage(locale, "transcript.system"),
+        label: "system",
         tone: "warn",
         text: entry.text,
       });
@@ -1040,6 +1042,13 @@ function TranscriptActivityRow({
   );
 }
 
+function displayEventLabel(label: string, locale: ActiveLocale): string {
+  if (label === "init") return formatMessage(locale, "transcript.init");
+  if (label === "result") return formatMessage(locale, "transcript.result");
+  if (label === "system") return formatMessage(locale, "transcript.system");
+  return label;
+}
+
 function TranscriptEventRow({
   block,
   density,
@@ -1047,6 +1056,7 @@ function TranscriptEventRow({
   block: Extract<TranscriptBlock, { type: "event" }>;
   density: TranscriptDensity;
 }) {
+  const { locale } = useI18n();
   const compact = density === "compact";
   const toneClasses =
     block.tone === "error"
@@ -1075,7 +1085,7 @@ function TranscriptEventRow({
           ) : (
             <div className={cn("whitespace-pre-wrap break-words", compact ? "text-[11px]" : "text-xs")}>
               <span className="text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground/70">
-                {block.label}
+                {displayEventLabel(block.label, locale)}
               </span>
               {block.text ? <span className="ml-2">{block.text}</span> : null}
             </div>

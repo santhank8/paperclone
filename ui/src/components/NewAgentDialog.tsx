@@ -34,71 +34,72 @@ type AdvancedAdapterType =
   | "openclaw_gateway"
   | "hermes_local";
 
-const ADVANCED_ADAPTER_OPTIONS: Array<{
-  value: AdvancedAdapterType;
-  label: string;
-  desc: string;
-  icon: ComponentType<{ className?: string }>;
-  recommended?: boolean;
-}> = [
-  {
-    value: "claude_local",
-    label: "Claude Code",
-    icon: Sparkles,
-    desc: "Local Claude agent",
-    recommended: true,
-  },
-  {
-    value: "codex_local",
-    label: "Codex",
-    icon: Code,
-    desc: "Local Codex agent",
-    recommended: true,
-  },
-  {
-    value: "gemini_local",
-    label: "Gemini CLI",
-    icon: Gem,
-    desc: "Local Gemini agent",
-  },
-  {
-    value: "opencode_local",
-    label: "OpenCode",
-    icon: OpenCodeLogoIcon,
-    desc: "Local multi-provider agent",
-  },
-  {
-    value: "hermes_local",
-    label: "Hermes Agent",
-    icon: HermesIcon,
-    desc: "Local multi-provider agent",
-  },
-  {
-    value: "pi_local",
-    label: "Pi",
-    icon: Terminal,
-    desc: "Local Pi agent",
-  },
-  {
-    value: "cursor",
-    label: "Cursor",
-    icon: MousePointer2,
-    desc: "Local Cursor agent",
-  },
-  {
-    value: "openclaw_gateway",
-    label: "OpenClaw Gateway",
-    icon: Bot,
-    desc: "Invoke OpenClaw via gateway protocol",
-  },
-];
-
 export function NewAgentDialog() {
+
   const { t } = useI18n();
   const { newAgentOpen, closeNewAgent, openNewIssue } = useDialog();
   const { selectedCompanyId } = useCompany();
   const navigate = useNavigate();
   const [showAdvancedCards, setShowAdvancedCards] = useState(false);
+
+  const advancedAdapterOptions: Array<{
+    value: AdvancedAdapterType;
+    label: string;
+    desc: string;
+    icon: ComponentType<{ className?: string }>;
+    recommended?: boolean;
+  }> = [
+    {
+      value: "claude_local",
+      label: t("onboardingAdapters.claudeCode"),
+      icon: Sparkles,
+      desc: t("onboardingAdapters.localClaude"),
+      recommended: true,
+    },
+    {
+      value: "codex_local",
+      label: t("onboardingAdapters.codex"),
+      icon: Code,
+      desc: t("onboardingAdapters.localCodex"),
+      recommended: true,
+    },
+    {
+      value: "gemini_local",
+      label: t("onboardingAdapters.geminiCli"),
+      icon: Gem,
+      desc: t("onboardingAdapters.localGemini"),
+    },
+    {
+      value: "opencode_local",
+      label: t("onboardingAdapters.openCode"),
+      icon: OpenCodeLogoIcon,
+      desc: t("onboardingAdapters.localMultiProvider"),
+    },
+    {
+      value: "hermes_local",
+      label: t("onboardingAdapters.hermesAgent"),
+      icon: HermesIcon,
+      desc: t("onboardingAdapters.localMultiProvider"),
+    },
+    {
+      value: "pi_local",
+      label: t("onboardingAdapters.pi"),
+      icon: Terminal,
+      desc: t("onboardingAdapters.localPi"),
+    },
+    {
+      value: "cursor",
+      label: t("onboardingAdapters.cursor"),
+      icon: MousePointer2,
+      desc: t("onboardingAdapters.localCursor"),
+    },
+    {
+      value: "openclaw_gateway",
+      label: t("onboardingAdapters.openClawGateway"),
+      icon: Bot,
+      desc: t("onboardingAdapters.openClawGatewayDesc"),
+    },
+  ];
 
   const { data: agents } = useQuery({
     queryKey: queryKeys.agents.list(selectedCompanyId!),
@@ -201,7 +202,7 @@ export function NewAgentDialog() {
               </div>
 
               <div className="grid grid-cols-2 gap-2">
-                {ADVANCED_ADAPTER_OPTIONS.map((opt) => (
+                {advancedAdapterOptions.map((opt) => (
                   <button
                     key={opt.value}
                     className={cn(
