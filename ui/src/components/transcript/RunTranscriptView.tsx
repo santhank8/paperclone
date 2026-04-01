@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import type { TranscriptEntry } from "../../adapters";
 import { MarkdownBody } from "../MarkdownBody";
 import { cn, formatTokens } from "../../lib/utils";
+import { formatMessage, useI18n, type ActiveLocale } from "../../i18n";
 import {
   Check,
   ChevronDown,
@@ -261,21 +262,23 @@ function isCommandTool(name: string, input: unknown): boolean {
   return Boolean(record && (typeof record.command === "string" || typeof record.cmd === "string"));
 }
 
-function displayToolName(name: string, input: unknown): string {
-  if (isCommandTool(name, input)) return "Executing command";
+function displayToolName(name: string, input: unknown, locale: ActiveLocale): string {
+  if (isCommandTool(name, input)) return formatMessage(locale, "transcript.executingCommand");
   return humanizeLabel(name);
 }
 
-function summarizeToolResult(result: string | undefined, isError: boolean | undefined, density: TranscriptDensity): string {
-  if (!result) return isError ? "Tool failed" : "Waiting for result";
+function summarizeToolResult(result: string | undefined, isError: boolean | undefined, density: TranscriptDensity, locale: ActiveLocale): string {
+  if (!result) return isError ? formatMessage(locale, "transcript.toolFailed") : formatMessage(locale, "transcript.waitingForResult");
   const structured = parseStructuredToolResult(result);
   if (structured) {
     if (structured.body) {
       return truncate(structured.body.split("\n")[0] ?? structured.body, density === "compact" ? 84 : 140);
     }
-    if (structured.status === "completed") return "Completed";
+    if (structured.status === "completed") return formatMessage(locale, "transcript.completed");
     if (structured.status === "failed" || structured.status === "error") {
-      return structured.exitCode ? `Failed with exit code ${structured.exitCode}` : "Failed";
+      return structured.exitCode
+        ? formatMessage(locale, "transcript.failedWithExitCode", { code: structured.exitCode })
+        : formatMessage(locale, "transcript.failed");
     }
   }
   const lines = result
@@ -286,12 +289,12 @@ function summarizeToolResult(result: string | undefined, isError: boolean | unde
   return truncate(firstLine, density === "compact" ? 84 : 140);
 }
 
-function parseSystemActivity(text: string): { activityId?: string; name: string; status: "running" | "completed" } | null {
+function parseSystemActivity(text: string, locale: ActiveLocale): { activityId?: string; name: string; status: "running" | "completed" } | null {
   const match = text.match(/^item (started|completed):\s*([a-z0-9_-]+)(?:\s+\(id=([^)]+)\))?$/i);
   if (!match) return null;
   return {
     status: match[1].toLowerCase() === "started" ? "running" : "completed",
-    name: humanizeLabel(match[2] ?? "Activity"),
+    name: humanizeLabel(match[2] ?? formatMessage(locale, "transcript.activity")),
     activityId: match[3] || undefined,
   };
 }
@@ -387,7 +390,7 @@ function groupToolBlocks(blocks: TranscriptBlock[]): TranscriptBlock[] {
   return grouped;
 }
 
-export function normalizeTranscript(entries: TranscriptEntry[], streaming: boolean): TranscriptBlock[] {
+export function normalizeTranscript(entries: TranscriptEntry[], streaming: boolean, locale: ActiveLocale = "en"): TranscriptBlock[] {
   const blocks: TranscriptBlock[] = [];
   const pendingToolBlocks = new Map<string, Extract<TranscriptBlock, { type: "tool" }>>();
   const pendingActivityBlocks = new Map<string, Extract<TranscriptBlock, { type: "activity" }>>();
@@ -434,7 +437,7 @@ export function normalizeTranscript(entries: TranscriptEntry[], streaming: boole
       const toolBlock: Extract<TranscriptBlock, { type: "tool" }> = {
         type: "tool",
         ts: entry.ts,
-        name: displayToolName(entry.name, entry.input),
+        name: displayToolName(entry.name, entry.input, locale),
         toolUseId: entry.toolUseId ?? extractToolUseId(entry.input),
         input: entry.input,
         status: "running",
@@ -490,7 +493,7 @@ export function normalizeTranscript(entries: TranscriptEntry[], streaming: boole
         ts: entry.ts,
         label: "result",
         tone: entry.isError ? "error" : "info",
-        text: entry.text.trim() || entry.errors[0] || (entry.isError ? "Run failed" : "Completed"),
+        text: entry.text.trim() || entry.errors[0] || (entry.isError ? formatMessage(locale, "transcript.runFailed") : formatMessage(locale, "transcript.completed")),
       });
       continue;
     }
@@ -519,7 +522,7 @@ export function normalizeTranscript(entries: TranscriptEntry[], streaming: boole
       if (compactWhitespace(entry.text).toLowerCase() === "turn started") {
         continue;
       }
-      const activity = parseSystemActivity(entry.text);
+      const activity = parseSystemActivity(entry.text, locale);
       if (activity) {
         const existing = activity.activityId ? pendingActivityBlocks.get(activity.activityId) : undefined;
         if (existing) {
@@ -546,7 +549,7 @@ export function normalizeTranscript(entries: TranscriptEntry[], streaming: boole
       blocks.push({
         type: "event",
         ts: entry.ts,
-        label: "system",
+        label: formatMessage(locale, "transcript.system"),
         tone: "warn",
         text: entry.text,
       });
@@ -586,15 +589,21 @@ function TranscriptMessageBlock({
   block: Extract<TranscriptBlock, { type: "message" }>;
   density: TranscriptDensity;
 }) {
+  const { locale } = useI18n();
   const isAssistant = block.role === "assistant";
   const compact = density === "compact";
+  const copy = locale === "ko"
+    ? { user: "사용자", streaming: "스트리밍 중" }
+    : locale === "ja"
+      ? { user: "ユーザー", streaming: "ストリーミング中" }
+      : { user: "User", streaming: "Streaming" };
 
   return (
     <div>
       {!isAssistant && (
         <div className="mb-1.5 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
           <User className={compact ? "h-3.5 w-3.5" : "h-4 w-4"} />
-          <span>User</span>
+          <span>{copy.user}</span>
         </div>
       )}
       <MarkdownBody
@@ -611,7 +620,7 @@ function TranscriptMessageBlock({
             <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-current opacity-70" />
             <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-current" />
           </span>
-          Streaming
+          {copy.streaming}
         </div>
       )}
     </div>
@@ -647,15 +656,21 @@ function TranscriptToolCard({
   block: Extract<TranscriptBlock, { type: "tool" }>;
   density: TranscriptDensity;
 }) {
+  const { locale } = useI18n();
   const [open, setOpen] = useState(block.status === "error");
   const compact = density === "compact";
+  const copy = locale === "ko"
+    ? { running: "실행 중", errored: "오류", completed: "완료", input: "입력", result: "결과", empty: "<비어 있음>", waiting: "결과 대기 중...", collapse: "툴 상세 접기", expand: "툴 상세 펼치기" }
+    : locale === "ja"
+      ? { running: "実行中", errored: "エラー", completed: "完了", input: "入力", result: "結果", empty: "<空>", waiting: "結果を待機中...", collapse: "ツール詳細を折りたたむ", expand: "ツール詳細を展開する" }
+      : { running: "Running", errored: "Errored", completed: "Completed", input: "Input", result: "Result", empty: "<empty>", waiting: "Waiting for result...", collapse: "Collapse tool details", expand: "Expand tool details" };
   const parsedResult = parseStructuredToolResult(block.result);
   const statusLabel =
     block.status === "running"
-      ? "Running"
+      ? copy.running
       : block.status === "error"
-        ? "Errored"
-        : "Completed";
+        ? copy.errored
+        : copy.completed;
   const statusTone =
     block.status === "running"
       ? "text-cyan-700 dark:text-cyan-300"
@@ -678,7 +693,7 @@ function TranscriptToolCard({
     ? summarizeToolInput(block.name, block.input, density)
     : block.status === "completed" && parsedResult?.body
       ? truncate(parsedResult.body.split("\n")[0] ?? parsedResult.body, compact ? 84 : 140)
-      : summarizeToolResult(block.result, block.isError, density);
+      : summarizeToolResult(block.result, block.isError, density, locale);
 
   return (
     <div className={cn(block.status === "error" && "rounded-xl border border-red-500/20 bg-red-500/[0.04] p-3")}>
@@ -707,7 +722,7 @@ function TranscriptToolCard({
           type="button"
           className="mt-0.5 inline-flex h-5 w-5 items-center justify-center text-muted-foreground transition-colors hover:text-foreground"
           onClick={() => setOpen((value) => !value)}
-          aria-label={open ? "Collapse tool details" : "Expand tool details"}
+          aria-label={open ? copy.collapse : copy.expand}
         >
           {open ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
         </button>
@@ -718,21 +733,21 @@ function TranscriptToolCard({
             <div className={cn("grid gap-3", compact ? "grid-cols-1" : "lg:grid-cols-2")}>
               <div>
                 <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                  Input
+                  {copy.input}
                 </div>
                 <pre className="overflow-x-auto whitespace-pre-wrap break-words font-mono text-[11px] text-foreground/80">
-                  {formatToolPayload(block.input) || "<empty>"}
+                  {formatToolPayload(block.input) || copy.empty}
                 </pre>
               </div>
               <div>
                 <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                  Result
+                  {copy.result}
                 </div>
                 <pre className={cn(
                   "overflow-x-auto whitespace-pre-wrap break-words font-mono text-[11px]",
                   block.status === "error" ? "text-red-700 dark:text-red-300" : "text-foreground/80",
                 )}>
-                  {block.result ? formatToolPayload(block.result) : "Waiting for result..."}
+                  {block.result ? formatToolPayload(block.result) : copy.waiting}
                 </pre>
               </div>
             </div>
@@ -755,18 +770,24 @@ function TranscriptCommandGroup({
   block: Extract<TranscriptBlock, { type: "command_group" }>;
   density: TranscriptDensity;
 }) {
+  const { locale } = useI18n();
   const [open, setOpen] = useState(false);
   const compact = density === "compact";
+  const copy = locale === "ko"
+    ? { executingCommand: "명령 실행 중", executedCommand: "명령 실행 완료", executedCommands: "{{count}}개 명령 실행 완료", commandFailed: "명령 실패", collapse: "명령 상세 접기", expand: "명령 상세 펼치기", running: "실행 중", errored: "오류", completed: "완료" }
+    : locale === "ja"
+      ? { executingCommand: "コマンド実行中", executedCommand: "コマンド実行済み", executedCommands: "{{count}} 件のコマンドを実行済み", commandFailed: "コマンド失敗", collapse: "コマンド詳細を折りたたむ", expand: "コマンド詳細を展開する", running: "実行中", errored: "エラー", completed: "完了" }
+      : { executingCommand: "Executing command", executedCommand: "Executed command", executedCommands: "Executed {{count}} commands", commandFailed: "Command failed", collapse: "Collapse command details", expand: "Expand command details", running: "Running", errored: "Errored", completed: "Completed" };
   const runningItem = [...block.items].reverse().find((item) => item.status === "running");
   const latestItem = block.items[block.items.length - 1] ?? null;
   const hasError = block.items.some((item) => item.status === "error");
   const isRunning = Boolean(runningItem);
   const showExpandedErrorState = open && hasError;
   const title = isRunning
-    ? "Executing command"
+    ? copy.executingCommand
     : block.items.length === 1
-      ? "Executed command"
-      : `Executed ${block.items.length} commands`;
+      ? copy.executedCommand
+      : copy.executedCommands.replace("{{count}}", String(block.items.length));
   const subtitle = runningItem
     ? summarizeToolInput("command_execution", runningItem.input, density)
     : null;
@@ -819,7 +840,7 @@ function TranscriptCommandGroup({
           )}
           {!subtitle && latestItem?.status === "error" && open && (
             <div className={cn("mt-1", compact ? "text-xs" : "text-sm", statusTone)}>
-              Command failed
+              {copy.commandFailed}
             </div>
           )}
         </div>
@@ -833,7 +854,7 @@ function TranscriptCommandGroup({
             event.stopPropagation();
             setOpen((value) => !value);
           }}
-          aria-label={open ? "Collapse command details" : "Expand command details"}
+          aria-label={open ? copy.collapse : copy.expand}
         >
           {open ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
         </button>
@@ -880,8 +901,53 @@ function TranscriptToolGroup({
   block: Extract<TranscriptBlock, { type: "tool_group" }>;
   density: TranscriptDensity;
 }) {
+  const { locale } = useI18n();
   const [open, setOpen] = useState(false);
   const compact = density === "compact";
+  const copy = locale === "ko"
+    ? {
+        tools: "{{count}}개 도구",
+        using: "{{label}} 사용 중",
+        used: "{{label}} 사용 완료",
+        usedCalls: "{{label}} 사용 완료 ({{count}}회 호출)",
+        collapse: "툴 상세 접기",
+        expand: "툴 상세 펼치기",
+        running: "실행 중",
+        errored: "오류",
+        completed: "완료",
+        input: "입력",
+        result: "결과",
+        empty: "<비어 있음>",
+      }
+    : locale === "ja"
+      ? {
+          tools: "{{count}} 個のツール",
+          using: "{{label}} を使用中",
+          used: "{{label}} を使用済み",
+          usedCalls: "{{label}} を使用済み ({{count}} 回)",
+          collapse: "ツール詳細を折りたたむ",
+          expand: "ツール詳細を展開する",
+          running: "実行中",
+          errored: "エラー",
+          completed: "完了",
+          input: "入力",
+          result: "結果",
+          empty: "<空>",
+        }
+      : {
+          tools: "{{count}} tools",
+          using: "Using {{label}}",
+          used: "Used {{label}}",
+          usedCalls: "Used {{label}} ({{count}} calls)",
+          collapse: "Collapse tool details",
+          expand: "Expand tool details",
+          running: "Running",
+          errored: "Errored",
+          completed: "Completed",
+          input: "Input",
+          result: "Result",
+          empty: "<empty>",
+        };
   const runningItem = [...block.items].reverse().find((item) => item.status === "running");
   const hasError = block.items.some((item) => item.status === "error");
   const isRunning = Boolean(runningItem);
@@ -889,12 +955,12 @@ function TranscriptToolGroup({
   const toolLabel =
     uniqueNames.length === 1
       ? humanizeLabel(uniqueNames[0])
-      : `${uniqueNames.length} tools`;
+      : copy.tools.replace("{{count}}", String(uniqueNames.length));
   const title = isRunning
-    ? `Using ${toolLabel}`
+    ? copy.using.replace("{{label}}", toolLabel)
     : block.items.length === 1
-      ? `Used ${toolLabel}`
-      : `Used ${toolLabel} (${block.items.length} calls)`;
+      ? copy.used.replace("{{label}}", toolLabel)
+      : copy.usedCalls.replace("{{label}}", toolLabel).replace("{{count}}", String(block.items.length));
   const subtitle = runningItem
     ? summarizeToolInput(runningItem.name, runningItem.input, density)
     : null;
@@ -948,7 +1014,7 @@ function TranscriptToolGroup({
           type="button"
           className={cn("inline-flex h-5 w-5 items-center justify-center text-muted-foreground transition-colors hover:text-foreground", subtitle && "mt-0.5")}
           onClick={(e) => { e.stopPropagation(); setOpen((v) => !v); }}
-          aria-label={open ? "Collapse tool details" : "Expand tool details"}
+          aria-label={open ? copy.collapse : copy.expand}
         >
           {open ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
         </button>
@@ -976,19 +1042,19 @@ function TranscriptToolGroup({
                   : item.status === "error" ? "text-red-700 dark:text-red-300"
                   : "text-emerald-700 dark:text-emerald-300"
                 )}>
-                  {item.status === "running" ? "Running" : item.status === "error" ? "Errored" : "Completed"}
+                  {item.status === "running" ? copy.running : item.status === "error" ? copy.errored : copy.completed}
                 </span>
               </div>
               <div className={cn("grid gap-2 pl-7", compact ? "grid-cols-1" : "lg:grid-cols-2")}>
                 <div>
-                  <div className="mb-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Input</div>
+                  <div className="mb-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">{copy.input}</div>
                   <pre className="overflow-x-auto whitespace-pre-wrap break-words font-mono text-[11px] text-foreground/80">
-                    {formatToolPayload(item.input) || "<empty>"}
+                    {formatToolPayload(item.input) || copy.empty}
                   </pre>
                 </div>
                 {item.result && (
                   <div>
-                    <div className="mb-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Result</div>
+                    <div className="mb-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">{copy.result}</div>
                     <pre className={cn(
                       "overflow-x-auto whitespace-pre-wrap break-words font-mono text-[11px]",
                       item.status === "error" ? "text-red-700 dark:text-red-300" : "text-foreground/80",
@@ -1091,6 +1157,7 @@ function TranscriptStderrGroup({
   block: Extract<TranscriptBlock, { type: "stderr_group" }>;
   density: TranscriptDensity;
 }) {
+  const { locale, t } = useI18n();
   const [open, setOpen] = useState(false);
   const compact = density === "compact";
   return (
@@ -1103,7 +1170,10 @@ function TranscriptStderrGroup({
         onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setOpen((v) => !v); } }}
       >
         <span className={cn("text-[10px] font-semibold uppercase tracking-[0.14em]")}>
-          {block.lines.length} log {block.lines.length === 1 ? "line" : "lines"}
+          {formatMessage(locale, "transcript.logLines", {
+            count: block.lines.length,
+            noun: block.lines.length === 1 ? t("transcript.line") : t("transcript.lines"),
+          })}
         </span>
         {open ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
       </div>
@@ -1130,19 +1200,20 @@ function TranscriptStdoutRow({
   density: TranscriptDensity;
   collapseByDefault: boolean;
 }) {
+  const { t } = useI18n();
   const [open, setOpen] = useState(!collapseByDefault);
 
   return (
     <div>
       <div className="flex items-center gap-2">
         <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-          stdout
+          {t("transcript.stdout")}
         </span>
         <button
           type="button"
           className="inline-flex h-5 w-5 items-center justify-center text-muted-foreground transition-colors hover:text-foreground"
           onClick={() => setOpen((value) => !value)}
-          aria-label={open ? "Collapse stdout" : "Expand stdout"}
+          aria-label={open ? t("transcript.collapseStdout") : t("transcript.expandStdout")}
         >
           {open ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
         </button>
@@ -1204,18 +1275,19 @@ export function RunTranscriptView({
   limit,
   streaming = false,
   collapseStdout = false,
-  emptyMessage = "No transcript yet.",
+  emptyMessage,
   className,
   thinkingClassName,
 }: RunTranscriptViewProps) {
-  const blocks = useMemo(() => normalizeTranscript(entries, streaming), [entries, streaming]);
+  const { locale, t } = useI18n();
+  const blocks = useMemo(() => normalizeTranscript(entries, streaming, locale), [entries, streaming, locale]);
   const visibleBlocks = limit ? blocks.slice(-limit) : blocks;
   const visibleEntries = limit ? entries.slice(-limit) : entries;
 
   if (entries.length === 0) {
     return (
       <div className={cn("rounded-2xl border border-dashed border-border/70 bg-background/40 p-4 text-sm text-muted-foreground", className)}>
-        {emptyMessage}
+        {emptyMessage ?? t("transcript.noTranscriptYet")}
       </div>
     );
   }

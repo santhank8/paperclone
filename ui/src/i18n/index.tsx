@@ -22,6 +22,7 @@ import { orgMessages } from "./messages/org";
 import { portabilityMessages } from "./messages/portability";
 import { projectPropertiesMessages } from "./messages/projectProperties";
 import { systemMessages } from "./messages/system";
+import { transcriptMessages } from "./messages/transcript";
 import { workMessages } from "./messages/work";
 import { workspaceMessages } from "./messages/workspace";
 import {
@@ -68,6 +69,7 @@ const MESSAGE_SOURCES = [
   bootstrapMessages,
   projectPropertiesMessages,
   systemMessages,
+  transcriptMessages,
   workMessages,
   workspaceMessages,
 ] as const;
