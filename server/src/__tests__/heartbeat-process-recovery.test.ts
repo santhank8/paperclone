@@ -133,19 +133,26 @@ describe("heartbeat orphaned process recovery", () => {
 
   async function seedRunFixture(input?: {
     adapterType?: string;
+    agentStatus?: "idle" | "running" | "paused" | "error" | "terminated" | "pending_approval";
     runStatus?: "running" | "queued" | "failed";
     processPid?: number | null;
     processLossRetryCount?: number;
     includeIssue?: boolean;
     runErrorCode?: string | null;
     runError?: string | null;
+    createdAt?: Date;
+    startedAt?: Date;
+    updatedAt?: Date;
+    processStartedAt?: Date | null;
   }) {
     const companyId = randomUUID();
     const agentId = randomUUID();
     const runId = randomUUID();
     const wakeupRequestId = randomUUID();
     const issueId = randomUUID();
-    const now = new Date("2026-03-19T00:00:00.000Z");
+    const now = input?.startedAt ?? new Date("2026-03-19T00:00:00.000Z");
+    const createdAt = input?.createdAt ?? now;
+    const updatedAt = input?.updatedAt ?? now;
     const issuePrefix = `T${companyId.replace(/-/g, "").slice(0, 6).toUpperCase()}`;
 
     await db.insert(companies).values({
@@ -160,7 +167,7 @@ describe("heartbeat orphaned process recovery", () => {
       companyId,
       name: "CodexCoder",
       role: "engineer",
-      status: "paused",
+      status: input?.agentStatus ?? "paused",
       adapterType: input?.adapterType ?? "codex_local",
       adapterConfig: {},
       runtimeConfig: {},
@@ -190,11 +197,13 @@ describe("heartbeat orphaned process recovery", () => {
       wakeupRequestId,
       contextSnapshot: input?.includeIssue === false ? {} : { issueId },
       processPid: input?.processPid ?? null,
+      processStartedAt: input?.processStartedAt ?? null,
       processLossRetryCount: input?.processLossRetryCount ?? 0,
       errorCode: input?.runErrorCode ?? null,
       error: input?.runError ?? null,
+      createdAt,
       startedAt: now,
-      updatedAt: new Date("2026-03-19T00:00:00.000Z"),
+      updatedAt,
     });
 
     if (input?.includeIssue !== false) {
@@ -219,10 +228,14 @@ describe("heartbeat orphaned process recovery", () => {
     const child = spawnAliveProcess();
     childProcesses.add(child);
     expect(child.pid).toBeTypeOf("number");
+    const activeAt = new Date();
 
     const { runId, wakeupRequestId } = await seedRunFixture({
       processPid: child.pid ?? null,
       includeIssue: false,
+      startedAt: activeAt,
+      updatedAt: activeAt,
+      processStartedAt: activeAt,
     });
     const heartbeat = heartbeatService(db);
 
@@ -240,6 +253,35 @@ describe("heartbeat orphaned process recovery", () => {
       .where(eq(agentWakeupRequests.id, wakeupRequestId))
       .then((rows) => rows[0] ?? null);
     expect(wakeup?.status).toBe("claimed");
+  });
+
+  it("cancels a stale local run even if the child process is still being tracked", async () => {
+    const child = spawnAliveProcess();
+    childProcesses.add(child);
+    expect(child.pid).toBeTypeOf("number");
+
+    const { runId, wakeupRequestId } = await seedRunFixture({
+      processPid: child.pid ?? null,
+      includeIssue: false,
+    });
+    runningProcesses.set(runId, { child, graceSec: 1 });
+    const heartbeat = heartbeatService(db);
+
+    const result = await heartbeat.reapOrphanedRuns({ staleThresholdMs: 5 * 60 * 1000 });
+    expect(result.reaped).toBe(1);
+    expect(result.runIds).toEqual([runId]);
+
+    const run = await heartbeat.getRun(runId);
+    expect(run?.status).toBe("cancelled");
+    expect(run?.errorCode).toBe("cancelled");
+    expect(run?.error).toContain("Cancelled stale run after 30 minutes without reported activity");
+
+    const wakeup = await db
+      .select()
+      .from(agentWakeupRequests)
+      .where(eq(agentWakeupRequests.id, wakeupRequestId))
+      .then((rows) => rows[0] ?? null);
+    expect(wakeup?.status).toBe("cancelled");
   });
 
   it("queues exactly one retry when the recorded local pid is dead", async () => {
@@ -317,5 +359,190 @@ describe("heartbeat orphaned process recovery", () => {
     const run = await heartbeat.getRun(runId);
     expect(run?.errorCode).toBeNull();
     expect(run?.error).toBeNull();
+  });
+
+  it("promotes deferred issue execution for the current assignee before older deferred wakes", async () => {
+    const companyId = randomUUID();
+    const currentAgentId = randomUUID();
+    const assigneeAgentId = randomUUID();
+    const otherAgentId = randomUUID();
+    const issueId = randomUUID();
+    const currentRunId = randomUUID();
+    const currentWakeupId = randomUUID();
+    const assigneeBlockingRunId = randomUUID();
+    const assigneeBlockingWakeupId = randomUUID();
+    const olderDeferredWakeupId = randomUUID();
+    const assigneeDeferredWakeupId = randomUUID();
+    const now = new Date("2026-03-19T00:00:00.000Z");
+    const issuePrefix = `T${companyId.replace(/-/g, "").slice(0, 6).toUpperCase()}`;
+
+    await db.insert(companies).values({
+      id: companyId,
+      name: "Paperclip",
+      issuePrefix,
+      requireBoardApprovalForNewAgents: false,
+    });
+
+    await db.insert(agents).values([
+      {
+        id: currentAgentId,
+        companyId,
+        name: "CurrentAgent",
+        role: "engineer",
+        status: "paused",
+        adapterType: "codex_local",
+        adapterConfig: {},
+        runtimeConfig: {},
+        permissions: {},
+      },
+      {
+        id: assigneeAgentId,
+        companyId,
+        name: "AssigneeAgent",
+        role: "engineer",
+        status: "running",
+        adapterType: "codex_local",
+        adapterConfig: {},
+        runtimeConfig: {
+          heartbeat: {
+            maxConcurrentRuns: 1,
+          },
+        },
+        permissions: {},
+      },
+      {
+        id: otherAgentId,
+        companyId,
+        name: "OtherAgent",
+        role: "engineer",
+        status: "idle",
+        adapterType: "codex_local",
+        adapterConfig: {},
+        runtimeConfig: {},
+        permissions: {},
+      },
+    ]);
+
+    await db.insert(agentWakeupRequests).values([
+      {
+        id: currentWakeupId,
+        companyId,
+        agentId: currentAgentId,
+        source: "assignment",
+        triggerDetail: "system",
+        reason: "issue_assigned",
+        payload: { issueId },
+        status: "claimed",
+        runId: currentRunId,
+        claimedAt: now,
+      },
+      {
+        id: assigneeBlockingWakeupId,
+        companyId,
+        agentId: assigneeAgentId,
+        source: "assignment",
+        triggerDetail: "system",
+        reason: "other_issue",
+        payload: { issueId: randomUUID() },
+        status: "claimed",
+        runId: assigneeBlockingRunId,
+        claimedAt: now,
+      },
+      {
+        id: olderDeferredWakeupId,
+        companyId,
+        agentId: otherAgentId,
+        source: "automation",
+        triggerDetail: "system",
+        reason: "issue_waiting",
+        payload: { issueId },
+        status: "deferred_issue_execution",
+        requestedAt: new Date("2026-03-19T00:01:00.000Z"),
+      },
+      {
+        id: assigneeDeferredWakeupId,
+        companyId,
+        agentId: assigneeAgentId,
+        source: "automation",
+        triggerDetail: "system",
+        reason: "issue_waiting",
+        payload: { issueId },
+        status: "deferred_issue_execution",
+        requestedAt: new Date("2026-03-19T00:02:00.000Z"),
+      },
+    ]);
+
+    await db.insert(heartbeatRuns).values([
+      {
+        id: currentRunId,
+        companyId,
+        agentId: currentAgentId,
+        invocationSource: "assignment",
+        triggerDetail: "system",
+        status: "running",
+        wakeupRequestId: currentWakeupId,
+        contextSnapshot: { issueId },
+        startedAt: now,
+        updatedAt: now,
+      },
+      {
+        id: assigneeBlockingRunId,
+        companyId,
+        agentId: assigneeAgentId,
+        invocationSource: "assignment",
+        triggerDetail: "system",
+        status: "running",
+        wakeupRequestId: assigneeBlockingWakeupId,
+        contextSnapshot: { issueId: randomUUID() },
+        startedAt: now,
+        updatedAt: now,
+      },
+    ]);
+
+    await db.insert(issues).values({
+      id: issueId,
+      companyId,
+      title: "Prefer assignee for deferred promotion",
+      status: "in_progress",
+      priority: "medium",
+      assigneeAgentId,
+      checkoutRunId: currentRunId,
+      executionRunId: currentRunId,
+      issueNumber: 1,
+      identifier: `${issuePrefix}-1`,
+    });
+
+    const heartbeat = heartbeatService(db);
+    await heartbeat.cancelRun(currentRunId);
+
+    const issue = await db
+      .select()
+      .from(issues)
+      .where(eq(issues.id, issueId))
+      .then((rows) => rows[0] ?? null);
+    expect(issue?.executionRunId).not.toBeNull();
+    expect(issue?.executionRunId).not.toBe(currentRunId);
+
+    const promotedRun = await db
+      .select()
+      .from(heartbeatRuns)
+      .where(eq(heartbeatRuns.id, issue?.executionRunId ?? ""))
+      .then((rows) => rows[0] ?? null);
+    expect(promotedRun?.agentId).toBe(assigneeAgentId);
+    expect(promotedRun?.wakeupRequestId).toBe(assigneeDeferredWakeupId);
+    expect(promotedRun?.status).toBe("queued");
+
+    const deferredWakeups = await db
+      .select()
+      .from(agentWakeupRequests)
+      .where(eq(agentWakeupRequests.companyId, companyId));
+    const olderDeferred = deferredWakeups.find((row) => row.id === olderDeferredWakeupId);
+    const assigneeDeferred = deferredWakeups.find((row) => row.id === assigneeDeferredWakeupId);
+
+    expect(olderDeferred?.status).toBe("failed");
+    expect(olderDeferred?.error).toBe("Deferred wake superseded by current issue assignee");
+    expect(assigneeDeferred?.status).toBe("queued");
+    expect(assigneeDeferred?.runId).toBe(promotedRun?.id ?? null);
+    expect(assigneeDeferred?.reason).toBe("issue_execution_promoted");
   });
 });

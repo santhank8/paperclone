@@ -63,7 +63,10 @@ const HEARTBEAT_MAX_CONCURRENT_RUNS_DEFAULT = 1;
 const HEARTBEAT_MAX_CONCURRENT_RUNS_MAX = 10;
 const DEFERRED_WAKE_CONTEXT_KEY = "_paperclipWakeContext";
 const DETACHED_PROCESS_ERROR_CODE = "process_detached";
+const RUN_ACTIVITY_PERSIST_INTERVAL_MS = 30 * 1000;
+const STALE_LOCAL_RUN_ACTIVITY_THRESHOLD_MS = 30 * 60 * 1000;
 const startLocksByAgent = new Map<string, Promise<void>>();
+const runActivityTimestamps = new Map<string, { lastObservedAt: number; lastPersistedAt: number }>();
 const REPO_ONLY_CWD_SENTINEL = "/__paperclip_repo_only__";
 const MANAGED_WORKSPACE_GIT_CLONE_TIMEOUT_MS = 10 * 60 * 1000;
 const execFile = promisify(execFileCallback);
@@ -75,6 +78,13 @@ const SESSIONED_LOCAL_ADAPTERS = new Set([
   "opencode_local",
   "pi_local",
 ]);
+
+function readTimeMs(value: unknown) {
+  if (!value) return 0;
+  const date = value instanceof Date ? value : new Date(value as string | number);
+  const time = date.getTime();
+  return Number.isFinite(time) ? time : 0;
+}
 
 function deriveRepoNameFromRepoUrl(repoUrl: string | null): string | null {
   const trimmed = repoUrl?.trim() ?? "";
@@ -799,6 +809,62 @@ export function heartbeatService(db: Db) {
       .then((rows) => rows[0] ?? null);
   }
 
+  function recordRunActivity(runId: string, at = new Date()) {
+    const activityMs = readTimeMs(at);
+    if (activityMs <= 0) return;
+    const existing = runActivityTimestamps.get(runId);
+    runActivityTimestamps.set(runId, {
+      lastObservedAt: Math.max(activityMs, existing?.lastObservedAt ?? 0),
+      lastPersistedAt: existing?.lastPersistedAt ?? 0,
+    });
+  }
+
+  async function touchRunActivity(
+    runId: string,
+    opts?: { at?: Date; forcePersist?: boolean },
+  ) {
+    const activityAt = opts?.at instanceof Date ? opts.at : new Date();
+    const activityMs = readTimeMs(activityAt);
+    if (activityMs <= 0) return;
+
+    const existing = runActivityTimestamps.get(runId);
+    const next = {
+      lastObservedAt: Math.max(activityMs, existing?.lastObservedAt ?? 0),
+      lastPersistedAt: existing?.lastPersistedAt ?? 0,
+    };
+    const shouldPersist =
+      opts?.forcePersist === true ||
+      next.lastPersistedAt <= 0 ||
+      activityMs - next.lastPersistedAt >= RUN_ACTIVITY_PERSIST_INTERVAL_MS;
+
+    if (shouldPersist) {
+      await db
+        .update(heartbeatRuns)
+        .set({ updatedAt: activityAt })
+        .where(and(eq(heartbeatRuns.id, runId), eq(heartbeatRuns.status, "running")));
+      next.lastPersistedAt = activityMs;
+    }
+
+    runActivityTimestamps.set(runId, next);
+  }
+
+  function clearRunActivity(runId: string) {
+    runActivityTimestamps.delete(runId);
+  }
+
+  function getLastObservedRunActivity(run: typeof heartbeatRuns.$inferSelect) {
+    const trackedLastObservedAt = runActivityTimestamps.get(run.id)?.lastObservedAt ?? 0;
+    if (trackedLastObservedAt > 0) {
+      return trackedLastObservedAt;
+    }
+    return Math.max(
+      readTimeMs(run.updatedAt),
+      readTimeMs(run.processStartedAt),
+      readTimeMs(run.startedAt),
+      readTimeMs(run.createdAt),
+    );
+  }
+
   async function getRuntimeState(agentId: string) {
     return db
       .select()
@@ -1376,6 +1442,11 @@ export function heartbeatService(db: Db) {
       .then((rows) => rows[0] ?? null);
 
     if (updated) {
+      if (updated.status === "running") {
+        recordRunActivity(updated.id);
+      } else if (updated.status !== "queued") {
+        clearRunActivity(updated.id);
+      }
       publishLiveEvent({
         companyId: updated.companyId,
         type: "heartbeat.run.status",
@@ -1456,6 +1527,12 @@ export function heartbeatService(db: Db) {
         payload: sanitizedPayload ?? null,
       },
     });
+
+    if (run.status === "queued" || run.status === "running") {
+      recordRunActivity(run.id);
+    } else {
+      clearRunActivity(run.id);
+    }
   }
 
   async function nextRunEventSeq(runId: string) {
@@ -1471,7 +1548,7 @@ export function heartbeatService(db: Db) {
     meta: { pid: number; startedAt: string },
   ) {
     const startedAt = new Date(meta.startedAt);
-    return db
+    const persisted = await db
       .update(heartbeatRuns)
       .set({
         processPid: meta.pid,
@@ -1481,6 +1558,8 @@ export function heartbeatService(db: Db) {
       .where(eq(heartbeatRuns.id, runId))
       .returning()
       .then((rows) => rows[0] ?? null);
+    recordRunActivity(runId, Number.isNaN(startedAt.getTime()) ? new Date() : startedAt);
+    return persisted;
   }
 
   async function clearDetachedRunWarning(runId: string) {
@@ -1495,6 +1574,7 @@ export function heartbeatService(db: Db) {
       .returning()
       .then((rows) => rows[0] ?? null);
     if (!updated) return null;
+    recordRunActivity(runId);
 
     await appendRunEvent(updated, await nextRunEventSeq(updated.id), {
       eventType: "lifecycle",
@@ -1662,6 +1742,7 @@ export function heartbeatService(db: Db) {
       .returning()
       .then((rows) => rows[0] ?? null);
     if (!claimed) return null;
+    recordRunActivity(claimed.id, claimedAt);
 
     publishLiveEvent({
       companyId: claimed.companyId,
@@ -1731,6 +1812,10 @@ export function heartbeatService(db: Db) {
 
   async function reapOrphanedRuns(opts?: { staleThresholdMs?: number }) {
     const staleThresholdMs = opts?.staleThresholdMs ?? 0;
+    const localActivityStaleThresholdMs = Math.max(
+      staleThresholdMs > 0 ? staleThresholdMs * 6 : 0,
+      STALE_LOCAL_RUN_ACTIVITY_THRESHOLD_MS,
+    );
     const now = new Date();
 
     // Find all runs stuck in "running" state (queued runs are legitimately waiting; resumeQueuedRuns handles them)
@@ -1746,7 +1831,34 @@ export function heartbeatService(db: Db) {
     const reaped: string[] = [];
 
     for (const { run, adapterType } of activeRuns) {
-      if (runningProcesses.has(run.id) || activeRunExecutions.has(run.id)) continue;
+      const tracksLocalChild = isTrackedLocalChildProcessAdapter(adapterType);
+      const hasTrackedExecution = runningProcesses.has(run.id) || activeRunExecutions.has(run.id);
+      const hasLiveDetachedPid = !!run.processPid && isProcessAlive(run.processPid);
+      const lastObservedActivityAt = getLastObservedRunActivity(run);
+      const isLocalRunActivityStale =
+        tracksLocalChild &&
+        localActivityStaleThresholdMs > 0 &&
+        lastObservedActivityAt > 0 &&
+        now.getTime() - lastObservedActivityAt >= localActivityStaleThresholdMs;
+      if (isLocalRunActivityStale && (hasTrackedExecution || hasLiveDetachedPid)) {
+        if (!hasTrackedExecution && hasLiveDetachedPid && run.processPid) {
+          try {
+            process.kill(run.processPid, "SIGTERM");
+          } catch {
+            // Best-effort kill for detached local children before marking the run stale.
+          }
+        }
+        const cancelled = await cancelRunInternal(
+          run.id,
+          `Cancelled stale run after ${Math.max(1, Math.round(localActivityStaleThresholdMs / 60000))} minutes without reported activity`,
+        );
+        if (cancelled) {
+          reaped.push(run.id);
+          continue;
+        }
+      }
+
+      if (hasTrackedExecution) continue;
 
       // Apply staleness threshold to avoid false positives
       if (staleThresholdMs > 0) {
@@ -1754,7 +1866,6 @@ export function heartbeatService(db: Db) {
         if (now.getTime() - refTime < staleThresholdMs) continue;
       }
 
-      const tracksLocalChild = isTrackedLocalChildProcessAdapter(adapterType);
       if (tracksLocalChild && run.processPid && isProcessAlive(run.processPid)) {
         if (run.errorCode !== DETACHED_PROCESS_ERROR_CODE) {
           const detachedMessage = `Lost in-memory process handle, but child pid ${run.processPid} is still alive`;
@@ -2428,6 +2539,7 @@ export function heartbeatService(db: Db) {
             truncated: payloadChunk.length !== sanitizedChunk.length,
           },
         });
+        await touchRunActivity(run.id);
       };
       for (const warning of runtimeWorkspaceWarnings) {
         const logEntry = formatRuntimeWorkspaceWarningLog(warning);
@@ -2483,6 +2595,7 @@ export function heartbeatService(db: Db) {
         }
       }
       const onAdapterMeta = async (meta: AdapterInvocationMeta) => {
+        await touchRunActivity(currentRun.id);
         if (meta.env && secretKeys.size > 0) {
           for (const key of secretKeys) {
             if (key in meta.env) meta.env[key] = "***REDACTED***";
@@ -2826,6 +2939,7 @@ export function heartbeatService(db: Db) {
         .select({
           id: issues.id,
           companyId: issues.companyId,
+          assigneeAgentId: issues.assigneeAgentId,
         })
         .from(issues)
         .where(and(eq(issues.companyId, run.companyId), eq(issues.executionRunId, run.id)))
@@ -2844,7 +2958,7 @@ export function heartbeatService(db: Db) {
         .where(eq(issues.id, issue.id));
 
       while (true) {
-        const deferred = await tx
+        const deferredCandidates = await tx
           .select()
           .from(agentWakeupRequests)
           .where(
@@ -2854,11 +2968,31 @@ export function heartbeatService(db: Db) {
               sql`${agentWakeupRequests.payload} ->> 'issueId' = ${issue.id}`,
             ),
           )
-          .orderBy(asc(agentWakeupRequests.requestedAt))
-          .limit(1)
-          .then((rows) => rows[0] ?? null);
+          .orderBy(asc(agentWakeupRequests.requestedAt));
 
-        if (!deferred) return null;
+        if (deferredCandidates.length === 0) return null;
+
+        const deferred = issue.assigneeAgentId
+          ? deferredCandidates.find((row) => row.agentId === issue.assigneeAgentId) ?? deferredCandidates[0]
+          : deferredCandidates[0];
+
+        if (issue.assigneeAgentId) {
+          const supersededDeferredIds = deferredCandidates
+            .filter((row) => row.id !== deferred.id && row.agentId !== issue.assigneeAgentId)
+            .map((row) => row.id);
+          if (supersededDeferredIds.length > 0) {
+            const finishedAt = new Date();
+            await tx
+              .update(agentWakeupRequests)
+              .set({
+                status: "failed",
+                finishedAt,
+                error: "Deferred wake superseded by current issue assignee",
+                updatedAt: finishedAt,
+              })
+              .where(inArray(agentWakeupRequests.id, supersededDeferredIds));
+          }
+        }
 
         const deferredAgent = await tx
           .select()
@@ -3797,7 +3931,13 @@ export function heartbeatService(db: Db) {
 
     wakeup: enqueueWakeup,
 
-    reportRunActivity: clearDetachedRunWarning,
+    reportRunActivity: async (runId: string) => {
+      const cleared = await clearDetachedRunWarning(runId);
+      if (!cleared) {
+        await touchRunActivity(runId, { forcePersist: true });
+      }
+      return cleared;
+    },
 
     reapOrphanedRuns,
 
