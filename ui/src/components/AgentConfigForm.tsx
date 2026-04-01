@@ -623,6 +623,8 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
                               ? DEFAULT_CURSOR_LOCAL_MODEL
                             : t === "ollama_local"
                               ? DEFAULT_OLLAMA_MODEL
+                            : t === "openrouter_local"
+                              ? "deepseek/deepseek-v3.2"
                             : "",
                         effort: "",
                         modelReasoningEffort: "",

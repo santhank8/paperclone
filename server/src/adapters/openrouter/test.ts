@@ -15,7 +15,7 @@ export async function testEnvironment(
   if (model) {
     checks.push({ code: "model_configured", level: "info", message: `Model: ${model}` });
   } else {
-    checks.push({ code: "model_missing", level: "warn", message: "No model configured. Will use default: deepseek/deepseek-v3.2" });
+    checks.push({ code: "model_default", level: "info", message: "No model configured — will use default: deepseek/deepseek-v3.2" });
   }
 
   // Check API key
