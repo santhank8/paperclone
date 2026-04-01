@@ -303,8 +303,25 @@ wait_for_npm_package_version() {
   return 1
 }
 
+current_git_status_porcelain() {
+  local status
+
+  status="$(git -C "$REPO_ROOT" status --porcelain)"
+  if [ -n "$status" ]; then
+    case "$(uname -s 2>/dev/null || echo unknown)" in
+      MINGW*|MSYS*|CYGWIN*)
+        # Git Bash on Windows can report the entire repo as modified when the
+        # shell-local autocrlf defaults disagree with the Windows checkout.
+        status="$(git -c core.autocrlf=input -C "$REPO_ROOT" status --porcelain)"
+        ;;
+    esac
+  fi
+
+  printf '%s' "$status"
+}
+
 require_clean_worktree() {
-  if [ -n "$(git -C "$REPO_ROOT" status --porcelain)" ]; then
+  if [ -n "$(current_git_status_porcelain)" ]; then
     release_fail "working tree is not clean. Commit, stash, or remove changes before releasing."
   fi
 }
