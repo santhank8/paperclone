@@ -24,6 +24,7 @@ services:
     restart: always
     ports:
       - "3100:3100"
+      - "2222:2222"
     environment:
       DATABASE_URL: "postgres://${POSTGRES_USER:?}:${POSTGRES_PASSWORD:?}@db:5432/${POSTGRES_DB:?}"
       PORT: "3100"
@@ -33,6 +34,7 @@ services:
       PAPERCLIP_PUBLIC_URL: "${PAPERCLIP_PUBLIC_URL:?PAPERCLIP_PUBLIC_URL must be set (e.g. http://192.168.1.100:3100)}"
       BETTER_AUTH_SECRET: "${BETTER_AUTH_SECRET:?BETTER_AUTH_SECRET must be set}"
       PAPERCLIP_MIGRATION_AUTO_APPLY: "true"
+      CLAUDE_CODE_OAUTH_TOKEN: "${CLAUDE_CODE_OAUTH_TOKEN:-}"
     volumes:
       - /mnt/paperclip/data:/paperclip
     depends_on:
