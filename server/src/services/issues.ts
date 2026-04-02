@@ -1433,6 +1433,8 @@ export function issueService(db: Db) {
       // Clear stale execution lock from a dead run before giving up
       if (
         actorRunId &&
+      if (
+        actorRunId &&
         current.status === "in_progress" &&
         current.assigneeAgentId === actorAgentId &&
         current.executionRunId &&
