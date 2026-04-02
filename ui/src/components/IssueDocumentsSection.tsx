@@ -1055,9 +1055,16 @@ export function IssueDocumentsSection({
                     ) : (
                       <div
                         className="cursor-text"
+                        tabIndex={0}
+                        role="button"
                         onClick={(e) => {
                           if ((e.target as HTMLElement).closest("a")) return;
                           beginEdit(doc.key);
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && !(e.target as HTMLElement).closest("a")) {
+                            beginEdit(doc.key);
+                          }
                         }}
                       >
                         {displayedBody.trim()
