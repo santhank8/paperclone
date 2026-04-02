@@ -28,6 +28,10 @@ COPY ui/package.json ui/
 COPY packages/shared/package.json packages/shared/
 COPY packages/db/package.json packages/db/
 COPY packages/adapter-utils/package.json packages/adapter-utils/
+COPY packages/virtual-org-connectors/package.json packages/virtual-org-connectors/
+COPY packages/virtual-org-core/package.json packages/virtual-org-core/
+COPY packages/virtual-org-types/package.json packages/virtual-org-types/
+COPY packages/virtual-org-ui/package.json packages/virtual-org-ui/
 COPY packages/adapters/claude-local/package.json packages/adapters/claude-local/
 COPY packages/adapters/codex-local/package.json packages/adapters/codex-local/
 COPY packages/adapters/cursor-local/package.json packages/adapters/cursor-local/
