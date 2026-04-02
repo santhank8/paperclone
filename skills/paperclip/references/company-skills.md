@@ -38,27 +38,26 @@ Import using a **skills.sh URL**, a key-style source string, a GitHub URL, or a 
 
 ### Source types (in order of preference)
 
-| Source format | Example | When to use |
-|---|---|---|
-| **skills.sh URL** | `https://skills.sh/google-labs-code/stitch-skills/design-md` | When a user gives you a `skills.sh` link. This is the managed skill registry — **always prefer it when available**. |
-| **Key-style string** | `google-labs-code/stitch-skills/design-md` | Shorthand for the same skill — `org/repo/skill-name` format. Equivalent to the skills.sh URL. |
-| **GitHub URL** | `https://github.com/vercel-labs/agent-browser` | When the skill is in a GitHub repo but not on skills.sh. |
-| **Local path** | `/abs/path/to/skill-dir` | When the skill is on disk (dev/testing only). |
+| Source format        | Example                                                      | When to use                                                                                                         |
+| -------------------- | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------- |
+| **skills.sh URL**    | `https://skills.sh/google-labs-code/stitch-skills/design-md` | When a user gives you a `skills.sh` link. This is the managed skill registry — **always prefer it when available**. |
+| **Key-style string** | `google-labs-code/stitch-skills/design-md`                   | Shorthand for the same skill — `org/repo/skill-name` format. Equivalent to the skills.sh URL.                       |
+| **GitHub URL**       | `https://github.com/vercel-labs/agent-browser`               | When the skill is in a GitHub repo but not on skills.sh.                                                            |
+| **Local path**       | `/abs/path/to/skill-dir`                                     | When the skill is on disk (dev/testing only).                                                                       |
 
 **Critical:** If a user gives you a `https://skills.sh/...` URL, use that URL or its key-style equivalent (`org/repo/skill-name`) as the `source`. Do **not** convert it to a GitHub URL — skills.sh is the managed registry and the source of truth for versioning, discovery, and updates.
 
 ### Example: skills.sh import (preferred)
 
 ```javascript
-const { paperclipRequest } = await import(
-  'file:///path/to/paperclip-ctx-auth/scripts/paperclip_context_mode_request.mjs'
-);
-const { identity } = await paperclipRequest('/agents/me').then(r => r);
+const { paperclipRequest } =
+  await import("file:///path/to/paperclip-ctx-auth/scripts/paperclip_context_mode_request.mjs");
+const { identity } = await paperclipRequest("/agents/me").then((r) => r);
 
 await paperclipRequest(`/companies/${identity.companyId}/skills/import`, {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ source: 'https://skills.sh/google-labs-code/stitch-skills/design-md' }),
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ source: "https://skills.sh/google-labs-code/stitch-skills/design-md" }),
 });
 ```
 
@@ -66,9 +65,9 @@ Or equivalently using the key-style string:
 
 ```javascript
 await paperclipRequest(`/companies/${identity.companyId}/skills/import`, {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ source: 'google-labs-code/stitch-skills/design-md' }),
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ source: "google-labs-code/stitch-skills/design-md" }),
 });
 ```
 
@@ -76,9 +75,9 @@ await paperclipRequest(`/companies/${identity.companyId}/skills/import`, {
 
 ```javascript
 await paperclipRequest(`/companies/${identity.companyId}/skills/import`, {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ source: 'https://github.com/vercel-labs/agent-browser' }),
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ source: "https://github.com/vercel-labs/agent-browser" }),
 });
 ```
 
@@ -92,8 +91,8 @@ If the task is to discover skills from the company project workspaces first:
 
 ```javascript
 await paperclipRequest(`/companies/${identity.companyId}/skills/scan-projects`, {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
   body: JSON.stringify({}),
 });
 ```
@@ -108,8 +107,12 @@ const skills = await response.json();
 Read the skill entry and its `SKILL.md`:
 
 ```javascript
-const { response: skillRes } = await paperclipRequest(`/companies/${identity.companyId}/skills/${skillId}`);
-const { response: fileRes } = await paperclipRequest(`/companies/${identity.companyId}/skills/${skillId}/files?path=SKILL.md`);
+const { response: skillRes } = await paperclipRequest(
+  `/companies/${identity.companyId}/skills/${skillId}`
+);
+const { response: fileRes } = await paperclipRequest(
+  `/companies/${identity.companyId}/skills/${skillId}/files?path=SKILL.md`
+);
 ```
 
 ## Assign Skills To An Existing Agent
@@ -124,9 +127,9 @@ The server persists canonical company skill keys.
 
 ```javascript
 await paperclipRequest(`/agents/${agentId}/skills/sync`, {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ desiredSkills: ['vercel-labs/agent-browser/agent-browser'] }),
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ desiredSkills: ["vercel-labs/agent-browser/agent-browser"] }),
 });
 ```
 
@@ -142,14 +145,14 @@ Use the same company skill keys or references in `desiredSkills` when hiring or 
 
 ```javascript
 await paperclipRequest(`/companies/${identity.companyId}/agent-hires`, {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
   body: JSON.stringify({
-    name: 'QA Browser Agent',
-    role: 'qa',
-    adapterType: 'codex_local',
-    adapterConfig: { cwd: '/abs/path/to/repo' },
-    desiredSkills: ['agent-browser'],
+    name: "QA Browser Agent",
+    role: "qa",
+    adapterType: "codex_local",
+    adapterConfig: { cwd: "/abs/path/to/repo" },
+    desiredSkills: ["agent-browser"],
   }),
 });
 ```
@@ -158,14 +161,14 @@ For direct create without approval:
 
 ```javascript
 await paperclipRequest(`/companies/${identity.companyId}/agents`, {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
   body: JSON.stringify({
-    name: 'QA Browser Agent',
-    role: 'qa',
-    adapterType: 'codex_local',
-    adapterConfig: { cwd: '/abs/path/to/repo' },
-    desiredSkills: ['agent-browser'],
+    name: "QA Browser Agent",
+    role: "qa",
+    adapterType: "codex_local",
+    adapterConfig: { cwd: "/abs/path/to/repo" },
+    desiredSkills: ["agent-browser"],
   }),
 });
 ```

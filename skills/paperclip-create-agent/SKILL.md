@@ -24,15 +24,14 @@ If you do not have this permission, escalate to your CEO or board.
 All API calls use `paperclipRequest` via `ctx_execute`. Import the helper at the start of each `ctx_execute` block:
 
 ```javascript
-const { paperclipRequest } = await import(
-  'file:///path/to/paperclip-ctx-auth/scripts/paperclip_context_mode_request.mjs'
-);
+const { paperclipRequest } =
+  await import("file:///path/to/paperclip-ctx-auth/scripts/paperclip_context_mode_request.mjs");
 ```
 
 1. Confirm identity and company context.
 
 ```javascript
-const { response, identity } = await paperclipRequest('/agents/me');
+const { response, identity } = await paperclipRequest("/agents/me");
 const me = await response.json();
 console.log(JSON.stringify({ id: me.id, companyId: me.companyId, role: me.role }, null, 2));
 ```
@@ -40,32 +39,35 @@ console.log(JSON.stringify({ id: me.id, companyId: me.companyId, role: me.role }
 2. Discover available adapter configuration docs for this Paperclip instance.
 
 ```javascript
-const { response } = await paperclipRequest('/../../llms/agent-configuration.txt');
+const { response } = await paperclipRequest("/../../llms/agent-configuration.txt");
 console.log(await response.text());
 ```
 
 3. Read adapter-specific docs (example: `claude_local`).
 
 ```javascript
-const { response } = await paperclipRequest('/../../llms/agent-configuration/claude_local.txt');
+const { response } = await paperclipRequest("/../../llms/agent-configuration/claude_local.txt");
 console.log(await response.text());
 ```
 
 4. Compare existing agent configurations in your company.
 
 ```javascript
-const { response, identity } = await paperclipRequest(`/companies/${identity.companyId}/agent-configurations`);
+const { response, identity } = await paperclipRequest(
+  `/companies/${identity.companyId}/agent-configurations`
+);
 console.log(JSON.stringify(await response.json(), null, 2));
 ```
 
 5. Discover allowed agent icons and pick one that matches the role.
 
 ```javascript
-const { response } = await paperclipRequest('/../../llms/agent-icons.txt');
+const { response } = await paperclipRequest("/../../llms/agent-icons.txt");
 console.log(await response.text());
 ```
 
 6. Draft the new hire config:
+
 - role/title/name
 - icon (required in practice; use one from `/llms/agent-icons.txt`)
 - reporting line (`reportsTo`)
@@ -79,27 +81,31 @@ console.log(await response.text());
 7. Submit hire request.
 
 ```javascript
-const { response, identity } = await paperclipRequest(`/companies/${identity.companyId}/agent-hires`, {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    name: 'CTO',
-    role: 'cto',
-    title: 'Chief Technology Officer',
-    icon: 'crown',
-    reportsTo: '<ceo-agent-id>',
-    capabilities: 'Owns technical roadmap, architecture, staffing, execution',
-    desiredSkills: ['vercel-labs/agent-browser/agent-browser'],
-    adapterType: 'codex_local',
-    adapterConfig: { cwd: '/abs/path/to/repo', model: 'o4-mini' },
-    runtimeConfig: { heartbeat: { enabled: true, intervalSec: 300, wakeOnDemand: true } },
-    sourceIssueId: '<issue-id>',
-  }),
-});
+const { response, identity } = await paperclipRequest(
+  `/companies/${identity.companyId}/agent-hires`,
+  {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      name: "CTO",
+      role: "cto",
+      title: "Chief Technology Officer",
+      icon: "crown",
+      reportsTo: "<ceo-agent-id>",
+      capabilities: "Owns technical roadmap, architecture, staffing, execution",
+      desiredSkills: ["vercel-labs/agent-browser/agent-browser"],
+      adapterType: "codex_local",
+      adapterConfig: { cwd: "/abs/path/to/repo", model: "o4-mini" },
+      runtimeConfig: { heartbeat: { enabled: true, intervalSec: 300, wakeOnDemand: true } },
+      sourceIssueId: "<issue-id>",
+    }),
+  }
+);
 console.log(JSON.stringify(await response.json(), null, 2));
 ```
 
 8. Handle governance state:
+
 - if response has `approval`, hire is `pending_approval`
 - monitor and discuss on approval thread
 - when the board approves, you will be woken with `PAPERCLIP_APPROVAL_ID`; read linked issues and close/comment follow-up
@@ -111,10 +117,10 @@ console.log(JSON.stringify(await approval.json(), null, 2));
 
 // Comment on approval thread
 const { response: comment } = await paperclipRequest(`/approvals/<approval-id>/comments`, {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
   body: JSON.stringify({
-    body: '## CTO hire request submitted\n\n- Approval: [<approval-id>](/approvals/<approval-id>)\n- Pending agent: [<agent-ref>](/agents/<agent-url-key-or-id>)\n- Source issue: [<issue-ref>](/issues/<issue-identifier-or-id>)\n\nUpdated prompt and adapter config per board feedback.',
+    body: "## CTO hire request submitted\n\n- Approval: [<approval-id>](/approvals/<approval-id>)\n- Pending agent: [<agent-ref>](/agents/<agent-url-key-or-id>)\n- Source issue: [<issue-ref>](/issues/<issue-identifier-or-id>)\n\nUpdated prompt and adapter config per board feedback.",
   }),
 });
 ```
@@ -123,9 +129,9 @@ If the approval already exists and needs manual linking to the issue:
 
 ```javascript
 const { response } = await paperclipRequest(`/issues/<issue-id>/approvals`, {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ approvalId: '<approval-id>' }),
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ approvalId: "<approval-id>" }),
 });
 ```
 
@@ -139,6 +145,7 @@ const linkedIssues = await issues.json();
 ```
 
 For each linked issue, either:
+
 - close it if approval resolved the request, or
 - comment in markdown with links to the approval and next actions.
 

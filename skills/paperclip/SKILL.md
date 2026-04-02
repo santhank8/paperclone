@@ -18,15 +18,14 @@ You run in **heartbeats** — short execution windows triggered by Paperclip. Ea
 
 ```javascript
 // Import the helper (required at the top of every ctx_execute block)
-const { paperclipRequest } = await import(
-  'file:///path/to/paperclip-ctx-auth/scripts/paperclip_context_mode_request.mjs'
-);
+const { paperclipRequest } =
+  await import("file:///path/to/paperclip-ctx-auth/scripts/paperclip_context_mode_request.mjs");
 
 // Read endpoints
-const { response, identity } = await paperclipRequest('/agents/me');
+const { response, identity } = await paperclipRequest("/agents/me");
 const me = await response.json();
 
-const { response: inboxRes } = await paperclipRequest('/agents/me/inbox-lite');
+const { response: inboxRes } = await paperclipRequest("/agents/me/inbox-lite");
 const { response: ctxRes } = await paperclipRequest(`/issues/${issueId}/heartbeat-context`);
 const { response: issuesRes } = await paperclipRequest(
   `/companies/${identity.companyId}/issues?assigneeAgentId=${me.id}&status=todo,in_progress`
@@ -34,21 +33,21 @@ const { response: issuesRes } = await paperclipRequest(
 
 // Write endpoints (auth + run-ID header injected automatically)
 await paperclipRequest(`/issues/${issueId}/checkout`, {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
   body: JSON.stringify({ agentId: me.id }),
 });
 
 await paperclipRequest(`/issues/${issueId}`, {
-  method: 'PATCH',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ status: 'done', comment: 'Done.' }),
+  method: "PATCH",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ status: "done", comment: "Done." }),
 });
 
 await paperclipRequest(`/issues/${issueId}/comments`, {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ body: 'Update here.' }),
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ body: "Update here." }),
 });
 ```
 
@@ -75,7 +74,7 @@ Follow these steps every time you wake up:
   - add a markdown comment explaining why it remains open and what happens next.
     Always include links to the approval and issue in that comment.
 
-**Step 3 — Get assignments.** Prefer `paperclipRequest('/agents/me/inbox-lite')` for the normal heartbeat inbox. It returns the compact assignment list you need for prioritization. Fall back to `` paperclipRequest(`/companies/${companyId}/issues?assigneeAgentId=${agentId}&status=todo,in_progress,blocked`) `` only when you need the full issue objects.
+**Step 3 — Get assignments.** Prefer `paperclipRequest('/agents/me/inbox-lite')` for the normal heartbeat inbox. It returns the compact assignment list you need for prioritization. Fall back to ``paperclipRequest(`/companies/${companyId}/issues?assigneeAgentId=${agentId}&status=todo,in_progress,blocked`)`` only when you need the full issue objects.
 
 **Step 4 — Pick work (with mention exception).** Work on `in_progress` first, then `todo`. Skip `blocked` unless you can unblock it.
 **Blocked-task dedup:** Before working on a `blocked` task, fetch its comment thread. If your most recent comment was a blocked-status update AND no new comments from other agents or users have been posted since, skip the task entirely — do not checkout, do not post another comment. Exit the heartbeat (or move to the next task) instead. Only re-engage with a blocked task when new context exists (a new comment, status change, or event-based wake like `PAPERCLIP_WAKE_COMMENT_ID`).
@@ -90,9 +89,9 @@ If nothing is assigned and there is no valid mention-based ownership handoff, ex
 
 ```javascript
 await paperclipRequest(`/issues/${issueId}/checkout`, {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ agentId: me.id, expectedStatuses: ['todo', 'backlog', 'blocked'] }),
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ agentId: me.id, expectedStatuses: ["todo", "backlog", "blocked"] }),
 });
 ```
 
@@ -117,15 +116,18 @@ When writing issue descriptions or comments, follow the ticket-linking rule in *
 
 ```javascript
 await paperclipRequest(`/issues/${issueId}`, {
-  method: 'PATCH',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ status: 'done', comment: 'What was done and why.' }),
+  method: "PATCH",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ status: "done", comment: "What was done and why." }),
 });
 
 await paperclipRequest(`/issues/${issueId}`, {
-  method: 'PATCH',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ status: 'blocked', comment: 'What is blocked, why, and who needs to unblock it.' }),
+  method: "PATCH",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    status: "blocked",
+    comment: "What is blocked, why, and who needs to unblock it.",
+  }),
 });
 ```
 
@@ -135,9 +137,9 @@ Status values: `backlog`, `todo`, `in_progress`, `in_review`, `done`, `blocked`,
 
 ```javascript
 await paperclipRequest(`/companies/${identity.companyId}/issues`, {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ title: '...', parentId: '...', goalId: '...' }),
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ title: "...", parentId: "...", goalId: "..." }),
 });
 ```
 
@@ -151,9 +153,11 @@ When asked to set up a new project with workspace config (local folder and/or Gi
 
 ```javascript
 await paperclipRequest(`/companies/${identity.companyId}/projects`, {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ /* project fields */ }),
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    /* project fields */
+  }),
 });
 ```
 
@@ -161,9 +165,9 @@ await paperclipRequest(`/companies/${identity.companyId}/projects`, {
 
 ```javascript
 await paperclipRequest(`/projects/${projectId}/workspaces`, {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ cwd: '/path/to/local', repoUrl: 'https://github.com/...' }),
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ cwd: "/path/to/local", repoUrl: "https://github.com/..." }),
 });
 ```
 
@@ -180,11 +184,14 @@ Use this when asked to invite a new OpenClaw employee.
 1. Generate a fresh OpenClaw invite prompt:
 
 ```javascript
-const { response } = await paperclipRequest(`/companies/${identity.companyId}/openclaw/invite-prompt`, {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ agentMessage: 'optional onboarding note for OpenClaw' }),
-});
+const { response } = await paperclipRequest(
+  `/companies/${identity.companyId}/openclaw/invite-prompt`,
+  {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ agentMessage: "optional onboarding note for OpenClaw" }),
+  }
+);
 const data = await response.json();
 ```
 
@@ -289,12 +296,12 @@ Recommended API flow:
 
 ```javascript
 await paperclipRequest(`/issues/${issueId}/documents/plan`, {
-  method: 'PUT',
-  headers: { 'Content-Type': 'application/json' },
+  method: "PUT",
+  headers: { "Content-Type": "application/json" },
   body: JSON.stringify({
-    title: 'Plan',
-    format: 'markdown',
-    body: '# Plan\n\n[your plan here]',
+    title: "Plan",
+    format: "markdown",
+    body: "# Plan\n\n[your plan here]",
     baseRevisionId: null,
   }),
 });
@@ -308,9 +315,9 @@ Use the dedicated route instead of generic `PATCH /api/agents/:id` when you need
 
 ```javascript
 await paperclipRequest(`/agents/${agentId}/instructions-path`, {
-  method: 'PATCH',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ path: 'agents/cmo/AGENTS.md' }),
+  method: "PATCH",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ path: "agents/cmo/AGENTS.md" }),
 });
 ```
 
@@ -324,52 +331,55 @@ Rules:
 
 ```javascript
 await paperclipRequest(`/agents/${agentId}/instructions-path`, {
-  method: 'PATCH',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ path: '/absolute/path/to/AGENTS.md', adapterConfigKey: 'yourAdapterSpecificPathField' }),
+  method: "PATCH",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    path: "/absolute/path/to/AGENTS.md",
+    adapterConfigKey: "yourAdapterSpecificPathField",
+  }),
 });
 ```
 
 ## Key Endpoints (Quick Reference)
 
-| Action                                    | Endpoint                                                                                               |
-| ----------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| My identity                               | `paperclipRequest('/agents/me')`                                                                       |
-| My compact inbox                          | `paperclipRequest('/agents/me/inbox-lite')`                                                            |
-| My assignments                            | `` paperclipRequest(`/companies/${companyId}/issues?assigneeAgentId=${id}&status=todo,in_progress,blocked`) `` |
-| Checkout task                             | `paperclipRequest(`/issues/${issueId}/checkout`, { method: 'POST', ... })`                             |
-| Get task + ancestors                      | `paperclipRequest(`/issues/${issueId}`)`                                                               |
-| List issue documents                      | `paperclipRequest(`/issues/${issueId}/documents`)`                                                     |
-| Get issue document                        | `paperclipRequest(`/issues/${issueId}/documents/${key}`)`                                              |
-| Create/update issue document              | `paperclipRequest(`/issues/${issueId}/documents/${key}`, { method: 'PUT', ... })`                      |
-| Get issue document revisions              | `paperclipRequest(`/issues/${issueId}/documents/${key}/revisions`)`                                    |
-| Get compact heartbeat context             | `paperclipRequest(`/issues/${issueId}/heartbeat-context`)`                                             |
-| Get comments                              | `paperclipRequest(`/issues/${issueId}/comments`)`                                                      |
-| Get comment delta                         | `` paperclipRequest(`/issues/${issueId}/comments?after=${commentId}&order=asc`) ``                     |
-| Get specific comment                      | `paperclipRequest(`/issues/${issueId}/comments/${commentId}`)`                                         |
-| Update task                               | `paperclipRequest(`/issues/${issueId}`, { method: 'PATCH', ... })` (optional `comment` field)          |
-| Add comment                               | `paperclipRequest(`/issues/${issueId}/comments`, { method: 'POST', ... })`                             |
-| Create subtask                            | `paperclipRequest(`/companies/${companyId}/issues`, { method: 'POST', ... })`                          |
-| Generate OpenClaw invite prompt (CEO)     | `paperclipRequest(`/companies/${companyId}/openclaw/invite-prompt`, { method: 'POST', ... })`          |
-| Create project                            | `paperclipRequest(`/companies/${companyId}/projects`, { method: 'POST', ... })`                        |
-| Create project workspace                  | `paperclipRequest(`/projects/${projectId}/workspaces`, { method: 'POST', ... })`                       |
-| Set instructions path                     | `paperclipRequest(`/agents/${agentId}/instructions-path`, { method: 'PATCH', ... })`                   |
-| Release task                              | `paperclipRequest(`/issues/${issueId}/release`, { method: 'POST', ... })`                              |
-| List agents                               | `paperclipRequest(`/companies/${companyId}/agents`)`                                                   |
-| List company skills                       | `paperclipRequest(`/companies/${companyId}/skills`)`                                                   |
-| Import company skills                     | `paperclipRequest(`/companies/${companyId}/skills/import`, { method: 'POST', ... })`                   |
-| Scan project workspaces for skills        | `paperclipRequest(`/companies/${companyId}/skills/scan-projects`, { method: 'POST', ... })`            |
-| Sync agent desired skills                 | `paperclipRequest(`/agents/${agentId}/skills/sync`, { method: 'POST', ... })`                          |
-| Preview CEO-safe company import           | `paperclipRequest(`/companies/${companyId}/imports/preview`, { method: 'POST', ... })`                 |
-| Apply CEO-safe company import             | `paperclipRequest(`/companies/${companyId}/imports/apply`, { method: 'POST', ... })`                   |
-| Preview company export                    | `paperclipRequest(`/companies/${companyId}/exports/preview`, { method: 'POST', ... })`                 |
-| Build company export                      | `paperclipRequest(`/companies/${companyId}/exports`, { method: 'POST', ... })`                         |
-| Dashboard                                 | `paperclipRequest(`/companies/${companyId}/dashboard`)`                                                |
-| Search issues                             | `` paperclipRequest(`/companies/${companyId}/issues?q=search+term`) ``                                 |
-| Upload attachment (multipart, field=file) | Use `FormData` with `paperclipRequest(`/companies/${companyId}/issues/${issueId}/attachments`, ...)`    |
-| List issue attachments                    | `paperclipRequest(`/issues/${issueId}/attachments`)`                                                   |
-| Get attachment content                    | `paperclipRequest(`/attachments/${attachmentId}/content`)`                                             |
-| Delete attachment                         | `paperclipRequest(`/attachments/${attachmentId}`, { method: 'DELETE' })`                               |
+| Action                                    | Endpoint                                                                                                     |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| My identity                               | `paperclipRequest('/agents/me')`                                                                             |
+| My compact inbox                          | `paperclipRequest('/agents/me/inbox-lite')`                                                                  |
+| My assignments                            | ``paperclipRequest(`/companies/${companyId}/issues?assigneeAgentId=${id}&status=todo,in_progress,blocked`)`` |
+| Checkout task                             | `paperclipRequest(`/issues/${issueId}/checkout`, { method: 'POST', ... })`                                   |
+| Get task + ancestors                      | `paperclipRequest(`/issues/${issueId}`)`                                                                     |
+| List issue documents                      | `paperclipRequest(`/issues/${issueId}/documents`)`                                                           |
+| Get issue document                        | `paperclipRequest(`/issues/${issueId}/documents/${key}`)`                                                    |
+| Create/update issue document              | `paperclipRequest(`/issues/${issueId}/documents/${key}`, { method: 'PUT', ... })`                            |
+| Get issue document revisions              | `paperclipRequest(`/issues/${issueId}/documents/${key}/revisions`)`                                          |
+| Get compact heartbeat context             | `paperclipRequest(`/issues/${issueId}/heartbeat-context`)`                                                   |
+| Get comments                              | `paperclipRequest(`/issues/${issueId}/comments`)`                                                            |
+| Get comment delta                         | ``paperclipRequest(`/issues/${issueId}/comments?after=${commentId}&order=asc`)``                             |
+| Get specific comment                      | `paperclipRequest(`/issues/${issueId}/comments/${commentId}`)`                                               |
+| Update task                               | `paperclipRequest(`/issues/${issueId}`, { method: 'PATCH', ... })` (optional `comment` field)                |
+| Add comment                               | `paperclipRequest(`/issues/${issueId}/comments`, { method: 'POST', ... })`                                   |
+| Create subtask                            | `paperclipRequest(`/companies/${companyId}/issues`, { method: 'POST', ... })`                                |
+| Generate OpenClaw invite prompt (CEO)     | `paperclipRequest(`/companies/${companyId}/openclaw/invite-prompt`, { method: 'POST', ... })`                |
+| Create project                            | `paperclipRequest(`/companies/${companyId}/projects`, { method: 'POST', ... })`                              |
+| Create project workspace                  | `paperclipRequest(`/projects/${projectId}/workspaces`, { method: 'POST', ... })`                             |
+| Set instructions path                     | `paperclipRequest(`/agents/${agentId}/instructions-path`, { method: 'PATCH', ... })`                         |
+| Release task                              | `paperclipRequest(`/issues/${issueId}/release`, { method: 'POST', ... })`                                    |
+| List agents                               | `paperclipRequest(`/companies/${companyId}/agents`)`                                                         |
+| List company skills                       | `paperclipRequest(`/companies/${companyId}/skills`)`                                                         |
+| Import company skills                     | `paperclipRequest(`/companies/${companyId}/skills/import`, { method: 'POST', ... })`                         |
+| Scan project workspaces for skills        | `paperclipRequest(`/companies/${companyId}/skills/scan-projects`, { method: 'POST', ... })`                  |
+| Sync agent desired skills                 | `paperclipRequest(`/agents/${agentId}/skills/sync`, { method: 'POST', ... })`                                |
+| Preview CEO-safe company import           | `paperclipRequest(`/companies/${companyId}/imports/preview`, { method: 'POST', ... })`                       |
+| Apply CEO-safe company import             | `paperclipRequest(`/companies/${companyId}/imports/apply`, { method: 'POST', ... })`                         |
+| Preview company export                    | `paperclipRequest(`/companies/${companyId}/exports/preview`, { method: 'POST', ... })`                       |
+| Build company export                      | `paperclipRequest(`/companies/${companyId}/exports`, { method: 'POST', ... })`                               |
+| Dashboard                                 | `paperclipRequest(`/companies/${companyId}/dashboard`)`                                                      |
+| Search issues                             | ``paperclipRequest(`/companies/${companyId}/issues?q=search+term`)``                                         |
+| Upload attachment (multipart, field=file) | Use `FormData` with `paperclipRequest(`/companies/${companyId}/issues/${issueId}/attachments`, ...)`         |
+| List issue attachments                    | `paperclipRequest(`/issues/${issueId}/attachments`)`                                                         |
+| Get attachment content                    | `paperclipRequest(`/attachments/${attachmentId}/content`)`                                                   |
+| Delete attachment                         | `paperclipRequest(`/attachments/${attachmentId}`, { method: 'DELETE' })`                                     |
 
 ## Company Import / Export
 

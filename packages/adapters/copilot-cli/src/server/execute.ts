@@ -17,7 +17,8 @@ import {
   ensurePathInEnv,
   renderTemplate,
   runChildProcess,
-  readPaperclipSkillMarkdown,
+  readPaperclipRuntimeSkillEntries,
+  resolvePaperclipDesiredSkillNames,
 } from "@paperclipai/adapter-utils/server-utils";
 import {
   parseCopilotJsonl,
@@ -34,17 +35,35 @@ import { modelEffortSupport } from "../index.js";
 const __moduleDir = path.dirname(fileURLToPath(import.meta.url));
 
 /**
- * Resolve the Paperclip "paperclip" skill, strip its YAML frontmatter, write
- * the result to a fresh tmpdir as AGENTS.md, and return the tmpdir path.
- * Returns null if the skill is not found or is empty after stripping.
+ * Resolve all desired Paperclip runtime skills, strip their YAML frontmatter,
+ * concatenate them into a single AGENTS.md written to a fresh tmpdir, and
+ * return the tmpdir path (set as COPILOT_CUSTOM_INSTRUCTIONS_DIRS).
+ * Returns null if no desired skills are found or all are unreadable.
  */
-async function buildCopilotInstructionsTmpDir(): Promise<string | null> {
-  const raw = await readPaperclipSkillMarkdown(__moduleDir, "paperclip");
-  if (!raw) return null;
-  const stripped = stripSkillFrontmatter(raw);
-  if (!stripped) return null;
+async function buildCopilotInstructionsTmpDir(
+  config: Record<string, unknown>,
+): Promise<string | null> {
+  const availableEntries = await readPaperclipRuntimeSkillEntries(config, __moduleDir);
+  const desiredNames = new Set(resolvePaperclipDesiredSkillNames(config, availableEntries));
+  const desiredEntries = availableEntries.filter((e) => desiredNames.has(e.key));
+
+  if (desiredEntries.length === 0) return null;
+
+  const parts: string[] = [];
+  for (const entry of desiredEntries) {
+    try {
+      const raw = await fs.readFile(path.join(entry.source, "SKILL.md"), "utf-8");
+      const stripped = stripSkillFrontmatter(raw);
+      if (stripped) parts.push(stripped);
+    } catch {
+      // skill file unreadable — skip
+    }
+  }
+
+  if (parts.length === 0) return null;
+
   const tmpdir = await fs.mkdtemp(path.join(os.tmpdir(), "paperclip-copilot-instructions-"));
-  await fs.writeFile(path.join(tmpdir, "AGENTS.md"), stripped, "utf-8");
+  await fs.writeFile(path.join(tmpdir, "AGENTS.md"), parts.join("\n\n---\n\n"), "utf-8");
   return tmpdir;
 }
 
@@ -231,7 +250,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     extraArgs,
   } = runtimeConfig;
 
-  const instructionsTmpDir = skillsEnabled && !skipSkills ? await buildCopilotInstructionsTmpDir() : null;
+  const instructionsTmpDir = skillsEnabled && !skipSkills ? await buildCopilotInstructionsTmpDir(config) : null;
   if (instructionsTmpDir) {
     const existing = env.COPILOT_CUSTOM_INSTRUCTIONS_DIRS ?? "";
     env.COPILOT_CUSTOM_INSTRUCTIONS_DIRS = existing
@@ -352,13 +371,30 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
       ? renderTemplate(bootstrapPromptTemplate, templateData).trim()
       : "";
 
-  // Assemble final prompt: instructions (optional) + bootstrap (fresh sessions only) + Paperclip context + user prompt
+  const sessionHandoffNote = asString(context.paperclipSessionHandoffMarkdown, "").trim();
+
+  // Assemble final prompt: instructions (optional) + bootstrap (fresh sessions only) + session handoff + Paperclip context + user prompt
   const promptParts: string[] = [];
   if (instructionsContent) promptParts.push(instructionsContent);
   if (renderedBootstrapPrompt) promptParts.push(renderedBootstrapPrompt);
+  if (sessionHandoffNote) promptParts.push(sessionHandoffNote);
   promptParts.push(paperclipContextBlock);
   promptParts.push(renderedPrompt);
   const prompt = promptParts.join("\n\n---\n\n");
+
+  const commandNotes: string[] = [];
+  if (instructionsTmpDir) {
+    commandNotes.push(`Injected Paperclip skill instructions via COPILOT_CUSTOM_INSTRUCTIONS_DIRS: ${instructionsTmpDir}/AGENTS.md`);
+  }
+  if (instructionsContent) {
+    commandNotes.push(`Injected agent instructions file: ${instructionsFilePath}`);
+  }
+  const promptMetrics = {
+    promptChars: prompt.length,
+    bootstrapPromptChars: renderedBootstrapPrompt.length,
+    sessionHandoffChars: sessionHandoffNote.length,
+    heartbeatPromptChars: renderedPrompt.length,
+  };
 
   const buildCopilotArgs = (resumeSessionId: string | null) => {
     const args = ["-p", prompt, "--output-format", "json", "--silent", "--no-ask-user", "--no-auto-update"];
@@ -402,8 +438,10 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
         command,
         cwd,
         commandArgs: args,
+        commandNotes,
         env: redactEnvForLogs(env),
         prompt,
+        promptMetrics,
         context,
       });
     }
