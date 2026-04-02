@@ -274,21 +274,25 @@ function describeIssueUpdateWithTranslation(details: Record<string, unknown> | n
   const changes: string[] = [];
   if (typeof details.status === "string") {
     const statusLabel = t ? translateStatusLabel(t, details.status) : details.status.replace(/_/g, " ");
-    changes.push(t
-      ? t("liveUpdates.issueUpdate.statusChanged", {
-          status: statusLabel,
-          defaultValue: `status -> ${statusLabel}`,
-        })
-      : `status -> ${statusLabel}`);
+    changes.push(
+      t
+        ? t("liveUpdates.issueUpdate.statusChanged", {
+            status: statusLabel,
+            defaultValue: `status -> ${statusLabel}`,
+          })
+        : `status -> ${statusLabel}`,
+    );
   }
   if (typeof details.priority === "string") {
     const priorityLabel = t ? translatePriorityLabel(t, details.priority) : details.priority;
-    changes.push(t
-      ? t("liveUpdates.issueUpdate.priorityChanged", {
-          priority: priorityLabel,
-          defaultValue: `priority -> ${priorityLabel}`,
-        })
-      : `priority -> ${priorityLabel}`);
+    changes.push(
+      t
+        ? t("liveUpdates.issueUpdate.priorityChanged", {
+            priority: priorityLabel,
+            defaultValue: `priority -> ${priorityLabel}`,
+          })
+        : `priority -> ${priorityLabel}`,
+    );
   }
   if (typeof details.assigneeAgentId === "string" || typeof details.assigneeUserId === "string") {
     changes.push(t ? t("liveUpdates.issueUpdate.reassigned", { defaultValue: "reassigned" }) : "reassigned");
@@ -297,27 +301,29 @@ function describeIssueUpdateWithTranslation(details: Record<string, unknown> | n
   }
   if (details.reopened === true) {
     const from = readString(details.reopenedFrom);
-    const fromLabel = from
-      ? (t ? translateStatusLabel(t, from) : from.replace(/_/g, " "))
-      : null;
-    changes.push(fromLabel
-      ? t
-        ? t("liveUpdates.issueUpdate.reopenedFrom", {
-            from: fromLabel,
-            defaultValue: `reopened from ${fromLabel}`,
-          })
-        : `reopened from ${fromLabel}`
-      : t
-        ? t("liveUpdates.issueUpdate.reopened", { defaultValue: "reopened" })
-        : "reopened");
+    const fromLabel = from ? (t ? translateStatusLabel(t, from) : from.replace(/_/g, " ")) : null;
+    changes.push(
+      fromLabel
+        ? t
+          ? t("liveUpdates.issueUpdate.reopenedFrom", {
+              from: fromLabel,
+              defaultValue: `reopened from ${fromLabel}`,
+            })
+          : `reopened from ${fromLabel}`
+        : t
+          ? t("liveUpdates.issueUpdate.reopened", { defaultValue: "reopened" })
+          : "reopened",
+    );
   }
   if (typeof details.title === "string") {
     changes.push(t ? t("liveUpdates.issueUpdate.titleChanged", { defaultValue: "title changed" }) : "title changed");
   }
   if (typeof details.description === "string") {
-    changes.push(t
-      ? t("liveUpdates.issueUpdate.descriptionChanged", { defaultValue: "description changed" })
-      : "description changed");
+    changes.push(
+      t
+        ? t("liveUpdates.issueUpdate.descriptionChanged", { defaultValue: "description changed" })
+        : "description changed",
+    );
   }
   if (changes.length > 0) return changes.join(", ");
   return null;
@@ -467,9 +473,10 @@ function buildJoinRequestToast(
   if (action !== "join.requested" && action !== "join.request_replayed") return null;
 
   const requestType = readString(details?.requestType);
-  const label = requestType === "agent"
-    ? translateEntityTypeLabel(t, "agent")
-    : t("liveUpdates.actor.someone", { defaultValue: "Someone" });
+  const label =
+    requestType === "agent"
+      ? translateEntityTypeLabel(t, "agent")
+      : t("liveUpdates.actor.someone", { defaultValue: "Someone" });
 
   return {
     title: t("liveUpdates.joinRequest.title", {
@@ -848,16 +855,43 @@ function closeSocketQuietly(target: LiveUpdatesSocketLike | null, reason: string
 }
 
 export const __liveUpdatesTestUtils = {
+  buildActivityToast: (
+    queryClient: QueryClient,
+    companyId: string,
+    payload: Record<string, unknown>,
+    currentActor: { userId: string | null; agentId: string | null },
+  ) => buildActivityToast(liveUpdatesTestT, queryClient, companyId, payload, currentActor),
+  buildActivityToastWithT: (
+    t: TFunction,
+    queryClient: QueryClient,
+    companyId: string,
+    payload: Record<string, unknown>,
+    currentActor: { userId: string | null; agentId: string | null },
+  ) => buildActivityToast(t, queryClient, companyId, payload, currentActor),
+  buildJoinRequestToast: (payload: Record<string, unknown>) => buildJoinRequestToast(liveUpdatesTestT, payload),
+  buildJoinRequestToastWithT: (t: TFunction, payload: Record<string, unknown>) => buildJoinRequestToast(t, payload),
   buildAgentStatusToast: (
     payload: Record<string, unknown>,
     nameOf: (id: string) => string | null,
     queryClient: QueryClient,
     companyId: string,
   ) => buildAgentStatusToast(liveUpdatesTestT, payload, nameOf, queryClient, companyId),
+  buildAgentStatusToastWithT: (
+    t: TFunction,
+    payload: Record<string, unknown>,
+    nameOf: (id: string) => string | null,
+    queryClient: QueryClient,
+    companyId: string,
+  ) => buildAgentStatusToast(t, payload, nameOf, queryClient, companyId),
   buildRunStatusToast: (
     payload: Record<string, unknown>,
     nameOf: (id: string) => string | null,
   ) => buildRunStatusToast(liveUpdatesTestT, payload, nameOf),
+  buildRunStatusToastWithT: (
+    t: TFunction,
+    payload: Record<string, unknown>,
+    nameOf: (id: string) => string | null,
+  ) => buildRunStatusToast(t, payload, nameOf),
   closeSocketQuietly,
   invalidateActivityQueries,
   resolveLiveCompanyId,
@@ -950,10 +984,19 @@ export function LiveUpdatesProvider({ children }: { children: ReactNode }) {
 
         try {
           const parsed = JSON.parse(raw) as LiveEvent;
-          handleLiveEvent(tRef.current, queryClient, liveCompanyId, pathnameRef.current, parsed, pushToast, gateRef.current, {
-            userId: currentActorRef.current.userId,
-            agentId: currentActorRef.current.agentId,
-          });
+          handleLiveEvent(
+            tRef.current,
+            queryClient,
+            liveCompanyId,
+            pathnameRef.current,
+            parsed,
+            pushToast,
+            gateRef.current,
+            {
+              userId: currentActorRef.current.userId,
+              agentId: currentActorRef.current.agentId,
+            },
+          );
         } catch {
           // Ignore non-JSON payloads.
         }
