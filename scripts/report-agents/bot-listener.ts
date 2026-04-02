@@ -30,13 +30,40 @@ function syncData(): void {
     console.error("  Sync failed:", e.message?.slice(0, 100));
   }
 }
-import { sendTelegram } from "./lib/telegram.js";
+import { sendTelegram, sendMessageWithKeyboard, sendDocument, answerCallbackQuery } from "./lib/telegram.js";
 import { fetchPlatformMetrics } from "./lib/metabase-queries.js";
 import { fetchGA4Metrics } from "./lib/ga4-client.js";
 import { moneySmart, growthBadge } from "./lib/formatters.js";
-import { execFile } from "child_process";
+import { execFile, spawn } from "child_process";
 import { promisify } from "util";
 const execFileAsync = promisify(execFile);
+
+// Run Claude CLI with prompt via stdin (avoids arg length limits)
+function runClaude(
+  args: string[],
+  prompt: string,
+  timeout: number
+): Promise<{ stdout: string; stderr: string }> {
+  return new Promise((resolve, reject) => {
+    const child = spawn("claude", args, {
+      env: { ...process.env, PATH: `${process.env.PATH}:/usr/local/bin:/opt/homebrew/bin` },
+      stdio: ["pipe", "pipe", "pipe"],
+    });
+    let stdout = "";
+    let stderr = "";
+    child.stdout.on("data", (d: Buffer) => { stdout += d.toString(); });
+    child.stderr.on("data", (d: Buffer) => { stderr += d.toString(); });
+    const timer = setTimeout(() => { child.kill(); reject(new Error(`Timeout after ${timeout}ms`)); }, timeout);
+    child.on("close", (code) => {
+      clearTimeout(timer);
+      if (code !== 0) reject(new Error(`Exit code ${code}: ${stderr.slice(0, 300)}`));
+      else resolve({ stdout, stderr });
+    });
+    child.on("error", (err) => { clearTimeout(timer); reject(err); });
+    child.stdin.write(prompt);
+    child.stdin.end();
+  });
+}
 
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 if (!BOT_TOKEN) throw new Error("Missing TELEGRAM_BOT_TOKEN");
@@ -57,6 +84,9 @@ interface ChatSession {
 
 const chatSessions = new Map<string, ChatSession>();
 const SESSION_TTL_MS = 60 * 60 * 1000; // 1 hour — new session after inactivity
+
+// Track last report path per chat for inline keyboard callbacks
+const lastReportPath = new Map<string, string>();
 
 function getSession(chatKey: string): ChatSession {
   const session = chatSessions.get(chatKey);
@@ -111,7 +141,7 @@ Ví dụ:
 // ============================================================
 
 async function getUpdates(): Promise<any[]> {
-  const res = await fetch(`${TELEGRAM_API}/bot${BOT_TOKEN}/getUpdates?offset=${offset}&timeout=30`);
+  const res = await fetch(`${TELEGRAM_API}/bot${BOT_TOKEN}/getUpdates?offset=${offset}&timeout=30&allowed_updates=${encodeURIComponent(JSON.stringify(["message", "callback_query"]))}`);
   if (!res.ok) return [];
   const data = await res.json() as any;
   return data.result ?? [];
@@ -226,13 +256,7 @@ Câu hỏi: "${question}"`;
       args.push("-r", session.sessionId);
     }
 
-    args.push("-p", prompt);
-
-    const { stdout, stderr } = await execFileAsync("claude", args, {
-      timeout: 120_000,
-      maxBuffer: 1024 * 1024,
-      env: { ...process.env, PATH: `${process.env.PATH}:/usr/local/bin:/opt/homebrew/bin` },
-    });
+    const { stdout, stderr } = await runClaude(args, prompt, 1_800_000); // 30 minutes
 
     // Extract session ID from stderr (Claude CLI outputs session info there)
     const sessionMatch = stderr?.match(/session_id[=:]\s*([a-f0-9-]+)/i)
@@ -267,6 +291,29 @@ Câu hỏi: "${question}"`;
     const answer = stdout.trim();
     if (answer) {
       await reply(chatId, answer, threadId);
+
+      // Check if a report file was created and offer inline keyboard
+      const today = new Date().toISOString().slice(0, 10);
+      const reportsDir = "/Users/amando/Desktop/Learn/paperclip/scripts/report-agents/reports";
+      try {
+        const fs = await import("fs");
+        const files = fs.readdirSync(reportsDir)
+          .filter((f: string) => f.startsWith(today) && f.endsWith(".md"))
+          .sort()
+          .reverse();
+        if (files.length > 0) {
+          const reportPath = `${reportsDir}/${files[0]}`;
+          lastReportPath.set(chatKey, reportPath);
+          await sendMessageWithKeyboard(
+            "📎 Phân tích chi tiết đã lưu.",
+            [
+              { text: "📊 Xem Chart", callback_data: `chart:${chatKey}` },
+              { text: "📄 File Chi Tiết", callback_data: `detail:${chatKey}` },
+            ],
+            { botToken: BOT_TOKEN!, chatId, threadId }
+          );
+        }
+      } catch { /* reports dir may not exist yet */ }
     } else {
       await reply(chatId, "❌ No response from Claude", threadId);
     }
@@ -293,6 +340,58 @@ async function main() {
       const updates = await getUpdates();
       for (const update of updates) {
         offset = update.update_id + 1;
+
+        // Handle inline keyboard callbacks
+        const callback = update.callback_query;
+        if (callback?.data) {
+          const cbChatId = String(callback.message?.chat?.id);
+          const cbThreadId = callback.message?.message_thread_id;
+          const [action, cbChatKey] = callback.data.split(":");
+
+          await answerCallbackQuery(callback.id, "⏳ Đang xử lý...", { botToken: BOT_TOKEN! });
+
+          // Try cache first, fallback to latest report file
+          let reportPath = lastReportPath.get(cbChatKey);
+          if (!reportPath) {
+            const reportsDir = "/Users/amando/Desktop/Learn/paperclip/scripts/report-agents/reports";
+            try {
+              const fs = await import("fs");
+              const files = fs.readdirSync(reportsDir)
+                .filter((f: string) => f.endsWith(".md") && f !== ".gitkeep")
+                .sort()
+                .reverse();
+              if (files.length > 0) reportPath = `${reportsDir}/${files[0]}`;
+            } catch {}
+          }
+          if (!reportPath) {
+            await reply(cbChatId, "❌ Không tìm thấy file report. Hỏi lại để generate.", cbThreadId);
+            continue;
+          }
+
+          if (action === "detail") {
+            try {
+              await sendDocument(reportPath, "📄 Phân tích chi tiết", {
+                botToken: BOT_TOKEN!, chatId: cbChatId, threadId: cbThreadId
+              });
+            } catch (e: any) {
+              await reply(cbChatId, `❌ Gửi file thất bại: ${e.message?.slice(0, 100)}`, cbThreadId);
+            }
+          } else if (action === "chart") {
+            await reply(cbChatId, "⏳ Generating chart...", cbThreadId);
+            try {
+              const { generateContextChart } = await import("./lib/context-chart.js");
+              const { sendPhoto } = await import("./lib/telegram.js");
+              const png = await generateContextChart(reportPath, WHALES_DB_PATH!);
+              await sendPhoto(png, "📊 Context Chart", {
+                botToken: BOT_TOKEN!, chatId: cbChatId, threadId: cbThreadId
+              });
+            } catch (e: any) {
+              await reply(cbChatId, `❌ Chart failed: ${e.message?.slice(0, 100)}`, cbThreadId);
+            }
+          }
+          continue;
+        }
+
         const msg = update.message;
         if (!msg?.text) continue;
 
