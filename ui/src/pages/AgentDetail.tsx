@@ -1697,7 +1697,7 @@ function PromptsTab({
   const { data: selectedFileDetail, isLoading: fileLoading } = useQuery({
     queryKey: queryKeys.agents.instructionsFile(agent.id, selectedOrEntryFile),
     queryFn: () => agentsApi.instructionsFile(agent.id, selectedOrEntryFile, companyId),
-    enabled: Boolean(companyId && isLocal && selectedFileExists),
+    enabled: Boolean(companyId && isLocal && selectedOrEntryFile),
   });
 
   const updateBundle = useMutation({
@@ -1816,7 +1816,7 @@ function PromptsTab({
     };
   }, [bundle, currentEntryFile, currentMode, currentRootPath, selectedOrEntryFile]);
 
-  const currentContent = selectedFileExists ? (selectedFileDetail?.content ?? "") : "";
+  const currentContent = selectedFileDetail?.content ?? "";
   const displayValue = draft ?? currentContent;
   const bundleDirty = Boolean(
     bundleDraft &&
@@ -2264,19 +2264,6 @@ function PromptsTab({
 
           {selectedFileExists && fileLoading && !selectedFileDetail ? (
             <PromptEditorSkeleton />
-          ) : isMarkdown(selectedOrEntryFile) ? (
-            <MarkdownEditor
-              key={selectedOrEntryFile}
-              value={displayValue}
-              onChange={(value) => setDraft(value ?? "")}
-              placeholder="# Agent instructions"
-              contentClassName="min-h-[420px] text-sm font-mono"
-              imageUploadHandler={async (file) => {
-                const namespace = `agents/${agent.id}/instructions/${selectedOrEntryFile.replaceAll("/", "-")}`;
-                const asset = await uploadMarkdownImage.mutateAsync({ file, namespace });
-                return asset.contentPath;
-              }}
-            />
           ) : (
             <textarea
               value={displayValue}
