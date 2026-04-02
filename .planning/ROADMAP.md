@@ -28,7 +28,12 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. Both services restart automatically after a `docker kill` without manual intervention
   4. PostgreSQL port 5432 is not reachable from outside the Docker network
   5. A `.env.template` file exists with every required variable documented
-**Plans**: TBD
+**Plans**: 3 plans
+
+Plans:
+- [ ] 01-01-PLAN.md — Harden docker-compose.yml and add HEALTHCHECK to Dockerfile
+- [ ] 01-02-PLAN.md — Create docker/.env.template with all variables documented
+- [ ] 01-03-PLAN.md — Human verification: start stack on docker-001 and confirm all success criteria
 
 ### Phase 2: Network Exposure
 **Goal**: The Paperclip dashboard is accessible via a subdomain with a valid Let's Encrypt certificate
@@ -56,6 +61,6 @@ Phases execute in numeric order: 1 → 2 → 3
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Compose Foundation | 0/? | Not started | - |
+| 1. Compose Foundation | 0/3 | Not started | - |
 | 2. Network Exposure | 0/? | Not started | - |
 | 3. Agent Connectivity | 0/? | Not started | - |
