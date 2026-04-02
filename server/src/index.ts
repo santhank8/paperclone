@@ -605,6 +605,13 @@ export async function startServer(): Promise<StartedServer> {
         .catch((err) => {
           logger.error({ err }, "periodic heartbeat recovery failed");
         });
+
+      // Reset agents stuck in "running" with no active runs (30-min threshold).
+      void heartbeat
+        .resetStaleAgentStatus({ staleThresholdMs: 30 * 60 * 1000 })
+        .catch((err) => {
+          logger.error({ err }, "periodic stale agent status reset failed");
+        });
     }, config.heartbeatSchedulerIntervalMs);
   }
   

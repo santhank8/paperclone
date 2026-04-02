@@ -38,6 +38,8 @@ export const heartbeatRuns = pgTable(
     }),
     processLossRetryCount: integer("process_loss_retry_count").notNull().default(0),
     contextSnapshot: jsonb("context_snapshot").$type<Record<string, unknown>>(),
+    actionCount: integer("action_count").notNull().default(0),
+    silentSuccess: boolean("silent_success").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },

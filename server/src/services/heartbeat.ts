@@ -2,7 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { execFile as execFileCallback } from "node:child_process";
 import { promisify } from "node:util";
-import { and, asc, desc, eq, gt, inArray, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gt, inArray, isNull, lt, not, or, sql } from "drizzle-orm";
 import type { Db } from "@paperclipai/db";
 import type { BillingType, ExecutionWorkspace, ExecutionWorkspaceConfig } from "@paperclipai/shared";
 import {
@@ -254,6 +254,8 @@ const heartbeatRunListColumns = {
   retryOfRunId: heartbeatRuns.retryOfRunId,
   processLossRetryCount: heartbeatRuns.processLossRetryCount,
   contextSnapshot: heartbeatRuns.contextSnapshot,
+  actionCount: heartbeatRuns.actionCount,
+  silentSuccess: heartbeatRuns.silentSuccess,
   createdAt: heartbeatRuns.createdAt,
   updatedAt: heartbeatRuns.updatedAt,
 } as const;
@@ -1596,6 +1598,16 @@ export function heartbeatService(db: Db) {
       .then((rows) => rows[0] ?? null);
   }
 
+  async function incrementRunActionCount(runId: string) {
+    await db
+      .update(heartbeatRuns)
+      .set({
+        actionCount: sql`${heartbeatRuns.actionCount} + 1`,
+        updatedAt: new Date(),
+      })
+      .where(and(eq(heartbeatRuns.id, runId), eq(heartbeatRuns.status, "running")));
+  }
+
   async function clearDetachedRunWarning(runId: string) {
     const updated = await db
       .update(heartbeatRuns)
@@ -1940,6 +1952,60 @@ export function heartbeatService(db: Db) {
       logger.warn({ reapedCount: reaped.length, runIds: reaped }, "reaped orphaned heartbeat runs");
     }
     return { reaped: reaped.length, runIds: reaped };
+  }
+
+  /**
+   * Reset agents whose status is "running" but have no active heartbeat runs.
+   * This handles the edge case where a run was cleaned up without calling
+   * finalizeAgentStatus, leaving the agent stuck in "running" indefinitely.
+   * Only resets agents that have been stuck for longer than staleThresholdMs.
+   */
+  async function resetStaleAgentStatus(opts?: { staleThresholdMs?: number }) {
+    const staleThresholdMs = opts?.staleThresholdMs ?? 30 * 60 * 1000; // 30 minutes default
+    const cutoff = new Date(Date.now() - staleThresholdMs);
+
+    // Find agents stuck in "running" that haven't completed a heartbeat recently.
+    // Use lastHeartbeatAt (not updatedAt) because updatedAt is bumped by any field change
+    // (e.g. task assignment), which would mask a genuinely stuck agent.
+    const stuckAgents = await db
+      .select({ id: agents.id, companyId: agents.companyId, lastHeartbeatAt: agents.lastHeartbeatAt })
+      .from(agents)
+      .where(and(eq(agents.status, "running"), or(isNull(agents.lastHeartbeatAt), lt(agents.lastHeartbeatAt, cutoff))));
+
+    if (stuckAgents.length === 0) return { reset: 0, agentIds: [] };
+
+    const reset: string[] = [];
+    for (const agent of stuckAgents) {
+      // Skip if a run started AFTER the staleness cutoff — that run is legitimately new
+      // and hasn't had time to complete a heartbeat cycle yet.
+      const [{ recentCount }] = await db
+        .select({ recentCount: sql<number>`count(*)` })
+        .from(heartbeatRuns)
+        .where(and(eq(heartbeatRuns.agentId, agent.id), inArray(heartbeatRuns.status, ["running", "queued"]), gt(heartbeatRuns.startedAt, cutoff)));
+
+      if (Number(recentCount) > 0) continue;
+
+      const updated = await db
+        .update(agents)
+        .set({ status: "idle", updatedAt: new Date() })
+        .where(and(eq(agents.id, agent.id), eq(agents.status, "running")))
+        .returning({ id: agents.id })
+        .then((rows) => rows[0] ?? null);
+
+      if (updated) {
+        publishLiveEvent({
+          companyId: agent.companyId,
+          type: "agent.status",
+          payload: { agentId: agent.id, status: "idle", lastHeartbeatAt: null, outcome: "stale_reset" },
+        });
+        reset.push(agent.id);
+      }
+    }
+
+    if (reset.length > 0) {
+      logger.warn({ resetCount: reset.length, agentIds: reset }, "reset stale running agents to idle");
+    }
+    return { reset: reset.length, agentIds: reset };
   }
 
   async function resumeQueuedRuns() {
@@ -2783,6 +2849,9 @@ export function heartbeatService(db: Db) {
             } as Record<string, unknown>)
           : null;
 
+      const latestRunForSilent = await getRun(run.id);
+      const isSilentSuccess = outcome === "succeeded" && (latestRunForSilent?.actionCount ?? 0) === 0;
+
       await setRunStatus(run.id, status, {
         finishedAt: new Date(),
         error:
@@ -2810,6 +2879,7 @@ export function heartbeatService(db: Db) {
         logBytes: logSummary?.bytes,
         logSha256: logSummary?.sha256,
         logCompressed: logSummary?.compressed ?? false,
+        silentSuccess: isSilentSuccess,
       });
 
       await setWakeupStatus(run.wakeupRequestId, outcome === "succeeded" ? "completed" : status, {
@@ -3941,7 +4011,11 @@ export function heartbeatService(db: Db) {
 
     reportRunActivity: clearDetachedRunWarning,
 
+    incrementRunActionCount,
+
     reapOrphanedRuns,
+
+    resetStaleAgentStatus,
 
     resumeQueuedRuns,
 
