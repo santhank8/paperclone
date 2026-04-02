@@ -62,9 +62,16 @@ function KanbanColumn({
   liveIssueIds?: Set<string>;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: status });
+  const isEmpty = issues.length === 0;
 
   return (
-    <div className="flex flex-col min-w-[260px] w-[260px] shrink-0">
+    <div
+      className={`flex flex-col shrink-0 transition-all duration-200 ${
+        isEmpty
+          ? "min-w-[104px] w-[104px]"
+          : "min-w-[260px] w-[260px]"
+      }`}
+    >
       <div className="flex items-center gap-2 px-2 py-2 mb-1">
         <StatusIcon status={status} />
         <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
