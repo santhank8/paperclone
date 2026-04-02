@@ -47,7 +47,7 @@ export interface GA4Metrics {
   topLandingPages: Array<{ page: string; sessions: number }>;
 }
 
-export async function fetchGA4Metrics(): Promise<GA4Metrics> {
+export async function fetchGA4Metrics(period: "daily" | "weekly" | "monthly" = "daily"): Promise<GA4Metrics> {
   const propertyId = process.env.GA4_PROPERTY_ID;
   if (!propertyId) throw new Error("Missing GA4_PROPERTY_ID");
 
@@ -56,7 +56,6 @@ export async function fetchGA4Metrics(): Promise<GA4Metrics> {
     await refreshADCIfNeeded();
   }
 
-  // Support: SA JSON string, SA JSON file path, or Application Default Credentials
   const credentialsJson = process.env.GA4_SERVICE_ACCOUNT_JSON;
   const credentialsPath = process.env.GA4_SERVICE_ACCOUNT_JSON_PATH;
 
@@ -79,8 +78,25 @@ export async function fetchGA4Metrics(): Promise<GA4Metrics> {
 
   const analyticsData = google.analyticsdata({ version: "v1beta", auth });
   const prop = `properties/${propertyId}`;
-  const yesterday = { startDate: "yesterday", endDate: "yesterday" };
-  const dayBefore = { startDate: "2daysAgo", endDate: "2daysAgo" };
+
+  // Date ranges based on period
+  const ranges: Record<string, { current: any; prev: any }> = {
+    daily: {
+      current: { startDate: "yesterday", endDate: "yesterday" },
+      prev: { startDate: "2daysAgo", endDate: "2daysAgo" },
+    },
+    weekly: {
+      current: { startDate: "7daysAgo", endDate: "yesterday" },
+      prev: { startDate: "14daysAgo", endDate: "8daysAgo" },
+    },
+    monthly: {
+      current: { startDate: "30daysAgo", endDate: "yesterday" },
+      prev: { startDate: "60daysAgo", endDate: "31daysAgo" },
+    },
+  };
+  const { current: currentRange, prev: prevRange } = ranges[period];
+  const yesterday = currentRange;
+  const dayBefore = prevRange;
 
   const [currentTotals, prevTotals, countryData, trafficData, pageData, deviceData, referralData, landingData] = await Promise.all([
     // 1. Current totals

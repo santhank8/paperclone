@@ -84,6 +84,49 @@ function runClaude(
   });
 }
 
+// ============================================================
+// FORMAT Claude output → Telegram-friendly text
+// ============================================================
+
+function formatForTelegram(raw: string): string {
+  let text = raw;
+
+  // Strip markdown code blocks — keep content only
+  text = text.replace(/```[\w]*\n?([\s\S]*?)```/g, (_, code) => code.trim());
+
+  // Convert markdown bold **text** → <b>text</b>
+  text = text.replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>");
+
+  // Convert markdown italic *text* or _text_ → <i>text</i>
+  text = text.replace(/(?<!\w)\*([^*]+)\*(?!\w)/g, "<i>$1</i>");
+  text = text.replace(/(?<!\w)_([^_]+)_(?!\w)/g, "<i>$1</i>");
+
+  // Convert markdown headers ## Title → TITLE (bold)
+  text = text.replace(/^#{1,4}\s+(.+)$/gm, (_, title) => `<b>${title.toUpperCase()}</b>`);
+
+  // Convert markdown bullet lists - item → item (clean)
+  text = text.replace(/^[\s]*[-•]\s+/gm, "  ");
+
+  // Convert numbered lists 1. item → 1) item
+  text = text.replace(/^(\d+)\.\s+/gm, "$1) ");
+
+  // Inline code `text` → text (just remove backticks)
+  text = text.replace(/`([^`]+)`/g, "$1");
+
+  // Clean up excessive blank lines
+  text = text.replace(/\n{3,}/g, "\n\n");
+
+  // Trim
+  text = text.trim();
+
+  // Telegram message limit: 4096 chars
+  if (text.length > 4000) {
+    text = text.slice(0, 3950) + "\n\n<i>... (truncated)</i>";
+  }
+
+  return text;
+}
+
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 if (!BOT_TOKEN) throw new Error("Missing TELEGRAM_BOT_TOKEN");
 
@@ -122,37 +165,23 @@ function getSession(chatKey: string): ChatSession {
 // HELP TEXT
 // ============================================================
 
-const HELP_TEXT = `<b>🐳 Whales Market Data Analyst Bot</b>
+const HELP_TEXT = `<b>WHALES MARKET BOT</b>
 
-<b>📊 Commands:</b>
-/report — Daily report (Platform + Social + GA4)
-/volume — Top tokens by volume (24h)
-/volume 7d — Top tokens by volume (7 ngày)
-/users — New vs Returning users (24h)
-/token BP — Phân tích tổng hợp 1 token
-/funnel — On-chain conversion funnel (30d)
-/trend — Daily trend 14 ngày
-/settle — Settlement rate overview
-/mom — Month-over-Month comparison
-/visual — Dashboard chart (daily)
-/visual weekly — Dashboard chart (weekly)
-/visual monthly — Dashboard chart (monthly)
-/wallet 0xABC — Full wallet analysis (classify + behavior + intent)
-/whales — Top 10 whale wallets
+<b>Commands</b>
+/daily        —  Daily report
+/weekly       —  Weekly report
+/monthly      —  Monthly report
+/token WLFI   —  Token analysis + visual report
+/toptrader    —  Top traders (or /toptrader BP)
+/reset        —  New conversation
 
-<b>💬 Free chat:</b>
-Hỏi bất kỳ câu hỏi nào về data — bot sẽ query database và phân tích.
-Ví dụ:
-• "WLFI có bao nhiêu trader tuần này?"
-• "Tại sao volume giảm?"
-• "So sánh BP vs WET"
-• "Token nào có nhiều user mới nhất?"
+<b>Ask anything</b>
+Top tokens by volume 24h?
+So sánh BP vs WET
+Wallet 0xABC... trade gì?
+Trend 14 ngày gần nhất
 
-<b>🔄 Khác:</b>
-/reset — Reset conversation (bắt đầu mới)
-/help — Hiện menu này
-
-<i>Bot nhớ context hội thoại — có thể hỏi tiếp "token này có bao nhiêu ví?" sau khi hỏi về 1 token.</i>`;
+<i>Bot nhớ context — hỏi tiếp được.</i>`;
 
 // ============================================================
 // TELEGRAM
@@ -171,63 +200,72 @@ async function reply(chatId: string, text: string, threadId?: number): Promise<s
 }
 
 // ============================================================
-// /report command
+// Unified report handler for /daily, /weekly, /monthly
 // ============================================================
 
-async function handleReport(chatId: string, threadId?: number) {
-  await reply(chatId, "⏳ Syncing data & generating reports...", threadId);
+async function handlePeriodReport(chatId: string, period: "daily" | "weekly" | "monthly", threadId?: number) {
+  await reply(chatId, `⏳ Generating ${period} report...`, threadId);
   syncData();
 
-  if (WHALES_DB_PATH) {
-    try {
-      const tokens = fetchPlatformMetrics(WHALES_DB_PATH);
-      if (tokens.length > 0) {
-        const { buildPlatformHtml } = await import("./lib/platform-format.js");
-        await reply(chatId, buildPlatformHtml(tokens), threadId);
-      } else {
-        await reply(chatId, "🐳 Platform: No data in last 24h", threadId);
-      }
-    } catch (e) {
-      await reply(chatId, `🐳 Platform error: ${e}`, threadId);
-    }
+  if (!WHALES_DB_PATH) {
+    await reply(chatId, "Database not configured", threadId);
+    return;
   }
 
-  const RAPIDAPI_KEY = process.env.RAPIDAPI_KEY;
-  const SOCIAL_ACCOUNTS = process.env.SOCIAL_ACCOUNTS;
-  if (RAPIDAPI_KEY && SOCIAL_ACCOUNTS) {
-    try {
-      const { runSocialCollector } = await import("./lib/social-format.js");
-      const html = await runSocialCollector(RAPIDAPI_KEY, JSON.parse(SOCIAL_ACCOUNTS));
-      if (html) await reply(chatId, html, threadId);
-      else await reply(chatId, "📱 Social: No tweets from yesterday", threadId);
-    } catch (e) {
-      await reply(chatId, `📱 Social error: ${e}`, threadId);
-    }
-  }
+  try {
+    const { buildReportData, formatReport } = await import("./lib/report-builder.js");
+    const data = buildReportData(WHALES_DB_PATH, period);
 
-  if (process.env.GA4_PROPERTY_ID) {
-    try {
-      const m = await fetchGA4Metrics();
-      const lines = [
-        `<b>🌐 Website Daily Report</b>\n`,
-        `👥 Active Users: <b>${moneySmart(m.activeUsers, "")}</b> (${growthBadge(m.activeUsersPctChange)})`,
-        `🆕 New Users: <b>${moneySmart(m.newUsers, "")}</b> (${growthBadge(m.newUsersPctChange)})`,
-        `📊 Sessions: <b>${moneySmart(m.sessions, "")}</b> (${growthBadge(m.sessionsPctChange)})`,
-      ];
-      const premarketPages = m.topLandingPages
-        .filter((p: any) => /^\/en\/premarket\//.test(p.page))
-        .slice(0, 3);
-      if (premarketPages.length > 0) {
-        lines.push(`\n🚪 <b>Top Pre-Market Landing Pages:</b>`);
-        premarketPages.forEach((p: any) => {
-          const token = p.page.replace("/en/premarket/", "");
-          lines.push(`  $${token} — ${p.sessions} sessions`);
-        });
-      }
-      await reply(chatId, lines.join("\n"), threadId);
-    } catch (e) {
-      await reply(chatId, `🌐 GA error: ${e}`, threadId);
+    // Enrich with social (sync + query by period)
+    const RAPIDAPI_KEY = process.env.RAPIDAPI_KEY;
+    const SOCIAL_ACCOUNTS = process.env.SOCIAL_ACCOUNTS;
+    if (RAPIDAPI_KEY && SOCIAL_ACCOUNTS) {
+      try {
+        const { syncSocialData, getSocialReport, getSocialStructuredData } = await import("./lib/social-format.js");
+        await syncSocialData(RAPIDAPI_KEY, JSON.parse(SOCIAL_ACCOUNTS));
+        const html = getSocialReport(period);
+        if (html) data.socialHtml = html;
+        const structured = getSocialStructuredData(period);
+        if (structured) data.socialData = structured;
+      } catch {}
     }
+
+    // Enrich with GA4 (query matching period)
+    if (process.env.GA4_PROPERTY_ID) {
+      try {
+        const m = await fetchGA4Metrics(period);
+        const premarketPages = m.topLandingPages
+          .filter((p: any) => /^\/en\/premarket\//.test(p.page))
+          .slice(0, 3);
+        data.ga4 = {
+          activeUsers: m.activeUsers,
+          activeUsersPct: m.activeUsersPctChange,
+          newUsers: m.newUsers,
+          newUsersPct: m.newUsersPctChange,
+          sessions: m.sessions,
+          sessionsPct: m.sessionsPctChange,
+          topPages: premarketPages.map((p: any) => ({
+            token: p.page.replace("/en/premarket/", ""),
+            sessions: p.sessions,
+          })),
+        };
+      } catch {}
+    }
+
+    await reply(chatId, formatReport(data), threadId);
+
+    // Buttons
+    const periodKey = `${period}:${data.dateRange.replace(/\s/g, "")}`;
+    await sendMessageWithKeyboard(
+      `${data.label} · ${data.dateRange}`,
+      [
+        { text: "💡 AI Insight", callback_data: `periodinsight:${periodKey}` },
+        { text: "📊 Visual Report", callback_data: `periodreport:${periodKey}` },
+      ],
+      { botToken: BOT_TOKEN!, chatId, threadId }
+    );
+  } catch (e: any) {
+    await reply(chatId, `Error: ${e.message?.slice(0, 200)}`, threadId);
   }
 }
 
@@ -243,6 +281,72 @@ async function handleQuestion(chatId: string, question: string, chatKey: string,
 
   await reply(chatId, "🤔 Syncing & thinking...", threadId);
   syncData();
+
+  // ── Intent detection: pre-feed data for known patterns ──
+  let prefeedData = "";
+  const qLower = question.toLowerCase();
+
+  if (WHALES_DB_PATH) {
+    try {
+      // Token analysis intent
+      const tokenMatch = qLower.match(/(?:token|phân tích|analyze|analysis)\s+\$?([a-z]{2,10})/i)
+        || qLower.match(/\$([a-z]{2,10})\b/i);
+      if (tokenMatch) {
+        const sym = tokenMatch[1].toUpperCase();
+        const { analyzeToken } = await import("./lib/token-analysis.js");
+        const a = analyzeToken(WHALES_DB_PATH, sym);
+        if (a) {
+          const askBid = a.askVolume + a.bidVolume;
+          const fillRate = askBid > 0 ? (a.totalValueUsd / askBid * 100) : 0;
+          prefeedData = `\n\n[PRE-COMPUTED DATA for $${sym}]
+Volume: $${a.totalValueUsd.toFixed(0)} (${a.totalOrders} orders)
+Fill Rate: ${fillRate.toFixed(1)}% (filled $${a.totalValueUsd.toFixed(0)} / web $${askBid.toFixed(0)})
+Ask/Bid: Ask $${a.askVolume.toFixed(0)} (${(100 - a.bidSharePct).toFixed(0)}%) / Bid $${a.bidVolume.toFixed(0)} (${a.bidSharePct}%)
+Settle: ${a.settleRate}% (${a.settledOrders}/${a.totalOrders}), cancelled ${a.cancelledOrders}
+Users: ${a.newUsers + a.oldUsers} total (${a.newUserPct}% new, ${a.newUsers} new, ${a.oldUsers} old)
+Whale: Top 5 = ${a.top5WhalePct}%
+Fees: $${a.feesTotal.toFixed(0)}
+Resale: ${a.resalePct}%
+Weekly trend: ${a.weeklyTrend.map(w => `${w.week}=$${w.volume}`).join(", ")}
+Peak days: ${a.peakDays.map(p => `${p.day}=$${p.volume}(${p.pctOfTotal}%)`).join(", ")}
+Order buckets: ${a.orderBuckets.map(b => `${b.bucket}=${b.orders}ord/$${b.totalUsd}`).join(", ")}
+Wallet tiers: ${a.walletTiers.map(t => `${t.tier}=${t.wallets}w/$${t.volume}`).join(", ")}
+Top wallets: ${a.topWallets.slice(0, 5).map(w => `${w.address}=$${w.volume.toFixed(0)}(${w.role})`).join(", ")}
+[Use this data. Do NOT re-query these metrics. Focus on INSIGHT and ANALYSIS.]`;
+        }
+      }
+
+      // Top trader intent
+      if (qLower.match(/top\s*trader|whale|trader|ví lớn|cá voi/)) {
+        const tokenForTrader = qLower.match(/(?:top\s*trader|trader)\s+\$?([a-z]{2,10})/i);
+        const { getTopTraders } = await import("./lib/top-traders.js");
+        const traders = getTopTraders(WHALES_DB_PATH, { token: tokenForTrader?.[1]?.toUpperCase(), limit: 10 });
+        if (traders.length > 0) {
+          prefeedData += `\n\n[PRE-COMPUTED TOP TRADERS${tokenForTrader ? ` for $${tokenForTrader[1].toUpperCase()}` : ""}]
+${traders.map((t, i) => `${i + 1}. ${t.shortAddr}: $${t.totalVolume.toFixed(0)} vol, ${t.totalOrders} orders, ${(t.buyerRatio * 100).toFixed(0)}% buyer, ${t.tokenDiversity} tokens, ${t.longestStreak}d streak, last ${t.recentDays}d ago, active ${t.activeDays}d`).join("\n")}
+[Analyze these traders: patterns, red flags, notable behaviors. Do NOT re-query.]`;
+        }
+      }
+
+      // Weekly/daily overview intent
+      if (qLower.match(/tuần|week|weekly|hôm nay|today|daily|tháng|month/)) {
+        const period = qLower.match(/tháng|month/) ? "monthly" : qLower.match(/tuần|week/) ? "weekly" : "daily";
+        const { buildReportData } = await import("./lib/report-builder.js");
+        const rd = buildReportData(WHALES_DB_PATH, period);
+        const chg = (c: number, p: number) => p > 0 ? ((c - p) / p * 100).toFixed(1) + "%" : "N/A";
+        prefeedData += `\n\n[PRE-COMPUTED ${period.toUpperCase()} DATA]
+Filled Vol: $${rd.filledVolume.toFixed(0)} (prev: $${rd.prevFilledVolume.toFixed(0)}, change: ${chg(rd.filledVolume, rd.prevFilledVolume)})
+Web Vol: $${rd.volumeOnWeb.toFixed(0)} (change: ${chg(rd.volumeOnWeb, rd.prevVolumeOnWeb)})
+Orders: ${rd.totalOrders} (change: ${chg(rd.totalOrders, rd.prevTotalOrders)})
+Users: ${rd.totalUsers} (${rd.newUsers} new, ${rd.oldUsers} old, change: ${chg(rd.totalUsers, rd.prevTotalUsers)})
+Fees: $${rd.feesTotal.toFixed(0)}
+Top tokens: ${rd.topTokens.slice(0, 5).map(t => `$${t.symbol}=$${t.volume}`).join(", ")}
+[Use this data for your analysis. Do NOT re-query.]`;
+      }
+    } catch (e) {
+      console.log("  Prefeed error:", (e as Error).message?.slice(0, 100));
+    }
+  }
 
   // Snapshot report files BEFORE Claude CLI call to detect new ones after
   const fsMod = await import("fs");
@@ -262,17 +366,25 @@ async function handleQuestion(chatId: string, question: string, chatKey: string,
   // Build prompt — system prompt only on first message, then just the question
   let prompt: string;
   if (isNewSession) {
-    prompt = `ĐỌC FILE SYSTEM PROMPT: ${SYNC_DIR}/SYSTEM_PROMPT.md — làm theo hướng dẫn trong đó.
-Database SQLite tại: ${WHALES_DB_PATH}
-Thư mục data files: ${SYNC_DIR}
-Thư mục reports output: ${REPORTS_DIR}
+    prompt = `ĐỌC 2 FILE:
+1. ${SYNC_DIR}/SYSTEM_PROMPT.md — rules, schema, analysis framework
+2. ${SYNC_DIR}/QUERY_PATTERNS.md — 13 verified SQL patterns (P1-P13), ALWAYS use these as base
 
-Bạn là Report Manager & Data Analyst (agent ${REPORT_MANAGER_ID}) của Whales Market trong Paperclip. Team đang hỏi qua Telegram.
+Database: ${WHALES_DB_PATH}
+Data dir: ${SYNC_DIR}
+Reports dir: ${REPORTS_DIR}
 
-Câu hỏi: "${question}"`;
+IMPORTANT OUTPUT RULES:
+- This response will be sent as a Telegram message.
+- Do NOT use markdown code blocks (\`\`\`). Write SQL results as plain text.
+- Use **bold** for key numbers. Do not use headers (#).
+- Keep it under 300 words. Be direct — numbers first, then insight.
+- Reply in Vietnamese. Metric names stay in English.
+
+Question: "${question}"${prefeedData}`;
   } else {
     // Follow-up: just the question, Claude remembers context from session
-    prompt = question;
+    prompt = `${question}${prefeedData}`;
   }
 
   try {
@@ -320,40 +432,9 @@ Câu hỏi: "${question}"`;
       }
     }
 
-    const answer = stdout.trim();
+    const answer = formatForTelegram(stdout);
     if (answer) {
       await reply(chatId, answer, threadId);
-
-      // Find the report file that was created or modified by THIS Claude CLI call
-      try {
-        const filesAfter = fsMod.readdirSync(REPORTS_DIR).filter((f: string) => f.endsWith(".md"));
-
-        // New file = exists now but didn't before
-        // Modified file = exists before but mtime changed
-        let targetFile: string | undefined;
-        for (const f of filesAfter) {
-          if (!filesBefore.has(f)) {
-            targetFile = f; // new file — highest priority
-            break;
-          }
-          const newMtime = fsMod.statSync(`${REPORTS_DIR}/${f}`).mtimeMs;
-          if (mtimesBefore.has(f) && newMtime > mtimesBefore.get(f)!) {
-            targetFile = f; // modified file
-          }
-        }
-
-        if (targetFile) {
-          const reportFile = targetFile.replace(/\.md$/, "");
-          await sendMessageWithKeyboard(
-            "📎 Phân tích chi tiết đã lưu.",
-            [
-              { text: "📊 Xem Chart", callback_data: `chart:${reportFile}` },
-              { text: "📄 File Chi Tiết", callback_data: `detail:${reportFile}` },
-            ],
-            { botToken: BOT_TOKEN!, chatId, threadId }
-          );
-        }
-      } catch { /* reports dir may not exist yet */ }
     } else {
       await reply(chatId, "❌ No response from Claude", threadId);
     }
@@ -414,6 +495,176 @@ async function main() {
             continue;
           }
 
+          if (action === "periodreport") {
+            const [period] = reportRef.split(":") as ["daily" | "weekly" | "monthly"];
+            await reply(cbChatId, `⏳ Generating ${period} visual report...`, cbThreadId);
+            try {
+              const { buildReportData } = await import("./lib/report-builder.js");
+              const { generatePeriodReportHtml } = await import("./lib/period-report-html.js");
+              const data = buildReportData(WHALES_DB_PATH!, period);
+              // Enrich with social
+              try {
+                const { getSocialStructuredData } = await import("./lib/social-format.js");
+                const sd = getSocialStructuredData(period);
+                if (sd) data.socialData = sd;
+              } catch {}
+              // Enrich with GA4
+              if (process.env.GA4_PROPERTY_ID) {
+                try {
+                  const m = await fetchGA4Metrics(period);
+                  const pages = m.topLandingPages?.filter((p: any) => /^\/en\/premarket\//.test(p.page)).slice(0, 5) || [];
+                  data.ga4 = {
+                    activeUsers: m.activeUsers, activeUsersPct: m.activeUsersPctChange,
+                    newUsers: m.newUsers, newUsersPct: m.newUsersPctChange,
+                    sessions: m.sessions, sessionsPct: m.sessionsPctChange,
+                    topPages: pages.map((p: any) => ({ token: p.page.replace("/en/premarket/", ""), sessions: p.sessions })),
+                  };
+                } catch {}
+              }
+              const fs = await import("fs");
+              if (!fs.existsSync(REPORTS_DIR)) fs.mkdirSync(REPORTS_DIR, { recursive: true });
+              const htmlPath = generatePeriodReportHtml(data, REPORTS_DIR);
+              await sendDocument(htmlPath, `📊 ${period.charAt(0).toUpperCase() + period.slice(1)} Report`, {
+                botToken: BOT_TOKEN!, chatId: cbChatId, threadId: cbThreadId,
+              });
+            } catch (e: any) {
+              await reply(cbChatId, `Error: ${e.message?.slice(0, 200)}`, cbThreadId);
+            }
+            continue;
+          }
+
+          if (action === "periodinsight") {
+            const [period] = reportRef.split(":") as ["daily" | "weekly" | "monthly"];
+            await reply(cbChatId, `💡 Analyzing ${period}...`, cbThreadId);
+            try {
+              const { buildReportData } = await import("./lib/report-builder.js");
+              const d = buildReportData(WHALES_DB_PATH!, period);
+              const chatKey = cbThreadId ? `${cbChatId}:${cbThreadId}` : cbChatId;
+              // Reset session for fresh context
+              const session = getSession(chatKey);
+              session.sessionId = null;
+              session.lastActivity = 0;
+              const pctChg = (c: number, p: number) => p > 0 ? ((c - p) / p * 100).toFixed(1) + "%" : "N/A";
+              const prompt = `ĐỌC FILE ${SYNC_DIR}/SYSTEM_PROMPT.md trước để hiểu business context.
+
+${period.toUpperCase()} performance (${d.dateRange}):
+- Filled Volume: $${d.filledVolume.toFixed(0)} (prev: $${d.prevFilledVolume.toFixed(0)}, change: ${pctChg(d.filledVolume, d.prevFilledVolume)})
+- Web Volume: $${d.volumeOnWeb.toFixed(0)} (change: ${pctChg(d.volumeOnWeb, d.prevVolumeOnWeb)})
+- Orders: ${d.totalOrders} (change: ${pctChg(d.totalOrders, d.prevTotalOrders)})
+- Users: ${d.totalUsers} (${d.newUsers} new, ${d.oldUsers} old, change: ${pctChg(d.totalUsers, d.prevTotalUsers)})
+- Top tokens: ${d.topTokens.slice(0, 5).map(t => `$${t.symbol} $${t.volume}`).join(", ")}
+- Fees: $${d.feesTotal.toFixed(0)}
+
+Đưa ra 3-5 insights cho team. Focus: trend so với kỳ trước, risk signals, token highlights, user quality. Platform operator perspective. Mỗi insight 1-2 câu.`;
+              await handleQuestion(cbChatId, prompt, chatKey, cbThreadId);
+            } catch (e: any) {
+              await reply(cbChatId, `Error: ${e.message?.slice(0, 200)}`, cbThreadId);
+            }
+            continue;
+          }
+
+          if (action === "tokeninsight") {
+            const sym = reportRef;
+            await reply(cbChatId, `💡 Deep analysis $${sym}...`, cbThreadId);
+            try {
+              const { runForensic } = await import("./lib/trader-forensic.js");
+              const r = runForensic(WHALES_DB_PATH!, sym);
+              if (!r) {
+                await reply(cbChatId, `Token $${sym} not found`, cbThreadId);
+              } else {
+                const chatKey = cbThreadId ? `${cbChatId}:${cbThreadId}` : cbChatId;
+                const typeIcon: Record<string, string> = { "Market Maker": "🔵", Accumulator: "🟢", Dumper: "🔴", Flipper: "🟡" };
+                // Reset session so Claude reads SYSTEM_PROMPT fresh
+                const session = getSession(chatKey);
+                session.sessionId = null;
+                session.lastActivity = 0;
+
+                const prompt = `Bạn là data analyst chuyên sâu. ĐỌC FILE ${SYNC_DIR}/SYSTEM_PROMPT.md trước để hiểu business context (đặc biệt phần Settlement mechanics và Whale classification).
+
+Phân tích token $${sym} theo 8 modules dưới đây. Mỗi module viết 2-3 câu insight cụ thể, có số liệu. Cuối cùng đưa kết luận tổng thể.
+
+DATA ĐÃ TÍNH SẴN (không cần query lại):
+
+1. CONCENTRATION
+Top 10 wallets: ${r.top10Pct}% volume · Top 20: ${r.top20Pct}% · Top 50: ${r.top50Pct}%
+Ngưỡng: >50% = cao, >70% = cực kỳ nguy hiểm
+→ ${r.concentrationLevel}
+
+2. WALLET CLASSIFICATION (top wallets >$1K volume)
+🔴 Dumper (>90% sell): ${r.classification.dumpers} ví, ${moneySmart(r.classification.dumperVol)}
+🟢 Accumulator (>70% buy): ${r.classification.accumulators} ví, ${moneySmart(r.classification.accumulatorVol)}
+🔵 Market Maker (balanced + >50 orders): ${r.classification.marketMakers} ví, ${moneySmart(r.classification.mmVol)}
+🟡 Flipper (resale >30%): ${r.classification.flippers} ví, ${moneySmart(r.classification.flipperVol)}
+Xu hướng chủ đạo: ${r.dominantBehavior}
+
+3. SPECULATION
+Resale rate: ${r.resalePct}% (benchmark: 10% bình thường, >25% bất thường, >30% cờ đỏ)
+Ví có resale >50%: ${r.highResaleWallets} ví
+→ ${r.resaleLevel}
+
+4. USER QUALITY
+New user (chỉ trade token này): ${r.newUserPct}%
+Ngưỡng: >70% = đáng ngờ (pump scheme), <50% = organic
+→ ${r.userQuality}
+
+5. ORDER SIZE
+Whale >$20K: ${r.whaleVolPct}% volume · Mid $1K-20K: ${r.midVolPct}% · Retail <$1K: ${r.retailVolPct}%
+Ngưỡng: whale >60% = không dành cho retail, retail <15% = không có nền tảng user thực
+→ ${r.retailLevel}
+
+6. TEMPORAL PATTERN
+Avg daily: ${moneySmart(r.avgDailyVol)} · Peak: ${moneySmart(r.maxDailyVol)} (${r.spikeRatio}x avg)
+Peak days: ${r.peakDays.map(p => `${p.day}: ${moneySmart(p.vol)} (${p.pct}%)`).join(", ")}
+Spike ratio >10x = coordinated pump, <5x = organic
+→ ${r.isOrganic ? "Organic" : "Spike-driven"}
+
+7. RED FLAGS
+${r.redFlags.length > 0 ? r.redFlags.map(f => `⚠️ ${f}`).join("\n") : "Không có red flag"}
+
+8. TOP 5 WALLETS
+${r.topWallets.slice(0, 5).map((w, i) => `${i + 1}. ${w.address} [${w.type}]: ${moneySmart(w.vol)}, ${w.orders} orders, Buy ${w.buyPct}%, Resale ${w.resalePct}%`).join("\n")}
+
+TỔNG: $${r.totalVolume.toFixed(0)} vol · ${r.totalOrders} orders · ${r.totalWallets} wallets
+Risk Score: ${r.riskScore}/100 (${r.riskLevel})
+
+YÊU CẦU OUTPUT:
+- Viết tiếng Việt, metric giữ English
+- Mỗi module: tiêu đề + 2-3 câu insight có SỐ LIỆU cụ thể
+- Cuối cùng: KẾT LUẬN TỔNG THỂ (risk level + khuyến nghị cho platform)
+- Nhớ context settle rate: low settle = seller forfeit collateral vì token moon = BULLISH, không phải risk
+- Phân biệt market maker vs dumper — MM cung cấp liquidity = tốt
+- Tổng 400-500 words`;
+                await handleQuestion(cbChatId, prompt, chatKey, cbThreadId);
+              }
+            } catch (e: any) {
+              await reply(cbChatId, `Error: ${e.message?.slice(0, 200)}`, cbThreadId);
+            }
+            continue;
+          }
+
+          if (action === "tokenreport") {
+            const sym = reportRef;
+            await reply(cbChatId, `⏳ Generating report for $${sym}...`, cbThreadId);
+            try {
+              const { analyzeToken } = await import("./lib/token-analysis.js");
+              const { generateTokenReportHtml } = await import("./lib/token-report-html.js");
+              const analysis = analyzeToken(WHALES_DB_PATH!, sym);
+              if (!analysis) {
+                await reply(cbChatId, `Token $${sym} not found`, cbThreadId);
+              } else {
+                const fs = await import("fs");
+                if (!fs.existsSync(REPORTS_DIR)) fs.mkdirSync(REPORTS_DIR, { recursive: true });
+                const htmlPath = generateTokenReportHtml(analysis, REPORTS_DIR);
+                await sendDocument(htmlPath, `📊 $${sym} Token Report`, {
+                  botToken: BOT_TOKEN!, chatId: cbChatId, threadId: cbThreadId,
+                });
+              }
+            } catch (e: any) {
+              await reply(cbChatId, `Error: ${e.message?.slice(0, 200)}`, cbThreadId);
+            }
+            continue;
+          }
+
           if (action === "detail") {
             try {
               await sendDocument(reportPath, "📄 Phân tích chi tiết", {
@@ -458,80 +709,80 @@ async function main() {
 
         if (cleanText === "/help" || cleanText === "/start") {
           await reply(chatId, HELP_TEXT, threadId);
-        } else if (cleanText === "/report" || cleanText.startsWith("/report")) {
-          console.log(`[${chatKey}] /report command`);
-          await handleReport(chatId, threadId);
-        } else if (cleanText.startsWith("/volume")) {
-          const arg = cleanText.replace("/volume", "").trim();
-          const q = arg ? `Top tokens by Order Volume ${arg}` : "Top 5 tokens by Filled Order Volume 24h qua, kèm so sánh vs hôm qua";
-          console.log(`[${chatKey}] /volume: ${q}`);
-          await handleQuestion(chatId, q, chatKey, threadId);
-        } else if (cleanText.startsWith("/users")) {
-          const arg = cleanText.replace("/users", "").trim();
-          const q = arg ? `User metrics cho ${arg}` : "New Users vs Returning Users 24h qua, Acquisition Rate, so sánh vs hôm qua";
-          console.log(`[${chatKey}] /users: ${q}`);
-          await handleQuestion(chatId, q, chatKey, threadId);
-        } else if (cleanText.startsWith("/token")) {
-          const token = cleanText.replace("/token", "").trim().toUpperCase();
-          if (!token) { await reply(chatId, "Dùng: /token BP — xem tổng hợp 1 token", threadId); }
-          else {
-            const q = `Phân tích tổng hợp token ${token}: Order Volume (24h + all-time), Offer Volume, số traders (new vs returning), Settlement Rate, top chains. So sánh với benchmark.`;
-            console.log(`[${chatKey}] /token ${token}`);
-            await handleQuestion(chatId, q, chatKey, threadId);
-          }
-        } else if (cleanText.startsWith("/funnel")) {
-          const q = "On-chain funnel 30 ngày: bao nhiêu wallets tạo offer → bao nhiêu offer được fill → bao nhiêu order settle thành công. Tính conversion rate mỗi bước.";
-          console.log(`[${chatKey}] /funnel`);
-          await handleQuestion(chatId, q, chatKey, threadId);
-        } else if (cleanText.startsWith("/trend")) {
-          const arg = cleanText.replace("/trend", "").trim();
-          const q = arg ? `Daily trend ${arg}` : "Daily trend 14 ngày gần nhất: volume, orders, unique wallets theo ngày. Highlight ngày cao nhất/thấp nhất, pattern weekend vs weekday.";
-          console.log(`[${chatKey}] /trend`);
-          await handleQuestion(chatId, q, chatKey, threadId);
-        } else if (cleanText.startsWith("/settle")) {
-          const arg = cleanText.replace("/settle", "").trim();
-          const q = arg ? `Settlement performance cho ${arg}` : "Settlement Rate tổng thể và top 5 tokens, so sánh vs benchmark 80%. Tokens nào settle tệ nhất?";
-          console.log(`[${chatKey}] /settle`);
-          await handleQuestion(chatId, q, chatKey, threadId);
-        } else if (cleanText.startsWith("/mom")) {
-          const q = "So sánh MoM (tháng này vs tháng trước): Filled Order Volume, total orders, unique wallets, new users, acquisition rate. Đánh giá từng metric.";
-          console.log(`[${chatKey}] /mom`);
-          await handleQuestion(chatId, q, chatKey, threadId);
-        } else if (cleanText.startsWith("/wallet")) {
-          const address = cleanText.replace("/wallet", "").trim();
-          if (!address) {
-            await reply(chatId, "Dùng: /wallet 0xABC... — phân tích full behavior 1 ví", threadId);
+        } else if (cleanText === "/daily" || cleanText.startsWith("/daily")) {
+          console.log(`[${chatKey}] /daily`);
+          await handlePeriodReport(chatId, "daily", threadId);
+        } else if (cleanText === "/weekly" || cleanText.startsWith("/weekly")) {
+          console.log(`[${chatKey}] /weekly`);
+          await handlePeriodReport(chatId, "weekly", threadId);
+        } else if (cleanText === "/monthly" || cleanText.startsWith("/monthly")) {
+          console.log(`[${chatKey}] /monthly`);
+          await handlePeriodReport(chatId, "monthly", threadId);
+        } else if (cleanText.startsWith("/toptrader")) {
+          const arg = cleanText.replace("/toptrader", "").trim().toUpperCase();
+          console.log(`[${chatKey}] /toptrader ${arg || "all"}`);
+          if (!WHALES_DB_PATH) { await reply(chatId, "Database not configured", threadId); }
+          else if (!arg) {
+            // No token specified — show basic top traders list
+            syncData();
+            try {
+              const { getTopTraders, formatTopTraders } = await import("./lib/top-traders.js");
+              const traders = getTopTraders(WHALES_DB_PATH, { limit: 10 });
+              await reply(chatId, formatTopTraders(traders), threadId);
+            } catch (e: any) {
+              await reply(chatId, `Error: ${e.message?.slice(0, 200)}`, threadId);
+            }
           } else {
-            const q = `Phân tích wallet ${address} theo flow trong SYSTEM_PROMPT.md:
-Step 1: Classify (Pattern 14) — whale hay retail?
-Step 2: Profile (Pattern 15+16) — trade gì, PnL?
-Step 3: Behavior (Pattern 17) — trading pattern?
-Step 4: Network (Pattern 19) — counterparties?
-Step 5: Intent (Pattern 20) — động cơ?
-Chạy từng step, output theo format wallet analysis trong SYSTEM_PROMPT.md.`;
-            console.log(`[${chatKey}] /wallet ${address.slice(0, 10)}...`);
-            await handleQuestion(chatId, q, chatKey, threadId);
+            // Token specified — run full forensic analysis
+            syncData();
+            try {
+              const { runForensic, formatForensic } = await import("./lib/trader-forensic.js");
+              const report = runForensic(WHALES_DB_PATH, arg);
+              if (!report) {
+                await reply(chatId, `Token $${arg} not found`, threadId);
+              } else {
+                await reply(chatId, formatForensic(report), threadId);
+                await sendMessageWithKeyboard(
+                  `$${arg} Forensic`,
+                  [
+                    { text: "💡 AI Insight", callback_data: `tokeninsight:${arg}` },
+                    { text: "📊 Visual Report", callback_data: `tokenreport:${arg}` },
+                  ],
+                  { botToken: BOT_TOKEN!, chatId, threadId }
+                );
+              }
+            } catch (e: any) {
+              await reply(chatId, `Error: ${e.message?.slice(0, 200)}`, threadId);
+            }
           }
-        } else if (cleanText.startsWith("/whales")) {
-          const q = `Tìm top 10 whale wallets trên platform dùng Pattern 14. Classify theo volume. Với mỗi whale, cho biết: address (8 chars đầu), total volume, total orders, tokens traded, buyer/seller ratio. Sort by volume DESC.`;
-          console.log(`[${chatKey}] /whales`);
-          await handleQuestion(chatId, q, chatKey, threadId);
-        } else if (cleanText.startsWith("/visual")) {
-          const arg = cleanText.replace("/visual", "").trim() || "daily";
-          const validPeriods = ["daily", "weekly", "monthly"];
-          const period = validPeriods.includes(arg) ? arg : "daily";
-          console.log(`[${chatKey}] /visual ${period}`);
-          await reply(chatId, `⏳ Generating ${period} visual report...`, threadId);
-          try {
-            const { execSync: exec } = await import("child_process");
-            exec(`npx tsx visual-report.ts ${period}`, {
-              cwd: __dirname,
-              timeout: 300_000,
-              env: { ...process.env, PATH: `${process.env.PATH}:/usr/local/bin:/opt/homebrew/bin` },
-              stdio: "pipe",
-            });
-          } catch (e: any) {
-            await reply(chatId, `❌ Visual report failed: ${e.message?.slice(0, 200)}`, threadId);
+        } else if (cleanText.startsWith("/token")) {
+          const symbol = cleanText.replace("/token", "").trim().toUpperCase();
+          if (!symbol) {
+            await reply(chatId, "Usage: /token WLFI", threadId);
+          } else if (!WHALES_DB_PATH) {
+            await reply(chatId, "Database not configured", threadId);
+          } else {
+            console.log(`[${chatKey}] /token ${symbol}`);
+            syncData();
+            try {
+              const { analyzeToken, formatTokenSummary } = await import("./lib/token-analysis.js");
+              const analysis = analyzeToken(WHALES_DB_PATH, symbol);
+              if (!analysis) {
+                await reply(chatId, `Token $${symbol} not found`, threadId);
+              } else {
+                await reply(chatId, formatTokenSummary(analysis), threadId);
+                await sendMessageWithKeyboard(
+                  `$${symbol}`,
+                  [
+                    { text: "💡 AI Insight", callback_data: `tokeninsight:${symbol}` },
+                    { text: "📊 Visual Report", callback_data: `tokenreport:${symbol}` },
+                  ],
+                  { botToken: BOT_TOKEN!, chatId, threadId }
+                );
+              }
+            } catch (e: any) {
+              await reply(chatId, `Error: ${e.message?.slice(0, 200)}`, threadId);
+            }
           }
         } else if (cleanText.startsWith("/reset")) {
           const session = getSession(chatKey);
