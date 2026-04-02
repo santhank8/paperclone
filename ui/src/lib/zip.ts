@@ -13,11 +13,7 @@ for (let i = 0; i < 256; i++) {
 }
 
 function normalizeArchivePath(pathValue: string) {
-  return pathValue
-    .replace(/\\/g, "/")
-    .split("/")
-    .filter(Boolean)
-    .join("/");
+  return pathValue.replace(/\\/g, "/").split("/").filter(Boolean).join("/");
 }
 
 function crc32(bytes: Uint8Array) {
@@ -46,11 +42,12 @@ function readUint16(source: Uint8Array, offset: number) {
 
 function readUint32(source: Uint8Array, offset: number) {
   return (
-    source[offset]! |
-    (source[offset + 1]! << 8) |
-    (source[offset + 2]! << 16) |
-    (source[offset + 3]! << 24)
-  ) >>> 0;
+    (source[offset]! |
+      (source[offset + 1]! << 8) |
+      (source[offset + 2]! << 16) |
+      (source[offset + 3]! << 24)) >>>
+    0
+  );
 }
 
 function getDosDateTime(date: Date) {
@@ -85,7 +82,9 @@ function sharedArchiveRoot(paths: string[]) {
     .filter((parts) => parts.length > 0);
   if (firstSegments.length === 0) return null;
   const candidate = firstSegments[0]![0]!;
-  return firstSegments.every((parts) => parts.length > 1 && parts[0] === candidate)
+  return firstSegments.every(
+    (parts) => parts.length > 1 && parts[0] === candidate,
+  )
     ? candidate
     : null;
 }
@@ -103,7 +102,11 @@ function inferBinaryContentType(pathValue: string) {
   const normalized = normalizeArchivePath(pathValue);
   const extensionIndex = normalized.lastIndexOf(".");
   if (extensionIndex === -1) return null;
-  return binaryContentTypeByExtension[normalized.slice(extensionIndex).toLowerCase()] ?? null;
+  return (
+    binaryContentTypeByExtension[
+      normalized.slice(extensionIndex).toLowerCase()
+    ] ?? null
+  );
 }
 
 function bytesToBase64(bytes: Uint8Array) {
@@ -121,7 +124,10 @@ function base64ToBytes(base64: string) {
   return bytes;
 }
 
-function bytesToPortableFileEntry(pathValue: string, bytes: Uint8Array): CompanyPortabilityFileEntry {
+function bytesToPortableFileEntry(
+  pathValue: string,
+  bytes: Uint8Array,
+): CompanyPortabilityFileEntry {
   const contentType = inferBinaryContentType(pathValue);
   if (!contentType) return textDecoder.decode(bytes);
   return {
@@ -131,7 +137,9 @@ function bytesToPortableFileEntry(pathValue: string, bytes: Uint8Array): Company
   };
 }
 
-function portableFileEntryToBytes(entry: CompanyPortabilityFileEntry): Uint8Array {
+function portableFileEntryToBytes(
+  entry: CompanyPortabilityFileEntry,
+): Uint8Array {
   if (typeof entry === "string") return textEncoder.encode(entry);
   return base64ToBytes(entry.data);
 }
@@ -139,28 +147,51 @@ function portableFileEntryToBytes(entry: CompanyPortabilityFileEntry): Uint8Arra
 async function inflateZipEntry(compressionMethod: number, bytes: Uint8Array) {
   if (compressionMethod === 0) return bytes;
   if (compressionMethod !== 8) {
-    throw new Error("Unsupported zip archive: only STORE and DEFLATE entries are supported.");
+    throw new Error(
+      "Unsupported zip archive: only STORE and DEFLATE entries are supported.",
+    );
   }
   if (typeof DecompressionStream !== "function") {
-    throw new Error("Unsupported zip archive: this browser cannot read compressed zip entries.");
+    throw new Error(
+      "Unsupported zip archive: this browser cannot read compressed zip entries.",
+    );
   }
   const body = new Uint8Array(bytes.byteLength);
   body.set(bytes);
-  const stream = new Blob([body]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
+  const stream = new Blob([body])
+    .stream()
+    .pipeThrough(new DecompressionStream("deflate-raw"));
   return new Uint8Array(await new Response(stream).arrayBuffer());
 }
 
-export async function readZipArchive(source: ArrayBuffer | Uint8Array): Promise<{
+export async function readZipArchive(
+  source: ArrayBuffer | Uint8Array,
+): Promise<{
   rootPath: string | null;
   files: Record<string, CompanyPortabilityFileEntry>;
 }> {
   const bytes = source instanceof Uint8Array ? source : new Uint8Array(source);
-  const entries: Array<{ path: string; body: CompanyPortabilityFileEntry }> = [];
+  const entries: Array<{ path: string; body: CompanyPortabilityFileEntry }> =
+    [];
   let offset = 0;
 
   while (offset + 4 <= bytes.length) {
     const signature = readUint32(bytes, offset);
     if (signature === 0x02014b50 || signature === 0x06054b50) break;
+    if (signature === 0x03074b50) {
+      // Encrypted entry — skip it (cannot decrypt without password)
+      const encryptedNameLength = readUint16(bytes, offset + 26);
+      const encryptedExtraLength = readUint16(bytes, offset + 28);
+      const encryptedCompressedSize = readUint32(bytes, offset + 18);
+      const encryptedBodyEnd =
+        offset +
+        30 +
+        encryptedNameLength +
+        encryptedExtraLength +
+        encryptedCompressedSize;
+      offset = encryptedBodyEnd;
+      continue;
+    }
     if (signature !== 0x04034b50) {
       throw new Error("Invalid zip archive: unsupported local file header.");
     }
@@ -175,10 +206,6 @@ export async function readZipArchive(source: ArrayBuffer | Uint8Array): Promise<
     const fileNameLength = readUint16(bytes, offset + 26);
     const extraFieldLength = readUint16(bytes, offset + 28);
 
-    if ((generalPurposeFlag & 0x0008) !== 0) {
-      throw new Error("Unsupported zip archive: data descriptors are not supported.");
-    }
-
     const nameOffset = offset + 30;
     const bodyOffset = nameOffset + fileNameLength + extraFieldLength;
     const bodyEnd = bodyOffset + compressedSize;
@@ -186,11 +213,29 @@ export async function readZipArchive(source: ArrayBuffer | Uint8Array): Promise<
       throw new Error("Invalid zip archive: truncated file contents.");
     }
 
-    const rawArchivePath = textDecoder.decode(bytes.slice(nameOffset, nameOffset + fileNameLength));
+    const rawArchivePath = textDecoder.decode(
+      bytes.slice(nameOffset, nameOffset + fileNameLength),
+    );
     const archivePath = normalizeArchivePath(rawArchivePath);
     const isDirectoryEntry = /\/$/.test(rawArchivePath.replace(/\\/g, "/"));
+
+    // Skip macOS resource fork files (._filename) and .DS_Store files
+    if (archivePath.startsWith("._") || archivePath.endsWith(".DS_Store")) {
+      offset = bodyEnd;
+      continue;
+    }
+
+    if ((generalPurposeFlag & 0x0008) !== 0) {
+      // Data descriptors present — skip this entry rather than failing the whole import.
+      // The size info for this entry is unreliable, so we cannot safely decompress it.
+      offset = bodyEnd;
+      continue;
+    }
     if (archivePath && !isDirectoryEntry) {
-      const entryBytes = await inflateZipEntry(compressionMethod, bytes.slice(bodyOffset, bodyEnd));
+      const entryBytes = await inflateZipEntry(
+        compressionMethod,
+        bytes.slice(bodyOffset, bodyEnd),
+      );
       entries.push({
         path: archivePath,
         body: bytesToPortableFileEntry(archivePath, entryBytes),
@@ -214,7 +259,10 @@ export async function readZipArchive(source: ArrayBuffer | Uint8Array): Promise<
   return { rootPath, files };
 }
 
-export function createZipArchive(files: Record<string, CompanyPortabilityFileEntry>, rootPath: string): Uint8Array {
+export function createZipArchive(
+  files: Record<string, CompanyPortabilityFileEntry>,
+  rootPath: string,
+): Uint8Array {
   const normalizedRoot = normalizeArchivePath(rootPath);
   const localChunks: Uint8Array[] = [];
   const centralChunks: Uint8Array[] = [];
@@ -222,8 +270,12 @@ export function createZipArchive(files: Record<string, CompanyPortabilityFileEnt
   let localOffset = 0;
   let entryCount = 0;
 
-  for (const [relativePath, contents] of Object.entries(files).sort(([left], [right]) => left.localeCompare(right))) {
-    const archivePath = normalizeArchivePath(`${normalizedRoot}/${relativePath}`);
+  for (const [relativePath, contents] of Object.entries(files).sort(
+    ([left], [right]) => left.localeCompare(right),
+  )) {
+    const archivePath = normalizeArchivePath(
+      `${normalizedRoot}/${relativePath}`,
+    );
     const fileName = textEncoder.encode(archivePath);
     const body = portableFileEntryToBytes(contents);
     const checksum = crc32(body);
@@ -279,5 +331,9 @@ export function createZipArchive(files: Record<string, CompanyPortabilityFileEnt
   writeUint32(endOfCentralDirectory, 16, localOffset);
   writeUint16(endOfCentralDirectory, 20, 0);
 
-  return concatChunks([...localChunks, centralDirectory, endOfCentralDirectory]);
+  return concatChunks([
+    ...localChunks,
+    centralDirectory,
+    endOfCentralDirectory,
+  ]);
 }
