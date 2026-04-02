@@ -26,6 +26,7 @@ import {
   parseClaudeStreamJson,
   describeClaudeFailure,
   detectClaudeLoginRequired,
+  isClaudeSuccessResult,
   isClaudeMaxTurnsResult,
   isClaudeUnknownSessionError,
 } from "./parse.js";
@@ -552,13 +553,14 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
       } as Record<string, unknown>)
       : null;
     const clearSessionForMaxTurns = isClaudeMaxTurnsResult(parsed);
+    const explicitSuccess = isClaudeSuccessResult(parsed);
 
     return {
       exitCode: proc.exitCode,
       signal: proc.signal,
       timedOut: false,
       errorMessage:
-        (proc.exitCode ?? 0) === 0
+        (proc.exitCode ?? 0) === 0 || explicitSuccess
           ? null
           : describeClaudeFailure(parsed) ?? `Claude exited with code ${proc.exitCode ?? -1}`,
       errorCode: loginMeta.requiresLogin ? "claude_auth_required" : null,
