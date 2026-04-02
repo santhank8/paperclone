@@ -1,8 +1,9 @@
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  ensurePaperclipSkillSymlink,
   listPaperclipSkillEntries,
   removeMaintainerOnlySkillSymlinks,
 } from "@penclipai/adapter-utils/server-utils";
@@ -58,5 +59,64 @@ describe("paperclip skill utils", () => {
     await expect(fs.lstat(path.join(skillsHome, "release"))).rejects.toThrow();
     expect((await fs.lstat(path.join(skillsHome, "paperclip"))).isSymbolicLink()).toBe(true);
     expect((await fs.lstat(path.join(skillsHome, "release-notes"))).isSymbolicLink()).toBe(true);
+  });
+
+  it("copies a runtime skill directory when link creation is denied and fallback is enabled", async () => {
+    const sourceRoot = await makeTempDir("paperclip-skill-copy-src-");
+    const targetRoot = await makeTempDir("paperclip-skill-copy-target-");
+    cleanupDirs.add(sourceRoot);
+    cleanupDirs.add(targetRoot);
+
+    const source = path.join(sourceRoot, "paperclip");
+    const target = path.join(targetRoot, "paperclip");
+    await fs.mkdir(path.join(source, "references"), { recursive: true });
+    await fs.writeFile(path.join(source, "SKILL.md"), "---\nname: paperclip\n---\n", "utf8");
+    await fs.writeFile(path.join(source, "references", "guide.md"), "runtime helper", "utf8");
+
+    const symlinkSpy = vi.spyOn(fs, "symlink").mockImplementation(async () => {
+      const error = new Error("simulated permission failure") as NodeJS.ErrnoException;
+      error.code = "EPERM";
+      throw error;
+    });
+
+    let mode: Awaited<ReturnType<typeof ensurePaperclipSkillSymlink>>;
+    try {
+      mode = await ensurePaperclipSkillSymlink(source, target, { allowCopyFallback: true });
+    } finally {
+      symlinkSpy.mockRestore();
+    }
+
+    expect(mode).toBe("created");
+    expect((await fs.lstat(target)).isDirectory()).toBe(true);
+    expect((await fs.lstat(target)).isSymbolicLink()).toBe(false);
+    expect(await fs.readFile(path.join(target, "SKILL.md"), "utf8")).toContain("paperclip");
+    expect(await fs.readFile(path.join(target, "references", "guide.md"), "utf8")).toBe("runtime helper");
+  });
+
+  it("surfaces permission errors when copy fallback is disabled", async () => {
+    const sourceRoot = await makeTempDir("paperclip-skill-link-src-");
+    const targetRoot = await makeTempDir("paperclip-skill-link-target-");
+    cleanupDirs.add(sourceRoot);
+    cleanupDirs.add(targetRoot);
+
+    const source = path.join(sourceRoot, "paperclip");
+    const target = path.join(targetRoot, "paperclip");
+    await fs.mkdir(source, { recursive: true });
+    await fs.writeFile(path.join(source, "SKILL.md"), "---\nname: paperclip\n---\n", "utf8");
+
+    const symlinkSpy = vi.spyOn(fs, "symlink").mockImplementation(async () => {
+      const error = new Error("simulated permission failure") as NodeJS.ErrnoException;
+      error.code = "EPERM";
+      throw error;
+    });
+
+    try {
+      await expect(
+        ensurePaperclipSkillSymlink(source, target),
+      ).rejects.toMatchObject({ code: "EPERM" });
+    } finally {
+      symlinkSpy.mockRestore();
+    }
+    await expect(fs.lstat(target)).rejects.toMatchObject({ code: "ENOENT" });
   });
 });
