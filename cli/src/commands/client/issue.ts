@@ -13,6 +13,7 @@ import {
   handleCommandError,
   printOutput,
   resolveCommandContext,
+  resolveTextOption,
   type BaseClientOptions,
 } from "./common.js";
 
@@ -26,6 +27,7 @@ interface IssueBaseOptions extends BaseClientOptions {
 interface IssueCreateOptions extends BaseClientOptions {
   title: string;
   description?: string;
+  descriptionFile?: string;
   status?: string;
   priority?: string;
   assigneeAgentId?: string;
@@ -39,6 +41,7 @@ interface IssueCreateOptions extends BaseClientOptions {
 interface IssueUpdateOptions extends BaseClientOptions {
   title?: string;
   description?: string;
+  descriptionFile?: string;
   status?: string;
   priority?: string;
   assigneeAgentId?: string;
@@ -48,11 +51,13 @@ interface IssueUpdateOptions extends BaseClientOptions {
   requestDepth?: string;
   billingCode?: string;
   comment?: string;
+  commentFile?: string;
   hiddenAt?: string;
 }
 
 interface IssueCommentOptions extends BaseClientOptions {
-  body: string;
+  body?: string;
+  bodyFile?: string;
   reopen?: boolean;
 }
 
@@ -139,6 +144,7 @@ export function registerIssueCommands(program: Command): void {
       .requiredOption("-C, --company-id <id>", "Company ID")
       .requiredOption("--title <title>", "Issue title")
       .option("--description <text>", "Issue description")
+      .option("--description-file <path>", "Read description from file (mutually exclusive with --description)")
       .option("--status <status>", "Issue status")
       .option("--priority <priority>", "Issue priority")
       .option("--assignee-agent-id <id>", "Assignee agent ID")
@@ -150,9 +156,10 @@ export function registerIssueCommands(program: Command): void {
       .action(async (opts: IssueCreateOptions) => {
         try {
           const ctx = resolveCommandContext(opts, { requireCompany: true });
+          const description = resolveTextOption(opts.description, opts.descriptionFile, "--description", "--description-file");
           const payload = createIssueSchema.parse({
             title: opts.title,
-            description: opts.description,
+            description,
             status: opts.status,
             priority: opts.priority,
             assigneeAgentId: opts.assigneeAgentId,
@@ -179,6 +186,7 @@ export function registerIssueCommands(program: Command): void {
       .argument("<issueId>", "Issue ID")
       .option("--title <title>", "Issue title")
       .option("--description <text>", "Issue description")
+      .option("--description-file <path>", "Read description from file (mutually exclusive with --description)")
       .option("--status <status>", "Issue status")
       .option("--priority <priority>", "Issue priority")
       .option("--assignee-agent-id <id>", "Assignee agent ID")
@@ -188,13 +196,16 @@ export function registerIssueCommands(program: Command): void {
       .option("--request-depth <n>", "Request depth integer")
       .option("--billing-code <code>", "Billing code")
       .option("--comment <text>", "Optional comment to add with update")
+      .option("--comment-file <path>", "Read comment from file (mutually exclusive with --comment)")
       .option("--hidden-at <iso8601|null>", "Set hiddenAt timestamp or literal 'null'")
       .action(async (issueId: string, opts: IssueUpdateOptions) => {
         try {
           const ctx = resolveCommandContext(opts);
+          const description = resolveTextOption(opts.description, opts.descriptionFile, "--description", "--description-file");
+          const comment = resolveTextOption(opts.comment, opts.commentFile, "--comment", "--comment-file");
           const payload = updateIssueSchema.parse({
             title: opts.title,
-            description: opts.description,
+            description,
             status: opts.status,
             priority: opts.priority,
             assigneeAgentId: opts.assigneeAgentId,
@@ -203,7 +214,7 @@ export function registerIssueCommands(program: Command): void {
             parentId: opts.parentId,
             requestDepth: parseOptionalInt(opts.requestDepth),
             billingCode: opts.billingCode,
-            comment: opts.comment,
+            comment,
             hiddenAt: parseHiddenAt(opts.hiddenAt),
           });
 
@@ -220,13 +231,18 @@ export function registerIssueCommands(program: Command): void {
       .command("comment")
       .description("Add comment to issue")
       .argument("<issueId>", "Issue ID")
-      .requiredOption("--body <text>", "Comment body")
+      .option("--body <text>", "Comment body")
+      .option("--body-file <path>", "Read comment body from file (mutually exclusive with --body)")
       .option("--reopen", "Reopen if issue is done/cancelled")
       .action(async (issueId: string, opts: IssueCommentOptions) => {
         try {
           const ctx = resolveCommandContext(opts);
+          const body = resolveTextOption(opts.body, opts.bodyFile, "--body", "--body-file");
+          if (!body) {
+            throw new Error("Either --body or --body-file is required");
+          }
           const payload = addIssueCommentSchema.parse({
-            body: opts.body,
+            body,
             reopen: opts.reopen,
           });
           const comment = await ctx.api.post<IssueComment>(`/api/issues/${issueId}/comments`, payload);
