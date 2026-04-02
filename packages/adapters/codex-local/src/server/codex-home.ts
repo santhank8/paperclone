@@ -7,7 +7,7 @@ const TRUTHY_ENV_RE = /^(1|true|yes|on)$/i;
 const COPIED_SHARED_FILES = ["config.json", "config.toml", "instructions.md"] as const;
 const SYMLINKED_SHARED_FILES = ["auth.json"] as const;
 const DEFAULT_PAPERCLIP_INSTANCE_ID = "default";
-type SharedFileSeedResult = "unchanged" | "symlinked" | "copied";
+type SharedFileSeedResult = "unchanged" | "symlinked" | "copied" | "refreshed";
 
 function nonEmpty(value: string | undefined): string | null {
   return typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
@@ -44,7 +44,10 @@ async function ensureParentDir(target: string): Promise<void> {
 }
 
 function shouldCopyInsteadOfSymlink(error: unknown): boolean {
-  return typeof error === "object" && error !== null && "code" in error && error.code === "EPERM";
+  const code = typeof error === "object" && error !== null && "code" in error
+    ? (error as { code: unknown }).code
+    : null;
+  return code === "EPERM" || code === "ENOSYS" || code === "EACCES";
 }
 
 async function copyFileReplacingTarget(target: string, source: string): Promise<void> {
@@ -73,7 +76,7 @@ async function ensureSymlink(target: string, source: string): Promise<SharedFile
   } else if (existing) {
     if (await filesMatch(target, source).catch(() => false)) return "unchanged";
     await copyFileReplacingTarget(target, source);
-    return "copied";
+    return "refreshed";
   }
 
   await ensureParentDir(target);
@@ -114,6 +117,11 @@ export async function prepareManagedCodexHome(
       await onLog(
         "stdout",
         `[paperclip] Seeded Codex shared file "${name}" by copy because symlink creation was not permitted.\n`,
+      );
+    } else if (result === "refreshed") {
+      await onLog(
+        "stdout",
+        `[paperclip] Refreshed copied Codex shared file "${name}" from the shared Codex home.\n`,
       );
     }
   }

@@ -55,9 +55,6 @@ describe("prepareManagedCodexHome", () => {
     await expect(fs.readFile(targetAuthPath, "utf8")).resolves.toBe(
       await fs.readFile(path.join(sourceHome, "auth.json"), "utf8"),
     );
-    await expect(fs.lstat(targetAuthPath)).resolves.toMatchObject({
-      isSymbolicLink: expect.any(Function),
-    });
     expect((await fs.lstat(targetAuthPath)).isSymbolicLink()).toBe(false);
     expect(logs.join("")).toContain("Seeded Codex shared file \"auth.json\" by copy");
   });
