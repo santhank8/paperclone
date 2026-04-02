@@ -984,7 +984,7 @@ export function IssueDocumentsSection({
                     className={`${documentBodyShellClassName} ${documentBodyPaddingClassName} ${
                       activeDraft || isHistoricalPreview ? "" : "cursor-text hover:bg-accent/10"
                     }`}
-                    onClick={!activeDraft && !isHistoricalPreview ? () => beginEdit(doc.key) : undefined}
+                    onClick={!activeDraft && !isHistoricalPreview ? (e) => { if ((e.target as HTMLElement).closest("a") === null) beginEdit(doc.key); } : undefined}
                   >
                     {isHistoricalPreview ? (
                       <div className="rounded-md border border-amber-500/20 bg-background/50 p-3">
@@ -1017,9 +1017,9 @@ export function IssueDocumentsSection({
                         onSubmit={() => void commitDraft(activeDraft ?? draft, { clearAfterSave: false, trackAutosave: true })}
                       />
                     ) : (
-                      <div className={documentBodyContentClassName}>
+                      <div className="min-h-[220px]">
                         {displayedBody.trim()
-                          ? renderBody(displayedBody)
+                          ? renderBody(displayedBody, documentBodyContentClassName)
                           : <span className="text-muted-foreground/50 text-[15px]">Markdown body</span>}
                       </div>
                     )}
