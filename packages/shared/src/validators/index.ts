@@ -1,17 +1,73 @@
 export {
+  instanceGeneralSettingsSchema,
+  patchInstanceGeneralSettingsSchema,
+  type InstanceGeneralSettings,
+  type PatchInstanceGeneralSettings,
+  instanceExperimentalSettingsSchema,
+  patchInstanceExperimentalSettingsSchema,
+  type InstanceExperimentalSettings,
+  type PatchInstanceExperimentalSettings,
+} from "./instance.js";
+
+export {
+  upsertBudgetPolicySchema,
+  resolveBudgetIncidentSchema,
+  type UpsertBudgetPolicy,
+  type ResolveBudgetIncident,
+} from "./budget.js";
+
+export {
   createCompanySchema,
   updateCompanySchema,
+  updateCompanyBrandingSchema,
   type CreateCompany,
   type UpdateCompany,
+  type UpdateCompanyBranding,
 } from "./company.js";
 export {
+  companySkillSourceTypeSchema,
+  companySkillTrustLevelSchema,
+  companySkillCompatibilitySchema,
+  companySkillSourceBadgeSchema,
+  companySkillFileInventoryEntrySchema,
+  companySkillSchema,
+  companySkillListItemSchema,
+  companySkillUsageAgentSchema,
+  companySkillDetailSchema,
+  companySkillUpdateStatusSchema,
+  companySkillImportSchema,
+  companySkillProjectScanRequestSchema,
+  companySkillProjectScanSkippedSchema,
+  companySkillProjectScanConflictSchema,
+  companySkillProjectScanResultSchema,
+  companySkillCreateSchema,
+  companySkillFileDetailSchema,
+  companySkillFileUpdateSchema,
+  type CompanySkillImport,
+  type CompanySkillProjectScan,
+  type CompanySkillCreate,
+  type CompanySkillFileUpdate,
+} from "./company-skill.js";
+export {
+  agentSkillStateSchema,
+  agentSkillSyncModeSchema,
+  agentSkillEntrySchema,
+  agentSkillSnapshotSchema,
+  agentSkillSyncSchema,
+  type AgentSkillSync,
+} from "./adapter-skills.js";
+export {
   portabilityIncludeSchema,
-  portabilitySecretRequirementSchema,
+  portabilityEnvInputSchema,
   portabilityCompanyManifestEntrySchema,
-  portabilityAgentManifestEntrySchema,
+  portabilitySidebarOrderSchema,
+  portabilitySecretRequirementSchema,
   portabilityGoalManifestEntrySchema,
-  portabilityProjectWorkspaceManifestEntrySchema,
+  portabilityAgentManifestEntrySchema,
+  portabilitySkillManifestEntrySchema,
   portabilityProjectManifestEntrySchema,
+  portabilityIssueRoutineTriggerManifestEntrySchema,
+  portabilityIssueRoutineManifestEntrySchema,
   portabilityIssueManifestEntrySchema,
   portabilityManifestSchema,
   portabilitySourceSchema,
@@ -30,8 +86,12 @@ export {
   createAgentSchema,
   createAgentHireSchema,
   updateAgentSchema,
+  agentInstructionsBundleModeSchema,
+  updateAgentInstructionsBundleSchema,
+  upsertAgentInstructionsFileSchema,
   updateAgentInstructionsPathSchema,
   createAgentKeySchema,
+  agentMineInboxQuerySchema,
   wakeAgentSchema,
   resetAgentSessionSchema,
   testAdapterEnvironmentSchema,
@@ -40,8 +100,11 @@ export {
   type CreateAgent,
   type CreateAgentHire,
   type UpdateAgent,
+  type UpdateAgentInstructionsBundle,
+  type UpsertAgentInstructionsFile,
   type UpdateAgentInstructionsPath,
   type CreateAgentKey,
+  type AgentMineInboxQuery,
   type WakeAgent,
   type ResetAgentSession,
   type TestAdapterEnvironment,
@@ -54,6 +117,7 @@ export {
   createProjectWorkspaceSchema,
   updateProjectWorkspaceSchema,
   projectExecutionWorkspacePolicySchema,
+  projectWorkspaceRuntimeConfigSchema,
   type CreateProject,
   type UpdateProject,
   type CreateProjectWorkspace,
@@ -73,6 +137,7 @@ export {
   issueDocumentFormatSchema,
   issueDocumentKeySchema,
   upsertIssueDocumentSchema,
+  restoreIssueDocumentRevisionSchema,
   type CreateIssue,
   type CreateIssueLabel,
   type UpdateIssue,
@@ -83,7 +148,31 @@ export {
   type CreateIssueAttachmentMetadata,
   type IssueDocumentFormat,
   type UpsertIssueDocument,
+  type RestoreIssueDocumentRevision,
 } from "./issue.js";
+
+export {
+  createIssueWorkProductSchema,
+  updateIssueWorkProductSchema,
+  issueWorkProductTypeSchema,
+  issueWorkProductStatusSchema,
+  issueWorkProductReviewStateSchema,
+  type CreateIssueWorkProduct,
+  type UpdateIssueWorkProduct,
+} from "./work-product.js";
+
+export {
+  executionWorkspaceConfigSchema,
+  updateExecutionWorkspaceSchema,
+  executionWorkspaceStatusSchema,
+  executionWorkspaceCloseActionKindSchema,
+  executionWorkspaceCloseActionSchema,
+  executionWorkspaceCloseGitReadinessSchema,
+  executionWorkspaceCloseLinkedIssueSchema,
+  executionWorkspaceCloseReadinessSchema,
+  executionWorkspaceCloseReadinessStateSchema,
+  type UpdateExecutionWorkspace,
+} from "./execution-workspace.js";
 
 export {
   createGoalSchema,
@@ -119,11 +208,31 @@ export {
 } from "./secret.js";
 
 export {
+  createRoutineSchema,
+  updateRoutineSchema,
+  createRoutineTriggerSchema,
+  updateRoutineTriggerSchema,
+  runRoutineSchema,
+  rotateRoutineTriggerSecretSchema,
+  type CreateRoutine,
+  type UpdateRoutine,
+  type CreateRoutineTrigger,
+  type UpdateRoutineTrigger,
+  type RunRoutine,
+  type RotateRoutineTriggerSecret,
+} from "./routine.js";
+
+export {
   createCostEventSchema,
   updateBudgetSchema,
   type CreateCostEvent,
   type UpdateBudget,
 } from "./cost.js";
+
+export {
+  createFinanceEventSchema,
+  type CreateFinanceEvent,
+} from "./finance.js";
 
 export {
   createAssetImageMetadataSchema,
@@ -136,6 +245,9 @@ export {
   acceptInviteSchema,
   listJoinRequestsQuerySchema,
   claimJoinRequestApiKeySchema,
+  boardCliAuthAccessLevelSchema,
+  createCliAuthChallengeSchema,
+  resolveCliAuthChallengeSchema,
   updateMemberPermissionsSchema,
   updateUserCompanyAccessSchema,
   type CreateCompanyInvite,
@@ -143,6 +255,9 @@ export {
   type AcceptInvite,
   type ListJoinRequestsQuery,
   type ClaimJoinRequestApiKey,
+  type BoardCliAuthAccessLevel,
+  type CreateCliAuthChallenge,
+  type ResolveCliAuthChallenge,
   type UpdateMemberPermissions,
   type UpdateUserCompanyAccess,
 } from "./access.js";

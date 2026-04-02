@@ -3,10 +3,14 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type {
   CompanyPortabilityManifest,
+  CompanyPortabilityGoalManifestEntry,
   CompanyTemplateCatalogEntry,
   CompanyTemplateDetail,
 } from "@paperclipai/shared";
-import { portabilityManifestSchema } from "@paperclipai/shared";
+import {
+  normalizeAgentUrlKey,
+  portabilityManifestSchema,
+} from "@paperclipai/shared";
 import { z } from "zod";
 import { notFound, unprocessable } from "../errors.js";
 import type {
@@ -27,6 +31,99 @@ const templateMetadataSchema = z.object({
   recommendedFor: z.array(z.string().min(1)).default([]),
   recommended: z.boolean().default(false),
   icon: z.string().min(1).nullable().optional().default(null),
+});
+
+type NormalizedGoalEntry = CompanyPortabilityGoalManifestEntry;
+
+const legacyIncludeSchema = z.object({
+  company: z.boolean(),
+  agents: z.boolean(),
+  goals: z.boolean().default(false),
+  projects: z.boolean().default(false),
+  issues: z.boolean().default(false),
+});
+
+const legacySecretRequirementSchema = z.object({
+  key: z.string().min(1),
+  description: z.string().nullable().optional().default(null),
+  agentSlug: z.string().min(1).nullable().optional().default(null),
+  providerHint: z.string().nullable().optional().default(null),
+});
+
+const legacyManifestSchema = z.object({
+  schemaVersion: z.number().int().positive(),
+  generatedAt: z.string().datetime(),
+  source: z
+    .object({
+      companyId: z.string().uuid(),
+      companyName: z.string().min(1),
+    })
+    .nullable(),
+  includes: legacyIncludeSchema,
+  company: z.object({
+    path: z.string().min(1),
+    name: z.string().min(1),
+    description: z.string().nullable().optional().default(null),
+    brandColor: z.string().nullable().optional().default(null),
+    requireBoardApprovalForNewAgents: z.boolean(),
+  }).nullable(),
+  agents: z.array(z.object({
+    slug: z.string().min(1),
+    name: z.string().min(1),
+    path: z.string().min(1),
+    role: z.string().min(1),
+    title: z.string().nullable().optional().default(null),
+    icon: z.string().nullable().optional().default(null),
+    capabilities: z.string().nullable().optional().default(null),
+    reportsToSlug: z.string().min(1).nullable().optional().default(null),
+    adapterType: z.string().min(1),
+    adapterConfig: z.record(z.unknown()),
+    runtimeConfig: z.record(z.unknown()),
+    permissions: z.record(z.unknown()),
+    budgetMonthlyCents: z.number().int().nonnegative(),
+    metadata: z.record(z.unknown()).nullable().optional().default(null),
+  })),
+  goals: z.array(z.object({
+    key: z.string().min(1),
+    title: z.string().min(1),
+    description: z.string().nullable().optional().default(null),
+    level: z.string().min(1),
+    status: z.string().min(1),
+    parentKey: z.string().min(1).nullable().optional().default(null),
+    ownerAgentSlug: z.string().min(1).nullable().optional().default(null),
+  })).default([]),
+  projects: z.array(z.object({
+    key: z.string().min(1),
+    name: z.string().min(1),
+    description: z.string().nullable().optional().default(null),
+    status: z.string().min(1),
+    goalKeys: z.array(z.string().min(1)).default([]),
+    leadAgentSlug: z.string().min(1).nullable().optional().default(null),
+    targetDate: z.string().nullable().optional().default(null),
+    color: z.string().nullable().optional().default(null),
+    workspaces: z.array(z.object({
+      name: z.string().min(1),
+      cwd: z.string().nullable().optional().default(null),
+      repoUrl: z.string().nullable().optional().default(null),
+      repoRef: z.string().nullable().optional().default(null),
+      metadata: z.record(z.unknown()).nullable().optional().default(null),
+      isPrimary: z.boolean(),
+    })).default([]),
+  })).default([]),
+  issues: z.array(z.object({
+    key: z.string().min(1),
+    title: z.string().min(1),
+    description: z.string().nullable().optional().default(null),
+    status: z.string().min(1),
+    priority: z.string().min(1),
+    projectKey: z.string().min(1).nullable().optional().default(null),
+    goalKey: z.string().min(1).nullable().optional().default(null),
+    parentKey: z.string().min(1).nullable().optional().default(null),
+    assigneeAgentSlug: z.string().min(1).nullable().optional().default(null),
+    requestDepth: z.number().int().nonnegative().optional().default(0),
+    billingCode: z.string().nullable().optional().default(null),
+  })).default([]),
+  requiredSecrets: z.array(legacySecretRequirementSchema).default([]),
 });
 
 function normalizeTemplateId(templateId: string): string {
@@ -104,7 +201,157 @@ async function readTemplateMetadata(templateDir: string): Promise<BuiltInTemplat
 
 async function readTemplateManifest(templateDir: string): Promise<CompanyPortabilityManifest> {
   const manifestPath = path.join(templateDir, "paperclip.manifest.json");
-  return portabilityManifestSchema.parse(await readJsonFile(manifestPath));
+  const raw = await readJsonFile(manifestPath);
+  const parsed = portabilityManifestSchema.safeParse(raw);
+  if (parsed.success) {
+    return parsed.data;
+  }
+  return normalizeLegacyTemplateManifest(raw, manifestPath);
+}
+
+function uniqueSlug(base: string, used: Set<string>, fallback: string) {
+  const normalizedBase = normalizeAgentUrlKey(base) ?? fallback;
+  if (!used.has(normalizedBase)) {
+    used.add(normalizedBase);
+    return normalizedBase;
+  }
+  let index = 2;
+  while (true) {
+    const candidate = `${normalizedBase}-${index}`;
+    if (!used.has(candidate)) {
+      used.add(candidate);
+      return candidate;
+    }
+    index += 1;
+  }
+}
+
+function normalizeLegacyTemplateManifest(raw: unknown, manifestPath: string): CompanyPortabilityManifest {
+  const parsed = legacyManifestSchema.safeParse(raw);
+  if (!parsed.success) {
+    throw unprocessable(`Invalid built-in template manifest at ${manifestPath}`);
+  }
+
+  const projectSlugs = new Map<string, string>();
+  const usedProjectSlugs = new Set<string>();
+  for (const project of parsed.data.projects) {
+    projectSlugs.set(
+      project.key,
+      uniqueSlug(project.key || project.name, usedProjectSlugs, "project"),
+    );
+  }
+
+  const issueSlugs = new Map<string, string>();
+  const usedIssueSlugs = new Set<string>();
+  for (const issue of parsed.data.issues) {
+    issueSlugs.set(
+      issue.key,
+      uniqueSlug(issue.key || issue.title, usedIssueSlugs, "task"),
+    );
+  }
+
+  return {
+    schemaVersion: parsed.data.schemaVersion,
+    generatedAt: parsed.data.generatedAt,
+    source: parsed.data.source,
+    includes: {
+      company: parsed.data.includes.company,
+      agents: parsed.data.includes.agents,
+      projects: parsed.data.includes.projects,
+      issues: parsed.data.includes.issues,
+      skills: false,
+      goals: parsed.data.includes.goals,
+    },
+    company: parsed.data.company
+      ? {
+          path: parsed.data.company.path,
+          name: parsed.data.company.name,
+          description: parsed.data.company.description,
+          brandColor: parsed.data.company.brandColor,
+          logoPath: null,
+          requireBoardApprovalForNewAgents:
+            parsed.data.company.requireBoardApprovalForNewAgents,
+        }
+      : null,
+    sidebar: null,
+    agents: parsed.data.agents.map((agent) => ({
+      ...agent,
+      skills: [],
+    })),
+    goals: parsed.data.goals.map((goal) => ({
+      key: goal.key,
+      title: goal.title,
+      description: goal.description,
+      level: goal.level as NormalizedGoalEntry["level"],
+      status: goal.status as NormalizedGoalEntry["status"],
+      parentKey: goal.parentKey,
+      ownerAgentSlug: goal.ownerAgentSlug,
+    })),
+    skills: [],
+    projects: parsed.data.projects.map((project) => {
+      const slug = projectSlugs.get(project.key) ?? uniqueSlug(project.name, new Set<string>(), "project");
+      const workspaceKeys = new Set<string>();
+      return {
+        slug,
+        name: project.name,
+        path: `projects/${slug}/PROJECT.md`,
+        description: project.description,
+        ownerAgentSlug: null,
+        leadAgentSlug: project.leadAgentSlug,
+        targetDate: project.targetDate,
+        color: project.color,
+        status: project.status,
+        goalKeys: project.goalKeys,
+        executionWorkspacePolicy: null,
+        workspaces: project.workspaces.map((workspace) => ({
+          key: uniqueSlug(
+            workspace.name || workspace.repoUrl || "workspace",
+            workspaceKeys,
+            "workspace",
+          ),
+          name: workspace.name,
+          sourceType: null,
+          repoUrl: workspace.repoUrl,
+          repoRef: workspace.repoRef,
+          defaultRef: null,
+          visibility: null,
+          setupCommand: null,
+          cleanupCommand: null,
+          metadata: workspace.metadata,
+          isPrimary: workspace.isPrimary,
+        })),
+        metadata: null,
+      };
+    }),
+    issues: parsed.data.issues.map((issue) => {
+      const slug = issueSlugs.get(issue.key) ?? uniqueSlug(issue.title, new Set<string>(), "task");
+      return {
+        slug,
+        identifier: null,
+        title: issue.title,
+        path: `tasks/${slug}/TASK.md`,
+        projectSlug: issue.projectKey ? (projectSlugs.get(issue.projectKey) ?? null) : null,
+        goalKey: issue.goalKey,
+        parentKey: issue.parentKey,
+        projectWorkspaceKey: null,
+        assigneeAgentSlug: issue.assigneeAgentSlug,
+        description: issue.description,
+        recurring: false,
+        routine: null,
+        legacyRecurrence: null,
+        status: issue.status,
+        priority: issue.priority,
+        requestDepth: issue.requestDepth,
+        labelIds: [],
+        billingCode: issue.billingCode,
+        executionWorkspaceSettings: null,
+        assigneeAdapterOverrides: null,
+        metadata: null,
+      };
+    }),
+    requiredSecrets: parsed.data.requiredSecrets,
+    envInputs: [],
+  };
 }
 
 function buildCatalogEntry(
@@ -162,7 +409,51 @@ async function readTemplateFiles(
     files[agent.path] = await readTemplateFile(templateDir, agent.path);
   }
 
+  for (const project of manifest.projects) {
+    if (files[project.path] !== undefined) continue;
+    files[project.path] = buildSyntheticMarkdown(
+      {
+        kind: "project",
+        name: project.name,
+        owner: project.ownerAgentSlug,
+        description: project.description,
+      },
+      project.description ?? "",
+    );
+  }
+
+  for (const issue of manifest.issues) {
+    if (files[issue.path] !== undefined) continue;
+    files[issue.path] = buildSyntheticMarkdown(
+      {
+        kind: "task",
+        name: issue.title,
+        project: issue.projectSlug,
+        assignee: issue.assigneeAgentSlug,
+        description: issue.description,
+      },
+      issue.description ?? "",
+    );
+  }
+
   return files;
+}
+
+function buildSyntheticMarkdown(
+  frontmatter: Record<string, string | boolean | null | undefined>,
+  body: string,
+) {
+  const lines = ["---"];
+  for (const [key, value] of Object.entries(frontmatter)) {
+    if (value === undefined || value === null || value === "") continue;
+    if (typeof value === "boolean") {
+      lines.push(`${key}: ${value ? "true" : "false"}`);
+      continue;
+    }
+    lines.push(`${key}: ${JSON.stringify(value)}`);
+  }
+  lines.push("---", "", body);
+  return lines.join("\n");
 }
 
 let catalogCache: CompanyTemplateCatalogEntry[] | null = null;

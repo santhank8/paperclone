@@ -1,10 +1,10 @@
 import { useEffect, useState, useRef, useCallback, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type {
   AdapterEnvironmentTestResult,
   CompanyPortabilitySecretRequirement,
 } from "@paperclipai/shared";
+import { useLocation, useNavigate, useParams } from "@/lib/router";
 import { useDialog } from "../context/DialogContext";
 import { useCompany } from "../context/CompanyContext";
 import { companiesApi } from "../api/companies";
@@ -12,6 +12,7 @@ import { goalsApi } from "../api/goals";
 import { agentsApi } from "../api/agents";
 import { issuesApi } from "../api/issues";
 import { templatesApi } from "../api/templates";
+import { projectsApi } from "../api/projects";
 import { queryKeys } from "../lib/queryKeys";
 import { Dialog, DialogPortal } from "@/components/ui/dialog";
 import {
@@ -29,14 +30,18 @@ import { getUIAdapter } from "../adapters";
 import { defaultCreateValues } from "./agent-config-defaults";
 import { parseOnboardingGoalInput } from "../lib/onboarding-goal";
 import {
+  buildOnboardingIssuePayload,
+  buildOnboardingProjectPayload,
+  selectDefaultCompanyGoalId
+} from "../lib/onboarding-launch";
+import {
   DEFAULT_CODEX_LOCAL_BYPASS_APPROVALS_AND_SANDBOX,
   DEFAULT_CODEX_LOCAL_MODEL
 } from "@paperclipai/adapter-codex-local";
 import { DEFAULT_CURSOR_LOCAL_MODEL } from "@paperclipai/adapter-cursor-local";
 import { DEFAULT_GEMINI_LOCAL_MODEL } from "@paperclipai/adapter-gemini-local";
+import { resolveRouteOnboardingOptions } from "../lib/onboarding-route";
 import { AsciiArtAnimation } from "./AsciiArtAnimation";
-import { ChoosePathButton } from "./PathInstructionsModal";
-import { HintIcon } from "./agent-config-primitives";
 import { OpenCodeLogoIcon } from "./OpenCodeLogoIcon";
 import { MarkdownBody } from "./MarkdownBody";
 import {
@@ -53,10 +58,10 @@ import {
   MousePointer2,
   Check,
   Loader2,
-  FolderOpen,
   ChevronDown,
   X
 } from "lucide-react";
+import { HermesIcon } from "./HermesIcon";
 
 type Step = 1 | 2 | 3 | 4;
 type CompanySetupMode = "blank" | "template";
@@ -64,20 +69,18 @@ type AdapterType =
   | "claude_local"
   | "codex_local"
   | "gemini_local"
+  | "hermes_local"
   | "opencode_local"
   | "pi_local"
   | "cursor"
-  | "process"
   | "http"
   | "openclaw_gateway";
 
-const DEFAULT_TASK_DESCRIPTION = `Setup yourself as the CEO. Use the ceo persona found here: 
+const DEFAULT_TASK_DESCRIPTION = `You are the CEO. You set the direction for the company.
 
-https://github.com/paperclipai/companies/blob/main/default/ceo/AGENTS.md
-
-Ensure you have a folder agents/ceo and then download this AGENTS.md, and sibling HEARTBEAT.md, SOUL.md, and TOOLS.md. and set that AGENTS.md as the path to your agents instruction file
-
-After that, hire yourself a Founding Engineer agent and then plan the roadmap and tasks for your new company.`;
+- hire a founding engineer
+- write a hiring plan
+- break the roadmap into concrete tasks and start delegating work`;
 
 interface ImportedTemplateSummary {
   templateName: string;
@@ -89,12 +92,29 @@ interface ImportedTemplateSummary {
 
 export function OnboardingWizard() {
   const { onboardingOpen, onboardingOptions, closeOnboarding } = useDialog();
-  const { selectedCompanyId, companies, setSelectedCompanyId } = useCompany();
+  const { companies, setSelectedCompanyId, loading: companiesLoading } = useCompany();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const location = useLocation();
+  const { companyPrefix } = useParams<{ companyPrefix?: string }>();
+  const [routeDismissed, setRouteDismissed] = useState(false);
 
-  const initialStep = onboardingOptions.initialStep ?? 1;
-  const existingCompanyId = onboardingOptions.companyId;
+  const routeOnboardingOptions =
+    companyPrefix && companiesLoading
+      ? null
+      : resolveRouteOnboardingOptions({
+          pathname: location.pathname,
+          companyPrefix,
+          companies,
+        });
+  const effectiveOnboardingOpen =
+    onboardingOpen || (routeOnboardingOptions !== null && !routeDismissed);
+  const effectiveOnboardingOptions = onboardingOpen
+    ? onboardingOptions
+    : routeOnboardingOptions ?? {};
+
+  const initialStep = effectiveOnboardingOptions.initialStep ?? 1;
+  const existingCompanyId = effectiveOnboardingOptions.companyId;
 
   const [step, setStep] = useState<Step>(initialStep);
   const [loading, setLoading] = useState(false);
@@ -114,7 +134,6 @@ export function OnboardingWizard() {
   // Step 2
   const [agentName, setAgentName] = useState("CEO");
   const [adapterType, setAdapterType] = useState<AdapterType>("claude_local");
-  const [cwd, setCwd] = useState("");
   const [model, setModel] = useState("");
   const [command, setCommand] = useState("");
   const [args, setArgs] = useState("");
@@ -129,7 +148,9 @@ export function OnboardingWizard() {
   const [showMoreAdapters, setShowMoreAdapters] = useState(false);
 
   // Step 3
-  const [taskTitle, setTaskTitle] = useState("Create your CEO HEARTBEAT.md");
+  const [taskTitle, setTaskTitle] = useState(
+    "Hire your first engineer and create a hiring plan"
+  );
   const [taskDescription, setTaskDescription] = useState(
     DEFAULT_TASK_DESCRIPTION
   );
@@ -150,50 +171,60 @@ export function OnboardingWizard() {
   const [createdCompanyPrefix, setCreatedCompanyPrefix] = useState<
     string | null
   >(null);
+  const [createdCompanyGoalId, setCreatedCompanyGoalId] = useState<string | null>(
+    null
+  );
   const [createdAgentId, setCreatedAgentId] = useState<string | null>(null);
+  const [createdProjectId, setCreatedProjectId] = useState<string | null>(null);
   const [createdIssueRef, setCreatedIssueRef] = useState<string | null>(null);
   const [importedTemplateSummary, setImportedTemplateSummary] =
     useState<ImportedTemplateSummary | null>(null);
+
+  useEffect(() => {
+    setRouteDismissed(false);
+  }, [location.pathname]);
 
   // Sync step and company when onboarding opens with options.
   // Keep this independent from company-list refreshes so Step 1 completion
   // doesn't get reset after creating a company.
   useEffect(() => {
-    if (!onboardingOpen) return;
-    const cId = onboardingOptions.companyId ?? null;
-    const setupMode = onboardingOptions.setupMode ?? "blank";
-    setStep(onboardingOptions.initialStep ?? 1);
+    if (!effectiveOnboardingOpen) return;
+    const cId = effectiveOnboardingOptions.companyId ?? null;
+    const setupMode = onboardingOpen ? onboardingOptions.setupMode ?? "blank" : "blank";
+    const templateId = onboardingOpen ? onboardingOptions.templateId ?? null : null;
+    setStep(effectiveOnboardingOptions.initialStep ?? 1);
     setCreatedCompanyId(cId);
     setCreatedCompanyPrefix(null);
     setCompanySetupMode(setupMode);
-    setSelectedTemplateId(
-      setupMode === "template" ? onboardingOptions.templateId ?? null : null
-    );
+    setSelectedTemplateId(setupMode === "template" ? templateId : null);
     setCompanyName("");
     setCompanyGoal("");
+    setCreatedCompanyGoalId(null);
+    setCreatedProjectId(null);
     setCreatedAgentId(null);
     setCreatedIssueRef(null);
     setImportedTemplateSummary(null);
   }, [
+    effectiveOnboardingOpen,
+    effectiveOnboardingOptions.companyId,
+    effectiveOnboardingOptions.initialStep,
     onboardingOpen,
-    onboardingOptions.companyId,
-    onboardingOptions.initialStep,
     onboardingOptions.setupMode,
     onboardingOptions.templateId,
   ]);
 
   // Backfill issue prefix for an existing company once companies are loaded.
   useEffect(() => {
-    if (!onboardingOpen || !createdCompanyId || createdCompanyPrefix) return;
+    if (!effectiveOnboardingOpen || !createdCompanyId || createdCompanyPrefix) return;
     const company = companies.find((c) => c.id === createdCompanyId);
     if (company) setCreatedCompanyPrefix(company.issuePrefix);
-  }, [onboardingOpen, createdCompanyId, createdCompanyPrefix, companies]);
+  }, [effectiveOnboardingOpen, createdCompanyId, createdCompanyPrefix, companies]);
 
   useEffect(() => {
-    if (!onboardingOpen || !createdCompanyId || companyName) return;
+    if (!effectiveOnboardingOpen || !createdCompanyId || companyName) return;
     const company = companies.find((c) => c.id === createdCompanyId);
     if (company) setCompanyName(company.name);
-  }, [onboardingOpen, createdCompanyId, companyName, companies]);
+  }, [effectiveOnboardingOpen, createdCompanyId, companyName, companies]);
 
   // Resize textarea when step 3 is shown or description changes
   useEffect(() => {
@@ -207,7 +238,7 @@ export function OnboardingWizard() {
   } = useQuery({
     queryKey: queryKeys.templates.list,
     queryFn: () => templatesApi.list(),
-    enabled: onboardingOpen && step === 1,
+    enabled: effectiveOnboardingOpen && step === 1,
   });
 
   useEffect(() => {
@@ -237,7 +268,7 @@ export function OnboardingWizard() {
       : ["templates", "none"],
     queryFn: () => templatesApi.get(selectedTemplateId!),
     enabled:
-      onboardingOpen &&
+      effectiveOnboardingOpen &&
       step === 1 &&
       companySetupMode === "template" &&
       Boolean(selectedTemplateId),
@@ -253,13 +284,15 @@ export function OnboardingWizard() {
       ? queryKeys.agents.adapterModels(createdCompanyId, adapterType)
       : ["agents", "none", "adapter-models", adapterType],
     queryFn: () => agentsApi.adapterModels(createdCompanyId!, adapterType),
-    enabled: Boolean(createdCompanyId) && onboardingOpen && step === 2
+    enabled: Boolean(createdCompanyId) && effectiveOnboardingOpen && step === 2
   });
   const isLocalAdapter =
     adapterType === "claude_local" ||
     adapterType === "codex_local" ||
     adapterType === "gemini_local" ||
+    adapterType === "hermes_local" ||
     adapterType === "opencode_local" ||
+    adapterType === "pi_local" ||
     adapterType === "cursor";
   const effectiveAdapterCommand =
     command.trim() ||
@@ -267,6 +300,10 @@ export function OnboardingWizard() {
       ? "codex"
       : adapterType === "gemini_local"
         ? "gemini"
+      : adapterType === "hermes_local"
+        ? "hermes"
+      : adapterType === "pi_local"
+      ? "pi"
       : adapterType === "cursor"
       ? "agent"
       : adapterType === "opencode_local"
@@ -277,7 +314,7 @@ export function OnboardingWizard() {
     if (step !== 2) return;
     setAdapterEnvResult(null);
     setAdapterEnvError(null);
-  }, [step, adapterType, cwd, model, command, args, url]);
+  }, [step, adapterType, model, command, args, url]);
 
   const selectedModel = (adapterModels ?? []).find((m) => m.id === model);
   const hasAnthropicApiKeyOverrideCheck =
@@ -335,7 +372,6 @@ export function OnboardingWizard() {
     setCompanyGoal("");
     setAgentName("CEO");
     setAdapterType("claude_local");
-    setCwd("");
     setModel("");
     setCommand("");
     setArgs("");
@@ -345,11 +381,13 @@ export function OnboardingWizard() {
     setAdapterEnvLoading(false);
     setForceUnsetAnthropicApiKey(false);
     setUnsetAnthropicLoading(false);
-    setTaskTitle("Create your CEO HEARTBEAT.md");
+    setTaskTitle("Hire your first engineer and create a hiring plan");
     setTaskDescription(DEFAULT_TASK_DESCRIPTION);
     setCreatedCompanyId(null);
     setCreatedCompanyPrefix(null);
+    setCreatedCompanyGoalId(null);
     setCreatedAgentId(null);
+    setCreatedProjectId(null);
     setCreatedIssueRef(null);
     setImportedTemplateSummary(null);
   }
@@ -364,7 +402,6 @@ export function OnboardingWizard() {
     const config = adapter.buildAdapterConfig({
       ...defaultCreateValues,
       adapterType,
-      cwd,
       model:
         adapterType === "codex_local"
           ? model || DEFAULT_CODEX_LOCAL_MODEL
@@ -376,7 +413,8 @@ export function OnboardingWizard() {
       command,
       args,
       url,
-      dangerouslySkipPermissions: adapterType === "claude_local",
+      dangerouslySkipPermissions:
+        adapterType === "claude_local" || adapterType === "opencode_local",
       dangerouslyBypassSandbox:
         adapterType === "codex_local"
           ? DEFAULT_CODEX_LOCAL_BYPASS_APPROVALS_AND_SANDBOX
@@ -477,7 +515,7 @@ export function OnboardingWizard() {
           warnings: Array.from(
             new Set([...preview.warnings, ...imported.warnings])
           ),
-          requiredSecrets: preview.requiredSecrets,
+          requiredSecrets: preview.requiredSecrets ?? [],
           setupMarkdown: templateDetail.setupMarkdown,
         });
         setSelectedCompanyId(company.id);
@@ -497,7 +535,7 @@ export function OnboardingWizard() {
 
       if (companyGoal.trim()) {
         const parsedGoal = parseOnboardingGoalInput(companyGoal);
-        await goalsApi.create(company.id, {
+        const goal = await goalsApi.create(company.id, {
           title: parsedGoal.title,
           ...(parsedGoal.description
             ? { description: parsedGoal.description }
@@ -505,9 +543,12 @@ export function OnboardingWizard() {
           level: "company",
           status: "active"
         });
+        setCreatedCompanyGoalId(goal.id);
         queryClient.invalidateQueries({
           queryKey: queryKeys.goals.list(company.id)
         });
+      } else {
+        setCreatedCompanyGoalId(null);
       }
 
       setStep(2);
@@ -654,16 +695,38 @@ export function OnboardingWizard() {
     setLoading(true);
     setError(null);
     try {
+      let goalId = createdCompanyGoalId;
+      if (!goalId) {
+        const goals = await goalsApi.list(createdCompanyId);
+        goalId = selectDefaultCompanyGoalId(goals);
+        setCreatedCompanyGoalId(goalId);
+      }
+
+      let projectId = createdProjectId;
+      if (!projectId) {
+        const project = await projectsApi.create(
+          createdCompanyId,
+          buildOnboardingProjectPayload(goalId)
+        );
+        projectId = project.id;
+        setCreatedProjectId(projectId);
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.projects.list(createdCompanyId)
+        });
+      }
+
       let issueRef = createdIssueRef;
       if (!issueRef) {
-        const issue = await issuesApi.create(createdCompanyId, {
-          title: taskTitle.trim(),
-          ...(taskDescription.trim()
-            ? { description: taskDescription.trim() }
-            : {}),
-          assigneeAgentId: createdAgentId,
-          status: "todo"
-        });
+        const issue = await issuesApi.create(
+          createdCompanyId,
+          buildOnboardingIssuePayload({
+            title: taskTitle,
+            description: taskDescription,
+            assigneeAgentId: createdAgentId,
+            projectId,
+            goalId
+          })
+        );
         issueRef = issue.identifier ?? issue.id;
         setCreatedIssueRef(issueRef);
         queryClient.invalidateQueries({
@@ -702,13 +765,16 @@ export function OnboardingWizard() {
     }
   }
 
-  if (!onboardingOpen) return null;
+  if (!effectiveOnboardingOpen) return null;
 
   return (
     <Dialog
-      open={onboardingOpen}
+      open={effectiveOnboardingOpen}
       onOpenChange={(open) => {
-        if (!open) handleClose();
+        if (!open) {
+          setRouteDismissed(true);
+          handleClose();
+        }
       }}
     >
       <DialogPortal>
@@ -983,16 +1049,16 @@ export function OnboardingWizard() {
                               )
                             )}
                           </div>
-                          {selectedTemplateDetail.manifest.requiredSecrets
+                          {(selectedTemplateDetail.manifest.requiredSecrets ?? [])
                             .length > 0 && (
                             <p className="text-[11px] text-muted-foreground">
                               Requires{" "}
                               {
-                                selectedTemplateDetail.manifest.requiredSecrets
+                                (selectedTemplateDetail.manifest.requiredSecrets ?? [])
                                   .length
                               }{" "}
                               secret
-                              {selectedTemplateDetail.manifest.requiredSecrets
+                              {(selectedTemplateDetail.manifest.requiredSecrets ?? [])
                                 .length === 1
                                 ? ""
                                 : "s"}
@@ -1163,6 +1229,12 @@ export function OnboardingWizard() {
                             desc: "Local Cursor agent"
                           },
                           {
+                            value: "hermes_local" as const,
+                            label: "Hermes Agent",
+                            icon: HermesIcon,
+                            desc: "Local multi-provider agent"
+                          },
+                          {
                             value: "openclaw_gateway" as const,
                             label: "OpenClaw Gateway",
                             icon: Bot,
@@ -1221,28 +1293,11 @@ export function OnboardingWizard() {
                   {(adapterType === "claude_local" ||
                     adapterType === "codex_local" ||
                     adapterType === "gemini_local" ||
+                    adapterType === "hermes_local" ||
                     adapterType === "opencode_local" ||
                     adapterType === "pi_local" ||
                     adapterType === "cursor") && (
                     <div className="space-y-3">
-                      <div>
-                        <div className="flex items-center gap-1.5 mb-1">
-                          <label className="text-xs text-muted-foreground">
-                            Working directory
-                          </label>
-                          <HintIcon text="Paperclip works best if you create a new folder for your agents to keep their memories and stay organized. Create a new folder and put the path here." />
-                        </div>
-                        <div className="flex items-center gap-2 rounded-md border border-border px-2.5 py-1.5">
-                          <FolderOpen className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                          <input
-                            className="w-full bg-transparent outline-none text-sm font-mono placeholder:text-muted-foreground/50"
-                            placeholder="/path/to/project"
-                            value={cwd}
-                            onChange={(e) => setCwd(e.target.value)}
-                          />
-                          <ChoosePathButton />
-                        </div>
-                      </div>
                       <div>
                         <label className="text-xs text-muted-foreground mb-1 block">
                           Model
@@ -1458,33 +1513,6 @@ export function OnboardingWizard() {
                           )}
                         </div>
                       )}
-                    </div>
-                  )}
-
-                  {adapterType === "process" && (
-                    <div className="space-y-3">
-                      <div>
-                        <label className="text-xs text-muted-foreground mb-1 block">
-                          Command
-                        </label>
-                        <input
-                          className="w-full rounded-md border border-border bg-transparent px-3 py-2 text-sm font-mono outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/50"
-                          placeholder="e.g. node, python"
-                          value={command}
-                          onChange={(e) => setCommand(e.target.value)}
-                        />
-                      </div>
-                      <div>
-                        <label className="text-xs text-muted-foreground mb-1 block">
-                          Args (comma-separated)
-                        </label>
-                        <input
-                          className="w-full rounded-md border border-border bg-transparent px-3 py-2 text-sm font-mono outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/50"
-                          placeholder="e.g. script.js, --flag"
-                          value={args}
-                          onChange={(e) => setArgs(e.target.value)}
-                        />
-                      </div>
                     </div>
                   )}
 
@@ -1705,7 +1733,7 @@ export function OnboardingWizard() {
               <div className="flex items-center justify-between mt-8">
                 <div>
                   {step > 1 &&
-                    step > (onboardingOptions.initialStep ?? 1) &&
+                    step > (effectiveOnboardingOptions.initialStep ?? 1) &&
                     !importedTemplateSummary && (
                     <Button
                       variant="ghost"

@@ -11,9 +11,12 @@ import { boardMutationGuard } from "./middleware/board-mutation-guard.js";
 import { privateHostnameGuard, resolvePrivateHostnameAllowSet } from "./middleware/private-hostname-guard.js";
 import { healthRoutes } from "./routes/health.js";
 import { companyRoutes } from "./routes/companies.js";
+import { companySkillRoutes } from "./routes/company-skills.js";
 import { agentRoutes } from "./routes/agents.js";
 import { projectRoutes } from "./routes/projects.js";
 import { issueRoutes } from "./routes/issues.js";
+import { routineRoutes } from "./routes/routines.js";
+import { executionWorkspaceRoutes } from "./routes/execution-workspaces.js";
 import { goalRoutes } from "./routes/goals.js";
 import { approvalRoutes } from "./routes/approvals.js";
 import { secretRoutes } from "./routes/secrets.js";
@@ -21,16 +24,39 @@ import { costRoutes } from "./routes/costs.js";
 import { activityRoutes } from "./routes/activity.js";
 import { dashboardRoutes } from "./routes/dashboard.js";
 import { sidebarBadgeRoutes } from "./routes/sidebar-badges.js";
+import { instanceSettingsRoutes } from "./routes/instance-settings.js";
 import { llmRoutes } from "./routes/llms.js";
 import { assetRoutes } from "./routes/assets.js";
 import { accessRoutes } from "./routes/access.js";
 import { pluginRoutes } from "./routes/plugins.js";
 import { pluginUiStaticRoutes } from "./routes/plugin-ui-static.js";
 import { applyUiBranding } from "./ui-branding.js";
+import { logger } from "./middleware/logger.js";
+import { DEFAULT_LOCAL_PLUGIN_DIR, pluginLoader } from "./services/plugin-loader.js";
+import { createPluginWorkerManager } from "./services/plugin-worker-manager.js";
+import { createPluginJobScheduler } from "./services/plugin-job-scheduler.js";
+import { pluginJobStore } from "./services/plugin-job-store.js";
+import { createPluginToolDispatcher } from "./services/plugin-tool-dispatcher.js";
+import { pluginLifecycleManager } from "./services/plugin-lifecycle.js";
+import { createPluginJobCoordinator } from "./services/plugin-job-coordinator.js";
+import { buildHostServices, flushPluginLogBuffer } from "./services/plugin-host-services.js";
+import { createPluginEventBus } from "./services/plugin-event-bus.js";
+import { setPluginEventBus } from "./services/activity-log.js";
+import { createPluginDevWatcher } from "./services/plugin-dev-watcher.js";
+import { createPluginHostServiceCleanup } from "./services/plugin-host-service-cleanup.js";
+import { pluginRegistryService } from "./services/plugin-registry.js";
 import { templateRoutes } from "./routes/templates.js";
+import { createHostClientHandlers } from "@paperclipai/plugin-sdk";
 import type { BetterAuthSessionResult } from "./auth/better-auth.js";
 
 type UiMode = "none" | "static" | "vite-dev";
+
+export function resolveViteHmrPort(serverPort: number): number {
+  if (serverPort <= 55_535) {
+    return serverPort + 10_000;
+  }
+  return Math.max(1_024, serverPort - 10_000);
+}
 
 export async function createApp(
   db: Db,
@@ -54,6 +80,8 @@ export async function createApp(
   const app = express();
 
   app.use(express.json({
+    // Company import/export payloads can inline full portable packages.
+    limit: "10mb",
     verify: (req, _res, buf) => {
       (req as unknown as { rawBody: Buffer }).rawBody = buf;
     },
@@ -112,11 +140,14 @@ export async function createApp(
       companyDeletionEnabled: opts.companyDeletionEnabled,
     }),
   );
-  api.use("/companies", companyRoutes(db));
+  api.use("/companies", companyRoutes(db, opts.storageService));
+  api.use(companySkillRoutes(db));
   api.use(agentRoutes(db));
   api.use(assetRoutes(db, opts.storageService));
   api.use(projectRoutes(db));
   api.use(issueRoutes(db, opts.storageService));
+  api.use(routineRoutes(db));
+  api.use(executionWorkspaceRoutes(db));
   api.use(goalRoutes(db));
   api.use(approvalRoutes(db));
   api.use(secretRoutes(db));
@@ -125,6 +156,70 @@ export async function createApp(
   api.use(dashboardRoutes(db));
   api.use(sidebarBadgeRoutes(db));
   api.use("/templates", templateRoutes());
+  api.use(instanceSettingsRoutes(db));
+  const hostServicesDisposers = new Map<string, () => void>();
+  const workerManager = createPluginWorkerManager();
+  const pluginRegistry = pluginRegistryService(db);
+  const eventBus = createPluginEventBus();
+  setPluginEventBus(eventBus);
+  const jobStore = pluginJobStore(db);
+  const lifecycle = pluginLifecycleManager(db, { workerManager });
+  const scheduler = createPluginJobScheduler({
+    db,
+    jobStore,
+    workerManager,
+  });
+  const toolDispatcher = createPluginToolDispatcher({
+    workerManager,
+    lifecycleManager: lifecycle,
+    db,
+  });
+  const jobCoordinator = createPluginJobCoordinator({
+    db,
+    lifecycle,
+    scheduler,
+    jobStore,
+  });
+  const hostServiceCleanup = createPluginHostServiceCleanup(lifecycle, hostServicesDisposers);
+  const loader = pluginLoader(
+    db,
+    { localPluginDir: opts.localPluginDir ?? DEFAULT_LOCAL_PLUGIN_DIR },
+    {
+      workerManager,
+      eventBus,
+      jobScheduler: scheduler,
+      jobStore,
+      toolDispatcher,
+      lifecycleManager: lifecycle,
+      instanceInfo: {
+        instanceId: opts.instanceId ?? "default",
+        hostVersion: opts.hostVersion ?? "0.0.0",
+      },
+      buildHostHandlers: (pluginId, manifest) => {
+        const notifyWorker = (method: string, params: unknown) => {
+          const handle = workerManager.getWorker(pluginId);
+          if (handle) handle.notify(method, params);
+        };
+        const services = buildHostServices(db, pluginId, manifest.id, eventBus, notifyWorker);
+        hostServicesDisposers.set(pluginId, () => services.dispose());
+        return createHostClientHandlers({
+          pluginId,
+          capabilities: manifest.capabilities,
+          services,
+        });
+      },
+    },
+  );
+  api.use(
+    pluginRoutes(
+      db,
+      loader,
+      { scheduler, jobStore },
+      { workerManager },
+      { toolDispatcher },
+      { workerManager },
+    ),
+  );
   api.use(
     accessRoutes(db, {
       deploymentMode: opts.deploymentMode,
@@ -162,11 +257,11 @@ export async function createApp(
 
   if (opts.uiMode === "vite-dev") {
     const uiRoot = path.resolve(__dirname, "../../ui");
-    const hmrPort = opts.serverPort + 10000;
+    const hmrPort = resolveViteHmrPort(opts.serverPort);
     const { createServer: createViteServer } = await import("vite");
     const vite = await createViteServer({
       root: uiRoot,
-      appType: "spa",
+      appType: "custom",
       server: {
         middlewareMode: true,
         hmr: {

@@ -3,9 +3,12 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   companyGetById: vi.fn(),
   agentsList: vi.fn(),
+  companySkillsListFull: vi.fn(),
   goalsList: vi.fn(),
   projectsList: vi.fn(),
   issuesList: vi.fn(),
+  agentInstructionsExportFiles: vi.fn(),
+  routinesList: vi.fn(),
 }));
 
 vi.mock("../services/access.js", () => ({
@@ -24,6 +27,18 @@ vi.mock("../services/agents.js", () => ({
   })),
 }));
 
+vi.mock("../services/agent-instructions.js", () => ({
+  agentInstructionsService: vi.fn(() => ({
+    exportFiles: mocks.agentInstructionsExportFiles,
+  })),
+}));
+
+vi.mock("../services/company-skills.js", () => ({
+  companySkillService: vi.fn(() => ({
+    listFull: mocks.companySkillsListFull,
+  })),
+}));
+
 vi.mock("../services/goals.js", () => ({
   goalService: vi.fn(() => ({
     list: mocks.goalsList,
@@ -39,6 +54,12 @@ vi.mock("../services/projects.js", () => ({
 vi.mock("../services/issues.js", () => ({
   issueService: vi.fn(() => ({
     list: mocks.issuesList,
+  })),
+}));
+
+vi.mock("../services/routines.js", () => ({
+  routineService: vi.fn(() => ({
+    list: mocks.routinesList,
   })),
 }));
 
@@ -227,6 +248,17 @@ describe("company portability export", () => {
         updatedAt: now,
       },
     ]);
+    mocks.companySkillsListFull.mockResolvedValue([]);
+    mocks.agentInstructionsExportFiles.mockImplementation(async (agent: { id: string }) => ({
+      files: {
+        "AGENTS.md": agent.id === "agent-ceo"
+          ? "Lead the organization."
+          : "Own safety controls.",
+      },
+      entryFile: "AGENTS.md",
+      warnings: [],
+    }));
+    mocks.routinesList.mockResolvedValue([]);
 
     const portability = companyPortabilityService({} as any);
     const exported = await portability.exportBundle("company-1", {
@@ -258,30 +290,32 @@ describe("company portability export", () => {
     ]);
     expect(exported.manifest.projects).toEqual([
       expect.objectContaining({
-        key: "initial-control-framework",
+        slug: "initial-control-framework",
         goalKeys: ["operating-boundary", "control-checklist"],
         leadAgentSlug: "safety-lead",
         workspaces: [
           expect.objectContaining({
             name: "Control Docs",
-            cwd: "/tmp/control-docs",
             repoUrl: "https://github.com/example/control-docs",
+            repoRef: "main",
           }),
         ],
       }),
     ]);
     expect(exported.manifest.issues).toEqual([
       expect.objectContaining({
-        key: "draft-initial-safety-checklist",
-        projectKey: "initial-control-framework",
+        slug: "sao-1",
+        projectSlug: "initial-control-framework",
         goalKey: "control-checklist",
         parentKey: null,
         assigneeAgentSlug: "safety-lead",
+        requestDepth: 0,
       }),
       expect.objectContaining({
-        key: "review-checklist-with-ceo",
+        slug: "sao-2",
         parentKey: "draft-initial-safety-checklist",
         assigneeAgentSlug: "ceo",
+        requestDepth: 1,
       }),
     ]);
     expect(exported.files["COMPANY.md"]).toContain('name: "Safe Autonomous Organization"');
