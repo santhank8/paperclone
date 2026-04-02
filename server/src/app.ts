@@ -72,11 +72,16 @@ export async function createApp(
     instanceId?: string;
     hostVersion?: string;
     localPluginDir?: string;
+    trustProxy?: boolean | string;
     betterAuthHandler?: express.RequestHandler;
     resolveSession?: (req: ExpressRequest) => Promise<BetterAuthSessionResult | null>;
   },
 ) {
   const app = express();
+
+  if (opts.trustProxy !== undefined && opts.trustProxy !== false) {
+    app.set("trust proxy", opts.trustProxy);
+  }
 
   app.use(express.json({
     // Company import/export payloads can inline full portable packages.
