@@ -1,7 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { DocumentRevision, Issue, IssueDocument } from "@penclipai/shared";
 import { useTranslation } from "react-i18next";
+import type {
+  DocumentRevision,
+  FeedbackDataSharingPreference,
+  FeedbackVote,
+  FeedbackVoteValue,
+  Issue,
+  IssueDocument,
+} from "@penclipai/shared";
 import { useLocation } from "@/lib/router";
 import { ApiError } from "../api/client";
 import { issuesApi } from "../api/issues";
@@ -10,6 +17,7 @@ import { queryKeys } from "../lib/queryKeys";
 import { cn, relativeTime } from "../lib/utils";
 import { MarkdownBody } from "./MarkdownBody";
 import { MarkdownEditor, type MentionOption } from "./MarkdownEditor";
+import { OutputFeedbackButtons } from "./OutputFeedbackButtons";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -96,14 +104,26 @@ function documentHasUnsavedChanges(doc: IssueDocument, draft: DraftState | null)
 export function IssueDocumentsSection({
   issue,
   canDeleteDocuments,
+  feedbackVotes = [],
+  feedbackDataSharingPreference = "prompt",
+  feedbackTermsUrl = null,
   mentions,
   imageUploadHandler,
+  onVote,
   extraActions,
 }: {
   issue: Issue;
   canDeleteDocuments: boolean;
+  feedbackVotes?: FeedbackVote[];
+  feedbackDataSharingPreference?: FeedbackDataSharingPreference;
+  feedbackTermsUrl?: string | null;
   mentions?: MentionOption[];
   imageUploadHandler?: (file: File) => Promise<string>;
+  onVote?: (
+    revisionId: string,
+    vote: FeedbackVoteValue,
+    options?: { allowSharing?: boolean; reason?: string },
+  ) => Promise<void>;
   extraActions?: ReactNode;
 }) {
   const { t } = useTranslation();
@@ -202,6 +222,15 @@ export function IssueDocumentsSection({
       return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
     });
   }, [documents]);
+
+  const feedbackVoteByTargetId = useMemo(() => {
+    const map = new Map<string, FeedbackVoteValue>();
+    for (const feedbackVote of feedbackVotes) {
+      if (feedbackVote.targetType !== "issue_document_revision") continue;
+      map.set(feedbackVote.targetId, feedbackVote.vote);
+    }
+    return map;
+  }, [feedbackVotes]);
 
   const hasRealPlan = sortedDocuments.some((doc) => doc.key === "plan");
   const isEmpty = sortedDocuments.length === 0 && !issue.legacyPlanDocument;
@@ -720,6 +749,7 @@ export function IssueDocumentsSection({
           const displayedRevisionNumber = selectedHistoricalRevision?.revisionNumber ?? doc.latestRevisionNumber;
           const displayedUpdatedAt = selectedHistoricalRevision?.createdAt ?? doc.updatedAt;
           const showTitle = !isPlanKey(doc.key) && !!displayedTitle.trim() && !titlesMatchKey(displayedTitle, doc.key);
+          const canVoteOnDocument = Boolean(doc.latestRevisionId && doc.updatedByAgentId && !doc.updatedByUserId && onVote);
 
           return (
             <div
@@ -1081,6 +1111,16 @@ export function IssueDocumentsSection({
                           : ""}
                     </span>
                   </div>
+                  {canVoteOnDocument && doc.latestRevisionId ? (
+                    <OutputFeedbackButtons
+                      activeVote={feedbackVoteByTargetId.get(doc.latestRevisionId) ?? null}
+                      sharingPreference={feedbackDataSharingPreference}
+                      termsUrl={feedbackTermsUrl}
+                      onVote={(vote: FeedbackVoteValue, options?: { allowSharing?: boolean; reason?: string }) =>
+                        onVote?.(doc.latestRevisionId!, vote, options) ?? Promise.resolve()
+                      }
+                    />
+                  ) : null}
                 </div>
               ) : null}
 

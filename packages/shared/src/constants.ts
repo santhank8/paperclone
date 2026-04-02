@@ -450,6 +450,7 @@ export const PLUGIN_CAPABILITIES = [
   "agent.sessions.close",
   "activity.log.write",
   "metrics.write",
+  "telemetry.track",
   // Plugin State
   "plugin.state.read",
   "plugin.state.write",
