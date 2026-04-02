@@ -79,7 +79,7 @@ VOLUME ["/paperclip"]
 EXPOSE 3100
 
 HEALTHCHECK --interval=10s --timeout=5s --start-period=60s --retries=5 \
-  CMD curl -sf http://localhost:3100/health || exit 1
+  CMD curl -sf http://localhost:3100/api/health || exit 1
 
 ENTRYPOINT ["docker-entrypoint.sh"]
 CMD ["node", "--import", "./server/node_modules/tsx/dist/loader.mjs", "server/dist/index.js"]
