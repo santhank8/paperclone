@@ -31,8 +31,8 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans**: 3 plans
 
 Plans:
-- [ ] 01-01-PLAN.md — Harden docker-compose.yml and add HEALTHCHECK to Dockerfile
-- [ ] 01-02-PLAN.md — Create docker/.env.template with all variables documented
+- [x] 01-01-PLAN.md — Harden docker-compose.yml and add HEALTHCHECK to Dockerfile
+- [x] 01-02-PLAN.md — Create docker/.env.template with all variables documented
 - [ ] 01-03-PLAN.md — Human verification: start stack on docker-001 and confirm all success criteria
 
 ### Phase 2: Network Exposure
@@ -61,7 +61,7 @@ Phases execute in numeric order: 1 → 2 → 3
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Compose Foundation | 0/3 | Not started | - |
+| 1. Compose Foundation | 2/3 | In Progress|  |
 | 2. Network Exposure | 0/? | Not started | - |
 | 3. Agent Connectivity | 0/? | Not started | - |
 
@@ -71,7 +71,7 @@ Phases execute in numeric order: 1 → 2 → 3
 
 **Goal:** Integrate Paperclip's frontend authentication with Authentik identity provider
 **Requirements:** TBD
-**Plans:** 0 plans
+**Plans:** 2/3 plans executed
 
 Plans:
 - [ ] TBD (promote with /gsd:review-backlog when ready)

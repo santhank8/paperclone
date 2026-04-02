@@ -9,17 +9,17 @@ Requirements for initial production deployment. Each maps to roadmap phases.
 
 ### Container Setup
 
-- [ ] **CONT-01**: Docker Compose builds and starts server + database services with a single `docker compose up`
-- [ ] **CONT-02**: Server container has HEALTHCHECK wired to `/health` endpoint
-- [ ] **CONT-03**: All services have restart policies for crash recovery
+- [x] **CONT-01**: Docker Compose builds and starts server + database services with a single `docker compose up`
+- [x] **CONT-02**: Server container has HEALTHCHECK wired to `/health` endpoint
+- [x] **CONT-03**: All services have restart policies for crash recovery
 - [ ] **CONT-04**: Template `.env` file documents all required environment variables with descriptions
 
 ### Security
 
-- [ ] **SEC-01**: `BETTER_AUTH_SECRET` is generated and injected via `.env`
-- [ ] **SEC-02**: PostgreSQL port 5432 is not exposed to the host network
-- [ ] **SEC-03**: `PAPERCLIP_PUBLIC_URL` is set to the actual browser-accessible URL
-- [ ] **SEC-04**: `USER_UID`/`USER_GID` build args configured for correct volume permissions
+- [x] **SEC-01**: `BETTER_AUTH_SECRET` is generated and injected via `.env`
+- [x] **SEC-02**: PostgreSQL port 5432 is not exposed to the host network
+- [x] **SEC-03**: `PAPERCLIP_PUBLIC_URL` is set to the actual browser-accessible URL
+- [x] **SEC-04**: `USER_UID`/`USER_GID` build args configured for correct volume permissions
 
 ### Networking
 
@@ -68,14 +68,14 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| CONT-01 | Phase 1 | Pending |
-| CONT-02 | Phase 1 | Pending |
-| CONT-03 | Phase 1 | Pending |
+| CONT-01 | Phase 1 | Complete |
+| CONT-02 | Phase 1 | Complete |
+| CONT-03 | Phase 1 | Complete |
 | CONT-04 | Phase 1 | Pending |
-| SEC-01 | Phase 1 | Pending |
-| SEC-02 | Phase 1 | Pending |
-| SEC-03 | Phase 1 | Pending |
-| SEC-04 | Phase 1 | Pending |
+| SEC-01 | Phase 1 | Complete |
+| SEC-02 | Phase 1 | Complete |
+| SEC-03 | Phase 1 | Complete |
+| SEC-04 | Phase 1 | Complete |
 | NET-01 | Phase 2 | Pending |
 | NET-02 | Phase 2 | Pending |
 | NET-03 | Phase 2 | Pending |
