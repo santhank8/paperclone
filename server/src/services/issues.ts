@@ -1340,7 +1340,11 @@ export function issueService(db: Db) {
       }
 
       // If an executionRunId is blocking checkout but its run is dead, clear it and retry
-      if (current.executionRunId && current.executionRunId !== checkoutRunId) {
+      if (
+        current.executionRunId &&
+        current.executionRunId !== checkoutRunId &&
+        (current.assigneeAgentId === agentId || current.assigneeAgentId == null)
+      ) {
         const cleared = await clearStaleExecutionLock(id, current.executionRunId);
         if (cleared) {
           const now = new Date();
@@ -1429,6 +1433,8 @@ export function issueService(db: Db) {
       // Clear stale execution lock from a dead run before giving up
       if (
         actorRunId &&
+        current.status === "in_progress" &&
+        current.assigneeAgentId === actorAgentId &&
         current.executionRunId &&
         current.executionRunId !== actorRunId
       ) {
