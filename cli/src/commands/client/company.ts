@@ -3,6 +3,7 @@ import { mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import * as p from "@clack/prompts";
 import pc from "picocolors";
+import { AGENT_ADAPTER_TYPES } from "@paperclipai/shared";
 import type {
   Company,
   FeedbackTrace,
@@ -75,6 +76,7 @@ interface CompanyImportOptions extends BaseClientOptions {
   paperclipUrl?: string;
   yes?: boolean;
   dryRun?: boolean;
+  adapter?: string;
 }
 
 const DEFAULT_EXPORT_INCLUDE: CompanyPortabilityInclude = {
@@ -397,6 +399,16 @@ function buildDefaultImportAdapterMessages(
   return [
     `Using ${adapterTypes.join(", ")} adapter${adapterTypes.length === 1 ? "" : "s"} for ${agentCount} imported ${pluralize(agentCount, "agent")} without an explicit adapter.`,
   ];
+}
+
+export function validateImportAdapterFlag(value: string): string {
+  const normalized = value.trim();
+  if (!(AGENT_ADAPTER_TYPES as readonly string[]).includes(normalized)) {
+    throw new Error(
+      `Invalid --adapter value "${normalized}". Valid types: ${AGENT_ADAPTER_TYPES.join(", ")}`,
+    );
+  }
+  return normalized;
 }
 
 async function promptForAdapterType(): Promise<string> {
@@ -1295,6 +1307,7 @@ export function registerCompanyCommands(program: Command): void {
       .option("--paperclip-url <url>", "Alias for --api-base on this command")
       .option("--yes", "Accept default selection and skip the pre-import confirmation prompt", false)
       .option("--dry-run", "Run preview only without applying", false)
+      .option("--adapter <type>", `Adapter type for imported agents without an explicit adapter (skips prompt). Valid: ${AGENT_ADAPTER_TYPES.join(", ")}`)
       .action(async (fromPathOrUrl: string, opts: CompanyImportOptions) => {
         try {
           if (!opts.apiBase?.trim() && opts.paperclipUrl?.trim()) {
@@ -1404,8 +1417,9 @@ export function registerCompanyCommands(program: Command): void {
               agent.adapterType === "process" &&
               (selectedAgentSlugs.size === 0 || selectedAgentSlugs.has(agent.slug)),
           );
-          const adapterType =
-            hasProcessAgents && interactiveView && !opts.yes
+          const adapterType = opts.adapter
+            ? validateImportAdapterFlag(opts.adapter)
+            : hasProcessAgents && interactiveView && !opts.yes
               ? await promptForAdapterType()
               : "claude_local";
           const adapterOverrides = buildDefaultImportAdapterOverrides(preview, adapterType);
