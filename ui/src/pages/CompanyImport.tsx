@@ -711,18 +711,23 @@ async function readLocalPackageZip(file: File): Promise<{
   name: string;
   rootPath: string | null;
   files: Record<string, CompanyPortabilityFileEntry>;
+  warnings: string[];
 }> {
   if (!/\.zip$/i.test(file.name)) {
     throw new Error("Select a .zip company package.");
   }
   const archive = await readZipArchive(await file.arrayBuffer());
   if (Object.keys(archive.files).length === 0) {
-    throw new Error("No package files were found in the selected zip archive.");
+    const msg =
+      archive.warnings[0] ??
+      "No package files were found in the selected zip archive.";
+    throw new Error(msg);
   }
   return {
     name: file.name,
     rootPath: archive.rootPath,
     files: archive.files,
+    warnings: archive.warnings,
   };
 }
 
@@ -748,6 +753,7 @@ export function CompanyImport() {
     name: string;
     rootPath: string | null;
     files: Record<string, CompanyPortabilityFileEntry>;
+    warnings: string[];
   } | null>(null);
 
   // Target state
@@ -1037,6 +1043,13 @@ export function CompanyImport() {
     if (!fileList || fileList.length === 0) return;
     try {
       const pkg = await readLocalPackageZip(fileList[0]!);
+      if (pkg.warnings.length > 0) {
+        pushToast({
+          tone: "warn",
+          title: "Package read with warnings",
+          body: pkg.warnings[0]!,
+        });
+      }
       setLocalPackage(pkg);
       setImportPreview(null);
     } catch (err) {

@@ -1,3 +1,4 @@
+import pako from "pako";
 import type { CompanyPortabilityFileEntry } from "@paperclipai/shared";
 
 const textEncoder = new TextEncoder();
@@ -144,24 +145,24 @@ function portableFileEntryToBytes(
   return base64ToBytes(entry.data);
 }
 
-async function inflateZipEntry(compressionMethod: number, bytes: Uint8Array) {
+function inflateZipEntry(
+  compressionMethod: number,
+  bytes: Uint8Array,
+): Uint8Array | null {
   if (compressionMethod === 0) return bytes;
   if (compressionMethod !== 8) {
     throw new Error(
       "Unsupported zip archive: only STORE and DEFLATE entries are supported.",
     );
   }
-  if (typeof DecompressionStream !== "function") {
-    throw new Error(
-      "Unsupported zip archive: this browser cannot read compressed zip entries.",
-    );
+  try {
+    // Use pako inflateRaw for raw DEFLATE (ZIP format uses raw DEFLATE, not zlib-wrapped)
+    const result = pako.inflateRaw(bytes);
+    return new Uint8Array(result);
+  } catch {
+    // Decompression failed — return null so caller can skip with a warning
+    return null;
   }
-  const body = new Uint8Array(bytes.byteLength);
-  body.set(bytes);
-  const stream = new Blob([body])
-    .stream()
-    .pipeThrough(new DecompressionStream("deflate-raw"));
-  return new Uint8Array(await new Response(stream).arrayBuffer());
 }
 
 export async function readZipArchive(
@@ -169,10 +170,14 @@ export async function readZipArchive(
 ): Promise<{
   rootPath: string | null;
   files: Record<string, CompanyPortabilityFileEntry>;
+  warnings: string[];
 }> {
   const bytes = source instanceof Uint8Array ? source : new Uint8Array(source);
   const entries: Array<{ path: string; body: CompanyPortabilityFileEntry }> =
     [];
+  const warnings: string[] = [];
+  let totalEntries = 0;
+  let skippedEmptyEntries = 0;
   let offset = 0;
 
   while (offset + 4 <= bytes.length) {
@@ -227,21 +232,50 @@ export async function readZipArchive(
     if ((generalPurposeFlag & 0x0008) !== 0) {
       // Data descriptors present — skip this entry rather than failing the whole import.
       // The size info for this entry is unreliable, so we cannot safely decompress it.
-      offset = bodyEnd;
+      // If compressedSize is 0, there is no actual data or descriptor; skip the header itself.
+      totalEntries++;
+      if (compressedSize === 0) {
+        skippedEmptyEntries++;
+        offset = nameOffset + fileNameLength + extraFieldLength;
+      } else {
+        offset = bodyEnd;
+      }
       continue;
     }
     if (archivePath && !isDirectoryEntry) {
-      const entryBytes = await inflateZipEntry(
+      totalEntries++;
+      const entryBytes = inflateZipEntry(
         compressionMethod,
         bytes.slice(bodyOffset, bodyEnd),
       );
-      entries.push({
-        path: archivePath,
-        body: bytesToPortableFileEntry(archivePath, entryBytes),
-      });
+      if (entryBytes === null) {
+        warnings.push(
+          `Failed to decompress "${archivePath}" — the entry was skipped. ` +
+            "This can happen with non-standard DEFLATE compression.",
+        );
+      } else {
+        entries.push({
+          path: archivePath,
+          body: bytesToPortableFileEntry(archivePath, entryBytes),
+        });
+      }
     }
 
     offset = bodyEnd;
+  }
+
+  // Detect empty archive: all entries had compressedSize=0 with data descriptors
+  // This commonly happens with macOS-created archives that have no actual content
+  if (
+    totalEntries > 0 &&
+    skippedEmptyEntries === totalEntries &&
+    entries.length === 0
+  ) {
+    warnings.push(
+      "The zip archive contains no parseable file content. " +
+        "This can happen when the archive was created on macOS without including actual files. " +
+        "Try re-zipping the files using: 'zip -r output.zip folder/' (instead of right-click > Compress).",
+    );
   }
 
   const rootPath = sharedArchiveRoot(entries.map((entry) => entry.path));
@@ -255,7 +289,7 @@ export async function readZipArchive(
     files[normalizedPath] = entry.body;
   }
 
-  return { rootPath, files };
+  return { rootPath, files, warnings };
 }
 
 export function createZipArchive(
