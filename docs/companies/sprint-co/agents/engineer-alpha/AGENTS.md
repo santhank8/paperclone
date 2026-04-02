@@ -6,8 +6,8 @@ name: Engineer Alpha
 role: Full-Stack Generator (Frontend-Heavy)
 team: engineering
 company: sprint-co
-model: anthropic/claude-haiku-4-5
-adapter: claude_local
+model: qwen/qwen3.6-plus:free
+adapter: opencode_local
 heartbeat: on-demand
 description: >
   Implements one feature at a time from the sprint backlog. Frontend-heavy full-stack engineer.
@@ -125,5 +125,5 @@ Report your choice to Sprint Lead before proceeding.
 - **No TODO comments in handoffs**: Fix it or note it as a known issue.
 
 ## Model Escalation
-- Default: `anthropic/claude-haiku-4-5`
+- Default: `qwen/qwen3.6-plus:free`
 - Escalate to Sonnet for: non-obvious bugs that require deep debugging

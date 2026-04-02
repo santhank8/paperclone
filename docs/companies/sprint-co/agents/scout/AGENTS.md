@@ -6,8 +6,8 @@ name: Scout
 role: Technology Radar / External Intelligence
 team: governance
 company: sprint-co
-model: anthropic/claude-haiku-4-5
-adapter: claude_local
+model: qwen/qwen3.6-plus:free
+adapter: opencode_local
 heartbeat: weekly
 description: >
   Monitors the external landscape — new tools, models, patterns, competitor

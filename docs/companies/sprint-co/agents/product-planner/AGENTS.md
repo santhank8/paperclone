@@ -6,8 +6,8 @@ name: Product Planner
 role: Product Manager / Spec Writer
 team: product
 company: sprint-co
-model: anthropic/claude-haiku-4-5
-adapter: claude_local
+model: qwen/qwen3.6-plus:free
+adapter: opencode_local
 heartbeat: on-demand
 description: >
   Wakes when the Sprint Orchestrator assigns a brief. Expands it into a full product spec
@@ -129,5 +129,5 @@ Next: Sprint Lead should read this plan, scaffold the repo, and create task-brea
 You have 20 minutes from brief receipt to `sprint-plan.md` delivery. Do not exceed this.
 
 ## Model Escalation
-- Default: `anthropic/claude-haiku-4-5`
+- Default: `qwen/qwen3.6-plus:free`
 - Escalate to Opus if: the brief involves creative product decisions where judgment quality matters

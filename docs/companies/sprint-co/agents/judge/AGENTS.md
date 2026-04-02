@@ -6,8 +6,8 @@ name: Judge
 role: Neutral Arbiter / Dispute Resolution
 team: governance
 company: sprint-co
-model: anthropic/claude-sonnet-4-5
-adapter: claude_local
+model: qwen/qwen3.6-plus:free
+adapter: opencode_local
 heartbeat: on-demand
 description: >
   Neutral arbiter who makes binding decisions when agents disagree. Not a manager —

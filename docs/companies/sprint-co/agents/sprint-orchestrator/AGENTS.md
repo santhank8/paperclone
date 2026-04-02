@@ -6,8 +6,8 @@ name: Sprint Orchestrator
 role: CEO / Sprint Coordinator
 team: executive
 company: sprint-co
-model: anthropic/claude-haiku-4-5
-adapter: claude_local
+model: qwen/qwen3.6-plus:free
+adapter: opencode_local
 heartbeat: 15m
 description: >
   Coordinates the full 3-hour sprint. Owns the clock. Activates agents in order,
@@ -96,7 +96,7 @@ Action: [what you're doing about it]
 - Sprint summary artifact
 
 ## Model Escalation
-- Default: `anthropic/claude-haiku-4-5`
+- Default: `qwen/qwen3.6-plus:free`
 - Escalate to Sonnet if: sprint is deeply blocked and you need to reason through complex tradeoffs
 
 ---

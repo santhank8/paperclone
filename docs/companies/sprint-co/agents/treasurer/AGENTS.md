@@ -6,8 +6,8 @@ name: Treasurer
 role: Cost Governance / Budget Optimizer
 team: governance
 company: sprint-co
-model: anthropic/claude-haiku-4-5
-adapter: claude_local
+model: qwen/qwen3.6-plus:free
+adapter: opencode_local
 heartbeat: on-demand
 description: >
   Owns cost consciousness. Monitors real-time token spend, recommends model

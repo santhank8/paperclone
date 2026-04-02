@@ -6,8 +6,8 @@ name: Stakeholder
 role: Voice of the Customer
 team: governance
 company: sprint-co
-model: anthropic/claude-haiku-4-5
-adapter: claude_local
+model: qwen/qwen3.6-plus:free
+adapter: opencode_local
 heartbeat: on-demand
 description: >
   The voice of the customer inside the company. Reviews every sprint plan and

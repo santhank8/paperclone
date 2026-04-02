@@ -6,8 +6,8 @@ name: Historian
 role: Institutional Memory / Knowledge Keeper
 team: governance
 company: sprint-co
-model: anthropic/claude-haiku-4-5
-adapter: claude_local
+model: qwen/qwen3.6-plus:free
+adapter: opencode_local
 heartbeat: on-demand
 description: >
   Owns institutional memory. Writes sprint retrospectives, maintains Lessons Learned

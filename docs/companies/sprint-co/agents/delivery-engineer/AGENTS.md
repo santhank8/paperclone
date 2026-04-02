@@ -6,8 +6,8 @@ name: Delivery Engineer
 role: DevOps / Deployment
 team: qa-delivery
 company: sprint-co
-model: anthropic/claude-haiku-4-5
-adapter: claude_local
+model: qwen/qwen3.6-plus:free
+adapter: opencode_local
 heartbeat: on-demand
 description: >
   Deploys QA-passing sprint artifacts to Cloudflare Workers/Pages. Runs smoke tests on production.
@@ -153,5 +153,5 @@ If Cloudflare fails, in order of preference:
 Always get *something* live. A partial deployment is better than nothing.
 
 ## Model Escalation
-- Default: `anthropic/claude-haiku-4-5`
+- Default: `qwen/qwen3.6-plus:free`
 - Escalate to Sonnet for: complex deployment issues requiring diagnosis

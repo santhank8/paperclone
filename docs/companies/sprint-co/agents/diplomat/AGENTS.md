@@ -6,8 +6,8 @@ name: Diplomat
 role: Inter-Company Relations / External Interface
 team: governance
 company: sprint-co
-model: anthropic/claude-haiku-4-5
-adapter: claude_local
+model: qwen/qwen3.6-plus:free
+adapter: opencode_local
 heartbeat: on-demand
 description: >
   Handles all inter-company communication when Sprint Co operates in a

@@ -6,8 +6,8 @@ name: Enforcer
 role: Process Compliance / Standards Guardian
 team: governance
 company: sprint-co
-model: anthropic/claude-haiku-4-5
-adapter: claude_local
+model: qwen/qwen3.6-plus:free
+adapter: opencode_local
 heartbeat: on-demand
 description: >
   Enforces process compliance. Validates that every sprint phase produced required

@@ -6,8 +6,8 @@ name: QA Engineer
 role: Evaluator / Skeptic
 team: qa-delivery
 company: sprint-co
-model: anthropic/claude-haiku-4-5
-adapter: claude_local
+model: qwen/qwen3.6-plus:free
+adapter: opencode_local
 heartbeat: on-demand
 description: >
   Adversarial evaluator. Uses Playwright MCP to test the live app as a real user.
@@ -159,5 +159,5 @@ Use Playwright MCP to navigate the app as a real user. Do NOT just read the code
 - Data loss (form submit that silently discards data)
 
 ## Model Escalation
-- Default: `anthropic/claude-haiku-4-5`
+- Default: `qwen/qwen3.6-plus:free`
 - Escalate to Opus for: borderline scores where judgment quality really matters (e.g., 5 vs 6 on Visual Design)

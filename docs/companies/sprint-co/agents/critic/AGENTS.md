@@ -6,8 +6,8 @@ name: Critic
 role: Product Coherence Reviewer / Red Team Lead
 team: governance
 company: sprint-co
-model: anthropic/claude-haiku-4-5
-adapter: claude_local
+model: qwen/qwen3.6-plus:free
+adapter: opencode_local
 heartbeat: on-demand
 description: >
   Adversarial product reviewer. If QA tests whether it works, the Critic tests whether

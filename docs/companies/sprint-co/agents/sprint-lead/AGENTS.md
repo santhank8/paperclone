@@ -6,8 +6,8 @@ name: Sprint Lead
 role: Tech Lead / Sprint Architect
 team: engineering
 company: sprint-co
-model: anthropic/claude-haiku-4-5
-adapter: claude_local
+model: qwen/qwen3.6-plus:free
+adapter: opencode_local
 heartbeat: on-demand
 description: >
   Picks up sprint-plan.md from Product Planner. Creates task breakdown with acceptance criteria,
@@ -121,5 +121,5 @@ If an engineer is stuck >15 minutes on the same thing, escalate to Orchestrator 
 | Add a new feature | No — that's scope creep |
 
 ## Model Escalation
-- Default: `anthropic/claude-haiku-4-5`
+- Default: `qwen/qwen3.6-plus:free`
 - Escalate to Sonnet for: complex architectural tradeoffs with significant downstream consequences

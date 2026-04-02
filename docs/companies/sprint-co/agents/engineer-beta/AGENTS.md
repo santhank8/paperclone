@@ -6,8 +6,8 @@ name: Engineer Beta
 role: Backend / API Generator
 team: engineering
 company: sprint-co
-model: anthropic/claude-haiku-4-5
-adapter: claude_local
+model: qwen/qwen3.6-plus:free
+adapter: opencode_local
 heartbeat: on-demand
 description: >
   Parallel backend engineer. Specializes in APIs, database schemas, auth flows, and integrations.
@@ -130,5 +130,5 @@ When building in parallel:
 - **CORS configured**: For the frontend origin
 
 ## Model Escalation
-- Default: `anthropic/claude-haiku-4-5`
+- Default: `qwen/qwen3.6-plus:free`
 - Escalate to Sonnet for: complex auth flows, tricky database design decisions
