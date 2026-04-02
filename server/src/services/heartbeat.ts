@@ -2445,7 +2445,15 @@ export function heartbeatService(db: Db) {
       worktreePath: executionWorkspace.worktreePath,
       agentHome: await (async () => {
         const home = resolveDefaultAgentWorkspaceDir(agent.id);
-        await materializeAgentHomeInstructions(agent, home);
+        try {
+          await materializeAgentHomeInstructions(agent, home);
+        } catch (err) {
+          logger.warn(
+            { err, agentId: agent.id, runId: run.id, agentHome: home },
+            "failed to sync managed instruction bundle into AGENT_HOME; continuing with workspace only",
+          );
+          await fs.mkdir(home, { recursive: true });
+        }
         return home;
       })(),
     };

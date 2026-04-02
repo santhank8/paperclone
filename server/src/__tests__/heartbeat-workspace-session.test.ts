@@ -447,6 +447,17 @@ describe("materializeAgentHomeInstructions", () => {
     await expect(fs.readFile(path.join(agentHome, "SOUL.md"), "utf8")).resolves.toBe("# Soul\n");
     await expect(fs.readFile(path.join(agentHome, "docs", "TOOLS.md"), "utf8")).resolves.toBe("# Tools\n");
   });
+
+  it("rejects instruction bundle paths that escape AGENT_HOME", async () => {
+    const agentHome = await fs.mkdtemp(path.join(os.tmpdir(), "paperclip-agent-home-"));
+    cleanupPaths.add(agentHome);
+
+    await expect(
+      materializeAgentHomeInstructions(buildAgent("codex_local"), agentHome, {
+        "../escaped.md": "# nope\n",
+      }),
+    ).rejects.toThrow("Instruction file path must stay within AGENT_HOME");
+  });
 });
 
 describe("prioritizeProjectWorkspaceCandidatesForRun", () => {
