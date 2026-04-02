@@ -10,6 +10,7 @@ import {
   agentRuntimeState,
   agentTaskSessions,
   agentWakeupRequests,
+  companies,
   heartbeatRunEvents,
   heartbeatRuns,
   issues,
@@ -902,6 +903,14 @@ export function heartbeatService(db: Db) {
       .from(agents)
       .where(eq(agents.id, agentId))
       .then((rows) => rows[0] ?? null);
+  }
+
+  async function getCompanyIssuePrefix(companyId: string): Promise<string | null> {
+    return db
+      .select({ issuePrefix: companies.issuePrefix })
+      .from(companies)
+      .where(eq(companies.id, companyId))
+      .then((rows) => rows[0]?.issuePrefix ?? null);
   }
 
   async function getRun(runId: string) {
@@ -2654,9 +2663,10 @@ export function heartbeatService(db: Db) {
           "local agent jwt secret missing or invalid; running without injected PAPERCLIP_API_KEY",
         );
       }
+      const companyIssuePrefix = await getCompanyIssuePrefix(agent.companyId);
       const adapterResult = await adapter.execute({
         runId: run.id,
-        agent,
+        agent: { ...agent, companyIssuePrefix },
         runtime: runtimeForAdapter,
         config: runtimeConfig,
         context,

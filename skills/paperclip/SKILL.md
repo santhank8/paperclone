@@ -171,7 +171,7 @@ When posting issue comments or writing issue descriptions, use concise markdown 
 
 Never leave bare ticket ids in issue descriptions or comments when a clickable internal link can be provided.
 
-**Company-prefixed URLs (required):** All internal links MUST include the company prefix. Derive the prefix from any issue identifier you have (e.g., `PAP-315` → prefix is `PAP`). Use this prefix in all UI links:
+**Company-prefixed URLs (required):** All internal links MUST include the company prefix. Use `$PAPERCLIP_COMPANY_PREFIX` from your environment — this is always the correct current prefix. If that env var is unavailable, derive it from recently created issues (not legacy ones, which may have an old prefix from a rename). Use this prefix in all UI links:
 
 - Issues: `/<prefix>/issues/<issue-identifier>` (e.g., `/PAP/issues/PAP-224`)
 - Issue comments: `/<prefix>/issues/<issue-identifier>#comment-<comment-id>` (deep link to a specific comment)
