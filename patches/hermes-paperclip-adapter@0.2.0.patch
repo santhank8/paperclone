@@ -1,8 +1,8 @@
 diff --git a/dist/server/execute.js b/dist/server/execute.js
-index 93cddf8243271f5fb3ab101617f9114257e41328..6431a056c7c54598cef838d697aea8ccf8cbb40c 100644
+index 93cddf8243271f5fb3ab101617f9114257e41328..1b09a2b9600fefe6180b9f258ce0c40a1d74f28a 100644
 --- a/dist/server/execute.js
 +++ b/dist/server/execute.js
-@@ -41,6 +41,16 @@ const DEFAULT_PROMPT_TEMPLATE = `You are "{{agentName}}", an AI agent employee i
+@@ -41,6 +41,24 @@ const DEFAULT_PROMPT_TEMPLATE = `You are "{{agentName}}", an AI agent employee i
  
  IMPORTANT: Use \`terminal\` tool with \`curl\` for ALL Paperclip API calls (web_extract and browser cannot access localhost).
  
@@ -16,41 +16,66 @@ index 93cddf8243271f5fb3ab101617f9114257e41328..6431a056c7c54598cef838d697aea8cc
 +- Do not print full scripts unless explicitly requested.
 +- Summarize results in a few lines with key outcomes only.
 +
++Auth + headers (mandatory):
++- Use injected \`$PAPERCLIP_API_KEY\` directly. Do not generate JWT manually when this variable is present.
++- Reuse headers instead of rebuilding auth each command:
++  \`AUTH=(-H "Authorization: Bearer <PAPERCLIP_API_KEY>")\`
++  \`RUN=(-H "X-Paperclip-Run-Id: $PAPERCLIP_RUN_ID")\`
++- If \`$PAPERCLIP_API_KEY\` is empty, generate a token once, store in \`$TOKEN\`, and reuse it for all calls in the run.
++- Never print secrets/tokens to output.
++
  Your Paperclip identity:
    Agent ID: {{agentId}}
    Company ID: {{companyId}}
-@@ -68,8 +78,9 @@ Title: {{taskTitle}}
+@@ -58,18 +76,19 @@ Title: {{taskTitle}}
+ 
+ 1. Work on the task using your tools
+ 2. When done, mark the issue as completed:
+-   \`curl -s -X PATCH "{{paperclipApiUrl}}/issues/{{taskId}}" -H "Content-Type: application/json" -d '{"status":"done"}'\`
++   \`curl -s -X PATCH "{{paperclipApiUrl}}/issues/{{taskId}}" "\${AUTH[@]}" "\${RUN[@]}" -H "Content-Type: application/json" -d '{"status":"done"}'\`
+ 3. Post a completion comment on the issue summarizing what you did:
+-   \`curl -s -X POST "{{paperclipApiUrl}}/issues/{{taskId}}/comments" -H "Content-Type: application/json" -d '{"body":"DONE: <your summary here>"}'\`
++   \`curl -s -X POST "{{paperclipApiUrl}}/issues/{{taskId}}/comments" "\${AUTH[@]}" "\${RUN[@]}" -H "Content-Type: application/json" -d '{"body":"DONE: <your summary here>"}'\`
+ 4. If this issue has a parent (check the issue body or comments for references like TRA-XX), post a brief notification on the parent issue so the parent owner knows:
+-   \`curl -s -X POST "{{paperclipApiUrl}}/issues/PARENT_ISSUE_ID/comments" -H "Content-Type: application/json" -d '{"body":"{{agentName}} completed {{taskId}}. Summary: <brief>"}'\`
++   \`curl -s -X POST "{{paperclipApiUrl}}/issues/PARENT_ISSUE_ID/comments" "\${AUTH[@]}" "\${RUN[@]}" -H "Content-Type: application/json" -d '{"body":"{{agentName}} completed {{taskId}}. Summary: <brief>"}'\`
+ {{/taskId}}
+ 
  {{#commentId}}
  ## Comment on This Issue
  
 -Someone commented. Read it:
 -   \`curl -s "{{paperclipApiUrl}}/issues/{{taskId}}/comments/{{commentId}}" | python3 -m json.tool\`
 +Someone commented. Read it safely (no interpreter pipes):
-+   \`curl -fsS -o /tmp/paperclip-comment.json "{{paperclipApiUrl}}/issues/{{taskId}}/comments/{{commentId}}"\`
++   \`curl -fsS "\${AUTH[@]}" -o /tmp/paperclip-comment.json "{{paperclipApiUrl}}/issues/{{taskId}}/comments/{{commentId}}"\`
 +   \`python3 -m json.tool /tmp/paperclip-comment.json\`
  
  Address the comment, POST a reply if needed, then continue working.
  {{/commentId}}
-@@ -77,16 +88,18 @@ Address the comment, POST a reply if needed, then continue working.
+@@ -77,18 +96,20 @@ Address the comment, POST a reply if needed, then continue working.
  {{#noTask}}
  ## Heartbeat Wake — Check for Work
  
 -1. List ALL open issues assigned to you (todo, backlog, in_progress):
 -   \`curl -s "{{paperclipApiUrl}}/companies/{{companyId}}/issues?assigneeAgentId={{agentId}}" | python3 -c "import sys,json;issues=json.loads(sys.stdin.read());[print(f'{i[\"identifier\"]} {i[\"status\"]:>12} {i[\"priority\"]:>6} {i[\"title\"]}') for i in issues if i['status'] not in ('done','cancelled')]" \`
 +1. List ALL open issues assigned to you (todo, backlog, in_progress) safely:
-+   \`curl -fsS -o /tmp/paperclip-issues.json "{{paperclipApiUrl}}/companies/{{companyId}}/issues?assigneeAgentId={{agentId}}"\`
++   \`curl -fsS "\${AUTH[@]}" -o /tmp/paperclip-issues.json "{{paperclipApiUrl}}/companies/{{companyId}}/issues?assigneeAgentId={{agentId}}"\`
 +   \`jq -r '.[] | select(.status != "done" and .status != "cancelled") | "\(.identifier) \(.status) \(.priority) \(.title)"' /tmp/paperclip-issues.json\`
  
  2. If issues found, pick the highest priority one that is not done/cancelled and work on it:
-    - Read the issue details: \`curl -s "{{paperclipApiUrl}}/issues/ISSUE_ID"\`
+-   - Read the issue details: \`curl -s "{{paperclipApiUrl}}/issues/ISSUE_ID"\`
++   - Read the issue details: \`curl -s "\${AUTH[@]}" "{{paperclipApiUrl}}/issues/ISSUE_ID"\`
     - Do the work in the project directory: {{projectName}}
     - When done, mark complete and post a comment (see Workflow steps 2-4 above)
  
 -3. If no issues assigned to you, check for unassigned issues:
 -   \`curl -s "{{paperclipApiUrl}}/companies/{{companyId}}/issues?status=backlog" | python3 -c "import sys,json;issues=json.loads(sys.stdin.read());[print(f'{i[\"identifier\"]} {i[\"title\"]}') for i in issues if not i.get('assigneeAgentId')]" \`
 +3. If no issues assigned to you, check for unassigned issues safely:
-+   \`curl -fsS -o /tmp/paperclip-backlog.json "{{paperclipApiUrl}}/companies/{{companyId}}/issues?status=backlog"\`
++   \`curl -fsS "\${AUTH[@]}" -o /tmp/paperclip-backlog.json "{{paperclipApiUrl}}/companies/{{companyId}}/issues?status=backlog"\`
 +   \`jq -r '.[] | select((.assigneeAgentId // "") == "") | "\(.identifier) \(.title)"' /tmp/paperclip-backlog.json\`
     If you find a relevant issue, assign it to yourself:
-    \`curl -s -X PATCH "{{paperclipApiUrl}}/issues/ISSUE_ID" -H "Content-Type: application/json" -d '{"assigneeAgentId":"{{agentId}}","status":"todo"}'\`
+-   \`curl -s -X PATCH "{{paperclipApiUrl}}/issues/ISSUE_ID" -H "Content-Type: application/json" -d '{"assigneeAgentId":"{{agentId}}","status":"todo"}'\`
++   \`curl -s -X PATCH "{{paperclipApiUrl}}/issues/ISSUE_ID" "\${AUTH[@]}" "\${RUN[@]}" -H "Content-Type: application/json" -d '{"assigneeAgentId":"{{agentId}}","status":"todo"}'\`
  
+ 4. If truly nothing to do, report briefly what you checked.
+ {{/noTask}}`;
