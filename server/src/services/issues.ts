@@ -1359,6 +1359,7 @@ export function issueService(db: Db) {
               and(
                 eq(issues.id, id),
                 inArray(issues.status, expectedStatuses),
+                or(isNull(issues.assigneeAgentId), eq(issues.assigneeAgentId, agentId)),
                 or(isNull(issues.executionRunId), checkoutRunId ? eq(issues.executionRunId, checkoutRunId) : sql`false`),
               ),
             )
