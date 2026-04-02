@@ -859,13 +859,6 @@ export function IssueDocumentsSection({
               {!isFolded ? (
                 <div
                   className="mt-3 space-y-3"
-                  onFocusCapture={!isHistoricalPreview
-                    ? () => {
-                        if (!activeDraft) {
-                          beginEdit(doc.key);
-                        }
-                      }
-                    : undefined}
                   onBlurCapture={!isHistoricalPreview
                     ? async (event) => {
                         if (activeDraft) {
@@ -989,14 +982,15 @@ export function IssueDocumentsSection({
                   )}
                   <div
                     className={`${documentBodyShellClassName} ${documentBodyPaddingClassName} ${
-                      activeDraft || isHistoricalPreview ? "" : "hover:bg-accent/10"
+                      activeDraft || isHistoricalPreview ? "" : "cursor-text hover:bg-accent/10"
                     }`}
+                    onClick={!activeDraft && !isHistoricalPreview ? () => beginEdit(doc.key) : undefined}
                   >
                     {isHistoricalPreview ? (
                       <div className="rounded-md border border-amber-500/20 bg-background/50 p-3">
                         {renderBody(displayedBody, documentBodyContentClassName)}
                       </div>
-                    ) : (
+                    ) : activeDraft ? (
                       <MarkdownEditor
                         value={displayedBody}
                         onChange={(body) => {
@@ -1022,6 +1016,12 @@ export function IssueDocumentsSection({
                         imageUploadHandler={imageUploadHandler}
                         onSubmit={() => void commitDraft(activeDraft ?? draft, { clearAfterSave: false, trackAutosave: true })}
                       />
+                    ) : (
+                      <div className={documentBodyContentClassName}>
+                        {displayedBody.trim()
+                          ? renderBody(displayedBody)
+                          : <span className="text-muted-foreground/50 text-[15px]">Markdown body</span>}
+                      </div>
                     )}
                   </div>
                   <div className="flex min-h-4 items-center justify-end px-1">
