@@ -3143,6 +3143,35 @@ export function heartbeatService(db: Db) {
 
     const agent = await getAgent(agentId);
     if (!agent) throw notFound("Agent not found");
+
+    // Idempotency check: if an idempotencyKey is provided, check for existing request
+    const idempotencyKey = readNonEmptyString(opts.idempotencyKey);
+    if (idempotencyKey) {
+      const existingRequest = await db
+        .select()
+        .from(agentWakeupRequests)
+        .where(
+          and(
+            eq(agentWakeupRequests.companyId, agent.companyId),
+            eq(agentWakeupRequests.agentId, agentId),
+            eq(agentWakeupRequests.idempotencyKey, idempotencyKey),
+          ),
+        )
+        .orderBy(desc(agentWakeupRequests.createdAt))
+        .limit(1)
+        .then((rows) => rows[0] ?? null);
+
+      if (existingRequest) {
+        // If the existing request has a run, return it
+        if (existingRequest.runId) {
+          const existingRun = await getRun(existingRequest.runId);
+          if (existingRun) return existingRun;
+        }
+        // If pending (no runId yet), return null to indicate deduplication
+        return null;
+      }
+    }
+
     const explicitResumeSession = await resolveExplicitResumeSessionOverride(agent, payload, taskKey);
     if (explicitResumeSession) {
       enrichedContextSnapshot.resumeFromRunId = explicitResumeSession.resumeFromRunId;
