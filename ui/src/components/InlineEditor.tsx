@@ -97,7 +97,7 @@ export function InlineEditor({
     }
   }, [draft, multiline, nullable, onSave, value]);
 
-  /** Multiline blur/submit: show autosave indicator when persisting (including nullable clear). */
+  /** Multiline blur/submit: show autosave indicator when persisting */
   const finalizeMultilineBlurOrSubmit = useCallback(() => {
     const trimmed = draft.trim();
     if (trimmed === value) {
@@ -139,7 +139,8 @@ export function InlineEditor({
     if (!multiline) return;
     if (!multilineFocused) return;
     const trimmed = draft.trim();
-    if (!trimmed || trimmed === value) {
+    // Nullable: empty draft can still be a real edit (clearing); only skip debounce when unchanged or empty is invalid.
+    if (trimmed === value || (!trimmed && !nullable)) {
       if (autosaveState !== "saved") {
         reset();
       }
@@ -158,7 +159,7 @@ export function InlineEditor({
         clearTimeout(autosaveDebounceRef.current);
       }
     };
-  }, [autosaveState, commit, draft, markDirty, multiline, multilineFocused, reset, runSave, value]);
+  }, [autosaveState, commit, draft, markDirty, multiline, multilineFocused, nullable, reset, runSave, value]);
 
   if (multiline) {
     return (
