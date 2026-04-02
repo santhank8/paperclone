@@ -2896,8 +2896,6 @@ export function companyPortabilityService(
     const projectsSvc = projectService(db);
     const issuesSvc = issueService(db);
     const routinesSvc = routineService(db);
-    const goalsSvc = goalService(db);
-    const allGoalRows = include.goals || include.projects || include.issues ? await goalsSvc.list(companyId) : [];
     const allProjectsRaw = include.projects || include.issues ? await projectsSvc.list(companyId) : [];
     const allProjects = allProjectsRaw.filter((project) => !project.archivedAt);
     const allRoutines = include.issues ? await routinesSvc.list(companyId) : [];
@@ -3003,6 +3001,11 @@ export function companyPortabilityService(
     const selectedRoutineRows = (
       await Promise.all(selectedRoutineSummaries.map((routine) => routinesSvc.getDetail(routine.id)))
     ).filter((routine): routine is RoutineLike => routine !== null);
+    const needsGoalExportData =
+      include.goals
+      || selectedProjectRows.some((project) => (project.goalIds?.length ?? 0) > 0)
+      || selectedIssueRows.some((issue) => Boolean(issue.goalId));
+    const allGoalRows = needsGoalExportData ? await goalService(db).list(companyId) : [];
     const selectedGoalRows = [...allGoalRows].sort(
       (left, right) => left.createdAt.getTime() - right.createdAt.getTime(),
     );
@@ -3034,7 +3037,12 @@ export function companyPortabilityService(
     const issueKeyById = new Map<string, string>();
     const usedIssueKeys = new Set<string>();
     for (const issue of [...selectedIssueRows].sort(
-      (left, right) => left.createdAt.getTime() - right.createdAt.getTime(),
+      (left, right) => {
+        const leftTime = left.createdAt instanceof Date ? left.createdAt.getTime() : 0;
+        const rightTime = right.createdAt instanceof Date ? right.createdAt.getTime() : 0;
+        if (leftTime !== rightTime) return leftTime - rightTime;
+        return (left.identifier ?? left.title).localeCompare(right.identifier ?? right.title);
+      },
     )) {
       issueKeyById.set(issue.id, uniqueSlug(toSafeSlug(issue.title, "issue"), usedIssueKeys));
     }
@@ -3669,11 +3677,13 @@ export function companyPortabilityService(
         existingProjectSlugs.add(existing.urlKey);
       }
 
-      const existingGoals = await goals.list(input.target.companyId);
-      for (const existing of existingGoals) {
-        const key = entityKeyForText(existing.title, existing.id);
-        if (!existingGoalKeyToGoal.has(key)) {
-          existingGoalKeyToGoal.set(key, { id: existing.id, title: existing.title });
+      if (include.goals) {
+        const existingGoals = await goals.list(input.target.companyId);
+        for (const existing of existingGoals) {
+          const key = entityKeyForText(existing.title, existing.id);
+          if (!existingGoalKeyToGoal.has(key)) {
+            existingGoalKeyToGoal.set(key, { id: existing.id, title: existing.title });
+          }
         }
       }
 
@@ -4069,9 +4079,18 @@ export function companyPortabilityService(
     for (const existing of existingAgents) {
       existingSlugToAgentId.set(normalizeAgentUrlKey(existing.name) ?? existing.id, existing.id);
     }
-    const existingGoals = await goals.list(targetCompany.id);
-    for (const existing of existingGoals) {
-      existingGoalKeyToId.set(entityKeyForText(existing.title, existing.id), existing.id);
+    const needsExistingGoalLookup =
+      input.target.mode === "existing_company"
+      && (
+        include.goals
+        || sourceManifest.projects.some((project) => (project.goalKeys?.length ?? 0) > 0)
+        || sourceManifest.issues.some((issue) => Boolean(issue.goalKey))
+      );
+    if (needsExistingGoalLookup) {
+      const existingGoals = await goals.list(targetCompany.id);
+      for (const existing of existingGoals) {
+        existingGoalKeyToId.set(entityKeyForText(existing.title, existing.id), existing.id);
+      }
     }
     const importedSlugToProjectId = new Map<string, string>();
     const importedProjectWorkspaceIdByProjectSlug = new Map<string, Map<string, string>>();
