@@ -91,8 +91,7 @@ interface ChatSession {
 const chatSessions = new Map<string, ChatSession>();
 const SESSION_TTL_MS = 60 * 60 * 1000; // 1 hour — new session after inactivity
 
-// Track last report path per chat for inline keyboard callbacks
-const lastReportPath = new Map<string, string>();
+// No longer needed — report filename embedded directly in callback_data
 
 function getSession(chatKey: string): ChatSession {
   const session = chatSessions.get(chatKey);
@@ -310,13 +309,14 @@ Câu hỏi: "${question}"`;
           .sort()
           .reverse();
         if (files.length > 0) {
-          const reportPath = `${reportsDir}/${files[0]}`;
-          lastReportPath.set(chatKey, reportPath);
+          // Embed filename (without .md) in callback_data so each button pair
+          // always points to the correct report, not the latest one
+          const reportFile = files[0].replace(/\.md$/, "");
           await sendMessageWithKeyboard(
             "📎 Phân tích chi tiết đã lưu.",
             [
-              { text: "📊 Xem Chart", callback_data: `chart:${chatKey}` },
-              { text: "📄 File Chi Tiết", callback_data: `detail:${chatKey}` },
+              { text: "📊 Xem Chart", callback_data: `chart:${reportFile}` },
+              { text: "📄 File Chi Tiết", callback_data: `detail:${reportFile}` },
             ],
             { botToken: BOT_TOKEN!, chatId, threadId }
           );
@@ -354,21 +354,27 @@ async function main() {
         if (callback?.data) {
           const cbChatId = String(callback.message?.chat?.id);
           const cbThreadId = callback.message?.message_thread_id;
-          const [action, cbChatKey] = callback.data.split(":");
+          const [action, ...rest] = callback.data.split(":");
+          const reportRef = rest.join(":"); // filename or legacy chatKey
 
           await answerCallbackQuery(callback.id, "⏳ Đang xử lý...", { botToken: BOT_TOKEN! });
 
-          // Try cache first, fallback to latest report file
-          let reportPath = lastReportPath.get(cbChatKey);
-          if (!reportPath) {
-            const reportsDir = REPORTS_DIR;
+          // Resolve report path from callback_data
+          // New format: action:{filename} (e.g. chart:2026-04-02-top-tokens)
+          // Legacy format: action:{chatKey} — fallback to latest file
+          let reportPath: string | undefined;
+          const fs = await import("fs");
+          const candidatePath = `${REPORTS_DIR}/${reportRef}.md`;
+          if (fs.existsSync(candidatePath)) {
+            reportPath = candidatePath;
+          } else {
+            // Legacy fallback: find latest report file
             try {
-              const fs = await import("fs");
-              const files = fs.readdirSync(reportsDir)
+              const files = fs.readdirSync(REPORTS_DIR)
                 .filter((f: string) => f.endsWith(".md") && f !== ".gitkeep")
                 .sort()
                 .reverse();
-              if (files.length > 0) reportPath = `${reportsDir}/${files[0]}`;
+              if (files.length > 0) reportPath = `${REPORTS_DIR}/${files[0]}`;
             } catch {}
           }
           if (!reportPath) {
