@@ -36,6 +36,55 @@ describe("execution workspace policy helpers", () => {
     ).toBe("isolated_workspace");
   });
 
+  it("ignores issue overrides when the project policy disables them", () => {
+    expect(
+      resolveExecutionWorkspaceMode({
+        projectPolicy: {
+          enabled: true,
+          defaultMode: "shared_workspace",
+          allowIssueOverride: false,
+        },
+        issueSettings: { mode: "isolated_workspace" },
+        legacyUseProjectWorkspace: null,
+      }),
+    ).toBe("shared_workspace");
+
+    const result = buildExecutionWorkspaceAdapterConfig({
+      agentConfig: {
+        workspaceStrategy: { type: "project_primary" },
+      },
+      projectPolicy: {
+        enabled: true,
+        defaultMode: "isolated_workspace",
+        allowIssueOverride: false,
+        workspaceStrategy: {
+          type: "git_worktree",
+          baseRef: "origin/main",
+        },
+        workspaceRuntime: {
+          services: [{ name: "shared-web", command: "pnpm dev" }],
+        },
+      },
+      issueSettings: {
+        mode: "shared_workspace",
+        workspaceStrategy: { type: "project_primary" },
+        workspaceRuntime: {
+          services: [{ name: "ignored-issue-runtime" }],
+        },
+      },
+      mode: "isolated_workspace",
+      legacyUseProjectWorkspace: null,
+    });
+
+    expect(result.workspaceStrategy).toEqual({
+      type: "git_worktree",
+      baseRef: "origin/main",
+    });
+    expect(result.workspaceRuntime).toEqual({
+      services: [{ name: "shared-web", command: "pnpm dev" }],
+    });
+  });
+
   it("falls back to project policy before legacy project-workspace compatibility flag", () => {
     expect(
       resolveExecutionWorkspaceMode({

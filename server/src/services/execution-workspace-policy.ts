@@ -14,6 +14,18 @@ function cloneRecord(value: Record<string, unknown> | null | undefined): Record<
   return { ...value };
 }
 
+function issueOverridesEnabled(projectPolicy: ProjectExecutionWorkspacePolicy | null): boolean {
+  if (!projectPolicy?.enabled) return true;
+  return projectPolicy.allowIssueOverride !== false;
+}
+
+function effectiveIssueSettings(
+  projectPolicy: ProjectExecutionWorkspacePolicy | null,
+  issueSettings: IssueExecutionWorkspaceSettings | null,
+): IssueExecutionWorkspaceSettings | null {
+  return issueOverridesEnabled(projectPolicy) ? issueSettings : null;
+}
+
 function parseExecutionWorkspaceStrategy(raw: unknown): ExecutionWorkspaceStrategy | null {
   const parsed = parseObject(raw);
   const type = asString(parsed.type, "");
@@ -152,7 +164,7 @@ export function resolveExecutionWorkspaceMode(input: {
   issueSettings: IssueExecutionWorkspaceSettings | null;
   legacyUseProjectWorkspace: boolean | null;
 }): ParsedExecutionWorkspaceMode {
-  const issueMode = input.issueSettings?.mode;
+  const issueMode = effectiveIssueSettings(input.projectPolicy, input.issueSettings)?.mode;
   if (issueMode && issueMode !== "inherit" && issueMode !== "reuse_existing") {
     return issueMode;
   }
@@ -177,17 +189,18 @@ export function buildExecutionWorkspaceAdapterConfig(input: {
 }): Record<string, unknown> {
   const nextConfig = { ...input.agentConfig };
   const projectHasPolicy = Boolean(input.projectPolicy?.enabled);
+  const nextIssueSettings = effectiveIssueSettings(input.projectPolicy, input.issueSettings);
   const issueHasWorkspaceOverrides = Boolean(
-    input.issueSettings?.mode ||
-    input.issueSettings?.workspaceStrategy ||
-    input.issueSettings?.workspaceRuntime,
+    nextIssueSettings?.mode ||
+    nextIssueSettings?.workspaceStrategy ||
+    nextIssueSettings?.workspaceRuntime,
   );
   const hasWorkspaceControl = projectHasPolicy || issueHasWorkspaceOverrides || input.legacyUseProjectWorkspace === false;
 
   if (hasWorkspaceControl) {
     if (input.mode === "isolated_workspace") {
       const strategy =
-        input.issueSettings?.workspaceStrategy ??
+        nextIssueSettings?.workspaceStrategy ??
         input.projectPolicy?.workspaceStrategy ??
         parseExecutionWorkspaceStrategy(nextConfig.workspaceStrategy) ??
         ({ type: "git_worktree" } satisfies ExecutionWorkspaceStrategy);
@@ -198,8 +211,8 @@ export function buildExecutionWorkspaceAdapterConfig(input: {
 
     if (input.mode === "agent_default") {
       delete nextConfig.workspaceRuntime;
-    } else if (input.issueSettings?.workspaceRuntime) {
-      nextConfig.workspaceRuntime = cloneRecord(input.issueSettings.workspaceRuntime) ?? undefined;
+    } else if (nextIssueSettings?.workspaceRuntime) {
+      nextConfig.workspaceRuntime = cloneRecord(nextIssueSettings.workspaceRuntime) ?? undefined;
     } else if (input.projectPolicy?.workspaceRuntime) {
       nextConfig.workspaceRuntime = cloneRecord(input.projectPolicy.workspaceRuntime) ?? undefined;
     }
