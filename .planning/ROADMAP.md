@@ -33,7 +33,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 Plans:
 - [x] 01-01-PLAN.md — Harden docker-compose.yml and add HEALTHCHECK to Dockerfile
 - [x] 01-02-PLAN.md — Create docker/.env.template with all variables documented
-- [ ] 01-03-PLAN.md — Human verification: start stack on docker-001 and confirm all success criteria
+- [x] 01-03-PLAN.md — Human verification: start stack on docker-001 and confirm all success criteria
 
 ### Phase 2: Network Exposure
 **Goal**: The Paperclip dashboard is accessible via a subdomain with a valid Let's Encrypt certificate
