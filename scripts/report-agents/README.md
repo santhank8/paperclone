@@ -42,10 +42,11 @@ Report Manager (brain, ceo role in Paperclip)
 cd scripts/report-agents
 pnpm install
 
-# 2. Config (.env ở root paperclip/)
-# Xem .env section bên dưới
+# 2. Config
+cp .env.example .env
+# Edit .env — fill in your credentials (see below)
 
-# 3. Sync data
+# 3. Sync data from Metabase
 cd /path/to/metabase-sync && node sync.mjs
 
 # 4. Run bot (chạy liên tục)
@@ -57,6 +58,34 @@ pnpm visual          # Daily dashboard (PNG)
 pnpm visual:weekly   # Weekly dashboard
 pnpm visual:monthly  # Monthly dashboard
 ```
+
+## Environment Setup
+
+Copy `.env.example` to `.env` and fill in your values:
+
+```bash
+cp .env.example .env
+```
+
+**Required:**
+| Variable | Where to get |
+|----------|-------------|
+| `TELEGRAM_BOT_TOKEN` | Create bot via @BotFather on Telegram |
+| `TELEGRAM_CHAT_ID` | Send message to bot, check `getUpdates` API for chat ID |
+| `WHALES_DB_PATH` | Run `node sync.mjs` in metabase-sync/, use absolute path to `whales_market.db` |
+
+**Optional (for full features):**
+| Variable | Feature | Where to get |
+|----------|---------|-------------|
+| `RAPIDAPI_KEY` | Social collector (Twitter data) | rapidapi.com |
+| `SOCIAL_ACCOUNTS` | Social collector | JSON: `[{"id":"xxx","name":"WhalesMarket"}]` |
+| `GA4_PROPERTY_ID` | Google Analytics reports | Google Analytics admin |
+| `GA4_SERVICE_ACCOUNT_JSON_PATH` | GA4 auth | Google Cloud console → Service Accounts |
+| `PAPERCLIP_API_URL` | Paperclip audit trail | Paperclip admin |
+| `PAPERCLIP_API_KEY` | Paperclip audit trail | Paperclip admin |
+| `PAPERCLIP_COMPANY_ID` | Paperclip audit trail | Paperclip admin |
+
+**Metabase sync** requires separate config in `metabase-sync/sync.mjs` — update Metabase URL and credentials there.
 
 ## Commands
 
