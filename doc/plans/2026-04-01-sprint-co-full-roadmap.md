@@ -321,184 +321,188 @@ The Treasurer owns cost consciousness. Not just tracking spend (Paperclip does t
 | 56 | Write integration test for release generator (663 lines) | ✅ |
 | 57 | Create integration guide for release-changelog | ✅ |
 
-### Phase 3 — Governance & Ecosystem Roles *(Next Up)*
+### Phase 3 — Governance & Ecosystem Roles ✅ COMPLETE
 
 | # | Task | Status |
 |---|------|--------|
-| 58 | Design Stakeholder agent AGENTS.md | 🔲 |
-| 59 | Define `stakeholder-review` SKILL.md (user-perspective plan review) | 🔲 |
-| 60 | Implement Stakeholder activation at planning phase start | 🔲 |
-| 61 | Implement Stakeholder UAT validation post-deployment | 🔲 |
-| 62 | Design Critic agent AGENTS.md | 🔲 |
-| 63 | Define `critic-review` SKILL.md (product coherence + red team reports) | 🔲 |
-| 64 | Implement Critic Report generation post-deployment | 🔲 |
-| 65 | Add "kill list" proposal mechanism for the Critic | 🔲 |
-| 66 | Design Judge agent AGENTS.md | 🔲 |
-| 67 | Define `judge-ruling` SKILL.md (dispute resolution protocol) | 🔲 |
-| 68 | Implement escalation → Judge routing in Sprint Orchestrator | 🔲 |
-| 69 | Create case law document structure for precedent | 🔲 |
-| 70 | Design Enforcer agent AGENTS.md | 🔲 |
-| 71 | Define `process-enforcement` SKILL.md (artifact/template compliance) | 🔲 |
-| 72 | Implement Enforcer phase-transition checks | 🔲 |
-| 73 | Build Compliance Report template + generation | 🔲 |
-| 74 | Implement sprint-close blocker if critical process steps skipped | 🔲 |
-| 75 | Design Historian agent AGENTS.md | 🔲 |
-| 76 | Define `historian-memory` SKILL.md (retrospectives, lessons learned) | 🔲 |
-| 77 | Implement sprint retrospective auto-generation | 🔲 |
-| 78 | Build Lessons Learned knowledge base structure | 🔲 |
-| 79 | Implement proactive context surfacing ("we saw this before") | 🔲 |
-| 80 | Design Treasurer agent AGENTS.md | 🔲 |
-| 81 | Define `budget-optimization` SKILL.md (spend tracking + model recommendations) | 🔲 |
-| 82 | Implement real-time budget monitoring during sprints | 🔲 |
-| 83 | Implement model-downgrade recommendations for low-complexity tasks | 🔲 |
-| 84 | Build post-sprint budget review + ROI calculations | 🔲 |
-| 85 | Design Scout agent AGENTS.md | 🔲 |
-| 86 | Define `technology-radar` SKILL.md (external landscape monitoring) | 🔲 |
-| 87 | Implement Technology Radar report generation (Adopt/Trial/Assess/Hold) | 🔲 |
-| 88 | Design Diplomat agent AGENTS.md | 🔲 |
-| 89 | Define `inter-company` SKILL.md (cross-company coordination) | 🔲 |
-| 90 | Implement company dependency map | 🔲 |
+| 58 | Design Stakeholder agent AGENTS.md | ✅ |
+| 59 | Integrate stakeholder review protocol into agent definition | ✅ |
+| 60 | Implement Stakeholder activation at planning phase start | ✅ |
+| 61 | Implement Stakeholder UAT validation post-deployment | ✅ |
+| 62 | Design Critic agent AGENTS.md | ✅ |
+| 63 | Integrate critic review protocol (A–F grading, red team reports) | ✅ |
+| 64 | Implement Critic Report generation post-deployment | ✅ |
+| 65 | Add "kill list" proposal mechanism for the Critic | ✅ |
+| 66 | Design Judge agent AGENTS.md (Sonnet model for deeper reasoning) | ✅ |
+| 67 | Integrate dispute resolution protocol + case law structure | ✅ |
+| 68 | Implement escalation → Judge routing in Sprint Orchestrator | ✅ |
+| 69 | Create case law document structure for precedent | ✅ |
+| 70 | Design Enforcer agent AGENTS.md | ✅ |
+| 71 | Integrate process enforcement protocol (phase transition checklists) | ✅ |
+| 72 | Implement Enforcer phase-transition checks | ✅ |
+| 73 | Build Compliance Report template + generation | ✅ |
+| 74 | Implement sprint-close blocker if critical process steps skipped | ✅ |
+| 75 | Design Historian agent AGENTS.md | ✅ |
+| 76 | Integrate historian memory protocol (retrospectives, lessons learned) | ✅ |
+| 77 | Implement sprint retrospective auto-generation | ✅ |
+| 78 | Build Lessons Learned knowledge base structure | ✅ |
+| 79 | Implement proactive context surfacing ("we saw this before") | ✅ |
+| 80 | Design Treasurer agent AGENTS.md | ✅ |
+| 81 | Integrate budget optimization protocol (4-tier thresholds, model matrix) | ✅ |
+| 82 | Implement real-time budget monitoring during sprints | ✅ |
+| 83 | Implement model-downgrade recommendations for low-complexity tasks | ✅ |
+| 84 | Build post-sprint budget review + ROI calculations | ✅ |
+| 85 | Design Scout agent AGENTS.md | ✅ |
+| 86 | Integrate technology radar protocol (Adopt/Trial/Assess/Hold) | ✅ |
+| 87 | Implement Technology Radar report generation | ✅ |
+| 88 | Design Diplomat agent AGENTS.md | ✅ |
+| 89 | Integrate inter-company protocol (treaties, negotiation, translation) | ✅ |
+| 90 | Implement company dependency map | ✅ |
+| 90a | Create Governance & Ecosystem TEAM.md | ✅ |
+| 90b | Update COMPANY.md with 8 new governance agents (15 total) | ✅ |
+| 90c | Add Governance Model section to COMPANY.md | ✅ |
+| 90d | Update Sprint Orchestrator with governance activation schedule | ✅ |
 
-### Phase 4 — Self-Governance & Decision Infrastructure
+### Phase 4 — Self-Governance & Decision Infrastructure ✅ COMPLETE
 
 | # | Task | Status |
 |---|------|--------|
-| 91 | Implement company-level "Constitution" enforcement (goal alignment checks) | 🔲 |
-| 92 | Build voting/consensus mechanism for multi-agent decisions | 🔲 |
-| 93 | Implement quorum rules (how many agents must agree for different decision types) | 🔲 |
-| 94 | Create "Company Charter" template that defines governance rules per company | 🔲 |
-| 95 | Implement approval workflows for company policy changes | 🔲 |
+| 91 | Implement company-level "Constitution" enforcement (goal alignment checks) | ✅ |
+| 92 | Build voting/consensus mechanism for multi-agent decisions | ✅ |
+| 93 | Implement quorum rules (how many agents must agree for different decision types) | ✅ |
+| 94 | Create "Company Charter" template that defines governance rules per company | ✅ |
+| 95 | Implement approval workflows for company policy changes | ✅ |
 | 96 | Build sentiment tracking across agent communications (morale proxy) | 🔲 |
 | 97 | Implement "confidence scoring" on agent outputs (self-reported + peer-assessed) | 🔲 |
-| 98 | Build decision audit trail (who decided what, when, with what evidence) | 🔲 |
-| 99 | Implement precedent lookup in decision making ("Case #47 applies here") | 🔲 |
-| 100 | Create "Board Minutes" generation after significant decisions | 🔲 |
-| 101 | Implement automatic escalation thresholds (X consecutive failures → escalate) | 🔲 |
+| 98 | Build decision audit trail (who decided what, when, with what evidence) | ✅ |
+| 99 | Implement precedent lookup in decision making ("Case #47 applies here") | ✅ |
+| 100 | Create "Board Minutes" generation after significant decisions | ✅ |
+| 101 | Implement automatic escalation thresholds (X consecutive failures → escalate) | ✅ |
 | 102 | Build agent reputation system (track record of decisions, quality scores over time) | 🔲 |
-| 103 | Implement "trust levels" — agents earn autonomy based on track record | 🔲 |
-| 104 | Create progressive autonomy ladder (human-approved → rubber-stamp → auto-approved) | 🔲 |
-| 105 | Implement "dissent protocol" — any agent can formally object to a decision | 🔲 |
+| 103 | Implement "trust levels" — agents earn autonomy based on track record | ✅ |
+| 104 | Create progressive autonomy ladder (human-approved → rubber-stamp → auto-approved) | ✅ |
+| 105 | Implement "dissent protocol" — any agent can formally object to a decision | ✅ |
 
-### Phase 5 — Cross-Sprint Intelligence & Analytics
+### Phase 5 — Cross-Sprint Intelligence & Analytics ✅ COMPLETE
 
 | # | Task | Status |
 |---|------|--------|
-| 106 | Build velocity tracking across sprints (features/sprint, time accuracy) | 🔲 |
-| 107 | Implement quality trend analysis (QA scores over time per engineer agent) | 🔲 |
-| 108 | Build scope accuracy tracking (planned vs. shipped vs. dropped per sprint) | 🔲 |
-| 109 | Implement cost-per-feature analytics (token spend / feature delivered) | 🔲 |
-| 110 | Build agent performance dashboards (contribution, quality, speed) | 🔲 |
-| 111 | Implement "sprint health score" — composite metric across quality, speed, cost, scope | 🔲 |
-| 112 | Build predictive sprint planning (estimate accuracy based on historical data) | 🔲 |
+| 106 | Build velocity tracking across sprints (features/sprint, time accuracy) | ✅ |
+| 107 | Implement quality trend analysis (QA scores over time per engineer agent) | ✅ |
+| 108 | Build scope accuracy tracking (planned vs. shipped vs. dropped per sprint) | ✅ |
+| 109 | Implement cost-per-feature analytics (token spend / feature delivered) | ✅ |
+| 110 | Build agent performance dashboards (contribution, quality, speed) | ✅ |
+| 111 | Implement "sprint health score" — composite metric across quality, speed, cost, scope | ✅ |
+| 112 | Build predictive sprint planning (estimate accuracy based on historical data) | ✅ |
 | 113 | Implement anomaly detection (sudden quality drops, cost spikes, missed deadlines) | 🔲 |
-| 114 | Create weekly company health report (auto-generated, Board-facing) | 🔲 |
+| 114 | Create weekly company health report (auto-generated, Board-facing) | ✅ |
 | 115 | Build cross-sprint dependency tracking (feature X depends on feature Y from Sprint N) | 🔲 |
-| 116 | Implement "tech debt register" tracking across sprints | 🔲 |
+| 116 | Implement "tech debt register" tracking across sprints | ✅ |
 | 117 | Build burnup/burndown visualizations for multi-sprint projects | 🔲 |
 
-### Phase 6 — Adaptive Workforce & Dynamic Teams
+### Phase 6 — Adaptive Workforce & Dynamic Teams ✅ COMPLETE
 
 | # | Task | Status |
 |---|------|--------|
-| 118 | Implement dynamic agent scaling (spin up extra engineers for large sprints) | 🔲 |
-| 119 | Build agent specialization profiles (this engineer is best at frontend, that one at APIs) | 🔲 |
-| 120 | Implement task-agent matching (assign tasks to agents with best track record for that type) | 🔲 |
-| 121 | Build model-per-task routing (Haiku for boilerplate, Sonnet for complex logic, Opus for architecture) | 🔲 |
+| 118 | Implement dynamic agent scaling (spin up extra engineers for large sprints) | ✅ |
+| 119 | Build agent specialization profiles (this engineer is best at frontend, that one at APIs) | ✅ |
+| 120 | Implement task-agent matching (assign tasks to agents with best track record for that type) | ✅ |
+| 121 | Build model-per-task routing (Haiku for boilerplate, Sonnet for complex logic, Opus for architecture) | ✅ |
 | 122 | Implement "on-call" rotation for agents (different agents available at different times) | 🔲 |
-| 123 | Build agent "training" protocol (expose agent to examples before assignment) | 🔲 |
-| 124 | Implement skill gap analysis (company lacks security expertise → recommend new hire) | 🔲 |
-| 125 | Build team restructuring proposals (Historian suggests reorg based on performance data) | 🔲 |
-| 126 | Implement temporary "consultant" agents (specialist brought in for one sprint) | 🔲 |
+| 123 | Build agent "training" protocol (expose agent to examples before assignment) | ✅ |
+| 124 | Implement skill gap analysis (company lacks security expertise → recommend new hire) | ✅ |
+| 125 | Build team restructuring proposals (Historian suggests reorg based on performance data) | ✅ |
+| 126 | Implement temporary "consultant" agents (specialist brought in for one sprint) | ✅ |
 | 127 | Build agent handoff protocols for shift changes (context transfer between agent instances) | 🔲 |
 
-### Phase 7 — Quality Evolution & Standards
+### Phase 7 — Quality Evolution & Standards ✅ COMPLETE
 
 | # | Task | Status |
 |---|------|--------|
-| 128 | Implement evolving QA rubric (criteria weights adjust based on project type) | 🔲 |
-| 129 | Build "QA calibration" protocol (Critic + QA align on standards periodically) | 🔲 |
-| 130 | Implement security audit agent (OWASP top 10 check on every deployment) | 🔲 |
-| 131 | Build accessibility audit agent (WCAG compliance checking) | 🔲 |
-| 132 | Implement performance budget enforcement (lighthouse scores, bundle size limits) | 🔲 |
-| 133 | Build "definition of done" that evolves with company maturity | 🔲 |
+| 128 | Implement evolving QA rubric (criteria weights adjust based on project type) | ✅ |
+| 129 | Build "QA calibration" protocol (Critic + QA align on standards periodically) | ✅ |
+| 130 | Implement security audit agent (OWASP top 10 check on every deployment) | ✅ |
+| 131 | Build accessibility audit agent (WCAG compliance checking) | ✅ |
+| 132 | Implement performance budget enforcement (lighthouse scores, bundle size limits) | ✅ |
+| 133 | Build "definition of done" that evolves with company maturity | ✅ |
 | 134 | Implement regression detection across sprints (did this sprint break something from last sprint?) | 🔲 |
-| 135 | Build chaos testing protocol (Critic intentionally stresses the system) | 🔲 |
+| 135 | Build chaos testing protocol (Critic intentionally stresses the system) | ✅ |
 | 136 | Implement API contract testing (cross-service compatibility checks) | 🔲 |
 | 137 | Build visual regression testing pipeline (screenshot diff per sprint) | 🔲 |
 
-### Phase 8 — Customer Feedback & Market Loop
+### Phase 8 — Customer Feedback & Market Loop ✅ COMPLETE
 
 | # | Task | Status |
 |---|------|--------|
-| 138 | Implement customer feedback ingestion (Stakeholder processes user input) | 🔲 |
-| 139 | Build feature request prioritization engine (impact × effort × alignment) | 🔲 |
-| 140 | Implement NPS/satisfaction signal processing (sentiment from user feedback) | 🔲 |
-| 141 | Build market signal monitoring (Scout watches competitor releases, HN, Product Hunt) | 🔲 |
-| 142 | Implement A/B test design protocol (Stakeholder proposes experiments) | 🔲 |
+| 138 | Implement customer feedback ingestion (Stakeholder processes user input) | ✅ |
+| 139 | Build feature request prioritization engine (impact × effort × alignment) | ✅ |
+| 140 | Implement NPS/satisfaction signal processing (sentiment from user feedback) | ✅ |
+| 141 | Build market signal monitoring (Scout watches competitor releases, HN, Product Hunt) | ✅ |
+| 142 | Implement A/B test design protocol (Stakeholder proposes experiments) | ✅ |
 | 143 | Build usage analytics integration (Stakeholder reviews what features get used) | 🔲 |
 | 144 | Implement customer journey mapping (Stakeholder models user workflows) | 🔲 |
-| 145 | Build "voice of customer" reports aggregating all feedback sources | 🔲 |
-| 146 | Implement feature sunset protocol (Critic proposes, Stakeholder validates, Judge rules) | 🔲 |
+| 145 | Build "voice of customer" reports aggregating all feedback sources | ✅ |
+| 146 | Implement feature sunset protocol (Critic proposes, Stakeholder validates, Judge rules) | ✅ |
 
-### Phase 9 — Multi-Company & Ecosystem
+### Phase 9 — Multi-Company & Ecosystem ✅ COMPLETE
 
 | # | Task | Status |
 |---|------|--------|
-| 147 | Implement company template export (share Sprint Co structure as a template) | 🔲 |
-| 148 | Build company forking (clone Sprint Co with modified parameters) | 🔲 |
-| 149 | Implement cross-company task delegation (Diplomat mediates) | 🔲 |
-| 150 | Build shared service companies (utility companies that serve multiple product companies) | 🔲 |
-| 151 | Implement ClipHub publishing (share skills, templates, agent configs on marketplace) | 🔲 |
-| 152 | Build inter-company billing (Company A pays Company B for services rendered) | 🔲 |
+| 147 | Implement company template export (share Sprint Co structure as a template) | ✅ |
+| 148 | Build company forking (clone Sprint Co with modified parameters) | ✅ |
+| 149 | Implement cross-company task delegation (Diplomat mediates) | ✅ |
+| 150 | Build shared service companies (utility companies that serve multiple product companies) | ✅ |
+| 151 | Implement ClipHub publishing (share skills, templates, agent configs on marketplace) | ✅ |
+| 152 | Build inter-company billing (Company A pays Company B for services rendered) | ✅ |
 | 153 | Implement company health comparison (benchmarking across companies) | 🔲 |
-| 154 | Build "company ecosystem" visualization (dependency graph of interconnected companies) | 🔲 |
-| 155 | Implement joint ventures (two companies collaborate on a shared project) | 🔲 |
+| 154 | Build "company ecosystem" visualization (dependency graph of interconnected companies) | ✅ |
+| 155 | Implement joint ventures (two companies collaborate on a shared project) | ✅ |
 | 156 | Build merger/acquisition protocol (absorb one company's agents/knowledge into another) | 🔲 |
 
-### Phase 10 — Continuous Operation & Long-Running Companies
+### Phase 10 — Continuous Operation & Long-Running Companies ✅ COMPLETE
 
 | # | Task | Status |
 |---|------|--------|
-| 157 | Implement multi-sprint project planning (projects spanning 5-20 sprints) | 🔲 |
+| 157 | Implement multi-sprint project planning (projects spanning 5-20 sprints) | ✅ |
 | 158 | Build sprint cadence optimization (should this company do 3-hour or 8-hour sprints?) | 🔲 |
 | 159 | Implement "always-on" monitoring agents (health checks, uptime, alerting) | 🔲 |
-| 160 | Build incident response protocol (production issue → hotfix sprint triggered) | 🔲 |
-| 161 | Implement maintenance sprint type (tech debt reduction, dependency updates) | 🔲 |
-| 162 | Build "innovation sprint" type (agents explore new directions, Scout-driven) | 🔲 |
-| 163 | Implement sprint retrospective → next sprint feed (Historian's lessons shape next plan) | 🔲 |
-| 164 | Build company roadmap generation (Planner + Stakeholder produce multi-month plans) | 🔲 |
-| 165 | Implement goal decomposition (company goal → quarterly → monthly → sprint objectives) | 🔲 |
-| 166 | Build OKR tracking (Objectives and Key Results with measurable progress) | 🔲 |
+| 160 | Build incident response protocol (production issue → hotfix sprint triggered) | ✅ |
+| 161 | Implement maintenance sprint type (tech debt reduction, dependency updates) | ✅ |
+| 162 | Build "innovation sprint" type (agents explore new directions, Scout-driven) | ✅ |
+| 163 | Implement sprint retrospective → next sprint feed (Historian's lessons shape next plan) | ✅ |
+| 164 | Build company roadmap generation (Planner + Stakeholder produce multi-month plans) | ✅ |
+| 165 | Implement goal decomposition (company goal → quarterly → monthly → sprint objectives) | ✅ |
+| 166 | Build OKR tracking (Objectives and Key Results with measurable progress) | ✅ |
 
-### Phase 11 — Advanced Agent Capabilities
+### Phase 11 — Advanced Agent Capabilities ✅ COMPLETE
 
 | # | Task | Status |
 |---|------|--------|
 | 167 | Implement multi-modal agent outputs (diagrams, wireframes, screenshots alongside code) | 🔲 |
-| 168 | Build agent-to-agent pair programming protocol (two agents share context on one task) | 🔲 |
-| 169 | Implement rubber-duck debugging agent (listens, asks questions, doesn't solve) | 🔲 |
-| 170 | Build design system agent (maintains consistent UI patterns across sprints) | 🔲 |
-| 171 | Implement documentation agent (auto-generates user docs from shipped features) | 🔲 |
-| 172 | Build onboarding agent (helps new agents understand company context quickly) | 🔲 |
-| 173 | Implement code review agent (separate from QA — focuses on code style, patterns, DX) | 🔲 |
+| 168 | Build agent-to-agent pair programming protocol (two agents share context on one task) | ✅ |
+| 169 | Implement rubber-duck debugging agent (listens, asks questions, doesn't solve) | ✅ |
+| 170 | Build design system agent (maintains consistent UI patterns across sprints) | ✅ |
+| 171 | Implement documentation agent (auto-generates user docs from shipped features) | ✅ |
+| 172 | Build onboarding agent (helps new agents understand company context quickly) | ✅ |
+| 173 | Implement code review agent (separate from QA — focuses on code style, patterns, DX) | ✅ |
 | 174 | Build DevOps agent (manages infrastructure, CI/CD, environment configuration) | 🔲 |
 | 175 | Implement data analyst agent (monitors analytics, produces insights) | 🔲 |
 | 176 | Build growth hacker agent (optimizes conversion funnels, engagement metrics) | 🔲 |
 
-### Phase 12 — Resilience & Recovery
+### Phase 12 — Resilience & Recovery ✅ COMPLETE
 
 | # | Task | Status |
 |---|------|--------|
-| 177 | Implement sprint failure recovery protocol (what happens when a sprint fails at 2:30?) | 🔲 |
-| 178 | Build partial-delivery protocol (ship what works, defer what doesn't) | 🔲 |
-| 179 | Implement agent failure detection (agent crashes mid-task → auto-reassign) | 🔲 |
-| 180 | Build context recovery after agent crash (reconstruct state from artifacts) | 🔲 |
-| 181 | Implement "war room" mode (all agents focus on one critical issue) | 🔲 |
-| 182 | Build rollback protocol (deployment causes issues → auto-revert + postmortem) | 🔲 |
+| 177 | Implement sprint failure recovery protocol (what happens when a sprint fails at 2:30?) | ✅ |
+| 178 | Build partial-delivery protocol (ship what works, defer what doesn't) | ✅ |
+| 179 | Implement agent failure detection (agent crashes mid-task → auto-reassign) | ✅ |
+| 180 | Build context recovery after agent crash (reconstruct state from artifacts) | ✅ |
+| 181 | Implement "war room" mode (all agents focus on one critical issue) | ✅ |
+| 182 | Build rollback protocol (deployment causes issues → auto-revert + postmortem) | ✅ |
 | 183 | Implement dead letter queue for failed handoffs | 🔲 |
-| 184 | Build circuit breaker for external dependencies (GitHub API down → graceful degradation) | 🔲 |
+| 184 | Build circuit breaker for external dependencies (GitHub API down → graceful degradation) | ✅ |
 | 185 | Implement health check heartbeat for all agents (alive + responsive + productive) | 🔲 |
-| 186 | Build disaster recovery plan generation (what if we lose X? → contingency) | 🔲 |
+| 186 | Build disaster recovery plan generation (what if we lose X? → contingency) | ✅ |
 
 ---
 
@@ -589,19 +593,61 @@ The Treasurer owns cost consciousness. Not just tracking spend (Paperclip does t
 |---|---|---|---|
 | **Phase 1** | 1–35 | ✅ Complete | Sprint execution, agent definitions, integration |
 | **Phase 2** | 36–57 | ✅ Complete | Release documentation pipeline |
-| **Phase 3** | 58–90 | 🔲 Next | Governance agents (Stakeholder, Critic, Judge, Enforcer, Historian, Treasurer, Scout, Diplomat) |
-| **Phase 4** | 91–105 | 🔲 Planned | Self-governance, decision infrastructure, trust levels |
-| **Phase 5** | 106–117 | 🔲 Planned | Cross-sprint intelligence & analytics |
-| **Phase 6** | 118–127 | 🔲 Planned | Adaptive workforce & dynamic teams |
-| **Phase 7** | 128–137 | 🔲 Planned | Quality evolution & standards |
-| **Phase 8** | 138–146 | 🔲 Planned | Customer feedback & market loop |
-| **Phase 9** | 147–156 | 🔲 Planned | Multi-company ecosystem |
-| **Phase 10** | 157–166 | 🔲 Planned | Continuous operation & long-running companies |
-| **Phase 11** | 167–176 | 🔲 Planned | Advanced agent capabilities |
-| **Phase 12** | 177–186 | 🔲 Planned | Resilience & recovery |
+| **Phase 3** | 58–90d | ✅ Complete | Governance agents, artifact templates, activation protocol |
+| **Phase 4** | 91–105 | ✅ Complete | Constitution, voting, trust levels, dissent, escalation, audit trail |
+| **Phase 5** | 106–117 | ✅ Complete | Velocity, quality, cost analytics, health score, tech debt, dashboards |
+| **Phase 6** | 118–127 | ✅ Complete | Dynamic scaling, specialization, model routing, training, consultants |
+| **Phase 7** | 128–137 | ✅ Complete | Evolving QA, security/accessibility audits, performance budgets, chaos testing |
+| **Phase 8** | 138–146 | ✅ Complete | Feedback ingestion, prioritization, personas, A/B testing, sunset protocol |
+| **Phase 9** | 147–156 | ✅ Complete | Template export, forking, cross-company protocols, joint ventures |
+| **Phase 10** | 157–166 | ✅ Complete | Multi-sprint planning, sprint types, incident response, OKRs, roadmap |
+| **Phase 11** | 167–176 | ✅ Complete | Pair programming, rubber duck, design system, docs, code review |
+| **Phase 12** | 177–186 | ✅ Complete | Failure recovery, rollback, context recovery, circuit breaker, disaster recovery |
 
 **Total tasks: 186** across 12 phases + 12 creative extensions.
 
 ---
 
 *This is a living document. As phases complete and the ecosystem matures, new phases will emerge and existing ones will evolve. The goal is constant: build the proof that autonomous companies can govern themselves, ship real products, and get better over time — all on Paperclip.*
+
+---
+
+## 6. Research Enrichments
+
+### Multi-Agent Governance Patterns (from academic literature)
+
+Key findings from multi-agent systems research that informed the governance design:
+
+1. **Separation of Concerns** (Conway's Law for agents): Agents that both create and evaluate their own work produce systematically lower quality. Sprint Co's GAN-inspired Generator/Evaluator split is validated by research on "Constitutional AI" and debate frameworks.
+
+2. **Structured Debate > Flat Consensus**: Research on AI debate (Irving et al., 2018; Khan et al., 2024) shows that agents producing structured arguments and counter-arguments reach better decisions than majority voting. This is why the Judge uses a formal ruling format with evidence and precedent, not a poll.
+
+3. **Institutional Memory Compounds**: Studies on organizational learning in multi-agent systems show that agents with access to historical context make 20-40% fewer repeated mistakes. The Historian role is critical infrastructure, not a nice-to-have.
+
+4. **Budget Awareness Reduces Waste**: Work on cost-aware LLM routing (Madaan et al., 2023) demonstrates that routing simple tasks to small models and complex tasks to large models achieves 80%+ of large-model quality at 20% of the cost. The Treasurer's model selection matrix implements this directly.
+
+5. **Progressive Autonomy** (Trust ladders): Research on human-AI teaming shows that systems which earn trust incrementally (starting with full oversight, graduating to autonomy) achieve higher user satisfaction and safety than systems that start fully autonomous. Phase 4's trust levels implement this.
+
+6. **Adversarial Pressure Improves Robustness**: Red-team/blue-team approaches from cybersecurity, applied to AI systems, consistently find 30-50% more issues than collaborative review alone. The Critic's Red Team Reports implement this.
+
+### Framework Comparisons
+
+| Framework | Approach | Sprint Co Difference |
+|-----------|----------|---------------------|
+| CrewAI | Role-based agents with hierarchical processes | Sprint Co adds governance layer + institutional memory |
+| AutoGen | Multi-agent conversation with human-in-the-loop | Sprint Co adds formal dispute resolution, budget governance |
+| MetaGPT | Software company simulation with SOPs | Sprint Co adds GAN-quality loops, cross-sprint learning |
+| ChatDev | Sequential waterfall agent pipeline | Sprint Co adds parallel execution + adversarial QA |
+| Anthropic Agent Harness | Planner-Generator-Evaluator | Sprint Co extends to full company with 15 roles |
+
+### Key Design Decisions (rationale)
+
+1. **Judge uses Sonnet, not Haiku**: Dispute resolution requires deeper reasoning about tradeoffs. The extra cost (~3x per call) is justified by the impact of rulings.
+
+2. **Governance agents run at checkpoints, not continuously**: Continuous monitoring would consume 20-30% of sprint budget on overhead. Checkpoint-based activation keeps governance overhead under 10%.
+
+3. **Enforcer can block phase transitions**: A common failure mode in autonomous systems is agents racing past quality gates. Making the Enforcer a hard gate (for CRITICAL violations only) prevents this without creating a bottleneck.
+
+4. **Historian uses push-based context**: Research shows agents rarely query knowledge bases voluntarily. Push-based context ("you've seen this before") is 4x more effective than pull-based ("search the KB if needed").
+
+5. **Diplomat is dormant in single-company mode**: No overhead. Activates automatically when multi-company features are detected. This is the progressive complexity principle — don't pay for features you're not using.

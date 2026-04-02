@@ -71,6 +71,17 @@ Responsible for quality gates and shipping.
 ### Executive
 - **Sprint Orchestrator** — coordinates all teams, owns the 3-hour clock, reports to Jeremy
 
+### Governance & Ecosystem Team
+Responsible for oversight, quality control, institutional memory, and external intelligence.
+- **Stakeholder** — voice of the customer, pre-sprint plan review, simulated UAT
+- **Critic** — post-sprint coherence review, A–F grading, red team lead
+- **Judge** — neutral arbiter, dispute resolution, precedent maintenance
+- **Enforcer** — process compliance, phase transition checks, audit trail
+- **Historian** — institutional memory, retrospectives, lessons-learned KB
+- **Treasurer** — cost governance, budget monitoring, model selection optimization
+- **Scout** — technology radar, model landscape monitoring, external intelligence
+- **Diplomat** — inter-company relations, resource negotiation (multi-company mode)
+
 ---
 
 ## Agent Roster
@@ -84,6 +95,46 @@ Responsible for quality gates and shipping.
 | Engineer Beta | Backend Generator | claude-haiku-4-5 | On demand |
 | QA Engineer | Evaluator / Skeptic | claude-haiku-4-5 | On demand |
 | Delivery Engineer | DevOps / Deploy | claude-haiku-4-5 | On demand |
+| Stakeholder | Voice of the Customer | claude-haiku-4-5 | Pre-sprint, post-deploy |
+| Critic | Product Coherence Reviewer | claude-haiku-4-5 | Post-sprint |
+| Judge | Neutral Arbiter | claude-sonnet-4-5 | On demand (disputes) |
+| Enforcer | Process Compliance Guardian | claude-haiku-4-5 | Phase transitions |
+| Historian | Institutional Memory | claude-haiku-4-5 | Post-sprint close |
+| Treasurer | Cost Governance | claude-haiku-4-5 | Continuous + post-sprint |
+| Scout | Technology Radar | claude-haiku-4-5 | Weekly |
+| Diplomat | Inter-Company Relations | claude-haiku-4-5 | On demand (multi-company) |
+
+---
+
+## Governance Model
+
+Sprint Co uses a checks-and-balances governance system inspired by organizational theory. Governance agents activate at specific checkpoints rather than running continuously, adding oversight without slowing execution.
+
+### Sprint Lifecycle with Governance
+
+```
+Brief → [Stakeholder Review] → Plan → [Enforcer Check] → Build → [Enforcer Check]
+  → QA → [Enforcer Check] → Deploy → [Stakeholder UAT] → Close
+  → [Critic Grade] → [Historian Retro] → [Treasurer Budget Review]
+```
+
+### When Governance Agents Activate
+
+| Checkpoint | Agents | Time Budget |
+|------------|--------|-------------|
+| Pre-Sprint | Stakeholder, Treasurer | ~5 min |
+| Each Phase Transition | Enforcer | ~2 min |
+| Disputes (ad hoc) | Judge | ~5 min |
+| Post-Sprint | Critic, Historian, Treasurer, Enforcer | ~10 min |
+| Weekly (between sprints) | Scout | ~15 min |
+| Multi-Company Events | Diplomat | As needed |
+
+### Key Tensions (by design)
+
+- Stakeholder vs. Sprint Lead: ideal product vs. what's feasible
+- Critic vs. Engineers: quality bar vs. shipping velocity
+- Enforcer vs. Everyone: process compliance vs. "just ship it"
+- Treasurer vs. Scout: cost control vs. exploring new tools
 
 ---
 
