@@ -272,17 +272,17 @@ async function main() {
   }
 
   const envLines = [
-    "PAPERCLIP_HOME=" + JSON.stringify(worktreeHome),
-    "PAPERCLIP_INSTANCE_ID=" + JSON.stringify(instanceId),
-    "PAPERCLIP_CONFIG=" + JSON.stringify(configPath),
-    "PAPERCLIP_CONTEXT=" + JSON.stringify(path.resolve(worktreeHome, "context.json")),
+    "PAPERCLIP_HOME=" + worktreeHome,
+    "PAPERCLIP_INSTANCE_ID=" + instanceId,
+    "PAPERCLIP_CONFIG=" + configPath,
+    "PAPERCLIP_CONTEXT=" + path.resolve(worktreeHome, "context.json"),
     "PAPERCLIP_IN_WORKTREE=true",
-    "PAPERCLIP_WORKTREE_NAME=" + JSON.stringify(worktreeName),
+    "PAPERCLIP_WORKTREE_NAME=" + worktreeName,
   ];
 
   const agentJwtSecret = nonEmpty(sourceEnvEntries.PAPERCLIP_AGENT_JWT_SECRET);
   if (agentJwtSecret) {
-    envLines.push("PAPERCLIP_AGENT_JWT_SECRET=" + JSON.stringify(agentJwtSecret));
+    envLines.push("PAPERCLIP_AGENT_JWT_SECRET=" + agentJwtSecret);
   }
 
   fs.writeFileSync(envPath, `${envLines.join("\n")}\n`, { mode: 0o600 });
