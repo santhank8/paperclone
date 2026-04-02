@@ -12,7 +12,7 @@ Requirements for initial production deployment. Each maps to roadmap phases.
 - [x] **CONT-01**: Docker Compose builds and starts server + database services with a single `docker compose up`
 - [x] **CONT-02**: Server container has HEALTHCHECK wired to `/health` endpoint
 - [x] **CONT-03**: All services have restart policies for crash recovery
-- [ ] **CONT-04**: Template `.env` file documents all required environment variables with descriptions
+- [x] **CONT-04**: Template `.env` file documents all required environment variables with descriptions
 
 ### Security
 
@@ -71,7 +71,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CONT-01 | Phase 1 | Complete |
 | CONT-02 | Phase 1 | Complete |
 | CONT-03 | Phase 1 | Complete |
-| CONT-04 | Phase 1 | Pending |
+| CONT-04 | Phase 1 | Complete |
 | SEC-01 | Phase 1 | Complete |
 | SEC-02 | Phase 1 | Complete |
 | SEC-03 | Phase 1 | Complete |
