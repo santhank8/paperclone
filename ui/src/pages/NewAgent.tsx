@@ -22,19 +22,23 @@ import { AgentConfigForm, type CreateConfigValues } from "../components/AgentCon
 import { defaultCreateValues } from "../components/agent-config-defaults";
 import { getUIAdapter } from "../adapters";
 import { ReportsToPicker } from "../components/ReportsToPicker";
+import { DEFAULT_CODEBUDDY_LOCAL_MODEL } from "@penclipai/adapter-codebuddy-local";
 import {
   DEFAULT_CODEX_LOCAL_BYPASS_APPROVALS_AND_SANDBOX,
   DEFAULT_CODEX_LOCAL_MODEL,
 } from "@penclipai/adapter-codex-local";
 import { DEFAULT_CURSOR_LOCAL_MODEL } from "@penclipai/adapter-cursor-local";
 import { DEFAULT_GEMINI_LOCAL_MODEL } from "@penclipai/adapter-gemini-local";
+import { DEFAULT_QWEN_LOCAL_MODEL } from "@penclipai/adapter-qwen-local";
 
 const SUPPORTED_ADVANCED_ADAPTER_TYPES = new Set<CreateConfigValues["adapterType"]>([
   "claude_local",
   "codex_local",
+  "codebuddy_local",
   "gemini_local",
   "opencode_local",
   "pi_local",
+  "qwen_local",
   "cursor",
   "hermes_local",
   "openclaw_gateway",
@@ -62,6 +66,10 @@ function createValuesForAdapterType(
     nextValues.model = DEFAULT_CODEX_LOCAL_MODEL;
     nextValues.dangerouslyBypassSandbox =
       DEFAULT_CODEX_LOCAL_BYPASS_APPROVALS_AND_SANDBOX;
+  } else if (adapterType === "codebuddy_local") {
+    nextValues.model = DEFAULT_CODEBUDDY_LOCAL_MODEL;
+  } else if (adapterType === "qwen_local") {
+    nextValues.model = DEFAULT_QWEN_LOCAL_MODEL;
   } else if (adapterType === "gemini_local") {
     nextValues.model = DEFAULT_GEMINI_LOCAL_MODEL;
   } else if (adapterType === "cursor") {

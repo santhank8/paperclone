@@ -20,8 +20,10 @@ interface AgentPropertiesProps {
 const adapterLabels: Record<string, string> = {
   claude_local: "Claude (local)",
   codex_local: "Codex (local)",
+  codebuddy_local: "CodeBuddy (local)",
   gemini_local: "Gemini CLI (local)",
   opencode_local: "OpenCode (local)",
+  qwen_local: "Qwen (local)",
   openclaw_gateway: "OpenClaw Gateway",
   cursor: "Cursor (local)",
   hermes_local: "Hermes Agent",

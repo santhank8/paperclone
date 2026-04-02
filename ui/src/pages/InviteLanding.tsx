@@ -17,9 +17,11 @@ const joinAdapterOptions: AgentAdapterType[] = [...AGENT_ADAPTER_TYPES];
 const adapterLabels: Record<string, string> = {
   claude_local: "Claude (local)",
   codex_local: "Codex (local)",
+  codebuddy_local: "CodeBuddy (local)",
   gemini_local: "Gemini CLI (local)",
   opencode_local: "OpenCode (local)",
   pi_local: "Pi (local)",
+  qwen_local: "Qwen (local)",
   openclaw_gateway: "OpenClaw Gateway",
   cursor: "Cursor (local)",
   hermes_local: "Hermes Agent",
@@ -27,7 +29,7 @@ const adapterLabels: Record<string, string> = {
   http: "HTTP",
 };
 
-const ENABLED_INVITE_ADAPTERS = new Set(["claude_local", "codex_local", "gemini_local", "opencode_local", "pi_local", "cursor", "hermes_local"]);
+const ENABLED_INVITE_ADAPTERS = new Set(["claude_local", "codex_local", "codebuddy_local", "gemini_local", "opencode_local", "pi_local", "qwen_local", "cursor", "hermes_local"]);
 
 function dateTime(value: string) {
   return formatDateTime(value);
