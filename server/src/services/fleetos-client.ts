@@ -1,0 +1,169 @@
+/**
+ * Server-side FleetOS API client for the dashboard proxy layer.
+ *
+ * Reads FleetOS URL from the FLEETOS_API_URL environment variable and accepts
+ * an API key per-request (sourced from the agent's adapter config by the caller).
+ *
+ * This is intentionally separate from the adapter's FleetOSClient to avoid
+ * importing adapter packages in the server.
+ */
+
+// ---------------------------------------------------------------------------
+// Types (mirrored from the adapter shared types — no cross-package import)
+// ---------------------------------------------------------------------------
+
+export interface FleetContainer {
+  id: string;
+  name: string;
+  status: "running" | "stopped" | "frozen" | "error" | "provisioning";
+  tenant_id: string;
+  image: string;
+  config: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+  ip_address: string | null;
+  labels: Record<string, string>;
+}
+
+export interface FleetHealth {
+  container_id: string;
+  cpu_percent: number;
+  mem_percent: number;
+  disk_percent: number;
+  agent_status: "idle" | "busy" | "error" | "offline";
+  uptime_seconds: number;
+  last_heartbeat: string;
+}
+
+export interface FleetAgentProcess {
+  pid: number | null;
+  status: "running" | "stopped" | "crashed";
+  uptime_seconds: number;
+  last_error: string | null;
+}
+
+// ---------------------------------------------------------------------------
+// Error class
+// ---------------------------------------------------------------------------
+
+export class FleetOSProxyError extends Error {
+  constructor(
+    message: string,
+    public readonly statusCode: number,
+    public readonly detail: string | null = null,
+  ) {
+    super(message);
+    this.name = "FleetOSProxyError";
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Client
+// ---------------------------------------------------------------------------
+
+export class FleetOSProxyClient {
+  private readonly baseUrl: string;
+  private readonly apiKey: string;
+
+  constructor(baseUrl: string, apiKey: string) {
+    this.baseUrl = baseUrl.replace(/\/+$/, "");
+    this.apiKey = apiKey;
+  }
+
+  private headers(): Record<string, string> {
+    return {
+      "X-API-Key": this.apiKey,
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    };
+  }
+
+  private async request<T>(method: string, path: string, body?: unknown): Promise<T> {
+    const url = `${this.baseUrl}${path}`;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 15_000);
+
+    try {
+      const res = await fetch(url, {
+        method,
+        headers: this.headers(),
+        body: body !== undefined ? JSON.stringify(body) : undefined,
+        signal: controller.signal,
+      });
+
+      if (!res.ok) {
+        let detail: string | null = null;
+        try {
+          const errBody = (await res.json()) as { detail?: string; error?: string };
+          detail = errBody.detail ?? errBody.error ?? null;
+        } catch {
+          // ignore
+        }
+        throw new FleetOSProxyError(
+          `FleetOS ${method} ${path} returned ${res.status}`,
+          res.status,
+          detail,
+        );
+      }
+
+      return (await res.json()) as T;
+    } catch (err) {
+      if (err instanceof FleetOSProxyError) throw err;
+      throw new FleetOSProxyError(
+        `FleetOS ${method} ${path} failed: ${err instanceof Error ? err.message : String(err)}`,
+        0,
+        null,
+      );
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  // Container CRUD
+  async listContainers(): Promise<FleetContainer[]> {
+    return this.request<FleetContainer[]>("GET", "/api/v1/containers");
+  }
+
+  async getContainer(id: string): Promise<FleetContainer> {
+    return this.request<FleetContainer>("GET", `/api/v1/containers/${encodeURIComponent(id)}`);
+  }
+
+  // Health
+  async getHealth(id: string): Promise<FleetHealth> {
+    return this.request<FleetHealth>("GET", `/api/v1/containers/${encodeURIComponent(id)}/health`);
+  }
+
+  // Agent process status
+  async getAgentProcess(id: string): Promise<FleetAgentProcess> {
+    return this.request<FleetAgentProcess>("GET", `/api/v1/containers/${encodeURIComponent(id)}/agent`);
+  }
+
+  // Lifecycle actions
+  async startContainer(id: string): Promise<FleetContainer> {
+    return this.request<FleetContainer>("POST", `/api/v1/containers/${encodeURIComponent(id)}/start`);
+  }
+
+  async stopContainer(id: string): Promise<FleetContainer> {
+    return this.request<FleetContainer>("POST", `/api/v1/containers/${encodeURIComponent(id)}/stop`);
+  }
+
+  async restartContainer(id: string): Promise<FleetContainer> {
+    return this.request<FleetContainer>("POST", `/api/v1/containers/${encodeURIComponent(id)}/restart`);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Factory — reads FLEETOS_API_URL from env
+// ---------------------------------------------------------------------------
+
+export function createFleetOSClient(apiKey: string): FleetOSProxyClient {
+  const baseUrl = process.env.FLEETOS_API_URL;
+  if (!baseUrl) {
+    throw new FleetOSProxyError(
+      "FLEETOS_API_URL environment variable is not set",
+      500,
+      null,
+    );
+  }
+  return new FleetOSProxyClient(baseUrl, apiKey);
+}

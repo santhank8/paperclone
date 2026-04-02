@@ -13,9 +13,43 @@ function hashToken(token: string) {
   return createHash("sha256").update(token).digest("hex");
 }
 
+// ---------------------------------------------------------------------------
+// FleetOS API key validation cache (5-minute TTL)
+// ---------------------------------------------------------------------------
+interface FleetosValidationCacheEntry {
+  tenantId: string;
+  tenantName: string;
+  companyId: string;
+  expiresAt: number;
+}
+
+const fleetosValidationCache = new Map<string, FleetosValidationCacheEntry>();
+const FLEETOS_CACHE_TTL_MS = 5 * 60 * 1000;
+
+function getCachedFleetosValidation(apiKey: string): FleetosValidationCacheEntry | null {
+  const entry = fleetosValidationCache.get(apiKey);
+  if (!entry) return null;
+  if (Date.now() > entry.expiresAt) {
+    fleetosValidationCache.delete(apiKey);
+    return null;
+  }
+  return entry;
+}
+
+function setCachedFleetosValidation(
+  apiKey: string,
+  data: { tenantId: string; tenantName: string; companyId: string },
+): void {
+  fleetosValidationCache.set(apiKey, {
+    ...data,
+    expiresAt: Date.now() + FLEETOS_CACHE_TTL_MS,
+  });
+}
+
 interface ActorMiddlewareOptions {
   deploymentMode: DeploymentMode;
   resolveSession?: (req: Request) => Promise<BetterAuthSessionResult | null>;
+  fleetosApiUrl?: string;
 }
 
 export function actorMiddleware(db: Db, opts: ActorMiddlewareOptions): RequestHandler {
@@ -27,6 +61,77 @@ export function actorMiddleware(db: Db, opts: ActorMiddlewareOptions): RequestHa
         : { type: "none", source: "none" };
 
     const runIdHeader = req.header("x-paperclip-run-id");
+
+    // -----------------------------------------------------------------------
+    // Path 4: FleetOS API key (X-API-Key header or fleetos_session cookie)
+    // -----------------------------------------------------------------------
+    if (opts.deploymentMode === "fleetos" && opts.fleetosApiUrl) {
+      let fleetosApiKey: string | undefined = req.header("x-api-key");
+
+      // Fall back to the httpOnly session cookie set by POST /api/fleetos/login
+      if (!fleetosApiKey) {
+        const cookieHeader = req.headers.cookie;
+        if (cookieHeader) {
+          const match = cookieHeader.match(/(?:^|;\s*)fleetos_session=([^;]+)/);
+          if (match?.[1]) {
+            try {
+              const decoded = JSON.parse(
+                Buffer.from(match[1], "base64").toString("utf-8"),
+              ) as { apiKey?: string };
+              fleetosApiKey = decoded.apiKey;
+            } catch {
+              // malformed cookie — ignore
+            }
+          }
+        }
+      }
+
+      if (fleetosApiKey) {
+        let tenant = getCachedFleetosValidation(fleetosApiKey);
+        if (!tenant) {
+          try {
+            const res = await fetch(`${opts.fleetosApiUrl}/api/tenants`, {
+              method: "GET",
+              headers: { "X-API-Key": fleetosApiKey, Accept: "application/json" },
+            });
+            if (res.ok) {
+              const data = (await res.json()) as {
+                id?: string;
+                tenant_id?: string;
+                name?: string;
+                tenant_name?: string;
+                company_id?: string;
+              };
+              const tenantId = data.tenant_id ?? data.id;
+              if (tenantId) {
+                const tenantName = data.tenant_name ?? data.name ?? "FleetOS Tenant";
+                const companyId = data.company_id ?? tenantId;
+                const tenantData = { tenantId, tenantName, companyId };
+                setCachedFleetosValidation(fleetosApiKey, tenantData);
+                tenant = getCachedFleetosValidation(fleetosApiKey);
+              }
+            }
+          } catch (err) {
+            logger.warn({ err }, "FleetOS API key validation failed in middleware");
+          }
+        }
+
+        if (tenant) {
+          req.actor = {
+            type: "board",
+            userId: `fleetos:${tenant.tenantId}`,
+            companyId: tenant.companyId,
+            companyIds: [tenant.companyId],
+            isInstanceAdmin: true,
+            fleetosTenantId: tenant.tenantId,
+            runId: runIdHeader ?? undefined,
+            source: "fleetos_api_key",
+          };
+          next();
+          return;
+        }
+      }
+    }
 
     const authHeader = req.header("authorization");
     if (!authHeader?.toLowerCase().startsWith("bearer ")) {

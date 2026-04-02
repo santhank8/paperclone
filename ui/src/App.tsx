@@ -42,6 +42,8 @@ import { AuthPage } from "./pages/Auth";
 import { BoardClaimPage } from "./pages/BoardClaim";
 import { CliAuthPage } from "./pages/CliAuth";
 import { InviteLandingPage } from "./pages/InviteLanding";
+import { FleetOverview } from "./pages/FleetOverview";
+import { FleetAgentDetail } from "./pages/FleetAgentDetail";
 import { NotFoundPage } from "./pages/NotFound";
 import { queryKeys } from "./lib/queryKeys";
 import { useCompany } from "./context/CompanyContext";
@@ -75,7 +77,7 @@ function CloudAccessGate() {
     retry: false,
     refetchInterval: (query) => {
       const data = query.state.data as
-        | { deploymentMode?: "local_trusted" | "authenticated"; bootstrapStatus?: "ready" | "bootstrap_pending" }
+        | { deploymentMode?: "local_trusted" | "authenticated" | "fleetos"; bootstrapStatus?: "ready" | "bootstrap_pending" }
         | undefined;
       return data?.deploymentMode === "authenticated" && data.bootstrapStatus === "bootstrap_pending"
         ? 2000
@@ -85,14 +87,16 @@ function CloudAccessGate() {
   });
 
   const isAuthenticatedMode = healthQuery.data?.deploymentMode === "authenticated";
+  const isFleetosMode = healthQuery.data?.deploymentMode === "fleetos";
+  const requiresSession = isAuthenticatedMode || isFleetosMode;
   const sessionQuery = useQuery({
     queryKey: queryKeys.auth.session,
     queryFn: () => authApi.getSession(),
-    enabled: isAuthenticatedMode,
+    enabled: requiresSession,
     retry: false,
   });
 
-  if (healthQuery.isLoading || (isAuthenticatedMode && sessionQuery.isLoading)) {
+  if (healthQuery.isLoading || (requiresSession && sessionQuery.isLoading)) {
     return <div className="mx-auto max-w-xl py-10 text-sm text-muted-foreground">Loading...</div>;
   }
 
@@ -108,7 +112,7 @@ function CloudAccessGate() {
     return <BootstrapPendingPage hasActiveInvite={healthQuery.data.bootstrapInviteActive} />;
   }
 
-  if (isAuthenticatedMode && !sessionQuery.data) {
+  if (requiresSession && !sessionQuery.data) {
     const next = encodeURIComponent(`${location.pathname}${location.search}`);
     return <Navigate to={`/auth?next=${next}`} replace />;
   }
@@ -140,6 +144,8 @@ function boardRoutes() {
       <Route path="agents/:agentId" element={<AgentDetail />} />
       <Route path="agents/:agentId/:tab" element={<AgentDetail />} />
       <Route path="agents/:agentId/runs/:runId" element={<AgentDetail />} />
+      <Route path="fleet" element={<FleetOverview />} />
+      <Route path="fleet/:containerId" element={<FleetAgentDetail />} />
       <Route path="projects" element={<Projects />} />
       <Route path="projects/:projectId" element={<ProjectDetail />} />
       <Route path="projects/:projectId/overview" element={<ProjectDetail />} />
@@ -335,6 +341,8 @@ export function App() {
           <Route path="agents/:agentId" element={<UnprefixedBoardRedirect />} />
           <Route path="agents/:agentId/:tab" element={<UnprefixedBoardRedirect />} />
           <Route path="agents/:agentId/runs/:runId" element={<UnprefixedBoardRedirect />} />
+          <Route path="fleet" element={<UnprefixedBoardRedirect />} />
+          <Route path="fleet/:containerId" element={<UnprefixedBoardRedirect />} />
           <Route path="projects" element={<UnprefixedBoardRedirect />} />
           <Route path="projects/:projectId" element={<UnprefixedBoardRedirect />} />
           <Route path="projects/:projectId/overview" element={<UnprefixedBoardRedirect />} />

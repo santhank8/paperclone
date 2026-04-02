@@ -73,6 +73,8 @@ export interface Config {
   heartbeatSchedulerEnabled: boolean;
   heartbeatSchedulerIntervalMs: number;
   companyDeletionEnabled: boolean;
+  fleetosApiUrl?: string;
+  fleetosProxyEnabled?: boolean;
 }
 
 export function loadConfig(): Config {
@@ -213,6 +215,9 @@ export function loadConfig(): Config {
       resolveDefaultBackupDir(),
   );
 
+  const fleetosApiUrl = process.env.FLEETOS_API_URL ?? undefined;
+  const fleetosProxyEnabled = process.env.FLEETOS_PROXY_ENABLED === "true";
+
   return {
     deploymentMode,
     deploymentExposure,
@@ -255,5 +260,7 @@ export function loadConfig(): Config {
     heartbeatSchedulerEnabled: process.env.HEARTBEAT_SCHEDULER_ENABLED !== "false",
     heartbeatSchedulerIntervalMs: Math.max(10000, Number(process.env.HEARTBEAT_SCHEDULER_INTERVAL_MS) || 30000),
     companyDeletionEnabled,
+    fleetosApiUrl,
+    fleetosProxyEnabled,
   };
 }

@@ -26,6 +26,13 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   });
   if (!res.ok) {
     const errorBody = await res.json().catch(() => null);
+    // Global 401 handler: redirect to login when auth fails.
+    // Skip for auth-related endpoints to avoid redirect loops.
+    if (res.status === 401 && !path.startsWith("/auth") && !path.startsWith("/fleetos/login")) {
+      const currentPath = window.location.pathname + window.location.search;
+      const next = encodeURIComponent(currentPath);
+      window.location.href = `/auth?next=${next}`;
+    }
     throw new ApiError(
       (errorBody as { error?: string } | null)?.error ?? `Request failed: ${res.status}`,
       res.status,

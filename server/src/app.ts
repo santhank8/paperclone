@@ -30,6 +30,8 @@ import { assetRoutes } from "./routes/assets.js";
 import { accessRoutes } from "./routes/access.js";
 import { pluginRoutes } from "./routes/plugins.js";
 import { pluginUiStaticRoutes } from "./routes/plugin-ui-static.js";
+import { fleetosAuthRoutes } from "./routes/fleetos-auth.js";
+import { fleetosProxyRoutes } from "./routes/fleetos-proxy.js";
 import { applyUiBranding } from "./ui-branding.js";
 import { logger } from "./middleware/logger.js";
 import { DEFAULT_LOCAL_PLUGIN_DIR, pluginLoader } from "./services/plugin-loader.js";
@@ -103,6 +105,7 @@ export async function createApp(
     actorMiddleware(db, {
       deploymentMode: opts.deploymentMode,
       resolveSession: opts.resolveSession,
+      fleetosApiUrl: process.env.FLEETOS_API_URL,
     }),
   );
   app.get("/api/auth/get-session", (req, res) => {
@@ -155,6 +158,9 @@ export async function createApp(
   api.use(dashboardRoutes(db));
   api.use(sidebarBadgeRoutes(db));
   api.use(instanceSettingsRoutes(db));
+  const fleetosApiUrl = process.env.FLEETOS_API_URL ?? "http://localhost:8400";
+  api.use("/fleetos", fleetosAuthRoutes({ fleetosApiUrl }));
+  api.use(fleetosProxyRoutes(db));
   const hostServicesDisposers = new Map<string, () => void>();
   const workerManager = createPluginWorkerManager();
   const pluginRegistry = pluginRegistryService(db);
