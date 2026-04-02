@@ -497,6 +497,39 @@ describe("openclaw gateway adapter execute", () => {
     }
   });
 
+  it("falls back to the main OpenClaw agent when no agent id is configured", async () => {
+    const gateway = await createMockGatewayServer();
+
+    try {
+      const result = await execute(
+        buildContext(
+          {
+            url: gateway.url,
+            headers: {
+              "x-openclaw-token": "gateway-token",
+            },
+            waitTimeoutMs: 2000,
+          },
+          {
+            context: {
+              taskId: null,
+              issueId: null,
+              wakeReason: "manual",
+              issueIds: [],
+            },
+          },
+        ),
+      );
+
+      expect(result.exitCode).toBe(0);
+      const payload = gateway.getAgentPayload();
+      expect(payload?.sessionKey).toBe("agent:main:paperclip");
+      expect(payload?.agentId).toBeUndefined();
+    } finally {
+      await gateway.close();
+    }
+  });
+
   it("scopes a fixed session key to the configured OpenClaw agent", async () => {
     const gateway = await createMockGatewayServer();
 
