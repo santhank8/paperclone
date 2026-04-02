@@ -11,7 +11,13 @@ import { execSync } from "child_process";
 // DATA SYNC
 // ============================================================
 
-const SYNC_DIR = "/Users/amando/Desktop/Learn/metabase-sync";
+import { fileURLToPath } from "url";
+import { dirname, join } from "path";
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+const SYNC_DIR = process.env.METABASE_SYNC_DIR || join(__dirname, "../../metabase-sync");
+const REPORTS_DIR = join(__dirname, "reports");
 let lastSyncTime = 0;
 const SYNC_COOLDOWN_MS = 5 * 60 * 1000; // không sync lại trong 5 phút
 
@@ -232,8 +238,10 @@ async function handleQuestion(chatId: string, question: string, chatKey: string,
   // Build prompt — system prompt only on first message, then just the question
   let prompt: string;
   if (isNewSession) {
-    prompt = `ĐỌC FILE SYSTEM PROMPT: /Users/amando/Desktop/Learn/metabase-sync/SYSTEM_PROMPT.md — làm theo hướng dẫn trong đó.
+    prompt = `ĐỌC FILE SYSTEM PROMPT: ${SYNC_DIR}/SYSTEM_PROMPT.md — làm theo hướng dẫn trong đó.
 Database SQLite tại: ${WHALES_DB_PATH}
+Thư mục data files: ${SYNC_DIR}
+Thư mục reports output: ${REPORTS_DIR}
 
 Bạn là Report Manager & Data Analyst (agent ${REPORT_MANAGER_ID}) của Whales Market trong Paperclip. Team đang hỏi qua Telegram.
 
@@ -294,7 +302,7 @@ Câu hỏi: "${question}"`;
 
       // Check if a report file was created and offer inline keyboard
       const today = new Date().toISOString().slice(0, 10);
-      const reportsDir = "/Users/amando/Desktop/Learn/paperclip/scripts/report-agents/reports";
+      const reportsDir = REPORTS_DIR;
       try {
         const fs = await import("fs");
         const files = fs.readdirSync(reportsDir)
@@ -353,7 +361,7 @@ async function main() {
           // Try cache first, fallback to latest report file
           let reportPath = lastReportPath.get(cbChatKey);
           if (!reportPath) {
-            const reportsDir = "/Users/amando/Desktop/Learn/paperclip/scripts/report-agents/reports";
+            const reportsDir = REPORTS_DIR;
             try {
               const fs = await import("fs");
               const files = fs.readdirSync(reportsDir)
@@ -480,7 +488,7 @@ Chạy từng step, output theo format wallet analysis trong SYSTEM_PROMPT.md.`;
           try {
             const { execSync: exec } = await import("child_process");
             exec(`npx tsx visual-report.ts ${period}`, {
-              cwd: "/Users/amando/Desktop/Learn/paperclip/scripts/report-agents",
+              cwd: __dirname,
               timeout: 300_000,
               env: { ...process.env, PATH: `${process.env.PATH}:/usr/local/bin:/opt/homebrew/bin` },
               stdio: "pipe",

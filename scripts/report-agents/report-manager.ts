@@ -13,9 +13,15 @@ import { runSocialCollector } from "./lib/social-format.js";
 import { fetchGA4Metrics } from "./lib/ga4-client.js";
 import { moneySmart, growthBadge } from "./lib/formatters.js";
 
+import { fileURLToPath } from "url";
+import { dirname, join } from "path";
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
 const execFileAsync = promisify(execFile);
 
 const WHALES_DB_PATH = process.env.WHALES_DB_PATH!;
+const SYNC_DIR = process.env.METABASE_SYNC_DIR || join(__dirname, "../../metabase-sync");
 const RAPIDAPI_KEY = process.env.RAPIDAPI_KEY;
 const SOCIAL_ACCOUNTS = process.env.SOCIAL_ACCOUNTS ? JSON.parse(process.env.SOCIAL_ACCOUNTS) : [];
 
@@ -169,7 +175,7 @@ async function claudeAnalyze(prompt: string): Promise<string> {
   return stdout.trim();
 }
 
-const REPORT_RULES = `ĐỌC FILE NÀY TRƯỚC: /Users/amando/Desktop/Learn/metabase-sync/BUSINESS_CONTEXT.md — chứa KPIs, benchmarks, mục tiêu, cách đánh giá tốt/xấu.
+const REPORT_RULES = `ĐỌC FILE NÀY TRƯỚC: ${SYNC_DIR}/BUSINESS_CONTEXT.md — chứa KPIs, benchmarks, mục tiêu, cách đánh giá tốt/xấu.
 
 QUY TẮC BẮT BUỘC:
 - Viết tiếng Việt, giữ nguyên tiếng Anh cho metric: Volume, Order, Settlement Rate, Active Users, Sessions, Exit Position, New Users, Returning Users, MoM, WoW, Acquisition Rate, etc.
@@ -231,7 +237,7 @@ async function generateDailyOverview(platformRaw: any, gaRaw: any): Promise<stri
 
   const prompt = `Bạn là Head of Data Analytics cho Whales Market. Viết daily overview kết hợp TẤT CẢ nguồn data.
 
-ĐỌC: /Users/amando/Desktop/Learn/metabase-sync/BUSINESS_CONTEXT.md để biết benchmarks.
+ĐỌC: ${SYNC_DIR}/BUSINESS_CONTEXT.md để biết benchmarks.
 
 ## Platform Summary (24h vs yesterday):
 ${dbSummary}
@@ -395,7 +401,7 @@ async function main() {
   console.log("\n  → Syncing data...");
   try {
     const { execSync } = await import("child_process");
-    execSync("node sync.mjs", { cwd: "/Users/amando/Desktop/Learn/metabase-sync", timeout: 120_000, stdio: "pipe" });
+    execSync("node sync.mjs", { cwd: SYNC_DIR, timeout: 120_000, stdio: "pipe" });
     console.log("  → Sync done ✓");
   } catch (e) {
     console.error("  → Sync failed (continuing with existing data)");

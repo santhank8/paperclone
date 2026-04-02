@@ -11,8 +11,13 @@ import { sendPhoto } from "./lib/telegram.js";
 import { fetchGA4Metrics } from "./lib/ga4-client.js";
 import { execSync } from "child_process";
 import fs from "fs";
+import { fileURLToPath } from "url";
+import { dirname, join } from "path";
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 const WHALES_DB_PATH = process.env.WHALES_DB_PATH!;
+const SYNC_DIR = process.env.METABASE_SYNC_DIR || join(__dirname, "../../metabase-sync");
 const period = process.argv[2] || "daily"; // daily | weekly | monthly
 
 function getTimeRange(period: string) {
@@ -29,7 +34,7 @@ async function main() {
   // Sync data
   console.log("  → Syncing...");
   try {
-    execSync("node sync.mjs", { cwd: "/Users/amando/Desktop/Learn/metabase-sync", timeout: 120_000, stdio: "pipe" });
+    execSync("node sync.mjs", { cwd: SYNC_DIR, timeout: 120_000, stdio: "pipe" });
   } catch { console.error("  → Sync failed"); }
 
   const range = getTimeRange(period);
@@ -182,7 +187,7 @@ async function main() {
 
       const insightPrompt = `Bạn là Head of Data Analytics cho Whales Market. Dựa trên data dưới đây, viết TỐI ĐA 5 bullet points insight ngắn gọn.
 
-ĐỌC: /Users/amando/Desktop/Learn/metabase-sync/BUSINESS_CONTEXT.md để biết benchmarks.
+ĐỌC: ${SYNC_DIR}/BUSINESS_CONTEXT.md để biết benchmarks.
 
 ## Data (${period} report):
 - Filled Volume: $${reportData.filledVolume.toFixed(0)} (prev: $${reportData.filledVolumePrev.toFixed(0)})
