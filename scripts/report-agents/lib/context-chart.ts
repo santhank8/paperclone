@@ -1,32 +1,18 @@
 // context-chart.ts
-// Generate topic-specific HTML report file from report .md + SQLite data
-// Returns path to HTML file for sending via Telegram
+// Generate HTML report from .md analysis file
+// Parses Claude's markdown output → builds interactive HTML with Chart.js
 
-import Database from "better-sqlite3";
-import { basename, dirname, join } from "path";
-import { writeFileSync } from "fs";
-import { buildContextReportHtml } from "./html-report-builder.js";
+import { readFileSync, writeFileSync } from "fs";
+import { buildHtmlFromMd } from "./md-to-html-report.js";
 
-function detectTopic(reportPath: string): string {
-  const name = basename(reportPath, ".md");
-  return name.replace(/^\d{4}-\d{2}-\d{2}-/, "");
-}
-
-/** Generate HTML report file, return its path */
+/** Generate HTML report from .md file, return path to HTML file */
 export async function generateContextHtml(
   reportPath: string,
-  dbPath: string
+  _dbPath: string
 ): Promise<string> {
-  const topic = detectTopic(reportPath);
-  const db = new Database(dbPath, { readonly: true });
-
-  try {
-    const html = buildContextReportHtml(topic, db);
-    // Save HTML next to the .md report file
-    const htmlPath = reportPath.replace(/\.md$/, ".html");
-    writeFileSync(htmlPath, html);
-    return htmlPath;
-  } finally {
-    db.close();
-  }
+  const mdContent = readFileSync(reportPath, "utf-8");
+  const html = buildHtmlFromMd(mdContent);
+  const htmlPath = reportPath.replace(/\.md$/, ".html");
+  writeFileSync(htmlPath, html);
+  return htmlPath;
 }

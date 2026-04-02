@@ -82,20 +82,20 @@ canvas { max-width: 100%; }
 // COMPONENT HELPERS
 // ============================================================
 
-function fmtUSD(v: number): string {
+export function fmtUSD(v: number): string {
   if (v >= 1e9) return `$${(v / 1e9).toFixed(2)}B`;
   if (v >= 1e6) return `$${(v / 1e6).toFixed(2)}M`;
   if (v >= 1e3) return `$${(v / 1e3).toFixed(1)}K`;
   return `$${v.toFixed(0)}`;
 }
 
-function fmtNum(v: number): string {
+export function fmtNum(v: number): string {
   if (v >= 1e6) return `${(v / 1e6).toFixed(1)}M`;
   if (v >= 1e3) return `${(v / 1e3).toFixed(1)}K`;
   return v.toLocaleString();
 }
 
-function fmtPct(v: number): string {
+export function fmtPct(v: number): string {
   return `${v.toFixed(1)}%`;
 }
 
@@ -114,7 +114,7 @@ function rateColor(rate: number): string {
 }
 
 /** Header with badge + gradient title */
-function header(title: string, subtitle: string, badgeText: string): string {
+export function header(title: string, subtitle: string, badgeText: string): string {
   return `<div class="hd">
   <div class="badge">${badgeText}</div>
   <h1>${title}</h1>
@@ -123,7 +123,7 @@ function header(title: string, subtitle: string, badgeText: string): string {
 }
 
 /** KPI card grid */
-function kpiGrid(cards: Array<{ label: string; value: string; color?: string; change?: string }>): string {
+export function kpiGrid(cards: Array<{ label: string; value: string; color?: string; change?: string }>): string {
   return `<div class="kf">${cards.map(c =>
     `<div class="kfc">
       <div class="kft">${c.label}</div>
@@ -134,7 +134,7 @@ function kpiGrid(cards: Array<{ label: string; value: string; color?: string; ch
 }
 
 /** Section wrapper with colored top border */
-function section(color: string, icon: string, title: string, badge: string, content: string): string {
+export function section(color: string, icon: string, title: string, badge: string, content: string): string {
   return `<div class="sec ${color}">
   <div class="sh">
     <div class="si">${icon}</div>
@@ -146,7 +146,7 @@ function section(color: string, icon: string, title: string, badge: string, cont
 }
 
 /** Data table */
-function dataTable(headers: string[], rows: string[][]): string {
+export function dataTable(headers: string[], rows: string[][]): string {
   return `<table class="bt">
   <thead><tr>${headers.map(h => `<th>${h}</th>`).join("")}</tr></thead>
   <tbody>${rows.map(r => `<tr>${r.map(c => `<td>${c}</td>`).join("")}</tr>`).join("")}</tbody>
@@ -154,7 +154,7 @@ function dataTable(headers: string[], rows: string[][]): string {
 }
 
 /** Analysis box with bullet points */
-function analysisBox(points: string[]): string {
+export function analysisBox(points: string[]): string {
   if (points.length === 0) return "";
   return `<div class="an">
   <div class="ant">Analysis</div>
@@ -163,12 +163,12 @@ function analysisBox(points: string[]): string {
 }
 
 /** Canvas placeholder for Chart.js (rendered in <script>) */
-function chartCanvas(id: string, height = 200): string {
+export function chartCanvas(id: string, height = 200): string {
   return `<div class="chart-box"><canvas id="${id}" height="${height}"></canvas></div>`;
 }
 
 /** Full HTML page wrapper */
-function htmlPage(title: string, bodyContent: string, chartScripts: string): string {
+export function htmlPage(title: string, bodyContent: string, chartScripts: string): string {
   return `<!DOCTYPE html>
 <html>
 <head>
