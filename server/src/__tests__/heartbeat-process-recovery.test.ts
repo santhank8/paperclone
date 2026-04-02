@@ -32,6 +32,21 @@ function spawnAliveProcess() {
   });
 }
 
+async function waitForProcessExit(pid: number, timeoutMs = 5_000) {
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < timeoutMs) {
+    try {
+      process.kill(pid, 0);
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException | undefined)?.code;
+      if (code === "ESRCH") return;
+      throw error;
+    }
+  }
+  throw new Error(`Timed out waiting for pid ${pid} to exit`);
+}
+
 describeEmbeddedPostgres("heartbeat orphaned process recovery", () => {
   let db!: ReturnType<typeof createDb>;
   let tempDb: Awaited<ReturnType<typeof startEmbeddedPostgresTestDatabase>> | null = null;
@@ -339,5 +354,24 @@ describeEmbeddedPostgres("heartbeat orphaned process recovery", () => {
     const failedRun = await heartbeat.getRun(runId);
     expect(failedRun?.status).toBe("failed");
     expect(failedRun?.errorCode).toBe("process_lost");
+  });
+
+  it("kills a detached local child by recorded pid when the run is cancelled", async () => {
+    const child = spawnAliveProcess();
+    childProcesses.add(child);
+    expect(child.pid).toBeTypeOf("number");
+
+    const { runId } = await seedRunFixture({
+      includeIssue: false,
+      processPid: child.pid ?? null,
+      runErrorCode: "process_detached",
+      runError: `Lost in-memory process handle, but child pid ${child.pid} is still alive`,
+    });
+    const heartbeat = heartbeatService(db);
+
+    const cancelled = await heartbeat.cancelRun(runId);
+    expect(cancelled?.status).toBe("cancelled");
+
+    await waitForProcessExit(child.pid!);
   });
 });
