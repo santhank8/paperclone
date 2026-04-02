@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { NavLink, useLocation } from "@/lib/router";
+import { useTranslation } from "../lib/i18n";
 import {
   House,
   CircleDot,
@@ -34,6 +35,7 @@ interface MobileNavActionItem {
 type MobileNavItem = MobileNavLinkItem | MobileNavActionItem;
 
 export function MobileBottomNav({ visible }: MobileBottomNavProps) {
+  const { t } = useTranslation();
   const location = useLocation();
   const { selectedCompanyId } = useCompany();
   const { openNewIssue } = useDialog();
@@ -41,19 +43,19 @@ export function MobileBottomNav({ visible }: MobileBottomNavProps) {
 
   const items = useMemo<MobileNavItem[]>(
     () => [
-      { type: "link", to: "/dashboard", label: "Home", icon: House },
-      { type: "link", to: "/issues", label: "Issues", icon: CircleDot },
-      { type: "action", label: "Create", icon: SquarePen, onClick: () => openNewIssue() },
-      { type: "link", to: "/agents/all", label: "Agents", icon: Users },
+      { type: "link", to: "/dashboard", label: t("mobileNav.dashboard"), icon: House },
+      { type: "link", to: "/issues", label: t("mobileNav.issues"), icon: CircleDot },
+      { type: "action", label: t("sidebar.newIssue"), icon: SquarePen, onClick: () => openNewIssue() },
+      { type: "link", to: "/agents/all", label: t("mobileNav.agents"), icon: Users },
       {
         type: "link",
         to: "/inbox",
-        label: "Inbox",
+        label: t("mobileNav.inbox"),
         icon: Inbox,
         badge: inboxBadge.inbox,
       },
     ],
-    [openNewIssue, inboxBadge.inbox],
+    [t, openNewIssue, inboxBadge.inbox],
   );
 
   return (

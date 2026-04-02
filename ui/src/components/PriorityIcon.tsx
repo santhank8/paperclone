@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { ArrowUp, ArrowDown, Minus, AlertTriangle } from "lucide-react";
 import { cn } from "../lib/utils";
+import { useTranslation } from "../lib/i18n";
 import { priorityColor, priorityColorDefault } from "../lib/status-colors";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
@@ -22,6 +23,8 @@ interface PriorityIconProps {
 }
 
 export function PriorityIcon({ priority, onChange, className, showLabel }: PriorityIconProps) {
+  const { t } = useTranslation();
+  const priorityLabel = (key: string) => t(`priorities.${key}`) !== `priorities.${key}` ? t(`priorities.${key}`) : (priorityConfig[key]?.label ?? key);
   const [open, setOpen] = useState(false);
   const config = priorityConfig[priority] ?? priorityConfig.medium!;
   const Icon = config.icon;
@@ -39,12 +42,12 @@ export function PriorityIcon({ priority, onChange, className, showLabel }: Prior
     </span>
   );
 
-  if (!onChange) return showLabel ? <span className="inline-flex items-center gap-1.5">{icon}<span className="text-sm">{config.label}</span></span> : icon;
+  if (!onChange) return showLabel ? <span className="inline-flex items-center gap-1.5">{icon}<span className="text-sm">{priorityLabel(priority)}</span></span> : icon;
 
   const trigger = showLabel ? (
     <button className="inline-flex items-center gap-1.5 cursor-pointer hover:bg-accent/50 rounded px-1 -mx-1 py-0.5 transition-colors">
       {icon}
-      <span className="text-sm">{config.label}</span>
+      <span className="text-sm">{priorityLabel(priority)}</span>
     </button>
   ) : icon;
 
@@ -67,7 +70,7 @@ export function PriorityIcon({ priority, onChange, className, showLabel }: Prior
               }}
             >
               <PIcon className={cn("h-3.5 w-3.5", c.color)} />
-              {c.label}
+              {priorityLabel(p)}
             </Button>
           );
         })}

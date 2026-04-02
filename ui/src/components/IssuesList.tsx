@@ -1,4 +1,5 @@
 import { startTransition, useEffect, useMemo, useState, useCallback, useRef } from "react";
+import { useTranslation } from "../lib/i18n";
 import { useQuery } from "@tanstack/react-query";
 import { pickTextColorForPillBg } from "@/lib/color-contrast";
 import { useDialog } from "../context/DialogContext";
@@ -30,8 +31,13 @@ import type { Issue } from "@paperclipai/shared";
 const statusOrder = ["in_progress", "todo", "backlog", "in_review", "blocked", "done", "cancelled"];
 const priorityOrder = ["critical", "high", "medium", "low"];
 
-function statusLabel(status: string): string {
-  return status.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+function useStatusLabel() {
+  const { t } = useTranslation();
+  return (status: string) => {
+    const key = `statuses.${status}`;
+    const translated = t(key);
+    return translated !== key ? translated : status.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+  };
 }
 
 /* ── View state ── */
@@ -236,6 +242,7 @@ export function IssuesList({
     queryFn: () => authApi.getSession(),
   });
   const currentUserId = session?.user?.id ?? session?.session?.userId ?? null;
+  const statusLabel = useStatusLabel();
 
   // Scope the storage key per company so folding/view state is independent across companies.
   const scopedKey = selectedCompanyId ? `${viewStateKey}:${selectedCompanyId}` : viewStateKey;

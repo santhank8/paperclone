@@ -1,4 +1,5 @@
 import { useEffect, useMemo } from "react";
+import { useTranslation } from "../lib/i18n";
 import { useQuery } from "@tanstack/react-query";
 import { projectsApi } from "../api/projects";
 import { useCompany } from "../context/CompanyContext";
@@ -14,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Hexagon, Plus } from "lucide-react";
 
 export function Projects() {
+  const { t } = useTranslation();
   const { selectedCompanyId } = useCompany();
   const { openNewProject } = useDialog();
   const { setBreadcrumbs } = useBreadcrumbs();
@@ -33,7 +35,7 @@ export function Projects() {
   );
 
   if (!selectedCompanyId) {
-    return <EmptyState icon={Hexagon} message="Select a company to view projects." />;
+    return <EmptyState icon={Hexagon} message={t("emptyStates.selectCompanyProjects")} />;
   }
 
   if (isLoading) {
@@ -54,7 +56,7 @@ export function Projects() {
       {!isLoading && projects.length === 0 && (
         <EmptyState
           icon={Hexagon}
-          message="No projects yet."
+          message={t("emptyStates.noProjects")}
           action="Add Project"
           onAction={openNewProject}
         />

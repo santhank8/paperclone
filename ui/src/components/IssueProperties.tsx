@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useTranslation } from "../lib/i18n";
 import { pickTextColorForPillBg } from "@/lib/color-contrast";
 import { Link } from "@/lib/router";
 import type { Issue } from "@paperclipai/shared";
@@ -118,6 +119,7 @@ function PropertyPicker({
 }
 
 export function IssueProperties({ issue, onUpdate, inline }: IssuePropertiesProps) {
+  const { t } = useTranslation();
   const { selectedCompanyId } = useCompany();
   const queryClient = useQueryClient();
   const companyId = issue.companyId ?? selectedCompanyId;
@@ -491,7 +493,7 @@ export function IssueProperties({ issue, onUpdate, inline }: IssuePropertiesProp
   return (
     <div className="space-y-4">
       <div className="space-y-1">
-        <PropertyRow label="Status">
+        <PropertyRow label={t("issueProperties.status")}>
           <StatusIcon
             status={issue.status}
             onChange={(status) => onUpdate({ status })}
@@ -499,7 +501,7 @@ export function IssueProperties({ issue, onUpdate, inline }: IssuePropertiesProp
           />
         </PropertyRow>
 
-        <PropertyRow label="Priority">
+        <PropertyRow label={t("issueProperties.priority")}>
           <PriorityIcon
             priority={issue.priority}
             onChange={(priority) => onUpdate({ priority })}
@@ -509,7 +511,7 @@ export function IssueProperties({ issue, onUpdate, inline }: IssuePropertiesProp
 
         <PropertyPicker
           inline={inline}
-          label="Labels"
+          label={t("issueProperties.labels")}
           open={labelsOpen}
           onOpenChange={(open) => { setLabelsOpen(open); if (!open) setLabelSearch(""); }}
           triggerContent={labelsTrigger}
@@ -521,7 +523,7 @@ export function IssueProperties({ issue, onUpdate, inline }: IssuePropertiesProp
 
         <PropertyPicker
           inline={inline}
-          label="Assignee"
+          label={t("issueProperties.assignee")}
           open={assigneeOpen}
           onOpenChange={(open) => { setAssigneeOpen(open); if (!open) setAssigneeSearch(""); }}
           triggerContent={assigneeTrigger}
@@ -541,7 +543,7 @@ export function IssueProperties({ issue, onUpdate, inline }: IssuePropertiesProp
 
         <PropertyPicker
           inline={inline}
-          label="Project"
+          label={t("issueProperties.project")}
           open={projectOpen}
           onOpenChange={(open) => { setProjectOpen(open); if (!open) setProjectSearch(""); }}
           triggerContent={projectTrigger}
@@ -561,7 +563,7 @@ export function IssueProperties({ issue, onUpdate, inline }: IssuePropertiesProp
         </PropertyPicker>
 
         {issue.parentId && (
-          <PropertyRow label="Parent">
+          <PropertyRow label={t("issueProperties.parent")}>
             <Link
               to={`/issues/${issue.ancestors?.[0]?.identifier ?? issue.parentId}`}
               className="text-sm hover:underline"
@@ -572,7 +574,7 @@ export function IssueProperties({ issue, onUpdate, inline }: IssuePropertiesProp
         )}
 
         {issue.requestDepth > 0 && (
-          <PropertyRow label="Depth">
+          <PropertyRow label={t("issueProperties.depth")}>
             <span className="text-sm font-mono">{issue.requestDepth}</span>
           </PropertyRow>
         )}
@@ -582,7 +584,7 @@ export function IssueProperties({ issue, onUpdate, inline }: IssuePropertiesProp
 
       <div className="space-y-1">
         {(issue.createdByAgentId || issue.createdByUserId) && (
-          <PropertyRow label="Created by">
+          <PropertyRow label={t("issueProperties.createdBy")}>
             {issue.createdByAgentId ? (
               <Link
                 to={`/agents/${issue.createdByAgentId}`}
@@ -593,25 +595,25 @@ export function IssueProperties({ issue, onUpdate, inline }: IssuePropertiesProp
             ) : (
               <>
                 <User className="h-3.5 w-3.5 text-muted-foreground" />
-                <span className="text-sm">{creatorUserLabel ?? "User"}</span>
+                <span className="text-sm">{creatorUserLabel ?? t("issueProperties.user")}</span>
               </>
             )}
           </PropertyRow>
         )}
         {issue.startedAt && (
-          <PropertyRow label="Started">
+          <PropertyRow label={t("issueProperties.started")}>
             <span className="text-sm">{formatDate(issue.startedAt)}</span>
           </PropertyRow>
         )}
         {issue.completedAt && (
-          <PropertyRow label="Completed">
+          <PropertyRow label={t("issueProperties.completed")}>
             <span className="text-sm">{formatDate(issue.completedAt)}</span>
           </PropertyRow>
         )}
-        <PropertyRow label="Created">
+        <PropertyRow label={t("issueProperties.created")}>
           <span className="text-sm">{formatDate(issue.createdAt)}</span>
         </PropertyRow>
-        <PropertyRow label="Updated">
+        <PropertyRow label={t("issueProperties.updated")}>
           <span className="text-sm">{timeAgo(issue.updatedAt)}</span>
         </PropertyRow>
       </div>

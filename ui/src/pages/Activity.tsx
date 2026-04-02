@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useTranslation } from "../lib/i18n";
 import { useQuery } from "@tanstack/react-query";
 import { activityApi } from "../api/activity";
 import { agentsApi } from "../api/agents";
@@ -22,6 +23,7 @@ import { History } from "lucide-react";
 import type { Agent } from "@paperclipai/shared";
 
 export function Activity() {
+  const { t } = useTranslation();
   const { selectedCompanyId } = useCompany();
   const { setBreadcrumbs } = useBreadcrumbs();
   const [filter, setFilter] = useState("all");
@@ -82,7 +84,7 @@ export function Activity() {
   }, [issues]);
 
   if (!selectedCompanyId) {
-    return <EmptyState icon={History} message="Select a company to view activity." />;
+    return <EmptyState icon={History} message={t("emptyStates.selectCompanyActivity")} />;
   }
 
   if (isLoading) {
@@ -119,7 +121,7 @@ export function Activity() {
       {error && <p className="text-sm text-destructive">{error.message}</p>}
 
       {filtered && filtered.length === 0 && (
-        <EmptyState icon={History} message="No activity yet." />
+        <EmptyState icon={History} message={t("emptyStates.noActivity")} />
       )}
 
       {filtered && filtered.length > 0 && (

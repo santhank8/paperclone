@@ -16,6 +16,7 @@ import { ThemeProvider } from "./context/ThemeContext";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { initPluginBridge } from "./plugins/bridge-init";
 import { PluginLauncherProvider } from "./plugins/launchers";
+import { I18nProvider } from "./lib/i18n";
 import "@mdxeditor/editor/style.css";
 import "./index.css";
 
@@ -39,6 +40,7 @@ const queryClient = new QueryClient({
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
+      <I18nProvider>
       <ThemeProvider>
         <BrowserRouter>
           <CompanyProvider>
@@ -62,6 +64,7 @@ createRoot(document.getElementById("root")!).render(
           </CompanyProvider>
         </BrowserRouter>
       </ThemeProvider>
+      </I18nProvider>
     </QueryClientProvider>
   </StrictMode>
 );
