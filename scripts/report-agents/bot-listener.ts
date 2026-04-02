@@ -18,19 +18,32 @@ const __dirname = dirname(__filename);
 
 const SYNC_DIR = process.env.METABASE_SYNC_DIR || join(__dirname, "../../metabase-sync");
 const REPORTS_DIR = join(__dirname, "reports");
-let lastSyncTime = 0;
-const SYNC_COOLDOWN_MS = 5 * 60 * 1000; // không sync lại trong 5 phút
+
+function isSyncedToday(): boolean {
+  if (!WHALES_DB_PATH) return false;
+  try {
+    const db = new Database(WHALES_DB_PATH, { readonly: true });
+    const row = db.prepare(
+      `SELECT synced_at FROM _sync_log WHERE status = 'ok' ORDER BY synced_at DESC LIMIT 1`
+    ).get() as { synced_at: string } | undefined;
+    db.close();
+    if (!row) return false;
+    const syncDate = row.synced_at.slice(0, 10); // YYYY-MM-DD (UTC)
+    const todayUTC = new Date().toISOString().slice(0, 10);
+    return syncDate === todayUTC;
+  } catch {
+    return false;
+  }
+}
 
 function syncData(): void {
-  const now = Date.now();
-  if (now - lastSyncTime < SYNC_COOLDOWN_MS) {
-    console.log("  Sync skipped (cooldown)");
+  if (isSyncedToday()) {
+    console.log("  Sync skipped (data already from today)");
     return;
   }
   try {
     console.log("  Syncing data...");
     execSync("node sync.mjs", { cwd: SYNC_DIR, timeout: 120_000, stdio: "pipe" });
-    lastSyncTime = Date.now();
     console.log("  Sync done ✓");
   } catch (e: any) {
     console.error("  Sync failed:", e.message?.slice(0, 100));
