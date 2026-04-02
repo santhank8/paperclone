@@ -254,6 +254,8 @@ const heartbeatRunListColumns = {
   retryOfRunId: heartbeatRuns.retryOfRunId,
   processLossRetryCount: heartbeatRuns.processLossRetryCount,
   contextSnapshot: heartbeatRuns.contextSnapshot,
+  actionCount: heartbeatRuns.actionCount,
+  silentSuccess: heartbeatRuns.silentSuccess,
   createdAt: heartbeatRuns.createdAt,
   updatedAt: heartbeatRuns.updatedAt,
 } as const;
@@ -1596,6 +1598,16 @@ export function heartbeatService(db: Db) {
       .then((rows) => rows[0] ?? null);
   }
 
+  async function incrementRunActionCount(runId: string) {
+    await db
+      .update(heartbeatRuns)
+      .set({
+        actionCount: sql`${heartbeatRuns.actionCount} + 1`,
+        updatedAt: new Date(),
+      })
+      .where(and(eq(heartbeatRuns.id, runId), eq(heartbeatRuns.status, "running")));
+  }
+
   async function clearDetachedRunWarning(runId: string) {
     const updated = await db
       .update(heartbeatRuns)
@@ -2837,6 +2849,9 @@ export function heartbeatService(db: Db) {
             } as Record<string, unknown>)
           : null;
 
+      const latestRunForSilent = await getRun(run.id);
+      const isSilentSuccess = outcome === "succeeded" && (latestRunForSilent?.actionCount ?? 0) === 0;
+
       await setRunStatus(run.id, status, {
         finishedAt: new Date(),
         error:
@@ -2864,6 +2879,7 @@ export function heartbeatService(db: Db) {
         logBytes: logSummary?.bytes,
         logSha256: logSummary?.sha256,
         logCompressed: logSummary?.compressed ?? false,
+        silentSuccess: isSilentSuccess,
       });
 
       await setWakeupStatus(run.wakeupRequestId, outcome === "succeeded" ? "completed" : status, {
@@ -3994,6 +4010,8 @@ export function heartbeatService(db: Db) {
     wakeup: enqueueWakeup,
 
     reportRunActivity: clearDetachedRunWarning,
+
+    incrementRunActionCount,
 
     reapOrphanedRuns,
 

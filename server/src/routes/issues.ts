@@ -987,6 +987,11 @@ export function issueRoutes(db: Db, storage: StorageService) {
       details: { title: issue.title, identifier: issue.identifier },
     });
 
+    if (actor.runId) {
+      void heartbeat.incrementRunActionCount(actor.runId).catch((err) =>
+        logger.warn({ err, runId: actor.runId }, "failed to increment run action count after issue create"));
+    }
+
     void queueIssueAssignmentWakeup({
       heartbeat,
       issue,
@@ -1111,6 +1116,8 @@ export function issueRoutes(db: Db, storage: StorageService) {
     if (actor.runId) {
       await heartbeat.reportRunActivity(actor.runId).catch((err) =>
         logger.warn({ err, runId: actor.runId }, "failed to clear detached run warning after issue activity"));
+      void heartbeat.incrementRunActionCount(actor.runId).catch((err) =>
+        logger.warn({ err, runId: actor.runId }, "failed to increment run action count after issue update"));
     }
 
     // Build activity details with previous values for changed fields
@@ -1350,6 +1357,11 @@ export function issueRoutes(db: Db, storage: StorageService) {
       details: { agentId: req.body.agentId },
     });
 
+    if (actor.runId) {
+      void heartbeat.incrementRunActionCount(actor.runId).catch((err) =>
+        logger.warn({ err, runId: actor.runId }, "failed to increment run action count after checkout"));
+    }
+
     if (
       shouldWakeAssigneeOnCheckout({
         actorType: req.actor.type,
@@ -1544,6 +1556,8 @@ export function issueRoutes(db: Db, storage: StorageService) {
     if (actor.runId) {
       await heartbeat.reportRunActivity(actor.runId).catch((err) =>
         logger.warn({ err, runId: actor.runId }, "failed to clear detached run warning after issue comment"));
+      void heartbeat.incrementRunActionCount(actor.runId).catch((err) =>
+        logger.warn({ err, runId: actor.runId }, "failed to increment run action count after issue comment"));
     }
 
     await logActivity(db, {

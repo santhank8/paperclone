@@ -1,4 +1,4 @@
-import { and, eq, gte, inArray, isNull, lt, or, sql } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, isNull, lt, or, sql } from "drizzle-orm";
 import type { Db } from "@paperclipai/db";
 import { agents, approvals, companies, costEvents, heartbeatRuns, issues } from "@paperclipai/db";
 import { notFound } from "../errors.js";
@@ -100,6 +100,55 @@ export function dashboardService(db: Db) {
           ),
         );
 
+      // Agents with 3+ consecutive silent successes: fetch recent succeeded runs per agent
+      // and count leading streak of silentSuccess=true
+      const SILENT_THRESHOLD = 3;
+      const agentIdsInCompany = await db
+        .select({ id: agents.id })
+        .from(agents)
+        .where(eq(agents.companyId, companyId))
+        .then((rows) => rows.map((r) => r.id));
+
+      let agentsWithSilentWarning = 0;
+      const agentSilentCounts: Record<string, number> = {};
+
+      if (agentIdsInCompany.length > 0) {
+        // For each agent, fetch last N=10 succeeded runs ordered by most recent first
+        const recentSucceeded = await db
+          .select({
+            agentId: heartbeatRuns.agentId,
+            silentSuccess: heartbeatRuns.silentSuccess,
+            finishedAt: heartbeatRuns.finishedAt,
+          })
+          .from(heartbeatRuns)
+          .where(
+            and(
+              eq(heartbeatRuns.companyId, companyId),
+              inArray(heartbeatRuns.agentId, agentIdsInCompany),
+              eq(heartbeatRuns.status, "succeeded"),
+            ),
+          )
+          .orderBy(desc(heartbeatRuns.finishedAt))
+          .limit(agentIdsInCompany.length * 10);
+
+        // Group by agent and count consecutive leading silent successes
+        const byAgent: Record<string, boolean[]> = {};
+        for (const row of recentSucceeded) {
+          if (!byAgent[row.agentId]) byAgent[row.agentId] = [];
+          if (byAgent[row.agentId].length < 10) byAgent[row.agentId].push(row.silentSuccess);
+        }
+
+        for (const [agentId, flags] of Object.entries(byAgent)) {
+          let streak = 0;
+          for (const isSilent of flags) {
+            if (isSilent) streak++;
+            else break;
+          }
+          agentSilentCounts[agentId] = streak;
+          if (streak >= SILENT_THRESHOLD) agentsWithSilentWarning++;
+        }
+      }
+
       const now = new Date();
       const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
       const [{ monthSpend }] = await db
@@ -129,6 +178,8 @@ export function dashboardService(db: Db) {
           paused: agentCounts.paused,
           error: agentCounts.error,
           staleRunning: staleRunningAgents,
+          silentWarning: agentsWithSilentWarning,
+          silentCounts: agentSilentCounts,
         },
         tasks: {
           ...taskCounts,
