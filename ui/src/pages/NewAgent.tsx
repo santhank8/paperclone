@@ -65,6 +65,9 @@ export function NewAgent() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const presetAdapterType = searchParams.get("adapterType");
+  const presetName = searchParams.get("name");
+  const presetTitle = searchParams.get("title");
+  const presetRole = searchParams.get("role");
 
   const [name, setName] = useState("");
   const [title, setTitle] = useState("");
@@ -128,6 +131,14 @@ export function NewAgent() {
       return createValuesForAdapterType(requested as CreateConfigValues["adapterType"]);
     });
   }, [presetAdapterType]);
+
+  useEffect(() => {
+    if (presetName) setName(presetName);
+    if (presetTitle) setTitle(presetTitle);
+    if (presetRole && AGENT_ROLES.includes(presetRole as (typeof AGENT_ROLES)[number])) {
+      setRole(presetRole);
+    }
+  }, [presetName, presetRole, presetTitle]);
 
   const createAgent = useMutation({
     mutationFn: (data: Record<string, unknown>) =>

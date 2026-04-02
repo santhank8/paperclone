@@ -4,6 +4,8 @@ export default defineConfig({
   test: {
     projects: [
       "packages/db",
+      "packages/virtual-org-core",
+      "packages/virtual-org-connectors",
       "packages/adapters/codex-local",
       "packages/adapters/opencode-local",
       "server",

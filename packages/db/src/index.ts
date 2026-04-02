@@ -1,4 +1,5 @@
 export {
+  createSqlClient,
   createDb,
   getPostgresDataDirectory,
   ensurePostgresDatabase,

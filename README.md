@@ -27,6 +27,20 @@
 
 # Open-source orchestration for zero-human companies
 
+## Virtual Org fork
+
+This repo is now the starting point for **Virtual Org**: a founder operating system layered on top of Paperclip.
+
+The first custom layer adds:
+
+- a **Portfolio** view across companies
+- a **Workspace** view for each company
+- stage-aware company profiles for **Muster** and **Officely**
+- founder capture into a Virtual Org inbox
+- insight cards, data connector records, and agent templates
+
+After local startup, open the app and use the **Set up Muster + Officely** button in **Portfolio** to seed the first two companies.
+
 **If OpenClaw is an _employee_, Paperclip is the _company_**
 
 Paperclip is a Node.js server and React UI that orchestrates a team of AI agents to run a business. Bring your own agents, assign goals, and track your agents' work and costs from one dashboard.
