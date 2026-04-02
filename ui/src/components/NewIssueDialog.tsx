@@ -306,7 +306,7 @@ export function NewIssueDialog() {
   // Related issues search (debounced)
   useEffect(() => {
     if (relatedDebounceRef.current) clearTimeout(relatedDebounceRef.current);
-    relatedDebounceRef.current = setTimeout(() => setDebouncedRelatedSearch(relatedSearch), 300);
+    relatedDebounceRef.current = setTimeout(() => setDebouncedRelatedSearch(relatedSearch), DEBOUNCE_MS);
     return () => { if (relatedDebounceRef.current) clearTimeout(relatedDebounceRef.current); };
   }, [relatedSearch]);
   const { data: relatedSearchResults, isFetching: relatedFetching } = useQuery({
@@ -652,6 +652,8 @@ export function NewIssueDialog() {
     setAssigneeChrome(false);
     setExecutionWorkspaceMode("shared_workspace");
     setSelectedExecutionWorkspaceId("");
+    setRelatedIssues([]);
+    setRelatedSearch("");
   }
 
   function discardDraft() {
@@ -1468,7 +1470,7 @@ export function NewIssueDialog() {
                 </div>
               )}
               {/* Search results */}
-              {relatedSearch.length >= 2 && (
+              {debouncedRelatedSearch.length >= 2 && (
                 <div className="max-h-48 overflow-y-auto">
                   {relatedFetching ? (
                     <p className="text-xs text-muted-foreground px-1 py-2">Searching…</p>
