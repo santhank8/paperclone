@@ -30,7 +30,6 @@ import { budgetService, type BudgetEnforcementScope } from "./budgets.js";
 import { secretService } from "./secrets.js";
 import { resolveDefaultAgentWorkspaceDir, resolveManagedProjectWorkspaceDir } from "../home-paths.js";
 import { summarizeHeartbeatRunResultJson } from "./heartbeat-run-summary.js";
-import { detectSilentFailure } from "./heartbeat-run-outcome.js";
 import {
   buildWorkspaceReadyComment,
   cleanupExecutionWorkspaceArtifacts,
@@ -2740,11 +2739,9 @@ export function heartbeatService(db: Db) {
       } else if (adapterResult.timedOut) {
         outcome = "timed_out";
       } else if ((adapterResult.exitCode ?? 0) === 0 && !adapterResult.errorMessage) {
-        // Exit code looks fine, but check if the agent actually did useful work.
-        const silentCheck = detectSilentFailure(adapterResult.summary, adapterResult.resultJson);
-        if (silentCheck.detected) {
+        if (adapterResult.silentFailure) {
           outcome = "failed";
-          silentFailureMessage = `Agent exited cleanly but performed no work: ${silentCheck.matchedPhrase}`;
+          silentFailureMessage = `Agent exited cleanly but performed no work: ${adapterResult.silentFailure.reason}`;
         } else {
           outcome = "succeeded";
         }
