@@ -1,4 +1,5 @@
 import {
+  type ClipboardEvent,
   forwardRef,
   useCallback,
   useEffect,
@@ -32,6 +33,7 @@ import { AgentIcon } from "./AgentIconPicker";
 import { applyMentionChipDecoration, clearMentionChipDecoration, parseMentionChipHref } from "../lib/mention-chips";
 import { MentionAwareLinkNode, mentionAwareLinkNodeReplacement } from "../lib/mention-aware-link-node";
 import { mentionDeletionPlugin } from "../lib/mention-deletion";
+import { looksLikeMarkdownPaste, normalizePastedMarkdown } from "../lib/markdownPaste";
 import { cn } from "../lib/utils";
 
 /* ---- Mention types ---- */
@@ -165,6 +167,17 @@ function detectMention(container: HTMLElement): MentionState | null {
     atPos,
     endPos: offset,
   };
+}
+
+function isSelectionInsideCodeLikeElement(container: HTMLElement | null) {
+  if (!container) return false;
+  const selection = window.getSelection();
+  const anchorNode = selection?.anchorNode;
+  if (!anchorNode || !container.contains(anchorNode)) return false;
+  const anchorElement = anchorNode.nodeType === Node.ELEMENT_NODE
+    ? anchorNode as HTMLElement
+    : anchorNode.parentElement;
+  return Boolean(anchorElement?.closest("pre, code"));
 }
 
 function mentionMarkdown(option: MentionOption): string {
@@ -464,6 +477,19 @@ export const MarkdownEditor = forwardRef<MarkdownEditorRef, MarkdownEditorProps>
   }
 
   const canDropImage = Boolean(imageUploadHandler);
+  const handlePasteCapture = useCallback((event: ClipboardEvent<HTMLDivElement>) => {
+    const clipboard = event.clipboardData;
+    if (!clipboard || !ref.current) return;
+    const types = new Set(Array.from(clipboard.types));
+    if (types.has("Files") || types.has("text/html")) return;
+    if (isSelectionInsideCodeLikeElement(containerRef.current)) return;
+
+    const text = normalizePastedMarkdown(clipboard.getData("text/plain"));
+    if (!looksLikeMarkdownPaste(text)) return;
+
+    event.preventDefault();
+    ref.current.insertMarkdown(text);
+  }, []);
 
   return (
     <div
@@ -541,6 +567,7 @@ export const MarkdownEditor = forwardRef<MarkdownEditorRef, MarkdownEditorProps>
         dragDepthRef.current = 0;
         setIsDragOver(false);
       }}
+      onPasteCapture={handlePasteCapture}
     >
       <MDXEditor
         ref={ref}
