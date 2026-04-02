@@ -55,10 +55,19 @@ for (const name of externalWorkspacePackages) {
 const copyMigrationsPlugin = {
   name: "copy-migrations",
   setup(build) {
-    build.onEnd(() => {
-      const src = resolve(repoRoot, "packages/db/src/migrations");
-      const dest = resolve(__dirname, "dist/migrations");
-      cpSync(src, dest, { recursive: true });
+    build.onEnd((result) => {
+      try {
+        const src = resolve(repoRoot, "packages/db/src/migrations");
+        const dest = resolve(__dirname, "dist/migrations");
+        cpSync(src, dest, { recursive: true });
+      } catch (err) {
+        result.errors.push({
+          text: `copy-migrations: ${err instanceof Error ? err.message : String(err)}`,
+          location: null,
+          notes: [],
+          detail: err,
+        });
+      }
     });
   },
 };
