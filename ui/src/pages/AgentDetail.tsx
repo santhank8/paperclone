@@ -25,8 +25,6 @@ import { queryKeys } from "../lib/queryKeys";
 import { AgentConfigForm } from "../components/AgentConfigForm";
 import { PageTabBar } from "../components/PageTabBar";
 import { adapterLabels, roleLabels, help } from "../components/agent-config-primitives";
-import { MarkdownEditor } from "../components/MarkdownEditor";
-import { assetsApi } from "../api/assets";
 import { getUIAdapter, buildTranscript } from "../adapters";
 import { StatusBadge } from "../components/StatusBadge";
 import { agentStatusDot, agentStatusDotDefault } from "../lib/status-colors";
@@ -142,10 +140,6 @@ function redactEnvValue(key: string, value: unknown, censorUsernameInLogs: boole
   } catch {
     return redactPathText(String(value), censorUsernameInLogs);
   }
-}
-
-function isMarkdown(pathValue: string) {
-  return pathValue.toLowerCase().endsWith(".md");
 }
 
 function formatEnvForDisplay(envValue: unknown, censorUsernameInLogs: boolean): string {
@@ -1697,7 +1691,7 @@ function PromptsTab({
   const { data: selectedFileDetail, isLoading: fileLoading } = useQuery({
     queryKey: queryKeys.agents.instructionsFile(agent.id, selectedOrEntryFile),
     queryFn: () => agentsApi.instructionsFile(agent.id, selectedOrEntryFile, companyId),
-    enabled: Boolean(companyId && isLocal && selectedOrEntryFile),
+    enabled: Boolean(companyId && isLocal && selectedOrEntryFile && !pendingFiles.includes(selectedOrEntryFile)),
   });
 
   const updateBundle = useMutation({
@@ -1740,13 +1734,6 @@ function PromptsTab({
       queryClient.invalidateQueries({ queryKey: queryKeys.agents.detail(agent.urlKey) });
     },
     onError: () => setAwaitingRefresh(false),
-  });
-
-  const uploadMarkdownImage = useMutation({
-    mutationFn: async ({ file, namespace }: { file: File; namespace: string }) => {
-      if (!selectedCompanyId) throw new Error("Select a company to upload images");
-      return assetsApi.uploadImage(selectedCompanyId, file, namespace);
-    },
   });
 
   useEffect(() => {
@@ -2262,7 +2249,7 @@ function PromptsTab({
             )}
           </div>
 
-          {selectedFileExists && fileLoading && !selectedFileDetail ? (
+          {fileLoading && !selectedFileDetail ? (
             <PromptEditorSkeleton />
           ) : (
             <textarea
