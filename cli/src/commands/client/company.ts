@@ -370,6 +370,7 @@ export function buildSelectedFilesFromImportSelection(
 
 export function buildDefaultImportAdapterOverrides(
   preview: Pick<CompanyPortabilityPreviewResult, "manifest" | "selectedAgentSlugs">,
+  adapterType: string,
 ): Record<string, { adapterType: string }> | undefined {
   const selectedAgentSlugs = new Set(preview.selectedAgentSlugs);
   const overrides = Object.fromEntries(
@@ -379,8 +380,7 @@ export function buildDefaultImportAdapterOverrides(
       .map((agent) => [
         agent.slug,
         {
-          // TODO: replace this temporary claude_local fallback with adapter selection in the import TUI.
-          adapterType: "claude_local",
+          adapterType,
         },
       ]),
   );
@@ -1380,7 +1380,7 @@ export function registerCompanyCommands(program: Command): void {
           if (!preview) {
             throw new Error("Import preview returned no data.");
           }
-          const adapterOverrides = buildDefaultImportAdapterOverrides(preview);
+          const adapterOverrides = buildDefaultImportAdapterOverrides(preview, "claude_local");
           const adapterMessages = buildDefaultImportAdapterMessages(adapterOverrides);
 
           if (opts.dryRun) {

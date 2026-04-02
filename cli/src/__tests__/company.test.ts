@@ -586,7 +586,7 @@ describe("default adapter overrides", () => {
       errors: [],
     };
 
-    expect(buildDefaultImportAdapterOverrides(preview)).toEqual({
+    expect(buildDefaultImportAdapterOverrides(preview, "claude_local")).toEqual({
       "legacy-agent": {
         adapterType: "claude_local",
       },
