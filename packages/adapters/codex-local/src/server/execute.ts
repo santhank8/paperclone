@@ -167,21 +167,17 @@ export async function ensureCodexSkillsInjected(
     try {
       const existing = await fs.lstat(target).catch(() => null);
       if (existing?.isSymbolicLink()) {
-        const linkedPath = await fs.readlink(target).catch(() => null);
-        const resolvedLinkedPath = linkedPath
-          ? path.resolve(path.dirname(target), linkedPath)
-          : null;
+        const [resolvedLinkedPath, resolvedSourcePath] = await Promise.all([
+          fs.realpath(target).catch(() => null),
+          fs.realpath(entry.source).catch(() => path.resolve(entry.source)),
+        ]);
         if (
           resolvedLinkedPath &&
-          resolvedLinkedPath !== entry.source &&
+          resolvedLinkedPath !== resolvedSourcePath &&
           (await isLikelyPaperclipRuntimeSkillPath(resolvedLinkedPath, entry.runtimeName))
         ) {
           await fs.unlink(target);
-          if (linkSkill) {
-            await linkSkill(entry.source, target);
-          } else {
-            await fs.symlink(entry.source, target);
-          }
+          await ensurePaperclipSkillSymlink(entry.source, target, linkSkill);
           await onLog(
             "stdout",
             `[paperclip] Repaired Codex skill "${entry.runtimeName}" into ${skillsHome}\n`,

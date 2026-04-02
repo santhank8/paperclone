@@ -92,6 +92,28 @@ function normalizePathSlashes(value: string): string {
   return value.replaceAll("\\", "/");
 }
 
+function stripWindowsPathNamespacePrefix(value: string): string {
+  if (process.platform !== "win32") return value;
+  if (value.startsWith("\\\\?\\UNC\\")) {
+    return `\\\\${value.slice("\\\\?\\UNC\\".length)}`;
+  }
+  if (value.startsWith("\\\\?\\")) {
+    return value.slice("\\\\?\\".length);
+  }
+  return value;
+}
+
+function normalizeResolvedPath(value: string): string {
+  return path.normalize(stripWindowsPathNamespacePrefix(value));
+}
+
+function resolveLinkedTargetPath(target: string, linkedPath: string): string {
+  const resolved = path.isAbsolute(linkedPath)
+    ? linkedPath
+    : path.resolve(path.dirname(target), linkedPath);
+  return normalizeResolvedPath(resolved);
+}
+
 function isMaintainerOnlySkillTarget(candidate: string): boolean {
   return normalizePathSlashes(candidate).includes("/.agents/skills/");
 }
@@ -129,7 +151,7 @@ function resolveInstalledEntryTarget(
   const fullPath = path.join(skillsHome, entryName);
   if (dirent.isSymbolicLink()) {
     return {
-      targetPath: linkedPath ? path.resolve(path.dirname(fullPath), linkedPath) : null,
+      targetPath: linkedPath ? resolveLinkedTargetPath(fullPath, linkedPath) : null,
       kind: "symlink",
     };
   }
@@ -762,15 +784,89 @@ export function writePaperclipSkillSyncPreference(
   return next;
 }
 
+function isPermissionDeniedError(error: unknown): error is NodeJS.ErrnoException {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    (error.code === "EPERM" || error.code === "EACCES")
+  );
+}
+
+async function materializePaperclipSkillTarget(
+  source: string,
+  target: string,
+  options: {
+    linkSkill?: (source: string, target: string) => Promise<void>;
+    allowCopyFallback?: boolean;
+  } = {},
+): Promise<"linked" | "copied"> {
+  const { linkSkill, allowCopyFallback = false } = options;
+  const sourceStats = await fs.stat(source);
+  const sourceIsDirectory = sourceStats.isDirectory();
+  const tryJunction = async () => {
+    await fs.symlink(path.resolve(source), target, "junction");
+    return "linked" as const;
+  };
+
+  try {
+    if (linkSkill) {
+      await linkSkill(source, target);
+      return "linked";
+    }
+
+    if (process.platform === "win32" && sourceIsDirectory) {
+      await fs.symlink(path.resolve(source), target, "junction");
+      return "linked";
+    }
+
+    await fs.symlink(source, target);
+    return "linked";
+  } catch (error) {
+    if (sourceIsDirectory && process.platform === "win32" && isPermissionDeniedError(error)) {
+      try {
+        return await tryJunction();
+      } catch (junctionError) {
+        if (!allowCopyFallback || !isPermissionDeniedError(junctionError)) {
+          throw junctionError;
+        }
+        await fs.cp(source, target, { recursive: true, force: true });
+        return "copied";
+      }
+    }
+
+    if (!allowCopyFallback || !sourceIsDirectory || !isPermissionDeniedError(error)) {
+      throw error;
+    }
+    await fs.cp(source, target, { recursive: true, force: true });
+    return "copied";
+  }
+}
+
+type EnsurePaperclipSkillSymlinkOptions = {
+  linkSkill?: (source: string, target: string) => Promise<void>;
+  allowCopyFallback?: boolean;
+};
+
+function resolveEnsurePaperclipSkillOptions(
+  optionsOrLinkSkill?: EnsurePaperclipSkillSymlinkOptions | ((source: string, target: string) => Promise<void>),
+): EnsurePaperclipSkillSymlinkOptions {
+  if (typeof optionsOrLinkSkill === "function") {
+    return { linkSkill: optionsOrLinkSkill };
+  }
+  return optionsOrLinkSkill ?? {};
+}
+
 export async function ensurePaperclipSkillSymlink(
   source: string,
   target: string,
-  linkSkill: (source: string, target: string) => Promise<void> = (linkSource, linkTarget) =>
-    fs.symlink(linkSource, linkTarget),
+  optionsOrLinkSkill?: EnsurePaperclipSkillSymlinkOptions | ((source: string, target: string) => Promise<void>),
 ): Promise<"created" | "repaired" | "skipped"> {
+  const options = resolveEnsurePaperclipSkillOptions(optionsOrLinkSkill);
+  const normalizedSource = normalizeResolvedPath(path.resolve(source));
   const existing = await fs.lstat(target).catch(() => null);
   if (!existing) {
-    await linkSkill(source, target);
+    await materializePaperclipSkillTarget(source, target, options);
     return "created";
   }
 
@@ -781,8 +877,8 @@ export async function ensurePaperclipSkillSymlink(
   const linkedPath = await fs.readlink(target).catch(() => null);
   if (!linkedPath) return "skipped";
 
-  const resolvedLinkedPath = path.resolve(path.dirname(target), linkedPath);
-  if (resolvedLinkedPath === source) {
+  const resolvedLinkedPath = resolveLinkedTargetPath(target, linkedPath);
+  if (resolvedLinkedPath === normalizedSource) {
     return "skipped";
   }
 
@@ -792,7 +888,7 @@ export async function ensurePaperclipSkillSymlink(
   }
 
   await fs.unlink(target);
-  await linkSkill(source, target);
+  await materializePaperclipSkillTarget(source, target, options);
   return "repaired";
 }
 
@@ -814,9 +910,7 @@ export async function removeMaintainerOnlySkillSymlinks(
       const linkedPath = await fs.readlink(target).catch(() => null);
       if (!linkedPath) continue;
 
-      const resolvedLinkedPath = path.isAbsolute(linkedPath)
-        ? linkedPath
-        : path.resolve(path.dirname(target), linkedPath);
+      const resolvedLinkedPath = resolveLinkedTargetPath(target, linkedPath);
       if (
         !isMaintainerOnlySkillTarget(linkedPath) &&
         !isMaintainerOnlySkillTarget(resolvedLinkedPath)

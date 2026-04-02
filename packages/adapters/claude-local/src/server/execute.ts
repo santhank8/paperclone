@@ -12,6 +12,7 @@ import {
   parseObject,
   parseJson,
   buildPaperclipEnv,
+  ensurePaperclipSkillSymlink,
   readPaperclipRuntimeSkillEntries,
   joinPromptSections,
   buildInvocationEnvForLogs,
@@ -34,9 +35,10 @@ import { resolveClaudeDesiredSkillNames } from "./skills.js";
 const __moduleDir = path.dirname(fileURLToPath(import.meta.url));
 
 /**
- * Create a tmpdir with `.claude/skills/` containing symlinks to skills from
- * the repo's `skills/` directory, so `--add-dir` makes Claude Code discover
- * them as proper registered skills.
+ * Create a tmpdir with `.claude/skills/` containing linked skill directories
+ * from the repo's `skills/` directory. On Windows, directory junctions are
+ * preferred and we fall back to copying when the process lacks link
+ * permissions, so `--add-dir` still exposes the same registered skills.
  */
 async function buildSkillsDir(config: Record<string, unknown>): Promise<string> {
   const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "paperclip-skills-"));
@@ -51,9 +53,10 @@ async function buildSkillsDir(config: Record<string, unknown>): Promise<string> 
   );
   for (const entry of availableEntries) {
     if (!desiredNames.has(entry.key)) continue;
-    await fs.symlink(
+    await ensurePaperclipSkillSymlink(
       entry.source,
       path.join(target, entry.runtimeName),
+      { allowCopyFallback: true },
     );
   }
   return tmp;
