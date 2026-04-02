@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { useTranslation } from "../lib/i18n";
 import { useQuery } from "@tanstack/react-query";
 import { goalsApi } from "../api/goals";
 import { useCompany } from "../context/CompanyContext";
@@ -12,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Target, Plus } from "lucide-react";
 
 export function Goals() {
+  const { t } = useTranslation();
   const { selectedCompanyId } = useCompany();
   const { openNewGoal } = useDialog();
   const { setBreadcrumbs } = useBreadcrumbs();
@@ -27,7 +29,7 @@ export function Goals() {
   });
 
   if (!selectedCompanyId) {
-    return <EmptyState icon={Target} message="Select a company to view goals." />;
+    return <EmptyState icon={Target} message={t("emptyStates.selectCompanyGoals")} />;
   }
 
   if (isLoading) {
@@ -41,7 +43,7 @@ export function Goals() {
       {goals && goals.length === 0 && (
         <EmptyState
           icon={Target}
-          message="No goals yet."
+          message={t("emptyStates.noGoals")}
           action="Add Goal"
           onAction={() => openNewGoal()}
         />

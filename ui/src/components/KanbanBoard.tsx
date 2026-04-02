@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useTranslation } from "../lib/i18n";
 import { Link } from "@/lib/router";
 import {
   DndContext,
@@ -32,8 +33,13 @@ const boardStatuses = [
   "cancelled",
 ];
 
-function statusLabel(status: string): string {
-  return status.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+function useStatusLabel() {
+  const { t } = useTranslation();
+  return (status: string) => {
+    const key = `statuses.${status}`;
+    const translated = t(key);
+    return translated !== key ? translated : status.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+  };
 }
 
 interface Agent {
@@ -61,6 +67,7 @@ function KanbanColumn({
   agents?: Agent[];
   liveIssueIds?: Set<string>;
 }) {
+  const statusLabel = useStatusLabel();
   const { setNodeRef, isOver } = useDroppable({ id: status });
 
   return (
