@@ -22,6 +22,7 @@ export {
   type BlogPublishRequest,
   type UploadedMediaInput,
 } from "./blog-publisher.js";
+export { blogRunService } from "./blog-runs.js";
 export { dashboardService } from "./dashboard.js";
 export { sidebarBadgeService } from "./sidebar-badges.js";
 export { accessService } from "./access.js";

@@ -1,0 +1,199 @@
+import express from "express";
+import request from "supertest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { errorHandler } from "../middleware/index.js";
+import { blogRunRoutes } from "../routes/blog-runs.js";
+
+const companyId = "22222222-2222-4222-8222-222222222222";
+const projectId = "33333333-3333-4333-8333-333333333333";
+const runId = "44444444-4444-4444-8444-444444444444";
+const attemptId = "55555555-5555-4555-8555-555555555555";
+
+const run = {
+  id: runId,
+  companyId,
+  projectId,
+  issueId: null,
+  topic: "Test topic",
+  lane: "publish",
+  targetSite: "fluxaivory.com",
+  status: "queued",
+  currentStep: "research",
+  approvalMode: "manual",
+  publishMode: "draft",
+  wordpressPostId: null,
+  publishedUrl: null,
+  approvalKeyHash: null,
+  publishIdempotencyKey: null,
+  contextJson: null,
+  failedReason: null,
+  startedAt: null,
+  completedAt: null,
+  createdAt: new Date("2026-04-03T00:00:00.000Z"),
+  updatedAt: new Date("2026-04-03T00:00:00.000Z"),
+};
+
+const mockBlogRunService = vi.hoisted(() => ({
+  create: vi.fn(),
+  getById: vi.fn(),
+  getDetail: vi.fn(),
+  claimNextStep: vi.fn(),
+  completeStep: vi.fn(),
+  failStep: vi.fn(),
+  requestPublishApproval: vi.fn(),
+}));
+
+const mockProjectService = vi.hoisted(() => ({
+  getById: vi.fn(),
+}));
+
+vi.mock("../services/index.js", () => ({
+  blogRunService: () => mockBlogRunService,
+  projectService: () => mockProjectService,
+}));
+
+function createApp(actor: Record<string, unknown>) {
+  const app = express();
+  app.use(express.json());
+  app.use((req, _res, next) => {
+    (req as any).actor = actor;
+    next();
+  });
+  app.use("/api", blogRunRoutes({} as any));
+  app.use(errorHandler);
+  return app;
+}
+
+describe("blog run routes", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockProjectService.getById.mockResolvedValue({
+      id: projectId,
+      companyId,
+      name: "Blog project",
+    });
+    mockBlogRunService.create.mockResolvedValue(run);
+    mockBlogRunService.getById.mockResolvedValue(run);
+    mockBlogRunService.getDetail.mockResolvedValue({
+      run,
+      attempts: [],
+      artifacts: [],
+      approvals: [],
+    });
+    mockBlogRunService.claimNextStep.mockResolvedValue({
+      run: { ...run, status: "research_running" },
+      attempt: { id: attemptId, stepKey: "research", attemptNumber: 1, status: "running" },
+    });
+    mockBlogRunService.completeStep.mockResolvedValue({
+      run: { ...run, status: "research_ready", currentStep: "draft" },
+      attempts: [{ id: attemptId, stepKey: "research", status: "completed" }],
+      artifacts: [],
+      approvals: [],
+    });
+    mockBlogRunService.failStep.mockResolvedValue({
+      run: { ...run, status: "failed", failedReason: "boom" },
+      attempts: [{ id: attemptId, stepKey: "research", status: "failed" }],
+      artifacts: [],
+      approvals: [],
+    });
+    mockBlogRunService.requestPublishApproval.mockResolvedValue({
+      run: { ...run, status: "publish_approved", currentStep: "publish" },
+      approval: { id: "approval-1", approvalKeyHash: "approval-hash" },
+    });
+  });
+
+  it("creates a blog run for a project", async () => {
+    const app = createApp({
+      type: "board",
+      source: "local_implicit",
+      userId: "board-user",
+      companyIds: [companyId],
+    });
+
+    const res = await request(app)
+      .post(`/api/projects/${projectId}/blog-runs`)
+      .send({ topic: "New topic", publishMode: "draft" });
+
+    expect(res.status).toBe(201);
+    expect(mockBlogRunService.create).toHaveBeenCalledWith(expect.objectContaining({
+      companyId,
+      projectId,
+      topic: "New topic",
+      publishMode: "draft",
+    }));
+  });
+
+  it("returns a blog run detail", async () => {
+    const app = createApp({
+      type: "board",
+      source: "local_implicit",
+      userId: "board-user",
+      companyIds: [companyId],
+    });
+
+    const res = await request(app).get(`/api/blog-runs/${runId}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.run.id).toBe(runId);
+  });
+
+  it("claims the next step", async () => {
+    const app = createApp({
+      type: "board",
+      source: "local_implicit",
+      userId: "board-user",
+      companyIds: [companyId],
+    });
+
+    const res = await request(app).post(`/api/blog-runs/${runId}/claim-step`).send({});
+
+    expect(res.status).toBe(200);
+    expect(res.body.attempt.id).toBe(attemptId);
+    expect(mockBlogRunService.claimNextStep).toHaveBeenCalledWith(runId);
+  });
+
+  it("completes a step", async () => {
+    const app = createApp({
+      type: "board",
+      source: "local_implicit",
+      userId: "board-user",
+      companyIds: [companyId],
+    });
+
+    const res = await request(app)
+      .post(`/api/blog-runs/${runId}/steps/research/complete`)
+      .send({ attemptId, resultJson: { ok: true } });
+
+    expect(res.status).toBe(200);
+    expect(mockBlogRunService.completeStep).toHaveBeenCalledWith(runId, "research", expect.objectContaining({
+      attemptId,
+      resultJson: { ok: true },
+    }));
+  });
+
+  it("requests publish approval", async () => {
+    const app = createApp({
+      type: "board",
+      source: "local_implicit",
+      userId: "board-user",
+      companyIds: [companyId],
+    });
+
+    const res = await request(app)
+      .post(`/api/blog-runs/${runId}/request-publish-approval`)
+      .send({
+        targetSlug: "test-slug",
+        artifactHash: "artifact-hash",
+        normalizedDomHash: "dom-hash",
+        approvalKeyHash: "approval-hash",
+        publishIdempotencyKey: "publish-key",
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body.run.status).toBe("publish_approved");
+    expect(mockBlogRunService.requestPublishApproval).toHaveBeenCalledWith(runId, expect.objectContaining({
+      targetSlug: "test-slug",
+      approvalKeyHash: "approval-hash",
+    }));
+  });
+});
