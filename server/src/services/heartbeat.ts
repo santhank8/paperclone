@@ -3444,10 +3444,6 @@ export function heartbeatService(db: Db) {
                   .then((rows) => rows[0] ?? activeExecutionRun)
               : activeExecutionRun;
 
-            if (!hasContextDelta && !wakeCommentId) {
-              return { kind: "coalesced" as const, run: mergedRun };
-            }
-
             await tx.insert(agentWakeupRequests).values({
               companyId: agent.companyId,
               agentId,
@@ -3641,10 +3637,6 @@ export function heartbeatService(db: Db) {
             .returning()
             .then((rows) => rows[0] ?? coalescedTargetRun)
         : coalescedTargetRun;
-
-      if (!hasContextDelta && !wakeCommentId) {
-        return mergedRun;
-      }
 
       await db.insert(agentWakeupRequests).values({
         companyId: agent.companyId,

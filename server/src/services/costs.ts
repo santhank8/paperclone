@@ -11,6 +11,7 @@ export interface CostDateRange {
 
 const METERED_BILLING_TYPE = "metered_api";
 const SUBSCRIPTION_BILLING_TYPES = ["subscription_included", "subscription_overage"] as const;
+const INCLUDED_COST_BILLING_TYPE = "subscription_included";
 
 function currentUtcMonthWindow(now = new Date()) {
   const year = now.getUTCFullYear();
@@ -115,7 +116,7 @@ export function costService(db: Db, budgetHooks: BudgetServiceHooks = {}) {
           unknownCostEventCount: sql<number>`
             coalesce(
               count(*) filter (
-                where ${costEvents.billingType} = ${METERED_BILLING_TYPE}
+                where ${costEvents.billingType} <> ${INCLUDED_COST_BILLING_TYPE}
                   and ${costEvents.costCents} = 0
                   and (${costEvents.inputTokens} > 0 or ${costEvents.cachedInputTokens} > 0 or ${costEvents.outputTokens} > 0)
               ),
@@ -126,7 +127,7 @@ export function costService(db: Db, budgetHooks: BudgetServiceHooks = {}) {
             coalesce(
               sum(
                 case
-                  when ${costEvents.billingType} = ${METERED_BILLING_TYPE}
+                  when ${costEvents.billingType} <> ${INCLUDED_COST_BILLING_TYPE}
                     and ${costEvents.costCents} = 0
                     and (${costEvents.inputTokens} > 0 or ${costEvents.cachedInputTokens} > 0 or ${costEvents.outputTokens} > 0)
                   then ${costEvents.inputTokens} + ${costEvents.cachedInputTokens} + ${costEvents.outputTokens}
