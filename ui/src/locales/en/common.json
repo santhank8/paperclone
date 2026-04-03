@@ -534,7 +534,10 @@
         "updatedTask": "updated this task",
         "attachImage": "Attach image",
         "copyMarkdown": "Copy as markdown",
-        "run": "run"
+        "run": "run",
+        "you": "You",
+        "unassigned": "Unassigned",
+        "none": "None"
       },
       "documents": {
         "title": "Documents",
@@ -572,7 +575,15 @@
         "reloadRemote": "Reload remote",
         "overwriteRemote": "Overwrite remote",
         "historicalPreviewDescription": "This is a historical preview. Restoring it creates a new latest revision and keeps history append-only.",
-        "outOfDateDescription": "This document changed while you were editing. Your local draft is preserved and autosave is paused."
+        "outOfDateDescription": "This document changed while you were editing. Your local draft is preserved and autosave is paused.",
+        "errorMessage": {
+          "requiredKeyAndBody": "Document key and body are required",
+          "emptyBody": "Document body cannot be empty",
+          "conflictFetchFailed": "Document changed remotely and the latest version could not be loaded",
+          "saveFailed": "Failed to save document",
+          "copyFailed": "Could not copy document",
+          "saveBeforeViewHistory": "Save or cancel your local changes before viewing an older revision."
+        }
       }
     },
     "issueProperties": {

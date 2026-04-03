@@ -364,9 +364,9 @@ export function IssueDocumentsSection({
 
     if (!normalizedKey || !normalizedBody) {
       if (currentDraft.isNew) {
-        setError("Document key and body are required");
+        setError(t("page.issueDetail.documents.errorMessage.requiredKeyAndBody", "Document key and body are required"));
       } else if (!normalizedBody) {
-        setError("Document body cannot be empty");
+        setError(t("page.issueDetail.documents.errorMessage.emptyBody", "Document body cannot be empty"));
       }
       if (options?.trackAutosave) {
         resetAutosaveState();
@@ -375,7 +375,7 @@ export function IssueDocumentsSection({
     }
 
     if (!DOCUMENT_KEY_PATTERN.test(normalizedKey)) {
-      setError("Document key must start with a letter or number and use only lowercase letters, numbers, -, or _.");
+      setError(t("page.issueDetail.documents.error.invalidKeyPattern", "Document key must start with a letter or number and use only lowercase letters, numbers, -, or _."));
       if (options?.trackAutosave) {
         resetAutosaveState();
       }
@@ -454,11 +454,11 @@ export function IssueDocumentsSection({
           resetAutosaveState();
           return false;
         } catch {
-          setError("Document changed remotely and the latest version could not be loaded");
+          setError(t("page.issueDetail.documents.errorMessage.conflictFetchFailed", "Document changed remotely and the latest version could not be loaded"));
           return false;
         }
       }
-      setError(err instanceof Error ? err.message : "Failed to save document");
+      setError(t("page.issueDetail.documents.errorMessage.saveFailed", "Failed to save document"));
       return false;
     }
   }, [documentConflict, invalidateIssueDocuments, issue.id, resetAutosaveState, runSave, sortedDocuments, syncDocumentCaches, upsertDocument]);
@@ -519,7 +519,7 @@ export function IssueDocumentsSection({
         setCopiedDocumentKey((current) => current === key ? null : current);
       }, 1400);
     } catch {
-      setError("Could not copy document");
+      setError(t("page.issueDetail.documents.errorMessage.copyFailed", "Could not copy document"));
     }
   }, []);
 
@@ -544,7 +544,7 @@ export function IssueDocumentsSection({
       return;
     }
     if (documentConflict?.key === doc.key || documentHasUnsavedChanges(doc, draft)) {
-      setError("Save or cancel your local changes before viewing an older revision.");
+      setError(t("page.issueDetail.documents.errorMessage.saveBeforeViewHistory", "Save or cancel your local changes before viewing an older revision."));
       return;
     }
     resetAutosaveState();
@@ -730,7 +730,7 @@ export function IssueDocumentsSection({
               onChange={(event) =>
                 setDraft((current) => current ? { ...current, title: event.target.value } : current)
               }
-              placeholder="Optional title"
+              placeholder={t("page.issueDetail.documents.placeholder.title", "Optional title")}
             />
           )}
           <MarkdownEditor
@@ -738,7 +738,7 @@ export function IssueDocumentsSection({
             onChange={(body) =>
               setDraft((current) => current ? { ...current, body } : current)
             }
-            placeholder="Markdown body"
+            placeholder={t("page.issueDetail.documents.placeholder.body", "Markdown body")}
             bordered={false}
             className="bg-transparent"
             contentClassName="min-h-[220px] text-[15px] leading-7"

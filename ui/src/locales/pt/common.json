@@ -11,7 +11,7 @@
     "settings": "Configurações",
     "teams": "Equipes",
     "members": "Membros",
-    "pending": "Solicitações",
+    "pending": "Join Requests",
     "projects": "Projetos",
     "inbox": "Caixa de Entrada",
     "sections": {
@@ -38,17 +38,18 @@
     "create_one": "Crie um aqui",
     "active_budget_incidents_one": "{{count}} incidente de orçamento ativo",
     "active_budget_incidents_other": "{{count}} incidentes de orçamento ativos",
-    "agents_count_one": "{{count}} agente",
-    "agents_count_other": "{{count}} agentes",
-    "issues_count_one": "{{count}} problema",
-    "issues_count_other": "{{count}} problemas",
     "paused": {
       "agents_one": "{{count}} agente pausado",
       "agents_other": "{{count}} agentes pausados",
       "projects_one": "{{count}} projeto pausado",
       "projects_other": "{{count}} projetos pausados",
       "approvals_one": "{{count}} aprovação de orçamento pendente",
-      "approvals_other": "{{count}} aprovações de orçamento pendentes"
+      "approvals_other": "{{count}} aprovações de orçamento pendentes",
+      "deleting": "Excluindo...",
+      "agents_count_one": "{{count}} agente",
+      "agents_count_other": "{{count}} agentes",
+      "issues_count_one": "{{count}} chamado",
+      "issues_count_other": "{{count}} chamados"
     },
     "open_budgets": "Orçamentos abertos",
     "active_agents": "Agentes Ativos",
@@ -186,12 +187,6 @@
       "no_match_filters": "Nenhum item corresponde a estes filtros.",
       "search_placeholder": "Buscar na caixa de entrada...",
       "earlier": "Anterior",
-      "tabs": {
-        "mine": "Meus",
-        "recent": "Recentes",
-        "unread": "Não lidos",
-        "all": "Todos"
-      },
       "categories": {
         "placeholder": "Categoria",
         "everything": "Todas as categorias",
@@ -203,7 +198,7 @@
       },
       "approval_status": {
         "placeholder": "Status de aprovação",
-        "all": "Todos os status",
+        "all": "Todos os status de aprovação",
         "actionable": "Ação necessária",
         "resolved": "Resolvido"
       },
@@ -257,17 +252,37 @@
         "updated": "Atualizado {{time}}",
         "requested_by": "solicitado por {{name}}",
         "requested_time_from_ip": "solicitado {{time}} do IP {{ip}}",
+        "all_empty_description": "Nenhuma notificação encontrada",
+        "unread_empty_description": "Verificar notificações é uma ótima maneira de começar o dia",
+        "recent_empty_description": "Verificar notificações é uma ótima maneira de começar o dia",
+        "mine_empty_description": "Verificar notificações é uma ótima maneira de começar o dia",
         "adapter": "adaptador: {{type}}",
         "unassigned": "Não atribuído",
         "no_project": "Sem projeto",
         "user": "Usuário",
-        "alerts_header": "Alertas",
-        "agent_errors": {
-          "one": "{{count}} agente com erros",
-          "other": "{{count}} agentes com erros"
-        },
-        "budget_utilization": "Orçamento com {{percent}}% de utilização este mês"
-      }
+        "alerts_header": "Alertas"
+      },
+      "tabs": {
+        "mine": "Meus",
+        "recent": "Recentes",
+        "unread": "Não lidos",
+        "all": "Todos"
+      },
+      "empty": {
+        "selectCompany": "Selecione uma empresa para ver a caixa de entrada."
+      },
+      "errors": {
+        "approve_failed": "Falha ao aprovar",
+        "reject_failed": "Falha ao rejeitar",
+        "approve_join_failed": "Falha ao aprovar solicitação de entrada",
+        "reject_join_failed": "Falha ao rejeitar solicitação de entrada",
+        "archive_failed": "Falha ao arquivar chamado"
+      },
+      "agent_errors": {
+        "one": "{{count}} agente com erros",
+        "other": "{{count}} agentes com erros"
+      },
+      "budget_utilization": "Orçamento com {{percent}}% de utilização este mês"
     },
     "approvals": {
       "title": "Aprovações",
@@ -455,10 +470,6 @@
           "title": "Falha na interrupção",
           "body": "Não foi possível interromper a execução ativa"
         },
-        "interruptRequested": {
-          "title": "Interrupção solicitada",
-          "body": "A execução ativa está parando para que os comentários na fila possam continuar em seguida."
-        },
         "feedbackSuccess": {
           "savingPromptShare": "Feedback salvo. Votos futuros serão compartilhados",
           "savingPromptLocal": "Feedback salvo. Votos futuros permanecerão locais",
@@ -468,17 +479,17 @@
         "feedbackError": {
           "title": "Falha ao salvar feedback"
         },
-          "commentError": {
-            "title": "Falha ao comentar",
-            "body": "Não foi possível postar o comentário"
-          },
-          "attachmentError": {
-            "uploading": "Enviando...",
-            "uploadFailed": "Falha no upload",
-            "importFailed": "Falha na importação do documento",
-            "deleteFailed": "Falha ao excluir"
-          }
+        "commentError": {
+          "title": "Falha ao comentar",
+          "body": "Não foi possível postar o comentário"
         },
+        "attachmentError": {
+          "uploading": "Enviando...",
+          "uploadFailed": "Falha no upload",
+          "importFailed": "Falha na importação do documento",
+          "deleteFailed": "Falha ao excluir"
+        }
+      },
       "status": {
         "hidden": "Este chamado está oculto",
         "live": "Ao vivo"
@@ -517,7 +528,10 @@
         "updatedTask": "atualizou esta tarefa",
         "attachImage": "Anexar imagem",
         "copyMarkdown": "Copiar como markdown",
-        "run": "execução"
+        "run": "execução",
+        "you": "Você",
+        "unassigned": "Não atribuído",
+        "none": "Nenhum"
       },
       "documents": {
         "title": "Documentos",
@@ -555,7 +569,15 @@
         "reloadRemote": "Recarregar remoto",
         "overwriteRemote": "Sobrescrever remoto",
         "historicalPreviewDescription": "Esta é uma visualização histórica. Restaurá-la cria uma nova revisão mais recente e mantém o histórico imutável.",
-        "outOfDateDescription": "Este documento foi alterado enquanto você editava. Seu rascunho local foi preservado e o salvamento automático está pausado."
+        "outOfDateDescription": "Este documento foi alterado enquanto você editava. Seu rascunho local foi preservado e o salvamento automático está pausado.",
+        "errorMessage": {
+          "requiredKeyAndBody": "A chave e o corpo do documento são obrigatórios",
+          "emptyBody": "O corpo do documento não pode estar vazio",
+          "conflictFetchFailed": "O documento foi alterado remotamente e a versão mais recente não pôde ser carregada",
+          "saveFailed": "Falha ao salvar o documento",
+          "copyFailed": "Não foi possível copiar o documento",
+          "saveBeforeViewHistory": "Salve ou cancele suas alterações locais antes de visualizar uma revisão antiga."
+        }
       }
     },
     "issueProperties": {
