@@ -6,6 +6,7 @@ import { App } from "./App";
 import { AppProviders } from "./context/AppProviders";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { initPluginBridge } from "./plugins/bridge-init";
+import "./lib/i18n";
 import "@mdxeditor/editor/style.css";
 import "./index.css";
 
