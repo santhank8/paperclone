@@ -7,6 +7,8 @@ import { useBreadcrumbs } from "../context/BreadcrumbContext";
 import { queryKeys } from "../lib/queryKeys";
 import { cn } from "../lib/utils";
 
+const FEEDBACK_TERMS_URL = import.meta.env.VITE_FEEDBACK_TERMS_URL?.trim() || "https://paperclip.ing/tos";
+
 export function InstanceGeneralSettings() {
   const { t } = useTranslation();
   const { setBreadcrumbs } = useBreadcrumbs();
@@ -25,9 +27,8 @@ export function InstanceGeneralSettings() {
     queryFn: () => instanceSettingsApi.getGeneral(),
   });
 
-  const toggleMutation = useMutation({
-    mutationFn: async (enabled: boolean) =>
-      instanceSettingsApi.updateGeneral({ censorUsernameInLogs: enabled }),
+  const updateGeneralMutation = useMutation({
+    mutationFn: instanceSettingsApi.updateGeneral,
     onSuccess: async () => {
       setActionError(null);
       await queryClient.invalidateQueries({ queryKey: queryKeys.instance.generalSettings });
@@ -56,6 +57,7 @@ export function InstanceGeneralSettings() {
   }
 
   const censorUsernameInLogs = generalQuery.data?.censorUsernameInLogs === true;
+  const feedbackDataSharingPreference = generalQuery.data?.feedbackDataSharingPreference ?? "prompt";
 
   return (
     <div className="max-w-4xl space-y-6">
@@ -96,12 +98,16 @@ export function InstanceGeneralSettings() {
             type="button"
             data-slot="toggle"
             aria-label={t("Toggle username log censoring", { defaultValue: "Toggle username log censoring" })}
-            disabled={toggleMutation.isPending}
+            disabled={updateGeneralMutation.isPending}
             className={cn(
               "relative inline-flex h-5 w-9 items-center rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-60",
               censorUsernameInLogs ? "bg-green-600" : "bg-muted",
             )}
-            onClick={() => toggleMutation.mutate(!censorUsernameInLogs)}
+            onClick={() =>
+              updateGeneralMutation.mutate({
+                censorUsernameInLogs: !censorUsernameInLogs,
+              })
+            }
           >
             <span
               className={cn(
@@ -110,6 +116,81 @@ export function InstanceGeneralSettings() {
               )}
             />
           </button>
+        </div>
+      </section>
+
+      <section className="rounded-xl border border-border bg-card p-5">
+        <div className="space-y-4">
+          <div className="space-y-1.5">
+            <h2 className="text-sm font-semibold">{t("instanceGeneralSettings.feedbackSharingTitle")}</h2>
+            <p className="max-w-2xl text-sm text-muted-foreground">
+              {t("instanceGeneralSettings.feedbackSharingDescription")}
+            </p>
+            {FEEDBACK_TERMS_URL ? (
+              <a
+                href={FEEDBACK_TERMS_URL}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground"
+              >
+                {t("outputFeedback.readTerms")}
+              </a>
+            ) : null}
+          </div>
+          {feedbackDataSharingPreference === "prompt" ? (
+            <div className="rounded-lg border border-border/70 bg-accent/20 px-3 py-2 text-sm text-muted-foreground">
+              {t("instanceGeneralSettings.feedbackSharingPromptNotice")}
+            </div>
+          ) : null}
+          <div className="flex flex-wrap gap-2">
+            {[
+              {
+                value: "allowed",
+                label: t("outputFeedback.alwaysAllow"),
+                description: t("instanceGeneralSettings.feedbackSharingAlwaysAllowDescription"),
+              },
+              {
+                value: "not_allowed",
+                label: t("outputFeedback.dontAllow"),
+                description: t("instanceGeneralSettings.feedbackSharingDontAllowDescription"),
+              },
+            ].map((option) => {
+              const active = feedbackDataSharingPreference === option.value;
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  disabled={updateGeneralMutation.isPending}
+                  className={cn(
+                    "rounded-lg border px-3 py-2 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-60",
+                    active
+                      ? "border-foreground bg-accent text-foreground"
+                      : "border-border bg-background hover:bg-accent/50",
+                  )}
+                  onClick={() =>
+                    updateGeneralMutation.mutate({
+                      feedbackDataSharingPreference: option.value as
+                        | "allowed"
+                        | "not_allowed",
+                    })
+                  }
+                >
+                  <div className="text-sm font-medium">{option.label}</div>
+                  <div className="text-xs text-muted-foreground">
+                    {option.description}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+          <p className="text-xs text-muted-foreground">
+            {t("instanceGeneralSettings.feedbackSharingRetestPrefix")}{" "}
+            <code>feedbackDataSharingPreference</code>{" "}
+            {t("instanceGeneralSettings.feedbackSharingRetestMiddle")}{" "}
+            <code>instance_settings.general</code>{" "}
+            {t("instanceGeneralSettings.feedbackSharingRetestSuffix")} <code>"prompt"</code>.{" "}
+            {t("instanceGeneralSettings.feedbackSharingRetestExplanation")}
+          </p>
         </div>
       </section>
     </div>
