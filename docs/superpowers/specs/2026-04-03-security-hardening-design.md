@@ -360,9 +360,9 @@ Lint and format checks are blocking. Coverage is reported and fails only if belo
 
 | Phase | Scope | Alerts addressed | New deps |
 |-------|-------|------------------|----------|
-| 1 — Server | Auth, middleware, config | 3 critical + 3 high + 3 medium | `express-rate-limit`, `helmet` |
+| 1 — Server | Auth, middleware, config | 2 critical + 2 high + 3 medium | `express-rate-limit`, `helmet` |
 | 2 — Database | Connection pool | 1 high | None |
-| 3 — Frontend | ErrorBoundary, splitting, providers, i18n | 1 critical + 4 medium | `react-i18next`, `i18next`, `i18next-browser-languagedetector` |
+| 3 — Frontend | ErrorBoundary, splitting, providers, i18n | 1 critical + 3 medium | `react-i18next`, `i18next`, `i18next-browser-languagedetector` |
 | 4 — Tooling | Lint, coverage, CI | 2 high | `eslint`, `prettier`, `@typescript-eslint/*`, `eslint-plugin-react-hooks`, `@vitest/coverage-v8` |
 
 ## Files modified (non-exhaustive)
