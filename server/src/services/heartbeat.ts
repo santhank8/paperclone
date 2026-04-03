@@ -2091,7 +2091,29 @@ export function heartbeatService(db: Db) {
     const context = parseObject(run.contextSnapshot);
     const taskKey = deriveTaskKeyWithHeartbeatFallback(context, null);
     const sessionCodec = getAdapterSessionCodec(agent.adapterType);
+
+    // --- Lightweight nudge detection ---
+    const isNudge = readNonEmptyString(context.wakeReason) === "run_followup" &&
+      readNonEmptyString(context.nudgeParentRunId);
+
+    // --- Shared variable declarations (set by either nudge or regular path) ---
     const issueId = readNonEmptyString(context.issueId);
+    let runtimeForAdapter!: { sessionId: string | null; sessionParams: Record<string, unknown> | null; sessionDisplayId: string | null; taskKey: string | null };
+    let runtimeConfig!: Record<string, unknown>;
+    let resolvedConfig!: Record<string, unknown>;
+    let secretKeys!: Set<string>;
+    let issueRef: { id: string; identifier: string | null; title: string; projectId: string | null; projectWorkspaceId: string | null; executionWorkspaceId: string | null; executionWorkspacePreference: string | null } | null = null;
+    let persistedExecutionWorkspace: any = null;
+    let runtimeWorkspaceWarnings: string[] = [];
+    let executionWorkspace: RealizedExecutionWorkspace | null = null;
+    let taskSession: typeof agentTaskSessions.$inferSelect | null = null;
+    let taskSessionForRun: typeof agentTaskSessions.$inferSelect | null = null;
+    let previousSessionParams: Record<string, unknown> | null = null;
+    let previousSessionDisplayId: string | null = null;
+    let sessionCompaction: SessionCompactionDecision = { rotate: false, reason: null, handoffMarkdown: null, previousRunId: null };
+
+    // --- Regular run path (non-nudge) ---
+    if (!isNudge) {
     const issueContext = issueId
       ? await db
           .select({
@@ -2133,12 +2155,12 @@ export function heartbeatService(db: Db) {
               isolatedWorkspacesEnabled,
             ))
       : null;
-    const taskSession = taskKey
+    taskSession = taskKey
       ? await getTaskSession(agent.companyId, agent.id, agent.adapterType, taskKey)
       : null;
     const resetTaskSession = shouldResetTaskSessionForWake(context);
     const sessionResetReason = describeSessionResetReason(context);
-    const taskSessionForRun = resetTaskSession ? null : taskSession;
+    taskSessionForRun = resetTaskSession ? null : taskSession;
     const explicitResumeSessionParams = normalizeSessionParams(
       sessionCodec.deserialize(parseObject(context.resumeSessionParams)),
     );
@@ -2147,7 +2169,7 @@ export function heartbeatService(db: Db) {
         (sessionCodec.getDisplayId ? sessionCodec.getDisplayId(explicitResumeSessionParams) : null) ??
         readNonEmptyString(explicitResumeSessionParams?.sessionId),
     );
-    const previousSessionParams =
+    previousSessionParams =
       explicitResumeSessionParams ??
       (explicitResumeSessionDisplayId ? { sessionId: explicitResumeSessionDisplayId } : null) ??
       normalizeSessionParams(sessionCodec.deserialize(taskSessionForRun?.sessionParamsJson ?? null));
@@ -2163,7 +2185,7 @@ export function heartbeatService(db: Db) {
       previousSessionParams,
       { useProjectWorkspace: requestedExecutionWorkspaceMode !== "agent_default" },
     );
-    const issueRef = issueContext
+    issueRef = issueContext
       ? {
           id: issueContext.id,
           identifier: issueContext.identifier,
@@ -2208,12 +2230,12 @@ export function heartbeatService(db: Db) {
       : persistedWorkspaceManagedConfig;
     const configSnapshot = buildExecutionWorkspaceConfigSnapshot(mergedConfig);
     const executionRunConfig = stripWorkspaceRuntimeFromExecutionRunConfig(mergedConfig);
-    const { config: resolvedConfig, secretKeys } = await secretsSvc.resolveAdapterConfigForRuntime(
+    ({ config: resolvedConfig, secretKeys } = await secretsSvc.resolveAdapterConfigForRuntime(
       agent.companyId,
       executionRunConfig,
-    );
+    ));
     const runtimeSkillEntries = await companySkills.listRuntimeSkillEntries(agent.companyId);
-    const runtimeConfig = {
+    runtimeConfig = {
       ...resolvedConfig,
       paperclipRuntimeSkills: runtimeSkillEntries,
     };
@@ -2236,7 +2258,7 @@ export function heartbeatService(db: Db) {
           workspace: existingExecutionWorkspace,
         })
       : null;
-    const executionWorkspace = reusedExecutionWorkspace ?? await realizeExecutionWorkspace({
+    executionWorkspace = reusedExecutionWorkspace ?? await realizeExecutionWorkspace({
           base: executionWorkspaceBase,
           config: runtimeConfig,
           issue: issueRef,
@@ -2249,7 +2271,6 @@ export function heartbeatService(db: Db) {
         });
     const resolvedProjectId = executionWorkspace.projectId ?? issueRef?.projectId ?? executionProjectId ?? null;
     const resolvedProjectWorkspaceId = issueRef?.projectWorkspaceId ?? resolvedWorkspace.workspaceId ?? null;
-    let persistedExecutionWorkspace = null;
     const nextExecutionWorkspaceMetadataBase = {
       ...(existingExecutionWorkspace?.metadata ?? {}),
       source: executionWorkspace.source,
@@ -2398,9 +2419,9 @@ export function heartbeatService(db: Db) {
       },
     });
     const runtimeSessionParams = runtimeSessionResolution.sessionParams;
-    const runtimeWorkspaceWarnings = [
+    runtimeWorkspaceWarnings = [
       ...resolvedWorkspace.warnings,
-      ...executionWorkspace.warnings,
+      ...executionWorkspace!.warnings,
       ...(runtimeSessionResolution.warning ? [runtimeSessionResolution.warning] : []),
       ...(resetTaskSession && sessionResetReason
         ? [
@@ -2445,7 +2466,7 @@ export function heartbeatService(db: Db) {
       context.projectId = executionWorkspace.projectId;
     }
     const runtimeSessionFallback = taskKey || resetTaskSession ? null : runtime.sessionId;
-    let previousSessionDisplayId = truncateDisplayId(
+    previousSessionDisplayId = truncateDisplayId(
       explicitResumeSessionDisplayId ??
         taskSessionForRun?.sessionDisplayId ??
         (sessionCodec.getDisplayId ? sessionCodec.getDisplayId(runtimeSessionParams) : null) ??
@@ -2456,7 +2477,7 @@ export function heartbeatService(db: Db) {
       readNonEmptyString(runtimeSessionParams?.sessionId) ?? runtimeSessionFallback;
     let runtimeSessionParamsForAdapter = runtimeSessionParams;
 
-    const sessionCompaction = await evaluateSessionCompaction({
+    sessionCompaction = await evaluateSessionCompaction({
       agent,
       sessionId: previousSessionDisplayId ?? runtimeSessionIdForAdapter,
       issueId,
@@ -2479,12 +2500,58 @@ export function heartbeatService(db: Db) {
       delete context.paperclipPreviousSessionId;
     }
 
-    const runtimeForAdapter = {
+    runtimeForAdapter = {
       sessionId: runtimeSessionIdForAdapter,
       sessionParams: runtimeSessionParamsForAdapter,
       sessionDisplayId: previousSessionDisplayId,
       taskKey,
     };
+    } // end if (!isNudge) block
+
+    // --- Lightweight nudge shortcut: set up variables directly from carried-forward context ---
+    if (isNudge) {
+      // Read parent workspace from context (carried forward by enqueueNudge)
+      const parentWorkspace = parseObject(context.paperclipWorkspace);
+      const nudgeCwd = readNonEmptyString(parentWorkspace.cwd);
+      if (nudgeCwd) {
+        const cwdExists = await fs.stat(nudgeCwd).then(() => true).catch(() => false);
+        if (cwdExists) {
+          const parentWorkspaceId = readNonEmptyString(parentWorkspace.workspaceId);
+          const executionWorkspaceId = readNonEmptyString(context.executionWorkspaceId);
+          if (parentWorkspaceId && executionWorkspaceId) {
+            persistedExecutionWorkspace = await executionWorkspacesSvc.getById(executionWorkspaceId).catch(() => null);
+          }
+        }
+      }
+      const nudgeTaskKey = readNonEmptyString(context.taskKey);
+
+      previousSessionParams = normalizeSessionParams(
+        sessionCodec.deserialize(parseObject(context.resumeSessionParams)),
+      );
+      previousSessionDisplayId = truncateDisplayId(
+        readNonEmptyString(context.resumeSessionDisplayId),
+      );
+
+      runtimeForAdapter = {
+        sessionId: readNonEmptyString(previousSessionParams?.sessionId) ?? null,
+        sessionParams: previousSessionParams,
+        sessionDisplayId: previousSessionDisplayId,
+        taskKey: nudgeTaskKey,
+      };
+
+      // Still need to resolve secrets for env vars
+      const config = parseObject(agent.adapterConfig);
+      const secretResult = await secretsSvc.resolveAdapterConfigForRuntime(agent.companyId, config);
+      resolvedConfig = secretResult.config;
+      secretKeys = secretResult.secretKeys;
+
+      runtimeConfig = {
+        ...resolvedConfig,
+        paperclipRuntimeSkills: await companySkills.listRuntimeSkillEntries(agent.companyId),
+      };
+
+      runtimeWorkspaceWarnings = [];
+    }
 
     let seq = 1;
     let handle: RunLogHandle | null = null;
@@ -2589,21 +2656,25 @@ export function heartbeatService(db: Db) {
           (entry): entry is [string, string] => typeof entry[0] === "string" && typeof entry[1] === "string",
         ),
       );
-      const runtimeServices = await ensureRuntimeServicesForRun({
-        db,
-        runId: run.id,
-        agent: {
-          id: agent.id,
-          name: agent.name,
-          companyId: agent.companyId,
-        },
-        issue: issueRef,
-        workspace: executionWorkspace,
-        executionWorkspaceId: persistedExecutionWorkspace?.id ?? issueRef?.executionWorkspaceId ?? null,
-        config: resolvedConfig,
-        adapterEnv,
-        onLog,
-      });
+      // For nudge runs, runtime services are carried forward from the parent run's context.
+      // Only set up new runtime services for non-nudge runs.
+      const runtimeServices = !isNudge && executionWorkspace
+        ? await ensureRuntimeServicesForRun({
+            db,
+            runId: run.id,
+            agent: {
+              id: agent.id,
+              name: agent.name,
+              companyId: agent.companyId,
+            },
+            issue: issueRef,
+            workspace: executionWorkspace,
+            executionWorkspaceId: persistedExecutionWorkspace?.id ?? issueRef?.executionWorkspaceId ?? null,
+            config: resolvedConfig,
+            adapterEnv,
+            onLog,
+          })
+        : [];
       if (runtimeServices.length > 0) {
         context.paperclipRuntimeServices = runtimeServices;
         context.paperclipRuntimePrimaryUrl =
@@ -2616,7 +2687,7 @@ export function heartbeatService(db: Db) {
           })
           .where(eq(heartbeatRuns.id, run.id));
       }
-      if (issueId && (executionWorkspace.created || runtimeServices.some((service) => !service.reused))) {
+      if (executionWorkspace && issueId && (executionWorkspace.created || runtimeServices.some((service) => !service.reused))) {
         try {
           await issuesSvc.addComment(
             issueId,
@@ -2676,7 +2747,7 @@ export function heartbeatService(db: Db) {
         },
         authToken: authToken ?? undefined,
       });
-      const adapterManagedRuntimeServices = adapterResult.runtimeServices
+      const adapterManagedRuntimeServices = adapterResult.runtimeServices && executionWorkspace
         ? await persistAdapterManagedRuntimeServices({
             db,
             adapterType: agent.adapterType,
@@ -2711,7 +2782,7 @@ export function heartbeatService(db: Db) {
             await issuesSvc.addComment(
               issueId,
               buildWorkspaceReadyComment({
-                workspace: executionWorkspace,
+                workspace: executionWorkspace!,
                 runtimeServices: adapterManagedRuntimeServices,
               }),
               { agentId: agent.id, runId: run.id },
@@ -3616,6 +3687,116 @@ export function heartbeatService(db: Db) {
     return newRun;
   }
 
+  async function enqueueNudge(parentRunId: string, nudgeMessage: string, actor: { actorType: "user" | "agent"; actorId: string | null }) {
+    // 1. Validate parent run
+    const parentRun = await getRun(parentRunId);
+    if (!parentRun) throw notFound("Heartbeat run not found");
+
+    const terminalStatuses = new Set(["succeeded", "failed", "timed_out", "cancelled"]);
+    if (!terminalStatuses.has(parentRun.status)) {
+      throw conflict("Can only nudge runs in a terminal state");
+    }
+
+    const parentSessionIdAfter = readNonEmptyString(parentRun.sessionIdAfter);
+    if (!parentSessionIdAfter) {
+      throw conflict("Parent run has no session to resume");
+    }
+
+    // 2. Validate agent
+    const agent = await getAgent(parentRun.agentId);
+    if (!agent) throw notFound("Agent not found");
+    if (agent.status === "paused" || agent.status === "terminated" || agent.status === "pending_approval") {
+      throw notFound("Agent is not invokable in its current state");
+    }
+
+    // 3. Budget check — reuse parent's issue/project scope if available
+    const parentContext = parseObject(parentRun.contextSnapshot);
+    const parentId = readNonEmptyString(parentContext.issueId);
+    const parentProjectId = readNonEmptyString(parentContext.projectId);
+    await budgets.getInvocationBlock(parentRun.companyId, agent.id, {
+      issueId: parentId,
+      projectId: parentProjectId,
+    });
+
+    // 4. Build context snapshot carrying forward parent's resolved data
+    const sessionCodec = getAdapterSessionCodec(agent.adapterType);
+    const contextSnapshot: Record<string, unknown> = {
+      issueId: readNonEmptyString(parentContext.issueId),
+      taskId: readNonEmptyString(parentContext.taskId),
+      taskKey: readNonEmptyString(parentContext.taskKey),
+      projectId: readNonEmptyString(parentContext.projectId),
+      wakeReason: "run_followup",
+      wakeSource: "on_demand",
+      wakeTriggerDetail: "nudge",
+      nudgeMessage,
+      nudgeParentRunId: parentRunId,
+    };
+
+    // Carry forward resolved workspace so executeRun can skip realization
+    const parentWorkspace = parentContext.paperclipWorkspace;
+    if (parentWorkspace) {
+      contextSnapshot.paperclipWorkspace = parentWorkspace;
+    }
+    // Carry forward runtime services
+    const parentRuntimeServices = parentContext.paperclipRuntimeServices;
+    if (parentRuntimeServices && Array.isArray(parentRuntimeServices)) {
+      contextSnapshot.paperclipRuntimeServices = parentRuntimeServices;
+      const parentPrimaryUrl = readNonEmptyString(parentContext.paperclipRuntimePrimaryUrl);
+      if (parentPrimaryUrl) contextSnapshot.paperclipRuntimePrimaryUrl = parentPrimaryUrl;
+    }
+    // Session resume params
+    contextSnapshot.resumeFromRunId = parentRunId;
+    contextSnapshot.resumeSessionDisplayId = parentSessionIdAfter;
+    const serializedParams = sessionCodec.serialize({ sessionId: parentSessionIdAfter });
+    if (serializedParams) contextSnapshot.resumeSessionParams = serializedParams;
+
+    // 5. Create wakeup request and run records directly (bypass coalescing/issue locks)
+    const wakeupRequest = await db.insert(agentWakeupRequests).values({
+      companyId: agent.companyId,
+      agentId: agent.id,
+      source: "on_demand",
+      triggerDetail: "nudge",
+      reason: "run_followup",
+      payload: { nudgeMessage, nudgeParentRunId: parentRunId },
+      status: "queued",
+      requestedByActorType: actor.actorType,
+      requestedByActorId: actor.actorId,
+    }).returning().then((rows) => rows[0]);
+
+    const newRun = await db.insert(heartbeatRuns).values({
+      companyId: agent.companyId,
+      agentId: agent.id,
+      invocationSource: "on_demand",
+      triggerDetail: "nudge",
+      status: "queued",
+      wakeupRequestId: wakeupRequest.id,
+      contextSnapshot,
+      sessionIdBefore: parentSessionIdAfter,
+    }).returning().then((rows) => rows[0]);
+
+    await db.update(agentWakeupRequests).set({
+      runId: newRun.id,
+      updatedAt: new Date(),
+    }).where(eq(agentWakeupRequests.id, wakeupRequest.id));
+
+    // 6. Publish live event + start executing
+    publishLiveEvent({
+      companyId: newRun.companyId,
+      type: "heartbeat.run.queued",
+      payload: {
+        runId: newRun.id,
+        agentId: newRun.agentId,
+        invocationSource: newRun.invocationSource,
+        triggerDetail: newRun.triggerDetail,
+        wakeupRequestId: newRun.wakeupRequestId,
+      },
+    });
+
+    await startNextQueuedRunForAgent(agent.id);
+
+    return newRun;
+  }
+
   async function listProjectScopedRunIds(companyId: string, projectId: string) {
     const runIssueId = sql<string | null>`${heartbeatRuns.contextSnapshot} ->> 'issueId'`;
     const effectiveProjectId = sql<string | null>`coalesce(${heartbeatRuns.contextSnapshot} ->> 'projectId', ${issues.projectId}::text)`;
@@ -3947,6 +4128,8 @@ export function heartbeatService(db: Db) {
       }),
 
     wakeup: enqueueWakeup,
+
+    nudge: enqueueNudge,
 
     reportRunActivity: clearDetachedRunWarning,
 

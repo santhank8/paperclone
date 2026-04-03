@@ -70,10 +70,12 @@ import {
   ArrowLeft,
   HelpCircle,
   FolderOpen,
+  Send,
 } from "lucide-react";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { AgentIcon, AgentIconPicker } from "../components/AgentIconPicker";
 import { RunTranscriptView, type TranscriptMode } from "../components/transcript/RunTranscriptView";
 import {
@@ -929,15 +931,8 @@ export function AgentDetail() {
       )}
 
       {/* Floating Save/Cancel (desktop) */}
-      {!isMobile && (
-        <div
-          className={cn(
-            "sticky top-6 z-10 float-right transition-opacity duration-150",
-            showConfigActionBar
-              ? "opacity-100"
-              : "opacity-0 pointer-events-none"
-          )}
-        >
+      {!isMobile && showConfigActionBar && (
+        <div className="sticky top-6 z-10 float-right">
           <div className="flex items-center gap-2 bg-background/90 backdrop-blur-sm border border-border rounded-lg px-3 py-1.5 shadow-lg">
             <Button
               variant="ghost"
@@ -2911,6 +2906,26 @@ function RunDetail({ run: initialRun, agentRouteId, adapterType }: { run: Heartb
       queryClient.invalidateQueries({ queryKey: queryKeys.heartbeats(run.companyId, run.agentId) });
     },
   });
+  // Can only nudge completed runs with a session
+  const canNudge = useMemo(() => {
+    if (!["succeeded", "failed", "timed_out"].includes(run.status)) return false;
+    return !!run.sessionIdAfter;
+  }, [run.status, run.sessionIdAfter]);
+  const [nudgeMessage, setNudgeMessage] = useState("");
+  const nudgeRun = useMutation({
+    mutationFn: async () => {
+      const trimmed = nudgeMessage.trim();
+      if (!trimmed) throw new Error("Message is required");
+      const result = await heartbeatsApi.nudge(run.id, trimmed);
+      return result;
+    },
+    onSuccess: (newRun) => {
+      setNudgeMessage("");
+      queryClient.invalidateQueries({ queryKey: queryKeys.heartbeats(run.companyId, run.agentId) });
+      navigate(`/agents/${agentRouteId}/runs/${newRun.id}`);
+    },
+  });
+
   const canResumeLostRun = run.errorCode === "process_lost" && run.status === "failed";
   const resumePayload = useMemo(() => {
     const payload: Record<string, unknown> = {
@@ -3293,6 +3308,48 @@ function RunDetail({ run: initialRun, agentRouteId, adapterType }: { run: Heartb
 
       {/* Log viewer */}
       <LogViewer run={run} adapterType={adapterType} />
+
+      {/* Nudge follow-up input */}
+      {canNudge && (
+        <div className="border border-border rounded-lg p-3 space-y-2">
+          <div className="text-xs text-muted-foreground font-medium">Follow up</div>
+          <div className="flex gap-2">
+            <Textarea
+              value={nudgeMessage}
+              onChange={(e) => setNudgeMessage(e.target.value)}
+              placeholder="Ask a follow-up question..."
+              className="min-h-[38px] text-sm resize-none"
+              rows={1}
+              disabled={nudgeRun.isPending}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey && nudgeMessage.trim()) {
+                  e.preventDefault();
+                  nudgeRun.mutate();
+                }
+              }}
+            />
+            <Button
+              variant="default"
+              size="sm"
+              className="shrink-0 self-end"
+              onClick={() => nudgeRun.mutate()}
+              disabled={nudgeRun.isPending || !nudgeMessage.trim()}
+            >
+              {nudgeRun.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Send className="h-4 w-4" />
+              )}
+            </Button>
+          </div>
+          {nudgeRun.isError && (
+            <div className="text-xs text-destructive">
+              {nudgeRun.error instanceof Error ? nudgeRun.error.message : "Failed to send follow-up"}
+            </div>
+          )}
+        </div>
+      )}
+
       <ScrollToBottom />
     </div>
   );

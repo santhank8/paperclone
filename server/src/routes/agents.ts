@@ -2265,6 +2265,44 @@ export function agentRoutes(db: Db) {
     res.json(run);
   });
 
+  router.post("/heartbeat-runs/:runId/nudge", async (req, res) => {
+    assertBoard(req);
+    const runId = req.params.runId as string;
+    const message = typeof req.body.message === "string" ? req.body.message.trim() : "";
+    if (!message) {
+      res.status(400).json({ error: "message is required" });
+      return;
+    }
+    if (message.length > 10_000) {
+      res.status(400).json({ error: "message too long (max 10000 characters)" });
+      return;
+    }
+
+    const parentRun = await heartbeat.getRun(runId);
+    if (!parentRun) {
+      res.status(404).json({ error: "Heartbeat run not found" });
+      return;
+    }
+    assertCompanyAccess(req, parentRun.companyId);
+
+    const run = await heartbeat.nudge(runId, message, {
+      actorType: req.actor.type === "agent" ? "agent" : "user",
+      actorId: req.actor.type === "agent" ? req.actor.agentId ?? null : req.actor.userId ?? null,
+    });
+
+    await logActivity(db, {
+      companyId: parentRun.companyId,
+      actorType: "user",
+      actorId: req.actor.userId ?? "board",
+      action: "heartbeat.nudged",
+      entityType: "heartbeat_run",
+      entityId: run.id,
+      details: { parentRunId: runId, agentId: parentRun.agentId },
+    });
+
+    res.status(202).json(run);
+  });
+
   router.get("/heartbeat-runs/:runId/events", async (req, res) => {
     const runId = req.params.runId as string;
     const run = await heartbeat.getRun(runId);
