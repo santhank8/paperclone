@@ -1,3 +1,4 @@
+// Changes: Agent adapter allowlist uses shared adapterUiAllowlists (openclaw_gateway enabled).
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AGENT_ADAPTER_TYPES } from "@paperclipai/shared";
@@ -8,6 +9,7 @@ import type {
   EnvBinding,
 } from "@paperclipai/shared";
 import type { AdapterModel } from "../api/agents";
+import { ENABLED_AGENT_CONFIG_ADAPTER_TYPES } from "@/lib/adapterUiAllowlists";
 import { agentsApi } from "../api/agents";
 import { secretsApi } from "../api/secrets";
 import { assetsApi } from "../api/assets";
@@ -1024,14 +1026,12 @@ function AdapterEnvironmentResult({ result }: { result: AdapterEnvironmentTestRe
 
 /* ---- Internal sub-components ---- */
 
-const ENABLED_ADAPTER_TYPES = new Set(["claude_local", "codex_local", "gemini_local", "opencode_local", "pi_local", "cursor", "hermes_local"]);
-
 /** Display list includes all real adapter types plus UI-only coming-soon entries. */
 const ADAPTER_DISPLAY_LIST: { value: string; label: string; comingSoon: boolean }[] = [
   ...AGENT_ADAPTER_TYPES.map((t) => ({
     value: t,
     label: adapterLabels[t] ?? t,
-    comingSoon: !ENABLED_ADAPTER_TYPES.has(t),
+    comingSoon: !ENABLED_AGENT_CONFIG_ADAPTER_TYPES.has(t),
   })),
 ];
 

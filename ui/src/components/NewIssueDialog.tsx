@@ -1,3 +1,4 @@
+// Changes: Issue override adapters use shared adapterUiAllowlists (includes openclaw_gateway).
 import { useState, useEffect, useRef, useCallback, useMemo, type ChangeEvent, type DragEvent } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { pickTextColorForSolidBg } from "@/lib/color-contrast";
@@ -12,6 +13,8 @@ import { authApi } from "../api/auth";
 import { assetsApi } from "../api/assets";
 import { queryKeys } from "../lib/queryKeys";
 import { useProjectOrder } from "../hooks/useProjectOrder";
+import { ISSUE_OVERRIDE_ADAPTER_TYPES } from "@/lib/adapterUiAllowlists";
+import type { AgentAdapterType } from "@paperclipai/shared";
 import { getRecentAssigneeIds, sortAgentsByRecency, trackRecentAssignee } from "../lib/recent-assignees";
 import { useToast } from "../context/ToastContext";
 import {
@@ -83,7 +86,6 @@ type StagedIssueFile = {
   title?: string | null;
 };
 
-const ISSUE_OVERRIDE_ADAPTER_TYPES = new Set(["claude_local", "codex_local", "opencode_local"]);
 const STAGED_FILE_ACCEPT = "image/*,application/pdf,text/plain,text/markdown,application/json,text/csv,text/html,.md,.markdown";
 
 const ISSUE_THINKING_EFFORT_OPTIONS = {
@@ -119,7 +121,7 @@ function buildAssigneeAdapterOverrides(input: {
   chrome: boolean;
 }): Record<string, unknown> | null {
   const adapterType = input.adapterType ?? null;
-  if (!adapterType || !ISSUE_OVERRIDE_ADAPTER_TYPES.has(adapterType)) {
+  if (!adapterType || !ISSUE_OVERRIDE_ADAPTER_TYPES.has(adapterType as AgentAdapterType)) {
     return null;
   }
 
@@ -358,7 +360,7 @@ export function NewIssueDialog() {
 
   const assigneeAdapterType = (agents ?? []).find((agent) => agent.id === selectedAssigneeAgentId)?.adapterType ?? null;
   const supportsAssigneeOverrides = Boolean(
-    assigneeAdapterType && ISSUE_OVERRIDE_ADAPTER_TYPES.has(assigneeAdapterType),
+    assigneeAdapterType && ISSUE_OVERRIDE_ADAPTER_TYPES.has(assigneeAdapterType as AgentAdapterType),
   );
   const mentionOptions = useMemo<MentionOption[]>(() => {
     const options: MentionOption[] = [];

@@ -1,3 +1,4 @@
+// Changes: Invite adapter allowlist uses shared adapterUiAllowlists (openclaw_gateway enabled).
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useParams } from "@/lib/router";
@@ -6,6 +7,7 @@ import { authApi } from "../api/auth";
 import { healthApi } from "../api/health";
 import { queryKeys } from "../lib/queryKeys";
 import { Button } from "@/components/ui/button";
+import { ENABLED_INVITE_ADAPTER_TYPES } from "@/lib/adapterUiAllowlists";
 import { AGENT_ADAPTER_TYPES } from "@paperclipai/shared";
 import type { AgentAdapterType, JoinRequest } from "@paperclipai/shared";
 
@@ -24,8 +26,6 @@ const adapterLabels: Record<string, string> = {
   process: "Process",
   http: "HTTP",
 };
-
-const ENABLED_INVITE_ADAPTERS = new Set(["claude_local", "codex_local", "gemini_local", "opencode_local", "pi_local", "cursor", "hermes_local"]);
 
 function dateTime(value: string) {
   return new Date(value).toLocaleString();
@@ -278,8 +278,8 @@ export function InviteLandingPage() {
                 onChange={(event) => setAdapterType(event.target.value as AgentAdapterType)}
               >
                 {joinAdapterOptions.map((type) => (
-                  <option key={type} value={type} disabled={!ENABLED_INVITE_ADAPTERS.has(type)}>
-                    {adapterLabels[type]}{!ENABLED_INVITE_ADAPTERS.has(type) ? " (Coming soon)" : ""}
+                  <option key={type} value={type} disabled={!ENABLED_INVITE_ADAPTER_TYPES.has(type)}>
+                    {adapterLabels[type]}{!ENABLED_INVITE_ADAPTER_TYPES.has(type) ? " (Coming soon)" : ""}
                   </option>
                 ))}
               </select>

@@ -1,3 +1,7 @@
+/**
+ * Changes: HTTP POST mode for OpenClaw `/hooks/agent` URLs (message, agentId: main, deliver: true,
+ * plus paperclip context); WebSocket gateway unchanged for ws/wss.
+ */
 import type {
   AdapterExecutionContext,
   AdapterExecutionResult,
@@ -472,6 +476,129 @@ function normalizeUrl(input: string): URL | null {
     return new URL(input);
   } catch {
     return null;
+  }
+}
+
+/** True when the configured URL targets OpenClaw's HTTP agent hook (issue #134 style). */
+function isOpenClawHttpHookUrl(url: URL): boolean {
+  if (url.protocol !== "http:" && url.protocol !== "https:") return false;
+  const path = url.pathname.replace(/\/+$/, "") || "/";
+  return path.endsWith("/hooks/agent");
+}
+
+function buildHookMessage(ctx: AdapterExecutionContext, baseMessage: string): string {
+  const c = ctx.context;
+  const title = typeof c.issueTitle === "string" ? c.issueTitle.trim() : "";
+  const description =
+    (typeof c.issueDescription === "string" ? c.issueDescription.trim() : "") ||
+    (typeof c.taskDescription === "string" ? c.taskDescription.trim() : "") ||
+    (typeof c.description === "string" ? c.description.trim() : "");
+  const parts: string[] = [];
+  if (title.length > 0) parts.push(title);
+  if (description.length > 0) parts.push(description);
+  if (parts.length === 0) return baseMessage;
+  return `${parts.join("\n\n")}\n\n${baseMessage}`;
+}
+
+async function executeOpenClawHttpHook(params: {
+  ctx: AdapterExecutionContext;
+  parsedUrl: URL;
+  headers: Record<string, string>;
+  message: string;
+  paperclipPayload: Record<string, unknown>;
+  sessionKey: string;
+  waitTimeoutMs: number;
+  connectTimeoutMs: number;
+}): Promise<AdapterExecutionResult> {
+  const { ctx, parsedUrl, headers, message, paperclipPayload, sessionKey, waitTimeoutMs, connectTimeoutMs } =
+    params;
+  const hookMessage = buildHookMessage(ctx, message);
+  const body: Record<string, unknown> = {
+    message: hookMessage,
+    agentId: "main",
+    deliver: true,
+    paperclip: paperclipPayload,
+    sessionKey,
+    idempotencyKey: ctx.runId,
+  };
+
+  const timeoutMs = waitTimeoutMs > 0 ? waitTimeoutMs + connectTimeoutMs : connectTimeoutMs + 5_000;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), Math.max(timeoutMs, 5_000));
+
+  if (ctx.onMeta) {
+    await ctx.onMeta({
+      adapterType: "openclaw_gateway",
+      command: "http",
+      commandArgs: ["POST", parsedUrl.toString(), "hooks/agent"],
+      context: ctx.context,
+    });
+  }
+
+  await ctx.onLog(
+    "stdout",
+    `[openclaw-gateway] http hook POST ${parsedUrl.toString()} (payload redacted): ${stringifyForLog(redactForLog(body), 12_000)}\n`,
+  );
+
+  try {
+    const res = await fetch(parsedUrl.toString(), {
+      method: "POST",
+      headers: {
+        "content-type": "application/json; charset=utf-8",
+        ...headers,
+      },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    });
+
+    const rawText = await res.text();
+    let parsedJson: unknown = null;
+    try {
+      parsedJson = rawText ? JSON.parse(rawText) : null;
+    } catch {
+      parsedJson = null;
+    }
+
+    if (!res.ok) {
+      return {
+        exitCode: 1,
+        signal: null,
+        timedOut: false,
+        errorMessage: `OpenClaw hooks/agent HTTP ${res.status}: ${rawText.slice(0, 2_000)}`,
+        errorCode: "openclaw_gateway_http_hook_error",
+        resultJson: typeof parsedJson === "object" && parsedJson !== null ? (parsedJson as Record<string, unknown>) : { raw: rawText },
+      };
+    }
+
+    const record = asRecord(parsedJson);
+    const summary =
+      nonEmpty(record?.summary) ??
+      nonEmpty(record?.text) ??
+      nonEmpty(record?.message) ??
+      (rawText.trim().length > 0 ? rawText.trim() : null);
+
+    return {
+      exitCode: 0,
+      signal: null,
+      timedOut: false,
+      provider: "openclaw",
+      resultJson: record ?? { ok: true, raw: rawText },
+      ...(summary ? { summary } : {}),
+    };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    const timedOut = msg.toLowerCase().includes("abort");
+    return {
+      exitCode: 1,
+      signal: null,
+      timedOut,
+      errorMessage: timedOut
+        ? `OpenClaw hooks/agent request timed out after ${timeoutMs}ms`
+        : msg,
+      errorCode: timedOut ? "openclaw_gateway_http_hook_timeout" : "openclaw_gateway_http_hook_failed",
+    };
+  } finally {
+    clearTimeout(timer);
   }
 }
 
@@ -1016,16 +1143,6 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     };
   }
 
-  if (parsedUrl.protocol !== "ws:" && parsedUrl.protocol !== "wss:") {
-    return {
-      exitCode: 1,
-      signal: null,
-      timedOut: false,
-      errorMessage: `Unsupported gateway URL protocol: ${parsedUrl.protocol}`,
-      errorCode: "openclaw_gateway_url_protocol",
-    };
-  }
-
   const timeoutSec = Math.max(0, Math.floor(asNumber(ctx.config.timeoutSec, 120)));
   const timeoutMs = timeoutSec > 0 ? timeoutSec * 1000 : 0;
   const connectTimeoutMs = timeoutMs > 0 ? Math.min(timeoutMs, 15_000) : 10_000;
@@ -1067,6 +1184,29 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
   const templateMessage = nonEmpty(payloadTemplate.message) ?? nonEmpty(payloadTemplate.text);
   const message = templateMessage ? appendWakeText(templateMessage, wakeText) : wakeText;
   const paperclipPayload = buildStandardPaperclipPayload(ctx, wakePayload, paperclipEnv, payloadTemplate);
+
+  if (isOpenClawHttpHookUrl(parsedUrl)) {
+    return executeOpenClawHttpHook({
+      ctx,
+      parsedUrl,
+      headers,
+      message,
+      paperclipPayload,
+      sessionKey,
+      waitTimeoutMs,
+      connectTimeoutMs,
+    });
+  }
+
+  if (parsedUrl.protocol !== "ws:" && parsedUrl.protocol !== "wss:") {
+    return {
+      exitCode: 1,
+      signal: null,
+      timedOut: false,
+      errorMessage: `Unsupported gateway URL protocol: ${parsedUrl.protocol}`,
+      errorCode: "openclaw_gateway_url_protocol",
+    };
+  }
 
   const agentParams: Record<string, unknown> = {
     ...payloadTemplate,

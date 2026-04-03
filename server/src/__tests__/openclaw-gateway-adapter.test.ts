@@ -1,3 +1,4 @@
+// Changes: Added HTTP /hooks/agent execute coverage (message, agentId, deliver, Bearer header).
 import { afterEach, describe, expect, it } from "vitest";
 import { createServer } from "node:http";
 import { WebSocketServer } from "ws";
@@ -374,6 +375,52 @@ async function createMockGatewayServerWithPairing() {
   };
 }
 
+async function createMockHttpHookServer(): Promise<{
+  url: string;
+  getLastPayload: () => Record<string, unknown> | null;
+  getLastAuth: () => string | null;
+  close: () => Promise<void>;
+}> {
+  let lastPayload: Record<string, unknown> | null = null;
+  let lastAuth: string | null = null;
+  const server = createServer((req, res) => {
+    if (req.method !== "POST" || !req.url?.includes("/hooks/agent")) {
+      res.writeHead(404);
+      res.end();
+      return;
+    }
+    lastAuth = typeof req.headers.authorization === "string" ? req.headers.authorization : null;
+    const chunks: Buffer[] = [];
+    req.on("data", (c) => chunks.push(Buffer.from(c)));
+    req.on("end", () => {
+      try {
+        const raw = Buffer.concat(chunks).toString("utf8");
+        lastPayload = raw ? (JSON.parse(raw) as Record<string, unknown>) : null;
+      } catch {
+        lastPayload = null;
+      }
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end(JSON.stringify({ ok: true, status: "accepted" }));
+    });
+  });
+
+  await new Promise<void>((resolve) => {
+    server.listen(0, "127.0.0.1", () => resolve());
+  });
+
+  const address = server.address();
+  if (!address || typeof address === "string") {
+    throw new Error("Failed to resolve test HTTP hook address");
+  }
+
+  return {
+    url: `http://127.0.0.1:${address.port}/hooks/agent`,
+    getLastPayload: () => lastPayload,
+    getLastAuth: () => lastAuth,
+    close: async () => new Promise<void>((resolveClose) => server.close(() => resolveClose())),
+  };
+}
+
 afterEach(() => {
   // no global mocks
 });
@@ -467,6 +514,50 @@ describe("openclaw gateway adapter execute", () => {
     const result = await execute(buildContext({}));
     expect(result.exitCode).toBe(1);
     expect(result.errorCode).toBe("openclaw_gateway_url_missing");
+  });
+
+  it("posts OpenClaw HTTP /hooks/agent with message, agentId main, deliver true, and Bearer auth", async () => {
+    const hook = await createMockHttpHookServer();
+    try {
+      const result = await execute(
+        buildContext(
+          {
+            url: hook.url,
+            headers: {
+              authorization: "Bearer hook-token",
+            },
+            waitTimeoutMs: 2000,
+          },
+          {
+            context: {
+              taskId: "task-123",
+              issueId: "issue-123",
+              issueTitle: "Fix the widget",
+              issueDescription: "Widget crashes on load",
+              wakeReason: "issue_assigned",
+              issueIds: ["issue-123"],
+            },
+          },
+        ),
+      );
+
+      expect(result.exitCode).toBe(0);
+      const payload = hook.getLastPayload();
+      expect(payload?.agentId).toBe("main");
+      expect(payload?.deliver).toBe(true);
+      expect(String(payload?.message ?? "")).toContain("Fix the widget");
+      expect(String(payload?.message ?? "")).toContain("Widget crashes");
+      expect(hook.getLastAuth()).toBe("Bearer hook-token");
+      expect(payload?.paperclip).toEqual(
+        expect.objectContaining({
+          runId: "run-123",
+          issueId: "issue-123",
+          taskId: "task-123",
+        }),
+      );
+    } finally {
+      await hook.close();
+    }
   });
 
   it("returns adapter-managed runtime services from gateway result meta", async () => {
