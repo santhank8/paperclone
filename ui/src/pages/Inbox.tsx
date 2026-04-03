@@ -87,6 +87,7 @@ import {
   getInboxKeyboardSelectionIndex,
   getLatestFailedRunsByAgent,
   getRecentTouchedIssues,
+  getVisibleUnreadIssueIds,
   isMineInboxTab,
   loadInboxIssueColumns,
   normalizeInboxIssueColumns,
@@ -1638,10 +1639,10 @@ export function Inbox() {
     !isRunsLoading;
 
   const showSeparatorBefore = (key: SectionKey) => visibleSections.indexOf(key) > 0;
-  const markAllReadIssues = (tab === "mine" ? mineIssues : unreadTouchedIssues)
-    .filter((issue) => issue.isUnreadForMe && !fadingOutIssues.has(issue.id) && !archivingIssueIds.has(issue.id));
-  const unreadIssueIds = markAllReadIssues
-    .map((issue) => issue.id);
+  const unreadIssueIds = getVisibleUnreadIssueIds(filteredWorkItems, {
+    fadingOutIssues,
+    archivingIssueIds,
+  });
   const canMarkAllRead = unreadIssueIds.length > 0;
   return (
     <div className="space-y-6">

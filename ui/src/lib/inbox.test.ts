@@ -19,6 +19,7 @@ import {
   getInboxKeyboardSelectionIndex,
   getRecentTouchedIssues,
   getUnreadTouchedIssues,
+  getVisibleUnreadIssueIds,
   isMineInboxTab,
   loadInboxIssueColumns,
   loadLastInboxTab,
@@ -633,5 +634,20 @@ describe("inbox helpers", () => {
     expect(getInboxKeyboardSelectionIndex(-1, 3, "previous")).toBe(0);
     expect(getInboxKeyboardSelectionIndex(0, 3, "next")).toBe(1);
     expect(getInboxKeyboardSelectionIndex(0, 3, "previous")).toBe(0);
+  });
+
+  it("only returns unread issue ids from the currently visible work items", () => {
+    const workItems = getInboxWorkItems({
+      issues: [
+        makeIssue("visible-unread", true),
+        makeIssue("visible-read", false),
+        makeIssue("visible-archiving", true),
+      ],
+      approvals: [makeApproval("pending")],
+    });
+
+    expect(getVisibleUnreadIssueIds(workItems, {
+      archivingIssueIds: new Set(["visible-archiving"]),
+    })).toEqual(["visible-unread"]);
   });
 });

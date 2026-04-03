@@ -1,4 +1,5 @@
 import { memo, useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
+import type { TFunction } from "i18next";
 import { Link, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import type {
@@ -126,12 +127,15 @@ function parseReassignment(target: string): CommentReassignment | null {
   return null;
 }
 
-function humanizeValue(value: string | null): string {
-  if (!value) return "None";
-  return value.replace(/_/g, " ");
+function formatTimelineStatusLabel(t: TFunction, value: string | null): string {
+  if (!value) {
+    return t("None", { defaultValue: "None" });
+  }
+  return translateStatusLabel(t, value);
 }
 
 function formatTimelineAssigneeLabel(
+  t: TFunction,
   assignee: IssueTimelineAssignee,
   agentMap?: Map<string, Agent>,
   currentUserId?: string | null,
@@ -140,12 +144,14 @@ function formatTimelineAssigneeLabel(
     return agentMap?.get(assignee.agentId)?.name ?? assignee.agentId.slice(0, 8);
   }
   if (assignee.userId) {
-    return formatAssigneeUserLabel(assignee.userId, currentUserId) ?? "Board";
+    return formatAssigneeUserLabel(assignee.userId, currentUserId)
+      ?? t("Board", { defaultValue: "Board" });
   }
-  return "Unassigned";
+  return t("Unassigned", { defaultValue: "Unassigned" });
 }
 
 function formatTimelineActorName(
+  t: TFunction,
   actorType: IssueTimelineEvent["actorType"],
   actorId: string,
   agentMap?: Map<string, Agent>,
@@ -155,9 +161,10 @@ function formatTimelineActorName(
     return agentMap?.get(actorId)?.name ?? actorId.slice(0, 8);
   }
   if (actorType === "system") {
-    return "System";
+    return t("System", { defaultValue: "System" });
   }
-  return formatAssigneeUserLabel(actorId, currentUserId) ?? "Board";
+  return formatAssigneeUserLabel(actorId, currentUserId)
+    ?? t("Board", { defaultValue: "Board" });
 }
 
 function initialsForName(name: string) {
@@ -370,7 +377,8 @@ function TimelineEventCard({
   agentMap?: Map<string, Agent>;
   currentUserId?: string | null;
 }) {
-  const actorName = formatTimelineActorName(event.actorType, event.actorId, agentMap, currentUserId);
+  const { t } = useTranslation();
+  const actorName = formatTimelineActorName(t, event.actorType, event.actorId, agentMap, currentUserId);
 
   return (
     <div id={`activity-${event.id}`} className="flex items-start gap-2.5 py-1.5">
@@ -381,7 +389,9 @@ function TimelineEventCard({
       <div className="min-w-0 flex-1 space-y-1.5">
         <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-1 text-sm">
           <span className="font-medium text-foreground">{actorName}</span>
-          <span className="text-muted-foreground">updated this task</span>
+          <span className="text-muted-foreground">
+            {t("updated this task", { defaultValue: "updated this task" })}
+          </span>
           <a
             href={`#activity-${event.id}`}
             className="text-sm text-muted-foreground transition-colors hover:text-foreground hover:underline"
@@ -393,14 +403,14 @@ function TimelineEventCard({
         {event.statusChange ? (
           <div className="flex flex-wrap items-center gap-2 text-sm">
             <span className="w-14 text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
-              Status
+              {t("Status", { defaultValue: "Status" })}
             </span>
             <span className="text-muted-foreground">
-              {humanizeValue(event.statusChange.from)}
+              {formatTimelineStatusLabel(t, event.statusChange.from)}
             </span>
             <ArrowRight className="h-3.5 w-3.5 text-muted-foreground" />
             <span className="font-medium text-foreground">
-              {humanizeValue(event.statusChange.to)}
+              {formatTimelineStatusLabel(t, event.statusChange.to)}
             </span>
           </div>
         ) : null}
@@ -408,14 +418,14 @@ function TimelineEventCard({
         {event.assigneeChange ? (
           <div className="flex flex-wrap items-center gap-2 text-sm">
             <span className="w-14 text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
-              Assignee
+              {t("Assignee", { defaultValue: "Assignee" })}
             </span>
             <span className="text-muted-foreground">
-              {formatTimelineAssigneeLabel(event.assigneeChange.from, agentMap, currentUserId)}
+              {formatTimelineAssigneeLabel(t, event.assigneeChange.from, agentMap, currentUserId)}
             </span>
             <ArrowRight className="h-3.5 w-3.5 text-muted-foreground" />
             <span className="font-medium text-foreground">
-              {formatTimelineAssigneeLabel(event.assigneeChange.to, agentMap, currentUserId)}
+              {formatTimelineAssigneeLabel(t, event.assigneeChange.to, agentMap, currentUserId)}
             </span>
           </div>
         ) : null}

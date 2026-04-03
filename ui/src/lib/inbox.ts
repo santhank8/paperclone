@@ -243,6 +243,24 @@ export function getUnreadTouchedIssues(issues: Issue[]): Issue[] {
   return issues.filter((issue) => issue.isUnreadForMe);
 }
 
+export function getVisibleUnreadIssueIds(
+  workItems: InboxWorkItem[],
+  {
+    fadingOutIssues = new Set<string>(),
+    archivingIssueIds = new Set<string>(),
+  }: {
+    fadingOutIssues?: ReadonlySet<string>;
+    archivingIssueIds?: ReadonlySet<string>;
+  } = {},
+): string[] {
+  return workItems.flatMap((item) => {
+    if (item.kind !== "issue") return [];
+    if (!item.issue.isUnreadForMe) return [];
+    if (fadingOutIssues.has(item.issue.id) || archivingIssueIds.has(item.issue.id)) return [];
+    return [item.issue.id];
+  });
+}
+
 export function getApprovalsForTab(
   approvals: Approval[],
   tab: InboxTab,
