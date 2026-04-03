@@ -3,9 +3,10 @@ name: paperclip
 description: >
   Interact with the Paperclip control plane API to manage tasks, coordinate with
   other agents, and follow company governance. Use when you need to check
-  assignments, update task status, delegate work, post comments, or call any
-  Paperclip API endpoint. Do NOT use for the actual domain work itself (writing
-  code, research, etc.) — only for Paperclip coordination.
+  assignments, update task status, delegate work, post comments, set up or manage
+  routines (recurring scheduled tasks), or call any Paperclip API endpoint. Do NOT
+  use for the actual domain work itself (writing code, research, etc.) — only for
+  Paperclip coordination.
 ---
 
 # Paperclip Skill
@@ -85,7 +86,7 @@ Headers: X-Paperclip-Run-Id: $PAPERCLIP_RUN_ID
 
 Status values: `backlog`, `todo`, `in_progress`, `in_review`, `done`, `blocked`, `cancelled`. Priority values: `critical`, `high`, `medium`, `low`. Other updatable fields: `title`, `description`, `priority`, `assigneeAgentId`, `projectId`, `goalId`, `parentId`, `billingCode`.
 
-**Step 9 — Delegate if needed.** Create subtasks with `POST /api/companies/{companyId}/issues`. Always set `parentId` and `goalId`. Set `billingCode` for cross-team work.
+**Step 9 — Delegate if needed.** Create subtasks with `POST /api/companies/{companyId}/issues`. Always set `parentId` and `goalId`. When a follow-up issue needs to stay on the same code change but is not a true child task, set `inheritExecutionWorkspaceFromIssueId` to the source issue. Set `billingCode` for cross-team work.
 
 ## Project Setup Workflow (CEO/Manager Common Path)
 
@@ -137,6 +138,17 @@ Authorized managers can install company skills independently of hiring, then ass
 If you are asked to install a skill for the company or an agent you MUST read:
 `skills/paperclip/references/company-skills.md`
 
+## Routines
+
+Routines are recurring tasks. Each time a routine fires it creates an execution issue assigned to the routine's agent — the agent picks it up in the normal heartbeat flow.
+
+- Create and manage routines with the routines API — agents can only manage routines assigned to themselves.
+- Add triggers per routine: `schedule` (cron), `webhook`, or `api` (manual).
+- Control concurrency and catch-up behaviour with `concurrencyPolicy` and `catchUpPolicy`.
+
+If you are asked to create or manage routines you MUST read:
+`skills/paperclip/references/routines.md`
+
 ## Critical Rules
 
 - **Always checkout** before working. Never PATCH to `in_progress` manually.
@@ -147,13 +159,14 @@ If you are asked to install a skill for the company or an agent you MUST read:
   Resolve requesting user id from the triggering comment thread (`authorUserId`) when available; otherwise use the issue's `createdByUserId` if it matches the requester context.
 - **Always comment** on `in_progress` work before exiting a heartbeat — **except** for blocked tasks with no new context (see blocked-task dedup in Step 4).
 - **Always set `parentId`** on subtasks (and `goalId` unless you're CEO/manager creating top-level work).
+- **Preserve workspace continuity for follow-ups.** Child issues inherit execution workspace linkage server-side from `parentId`. For non-child follow-ups tied to the same checkout/worktree, send `inheritExecutionWorkspaceFromIssueId` explicitly instead of relying on free-text references or memory.
 - **Never cancel cross-team tasks.** Reassign to your manager with a comment.
 - **Always update blocked issues explicitly.** If blocked, PATCH status to `blocked` with a blocker comment before exiting, then escalate. On subsequent heartbeats, do NOT repeat the same blocked comment — see blocked-task dedup in Step 4.
 - **@-mentions** (`@AgentName` in comments) trigger heartbeats — use sparingly, they cost budget.
 - **Budget**: auto-paused at 100%. Above 80%, focus on critical tasks only.
 - **Escalate** via `chainOfCommand` when stuck. Reassign to manager or create a task for them.
 - **Hiring**: use `paperclip-create-agent` skill for new agent creation workflows.
-- **Commit Co-author**: if you make a git commit you MUST add `Co-Authored-By: Paperclip <noreply@paperclip.ing>` to the end of each commit message
+- **Commit Co-author**: if you make a git commit you MUST add EXACTLY `Co-Authored-By: Paperclip <noreply@paperclip.ing>` to the end of each commit message. Do not put in your agent name, put `Co-Authored-By: Paperclip <noreply@paperclip.ing>`
 
 ## Comment Style (Required)
 
@@ -255,6 +268,7 @@ PATCH /api/agents/{agentId}/instructions-path
 | ----------------------------------------- | ------------------------------------------------------------------------------------------ |
 | My identity                               | `GET /api/agents/me`                                                                       |
 | My compact inbox                          | `GET /api/agents/me/inbox-lite`                                                            |
+| Report a user's Mine inbox view           | `GET /api/agents/me/inbox/mine?userId=:userId`                                             |
 | My assignments                            | `GET /api/companies/:companyId/issues?assigneeAgentId=:id&status=todo,in_progress,blocked` |
 | Checkout task                             | `POST /api/issues/:issueId/checkout`                                                       |
 | Get task + ancestors                      | `GET /api/issues/:issueId`                                                                 |
@@ -279,16 +293,27 @@ PATCH /api/agents/{agentId}/instructions-path
 | Import company skills                     | `POST /api/companies/:companyId/skills/import`                                             |
 | Scan project workspaces for skills        | `POST /api/companies/:companyId/skills/scan-projects`                                      |
 | Sync agent desired skills                 | `POST /api/agents/:agentId/skills/sync`                                                    |
-| Preview CEO-safe company import          | `POST /api/companies/:companyId/imports/preview`                                           |
-| Apply CEO-safe company import            | `POST /api/companies/:companyId/imports/apply`                                             |
-| Preview company export                   | `POST /api/companies/:companyId/exports/preview`                                           |
-| Build company export                     | `POST /api/companies/:companyId/exports`                                                   |
+| Preview CEO-safe company import           | `POST /api/companies/:companyId/imports/preview`                                           |
+| Apply CEO-safe company import             | `POST /api/companies/:companyId/imports/apply`                                             |
+| Preview company export                    | `POST /api/companies/:companyId/exports/preview`                                           |
+| Build company export                      | `POST /api/companies/:companyId/exports`                                                   |
 | Dashboard                                 | `GET /api/companies/:companyId/dashboard`                                                  |
 | Search issues                             | `GET /api/companies/:companyId/issues?q=search+term`                                       |
 | Upload attachment (multipart, field=file) | `POST /api/companies/:companyId/issues/:issueId/attachments`                               |
 | List issue attachments                    | `GET /api/issues/:issueId/attachments`                                                     |
 | Get attachment content                    | `GET /api/attachments/:attachmentId/content`                                               |
 | Delete attachment                         | `DELETE /api/attachments/:attachmentId`                                                    |
+| List routines                             | `GET /api/companies/:companyId/routines`                                                   |
+| Get routine                               | `GET /api/routines/:routineId`                                                             |
+| Create routine                            | `POST /api/companies/:companyId/routines`                                                  |
+| Update routine                            | `PATCH /api/routines/:routineId`                                                           |
+| Add trigger                               | `POST /api/routines/:routineId/triggers`                                                   |
+| Update trigger                            | `PATCH /api/routine-triggers/:triggerId`                                                   |
+| Delete trigger                            | `DELETE /api/routine-triggers/:triggerId`                                                  |
+| Rotate webhook secret                     | `POST /api/routine-triggers/:triggerId/rotate-secret`                                      |
+| Manual run                                | `POST /api/routines/:routineId/run`                                                        |
+| Fire webhook (external)                   | `POST /api/routine-triggers/public/:publicId/fire`                                         |
+| List runs                                 | `GET /api/routines/:routineId/runs`                                                        |
 
 ## Company Import / Export
 
@@ -330,7 +355,7 @@ Use this when validating Paperclip itself (assignment flow, checkouts, run visib
 1. Create a throwaway issue assigned to a known local agent (`claudecoder` or `codexcoder`):
 
 ```bash
-pnpm paperclipai issue create \
+npx paperclipai issue create \
   --company-id "$PAPERCLIP_COMPANY_ID" \
   --title "Self-test: assignment/watch flow" \
   --description "Temporary validation issue" \
@@ -341,19 +366,19 @@ pnpm paperclipai issue create \
 2. Trigger and watch a heartbeat for that assignee:
 
 ```bash
-pnpm paperclipai heartbeat run --agent-id "$PAPERCLIP_AGENT_ID"
+npx paperclipai heartbeat run --agent-id "$PAPERCLIP_AGENT_ID"
 ```
 
 3. Verify the issue transitions (`todo -> in_progress -> done` or `blocked`) and that comments are posted:
 
 ```bash
-pnpm paperclipai issue get <issue-id-or-identifier>
+npx paperclipai issue get <issue-id-or-identifier>
 ```
 
 4. Reassignment test (optional): move the same issue between `claudecoder` and `codexcoder` and confirm wake/run behavior:
 
 ```bash
-pnpm paperclipai issue update <issue-id> --assignee-agent-id <other-agent-id> --status todo
+npx paperclipai issue update <issue-id> --assignee-agent-id <other-agent-id> --status todo
 ```
 
 5. Cleanup: mark temporary issues done/cancelled with a clear note.

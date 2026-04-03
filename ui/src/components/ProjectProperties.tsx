@@ -242,6 +242,7 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
   const { data: experimentalSettings } = useQuery({
     queryKey: queryKeys.instance.experimentalSettings,
     queryFn: () => instanceSettingsApi.getExperimental(),
+    retry: false,
   });
 
   const linkedGoalIds = project.goalIds.length > 0
@@ -343,11 +344,10 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
 
   const isAbsolutePath = (value: string) => value.startsWith("/") || /^[A-Za-z]:[\\/]/.test(value);
 
-  const isGitHubRepoUrl = (value: string) => {
+  const looksLikeRepoUrl = (value: string) => {
     try {
       const parsed = new URL(value);
-      const host = parsed.hostname.toLowerCase();
-      if (host !== "github.com" && host !== "www.github.com") return false;
+      if (parsed.protocol !== "https:") return false;
       const segments = parsed.pathname.split("/").filter(Boolean);
       return segments.length >= 2;
     } catch {
@@ -432,8 +432,8 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
       persistCodebase({ repoUrl: null });
       return;
     }
-    if (!isGitHubRepoUrl(repoUrl)) {
-      setWorkspaceError("Repo must use a valid GitHub repo URL.");
+    if (!looksLikeRepoUrl(repoUrl)) {
+      setWorkspaceError("Repo must use a valid GitHub or GitHub Enterprise repo URL.");
       return;
     }
     setWorkspaceError(null);
@@ -887,6 +887,7 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
                   </div>
                   {onUpdate || onFieldUpdate ? (
                     <button
+                      data-slot="toggle"
                       className={cn(
                         "relative inline-flex h-5 w-9 items-center rounded-full transition-colors",
                         executionWorkspacesEnabled ? "bg-green-600" : "bg-muted",
@@ -925,6 +926,7 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
                         </div>
                       </div>
                       <button
+                        data-slot="toggle"
                         className={cn(
                           "relative inline-flex h-5 w-9 items-center rounded-full transition-colors",
                           executionWorkspaceDefaultMode === "isolated_workspace" ? "bg-green-600" : "bg-muted",
