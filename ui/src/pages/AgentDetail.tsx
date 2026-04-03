@@ -62,6 +62,7 @@ import {
   Key,
   Eye,
   EyeOff,
+  Pencil,
   Copy,
   ChevronRight,
   ChevronDown,
@@ -1620,6 +1621,7 @@ function PromptsTab({
   const [pendingFiles, setPendingFiles] = useState<string[]>([]);
   const [expandedDirs, setExpandedDirs] = useState<Set<string>>(new Set());
   const [filePanelWidth, setFilePanelWidth] = useState(260);
+  const [viewMode, setViewMode] = useState<"view" | "edit">("view");
   const containerRef = useRef<HTMLDivElement>(null);
   const [awaitingRefresh, setAwaitingRefresh] = useState(false);
   const lastFileVersionRef = useRef<string | null>(null);
@@ -1638,6 +1640,7 @@ function PromptsTab({
     setShowNewFileInput(false);
     setPendingFiles([]);
     setExpandedDirs(new Set());
+    setViewMode("view");
     setAwaitingRefresh(false);
     lastFileVersionRef.current = null;
     externalBundleRef.current = null;
@@ -2227,37 +2230,76 @@ function PromptsTab({
                 </p>
               </div>
             </div>
-            {selectedFileExists && !selectedFileSummary?.deprecated && selectedOrEntryFile !== currentEntryFile && (
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                onClick={() => {
-                  if (confirm(`Delete ${selectedOrEntryFile}?`)) {
-                    deleteFile.mutate(selectedOrEntryFile, {
-                      onSuccess: () => {
-                        setSelectedFile(currentEntryFile);
-                        setDraft(null);
-                      },
-                    });
-                  }
-                }}
-                disabled={deleteFile.isPending}
-              >
-                Delete
-              </Button>
-            )}
+            <div className="flex items-center gap-2">
+              <div className="flex items-center rounded-md border border-border">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={viewMode === "view" ? "default" : "ghost"}
+                  className="h-7 rounded-r-none border-0 gap-1 px-2.5"
+                  onClick={() => setViewMode("view")}
+                >
+                  <Eye className="h-3.5 w-3.5" />
+                  View
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={viewMode === "edit" ? "default" : "ghost"}
+                  className="h-7 rounded-l-none border-0 gap-1 px-2.5"
+                  onClick={() => setViewMode("edit")}
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                  Edit
+                </Button>
+              </div>
+              {selectedFileExists && !selectedFileSummary?.deprecated && selectedOrEntryFile !== currentEntryFile && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    if (confirm(`Delete ${selectedOrEntryFile}?`)) {
+                      deleteFile.mutate(selectedOrEntryFile, {
+                        onSuccess: () => {
+                          setSelectedFile(currentEntryFile);
+                          setDraft(null);
+                        },
+                      });
+                    }
+                  }}
+                  disabled={deleteFile.isPending}
+                >
+                  Delete
+                </Button>
+              )}
+            </div>
           </div>
 
           {fileLoading && !selectedFileDetail ? (
             <PromptEditorSkeleton />
-          ) : (
+          ) : viewMode === "edit" ? (
             <textarea
               value={displayValue}
               onChange={(event) => setDraft(event.target.value)}
               className="min-h-[420px] w-full rounded-md border border-border bg-transparent px-3 py-2 font-mono text-sm outline-none"
               placeholder="File contents"
             />
+          ) : (
+            <div
+              className="min-h-[420px] w-full rounded-md border border-border bg-transparent px-3 py-2 overflow-auto cursor-text hover:bg-accent/5 transition-colors"
+              onClick={(e) => {
+                if ((e.target as HTMLElement).closest("a") === null) {
+                  setViewMode("edit");
+                }
+              }}
+            >
+              {displayValue ? (
+                <MarkdownBody>{displayValue}</MarkdownBody>
+              ) : (
+                <p className="text-sm text-muted-foreground italic">No content — click to edit</p>
+              )}
+            </div>
           )}
         </div>
       </div>
