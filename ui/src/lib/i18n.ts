@@ -18,6 +18,9 @@ import pluginSettingsEn from "../locales/en/pages/pluginSettings.json";
 import instanceSettingsEn from "../locales/en/pages/instanceSettings.json";
 import instanceHeartbeatsEn from "../locales/en/pages/instanceHeartbeats.json";
 import instanceExperimentalEn from "../locales/en/pages/instanceExperimental.json";
+import layoutEn from "../locales/en/pages/layout.json";
+import onboardingEn from "../locales/en/pages/onboarding.json";
+import appEn from "../locales/en/pages/app.json";
 import commonFr from "../locales/fr/common.json";
 import dashboardFr from "../locales/fr/pages/dashboard.json";
 import issuesFr from "../locales/fr/pages/issues.json";
@@ -34,14 +37,17 @@ import pluginSettingsFr from "../locales/fr/pages/pluginSettings.json";
 import instanceSettingsFr from "../locales/fr/pages/instanceSettings.json";
 import instanceHeartbeatsFr from "../locales/fr/pages/instanceHeartbeats.json";
 import instanceExperimentalFr from "../locales/fr/pages/instanceExperimental.json";
+import layoutFr from "../locales/fr/pages/layout.json";
+import onboardingFr from "../locales/fr/pages/onboarding.json";
+import appFr from "../locales/fr/pages/app.json";
 
 i18n
   .use(LanguageDetector)
   .use(initReactI18next)
   .init({
     resources: {
-      en: { common: commonEn, dashboard: dashboardEn, issues: issuesEn, agents: agentsEn, projects: projectsEn, routines: routinesEn, goals: goalsEn, approvals: approvalsEn, costs: costsEn, activity: activityEn, companySettings: companySettingsEn, pluginManager: pluginManagerEn, pluginSettings: pluginSettingsEn, instanceSettings: instanceSettingsEn, instanceHeartbeats: instanceHeartbeatsEn, instanceExperimental: instanceExperimentalEn },
-      fr: { common: commonFr, dashboard: dashboardFr, issues: issuesFr, agents: agentsFr, projects: projectsFr, routines: routinesFr, goals: goalsFr, approvals: approvalsFr, costs: costsFr, activity: activityFr, companySettings: companySettingsFr, pluginManager: pluginManagerFr, pluginSettings: pluginSettingsFr, instanceSettings: instanceSettingsFr, instanceHeartbeats: instanceHeartbeatsFr, instanceExperimental: instanceExperimentalFr },
+      en: { common: commonEn, dashboard: dashboardEn, issues: issuesEn, agents: agentsEn, projects: projectsEn, routines: routinesEn, goals: goalsEn, approvals: approvalsEn, costs: costsEn, activity: activityEn, companySettings: companySettingsEn, pluginManager: pluginManagerEn, pluginSettings: pluginSettingsEn, instanceSettings: instanceSettingsEn, instanceHeartbeats: instanceHeartbeatsEn, instanceExperimental: instanceExperimentalEn, layout: layoutEn, onboarding: onboardingEn, app: appEn },
+      fr: { common: commonFr, dashboard: dashboardFr, issues: issuesFr, agents: agentsFr, projects: projectsFr, routines: routinesFr, goals: goalsFr, approvals: approvalsFr, costs: costsFr, activity: activityFr, companySettings: companySettingsFr, pluginManager: pluginManagerFr, pluginSettings: pluginSettingsFr, instanceSettings: instanceSettingsFr, instanceHeartbeats: instanceHeartbeatsFr, instanceExperimental: instanceExperimentalFr, layout: layoutFr, onboarding: onboardingFr, app: appFr },
     },
     defaultNS: "common",
     fallbackLng: "en",
