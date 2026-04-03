@@ -1079,7 +1079,7 @@ export function IssueDocumentsSection({
                         onChange={(body) => {
                           markDocumentDirty(doc.key);
                           setDraft((current) =>
-                            current && current.key === doc.key && !current.isNew
+                            current && current.key === doc.key
                               ? { ...current, body }
                               : current,
                           );
@@ -1093,7 +1093,12 @@ export function IssueDocumentsSection({
                         onSubmit={() => void commitDraft(activeDraft, { clearAfterSave: false, trackAutosave: true })}
                       />
                     ) : (
-                      <div className="w-full rounded-md p-0 text-left">
+                      <div
+                        className="w-full cursor-text rounded-md p-0 text-left"
+                        onClick={() => {
+                          if (!isHistoricalPreview) beginEdit(doc.key);
+                        }}
+                      >
                         {renderBody(displayedBody, documentBodyContentClassName)}
                       </div>
                     )}
