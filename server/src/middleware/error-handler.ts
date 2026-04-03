@@ -30,6 +30,21 @@ function attachErrorContext(
   }
 }
 
+/**
+ * Translate an error message if a translation function is available on the request.
+ * If the message matches a known i18n key (stored on the HttpError), use it;
+ * otherwise fall back to the original message.
+ */
+function translateMessage(req: Request, message: string, i18nKey?: string): string {
+  if (!req.t) return message;
+  if (i18nKey) {
+    const translated = req.t(i18nKey);
+    // i18next returns the key itself when no translation is found
+    if (translated !== i18nKey) return translated;
+  }
+  return message;
+}
+
 export function errorHandler(
   err: unknown,
   req: Request,
@@ -37,6 +52,7 @@ export function errorHandler(
   _next: NextFunction,
 ) {
   if (err instanceof HttpError) {
+    const message = translateMessage(req, err.message, err.i18nKey);
     if (err.status >= 500) {
       attachErrorContext(
         req,
@@ -46,14 +62,17 @@ export function errorHandler(
       );
     }
     res.status(err.status).json({
-      error: err.message,
+      error: message,
       ...(err.details ? { details: err.details } : {}),
     });
     return;
   }
 
   if (err instanceof ZodError) {
-    res.status(400).json({ error: "Validation error", details: err.errors });
+    const message = req.t
+      ? req.t("errors.common.validationError")
+      : "Validation error";
+    res.status(400).json({ error: message, details: err.errors });
     return;
   }
 
@@ -67,5 +86,8 @@ export function errorHandler(
     rootError,
   );
 
-  res.status(500).json({ error: "Internal server error" });
+  const message = req.t
+    ? req.t("errors.common.internalServerError")
+    : "Internal server error";
+  res.status(500).json({ error: message });
 }
