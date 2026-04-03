@@ -1,0 +1,454 @@
+{
+  "company": {
+    "name": "100% 무인 콘텐츠/마케팅 회사",
+    "description": "시장 리서치, 콘텐츠 기획, 작성, 편집, 배포, 성과 분석을 사람이 개입하지 않아도 반복 운영하는 로컬 Paperclip 회사.",
+    "brandColor": "#0F766E",
+    "budgetMonthlyCents": 30000,
+    "requireBoardApprovalForNewAgents": true
+  },
+  "workspaceRootName": "paperclip-company",
+  "goal": {
+    "title": "시장 리서치, 콘텐츠 기획, 작성, 편집, 배포, 성과 분석을 사람이 개입하지 않아도 반복 운영하는 콘텐츠/마케팅 회사 구축",
+    "description": "Build a local-first autonomous content and marketing company inside Paperclip. Every project, issue, and agent run must trace back to this goal.",
+    "level": "company",
+    "status": "active"
+  },
+  "secrets": [
+    {
+      "name": "GOOGLE_API_KEY",
+      "envVar": "GOOGLE_API_KEY",
+      "description": "Google Gemini API key for Gemini local agents"
+    },
+    {
+      "name": "GEMINI_API_KEY",
+      "envVar": "GOOGLE_API_KEY",
+      "description": "Gemini CLI-compatible API key mapped from the same OMO Google Gemini secret"
+    }
+  ],
+  "automation": {
+    "defaultStage": "pilot",
+    "stages": {
+      "manual": {
+        "description": "All scheduled heartbeats remain disabled. Use manual invokes only."
+      },
+      "pilot": {
+        "description": "Enable the control and distribution lanes first so the company can run with lower blast radius.",
+        "enabledAgentKeys": [
+          "ops",
+          "growth",
+          "analytics"
+        ]
+      },
+      "steady": {
+        "description": "Enable all non-CEO recurring lanes after the pilot proves stable.",
+        "enabledAgentKeys": [
+          "ops",
+          "research",
+          "writer",
+          "editor",
+          "growth",
+          "analytics"
+        ]
+      }
+    },
+    "governance": {
+      "boardOperator": "local-board",
+      "strategyApprovalIssueKey": "ceo-strategy",
+      "operationsIssueKey": "ops-control-loop",
+      "fallbackModel": "gpt-5.4",
+      "reviewModel": "gemini-3-pro-preview"
+    }
+  },
+  "geminiLocal": {
+    "enabled": true,
+    "command": "gemini",
+    "model": "gemini-3-pro-preview",
+    "cwd": "ceo"
+  },
+  "agents": [
+    {
+      "key": "ceo",
+      "name": "CEO",
+      "role": "ceo",
+      "title": "Chief Executive Officer",
+      "capabilities": "Sets company direction, approves priorities, delegates work, reviews outputs, and keeps all work aligned to the company mission.",
+      "adapterType": "gemini_local",
+      "authStrategy": "google_api_key",
+      "reportsTo": null,
+      "budgetMonthlyCents": 4000,
+      "cwd": "ceo",
+      "instructionsFile": "bootstrap/content-marketing-company/agents/ceo.md",
+      "runtimeConfig": {
+        "heartbeat": {
+          "enabled": false,
+          "intervalSec": 14400,
+          "wakeOnDemand": true,
+          "cooldownSec": 10,
+          "maxConcurrentRuns": 1
+        }
+      },
+      "adapterConfig": {
+        "model": "gemini-3-pro-preview",
+        "approvalMode": "auto_edit"
+      },
+      "permissions": {
+        "canCreateAgents": true,
+        "canAssignTasks": true
+      }
+    },
+    {
+      "key": "ops",
+      "name": "Operations Controller",
+      "role": "devops",
+      "title": "Operations Controller",
+      "capabilities": "Owns uptime, backups, heartbeat staging, budget guardrails, fallback routing, and recovery drills.",
+      "adapterType": "codex_local",
+      "authStrategy": "chatgpt_login",
+      "reportsTo": "ceo",
+      "budgetMonthlyCents": 4000,
+      "cwd": "ops",
+      "instructionsFile": "bootstrap/content-marketing-company/agents/ops.md",
+      "runtimeConfig": {
+        "heartbeat": {
+          "enabled": false,
+          "intervalSec": 14400,
+          "wakeOnDemand": true,
+          "cooldownSec": 10,
+          "maxConcurrentRuns": 1
+        }
+      },
+      "adapterConfig": {
+        "model": "gpt-5.4",
+        "search": false,
+        "dangerouslyBypassApprovalsAndSandbox": false,
+        "extraArgs": [
+          "--skip-git-repo-check"
+        ]
+      },
+      "permissions": {
+        "canAssignTasks": true
+      }
+    },
+    {
+      "key": "research",
+      "name": "Research Lead",
+      "role": "researcher",
+      "title": "Research Lead",
+      "capabilities": "Owns ICP research, market mapping, competitor analysis, and turning findings into decision-ready briefs.",
+      "adapterType": "codex_local",
+      "authStrategy": "chatgpt_login",
+      "reportsTo": "ops",
+      "budgetMonthlyCents": 4000,
+      "cwd": "research",
+      "instructionsFile": "bootstrap/content-marketing-company/agents/research.md",
+      "runtimeConfig": {
+        "heartbeat": {
+          "enabled": false,
+          "intervalSec": 14400,
+          "wakeOnDemand": true,
+          "cooldownSec": 10,
+          "maxConcurrentRuns": 1
+        }
+      },
+      "adapterConfig": {
+        "model": "gpt-5.4",
+        "search": false,
+        "dangerouslyBypassApprovalsAndSandbox": false,
+        "extraArgs": [
+          "--skip-git-repo-check"
+        ]
+      }
+    },
+    {
+      "key": "writer",
+      "name": "Writer",
+      "role": "general",
+      "title": "Content Writer",
+      "capabilities": "Turns research and editorial direction into drafts, outlines, hooks, and content calendars.",
+      "adapterType": "codex_local",
+      "authStrategy": "chatgpt_login",
+      "reportsTo": "editor",
+      "budgetMonthlyCents": 5000,
+      "cwd": "writer",
+      "instructionsFile": "bootstrap/content-marketing-company/agents/writer.md",
+      "runtimeConfig": {
+        "heartbeat": {
+          "enabled": false,
+          "intervalSec": 7200,
+          "wakeOnDemand": true,
+          "cooldownSec": 10,
+          "maxConcurrentRuns": 1
+        }
+      },
+      "adapterConfig": {
+        "model": "gpt-5.4",
+        "search": false,
+        "dangerouslyBypassApprovalsAndSandbox": false,
+        "extraArgs": [
+          "--skip-git-repo-check"
+        ]
+      }
+    },
+    {
+      "key": "editor",
+      "name": "Managing Editor",
+      "role": "pm",
+      "title": "Managing Editor",
+      "capabilities": "Defines editorial process, enforces quality bars, packages drafts into publishable assets, and manages the writing lane.",
+      "adapterType": "codex_local",
+      "authStrategy": "chatgpt_login",
+      "reportsTo": "ops",
+      "budgetMonthlyCents": 4000,
+      "cwd": "editor",
+      "instructionsFile": "bootstrap/content-marketing-company/agents/editor.md",
+      "runtimeConfig": {
+        "heartbeat": {
+          "enabled": false,
+          "intervalSec": 14400,
+          "wakeOnDemand": true,
+          "cooldownSec": 10,
+          "maxConcurrentRuns": 1
+        }
+      },
+      "adapterConfig": {
+        "model": "gpt-5.4",
+        "search": false,
+        "dangerouslyBypassApprovalsAndSandbox": false,
+        "extraArgs": [
+          "--skip-git-repo-check"
+        ]
+      }
+    },
+    {
+      "key": "growth",
+      "name": "Growth Automation Lead",
+      "role": "cmo",
+      "title": "Growth Automation Lead",
+      "capabilities": "Owns distribution experiments, channel automation, lightweight scripts, and operating leverage for content distribution.",
+      "adapterType": "codex_local",
+      "authStrategy": "chatgpt_login",
+      "reportsTo": "ops",
+      "budgetMonthlyCents": 5000,
+      "cwd": "growth",
+      "instructionsFile": "bootstrap/content-marketing-company/agents/growth.md",
+      "runtimeConfig": {
+        "heartbeat": {
+          "enabled": false,
+          "intervalSec": 14400,
+          "wakeOnDemand": true,
+          "cooldownSec": 10,
+          "maxConcurrentRuns": 1
+        }
+      },
+      "adapterConfig": {
+        "model": "gpt-5.4",
+        "search": false,
+        "dangerouslyBypassApprovalsAndSandbox": false,
+        "extraArgs": [
+          "--skip-git-repo-check"
+        ]
+      }
+    },
+    {
+      "key": "analytics",
+      "name": "Distribution & Analytics Ops",
+      "role": "general",
+      "title": "Distribution & Analytics Ops",
+      "capabilities": "Tracks channel performance, compiles dashboards, closes the feedback loop, and keeps the distribution system measurable.",
+      "adapterType": "codex_local",
+      "authStrategy": "chatgpt_login",
+      "reportsTo": "ops",
+      "budgetMonthlyCents": 3000,
+      "cwd": "analytics",
+      "instructionsFile": "bootstrap/content-marketing-company/agents/analytics.md",
+      "runtimeConfig": {
+        "heartbeat": {
+          "enabled": false,
+          "intervalSec": 7200,
+          "wakeOnDemand": true,
+          "cooldownSec": 10,
+          "maxConcurrentRuns": 1
+        }
+      },
+      "adapterConfig": {
+        "model": "gpt-5.4",
+        "search": false,
+        "dangerouslyBypassApprovalsAndSandbox": false,
+        "extraArgs": [
+          "--skip-git-repo-check"
+        ]
+      }
+    }
+  ],
+  "projects": [
+    {
+      "key": "icp",
+      "name": "ICP/시장조사",
+      "description": "Define the ideal customer profile, segment priorities, and strongest pain points worth targeting.",
+      "color": "#0EA5E9",
+      "leadAgent": "research",
+      "workspaceCwd": "research",
+      "goal": {
+        "title": "ICP/시장조사 실행 체계 수립",
+        "description": "Create an actionable ICP research system that feeds every downstream content decision.",
+        "level": "team",
+        "status": "active"
+      }
+    },
+    {
+      "key": "calendar",
+      "name": "콘텐츠 필러/캘린더",
+      "description": "Build reusable content pillars, messaging angles, and a multi-week calendar.",
+      "color": "#8B5CF6",
+      "leadAgent": "writer",
+      "workspaceCwd": "writer",
+      "goal": {
+        "title": "콘텐츠 필러/캘린더 구축",
+        "description": "Turn research into a reusable editorial system that can generate a steady pipeline of publishable ideas.",
+        "level": "team",
+        "status": "active"
+      }
+    },
+    {
+      "key": "pipeline",
+      "name": "제작 파이프라인",
+      "description": "Define drafting, review, editing, packaging, and handoff standards for content production.",
+      "color": "#F97316",
+      "leadAgent": "editor",
+      "workspaceCwd": "editor",
+      "goal": {
+        "title": "제작 파이프라인 정착",
+        "description": "Establish a reliable production workflow with clear quality gates and editorial standards.",
+        "level": "team",
+        "status": "active"
+      }
+    },
+    {
+      "key": "distribution",
+      "name": "배포 자동화",
+      "description": "Design the distribution stack, automation hooks, and channel-specific launch process.",
+      "color": "#22C55E",
+      "leadAgent": "growth",
+      "workspaceCwd": "growth",
+      "goal": {
+        "title": "배포 자동화 체계 구축",
+        "description": "Stand up a repeatable distribution layer that can ship content across channels with minimal human intervention.",
+        "level": "team",
+        "status": "active"
+      }
+    },
+    {
+      "key": "analytics-loop",
+      "name": "성과 분석 루프",
+      "description": "Measure outcomes, summarize learnings, and feed the next planning cycle.",
+      "color": "#EAB308",
+      "leadAgent": "analytics",
+      "workspaceCwd": "analytics",
+      "goal": {
+        "title": "성과 분석 루프 구축",
+        "description": "Create a reporting loop that converts channel outcomes into actionable next steps.",
+        "level": "team",
+        "status": "active"
+      }
+    },
+    {
+      "key": "operations",
+      "name": "운영 통제",
+      "description": "Track uptime, backups, budget guardrails, fallback routing, and staged automation.",
+      "color": "#64748B",
+      "leadAgent": "ops",
+      "workspaceCwd": "ops",
+      "goal": {
+        "title": "운영 가드레일과 복구 체계 구축",
+        "description": "Create the control loop that keeps the company up, recoverable, and within budget.",
+        "level": "team",
+        "status": "active"
+      }
+    }
+  ],
+  "issues": [
+    {
+      "key": "ceo-strategy",
+      "title": "CEO 초기 전략 초안 작성 및 승인 대기",
+      "description": "Comment-only task for Day 0. Review the company goal, the five initial projects, and the current org. Post a concise strategy memo in the issue comments with priorities, sequencing, and hiring implications. Do not edit files yet. End with explicit asks for the board if any ambiguity remains.",
+      "priority": "critical",
+      "status": "todo",
+      "assigneeAgent": "ceo",
+      "projectKey": null,
+      "goalKey": null
+    },
+    {
+      "key": "icp-brief",
+      "title": "ICP/시장조사 브리프 초안 작성",
+      "description": "Comment-only task for Day 0. Produce an ICP research brief in the issue comments: top segments, pain points, job-to-be-done hypotheses, and the minimum evidence needed next. Do not edit files yet.",
+      "priority": "high",
+      "status": "todo",
+      "assigneeAgent": "research",
+      "projectKey": "icp",
+      "goalKey": "icp"
+    },
+    {
+      "key": "content-calendar",
+      "title": "콘텐츠 필러와 4주 캘린더 초안 제안",
+      "description": "Comment-only task for Day 0. Draft three to five content pillars and a four-week calendar proposal directly in the issue comments. Keep it lightweight and do not modify files yet.",
+      "priority": "high",
+      "status": "todo",
+      "assigneeAgent": "writer",
+      "projectKey": "calendar",
+      "goalKey": "calendar"
+    },
+    {
+      "key": "editorial-sop",
+      "title": "제작 파이프라인과 편집 SOP 정의",
+      "description": "Comment-only task for Day 0. Define the minimum editorial workflow, review stages, and acceptance criteria in the issue comments. Do not edit files yet.",
+      "priority": "high",
+      "status": "todo",
+      "assigneeAgent": "editor",
+      "projectKey": "pipeline",
+      "goalKey": "pipeline"
+    },
+    {
+      "key": "distribution-stack",
+      "title": "배포 자동화 채널/도구 설계",
+      "description": "Comment-only task for Day 0. Outline the initial distribution stack, automation candidates, and the smallest viable launch loop in the issue comments. Do not edit files yet.",
+      "priority": "high",
+      "status": "todo",
+      "assigneeAgent": "growth",
+      "projectKey": "distribution",
+      "goalKey": "distribution"
+    },
+    {
+      "key": "analytics-loop",
+      "title": "성과 분석 루프와 대시보드 구조 제안",
+      "description": "Comment-only task for Day 0. Propose the first metrics stack, dashboard sections, and the decision loop cadence in the issue comments. Do not edit files yet.",
+      "priority": "high",
+      "status": "todo",
+      "assigneeAgent": "analytics",
+      "projectKey": "analytics-loop",
+      "goalKey": "analytics-loop"
+    },
+    {
+      "key": "ops-control-loop",
+      "title": "운영 가드레일과 복구 체계 초안 작성",
+      "description": "Comment-only task for Day 0. Define uptime checks, backup verification, quota fallback, heartbeat staging, and pause/rollback criteria in the issue comments. Do not edit files yet.",
+      "priority": "critical",
+      "status": "todo",
+      "assigneeAgent": "ops",
+      "projectKey": "operations",
+      "goalKey": "operations"
+    }
+  ],
+  "approvals": [
+    {
+      "key": "ceo-strategy-approval",
+      "type": "approve_ceo_strategy",
+      "requestedByAgent": "ceo",
+      "issueKey": "ceo-strategy",
+      "payload": {
+        "title": "CEO initial strategy approval",
+        "summary": "CEO will publish the initial strategy memo in the linked issue. Board approval is required before regular CEO execution is treated as fully green-lit.",
+        "expectedOutcome": "A board-reviewed strategic direction for the autonomous content and marketing company."
+      }
+    }
+  ]
+}

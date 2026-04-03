@@ -14,6 +14,8 @@ const payload = {
   paperclipEnvKeys: Object.keys(process.env)
     .filter((key) => key.startsWith("PAPERCLIP_"))
     .sort(),
+  geminiApiKey: process.env.GEMINI_API_KEY ?? null,
+  googleApiKey: process.env.GOOGLE_API_KEY ?? null,
 };
 if (capturePath) {
   fs.writeFileSync(capturePath, JSON.stringify(payload), "utf8");
@@ -97,8 +99,6 @@ describe("gemini execute", () => {
       expect(capture.argv).toContain("--output-format");
       expect(capture.argv).toContain("stream-json");
       expect(capture.argv).toContain("--prompt");
-      expect(capture.argv).toContain("--approval-mode");
-      expect(capture.argv).toContain("yolo");
       const promptFlagIndex = capture.argv.indexOf("--prompt");
       const promptArg = promptFlagIndex >= 0 ? capture.argv[promptFlagIndex + 1] : "";
       expect(promptArg).toContain("Follow the paperclip heartbeat.");
@@ -127,7 +127,7 @@ describe("gemini execute", () => {
     }
   });
 
-  it("always passes --approval-mode yolo", async () => {
+  it("passes through configured approval mode", async () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), "paperclip-gemini-yolo-"));
     const workspace = path.join(root, "workspace");
     const commandPath = path.join(root, "gemini");
@@ -146,6 +146,7 @@ describe("gemini execute", () => {
         config: {
           command: commandPath,
           cwd: workspace,
+          approvalMode: "auto_edit",
           env: { PAPERCLIP_TEST_CAPTURE_PATH: capturePath },
         },
         context: {},
@@ -155,7 +156,7 @@ describe("gemini execute", () => {
 
       const capture = JSON.parse(await fs.readFile(capturePath, "utf8")) as CapturePayload;
       expect(capture.argv).toContain("--approval-mode");
-      expect(capture.argv).toContain("yolo");
+      expect(capture.argv).toContain("auto_edit");
       expect(capture.argv).not.toContain("--policy");
       expect(capture.argv).not.toContain("--allow-all");
       expect(capture.argv).not.toContain("--allow-read");
@@ -164,6 +165,58 @@ describe("gemini execute", () => {
         delete process.env.HOME;
       } else {
         process.env.HOME = previousHome;
+      }
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("clears GOOGLE_API_KEY when GEMINI_API_KEY is configured for the agent", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "paperclip-gemini-auth-sanitize-"));
+    const workspace = path.join(root, "workspace");
+    const commandPath = path.join(root, "gemini");
+    const capturePath = path.join(root, "capture.json");
+    await fs.mkdir(workspace, { recursive: true });
+    await writeFakeGeminiCommand(commandPath);
+
+    const previousHome = process.env.HOME;
+    const previousGoogleApiKey = process.env.GOOGLE_API_KEY;
+    process.env.HOME = root;
+    process.env.GOOGLE_API_KEY = "host-google-key";
+
+    try {
+      await execute({
+        runId: "run-auth-sanitize",
+        agent: { id: "a2", companyId: "c1", name: "G", adapterType: "gemini_local", adapterConfig: {} },
+        runtime: { sessionId: null, sessionParams: null, sessionDisplayId: null, taskKey: null },
+        config: {
+          command: commandPath,
+          cwd: workspace,
+          env: {
+            PAPERCLIP_TEST_CAPTURE_PATH: capturePath,
+            GEMINI_API_KEY: "adapter-gemini-key",
+          },
+        },
+        context: {},
+        authToken: "t",
+        onLog: async () => {},
+      });
+
+      const capture = JSON.parse(await fs.readFile(capturePath, "utf8")) as CapturePayload & {
+        googleApiKey?: string;
+        geminiApiKey?: string;
+      };
+      expect(capture.geminiApiKey).toBe("adapter-gemini-key");
+      expect(capture.googleApiKey).toBe("");
+    } finally {
+      if (previousHome === undefined) {
+        delete process.env.HOME;
+      } else {
+        process.env.HOME = previousHome;
+      }
+      if (previousGoogleApiKey === undefined) {
+        delete process.env.GOOGLE_API_KEY;
+      } else {
+        process.env.GOOGLE_API_KEY = previousGoogleApiKey;
       }
       await fs.rm(root, { recursive: true, force: true });
     }
