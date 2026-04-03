@@ -581,6 +581,13 @@ export function normalizeTranscript(entries: TranscriptEntry[], streaming: boole
 
 const MESSAGE_TRUNCATE_LENGTH = 1500;
 
+function safeTruncate(text: string, limit: number) {
+  if (text.length <= limit) return text;
+  const cut = text.lastIndexOf("\n", limit);
+  // Only use newline break if it's at least halfway to the limit (avoids huge first paragraph)
+  return cut > limit * 0.5 ? text.slice(0, cut) : text.slice(0, limit);
+}
+
 function TranscriptMessageBlock({
   block,
   density,
@@ -593,7 +600,7 @@ function TranscriptMessageBlock({
   const canTruncate = !block.streaming && block.text.length > MESSAGE_TRUNCATE_LENGTH;
   const [expanded, setExpanded] = useState(false);
   const displayText = canTruncate && !expanded
-    ? block.text.slice(0, MESSAGE_TRUNCATE_LENGTH)
+    ? safeTruncate(block.text, MESSAGE_TRUNCATE_LENGTH)
     : block.text;
 
   return (
