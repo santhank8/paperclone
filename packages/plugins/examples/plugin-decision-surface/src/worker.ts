@@ -47,9 +47,11 @@ async function fetchApprovals(
   apiKey: string,
 ): Promise<Approval[]> {
   try {
+    const authHeaders: Record<string, string> = {};
+    if (apiKey) authHeaders["Authorization"] = `Bearer ${apiKey}`;
     const res = await ctx.http.fetch(
       `${apiUrl}/api/companies/${companyId}/approvals?status=pending&limit=50`,
-      { method: "GET", headers: { Authorization: `Bearer ${apiKey}` } },
+      { method: "GET", headers: authHeaders },
     );
     if (!res.ok) return [];
     const data = (await res.json()) as Approval[] | { approvals?: Approval[] };
@@ -112,8 +114,7 @@ const plugin = definePlugin({
       (config["apiUrl"] as string | undefined) ??
       process.env["PAPERCLIP_API_URL"] ??
       "http://127.0.0.1:3100";
-    const apiKey =
-      (config["apiKey"] as string | undefined) ?? process.env["PAPERCLIP_API_KEY"] ?? "";
+    const apiKey = process.env["PAPERCLIP_API_KEY"] ?? "";
 
     // ------------------------------------------------------------------
     // Agent tool: decisions
@@ -214,9 +215,11 @@ const plugin = definePlugin({
       const { companyId, entityId: approvalId } = event;
       ctx.logger.info("approval decided — checking linked issues", { approvalId, companyId });
       try {
+        const authHeaders: Record<string, string> = {};
+        if (apiKey) authHeaders["Authorization"] = `Bearer ${apiKey}`;
         const res = await ctx.http.fetch(
           `${apiUrl}/api/approvals/${approvalId}/issues`,
-          { method: "GET", headers: { Authorization: `Bearer ${apiKey}` } },
+          { method: "GET", headers: authHeaders },
         );
         if (!res.ok) return;
         const linked = (await res.json()) as Array<{ id: string; status: string }>;

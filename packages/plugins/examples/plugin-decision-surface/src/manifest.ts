@@ -35,12 +35,6 @@ const manifest: PaperclipPluginManifestV1 = {
   instanceConfigSchema: {
     type: "object",
     properties: {
-      apiKey: {
-        type: "string",
-        title: "API Key",
-        description:
-          "Paperclip API key used to fetch pending approvals. If omitted, approval data will be unavailable. Use a long-lived token from your Paperclip instance.",
-      },
       apiUrl: {
         type: "string",
         title: "API URL",
