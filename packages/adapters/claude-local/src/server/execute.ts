@@ -611,13 +611,16 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
 
     for (let attempt = 1; attempt <= maxRateLimitRetries; attempt++) {
       if (!checkRateLimit(current)) break;
-      const delaySec = rateLimitRetryDelaySec * Math.pow(2, attempt - 1) + Math.random() * rateLimitRetryDelaySec;
+      const delaySec = rateLimitRetryDelaySec * attempt;
       await onLog(
         "stdout",
         `[paperclip] Rate limit detected; waiting ${delaySec}s before retry ${attempt}/${maxRateLimitRetries}.\n`,
       );
       await new Promise((resolve) => setTimeout(resolve, delaySec * 1000));
       current = await runAttempt(sessionId ?? null);
+      if (attempt === maxRateLimitRetries && checkRateLimit(current)) {
+        await onLog("stdout", `[paperclip] Rate limit still active after ${maxRateLimitRetries} retries; giving up.\n`);
+      }
     }
 
     return toAdapterResult(current, { fallbackSessionId: runtimeSessionId || runtime.sessionId });
