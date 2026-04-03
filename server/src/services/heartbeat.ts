@@ -3776,6 +3776,12 @@ export function heartbeatService(db: Db) {
     const serializedParams = sessionCodec.serialize({ sessionId: parentSessionIdAfter });
     if (serializedParams) contextSnapshot.resumeSessionParams = serializedParams;
 
+    // Carry forward executionWorkspaceId for execution-workspace bookkeeping
+    const parentExecutionWorkspaceId = readNonEmptyString(parentContext.executionWorkspaceId);
+    if (parentExecutionWorkspaceId) {
+      contextSnapshot.executionWorkspaceId = parentExecutionWorkspaceId;
+    }
+
     // 5. Create wakeup request and re-open the parent run (no new run record)
     const wakeupRequest = await db.insert(agentWakeupRequests).values({
       companyId: agent.companyId,
@@ -3793,7 +3799,7 @@ export function heartbeatService(db: Db) {
     // Stash previous usage so executeRun can accumulate it after the nudge completes
     contextSnapshot.nudgePreviousUsageJson = parentRun.usageJson ?? null;
 
-    // Re-open the parent run: transition back to "queued" so executeRun can claim it
+    // Re-open the parent run: guard against concurrent nudges re-opening the same run
     const reopenedRun = await db.update(heartbeatRuns).set({
       status: "queued",
       finishedAt: null,
@@ -3805,7 +3811,11 @@ export function heartbeatService(db: Db) {
       contextSnapshot,
       sessionIdBefore: parentSessionIdAfter,
       updatedAt: new Date(),
-    }).where(eq(heartbeatRuns.id, parentRunId)).returning().then((rows) => rows[0]);
+    }).where(and(eq(heartbeatRuns.id, parentRunId), inArray(heartbeatRuns.status, [...terminalStatuses]))).returning().then((rows) => rows[0]);
+
+    if (!reopenedRun) {
+      throw conflict("Can only nudge runs in a terminal state");
+    }
 
     // Inject a nudge boundary marker into the existing log file
     if (parentRun.logStore && parentRun.logRef) {

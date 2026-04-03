@@ -625,8 +625,8 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
         "stdout",
         `[paperclip] Claude resume session "${sessionId}" is unavailable; retrying with a fresh session.\n`,
       );
-      const retry = await runAttempt(null);
-      return toAdapterResult(retry, { fallbackSessionId: null, clearSessionOnMissingSession: true });
+      current = await runAttempt(null);
+      // Continue into rate-limit loop with the fresh-session result
     }
 
     for (let attempt = 1; attempt <= maxRateLimitRetries; attempt++) {
