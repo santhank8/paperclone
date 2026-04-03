@@ -2682,10 +2682,22 @@ export function heartbeatService(db: Db) {
         const fallbackChain: AdapterFallbackEntry[] = Array.isArray(rawFallbackChain) ? rawFallbackChain as AdapterFallbackEntry[] : [];
         if (fallbackChain.length > 0) {
           const failureCategory = categorizeAdapterError(adapterResult.errorCode);
+          await appendRunEvent(currentRun, seq++, {
+            eventType: "adapter.fallback",
+            stream: "system",
+            level: "warn",
+            message: `primary adapter failed with category "${failureCategory}", attempting fallback chain`,
+            payload: {
+              primaryAdapterType: agent.adapterType,
+              primaryErrorCode: adapterResult.errorCode ?? null,
+              failureCategory,
+              fallbackChainLength: fallbackChain.length,
+            },
+          });
+          let fallbackSucceeded = false;
           for (const entry of fallbackChain) {
             if (entry.triggerOn && !entry.triggerOn.includes(failureCategory)) continue;
             const maxAttempts = entry.maxAttempts ?? 1;
-            let fallbackSucceeded = false;
             for (let attempt = 0; attempt < maxAttempts; attempt++) {
               try {
                 const fallbackAdapter = getServerAdapter(entry.adapterType);
@@ -2702,6 +2714,13 @@ export function heartbeatService(db: Db) {
                   sessionParams: null,
                   sessionDisplayId: null,
                 };
+                await appendRunEvent(currentRun, seq++, {
+                  eventType: "adapter.fallback",
+                  stream: "system",
+                  level: "info",
+                  message: `trying fallback adapter "${entry.adapterType}" (attempt ${attempt + 1}/${maxAttempts})`,
+                  payload: { fallbackAdapterType: entry.adapterType, attempt: attempt + 1, maxAttempts },
+                });
                 const fallbackResult = await fallbackAdapter.execute({
                   runId: run.id,
                   agent: { ...agent, adapterType: entry.adapterType, adapterConfig: entry.adapterConfig ?? agent.adapterConfig },
@@ -2722,16 +2741,58 @@ export function heartbeatService(db: Db) {
                 if (fallbackOk) {
                   adapterResult = fallbackResult;
                   fallbackSucceeded = true;
+                  await appendRunEvent(currentRun, seq++, {
+                    eventType: "adapter.fallback",
+                    stream: "system",
+                    level: "info",
+                    message: `fallback adapter "${entry.adapterType}" succeeded`,
+                    payload: { fallbackAdapterType: entry.adapterType },
+                  });
                   break;
+                } else {
+                  await appendRunEvent(currentRun, seq++, {
+                    eventType: "adapter.fallback",
+                    stream: "system",
+                    level: "warn",
+                    message: `fallback adapter "${entry.adapterType}" failed (attempt ${attempt + 1}/${maxAttempts})`,
+                    payload: {
+                      fallbackAdapterType: entry.adapterType,
+                      attempt: attempt + 1,
+                      errorCode: fallbackResult.errorCode ?? null,
+                      errorMessage: fallbackResult.errorMessage ?? null,
+                    },
+                  });
                 }
               } catch (fallbackErr) {
-                await onLog(
-                  "stderr",
-                  `[paperclip] Fallback adapter "${entry.adapterType}" attempt ${attempt + 1} threw: ${fallbackErr instanceof Error ? fallbackErr.message : String(fallbackErr)}\n`,
-                );
+                const errMsg = fallbackErr instanceof Error ? fallbackErr.message : String(fallbackErr);
+                await onLog("stderr", `[paperclip] Fallback adapter "${entry.adapterType}" attempt ${attempt + 1} threw: ${errMsg}\n`);
+                await appendRunEvent(currentRun, seq++, {
+                  eventType: "adapter.fallback",
+                  stream: "system",
+                  level: "error",
+                  message: `fallback adapter "${entry.adapterType}" threw exception`,
+                  payload: { fallbackAdapterType: entry.adapterType, error: errMsg },
+                });
               }
             }
             if (fallbackSucceeded) break;
+          }
+          if (!fallbackSucceeded) {
+            // All fallback entries exhausted — override errorCode for clarity
+            adapterResult = {
+              ...adapterResult,
+              errorCode: "all_adapters_exhausted",
+              errorMessage:
+                adapterResult.errorMessage ??
+                `All adapters exhausted (primary: ${agent.adapterType}, failure: ${failureCategory})`,
+            };
+            await appendRunEvent(currentRun, seq++, {
+              eventType: "adapter.fallback",
+              stream: "system",
+              level: "error",
+              message: "all adapters in fallback chain exhausted",
+              payload: { primaryAdapterType: agent.adapterType, failureCategory },
+            });
           }
         }
       }

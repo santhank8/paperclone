@@ -37,6 +37,9 @@ export function categorizeAdapterError(errorCode: string | null | undefined): Ad
       return "cancelled";
     case "nonzero_exit":
       return "nonzero_exit";
+    case "all_adapters_exhausted":
+      // All adapters in the fallback chain were tried and failed
+      return "unknown";
     default:
       return "unknown";
   }
