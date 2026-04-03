@@ -25,7 +25,7 @@ import { DEFAULT_CURSOR_LOCAL_MODEL } from "../index.js";
 import { parseCursorJsonl, isCursorUnknownSessionError } from "./parse.js";
 import { normalizeCursorStreamLine } from "../shared/stream.js";
 import { hasCursorTrustBypassArg } from "../shared/trust.js";
-import { describeCursorCommand, resolveCursorCommand } from "./command.js";
+import { resolveCursorCommand } from "./command.js";
 
 const __moduleDir = path.dirname(fileURLToPath(import.meta.url));
 
@@ -394,10 +394,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     if (onMeta) {
       await onMeta({
         adapterType: "cursor",
-        command: describeCursorCommand({
-          command: resolvedCommand,
-          baseArgs: resolvedCursorCommand.baseArgs,
-        }),
+        command: resolvedCommand,
         cwd,
         commandNotes,
         commandArgs: args,
