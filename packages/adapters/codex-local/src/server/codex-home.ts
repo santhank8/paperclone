@@ -7,6 +7,11 @@ const TRUTHY_ENV_RE = /^(1|true|yes|on)$/i;
 const COPIED_SHARED_FILES = ["config.json", "config.toml", "instructions.md"] as const;
 const SYMLINKED_SHARED_FILES = ["auth.json"] as const;
 const DEFAULT_PAPERCLIP_INSTANCE_ID = "default";
+const ISOLATED_MANAGED_CONFIG_SECTION_PATTERNS = [
+  /^\[mcp_servers\.[^\]]+\]$/,
+  /^\[plugins\..+\]$/,
+  /^\[\[skills\.config\]\]$/,
+];
 
 function nonEmpty(value: string | undefined): string | null {
   return typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
@@ -86,6 +91,94 @@ async function syncCopiedFile(target: string, source: string): Promise<void> {
   await fs.copyFile(source, target);
 }
 
+function shouldStripManagedConfigSection(header: string): boolean {
+  return ISOLATED_MANAGED_CONFIG_SECTION_PATTERNS.some((pattern) => pattern.test(header));
+}
+
+function sanitizeManagedConfigToml(contents: string): string {
+  const eol = contents.includes("\r\n") ? "\r\n" : "\n";
+  const hasTrailingNewline = contents.endsWith("\n");
+  const lines = contents.split(/\r?\n/);
+  const kept: string[] = [];
+  let skippingSection = false;
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    const isSectionHeader = trimmed.startsWith("[") && trimmed.endsWith("]");
+
+    if (isSectionHeader) {
+      skippingSection = shouldStripManagedConfigSection(trimmed);
+      if (skippingSection) continue;
+    }
+
+    if (!skippingSection) {
+      kept.push(line);
+    }
+  }
+
+  let sanitized = kept.join(eol).replace(/(?:\r?\n){3,}/g, `${eol}${eol}`);
+  sanitized = ensureManagedFeatureFlags(sanitized, eol);
+  if (hasTrailingNewline && !sanitized.endsWith(eol)) {
+    sanitized += eol;
+  }
+  return sanitized;
+}
+
+function ensureManagedFeatureFlags(contents: string, eol: string): string {
+  const lines = contents.split(/\r?\n/);
+  const next: string[] = [];
+  let inFeatures = false;
+  let injectedPluginsFlag = false;
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    const isSectionHeader = trimmed.startsWith("[") && trimmed.endsWith("]");
+
+    if (isSectionHeader && inFeatures && !injectedPluginsFlag) {
+      next.push("plugins = false");
+      injectedPluginsFlag = true;
+    }
+
+    if (isSectionHeader) {
+      inFeatures = trimmed === "[features]";
+    }
+
+    if (inFeatures && /^plugins\s*=/.test(trimmed)) {
+      next.push("plugins = false");
+      injectedPluginsFlag = true;
+      continue;
+    }
+
+    next.push(line);
+  }
+
+  if (inFeatures && !injectedPluginsFlag) {
+    next.push("plugins = false");
+    injectedPluginsFlag = true;
+  }
+
+  if (!next.some((line) => line.trim() === "[features]")) {
+    if (next.length > 0 && next[next.length - 1] !== "") {
+      next.push("");
+    }
+    next.push("[features]", "plugins = false");
+  }
+
+  return next.join(eol).replace(/(?:\r?\n){3,}/g, `${eol}${eol}`);
+}
+
+async function syncManagedConfigToml(target: string, source: string): Promise<void> {
+  const existing = await fs.lstat(target).catch(() => null);
+  if (existing?.isDirectory()) return;
+  if (existing?.isSymbolicLink()) {
+    await fs.unlink(target);
+  }
+
+  const sanitized = sanitizeManagedConfigToml(await fs.readFile(source, "utf8"));
+  await ensureParentDir(target);
+  await fs.writeFile(target, sanitized, "utf8");
+}
+
 export async function prepareManagedCodexHome(
   env: NodeJS.ProcessEnv,
   onLog: AdapterExecutionContext["onLog"],
@@ -117,7 +210,12 @@ export async function prepareManagedCodexHome(
   for (const name of COPIED_SHARED_FILES) {
     const source = path.join(sourceHome, name);
     if (!(await pathExists(source))) continue;
-    await ensureCopiedFile(path.join(targetHome, name), source);
+    const target = path.join(targetHome, name);
+    if (name === "config.toml") {
+      await syncManagedConfigToml(target, source);
+      continue;
+    }
+    await ensureCopiedFile(target, source);
   }
 
   await onLog(
