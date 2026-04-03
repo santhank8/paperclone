@@ -21,15 +21,6 @@ function buildDashScopeLocalConfig(values: CreateConfigValues) {
   if (values.instructionsFilePath !== undefined) {
     result.instructionsFilePath = values.instructionsFilePath;
   }
-  if (values.cwd !== undefined) {
-    result.cwd = values.cwd;
-  }
-  if (values.timeoutSec !== undefined) {
-    result.timeoutSec = values.timeoutSec;
-  }
-  if (values.graceSec !== undefined) {
-    result.graceSec = values.graceSec;
-  }
   
   return result;
 }
