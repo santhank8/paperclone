@@ -67,7 +67,9 @@ export function providerDisplayName(provider: string): string {
 }
 
 export function billingTypeDisplayName(billingType: BillingType): string {
-  return i18n.t(`finance.billingType.${billingType}`);
+  const key = `finance.billingType.${billingType}`;
+  const translated = i18n.t(key);
+  return translated === key ? billingType : translated;
 }
 
 export function quotaSourceDisplayName(source: string): string {
@@ -109,11 +111,15 @@ export function visibleRunCostUsd(
 }
 
 export function financeEventKindDisplayName(eventKind: FinanceEventKind): string {
-  return i18n.t(`finance.eventKind.${eventKind}`);
+  const key = `finance.eventKind.${eventKind}`;
+  const translated = i18n.t(key);
+  return translated === key ? eventKind : translated;
 }
 
 export function financeDirectionDisplayName(direction: FinanceDirection): string {
-  return i18n.t(`finance.direction.${direction}`);
+  const key = `finance.direction.${direction}`;
+  const translated = i18n.t(key);
+  return translated === key ? direction : translated;
 }
 
 /** Build an issue URL using the human-readable identifier when available. */
