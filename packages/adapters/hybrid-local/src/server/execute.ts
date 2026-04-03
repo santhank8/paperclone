@@ -78,11 +78,19 @@ async function isClaudeQuotaNearExhausted(
   }
 }
 
+// Strip <think>...</think> blocks (reasoning tokens from models like qwen3).
+// We only want to detect HANDOFF: true in the actual visible output, not in
+// reasoning tokens where the model may mention it as part of its thought process.
+function stripThinkBlocks(text: string): string {
+  return text.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
+}
+
 function extractHandoffMarker(text: string): { requested: boolean; cleaned: string } {
   if (!text) return { requested: false, cleaned: text };
-  const requested = HANDOFF_REGEX.test(text);
-  if (!requested) return { requested: false, cleaned: text };
-  const cleaned = text
+  const visibleText = stripThinkBlocks(text);
+  const requested = HANDOFF_REGEX.test(visibleText);
+  if (!requested) return { requested: false, cleaned: visibleText || text };
+  const cleaned = visibleText
     .split(/\r?\n/)
     .filter((line) => !HANDOFF_REGEX.test(line))
     .join("\n")
@@ -165,7 +173,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
   const allowExtraCredit = asBoolean(config.allowExtraCredit, false);
   const allowLocalTools = asBoolean(config.allowLocalTools, false);
   const localToolMode = asString(config.localToolMode, "");
-  const effectiveToolMode = localToolMode || (allowLocalTools ? "full" : "off");
+  const effectiveToolMode = (localToolMode || (allowLocalTools ? "full" : "off")) as "off" | "read_only" | "full";
   const toolsEnabled = effectiveToolMode !== "off";
 
   if (!localModel) {
@@ -201,6 +209,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
   }
 
   if (!planningOutcome.handoffRequested) {
+    await onLog("stdout", `[hybrid] Planning complete — no handoff requested, staying local (model=${localModel})\n`);
     return attachRoutingMeta(planningOutcome.result, {
       planningModel: localModel,
       planningBackend: "openai_compatible",
@@ -259,6 +268,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     config: { ...ctx.config, model: codingModel },
   };
 
+  await onLog("stdout", `[hybrid] Handoff requested — switching to coding model: ${codingModel} (${codingBackend})\n`);
   const codingResult = codingBackend === "claude_cli"
     ? await claudeExecute(codingCtx)
     : await codexExecute(codingCtx);
@@ -280,7 +290,7 @@ async function executeLocal(
   ctx: AdapterExecutionContext,
   model: string,
   allowLocalTools: boolean,
-  toolMode: string,
+  toolMode: "off" | "read_only" | "full",
 ): Promise<{ result: AdapterExecutionResult; handoffRequested: boolean; handoffSummary: string }> {
   const { runId, agent, config, context, onLog, onMeta } = ctx;
   const workspaceContext = parseObject(context.paperclipWorkspace);
