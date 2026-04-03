@@ -32,6 +32,23 @@ const manifest: PaperclipPluginManifestV1 = {
     "ui.page.register",
     "http.outbound",
   ],
+  instanceConfigSchema: {
+    type: "object",
+    properties: {
+      apiKey: {
+        type: "string",
+        title: "API Key",
+        description:
+          "Paperclip API key used to fetch pending approvals. If omitted, approval data will be unavailable. Use a long-lived token from your Paperclip instance.",
+      },
+      apiUrl: {
+        type: "string",
+        title: "API URL",
+        description: "Base URL of the Paperclip server. Defaults to http://127.0.0.1:3100.",
+        default: "http://127.0.0.1:3100",
+      },
+    },
+  },
   entrypoints: {
     worker: "./dist/worker.js",
     ui: "./dist/ui",

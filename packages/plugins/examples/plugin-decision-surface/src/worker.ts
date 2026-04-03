@@ -107,8 +107,13 @@ const plugin = definePlugin({
   async setup(ctx) {
     ctx.logger.info("decision-surface plugin setup");
 
-    const apiUrl = process.env["PAPERCLIP_API_URL"] ?? "http://127.0.0.1:3100";
-    const apiKey = process.env["PAPERCLIP_API_KEY"] ?? "";
+    const config = await ctx.config.get();
+    const apiUrl =
+      (config["apiUrl"] as string | undefined) ??
+      process.env["PAPERCLIP_API_URL"] ??
+      "http://127.0.0.1:3100";
+    const apiKey =
+      (config["apiKey"] as string | undefined) ?? process.env["PAPERCLIP_API_KEY"] ?? "";
 
     // ------------------------------------------------------------------
     // Agent tool: decisions
