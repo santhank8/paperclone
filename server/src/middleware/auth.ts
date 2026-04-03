@@ -26,6 +26,7 @@ interface FleetosValidationCacheEntry {
   tenantId: string;
   tenantName: string;
   companyId: string;
+  isAdmin: boolean;
   expiresAt: number;
 }
 
@@ -62,7 +63,7 @@ function getCachedFleetosValidation(apiKey: string): FleetosValidationCacheEntry
  */
 function setCachedFleetosValidation(
   apiKey: string,
-  data: { tenantId: string; tenantName: string; companyId: string },
+  data: { tenantId: string; tenantName: string; companyId: string; isAdmin: boolean },
 ): void {
   // Evict oldest entry if at capacity
   if (fleetosValidationCache.size >= MAX_CACHE_SIZE) {
@@ -115,8 +116,9 @@ export function actorMiddleware(db: Db, opts: ActorMiddlewareOptions): RequestHa
           const match = cookieHeader.match(/(?:^|;\s*)fleetos_session=([^;]+)/);
           if (match?.[1]) {
             try {
+              const cookieValue = decodeURIComponent(match[1]);
               const decoded = JSON.parse(
-                Buffer.from(match[1], "base64").toString("utf-8"),
+                Buffer.from(cookieValue, "base64").toString("utf-8"),
               ) as { apiKey?: string };
               fleetosApiKey = decoded.apiKey;
             } catch {
@@ -129,31 +131,58 @@ export function actorMiddleware(db: Db, opts: ActorMiddlewareOptions): RequestHa
       if (fleetosApiKey) {
         let tenant = getCachedFleetosValidation(fleetosApiKey);
         if (!tenant) {
+          let fleetosRes: Response;
           try {
-            const res = await fetch(`${opts.fleetosApiUrl}/api/tenants`, {
+            fleetosRes = await fetch(`${opts.fleetosApiUrl}/api/tenants`, {
               method: "GET",
-              headers: { "X-API-Key": fleetosApiKey, Accept: "application/json" },
+              headers: { Authorization: `Bearer ${fleetosApiKey}`, Accept: "application/json" },
             });
-            if (res.ok) {
-              const data = (await res.json()) as {
-                id?: string;
-                tenant_id?: string;
-                name?: string;
-                tenant_name?: string;
-                company_id?: string;
-              };
-              const tenantId = data.tenant_id ?? data.id;
-              if (tenantId) {
-                const tenantName = data.tenant_name ?? data.name ?? "FleetOS Tenant";
-                const companyId = data.company_id ?? tenantId;
-                const tenantData = { tenantId, tenantName, companyId };
-                setCachedFleetosValidation(fleetosApiKey, tenantData);
-                tenant = getCachedFleetosValidation(fleetosApiKey);
-              }
-            }
           } catch (err) {
             logger.warn({ err }, "FleetOS API key validation failed in middleware");
+            res.status(503).json({ error: "FleetOS API unreachable" });
+            return;
           }
+
+          // 401/403 = invalid key — fall through to fail-closed 401 below
+          if (fleetosRes.status === 401 || fleetosRes.status === 403) {
+            // tenant stays null, will hit the 401 block below
+          } else if (fleetosRes.status >= 500) {
+            // 5xx = FleetOS server error
+            logger.warn({ status: fleetosRes.status }, "FleetOS returned server error");
+            res.status(502).json({ error: "FleetOS service unavailable" });
+            return;
+          } else if (fleetosRes.ok) {
+            let raw: unknown;
+            try {
+              raw = await fleetosRes.json();
+            } catch (err) {
+              logger.warn({ err }, "FleetOS returned unparseable JSON");
+              res.status(502).json({ error: "FleetOS returned invalid response" });
+              return;
+            }
+            // FleetOS returns an array of tenants; use the first one
+            const list = (Array.isArray(raw) ? raw : [raw]).filter(
+              (t) => t !== null && typeof t === "object",
+            );
+            const first = list[0] as {
+              id?: string;
+              tenant_id?: string;
+              name?: string;
+              tenant_name?: string;
+              company_id?: string;
+              role?: string;
+            } | undefined;
+            const tenantId = first?.tenant_id ?? first?.id;
+            if (tenantId) {
+              const isAdmin = first?.role === "admin" || list.length > 1;
+              const tenantName = isAdmin ? "Raava Platform" : (first?.tenant_name ?? first?.name ?? "FleetOS Tenant");
+              const companyId = first?.company_id ?? (isAdmin ? "platform" : tenantId);
+              const tenantData = { tenantId: isAdmin ? "platform" : tenantId, tenantName, companyId, isAdmin };
+              setCachedFleetosValidation(fleetosApiKey, tenantData);
+              tenant = getCachedFleetosValidation(fleetosApiKey);
+            }
+          }
+          // Other non-OK (e.g. 404, 400) — tenant stays null, falls through to 401
         }
 
         if (tenant) {
@@ -162,7 +191,7 @@ export function actorMiddleware(db: Db, opts: ActorMiddlewareOptions): RequestHa
             userId: `fleetos:${tenant.tenantId}`,
             companyId: tenant.companyId,
             companyIds: [tenant.companyId],
-            isInstanceAdmin: true,
+            isInstanceAdmin: tenant.isAdmin ?? false,
             fleetosTenantId: tenant.tenantId,
             fleetosApiKey,
             runId: runIdHeader ?? undefined,
