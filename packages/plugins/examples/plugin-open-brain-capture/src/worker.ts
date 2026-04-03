@@ -59,15 +59,42 @@ async function getLatestComment(
 
 async function handleIssueUpdated(
   ctx: PluginContext,
-  config: PluginConfig,
   client: OpenBrainClient,
   event: PluginEvent,
 ): Promise<void> {
   const issueId = event.entityId;
   if (!issueId) return;
 
+  const config = await resolveConfig(ctx);
   const issue = await ctx.issues.get(issueId, event.companyId);
   if (!issue) return;
+
+  // Track previous status to detect actual transitions (not just any field edit)
+  const lastStatusKey = "last-status";
+  const previousStatus = await ctx.state.get({
+    scopeKind: "issue",
+    scopeId: issueId,
+    stateKey: lastStatusKey,
+  });
+
+  // Update stored status
+  await ctx.state.set(
+    { scopeKind: "issue", scopeId: issueId, stateKey: lastStatusKey },
+    issue.status,
+  );
+
+  // Only fire on actual status transitions
+  if (previousStatus === issue.status) {
+    return;
+  }
+
+  // Clear dedup keys when leaving done/blocked so recapture works on re-entry
+  if (previousStatus === "done" || previousStatus === "blocked") {
+    await ctx.state.set(
+      { scopeKind: "issue", scopeId: issueId, stateKey: `captured-${previousStatus}` },
+      null,
+    );
+  }
 
   const isDone = issue.status === "done" && config.captureOnDone;
   const isBlocked = issue.status === "blocked" && config.captureOnBlocked;
@@ -116,10 +143,10 @@ async function handleIssueUpdated(
 
 async function handleIssueCreated(
   ctx: PluginContext,
-  config: PluginConfig,
   client: OpenBrainClient,
   event: PluginEvent,
 ): Promise<void> {
+  const config = await resolveConfig(ctx);
   if (!config.captureOnDelegation) return;
 
   const issueId = event.entityId;
@@ -153,6 +180,16 @@ async function handleIssueCreated(
   });
 }
 
+async function createClientFromConfig(ctx: PluginContext): Promise<{ client: OpenBrainClient; config: PluginConfig } | null> {
+  const config = await resolveConfig(ctx);
+  if (!config.openBrainEndpoint) return null;
+  const client = createOpenBrainClient(ctx.http, ctx.logger, {
+    endpoint: config.openBrainEndpoint,
+    apiKey: config.openBrainApiKey,
+  });
+  return { client, config };
+}
+
 const plugin = definePlugin({
   async setup(ctx) {
     const config = await resolveConfig(ctx);
@@ -164,14 +201,11 @@ const plugin = definePlugin({
       return;
     }
 
-    const client = createOpenBrainClient(ctx.http, ctx.logger, {
-      endpoint: config.openBrainEndpoint,
-      apiKey: config.openBrainApiKey,
-    });
-
     ctx.events.on("issue.updated", async (event: PluginEvent) => {
       try {
-        await handleIssueUpdated(ctx, config, client, event);
+        const resolved = await createClientFromConfig(ctx);
+        if (!resolved) return;
+        await handleIssueUpdated(ctx, resolved.client, event);
       } catch (err) {
         ctx.logger.error("Failed to handle issue.updated", {
           issueId: event.entityId,
@@ -182,7 +216,9 @@ const plugin = definePlugin({
 
     ctx.events.on("issue.created", async (event: PluginEvent) => {
       try {
-        await handleIssueCreated(ctx, config, client, event);
+        const resolved = await createClientFromConfig(ctx);
+        if (!resolved) return;
+        await handleIssueCreated(ctx, resolved.client, event);
       } catch (err) {
         ctx.logger.error("Failed to handle issue.created", {
           issueId: event.entityId,

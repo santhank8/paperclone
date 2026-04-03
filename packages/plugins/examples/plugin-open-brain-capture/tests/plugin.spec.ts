@@ -207,7 +207,7 @@ describe("worker — issue.updated", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("deduplicates: does not capture same status twice", async () => {
+  it("deduplicates: does not capture same status twice on repeated events", async () => {
     await harness.emit("issue.updated", {}, {
       entityId: "iss-done",
       entityType: "issue",
@@ -215,12 +215,13 @@ describe("worker — issue.updated", () => {
     });
     expect(fetchMock).toHaveBeenCalledOnce();
 
+    // Simulate a second event — last-status is now "done", so no transition detected
     await harness.emit("issue.updated", {}, {
       entityId: "iss-done",
       entityType: "issue",
       companyId: TEST_COMPANY_ID,
     });
-    // Still only called once
+    // Still only called once — no status transition
     expect(fetchMock).toHaveBeenCalledOnce();
   });
 
@@ -237,6 +238,79 @@ describe("worker — issue.updated", () => {
       stateKey: "captured-done",
     });
     expect(state).toBeTruthy();
+  });
+
+  it("does not fire on non-status-change updates", async () => {
+    // First event sets last-status to "done" and captures
+    await harness.emit("issue.updated", {}, {
+      entityId: "iss-done",
+      entityType: "issue",
+      companyId: TEST_COMPANY_ID,
+    });
+    expect(fetchMock).toHaveBeenCalledOnce();
+    fetchMock.mockClear();
+
+    // Second event: status is still "done" — no transition, should not fire
+    await harness.emit("issue.updated", {}, {
+      entityId: "iss-done",
+      entityType: "issue",
+      companyId: TEST_COMPANY_ID,
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("recaptures after status re-entry (done → in_progress → done)", async () => {
+    // First transition to done
+    await harness.emit("issue.updated", {}, {
+      entityId: "iss-done",
+      entityType: "issue",
+      companyId: TEST_COMPANY_ID,
+    });
+    expect(fetchMock).toHaveBeenCalledOnce();
+
+    // Transition to in_progress (simulate by updating issue status + emitting)
+    harness.seed({
+      issues: [
+        {
+          id: "iss-done",
+          companyId: TEST_COMPANY_ID,
+          identifier: "STA-100",
+          title: "Complete the feature",
+          status: "in_progress",
+          assigneeAgentId: "agent-1",
+          parentId: null,
+        } as any,
+      ],
+    });
+    await harness.emit("issue.updated", {}, {
+      entityId: "iss-done",
+      entityType: "issue",
+      companyId: TEST_COMPANY_ID,
+    });
+    // No capture for in_progress
+    expect(fetchMock).toHaveBeenCalledOnce();
+
+    // Transition back to done
+    harness.seed({
+      issues: [
+        {
+          id: "iss-done",
+          companyId: TEST_COMPANY_ID,
+          identifier: "STA-100",
+          title: "Complete the feature",
+          status: "done",
+          assigneeAgentId: "agent-1",
+          parentId: null,
+        } as any,
+      ],
+    });
+    await harness.emit("issue.updated", {}, {
+      entityId: "iss-done",
+      entityType: "issue",
+      companyId: TEST_COMPANY_ID,
+    });
+    // Should recapture — dedup key was cleared on exit from "done"
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 });
 
