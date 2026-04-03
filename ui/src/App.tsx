@@ -162,7 +162,11 @@ function boardRoutes() {
       <Route path="agents/:agentId/runs/:runId" element={<AgentDetail />} />
       {/* Fleet routes live under the company prefix because Layout requires
           company context (sidebar, nav). Unprefixed /fleet paths are handled
-          by UnprefixedBoardRedirect above which prepends the active prefix. */}
+          by UnprefixedBoardRedirect above which prepends the active prefix.
+          Access is gated by: (1) CloudAccessGate requires auth in fleetos mode,
+          (2) Sidebar hides Fleet nav in non-fleetos mode, (3) proxy routes
+          require FleetOS API key on the actor. Non-fleetos users hitting these
+          routes directly get a 401 from the proxy. */}
       <Route path="fleet" element={<FleetOverview />} />
       <Route path="fleet/:containerId" element={<FleetAgentDetail />} />
       <Route path="projects" element={<Projects />} />

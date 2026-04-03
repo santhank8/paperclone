@@ -173,14 +173,14 @@ export class FleetOSProxyClient {
  * @throws FleetOSProxyError when `FLEETOS_API_URL` is not set (statusCode 500)
  */
 
-export function createFleetOSClient(apiKey: string): FleetOSProxyClient {
-  const baseUrl = process.env.FLEETOS_API_URL;
-  if (!baseUrl) {
+export function createFleetOSClient(apiKey: string, baseUrl?: string): FleetOSProxyClient {
+  const url = baseUrl ?? process.env.FLEETOS_API_URL;
+  if (!url) {
     throw new FleetOSProxyError(
-      "FLEETOS_API_URL environment variable is not set",
+      "FleetOS API URL not configured (pass baseUrl or set FLEETOS_API_URL)",
       500,
       null,
     );
   }
-  return new FleetOSProxyClient(baseUrl, apiKey);
+  return new FleetOSProxyClient(url, apiKey);
 }

@@ -182,7 +182,7 @@ export async function createApp(
   api.use(sidebarBadgeRoutes(db));
   api.use(instanceSettingsRoutes(db));
   api.use("/fleetos", fleetosAuthRoutes({ fleetosApiUrl }));
-  api.use(fleetosProxyRoutes(db));
+  api.use(fleetosProxyRoutes(db, fleetosApiUrl));
   const hostServicesDisposers = new Map<string, () => void>();
   const workerManager = createPluginWorkerManager();
   const pluginRegistry = pluginRegistryService(db);

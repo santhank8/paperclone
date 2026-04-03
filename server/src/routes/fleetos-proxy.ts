@@ -31,12 +31,12 @@ import { logger } from "../middleware/logger.js";
  * @throws FleetOSProxyError if no FleetOS API key is present on the request actor
  */
 
-function getClientFromRequest(req: Request) {
+function getClientFromRequest(req: Request, baseUrl?: string) {
   const apiKey = req.actor.fleetosApiKey;
   if (!apiKey) {
     throw new FleetOSProxyError("No FleetOS API key in session", 401, null);
   }
-  return createFleetOSClient(apiKey);
+  return createFleetOSClient(apiKey, baseUrl);
 }
 
 /**
@@ -98,14 +98,14 @@ function mergeContainerAndHealth(container: FleetContainer, health: FleetHealth 
  * agent status, and start/stop/restart lifecycle actions)
  */
 
-export function fleetosProxyRoutes(db: Db) {
+export function fleetosProxyRoutes(db: Db, fleetosApiUrl?: string) {
   const router = Router();
 
   // --- List all containers ---
   router.get("/fleetos/containers", async (req, res) => {
     assertBoard(req);
     try {
-      const client = getClientFromRequest(req);
+      const client = getClientFromRequest(req, fleetosApiUrl);
       const containers = await client.listContainers();
 
       // Best-effort health fetch for each container (don't fail if one errors)
@@ -141,7 +141,7 @@ export function fleetosProxyRoutes(db: Db) {
     assertBoard(req);
     const { containerId } = req.params;
     try {
-      const client = getClientFromRequest(req);
+      const client = getClientFromRequest(req, fleetosApiUrl);
       const container = await client.getContainer(containerId!);
       let health: FleetHealth | null = null;
       if (container.status === "running") {
@@ -169,7 +169,7 @@ export function fleetosProxyRoutes(db: Db) {
     assertBoard(req);
     const { containerId } = req.params;
     try {
-      const client = getClientFromRequest(req);
+      const client = getClientFromRequest(req, fleetosApiUrl);
       const health = await client.getHealth(containerId!);
       res.json(health);
     } catch (err) {
@@ -189,7 +189,7 @@ export function fleetosProxyRoutes(db: Db) {
     assertBoard(req);
     const { containerId } = req.params;
     try {
-      const client = getClientFromRequest(req);
+      const client = getClientFromRequest(req, fleetosApiUrl);
       const agentProcess = await client.getAgentProcess(containerId!);
       res.json(agentProcess);
     } catch (err) {
@@ -207,6 +207,13 @@ export function fleetosProxyRoutes(db: Db) {
   // --- Lifecycle actions: start, stop, restart ---
   router.post("/fleetos/containers/:containerId/:action", async (req, res) => {
     assertBoard(req);
+
+    // Explicit FleetOS actor check — board auth alone isn't sufficient for mutations
+    if (!req.actor.fleetosApiKey) {
+      res.status(403).json({ error: "FleetOS actor required for lifecycle actions" });
+      return;
+    }
+
     const { containerId, action } = req.params;
 
     if (!["start", "stop", "restart"].includes(action!)) {
@@ -215,7 +222,7 @@ export function fleetosProxyRoutes(db: Db) {
     }
 
     try {
-      const client = getClientFromRequest(req);
+      const client = getClientFromRequest(req, fleetosApiUrl);
       let container: FleetContainer;
       switch (action) {
         case "start":
