@@ -35,7 +35,7 @@ const secret = process.env.BETTER_AUTH_SECRET ?? process.env.PAPERCLIP_AGENT_JWT
 - **`local_trusted` mode** (default): Generate a deterministic secret derived from the `PAPERCLIP_HOME` path + a fixed salt constant. This preserves zero-config local usage without exposing a publicly-known secret.
 - **`authenticated` mode**: Throw a fatal error at startup if neither `BETTER_AUTH_SECRET` nor `PAPERCLIP_AGENT_JWT_SECRET` is defined. The error message must clearly state which variable to set.
 
-**Implementation**: New helper function `resolveAuthSecret(deploymentMode)` in the same file, called from `createBetterAuthInstance`. The `PAPERCLIP_HOME` path is resolved via the existing `resolvePaperclipHome()` function from `server/src/home-paths.ts` (or `process.env.PAPERCLIP_HOME` directly).
+**Implementation**: New helper function `resolveAuthSecret(deploymentMode)` in the same file, called from `createBetterAuthInstance`. The `PAPERCLIP_HOME` path is resolved via the existing `resolvePaperclipHomeDir()` function from `server/src/home-paths.ts` (or `process.env.PAPERCLIP_HOME` directly).
 
 **Note**: If `PAPERCLIP_HOME` changes (user moves data directory), the derived secret changes and existing sessions are invalidated. This is acceptable for `local_trusted` mode where sessions are ephemeral. In authenticated mode, a pre-existing startup check in `server/src/index.ts` (lines 478-484) already throws if no explicit secret is set — the `resolveAuthSecret` check provides defense-in-depth if the function is called outside that flow.
 
@@ -101,7 +101,7 @@ res.set("Access-Control-Allow-Origin", "*");
 - If the request `Origin` header matches one of the instance's `allowedHostnames` → set `Access-Control-Allow-Origin` to that origin
 - Otherwise → omit the header (browser blocks the request)
 
-**Plumbing**: Pass `allowedHostnames` from `createApp` opts into `pluginUiStaticRoutes`.
+**Plumbing**: Pass `allowedHostnames` from `createApp` opts into `pluginUiStaticRoutes`. This requires adding an `allowedHostnames: string[]` field to the `PluginUiStaticRouteOptions` interface in `plugin-ui-static.ts`.
 
 **Tests**: Unit test with matching and non-matching origins.
 
@@ -135,7 +135,7 @@ Minimum 5 minutes, maximum 30 days. Log a warning if the configured value was cl
 
 **File**: `server/src/routes/plugin-ui-static.ts`
 
-**Change**: Replace the blocklist approach (localhost, 127.0.0.1, ::1) with an allowlist:
+**Change**: Expand the existing loopback-only allowlist to also accept hostnames in `allowedHostnames`:
 - The `devUiUrl` hostname must be in `allowedHostnames` OR be a recognized loopback address
 - Use `node:net` `isIP()` + expanded loopback detection covering IPv6 variations (`[::1]`, `0:0:0:0:0:0:0:1`, `0000:0000:0000:0000:0000:0000:0000:0001`)
 
@@ -180,7 +180,7 @@ Add `dbPoolMax: number` and `dbPoolIdleTimeout: number` fields to the `Config` i
 
 **Caller**: `server/src/index.ts` passes the new options from config.
 
-The new `opts` parameter is optional; existing callers of `createDb` are unaffected. The `Db` type alias (`ReturnType<typeof createDb>`) remains unchanged.
+The new `opts` parameter is optional; existing callers of `createDb` (including 10+ call sites in CLI commands and tests) are unaffected. They will inherit the new defaults (max: 20 instead of the `postgres` library default of 10, idle_timeout: 30, connect_timeout: 10). This is acceptable since CLI commands are short-lived and the increase is conservative. The `Db` type alias (`ReturnType<typeof createDb>`) remains unchanged.
 
 `createUtilitySql` with `max: 1` remains unchanged (correct for migrations).
 
@@ -199,7 +199,7 @@ Class component (required for `componentDidCatch`) that:
 
 **Mounting in `ui/src/main.tsx`**: Wraps `<App />` after `<StrictMode>`, before `<QueryClientProvider>`. Since the ErrorBoundary sits outside all context providers, its fallback UI must not depend on any provider (no `useQueryClient`, no `useToast`, etc.) — plain React only.
 
-**Secondary Error Boundary**: Inside `<Layout />` around `<Outlet />`. Page-level errors show in the content area without destroying the sidebar/navigation chrome. Fallback: error message + "Go to Dashboard" link.
+**Secondary Error Boundary**: Inside `<Layout />` around `<Outlet />`. Page-level errors show in the content area without destroying the sidebar/navigation chrome. Fallback: error message + "Go to Dashboard" link. This secondary boundary sits inside `QueryClientProvider`, so most errors are caught here before reaching the global boundary. Query-related errors that propagate to the global boundary (rather than the Layout-level one) will require a full page reload since the QueryClient is not available at that level.
 
 ### 3.2 Code splitting for heavy pages (MEDIUM)
 
@@ -406,6 +406,7 @@ Lint and format checks are blocking. Coverage is reported and fails only if belo
 - `vitest.config.ts`
 - `.github/workflows/pr.yml`
 - `package.json`
+- `.env.example` (document new env vars with defaults)
 
 ## Risks and mitigations
 
@@ -419,3 +420,5 @@ Lint and format checks are blocking. Coverage is reported and fails only if belo
 | Coverage thresholds block unrelated PRs | Conservative 50% initial threshold, UI excluded |
 | `helmet` breaks plugin iframe loading | `crossOriginEmbedderPolicy: false` explicitly set |
 | `PAPERCLIP_HOME` change invalidates local sessions | Acceptable for `local_trusted` mode; documented in config |
+| New dependencies trigger CI lockfile policy block | Implementation PRs that add deps need the `chore/refresh-lockfile` branch convention, or a lockfile refresh PR must land first |
+| `createDb` default pool size changes for all callers | New default (max: 20) is conservative; CLI commands are short-lived and unaffected in practice |
