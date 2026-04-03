@@ -37,6 +37,8 @@ const secret = process.env.BETTER_AUTH_SECRET ?? process.env.PAPERCLIP_AGENT_JWT
 
 **Implementation**: New helper function `resolveAuthSecret(deploymentMode)` in the same file, called from `createBetterAuthInstance`.
 
+**Note**: If `PAPERCLIP_HOME` changes (user moves data directory), the derived secret changes and existing sessions are invalidated. This is acceptable for `local_trusted` mode where sessions are ephemeral.
+
 **Tests**: Unit test in `server/src/__tests__/` covering both modes + missing secret error.
 
 ### 1.2 Rate limiting (CRITICAL)
@@ -59,7 +61,9 @@ Three tiers:
 - `PAPERCLIP_RATE_LIMIT_API_WRITE` (default: `100`)
 - `PAPERCLIP_RATE_LIMIT_API_READ` (default: `300`)
 
-**Mounting**: In `app.ts`, after `httpLogger`, before routes. Auth limiter applied specifically to `/api/auth/*`; API limiters applied to the `/api` router.
+**Mounting**: Auth limiter applied on the `app` instance for `/api/auth/*` path (auth routes are mounted directly on `app`, not on the `api` Router). Write/Read limiters applied to the `api` Router (which handles `/api` business routes).
+
+**Note**: The server uses Express 5. Both `helmet` and `express-rate-limit` support Express 5. Path patterns in rate limiter configuration should use Express 5 syntax.
 
 **Tests**: Unit test verifying 429 response after threshold.
 
@@ -75,6 +79,8 @@ Three tiers:
 - All other headers enabled by default (X-Frame-Options, X-Content-Type-Options, HSTS, X-DNS-Prefetch-Control, etc.)
 
 **Mounting**: First middleware in the chain, before `express.json()`.
+
+**Final middleware order**: `helmet -> express.json() -> httpLogger -> rateLimitAuth (on /api/auth/*) -> privateHostnameGuard -> actorMiddleware -> boardMutationGuard + rateLimitApiWrite/Read (on /api router) -> routes -> errorHandler`.
 
 **Tests**: Integration test asserting key headers are present in responses.
 
@@ -166,6 +172,8 @@ export function createDb(url: string, opts?: { maxConnections?: number; idleTime
 
 **Caller**: `server/src/index.ts` passes the new options from config.
 
+The new `opts` parameter is optional; existing callers of `createDb` are unaffected. The `Db` type alias (`ReturnType<typeof createDb>`) remains unchanged.
+
 `createUtilitySql` with `max: 1` remains unchanged (correct for migrations).
 
 ---
@@ -201,14 +209,15 @@ Lightweight pages (Dashboard, Issues list, etc.) remain static imports.
 
 ### 3.3 Context provider consolidation (MEDIUM)
 
-**Current state**: 11 nested provider levels in `main.tsx`.
+**Current state**: 13 nested provider levels in `main.tsx` (StrictMode, QueryClientProvider, ThemeProvider, BrowserRouter, CompanyProvider, ToastProvider, LiveUpdatesProvider, TooltipProvider, BreadcrumbProvider, SidebarProvider, PanelProvider, PluginLauncherProvider, DialogProvider).
 
 **Changes**:
-1. **New file** `ui/src/context/AppProviders.tsx` — centralizes all provider composition in one file, cleaning up `main.tsx`
-2. **Merge `SidebarProvider` + `PanelProvider`** into `LayoutStateProvider` (single context for sidebar + panel state — they share the same domain)
-3. **Move `BreadcrumbProvider`** inside `Layout` component (only consumed there)
+1. **New file** `ui/src/context/AppProviders.tsx` — centralizes all provider composition in one file, cleaning up `main.tsx` to a single `<AppProviders><App /></AppProviders>`
+2. **Move `BreadcrumbProvider`** inside `Layout` component, above `<Outlet />` (consumed by child pages rendered through Outlet, and by the BreadcrumbBar in Layout itself — no need to be in the global tree)
 
-**Result**: 11 → 8 provider levels. Single import in `main.tsx`.
+`SidebarProvider` and `PanelProvider` remain separate — they have no shared state, use different persistence strategies (media query vs localStorage), and merging them would cause unnecessary cross-renders.
+
+**Result**: 13 → 12 provider levels in the render tree (BreadcrumbProvider moved), with the remaining composition centralized in `AppProviders.tsx` for readability. A `composeProviders` utility can be added later to further flatten the JSX without merging unrelated state.
 
 ### 3.4 Full internationalization (MEDIUM)
 
@@ -322,11 +331,15 @@ coverage: {
 
 Conservative thresholds (50%) to avoid blocking existing PRs. UI excluded from thresholds (only 4 test files — would be an immediate blocker). Thresholds raised incrementally over time.
 
+**Note**: The root `vitest.config.ts` uses a `projects` array. The `include` paths in coverage config are resolved relative to the workspace root. Verify this during implementation; if paths resolve incorrectly, coverage config may need to be placed in each project's `vitest.config.ts` instead.
+
 ### 4.3 CI integration (HIGH)
 
 **File**: `.github/workflows/pr.yml`
 
-Add steps in the `verify` job after `typecheck`:
+Modify the `verify` job:
+- **Add** `Lint` and `Format check` steps between the existing `Typecheck` step and the test step
+- **Replace** the existing `pnpm test:run` step with `pnpm test:run --coverage` (do not add a second test step — avoid running tests twice)
 
 ```yaml
 - name: Lint
@@ -358,6 +371,7 @@ Lint and format checks are blocking. Coverage is reported and fails only if belo
 - `server/src/auth/better-auth.ts`
 - `server/src/agent-auth-jwt.ts`
 - `server/src/app.ts`
+- `server/src/index.ts`
 - `server/src/config.ts`
 - `server/src/middleware/logger.ts`
 - `server/src/middleware/rate-limit.ts` (new)
@@ -372,7 +386,6 @@ Lint and format checks are blocking. Coverage is reported and fails only if belo
 - `ui/src/App.tsx`
 - `ui/src/components/ErrorBoundary.tsx` (new)
 - `ui/src/context/AppProviders.tsx` (new)
-- `ui/src/context/LayoutStateProvider.tsx` (new)
 - `ui/src/lib/i18n.ts` (new)
 - `ui/src/locales/` (new directory tree)
 - All 40+ page/component files (i18n extraction)
@@ -391,7 +404,10 @@ Lint and format checks are blocking. Coverage is reported and fails only if belo
 | Risk | Mitigation |
 |------|------------|
 | i18n extraction breaks string interpolation | Each batch is tested manually + snapshot comparison of rendered output |
+| i18n scope (440+ keys + FR) delays security fixes | i18n (3.4) is deferrable — Phases 1, 2, 4 and items 3.1-3.3 are self-contained and ship first. i18n can be delivered independently without blocking security improvements |
+| i18n actual key count exceeds estimate | Estimate is conservative; extract progressively by batch, adjust scope per batch |
 | Rate limiting blocks legitimate burst traffic | Configurable limits + disable flag for reverse-proxy setups |
 | Prettier reformats trigger noisy diffs | Boy scout rule, no mass-format commit |
 | Coverage thresholds block unrelated PRs | Conservative 50% initial threshold, UI excluded |
 | `helmet` breaks plugin iframe loading | `crossOriginEmbedderPolicy: false` explicitly set |
+| `PAPERCLIP_HOME` change invalidates local sessions | Acceptable for `local_trusted` mode; documented in config |
