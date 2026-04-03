@@ -790,7 +790,7 @@ function killRecordedProcess(pid: number | null | undefined, signal: NodeJS.Sign
     return true;
   } catch (error) {
     const code = (error as NodeJS.ErrnoException | undefined)?.code;
-    if (code === "ESRCH") return false;
+    if (code === "ESRCH" || code === "EPERM") return false;
     throw error;
   }
 }
