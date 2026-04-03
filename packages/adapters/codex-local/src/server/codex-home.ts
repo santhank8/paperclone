@@ -64,9 +64,24 @@ async function ensureSymlink(target: string, source: string): Promise<void> {
   await fs.symlink(source, target);
 }
 
+function isRecoverableSymlinkError(error: unknown): boolean {
+  const code = (error as NodeJS.ErrnoException | undefined)?.code;
+  return code === "EPERM" || code === "EACCES" || code === "UNKNOWN";
+}
+
 async function ensureCopiedFile(target: string, source: string): Promise<void> {
   const existing = await fs.lstat(target).catch(() => null);
   if (existing) return;
+  await ensureParentDir(target);
+  await fs.copyFile(source, target);
+}
+
+async function syncCopiedFile(target: string, source: string): Promise<void> {
+  const existing = await fs.lstat(target).catch(() => null);
+  if (existing?.isDirectory()) return;
+  if (existing?.isSymbolicLink()) {
+    await fs.unlink(target);
+  }
   await ensureParentDir(target);
   await fs.copyFile(source, target);
 }
@@ -86,7 +101,17 @@ export async function prepareManagedCodexHome(
   for (const name of SYMLINKED_SHARED_FILES) {
     const source = path.join(sourceHome, name);
     if (!(await pathExists(source))) continue;
-    await ensureSymlink(path.join(targetHome, name), source);
+    const target = path.join(targetHome, name);
+    try {
+      await ensureSymlink(target, source);
+    } catch (error) {
+      if (!isRecoverableSymlinkError(error)) throw error;
+      await syncCopiedFile(target, source);
+      await onLog(
+        "stdout",
+        `[paperclip] Falling back to copying Codex shared file "${name}" into "${target}" after symlink failed (${(error as Error).message}).\n`,
+      );
+    }
   }
 
   for (const name of COPIED_SHARED_FILES) {
