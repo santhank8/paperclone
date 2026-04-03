@@ -227,7 +227,7 @@ describe("companyService.remove() deletion closure (HAP-4 integration)", () => {
 
   afterAll(async () => {
     try {
-      await db.delete(companies).where(eq(companies.name, "HAP-4 Deletion Test"));
+      await db.delete(companies).where(eq(companies.id, companyId));
     } catch {
       // Already deleted
     }

@@ -11,6 +11,7 @@ import {
   readInstalledSkillTargets,
   resolvePaperclipDesiredSkillNames,
 } from "@paperclipai/adapter-utils/server-utils";
+import { resolveManagedClaudeConfigDir } from "./claude-home.js";
 
 const __moduleDir = path.dirname(fileURLToPath(import.meta.url));
 
@@ -18,22 +19,55 @@ function asString(value: unknown): string | null {
   return typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
 }
 
-function resolveClaudeSkillsHome(config: Record<string, unknown>) {
+function resolveClaudeSkillsHome(
+  config: Record<string, unknown>,
+  options?: { companyId?: string; agentId?: string },
+): { skillsHome: string; locationLabel: string } {
   const env =
     typeof config.env === "object" && config.env !== null && !Array.isArray(config.env)
       ? (config.env as Record<string, unknown>)
       : {};
+  const configuredConfigDir = asString(env.CLAUDE_CONFIG_DIR);
+  if (configuredConfigDir) {
+    const resolvedConfigDir = path.resolve(configuredConfigDir);
+    return {
+      skillsHome: path.join(resolvedConfigDir, "skills"),
+      locationLabel: path.join(resolvedConfigDir, "skills"),
+    };
+  }
   const configuredHome = asString(env.HOME);
-  const home = configuredHome ? path.resolve(configuredHome) : os.homedir();
-  return path.join(home, ".claude", "skills");
+  if (configuredHome) {
+    const resolvedHome = path.resolve(configuredHome);
+    return {
+      skillsHome: path.join(resolvedHome, ".claude", "skills"),
+      locationLabel: path.join(resolvedHome, ".claude", "skills"),
+    };
+  }
+  if (options?.companyId) {
+    const managedSkillsHome = path.join(
+      resolveManagedClaudeConfigDir(process.env, options.companyId, options.agentId),
+      "skills",
+    );
+    return {
+      skillsHome: managedSkillsHome,
+      locationLabel: "Paperclip-managed Claude home",
+    };
+  }
+  return {
+    skillsHome: path.join(os.homedir(), ".claude", "skills"),
+    locationLabel: "~/.claude/skills",
+  };
 }
 
-async function buildClaudeSkillSnapshot(config: Record<string, unknown>): Promise<AdapterSkillSnapshot> {
+async function buildClaudeSkillSnapshot(
+  config: Record<string, unknown>,
+  options?: { companyId?: string; agentId?: string },
+): Promise<AdapterSkillSnapshot> {
   const availableEntries = await readPaperclipRuntimeSkillEntries(config, __moduleDir);
   const availableByKey = new Map(availableEntries.map((entry) => [entry.key, entry]));
   const desiredSkills = resolvePaperclipDesiredSkillNames(config, availableEntries);
   const desiredSet = new Set(desiredSkills);
-  const skillsHome = resolveClaudeSkillsHome(config);
+  const { skillsHome, locationLabel } = resolveClaudeSkillsHome(config, options);
   const installed = await readInstalledSkillTargets(skillsHome);
   const entries: AdapterSkillEntry[] = availableEntries.map((entry) => ({
     key: entry.key,
@@ -82,7 +116,7 @@ async function buildClaudeSkillSnapshot(config: Record<string, unknown>): Promis
       state: "external",
       origin: "user_installed",
       originLabel: "User-installed",
-      locationLabel: "~/.claude/skills",
+      locationLabel,
       readOnly: true,
       sourcePath: null,
       targetPath: installedEntry.targetPath ?? path.join(skillsHome, name),
@@ -103,14 +137,14 @@ async function buildClaudeSkillSnapshot(config: Record<string, unknown>): Promis
 }
 
 export async function listClaudeSkills(ctx: AdapterSkillContext): Promise<AdapterSkillSnapshot> {
-  return buildClaudeSkillSnapshot(ctx.config);
+  return buildClaudeSkillSnapshot(ctx.config, { companyId: ctx.companyId, agentId: ctx.agentId });
 }
 
 export async function syncClaudeSkills(
   ctx: AdapterSkillContext,
   _desiredSkills: string[],
 ): Promise<AdapterSkillSnapshot> {
-  return buildClaudeSkillSnapshot(ctx.config);
+  return buildClaudeSkillSnapshot(ctx.config, { companyId: ctx.companyId, agentId: ctx.agentId });
 }
 
 export function resolveClaudeDesiredSkillNames(

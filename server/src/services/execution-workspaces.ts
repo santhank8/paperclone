@@ -19,6 +19,15 @@ type ExecutionWorkspaceRow = typeof executionWorkspaces.$inferSelect;
 type WorkspaceRuntimeServiceRow = typeof workspaceRuntimeServices.$inferSelect;
 const execFileAsync = promisify(execFile);
 const TERMINAL_ISSUE_STATUSES = new Set(["done", "cancelled"]);
+export const REUSABLE_EXECUTION_WORKSPACE_STATUSES = ["active", "idle", "in_review"] as const;
+
+export function isReusableExecutionWorkspaceStatus(status: string | null | undefined): boolean {
+  return (
+    status === REUSABLE_EXECUTION_WORKSPACE_STATUSES[0] ||
+    status === REUSABLE_EXECUTION_WORKSPACE_STATUSES[1] ||
+    status === REUSABLE_EXECUTION_WORKSPACE_STATUSES[2]
+  );
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);

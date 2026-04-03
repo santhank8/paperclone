@@ -22,8 +22,20 @@ describe("claude local skill sync", () => {
   const paperclipKey = "paperclipai/paperclip/paperclip";
   const createAgentKey = "paperclipai/paperclip/paperclip-create-agent";
   const cleanupDirs = new Set<string>();
+  const originalHome = process.env.HOME;
+  const originalPaperclipHome = process.env.PAPERCLIP_HOME;
+  const originalPaperclipInstanceId = process.env.PAPERCLIP_INSTANCE_ID;
+  const originalClaudeConfigDir = process.env.CLAUDE_CONFIG_DIR;
 
   afterEach(async () => {
+    if (originalHome === undefined) delete process.env.HOME;
+    else process.env.HOME = originalHome;
+    if (originalPaperclipHome === undefined) delete process.env.PAPERCLIP_HOME;
+    else process.env.PAPERCLIP_HOME = originalPaperclipHome;
+    if (originalPaperclipInstanceId === undefined) delete process.env.PAPERCLIP_INSTANCE_ID;
+    else process.env.PAPERCLIP_INSTANCE_ID = originalPaperclipInstanceId;
+    if (originalClaudeConfigDir === undefined) delete process.env.CLAUDE_CONFIG_DIR;
+    else process.env.CLAUDE_CONFIG_DIR = originalClaudeConfigDir;
     await Promise.all(Array.from(cleanupDirs).map((dir) => fs.rm(dir, { recursive: true, force: true })));
     cleanupDirs.clear();
   });
@@ -102,9 +114,33 @@ describe("claude local skill sync", () => {
       managed: false,
       origin: "user_installed",
       originLabel: "User-installed",
-      locationLabel: "~/.claude/skills",
+      locationLabel: path.join(home, ".claude", "skills"),
       readOnly: true,
       detail: "Installed outside Paperclip management in the Claude skills home.",
     }));
+  });
+
+  it("defaults to a managed Claude home instead of host ~/.claude/skills", async () => {
+    const root = await makeTempDir("paperclip-claude-managed-skills-");
+    const paperclipHome = path.join(root, "paperclip-home");
+    cleanupDirs.add(root);
+    await createSkillDir(path.join(root, ".claude", "skills"), "host-only-skill");
+
+    process.env.HOME = root;
+    process.env.PAPERCLIP_HOME = paperclipHome;
+    delete process.env.PAPERCLIP_INSTANCE_ID;
+    delete process.env.CLAUDE_CONFIG_DIR;
+
+    const snapshot = await listClaudeSkills({
+      agentId: "agent-5",
+      companyId: "company-1",
+      adapterType: "claude_local",
+      config: {},
+    });
+
+    expect(snapshot.entries.find((entry) => entry.key === "host-only-skill")).toBeUndefined();
+    expect(
+      snapshot.entries.some((entry) => entry.origin === "user_installed" && entry.locationLabel === "~/.claude/skills"),
+    ).toBe(false);
   });
 });

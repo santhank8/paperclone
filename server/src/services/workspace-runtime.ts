@@ -21,7 +21,10 @@ import {
   writeLocalServiceRegistryRecord,
 } from "./local-service-supervisor.js";
 import type { WorkspaceOperationRecorder } from "./workspace-operations.js";
-import { readExecutionWorkspaceConfig } from "./execution-workspaces.js";
+import {
+  readExecutionWorkspaceConfig,
+  REUSABLE_EXECUTION_WORKSPACE_STATUSES,
+} from "./execution-workspaces.js";
 import { readProjectWorkspaceRuntimeConfig } from "./project-workspace-runtime-config.js";
 
 export function resolveShell(): string {
@@ -781,6 +784,7 @@ export async function cleanupExecutionWorkspaceArtifacts(input: {
   ]
     .map((value) => asString(value, "").trim())
     .filter(Boolean);
+  let cleaned = true;
 
   for (const command of cleanupCommands) {
     try {
@@ -856,6 +860,7 @@ export async function cleanupExecutionWorkspaceArtifacts(input: {
         }
       }
     }
+    cleaned = !(await directoryExists(workspacePath));
   } else if (input.workspace.providerType === "local_fs" && createdByRuntime && workspacePath) {
     const projectWorkspaceCwd = input.projectWorkspace?.cwd ? path.resolve(input.projectWorkspace.cwd) : null;
     const resolvedWorkspacePath = path.resolve(workspacePath);
@@ -867,6 +872,7 @@ export async function cleanupExecutionWorkspaceArtifacts(input: {
       : false;
     if (containsProjectWorkspace) {
       warnings.push(`Refusing to remove path "${workspacePath}" because it contains the project workspace.`);
+      cleaned = true;
     } else {
       await fs.rm(resolvedWorkspacePath, { recursive: true, force: true });
       if (input.recorder) {
@@ -885,12 +891,11 @@ export async function cleanupExecutionWorkspaceArtifacts(input: {
           }),
         });
       }
+      cleaned = !(await directoryExists(resolvedWorkspacePath));
     }
+  } else {
+    cleaned = true;
   }
-
-  const cleaned =
-    !workspacePath ||
-    !(await directoryExists(workspacePath));
 
   return {
     cleanedPath: workspacePath,
@@ -1960,7 +1965,7 @@ export async function restartDesiredRuntimeServicesOnStartup(db: Db) {
   const executionWorkspaceRows = await db
     .select()
     .from(executionWorkspaces)
-    .where(inArray(executionWorkspaces.status, ["active", "idle", "in_review", "cleanup_failed"]));
+    .where(inArray(executionWorkspaces.status, [...REUSABLE_EXECUTION_WORKSPACE_STATUSES]));
 
   for (const row of executionWorkspaceRows) {
     const config = readExecutionWorkspaceConfig((row.metadata as Record<string, unknown> | null) ?? null);
