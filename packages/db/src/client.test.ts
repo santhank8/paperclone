@@ -241,4 +241,42 @@ describeEmbeddedPostgres("applyPendingMigrations", () => {
     },
     20_000,
   );
+
+  it(
+    "creates blog pipeline tables on a fresh database",
+    async () => {
+      const connectionString = await createTempDatabase();
+
+      await applyPendingMigrations(connectionString);
+
+      const sql = postgres(connectionString, { max: 1, onnotice: () => {} });
+      try {
+        const rows = await sql.unsafe<{ table_name: string }[]>(
+          `
+            SELECT table_name
+            FROM information_schema.tables
+            WHERE table_schema = 'public'
+              AND table_name IN (
+                'blog_runs',
+                'blog_run_step_attempts',
+                'blog_artifacts',
+                'blog_publish_approvals',
+                'blog_publish_executions'
+              )
+            ORDER BY table_name
+          `,
+        );
+        expect(rows.map((row) => row.table_name)).toEqual([
+          "blog_artifacts",
+          "blog_publish_approvals",
+          "blog_publish_executions",
+          "blog_run_step_attempts",
+          "blog_runs",
+        ]);
+      } finally {
+        await sql.end();
+      }
+    },
+    20_000,
+  );
 });

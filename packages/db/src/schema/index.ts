@@ -40,6 +40,13 @@ export { documentRevisions } from "./document_revisions.js";
 export { issueDocuments } from "./issue_documents.js";
 export { heartbeatRuns } from "./heartbeat_runs.js";
 export { heartbeatRunEvents } from "./heartbeat_run_events.js";
+export {
+  blogRuns,
+  blogRunStepAttempts,
+  blogArtifacts,
+  blogPublishApprovals,
+  blogPublishExecutions,
+} from "./blog_runs.js";
 export { costEvents } from "./cost_events.js";
 export { financeEvents } from "./finance_events.js";
 export { approvals } from "./approvals.js";
