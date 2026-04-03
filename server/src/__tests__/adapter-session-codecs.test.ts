@@ -185,6 +185,12 @@ describe("gemini resume recovery detection", () => {
     ).toBe(true);
     expect(
       isGeminiUnknownSessionError(
+        "",
+        "Error resuming session: Invalid session identifier \"abc\".",
+      ),
+    ).toBe(true);
+    expect(
+      isGeminiUnknownSessionError(
         "{\"type\":\"result\",\"subtype\":\"success\"}",
         "",
       ),

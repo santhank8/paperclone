@@ -19,6 +19,8 @@ First-time local bootstrap + run:
 pnpm paperclipai run
 ```
 
+For a MacBook operator runbook that covers app launch, health checks, backup/restore, Codex reauth, and Gemini fallback, see [doc/runbooks/local-always-on-content-marketing.md](/Users/kevin/codex/projects/paperclip/doc/runbooks/local-always-on-content-marketing.md).
+
 Choose local instance:
 
 ```sh

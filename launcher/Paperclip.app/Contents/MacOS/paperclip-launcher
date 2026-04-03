@@ -1,0 +1,64 @@
+#!/bin/zsh
+
+set -euo pipefail
+
+APP_ROOT="/Users/kevin/codex/projects/paperclip"
+URL="http://127.0.0.1:3100/"
+HEALTH_URL="http://127.0.0.1:3100/api/health"
+LOG_DIR="$HOME/Library/Logs/Paperclip"
+LOG_FILE="$LOG_DIR/launcher.log"
+export PATH="/Users/kevin/.local/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:${PATH:-}"
+
+mkdir -p "$LOG_DIR"
+
+log() {
+  printf '[%s] %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$*" >> "$LOG_FILE"
+}
+
+health_ok() {
+  curl -fsS --max-time 2 "$HEALTH_URL" >/dev/null 2>&1
+}
+
+start_server() {
+  log "Starting Paperclip via runtime start helper"
+  "$APP_ROOT/scripts/paperclip-runtime-start.sh" >> "$LOG_FILE" 2>&1
+}
+
+open_ui() {
+  if [ "${PAPERCLIP_LAUNCHER_SKIP_OPEN:-0}" = "1" ]; then
+    log "Skipping browser open because PAPERCLIP_LAUNCHER_SKIP_OPEN=1"
+    return 0
+  fi
+  if [ -d "/Applications/Google Chrome.app" ]; then
+    /usr/bin/open -a "Google Chrome" "$URL" >/dev/null 2>&1 || /usr/bin/open "$URL"
+  else
+    /usr/bin/open "$URL"
+  fi
+}
+
+main() {
+  log "Launcher invoked"
+
+  if ! health_ok; then
+    start_server
+
+    for _ in {1..45}; do
+      if health_ok; then
+        break
+      fi
+      sleep 1
+    done
+  fi
+
+  if health_ok; then
+    log "Paperclip is healthy; opening UI"
+    open_ui
+    exit 0
+  fi
+
+  log "Paperclip did not become healthy in time"
+  /usr/bin/osascript -e 'display alert "Paperclip 실행 실패" message "서버가 제시간에 올라오지 않았습니다. 로그는 ~/Library/Logs/Paperclip/launcher.log 에 있습니다." as critical'
+  exit 1
+}
+
+main "$@"

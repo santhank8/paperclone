@@ -65,11 +65,10 @@ function renderApiAccessNote(env: Record<string, string>): string {
   if (!hasNonEmptyEnvValue(env, "PAPERCLIP_API_URL") || !hasNonEmptyEnvValue(env, "PAPERCLIP_API_KEY")) return "";
   return [
     "Paperclip API access note:",
-    "Use run_shell_command with curl to make Paperclip API requests.",
-    "GET example:",
-    `  run_shell_command({ command: "curl -s -H \\"Authorization: Bearer $PAPERCLIP_API_KEY\\" \\"$PAPERCLIP_API_URL/api/agents/me\\"" })`,
-    "POST/PATCH example:",
-    `  run_shell_command({ command: "curl -s -X POST -H \\"Authorization: Bearer $PAPERCLIP_API_KEY\\" -H 'Content-Type: application/json' -H \\"X-Paperclip-Run-Id: $PAPERCLIP_RUN_ID\\" -d '{...}' \\"$PAPERCLIP_API_URL/api/issues/{id}/checkout\\"" })`,
+    "Paperclip API credentials are present in the environment.",
+    "Only use a shell or HTTP tool if this Gemini CLI session explicitly exposes one.",
+    "Do not assume a tool named run_shell_command exists in this environment.",
+    "If no such tool is available, continue the task without direct API calls and describe the blocker clearly in your update.",
     "",
     "",
   ].join("\n");
@@ -142,6 +141,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
   );
   const command = asString(config.command, "gemini");
   const model = asString(config.model, DEFAULT_GEMINI_LOCAL_MODEL).trim();
+  const approvalMode = asString(config.approvalMode, asBoolean(config.yolo, false) ? "yolo" : "default").trim();
   const sandbox = asBoolean(config.sandbox, false);
 
   const workspaceContext = parseObject(context.paperclipWorkspace);
@@ -210,6 +210,15 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
   for (const [key, value] of Object.entries(envConfig)) {
     if (typeof value === "string") env[key] = value;
   }
+  // Gemini CLI treats GEMINI_API_KEY and GOOGLE_API_KEY as alternative auth modes.
+  // When the server host environment leaks the other key into child processes,
+  // the CLI exits early instead of choosing one. Force the configured auth mode
+  // to be exclusive for each run.
+  if (hasNonEmptyEnvValue(env, "GEMINI_API_KEY")) {
+    env.GOOGLE_API_KEY = "";
+  } else if (hasNonEmptyEnvValue(env, "GOOGLE_API_KEY")) {
+    env.GEMINI_API_KEY = "";
+  }
   if (!hasExplicitApiKey && authToken) {
     env.PAPERCLIP_API_KEY = authToken;
   }
@@ -270,7 +279,11 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
   }
   const commandNotes = (() => {
     const notes: string[] = ["Prompt is passed to Gemini via --prompt for non-interactive execution."];
-    notes.push("Added --approval-mode yolo for unattended execution.");
+    if (approvalMode !== "default") {
+      notes.push(`Added --approval-mode ${approvalMode} for Gemini execution.`);
+    } else {
+      notes.push("Using Gemini default approval behavior.");
+    }
     if (!instructionsFilePath) return notes;
     if (instructionsPrefix.length > 0) {
       notes.push(
@@ -324,7 +337,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     const args = ["--output-format", "stream-json"];
     if (resumeSessionId) args.push("--resume", resumeSessionId);
     if (model && model !== DEFAULT_GEMINI_LOCAL_MODEL) args.push("--model", model);
-    args.push("--approval-mode", "yolo");
+    if (approvalMode !== "default") args.push("--approval-mode", approvalMode);
     if (sandbox) {
       args.push("--sandbox");
     } else {
