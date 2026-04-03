@@ -1,21 +1,43 @@
 import type { UIAdapterModule } from "../types";
+import type { CreateConfigValues } from "@paperclipai/adapter-utils";
 import { DashScopeLocalConfigFields } from "./config-fields";
+
+function parseDashScopeStdoutLine(line: string, ts: string) {
+  return [{ kind: "stdout" as const, ts, text: line }];
+}
+
+function buildDashScopeLocalConfig(values: CreateConfigValues) {
+  const result: Record<string, unknown> = {
+    model: values.model || "qwen3.5-plus",
+  };
+  
+  // Add optional fields if present
+  if (values.extraArgs !== undefined) {
+    result.extraArgs = values.extraArgs;
+  }
+  if (values.env !== undefined) {
+    result.env = values.env;
+  }
+  if (values.instructionsFilePath !== undefined) {
+    result.instructionsFilePath = values.instructionsFilePath;
+  }
+  if (values.cwd !== undefined) {
+    result.cwd = values.cwd;
+  }
+  if (values.timeoutSec !== undefined) {
+    result.timeoutSec = values.timeoutSec;
+  }
+  if (values.graceSec !== undefined) {
+    result.graceSec = values.graceSec;
+  }
+  
+  return result;
+}
 
 export const dashscopeLocalUIAdapter: UIAdapterModule = {
   type: "dashscope_local",
   label: "阿里云百炼 (DashScope)",
-  parseStdoutLine: (line: string, ts: string) => {
-    return [{ type: "stdout", ts, text: line }];
-  },
+  parseStdoutLine: parseDashScopeStdoutLine,
   ConfigFields: DashScopeLocalConfigFields,
-  buildAdapterConfig: (values) => {
-    return {
-      model: values.model || "qwen3.5-plus",
-      temperature: values.temperature ?? 0.7,
-      topP: values.topP ?? 0.8,
-      maxTokens: values.maxTokens ?? 0,
-      timeoutSec: values.timeoutSec ?? 120,
-      env: values.env || {},
-    };
-  },
+  buildAdapterConfig: buildDashScopeLocalConfig,
 };
