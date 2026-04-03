@@ -173,6 +173,29 @@ describe("codebuddy resume recovery detection", () => {
   });
 });
 
+describe("codebuddy resume recovery detection", () => {
+  it("detects unknown session errors from codebuddy output", () => {
+    expect(
+      isCodeBuddyUnknownSessionError(
+        "{\"type\":\"error\",\"message\":\"No conversation found with session ID: stale-session\"}",
+        "",
+      ),
+    ).toBe(true);
+    expect(
+      isCodeBuddyUnknownSessionError(
+        "",
+        "resume session not found",
+      ),
+    ).toBe(true);
+    expect(
+      isCodeBuddyUnknownSessionError(
+        "{\"type\":\"result\",\"subtype\":\"success\",\"result\":\"ok\"}",
+        "",
+      ),
+    ).toBe(false);
+  });
+});
+
 describe("codex resume recovery detection", () => {
   it("detects unknown session errors from codex output", () => {
     expect(

@@ -4,6 +4,7 @@ export default defineConfig({
   test: {
     projects: [
       "packages/db",
+      "packages/desktop-electron",
       "packages/adapters/codex-local",
       "packages/adapters/opencode-local",
       "server",

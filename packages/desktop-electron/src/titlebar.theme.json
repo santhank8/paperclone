@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "fontFamily": "Segoe UI, Microsoft YaHei UI, Arial, sans-serif",
+  "fontSize": 13,
+  "colors": {
+    "titlebar": "#f6f8fc",
+    "titlebarForeground": "#0f172a",
+    "menuBar": "#f8fbff",
+    "menuItemSelection": "#dbeafe",
+    "menuSeparator": "#cbd5e1",
+    "svg": "#475569"
+  }
+}

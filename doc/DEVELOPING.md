@@ -51,6 +51,33 @@ pnpm dev:list
 pnpm dev:stop
 ```
 
+## Electron Desktop (Windows-first)
+
+The repository also ships a Windows-first Electron wrapper for local desktop packaging.
+
+Desktop commands from repo root:
+
+```sh
+pnpm desktop:dev
+pnpm desktop:dist:win
+pnpm smoke:desktop --mode dev
+pnpm smoke:desktop --mode packaged
+```
+
+What they do:
+
+- `pnpm desktop:dev` builds the Electron shell and launches a desktop window against the local Paperclip server entrypoint with `PAPERCLIP_UI_DEV_MIDDLEWARE=true`
+- `pnpm desktop:dist:win` stages the packaged runtime, builds the Electron bundle, and creates the Windows installer plus `win-unpacked/`
+- `pnpm smoke:desktop --mode dev` launches the dev Electron shell, captures a startup splash screenshot, waits for `/api/health`, then captures the loaded board
+- `pnpm smoke:desktop --mode packaged` launches the unpacked Windows desktop build from `packages/desktop-electron/release/win-unpacked/` and performs the same splash + board checks
+
+Current scope and notes:
+
+- this pass only supports Windows packaging
+- `pnpm` stays on the repo-standard `9.15.4`
+- the desktop shell uses `custom-electron-titlebar` with native Windows controls exposed via `titleBarOverlay`
+- startup splash screenshots are written to `packages/desktop-electron/.artifacts/smoke/<mode>/`
+
 `pnpm dev:once` now tracks backend-relevant file changes and pending migrations. When the current boot is stale, the board UI shows a `Restart required` banner. You can also enable guarded auto-restart in `Instance Settings > Experimental`, which waits for queued/running local agent runs to finish before restarting the dev server.
 
 Tailscale/private-auth dev mode:

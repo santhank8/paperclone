@@ -1,0 +1,28 @@
+appId: ai.penclip.desktop
+productName: Paperclip CN
+artifactName: "Paperclip-CN-${version}-${arch}.${ext}"
+asar: false
+compression: store
+publish: null
+
+directories:
+  app: .stage/app
+  output: release
+  buildResources: assets
+
+files:
+  - "package.json"
+  - "dist/**/*"
+
+win:
+  icon: assets/icon.png
+  target:
+    - target: nsis
+      arch:
+        - x64
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  deleteAppDataOnUninstall: false
