@@ -47,6 +47,23 @@ import { shouldWakeAssigneeOnCheckout } from "./issues-checkout-wakeup.js";
 import { isAllowedContentType, MAX_ATTACHMENT_BYTES } from "../attachment-types.js";
 import { queueIssueAssignmentWakeup } from "../services/issue-assignment-wakeup.js";
 
+/**
+ * Multer decodes the filename from the Content-Disposition header using
+ * Latin-1 (per RFC 7578). When the browser sends a UTF-8 filename, each
+ * UTF-8 byte is misinterpreted as a Latin-1 code point, producing a
+ * double-encoded string. This helper re-encodes the Latin-1 string back
+ * to bytes and decodes them as UTF-8 to recover the original filename.
+ */
+function fixMulterFilename(name: string): string {
+  try {
+    const bytes = Buffer.from(name, "latin1");
+    const decoded = bytes.toString("utf8");
+    return decoded.includes("\uFFFD") ? name : decoded;
+  } catch {
+    return name;
+  }
+}
+
 const MAX_ISSUE_COMMENT_LIMIT = 500;
 const updateIssueRouteSchema = updateIssueSchema.extend({
   interrupt: z.boolean().optional(),
@@ -1935,7 +1952,7 @@ export function issueRoutes(db: Db, storage: StorageService) {
     const stored = await storage.putFile({
       companyId,
       namespace: `issues/${issueId}`,
-      originalFilename: file.originalname || null,
+      originalFilename: file.originalname ? fixMulterFilename(file.originalname) : null,
       contentType,
       body: file.buffer,
     });
