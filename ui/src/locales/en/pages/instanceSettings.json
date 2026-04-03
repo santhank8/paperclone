@@ -18,5 +18,11 @@
   "alwaysAllowDescription": "Share voted AI outputs automatically.",
   "dontAllow": "Don't allow",
   "dontAllowDescription": "Keep voted AI outputs local only.",
-  "devHint": "To retest the first-use prompt in local dev, remove the feedbackDataSharingPreference key from the instance_settings.general JSON row for this instance, or set it back to \"prompt\". Unset and \"prompt\" both mean no default has been chosen yet."
+  "devHint": "To retest the first-use prompt in local dev, remove the feedbackDataSharingPreference key from the instance_settings.general JSON row for this instance, or set it back to \"prompt\". Unset and \"prompt\" both mean no default has been chosen yet.",
+  "language": {
+    "label": "Language",
+    "description": "Choose the display language for the interface",
+    "en": "English",
+    "fr": "French"
+  }
 }

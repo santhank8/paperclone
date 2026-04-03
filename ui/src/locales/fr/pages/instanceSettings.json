@@ -18,5 +18,11 @@
   "alwaysAllowDescription": "Partager automatiquement les sorties IA votees.",
   "dontAllow": "Ne pas autoriser",
   "dontAllowDescription": "Conserver les sorties IA votees uniquement en local.",
-  "devHint": "Pour retester l'invite de premiere utilisation en dev local, supprimez la cle feedbackDataSharingPreference de la ligne JSON instance_settings.general pour cette instance, ou redefinissez-la a \"prompt\". Non defini et \"prompt\" signifient tous les deux qu'aucun choix par defaut n'a encore ete fait."
+  "devHint": "Pour retester l'invite de premiere utilisation en dev local, supprimez la cle feedbackDataSharingPreference de la ligne JSON instance_settings.general pour cette instance, ou redefinissez-la a \"prompt\". Non defini et \"prompt\" signifient tous les deux qu'aucun choix par defaut n'a encore ete fait.",
+  "language": {
+    "label": "Langue",
+    "description": "Choisissez la langue d'affichage de l'interface",
+    "en": "Anglais",
+    "fr": "Français"
+  }
 }

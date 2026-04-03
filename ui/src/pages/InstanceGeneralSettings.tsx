@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { PatchInstanceGeneralSettings } from "@paperclipai/shared";
 import { SlidersHorizontal } from "lucide-react";
 import { instanceSettingsApi } from "@/api/instanceSettings";
+import i18n from "@/lib/i18n";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
 import { queryKeys } from "../lib/queryKeys";
 import { cn } from "../lib/utils";
@@ -74,6 +75,26 @@ export function InstanceGeneralSettings() {
           {actionError}
         </div>
       )}
+
+      <section className="rounded-xl border border-border bg-card p-5">
+        <div className="flex items-start justify-between gap-4">
+          <div className="space-y-1.5">
+            <h2 className="text-sm font-semibold">{t("language.label")}</h2>
+            <p className="max-w-2xl text-sm text-muted-foreground">
+              {t("language.description")}
+            </p>
+          </div>
+          <select
+            aria-label={t("language.label")}
+            value={i18n.language?.startsWith("fr") ? "fr" : "en"}
+            onChange={(e) => i18n.changeLanguage(e.target.value)}
+            className="rounded-md border border-border bg-background px-3 py-1.5 text-sm text-foreground"
+          >
+            <option value="en">{t("language.en")}</option>
+            <option value="fr">{t("language.fr")}</option>
+          </select>
+        </div>
+      </section>
 
       <section className="rounded-xl border border-border bg-card p-5">
         <div className="flex items-start justify-between gap-4">
