@@ -14,6 +14,7 @@ import {
 } from "@paperclipai/blog-pipeline-policy";
 import type { Db } from "@paperclipai/db";
 import { conflict, notFound } from "../errors.js";
+import { resolveDefaultBlogRunsDir } from "../home-paths.js";
 import { blogPublisherService } from "./blog-publisher.js";
 import { blogRunService } from "./blog-runs.js";
 
@@ -60,9 +61,7 @@ export function blogRunWorkerService(db: Db, deps: WorkerDeps = {}) {
     const stepKey = requireString(attempt.stepKey, "blog_run_step_missing");
     const attemptId = requireString(attempt.id, "blog_run_attempt_missing");
     const lane = String(run.lane ?? "publish");
-    const runDir = deps.artifactRoot
-      ? `${deps.artifactRoot.replace(/\/+$/, "")}/${runId}`
-      : `/tmp/paperclip-blog-runs/${runId}`;
+    const runDir = `${(deps.artifactRoot ?? resolveDefaultBlogRunsDir()).replace(/\/+$/, "")}/${runId}`;
 
     const input: BlogPipelineStepInput = {
       runDir,

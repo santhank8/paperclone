@@ -50,6 +50,10 @@ export function resolveDefaultStorageDir(): string {
   return path.resolve(resolvePaperclipInstanceRoot(), "data", "storage");
 }
 
+export function resolveDefaultBlogRunsDir(): string {
+  return path.resolve(resolvePaperclipInstanceRoot(), "data", "blog-runs");
+}
+
 export function resolveDefaultBackupDir(): string {
   return path.resolve(resolvePaperclipInstanceRoot(), "data", "backups");
 }

@@ -7,6 +7,7 @@ import {
   blogRuns,
 } from "@paperclipai/db";
 import { conflict, notFound } from "../errors.js";
+import { blogArtifactMirrorService } from "./blog-artifact-mirror.js";
 
 const STEP_SEQUENCE = [
   "research",
@@ -150,7 +151,14 @@ function nextStateAfterStep(stepKey: string) {
   }
 }
 
-export function blogRunService(db: Db) {
+export function blogRunService(
+  db: Db,
+  deps?: {
+    artifactMirror?: ReturnType<typeof blogArtifactMirrorService>;
+  },
+) {
+  const artifactMirror = deps?.artifactMirror ?? blogArtifactMirrorService();
+
   async function getRunById(id: string) {
     return db.select().from(blogRuns).where(eq(blogRuns.id, id)).then((rows) => rows[0] ?? null);
   }
@@ -186,6 +194,25 @@ export function blogRunService(db: Db) {
         })
         .returning()
         .then((rows) => rows[0] ?? null);
+      if (created) {
+        await artifactMirror.writeContext({
+          id: created.id,
+          topic: created.topic,
+          lane: created.lane,
+          targetSite: created.targetSite,
+          publishMode: created.publishMode,
+          wordpressPostId: created.wordpressPostId,
+          createdAt: created.createdAt,
+          contextJson: created.contextJson,
+        });
+        await artifactMirror.writeStatus(created.id, {
+          phase: created.currentStep,
+          state: "running",
+          lastCompletedStep: null,
+          nextStep: created.currentStep,
+          error: null,
+        });
+      }
       return created;
     },
 
@@ -310,6 +337,15 @@ export function blogRunService(db: Db) {
       }
 
       await db.update(blogRuns).set(updatePayload).where(eq(blogRuns.id, runId));
+      await artifactMirror.writeStepResult(runId, stepKey, resultJson);
+      await artifactMirror.writeStepArtifacts(runId, stepKey, input.artifacts ?? []);
+      await artifactMirror.writeStatus(runId, {
+        phase: next.nextStep ?? stepKey,
+        state: next.status === "public_verified" ? "completed" : "running",
+        lastCompletedStep: stepKey,
+        nextStep: next.nextStep,
+        error: null,
+      });
       return this.getDetail(runId);
     },
 
@@ -338,6 +374,14 @@ export function blogRunService(db: Db) {
           updatedAt: new Date(),
         })
         .where(eq(blogRuns.id, runId));
+
+      await artifactMirror.writeStatus(runId, {
+        phase: stepKey,
+        state: "failed",
+        lastCompletedStep: null,
+        nextStep: stepKey,
+        error: input.errorMessage ?? input.errorCode ?? stepKey,
+      });
 
       return this.getDetail(runId);
     },
@@ -374,6 +418,14 @@ export function blogRunService(db: Db) {
           updatedAt: new Date(),
         })
         .where(eq(blogRuns.id, runId));
+
+      await artifactMirror.writeStatus(runId, {
+        phase: "publish",
+        state: "running",
+        lastCompletedStep: "validate",
+        nextStep: "publish",
+        error: null,
+      });
 
       return {
         run: await getRunById(runId),

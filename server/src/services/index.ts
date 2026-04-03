@@ -24,6 +24,7 @@ export {
 } from "./blog-publisher.js";
 export { blogRunService } from "./blog-runs.js";
 export { blogRunWorkerService } from "./blog-run-worker.js";
+export { blogArtifactMirrorService } from "./blog-artifact-mirror.js";
 export { dashboardService } from "./dashboard.js";
 export { sidebarBadgeService } from "./sidebar-badges.js";
 export { accessService } from "./access.js";
