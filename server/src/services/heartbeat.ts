@@ -57,8 +57,10 @@ import { redactCurrentUserText, redactCurrentUserValue } from "../log-redaction.
 import {
   hasSessionCompactionThresholds,
   resolveSessionCompactionPolicy,
+  type AdapterFallbackEntry,
   type SessionCompactionPolicy,
 } from "@paperclipai/adapter-utils";
+import { categorizeAdapterError } from "./adapter-failure-taxonomy.js";
 
 const MAX_LIVE_LOG_CHUNK_BYTES = 8 * 1024;
 const HEARTBEAT_MAX_CONCURRENT_RUNS_DEFAULT = 1;
@@ -2654,7 +2656,7 @@ export function heartbeatService(db: Db) {
           "local agent jwt secret missing or invalid; running without injected PAPERCLIP_API_KEY",
         );
       }
-      const adapterResult = await adapter.execute({
+      let adapterResult = await adapter.execute({
         runId: run.id,
         agent,
         runtime: runtimeForAdapter,
@@ -2667,6 +2669,73 @@ export function heartbeatService(db: Db) {
         },
         authToken: authToken ?? undefined,
       });
+
+      // ---------------------------------------------------------------------------
+      // Adapter fallback chain
+      // ---------------------------------------------------------------------------
+      const primaryFailed =
+        adapterResult.timedOut ||
+        ((adapterResult.exitCode ?? 0) !== 0 && adapterResult.exitCode !== null) ||
+        !!adapterResult.errorMessage;
+      if (primaryFailed) {
+        const rawFallbackChain = (parseObject(agent.adapterConfig) as Record<string, unknown>).adapterFallbackChain;
+        const fallbackChain: AdapterFallbackEntry[] = Array.isArray(rawFallbackChain) ? rawFallbackChain as AdapterFallbackEntry[] : [];
+        if (fallbackChain.length > 0) {
+          const failureCategory = categorizeAdapterError(adapterResult.errorCode);
+          for (const entry of fallbackChain) {
+            if (entry.triggerOn && !entry.triggerOn.includes(failureCategory)) continue;
+            const maxAttempts = entry.maxAttempts ?? 1;
+            let fallbackSucceeded = false;
+            for (let attempt = 0; attempt < maxAttempts; attempt++) {
+              try {
+                const fallbackAdapter = getServerAdapter(entry.adapterType);
+                const fallbackAuthToken = fallbackAdapter.supportsLocalAgentJwt
+                  ? createLocalAgentJwt(agent.id, agent.companyId, entry.adapterType, run.id)
+                  : null;
+                const fallbackConfig = entry.adapterConfig
+                  ? { ...runtimeConfig, ...entry.adapterConfig }
+                  : runtimeConfig;
+                // Fallback does NOT inherit session state from the primary adapter
+                const fallbackRuntime = {
+                  ...runtimeForAdapter,
+                  sessionId: null,
+                  sessionParams: null,
+                  sessionDisplayId: null,
+                };
+                const fallbackResult = await fallbackAdapter.execute({
+                  runId: run.id,
+                  agent: { ...agent, adapterType: entry.adapterType, adapterConfig: entry.adapterConfig ?? agent.adapterConfig },
+                  runtime: fallbackRuntime,
+                  config: fallbackConfig,
+                  context,
+                  onLog,
+                  onMeta: onAdapterMeta,
+                  onSpawn: async (meta) => {
+                    await persistRunProcessMetadata(run.id, meta);
+                  },
+                  authToken: fallbackAuthToken ?? undefined,
+                });
+                const fallbackOk =
+                  !fallbackResult.timedOut &&
+                  (fallbackResult.exitCode ?? 0) === 0 &&
+                  !fallbackResult.errorMessage;
+                if (fallbackOk) {
+                  adapterResult = fallbackResult;
+                  fallbackSucceeded = true;
+                  break;
+                }
+              } catch (fallbackErr) {
+                await onLog(
+                  "stderr",
+                  `[paperclip] Fallback adapter "${entry.adapterType}" attempt ${attempt + 1} threw: ${fallbackErr instanceof Error ? fallbackErr.message : String(fallbackErr)}\n`,
+                );
+              }
+            }
+            if (fallbackSucceeded) break;
+          }
+        }
+      }
+
       const adapterManagedRuntimeServices = adapterResult.runtimeServices
         ? await persistAdapterManagedRuntimeServices({
             db,
