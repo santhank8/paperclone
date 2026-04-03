@@ -90,6 +90,7 @@ export function Layout() {
     },
     refetchIntervalInBackground: true,
   });
+  const desktopTopInsetClass = "pt-[calc(env(safe-area-inset-top)+var(--desktop-titlebar-height,0px))]";
 
   useEffect(() => {
     if (companiesLoading || onboardingTriggered.current) return;
@@ -266,13 +267,14 @@ export function Layout() {
   return (
     <div
       className={cn(
-        "bg-background text-foreground pt-[env(safe-area-inset-top)]",
+        "bg-background text-foreground",
+        desktopTopInsetClass,
         isMobile ? "min-h-dvh" : "flex h-dvh flex-col overflow-hidden",
       )}
     >
       <a
         href="#main-content"
-        className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-[200] focus:rounded-md focus:bg-background focus:px-3 focus:py-2 focus:text-sm focus:font-medium focus:shadow-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-[calc(var(--desktop-titlebar-height,0px)+0.75rem)] focus:z-[200] focus:rounded-md focus:bg-background focus:px-3 focus:py-2 focus:text-sm focus:font-medium focus:shadow-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         {t("layout.skipToMainContent")}
       </a>
@@ -291,7 +293,8 @@ export function Layout() {
         {isMobile ? (
           <div
             className={cn(
-              "fixed inset-y-0 left-0 z-50 flex flex-col overflow-hidden pt-[env(safe-area-inset-top)] transition-transform duration-100 ease-out",
+              "fixed inset-y-0 left-0 z-50 flex flex-col overflow-hidden transition-transform duration-100 ease-out",
+              desktopTopInsetClass,
               sidebarOpen ? "translate-x-0" : "-translate-x-full"
             )}
           >

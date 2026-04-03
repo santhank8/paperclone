@@ -36,6 +36,21 @@ describe("paperclip skill utils", () => {
     expect(entries[0]?.source).toBe(path.join(root, "skills", "paperclip"));
   });
 
+  it("lists runtime skills from a packaged app-runtime skills directory", async () => {
+    const root = await makeTempDir("paperclip-packaged-skill-roots-");
+    cleanupDirs.add(root);
+
+    const moduleDir = path.join(root, "app-runtime", "node_modules", "@penclipai", "adapter-codex-local", "dist", "server");
+    await fs.mkdir(moduleDir, { recursive: true });
+    await fs.mkdir(path.join(root, "app-runtime", "skills", "paperclip"), { recursive: true });
+
+    const entries = await listPaperclipSkillEntries(moduleDir);
+
+    expect(entries.map((entry) => entry.key)).toEqual(["penclipai/paperclip-cn/paperclip"]);
+    expect(entries.map((entry) => entry.runtimeName)).toEqual(["paperclip"]);
+    expect(entries[0]?.source).toBe(path.join(root, "app-runtime", "skills", "paperclip"));
+  });
+
   it("removes stale maintainer-only symlinks from a shared skills home", async () => {
     const root = await makeTempDir("paperclip-skill-cleanup-");
     cleanupDirs.add(root);

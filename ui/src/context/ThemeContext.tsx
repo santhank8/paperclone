@@ -51,6 +51,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     applyTheme(theme);
+    void window.desktopShell?.setTheme?.(theme);
     try {
       localStorage.setItem(THEME_STORAGE_KEY, theme);
     } catch {

@@ -1,0 +1,36 @@
+{
+  "name": "@penclipai/desktop-electron",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Windows-first Electron wrapper for the Paperclip control plane",
+  "author": "Paperclip AI",
+  "homepage": "https://github.com/penclipai/paperclip",
+  "type": "module",
+  "main": "dist/main.js",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "build": "node scripts/build.mjs --profile dev",
+    "build:release": "node scripts/build.mjs --profile release",
+    "typecheck": "tsc --noEmit",
+    "prepare:stage": "node scripts/prepare-stage.mjs",
+    "pack": "node scripts/dist.mjs --dir-only",
+    "dist": "node scripts/dist.mjs",
+    "dist:win": "node scripts/dist.mjs"
+  },
+  "dependencies": {
+    "@penclipai/server": "workspace:*",
+    "custom-electron-titlebar": "^4.4.1"
+  },
+  "devDependencies": {
+    "@types/node": "^24.6.0",
+    "electron": "41.1.1",
+    "electron-builder": "^26.8.1",
+    "esbuild": "^0.27.3",
+    "playwright": "^1.58.2",
+    "tsx": "^4.21.0",
+    "typescript": "^5.7.3"
+  }
+}
