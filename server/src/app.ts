@@ -264,6 +264,7 @@ export async function createApp(
   });
   app.use(pluginUiStaticRoutes(db, {
     localPluginDir: opts.localPluginDir ?? DEFAULT_LOCAL_PLUGIN_DIR,
+    allowedHostnames: opts.allowedHostnames,
   }));
 
   const __dirname = path.dirname(fileURLToPath(import.meta.url));
