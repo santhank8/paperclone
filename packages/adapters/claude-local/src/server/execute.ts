@@ -28,6 +28,7 @@ import {
   detectClaudeLoginRequired,
   isClaudeMaxTurnsResult,
   isClaudeUnknownSessionError,
+  isClaudeRateLimitError,
 } from "./parse.js";
 import { resolveClaudeDesiredSkillNames } from "./skills.js";
 
@@ -578,14 +579,26 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     };
   };
 
+  const maxRateLimitRetries = asNumber(config.maxRateLimitRetries, 3);
+  const rateLimitRetryDelaySec = asNumber(config.rateLimitRetryDelaySec, 10);
+
+  const checkRateLimit = (attempt: { proc: RunProcessResult; parsedStream: ReturnType<typeof parseClaudeStreamJson>; parsed: Record<string, unknown> | null }) =>
+    !attempt.proc.timedOut &&
+    isClaudeRateLimitError({
+      parsed: attempt.parsed,
+      summary: attempt.parsedStream.summary ?? "",
+      stdout: attempt.proc.stdout,
+    });
+
   try {
-    const initial = await runAttempt(sessionId ?? null);
+    let current = await runAttempt(sessionId ?? null);
+
     if (
       sessionId &&
-      !initial.proc.timedOut &&
-      (initial.proc.exitCode ?? 0) !== 0 &&
-      initial.parsed &&
-      isClaudeUnknownSessionError(initial.parsed)
+      !current.proc.timedOut &&
+      (current.proc.exitCode ?? 0) !== 0 &&
+      current.parsed &&
+      isClaudeUnknownSessionError(current.parsed)
     ) {
       await onLog(
         "stdout",
@@ -595,7 +608,18 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
       return toAdapterResult(retry, { fallbackSessionId: null, clearSessionOnMissingSession: true });
     }
 
-    return toAdapterResult(initial, { fallbackSessionId: runtimeSessionId || runtime.sessionId });
+    for (let attempt = 1; attempt <= maxRateLimitRetries; attempt++) {
+      if (!checkRateLimit(current)) break;
+      const delaySec = rateLimitRetryDelaySec * attempt;
+      await onLog(
+        "stdout",
+        `[paperclip] Rate limit detected; waiting ${delaySec}s before retry ${attempt}/${maxRateLimitRetries}.\n`,
+      );
+      await new Promise((resolve) => setTimeout(resolve, delaySec * 1000));
+      current = await runAttempt(sessionId ?? null);
+    }
+
+    return toAdapterResult(current, { fallbackSessionId: runtimeSessionId || runtime.sessionId });
   } finally {
     fs.rm(skillsDir, { recursive: true, force: true }).catch(() => {});
   }
