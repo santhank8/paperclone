@@ -215,6 +215,51 @@ describe("heartbeat orphaned process recovery", () => {
     return { companyId, agentId, runId, wakeupRequestId, issueId };
   }
 
+  async function queueIssueFollowupRun(input: {
+    companyId: string;
+    agentId: string;
+    issueId: string;
+    commentId?: string;
+  }) {
+    const wakeupRequestId = randomUUID();
+    const runId = randomUUID();
+
+    await db.insert(agentWakeupRequests).values({
+      id: wakeupRequestId,
+      companyId: input.companyId,
+      agentId: input.agentId,
+      source: "on_demand",
+      triggerDetail: "callback",
+      reason: "issue_execution_promoted",
+      payload: {
+        issueId: input.issueId,
+        ...(input.commentId ? { commentId: input.commentId } : {}),
+      },
+      status: "queued",
+      runId,
+    });
+
+    await db.insert(heartbeatRuns).values({
+      id: runId,
+      companyId: input.companyId,
+      agentId: input.agentId,
+      invocationSource: "on_demand",
+      triggerDetail: "callback",
+      status: "queued",
+      wakeupRequestId,
+      contextSnapshot: {
+        issueId: input.issueId,
+        taskId: input.issueId,
+        taskKey: input.issueId,
+        ...(input.commentId
+          ? { commentId: input.commentId, wakeCommentId: input.commentId }
+          : {}),
+      },
+    });
+
+    return { runId, wakeupRequestId };
+  }
+
   it("keeps a local run active when the recorded pid is still alive", async () => {
     const child = spawnAliveProcess();
     childProcesses.add(child);
@@ -317,5 +362,146 @@ describe("heartbeat orphaned process recovery", () => {
     const run = await heartbeat.getRun(runId);
     expect(run?.errorCode).toBeNull();
     expect(run?.error).toBeNull();
+  });
+
+  it("coalesces recovery comment wakes into an existing queued successor run", async () => {
+    const { companyId, agentId, runId, issueId } = await seedRunFixture();
+    await db
+      .update(agents)
+      .set({ status: "idle", updatedAt: new Date("2026-03-19T00:01:00.000Z") })
+      .where(eq(agents.id, agentId));
+
+    const queuedSuccessor = await queueIssueFollowupRun({
+      companyId,
+      agentId,
+      issueId,
+      commentId: "comment-existing",
+    });
+
+    const heartbeat = heartbeatService(db);
+    const result = await heartbeat.wakeup(agentId, {
+      source: "on_demand",
+      triggerDetail: "callback",
+      reason: "issue_commented",
+      payload: {
+        issueId,
+        commentId: "comment-recovery",
+      },
+      requestedByActorType: "user",
+      requestedByActorId: "operator-1",
+      contextSnapshot: {
+        forceFreshSession: true,
+        interruptedRunId: runId,
+      },
+    });
+
+    expect(result?.id).toBe(queuedSuccessor.runId);
+
+    const runs = await db
+      .select()
+      .from(heartbeatRuns)
+      .where(eq(heartbeatRuns.agentId, agentId));
+    expect(runs).toHaveLength(2);
+
+    const successorRun = runs.find((candidate) => candidate.id === queuedSuccessor.runId);
+    expect(successorRun?.status).toBe("queued");
+    expect(successorRun?.contextSnapshot).toMatchObject({
+      issueId,
+      taskId: issueId,
+      taskKey: issueId,
+      commentId: "comment-recovery",
+      wakeCommentId: "comment-recovery",
+      forceFreshSession: true,
+      interruptedRunId: runId,
+    });
+
+    const wakeups = await db
+      .select()
+      .from(agentWakeupRequests)
+      .where(eq(agentWakeupRequests.agentId, agentId));
+    expect(wakeups).toHaveLength(3);
+    expect(
+      wakeups.filter((wake) => wake.status === "deferred_issue_execution"),
+    ).toHaveLength(0);
+    expect(
+      wakeups.filter((wake) => wake.status === "coalesced" && wake.runId === queuedSuccessor.runId),
+    ).toHaveLength(1);
+  });
+
+  it("drops queued and deferred follow-up work when the issue becomes terminal", async () => {
+    const { companyId, agentId, runId, issueId } = await seedRunFixture();
+    await db
+      .update(agents)
+      .set({ status: "idle", updatedAt: new Date("2026-03-19T00:01:00.000Z") })
+      .where(eq(agents.id, agentId));
+
+    const queuedSuccessor = await queueIssueFollowupRun({
+      companyId,
+      agentId,
+      issueId,
+      commentId: "comment-followup",
+    });
+    const deferredWakeupRequestId = randomUUID();
+    await db.insert(agentWakeupRequests).values({
+      id: deferredWakeupRequestId,
+      companyId,
+      agentId,
+      source: "on_demand",
+      triggerDetail: "callback",
+      reason: "issue_execution_deferred",
+      payload: {
+        issueId,
+        _paperclipWakeContext: {
+          issueId,
+          taskId: issueId,
+          taskKey: issueId,
+          commentId: "comment-deferred",
+          wakeCommentId: "comment-deferred",
+        },
+      },
+      status: "deferred_issue_execution",
+    });
+
+    await db
+      .update(issues)
+      .set({ status: "done", updatedAt: new Date("2026-03-19T00:02:00.000Z") })
+      .where(eq(issues.id, issueId));
+
+    const heartbeat = heartbeatService(db);
+    await heartbeat.cancelRun(runId);
+
+    const issue = await db
+      .select()
+      .from(issues)
+      .where(eq(issues.id, issueId))
+      .then((rows) => rows[0] ?? null);
+    expect(issue?.status).toBe("done");
+    expect(issue?.executionRunId).toBeNull();
+
+    const runs = await db
+      .select()
+      .from(heartbeatRuns)
+      .where(eq(heartbeatRuns.agentId, agentId));
+    const cancelledFollowup = runs.find((candidate) => candidate.id === queuedSuccessor.runId);
+    expect(cancelledFollowup?.status).toBe("cancelled");
+    expect(cancelledFollowup?.errorCode).toBe("issue_terminal");
+
+    const wakeups = await db
+      .select()
+      .from(agentWakeupRequests)
+      .where(eq(agentWakeupRequests.agentId, agentId));
+    const queuedWake = wakeups.find((wake) => wake.id === queuedSuccessor.wakeupRequestId);
+    const deferredWake = wakeups.find((wake) => wake.id === deferredWakeupRequestId);
+    expect(queuedWake?.status).toBe("cancelled");
+    expect(deferredWake?.status).toBe("cancelled");
+
+    expect(
+      wakeups.filter((wake) =>
+        wake.status === "queued" || wake.status === "deferred_issue_execution",
+      ),
+    ).toHaveLength(0);
+    expect(
+      runs.filter((candidate) => candidate.status === "queued" || candidate.status === "running"),
+    ).toHaveLength(0);
   });
 });
