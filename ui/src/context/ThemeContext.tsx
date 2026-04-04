@@ -13,6 +13,7 @@ type ResolvedTheme = "light" | "dark";
 
 interface ThemeContextValue {
   theme: Theme;
+  nextTheme: Theme;
   resolvedTheme: ResolvedTheme;
   setTheme: (theme: Theme) => void;
   toggleTheme: () => void;
@@ -28,11 +29,6 @@ function getSystemTheme(): ResolvedTheme {
   return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 }
 
-function resolveTheme(theme: Theme): ResolvedTheme {
-  if (theme === "system") return getSystemTheme();
-  return theme;
-}
-
 function resolveThemeFromStorage(): Theme {
   try {
     const stored = localStorage.getItem(THEME_STORAGE_KEY);
@@ -40,8 +36,7 @@ function resolveThemeFromStorage(): Theme {
   } catch {
     // Ignore local storage read failures.
   }
-  if (typeof document === "undefined") return "system";
-  return document.documentElement.classList.contains("dark") ? "dark" : "light";
+  return "system";
 }
 
 function applyResolvedTheme(resolved: ResolvedTheme) {
@@ -63,6 +58,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const [systemTheme, setSystemTheme] = useState<ResolvedTheme>(() => getSystemTheme());
 
   const resolvedTheme: ResolvedTheme = theme === "system" ? systemTheme : theme;
+  const nextTheme: Theme = CYCLE[(CYCLE.indexOf(theme) + 1) % CYCLE.length];
 
   const setTheme = useCallback((nextTheme: Theme) => {
     setThemeState(nextTheme);
@@ -97,11 +93,12 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const value = useMemo(
     () => ({
       theme,
+      nextTheme,
       resolvedTheme,
       setTheme,
       toggleTheme,
     }),
-    [theme, resolvedTheme, setTheme, toggleTheme],
+    [theme, nextTheme, resolvedTheme, setTheme, toggleTheme],
   );
 
   return (

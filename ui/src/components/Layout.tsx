@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { BookOpen, Monitor, Moon, Settings, Sun } from "lucide-react";
 import { Link, Outlet, useLocation, useNavigate, useParams } from "@/lib/router";
@@ -39,22 +39,9 @@ import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip
 
 const INSTANCE_SETTINGS_MEMORY_KEY = "paperclip.lastInstanceSettingsPath";
 
-const THEME_CYCLE = ["light", "dark", "system"] as const;
-type ThemeLabel = typeof THEME_CYCLE[number];
-
-const THEME_ICON_COMPONENT: Record<ThemeLabel, React.ElementType> = {
-  light: Sun,
-  dark: Moon,
-  system: Monitor,
-};
-
-function getNextThemeLabel(current: ThemeLabel): ThemeLabel {
-  const idx = THEME_CYCLE.indexOf(current);
-  return THEME_CYCLE[(idx + 1) % THEME_CYCLE.length];
-}
-
-function getThemeIcon(current: ThemeLabel) {
-  const Icon = THEME_ICON_COMPONENT[current];
+const THEME_ICON = { light: Sun, dark: Moon, system: Monitor } as const;
+function ThemeIcon({ theme }: { theme: keyof typeof THEME_ICON }) {
+  const Icon = THEME_ICON[theme];
   return <Icon className="h-4 w-4" />;
 }
 
@@ -79,7 +66,7 @@ export function Layout() {
     selectionSource,
     setSelectedCompanyId,
   } = useCompany();
-  const { theme, toggleTheme } = useTheme();
+  const { theme, nextTheme, toggleTheme } = useTheme();
   const { companyPrefix } = useParams<{ companyPrefix: string }>();
   const navigate = useNavigate();
   const location = useLocation();
@@ -88,7 +75,6 @@ export function Layout() {
   const lastMainScrollTop = useRef(0);
   const [mobileNavVisible, setMobileNavVisible] = useState(true);
   const [instanceSettingsTarget, setInstanceSettingsTarget] = useState<string>(() => readRememberedInstanceSettingsPath());
-  const nextTheme = getNextThemeLabel(theme as ThemeLabel);
   const matchedCompany = useMemo(() => {
     if (!companyPrefix) return null;
     const requestedPrefix = companyPrefix.toUpperCase();
@@ -361,7 +347,7 @@ export function Layout() {
                   aria-label={`Switch to ${nextTheme} mode`}
                   title={`Switch to ${nextTheme} mode`}
                 >
-                  {getThemeIcon(theme as ThemeLabel)}
+                  {<ThemeIcon theme={theme} />}
                 </Button>
               </div>
             </div>
@@ -419,7 +405,7 @@ export function Layout() {
                   aria-label={`Switch to ${nextTheme} mode`}
                   title={`Switch to ${nextTheme} mode`}
                 >
-                  {getThemeIcon(theme as ThemeLabel)}
+                  {<ThemeIcon theme={theme} />}
                 </Button>
               </div>
             </div>
