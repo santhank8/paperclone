@@ -7,7 +7,7 @@ function collectMessageText(message: unknown): string[] {
   }
 
   const record = parseObject(message);
-  const direct = asString(record.text, "").trim();
+  const direct = asString(record.text, "").trim() || (typeof record.content === "string" ? record.content.trim() : "");
   const lines: string[] = direct ? [direct] : [];
   const content = Array.isArray(record.content) ? record.content : [];
 
@@ -97,9 +97,12 @@ export function parseGeminiJsonl(stdout: string) {
 
     const type = asString(event.type, "").trim();
 
-    if (type === "assistant") {
-      messages.push(...collectMessageText(event.message));
-      const messageObj = parseObject(event.message);
+    if (type === "assistant" || (type === "message" && asString(event.role, "").trim() === "assistant")) {
+      // Gemini stream-json emits {type:"message", role:"assistant", content:"..."}
+      // while other formats use {type:"assistant", message:{...}}
+      const messageSource = type === "message" ? event : event.message;
+      messages.push(...collectMessageText(messageSource));
+      const messageObj = parseObject(messageSource);
       const content = Array.isArray(messageObj.content) ? messageObj.content : [];
       for (const partRaw of content) {
         const part = parseObject(partRaw);
