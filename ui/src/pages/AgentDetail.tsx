@@ -3731,6 +3731,27 @@ function LogViewer({ run, adapterType }: { run: HeartbeatRun; adapterType: strin
           {typeof adapterInvokePayload.cwd === "string" && (
             <div className="text-xs break-all"><span className="text-muted-foreground">Working dir: </span><span className="font-mono">{adapterInvokePayload.cwd}</span></div>
           )}
+          {workspaceOperations.length > 0 && (() => {
+            const provisionOp = workspaceOperations.find((op) => op.phase === "workspace_provision" || op.phase === "worktree_prepare");
+            const metadata = provisionOp?.metadata as Record<string, unknown> | null | undefined;
+            const mode = metadata?.mode ?? metadata?.strategyType ?? (provisionOp?.phase === "worktree_prepare" ? "git_worktree" : null);
+            if (!mode) return null;
+            const modeLabels: Record<string, string> = {
+              shared_workspace: "Shared",
+              isolated_workspace: "Isolated",
+              operator_branch: "Operator branch",
+              git_worktree: "Git worktree",
+              project_primary: "Project primary",
+              adapter_managed: "Adapter managed",
+              cloud_sandbox: "Cloud sandbox",
+            };
+            return (
+              <div className="text-xs">
+                <span className="text-muted-foreground">Isolation: </span>
+                <span>{typeof mode === "string" ? modeLabels[mode] ?? mode.replace(/_/g, " ") : String(mode)}</span>
+              </div>
+            );
+          })()}
           {typeof adapterInvokePayload.command === "string" && (
             <div className="text-xs break-all">
               <span className="text-muted-foreground">Command: </span>
