@@ -56,10 +56,37 @@ async function ensureSymlink(target: string, source: string): Promise<void> {
   const existing = await fs.lstat(target).catch(() => null);
   if (!existing) {
     await ensureParentDir(target);
-    await fs.symlink(source, target);
+    await fs.symlink(source, target).catch(async (error: NodeJS.ErrnoException) => {
+      if (error.code !== "EEXIST") throw error;
+      const collided = await fs.lstat(target).catch(() => null);
+      if (collided?.isSymbolicLink()) {
+        const linkedPath = await fs.readlink(target).catch(() => null);
+        if (linkedPath) {
+          const resolvedLinkedPath = path.resolve(path.dirname(target), linkedPath);
+          if (resolvedLinkedPath === source) return;
+        }
+      }
+      throw error;
+    });
     return;
   }
-  if (!existing.isSymbolicLink()) return;
+  if (!existing.isSymbolicLink()) {
+    await fs.unlink(target);
+    await ensureParentDir(target);
+    await fs.symlink(source, target).catch(async (error: NodeJS.ErrnoException) => {
+      if (error.code !== "EEXIST") throw error;
+      const collided = await fs.lstat(target).catch(() => null);
+      if (collided?.isSymbolicLink()) {
+        const linkedPath = await fs.readlink(target).catch(() => null);
+        if (linkedPath) {
+          const resolvedLinkedPath = path.resolve(path.dirname(target), linkedPath);
+          if (resolvedLinkedPath === source) return;
+        }
+      }
+      throw error;
+    });
+    return;
+  }
 
   const linkedPath = await fs.readlink(target).catch(() => null);
   if (!linkedPath) return;
@@ -67,7 +94,18 @@ async function ensureSymlink(target: string, source: string): Promise<void> {
   if (resolvedLinkedPath === source) return;
 
   await fs.unlink(target);
-  await fs.symlink(source, target);
+  await fs.symlink(source, target).catch(async (error: NodeJS.ErrnoException) => {
+    if (error.code !== "EEXIST") throw error;
+    const collided = await fs.lstat(target).catch(() => null);
+    if (collided?.isSymbolicLink()) {
+      const nextLinkedPath = await fs.readlink(target).catch(() => null);
+      if (nextLinkedPath) {
+        const resolvedLinkedPath = path.resolve(path.dirname(target), nextLinkedPath);
+        if (resolvedLinkedPath === source) return;
+      }
+    }
+    throw error;
+  });
 }
 
 async function ensureCopiedFile(target: string, source: string): Promise<void> {
@@ -304,7 +342,9 @@ async function buildClaudeRuntimeConfig(input: ClaudeExecutionInput): Promise<Cl
   }
 
   for (const [key, value] of Object.entries(envConfig)) {
-    if (typeof value === "string") env[key] = value;
+    if (typeof value !== "string") continue;
+    if (key === "CLAUDE_CONFIG_DIR" && typeof env.CLAUDE_CONFIG_DIR === "string") continue;
+    env[key] = value;
   }
 
   if (!hasExplicitApiKey && authToken) {
