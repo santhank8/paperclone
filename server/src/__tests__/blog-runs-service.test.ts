@@ -77,11 +77,53 @@ describeEmbeddedPostgres("blog run service", () => {
 
     expect(created?.status).toBe("queued");
     expect(created?.currentStep).toBe("research");
+    expect(created?.contextJson).toMatchObject({
+      publicVerifyContractMode: "compat",
+    });
 
     const detail = await svc.getDetail(created!.id);
     expect(detail?.run.id).toBe(created?.id);
     expect(detail?.attempts).toEqual([]);
     expect(detail?.artifacts).toEqual([]);
+  });
+
+  it("defaults live publish runs to strict public verify contract mode", async () => {
+    const { companyId, projectId } = await seedProject();
+    const svc = blogRunService(db);
+
+    const created = await svc.create({
+      companyId,
+      projectId,
+      topic: "Strict mode topic",
+      lane: "publish",
+      publishMode: "publish",
+    });
+
+    expect(created?.contextJson).toMatchObject({
+      publicVerifyContractMode: "strict",
+    });
+  });
+
+  it("preserves an explicit public verify contract mode override", async () => {
+    const { companyId, projectId } = await seedProject();
+    const svc = blogRunService(db);
+
+    const created = await svc.create({
+      companyId,
+      projectId,
+      topic: "Override mode topic",
+      lane: "publish",
+      publishMode: "publish",
+      contextJson: {
+        publicVerifyContractMode: "compat",
+        custom: "keep-me",
+      },
+    });
+
+    expect(created?.contextJson).toMatchObject({
+      publicVerifyContractMode: "compat",
+      custom: "keep-me",
+    });
   });
 
   it("claims and completes the research step, advancing to draft", async () => {

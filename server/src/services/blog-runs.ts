@@ -102,6 +102,30 @@ function normalizePublishMode(value: string | null | undefined) {
   return normalized === "publish" ? "publish" : "draft";
 }
 
+function resolveInitialPublicVerifyContractMode(
+  lane: string,
+  publishMode: string,
+  contextJson: Record<string, unknown> | null | undefined,
+) {
+  const explicit = String(contextJson?.publicVerifyContractMode ?? "").trim().toLowerCase();
+  if (explicit === "strict" || explicit === "compat") return explicit;
+  return lane === "publish" && publishMode === "publish" ? "strict" : "compat";
+}
+
+function buildInitialContextJson(
+  lane: string,
+  publishMode: string,
+  contextJson: Record<string, unknown> | null | undefined,
+) {
+  const base = contextJson && typeof contextJson === "object" && !Array.isArray(contextJson)
+    ? { ...contextJson }
+    : {};
+  return {
+    ...base,
+    publicVerifyContractMode: resolveInitialPublicVerifyContractMode(lane, publishMode, base),
+  };
+}
+
 function toRunningStatus(stepKey: string): BlogRunStatus {
   switch (stepKey) {
     case "research":
@@ -178,6 +202,13 @@ export function blogRunService(
 
   return {
     async create(input: CreateBlogRunInput) {
+      const normalizedLane = normalizeLane(input.lane);
+      const normalizedPublishMode = normalizePublishMode(input.publishMode);
+      const initialContextJson = buildInitialContextJson(
+        normalizedLane,
+        normalizedPublishMode,
+        input.contextJson ?? null,
+      );
       const created = await db
         .insert(blogRuns)
         .values({
@@ -185,13 +216,13 @@ export function blogRunService(
           projectId: input.projectId,
           issueId: input.issueId ?? null,
           topic: input.topic,
-          lane: normalizeLane(input.lane),
+          lane: normalizedLane,
           targetSite: input.targetSite ?? "fluxaivory.com",
           status: "queued",
           currentStep: STEP_SEQUENCE[0],
           approvalMode: input.approvalMode ?? "manual",
-          publishMode: normalizePublishMode(input.publishMode),
-          contextJson: input.contextJson ?? null,
+          publishMode: normalizedPublishMode,
+          contextJson: initialContextJson,
         })
         .returning()
         .then((rows) => rows[0] ?? null);
