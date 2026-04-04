@@ -148,6 +148,49 @@ describe("blog run worker", () => {
     expect(result).toMatchObject({ run: { status: "research_ready" } });
   });
 
+  it("attaches quality gate artifacts after content steps", async () => {
+    const runService = {
+      getById: vi.fn().mockResolvedValue(createRun()),
+      getDetail: vi.fn().mockResolvedValue({ ok: true }),
+      claimNextStep: vi.fn().mockResolvedValue(createClaim()),
+      completeStep: vi.fn().mockResolvedValue({ run: { status: "research_ready", currentStep: "draft" } }),
+      failStep: vi.fn(),
+    };
+    const worker = blogRunWorkerService({} as any, {
+      runService: runService as any,
+      runResearchStep: vi.fn().mockResolvedValue({ research: "ok" }),
+      runQualityGateBundle: vi.fn().mockResolvedValue({
+        results: {
+          research_grounding: {
+            ok: true,
+            status: "pass",
+            summary: "research grounding complete",
+          },
+          publish_ready: {
+            ok: false,
+            status: "fail",
+            summary: "failed gates: topic_alignment",
+          },
+        },
+      }),
+    });
+
+    await worker.runNext("run-1");
+
+    expect(runService.completeStep).toHaveBeenCalledWith("run-1", "research", expect.objectContaining({
+      artifacts: expect.arrayContaining([
+        expect.objectContaining({
+          artifactKind: "preflight_research_grounding_json",
+          bodyPreview: "research grounding complete",
+        }),
+        expect.objectContaining({
+          artifactKind: "publish_ready_preflight_json",
+          bodyPreview: "failed gates: topic_alignment",
+        }),
+      ]),
+    }));
+  });
+
   it("fails the run when validate returns ok=false", async () => {
     const runService = {
       getById: vi.fn().mockResolvedValue(createRun({ currentStep: "validate" })),

@@ -1,5 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import { execFile as execFileCb } from "node:child_process";
+import { promisify } from "node:util";
 import {
   runDraftPolishStep,
   runDraftReviewStep,
@@ -20,6 +22,8 @@ import { resolveDefaultBlogRunsDir } from "../home-paths.js";
 import { blogPublisherService } from "./blog-publisher.js";
 import { blogRunService } from "./blog-runs.js";
 
+const execFile = promisify(execFileCb);
+
 type StepClaim = {
   run?: Record<string, unknown> | null;
   attempt?: Record<string, unknown> | null;
@@ -38,6 +42,12 @@ type WorkerDeps = {
   runService?: ReturnType<typeof blogRunService>;
   artifactRoot?: string;
   publicVerifyContractMode?: "compat" | "strict";
+  runQualityGateBundle?: (input: {
+    runDir: string;
+    approvedTopic: string;
+    researchJsonPath?: string;
+    imageJsonPath?: string;
+  }) => Promise<Record<string, unknown> | null>;
 };
 
 function toRecord(value: unknown): Record<string, unknown> {
@@ -100,6 +110,20 @@ function resolvePublicVerifyContractMode(
     return "strict";
   }
   return "compat";
+}
+
+async function runQualityGateBundleCli(input: {
+  runDir: string;
+  approvedTopic: string;
+  researchJsonPath?: string;
+  imageJsonPath?: string;
+}) {
+  const scriptPath = "/Users/daehan/Documents/persona/paperclip/scripts/run_quality_gate_bundle.py";
+  const args = [scriptPath, "--run-dir", input.runDir, "--approved-topic", input.approvedTopic];
+  if (input.researchJsonPath) args.push("--research-json", input.researchJsonPath);
+  if (input.imageJsonPath) args.push("--image-json", input.imageJsonPath);
+  const { stdout } = await execFile("python3", args, { maxBuffer: 1024 * 1024 * 4 });
+  return toRecord(JSON.parse(stdout));
 }
 
 async function readJsonArtifact(filePath: string) {
@@ -396,6 +420,14 @@ export function blogRunWorkerService(db: Db, deps: WorkerDeps = {}) {
 
     try {
       let result: Record<string, unknown> | null = null;
+      const artifacts: Array<{
+        artifactKind: string;
+        contentType: string;
+        storageKind?: string | null;
+        storagePath?: string | null;
+        bodyPreview?: string | null;
+        metadata?: Record<string, unknown> | null;
+      }> = [];
 
       switch (stepKey) {
         case "research":
@@ -505,9 +537,51 @@ export function blogRunWorkerService(db: Db, deps: WorkerDeps = {}) {
           throw new Error(`unsupported_blog_run_step:${stepKey}`);
       }
 
+      if (["research", "draft", "image", "validate"].includes(stepKey)) {
+        try {
+          const bundle = await (deps.runQualityGateBundle ?? runQualityGateBundleCli)({
+            runDir,
+            approvedTopic: String(run.topic ?? "").trim(),
+            researchJsonPath: path.join(runDir, "research.json"),
+            imageJsonPath: path.join(runDir, "image.json"),
+          });
+          const bundleResults = toRecord(bundle?.results);
+          for (const [gateKey, gateValue] of Object.entries(bundleResults)) {
+            const gateResult = toRecord(gateValue);
+            const artifactPath =
+              gateKey === "publish_ready"
+                ? path.join(runDir, "preflight.publish_ready.json")
+                : path.join(runDir, `preflight.${gateKey}.json`);
+            artifacts.push({
+              artifactKind: gateKey === "publish_ready" ? "publish_ready_preflight_json" : `preflight_${gateKey}_json`,
+              contentType: "application/json",
+              storageKind: "local_fs",
+              storagePath: artifactPath,
+              bodyPreview: String(gateResult.summary ?? "").trim() || null,
+              metadata: {
+                gate: gateKey,
+                ok: gateResult.ok === true,
+                status: gateResult.status ?? null,
+              },
+            });
+          }
+        } catch (bundleError) {
+          const message = bundleError instanceof Error ? bundleError.message : String(bundleError);
+          artifacts.push({
+            artifactKind: "quality_gate_bundle_error",
+            contentType: "application/json",
+            storageKind: "inline",
+            storagePath: null,
+            bodyPreview: message,
+            metadata: { stepKey, runDir },
+          });
+        }
+      }
+
       return runs.completeStep(runId, stepKey, {
         attemptId,
         resultJson: result ?? {},
+        artifacts,
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
