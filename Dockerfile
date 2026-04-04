@@ -45,12 +45,19 @@ RUN test -f server/dist/index.js || (echo "ERROR: server build output missing" &
 FROM base AS production
 ARG USER_UID=1000
 ARG USER_GID=1000
+# Optional: set to the sha256 of /tmp/cursor-install.sh after downloading once and `sha256sum` locally.
+ARG CURSOR_INSTALL_SCRIPT_SHA256=
 WORKDIR /app
 COPY --chown=node:node --from=build /app /app
 RUN npm install --global --omit=dev @anthropic-ai/claude-code@latest @openai/codex@latest opencode-ai \
   && CURSOR_AGENT_HOME="$(mktemp -d)" \
-  && HOME="$CURSOR_AGENT_HOME" sh -lc 'curl -fsSL https://cursor.com/install | bash' \
-  && CURSOR_AGENT_DIR="$(dirname "$(readlink -f "$CURSOR_AGENT_HOME/.local/bin/agent")")" \
+  && curl -fsSL https://cursor.com/install -o /tmp/cursor-install.sh \
+  && if [ -n "$CURSOR_INSTALL_SCRIPT_SHA256" ]; then printf '%s  /tmp/cursor-install.sh\n' "$CURSOR_INSTALL_SCRIPT_SHA256" | sha256sum -c -; fi \
+  && HOME="$CURSOR_AGENT_HOME" sh /tmp/cursor-install.sh \
+  && rm -f /tmp/cursor-install.sh \
+  && CURSOR_AGENT_BIN="$CURSOR_AGENT_HOME/.local/bin/agent" \
+  && test -x "$CURSOR_AGENT_BIN" \
+  && CURSOR_AGENT_DIR="$(dirname "$(readlink -f "$CURSOR_AGENT_BIN")")" \
   && CURSOR_AGENT_VERSION="$(basename "$CURSOR_AGENT_DIR")" \
   && mkdir -p /usr/local/share/cursor-agent/versions \
   && rm -rf "/usr/local/share/cursor-agent/versions/$CURSOR_AGENT_VERSION" \
@@ -64,6 +71,8 @@ RUN npm install --global --omit=dev @anthropic-ai/claude-code@latest @openai/cod
 COPY docker-entrypoint.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
+# Prepend user-writable HOME bin so CLI tools installed under /paperclip at runtime are discoverable;
+# a populated volume can shadow same-named binaries from earlier PATH entries.
 ENV NODE_ENV=production \
   HOME=/paperclip \
   PATH=/paperclip/.local/bin:$PATH \
