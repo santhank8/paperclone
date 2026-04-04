@@ -26,7 +26,7 @@ import { useBreadcrumbs } from "../context/BreadcrumbContext";
 import { useToast } from "../context/ToastContext";
 import { queryKeys } from "../lib/queryKeys";
 import { buildRoutineTriggerPatch } from "../lib/routine-trigger-patch";
-import { timeAgo } from "../lib/timeAgo";
+import { timeAgo, timeUntil } from "../lib/timeAgo";
 import { EmptyState } from "../components/EmptyState";
 import { PageSkeleton } from "../components/PageSkeleton";
 import { AgentIcon } from "../components/AgentIconPicker";
@@ -153,9 +153,9 @@ function TriggerEditor({
           {trigger.kind === "schedule" ? <Clock3 className="h-3.5 w-3.5" /> : trigger.kind === "webhook" ? <Webhook className="h-3.5 w-3.5" /> : <Zap className="h-3.5 w-3.5" />}
           {trigger.label ?? trigger.kind}
         </div>
-        <span className="text-xs text-muted-foreground">
+        <span className="text-xs text-muted-foreground" title={trigger.kind === "schedule" && trigger.nextRunAt ? new Date(trigger.nextRunAt).toLocaleString() : undefined}>
           {trigger.kind === "schedule" && trigger.nextRunAt
-            ? `Next: ${new Date(trigger.nextRunAt).toLocaleString()}`
+            ? `Next: ${timeUntil(trigger.nextRunAt)}`
             : trigger.kind === "webhook"
               ? "Webhook"
               : "API"}

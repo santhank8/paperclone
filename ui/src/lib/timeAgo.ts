@@ -29,3 +29,16 @@ export function timeAgo(date: Date | string): string {
   const mo = Math.floor(seconds / MONTH);
   return `${mo}mo ago`;
 }
+
+export function timeUntil(date: Date | string): string {
+  const now = Date.now();
+  const then = new Date(date).getTime();
+  const seconds = Math.round((then - now) / 1000);
+
+  if (seconds < 0) return "now";
+  if (seconds < MINUTE) return "in <1m";
+  if (seconds < HOUR) return `in ${Math.floor(seconds / MINUTE)}m`;
+  if (seconds < DAY) return `in ${Math.floor(seconds / HOUR)}h`;
+  if (seconds < WEEK) return `in ${Math.floor(seconds / DAY)}d`;
+  return `in ${Math.floor(seconds / WEEK)}w`;
+}
