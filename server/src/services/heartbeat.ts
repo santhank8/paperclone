@@ -70,6 +70,8 @@ const DETACHED_PROCESS_ERROR_CODE = "process_detached";
 const startLocksByAgent = new Map<string, Promise<void>>();
 const REPO_ONLY_CWD_SENTINEL = "/__paperclip_repo_only__";
 const MANAGED_WORKSPACE_GIT_CLONE_TIMEOUT_MS = 10 * 60 * 1000;
+const MID_RUN_BUDGET_POLL_INTERVAL_MS =
+  parseInt(process.env.PAPERCLIP_MID_RUN_BUDGET_POLL_MS ?? "", 10) || 30_000;
 const execFile = promisify(execFileCallback);
 const SESSIONED_LOCAL_ADAPTERS = new Set([
   "claude_local",
@@ -2490,6 +2492,7 @@ export function heartbeatService(db: Db) {
     let handle: RunLogHandle | null = null;
     let stdoutExcerpt = "";
     let stderrExcerpt = "";
+    let budgetPollInterval: ReturnType<typeof setInterval> | null = null;
     try {
       const startedAt = run.startedAt ?? new Date();
       const runningWithSession = await db
@@ -2663,6 +2666,40 @@ export function heartbeatService(db: Db) {
           "local agent jwt secret missing or invalid; running without injected PAPERCLIP_API_KEY",
         );
       }
+      // Poll budget while the process is running so a hard-stop triggered by a
+      // *previous* cost event (e.g. another run that just finished) also cancels
+      // this in-flight run. HTTP adapters are fire-and-forget and cannot be killed,
+      // so the poll is limited to local process adapters.
+      if (adapter.type !== "http") {
+        budgetPollInterval = setInterval(() => {
+          void budgets
+            .getInvocationBlock(agent.companyId, agent.id, {
+              issueId: issueRef?.id ?? null,
+              projectId: resolvedProjectId,
+            })
+            .then((block) => {
+              if (block) {
+                logger.warn(
+                  { runId: run.id, agentId: agent.id, scopeType: block.scopeType },
+                  "mid-run budget enforcement: cancelling in-flight run",
+                );
+                // Clear the interval immediately so we don't fire again while
+                // cancelRunInternal is in flight.
+                if (budgetPollInterval !== null) {
+                  clearInterval(budgetPollInterval);
+                  budgetPollInterval = null;
+                }
+                void cancelRunInternal(run.id, block.reason).catch((err) =>
+                  logger.warn({ err, runId: run.id }, "mid-run budget cancel failed"),
+                );
+              }
+            })
+            .catch((err) => {
+              logger.warn({ err, runId: run.id }, "mid-run budget poll error");
+            });
+        }, MID_RUN_BUDGET_POLL_INTERVAL_MS);
+      }
+
       const adapterResult = await adapter.execute({
         runId: run.id,
         agent,
@@ -2676,6 +2713,11 @@ export function heartbeatService(db: Db) {
         },
         authToken: authToken ?? undefined,
       });
+
+      if (budgetPollInterval !== null) {
+        clearInterval(budgetPollInterval);
+        budgetPollInterval = null;
+      }
       const adapterManagedRuntimeServices = adapterResult.runtimeServices
         ? await persistAdapterManagedRuntimeServices({
             db,
@@ -2867,6 +2909,10 @@ export function heartbeatService(db: Db) {
       }
       await finalizeAgentStatus(agent.id, outcome);
     } catch (err) {
+      if (budgetPollInterval !== null) {
+        clearInterval(budgetPollInterval);
+        budgetPollInterval = null;
+      }
       const message = redactCurrentUserText(
         err instanceof Error ? err.message : "Unknown adapter failure",
         await getCurrentUserRedactionOptions(),
@@ -2880,6 +2926,34 @@ export function heartbeatService(db: Db) {
         } catch (finalizeErr) {
           logger.warn({ err: finalizeErr, runId }, "failed to finalize run log after error");
         }
+      }
+
+      // If mid-run budget enforcement already cancelled this run, do not
+      // overwrite the "cancelled" status with "failed". Still update runtime
+      // state and task session so session-based adapters resume correctly.
+      const currentRun = await getRun(run.id);
+      if (currentRun?.status === "cancelled") {
+        await updateRuntimeState(agent, currentRun, {
+          exitCode: null,
+          signal: null,
+          timedOut: false,
+          errorMessage: currentRun.error ?? "Cancelled due to budget",
+        }, {
+          legacySessionId: runtimeForAdapter.sessionId,
+        });
+        if (taskKey && (previousSessionParams || previousSessionDisplayId || taskSession)) {
+          await upsertTaskSession({
+            companyId: agent.companyId,
+            agentId: agent.id,
+            adapterType: agent.adapterType,
+            taskKey,
+            sessionParamsJson: previousSessionParams,
+            sessionDisplayId: previousSessionDisplayId,
+            lastRunId: currentRun.id,
+            lastError: currentRun.error ?? null,
+          });
+        }
+        return;
       }
 
       const failedRun = await setRunStatus(run.id, "failed", {
@@ -3720,6 +3794,15 @@ export function heartbeatService(db: Db) {
     if (!run) throw notFound("Heartbeat run not found");
     if (run.status !== "running" && run.status !== "queued") return run;
 
+    // Write "cancelled" to the DB before sending SIGTERM so any concurrent
+    // reader (e.g. the catch block in executeRun) that wakes up after the
+    // process dies already sees the terminal status.
+    const cancelled = await setRunStatus(run.id, "cancelled", {
+      finishedAt: new Date(),
+      error: reason,
+      errorCode: "cancelled",
+    });
+
     const running = runningProcesses.get(run.id);
     if (running) {
       running.child.kill("SIGTERM");
@@ -3730,12 +3813,6 @@ export function heartbeatService(db: Db) {
         }
       }, graceMs);
     }
-
-    const cancelled = await setRunStatus(run.id, "cancelled", {
-      finishedAt: new Date(),
-      error: reason,
-      errorCode: "cancelled",
-    });
 
     await setWakeupStatus(run.wakeupRequestId, "cancelled", {
       finishedAt: new Date(),
