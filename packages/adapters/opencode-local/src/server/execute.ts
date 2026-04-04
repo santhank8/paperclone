@@ -169,7 +169,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
   if (workspaceHints.length > 0) env.PAPERCLIP_WORKSPACES_JSON = JSON.stringify(workspaceHints);
 
   for (const [key, value] of Object.entries(envConfig)) {
-    if (typeof value === "string") env[key] = value;
+    if (typeof value === "string" && value.length > 0) env[key] = value;
   }
   // Prevent OpenCode from writing an opencode.json config file into the
   // project working directory (which would pollute the git repo).  Model
