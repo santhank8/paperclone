@@ -67,7 +67,7 @@ interface CommentThreadProps {
   agentMap?: Map<string, Agent>;
   currentUserId?: string | null;
   imageUploadHandler?: (file: File) => Promise<string>;
-  /** Callback to attach an image file to the parent issue (not inline in a comment). */
+  /** Callback to attach an image or file to the parent issue (not inline in a comment). */
   onAttachImage?: (file: File) => Promise<void>;
   draftKey?: string;
   liveRunSlot?: React.ReactNode;
@@ -813,7 +813,7 @@ export function CommentThread({
               <input
                 ref={attachInputRef}
                 type="file"
-                accept="image/png,image/jpeg,image/webp,image/gif"
+                accept="image/png,image/jpeg,image/webp,image/gif,application/pdf,text/plain,text/markdown,application/json,text/csv,.csv,text/html,.md,.markdown"
                 className="hidden"
                 onChange={handleAttachFile}
               />
@@ -822,7 +822,7 @@ export function CommentThread({
                 size="icon-sm"
                 onClick={() => attachInputRef.current?.click()}
                 disabled={attaching}
-                title="Attach image"
+                title="Attach image or file"
               >
                 <Paperclip className="h-4 w-4" />
               </Button>
