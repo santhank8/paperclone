@@ -307,5 +307,12 @@ describe("budgetService", () => {
         updatedAt: expect.any(Date),
       }),
     );
+    expect(dbStub.updateSet).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: "completed",
+        decidedByUserId: "board-user",
+        updatedAt: expect.any(Date),
+      }),
+    );
   });
 });

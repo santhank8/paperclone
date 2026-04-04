@@ -93,14 +93,27 @@ describe("approvalService resolution idempotency", () => {
     expect(mockAgentService.terminate).not.toHaveBeenCalled();
   });
 
+  it("treats completed approvals as already resolved on repeated approve retries", async () => {
+    const dbStub = createDbStub([[createApproval("completed")]], []);
+
+    const svc = approvalService(dbStub.db as any);
+    const result = await svc.approve("approval-1", "board", "ship it");
+
+    expect(result.applied).toBe(false);
+    expect(result.approval.status).toBe("completed");
+    expect(mockAgentService.activatePendingApproval).not.toHaveBeenCalled();
+    expect(mockNotifyHireApproved).not.toHaveBeenCalled();
+  });
+
   it("still performs side effects when the resolution update is newly applied", async () => {
-    const approved = createApproval("approved");
-    const dbStub = createDbStub([[createApproval("pending")]], [approved]);
+    const completed = createApproval("completed");
+    const dbStub = createDbStub([[createApproval("pending")]], [completed]);
 
     const svc = approvalService(dbStub.db as any);
     const result = await svc.approve("approval-1", "board", "ship it");
 
     expect(result.applied).toBe(true);
+    expect(result.approval.status).toBe("completed");
     expect(mockAgentService.activatePendingApproval).toHaveBeenCalledWith("agent-1");
     expect(mockNotifyHireApproved).toHaveBeenCalledTimes(1);
   });

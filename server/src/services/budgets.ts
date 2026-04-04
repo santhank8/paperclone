@@ -197,10 +197,11 @@ async function markApprovalStatus(
   decidedByUserId: string,
 ) {
   if (!approvalId) return;
+  const nextStatus = status === "approved" ? "completed" : status;
   await db
     .update(approvals)
     .set({
-      status,
+      status: nextStatus,
       decisionNote: decisionNote ?? null,
       decidedByUserId,
       decidedAt: new Date(),
