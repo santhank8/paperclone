@@ -487,6 +487,8 @@ describe("blog run worker", () => {
     expect(runService.failStep).toHaveBeenCalledWith("run-1", "validate", expect.objectContaining({
       errorMessage: "blog_run_publish_ready_failed:explainer_quality,reader_experience",
       artifacts: expect.arrayContaining([
+        expect.objectContaining({ artifactKind: "specialist_guidance_cache_json" }),
+        expect.objectContaining({ artifactKind: "specialist_guidance_cache_markdown" }),
         expect.objectContaining({ artifactKind: "rewrite_guidance_json" }),
         expect.objectContaining({ artifactKind: "rewrite_guidance_markdown" }),
       ]),
@@ -498,6 +500,91 @@ describe("blog run worker", () => {
           }),
         }),
       }),
+    }));
+  });
+
+  it("reuses cached specialist guidance instead of dropping rewrite input on later attempts", async () => {
+    const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "paperclip-worker-guidance-cache-"));
+    const runDir = path.join(tmp, "run-1");
+    await fs.mkdir(runDir, { recursive: true });
+    await fs.writeFile(path.join(runDir, "preflight.publish_ready.md"), "## Publish-Ready Operator Summary\n\n- Status: `fail`\n");
+    await fs.writeFile(path.join(runDir, "specialist-guidance.json"), JSON.stringify({
+      ok: true,
+      guidance: [
+        {
+          gate: "explainer_quality",
+          owner: "Explainer Editor",
+          reasons: ["term_explanation_missing"],
+          suggestions: ["Explain technical terms on first mention using a plain-language bridge."],
+        },
+      ],
+    }, null, 2));
+
+    const runService = {
+      getById: vi.fn().mockResolvedValue(createRun({
+        id: "run-1",
+        issueId: "issue-1",
+        currentStep: "validate",
+        contextJson: {
+          title: "Test title",
+          article_html: "<p>Body</p>",
+          publishReadyGateMode: "strict",
+          highThroughputQualityLoop: true,
+          articleLoop: {
+            enabled: true,
+            articleAttempt: 2,
+            maxAttempts: 3,
+            specialistGuidanceUsed: { explainer_quality: true },
+          },
+        },
+      })),
+      getDetail: vi.fn().mockResolvedValue({ ok: true }),
+      claimNextStep: vi.fn().mockResolvedValue(createClaim({
+        id: "run-1",
+        issueId: "issue-1",
+        currentStep: "validate",
+        contextJson: {
+          title: "Test title",
+          article_html: "<p>Body</p>",
+          publishReadyGateMode: "strict",
+          highThroughputQualityLoop: true,
+          articleLoop: {
+            enabled: true,
+            articleAttempt: 2,
+            maxAttempts: 3,
+            specialistGuidanceUsed: { explainer_quality: true },
+          },
+        },
+      }, { stepKey: "validate" })),
+      completeStep: vi.fn(),
+      failStep: vi.fn().mockResolvedValue({ run: { status: "queued", currentStep: "draft" } }),
+    };
+    const worker = blogRunWorkerService({} as any, {
+      runService: runService as any,
+      issueService: { addComment: vi.fn().mockResolvedValue({ id: "comment-1" }) } as any,
+      artifactRoot: tmp,
+      runValidateStep: vi.fn().mockResolvedValue({ ok: true }),
+      runQualityGateBundle: vi.fn().mockResolvedValue({
+        results: {
+          publish_ready: {
+            ok: false,
+            status: "fail",
+            failed_gates: ["explainer_quality"],
+            gate_reason_summary: {
+              explainer_quality: ["term_explanation_missing"],
+            },
+          },
+        },
+      }),
+    });
+
+    await worker.runNext("run-1");
+
+    expect(runService.failStep).toHaveBeenCalledWith("run-1", "validate", expect.objectContaining({
+      artifacts: expect.arrayContaining([
+        expect.objectContaining({ artifactKind: "specialist_guidance_cache_json" }),
+        expect.objectContaining({ artifactKind: "rewrite_guidance_json" }),
+      ]),
     }));
   });
 

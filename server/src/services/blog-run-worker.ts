@@ -186,6 +186,11 @@ async function writeTextArtifact(filePath: string, body: string) {
   await fs.writeFile(filePath, body, "utf8");
 }
 
+async function writeJsonArtifact(filePath: string, payload: unknown) {
+  await fs.mkdir(path.dirname(filePath), { recursive: true });
+  await fs.writeFile(filePath, `${JSON.stringify(payload, null, 2)}\n`, "utf8");
+}
+
 function buildSpecialistOwner(gate: string) {
   switch (gate) {
     case "research_grounding":
@@ -248,20 +253,41 @@ async function buildRewriteGuidanceArtifacts(runDir: string, run: Record<string,
     ? merged.failed_gates.map((value) => String(value ?? "").trim()).filter(Boolean)
     : [];
   const gateReasonSummary = toRecord(merged.gate_reason_summary);
+  const cacheJsonPath = path.join(runDir, "specialist-guidance.json");
+  const cacheMdPath = path.join(runDir, "specialist-guidance.md");
+  const existingCache = await readJsonArtifact(cacheJsonPath);
+  const existingEntries = Array.isArray(existingCache.guidance)
+    ? existingCache.guidance.map((entry: unknown) => toRecord(entry))
+    : [];
+  const existingByGate = new Map(existingEntries.map((entry) => [String(entry.gate ?? "").trim(), entry]));
   const guidanceEntries = [];
+  let cacheChanged = false;
 
   for (const gate of failedGates) {
-    if (used[gate] === true) continue;
+    const existing = existingByGate.get(gate);
+    if (existing) {
+      guidanceEntries.push({
+        gate,
+        owner: String(existing.owner ?? buildSpecialistOwner(gate)),
+        reasons: Array.isArray(existing.reasons) ? existing.reasons.map((value: unknown) => String(value ?? "").trim()).filter(Boolean) : [],
+        suggestions: Array.isArray(existing.suggestions) ? existing.suggestions.map((value: unknown) => String(value ?? "").trim()).filter(Boolean) : [],
+      });
+      continue;
+    }
+
     const reasons = Array.isArray(gateReasonSummary[gate])
       ? gateReasonSummary[gate].map((value: unknown) => String(value ?? "").trim()).filter(Boolean)
       : [];
     const owner = buildSpecialistOwner(gate);
-    guidanceEntries.push({
+    const entry = {
       gate,
       owner,
       reasons,
       suggestions: buildGuidanceForReasons(gate, reasons),
-    });
+    };
+    guidanceEntries.push(entry);
+    existingByGate.set(gate, entry);
+    cacheChanged = true;
   }
 
   if (guidanceEntries.length === 0) {
@@ -277,7 +303,7 @@ async function buildRewriteGuidanceArtifacts(runDir: string, run: Record<string,
     failedGates,
     guidance: guidanceEntries,
   };
-  await fs.writeFile(jsonPath, `${JSON.stringify(payload, null, 2)}\n`, "utf8");
+  await writeJsonArtifact(jsonPath, payload);
   const markdown = [
     "## Rewrite Guidance",
     "",
@@ -294,8 +320,46 @@ async function buildRewriteGuidanceArtifacts(runDir: string, run: Record<string,
   const nextUsed = { ...used };
   for (const entry of guidanceEntries) nextUsed[entry.gate] = true;
 
+  const cachePayload = {
+    ok: true,
+    topic: String(run.topic ?? "").trim(),
+    updatedAt: new Date().toISOString(),
+    guidance: Array.from(existingByGate.values()),
+  };
+  if (cacheChanged || existingEntries.length === 0) {
+    await writeJsonArtifact(cacheJsonPath, cachePayload);
+    const cacheMarkdown = [
+      "## Specialist Guidance Cache",
+      "",
+      ...Array.from(existingByGate.values()).flatMap((entry) => [
+        `### ${entry.gate}`,
+        `- Owner: ${entry.owner}`,
+        `- Reasons: ${entry.reasons.length > 0 ? entry.reasons.join(", ") : "n/a"}`,
+        ...entry.suggestions.map((suggestion: string) => `- ${suggestion}`),
+        "",
+      ]),
+    ].join("\n");
+    await writeTextArtifact(cacheMdPath, cacheMarkdown);
+  }
+
   return {
     artifacts: [
+      {
+        artifactKind: "specialist_guidance_cache_json",
+        contentType: "application/json",
+        storageKind: "local_fs",
+        storagePath: cacheJsonPath,
+        bodyPreview: `specialist guidance cache for ${failedGates.join(", ")}`,
+        metadata: { failedGates, generatedBy: "blog-run-worker" },
+      },
+      {
+        artifactKind: "specialist_guidance_cache_markdown",
+        contentType: "text/markdown",
+        storageKind: "local_fs",
+        storagePath: cacheMdPath,
+        bodyPreview: "specialist guidance cache markdown",
+        metadata: { failedGates, generatedBy: "blog-run-worker" },
+      },
       {
         artifactKind: "rewrite_guidance_json",
         contentType: "application/json",
