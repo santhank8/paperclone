@@ -6,6 +6,8 @@ import {
   ensurePathInEnv,
   runChildProcess,
 } from "@paperclipai/adapter-utils/server-utils";
+import { isOllamaModel, listOllamaModels, resolveOllamaHealthcheckUrl } from "./local-provider.js";
+import { prepareOpenCodeRuntimeConfig } from "./runtime-config.js";
 
 const MODELS_CACHE_TTL_MS = 60_000;
 const MODELS_DISCOVERY_TIMEOUT_MS = 20_000;
@@ -121,30 +123,46 @@ export async function discoverOpenCodeModels(input: {
     // image). Fall back to process.env.HOME.
   }
   // Prevent OpenCode from writing an opencode.json into the working directory.
-  const runtimeEnv = normalizeEnv(ensurePathInEnv({ ...process.env, ...env, ...(resolvedHome ? { HOME: resolvedHome } : {}), OPENCODE_DISABLE_PROJECT_CONFIG: "true" }));
-
-  const result = await runChildProcess(
-    `opencode-models-${Date.now()}-${Math.random().toString(16).slice(2)}`,
-    command,
-    ["models"],
-    {
-      cwd,
-      env: runtimeEnv,
-      timeoutSec: MODELS_DISCOVERY_TIMEOUT_MS / 1000,
-      graceSec: 3,
-      onLog: async () => {},
-    },
+  const baseRuntimeEnv = normalizeEnv(
+    ensurePathInEnv({
+      ...process.env,
+      ...env,
+      ...(resolvedHome ? { HOME: resolvedHome } : {}),
+      OPENCODE_DISABLE_PROJECT_CONFIG: "true",
+    }),
   );
+  const preparedRuntimeConfig = await prepareOpenCodeRuntimeConfig({
+    env: baseRuntimeEnv,
+    config: {},
+  });
+  try {
+    const runtimeEnv = normalizeEnv(ensurePathInEnv({ ...baseRuntimeEnv, ...preparedRuntimeConfig.env }));
 
-  if (result.timedOut) {
-    throw new Error(`\`opencode models\` timed out after ${MODELS_DISCOVERY_TIMEOUT_MS / 1000}s.`);
-  }
-  if ((result.exitCode ?? 1) !== 0) {
-    const detail = firstNonEmptyLine(result.stderr) || firstNonEmptyLine(result.stdout);
-    throw new Error(detail ? `\`opencode models\` failed: ${detail}` : "`opencode models` failed.");
-  }
+    const result = await runChildProcess(
+      `opencode-models-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+      command,
+      ["models"],
+      {
+        cwd,
+        env: runtimeEnv,
+        timeoutSec: MODELS_DISCOVERY_TIMEOUT_MS / 1000,
+        graceSec: 3,
+        onLog: async () => {},
+      },
+    );
 
-  return sortModels(parseModelsOutput(result.stdout));
+    if (result.timedOut) {
+      throw new Error(`\`opencode models\` timed out after ${MODELS_DISCOVERY_TIMEOUT_MS / 1000}s.`);
+    }
+    if ((result.exitCode ?? 1) !== 0) {
+      const detail = firstNonEmptyLine(result.stderr) || firstNonEmptyLine(result.stdout);
+      throw new Error(detail ? `\`opencode models\` failed: ${detail}` : "`opencode models` failed.");
+    }
+
+    return sortModels(parseModelsOutput(result.stdout));
+  } finally {
+    await preparedRuntimeConfig.cleanup();
+  }
 }
 
 export async function discoverOpenCodeModelsCached(input: {
@@ -177,10 +195,36 @@ export async function ensureOpenCodeModelConfiguredAndAvailable(input: {
     throw new Error("OpenCode requires `adapterConfig.model` in provider/model format.");
   }
 
+  const normalizedEnv = normalizeEnv(input.env);
+  if (isOllamaModel(model)) {
+    const healthcheckUrl = resolveOllamaHealthcheckUrl({ model }, normalizedEnv);
+    if (!healthcheckUrl) {
+      throw new Error(
+        "OLLAMA_HOST or adapterConfig.healthcheckUrl is required for ollama/* models.",
+      );
+    }
+    const models = await listOllamaModels({
+      url: healthcheckUrl,
+      timeoutMs: 1500,
+    });
+    if (models.length === 0) {
+      throw new Error(
+        `No Ollama models were discovered from ${healthcheckUrl}. Verify connectivity and that Ollama is serving /api/tags.`,
+      );
+    }
+    if (!models.some((entry) => entry.id === model)) {
+      const sample = models.slice(0, 12).map((entry) => entry.id).join(", ");
+      throw new Error(
+        `Configured Ollama model is unavailable: ${model}. Available models: ${sample}${models.length > 12 ? ", ..." : ""}`,
+      );
+    }
+    return models;
+  }
+
   const models = await discoverOpenCodeModelsCached({
     command: input.command,
     cwd: input.cwd,
-    env: input.env,
+    env: normalizedEnv,
   });
 
   if (models.length === 0) {
@@ -198,10 +242,18 @@ export async function ensureOpenCodeModelConfiguredAndAvailable(input: {
 }
 
 export async function listOpenCodeModels(): Promise<AdapterModel[]> {
+  const ollamaHealthcheckUrl = resolveOllamaHealthcheckUrl({}, normalizeEnv(process.env));
+  const ollamaModels = ollamaHealthcheckUrl
+    ? await listOllamaModels({
+        url: ollamaHealthcheckUrl,
+        timeoutMs: 1500,
+      })
+    : [];
   try {
-    return await discoverOpenCodeModelsCached();
+    const discovered = await discoverOpenCodeModelsCached();
+    return sortModels(dedupeModels([...discovered, ...ollamaModels]));
   } catch {
-    return [];
+    return sortModels(dedupeModels([...ollamaModels]));
   }
 }
 
