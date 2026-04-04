@@ -39,6 +39,7 @@ import {
   projectService,
   routineService,
   workProductService,
+  artifactService,
 } from "../services/index.js";
 import { logger } from "../middleware/logger.js";
 import { forbidden, HttpError, unauthorized } from "../errors.js";
@@ -1995,6 +1996,42 @@ export function issueRoutes(
         byteSize: attachment.byteSize,
       },
     });
+
+    // Auto-create artifact entry in the file browser
+    try {
+      const artifactSvc = artifactService(db);
+      const projSvc = projectService(db);
+      const project = issue.projectId ? await projSvc.getById(issue.projectId) : null;
+      const folderId = await artifactSvc.ensureAutoFolder(
+        companyId,
+        issue.projectId ?? null,
+        project?.name ?? null,
+        issueId,
+        issue.title,
+      );
+      const artifact = await artifactSvc.createArtifact(companyId, {
+        folderId,
+        assetId: attachment.assetId,
+        title: attachment.originalFilename ?? "Untitled",
+        mimeType: attachment.contentType,
+        issueId,
+        createdByAgentId: actor.agentId,
+        createdByUserId: actor.actorType === "user" ? actor.actorId : null,
+      });
+      await logActivity(db, {
+        companyId,
+        actorType: actor.actorType,
+        actorId: actor.actorId,
+        agentId: actor.agentId,
+        runId: actor.runId,
+        action: "artifact.created",
+        entityType: "artifact",
+        entityId: artifact.id,
+        details: { title: artifact.title, mimeType: artifact.mimeType, folderId, autoCreated: true },
+      });
+    } catch (err) {
+      logger.warn({ err, issueId }, "failed to auto-create artifact for attachment");
+    }
 
     res.status(201).json(withContentPath(attachment));
   });

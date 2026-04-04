@@ -17,6 +17,13 @@ export function assetService(db: Db) {
         .from(assets)
         .where(eq(assets.id, id))
         .then((rows) => rows[0] ?? null),
+
+    delete: (id: string) =>
+      db
+        .delete(assets)
+        .where(eq(assets.id, id))
+        .returning()
+        .then((rows) => rows[0] ?? null),
   };
 }
 
