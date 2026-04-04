@@ -166,13 +166,15 @@ export async function testEnvironment(
       );
       const parsed = parseGeminiJsonl(probe.stdout);
       const detail = summarizeProbeDetail(probe.stdout, probe.stderr, parsed.errorMessage);
+
+      const errorParsed = parsed.resultEvent ?? (parsed.errorMessage ? { error: parsed.errorMessage } : null);
       const authMeta = detectGeminiAuthRequired({
-        parsed: parsed.resultEvent,
+        parsed: errorParsed,
         stdout: probe.stdout,
         stderr: probe.stderr,
       });
       const quotaMeta = detectGeminiQuotaExhausted({
-        parsed: parsed.resultEvent,
+        parsed: errorParsed,
         stdout: probe.stdout,
         stderr: probe.stderr,
       });

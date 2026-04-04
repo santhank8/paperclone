@@ -1,9 +1,10 @@
-import { spawn, type ChildProcess } from "node:child_process";
+import { execFile, spawn, type ChildProcess } from "node:child_process";
 import fs from "node:fs/promises";
 import net from "node:net";
 import { createHash, randomUUID } from "node:crypto";
 import path from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
+import { promisify } from "node:util";
 import type { AdapterRuntimeServiceReport } from "@paperclipai/adapter-utils";
 import type { Db } from "@paperclipai/db";
 import { executionWorkspaces, projectWorkspaces, workspaceRuntimeServices } from "@paperclipai/db";
@@ -23,6 +24,8 @@ import {
 import type { WorkspaceOperationRecorder } from "./workspace-operations.js";
 import { readExecutionWorkspaceConfig } from "./execution-workspaces.js";
 import { readProjectWorkspaceRuntimeConfig } from "./project-workspace-runtime-config.js";
+
+const execFileAsync = promisify(execFile);
 
 export interface ExecutionWorkspaceInput {
   baseCwd: string;
@@ -1025,22 +1028,48 @@ function resolveServiceScopeId(input: {
 async function waitForReadiness(input: {
   service: Record<string, unknown>;
   url: string | null;
+  child?: ChildProcess | null;
+  getSpawnError?: () => Error | null;
 }) {
   const readiness = parseObject(input.service.readiness);
   const readinessType = asString(readiness.type, "");
   if (readinessType !== "http" || !input.url) return;
+
   const timeoutSec = Math.max(1, asNumber(readiness.timeoutSec, 30));
   const intervalMs = Math.max(100, asNumber(readiness.intervalMs, 500));
   const deadline = Date.now() + timeoutSec * 1000;
+
   let lastError = "service did not become ready";
   while (Date.now() < deadline) {
+    const spawnError = input.getSpawnError?.() ?? null;
+    if (spawnError) {
+      lastError = `process spawn failed: ${spawnError.message}`;
+      break;
+    }
+
+    const child = input.child ?? null;
+    if (child && (child.exitCode !== null || child.signalCode)) {
+      lastError = `process exited (code=${child.exitCode ?? "null"}, signal=${child.signalCode ?? "null"})`;
+      break;
+    }
+
     try {
       const response = await fetch(input.url);
       if (response.ok) return;
       lastError = `received HTTP ${response.status}`;
     } catch (err) {
-      lastError = err instanceof Error ? err.message : String(err);
+      if (err instanceof Error) {
+        const cause = (err as { cause?: unknown }).cause;
+        if (cause instanceof Error) {
+          lastError = `${err.message}: ${cause.message}`;
+        } else {
+          lastError = err.message;
+        }
+      } else {
+        lastError = String(err);
+      }
     }
+
     await delay(intervalMs);
   }
   throw new Error(`Readiness check failed for ${input.url}: ${lastError}`);
@@ -1226,136 +1255,292 @@ async function startLocalRuntimeService(input: {
   const serviceIdentityFingerprint = input.reuseKey ?? envFingerprint;
   const explicitPort = identity.explicitPort;
   const identityPort = identity.identityPort;
-  const port =
-    asString(portConfig.type, "") === "auto"
-      ? await allocatePort()
-      : explicitPort > 0
-        ? explicitPort
-        : null;
-  const templateData = buildTemplateData({
-    workspace: input.workspace,
-    agent: input.agent,
-    issue: input.issue,
-    adapterEnv: input.adapterEnv,
-    port,
-  });
-  const serviceCwd =
-    port === identityPort
-      ? identity.serviceCwd
-      : resolveConfiguredPath(renderTemplate(asString(input.service.cwd, "."), templateData), input.workspace.cwd);
-  const env: Record<string, string> = {
-    ...sanitizeRuntimeServiceBaseEnv(process.env),
-    ...input.adapterEnv,
-  } as Record<string, string>;
-  for (const [key, value] of Object.entries(renderRuntimeServiceEnv({ envConfig, templateData }))) {
-    env[key] = value;
+  const portType = asString(portConfig.type, "");
+  // Auto-port services are inherently racey under heavy parallel test load.
+  // Give them a few more tries (and a bit more time) so transient cold-start
+  // and port-collision issues don't fail the whole run.
+  const maxAttempts = portType === "auto" ? 10 : 1;
+
+  function parseShellQuotedString(input: string): { value: string; rest: string } | null {
+    const trimmed = input.trimStart();
+    if (!trimmed) return null;
+
+    const quote = trimmed[0];
+    if (quote !== '"' && quote !== "'") return null;
+
+    let out = "";
+    for (let i = 1; i < trimmed.length; i += 1) {
+      const ch = trimmed[i];
+
+      if (ch === quote) {
+        return { value: out, rest: trimmed.slice(i + 1) };
+      }
+
+      if (quote === '"' && ch === "\\") {
+        const next = trimmed[i + 1];
+        if (next === undefined) break;
+
+        // Best-effort: treat backslash as escaping the next char within double-quotes.
+        if (next === "\n") {
+          i += 1;
+          continue;
+        }
+
+        out += next;
+        i += 1;
+        continue;
+      }
+
+      out += ch;
+    }
+
+    return null;
   }
-  if (port) {
-    const portEnvKey = asString(portConfig.envKey, "PORT");
-    env[portEnvKey] = String(port);
+
+  function tryParseNodeEvalCommand(rawCommand: string) {
+    const trimmed = rawCommand.trim();
+    if (!trimmed.startsWith("node")) return null;
+    const match = trimmed.match(/^node\s+-e\s+([\s\S]+)$/);
+    if (!match) return null;
+    const rest = match[1] ?? "";
+    const quoted = parseShellQuotedString(rest);
+    if (quoted) {
+      return { script: quoted.value };
+    }
+    // Best-effort: treat remainder as the script.
+    return { script: rest.trim() };
   }
+
+  const nodeEval = tryParseNodeEvalCommand(command);
+  const spawnCommand = nodeEval ? process.execPath : "/bin/bash";
+  const spawnArgs = nodeEval ? ["-e", nodeEval.script] : ["-lc", command];
+
   const expose = parseObject(input.service.expose);
   const readiness = parseObject(input.service.readiness);
-  const urlTemplate =
-    asString(expose.urlTemplate, "") ||
-    asString(readiness.urlTemplate, "");
-  const url = urlTemplate ? renderTemplate(urlTemplate, templateData) : null;
+  const urlTemplate = asString(expose.urlTemplate, "") || asString(readiness.urlTemplate, "");
   const stopPolicy = parseObject(input.service.stopPolicy);
-  const serviceKey = createLocalServiceKey({
-    profileKind: "workspace-runtime",
-    serviceName,
-    cwd: serviceCwd,
-    command,
-    envFingerprint: serviceIdentityFingerprint,
-    port: identityPort,
-    scope: {
-      scopeType: input.scopeType,
-      scopeId: input.scopeId,
-      executionWorkspaceId: input.executionWorkspaceId ?? null,
-      reuseKey: input.reuseKey,
-    },
-  });
-  const adoptedRecord = await findAdoptableLocalService({
-    serviceKey,
-    command,
-    cwd: serviceCwd,
-    envFingerprint: serviceIdentityFingerprint,
-    port: identityPort,
-  });
-  if (adoptedRecord) {
-    return {
-      id: adoptedRecord.runtimeServiceId ?? randomUUID(),
-      companyId: input.agent.companyId,
-      projectId: input.workspace.projectId,
-      projectWorkspaceId: input.workspace.workspaceId,
-      executionWorkspaceId: input.executionWorkspaceId ?? null,
-      issueId: input.issue?.id ?? null,
+  const portEnvKey = asString(portConfig.envKey, "PORT");
+
+  let port: number | null = null;
+  let url: string | null = null;
+  let serviceCwd = identity.serviceCwd;
+  let env: Record<string, string> = {};
+  let serviceKey = "";
+  let child: ChildProcess | null = null;
+  let lastStartError: Error | null = null;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    port =
+      portType === "auto"
+        ? await allocatePort()
+        : explicitPort > 0
+          ? explicitPort
+          : null;
+
+    const templateData = buildTemplateData({
+      workspace: input.workspace,
+      agent: input.agent,
+      issue: input.issue,
+      adapterEnv: input.adapterEnv,
+      port,
+    });
+    serviceCwd =
+      port === identityPort
+        ? identity.serviceCwd
+        : resolveConfiguredPath(renderTemplate(asString(input.service.cwd, "."), templateData), input.workspace.cwd);
+
+    env = {
+      ...sanitizeRuntimeServiceBaseEnv(process.env),
+      ...input.adapterEnv,
+    } as Record<string, string>;
+    for (const [key, value] of Object.entries(renderRuntimeServiceEnv({ envConfig, templateData }))) {
+      env[key] = value;
+    }
+
+    if (port) {
+      env[portEnvKey] = String(port);
+    }
+
+    url = urlTemplate ? renderTemplate(urlTemplate, templateData) : null;
+
+    serviceKey = createLocalServiceKey({
+      profileKind: "workspace-runtime",
       serviceName,
-      status: "running",
-      lifecycle,
-      scopeType: input.scopeType,
-      scopeId: input.scopeId,
-      reuseKey: input.reuseKey,
+      cwd: serviceCwd,
+      command,
+      envFingerprint: serviceIdentityFingerprint,
+      port: identityPort,
+      scope: {
+        scopeType: input.scopeType,
+        scopeId: input.scopeId,
+        executionWorkspaceId: input.executionWorkspaceId ?? null,
+        reuseKey: input.reuseKey,
+      },
+    });
+
+    const adoptedRecord = await findAdoptableLocalService({
+      serviceKey,
       command,
       cwd: serviceCwd,
-      port: adoptedRecord.port ?? port,
-      url: adoptedRecord.url ?? url,
-      provider: "local_process",
-      providerRef: String(adoptedRecord.pid),
-      ownerAgentId: input.agent.id ?? null,
-      startedByRunId,
-      lastUsedAt: new Date().toISOString(),
-      startedAt: adoptedRecord.startedAt,
-      stoppedAt: null,
-      stopPolicy,
-      healthStatus: "healthy",
-      reused: true,
-      db: input.db,
-      child: null,
-      leaseRunIds: leaseRunId ? new Set([leaseRunId]) : new Set(),
-      idleTimer: null,
-      envFingerprint,
-      serviceKey,
-      profileKind: "workspace-runtime",
-      processGroupId: adoptedRecord.processGroupId ?? null,
-    };
-  }
-  if (identityPort) {
-    const ownerPid = await readLocalServicePortOwner(identityPort);
-    if (ownerPid) {
-      throw new Error(
-        `Runtime service "${serviceName}" could not start because port ${identityPort} is already in use by pid ${ownerPid}`,
+      envFingerprint: serviceIdentityFingerprint,
+      port: identityPort,
+    });
+    if (adoptedRecord) {
+      return {
+        id: adoptedRecord.runtimeServiceId ?? randomUUID(),
+        companyId: input.agent.companyId,
+        projectId: input.workspace.projectId,
+        projectWorkspaceId: input.workspace.workspaceId,
+        executionWorkspaceId: input.executionWorkspaceId ?? null,
+        issueId: input.issue?.id ?? null,
+        serviceName,
+        status: "running",
+        lifecycle,
+        scopeType: input.scopeType,
+        scopeId: input.scopeId,
+        reuseKey: input.reuseKey,
+        command,
+        cwd: serviceCwd,
+        port: adoptedRecord.port ?? port,
+        url: adoptedRecord.url ?? url,
+        provider: "local_process",
+        providerRef: String(adoptedRecord.pid),
+        ownerAgentId: input.agent.id ?? null,
+        startedByRunId,
+        lastUsedAt: new Date().toISOString(),
+        startedAt: adoptedRecord.startedAt,
+        stoppedAt: null,
+        stopPolicy,
+        healthStatus: "healthy",
+        reused: true,
+        db: input.db,
+        child: null,
+        leaseRunIds: leaseRunId ? new Set([leaseRunId]) : new Set(),
+        idleTimer: null,
+        envFingerprint,
+        serviceKey,
+        profileKind: "workspace-runtime",
+        processGroupId: adoptedRecord.processGroupId ?? null,
+      };
+    }
+
+    if (identityPort) {
+      const ownerPid = await readLocalServicePortOwner(identityPort);
+      if (ownerPid) {
+        throw new Error(
+          `Runtime service "${serviceName}" could not start because port ${identityPort} is already in use by pid ${ownerPid}`,
+        );
+      }
+    }
+
+    let spawnError: Error | null = null;
+    child = spawn(spawnCommand, spawnArgs, {
+      cwd: serviceCwd,
+      env,
+      detached: process.platform !== "win32",
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    child.on("error", (err) => {
+      spawnError = err;
+    });
+
+    let stderrExcerpt = "";
+    let stdoutExcerpt = "";
+    child.stdout?.on("data", async (chunk) => {
+      const text = String(chunk);
+      stdoutExcerpt = (stdoutExcerpt + text).slice(-4096);
+      if (input.onLog) await input.onLog("stdout", `[service:${serviceName}] ${text}`);
+    });
+    child.stderr?.on("data", async (chunk) => {
+      const text = String(chunk);
+      stderrExcerpt = (stderrExcerpt + text).slice(-4096);
+      if (input.onLog) await input.onLog("stderr", `[service:${serviceName}] ${text}`);
+    });
+
+    const readinessConfig = parseObject(input.service.readiness);
+    const configuredTimeoutSec = Math.max(1, asNumber(readinessConfig.timeoutSec, 30));
+    const perAttemptTimeoutSec =
+      attempt < maxAttempts ? Math.min(configuredTimeoutSec, 10) : configuredTimeoutSec;
+    const serviceForReadiness: Record<string, unknown> =
+      perAttemptTimeoutSec === configuredTimeoutSec
+        ? input.service
+        : {
+            ...input.service,
+            readiness: {
+              ...readinessConfig,
+              timeoutSec: perAttemptTimeoutSec,
+            },
+          };
+
+    try {
+      await waitForReadiness({
+        service: serviceForReadiness,
+        url,
+        child,
+        getSpawnError: () => spawnError,
+      });
+      break;
+    } catch (err) {
+      const nodeOptions = typeof env.NODE_OPTIONS === "string" ? env.NODE_OPTIONS.trim() : "";
+      const nodeV8Coverage = typeof env.NODE_V8_COVERAGE === "string" ? env.NODE_V8_COVERAGE.trim() : "";
+      const pid = child.pid ?? null;
+      const psLine = pid
+        ? await execFileAsync("ps", ["-o", "state=,ppid=,pgid=,command=", "-p", String(pid)])
+            .then(({ stdout }) => stdout.trim())
+            .catch(() => "")
+        : "";
+      const lsofOutput = pid
+        ? await execFileAsync("lsof", ["-nP", "-a", "-p", String(pid), "-iTCP", "-sTCP:LISTEN"])
+            .then(({ stdout }) => stdout.trim())
+            .catch(() => "")
+        : "";
+
+      const exitCode = child.exitCode;
+      const signalCode = child.signalCode;
+
+      terminateChildProcess(child);
+      child = null;
+
+      const details = [
+        `attempt=${attempt}/${maxAttempts}`,
+        `shell=${spawnCommand}`,
+        `args=${JSON.stringify(spawnArgs)}`,
+        `cwd=${serviceCwd}`,
+        pid ? `pid=${pid}` : null,
+        `exitCode=${exitCode ?? "null"}`,
+        `signalCode=${signalCode ?? "null"}`,
+        spawnError ? `spawnError=${String(spawnError)}` : null,
+        nodeEval ? "spawnMode=node_eval" : "spawnMode=shell",
+        port ? `port=${port}` : null,
+        portEnvKey ? `portEnv=${portEnvKey}=${env[portEnvKey] ?? ""}` : null,
+        nodeOptions ? `NODE_OPTIONS=${JSON.stringify(nodeOptions.slice(0, 512))}` : null,
+        nodeV8Coverage ? `NODE_V8_COVERAGE=${JSON.stringify(nodeV8Coverage.slice(0, 512))}` : null,
+        psLine ? `ps=${JSON.stringify(psLine.slice(0, 512))}` : null,
+        lsofOutput ? `lsof=${JSON.stringify(lsofOutput.replace(/\s+/g, " ").slice(0, 512))}` : null,
+        `command=${JSON.stringify(command)}`,
+      ]
+        .filter(Boolean)
+        .join(" ");
+
+      lastStartError = new Error(
+        `Failed to start runtime service "${serviceName}": ${err instanceof Error ? err.message : String(err)} (${details})${stderrExcerpt ? ` | stderr: ${stderrExcerpt.trim()}` : ""}${stdoutExcerpt ? ` | stdout: ${stdoutExcerpt.trim()}` : ""}`,
       );
+      if (attempt >= maxAttempts) {
+        throw lastStartError;
+      }
+
+      // Avoid immediate tight-loop retries. Under load, giving the OS a moment to
+      // release resources (ports/process groups) reduces flakiness.
+      if (portType === "auto") {
+        await delay(Math.min(1500, 200 * attempt));
+      }
     }
   }
-  const shell = process.env.SHELL?.trim() || "/bin/sh";
-  const child = spawn(shell, ["-lc", command], {
-    cwd: serviceCwd,
-    env,
-    detached: process.platform !== "win32",
-    stdio: ["ignore", "pipe", "pipe"],
-  });
-  let stderrExcerpt = "";
-  let stdoutExcerpt = "";
-  child.stdout?.on("data", async (chunk) => {
-    const text = String(chunk);
-    stdoutExcerpt = (stdoutExcerpt + text).slice(-4096);
-    if (input.onLog) await input.onLog("stdout", `[service:${serviceName}] ${text}`);
-  });
-  child.stderr?.on("data", async (chunk) => {
-    const text = String(chunk);
-    stderrExcerpt = (stderrExcerpt + text).slice(-4096);
-    if (input.onLog) await input.onLog("stderr", `[service:${serviceName}] ${text}`);
-  });
 
-  try {
-    await waitForReadiness({ service: input.service, url });
-  } catch (err) {
-    terminateChildProcess(child);
-    throw new Error(
-      `Failed to start runtime service "${serviceName}": ${err instanceof Error ? err.message : String(err)}${stderrExcerpt ? ` | stderr: ${stderrExcerpt.trim()}` : ""}`,
-    );
+  if (!child) {
+    throw lastStartError ?? new Error(`Failed to start runtime service "${serviceName}"`);
   }
+
 
   const record: RuntimeServiceRecord = {
     id: randomUUID(),

@@ -6,12 +6,13 @@ import { testEnvironment } from "@paperclipai/adapter-pi-local/server";
 
 async function writeFakePiCommand(binDir: string, mode: "success" | "stale-package"): Promise<void> {
   const commandPath = path.join(binDir, "pi");
+  const scriptPath = path.join(binDir, "pi.js");
   const script =
     mode === "success"
-      ? `#!/usr/bin/env node
-if (process.argv.includes("--list-models")) {
-  console.log("provider  model");
-  console.log("openai    gpt-4.1-mini");
+      ? `if (process.argv.includes("--list-models")) {
+  // Pi typically prints model listings to stderr.
+  console.error("provider  model");
+  console.error("openai    gpt-4.1-mini");
   process.exit(0);
 }
 console.log(JSON.stringify({ type: "session", version: 3, id: "session-1", timestamp: new Date().toISOString(), cwd: process.cwd() }));
@@ -27,14 +28,21 @@ console.log(JSON.stringify({
   toolResults: []
 }));
 `
-      : `#!/usr/bin/env node
-if (process.argv.includes("--list-models")) {
+      : `if (process.argv.includes("--list-models")) {
   console.error("npm error 404 'pi-driver@*' is not in this registry.");
   process.exit(1);
 }
 process.exit(1);
 `;
-  await fs.writeFile(commandPath, script, "utf8");
+
+  // Use a tiny shell wrapper so the fake CLI doesn't rely on `#!/usr/bin/env node`
+  // (which becomes flaky if the parent test process mutates PATH).
+  const wrapper = `#!/bin/sh
+exec "${process.execPath}" "${scriptPath}" "$@"
+`;
+
+  await fs.writeFile(scriptPath, script, "utf8");
+  await fs.writeFile(commandPath, wrapper, "utf8");
   await fs.chmod(commandPath, 0o755);
 }
 

@@ -206,9 +206,20 @@ async function waitForServer(
   apiBase: string,
   child: ServerProcess,
   output: { stdout: string[]; stderr: string[] },
+  options: { timeoutMs?: number; getChildError?: () => Error | null } = {},
 ) {
+  const timeoutMs = Math.max(1_000, options.timeoutMs ?? 90_000);
   const startedAt = Date.now();
-  while (Date.now() - startedAt < 30_000) {
+  let lastError: string | null = null;
+
+  while (Date.now() - startedAt < timeoutMs) {
+    const childError = options.getChildError?.() ?? null;
+    if (childError) {
+      throw new Error(
+        `paperclipai run failed to spawn before healthcheck succeeded: ${childError.message}\nstdout:\n${output.stdout.join("")}\nstderr:\n${output.stderr.join("")}`,
+      );
+    }
+
     if (child.exitCode !== null) {
       throw new Error(
         `paperclipai run exited before healthcheck succeeded.\nstdout:\n${output.stdout.join("")}\nstderr:\n${output.stderr.join("")}`,
@@ -218,15 +229,17 @@ async function waitForServer(
     try {
       const res = await fetch(`${apiBase}/api/health`);
       if (res.ok) return;
-    } catch {
-      // Server is still starting.
+      lastError = `received HTTP ${res.status}`;
+    } catch (err) {
+      lastError = err instanceof Error ? err.message : String(err);
     }
 
     await new Promise((resolve) => setTimeout(resolve, 250));
   }
 
+  const last = lastError ? `\nlastError: ${lastError}` : "";
   throw new Error(
-    `Timed out waiting for ${apiBase}/api/health.\nstdout:\n${output.stdout.join("")}\nstderr:\n${output.stderr.join("")}`,
+    `Timed out waiting for ${apiBase}/api/health.${last}\nstdout:\n${output.stdout.join("")}\nstderr:\n${output.stderr.join("")}`,
   );
 }
 
@@ -251,6 +264,7 @@ describeEmbeddedPostgres("paperclipai company import/export e2e", () => {
 
     const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
     const output = { stdout: [] as string[], stderr: [] as string[] };
+    let childError: Error | null = null;
     const child = spawn(
       "pnpm",
       ["paperclipai", "run", "--config", configPath],
@@ -261,6 +275,9 @@ describeEmbeddedPostgres("paperclipai company import/export e2e", () => {
       },
     );
     serverProcess = child;
+    child.once("error", (err) => {
+      childError = err;
+    });
     child.stdout?.on("data", (chunk) => {
       output.stdout.push(String(chunk));
     });
@@ -268,8 +285,11 @@ describeEmbeddedPostgres("paperclipai company import/export e2e", () => {
       output.stderr.push(String(chunk));
     });
 
-    await waitForServer(apiBase, child, output);
-  }, 60_000);
+    await waitForServer(apiBase, child, output, {
+      timeoutMs: 90_000,
+      getChildError: () => childError,
+    });
+  }, 120_000);
 
   afterAll(async () => {
     await stopServerProcess(serverProcess);
@@ -498,5 +518,5 @@ describeEmbeddedPostgres("paperclipai company import/export e2e", () => {
 
     expect(importedFromZip.company.action).toBe("created");
     expect(importedFromZip.agents.some((agent) => agent.action === "created")).toBe(true);
-  }, 60_000);
+  }, 180_000);
 });

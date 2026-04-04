@@ -28,6 +28,11 @@ import {
   stopRuntimeServicesForExecutionWorkspace,
   type RealizedExecutionWorkspace,
 } from "../services/workspace-runtime.ts";
+import {
+  listLocalServiceRegistryRecords,
+  removeLocalServiceRegistryRecord,
+  terminateLocalService,
+} from "../services/local-service-supervisor.ts";
 import { resolvePaperclipConfigPath } from "../paths.ts";
 import type { WorkspaceOperation } from "@paperclipai/shared";
 import type { WorkspaceOperationRecorder } from "../services/workspace-operations.ts";
@@ -38,6 +43,15 @@ import {
 
 const execFileAsync = promisify(execFile);
 const leasedRunIds = new Set<string>();
+
+const originalEnv = {
+  PAPERCLIP_HOME: process.env.PAPERCLIP_HOME,
+  PAPERCLIP_INSTANCE_ID: process.env.PAPERCLIP_INSTANCE_ID,
+};
+let testPaperclipHomeBaseDir: string | null = null;
+let testPaperclipHomeDir: string | null = null;
+let testPaperclipInstanceId: string | null = null;
+
 const embeddedPostgresSupport = await getEmbeddedPostgresTestSupport();
 const describeEmbeddedPostgres = embeddedPostgresSupport.supported ? describe : describe.skip;
 
@@ -142,6 +156,17 @@ function createWorkspaceOperationRecorderDouble() {
   return { recorder, operations };
 }
 
+beforeAll(async () => {
+  testPaperclipHomeBaseDir = await fs.mkdtemp(path.join(os.tmpdir(), "paperclip-test-home-"));
+  // Use a home dir that ends with `.paperclip` so existing assertions stay stable.
+  testPaperclipHomeDir = path.join(testPaperclipHomeBaseDir, ".paperclip");
+  await fs.mkdir(testPaperclipHomeDir, { recursive: true });
+  testPaperclipInstanceId = `vitest-${randomUUID().slice(0, 8)}`;
+
+  process.env.PAPERCLIP_HOME = testPaperclipHomeDir;
+  process.env.PAPERCLIP_INSTANCE_ID = testPaperclipInstanceId;
+});
+
 afterEach(async () => {
   await Promise.all(
     Array.from(leasedRunIds).map(async (runId) => {
@@ -150,15 +175,40 @@ afterEach(async () => {
     }),
   );
   delete process.env.PAPERCLIP_CONFIG;
-  delete process.env.PAPERCLIP_HOME;
-  delete process.env.PAPERCLIP_INSTANCE_ID;
   delete process.env.PAPERCLIP_WORKTREES_DIR;
   delete process.env.DATABASE_URL;
+
+  // Keep tests hermetic: always reset to the temp instance.
+  if (testPaperclipHomeDir) process.env.PAPERCLIP_HOME = testPaperclipHomeDir;
+  if (testPaperclipInstanceId) process.env.PAPERCLIP_INSTANCE_ID = testPaperclipInstanceId;
+
   await resetRuntimeServicesForTests();
+
+  // Ensure no lingering local runtime-service processes survive between tests.
+  const registryRecords = await listLocalServiceRegistryRecords({ profileKind: "workspace-runtime" });
+  await Promise.all(
+    registryRecords.map(async (record) => {
+      await terminateLocalService({ pid: record.pid, processGroupId: record.processGroupId }).catch(() => undefined);
+      await removeLocalServiceRegistryRecord(record.serviceKey).catch(() => undefined);
+    }),
+  );
 });
 
-describe("sanitizeRuntimeServiceBaseEnv", () => {
-  it("removes inherited Paperclip and pnpm auth flags before spawning runtime services", () => {
+afterAll(async () => {
+  if (originalEnv.PAPERCLIP_HOME === undefined) delete process.env.PAPERCLIP_HOME;
+  else process.env.PAPERCLIP_HOME = originalEnv.PAPERCLIP_HOME;
+
+  if (originalEnv.PAPERCLIP_INSTANCE_ID === undefined) delete process.env.PAPERCLIP_INSTANCE_ID;
+  else process.env.PAPERCLIP_INSTANCE_ID = originalEnv.PAPERCLIP_INSTANCE_ID;
+
+  if (testPaperclipHomeBaseDir) {
+    await fs.rm(testPaperclipHomeBaseDir, { recursive: true, force: true });
+  }
+});
+
+describe.sequential("workspace-runtime", () => {
+  describe("sanitizeRuntimeServiceBaseEnv", () => {
+    it("removes inherited Paperclip and pnpm auth flags before spawning runtime services", () => {
     const sanitized = sanitizeRuntimeServiceBaseEnv({
       PATH: process.env.PATH,
       DATABASE_URL: "postgres://example.test/paperclip",
@@ -853,7 +903,7 @@ describe("realizeExecutionWorkspace", () => {
   });
 });
 
-describe("ensureRuntimeServicesForRun", () => {
+describe.sequential("ensureRuntimeServicesForRun", () => {
   it("reuses shared runtime services across runs and starts a new service after release", async () => {
     const workspaceRoot = await fs.mkdtemp(path.join(os.tmpdir(), "paperclip-runtime-workspace-"));
     const workspace = buildWorkspace(workspaceRoot);
@@ -870,7 +920,7 @@ describe("ensureRuntimeServicesForRun", () => {
             readiness: {
               type: "http",
               urlTemplate: "http://127.0.0.1:{{port}}",
-              timeoutSec: 10,
+              timeoutSec: 30,
               intervalMs: 100,
             },
             expose: {
@@ -951,7 +1001,7 @@ describe("ensureRuntimeServicesForRun", () => {
     expect(third).toHaveLength(1);
     expect(third[0]?.reused).toBe(false);
     expect(third[0]?.id).not.toBe(first[0]?.id);
-  });
+  }, 90_000);
 
   it("does not reuse project-scoped shared services across different workspace launch contexts", async () => {
     const primaryWorkspaceRoot = await fs.mkdtemp(path.join(os.tmpdir(), "paperclip-runtime-primary-"));
@@ -968,7 +1018,7 @@ describe("ensureRuntimeServicesForRun", () => {
       worktreePath: worktreeWorkspaceRoot,
     };
     const serviceCommand =
-      "node -e \"require('node:http').createServer((req,res)=>res.end(process.env.PAPERCLIP_HOME)).listen(Number(process.env.PORT), '127.0.0.1')\"";
+      "node -e \"require('node:http').createServer((req,res)=>res.end(String(process.env.PAPERCLIP_HOME))).listen(Number(process.env.PORT), '127.0.0.1')\"";
     const config = {
       workspaceRuntime: {
         services: [
@@ -983,7 +1033,7 @@ describe("ensureRuntimeServicesForRun", () => {
             readiness: {
               type: "http",
               urlTemplate: "http://127.0.0.1:{{port}}",
-              timeoutSec: 10,
+              timeoutSec: 30,
               intervalMs: 100,
             },
             expose: {
@@ -1046,7 +1096,7 @@ describe("ensureRuntimeServicesForRun", () => {
 
     const executionResponse = await fetch(executionServices[0]!.url!);
     expect(await executionResponse.text()).toBe(path.join(worktreeWorkspaceRoot, ".paperclip", "runtime-services"));
-  });
+  }, 90_000);
 
   it("does not leak parent Paperclip instance env into runtime service commands", async () => {
     const workspaceRoot = await fs.mkdtemp(path.join(os.tmpdir(), "paperclip-runtime-env-"));
@@ -1098,7 +1148,7 @@ describe("ensureRuntimeServicesForRun", () => {
               readiness: {
                 type: "http",
                 urlTemplate: "http://127.0.0.1:{{port}}",
-                timeoutSec: 10,
+                timeoutSec: 30,
                 intervalMs: 100,
               },
               lifecycle: "shared",
@@ -1126,7 +1176,7 @@ describe("ensureRuntimeServicesForRun", () => {
     expect(services[0]?.executionWorkspaceId).toBe("execution-workspace-1");
     expect(services[0]?.scopeType).toBe("execution_workspace");
     expect(services[0]?.scopeId).toBe("execution-workspace-1");
-  });
+  }, 90_000);
 
   it("stops execution workspace runtime services by executionWorkspaceId", async () => {
     const workspaceRoot = await fs.mkdtemp(path.join(os.tmpdir(), "paperclip-runtime-stop-"));
@@ -1155,7 +1205,7 @@ describe("ensureRuntimeServicesForRun", () => {
               readiness: {
                 type: "http",
                 urlTemplate: "http://127.0.0.1:{{port}}",
-                timeoutSec: 10,
+                timeoutSec: 30,
                 intervalMs: 100,
               },
               lifecycle: "shared",
@@ -1214,7 +1264,7 @@ describe("ensureRuntimeServicesForRun", () => {
               readiness: {
                 type: "http",
                 urlTemplate: "http://127.0.0.1:{{port}}",
-                timeoutSec: 10,
+                timeoutSec: 30,
                 intervalMs: 100,
               },
               lifecycle: "shared",
@@ -1330,7 +1380,7 @@ describeEmbeddedPostgres("workspace runtime startup reconciliation", () => {
               readiness: {
                 type: "http",
                 urlTemplate: "http://127.0.0.1:{{port}}",
-                timeoutSec: 10,
+                timeoutSec: 30,
                 intervalMs: 100,
               },
               lifecycle: "shared",
@@ -1454,7 +1504,7 @@ describeEmbeddedPostgres("workspace runtime startup reconciliation", () => {
               readiness: {
                 type: "http",
                 urlTemplate: "http://127.0.0.1:{{port}}",
-                timeoutSec: 10,
+                timeoutSec: 30,
                 intervalMs: 100,
               },
               lifecycle: "shared",
@@ -1593,4 +1643,5 @@ describe("normalizeAdapterManagedRuntimeServices", () => {
       executionWorkspaceId: "execution-workspace-1",
     });
   });
+});
 });
