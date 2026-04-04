@@ -29,6 +29,7 @@ import {
   companySecrets,
   companySecretVersions,
   pluginConfig,
+  pluginCompanySettings,
 } from "@paperclipai/db";
 import { SECRET_PROVIDERS, type SecretProvider } from "@paperclipai/shared";
 
@@ -194,10 +195,10 @@ export interface PluginSecretsService {
   /**
    * Create a new secret in the Paperclip vault.
    *
-   * @param params - Contains name, value, and description
+   * @param params - Contains companyId, name, value, and description
    * @returns The generated secret reference UUID
    */
-  write(params: { name: string; value: string; description?: string }): Promise<string>;
+  write(params: { companyId: string; name: string; value: string; description?: string }): Promise<string>;
 }
 
 /**
@@ -358,7 +359,7 @@ export function createPluginSecretsHandler(
       return resolved;
     },
 
-    async write(params: { name: string; value: string; description?: string }): Promise<string> {
+    async write(params: { companyId: string; name: string; value: string; description?: string }): Promise<string> {
       // ---------------------------------------------------------------
       // 0. Rate limiting — prevent resource exhaustion
       // ---------------------------------------------------------------
@@ -368,14 +369,26 @@ export function createPluginSecretsHandler(
         throw err;
       }
 
+      const { companyId } = params;
+
       // ---------------------------------------------------------------
-      // 1. Resolve owning company (Critical Security: Anti-Injection)
+      // 1. Validation — ensure plugin is allowed to act for this company
       // ---------------------------------------------------------------
-      const plugin = await registry.getById(pluginId);
-      if (!plugin) {
-        throw new Error("Plugin not found");
+      const settings = await db
+        .select()
+        .from(pluginCompanySettings)
+        .where(
+          and(
+            eq(pluginCompanySettings.pluginId, pluginId),
+            eq(pluginCompanySettings.companyId, companyId),
+            eq(pluginCompanySettings.enabled, true),
+          ),
+        )
+        .then((rows) => rows[0] ?? null);
+
+      if (!settings) {
+        throw new Error(`Plugin not enabled for company: ${companyId}`);
       }
-      const companyId = plugin.companyId;
 
       // ---------------------------------------------------------------
       // 2. Safety check — reserved prefixes
