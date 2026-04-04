@@ -512,7 +512,10 @@ export function createPluginSecretsHandler(
         // Update (rotate) the existing secret
         const updated = await secretService(db).rotate(
           existing.id, 
-          { value: params.value },
+          { 
+            value: params.value,
+            description: params.description
+          },
           { userId: pluginActorId, agentId: null }
         );
 
@@ -573,7 +576,10 @@ export function createPluginSecretsHandler(
           if (raced) {
             const updated = await secretService(db).rotate(
               raced.id, 
-              { value: params.value },
+              { 
+                value: params.value,
+                description: params.description
+              },
               { userId: pluginActorId, agentId: null }
             );
 
