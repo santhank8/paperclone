@@ -1,4 +1,4 @@
-function truncateSummaryText(value: unknown, maxLength = 500) {
+function truncateSummaryText(value: unknown, maxLength = 200) {
   if (typeof value !== "string") return null;
   return value.length > maxLength ? value.slice(0, maxLength) : value;
 }
