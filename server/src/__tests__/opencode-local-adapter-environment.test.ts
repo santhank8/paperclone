@@ -81,6 +81,11 @@ describe("opencode_local environment diagnostics", () => {
         config: {
           command: fakeOpencode,
           cwd,
+          // Make this test hermetic: in the full suite other tests may mutate process.env,
+          // so ensure we always reach the hello-probe classification path.
+          env: {
+            OPENAI_API_KEY: "test-key",
+          },
         },
       });
 

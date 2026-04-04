@@ -117,7 +117,7 @@ export async function discoverPiModels(input: {
     {
       cwd,
       env: runtimeEnv,
-      timeoutSec: 20,
+      timeoutSec: 60,
       graceSec: 3,
       onLog: async () => {},
     },

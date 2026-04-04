@@ -4,7 +4,10 @@ import os from "node:os";
 import path from "node:path";
 import { testEnvironment } from "@paperclipai/adapter-pi-local/server";
 
-async function writeFakePiCommand(binDir: string, mode: "success" | "stale-package"): Promise<void> {
+async function writeFakePiCommand(
+  binDir: string,
+  mode: "success" | "stale-package",
+): Promise<string> {
   const commandPath = path.join(binDir, "pi");
   const scriptPath = path.join(binDir, "pi.js");
   const script =
@@ -44,6 +47,7 @@ exec "${process.execPath}" "${scriptPath}" "$@"
   await fs.writeFile(scriptPath, script, "utf8");
   await fs.writeFile(commandPath, wrapper, "utf8");
   await fs.chmod(commandPath, 0o755);
+  return commandPath;
 }
 
 describe("pi_local environment diagnostics", () => {
@@ -56,18 +60,19 @@ describe("pi_local environment diagnostics", () => {
     const cwd = path.join(root, "workspace");
     await fs.mkdir(binDir, { recursive: true });
     await fs.mkdir(cwd, { recursive: true });
-    await writeFakePiCommand(binDir, "success");
+    const commandPath = await writeFakePiCommand(binDir, "success");
 
     const result = await testEnvironment({
       companyId: "company-1",
       adapterType: "pi_local",
       config: {
-        command: "pi",
+        command: commandPath,
         cwd,
         model: "openai/gpt-4.1-mini",
         env: {
           OPENAI_API_KEY: "test-key",
-          PATH: `${binDir}${path.delimiter}${process.env.PATH ?? ""}`,
+          // Ensure spawned Node-based fake CLIs don't inherit Vitest NODE_OPTIONS hooks.
+          NODE_OPTIONS: "",
         },
       },
     });
@@ -87,16 +92,17 @@ describe("pi_local environment diagnostics", () => {
     const cwd = path.join(root, "workspace");
     await fs.mkdir(binDir, { recursive: true });
     await fs.mkdir(cwd, { recursive: true });
-    await writeFakePiCommand(binDir, "stale-package");
+    const commandPath = await writeFakePiCommand(binDir, "stale-package");
 
     const result = await testEnvironment({
       companyId: "company-1",
       adapterType: "pi_local",
       config: {
-        command: "pi",
+        command: commandPath,
         cwd,
         env: {
-          PATH: `${binDir}${path.delimiter}${process.env.PATH ?? ""}`,
+          // Ensure spawned Node-based fake CLIs don't inherit Vitest NODE_OPTIONS hooks.
+          NODE_OPTIONS: "",
         },
       },
     });

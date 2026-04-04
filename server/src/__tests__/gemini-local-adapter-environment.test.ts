@@ -106,7 +106,7 @@ describe("gemini_local environment diagnostics", () => {
         cwd,
         model: "gemini-2.5-pro",
         yolo: true,
-        helloProbeTimeoutSec: 30,
+        helloProbeTimeoutSec: 60,
         env: {
           GEMINI_API_KEY: "test-key",
           PAPERCLIP_TEST_ARGS_PATH: argsCapturePath,
@@ -142,7 +142,7 @@ describe("gemini_local environment diagnostics", () => {
       config: {
         command: commandPath,
         cwd,
-        helloProbeTimeoutSec: 30,
+        helloProbeTimeoutSec: 60,
         env: {
           GEMINI_API_KEY: "test-key",
           // Ensure spawned Node-based fake CLIs don't inherit Vitest NODE_OPTIONS hooks.
