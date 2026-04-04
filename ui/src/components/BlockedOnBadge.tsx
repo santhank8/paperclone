@@ -3,15 +3,13 @@ import { User, Bot, Globe, Ban } from "lucide-react";
 import { cn } from "../lib/utils";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
-import type { BlockedOnKind } from "@paperclipai/shared";
+import { BLOCKED_ON_KINDS, type BlockedOnKind } from "@paperclipai/shared";
 
-const blockedOnConfig: Record<string, { icon: typeof User; label: string; color: string }> = {
+const blockedOnConfig: Record<BlockedOnKind, { icon: typeof User; label: string; color: string }> = {
   board: { icon: User, label: "Board", color: "text-orange-600 dark:text-orange-400" },
   agent: { icon: Bot, label: "Agent", color: "text-amber-600 dark:text-amber-400" },
   external: { icon: Globe, label: "External", color: "text-red-600 dark:text-red-400" },
 };
-
-const allBlockedOnKinds: BlockedOnKind[] = ["board", "agent", "external"];
 
 interface BlockedOnBadgeProps {
   blockedOn: BlockedOnKind | null;
@@ -59,7 +57,7 @@ export function BlockedOnBadge({ blockedOn, onChange, showLabel }: BlockedOnBadg
           <Ban className="h-3.5 w-3.5 text-muted-foreground" />
           Not set
         </Button>
-        {allBlockedOnKinds.map((kind) => {
+        {BLOCKED_ON_KINDS.map((kind) => {
           const c = blockedOnConfig[kind]!;
           const KIcon = c.icon;
           return (
