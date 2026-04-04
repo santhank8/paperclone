@@ -2,7 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { execFile as execFileCallback } from "node:child_process";
 import { promisify } from "node:util";
-import { and, asc, desc, eq, gt, inArray, sql } from "drizzle-orm";
+import { and, asc, desc, eq, getTableColumns, gt, inArray, sql } from "drizzle-orm";
 import type { Db } from "@paperclipai/db";
 import type { BillingType, ExecutionWorkspace, ExecutionWorkspaceConfig } from "@paperclipai/shared";
 import {
@@ -10,6 +10,7 @@ import {
   agentRuntimeState,
   agentTaskSessions,
   agentWakeupRequests,
+  companies,
   heartbeatRunEvents,
   heartbeatRuns,
   issues,
@@ -900,8 +901,9 @@ export function heartbeatService(db: Db) {
 
   async function getAgent(agentId: string) {
     return db
-      .select()
+      .select({ ...getTableColumns(agents), companyIssuePrefix: companies.issuePrefix })
       .from(agents)
+      .leftJoin(companies, eq(companies.id, agents.companyId))
       .where(eq(agents.id, agentId))
       .then((rows) => rows[0] ?? null);
   }

@@ -5,6 +5,7 @@
 export interface AdapterAgent {
   id: string;
   companyId: string;
+  companyIssuePrefix?: string | null;
   name: string;
   adapterType: string | null;
   adapterConfig: unknown;
