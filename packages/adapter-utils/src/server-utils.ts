@@ -764,7 +764,16 @@ export async function runChildProcess(
   const onLogError = opts.onLogError ?? ((err, id, msg) => console.warn({ err, runId: id }, msg));
 
   return new Promise<RunProcessResult>((resolve, reject) => {
-    const rawMerged: NodeJS.ProcessEnv = { ...process.env, ...opts.env };
+    // Merge process.env with adapter overlay. Empty-string overlay values do
+    // NOT clobber non-empty process.env values – this prevents agent adapter
+    // configs with placeholder empty keys (e.g. OPENAI_API_KEY: "") from
+    // overwriting valid server-level environment variables.
+    const rawMerged: NodeJS.ProcessEnv = { ...process.env };
+    for (const [key, value] of Object.entries(opts.env)) {
+      if (value.length > 0 || !process.env[key]) {
+        rawMerged[key] = value;
+      }
+    }
 
     // Strip Claude Code nesting-guard env vars so spawned `claude` processes
     // don't refuse to start with "cannot be launched inside another session".
