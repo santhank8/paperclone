@@ -129,9 +129,38 @@ All browser work must be done using the **Playwright MCP tools** (`mcp__playwrig
 
 When starting a browser session for a task, follow this protocol to establish context:
 
-1. **Tab 0 — Navigate to the Paperclip issue URL:**
-   Open (or reuse) Tab 0 and navigate to `{PAPERCLIP_API_URL}/{company-prefix}/issues/{issue-identifier}` (e.g., `http://127.0.0.1:3100/DSPA/issues/DSPA-42`). This anchors the session to the active task.
-2. **Proceed with task work** in subsequent tabs. Tab 0 stays on the issue page as a persistent reference for the current task context.
+1. **Tab 0 — Build and open a custom identity page** (NOT an iframe, NOT the raw Paperclip URL):
+   Construct a `data:text/html,...` URL that renders a self-contained HTML page with:
+   - Your agent name and role/title as a heading
+   - The current task identifier, title, and a brief description (plain text, first ~300 chars)
+   - A clearly visible clickable link to the actual Paperclip issue: `{PAPERCLIP_API_URL}/{company-prefix}/issues/{issue-identifier}`
+
+   Example minimal template (inline all styles, no external resources):
+   ```html
+   <!DOCTYPE html><html><head><meta charset="utf-8">
+   <title>{AgentName} — {ISSUE_ID}</title>
+   <style>body{font-family:system-ui;max-width:800px;margin:0 auto;padding:24px;background:#0f172a;color:#e2e8f0}
+   h1{color:#38bdf8;margin:0 0 4px}
+   .role{color:#94a3b8;font-size:.9em;margin-bottom:20px}
+   .id{color:#f59e0b;font-weight:700}
+   .title{font-size:1.1em;font-weight:600;margin:6px 0}
+   .desc{color:#94a3b8;font-size:.85em;white-space:pre-wrap;max-height:200px;overflow:auto}
+   a{color:#38bdf8}</style></head>
+   <body>
+   <h1>{AgentName}</h1>
+   <div class="role">{Role} · {Title}</div>
+   <div class="id">{ISSUE_ID}</div>
+   <div class="title">{ISSUE_TITLE}</div>
+   <div class="desc">{ISSUE_DESCRIPTION_FIRST_300_CHARS}</div>
+   <p><a href="{PAPERCLIP_ISSUE_URL}">Open in Paperclip →</a></p>
+   </body></html>
+   ```
+
+   URI-encode the full HTML and prefix with `data:text/html;charset=utf-8,` before navigating.
+
+2. **Tab 0 stays open.** Never navigate Tab 0 away from this identity page during the session. The board uses Tab 0 to immediately identify which agent owns the browser and what task is active.
+
+3. **Proceed with task work** in new tabs (Tab 1, Tab 2, …). Close work tabs when done and return focus to Tab 0.
 
 ## Document Linking in Comments
 
