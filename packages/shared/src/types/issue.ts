@@ -1,4 +1,4 @@
-import type { IssueOriginKind, IssuePriority, IssueStatus } from "../constants.js";
+import type { IssueOriginKind, IssuePriority, IssueRelationType, IssueStatus } from "../constants.js";
 import type { Goal } from "./goal.js";
 import type { Project, ProjectWorkspace } from "./project.js";
 import type { ExecutionWorkspace, IssueExecutionWorkspaceSettings } from "./workspace-runtime.js";
@@ -127,6 +127,7 @@ export interface Issue {
   executionWorkspaceId: string | null;
   executionWorkspacePreference: string | null;
   executionWorkspaceSettings: IssueExecutionWorkspaceSettings | null;
+  dueAt: Date | null;
   startedAt: Date | null;
   completedAt: Date | null;
   cancelledAt: Date | null;
@@ -147,6 +148,21 @@ export interface Issue {
   isUnreadForMe?: boolean;
   createdAt: Date;
   updatedAt: Date;
+}
+
+export interface IssueRelation {
+  id: string;
+  companyId: string;
+  issueId: string;
+  relatedIssueId: string;
+  type: IssueRelationType;
+  relatedIssue?: {
+    id: string;
+    identifier: string | null;
+    title: string;
+    status: string;
+  };
+  createdAt: Date;
 }
 
 export interface IssueComment {

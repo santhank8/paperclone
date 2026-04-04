@@ -581,6 +581,22 @@ export function IssueProperties({ issue, onUpdate, inline }: IssuePropertiesProp
       <Separator />
 
       <div className="space-y-1">
+        <PropertyRow label="Due date">
+          <input
+            type="date"
+            value={issue.dueAt ? new Date(issue.dueAt).toISOString().slice(0, 10) : ""}
+            onChange={(e) => {
+              const val = e.target.value;
+              onUpdate({ dueAt: val ? new Date(val + "T00:00:00Z").toISOString() : null });
+            }}
+            className="text-sm bg-transparent border border-border rounded px-2 py-0.5 text-foreground w-full max-w-[160px]"
+          />
+        </PropertyRow>
+      </div>
+
+      <Separator />
+
+      <div className="space-y-1">
         {(issue.createdByAgentId || issue.createdByUserId) && (
           <PropertyRow label="Created by">
             {issue.createdByAgentId ? (

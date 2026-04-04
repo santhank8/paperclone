@@ -9,6 +9,8 @@ import type {
   IssueComment,
   IssueDocument,
   IssueLabel,
+  IssueRelation,
+  IssueRelationType,
   IssueWorkProduct,
   UpsertIssueDocument,
 } from "@paperclipai/shared";
@@ -138,6 +140,11 @@ export const issuesApi = {
     api.post<Approval[]>(`/issues/${id}/approvals`, { approvalId }),
   unlinkApproval: (id: string, approvalId: string) =>
     api.delete<{ ok: true }>(`/issues/${id}/approvals/${approvalId}`),
+  listRelations: (id: string) => api.get<IssueRelation[]>(`/issues/${id}/relations`),
+  createRelation: (id: string, data: { relatedIssueId: string; type: IssueRelationType }) =>
+    api.post<IssueRelation>(`/issues/${id}/relations`, data),
+  deleteRelation: (id: string, relationId: string) =>
+    api.delete<{ ok: true }>(`/issues/${id}/relations/${relationId}`),
   listWorkProducts: (id: string) => api.get<IssueWorkProduct[]>(`/issues/${id}/work-products`),
   createWorkProduct: (id: string, data: Record<string, unknown>) =>
     api.post<IssueWorkProduct>(`/issues/${id}/work-products`, data),
