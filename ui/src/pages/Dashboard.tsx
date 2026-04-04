@@ -19,7 +19,8 @@ import { ActivityRow } from "../components/ActivityRow";
 import { Identity } from "../components/Identity";
 import { timeAgo } from "../lib/timeAgo";
 import { cn, formatCents } from "../lib/utils";
-import { Bot, CircleDot, DollarSign, ShieldCheck, LayoutDashboard, PauseCircle } from "lucide-react";
+import { Bot, Check, CircleDot, DollarSign, ShieldCheck, LayoutDashboard, PauseCircle, XCircle } from "lucide-react";
+import type { HeartbeatRun } from "@paperclipai/shared";
 import { ActiveAgentsPanel } from "../components/ActiveAgentsPanel";
 import { ChartCard, RunActivityChart, PriorityChart, IssueStatusChart, SuccessRateChart } from "../components/ActivityCharts";
 import { PageSkeleton } from "../components/PageSkeleton";
@@ -29,6 +30,140 @@ import { PluginSlotOutlet } from "@/plugins/slots";
 function getRecentIssues(issues: Issue[]): Issue[] {
   return [...issues]
     .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+}
+
+/* ------------------------------------------------------------------ */
+/*  Today's Agent Work                                                 */
+/* ------------------------------------------------------------------ */
+
+function extractRunSummary(run: HeartbeatRun): string {
+  const result = (run.resultJson ?? null) as Record<string, unknown> | null;
+  if (!result) return "";
+  return String(result.summary ?? result.result ?? "").trim();
+}
+
+function isToday(date: Date | string): boolean {
+  const d = new Date(date);
+  const now = new Date();
+  return (
+    d.getFullYear() === now.getFullYear() &&
+    d.getMonth() === now.getMonth() &&
+    d.getDate() === now.getDate()
+  );
+}
+
+interface AgentWorkGroup {
+  agentId: string;
+  agentName: string;
+  runs: Array<{ id: string; status: string; summary: string; finishedAt: string; issueId: string | null }>;
+}
+
+function groupRunsByAgent(
+  runs: HeartbeatRun[],
+  agentMap: Map<string, Agent>,
+): AgentWorkGroup[] {
+  const recentRuns = runs
+    .filter((r) => (r.status === "succeeded" || r.status === "failed") && r.finishedAt && isToday(r.finishedAt))
+    .sort((a, b) => new Date(b.finishedAt!).getTime() - new Date(a.finishedAt!).getTime());
+
+  const grouped = new Map<string, AgentWorkGroup>();
+
+  for (const run of recentRuns) {
+    const summary = extractRunSummary(run);
+    const context = run.contextSnapshot as Record<string, unknown> | null;
+    const issueId = typeof context?.issueId === "string" ? context.issueId : null;
+
+    let group = grouped.get(run.agentId);
+    if (!group) {
+      const agent = agentMap.get(run.agentId);
+      group = {
+        agentId: run.agentId,
+        agentName: agent?.name ?? run.agentId.slice(0, 8),
+        runs: [],
+      };
+      grouped.set(run.agentId, group);
+    }
+
+    group.runs.push({
+      id: run.id,
+      status: run.status,
+      summary: summary || (run.status === "failed" ? (run.error ?? "Run failed") : "Completed"),
+      finishedAt: String(run.finishedAt),
+      issueId,
+    });
+  }
+
+  return [...grouped.values()];
+}
+
+function AgentWorkSection({
+  runs,
+  agentMap,
+  issueMap,
+}: {
+  runs: HeartbeatRun[];
+  agentMap: Map<string, Agent>;
+  issueMap: Map<string, Issue>;
+}) {
+  const groups = useMemo(() => groupRunsByAgent(runs, agentMap), [runs, agentMap]);
+
+  if (groups.length === 0) return null;
+
+  return (
+    <div>
+      <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">
+        Today&apos;s Agent Work
+      </h3>
+      <div className="space-y-3">
+        {groups.map((group) => (
+          <div key={group.agentId} className="border border-border overflow-hidden">
+            <div className="flex items-center gap-2 bg-muted/30 px-4 py-2.5">
+              <Identity name={group.agentName} size="sm" />
+              <span className="ml-auto text-xs text-muted-foreground">
+                {group.runs.length} run{group.runs.length === 1 ? "" : "s"}
+              </span>
+            </div>
+            <div className="divide-y divide-border">
+              {group.runs.map((run) => {
+                const issue = run.issueId ? issueMap.get(run.issueId) ?? null : null;
+                const isFailed = run.status === "failed";
+                return (
+                  <Link
+                    key={run.id}
+                    to={`/agents/${group.agentId}/runs/${run.id}`}
+                    className="flex items-start gap-2.5 px-4 py-2.5 text-sm no-underline text-inherit transition-colors hover:bg-accent/50"
+                  >
+                    {isFailed ? (
+                      <XCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-red-500" />
+                    ) : (
+                      <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-500" />
+                    )}
+                    <div className="min-w-0 flex-1">
+                      {issue && (
+                        <div className="mb-0.5 text-xs text-muted-foreground font-mono">
+                          {issue.identifier ?? issue.id.slice(0, 8)}
+                          <span className="ml-1.5 font-sans">{issue.title}</span>
+                        </div>
+                      )}
+                      <div className={cn(
+                        "line-clamp-2 text-sm",
+                        isFailed ? "text-red-600 dark:text-red-400" : "text-foreground/80",
+                      )}>
+                        {run.summary}
+                      </div>
+                    </div>
+                    <span className="shrink-0 text-xs text-muted-foreground">
+                      {timeAgo(run.finishedAt)}
+                    </span>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 export function Dashboard() {
@@ -155,6 +290,12 @@ export function Dashboard() {
   const entityTitleMap = useMemo(() => {
     const map = new Map<string, string>();
     for (const i of issues ?? []) map.set(`issue:${i.id}`, i.title);
+    return map;
+  }, [issues]);
+
+  const issueMap = useMemo(() => {
+    const map = new Map<string, Issue>();
+    for (const i of issues ?? []) map.set(i.id, i);
     return map;
   }, [issues]);
 
@@ -297,6 +438,8 @@ export function Dashboard() {
               <SuccessRateChart runs={runs ?? []} />
             </ChartCard>
           </div>
+
+          <AgentWorkSection runs={runs ?? []} agentMap={agentMap} issueMap={issueMap} />
 
           <PluginSlotOutlet
             slotTypes={["dashboardWidget"]}
