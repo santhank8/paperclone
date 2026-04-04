@@ -6,6 +6,8 @@ import path from "node:path";
 import { eq } from "drizzle-orm";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { writePaperclipSkillSyncPreference } from "@paperclipai/adapter-utils/server-utils";
+import { claudeConfigDir } from "@paperclipai/adapter-claude-local/server";
+import { codexHomeDir } from "@paperclipai/adapter-codex-local/server";
 import {
   agents,
   applyPendingMigrations,
@@ -401,8 +403,9 @@ describe("feedbackService.saveIssueVote", () => {
   }
 
   async function seedIssueWithAdapterRunComment(input: {
-    adapterType: "claude_local" | "opencode_local";
+    adapterType: "claude_local" | "codex_local" | "opencode_local";
     sessionId: string;
+    adapterConfig?: Record<string, unknown>;
   }) {
     const companyId = randomUUID();
     const agentId = randomUUID();
@@ -424,7 +427,7 @@ describe("feedbackService.saveIssueVote", () => {
       role: "engineer",
       status: "active",
       adapterType: input.adapterType,
-      adapterConfig: {},
+      adapterConfig: input.adapterConfig ?? {},
       runtimeConfig: {},
       permissions: {},
     });
@@ -448,8 +451,18 @@ describe("feedbackService.saveIssueVote", () => {
       startedAt: new Date("2026-04-01T10:00:00.000Z"),
       finishedAt: new Date("2026-04-01T10:05:00.000Z"),
       usageJson: {
-        provider: input.adapterType === "claude_local" ? "anthropic" : "opencode",
-        model: input.adapterType === "claude_local" ? "claude-opus-4-6" : "opencode/minimax-m2.5-free",
+        provider:
+          input.adapterType === "claude_local"
+            ? "anthropic"
+            : input.adapterType === "codex_local"
+              ? "openai"
+              : "opencode",
+        model:
+          input.adapterType === "claude_local"
+            ? "claude-opus-4-6"
+            : input.adapterType === "codex_local"
+              ? "gpt-5.4"
+              : "opencode/minimax-m2.5-free",
       },
     });
 
@@ -462,7 +475,7 @@ describe("feedbackService.saveIssueVote", () => {
       body: "Trace-backed agent output",
     });
 
-    return { companyId, issueId, commentId };
+    return { companyId, agentId, issueId, commentId };
   }
 
   it("stores a local vote without enabling sharing by default", async () => {
@@ -841,6 +854,134 @@ describe("feedbackService.saveIssueVote", () => {
     expect(rawAdapterTrace?.projectSessionFound).toBe(true);
     expect(rawAdapterTrace?.projectArtifactsCount).toBe(1);
     expect(rawAdapterTrace?.debugLogFound).toBe(true);
+  });
+
+  it("captures Claude project session artifacts from the agent-managed Claude home", async () => {
+    const paperclipHome = fs.mkdtempSync(path.join(os.tmpdir(), "paperclip-feedback-managed-home-"));
+    tempDirs.push(paperclipHome);
+    vi.stubEnv("PAPERCLIP_HOME", paperclipHome);
+
+    const sessionId = randomUUID();
+    const seeded = await seedIssueWithAdapterRunComment({
+      adapterType: "claude_local",
+      sessionId,
+    });
+    const managedConfigDir = claudeConfigDir({
+      companyId: seeded.companyId,
+      agentId: seeded.agentId,
+      adapterConfig: {},
+    });
+    tempDirs.push(path.join(paperclipHome, "instances"));
+
+    const projectDir = path.join(managedConfigDir, "projects", "workspace-managed");
+    fs.mkdirSync(path.join(projectDir, sessionId, "tool-results"), { recursive: true });
+    fs.mkdirSync(path.join(managedConfigDir, "debug"), { recursive: true });
+    fs.writeFileSync(
+      path.join(projectDir, `${sessionId}.jsonl`),
+      JSON.stringify({
+        type: "assistant",
+        sessionId,
+        message: {
+          role: "assistant",
+          content: [{ type: "text", text: "Managed Claude session trace" }],
+        },
+      }) + "\n",
+      "utf8",
+    );
+    fs.writeFileSync(
+      path.join(projectDir, sessionId, "tool-results", "result.txt"),
+      "Managed Claude tool output",
+      "utf8",
+    );
+    fs.writeFileSync(
+      path.join(managedConfigDir, "debug", `${sessionId}.txt`),
+      "Managed Claude debug log",
+      "utf8",
+    );
+
+    const uploadTraceBundle = vi.fn().mockResolvedValue({ objectKey: "feedback-traces/test-managed-claude.json" });
+    const flushingSvc = feedbackService(db, {
+      shareClient: {
+        uploadTraceBundle,
+      },
+    });
+
+    await flushingSvc.saveIssueVote({
+      issueId: seeded.issueId,
+      targetType: "issue_comment",
+      targetId: seeded.commentId,
+      vote: "up",
+      authorUserId: "user-1",
+      allowSharing: true,
+    });
+    await flushingSvc.flushPendingFeedbackTraces();
+
+    expect(uploadTraceBundle).toHaveBeenCalledTimes(1);
+    const bundle = uploadTraceBundle.mock.calls[0]?.[0] as Record<string, unknown> | undefined;
+    const files = Array.isArray(bundle?.files) ? (bundle.files as Array<Record<string, unknown>>) : [];
+    const filePaths = files.map((file) => String(file.path));
+    const rawAdapterTrace = bundle?.rawAdapterTrace as Record<string, unknown> | null;
+
+    expect(bundle?.captureStatus).toBe("full");
+    expect(filePaths).toContain("adapter/claude/session.jsonl");
+    expect(filePaths).toContain("adapter/claude/session/tool-results/result.txt");
+    expect(filePaths).toContain("adapter/claude/debug.txt");
+    expect(rawAdapterTrace?.projectSessionFound).toBe(true);
+    expect(rawAdapterTrace?.projectArtifactsCount).toBe(1);
+    expect(rawAdapterTrace?.debugLogFound).toBe(true);
+  });
+
+  it("captures Codex session files from the company-managed Codex home", async () => {
+    const paperclipHome = fs.mkdtempSync(path.join(os.tmpdir(), "paperclip-feedback-managed-codex-home-"));
+    tempDirs.push(paperclipHome);
+    vi.stubEnv("PAPERCLIP_HOME", paperclipHome);
+
+    const sessionId = randomUUID();
+    const seeded = await seedIssueWithAdapterRunComment({
+      adapterType: "codex_local",
+      sessionId,
+    });
+
+    const managedCodexHome = codexHomeDir({
+      companyId: seeded.companyId,
+      agentId: seeded.agentId,
+      adapterConfig: {},
+    });
+    tempDirs.push(path.join(paperclipHome, "instances"));
+    fs.mkdirSync(path.join(managedCodexHome, "sessions"), { recursive: true });
+    fs.writeFileSync(
+      path.join(managedCodexHome, "sessions", `${sessionId}.jsonl`),
+      [
+        JSON.stringify({ type: "user", text: "Continue the task" }),
+        JSON.stringify({ type: "assistant", text: "Managed Codex trace" }),
+      ].join("\n"),
+      "utf8",
+    );
+
+    const uploadTraceBundle = vi.fn().mockResolvedValue({ objectKey: "feedback-traces/test-managed-codex.json" });
+    const flushingSvc = feedbackService(db, {
+      shareClient: {
+        uploadTraceBundle,
+      },
+    });
+
+    await flushingSvc.saveIssueVote({
+      issueId: seeded.issueId,
+      targetType: "issue_comment",
+      targetId: seeded.commentId,
+      vote: "up",
+      authorUserId: "user-1",
+      allowSharing: true,
+    });
+    await flushingSvc.flushPendingFeedbackTraces();
+
+    expect(uploadTraceBundle).toHaveBeenCalledTimes(1);
+    const bundle = uploadTraceBundle.mock.calls[0]?.[0] as Record<string, unknown> | undefined;
+    const files = Array.isArray(bundle?.files) ? (bundle.files as Array<Record<string, unknown>>) : [];
+    const filePaths = files.map((file) => String(file.path));
+
+    expect(bundle?.captureStatus).toBe("full");
+    expect(filePaths).toContain("adapter/codex/session.jsonl");
   });
 
   it("captures OpenCode message and part files as full traces", async () => {
