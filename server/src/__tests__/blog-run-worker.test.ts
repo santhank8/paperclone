@@ -316,10 +316,20 @@ describe("blog run worker", () => {
         contextJson: {
           title: "Legacy verify title",
           article_html: "<p>Body</p>",
+          publicVerifyContractMode: "compat",
         },
       })),
       getDetail: vi.fn().mockResolvedValue({ ok: true }),
-      claimNextStep: vi.fn().mockResolvedValue(createClaim({ currentStep: "public_verify", status: "published", publishMode: "publish" }, { stepKey: "public_verify" })),
+      claimNextStep: vi.fn().mockResolvedValue(createClaim({
+        currentStep: "public_verify",
+        status: "published",
+        publishMode: "publish",
+        contextJson: {
+          title: "Legacy verify title",
+          article_html: "<p>Body</p>",
+          publicVerifyContractMode: "compat",
+        },
+      }, { stepKey: "public_verify" })),
       completeStep: vi.fn().mockResolvedValue({ run: { status: "public_verified", currentStep: null } }),
       failStep: vi.fn(),
     };
@@ -386,6 +396,53 @@ describe("blog run worker", () => {
     const worker = blogRunWorkerService({} as any, {
       runService: runService as any,
       publicVerifyContractMode: "strict",
+      runPublicVerifyStep: vi.fn().mockResolvedValue({
+        ok: true,
+        mode: "wordpress",
+        post_id: 123,
+        status: "publish",
+        link: "https://fluxaivory.com/test/",
+        checks: { post_found: true },
+      }),
+    });
+
+    const result = await worker.runNext("run-1");
+
+    expect(runService.completeStep).not.toHaveBeenCalled();
+    expect(runService.failStep).toHaveBeenCalledWith("run-1", "public_verify", expect.objectContaining({
+      errorMessage: "blog_run_public_verify_contract_missing",
+    }));
+    expect(result).toMatchObject({ run: { status: "failed" } });
+  });
+
+  it("defaults live publish runs to strict mode when no override is supplied", async () => {
+    const runService = {
+      getById: vi.fn().mockResolvedValue(createRun({
+        currentStep: "public_verify",
+        status: "published",
+        lane: "publish",
+        publishMode: "publish",
+        contextJson: {
+          title: "Legacy verify title",
+          article_html: "<p>Body</p>",
+        },
+      })),
+      getDetail: vi.fn().mockResolvedValue({ ok: true }),
+      claimNextStep: vi.fn().mockResolvedValue(createClaim({
+        currentStep: "public_verify",
+        status: "published",
+        lane: "publish",
+        publishMode: "publish",
+        contextJson: {
+          title: "Legacy verify title",
+          article_html: "<p>Body</p>",
+        },
+      }, { stepKey: "public_verify" })),
+      completeStep: vi.fn(),
+      failStep: vi.fn().mockResolvedValue({ run: { status: "failed", failedReason: "blog_run_public_verify_contract_missing" } }),
+    };
+    const worker = blogRunWorkerService({} as any, {
+      runService: runService as any,
       runPublicVerifyStep: vi.fn().mockResolvedValue({
         ok: true,
         mode: "wordpress",

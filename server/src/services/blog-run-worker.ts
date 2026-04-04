@@ -92,7 +92,14 @@ function resolvePublicVerifyContractMode(
     run.publicVerifyContractMode,
     context.publicVerifyContractMode,
   ).toLowerCase();
-  return configured === "strict" ? "strict" : "compat";
+  if (configured === "strict" || configured === "compat") return configured;
+
+  const lane = String(run.lane ?? "").trim().toLowerCase();
+  const publishMode = String(run.publishMode ?? "").trim().toLowerCase();
+  if (lane === "publish" && publishMode === "publish") {
+    return "strict";
+  }
+  return "compat";
 }
 
 async function readJsonArtifact(filePath: string) {
