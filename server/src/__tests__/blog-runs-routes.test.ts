@@ -41,6 +41,8 @@ const mockBlogRunService = vi.hoisted(() => ({
   completeStep: vi.fn(),
   failStep: vi.fn(),
   requestPublishApproval: vi.fn(),
+  requestResumeReview: vi.fn(),
+  markResumable: vi.fn(),
 }));
 
 const mockProjectService = vi.hoisted(() => ({
@@ -99,6 +101,14 @@ describe("blog run routes", () => {
     mockBlogRunService.requestPublishApproval.mockResolvedValue({
       run: { ...run, status: "publish_approved", currentStep: "publish" },
       approval: { id: "approval-1", approvalKeyHash: "approval-hash" },
+    });
+    mockBlogRunService.requestResumeReview.mockResolvedValue({
+      run: { ...run, status: "review_required", currentStep: "publish" },
+      resumeReview: { requestedBy: "operations-lead" },
+    });
+    mockBlogRunService.markResumable.mockResolvedValue({
+      run: { ...run, status: "resumable", currentStep: "publish" },
+      resumeEvidence: { operatorReviewedBy: "operations-lead" },
     });
   });
 
@@ -194,6 +204,53 @@ describe("blog run routes", () => {
     expect(mockBlogRunService.requestPublishApproval).toHaveBeenCalledWith(runId, expect.objectContaining({
       targetSlug: "test-slug",
       approvalKeyHash: "approval-hash",
+    }));
+  });
+
+  it("requests resume review for a stopped run", async () => {
+    const app = createApp({
+      type: "board",
+      source: "local_implicit",
+      userId: "board-user",
+      companyIds: [companyId],
+    });
+
+    const res = await request(app)
+      .post(`/api/blog-runs/${runId}/request-resume-review`)
+      .send({
+        recoveryAction: "quarantine public article and re-run verify",
+        evidenceRefs: ["runs/run-20260404-001/verify/verdict.json"],
+        requestedBy: "operations-lead",
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body.run.status).toBe("review_required");
+    expect(mockBlogRunService.requestResumeReview).toHaveBeenCalledWith(runId, expect.objectContaining({
+      requestedBy: "operations-lead",
+    }));
+  });
+
+  it("marks a reviewed stopped run as resumable", async () => {
+    const app = createApp({
+      type: "board",
+      source: "local_implicit",
+      userId: "board-user",
+      companyIds: [companyId],
+    });
+
+    const res = await request(app)
+      .post(`/api/blog-runs/${runId}/mark-resumable`)
+      .send({
+        specialistAcknowledgedBy: "publish-verify",
+        operatorReviewedBy: "operations-lead",
+        evidenceRefs: ["runs/run-20260404-001/verify/verdict.json"],
+        confirmedRequirements: ["passing public verify verdict on the corrected or quarantined state"],
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body.run.status).toBe("resumable");
+    expect(mockBlogRunService.markResumable).toHaveBeenCalledWith(runId, expect.objectContaining({
+      operatorReviewedBy: "operations-lead",
     }));
   });
 });

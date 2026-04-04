@@ -44,6 +44,8 @@ type BlogRunStatus =
   | "published"
   | "public_verify_running"
   | "public_verified"
+  | "review_required"
+  | "resumable"
   | "failed";
 
 type CreateBlogRunInput = {
@@ -75,6 +77,21 @@ type FailStepInput = {
   attemptId: string;
   errorCode?: string | null;
   errorMessage?: string | null;
+};
+
+type RequestResumeReviewInput = {
+  recoveryAction: string;
+  evidenceRefs: string[];
+  requestedBy: string;
+  notes?: string[];
+};
+
+type MarkResumableInput = {
+  specialistAcknowledgedBy: string;
+  operatorReviewedBy: string;
+  evidenceRefs: string[];
+  confirmedRequirements: string[];
+  notes?: string[];
 };
 
 type PublishStopReason = {
@@ -149,6 +166,13 @@ function buildInitialContextJson(
     ...base,
     publicVerifyContractMode: resolveInitialPublicVerifyContractMode(lane, publishMode, base),
   };
+}
+
+function toRecord(value: unknown): Record<string, unknown> {
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    return value as Record<string, unknown>;
+  }
+  return {};
 }
 
 function toRunningStatus(stepKey: string): BlogRunStatus {
@@ -640,6 +664,138 @@ export function blogRunService(
       await artifactMirror.writeStopReason(runId, stopReason);
 
       return this.getDetail(runId);
+    },
+
+    async requestResumeReview(runId: string, input: RequestResumeReviewInput) {
+      const run = await getRunById(runId);
+      if (!run) throw notFound("Blog run not found");
+      if (run.status !== "failed") {
+        throw conflict("Resume review requires a failed blog run");
+      }
+      const stopReason = artifactMirror.readStopReason
+        ? toRecord(await artifactMirror.readStopReason(runId))
+        : {};
+      if (Object.keys(stopReason).length === 0) {
+        throw conflict("Resume review requires a persisted stop reason");
+      }
+      if (stopReason.stopActive !== true) {
+        throw conflict("Resume review requires an active stop");
+      }
+      const recoveryAction = String(input.recoveryAction ?? "").trim();
+      const requestedBy = String(input.requestedBy ?? "").trim();
+      const evidenceRefs = Array.isArray(input.evidenceRefs)
+        ? input.evidenceRefs.map((value) => String(value ?? "").trim()).filter(Boolean)
+        : [];
+      if (!recoveryAction) throw conflict("Resume review requires a recovery action");
+      if (!requestedBy) throw conflict("Resume review requires requestedBy");
+      if (evidenceRefs.length === 0) throw conflict("Resume review requires evidence references");
+
+      const payload = {
+        requestedAt: new Date().toISOString(),
+        requestedBy,
+        recoveryAction,
+        evidenceRefs,
+        notes: Array.isArray(input.notes) ? input.notes : [],
+        stopReason,
+      };
+
+      await db
+        .update(blogRuns)
+        .set({
+          status: "review_required",
+          updatedAt: new Date(),
+        })
+        .where(eq(blogRuns.id, runId));
+
+      if (artifactMirror.writeResumeReview) {
+        await artifactMirror.writeResumeReview(runId, payload);
+      }
+      await artifactMirror.writeStatus(runId, {
+        phase: run.currentStep ?? "publish",
+        state: "review_required",
+        lastCompletedStep: run.currentStep ?? null,
+        nextStep: run.currentStep ?? "publish",
+        error: run.failedReason ?? null,
+        stopReason,
+      });
+
+      return {
+        run: await getRunById(runId),
+        resumeReview: payload,
+      };
+    },
+
+    async markResumable(runId: string, input: MarkResumableInput) {
+      const run = await getRunById(runId);
+      if (!run) throw notFound("Blog run not found");
+      if (run.status !== "review_required") {
+        throw conflict("Resumable transition requires review_required status");
+      }
+      const stopReason = artifactMirror.readStopReason
+        ? toRecord(await artifactMirror.readStopReason(runId))
+        : {};
+      if (Object.keys(stopReason).length === 0) {
+        throw conflict("Resumable transition requires a persisted stop reason");
+      }
+
+      const specialistAcknowledgedBy = String(input.specialistAcknowledgedBy ?? "").trim();
+      const operatorReviewedBy = String(input.operatorReviewedBy ?? "").trim();
+      const evidenceRefs = Array.isArray(input.evidenceRefs)
+        ? input.evidenceRefs.map((value) => String(value ?? "").trim()).filter(Boolean)
+        : [];
+      const confirmedRequirements = Array.isArray(input.confirmedRequirements)
+        ? input.confirmedRequirements.map((value) => String(value ?? "").trim()).filter(Boolean)
+        : [];
+      if (!specialistAcknowledgedBy) throw conflict("Resumable transition requires specialistAcknowledgedBy");
+      if (!operatorReviewedBy) throw conflict("Resumable transition requires operatorReviewedBy");
+      if (evidenceRefs.length === 0) throw conflict("Resumable transition requires evidence references");
+
+      const requiredResumeRequirements = Array.isArray(stopReason.resumeRequirements)
+        ? stopReason.resumeRequirements.map((value: unknown) => String(value ?? "").trim()).filter(Boolean)
+        : [];
+      const missingRequirements = requiredResumeRequirements.filter(
+        (requirement: string) => !confirmedRequirements.includes(requirement),
+      );
+      if (missingRequirements.length > 0) {
+        throw conflict("Resumable transition requires all stop reason resume requirements to be confirmed", {
+          missingRequirements,
+        });
+      }
+
+      const payload = {
+        markedAt: new Date().toISOString(),
+        specialistAcknowledgedBy,
+        operatorReviewedBy,
+        evidenceRefs,
+        confirmedRequirements,
+        notes: Array.isArray(input.notes) ? input.notes : [],
+        stopReason,
+      };
+
+      await db
+        .update(blogRuns)
+        .set({
+          status: "resumable",
+          updatedAt: new Date(),
+        })
+        .where(eq(blogRuns.id, runId));
+
+      if (artifactMirror.writeResumeEvidence) {
+        await artifactMirror.writeResumeEvidence(runId, payload);
+      }
+      await artifactMirror.writeStatus(runId, {
+        phase: run.currentStep ?? "publish",
+        state: "resumable",
+        lastCompletedStep: run.currentStep ?? null,
+        nextStep: run.currentStep ?? "publish",
+        error: null,
+        stopReason,
+      });
+
+      return {
+        run: await getRunById(runId),
+        resumeEvidence: payload,
+      };
     },
 
     async requestPublishApproval(runId: string, input: RequestPublishApprovalInput) {

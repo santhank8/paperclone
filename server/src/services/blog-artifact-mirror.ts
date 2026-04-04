@@ -17,7 +17,7 @@ const STEP_FILE_MAP: Record<string, string> = {
 
 type MirrorStatusInput = {
   phase: string | null;
-  state: "running" | "failed" | "completed";
+  state: "running" | "failed" | "completed" | "review_required" | "resumable";
   lastCompletedStep: string | null;
   nextStep: string | null;
   error: string | null;
@@ -90,6 +90,27 @@ export function blogArtifactMirrorService(input?: { baseDir?: string }) {
     return filePath;
   }
 
+  async function readStopReason(runId: string) {
+    try {
+      const raw = await fs.readFile(path.join(resolveRunDir(runId), "stop-reason.json"), "utf8");
+      return JSON.parse(raw);
+    } catch {
+      return null;
+    }
+  }
+
+  async function writeResumeReview(runId: string, payload: Record<string, unknown>) {
+    const filePath = path.join(resolveRunDir(runId), "resume-review.json");
+    await writeJson(filePath, payload);
+    return filePath;
+  }
+
+  async function writeResumeEvidence(runId: string, payload: Record<string, unknown>) {
+    const filePath = path.join(resolveRunDir(runId), "resume-evidence.json");
+    await writeJson(filePath, payload);
+    return filePath;
+  }
+
   async function writeStepResult(runId: string, stepKey: string, result: unknown) {
     const fileName = STEP_FILE_MAP[stepKey];
     if (!fileName) return null;
@@ -123,6 +144,9 @@ export function blogArtifactMirrorService(input?: { baseDir?: string }) {
     writeContext,
     writeStatus,
     writeStopReason,
+    readStopReason,
+    writeResumeReview,
+    writeResumeEvidence,
     writeStepResult,
     writeStepArtifacts,
     createScratchRoot,

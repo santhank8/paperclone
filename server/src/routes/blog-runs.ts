@@ -47,6 +47,21 @@ const requestPublishApprovalSchema = z.object({
   publishIdempotencyKey: z.string().trim().min(1),
 });
 
+const requestResumeReviewSchema = z.object({
+  recoveryAction: z.string().trim().min(1),
+  evidenceRefs: z.array(z.string().trim().min(1)).min(1),
+  requestedBy: z.string().trim().min(1),
+  notes: z.array(z.string().trim().min(1)).optional(),
+});
+
+const markResumableSchema = z.object({
+  specialistAcknowledgedBy: z.string().trim().min(1),
+  operatorReviewedBy: z.string().trim().min(1),
+  evidenceRefs: z.array(z.string().trim().min(1)).min(1),
+  confirmedRequirements: z.array(z.string().trim().min(1)).min(1),
+  notes: z.array(z.string().trim().min(1)).optional(),
+});
+
 export function blogRunRoutes(db: Db) {
   const router = Router();
   const svc = blogRunService(db);
@@ -131,6 +146,30 @@ export function blogRunRoutes(db: Db) {
     }
     assertCompanyAccess(req, run.companyId);
     const result = await svc.requestPublishApproval(run.id, req.body);
+    res.json(result);
+  });
+
+  router.post("/blog-runs/:id/request-resume-review", validate(requestResumeReviewSchema), async (req, res) => {
+    const runId = req.params.id as string;
+    const run = await svc.getById(runId);
+    if (!run) {
+      res.status(404).json({ error: "Blog run not found" });
+      return;
+    }
+    assertCompanyAccess(req, run.companyId);
+    const result = await svc.requestResumeReview(run.id, req.body);
+    res.json(result);
+  });
+
+  router.post("/blog-runs/:id/mark-resumable", validate(markResumableSchema), async (req, res) => {
+    const runId = req.params.id as string;
+    const run = await svc.getById(runId);
+    if (!run) {
+      res.status(404).json({ error: "Blog run not found" });
+      return;
+    }
+    assertCompanyAccess(req, run.companyId);
+    const result = await svc.markResumable(run.id, req.body);
     res.json(result);
   });
 

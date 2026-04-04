@@ -218,4 +218,47 @@ describeEmbeddedPostgres("blog run service", () => {
     expect(failed?.run.failedReason).toBe("research_bundle_missing");
     expect(failed?.attempts[0]?.status).toBe("failed");
   });
+
+  it("moves an auto-stopped run through review_required to resumable when evidence satisfies the resume gate", async () => {
+    const { companyId, projectId } = await seedProject();
+    const svc = blogRunService(db);
+    const created = await svc.create({
+      companyId,
+      projectId,
+      topic: "Resume gate topic",
+      lane: "publish",
+      publishMode: "publish",
+    });
+
+    const claimed = await svc.claimNextStep(created!.id);
+    await svc.failStep(created!.id, "research", {
+      attemptId: claimed!.attempt!.id,
+      errorCode: "BLOG_RUN_PUBLIC_VERIFY_FAILED",
+      errorMessage: "blog_run_public_verify_failed:PUBLIC_VERIFY_REGRESSION",
+    });
+
+    const review = await svc.requestResumeReview(created!.id, {
+      recoveryAction: "quarantine public article and re-run verify on corrected state",
+      evidenceRefs: ["runs/run-20260404-001/verify/verdict.json"],
+      requestedBy: "operations-lead",
+      notes: ["Public result quarantined pending corrected verify pass."],
+    });
+
+    expect(review?.run.status).toBe("review_required");
+
+    const resumable = await svc.markResumable(created!.id, {
+      specialistAcknowledgedBy: "publish-verify",
+      operatorReviewedBy: "operations-lead",
+      evidenceRefs: [
+        "runs/run-20260404-001/verify/verdict.json",
+        "runs/run-20260404-001/publish/receipt.json",
+      ],
+      confirmedRequirements: [
+        "passing public verify verdict on the corrected or quarantined state",
+      ],
+      notes: ["Verified corrected state and acknowledged by owner."],
+    });
+
+    expect(resumable?.run.status).toBe("resumable");
+  });
 });
