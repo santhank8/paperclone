@@ -417,6 +417,90 @@ describe("blog run worker", () => {
     );
   });
 
+  it("adds rewrite guidance artifacts for high-throughput strict failures", async () => {
+    const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "paperclip-worker-guidance-"));
+    const runDir = path.join(tmp, "run-1");
+    await fs.mkdir(runDir, { recursive: true });
+    await fs.writeFile(path.join(runDir, "preflight.publish_ready.md"), "## Publish-Ready Operator Summary\n\n- Status: `fail`\n");
+
+    const runService = {
+      getById: vi.fn().mockResolvedValue(createRun({
+        id: "run-1",
+        issueId: "issue-1",
+        currentStep: "validate",
+        contextJson: {
+          title: "Test title",
+          article_html: "<p>Body</p>",
+          publishReadyGateMode: "strict",
+          highThroughputQualityLoop: true,
+          articleLoop: {
+            enabled: true,
+            articleAttempt: 1,
+            maxAttempts: 3,
+            specialistGuidanceUsed: {},
+          },
+        },
+      })),
+      getDetail: vi.fn().mockResolvedValue({ ok: true }),
+      claimNextStep: vi.fn().mockResolvedValue(createClaim({
+        id: "run-1",
+        issueId: "issue-1",
+        currentStep: "validate",
+        contextJson: {
+          title: "Test title",
+          article_html: "<p>Body</p>",
+          publishReadyGateMode: "strict",
+          highThroughputQualityLoop: true,
+          articleLoop: {
+            enabled: true,
+            articleAttempt: 1,
+            maxAttempts: 3,
+            specialistGuidanceUsed: {},
+          },
+        },
+      }, { stepKey: "validate" })),
+      completeStep: vi.fn(),
+      failStep: vi.fn().mockResolvedValue({ run: { status: "queued", currentStep: "draft" } }),
+    };
+    const worker = blogRunWorkerService({} as any, {
+      runService: runService as any,
+      issueService: { addComment: vi.fn().mockResolvedValue({ id: "comment-1" }) } as any,
+      artifactRoot: tmp,
+      runValidateStep: vi.fn().mockResolvedValue({ ok: true }),
+      runQualityGateBundle: vi.fn().mockResolvedValue({
+        results: {
+          publish_ready: {
+            ok: false,
+            status: "fail",
+            failed_gates: ["explainer_quality", "reader_experience"],
+            gate_reason_summary: {
+              explainer_quality: ["term_explanation_missing"],
+              reader_experience: ["quick_scan_missing"],
+            },
+          },
+        },
+      }),
+    });
+
+    await worker.runNext("run-1");
+
+    expect(runService.failStep).toHaveBeenCalledWith("run-1", "validate", expect.objectContaining({
+      errorMessage: "blog_run_publish_ready_failed:explainer_quality,reader_experience",
+      artifacts: expect.arrayContaining([
+        expect.objectContaining({ artifactKind: "rewrite_guidance_json" }),
+        expect.objectContaining({ artifactKind: "rewrite_guidance_markdown" }),
+      ]),
+      contextJsonPatch: expect.objectContaining({
+        articleLoop: expect.objectContaining({
+          specialistGuidanceUsed: expect.objectContaining({
+            explainer_quality: true,
+            reader_experience: true,
+          }),
+        }),
+      }),
+    }));
+  });
+
   it("blocks report lane from publishing", async () => {
     const runService = {
       getById: vi.fn().mockResolvedValue(createRun({ lane: "report", currentStep: "publish", approvalId: "approval-1", publishIdempotencyKey: "idem-1" })),

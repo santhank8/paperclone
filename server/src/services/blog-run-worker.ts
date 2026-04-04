@@ -181,6 +181,147 @@ async function readTextArtifact(filePath: string) {
   }
 }
 
+async function writeTextArtifact(filePath: string, body: string) {
+  await fs.mkdir(path.dirname(filePath), { recursive: true });
+  await fs.writeFile(filePath, body, "utf8");
+}
+
+function buildSpecialistOwner(gate: string) {
+  switch (gate) {
+    case "research_grounding":
+      return "Research Lead";
+    case "topic_alignment":
+      return "Research Lead";
+    case "explainer_quality":
+      return "Explainer Editor";
+    case "reader_experience":
+      return "Reader Experience Editor";
+    case "visual_quality":
+      return "Visual Editor";
+    default:
+      return "Editor-in-Chief";
+  }
+}
+
+function buildGuidanceForReasons(gate: string, reasons: string[]) {
+  const suggestions: string[] = [];
+  for (const reason of reasons) {
+    switch (reason) {
+      case "lead_value_missing":
+        suggestions.push("Rewrite the first screen so it states what changed, why it matters, and why the reader should care within 3-5 sentences.");
+        break;
+      case "term_explanation_missing":
+        suggestions.push("Explain technical terms on first mention using a plain-language bridge such as '쉽게 말하면' or 'put simply'.");
+        break;
+      case "concrete_example_missing":
+        suggestions.push("Add at least one concrete usage scene or practical example so the concept becomes imaginable.");
+        break;
+      case "quick_scan_missing":
+        suggestions.push("Add a quick-scan or 핵심 요약 block near the top so the reader can orient immediately.");
+        break;
+      case "checklist_or_next_steps_missing":
+        suggestions.push("Add a checklist or next-steps block near the ending so the reader leaves with a clear action frame.");
+        break;
+      case "table_or_comparison_missing":
+        suggestions.push("Add a comparison table or structured comparison block to reduce cognitive load in dense sections.");
+        break;
+      case "numbered_promise_missing":
+        suggestions.push("Expose the numbered promise early in headings or summary blocks so the article structure matches the title.");
+        break;
+      case "duplicate_assets":
+        suggestions.push("Regenerate supporting visuals so each support slot serves a distinct role and is not a duplicate.");
+        break;
+      default:
+        suggestions.push(`Fix the ${gate} defect identified as ${reason}.`);
+        break;
+    }
+  }
+  return [...new Set(suggestions)];
+}
+
+async function buildRewriteGuidanceArtifacts(runDir: string, run: Record<string, unknown>, bundleResults: Record<string, unknown>) {
+  const context = toRecord(run.contextJson);
+  const articleLoop = toRecord(context.articleLoop);
+  const used = toRecord(articleLoop.specialistGuidanceUsed);
+  const merged = toRecord(bundleResults.publish_ready);
+  const failedGates = Array.isArray(merged.failed_gates)
+    ? merged.failed_gates.map((value) => String(value ?? "").trim()).filter(Boolean)
+    : [];
+  const gateReasonSummary = toRecord(merged.gate_reason_summary);
+  const guidanceEntries = [];
+
+  for (const gate of failedGates) {
+    if (used[gate] === true) continue;
+    const reasons = Array.isArray(gateReasonSummary[gate])
+      ? gateReasonSummary[gate].map((value: unknown) => String(value ?? "").trim()).filter(Boolean)
+      : [];
+    const owner = buildSpecialistOwner(gate);
+    guidanceEntries.push({
+      gate,
+      owner,
+      reasons,
+      suggestions: buildGuidanceForReasons(gate, reasons),
+    });
+  }
+
+  if (guidanceEntries.length === 0) {
+    return null;
+  }
+
+  const jsonPath = path.join(runDir, "rewrite-guidance.json");
+  const mdPath = path.join(runDir, "rewrite-guidance.md");
+  const payload = {
+    ok: true,
+    topic: String(run.topic ?? "").trim(),
+    generatedAt: new Date().toISOString(),
+    failedGates,
+    guidance: guidanceEntries,
+  };
+  await fs.writeFile(jsonPath, `${JSON.stringify(payload, null, 2)}\n`, "utf8");
+  const markdown = [
+    "## Rewrite Guidance",
+    "",
+    ...guidanceEntries.flatMap((entry) => [
+      `### ${entry.gate}`,
+      `- Owner: ${entry.owner}`,
+      `- Reasons: ${entry.reasons.length > 0 ? entry.reasons.join(", ") : "n/a"}`,
+      ...entry.suggestions.map((suggestion: string) => `- ${suggestion}`),
+      "",
+    ]),
+  ].join("\n");
+  await writeTextArtifact(mdPath, markdown);
+
+  const nextUsed = { ...used };
+  for (const entry of guidanceEntries) nextUsed[entry.gate] = true;
+
+  return {
+    artifacts: [
+      {
+        artifactKind: "rewrite_guidance_json",
+        contentType: "application/json",
+        storageKind: "local_fs",
+        storagePath: jsonPath,
+        bodyPreview: `rewrite guidance for ${guidanceEntries.map((entry) => entry.gate).join(", ")}`,
+        metadata: { failedGates, generatedBy: "blog-run-worker" },
+      },
+      {
+        artifactKind: "rewrite_guidance_markdown",
+        contentType: "text/markdown",
+        storageKind: "local_fs",
+        storagePath: mdPath,
+        bodyPreview: "rewrite guidance markdown",
+        metadata: { failedGates, generatedBy: "blog-run-worker" },
+      },
+    ],
+    contextJsonPatch: {
+      articleLoop: {
+        specialistGuidanceUsed: nextUsed,
+        lastGateReasonSummary: gateReasonSummary,
+      },
+    },
+  };
+}
+
 function firstNonEmptyString(...values: unknown[]) {
   for (const value of values) {
     const normalized = String(value ?? "").trim();
@@ -686,14 +827,23 @@ export function blogRunWorkerService(db: Db, deps: WorkerDeps = {}) {
           if (stepKey === "validate" && resolvePublishReadyGateMode(run) === "strict") {
             const merged = toRecord(bundleResults.publish_ready);
             if (merged.ok !== true) {
+              let guidance = null;
+              if (toRecord(run.contextJson).highThroughputQualityLoop === true) {
+                guidance = await buildRewriteGuidanceArtifacts(runDir, run, bundleResults);
+                if (guidance) {
+                  artifacts.push(...guidance.artifacts);
+                }
+              }
               const failed = Array.isArray(merged.failed_gates)
                 ? merged.failed_gates.map((value) => String(value ?? "").trim()).filter(Boolean)
                 : [];
-              throw new Error(
+              const publishReadyError = new Error(
                 failed.length > 0
                   ? `blog_run_publish_ready_failed:${failed.join(",")}`
                   : "blog_run_publish_ready_failed",
               );
+              (publishReadyError as Error & { guidance?: Record<string, unknown> }).guidance = guidance ?? undefined;
+              throw publishReadyError;
             }
           }
         } catch (bundleError) {
@@ -719,10 +869,15 @@ export function blogRunWorkerService(db: Db, deps: WorkerDeps = {}) {
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
+      const guidance = error instanceof Error && "guidance" in error
+        ? (error as Error & { guidance?: { artifacts?: Array<Record<string, unknown>>; contextJsonPatch?: Record<string, unknown> } }).guidance
+        : undefined;
       const failed = await runs.failStep(runId, stepKey, {
         attemptId,
         errorCode: message.toUpperCase().replace(/[^A-Z0-9]+/g, "_").replace(/^_+|_+$/g, "") || "BLOG_RUN_STEP_FAILED",
         errorMessage: message,
+        artifacts: guidance?.artifacts as any,
+        contextJsonPatch: guidance?.contextJsonPatch ?? null,
       });
       if (message.startsWith("blog_run_publish_ready_failed") && String(run.issueId ?? "").trim()) {
         const summaryPath = path.join(runDir, "preflight.publish_ready.md");

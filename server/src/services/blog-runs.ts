@@ -78,6 +78,15 @@ type FailStepInput = {
   attemptId: string;
   errorCode?: string | null;
   errorMessage?: string | null;
+  artifacts?: Array<{
+    artifactKind: string;
+    contentType: string;
+    storageKind?: string | null;
+    storagePath?: string | null;
+    bodyPreview?: string | null;
+    metadata?: Record<string, unknown> | null;
+  }>;
+  contextJsonPatch?: Record<string, unknown> | null;
 };
 
 type RequestResumeReviewInput = {
@@ -694,24 +703,43 @@ export function blogRunService(
         })
         .where(eq(blogRunStepAttempts.id, attempt.id));
 
+      for (const artifact of input.artifacts ?? []) {
+        await db.insert(blogArtifacts).values({
+          blogRunId: runId,
+          companyId: run.companyId,
+          stepAttemptId: attempt.id,
+          stepKey,
+          artifactKind: artifact.artifactKind,
+          contentType: artifact.contentType,
+          storageKind: artifact.storageKind ?? "local_fs",
+          storagePath: artifact.storagePath ?? null,
+          bodyPreview: artifact.bodyPreview ?? null,
+          metadata: artifact.metadata ?? null,
+        });
+      }
+
       const errorMessage = input.errorMessage ?? input.errorCode ?? stepKey;
       const isPublishReadyFailure = errorMessage.startsWith("blog_run_publish_ready_failed:");
       const canLoop = shouldUseHighThroughputLoop(run) && stepKey === "validate" && isPublishReadyFailure;
       if (canLoop) {
         const context = toRecord(run.contextJson);
         const loop = toRecord(context.articleLoop);
+        const contextPatch = toRecord(input.contextJsonPatch);
+        const patchedLoop = toRecord(contextPatch.articleLoop);
         const currentAttempt = Number(loop.articleAttempt ?? 1) || 1;
         const maxAttempts = Number(loop.maxAttempts ?? 3) || 3;
         const failedGates = parseFailedGateNames(errorMessage);
         const nextContext = {
           ...context,
+          ...contextPatch,
           articleLoop: {
             ...loop,
+            ...patchedLoop,
             enabled: true,
             articleAttempt: currentAttempt,
             maxAttempts,
             lastFailedGates: failedGates,
-            lastGateReasonSummary: loop.lastGateReasonSummary ?? {},
+            lastGateReasonSummary: patchedLoop.lastGateReasonSummary ?? loop.lastGateReasonSummary ?? {},
             lastFailureMessage: errorMessage,
           },
         };
@@ -740,6 +768,7 @@ export function blogRunService(
             nextStep: "draft",
             error: errorMessage,
           });
+          await artifactMirror.writeStepArtifacts(runId, stepKey, input.artifacts ?? []);
 
           return this.getDetail(runId);
         }
@@ -766,6 +795,7 @@ export function blogRunService(
           nextStep: null,
           error: errorMessage,
         });
+        await artifactMirror.writeStepArtifacts(runId, stepKey, input.artifacts ?? []);
 
         return this.getDetail(runId);
       }
@@ -790,6 +820,7 @@ export function blogRunService(
         stopReason,
       });
       await artifactMirror.writeStopReason(runId, stopReason);
+      await artifactMirror.writeStepArtifacts(runId, stepKey, input.artifacts ?? []);
 
       return this.getDetail(runId);
     },
