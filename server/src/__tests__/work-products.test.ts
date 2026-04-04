@@ -61,6 +61,39 @@ describe("workProductService", () => {
     expect(result?.id).toBe("work-product-1");
   });
 
+  it("listPrWorkProductsForIssues returns PR work products grouped by issue", async () => {
+    const pr1 = createWorkProductRow({ id: "wp-1", issueId: "issue-1", type: "pull_request", isPrimary: true });
+    const pr2 = createWorkProductRow({ id: "wp-2", issueId: "issue-2", type: "pull_request", isPrimary: false });
+    const branch = createWorkProductRow({ id: "wp-3", issueId: "issue-1", type: "branch" });
+
+    const selectOrderBy = vi.fn(async () => [pr1, pr2]);
+    const selectWhere = vi.fn(() => ({ orderBy: selectOrderBy }));
+    const selectFrom = vi.fn(() => ({ where: selectWhere }));
+    const dbSelect = vi.fn(() => ({ from: selectFrom }));
+
+    const svc = workProductService({ select: dbSelect } as any);
+    const result = await svc.listPrWorkProductsForIssues(
+      ["issue-1", "issue-2"],
+      "company-1",
+    );
+
+    expect(dbSelect).toHaveBeenCalledTimes(1);
+    expect(result.size).toBe(2);
+    expect(result.get("issue-1")).toHaveLength(1);
+    expect(result.get("issue-1")![0].id).toBe("wp-1");
+    expect(result.get("issue-2")).toHaveLength(1);
+    expect(result.get("issue-2")![0].id).toBe("wp-2");
+  });
+
+  it("listPrWorkProductsForIssues returns empty map for empty input", async () => {
+    const dbSelect = vi.fn();
+    const svc = workProductService({ select: dbSelect } as any);
+    const result = await svc.listPrWorkProductsForIssues([], "company-1");
+
+    expect(dbSelect).not.toHaveBeenCalled();
+    expect(result.size).toBe(0);
+  });
+
   it("uses a transaction when promoting an existing work product to primary", async () => {
     const existingRow = createWorkProductRow({ isPrimary: false });
 

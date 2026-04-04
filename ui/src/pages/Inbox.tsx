@@ -73,7 +73,12 @@ import {
   Columns3,
   Search,
 } from "lucide-react";
+<<<<<<< HEAD
+import { Identity } from "../components/Identity";
+import { PrBadge } from "../components/PrBadge";
+=======
 import { Input } from "@/components/ui/input";
+>>>>>>> @{-1}
 import { PageTabBar } from "../components/PageTabBar";
 import type { Approval, HeartbeatRun, Issue, JoinRequest } from "@paperclipai/shared";
 import {
@@ -1908,6 +1913,34 @@ export function Inbox() {
                         ? "pointer-events-none -translate-x-4 scale-[0.98] opacity-0 transition-all duration-200 ease-out"
                         : "transition-all duration-200 ease-out"
                     }
+<<<<<<< HEAD
+                    desktopMetaLeading={(
+                      <>
+                        <span className="hidden shrink-0 sm:inline-flex">
+                          <StatusIcon status={issue.status} />
+                        </span>
+                        <span className="shrink-0 font-mono text-xs text-muted-foreground">
+                          {issue.identifier ?? issue.id.slice(0, 8)}
+                        </span>
+                        {liveIssueIds.has(issue.id) && (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-blue-500/10 px-1.5 py-0.5 sm:gap-1.5 sm:px-2">
+                            <span className="relative flex h-2 w-2">
+                              <span className="absolute inline-flex h-full w-full animate-pulse rounded-full bg-blue-400 opacity-75" />
+                              <span className="relative inline-flex h-2 w-2 rounded-full bg-blue-500" />
+                            </span>
+                            <span className="hidden text-[11px] font-medium text-blue-600 dark:text-blue-400 sm:inline">
+                              Live
+                            </span>
+                          </span>
+                        )}
+                      </>
+                    )}
+                    desktopTrailing={<PrBadge workProducts={issue.workProducts} />}
+                    mobileMeta={
+                      issue.lastExternalCommentAt
+                        ? `commented ${timeAgo(issue.lastExternalCommentAt)}`
+                        : `updated ${timeAgo(issue.updatedAt)}`
+=======
                     desktopMetaLeading={
                       <InboxIssueMetaLeading
                         issue={issue}
@@ -1915,6 +1948,7 @@ export function Inbox() {
                         showStatus={visibleIssueColumnSet.has("status") && availableIssueColumnSet.has("status")}
                         showIdentifier={visibleIssueColumnSet.has("id") && availableIssueColumnSet.has("id")}
                       />
+>>>>>>> @{-1}
                     }
                     mobileMeta={issueActivityText(issue).toLowerCase()}
                     unreadState={

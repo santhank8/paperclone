@@ -45,6 +45,7 @@ import { ScrollToBottom } from "../components/ScrollToBottom";
 import { StatusIcon } from "../components/StatusIcon";
 import { PriorityIcon } from "../components/PriorityIcon";
 import { StatusBadge } from "../components/StatusBadge";
+import { PrBadge } from "../components/PrBadge";
 import { Identity } from "../components/Identity";
 import { PluginSlotMount, PluginSlotOutlet, usePluginSlots } from "@/plugins/slots";
 import { PluginLauncherOutlet } from "@/plugins/launchers";
@@ -1184,6 +1185,8 @@ export function IssueDetail() {
               Live
             </span>
           )}
+
+          <PrBadge workProducts={issue.workProducts} />
 
           {issue.originKind === "routine_execution" && issue.originId && (
             <Link

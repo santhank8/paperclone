@@ -23,6 +23,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import { CircleDot, Plus, Filter, ArrowUpDown, Layers, Check, X, ChevronRight, List, Columns3, User, Search } from "lucide-react";
 import { KanbanBoard } from "./KanbanBoard";
+import { PrBadge } from "./PrBadge";
 import type { Issue } from "@paperclipai/shared";
 
 /* ── Helpers ── */
@@ -749,6 +750,7 @@ export function IssuesList({
                   mobileMeta={timeAgo(issue.updatedAt)}
                   desktopTrailing={(
                     <>
+                      <PrBadge workProducts={issue.workProducts} />
                       {(issue.labels ?? []).length > 0 && (
                         <span className="hidden items-center gap-1 overflow-hidden md:flex md:max-w-[240px]">
                           {(issue.labels ?? []).slice(0, 3).map((label) => (
