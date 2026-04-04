@@ -15,17 +15,30 @@ describe("resolveCommentAuthorIdentity", () => {
     ).toEqual({ kind: "agent", agentId: "agent-a" });
   });
 
-  it("uses run agent when author agent is absent", () => {
+  it("keeps the human author when a comment also belongs to an agent run", () => {
+    expect(
+      resolveCommentAuthorIdentity(
+        {
+          authorAgentId: null,
+          authorUserId: "user-1",
+          runAgentId: "run-agent",
+        },
+        "user-1",
+      ),
+    ).toEqual({ kind: "user", label: "You" });
+  });
+
+  it("uses the linked run agent when no explicit author is present", () => {
     expect(
       resolveCommentAuthorIdentity(
         {
           authorAgentId: null,
           authorUserId: null,
-          runAgentId: "run-agent",
+          runAgentId: "agent-ceo",
         },
-        null,
+        "local-board",
       ),
-    ).toEqual({ kind: "agent", agentId: "run-agent" });
+    ).toEqual({ kind: "agent", agentId: "agent-ceo" });
   });
 
   it("labels current user comments as You", () => {

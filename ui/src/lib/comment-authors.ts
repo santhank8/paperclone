@@ -16,12 +16,17 @@ export function resolveCommentAuthorIdentity(
   if (comment.authorAgentId) {
     return { kind: "agent", agentId: comment.authorAgentId };
   }
+
+  if (comment.authorUserId) {
+    if (currentUserId && comment.authorUserId === currentUserId) {
+      return { kind: "user", label: "You" };
+    }
+    const label = formatAssigneeUserLabel(comment.authorUserId, currentUserId) ?? "Board";
+    return { kind: "user", label };
+  }
   if (comment.runAgentId) {
     return { kind: "agent", agentId: comment.runAgentId };
   }
-  if (currentUserId && comment.authorUserId === currentUserId) {
-    return { kind: "user", label: "You" };
-  }
-  const label = formatAssigneeUserLabel(comment.authorUserId ?? null, currentUserId) ?? "Board";
-  return { kind: "user", label };
+
+  return { kind: "user", label: "Board" };
 }
