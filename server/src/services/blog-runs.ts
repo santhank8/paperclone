@@ -8,6 +8,7 @@ import {
 } from "@paperclipai/db";
 import { conflict, notFound } from "../errors.js";
 import { blogArtifactMirrorService } from "./blog-artifact-mirror.js";
+import { resolveBlogIncidentRoute } from "./blog-incident-routing.js";
 
 const STEP_SEQUENCE = [
   "research",
@@ -89,6 +90,8 @@ type PublishStopReason = {
   stopActive: boolean;
   primaryOwner: string;
   supportingOwners: string[];
+  escalationOwner: string;
+  followUpTrack: string;
   publicRisk: "low" | "medium" | "high";
   recoverabilityRisk: "low" | "medium" | "high";
   artifactRefs: string[];
@@ -233,14 +236,17 @@ function derivePublishStopReason(
   };
 
   if (raw.includes("APPROVAL")) {
+    const route = resolveBlogIncidentRoute("APPROVAL_FAILURE");
     return {
       ...base,
       failureName: "APPROVAL_FAILURE",
       classification: "auto_stop",
       stopScope: "article",
       stopActive: true,
-      primaryOwner: "draft-approval",
-      supportingOwners: ["publish-pipeline"],
+      primaryOwner: route.primaryOwner,
+      supportingOwners: route.supportingOwners,
+      escalationOwner: route.escalationOwner,
+      followUpTrack: route.followUpTrack,
       publicRisk: "high",
       recoverabilityRisk: "medium",
       currentDecision: "block publish path until a fresh approval is attached",
@@ -250,14 +256,17 @@ function derivePublishStopReason(
   }
 
   if (raw.includes("IDEMPOTENCY")) {
+    const route = resolveBlogIncidentRoute("IDEMPOTENCY_ANOMALY");
     return {
       ...base,
       failureName: "IDEMPOTENCY_ANOMALY",
       classification: "auto_stop",
       stopScope: "lane",
       stopActive: true,
-      primaryOwner: "publish-pipeline",
-      supportingOwners: ["operations"],
+      primaryOwner: route.primaryOwner,
+      supportingOwners: route.supportingOwners,
+      escalationOwner: route.escalationOwner,
+      followUpTrack: route.followUpTrack,
       publicRisk: "high",
       recoverabilityRisk: "high",
       currentDecision: "freeze the lane until one canonical publish outcome is proven",
@@ -267,14 +276,17 @@ function derivePublishStopReason(
   }
 
   if (raw.includes("WORDPRESS_WRITE_FORBIDDEN") || raw.includes("PUBLIC_VERIFY_CONTRACT_MISSING") || raw.includes("PUBLISH_BOUNDARY")) {
+    const route = resolveBlogIncidentRoute("PUBLISH_BOUNDARY_MISMATCH");
     return {
       ...base,
       failureName: "PUBLISH_BOUNDARY_MISMATCH",
       classification: "auto_stop",
       stopScope: "lane",
       stopActive: true,
-      primaryOwner: "publish-pipeline",
-      supportingOwners: ["harness"],
+      primaryOwner: route.primaryOwner,
+      supportingOwners: route.supportingOwners,
+      escalationOwner: route.escalationOwner,
+      followUpTrack: route.followUpTrack,
       publicRisk: "high",
       recoverabilityRisk: "medium",
       currentDecision: "block the publish lane until the boundary contract is corrected",
@@ -284,14 +296,17 @@ function derivePublishStopReason(
   }
 
   if (raw.includes("BLOG_RUN_PUBLIC_VERIFY_FAILED") || raw.includes("PUBLIC_VERIFY_") || raw.includes("VERIFY_FAILED")) {
+    const route = resolveBlogIncidentRoute("PUBLIC_VERIFY_FAILURE");
     return {
       ...base,
       failureName: "PUBLIC_VERIFY_FAILURE",
       classification: "auto_stop",
       stopScope: "article",
       stopActive: true,
-      primaryOwner: "publish-verify",
-      supportingOwners: ["verifier", "harness"],
+      primaryOwner: route.primaryOwner,
+      supportingOwners: route.supportingOwners,
+      escalationOwner: route.escalationOwner,
+      followUpTrack: route.followUpTrack,
       publicRisk: "high",
       recoverabilityRisk: "medium",
       currentDecision: "quarantine the affected article and block replay",
@@ -301,14 +316,17 @@ function derivePublishStopReason(
   }
 
   if (raw.includes("BACKUP")) {
+    const route = resolveBlogIncidentRoute("BACKUP_DELAY");
     return {
       ...base,
       failureName: "BACKUP_DELAY",
       classification: "follow_up",
       stopScope: "none",
       stopActive: false,
-      primaryOwner: "operations",
-      supportingOwners: ["harness"],
+      primaryOwner: route.primaryOwner,
+      supportingOwners: route.supportingOwners,
+      escalationOwner: route.escalationOwner,
+      followUpTrack: route.followUpTrack,
       publicRisk: "low",
       recoverabilityRisk: "medium",
       currentDecision: "keep publish running but record the backup delay incident",
@@ -318,14 +336,17 @@ function derivePublishStopReason(
   }
 
   if (raw.includes("COST")) {
+    const route = resolveBlogIncidentRoute("EARLY_COST_ANOMALY");
     return {
       ...base,
       failureName: "EARLY_COST_ANOMALY",
       classification: "follow_up",
       stopScope: "none",
       stopActive: false,
-      primaryOwner: "operations",
-      supportingOwners: ["ceo"],
+      primaryOwner: route.primaryOwner,
+      supportingOwners: route.supportingOwners,
+      escalationOwner: route.escalationOwner,
+      followUpTrack: route.followUpTrack,
       publicRisk: "low",
       recoverabilityRisk: "low",
       currentDecision: "record the anomaly and keep the pipeline running",
@@ -335,14 +356,17 @@ function derivePublishStopReason(
   }
 
   if (stepKey === "research" || stepKey === "draft" || stepKey === "draft_review" || stepKey === "draft_polish" || stepKey === "final_review" || stepKey === "validate") {
+    const route = resolveBlogIncidentRoute("RESEARCH_QUALITY_WOBBLE");
     return {
       ...base,
       failureName: "RESEARCH_QUALITY_WOBBLE",
       classification: "follow_up",
       stopScope: "article",
       stopActive: false,
-      primaryOwner: "research-draft",
-      supportingOwners: ["editorial"],
+      primaryOwner: route.primaryOwner,
+      supportingOwners: route.supportingOwners,
+      escalationOwner: route.escalationOwner,
+      followUpTrack: route.followUpTrack,
       publicRisk: "medium",
       recoverabilityRisk: "low",
       currentDecision: "record the article-level quality incident without global stop",
@@ -351,14 +375,17 @@ function derivePublishStopReason(
     };
   }
 
+  const route = resolveBlogIncidentRoute("ROUTINE_PARTIAL_FAILURE");
   return {
     ...base,
     failureName: "ROUTINE_PARTIAL_FAILURE",
     classification: "follow_up",
     stopScope: "step",
     stopActive: false,
-    primaryOwner: "owning-specialist",
-    supportingOwners: ["operations"],
+    primaryOwner: route.primaryOwner,
+    supportingOwners: route.supportingOwners,
+    escalationOwner: route.escalationOwner,
+    followUpTrack: route.followUpTrack,
     publicRisk: "low",
     recoverabilityRisk: "medium",
     currentDecision: "keep the broader pipeline active while this step incident stays open",

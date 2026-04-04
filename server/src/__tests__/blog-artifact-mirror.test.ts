@@ -155,6 +155,8 @@ describeEmbeddedPostgres("blog artifact mirror integration", () => {
       stopScope: "article",
       stopActive: true,
       primaryOwner: "publish-verify",
+      escalationOwner: "operations",
+      followUpTrack: "public-verify",
     });
     expect(publishStopReason).toMatchObject({
       failureName: "PUBLIC_VERIFY_FAILURE",
@@ -185,6 +187,8 @@ describeEmbeddedPostgres("blog artifact mirror integration", () => {
       stopScope: "article",
       stopActive: false,
       primaryOwner: "research-draft",
+      escalationOwner: "editorial",
+      followUpTrack: "editorial-repair",
     });
     expect(draftStopReason).toMatchObject({
       failureName: "RESEARCH_QUALITY_WOBBLE",
