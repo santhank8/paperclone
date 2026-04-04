@@ -135,6 +135,7 @@ describe("blog run worker", () => {
     const worker = blogRunWorkerService({} as any, {
       runService: runService as any,
       runResearchStep: vi.fn().mockResolvedValue({ research: "ok" }),
+      runGrokArtifactStep: vi.fn().mockResolvedValue({ ok: true, source: "grok-web-artifact-step" }),
     });
 
     const result = await worker.runNext("run-1");
@@ -159,6 +160,7 @@ describe("blog run worker", () => {
     const worker = blogRunWorkerService({} as any, {
       runService: runService as any,
       runResearchStep: vi.fn().mockResolvedValue({ research: "ok" }),
+      runGrokArtifactStep: vi.fn().mockResolvedValue({ ok: true, source: "grok-web-artifact-step" }),
       runQualityGateBundle: vi.fn().mockResolvedValue({
         results: {
           research_grounding: {
@@ -189,6 +191,99 @@ describe("blog run worker", () => {
         }),
       ]),
     }));
+  });
+
+  it("attaches grok trend scan artifacts after research", async () => {
+    const runService = {
+      getById: vi.fn().mockResolvedValue(createRun()),
+      getDetail: vi.fn().mockResolvedValue({ ok: true }),
+      claimNextStep: vi.fn().mockResolvedValue(createClaim()),
+      completeStep: vi.fn().mockResolvedValue({ run: { status: "research_ready", currentStep: "draft" } }),
+      failStep: vi.fn(),
+    };
+    const worker = blogRunWorkerService({} as any, {
+      runService: runService as any,
+      runResearchStep: vi.fn().mockResolvedValue({ research: "ok" }),
+      runQualityGateBundle: vi.fn().mockResolvedValue({ results: {} }),
+      runGrokArtifactStep: vi.fn().mockResolvedValue({ ok: true, source: "grok-web-artifact-step" }),
+    });
+
+    await worker.runNext("run-1");
+
+    expect(runService.completeStep).toHaveBeenCalledWith("run-1", "research", expect.objectContaining({
+      artifacts: expect.arrayContaining([
+        expect.objectContaining({
+          artifactKind: "grok_trend_scan_json",
+          storagePath: expect.stringContaining("grok-trend-scan.json"),
+          metadata: expect.objectContaining({
+            mode: "trend-scan",
+            ok: true,
+          }),
+        }),
+      ]),
+    }));
+  });
+
+  it("attaches grok title hook artifacts after draft", async () => {
+    const runService = {
+      getById: vi.fn().mockResolvedValue(createRun({ currentStep: "draft" })),
+      getDetail: vi.fn().mockResolvedValue({ ok: true }),
+      claimNextStep: vi.fn().mockResolvedValue(createClaim({ currentStep: "draft" }, { stepKey: "draft" })),
+      completeStep: vi.fn().mockResolvedValue({ run: { status: "draft_ready", currentStep: "image" } }),
+      failStep: vi.fn(),
+    };
+    const worker = blogRunWorkerService({} as any, {
+      runService: runService as any,
+      runDraftStep: vi.fn().mockResolvedValue({ draft: "ok" }),
+      runQualityGateBundle: vi.fn().mockResolvedValue({ results: {} }),
+      runGrokArtifactStep: vi.fn().mockResolvedValue({ ok: true, source: "grok-web-artifact-step" }),
+    });
+
+    await worker.runNext("run-1");
+
+    expect(runService.completeStep).toHaveBeenCalledWith("run-1", "draft", expect.objectContaining({
+      artifacts: expect.arrayContaining([
+        expect.objectContaining({
+          artifactKind: "grok_title_hook_scan_json",
+          storagePath: expect.stringContaining("grok-title-hook-scan.json"),
+          metadata: expect.objectContaining({
+            mode: "title-hook",
+            ok: true,
+          }),
+        }),
+      ]),
+    }));
+  });
+
+  it("soft-attaches grok artifact errors without failing the step", async () => {
+    const runService = {
+      getById: vi.fn().mockResolvedValue(createRun()),
+      getDetail: vi.fn().mockResolvedValue({ ok: true }),
+      claimNextStep: vi.fn().mockResolvedValue(createClaim()),
+      completeStep: vi.fn().mockResolvedValue({ run: { status: "research_ready", currentStep: "draft" } }),
+      failStep: vi.fn(),
+    };
+    const worker = blogRunWorkerService({} as any, {
+      runService: runService as any,
+      runResearchStep: vi.fn().mockResolvedValue({ research: "ok" }),
+      runQualityGateBundle: vi.fn().mockResolvedValue({ results: {} }),
+      runGrokArtifactStep: vi.fn().mockRejectedValue(new Error("grok_timeout")),
+    });
+
+    await worker.runNext("run-1");
+
+    expect(runService.completeStep).toHaveBeenCalledWith("run-1", "research", expect.objectContaining({
+      artifacts: expect.arrayContaining([
+        expect.objectContaining({
+          artifactKind: "grok_artifact_step_error",
+          bodyPreview: "grok_timeout",
+          metadata: expect.objectContaining({
+            mode: "trend-scan",
+          }),
+        }),
+      ]),
+    }));
+    expect(runService.failStep).not.toHaveBeenCalled();
   });
 
   it("fails the run when validate returns ok=false", async () => {

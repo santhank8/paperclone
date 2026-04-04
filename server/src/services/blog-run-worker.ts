@@ -48,6 +48,12 @@ type WorkerDeps = {
     researchJsonPath?: string;
     imageJsonPath?: string;
   }) => Promise<Record<string, unknown> | null>;
+  runGrokArtifactStep?: (input: {
+    mode: "trend-scan" | "title-hook";
+    topic: string;
+    draftTitle?: string;
+    outputPath: string;
+  }) => Promise<Record<string, unknown> | null>;
 };
 
 function toRecord(value: unknown): Record<string, unknown> {
@@ -133,6 +139,28 @@ async function runQualityGateBundleCli(input: {
   return toRecord(JSON.parse(stdout));
 }
 
+async function runGrokArtifactStepCli(input: {
+  mode: "trend-scan" | "title-hook";
+  topic: string;
+  draftTitle?: string;
+  outputPath: string;
+}) {
+  const scriptPath = "/Users/daehan/Documents/persona/paperclip/scripts/grok_artifact_step.py";
+  const args = [
+    scriptPath,
+    "--mode",
+    input.mode,
+    "--topic",
+    input.topic,
+    "--out",
+    input.outputPath,
+  ];
+  const draftTitle = String(input.draftTitle ?? "").trim();
+  if (draftTitle) args.push("--draft-title", draftTitle);
+  const { stdout } = await execFile("python3", args, { maxBuffer: 1024 * 1024 * 4 });
+  return toRecord(JSON.parse(stdout));
+}
+
 async function readJsonArtifact(filePath: string) {
   try {
     const text = await fs.readFile(filePath, "utf8");
@@ -149,6 +177,30 @@ function firstNonEmptyString(...values: unknown[]) {
     if (normalized) return normalized;
   }
   return "";
+}
+
+function buildGrokArtifactPlan(stepKey: string, runDir: string, run: Record<string, unknown>) {
+  const topic = firstNonEmptyString(run.topic);
+  if (!topic) return null;
+  const context = toRecord(run.contextJson);
+  if (stepKey === "research") {
+    return {
+      mode: "trend-scan" as const,
+      artifactKind: "grok_trend_scan_json",
+      outputPath: path.join(runDir, "grok-trend-scan.json"),
+      draftTitle: firstNonEmptyString(context.title, context.draftTitle),
+    };
+  }
+  if (stepKey === "draft") {
+    const draftTitle = firstNonEmptyString(context.title, context.draftTitle, run.topic);
+    return {
+      mode: "title-hook" as const,
+      artifactKind: "grok_title_hook_scan_json",
+      outputPath: path.join(runDir, "grok-title-hook-scan.json"),
+      draftTitle,
+    };
+  }
+  return null;
 }
 
 function inferDecisionStateFromDraft(draft: Record<string, unknown>) {
@@ -542,6 +594,40 @@ export function blogRunWorkerService(db: Db, deps: WorkerDeps = {}) {
           }
         default:
           throw new Error(`unsupported_blog_run_step:${stepKey}`);
+      }
+
+      const grokPlan = buildGrokArtifactPlan(stepKey, runDir, run);
+      if (grokPlan) {
+        try {
+          const grokResult = await (deps.runGrokArtifactStep ?? runGrokArtifactStepCli)({
+            mode: grokPlan.mode,
+            topic: String(run.topic ?? "").trim(),
+            draftTitle: grokPlan.draftTitle,
+            outputPath: grokPlan.outputPath,
+          });
+          artifacts.push({
+            artifactKind: grokPlan.artifactKind,
+            contentType: "application/json",
+            storageKind: "local_fs",
+            storagePath: grokPlan.outputPath,
+            bodyPreview: String(toRecord(grokResult).source ?? "grok-web-artifact-step"),
+            metadata: {
+              mode: grokPlan.mode,
+              ok: toRecord(grokResult).ok === true,
+              topic: String(run.topic ?? "").trim(),
+            },
+          });
+        } catch (grokError) {
+          const message = grokError instanceof Error ? grokError.message : String(grokError);
+          artifacts.push({
+            artifactKind: "grok_artifact_step_error",
+            contentType: "application/json",
+            storageKind: "inline",
+            storagePath: null,
+            bodyPreview: message,
+            metadata: { stepKey, mode: grokPlan.mode, topic: String(run.topic ?? "").trim() },
+          });
+        }
       }
 
       if (["research", "draft", "image", "validate"].includes(stepKey)) {
