@@ -36,6 +36,7 @@ import { SECRET_PROVIDERS, type SecretProvider } from "@paperclipai/shared";
 import { getSecretProvider } from "../secrets/provider-registry.js";
 import { pluginRegistryService } from "./plugin-registry.js";
 import { secretService } from "./secrets.js";
+import { logActivity } from "./activity-log.js";
 
 function secretNotFound(secretRef: string): Error {
   const err = new Error(`Secret not found: ${secretRef}`);
@@ -154,6 +155,23 @@ export function extractSecretRefsFromConfig(
 }
 
 // ---------------------------------------------------------------------------
+// Rate Limiting (Module Level for durability across worker restarts)
+// ---------------------------------------------------------------------------
+
+/** Global sliding-window state store keyed by pluginId + operation. */
+const _limiterState = new Map<string, number[]>();
+
+function checkRateLimit(key: string, maxAttempts: number, windowMs: number): boolean {
+  const now = Date.now();
+  const windowStart = now - windowMs;
+  const existing = (_limiterState.get(key) ?? []).filter((ts) => ts > windowStart);
+  if (existing.length >= maxAttempts) return false;
+  existing.push(now);
+  _limiterState.set(key, existing);
+  return true;
+}
+
+// ---------------------------------------------------------------------------
 // Handler factory
 // ---------------------------------------------------------------------------
 
@@ -227,23 +245,6 @@ export interface PluginSecretsService {
  * @param options - Database connection and plugin identity
  * @returns A `PluginSecretsService` suitable for `HostServices.secrets`
  */
-/** Simple sliding-window rate limiter for secret resolution attempts. */
-function createRateLimiter(maxAttempts: number, windowMs: number) {
-  const attempts = new Map<string, number[]>();
-
-  return {
-    check(key: string): boolean {
-      const now = Date.now();
-      const windowStart = now - windowMs;
-      const existing = (attempts.get(key) ?? []).filter((ts) => ts > windowStart);
-      if (existing.length >= maxAttempts) return false;
-      existing.push(now);
-      attempts.set(key, existing);
-      return true;
-    },
-  };
-}
-
 export function createPluginSecretsHandler(
   options: PluginSecretsHandlerOptions,
 ): PluginSecretsService {
@@ -258,12 +259,6 @@ export function createPluginSecretsHandler(
       : "local_encrypted"
   ) as SecretProvider;
 
-  // Rate limiters:
-  // - resolve: max 30 resolution attempts per plugin per minute
-  // - write: max 10 creation attempts per plugin per minute (conservative to prevent abuse)
-  const resolveRateLimiter = createRateLimiter(30, 60_000);
-  const writeRateLimiter = createRateLimiter(10, 60_000);
-
   let cachedAllowedRefs: Set<string> | null = null;
   let cachedAllowedRefsExpiry = 0;
   const CONFIG_CACHE_TTL_MS = 30_000; // 30 seconds, matches event bus TTL
@@ -275,7 +270,7 @@ export function createPluginSecretsHandler(
       // ---------------------------------------------------------------
       // 0. Rate limiting — prevent brute-force UUID enumeration
       // ---------------------------------------------------------------
-      if (!resolveRateLimiter.check(pluginId)) {
+      if (!checkRateLimit(`${pluginId}:resolve`, 30, 60_000)) {
         const err = new Error("Rate limit exceeded for secret resolution");
         err.name = "RateLimitExceededError";
         throw err;
@@ -366,7 +361,7 @@ export function createPluginSecretsHandler(
       // ---------------------------------------------------------------
       // 0. Rate limiting — prevent resource exhaustion
       // ---------------------------------------------------------------
-      if (!writeRateLimiter.check(pluginId)) {
+      if (!checkRateLimit(`${pluginId}:write`, 10, 60_000)) {
         const err = new Error("Rate limit exceeded for secret creation");
         err.name = "RateLimitExceededError";
         throw err;
@@ -455,13 +450,24 @@ export function createPluginSecretsHandler(
           { value: params.value },
           { userId: pluginActorId, agentId: null }
         );
+
+        // Audit Logging
+        await logActivity(db, {
+          companyId,
+          actorType: "system", // Internal actor tracking
+          actorId: pluginId,
+          action: "secret.rotated",
+          entityType: "secret",
+          entityId: updated.id,
+          details: { name: params.name },
+        });
+
         return updated.id;
       }
 
       // ---------------------------------------------------------------
-      // 5. Secure Creation
-      // ---------------------------------------------------------------
       // 5. Secure Creation / Update
+      // ---------------------------------------------------------------
       // Crucial Security Requirement: Delegate to secretService to ensure
       // proper provider-level encryption (e.g. AES-256-GCM) is applied before
       // the secret is ever persisted to the database.
@@ -477,12 +483,23 @@ export function createPluginSecretsHandler(
           { userId: pluginActorId, agentId: null }
         );
 
+        // Audit Logging
+        await logActivity(db, {
+          companyId,
+          actorType: "system",
+          actorId: pluginId,
+          action: "secret.created",
+          entityType: "secret",
+          entityId: secret.id,
+          details: { name: params.name },
+        });
+
         return secret.id;
       } catch (err: any) {
         // Handle TOCTOU race: if creation fails due to a name conflict that 
         // happened between our check and the insert, perform one final 
         // ownership check to provide the correct error message.
-        if (err.name === "ConflictError" || err.message?.includes("already exists")) {
+        if (err.name === "ConflictError") {
           const raced = await secretService(db).getByName(companyId, params.name);
           if (raced && raced.createdByUserId !== pluginActorId) {
             throw new Error(`Collision: A secret named "${params.name}" already exists and was not created by this plugin.`);
@@ -494,6 +511,17 @@ export function createPluginSecretsHandler(
               { value: params.value },
               { userId: pluginActorId, agentId: null }
             );
+
+            await logActivity(db, {
+              companyId,
+              actorType: "system",
+              actorId: pluginId,
+              action: "secret.rotated",
+              entityType: "secret",
+              entityId: updated.id,
+              details: { name: params.name },
+            });
+
             return updated.id;
           }
         }
