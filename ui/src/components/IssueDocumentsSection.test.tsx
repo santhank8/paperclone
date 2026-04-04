@@ -197,6 +197,7 @@ function createIssue(): Issue {
     executionWorkspaceId: null,
     executionWorkspacePreference: null,
     executionWorkspaceSettings: null,
+    dueAt: null,
     checkoutRunId: null,
     executionRunId: null,
     executionAgentNameKey: null,

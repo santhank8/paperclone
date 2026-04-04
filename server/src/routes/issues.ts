@@ -13,6 +13,7 @@ import {
   feedbackTraceStatusSchema,
   feedbackVoteValueSchema,
   upsertIssueFeedbackVoteSchema,
+  createIssueRelationSchema,
   linkIssueApprovalSchema,
   issueDocumentKeySchema,
   restoreIssueDocumentRevisionSchema,
@@ -36,6 +37,7 @@ import {
   heartbeatService,
   instanceSettingsService,
   issueApprovalService,
+  issueRelationService,
   issueService,
   documentService,
   logActivity,
@@ -71,6 +73,7 @@ export function issueRoutes(
 ) {
   const router = Router();
   const svc = issueService(db);
+  const relationsSvc = issueRelationService(db);
   const access = accessService(db);
   const heartbeat = heartbeatService(db);
   const feedback = feedbackService(db);
@@ -1034,8 +1037,10 @@ export function issueRoutes(
     }
 
     const actor = getActorInfo(req);
+    const { dueAt: dueAtRaw, ...createBody } = req.body;
     const issue = await svc.create(companyId, {
-      ...req.body,
+      ...createBody,
+      ...(dueAtRaw !== undefined ? { dueAt: dueAtRaw ? new Date(dueAtRaw) : null } : {}),
       createdByAgentId: actor.agentId,
       createdByUserId: actor.actorType === "user" ? actor.actorId : null,
     });
@@ -1100,6 +1105,7 @@ export function issueRoutes(
       reopen: reopenRequested,
       interrupt: interruptRequested,
       hiddenAt: hiddenAtRaw,
+      dueAt: dueAtRaw,
       ...updateFields
     } = req.body;
     let interruptedRunId: string | null = null;
@@ -1143,6 +1149,9 @@ export function issueRoutes(
 
     if (hiddenAtRaw !== undefined) {
       updateFields.hiddenAt = hiddenAtRaw ? new Date(hiddenAtRaw) : null;
+    }
+    if (dueAtRaw !== undefined) {
+      updateFields.dueAt = dueAtRaw ? new Date(dueAtRaw) : null;
     }
     if (commentBody && reopenRequested === true && isClosed && updateFields.status === undefined) {
       updateFields.status = "todo";
@@ -1337,6 +1346,41 @@ export function issueRoutes(
               source: "comment.mention",
             },
           });
+        }
+      }
+
+      // When an issue is resolved, unblock any issues it was blocking
+      const issueResolved =
+        (issue.status === "done" || issue.status === "cancelled") &&
+        existing.status !== "done" &&
+        existing.status !== "cancelled";
+
+      if (issueResolved) {
+        try {
+          const blockedEntries = await relationsSvc.findBlockedByIssue(issue.id);
+          for (const entry of blockedEntries) {
+            const allResolved = await relationsSvc.areAllBlockersResolved(entry.blockedIssueId);
+            if (allResolved) {
+              const unblocked = await svc.update(entry.blockedIssueId, { status: "todo" });
+              if (unblocked?.assigneeAgentId) {
+                wakeups.set(unblocked.assigneeAgentId, {
+                  source: "automation",
+                  triggerDetail: "system",
+                  reason: "issue_unblocked",
+                  payload: { issueId: unblocked.id, unblockedByIssueId: issue.id },
+                  requestedByActorType: actor.actorType,
+                  requestedByActorId: actor.actorId,
+                  contextSnapshot: {
+                    issueId: unblocked.id,
+                    source: "issue.unblocked",
+                    unblockedByIssueId: issue.id,
+                  },
+                });
+              }
+            }
+          }
+        } catch (err) {
+          logger.warn({ err, issueId: issue.id }, "failed to unblock dependent issues");
         }
       }
 
@@ -2093,6 +2137,75 @@ export function issueRoutes(
       details: {
         attachmentId: removed.id,
       },
+    });
+
+    res.json({ ok: true });
+  });
+
+  // ── Issue Relations ──────────────────────────────────────────────
+
+  router.get("/issues/:id/relations", async (req, res) => {
+    const issueId = req.params.id as string;
+    const existing = await svc.getById(issueId);
+    if (!existing) {
+      res.status(404).json({ error: "Issue not found" });
+      return;
+    }
+    assertCompanyAccess(req, existing.companyId);
+    const relations = await relationsSvc.listForIssue(issueId);
+    res.json(relations);
+  });
+
+  router.post("/issues/:id/relations", validate(createIssueRelationSchema), async (req, res) => {
+    const issueId = req.params.id as string;
+    const existing = await svc.getById(issueId);
+    if (!existing) {
+      res.status(404).json({ error: "Issue not found" });
+      return;
+    }
+    assertCompanyAccess(req, existing.companyId);
+
+    const relation = await relationsSvc.create(issueId, req.body);
+
+    const actor = getActorInfo(req);
+    await logActivity(db, {
+      companyId: existing.companyId,
+      actorType: actor.actorType,
+      actorId: actor.actorId,
+      agentId: actor.agentId,
+      runId: actor.runId,
+      action: "issue.relation_added",
+      entityType: "issue",
+      entityId: issueId,
+      details: { relatedIssueId: req.body.relatedIssueId, type: req.body.type },
+    });
+
+    res.status(201).json(relation);
+  });
+
+  router.delete("/issues/:id/relations/:relationId", async (req, res) => {
+    const issueId = req.params.id as string;
+    const relationId = req.params.relationId as string;
+    const existing = await svc.getById(issueId);
+    if (!existing) {
+      res.status(404).json({ error: "Issue not found" });
+      return;
+    }
+    assertCompanyAccess(req, existing.companyId);
+
+    await relationsSvc.delete(issueId, relationId);
+
+    const actor = getActorInfo(req);
+    await logActivity(db, {
+      companyId: existing.companyId,
+      actorType: actor.actorType,
+      actorId: actor.actorId,
+      agentId: actor.agentId,
+      runId: actor.runId,
+      action: "issue.relation_removed",
+      entityType: "issue",
+      entityId: issueId,
+      details: { relationId },
     });
 
     res.json({ ok: true });

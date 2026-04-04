@@ -37,6 +37,7 @@ import { InlineEditor } from "../components/InlineEditor";
 import { CommentThread } from "../components/CommentThread";
 import { IssueDocumentsSection } from "../components/IssueDocumentsSection";
 import { IssueProperties } from "../components/IssueProperties";
+import { IssueRelations } from "../components/IssueRelations";
 import { IssueWorkspaceCard } from "../components/IssueWorkspaceCard";
 import { LiveRunWidget } from "../components/LiveRunWidget";
 import type { MentionOption } from "../components/MarkdownEditor";
@@ -985,7 +986,11 @@ export function IssueDetail() {
   useEffect(() => {
     if (issue) {
       openPanel(
-        <IssueProperties issue={issue} onUpdate={(data) => updateIssue.mutate(data)} />
+        <>
+          <IssueProperties issue={issue} onUpdate={(data) => updateIssue.mutate(data)} />
+          <Separator className="my-3" />
+          <IssueRelations issueId={issue.id} />
+        </>
       );
     }
     return () => closePanel();
@@ -1700,6 +1705,8 @@ export function IssueDetail() {
           <ScrollArea className="flex-1 overflow-y-auto">
             <div className="px-4 pb-4">
               <IssueProperties issue={issue} onUpdate={(data) => updateIssue.mutate(data)} inline />
+              <Separator className="my-3" />
+              <IssueRelations issueId={issue.id} />
             </div>
           </ScrollArea>
         </SheetContent>
