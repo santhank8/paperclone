@@ -1,4 +1,3 @@
-import * as http from "node:http";
 import * as https from "node:https";
 import { URL } from "node:url";
 import type { AdapterExecutionContext, AdapterExecutionResult } from "@paperclipai/adapter-utils";
@@ -16,30 +15,24 @@ interface DashScopeMessage {
   content: string;
 }
 
-interface DashScopeRequest {
-  model: string;
-  input: {
-    messages: DashScopeMessage[];
-  };
-  parameters: {
-    temperature?: number;
-    top_p?: number;
-    max_tokens?: number;
-  };
-}
-
-interface DashScopeUsage {
-  input_tokens: number;
-  output_tokens: number;
-}
-
 interface DashScopeResponse {
-  output: {
-    text: string;
-    finish_reason?: string;
+  id: string;
+  object: string;
+  created: number;
+  model: string;
+  choices: Array<{
+    index: number;
+    message: {
+      role: string;
+      content: string;
+    };
+    finish_reason: string;
+  }>;
+  usage: {
+    prompt_tokens: number;
+    completion_tokens: number;
+    total_tokens: number;
   };
-  usage: DashScopeUsage;
-  request_id: string;
 }
 
 async function callDashScopeAPI(
@@ -53,16 +46,14 @@ async function callDashScopeAPI(
     timeoutSec?: number;
   },
 ): Promise<{ response: DashScopeResponse; latencyMs: number }> {
-  const url = new URL("https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation");
+  const url = new URL("https://coding.dashscope.aliyuncs.com/v1/chat/completions");
   
-  const requestBody: DashScopeRequest = {
+  const requestBody = {
     model,
-    input: { messages },
-    parameters: {
-      ...(options.temperature !== undefined && { temperature: options.temperature }),
-      ...(options.topP !== undefined && { top_p: options.topP }),
-      ...(options.maxTokens !== undefined && { max_tokens: options.maxTokens }),
-    },
+    messages,
+    ...(options.temperature !== undefined && { temperature: options.temperature }),
+    ...(options.topP !== undefined && { top_p: options.topP }),
+    ...(options.maxTokens !== undefined && { max_tokens: options.maxTokens }),
   };
 
   const body = JSON.stringify(requestBody);
@@ -208,10 +199,10 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     });
 
     await onLog("stdout", `[paperclip] DashScope response in ${latencyMs}ms\n`);
-    await onLog("stdout", `[paperclip] Tokens: input=${response.usage.input_tokens}, output=${response.usage.output_tokens}\n`);
+    await onLog("stdout", `[paperclip] Tokens: prompt=${response.usage.prompt_tokens}, completion=${response.usage.completion_tokens}\n`);
 
-    const outputText = response.output.text ?? "";
-    const finishReason = response.output.finish_reason ?? "stop";
+    const outputText = response.choices[0]?.message?.content ?? "";
+    const finishReason = response.choices[0]?.finish_reason ?? "stop";
 
     return {
       exitCode: 0,
@@ -220,9 +211,9 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
       errorMessage: null,
       errorCode: null,
       usage: {
-        inputTokens: response.usage.input_tokens,
+        inputTokens: response.usage.prompt_tokens,
         cachedInputTokens: 0,
-        outputTokens: response.usage.output_tokens,
+        outputTokens: response.usage.completion_tokens,
       },
       sessionId: null,
       sessionParams: null,
@@ -233,9 +224,9 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
       billingType: "api",
       costUsd: 0,
       resultJson: {
-        output: response.output,
+        choices: response.choices,
         usage: response.usage,
-        request_id: response.request_id,
+        id: response.id,
         latency_ms: latencyMs,
       },
       summary: outputText,
@@ -255,3 +246,32 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     };
   }
 }
+
+export { type AdapterSessionCodec } from "@paperclipai/adapter-utils";
+export const sessionCodec = {
+  deserialize(raw: unknown) {
+    if (typeof raw !== "object" || raw === null || Array.isArray(raw)) return null;
+    const record = raw as Record<string, unknown>;
+    const sessionId = typeof record.sessionId === "string" ? record.sessionId : typeof record.session_id === "string" ? record.session_id : null;
+    if (!sessionId) return null;
+    const cwd = typeof record.cwd === "string" ? record.cwd : typeof record.workdir === "string" ? record.workdir : undefined;
+    return {
+      sessionId,
+      ...(cwd ? { cwd } : {}),
+    };
+  },
+  serialize(params: Record<string, unknown> | null) {
+    if (!params) return null;
+    const sessionId = typeof params.sessionId === "string" ? params.sessionId : typeof params.session_id === "string" ? params.session_id : null;
+    if (!sessionId) return null;
+    const cwd = typeof params.cwd === "string" ? params.cwd : typeof params.workdir === "string" ? params.workdir : undefined;
+    return {
+      sessionId,
+      ...(cwd ? { cwd } : {}),
+    };
+  },
+  getDisplayId(params: Record<string, unknown> | null) {
+    if (!params) return null;
+    return typeof params.sessionId === "string" ? params.sessionId : typeof params.session_id === "string" ? params.session_id : null;
+  },
+};
