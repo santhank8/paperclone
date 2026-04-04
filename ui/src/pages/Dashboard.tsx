@@ -315,6 +315,8 @@ function AgentWorkCard({
   );
 }
 
+const AGENT_WORK_INITIAL_LIMIT = 5;
+
 function AgentWorkSection({
   runs,
   agentMap,
@@ -325,18 +327,36 @@ function AgentWorkSection({
   issueMap: Map<string, Issue>;
 }) {
   const groups = useMemo(() => groupRunsByAgent(runs, agentMap), [runs, agentMap]);
+  const [showAll, setShowAll] = useState(false);
 
   if (groups.length === 0) return null;
 
+  const visibleGroups = showAll ? groups : groups.slice(0, AGENT_WORK_INITIAL_LIMIT);
+  const hiddenCount = groups.length - AGENT_WORK_INITIAL_LIMIT;
+
   return (
     <div>
-      <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">
-        Today&apos;s Agent Work
-      </h3>
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+          Today&apos;s Agent Work
+        </h3>
+        <span className="text-xs text-muted-foreground">
+          {groups.reduce((sum, g) => sum + g.runs.length, 0)} runs across {groups.length} agent{groups.length === 1 ? "" : "s"}
+        </span>
+      </div>
       <div className="space-y-3">
-        {groups.map((group) => (
+        {visibleGroups.map((group) => (
           <AgentWorkCard key={group.agentId} group={group} issueMap={issueMap} />
         ))}
+        {!showAll && hiddenCount > 0 && (
+          <button
+            type="button"
+            onClick={() => setShowAll(true)}
+            className="w-full rounded-md border border-dashed border-border py-2 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+          >
+            Show {hiddenCount} more agent{hiddenCount === 1 ? "" : "s"}
+          </button>
+        )}
       </div>
     </div>
   );
