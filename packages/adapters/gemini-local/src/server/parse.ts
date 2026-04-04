@@ -7,16 +7,23 @@ function collectMessageText(message: unknown): string[] {
   }
 
   const record = parseObject(message);
-  const direct = asString(record.text, "").trim();
-  const lines: string[] = direct ? [direct] : [];
-  const content = Array.isArray(record.content) ? record.content : [];
+  const lines: string[] = [];
 
-  for (const partRaw of content) {
-    const part = parseObject(partRaw);
-    const type = asString(part.type, "").trim();
-    if (type === "output_text" || type === "text" || type === "content") {
-      const text = asString(part.text, "").trim() || asString(part.content, "").trim();
-      if (text) lines.push(text);
+  const directText = asString(record.text, "").trim();
+  if (directText) lines.push(directText);
+
+  if (typeof record.content === "string") {
+    const trimmedContent = record.content.trim();
+    if (trimmedContent) lines.push(trimmedContent);
+  } else if (Array.isArray(record.content)) {
+    for (const partRaw of record.content) {
+      const part = parseObject(partRaw);
+      const type = asString(part.type, "").trim();
+
+      if (type === "output_text" || type === "text" || type === "content" || !type) {
+        const text = asString(part.text, "").trim() || asString(part.content, "").trim();
+        if (text) lines.push(text);
+      }
     }
   }
 
@@ -96,11 +103,18 @@ export function parseGeminiJsonl(stdout: string) {
     if (foundSessionId) sessionId = foundSessionId;
 
     const type = asString(event.type, "").trim();
+    const role = asString(event.role, "").trim(); // Grab the role for the new schema
 
-    if (type === "assistant") {
-      messages.push(...collectMessageText(event.message));
-      const messageObj = parseObject(event.message);
+    // Match legacy `type === "assistant"` OR the new `type === "message" && role === "assistant"`
+    if (type === "assistant" || (type === "message" && role === "assistant")) {
+      // Normalize: use event.message if it exists (old format), otherwise use the event itself (new flat format)
+      const messageData = event.message ?? event;
+
+      messages.push(...collectMessageText(messageData));
+
+      const messageObj = parseObject(messageData);
       const content = Array.isArray(messageObj.content) ? messageObj.content : [];
+
       for (const partRaw of content) {
         const part = parseObject(partRaw);
         if (asString(part.type, "").trim() === "question") {
