@@ -2121,7 +2121,21 @@ export function heartbeatService(db: Db) {
       ? parseIssueExecutionWorkspaceSettings(issueContext?.executionWorkspaceSettings)
       : null;
     const contextProjectId = readNonEmptyString(context.projectId);
-    const executionProjectId = issueContext?.projectId ?? contextProjectId;
+    let executionProjectId = issueContext?.projectId ?? contextProjectId;
+    // Fallback: when timer heartbeats have no issue/project context, resolve via the company's active project.
+    if (!executionProjectId) {
+      const companyProject = await db
+        .select({ id: projects.id })
+        .from(projects)
+        .where(and(eq(projects.companyId, agent.companyId), sql`${projects.archivedAt} IS NULL`))
+        .limit(1)
+        .then((rows) => rows[0] ?? null);
+      executionProjectId = companyProject?.id ?? null;
+      // Inject into context so resolveWorkspaceForRun can find the project workspace.
+      if (executionProjectId) {
+        context.projectId = executionProjectId;
+      }
+    }
     const projectExecutionWorkspacePolicy = executionProjectId
       ? await db
           .select({ executionWorkspacePolicy: projects.executionWorkspacePolicy })
