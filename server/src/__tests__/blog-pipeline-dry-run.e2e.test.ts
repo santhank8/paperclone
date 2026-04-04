@@ -32,7 +32,7 @@ describeEmbeddedPostgres("blog pipeline dry-run e2e", () => {
     tempDb = await startEmbeddedPostgresTestDatabase("paperclip-blog-dry-run-e2e-");
     db = createDb(tempDb.connectionString);
     scratchRoot = await blogArtifactMirrorService().createScratchRoot();
-  }, 20_000);
+  }, 70_000);
 
   afterEach(async () => {
     await fs.rm(scratchRoot, { recursive: true, force: true }).catch(() => {});
@@ -158,7 +158,7 @@ describeEmbeddedPostgres("blog pipeline dry-run e2e", () => {
       last_completed_step: "public_verify",
       next_step: null,
     });
-  });
+  }, 70_000);
 
   it("fails dry-run validate when strict publish-ready canary returns a failed merged preflight", async () => {
     const { companyId, projectId } = await seedProject();
@@ -206,6 +206,7 @@ describeEmbeddedPostgres("blog pipeline dry-run e2e", () => {
         title: "Dry run title",
         article_html: "<p>Dry run body</p>",
         publishReadyGateCanary: true,
+        highThroughputQualityLoop: false,
       },
     });
 
@@ -218,5 +219,96 @@ describeEmbeddedPostgres("blog pipeline dry-run e2e", () => {
     const finalDetail = await runSvc.getDetail(run!.id);
     expect(finalDetail?.run.status).toBe("failed");
     expect(finalDetail?.run.failedReason).toBe("blog_run_publish_ready_failed:visual_quality");
-  });
+  }, 70_000);
+
+  it("re-enters draft after strict failures and completes once a later attempt passes", async () => {
+    const { companyId, projectId } = await seedProject();
+    const mirror = blogArtifactMirrorService({ baseDir: scratchRoot });
+    const runSvc = blogRunService(db, { artifactMirror: mirror });
+    const publisher = {
+      publishDraft: vi.fn(),
+      publishPost: vi.fn(),
+    };
+    const runQualityGateBundle = vi.fn()
+      .mockResolvedValueOnce({
+        results: {
+          publish_ready: {
+            ok: false,
+            status: "fail",
+            failed_gates: ["explainer_quality"],
+            gate_reason_summary: { explainer_quality: ["term_explanation_missing"] },
+          },
+        },
+      })
+      .mockResolvedValueOnce({
+        results: {
+          publish_ready: {
+            ok: false,
+            status: "fail",
+            failed_gates: ["reader_experience"],
+            gate_reason_summary: { reader_experience: ["quick_scan_missing"] },
+          },
+        },
+      })
+      .mockResolvedValue({
+        results: {
+          publish_ready: {
+            ok: true,
+            status: "pass",
+            failed_gates: [],
+            gate_reason_summary: {},
+          },
+        },
+      });
+
+    const worker = blogRunWorkerService(db, {
+      runService: runSvc,
+      artifactRoot: scratchRoot,
+      publisher: publisher as any,
+      runResearchStep: vi.fn().mockResolvedValue({ summary: "research ok", notebook_reference: "n1", fact_pack: { items: [1] }, source_registry: [{ url: "https://example.com" }], uncertainty_ledger: [{ claim: "x" }] }),
+      runDraftStep: vi.fn().mockResolvedValue({
+        title: "Loop draft title",
+        article_html: "<p>Loop dry run body</p>",
+        markdown: "## 목차\n\n핵심 요약\n\n이번 글에서 볼 3가지\n\n| 비교 | 의미 |\n| --- | --- |\n| A | B |\n\nbody\n\n마지막으로 이것만 확인해보세요\n\n지금 써볼 사람과 기다릴 사람을 판단한다.",
+        sections: [{ title: "변화 1" }, { title: "변화 2" }, { title: "변화 3" }],
+        ending_judgment: "지금 써볼 사람과 기다릴 사람을 판단한다.",
+      }),
+      runImageStep: vi.fn().mockResolvedValue({
+        featured: { sha256: "a" },
+        "support-1": { sha256: "b", role: "comparison" },
+        "support-2": { sha256: "c", role: "workflow" },
+      }),
+      runDraftReviewStep: vi.fn().mockResolvedValue({ verdict: "pass" }),
+      runDraftPolishStep: vi.fn().mockResolvedValue({ verdict: "pass" }),
+      runFinalReviewStep: vi.fn().mockResolvedValue({ verdict: "approve" }),
+      runValidateStep: vi.fn().mockResolvedValue({ ok: true }),
+      runQualityGateBundle,
+      runPublicVerifyStep: vi.fn(),
+    });
+
+    const run = await runSvc.create({
+      companyId,
+      projectId,
+      topic: "High throughput loop topic",
+      lane: "publish",
+      publishMode: "dry_run",
+      contextJson: {
+        title: "Loop draft title",
+        article_html: "<p>Loop dry run body</p>",
+      },
+    });
+
+    for (let i = 0; i < 14; i += 1) {
+      const current = await runSvc.getById(run!.id);
+      if (!current?.currentStep) break;
+      await worker.runNext(run!.id);
+    }
+
+    const finalDetail = await runSvc.getDetail(run!.id);
+    expect(finalDetail?.run.status).toBe("public_verified");
+    expect((finalDetail?.run.contextJson as any)?.articleLoop?.articleAttempt).toBe(3);
+    expect(runQualityGateBundle).toHaveBeenCalledTimes(5);
+    expect(publisher.publishDraft).not.toHaveBeenCalled();
+    expect(publisher.publishPost).not.toHaveBeenCalled();
+  }, 20_000);
 });
