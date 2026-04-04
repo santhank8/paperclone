@@ -77,6 +77,365 @@ const MAX_INLINE_WAKE_COMMENTS = 8;
 const MAX_INLINE_WAKE_COMMENT_BODY_CHARS = 4_000;
 const MAX_INLINE_WAKE_COMMENT_BODY_TOTAL_CHARS = 12_000;
 const execFile = promisify(execFileCallback);
+const execFile = promisify(execFileCallback);
+
+const POSTGRES_TEXT_NULL_BYTE = /\u0000/g;
+
+function stripPostgresTextNullBytes(value: string): string {
+  if (!value.includes("\u0000")) return value;
+  return value.replace(POSTGRES_TEXT_NULL_BYTE, "");
+}
+
+function sanitizePostgresTextValue<T>(value: T): T {
+  if (typeof value === "string") {
+    return stripPostgresTextNullBytes(value) as T;
+  }
+  if (Array.isArray(value)) {
+    return value.map((entry) => sanitizePostgresTextValue(entry)) as T;
+  }
+  if (value && typeof value === "object" && !(value instanceof Date)) {
+    const prototype = Object.getPrototypeOf(value);
+    if (prototype === Object.prototype || prototype === null) {
+      const entries = Object.entries(value as Record<string, unknown>).map(([key, entry]) => [
+        key,
+        sanitizePostgresTextValue(entry),
+      ]);
+      return Object.fromEntries(entries) as T;
+    }
+  }
+  return value;
+}
+
+function normalizePriorityRank(priority: string | null | undefined) {
+  switch ((priority ?? "").toLowerCase()) {
+    case "urgent":
+      return 4;
+    case "high":
+      return 3;
+    case "medium":
+      return 2;
+    case "low":
+      return 1;
+    default:
+      return 0;
+  }
+}
+
+function classifyIssueTruthFromCommentBody(body: string | null | undefined): "completion" | "blocker" | "handoff" | null {
+  if (!body) return null;
+  const text = body.toLowerCase();
+
+  const completionSignals = [
+    /\b(status|outcome)\s*:\s*(done|completed|resolved)\b/,
+    /\bissue\s+resolved\b/,
+    /\bcompleted\b/,
+  ];
+  const blockerSignals = [
+    /\b(status|outcome)\s*:\s*(blocked|needs[_ -]?help|blocked_on_external)\b/,
+    /\bblocked\b/,
+    /\bwaiting on\b/,
+  ];
+  const handoffSignals = [
+    /\b(status|outcome)\s*:\s*(handoff|needs_review|needs_handoff)\b/,
+    /\bhandoff\b/,
+    /\bready for review\b/,
+  ];
+
+  if (completionSignals.some((rx) => rx.test(text))) return "completion";
+  if (blockerSignals.some((rx) => rx.test(text))) return "blocker";
+  if (handoffSignals.some((rx) => rx.test(text))) return "handoff";
+  return null;
+}
+
+export function isOperationsOrchestratorAgent(agent: { role?: string | null; name: null }) {
+  const role = (agent.role ?? "").toLowerCase();
+  const name = (agent.name ?? "").toLowerCase();
+  return role.includes("operat") || role === "coo" || name.includes("operations");
+}
+
+  return null;
+}
+
+export function isOperationsOrchestratorAgent(agent: { role?: string | null; name?: string | null }) {
+  const role = (agent.role ?? "").toLowerCase();
+  const name = (agent.name ?? "").toLowerCase();
+  return role.includes("operat") || role === "coo" || name.includes("operations");
+}
+
+type OperationsHeartbeatTarget = {
+  issueId: string;
+  mode: "ops_active" | "cross_agent_recovery" | "ready_unassigned";
+  reason: string;
+};
+
+export async function resolveOperationsHeartbeatTarget(
+  db: Db,
+  input: { companyId: string; operationsAgentId: string },
+): Promise<OperationsHeartbeatTarget | null> {
+  const now = Date.now();
+
+  const openAssignedIssues = await db
+    .select({
+      id: issues.id,
+      identifier: issues.identifier,
+      title: issues.title,
+      status: issues.status,
+      priority: issues.priority,
+      updatedAt: issues.updatedAt,
+      executionRunId: issues.executionRunId,
+      assigneeAgentId: issues.assigneeAgentId,
+    })
+    .from(issues)
+    .where(
+      and(
+        eq(issues.companyId, input.companyId),
+        inArray(issues.status, OPEN_ISSUE_STATUSES as unknown as string[]),
+        sql`${issues.hiddenAt} is null`,
+        sql`${issues.assigneeAgentId} is not null`,
+      ),
+    );
+
+  if (openAssignedIssues.length > 0) {
+    const runIds = Array.from(
+      new Set(openAssignedIssues.map((row) => row.executionRunId).filter((id): id is string => Boolean(id))),
+    );
+    const runRows =
+      runIds.length > 0
+        ? await db
+            .select({ id: heartbeatRuns.id, status: heartbeatRuns.status, finishedAt: heartbeatRuns.finishedAt })
+            .from(heartbeatRuns)
+            .where(and(eq(heartbeatRuns.companyId, input.companyId), inArray(heartbeatRuns.id, runIds)))
+        : [];
+    const runById = new Map(runRows.map((row) => [row.id, row]));
+
+    const issueIds = openAssignedIssues.map((row) => row.id);
+    const latestCommentRows =
+      issueIds.length > 0
+        ? await db
+            .selectDistinctOn([issueComments.issueId], {
+              issueId: issueComments.issueId,
+              createdAt: issueComments.createdAt,
+              authorAgentId: issueComments.authorAgentId,
+              body: issueComments.body,
+            })
+            .from(issueComments)
+            .where(and(eq(issueComments.companyId, input.companyId), inArray(issueComments.issueId, issueIds)))
+            .orderBy(issueComments.issueId, desc(issueComments.createdAt))
+        : [];
+    const latestCommentByIssueId = new Map(latestCommentRows.map((row) => [row.issueId, row]));
+
+    const watchdogIssueIds = openAssignedIssues
+      .filter((issue) => {
+        const watchdogLabel = `${issue.identifier ?? ""} ${issue.title}`.toLowerCase();
+        return /watchdog|queue\s*lock|lock\s*repair|orphan(ed)?\s*run|heartbeat\s*recovery/.test(watchdogLabel);
+      })
+      .map((issue) => issue.id);
+
+    const watchdogCooldownCutoff = new Date(now - WATCHDOG_RECOVERY_COOLDOWN_HOURS * 60 * 60 * 1000);
+    const recentWatchdogSuccessCount =
+      watchdogIssueIds.length > 0
+        ? await db
+            .select({
+              id: heartbeatRuns.id,
+              finishedAt: heartbeatRuns.finishedAt,
+              contextIssueId: sql<string | null>`${heartbeatRuns.contextSnapshot} ->> 'issueId'`,
+            })
+            .from(heartbeatRuns)
+            .where(
+              and(
+                eq(heartbeatRuns.companyId, input.companyId),
+                eq(heartbeatRuns.agentId, input.operationsAgentId),
+                inArray(heartbeatRuns.status, ["succeeded", "completed"]),
+                sql`${heartbeatRuns.finishedAt} is not null`,
+              ),
+            )
+            .then((rows) => rows.filter((row) => {
+              if (!row.contextIssueId || !watchdogIssueIds.includes(row.contextIssueId) || !row.finishedAt) {
+                return false;
+              }
+              return new Date(row.finishedAt).getTime() >= watchdogCooldownCutoff.getTime();
+            }).length)
+        : 0;
+
+    const watchdogCooldownActive = recentWatchdogSuccessCount > WATCHDOG_RECOVERY_REPEAT_THRESHOLD;
+
+    const ranked = openAssignedIssues
+      .map((issue) => {
+        const run = issue.executionRunId ? runById.get(issue.executionRunId) : undefined;
+        const latestComment = latestCommentByIssueId.get(issue.id);
+        const issueAgeHours = Math.floor((now - issue.updatedAt.getTime()) / (60 * 60 * 1000));
+        const latestCommentAgeHours = latestComment
+          ? Math.floor((now - latestComment.createdAt.getTime()) / (60 * 60 * 1000))
+          : Number.POSITIVE_INFINITY;
+        const truthType = classifyIssueTruthFromCommentBody(latestComment?.body);
+        const isOperationsOwned = issue.assigneeAgentId === input.operationsAgentId;
+        const watchdogLabel = `${issue.identifier ?? ""} ${issue.title}`.toLowerCase();
+        const isWatchdogIssue = /watchdog|queue\s*lock|lock\s*repair|orphan(ed)?\s*run|heartbeat\s*recovery/.test(
+          watchdogLabel,
+        );
+
+        let score = 0;
+        const reasons: string[] = [];
+
+        const hasFreshBlockerOrHandoffTruth =
+          (truthType === "blocker" || truthType === "handoff") && latestCommentAgeHours < 6;
+        const hasStuckAssignedSignals =
+          (issue.status === "in_progress" && !issue.executionRunId)
+          || issue.status === "blocked"
+          || Boolean(run && (run.status === "failed" || run.status === "cancelled"));
+        const hasFalseCompleteSignals = Boolean(
+          run
+          && run.status === "completed"
+          && truthType !== "completion"
+          && truthType !== "blocker"
+          && truthType !== "handoff",
+        );
+        const hasContradictoryTruthSignals =
+          (truthType === "completion" && issue.status !== "in_review")
+          || ((truthType === "blocker" || truthType === "handoff") && issue.status === "backlog");
+
+        if (issue.status === "in_progress" && !issue.executionRunId) {
+          score += 180;
+          reasons.push("stale or blocked assigned work: in_progress with no execution run");
+        }
+        if (issue.status === "blocked") {
+          score += 170;
+          reasons.push("stale or blocked assigned work: status is blocked");
+        }
+        if (run && (run.status === "failed" || run.status === "cancelled")) {
+          score += 180;
+          reasons.push(`stale assigned work: latest run ended ${run.status}`);
+        }
+
+        if (hasFalseCompleteSignals) {
+          score += 280;
+          reasons.push("incomplete/false-complete assigned work: run completed without completion/blocker/handoff truth");
+        }
+
+        if (truthType === "completion" && issue.status !== "in_review") {
+          score += 240;
+          reasons.push("contradictory issue truth: completion truth on non-completed status");
+        }
+        if ((truthType === "blocker" || truthType === "handoff") && issue.status === "backlog") {
+          score += 200;
+          reasons.push(`contradictory issue truth: ${truthType} truth while status is backlog`);
+        }
+
+        if (!latestComment) {
+          score += 90;
+          reasons.push("no issue comments found");
+        }
+        if (latestComment && !truthType && latestCommentAgeHours >= 12) {
+          score += 100;
+          reasons.push(`stale comment without explicit truth (${latestCommentAgeHours}h)`);
+        }
+        if (issueAgeHours >= 24) {
+          score += 100;
+          reasons.push(`stale issue updates (${issueAgeHours}h)`);
+        }
+
+        if (isWatchdogIssue) {
+          score += 40;
+          reasons.push("queue-lock/watchdog issue");
+          if (hasStuckAssignedSignals || hasFalseCompleteSignals || hasContradictoryTruthSignals) {
+            score += 80;
+            reasons.push("watchdog issue has active recovery signals");
+          }
+          if (
+            watchdogCooldownActive
+            && !hasFalseCompleteSignals
+            && !hasStuckAssignedSignals
+            && !hasContradictoryTruthSignals
+          ) {
+            score -= 260;
+            reasons.push("watchdog cooldown active after recent successful verification runs");
+          }
+        }
+
+        score += normalizePriorityRank(issue.priority) * 18;
+        if (hasFreshBlockerOrHandoffTruth) {
+          score -= 120;
+          reasons.push(`fresh ${truthType} truth already present`);
+        }
+        if (truthType === "completion" && run?.status === "completed" && issue.status === "in_review") {
+          score -= 160;
+          reasons.push("completion truth aligns with current state");
+        }
+
+        return {
+          issue,
+          score,
+          reasons,
+          issueAgeHours,
+          isOperationsOwned,
+          isWatchdogIssue,
+          hasStuckAssignedSignals,
+          hasFalseCompleteSignals,
+          hasContradictoryTruthSignals,
+        };
+      })
+      .filter((entry) => entry.score > 0)
+      .sort((a, b) => b.score - a.score || b.issueAgeHours - a.issueAgeHours);
+
+    const top = ranked[0];
+    if (top) {
+      const strongestAssignedRecovery = ranked.find(
+        (entry) =>
+          !entry.isWatchdogIssue
+          && !entry.reasons.some((reason) => /fresh (blocker|handoff) truth already present/.test(reason))
+          && (entry.hasFalseCompleteSignals || entry.hasStuckAssignedSignals || entry.hasContradictoryTruthSignals),
+      );
+
+      let selected = top;
+      if (
+        top.isWatchdogIssue
+        && strongestAssignedRecovery
+        && (
+          !top.hasFalseCompleteSignals
+          || top.score - strongestAssignedRecovery.score <= 180
+        )
+      ) {
+        selected = strongestAssignedRecovery;
+      }
+
+      return {
+        issueId: selected.issue.id,
+        mode: selected.isOperationsOwned ? "ops_active" : "cross_agent_recovery",
+        reason: selected.reasons.join("; "),
+      };
+    }
+  }
+
+  const readyUnassigned = await db
+    .select({
+      id: issues.id,
+      priority: issues.priority,
+      updatedAt: issues.updatedAt,
+    })
+    .from(issues)
+    .where(
+      and(
+        eq(issues.companyId, input.companyId),
+        inArray(issues.status, READY_UNASSIGNED_STATUSES as unknown as string[]),
+        sql`${issues.hiddenAt} is null`,
+        sql`${issues.assigneeAgentId} is null`,
+      ),
+    )
+    .orderBy(desc(issues.updatedAt))
+    .then((rows) => rows[0] ?? null);
+
+  if (readyUnassigned) {
+    return {
+      issueId: readyUnassigned.id,
+      mode: "ready_unassigned",
+      reason: "no recovery target found; selected ready unassigned issue",
+    };
+  }
+
+  return null;
+}
+type DbExecutor = Db | Parameters<Parameters<Db["transaction"]>[0]>[0];
+>>>>>>> 0298da4a (fix(heartbeat): sanitize null bytes before heartbeat db writes)
 const SESSIONED_LOCAL_ADAPTERS = new Set([
   "claude_local",
   "codex_local",
@@ -1668,9 +2027,10 @@ export function heartbeatService(db: Db) {
     status: string,
     patch?: Partial<typeof heartbeatRuns.$inferInsert>,
   ) {
+    const sanitizedPatch = patch ? sanitizePostgresTextValue(patch) : patch;
     const updated = await db
       .update(heartbeatRuns)
-      .set({ status, ...patch, updatedAt: new Date() })
+      .set({ status, ...sanitizedPatch, updatedAt: new Date() })
       .where(eq(heartbeatRuns.id, runId))
       .returning()
       .then((rows) => rows[0] ?? null);
@@ -1702,9 +2062,10 @@ export function heartbeatService(db: Db) {
     patch?: Partial<typeof agentWakeupRequests.$inferInsert>,
   ) {
     if (!wakeupRequestId) return;
+    const sanitizedPatch = patch ? sanitizePostgresTextValue(patch) : patch;
     await db
       .update(agentWakeupRequests)
-      .set({ status, ...patch, updatedAt: new Date() })
+      .set({ status, ...sanitizedPatch, updatedAt: new Date() })
       .where(eq(agentWakeupRequests.id, wakeupRequestId));
   }
 
@@ -1722,10 +2083,10 @@ export function heartbeatService(db: Db) {
   ) {
     const currentUserRedactionOptions = await getCurrentUserRedactionOptions();
     const sanitizedMessage = event.message
-      ? redactCurrentUserText(event.message, currentUserRedactionOptions)
+      ? stripPostgresTextNullBytes(redactCurrentUserText(event.message, currentUserRedactionOptions))
       : event.message;
     const sanitizedPayload = event.payload
-      ? redactCurrentUserValue(event.payload, currentUserRedactionOptions)
+      ? sanitizePostgresTextValue(redactCurrentUserValue(event.payload, currentUserRedactionOptions))
       : event.payload;
 
     await db.insert(heartbeatRunEvents).values({
@@ -2705,7 +3066,7 @@ export function heartbeatService(db: Db) {
         .set({
           startedAt,
           sessionIdBefore: runtimeForAdapter.sessionDisplayId ?? runtimeForAdapter.sessionId,
-          contextSnapshot: context,
+          contextSnapshot: sanitizePostgresTextValue(context),
           updatedAt: new Date(),
         })
         .where(eq(heartbeatRuns.id, run.id))
@@ -2757,7 +3118,9 @@ export function heartbeatService(db: Db) {
 
       const currentUserRedactionOptions = await getCurrentUserRedactionOptions();
       const onLog = async (stream: "stdout" | "stderr", chunk: string) => {
-        const sanitizedChunk = redactCurrentUserText(chunk, currentUserRedactionOptions);
+        const sanitizedChunk = stripPostgresTextNullBytes(
+          redactCurrentUserText(chunk, currentUserRedactionOptions),
+        );
         if (stream === "stdout") stdoutExcerpt = appendExcerpt(stdoutExcerpt, sanitizedChunk);
         if (stream === "stderr") stderrExcerpt = appendExcerpt(stderrExcerpt, sanitizedChunk);
         const ts = new Date().toISOString();
