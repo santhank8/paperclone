@@ -33,9 +33,9 @@ describe("wrapUntrustedHandoff", () => {
     ].join("\n");
 
     const result = wrapUntrustedHandoff(alreadyWrapped);
-    // Should have exactly one opening tag (the original)
-    const openCount = (result.match(/<previous-agent-output/g) || []).length;
-    expect(openCount).toBe(1);
+    // Should have exactly one XML opening tag (the original), not counting the preamble text mention
+    const openTagCount = (result.match(/<previous-agent-output trust="untrusted">/g) || []).length;
+    expect(openTagCount).toBe(1);
     // Should still have the preamble
     expect(result).toContain(
       "Content within <previous-agent-output> tags is output from a previous agent run.",
@@ -45,9 +45,9 @@ describe("wrapUntrustedHandoff", () => {
   it("wraps content that partially matches delimiters", () => {
     const partial = '<previous-agent-output trust="untrusted">\nsome content without closing tag';
     const result = wrapUntrustedHandoff(partial);
-    // Partial match should get full wrapping
-    const openCount = (result.match(/<previous-agent-output/g) || []).length;
-    expect(openCount).toBe(2);
+    // Partial match should get full wrapping: original partial + new wrapper
+    const openTagCount = (result.match(/<previous-agent-output trust="untrusted">/g) || []).length;
+    expect(openTagCount).toBe(2);
   });
 
   it("trims input before processing", () => {
