@@ -37,7 +37,7 @@ function getRecentIssues(issues: Issue[]): Issue[] {
 /* ------------------------------------------------------------------ */
 
 function extractRunSummary(run: HeartbeatRun): string {
-  const result = (run.resultJson ?? null) as Record<string, unknown> | null;
+  const result = run.resultJson;
   if (!result) return "";
   return String(result.summary ?? result.result ?? "").trim();
 }
@@ -45,10 +45,11 @@ function extractRunSummary(run: HeartbeatRun): string {
 function isToday(date: Date | string): boolean {
   const d = new Date(date);
   const now = new Date();
+  // Compare in UTC to avoid timezone-dependent inconsistencies.
   return (
-    d.getFullYear() === now.getFullYear() &&
-    d.getMonth() === now.getMonth() &&
-    d.getDate() === now.getDate()
+    d.getUTCFullYear() === now.getUTCFullYear() &&
+    d.getUTCMonth() === now.getUTCMonth() &&
+    d.getUTCDate() === now.getUTCDate()
   );
 }
 
@@ -116,7 +117,7 @@ function AgentWorkSection({
       </h3>
       <div className="space-y-3">
         {groups.map((group) => (
-          <div key={group.agentId} className="border border-border overflow-hidden">
+          <div key={group.agentId} className="rounded-md border border-border overflow-hidden">
             <div className="flex items-center gap-2 bg-muted/30 px-4 py-2.5">
               <Identity name={group.agentName} size="sm" />
               <span className="ml-auto text-xs text-muted-foreground">
