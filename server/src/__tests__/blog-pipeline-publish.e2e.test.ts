@@ -337,4 +337,101 @@ describeEmbeddedPostgres("blog pipeline live publish e2e", () => {
       "blog_run_public_verify_failed:PUBLIC_VERIFY_REGRESSION,READER_DECISION_UNCLEAR"
     );
   });
+
+  it("allows an explicit live publish canary to run in strict publish-ready mode", async () => {
+    const { companyId, projectId } = await seedProject();
+    const mirror = blogArtifactMirrorService({ baseDir: scratchRoot });
+    const runSvc = blogRunService(db, { artifactMirror: mirror });
+    const fetchImpl = vi.fn()
+      .mockResolvedValueOnce(createJsonResponse(200, { id: 7, name: "Local Admin", slug: "localadmin" }))
+      .mockResolvedValueOnce(createJsonResponse(201, { id: 980, status: "publish", link: "https://fluxaivory.com/live-canary/" }));
+    const publisher = blogPublisherService(db, {
+      fetchImpl,
+      env: {
+        WP_API_URL: "https://fluxaivory.com/wp-json/wp/v2",
+        WP_USER: "localadmin",
+        WP_APP_PASSWORD: "app-pass",
+      },
+    });
+    const worker = blogRunWorkerService(db, {
+      runService: runSvc,
+      artifactRoot: scratchRoot,
+      publisher,
+      runResearchStep: vi.fn().mockResolvedValue({
+        summary: "research ok",
+        notebook_reference: "Fluxaivory AI-Tech Research",
+        fact_pack: { items: [1] },
+        source_registry: [{ url: "https://example.com" }],
+        uncertainty_ledger: [{ claim: "x" }],
+      }),
+      runDraftStep: vi.fn().mockResolvedValue({
+        title: "Live canary title",
+        article_html: "<p>Live canary body</p>",
+      }),
+      runImageStep: vi.fn().mockResolvedValue({
+        featured: { sha256: "a" },
+        supporting: [
+          { kind: "structured_fallback", role: "comparison", heading: "핵심 비교 정리" },
+          { kind: "structured_fallback", role: "workflow", heading: "도입 흐름 한눈에 보기" },
+        ],
+        structured_fallback_used: true,
+      }),
+      runDraftReviewStep: vi.fn().mockResolvedValue({ verdict: "pass" }),
+      runDraftPolishStep: vi.fn().mockResolvedValue({ verdict: "pass" }),
+      runFinalReviewStep: vi.fn().mockResolvedValue({ verdict: "approve" }),
+      runValidateStep: vi.fn().mockResolvedValue({ ok: true }),
+      runPublicVerifyStep: vi.fn().mockResolvedValue(createSharedVerifyResult("pass")),
+      runQualityGateBundle: vi.fn().mockResolvedValue({
+        results: {
+          publish_ready: {
+            ok: true,
+            status: "pass",
+            failed_gates: [],
+            summary: "all publish-ready gates passed",
+          },
+        },
+      }),
+    });
+
+    const run = await runSvc.create({
+      companyId,
+      projectId,
+      topic: "Live canary topic",
+      lane: "publish",
+      publishMode: "publish",
+      contextJson: {
+        title: "Live canary title",
+        article_html: "<p>Live canary body</p>",
+        publishReadyGateCanary: true,
+      },
+    });
+
+    expect(run?.contextJson).toMatchObject({
+      publishReadyGateCanary: true,
+      publishReadyGateMode: "strict",
+    });
+
+    for (let i = 0; i < 7; i += 1) {
+      await worker.runNext(run!.id);
+    }
+
+    let detail = await runSvc.getDetail(run!.id);
+    expect(detail?.run.status).toBe("publish_approval_pending");
+
+    await runSvc.requestPublishApproval(run!.id, {
+      targetSlug: "live-canary-title",
+      artifactHash: "artifact-hash",
+      normalizedDomHash: "dom-hash",
+      approvalKeyHash: "approval-hash",
+      publishIdempotencyKey: "publish-key-live-canary",
+      approvedByUserId: "operator",
+    });
+
+    await worker.runNext(run!.id);
+    await worker.runNext(run!.id);
+
+    detail = await runSvc.getDetail(run!.id);
+    expect(detail?.run.status).toBe("public_verified");
+    expect(detail?.run.wordpressPostId).toBe(980);
+  });
 });
