@@ -1,8 +1,9 @@
 import fs from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 import { execFile as execFileCallback } from "node:child_process";
 import { promisify } from "node:util";
-import { and, asc, desc, eq, gt, inArray, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gt, inArray, isNotNull, or, sql } from "drizzle-orm";
 import type { Db } from "@paperclipai/db";
 import type { BillingType, ExecutionWorkspace, ExecutionWorkspaceConfig } from "@paperclipai/shared";
 import {
@@ -59,14 +60,20 @@ import { redactCurrentUserText, redactCurrentUserValue } from "../log-redaction.
 import {
   hasSessionCompactionThresholds,
   resolveSessionCompactionPolicy,
+  type AdapterFallbackEntry,
   type SessionCompactionPolicy,
 } from "@paperclipai/adapter-utils";
+import { categorizeAdapterError } from "./adapter-failure-taxonomy.js";
 
 const MAX_LIVE_LOG_CHUNK_BYTES = 8 * 1024;
+// Terminal statuses for heartbeatRuns (matches HeartbeatRunStatus from @paperclipai/shared).
+// "skipped" is a WakeupRequestStatus, not a heartbeat run status — excluded intentionally.
+const TERMINAL_RUN_STATUSES = ["succeeded", "failed", "cancelled", "timed_out"] as const;
 const HEARTBEAT_MAX_CONCURRENT_RUNS_DEFAULT = 1;
 const HEARTBEAT_MAX_CONCURRENT_RUNS_MAX = 10;
 const DEFERRED_WAKE_CONTEXT_KEY = "_paperclipWakeContext";
 const DETACHED_PROCESS_ERROR_CODE = "process_detached";
+const LOW_MEMORY_THRESHOLD_BYTES = 2 * 1024 * 1024 * 1024; // 2 GB — defer spawn if free memory is below this
 const startLocksByAgent = new Map<string, Promise<void>>();
 const REPO_ONLY_CWD_SENTINEL = "/__paperclip_repo_only__";
 const MANAGED_WORKSPACE_GIT_CLONE_TIMEOUT_MS = 10 * 60 * 1000;
@@ -1936,6 +1943,8 @@ export function heartbeatService(db: Db) {
         payload: {
           ...(run.processPid ? { processPid: run.processPid } : {}),
           ...(retriedRun ? { retryRunId: retriedRun.id } : {}),
+          freeMemBytes: os.freemem(),
+          totalMemBytes: os.totalmem(),
         },
       });
 
@@ -1961,6 +1970,65 @@ export function heartbeatService(db: Db) {
     for (const agentId of agentIds) {
       await startNextQueuedRunForAgent(agentId);
     }
+  }
+
+  /**
+   * Reap issues whose executionRunId references a terminal run.
+   *
+   * This is a safety net for cases where releaseIssueExecutionAndPromote was
+   * skipped or threw — leaving an issue locked to a dead run.  Clears both
+   * executionRunId and checkoutRunId so the issue can be checked out again
+   * without manual board intervention.
+   *
+   * Called on startup and on every heartbeat-scheduler tick.
+   */
+  async function reapStaleExecutionRunLocks() {
+    const stale = await db
+      .select({
+        issueId: issues.id,
+        runId: heartbeatRuns.id,
+      })
+      .from(issues)
+      .innerJoin(
+        heartbeatRuns,
+        and(
+          eq(heartbeatRuns.id, issues.executionRunId),
+          inArray(heartbeatRuns.status, TERMINAL_RUN_STATUSES),
+        ),
+      )
+      .where(isNotNull(issues.executionRunId));
+
+    if (stale.length === 0) return { reaped: 0, issueIds: [] as string[] };
+
+    // Single bulk UPDATE — one round-trip for all stale locks.
+    // The OR predicate preserves the per-row (id, executionRunId) guard so
+    // a concurrent checkout that already moved to a live run is never cleared.
+    // The CASE on checkoutRunId mirrors the same guard: only clear it when it
+    // still points at the same terminal run being reaped.
+    const updated = await db
+      .update(issues)
+      .set({
+        executionRunId: null,
+        executionAgentNameKey: null,
+        executionLockedAt: null,
+        checkoutRunId: sql`CASE WHEN checkout_run_id = execution_run_id THEN NULL ELSE checkout_run_id END`,
+        updatedAt: new Date(),
+      })
+      .where(
+        or(...stale.map((r) => and(eq(issues.id, r.issueId), eq(issues.executionRunId, r.runId))))!,
+      )
+      .returning({ id: issues.id });
+
+    const reaped = updated.map((r) => r.id);
+
+    if (reaped.length > 0) {
+      logger.warn(
+        { reaped: reaped.length, issueIds: reaped },
+        "reaped stale executionRunId locks on issues",
+      );
+    }
+
+    return { reaped: reaped.length, issueIds: reaped };
   }
 
   async function updateRuntimeState(
@@ -2663,7 +2731,30 @@ export function heartbeatService(db: Db) {
           "local agent jwt secret missing or invalid; running without injected PAPERCLIP_API_KEY",
         );
       }
-      const adapterResult = await adapter.execute({
+      // Memory pre-flight: defer if OS free memory is below threshold to avoid OOM kills
+      const freeMemBytes = os.freemem();
+      if (freeMemBytes < LOW_MEMORY_THRESHOLD_BYTES) {
+        const freeMemMB = Math.round(freeMemBytes / (1024 * 1024));
+        const totalMemMB = Math.round(os.totalmem() / (1024 * 1024));
+        logger.warn(
+          { runId: run.id, agentId: agent.id, freeMemMB, totalMemMB },
+          "low memory: deferring run back to queued",
+        );
+        await db
+          .update(heartbeatRuns)
+          .set({ status: "queued", updatedAt: new Date() })
+          .where(eq(heartbeatRuns.id, run.id));
+        await appendRunEvent(run, await nextRunEventSeq(run.id), {
+          eventType: "lifecycle",
+          stream: "system",
+          level: "warn",
+          message: `Deferred: insufficient free memory (${freeMemMB} MB free of ${totalMemMB} MB total); will retry on next scheduler tick`,
+          payload: { freeMemBytes, totalMemBytes: os.totalmem() },
+        });
+        activeRunExecutions.delete(run.id);
+        return;
+      }
+      let adapterResult = await adapter.execute({
         runId: run.id,
         agent,
         runtime: runtimeForAdapter,
@@ -2676,6 +2767,134 @@ export function heartbeatService(db: Db) {
         },
         authToken: authToken ?? undefined,
       });
+
+      // ---------------------------------------------------------------------------
+      // Adapter fallback chain
+      // ---------------------------------------------------------------------------
+      const primaryFailed =
+        adapterResult.timedOut ||
+        ((adapterResult.exitCode ?? 0) !== 0 && adapterResult.exitCode !== null) ||
+        !!adapterResult.errorMessage;
+      if (primaryFailed) {
+        const rawFallbackChain = (parseObject(agent.adapterConfig) as Record<string, unknown>).adapterFallbackChain;
+        const fallbackChain: AdapterFallbackEntry[] = Array.isArray(rawFallbackChain) ? rawFallbackChain as AdapterFallbackEntry[] : [];
+        if (fallbackChain.length > 0) {
+          const failureCategory = categorizeAdapterError(adapterResult.errorCode);
+          await appendRunEvent(currentRun, seq++, {
+            eventType: "adapter.fallback",
+            stream: "system",
+            level: "warn",
+            message: `primary adapter failed with category "${failureCategory}", attempting fallback chain`,
+            payload: {
+              primaryAdapterType: agent.adapterType,
+              primaryErrorCode: adapterResult.errorCode ?? null,
+              failureCategory,
+              fallbackChainLength: fallbackChain.length,
+            },
+          });
+          let fallbackSucceeded = false;
+          for (const entry of fallbackChain) {
+            if (entry.triggerOn && !entry.triggerOn.includes(failureCategory)) continue;
+            const maxAttempts = entry.maxAttempts ?? 1;
+            for (let attempt = 0; attempt < maxAttempts; attempt++) {
+              try {
+                const fallbackAdapter = getServerAdapter(entry.adapterType);
+                const fallbackAuthToken = fallbackAdapter.supportsLocalAgentJwt
+                  ? createLocalAgentJwt(agent.id, agent.companyId, entry.adapterType, run.id)
+                  : null;
+                const fallbackConfig = entry.adapterConfig
+                  ? { ...runtimeConfig, ...entry.adapterConfig }
+                  : runtimeConfig;
+                // Fallback does NOT inherit session state from the primary adapter
+                const fallbackRuntime = {
+                  ...runtimeForAdapter,
+                  sessionId: null,
+                  sessionParams: null,
+                  sessionDisplayId: null,
+                };
+                await appendRunEvent(currentRun, seq++, {
+                  eventType: "adapter.fallback",
+                  stream: "system",
+                  level: "info",
+                  message: `trying fallback adapter "${entry.adapterType}" (attempt ${attempt + 1}/${maxAttempts})`,
+                  payload: { fallbackAdapterType: entry.adapterType, attempt: attempt + 1, maxAttempts },
+                });
+                const fallbackResult = await fallbackAdapter.execute({
+                  runId: run.id,
+                  agent: { ...agent, adapterType: entry.adapterType, adapterConfig: entry.adapterConfig ?? agent.adapterConfig },
+                  runtime: fallbackRuntime,
+                  config: fallbackConfig,
+                  context,
+                  onLog,
+                  onMeta: onAdapterMeta,
+                  onSpawn: async (meta) => {
+                    await persistRunProcessMetadata(run.id, meta);
+                  },
+                  authToken: fallbackAuthToken ?? undefined,
+                });
+                const fallbackOk =
+                  !fallbackResult.timedOut &&
+                  (fallbackResult.exitCode ?? 0) === 0 &&
+                  !fallbackResult.errorMessage;
+                if (fallbackOk) {
+                  adapterResult = fallbackResult;
+                  fallbackSucceeded = true;
+                  await appendRunEvent(currentRun, seq++, {
+                    eventType: "adapter.fallback",
+                    stream: "system",
+                    level: "info",
+                    message: `fallback adapter "${entry.adapterType}" succeeded`,
+                    payload: { fallbackAdapterType: entry.adapterType },
+                  });
+                  break;
+                } else {
+                  await appendRunEvent(currentRun, seq++, {
+                    eventType: "adapter.fallback",
+                    stream: "system",
+                    level: "warn",
+                    message: `fallback adapter "${entry.adapterType}" failed (attempt ${attempt + 1}/${maxAttempts})`,
+                    payload: {
+                      fallbackAdapterType: entry.adapterType,
+                      attempt: attempt + 1,
+                      errorCode: fallbackResult.errorCode ?? null,
+                      errorMessage: fallbackResult.errorMessage ?? null,
+                    },
+                  });
+                }
+              } catch (fallbackErr) {
+                const errMsg = fallbackErr instanceof Error ? fallbackErr.message : String(fallbackErr);
+                await onLog("stderr", `[paperclip] Fallback adapter "${entry.adapterType}" attempt ${attempt + 1} threw: ${errMsg}\n`);
+                await appendRunEvent(currentRun, seq++, {
+                  eventType: "adapter.fallback",
+                  stream: "system",
+                  level: "error",
+                  message: `fallback adapter "${entry.adapterType}" threw exception`,
+                  payload: { fallbackAdapterType: entry.adapterType, error: errMsg },
+                });
+              }
+            }
+            if (fallbackSucceeded) break;
+          }
+          if (!fallbackSucceeded) {
+            // All fallback entries exhausted — override errorCode for clarity
+            adapterResult = {
+              ...adapterResult,
+              errorCode: "all_adapters_exhausted",
+              errorMessage:
+                adapterResult.errorMessage ??
+                `All adapters exhausted (primary: ${agent.adapterType}, failure: ${failureCategory})`,
+            };
+            await appendRunEvent(currentRun, seq++, {
+              eventType: "adapter.fallback",
+              stream: "system",
+              level: "error",
+              message: "all adapters in fallback chain exhausted",
+              payload: { primaryAdapterType: agent.adapterType, failureCategory },
+            });
+          }
+        }
+      }
+
       const adapterManagedRuntimeServices = adapterResult.runtimeServices
         ? await persistAdapterManagedRuntimeServices({
             db,
@@ -2990,6 +3209,7 @@ export function heartbeatService(db: Db) {
           executionRunId: null,
           executionAgentNameKey: null,
           executionLockedAt: null,
+          checkoutRunId: null,
           updatedAt: new Date(),
         })
         .where(eq(issues.id, issue.id));
@@ -3951,6 +4171,8 @@ export function heartbeatService(db: Db) {
     reportRunActivity: clearDetachedRunWarning,
 
     reapOrphanedRuns,
+
+    reapStaleExecutionRunLocks,
 
     resumeQueuedRuns,
 
