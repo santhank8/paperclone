@@ -3,13 +3,14 @@
 ## Overview
 
 This document defines the V1 design for a Paperclip adapter that integrates with
-Cursor Background Agents via the Cursor REST API.
+Cursor Cloud Agents via the Cursor REST API.
 
-Primary references:
+Primary references (canonical; supersede older `background-agent` doc paths):
 
-- https://docs.cursor.com/background-agent/api/overview
-- https://docs.cursor.com/background-agent/api
-- https://docs.cursor.com/background-agent/api/webhooks
+- https://cursor.com/docs/cloud-agent/api/overview
+- https://cursor.com/docs/cloud-agent/api/endpoints
+- https://cursor.com/docs/cloud-agent/api/webhooks
+- https://cursor.com/docs/cloud-agent/api/api-key-info
 
 Unlike `claude_local` and `codex_local`, this adapter is not a local subprocess.
 It is a remote orchestration adapter with:
@@ -21,7 +22,7 @@ It is a remote orchestration adapter with:
 
 ## Key V1 Decisions
 
-1. **Auth to Cursor API** uses `Authorization: Bearer <CURSOR_API_KEY>`.
+1. **Auth to Cursor API** follows the Cloud Agents API (see [API key info](https://cursor.com/docs/cloud-agent/api/api-key-info)); implement exactly as current docs specify (do not assume a scheme—docs have evolved alongside product renames).
 2. **Callback URL** must be publicly reachable by Cursor VMs:
    - local: Tailscale URL
    - prod: public server URL
@@ -33,11 +34,11 @@ It is a remote orchestration adapter with:
 
 ## Cursor API Reference (Current)
 
+Base URL and routes are defined in the official [Endpoints](https://cursor.com/docs/cloud-agent/api/endpoints) reference. Snapshot below matches that page’s HTTP surface at the time this plan was last revised; if anything diverges, **the live docs win**.
+
 Base URL: `https://api.cursor.com`
 
-Authentication header:
-
-- `Authorization: Bearer <CURSOR_API_KEY>`
+Authentication: see [API key info](https://cursor.com/docs/cloud-agent/api/api-key-info) (header format and key type for Cloud Agents).
 
 Core endpoints:
 
@@ -68,7 +69,7 @@ Webhook facts relevant to V1:
 Operational limits:
 
 - `/v0/repositories`: 1 req/user/min, 30 req/user/hour.
-- MCP not supported in Cursor background agents.
+- MCP not supported in Cursor Cloud Agents (per Cloud Agents API docs).
 
 ---
 
@@ -130,7 +131,7 @@ interface CursorAgent {
 
 Client requirements:
 
-- send `Authorization: Bearer ...` on all requests
+- send the authentication header required by the current Cloud Agents API on all requests
 - throw typed `CursorApiError` with `status`, parsed body, and request context
 - preserve raw unknown fields for debugging in error metadata
 
