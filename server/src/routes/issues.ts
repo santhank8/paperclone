@@ -1571,11 +1571,20 @@ export function issueRoutes(
         });
       }
 
-      // Wake dependents whose all blockers are now resolved (only when dependencies feature is enabled)
+      // Auto-unblock and wake dependents whose all blockers are now resolved (only when dependencies feature is enabled)
       const { enableDependencies: depsEnabled } = await instanceSettings.getExperimental();
       if (blockerResolved && depsEnabled) {
         try {
           const readyToWake = await depsSvc.findDependentsReadyToWake(issue.id);
+
+          // Auto-transition blocked dependents to todo so they re-enter the queue
+          const blockedReadyIds = readyToWake
+            .filter((d) => d.status === "blocked")
+            .map((d) => d.id);
+          if (blockedReadyIds.length > 0) {
+            await depsSvc.autoUnblockDependents(blockedReadyIds);
+          }
+
           for (const dependent of readyToWake) {
             if (!dependent.assigneeAgentId) continue;
             if (wakeups.has(dependent.assigneeAgentId)) continue;
