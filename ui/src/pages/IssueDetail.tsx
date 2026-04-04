@@ -214,7 +214,7 @@ export function IssueDetail() {
   const { selectedCompanyId } = useCompany();
   const { openPanel, closePanel, panelVisible, setPanelVisible } = usePanel();
   const { setBreadcrumbs } = useBreadcrumbs();
-  const isRaava = useIsRaava();
+  const { isRaava } = useIsRaava();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const location = useLocation();

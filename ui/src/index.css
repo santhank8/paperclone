@@ -806,12 +806,12 @@ a.paperclip-project-mention-chip {
 }
 
 .font-display {
-  font-family: 'Syne', system-ui, sans-serif;
+  font-family: Syne, system-ui, sans-serif;
   font-weight: 800;
 }
 
 .raava-stat-number {
-  font-family: 'Syne', system-ui, sans-serif;
+  font-family: Syne, system-ui, sans-serif;
   font-weight: 800;
   font-size: 2.5rem;
   background: linear-gradient(90deg, #224AE8, #716EFF, #00BDB7);

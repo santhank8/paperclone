@@ -17,7 +17,7 @@ import { useIsRaava } from "../hooks/useIsRaava";
 export function Issues() {
   const { selectedCompanyId } = useCompany();
   const { setBreadcrumbs } = useBreadcrumbs();
-  const isRaava = useIsRaava();
+  const { isRaava } = useIsRaava();
   const location = useLocation();
   const [searchParams] = useSearchParams();
   const queryClient = useQueryClient();

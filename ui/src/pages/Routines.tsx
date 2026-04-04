@@ -66,7 +66,7 @@ function nextRoutineStatus(currentStatus: string, enabled: boolean) {
 export function Routines() {
   const { selectedCompanyId } = useCompany();
   const { setBreadcrumbs } = useBreadcrumbs();
-  const isRaava = useIsRaava();
+  const { isRaava } = useIsRaava();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const { pushToast } = useToast();

@@ -448,7 +448,10 @@ export function RaavaOnboardingWizard() {
       }
       setCredentials(newCreds);
     }
-  }, [selectedRoleId]); // eslint-disable-line react-hooks/exhaustive-deps
+  // eslint-disable-next-line react-hooks/exhaustive-deps — intentionally only
+  // re-run when the selected role ID changes; including `selectedRole` or setter
+  // functions would cause unnecessary resets when the ROLES array reference changes.
+  }, [selectedRoleId]);
 
   // Auto-resize textarea
   useEffect(() => {
@@ -543,6 +546,11 @@ export function RaavaOnboardingWizard() {
     }
     setLoading(true);
     setError(null);
+
+    // Track created resource IDs so we can clean up on partial failure
+    let createdAgentId: string | null = null;
+    let createdProjectId: string | null = null;
+
     try {
       // Build adapter config for hermes_fleetos
       const adapterConfig: Record<string, unknown> = {
@@ -568,28 +576,31 @@ export function RaavaOnboardingWizard() {
           },
         },
       });
-
-      queryClient.invalidateQueries({
-        queryKey: queryKeys.agents.list(createdCompanyId),
-      });
+      createdAgentId = agent.id;
 
       // Create a project for onboarding
       const project = await projectsApi.create(createdCompanyId, {
         name: `${agentName.trim()}'s Work`,
         description: `Tasks for ${agentName.trim()} (${selectedRole.name})`,
       });
-      queryClient.invalidateQueries({
-        queryKey: queryKeys.projects.list(createdCompanyId),
-      });
+      createdProjectId = project.id;
 
       // Create the first task (issue)
-      const issue = await issuesApi.create(createdCompanyId, {
+      await issuesApi.create(createdCompanyId, {
         title: firstTask.trim() || selectedRole.defaultFirstTask,
         description: firstTask.trim() || selectedRole.defaultFirstTask,
         assigneeAgentId: agent.id,
         projectId: project.id,
         priority: "medium",
         status: "open",
+      });
+
+      // Only invalidate queries after all resources are successfully created
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.agents.list(createdCompanyId),
+      });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.projects.list(createdCompanyId),
       });
       queryClient.invalidateQueries({
         queryKey: queryKeys.issues.list(createdCompanyId),
@@ -598,6 +609,22 @@ export function RaavaOnboardingWizard() {
       setHiredAgentName(agentName.trim());
       setSuccessState(true);
     } catch (err) {
+      // Compensating deletes: clean up any resources created before the failure.
+      // Swallow delete errors — the original error is what matters to the user.
+      if (createdProjectId) {
+        try { await projectsApi.remove(createdProjectId, createdCompanyId); } catch { /* swallow */ }
+      }
+      if (createdAgentId) {
+        try { await agentsApi.remove(createdAgentId, createdCompanyId); } catch { /* swallow */ }
+      }
+      // Invalidate after cleanup so the UI reflects the rollback
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.agents.list(createdCompanyId),
+      });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.projects.list(createdCompanyId),
+      });
+
       setError(
         err instanceof Error ? err.message : "Failed to hire team member",
       );

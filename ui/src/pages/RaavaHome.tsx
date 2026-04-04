@@ -2,7 +2,6 @@ import { useEffect, useMemo } from "react";
 import { Link } from "@/lib/router";
 import { useQuery } from "@tanstack/react-query";
 import { fleetosApi, type FleetContainer } from "../api/fleetos";
-import { useCompany } from "../context/CompanyContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
 import { queryKeys } from "../lib/queryKeys";
 import { cn } from "../lib/utils";
@@ -133,7 +132,7 @@ function StatusCard({
       </div>
       <p
         className="text-3xl font-bold tracking-tight tabular-nums"
-        style={{ fontFamily: "'Syne', system-ui, sans-serif" }}
+        style={{ fontFamily: "Syne, system-ui, sans-serif" }}
       >
         {count}
       </p>
@@ -146,7 +145,6 @@ function StatusCard({
 // ---------------------------------------------------------------------------
 
 export function RaavaHome() {
-  const { selectedCompanyId } = useCompany();
   const { setBreadcrumbs } = useBreadcrumbs();
 
   useEffect(() => {
@@ -156,6 +154,8 @@ export function RaavaHome() {
   const {
     data: containers,
     isLoading,
+    isError,
+    error,
   } = useQuery({
     queryKey: queryKeys.fleet.containers,
     queryFn: () => fleetosApi.listContainers(),
@@ -180,6 +180,20 @@ export function RaavaHome() {
     return <PageSkeleton variant="dashboard" />;
   }
 
+  if (isError) {
+    return (
+      <div className="rounded-xl border border-destructive/50 bg-destructive/5 p-6 text-center">
+        <AlertTriangle className="mx-auto h-8 w-8 text-destructive mb-2" />
+        <p className="text-sm font-medium text-destructive">
+          Failed to load team data
+        </p>
+        <p className="text-xs text-muted-foreground mt-1">
+          {error instanceof Error ? error.message : "An unexpected error occurred. Please try again."}
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* ----------------------------------------------------------------- */}
@@ -201,7 +215,7 @@ export function RaavaHome() {
         />
         <h1
           className="text-xl font-bold text-foreground"
-          style={{ fontFamily: "'Syne', system-ui, sans-serif" }}
+          style={{ fontFamily: "Syne, system-ui, sans-serif" }}
         >
           {getGreeting()}, {userName}.
         </h1>
@@ -218,19 +232,19 @@ export function RaavaHome() {
           label="Active"
           count={counts.active}
           color="green"
-          to="/agents/all?status=running"
+          to="/agents/active"
         />
         <StatusCard
           label="Idle"
           count={counts.idle}
           color="gray"
-          to="/agents/all?status=stopped"
+          to="/agents/paused"
         />
         <StatusCard
           label="Needs Attention"
           count={counts.needsAttention}
           color="red"
-          to="/agents/all?status=error"
+          to="/agents/error"
         />
       </div>
 
@@ -302,7 +316,7 @@ export function RaavaHome() {
             {/* TODO: Replace with real billing data from backend billing API */}
             <p
               className="text-4xl font-bold tracking-tight"
-              style={{ fontFamily: "'Syne', system-ui, sans-serif" }}
+              style={{ fontFamily: "Syne, system-ui, sans-serif" }}
             >
               $127.40
             </p>

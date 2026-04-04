@@ -98,6 +98,9 @@ export function Sidebar() {
       <nav className="flex-1 min-h-0 overflow-y-auto scrollbar-auto-hide flex flex-col gap-4 px-3 py-2">
         {showFleet ? (
           /* ── Raava / FleetOS sidebar ─────────────────────────────── */
+          /* Plugin slots (PluginSlotOutlet) are intentionally omitted in
+             FleetOS mode for the MVP/demo — plugins are not shown when
+             running as Raava. They remain in the standard Paperclip branch. */
           <>
             <div className="flex flex-col gap-0.5">
               <button
