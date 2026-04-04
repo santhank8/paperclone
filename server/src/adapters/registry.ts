@@ -79,9 +79,16 @@ import {
   agentConfigurationDoc as hermesAgentConfigurationDoc,
   models as hermesModels,
 } from "hermes-paperclip-adapter";
+import qwenOllamaModule from "@paperclipai/adapter-qwen-ollama-local/server";
+import {
+  agentConfigurationDoc as qwenOllamaAgentConfigurationDoc,
+  models as qwenOllamaModels,
+} from "@paperclipai/adapter-qwen-ollama-local";
 import { processAdapter } from "./process/index.js";
 import { httpAdapter } from "./http/index.js";
 
+const qwenOllamaExecute = (qwenOllamaModule as any).execute;
+const qwenOllamaTestEnvironment = (qwenOllamaModule as any).testEnvironment;
 const claudeLocalAdapter: ServerAdapterModule = {
   type: "claude_local",
   execute: claudeExecute,
@@ -188,6 +195,15 @@ const hermesLocalAdapter: ServerAdapterModule = {
   detectModel: () => detectModelFromHermes(),
 };
 
+const qwenOllamaLocalAdapter: ServerAdapterModule = {
+  type: "qwen_ollama_local",
+  execute: qwenOllamaExecute,
+  testEnvironment: qwenOllamaTestEnvironment,
+  models: qwenOllamaModels,
+  supportsLocalAgentJwt: true,
+  agentConfigurationDoc: qwenOllamaAgentConfigurationDoc,
+};
+
 const adaptersByType = new Map<string, ServerAdapterModule>(
   [
     claudeLocalAdapter,
@@ -198,6 +214,7 @@ const adaptersByType = new Map<string, ServerAdapterModule>(
     geminiLocalAdapter,
     openclawGatewayAdapter,
     hermesLocalAdapter,
+    qwenOllamaLocalAdapter,
     processAdapter,
     httpAdapter,
   ].map((a) => [a.type, a]),
