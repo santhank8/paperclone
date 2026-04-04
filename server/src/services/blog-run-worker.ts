@@ -1,3 +1,5 @@
+import fs from "node:fs/promises";
+import path from "node:path";
 import {
   runDraftPolishStep,
   runDraftReviewStep,
@@ -48,6 +50,309 @@ function requireString(value: unknown, message: string) {
   const normalized = String(value ?? "").trim();
   if (!normalized) throw new Error(message);
   return normalized;
+}
+
+function isSharedPublicVerifyPayload(value: unknown): value is Record<string, unknown> {
+  const record = toRecord(value);
+  return String(record.schemaVersion ?? "").trim() === "shared-public-verify.v1"
+    && typeof record.verdict === "string"
+    && Array.isArray(record.coreChecks)
+    && Array.isArray(record.failureNames);
+}
+
+function publicVerifyFailureMessage(result: unknown) {
+  const record = toRecord(result);
+  if (isSharedPublicVerifyPayload(record)) {
+    const failures = Array.isArray(record.failureNames)
+      ? record.failureNames.map((entry) => String(entry ?? "").trim()).filter(Boolean)
+      : [];
+    return failures.length > 0
+      ? `blog_run_public_verify_failed:${failures.join(",")}`
+      : "blog_run_public_verify_failed";
+  }
+  return "blog_run_public_verify_failed";
+}
+
+function isPublicVerifyPass(result: unknown) {
+  const record = toRecord(result);
+  if (isSharedPublicVerifyPayload(record)) {
+    return String(record.verdict ?? "").trim() === "pass";
+  }
+  return record.ok !== false;
+}
+
+async function readJsonArtifact(filePath: string) {
+  try {
+    const text = await fs.readFile(filePath, "utf8");
+    const parsed = JSON.parse(text);
+    return toRecord(parsed);
+  } catch {
+    return {};
+  }
+}
+
+function firstNonEmptyString(...values: unknown[]) {
+  for (const value of values) {
+    const normalized = String(value ?? "").trim();
+    if (normalized) return normalized;
+  }
+  return "";
+}
+
+function inferDecisionStateFromDraft(draft: Record<string, unknown>) {
+  const explicit = firstNonEmptyString(
+    draft.decisionState,
+    draft.decision_state,
+    draft.readerDecisionState,
+    draft.reader_decision_state,
+  ).toLowerCase();
+  if (explicit === "adopt" || explicit === "wait" || explicit === "ignore" || explicit === "unclear") {
+    return explicit;
+  }
+  const articleHtml = firstNonEmptyString(draft.article_html, draft.content).toLowerCase();
+  if (/(무시해도|중요하지 않)/.test(articleHtml)) return "ignore";
+  if (/(지켜볼|기다려|다음 업데이트)/.test(articleHtml)) return "wait";
+  if (/(지금 바로|써볼 만|시험해볼 만|도입해볼 만)/.test(articleHtml)) return "adopt";
+  return "unclear";
+}
+
+function inferDecisionSummaryFromDraft(draft: Record<string, unknown>, decisionState: string) {
+  const explicit = firstNonEmptyString(
+    draft.decisionSummary,
+    draft.decision_summary,
+    draft.readerDecisionSummary,
+    draft.reader_decision_summary,
+  );
+  if (explicit) return explicit;
+  switch (decisionState) {
+    case "adopt":
+      return "Approved draft expects the reader to reach an adopt decision.";
+    case "wait":
+      return "Approved draft expects the reader to wait for more confirmation.";
+    case "ignore":
+      return "Approved draft expects the reader to ignore the change for now.";
+    default:
+      return "Approved draft did not expose a strong decision signal for the reader.";
+  }
+}
+
+function buildFailureNamesFromChecks(coreChecks: Array<Record<string, unknown>>) {
+  const failures = new Set<string>();
+  for (const check of coreChecks) {
+    if (String(check.status ?? "") !== "fail") continue;
+    const checkId = String(check.checkId ?? "");
+    if (checkId === "public_visibility") failures.add("PUBLIC_VERIFY_REGRESSION");
+    if (checkId === "title_framing") failures.add("TITLE_FRAMING_DRIFT");
+    if (checkId === "body_contract") failures.add("BODY_CONTRACT_DRIFT");
+    if (checkId === "media_and_status") failures.add("MEDIA_OR_STATUS_DRIFT");
+    if (checkId === "artifact_parity") failures.add("SILENT_PUBLISH_DRIFT");
+    if (checkId === "reader_decision") failures.add("READER_DECISION_UNCLEAR");
+  }
+  return [...failures];
+}
+
+async function normalizeLegacyPublicVerifyResult(
+  run: Record<string, unknown>,
+  runDir: string,
+  legacyResult: Record<string, unknown>,
+) {
+  const draft = await readJsonArtifact(path.join(runDir, "draft.json"));
+  const publish = await readJsonArtifact(path.join(runDir, "publish.json"));
+  const checks = toRecord(legacyResult.checks);
+
+  const issueIdentifier = firstNonEmptyString(run.issueIdentifier, run.issueId, run.id, path.basename(runDir));
+  const artifactId = firstNonEmptyString(
+    publish.approvalId,
+    publish.publishIdempotencyKey,
+    legacyResult.post_id,
+    legacyResult.postId,
+    run.id,
+  ) || "publish-artifact";
+  const artifactLabel = firstNonEmptyString(
+    draft.title,
+    run.topic,
+    legacyResult.title,
+    "Approved article",
+  );
+  const decisionState = inferDecisionStateFromDraft(draft);
+  const decisionSummary = inferDecisionSummaryFromDraft(draft, decisionState);
+  const expectedPublishStatus = firstNonEmptyString(publish.status, legacyResult.status, "publish").toLowerCase();
+  const featuredMediaLabel = firstNonEmptyString(
+    toRecord(publish.featured_media).title,
+    publish.image ? path.basename(String(publish.image)) : "",
+    "Featured media expectation",
+  );
+  const featuredMediaRequired = Boolean(publish.featured_media || publish.image);
+  const observedPublishStatus = firstNonEmptyString(legacyResult.status, expectedPublishStatus, "unknown").toLowerCase();
+  const observedFeaturedMediaPresent = Boolean(legacyResult.featured_media_id || legacyResult.featured_media_url);
+  const publicVisibilityPass = Boolean(checks.public_fetch_ok);
+  const titleFramingPass = Boolean(checks.title_matches);
+  const bodyContractPass = Boolean(checks.post_found && checks.public_contains_title !== false);
+  const mediaAndStatusPass = expectedPublishStatus === observedPublishStatus
+    && (!featuredMediaRequired || observedFeaturedMediaPresent);
+  const artifactParityPass = publicVisibilityPass && titleFramingPass && bodyContractPass && mediaAndStatusPass;
+  const publicDecisionState = artifactParityPass ? decisionState : "unclear";
+  const readerDecisionPass = publicDecisionState !== "unclear";
+
+  const coreChecks = [
+    {
+      checkId: "public_visibility",
+      status: publicVisibilityPass ? "pass" : "fail",
+      overrideable: false,
+      summary: publicVisibilityPass
+        ? "The public URL stayed reachable during verify."
+        : "The public URL did not remain reachable during verify.",
+    },
+    {
+      checkId: "title_framing",
+      status: titleFramingPass ? "pass" : "fail",
+      overrideable: false,
+      summary: titleFramingPass
+        ? "The observed title preserved the approved framing."
+        : "The observed title drifted from the approved framing.",
+    },
+    {
+      checkId: "body_contract",
+      status: bodyContractPass ? "pass" : "fail",
+      overrideable: false,
+      summary: bodyContractPass
+        ? "The observed body still satisfied the approved article contract."
+        : "The observed body no longer satisfied the approved article contract.",
+    },
+    {
+      checkId: "media_and_status",
+      status: mediaAndStatusPass ? "pass" : "fail",
+      overrideable: false,
+      summary: mediaAndStatusPass
+        ? "Observed publish status and featured media matched the Publisher expectation."
+        : "Observed publish status or featured media no longer matched the Publisher expectation.",
+    },
+    {
+      checkId: "artifact_parity",
+      status: artifactParityPass ? "pass" : "fail",
+      overrideable: false,
+      summary: artifactParityPass
+        ? "Public output stayed aligned with the approved article."
+        : "Public output drifted away from the approved article.",
+    },
+    {
+      checkId: "reader_decision",
+      status: readerDecisionPass ? "pass" : "fail",
+      overrideable: false,
+      summary: readerDecisionPass
+        ? "The public page still leaves the reader with a clear decision."
+        : "The public page no longer leaves the reader with a clear decision.",
+    },
+  ];
+
+  const failureNames = buildFailureNamesFromChecks(coreChecks);
+  const verdict = failureNames.length > 0 ? "fail" : "pass";
+  const driftClass = verdict === "pass"
+    ? "none"
+    : String(coreChecks.find((entry) => entry.status === "fail")?.checkId ?? "artifact_parity");
+
+  return {
+    schemaVersion: "shared-public-verify.v1",
+    verifyId: firstNonEmptyString(legacyResult.verify_id, legacyResult.post_id, legacyResult.postId, run.id, "public-verify"),
+    approvedArtifactRef: {
+      issueIdentifier,
+      artifactId,
+      artifactLabel,
+    },
+    approvedArtifact: {
+      issueIdentifier,
+      artifactId,
+      artifactLabel,
+      headline: firstNonEmptyString(draft.title, legacyResult.title, run.topic),
+      decisionState,
+      decisionSummary,
+      requiredSections: ["verdict_overview", "evidence_breakdown", "who_should_adopt"],
+    },
+    publisherExpectations: {
+      headline: firstNonEmptyString(draft.title, legacyResult.title, run.topic),
+      decisionState,
+      decisionSummary,
+      publishStatus: expectedPublishStatus,
+      featuredMedia: {
+        required: featuredMediaRequired,
+        label: featuredMediaLabel,
+      },
+    },
+    publishReceiptId: firstNonEmptyString(legacyResult.receiptId, publish.receipt_id, publish.post_id, legacyResult.post_id, "publish-receipt"),
+    publishReceiptLabel: firstNonEmptyString(
+      legacyResult.receiptLabel,
+      publish.generated_at ? `Publish receipt ${publish.generated_at}` : "",
+      "Publish receipt",
+    ),
+    publishReceipt: {
+      receiptId: firstNonEmptyString(legacyResult.receiptId, publish.receipt_id, publish.post_id, legacyResult.post_id, "publish-receipt"),
+      label: firstNonEmptyString(
+        legacyResult.receiptLabel,
+        publish.generated_at ? `Publish receipt ${publish.generated_at}` : "",
+        "Publish receipt",
+      ),
+      mode: publish.mode === "dry-run" ? "dry-run" : "live-run",
+      lifecycle: publish.mode === "dry-run" ? "simulated" : "executed",
+      target: "wordpress.production",
+      targetUrl: firstNonEmptyString(legacyResult.link, publish.url, run.targetSite),
+      publishedAt: firstNonEmptyString(legacyResult.verified_at, publish.generated_at, new Date().toISOString()),
+    },
+    publicUrl: firstNonEmptyString(legacyResult.link, publish.url, run.targetSite),
+    verifiedAt: firstNonEmptyString(legacyResult.verified_at, new Date().toISOString()),
+    verdict,
+    readerDecisionState: publicDecisionState,
+    readerDecisionSummary: readerDecisionPass
+      ? "The public page still supports the approved reader decision."
+      : "The public page no longer supports a clear reader decision.",
+    coreChecks,
+    failureNames,
+    warnings: [],
+    evidence: [
+      {
+        surface: "approved_package",
+        signal: `headline=${firstNonEmptyString(draft.title, legacyResult.title, run.topic)}`,
+      },
+      {
+        surface: "publication_receipt",
+        signal: `status=${expectedPublishStatus} url=${firstNonEmptyString(legacyResult.link, publish.url, run.targetSite)}`,
+      },
+      {
+        surface: "public_verify",
+        signal: `http=${String(toRecord(legacyResult.public_fetch).status_code ?? "")} fetch_ok=${String(Boolean(checks.public_fetch_ok))}`,
+      },
+    ],
+    publicObservation: {
+      observedAt: firstNonEmptyString(legacyResult.verified_at, new Date().toISOString()),
+      url: firstNonEmptyString(legacyResult.link, publish.url, run.targetSite),
+      fetchStatus: publicVisibilityPass ? "reachable" : "missing",
+      httpStatus: Number(toRecord(legacyResult.public_fetch).status_code ?? 0) || (publicVisibilityPass ? 200 : 404),
+      publishStatus: publicVisibilityPass ? observedPublishStatus : "missing",
+      featuredMediaPresent: observedFeaturedMediaPresent,
+      featuredMediaLabel: observedFeaturedMediaPresent
+        ? firstNonEmptyString(toRecord(publish.featured_media).title, featuredMediaLabel)
+        : null,
+      headline: publicVisibilityPass ? firstNonEmptyString(legacyResult.title, draft.title, run.topic) : null,
+      decisionState: publicDecisionState,
+      decisionSummary: readerDecisionPass
+        ? "The observed page still supports the approved reader decision."
+        : "The observed page does not support a reliable reader decision.",
+      summary: verdict === "pass"
+        ? "Public verify matched the approved article and Publisher expectations."
+        : "Public verify detected a mismatch between the approved article and the observed public page.",
+    },
+    driftSummary: {
+      class: driftClass,
+      summary: verdict === "pass"
+        ? "No contract-level drift was detected."
+        : `Drift detected in ${driftClass}.`,
+    },
+    overrideSummary: {
+      applied: [],
+      blocked: failureNames.map((name) => `${name} is non-overrideable`),
+    },
+    ok: verdict === "pass",
+    mode: legacyResult.mode ?? "wordpress",
+  };
 }
 
 export function blogRunWorkerService(db: Db, deps: WorkerDeps = {}) {
@@ -162,8 +467,11 @@ export function blogRunWorkerService(db: Db, deps: WorkerDeps = {}) {
                 },
               }
             : await (deps.runPublicVerifyStep ?? runPublicVerifyStep)(input);
-          if (result && result.ok === false) {
-            throw new Error("blog_run_public_verify_failed");
+          if (String(run.publishMode ?? "draft") !== "dry_run" && !isSharedPublicVerifyPayload(result)) {
+            result = await normalizeLegacyPublicVerifyResult(run, runDir, toRecord(result));
+          }
+          if (!isPublicVerifyPass(result)) {
+            throw new Error(publicVerifyFailureMessage(result));
           }
           break;
         default:

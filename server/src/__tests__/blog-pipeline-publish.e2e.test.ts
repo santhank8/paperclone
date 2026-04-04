@@ -38,6 +38,94 @@ function createJsonResponse(status: number, body: unknown) {
   };
 }
 
+function createSharedVerifyResult(
+  verdict: "pass" | "fail" = "pass",
+  failureNames: string[] = verdict === "fail" ? ["PUBLIC_VERIFY_REGRESSION"] : [],
+) {
+  return {
+    schemaVersion: "shared-public-verify.v1",
+    verifyId: "verify-1",
+    approvedArtifactRef: {
+      issueIdentifier: "FLU-45",
+      artifactId: "artifact-1",
+      artifactLabel: "Approved article",
+    },
+    approvedArtifact: {
+      issueIdentifier: "FLU-45",
+      artifactId: "artifact-1",
+      artifactLabel: "Approved article",
+      headline: "Live publish title",
+      decisionState: verdict === "pass" ? "adopt" : "unclear",
+      decisionSummary: "Approved package expected a decision-ready article.",
+      requiredSections: ["verdict_overview", "evidence_breakdown", "who_should_adopt"],
+    },
+    publisherExpectations: {
+      headline: "Live publish title",
+      decisionState: verdict === "pass" ? "adopt" : "unclear",
+      decisionSummary: "Publisher expected a decision-ready article.",
+      publishStatus: "publish",
+      featuredMedia: {
+        required: false,
+        label: "No featured image required",
+      },
+    },
+    publishReceiptId: "receipt-1",
+    publishReceiptLabel: "Receipt 1",
+    publishReceipt: {
+      receiptId: "receipt-1",
+      label: "Receipt 1",
+      mode: "live-run",
+      lifecycle: "executed",
+      target: "wordpress.production",
+      targetUrl: "https://fluxaivory.com/test-post/",
+      publishedAt: "2026-04-04T10:00:00.000Z",
+    },
+    publicUrl: "https://fluxaivory.com/test-post/",
+    verifiedAt: "2026-04-04T10:01:00.000Z",
+    verdict,
+    readerDecisionState: verdict === "pass" ? "adopt" : "unclear",
+    readerDecisionSummary: verdict === "pass"
+      ? "Reader can reach a clear adopt decision."
+      : "Reader cannot safely reach a decision.",
+    coreChecks: [
+      { checkId: "public_visibility", status: verdict === "pass" ? "pass" : "fail", overrideable: false, summary: "Visibility check." },
+      { checkId: "title_framing", status: "pass", overrideable: false, summary: "Title framing check." },
+      { checkId: "body_contract", status: "pass", overrideable: false, summary: "Body contract check." },
+      { checkId: "media_and_status", status: verdict === "pass" ? "pass" : "fail", overrideable: false, summary: "Media and status check." },
+      { checkId: "artifact_parity", status: verdict === "pass" ? "pass" : "fail", overrideable: false, summary: "Artifact parity check." },
+      { checkId: "reader_decision", status: verdict === "pass" ? "pass" : "fail", overrideable: false, summary: "Reader decision check." },
+    ],
+    failureNames,
+    warnings: [],
+    evidence: [
+      { surface: "approved_package", signal: "approved article present" },
+      { surface: "publication_receipt", signal: "publish receipt present" },
+      { surface: "public_verify", signal: "public verify evidence present" },
+    ],
+    publicObservation: {
+      observedAt: "2026-04-04T10:01:00.000Z",
+      url: "https://fluxaivory.com/test-post/",
+      fetchStatus: verdict === "pass" ? "reachable" : "missing",
+      httpStatus: verdict === "pass" ? 200 : 404,
+      publishStatus: verdict === "pass" ? "publish" : "missing",
+      featuredMediaPresent: false,
+      featuredMediaLabel: null,
+      headline: verdict === "pass" ? "Live publish title" : null,
+      decisionState: verdict === "pass" ? "adopt" : "unclear",
+      decisionSummary: verdict === "pass" ? "Reader can still adopt." : "Reader cannot evaluate the page.",
+      summary: verdict === "pass" ? "Public page matched expectations." : "Public page was missing.",
+    },
+    driftSummary: {
+      class: verdict === "pass" ? "none" : "public_visibility",
+      summary: verdict === "pass" ? "No drift." : "Public article never became reachable.",
+    },
+    overrideSummary: {
+      applied: [],
+      blocked: verdict === "pass" ? [] : [`${failureNames[0] ?? "PUBLIC_VERIFY_REGRESSION"} is non-overrideable`],
+    },
+  };
+}
+
 describeEmbeddedPostgres("blog pipeline live publish e2e", () => {
   let db!: ReturnType<typeof createDb>;
   let tempDb: Awaited<ReturnType<typeof startEmbeddedPostgresTestDatabase>> | null = null;
@@ -113,7 +201,7 @@ describeEmbeddedPostgres("blog pipeline live publish e2e", () => {
       runDraftPolishStep: vi.fn().mockResolvedValue({ verdict: "pass" }),
       runFinalReviewStep: vi.fn().mockResolvedValue({ verdict: "approve" }),
       runValidateStep: vi.fn().mockResolvedValue({ ok: true }),
-      runPublicVerifyStep: vi.fn().mockResolvedValue({ ok: true, checks: { post_found: true } }),
+      runPublicVerifyStep: vi.fn().mockResolvedValue(createSharedVerifyResult("pass")),
     });
 
     const run = await runSvc.create({
@@ -179,8 +267,8 @@ describeEmbeddedPostgres("blog pipeline live publish e2e", () => {
       url: "https://fluxaivory.com/test-post/",
     });
     expect(verifyResult).toMatchObject({
-      ok: true,
-      checks: { post_found: true },
+      schemaVersion: "shared-public-verify.v1",
+      verdict: "pass",
     });
   });
 
@@ -212,7 +300,9 @@ describeEmbeddedPostgres("blog pipeline live publish e2e", () => {
       runDraftPolishStep: vi.fn().mockResolvedValue({ verdict: "pass" }),
       runFinalReviewStep: vi.fn().mockResolvedValue({ verdict: "approve" }),
       runValidateStep: vi.fn().mockResolvedValue({ ok: true }),
-      runPublicVerifyStep: vi.fn().mockResolvedValue({ ok: false, failures: ["title_mismatch"] }),
+      runPublicVerifyStep: vi.fn().mockResolvedValue(
+        createSharedVerifyResult("fail", ["PUBLIC_VERIFY_REGRESSION", "READER_DECISION_UNCLEAR"])
+      ),
     });
 
     const run = await runSvc.create({
@@ -243,6 +333,8 @@ describeEmbeddedPostgres("blog pipeline live publish e2e", () => {
 
     const detail = await runSvc.getDetail(run!.id);
     expect(detail?.run.status).toBe("failed");
-    expect(detail?.run.failedReason).toBe("blog_run_public_verify_failed");
+    expect(detail?.run.failedReason).toBe(
+      "blog_run_public_verify_failed:PUBLIC_VERIFY_REGRESSION,READER_DECISION_UNCLEAR"
+    );
   });
 });
