@@ -22,6 +22,7 @@ import {
   ensureRuntimeServicesForRun,
   normalizeAdapterManagedRuntimeServices,
   reconcilePersistedRuntimeServicesOnStartup,
+  restartDesiredRuntimeServicesOnStartup,
   realizeExecutionWorkspace,
   releaseRuntimeServicesForRun,
   resetRuntimeServicesForTests,
@@ -955,6 +956,37 @@ describe("realizeExecutionWorkspace", () => {
       cleanupAction: "branch_delete",
     });
   });
+
+  it("treats non-runtime local_fs workspaces as cleaned when only the session record is archived", async () => {
+    const workspaceRoot = await fs.mkdtemp(path.join(os.tmpdir(), "paperclip-shared-workspace-"));
+
+    const cleanup = await cleanupExecutionWorkspaceArtifacts({
+      workspace: {
+        id: "execution-workspace-1",
+        cwd: workspaceRoot,
+        providerType: "local_fs",
+        providerRef: null,
+        branchName: null,
+        repoUrl: null,
+        baseRef: null,
+        projectId: "project-1",
+        projectWorkspaceId: "workspace-1",
+        sourceIssueId: "issue-1",
+        metadata: {
+          createdByRuntime: false,
+        },
+      },
+      projectWorkspace: {
+        cwd: workspaceRoot,
+        cleanupCommand: null,
+      },
+    });
+
+    expect(cleanup.cleaned).toBe(true);
+    expect(cleanup.warnings).toEqual([]);
+    await expect(fs.stat(workspaceRoot)).resolves.toBeTruthy();
+    await fs.rm(workspaceRoot, { recursive: true, force: true });
+  });
 });
 
 describe("ensureRuntimeServicesForRun", () => {
@@ -1649,6 +1681,77 @@ describeEmbeddedPostgres("workspace runtime startup reconciliation", () => {
     expect(persisted?.status).toBe("stopped");
     expect(persisted?.healthStatus).toBe("unknown");
     expect(persisted?.stoppedAt).toBeTruthy();
+  });
+
+  it("does not restart runtime services for cleanup_failed execution workspaces on startup", async () => {
+    const workspaceRoot = await fs.mkdtemp(path.join(os.tmpdir(), "paperclip-runtime-cleanup-failed-"));
+    const companyId = randomUUID();
+    const projectId = randomUUID();
+    const executionWorkspaceId = randomUUID();
+    try {
+      await db.insert(companies).values({
+        id: companyId,
+        name: "Paperclip",
+        issuePrefix: `T${companyId.replace(/-/g, "").slice(0, 6).toUpperCase()}`,
+        requireBoardApprovalForNewAgents: false,
+      });
+      await db.insert(projects).values({
+        id: projectId,
+        companyId,
+        name: "Runtime restart guard",
+        status: "active",
+      });
+      await db.insert(executionWorkspaces).values({
+        id: executionWorkspaceId,
+        companyId,
+        projectId,
+        mode: "isolated_workspace",
+        strategyType: "project_primary",
+        name: "Cleanup failed workspace",
+        status: "cleanup_failed",
+        cwd: workspaceRoot,
+        providerType: "local_fs",
+        providerRef: workspaceRoot,
+        metadata: {
+          config: {
+            desiredState: "running",
+            workspaceRuntime: {
+              services: [
+                {
+                  name: "web",
+                  command:
+                    "node -e \"require('node:http').createServer((req,res)=>res.end('ok')).listen(Number(process.env.PORT), '127.0.0.1')\"",
+                  port: { type: "auto" },
+                  readiness: {
+                    type: "http",
+                    urlTemplate: "http://127.0.0.1:{{port}}",
+                    timeoutSec: 10,
+                    intervalMs: 100,
+                  },
+                  lifecycle: "shared",
+                  reuseScope: "execution_workspace",
+                  stopPolicy: {
+                    type: "manual",
+                  },
+                },
+              ],
+            },
+          },
+        },
+      });
+
+      const result = await restartDesiredRuntimeServicesOnStartup(db);
+      expect(result).toEqual({ restarted: 0, failed: 0 });
+
+      const persisted = await db
+        .select()
+        .from(workspaceRuntimeServices)
+        .where(eq(workspaceRuntimeServices.executionWorkspaceId, executionWorkspaceId));
+
+      expect(persisted).toHaveLength(0);
+    } finally {
+      await fs.rm(workspaceRoot, { recursive: true, force: true });
+    }
   });
 });
 

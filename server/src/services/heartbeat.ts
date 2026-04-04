@@ -44,7 +44,11 @@ import {
   sanitizeRuntimeServiceBaseEnv,
 } from "./workspace-runtime.js";
 import { issueService } from "./issues.js";
-import { executionWorkspaceService, mergeExecutionWorkspaceConfig } from "./execution-workspaces.js";
+import {
+  executionWorkspaceService,
+  isReusableExecutionWorkspaceStatus,
+  mergeExecutionWorkspaceConfig,
+} from "./execution-workspaces.js";
 import { workspaceOperationService } from "./workspace-operations.js";
 import {
   buildExecutionWorkspaceAdapterConfig,
@@ -113,6 +117,53 @@ export function stripWorkspaceRuntimeFromExecutionRunConfig(config: Record<strin
   return nextConfig;
 }
 
+function isGitWorktreePersistedWorkspace(input: {
+  strategyType: string | null | undefined;
+  providerType: string | null | undefined;
+}) {
+  return input.strategyType === "git_worktree" || input.providerType === "git_worktree";
+}
+
+function resolvePersistedExecutionWorkspaceSource(input: {
+  mode: ExecutionWorkspace["mode"];
+  strategyType: string | null | undefined;
+  providerType: string | null | undefined;
+}) {
+  if (isGitWorktreePersistedWorkspace(input)) {
+    return "task_session";
+  }
+  return input.mode === "shared_workspace" || input.mode === "operator_branch"
+    ? "project_primary"
+    : "task_session";
+}
+
+export function resolveExecutionWorkspaceModeForPersistedWorkspace(input: {
+  mode: string | null | undefined;
+  strategyType: string | null | undefined;
+  providerType: string | null | undefined;
+}): ReturnType<typeof resolveExecutionWorkspaceMode> {
+  if (isGitWorktreePersistedWorkspace(input)) {
+    return input.mode === "operator_branch" ? "operator_branch" : "isolated_workspace";
+  }
+  const mode = issueExecutionWorkspaceModeForPersistedWorkspace(input.mode);
+  return mode === "isolated_workspace" || mode === "operator_branch" || mode === "agent_default"
+    ? mode
+    : "shared_workspace";
+}
+
+export function normalizeExecutionWorkspaceModeForPersistence(input: {
+  mode: ReturnType<typeof resolveExecutionWorkspaceMode>;
+  strategy: "project_primary" | "git_worktree";
+}) {
+  if (input.strategy === "git_worktree") {
+    return input.mode === "operator_branch" ? "operator_branch" : "isolated_workspace";
+  }
+  if (input.mode === "agent_default") {
+    return "adapter_managed";
+  }
+  return input.mode === "operator_branch" ? "operator_branch" : "shared_workspace";
+}
+
 export function buildRealizedExecutionWorkspaceFromPersisted(input: {
   base: ExecutionWorkspaceInput;
   workspace: ExecutionWorkspace;
@@ -122,10 +173,10 @@ export function buildRealizedExecutionWorkspaceFromPersisted(input: {
     return null;
   }
 
-  const strategy = input.workspace.strategyType === "git_worktree" ? "git_worktree" : "project_primary";
+  const strategy = isGitWorktreePersistedWorkspace(input.workspace) ? "git_worktree" : "project_primary";
   return {
     baseCwd: input.base.baseCwd,
-    source: input.workspace.mode === "shared_workspace" ? "project_primary" : "task_session",
+    source: resolvePersistedExecutionWorkspaceSource(input.workspace),
     projectId: input.workspace.projectId ?? input.base.projectId,
     workspaceId: input.workspace.projectWorkspaceId ?? input.base.workspaceId,
     repoUrl: input.workspace.repoUrl ?? input.base.repoUrl,
@@ -2179,9 +2230,13 @@ export function heartbeatService(db: Db) {
     const shouldReuseExisting =
       issueRef?.executionWorkspacePreference === "reuse_existing" &&
       existingExecutionWorkspace &&
-      existingExecutionWorkspace.status !== "archived";
+      isReusableExecutionWorkspaceStatus(existingExecutionWorkspace.status);
     const persistedExecutionWorkspaceMode = shouldReuseExisting && existingExecutionWorkspace
-      ? issueExecutionWorkspaceModeForPersistedWorkspace(existingExecutionWorkspace.mode)
+      ? resolveExecutionWorkspaceModeForPersistedWorkspace({
+          mode: existingExecutionWorkspace.mode,
+          strategyType: existingExecutionWorkspace.strategyType,
+          providerType: existingExecutionWorkspace.providerType,
+        })
       : null;
     const effectiveExecutionWorkspaceMode: ReturnType<typeof resolveExecutionWorkspaceMode> =
       persistedExecutionWorkspaceMode === "isolated_workspace" ||
@@ -2247,6 +2302,10 @@ export function heartbeatService(db: Db) {
           },
           recorder: workspaceOperationRecorder,
         });
+    const nextPersistedExecutionWorkspaceMode = normalizeExecutionWorkspaceModeForPersistence({
+      mode: effectiveExecutionWorkspaceMode,
+      strategy: executionWorkspace.strategy,
+    });
     const resolvedProjectId = executionWorkspace.projectId ?? issueRef?.projectId ?? executionProjectId ?? null;
     const resolvedProjectWorkspaceId = issueRef?.projectWorkspaceId ?? resolvedWorkspace.workspaceId ?? null;
     let persistedExecutionWorkspace = null;
@@ -2269,6 +2328,7 @@ export function heartbeatService(db: Db) {
             branchName: executionWorkspace.branchName,
             providerType: executionWorkspace.strategy === "git_worktree" ? "git_worktree" : "local_fs",
             providerRef: executionWorkspace.worktreePath,
+            mode: nextPersistedExecutionWorkspaceMode,
             status: "active",
             lastUsedAt: new Date(),
             metadata: nextExecutionWorkspaceMetadata,
@@ -2279,14 +2339,6 @@ export function heartbeatService(db: Db) {
               projectId: resolvedProjectId,
               projectWorkspaceId: resolvedProjectWorkspaceId,
               sourceIssueId: issueRef?.id ?? null,
-              mode:
-                requestedExecutionWorkspaceMode === "isolated_workspace"
-                  ? "isolated_workspace"
-                  : requestedExecutionWorkspaceMode === "operator_branch"
-                    ? "operator_branch"
-                    : requestedExecutionWorkspaceMode === "agent_default"
-                      ? "adapter_managed"
-                      : "shared_workspace",
               strategyType: executionWorkspace.strategy === "git_worktree" ? "git_worktree" : "project_primary",
               name: executionWorkspace.branchName ?? issueRef?.identifier ?? `workspace-${agent.id.slice(0, 8)}`,
               status: "active",
@@ -2296,6 +2348,7 @@ export function heartbeatService(db: Db) {
               branchName: executionWorkspace.branchName,
               providerType: executionWorkspace.strategy === "git_worktree" ? "git_worktree" : "local_fs",
               providerRef: executionWorkspace.worktreePath,
+              mode: nextPersistedExecutionWorkspaceMode,
               lastUsedAt: new Date(),
               openedAt: new Date(),
               metadata: nextExecutionWorkspaceMetadata,
@@ -2413,7 +2466,7 @@ export function heartbeatService(db: Db) {
     context.paperclipWorkspace = {
       cwd: executionWorkspace.cwd,
       source: executionWorkspace.source,
-      mode: effectiveExecutionWorkspaceMode,
+      mode: nextPersistedExecutionWorkspaceMode,
       strategy: executionWorkspace.strategy,
       projectId: executionWorkspace.projectId,
       workspaceId: executionWorkspace.workspaceId,

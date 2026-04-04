@@ -30,6 +30,7 @@ import {
   isClaudeUnknownSessionError,
 } from "./parse.js";
 import { resolveClaudeDesiredSkillNames } from "./skills.js";
+import { prepareManagedClaudeHome } from "./claude-home.js";
 
 const __moduleDir = path.dirname(fileURLToPath(import.meta.url));
 
@@ -65,6 +66,7 @@ interface ClaudeExecutionInput {
   config: Record<string, unknown>;
   context: Record<string, unknown>;
   authToken?: string;
+  onLog?: AdapterExecutionContext["onLog"];
 }
 
 interface ClaudeRuntimeConfig {
@@ -100,6 +102,26 @@ function hasNonEmptyEnvValue(env: Record<string, string>, key: string): boolean 
   return typeof raw === "string" && raw.trim().length > 0;
 }
 
+function buildClaudeBaseProcessEnv(): Record<string, string> {
+  const baseEnv: Record<string, string> = {};
+  for (const [key, value] of Object.entries(process.env)) {
+    if (typeof value !== "string") continue;
+    if (key.startsWith("ANTHROPIC_")) continue;
+    if (key.startsWith("CLAUDE_")) continue;
+    baseEnv[key] = value;
+  }
+  return baseEnv;
+}
+
+function maskInheritedClaudeEnv(env: Record<string, string>): void {
+  for (const [key, value] of Object.entries(process.env)) {
+    if (typeof value !== "string" || value.length === 0) continue;
+    if (!key.startsWith("ANTHROPIC_") && !key.startsWith("CLAUDE_")) continue;
+    if (env[key] !== undefined) continue;
+    env[key] = "";
+  }
+}
+
 function resolveClaudeBillingType(env: Record<string, string>): "api" | "subscription" {
   // Claude uses API-key auth when ANTHROPIC_API_KEY is present; otherwise rely on local login/session auth.
   return hasNonEmptyEnvValue(env, "ANTHROPIC_API_KEY") ? "api" : "subscription";
@@ -107,6 +129,7 @@ function resolveClaudeBillingType(env: Record<string, string>): "api" | "subscri
 
 async function buildClaudeRuntimeConfig(input: ClaudeExecutionInput): Promise<ClaudeRuntimeConfig> {
   const { runId, agent, config, context, authToken } = input;
+  const onLog = input.onLog ?? (async () => {});
 
   const command = asString(config.command, "claude");
   const workspaceContext = parseObject(context.paperclipWorkspace);
@@ -142,6 +165,8 @@ async function buildClaudeRuntimeConfig(input: ClaudeExecutionInput): Promise<Cl
   await ensureAbsoluteDirectory(cwd, { createIfMissing: true });
 
   const envConfig = parseObject(config.env);
+  const explicitHome = asString(envConfig.HOME, "");
+  const explicitClaudeConfigDir = asString(envConfig.CLAUDE_CONFIG_DIR, "");
   const hasExplicitApiKey =
     typeof envConfig.PAPERCLIP_API_KEY === "string" && envConfig.PAPERCLIP_API_KEY.trim().length > 0;
   const env: Record<string, string> = { ...buildPaperclipEnv(agent) };
@@ -233,11 +258,33 @@ async function buildClaudeRuntimeConfig(input: ClaudeExecutionInput): Promise<Cl
     if (typeof value === "string") env[key] = value;
   }
 
+  if (!explicitHome && !explicitClaudeConfigDir) {
+    const managedHome = await prepareManagedClaudeHome(
+      { ...process.env, ...env },
+      onLog,
+      agent.companyId,
+      agent.id,
+    );
+    env.HOME = managedHome.homeDir;
+    env.CLAUDE_CONFIG_DIR = managedHome.configDir;
+  } else {
+    if (explicitHome) {
+      env.HOME = path.resolve(explicitHome);
+    }
+    if (explicitClaudeConfigDir) {
+      env.CLAUDE_CONFIG_DIR = path.resolve(explicitClaudeConfigDir);
+    } else if (explicitHome) {
+      env.CLAUDE_CONFIG_DIR = path.join(env.HOME, ".claude");
+    }
+  }
+
   if (!hasExplicitApiKey && authToken) {
     env.PAPERCLIP_API_KEY = authToken;
   }
 
-  const runtimeEnv = ensurePathInEnv({ ...process.env, ...env });
+  maskInheritedClaudeEnv(env);
+
+  const runtimeEnv = ensurePathInEnv({ ...buildClaudeBaseProcessEnv(), ...env });
   await ensureCommandResolvable(command, cwd, runtimeEnv);
   const resolvedCommand = await resolveCommandForLogs(command, cwd, runtimeEnv);
   const loggedEnv = buildInvocationEnvForLogs(env, {
@@ -284,6 +331,7 @@ export async function runClaudeLogin(input: {
     config: input.config,
     context: input.context ?? {},
     authToken: input.authToken,
+    onLog,
   });
 
   const proc = await runChildProcess(input.runId, runtime.command, ["login"], {
@@ -332,6 +380,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     config,
     context,
     authToken,
+    onLog,
   });
   const {
     command,

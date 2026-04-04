@@ -8,6 +8,8 @@ const mockIssueService = vi.hoisted(() => ({
   getById: vi.fn(),
   update: vi.fn(),
   addComment: vi.fn(),
+  checkout: vi.fn(),
+  release: vi.fn(),
   findMentionedAgents: vi.fn(),
 }));
 
@@ -29,6 +31,14 @@ const mockAgentService = vi.hoisted(() => ({
 }));
 
 const mockLogActivity = vi.hoisted(() => vi.fn(async () => undefined));
+
+const boardActor = {
+  type: "board" as const,
+  userId: "local-board",
+  companyIds: ["company-1"],
+  source: "local_implicit" as const,
+  isInstanceAdmin: false,
+};
 
 vi.mock("../services/index.js", () => ({
   accessService: () => mockAccessService,
@@ -61,17 +71,11 @@ vi.mock("../services/index.js", () => ({
   workProductService: () => ({}),
 }));
 
-function createApp() {
+function createApp(actor: Record<string, unknown> = boardActor) {
   const app = express();
   app.use(express.json());
   app.use((req, _res, next) => {
-    (req as any).actor = {
-      type: "board",
-      userId: "local-board",
-      companyIds: ["company-1"],
-      source: "local_implicit",
-      isInstanceAdmin: false,
-    };
+    (req as any).actor = actor;
     next();
   });
   app.use("/api", issueRoutes({} as any, {} as any));
@@ -95,6 +99,11 @@ function makeIssue(status: "todo" | "done") {
 describe("issue comment reopen routes", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockIssueService.checkout.mockResolvedValue({
+      ...makeIssue("todo"),
+      status: "in_progress",
+    });
+    mockIssueService.release.mockResolvedValue(makeIssue("todo"));
     mockIssueService.addComment.mockResolvedValue({
       id: "comment-1",
       issueId: "11111111-1111-4111-8111-111111111111",
@@ -201,5 +210,111 @@ describe("issue comment reopen routes", () => {
         }),
       }),
     );
+  });
+
+  it("rejects agent PATCH writes from a cancelled heartbeat run", async () => {
+    const agentActor = {
+      type: "agent" as const,
+      agentId: "22222222-2222-4222-8222-222222222222",
+      companyId: "company-1",
+      runId: "run-terminal",
+      source: "agent_jwt" as const,
+    };
+    mockIssueService.getById.mockResolvedValue(makeIssue("done"));
+    mockHeartbeatService.getRun.mockImplementationOnce(async () => ({
+      id: "run-terminal",
+      companyId: "company-1",
+      agentId: agentActor.agentId,
+      status: "cancelled",
+    }));
+
+    const res = await request(createApp(agentActor))
+      .patch("/api/issues/11111111-1111-4111-8111-111111111111")
+      .send({ comment: "hello", reopen: true });
+
+    expect(res.status).toBe(409);
+    expect(res.body).toEqual({ error: "Agent run must be active" });
+    expect(mockHeartbeatService.getRun).toHaveBeenCalledWith("run-terminal");
+    expect(mockIssueService.update).not.toHaveBeenCalled();
+    expect(mockIssueService.addComment).not.toHaveBeenCalled();
+  });
+
+  it("rejects agent comment writes from a timed out heartbeat run", async () => {
+    const agentActor = {
+      type: "agent" as const,
+      agentId: "22222222-2222-4222-8222-222222222222",
+      companyId: "company-1",
+      runId: "run-terminal",
+      source: "agent_jwt" as const,
+    };
+    mockIssueService.getById.mockResolvedValue(makeIssue("done"));
+    mockHeartbeatService.getRun.mockImplementationOnce(async () => ({
+      id: "run-terminal",
+      companyId: "company-1",
+      agentId: agentActor.agentId,
+      status: "timed_out",
+    }));
+
+    const res = await request(createApp(agentActor))
+      .post("/api/issues/11111111-1111-4111-8111-111111111111/comments")
+      .send({ body: "hello", reopen: true });
+
+    expect(res.status).toBe(409);
+    expect(res.body).toEqual({ error: "Agent run must be active" });
+    expect(mockHeartbeatService.getRun).toHaveBeenCalledWith("run-terminal");
+    expect(mockIssueService.update).not.toHaveBeenCalled();
+    expect(mockIssueService.addComment).not.toHaveBeenCalled();
+  });
+
+  it("rejects agent checkout from a timed out heartbeat run", async () => {
+    const agentActor = {
+      type: "agent" as const,
+      agentId: "22222222-2222-4222-8222-222222222222",
+      companyId: "company-1",
+      runId: "run-terminal",
+      source: "agent_jwt" as const,
+    };
+    mockIssueService.getById.mockResolvedValue(makeIssue("todo"));
+    mockHeartbeatService.getRun.mockImplementationOnce(async () => ({
+      id: "run-terminal",
+      companyId: "company-1",
+      agentId: agentActor.agentId,
+      status: "timed_out",
+    }));
+
+    const res = await request(createApp(agentActor))
+      .post("/api/issues/11111111-1111-4111-8111-111111111111/checkout")
+      .send({ agentId: agentActor.agentId, expectedStatuses: ["todo"] });
+
+    expect(res.status).toBe(409);
+    expect(res.body).toEqual({ error: "Agent run must be active" });
+    expect(mockHeartbeatService.getRun).toHaveBeenCalledWith("run-terminal");
+    expect(mockIssueService.checkout).not.toHaveBeenCalled();
+  });
+
+  it("rejects agent release from a cancelled heartbeat run", async () => {
+    const agentActor = {
+      type: "agent" as const,
+      agentId: "22222222-2222-4222-8222-222222222222",
+      companyId: "company-1",
+      runId: "run-terminal",
+      source: "agent_jwt" as const,
+    };
+    mockIssueService.getById.mockResolvedValue(makeIssue("todo"));
+    mockHeartbeatService.getRun.mockImplementationOnce(async () => ({
+      id: "run-terminal",
+      companyId: "company-1",
+      agentId: agentActor.agentId,
+      status: "cancelled",
+    }));
+
+    const res = await request(createApp(agentActor))
+      .post("/api/issues/11111111-1111-4111-8111-111111111111/release")
+      .send({});
+
+    expect(res.status).toBe(409);
+    expect(res.body).toEqual({ error: "Agent run must be active" });
+    expect(mockHeartbeatService.getRun).toHaveBeenCalledWith("run-terminal");
+    expect(mockIssueService.release).not.toHaveBeenCalled();
   });
 });

@@ -19,6 +19,7 @@ import {
 } from "./helpers/embedded-postgres.js";
 import {
   executionWorkspaceService,
+  isReusableExecutionWorkspaceStatus,
   mergeExecutionWorkspaceConfig,
   readExecutionWorkspaceConfig,
 } from "../services/execution-workspaces.ts";
@@ -91,6 +92,14 @@ describe("execution workspace config helpers", () => {
     )).toEqual({
       source: "project_primary",
     });
+  });
+
+  it("treats cleanup_failed workspaces as non-reusable", () => {
+    expect(isReusableExecutionWorkspaceStatus("active")).toBe(true);
+    expect(isReusableExecutionWorkspaceStatus("idle")).toBe(true);
+    expect(isReusableExecutionWorkspaceStatus("in_review")).toBe(true);
+    expect(isReusableExecutionWorkspaceStatus("cleanup_failed")).toBe(false);
+    expect(isReusableExecutionWorkspaceStatus("archived")).toBe(false);
   });
 });
 

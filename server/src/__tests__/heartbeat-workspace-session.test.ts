@@ -10,6 +10,8 @@ import {
   formatRuntimeWorkspaceWarningLog,
   prioritizeProjectWorkspaceCandidatesForRun,
   parseSessionCompactionPolicy,
+  normalizeExecutionWorkspaceModeForPersistence,
+  resolveExecutionWorkspaceModeForPersistedWorkspace,
   resolveRuntimeSessionParamsForWorkspace,
   stripWorkspaceRuntimeFromExecutionRunConfig,
   shouldResetTaskSessionForWake,
@@ -200,6 +202,129 @@ describe("buildRealizedExecutionWorkspaceFromPersisted", () => {
     expect(result.source).toBe("task_session");
   });
 
+  it("treats a shared_workspace row backed by a git worktree as task session state", () => {
+    const result = buildRealizedExecutionWorkspaceFromPersisted({
+      base: buildResolvedWorkspace({
+        cwd: "/tmp/project-primary",
+        repoRef: "main",
+      }),
+      workspace: {
+        id: "execution-workspace-1b",
+        companyId: "company-1",
+        projectId: "project-1",
+        projectWorkspaceId: "workspace-1",
+        sourceIssueId: "issue-1",
+        mode: "shared_workspace",
+        strategyType: "git_worktree",
+        name: "PAP-880-mismatched-shared-worktree",
+        status: "active",
+        cwd: "/tmp/mismatched-worktree",
+        repoUrl: "https://example.com/paperclip.git",
+        baseRef: "main",
+        branchName: "PAP-880-mismatched-shared-worktree",
+        providerType: "git_worktree",
+        providerRef: "/tmp/mismatched-worktree",
+        derivedFromExecutionWorkspaceId: null,
+        lastUsedAt: new Date(),
+        openedAt: new Date(),
+        closedAt: null,
+        cleanupEligibleAt: null,
+        cleanupReason: null,
+        config: null,
+        metadata: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+    });
+
+    expect(result).not.toBeNull();
+    expect(result?.strategy).toBe("git_worktree");
+    expect(result?.source).toBe("task_session");
+    expect(result?.cwd).toBe("/tmp/mismatched-worktree");
+  });
+
+  it("treats a git worktree provider as task session state even if strategyType is stale", () => {
+    const result = buildRealizedExecutionWorkspaceFromPersisted({
+      base: buildResolvedWorkspace({
+        cwd: "/tmp/project-primary",
+        repoRef: "main",
+      }),
+      workspace: {
+        id: "execution-workspace-1c",
+        companyId: "company-1",
+        projectId: "project-1",
+        projectWorkspaceId: "workspace-1",
+        sourceIssueId: "issue-1",
+        mode: "shared_workspace",
+        strategyType: "project_primary",
+        name: "PAP-880-mismatched-provider-worktree",
+        status: "active",
+        cwd: "/tmp/provider-worktree",
+        repoUrl: "https://example.com/paperclip.git",
+        baseRef: "main",
+        branchName: "PAP-880-mismatched-provider-worktree",
+        providerType: "git_worktree",
+        providerRef: "/tmp/provider-worktree",
+        derivedFromExecutionWorkspaceId: null,
+        lastUsedAt: new Date(),
+        openedAt: new Date(),
+        closedAt: null,
+        cleanupEligibleAt: null,
+        cleanupReason: null,
+        config: null,
+        metadata: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+    });
+
+    expect(result).not.toBeNull();
+    expect(result?.strategy).toBe("git_worktree");
+    expect(result?.source).toBe("task_session");
+    expect(result?.worktreePath).toBe("/tmp/provider-worktree");
+  });
+
+  it("preserves project-primary source for non-worktree operator branch rows", () => {
+    const result = buildRealizedExecutionWorkspaceFromPersisted({
+      base: buildResolvedWorkspace({
+        cwd: "/tmp/project-primary",
+        repoRef: "main",
+      }),
+      workspace: {
+        id: "execution-workspace-1d",
+        companyId: "company-1",
+        projectId: "project-1",
+        projectWorkspaceId: "workspace-1",
+        sourceIssueId: "issue-1",
+        mode: "operator_branch",
+        strategyType: "project_primary",
+        name: "operator-branch-primary",
+        status: "active",
+        cwd: "/tmp/project-primary",
+        repoUrl: "https://example.com/paperclip.git",
+        baseRef: "main",
+        branchName: "operator/feature",
+        providerType: "local_fs",
+        providerRef: null,
+        derivedFromExecutionWorkspaceId: null,
+        lastUsedAt: new Date(),
+        openedAt: new Date(),
+        closedAt: null,
+        cleanupEligibleAt: null,
+        cleanupReason: null,
+        config: null,
+        metadata: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+    });
+
+    expect(result).not.toBeNull();
+    expect(result?.strategy).toBe("project_primary");
+    expect(result?.source).toBe("project_primary");
+    expect(result?.branchName).toBe("operator/feature");
+  });
+
   it("falls back to realization when the persisted workspace has no local path yet", () => {
     const result = buildRealizedExecutionWorkspaceFromPersisted({
       base: buildResolvedWorkspace({
@@ -236,6 +361,44 @@ describe("buildRealizedExecutionWorkspaceFromPersisted", () => {
     });
 
     expect(result).toBeNull();
+  });
+});
+
+describe("normalizeExecutionWorkspaceModeForPersistence", () => {
+  it("never persists git worktree sessions as shared_workspace", () => {
+    expect(
+      normalizeExecutionWorkspaceModeForPersistence({
+        mode: "shared_workspace",
+        strategy: "git_worktree",
+      }),
+    ).toBe("isolated_workspace");
+    expect(
+      normalizeExecutionWorkspaceModeForPersistence({
+        mode: "operator_branch",
+        strategy: "git_worktree",
+      }),
+    ).toBe("operator_branch");
+  });
+
+  it("preserves operator branch mode for non-worktree persisted rows", () => {
+    expect(
+      normalizeExecutionWorkspaceModeForPersistence({
+        mode: "operator_branch",
+        strategy: "project_primary",
+      }),
+    ).toBe("operator_branch");
+  });
+});
+
+describe("resolveExecutionWorkspaceModeForPersistedWorkspace", () => {
+  it("treats persisted git worktree rows as isolated mode even when mode drifted to shared", () => {
+    expect(
+      resolveExecutionWorkspaceModeForPersistedWorkspace({
+        mode: "shared_workspace",
+        strategyType: "git_worktree",
+        providerType: "git_worktree",
+      }),
+    ).toBe("isolated_workspace");
   });
 });
 

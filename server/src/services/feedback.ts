@@ -35,7 +35,7 @@ import {
   type FeedbackTraceTargetSummary,
   type FeedbackVoteValue,
 } from "@paperclipai/shared";
-import { resolveHomeAwarePath, resolvePaperclipInstanceRoot } from "../home-paths.js";
+import { resolveHomeAwarePath } from "../home-paths.js";
 import { notFound, unprocessable } from "../errors.js";
 import { agentInstructionsService } from "./agent-instructions.js";
 import {
@@ -312,6 +312,31 @@ async function findMatchingFile(
   return search(rootDir, 0);
 }
 
+function uniqueResolvedPaths(paths: Array<string | null | undefined>) {
+  const seen = new Set<string>();
+  const ordered: string[] = [];
+  for (const candidate of paths) {
+    if (!candidate) continue;
+    const resolved = path.resolve(candidate);
+    if (seen.has(resolved)) continue;
+    seen.add(resolved);
+    ordered.push(resolved);
+  }
+  return ordered;
+}
+
+async function findMatchingFileAcrossRoots(
+  roots: string[],
+  matcher: (absolutePath: string, name: string) => boolean,
+  maxDepth = 5,
+): Promise<string | null> {
+  for (const root of roots) {
+    const found = await findMatchingFile(root, matcher, maxDepth);
+    if (found) return found;
+  }
+  return null;
+}
+
 async function readFullRunLog(run: {
   logStore: string | null;
   logRef: string | null;
@@ -377,6 +402,8 @@ function captureStatusFromFiles(files: FeedbackTraceBundleFile[]): FeedbackTrace
 
 async function buildCodexTraceFiles(input: {
   companyId: string;
+  agentId: string;
+  adapterConfig: Record<string, unknown>;
   sessionId: string | null;
   state: ReturnType<typeof createFeedbackRedactionState>;
   notes: string[];
@@ -387,17 +414,20 @@ async function buildCodexTraceFiles(input: {
     return { files, raw: null as Record<string, unknown> | null, normalized: null as Record<string, unknown> | null };
   }
 
-  const managedRoot = path.join(
-    resolvePaperclipInstanceRoot(),
-    "companies",
-    input.companyId,
-    "codex-home",
+  const primaryRoot = path.join(
+    codexHomeDir({
+      companyId: input.companyId,
+      agentId: input.agentId,
+      adapterConfig: input.adapterConfig,
+    }),
     "sessions",
   );
   const sharedRoot = path.join(codexHomeDir(), "sessions");
-  const sessionFile =
-    await findMatchingFile(managedRoot, (_absolutePath, name) => name.includes(input.sessionId!), 6) ??
-    await findMatchingFile(sharedRoot, (_absolutePath, name) => name.includes(input.sessionId!), 6);
+  const sessionFile = await findMatchingFileAcrossRoots(
+    uniqueResolvedPaths([primaryRoot, sharedRoot]),
+    (_absolutePath, name) => name.includes(input.sessionId!),
+    6,
+  );
 
   const sessionText = await readTextFileIfPresent(sessionFile, input.state, "bundle.rawAdapterTrace.codex.session");
   if (!sessionText) {
@@ -433,6 +463,9 @@ async function buildCodexTraceFiles(input: {
 }
 
 async function buildClaudeTraceFiles(input: {
+  companyId: string;
+  agentId: string;
+  adapterConfig: Record<string, unknown>;
   sessionId: string | null;
   stdoutText: string;
   state: ReturnType<typeof createFeedbackRedactionState>;
@@ -454,9 +487,20 @@ async function buildClaudeTraceFiles(input: {
     }));
   }
 
-  const projectsRoot = path.join(claudeConfigDir(), "projects");
+  const primaryConfigDir = claudeConfigDir({
+    companyId: input.companyId,
+    agentId: input.agentId,
+    adapterConfig: input.adapterConfig,
+  });
+  const sharedConfigDir = claudeConfigDir();
+  const configRoots = uniqueResolvedPaths([primaryConfigDir, sharedConfigDir]);
+  const projectsRoots = configRoots.map((root) => path.join(root, "projects"));
   const projectSessionFile = input.sessionId
-    ? await findMatchingFile(projectsRoot, (_absolutePath, name) => name === `${input.sessionId}.jsonl`, 6)
+    ? await findMatchingFileAcrossRoots(
+      projectsRoots,
+      (_absolutePath, name) => name === `${input.sessionId}.jsonl`,
+      6,
+    )
     : null;
   const projectSessionText = await readTextFileIfPresent(
     projectSessionFile,
@@ -496,11 +540,17 @@ async function buildClaudeTraceFiles(input: {
     }));
   }
 
-  const debugLogText = await readTextFileIfPresent(
-    input.sessionId ? path.join(claudeConfigDir(), "debug", `${input.sessionId}.txt`) : null,
-    input.state,
-    "bundle.rawAdapterTrace.claude.debugLog",
-  );
+  let debugLogText: string | null = null;
+  if (input.sessionId) {
+    for (const configRoot of configRoots) {
+      debugLogText = await readTextFileIfPresent(
+        path.join(configRoot, "debug", `${input.sessionId}.txt`),
+        input.state,
+        "bundle.rawAdapterTrace.claude.debugLog",
+      );
+      if (debugLogText) break;
+    }
+  }
   if (debugLogText) {
     files.push(makeBundleFile({
       path: "adapter/claude/debug.txt",
@@ -510,8 +560,14 @@ async function buildClaudeTraceFiles(input: {
     }));
   }
 
-  const taskDir = input.sessionId ? path.join(claudeConfigDir(), "tasks", input.sessionId) : null;
-  const taskFiles = taskDir ? await listChildFiles(taskDir) : [];
+  let taskFiles: string[] = [];
+  if (input.sessionId) {
+    for (const configRoot of configRoots) {
+      const candidateTaskDir = path.join(configRoot, "tasks", input.sessionId);
+      taskFiles = await listChildFiles(candidateTaskDir);
+      if (taskFiles.length > 0) break;
+    }
+  }
   const metadataPieces: string[] = [];
   for (const filePath of taskFiles) {
     const fileText = await readTextFileIfPresent(
@@ -1461,6 +1517,7 @@ async function buildFeedbackTraceBundleFromRow(
         logRef: heartbeatRuns.logRef,
         logBytes: heartbeatRuns.logBytes,
         logSha256: heartbeatRuns.logSha256,
+        adapterConfig: agents.adapterConfig,
         agentName: agents.name,
         agentRole: agents.role,
         agentTitle: agents.title,
@@ -1555,6 +1612,8 @@ async function buildFeedbackTraceBundleFromRow(
       if (run.adapterType === "codex_local") {
         const adapter = await buildCodexTraceFiles({
           companyId: row.companyId,
+          agentId: run.agentId,
+          adapterConfig: asRecord(run.adapterConfig) ?? {},
           sessionId: run.sessionIdAfter ?? run.sessionIdBefore,
           state,
           notes,
@@ -1564,6 +1623,9 @@ async function buildFeedbackTraceBundleFromRow(
         normalizedAdapterTrace = adapter.normalized;
       } else if (run.adapterType === "claude_local") {
         const adapter = await buildClaudeTraceFiles({
+          companyId: row.companyId,
+          agentId: run.agentId,
+          adapterConfig: asRecord(run.adapterConfig) ?? {},
           sessionId: run.sessionIdAfter ?? run.sessionIdBefore,
           stdoutText,
           state,
