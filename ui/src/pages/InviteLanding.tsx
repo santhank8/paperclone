@@ -20,7 +20,7 @@ const adapterLabels: Record<string, string> = {
   pi_local: "Pi (local)",
   openclaw_gateway: "OpenClaw Gateway",
   cursor: "Cursor (local)",
-  hermes_local: "Hermes Agent",
+  hermes_local: "Hermes Agent (local)",
   process: "Process",
   http: "HTTP",
 };

@@ -5,7 +5,7 @@ import { buildHermesConfig } from "hermes-paperclip-adapter/ui";
 
 export const hermesLocalUIAdapter: UIAdapterModule = {
   type: "hermes_local",
-  label: "Hermes Agent",
+  label: "Hermes Agent (local)",
   parseStdoutLine: parseHermesStdoutLine,
   ConfigFields: HermesLocalConfigFields,
   buildAdapterConfig: buildHermesConfig,
