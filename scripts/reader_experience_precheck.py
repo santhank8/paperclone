@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 from pathlib import Path
 from typing import Any
 
@@ -16,9 +17,23 @@ def paragraphs(markdown: str) -> list[str]:
     return [chunk for chunk in chunks if chunk]
 
 
-def evaluate_reader(draft: dict[str, Any], source_path: str) -> dict[str, Any]:
+def draft_text(draft: dict[str, Any]) -> str:
     markdown = draft.get("markdown") or draft.get("content_markdown") or ""
-    markdown = markdown if isinstance(markdown, str) else ""
+    if isinstance(markdown, str) and markdown.strip():
+        return markdown
+    article_html = draft.get("article_html") or draft.get("wordpress_body_html") or ""
+    if isinstance(article_html, str) and article_html.strip():
+        text = article_html
+        text = re.sub(r"</(p|li|h[1-6]|tr|table|ol|ul|nav|div)>", "\n\n", text, flags=re.I)
+        text = re.sub(r"<[^>]+>", " ", text)
+        text = re.sub(r"\s+", " ", text)
+        text = re.sub(r"( \n|\n )", "\n", text)
+        return text.strip()
+    return ""
+
+
+def evaluate_reader(draft: dict[str, Any], source_path: str) -> dict[str, Any]:
+    markdown = draft_text(draft)
     parts = paragraphs(markdown)
     first_dropoff = None
     if len(parts) >= 3 and len(parts[0]) + len(parts[1]) > 900:

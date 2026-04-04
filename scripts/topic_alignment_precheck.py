@@ -30,6 +30,13 @@ def extract_sections(payload: dict[str, Any]) -> list[str]:
             stripped = line.strip()
             if stripped.startswith("#"):
                 section_titles.append(stripped.lstrip("#").strip())
+    article_html = payload.get("article_html") or payload.get("wordpress_body_html") or ""
+    if isinstance(article_html, str) and article_html.strip():
+        for match in re.findall(r"<h[1-6][^>]*>(.*?)</h[1-6]>", article_html, flags=re.I | re.S):
+            text = re.sub(r"<[^>]+>", " ", match)
+            text = re.sub(r"\s+", " ", text).strip()
+            if text:
+                section_titles.append(text)
     return section_titles
 
 
@@ -53,6 +60,17 @@ def evaluate_alignment(payload: dict[str, Any], approved_topic: str) -> dict[str
     title = extract_title(payload)
     sections = extract_sections(payload)
     ending = payload.get("ending_judgment") or payload.get("ending") or ""
+    if not ending:
+        article_html = payload.get("article_html") or payload.get("wordpress_body_html") or ""
+        if isinstance(article_html, str) and article_html.strip():
+            verdict_match = re.search(
+                r'<h[1-6][^>]*id="section-verdict"[^>]*>.*?</h[1-6]>(.*)$',
+                article_html,
+                flags=re.I | re.S,
+            )
+            if verdict_match:
+                ending = re.sub(r"<[^>]+>", " ", verdict_match.group(1))
+                ending = re.sub(r"\s+", " ", ending).strip()
 
     numbered_promise = any(token in title for token in ("3", "세 ", "세 가지", "3가지"))
     section_text = " ".join(sections)
@@ -63,7 +81,8 @@ def evaluate_alignment(payload: dict[str, Any], approved_topic: str) -> dict[str
     ending_alignment = True
     reasons: list[str] = []
 
-    if numbered_promise and len(sections) < 3:
+    numbered_sections = [section for section in sections if re.search(r"(변화\s*[123]|1|2|3)", section)]
+    if numbered_promise and len(numbered_sections) < 3:
         drift_type = "title_structure_mismatch"
         broken_section = "visible sections do not expose the numbered promise"
         reasons.append("numbered_title_promise_not_reflected")

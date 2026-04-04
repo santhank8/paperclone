@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 from pathlib import Path
 from typing import Any
 
@@ -13,20 +14,31 @@ def load_json(path: str) -> dict[str, Any]:
 
 def first_screen_text(draft: dict[str, Any]) -> str:
     markdown = draft.get("markdown") or draft.get("content_markdown") or ""
-    if not isinstance(markdown, str):
-        return ""
-    lines = [line.strip() for line in markdown.splitlines() if line.strip()]
-    return " ".join(lines[:5])
+    if isinstance(markdown, str) and markdown.strip():
+        lines = [line.strip() for line in markdown.splitlines() if line.strip()]
+        return " ".join(lines[:5])
+    article_html = draft.get("article_html") or draft.get("wordpress_body_html") or ""
+    if isinstance(article_html, str) and article_html.strip():
+        text = re.sub(r"<[^>]+>", " ", article_html)
+        text = re.sub(r"\s+", " ", text).strip()
+        return " ".join(text.split()[:120])
+    return ""
 
 
 def evaluate_explainer(draft: dict[str, Any], source_path: str) -> dict[str, Any]:
     opening = first_screen_text(draft)
     lowered = opening.lower()
 
-    opening_complete = all(
+    english_opening_complete = all(
         marker in lowered or marker in opening
         for marker in ("what changed", "why it matters", "who should care")
-    ) or all(marker in opening for marker in ("무엇", "왜", "누가"))
+    )
+    korean_opening_complete = (
+        ("변화" in opening or "달라졌" in opening or "무슨 일" in opening)
+        and ("일반 사용자" in opening or "누가" in opening or "사용자" in opening or "비즈니스 사용자" in opening)
+        and ("중요" in opening or "의미" in opening or "체감" in opening or "판단" in opening or "왜" in opening)
+    )
+    opening_complete = english_opening_complete or korean_opening_complete
 
     jargon_terms = ["mcp", "token", "latency", "inference", "orchestrator", "context window"]
     jargon_hits = sum(1 for term in jargon_terms if term.lower() in lowered)

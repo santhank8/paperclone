@@ -21,6 +21,9 @@ def has_quick_scan_block(draft: dict[str, Any]) -> bool:
     for value in text_candidates:
         if isinstance(value, str) and ("quick-scan" in value.lower() or "빠르게 보기" in value or "한눈에" in value):
             return True
+    article_html = draft.get("article_html") or draft.get("wordpress_body_html") or ""
+    if isinstance(article_html, str) and ("이번 글에서 바로 볼" in article_html or "핵심 요약" in article_html):
+        return True
     return False
 
 
@@ -29,6 +32,9 @@ def has_toc(draft: dict[str, Any]) -> bool:
         return True
     markdown = draft.get("markdown") or draft.get("content_markdown") or ""
     if isinstance(markdown, str) and ("## 목차" in markdown or "table of contents" in markdown.lower()):
+        return True
+    article_html = draft.get("article_html") or draft.get("wordpress_body_html") or ""
+    if isinstance(article_html, str) and ("reader-toc" in article_html or ">목차<" in article_html):
         return True
     return False
 
