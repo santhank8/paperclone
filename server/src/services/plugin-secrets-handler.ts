@@ -169,13 +169,7 @@ function checkRateLimit(key: string, maxAttempts: number, windowMs: number): boo
   if (existing.length >= maxAttempts) return false;
   
   existing.push(now);
-  
-  if (existing.length === 0) {
-    // Should never happen here because of push(), but good hygiene
-    _limiterState.delete(key);
-  } else {
-    _limiterState.set(key, existing);
-  }
+  _limiterState.set(key, existing);
   
   return true;
 }
@@ -336,28 +330,18 @@ export function createPluginSecretsHandler(
         cachedAllowedRefsExpiry = now + CONFIG_CACHE_TTL_MS;
       }
 
-      if (!cachedAllowedRefs.has(trimmedRef)) {
-        // Fallback: Check if the plugin explicitly created this secret.
-        // This handles the secure onboarding use-case where a plugin creates
-        // a secret via `write` and then immediately needs to `resolve` it,
-        // before the UI has a chance to update the plugin's configuration JSON.
-        const secret = await db
-          .select({ createdByUserId: companySecrets.createdByUserId })
-          .from(companySecrets)
-          .where(eq(companySecrets.id, trimmedRef))
-          .then((rows) => rows[0] ?? null);
-          
-        if (!secret || secret.createdByUserId !== `plugin:${pluginId}`) {
-          // Return "not found" to avoid leaking whether the secret exists
-          throw secretNotFound(trimmedRef);
-        }
-      }
-
       // ---------------------------------------------------------------
       // 2. Look up the secret record by UUID
       // ---------------------------------------------------------------
       const secret = await db
-        .select()
+        .select({ 
+          id: companySecrets.id,
+          companyId: companySecrets.companyId,
+          provider: companySecrets.provider,
+          externalRef: companySecrets.externalRef,
+          latestVersion: companySecrets.latestVersion,
+          createdByUserId: companySecrets.createdByUserId
+        })
         .from(companySecrets)
         .where(eq(companySecrets.id, trimmedRef))
         .then((rows) => rows[0] ?? null);
@@ -367,7 +351,28 @@ export function createPluginSecretsHandler(
       }
 
       // ---------------------------------------------------------------
-      // 3. Fetch the latest version's material
+      // 3. Ownership & Multi-Tenant Scoping
+      // ---------------------------------------------------------------
+      if (!cachedAllowedRefs.has(trimmedRef)) {
+        // Fallback: Check if the plugin explicitly created this secret.
+        // This handles the secure onboarding use-case where a plugin creates
+        // a secret via `write` and then immediately needs to `resolve` it.
+        //
+        // CRITICAL SECURITY: We must also check that the secret belongs to the
+        // company that installed this plugin.
+        const plugin = await registry.getById(pluginId);
+        
+        if (
+          secret.createdByUserId !== `plugin:${pluginId}` || 
+          secret.companyId !== plugin?.companyId
+        ) {
+          // Return "not found" to avoid leaking cross-tenant secrets
+          throw secretNotFound(trimmedRef);
+        }
+      }
+
+      // ---------------------------------------------------------------
+      // 4. Fetch the latest version's material
       // ---------------------------------------------------------------
       const versionRow = await db
         .select()
@@ -385,7 +390,7 @@ export function createPluginSecretsHandler(
       }
 
       // ---------------------------------------------------------------
-      // 4. Resolve through the appropriate secret provider
+      // 5. Resolve through the appropriate secret provider
       // ---------------------------------------------------------------
       const provider = getSecretProvider(secret.provider as SecretProvider);
       const resolved = await provider.resolveVersion({
