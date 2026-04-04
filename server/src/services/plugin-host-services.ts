@@ -440,6 +440,7 @@ const SESSION_EVENT_SUBSCRIPTION_TIMEOUT_MS = 30 * 60 * 1_000; // 30 minutes
 
 export function buildHostServices(
   db: Db,
+  companyId: string,
   pluginId: string,
   pluginKey: string,
   eventBus: PluginEventBus,
@@ -447,7 +448,7 @@ export function buildHostServices(
 ): HostServices & { dispose(): void } {
   const registry = pluginRegistryService(db);
   const stateStore = pluginStateStore(db);
-  const secretsHandler = createPluginSecretsHandler({ db, pluginId });
+  const secretsHandler = createPluginSecretsHandler({ db, pluginId, companyId });
   const companies = companyService(db);
   const agents = agentService(db);
   const heartbeat = heartbeatService(db);

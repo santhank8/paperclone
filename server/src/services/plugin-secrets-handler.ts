@@ -56,12 +56,15 @@ function invalidSecretRef(secretRef: string): Error {
 }
 
 // ---------------------------------------------------------------------------
-// Validation
+// Validation Constants
 // ---------------------------------------------------------------------------
 
 /** UUID v4 regex for validating secretRef format. */
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Secret name restricted to alphanumeric, underscores, and dashes. */
+const SECRET_NAME_RE = /^[a-zA-Z0-9_-]+$/;
 
 /**
  * Check whether a secretRef looks like a valid UUID.
@@ -193,7 +196,7 @@ export interface PluginSecretsService {
   resolve(params: PluginSecretsResolveParams): Promise<string>;
 
   /**
-   * Create a new secret in the Paperclip vault.
+   * Create or update a secret in the Paperclip vault.
    *
    * @param params - Contains companyId, name, value, and description
    * @returns The generated secret reference UUID
@@ -374,6 +377,9 @@ export function createPluginSecretsHandler(
       // ---------------------------------------------------------------
       // 1. Validation — ensure plugin is allowed to act for this company
       // ---------------------------------------------------------------
+      // Critical Security: We DO NOT trust the companyId in the payload.
+      // We verify that the plugin is actually installed and enabled for this
+      // specific company in the database.
       const settings = await db
         .select()
         .from(pluginCompanySettings)
@@ -391,13 +397,34 @@ export function createPluginSecretsHandler(
       }
 
       // ---------------------------------------------------------------
-      // 2. Input validation — secret name
+      // 2. Input validation
       // ---------------------------------------------------------------
+      
+      // Name validation
       if (!params.name || params.name.trim().length === 0) {
         throw new Error("Secret name must not be empty.");
       }
       if (params.name.length > 255) {
         throw new Error("Secret name must not exceed 255 characters.");
+      }
+      if (!SECRET_NAME_RE.test(params.name)) {
+        throw new Error("Secret name must only contain alphanumeric characters, underscores, and dashes.");
+      }
+
+      // Value validation
+      if (!params.value || params.value.length === 0) {
+        throw new Error("Secret value must not be empty.");
+      }
+      if (params.value.length > 65_536) {
+        throw new Error("Secret value must not exceed 64 KiB.");
+      }
+      if (params.value.includes("\0")) {
+        throw new Error("Secret value must not contain null bytes.");
+      }
+
+      // Description validation
+      if (params.description && params.description.length > 1024) {
+        throw new Error("Secret description must not exceed 1024 characters.");
       }
 
       // ---------------------------------------------------------------
@@ -409,7 +436,30 @@ export function createPluginSecretsHandler(
       }
 
       // ---------------------------------------------------------------
-      // 4. Secure Creation
+      // 4. Collision & Ownership Protection
+      // ---------------------------------------------------------------
+      // Check if a secret with this name already exists for the company.
+      // Plugins are allowed to UPDATE their own secrets, but not hijack
+      // secrets created by humans or other agents.
+      const existing = await secretService(db).getByName(companyId, params.name);
+      const pluginActorId = `plugin:${pluginId}`;
+
+      if (existing) {
+        if (existing.createdByUserId !== pluginActorId) {
+          throw new Error(`Collision: A secret named "${params.name}" already exists and was not created by this plugin.`);
+        }
+        
+        // Update (rotate) the existing secret
+        const updated = await secretService(db).rotate(
+          existing.id, 
+          { value: params.value },
+          { userId: pluginActorId, agentId: null }
+        );
+        return updated.id;
+      }
+
+      // ---------------------------------------------------------------
+      // 5. Secure Creation
       // ---------------------------------------------------------------
       // Crucial Security Requirement: Delegate to secretService to ensure
       // proper provider-level encryption (e.g. AES-256-GCM) is applied before
@@ -422,7 +472,7 @@ export function createPluginSecretsHandler(
           value: params.value,
           description: params.description,
         },
-        { agentId: null, userId: null } // Attributed to system/plugin via companyId context
+        { userId: pluginActorId, agentId: null }
       );
 
       return secret.id;
