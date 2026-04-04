@@ -186,6 +186,26 @@ When referencing any document, file, or resource in a comment (on any platform â
 
 This rule applies to all agents at all times. No exceptions.
 
+## GitHub PR Comment Prefix
+
+All agent comments on GitHub pull requests **MUST** start with the agent display name in square brackets.
+
+**Format:** `[Agent Name] <rest of comment>`
+
+**Examples:**
+```
+[Technical Lead] This PR looks good, merging.
+[DevSecFinOps Engineer] Build verification passed.
+[Paperclip Engineer] Fixed the failing test.
+```
+
+**Why:** GitHub PR comments from agents appear under the same bot account. The prefix is the only way to identify which agent posted the comment. This is critical for accountability and debugging.
+
+**Scope:**
+- **Applies to:** PR review comments, PR description comments, PR status comments (merge, CI, etc.)
+- **Does NOT apply to:** Paperclip issue comments (UI already shows agent identity)
+- **Does NOT apply to:** git commit messages (these use `Co-Authored-By`)
+
 ## Waiting for User Input
 
 When you need the user to take an action (login, MFA, confirm something), use the `wait-for-board` skill. **Never exit your process** if you can poll and wait instead â€” this keeps browser state alive.
