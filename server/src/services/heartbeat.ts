@@ -3291,6 +3291,7 @@ export function heartbeatService(db: Db) {
             .where(
               and(
                 eq(heartbeatRuns.companyId, issue.companyId),
+                eq(heartbeatRuns.agentId, agentId),
                 inArray(heartbeatRuns.status, ["queued", "running"]),
                 sql`${heartbeatRuns.contextSnapshot} ->> 'issueId' = ${issue.id}`,
               ),
