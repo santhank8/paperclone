@@ -47,6 +47,7 @@ export type IssueViewState = {
   groupBy: "status" | "priority" | "assignee" | "none";
   viewMode: "list" | "board";
   collapsedGroups: string[];
+  showRoutineIssues: boolean;
 };
 
 const defaultViewState: IssueViewState = {
@@ -60,6 +61,7 @@ const defaultViewState: IssueViewState = {
   groupBy: "none",
   viewMode: "list",
   collapsedGroups: [],
+  showRoutineIssues: true,
 };
 
 const quickFilterPresets = [
@@ -109,6 +111,7 @@ function applyFilters(issues: Issue[], state: IssueViewState, currentUserId?: st
   }
   if (state.labels.length > 0) result = result.filter((i) => (i.labelIds ?? []).some((id) => state.labels.includes(id)));
   if (state.projects.length > 0) result = result.filter((i) => i.projectId != null && state.projects.includes(i.projectId));
+  if (!state.showRoutineIssues) result = result.filter((i) => i.originKind !== "routine_execution");
   return result;
 }
 
@@ -141,6 +144,7 @@ function countActiveFilters(state: IssueViewState): number {
   if (state.assignees.length > 0) count++;
   if (state.labels.length > 0) count++;
   if (state.projects.length > 0) count++;
+  if (!state.showRoutineIssues) count++;
   return count;
 }
 
@@ -411,7 +415,7 @@ export function IssuesList({
                     className="h-3 w-3 ml-1 hidden sm:block"
                     onClick={(e) => {
                       e.stopPropagation();
-                      updateView({ statuses: [], priorities: [], assignees: [], labels: [], projects: [] });
+                      updateView({ statuses: [], priorities: [], assignees: [], labels: [], projects: [], showRoutineIssues: true });
                     }}
                   />
                 )}
@@ -424,7 +428,7 @@ export function IssuesList({
                   {activeFilterCount > 0 && (
                     <button
                       className="text-xs text-muted-foreground hover:text-foreground"
-                      onClick={() => updateView({ statuses: [], priorities: [], assignees: [], labels: [] })}
+                      onClick={() => updateView({ statuses: [], priorities: [], assignees: [], labels: [], showRoutineIssues: true })}
                     >
                       Clear
                     </button>
@@ -453,6 +457,15 @@ export function IssuesList({
                     })}
                   </div>
                 </div>
+
+                {/* Routine issues toggle */}
+                <label className="flex items-center gap-2 px-2 py-1 rounded-sm hover:bg-accent/50 cursor-pointer">
+                  <Checkbox
+                    checked={viewState.showRoutineIssues}
+                    onCheckedChange={() => updateView({ showRoutineIssues: !viewState.showRoutineIssues })}
+                  />
+                  <span className="text-sm">Show routine issues</span>
+                </label>
 
                 <div className="border-t border-border" />
 
