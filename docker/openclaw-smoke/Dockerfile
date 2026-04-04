@@ -1,7 +1,11 @@
 FROM node:22-alpine
 
+RUN addgroup -S smoke && adduser -S smoke -G smoke
+
 WORKDIR /app
-COPY server.mjs /app/server.mjs
+COPY --chown=smoke:smoke server.mjs /app/server.mjs
+
+USER smoke
 
 EXPOSE 8787
 
