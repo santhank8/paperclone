@@ -14,6 +14,7 @@ import {
   buildPaperclipEnv,
   readPaperclipRuntimeSkillEntries,
   joinPromptSections,
+  wrapUntrustedHandoff,
   buildInvocationEnvForLogs,
   ensureAbsoluteDirectory,
   ensureCommandResolvable,
@@ -403,7 +404,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     !sessionId && bootstrapPromptTemplate.trim().length > 0
       ? renderTemplate(bootstrapPromptTemplate, templateData).trim()
       : "";
-  const sessionHandoffNote = asString(context.paperclipSessionHandoffMarkdown, "").trim();
+  const sessionHandoffNote = wrapUntrustedHandoff(asString(context.paperclipSessionHandoffMarkdown, ""));
   const prompt = joinPromptSections([
     renderedBootstrapPrompt,
     sessionHandoffNote,
