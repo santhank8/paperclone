@@ -322,6 +322,22 @@ export function agentRoutes(db: Db) {
     }
   }
 
+  /**
+   * Allow board users unconditionally, or agents holding the specified
+   * company-scoped permission grant.  Throws 403 otherwise.
+   */
+  async function assertBoardOrGranted(req: Request, companyId: string, permissionKey: "agents:runtime-reset") {
+    assertCompanyAccess(req, companyId);
+    if (req.actor.type === "board") return;
+    if (req.actor.type !== "agent" || !req.actor.agentId) {
+      throw forbidden("Board access or explicit permission grant required");
+    }
+    const granted = await access.hasPermission(companyId, "agent", req.actor.agentId, permissionKey);
+    if (!granted) {
+      throw forbidden(`Missing permission: ${permissionKey}`);
+    }
+  }
+
   async function resolveCompanyIdForAgentReference(req: Request): Promise<string | null> {
     const companyIdQuery = req.query.companyId;
     const requestedCompanyId =
@@ -1227,14 +1243,13 @@ export function agentRoutes(db: Db) {
   });
 
   router.post("/agents/:id/runtime-state/reset-session", validate(resetAgentSessionSchema), async (req, res) => {
-    assertBoard(req);
     const id = req.params.id as string;
     const agent = await svc.getById(id);
     if (!agent) {
       res.status(404).json({ error: "Agent not found" });
       return;
     }
-    assertCompanyAccess(req, agent.companyId);
+    await assertBoardOrGranted(req, agent.companyId, "agents:runtime-reset");
 
     const taskKey =
       typeof req.body.taskKey === "string" && req.body.taskKey.trim().length > 0
@@ -1242,10 +1257,13 @@ export function agentRoutes(db: Db) {
         : null;
     const state = await heartbeat.resetRuntimeSession(id, { taskKey });
 
+    const actor = getActorInfo(req);
     await logActivity(db, {
       companyId: agent.companyId,
-      actorType: "user",
-      actorId: req.actor.userId ?? "board",
+      actorType: actor.actorType,
+      actorId: actor.actorId,
+      agentId: actor.agentId,
+      runId: actor.runId,
       action: "agent.runtime_session_reset",
       entityType: "agent",
       entityId: id,
