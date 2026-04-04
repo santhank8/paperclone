@@ -636,13 +636,24 @@ export function blogRunWorkerService(db: Db, deps: WorkerDeps = {}) {
 function normalizePublishResult(result: unknown) {
   const record = toRecord(result);
   const post = toRecord(record.post);
+  const featuredMedia = toRecord(record.featuredMedia);
+  const supportingMedia = Array.isArray(record.supportingMedia) ? record.supportingMedia : [];
   return {
+    ok: true,
+    mode: "wordpress",
+    generated_at: new Date().toISOString(),
     reusedExecution: Boolean(record.reusedExecution),
     authenticatedUser: record.authenticatedUser ?? null,
     postId: post.id ?? null,
+    post_id: post.id ?? null,
     status: post.status ?? null,
     url: post.link ?? null,
     featuredMedia: record.featuredMedia ?? null,
-    supportingMedia: Array.isArray(record.supportingMedia) ? record.supportingMedia : [],
+    featured_media: Object.keys(featuredMedia).length > 0 ? {
+      media_id: featuredMedia.mediaId ?? null,
+      source_url: featuredMedia.sourceUrl ?? null,
+      title: featuredMedia.title ?? null,
+    } : null,
+    supportingMedia,
   };
 }
