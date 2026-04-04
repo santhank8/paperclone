@@ -3,51 +3,39 @@
  * Paperclip secret provider system.
  *
  * When a plugin worker calls `ctx.secrets.resolve(secretRef)`, the JSON-RPC
- * request arrives at the host with `{ secretRef }`. This module provides the
- * concrete `HostServices.secrets` adapter that:
+ * request arrives at the host worker manager, which dispatches it to the
+ * `resolve` method in this handler.
  *
- * 1. Parses the `secretRef` string to identify the secret.
- * 2. Looks up the secret record and its latest version in the database.
- * 3. Delegates to the configured `SecretProviderModule` to decrypt /
- *    resolve the raw value.
- * 4. Returns the resolved plaintext value to the worker.
+ * ## Security
  *
- * ## Secret Reference Format
+ * 1. **Capability Gating**: Every call is checked by the `PluginCapabilityValidator`.
+ *    The worker manager ensures the plugin has `secrets.read-ref` before
+ *    calling this handler.
  *
- * A `secretRef` is a **secret UUID** — the primary key (`id`) of a row in
- * the `company_secrets` table. Operators place these UUIDs into plugin
- * config values; plugin workers resolve them at execution time via
- * `ctx.secrets.resolve(secretId)`.
+ * 2. **Scope Isolation**: A plugin may **only** resolve secrets that are
+ *    explicitly referenced in its own `plugin_config`. Brute-force UUID
+ *    enumeration is prevented by both rate-limiting and a whitelist check.
  *
- * ## Security Invariants
+ * 3. **Material Safety**: The resolved plaintext material is returned as a
+ *    JSON-RPC response to the plugin worker. It is the worker's responsibility
+ *    to never cache, log, or persist this value.
  *
- * - Resolved values are **never** logged, persisted, or included in error
- *   messages (per PLUGIN_SPEC.md §22).
- * - The handler is capability-gated: only plugins with `secrets.read-ref`
- *   declared in their manifest may call it (enforced by `host-client-factory`).
- * - The host handler itself does not cache resolved values. Each call goes
- *   through the secret provider to honour rotation.
- *
- * @see PLUGIN_SPEC.md §22 — Secrets
- * @see host-client-factory.ts — capability gating
- * @see services/secrets.ts — secretService used by agent env bindings
- */
-
-import { eq, and, desc } from "drizzle-orm";
-import type { Db } from "@paperclipai/db";
-import { companySecrets, companySecretVersions, pluginConfig } from "@paperclipai/db";
-import type { SecretProvider } from "@paperclipai/shared";
-import { getSecretProvider } from "../secrets/provider-registry.js";
-import { pluginRegistryService } from "./plugin-registry.js";
-
-// ---------------------------------------------------------------------------
-// Error helpers
-// ---------------------------------------------------------------------------
-
-/**
- * Create a sanitised error that never leaks secret material.
  * Only the ref identifier is included; never the resolved value.
  */
+
+import { and, eq } from "drizzle-orm";
+import type { Db } from "@paperclipai/db";
+import {
+  companySecrets,
+  companySecretVersions,
+  pluginConfig,
+} from "@paperclipai/db";
+import type { SecretProvider } from "@paperclipai/shared";
+
+import { getSecretProvider } from "../secrets/provider-registry.js";
+import { pluginRegistryService } from "./plugin-registry.js";
+import { secretService } from "./secrets.js";
+
 function secretNotFound(secretRef: string): Error {
   const err = new Error(`Secret not found: ${secretRef}`);
   err.name = "SecretNotFoundError";
@@ -202,6 +190,14 @@ export interface PluginSecretsService {
    *   the provider fails to resolve
    */
   resolve(params: PluginSecretsResolveParams): Promise<string>;
+
+  /**
+   * Create a new secret in the Paperclip vault.
+   *
+   * @param params - Contains companyId, name, value, and description
+   * @returns The generated secret reference UUID
+   */
+  write(params: { companyId: string; name: string; value: string; description?: string }): Promise<string>;
 }
 
 /**
@@ -349,6 +345,30 @@ export function createPluginSecretsHandler(
       });
 
       return resolved;
+    },
+
+    async write(params: { companyId: string; name: string; value: string; description?: string }): Promise<string> {
+      // Security: Prevent plugins from overwriting or spoofing critical system-level
+      // environment variables by blocking reserved prefixes.
+      const upperName = params.name.toUpperCase();
+      if (upperName.startsWith("PAPERCLIP_") || upperName.startsWith("BETTER_AUTH_")) {
+        throw new Error(`Secret name "${params.name}" is reserved for system use.`);
+      }
+
+      // Crucial Security Requirement: Delegate to secretService to ensure
+      // proper provider-level encryption (e.g. AES-256-GCM) is applied before
+      // the secret is ever persisted to the database.
+      const secret = await secretService(db).create(
+        params.companyId,
+        {
+          name: params.name,
+          provider: "database" as SecretProvider,
+          value: params.value,
+          description: params.description,
+        }
+      );
+
+      return secret.id;
     },
   };
 }
