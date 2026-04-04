@@ -34,7 +34,7 @@ export function ToolPayloadView({
 
   return (
     <div className={cn("group/payload relative", className)}>
-      <CopyButton text={displayText} />
+      {text && <CopyButton text={text} />}
       <pre
         className={cn(
           "overflow-x-auto whitespace-pre-wrap break-words font-mono text-[11px] leading-[1.6]",
@@ -58,6 +58,8 @@ function CopyButton({ text }: { text: string }) {
     navigator.clipboard.writeText(text).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
+    }).catch(() => {
+      // clipboard access denied – fail silently
     });
   }, [text]);
 
