@@ -463,6 +463,38 @@ describe("openclaw gateway adapter execute", () => {
     }
   });
 
+  it("scopes fixed session keys to the configured agent and forwards model overrides", async () => {
+    const gateway = await createMockGatewayServer();
+
+    try {
+      const result = await execute(
+        buildContext({
+          url: gateway.url,
+          headers: {
+            "x-openclaw-token": "gateway-token",
+          },
+          agentId: "sprint-scrum-master",
+          sessionKeyStrategy: "fixed",
+          sessionKey: "main",
+          model: "openai-codex/gpt-5.4",
+          thinking: "high",
+          waitTimeoutMs: 2000,
+        }),
+      );
+
+      expect(result.exitCode).toBe(0);
+
+      const payload = gateway.getAgentPayload();
+      expect(payload).toBeTruthy();
+      expect(payload?.agentId).toBe("sprint-scrum-master");
+      expect(payload?.sessionKey).toBe("agent:sprint-scrum-master:main");
+      expect(payload?.model).toBe("openai-codex/gpt-5.4");
+      expect(payload?.thinking).toBe("high");
+    } finally {
+      await gateway.close();
+    }
+  });
+
   it("fails fast when url is missing", async () => {
     const result = await execute(buildContext({}));
     expect(result.exitCode).toBe(1);

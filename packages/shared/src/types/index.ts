@@ -217,3 +217,17 @@ export type {
   PluginJobRunRecord,
   PluginWebhookDeliveryRecord,
 } from "./plugin.js";
+export type {
+  SprintPlanData,
+  VLabelBreakdown,
+  Task,
+  HandoffData,
+  SelfEvaluationScores,
+  EvalReportData,
+  EvalScores,
+  SprintReportData,
+  ShippedFeature,
+  DroppedFeature,
+  ParsingError,
+  ParsingResult,
+} from "./sprint-artifacts.js";

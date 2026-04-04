@@ -14,6 +14,14 @@ const ignoredTestConfigBasenames = new Set([
   "vitest.config.ts",
 ]);
 
+// macOS/Windows filesystem metadata files — never trigger a backend restart
+const ignoredSystemBasenames = new Set([
+  ".DS_Store",
+  "Thumbs.db",
+  "Desktop.ini",
+  ".localized",
+]);
+
 export function shouldTrackDevServerPath(relativePath) {
   const normalizedPath = String(relativePath).replaceAll("\\", "/").replace(/^\.\/+/, "");
   if (normalizedPath.length === 0) return false;
@@ -25,6 +33,9 @@ export function shouldTrackDevServerPath(relativePath) {
     return false;
   }
   if (ignoredTestConfigBasenames.has(basename)) {
+    return false;
+  }
+  if (ignoredSystemBasenames.has(basename)) {
     return false;
   }
   if (segments.some((segment) => testDirectoryNames.has(segment))) {
