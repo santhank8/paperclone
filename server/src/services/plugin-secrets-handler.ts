@@ -325,6 +325,8 @@ export function createPluginSecretsHandler(
       // ---------------------------------------------------------------
       // 2b. Rate limiting — prevent brute-force UUID enumeration
       // ---------------------------------------------------------------
+      // We use the verified companyId from the secret record to prevent
+      // bypasses via fake caller-supplied company IDs.
       if (!checkRateLimit(`${pluginId}:${secret.companyId}:resolve`, 30, 60_000)) {
         const err = new Error("Rate limit exceeded for secret resolution");
         err.name = "RateLimitExceededError";
@@ -413,10 +415,11 @@ export function createPluginSecretsHandler(
       const { companyId } = params;
 
       // ---------------------------------------------------------------
-      // 0. Rate limiting — prevent resource exhaustion
+      // 0. Global Rate limit (Defence in depth)
       // ---------------------------------------------------------------
-      if (!checkRateLimit(`${pluginId}:${companyId}:write`, 10, 60_000)) {
-        const err = new Error("Rate limit exceeded for secret creation");
+      // Blunt guard against massive parallel requests with unique fake companyIds
+      if (!checkRateLimit(`${pluginId}:global:write`, 50, 60_000)) {
+        const err = new Error("Global rate limit exceeded for secret creation");
         err.name = "RateLimitExceededError";
         throw err;
       }
@@ -441,6 +444,16 @@ export function createPluginSecretsHandler(
 
       if (!settings) {
         throw new Error(`Plugin not enabled for company: ${companyId}`);
+      }
+
+      // ---------------------------------------------------------------
+      // 1b. Scoped Rate limiting — prevent resource exhaustion
+      // ---------------------------------------------------------------
+      // Now that companyId is verified, apply the specific rate limit.
+      if (!checkRateLimit(`${pluginId}:${companyId}:write`, 10, 60_000)) {
+        const err = new Error("Rate limit exceeded for secret creation");
+        err.name = "RateLimitExceededError";
+        throw err;
       }
 
       // ---------------------------------------------------------------
