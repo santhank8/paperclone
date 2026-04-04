@@ -8,6 +8,8 @@
  *   body: { chat_id, text, message_id?, username? }
  *
  * Message parsing rules:
+ *   /routines               → list all routines (id, title, status)
+ *   /run_routine <id>       → manually trigger a routine by id
  *   /issue <title>          → create issue (explicit)
  *   /comment <id> <text>    → post comment on issue by identifier (e.g. ANGA-42)
  *   any other text          → create issue with title = first line, rest = description
@@ -18,8 +20,9 @@
 
 import { Router } from "express";
 import type { Db } from "@paperclipai/db";
-import { issueService, heartbeatService } from "../services/index.js";
+import { issueService, heartbeatService, routineService } from "../services/index.js";
 import { queueIssueAssignmentWakeup } from "../services/issue-assignment-wakeup.js";
+import { telegramNotify } from "../services/telegram-notify.js";
 import { logger } from "../middleware/logger.js";
 
 const DEFAULT_COMPANY_ID =
@@ -40,6 +43,7 @@ export function telegramRoutes(db: Db) {
   const router = Router();
   const svc = issueService(db);
   const heartbeat = heartbeatService(db);
+  const routines = routineService(db);
 
   router.post("/telegram/ingest", async (req, res) => {
     const body = req.body as IngestBody;
@@ -53,6 +57,45 @@ export function telegramRoutes(db: Db) {
     const from = body.username ? `@${body.username}` : `chat_id:${body.chat_id}`;
 
     try {
+      // /routines → list all routines
+      if (/^\/routines\s*$/i.test(text)) {
+        const list = await routines.list(DEFAULT_COMPANY_ID);
+        if (list.length === 0) {
+          await telegramNotify.info("📋 No routines configured.");
+          res.json({ ok: true, action: "routines", count: 0 });
+          return;
+        }
+        const lines = list.map((r) => {
+          const schedule = r.triggers.find((t) => t.kind === "schedule");
+          const cronLabel = schedule?.label ?? schedule?.nextRunAt?.toISOString().slice(0, 16).replace("T", " ") ?? "—";
+          return `• <code>${r.id.slice(0, 8)}</code> <b>${r.title}</b> [${r.status}] ${cronLabel}`;
+        });
+        await telegramNotify.send({
+          text: `📋 <b>Routines (${list.length})</b>\n\n${lines.join("\n")}`,
+          parse_mode: "HTML",
+        });
+        res.json({ ok: true, action: "routines", count: list.length });
+        return;
+      }
+
+      // /run_routine <routineId>
+      const runRoutineMatch = text.match(/^\/run_routine\s+(\S+)\s*$/i);
+      if (runRoutineMatch) {
+        const routineId = runRoutineMatch[1].trim();
+        try {
+          const run = await routines.runRoutine(routineId, { source: "manual" });
+          await telegramNotify.info(
+            `▶️ Routine triggered\nID: ${routineId}\nRun: ${run.id.slice(0, 8)} — status: ${run.status}`,
+          );
+          res.json({ ok: true, action: "run_routine", routineId, runId: run.id, status: run.status });
+        } catch (err: unknown) {
+          const msg = err instanceof Error ? err.message : "Unknown error";
+          await telegramNotify.info(`❌ Failed to run routine ${routineId}: ${msg}`);
+          res.status(400).json({ error: msg });
+        }
+        return;
+      }
+
       // /comment <ANGA-NNN> <message text>
       const commentMatch = text.match(/^\/comment\s+([A-Z]+-\d+)\s+([\s\S]+)$/i);
       if (commentMatch) {
