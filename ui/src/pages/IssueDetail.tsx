@@ -450,6 +450,7 @@ export function IssueDetail() {
         kind: "agent",
         agentId: agent.id,
         agentIcon: agent.icon,
+        agentAvatarUrl: agent.avatarUrl,
       });
     }
     for (const project of orderedProjects) {

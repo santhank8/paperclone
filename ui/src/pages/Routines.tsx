@@ -387,7 +387,7 @@ export function Routines() {
                       option ? (
                         currentAssignee ? (
                           <>
-                            <AgentIcon icon={currentAssignee.icon} className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                            <AgentIcon icon={currentAssignee.icon} avatarUrl={currentAssignee.avatarUrl} className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                             <span className="truncate">{option.label}</span>
                           </>
                         ) : (
@@ -402,7 +402,7 @@ export function Routines() {
                       const assignee = agentById.get(option.id);
                       return (
                         <>
-                          {assignee ? <AgentIcon icon={assignee.icon} className="h-3.5 w-3.5 shrink-0 text-muted-foreground" /> : null}
+                          {assignee ? <AgentIcon icon={assignee.icon} avatarUrl={assignee.avatarUrl} className="h-3.5 w-3.5 shrink-0 text-muted-foreground" /> : null}
                           <span className="truncate">{option.label}</span>
                         </>
                       );
@@ -622,7 +622,7 @@ export function Routines() {
                           const agent = agentById.get(routine.assigneeAgentId);
                           return agent ? (
                             <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                              <AgentIcon icon={agent.icon} className="h-4 w-4 shrink-0" />
+                              <AgentIcon icon={agent.icon} avatarUrl={agent.avatarUrl} className="h-4 w-4 shrink-0" />
                               <span className="truncate">{agent.name}</span>
                             </div>
                           ) : (
