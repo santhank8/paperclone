@@ -28,7 +28,7 @@ import { createApp } from "./app.js";
 import { loadConfig } from "./config.js";
 import { logger } from "./middleware/logger.js";
 import { setupLiveEventsWebSocketServer } from "./realtime/live-events-ws.js";
-import { heartbeatService, reconcilePersistedRuntimeServicesOnStartup, routineService } from "./services/index.js";
+import { heartbeatService, initHeartbeatScaling, reconcilePersistedRuntimeServicesOnStartup, routineService } from "./services/index.js";
 import { createStorageServiceFromConfig } from "./storage/index.js";
 import { printStartupBanner } from "./startup-banner.js";
 import { getBoardClaimWarningUrl, initializeBoardClaimChallenge } from "./board-claim.js";
@@ -563,6 +563,7 @@ export async function startServer(): Promise<StartedServer> {
     });
   
   if (config.heartbeatSchedulerEnabled) {
+    initHeartbeatScaling(config.heartbeatMaxConcurrentAdapterExecutions, config.heartbeatTimerJitterMs);
     const heartbeat = heartbeatService(db as any);
     const routines = routineService(db as any);
   
