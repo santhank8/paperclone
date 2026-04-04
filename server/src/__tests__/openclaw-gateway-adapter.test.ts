@@ -42,6 +42,7 @@ function buildContext(
 async function createMockGatewayServer(options?: {
   waitPayload?: Record<string, unknown>;
   sessionUsagePayload?: Record<string, unknown>;
+  assistantChunks?: string[];
 }) {
   const server = createServer();
   const wss = new WebSocketServer({ server });
@@ -116,7 +117,7 @@ async function createMockGatewayServer(options?: {
               seq: 1,
               stream: "assistant",
               ts: Date.now(),
-              data: { delta: "cha" },
+              data: { delta: options?.assistantChunks?.[0] ?? "cha" },
             },
           }),
         );
@@ -129,10 +130,25 @@ async function createMockGatewayServer(options?: {
               seq: 2,
               stream: "assistant",
               ts: Date.now(),
-              data: { delta: "chacha" },
+              data: { delta: options?.assistantChunks?.[1] ?? "chacha" },
             },
           }),
         );
+        for (const [index, chunk] of (options?.assistantChunks ?? []).slice(2).entries()) {
+          socket.send(
+            JSON.stringify({
+              type: "event",
+              event: "agent",
+              payload: {
+                runId,
+                seq: index + 3,
+                stream: "assistant",
+                ts: Date.now(),
+                data: { delta: chunk },
+              },
+            }),
+          );
+        }
         return;
       }
 
@@ -482,6 +498,8 @@ describe("openclaw gateway adapter execute", () => {
       expect(String(payload?.message ?? "")).toContain("PAPERCLIP_RUN_ID=run-123");
       expect(String(payload?.message ?? "")).toContain("PAPERCLIP_TASK_ID=task-123");
       expect(String(payload?.message ?? "")).toContain("~/.openclaw/workspace/paperclip-claimed-api-key.json");
+      expect(String(payload?.message ?? "")).toContain("Shell safety:");
+      expect(String(payload?.message ?? "")).toContain('AUTH_HEADER="Authorization: Bearer $PAPERCLIP_API_KEY"');
 
       expect(logs.some((entry) => entry.includes("[openclaw-gateway:event] run=run-123 stream=assistant"))).toBe(true);
     } finally {
@@ -747,6 +765,49 @@ describe("openclaw gateway adapter execute", () => {
       );
       expect(logs.some((entry) => entry.includes("auto-approved pairing request"))).toBe(true);
       expect(gateway.getAgentPayload()).toBeTruthy();
+    } finally {
+      await gateway.close();
+    }
+  });
+
+  it("marks the run failed when the final summary reports authentication failure", async () => {
+    const gateway = await createMockGatewayServer({
+      assistantChunks: [
+        "Run completed but failed to authenticate and mutate the issue.",
+        "\n\nWhat happened (summary)\n- GET /api/agents/me returned an authentication error.\n",
+      ],
+      waitPayload: {
+        runId: "run-123",
+        status: "ok",
+        startedAt: 1,
+        endedAt: 2,
+      },
+    });
+
+    try {
+      const result = await execute(
+        buildContext(
+          {
+            url: gateway.url,
+            headers: {
+              "x-openclaw-token": "gateway-token",
+            },
+            waitTimeoutMs: 2000,
+          },
+          {
+            context: {
+              taskId: "task-123",
+              issueId: "issue-123",
+              wakeReason: "issue_assigned",
+              issueIds: ["issue-123"],
+            },
+          },
+        ),
+      );
+
+      expect(result.exitCode).toBe(1);
+      expect(result.errorCode).toBe("openclaw_gateway_run_reported_failure");
+      expect(result.errorMessage).toContain("failed to authenticate");
     } finally {
       await gateway.close();
     }

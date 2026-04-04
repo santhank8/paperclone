@@ -9,12 +9,13 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { Router } from "express";
 import type { Request } from "express";
-import { and, eq, isNull, desc } from "drizzle-orm";
+import { and, asc, desc, eq, isNull } from "drizzle-orm";
 import type { Db } from "@paperclipai/db";
 import {
   agentApiKeys,
   authUsers,
   companies,
+  companyMemberships,
   invites,
   joinRequests
 } from "@paperclipai/db";
@@ -2875,6 +2876,31 @@ export function accessRoutes(
     await assertCompanyPermission(req, companyId, "users:manage_permissions");
     const members = await access.listMembers(companyId);
     res.json(members);
+  });
+
+  router.get("/companies/:companyId/assignable-users", async (req, res) => {
+    const companyId = req.params.companyId as string;
+    assertCompanyAccess(req, companyId);
+    const users = await db
+      .select({
+        membershipId: companyMemberships.id,
+        companyId: companyMemberships.companyId,
+        userId: authUsers.id,
+        name: authUsers.name,
+        email: authUsers.email,
+        membershipRole: companyMemberships.membershipRole,
+      })
+      .from(companyMemberships)
+      .innerJoin(authUsers, eq(companyMemberships.principalId, authUsers.id))
+      .where(
+        and(
+          eq(companyMemberships.companyId, companyId),
+          eq(companyMemberships.principalType, "user"),
+          eq(companyMemberships.status, "active"),
+        ),
+      )
+      .orderBy(asc(authUsers.name), asc(authUsers.email));
+    res.json(users);
   });
 
   router.patch(

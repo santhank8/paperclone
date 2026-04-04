@@ -1,3 +1,5 @@
+import type { CompanyAssignableUser } from "@paperclipai/shared";
+
 export interface AssigneeSelection {
   assigneeAgentId: string | null;
   assigneeUserId: string | null;
@@ -18,6 +20,9 @@ interface CommentAssigneeSuggestionComment {
   authorAgentId?: string | null;
   authorUserId?: string | null;
 }
+
+type AssigneeUserIdentity = Pick<CompanyAssignableUser, "userId" | "name" | "email">;
+export type AssigneeUserDirectory = Map<string, Pick<CompanyAssignableUser, "name" | "email">>;
 
 export function assigneeValueFromSelection(selection: Partial<AssigneeSelection>): string {
   if (selection.assigneeAgentId) return `agent:${selection.assigneeAgentId}`;
@@ -71,12 +76,56 @@ export function currentUserAssigneeOption(currentUserId: string | null | undefin
   }];
 }
 
+function conciseAssignableUserLabel(user: Pick<CompanyAssignableUser, "name" | "email">): string {
+  const name = user.name.trim();
+  const email = user.email.trim();
+  if (name && email && name.toLowerCase() !== email.toLowerCase()) {
+    return `${name} (${email})`;
+  }
+  return name || email;
+}
+
+function displayAssignableUserLabel(user: Pick<CompanyAssignableUser, "name" | "email">): string | null {
+  const name = user.name.trim();
+  const email = user.email.trim();
+  return name || email || null;
+}
+
+export function createAssigneeUserDirectory(users: AssigneeUserIdentity[]): AssigneeUserDirectory {
+  return new Map(
+    users.map((user) => [
+      user.userId,
+      {
+        name: user.name,
+        email: user.email,
+      },
+    ]),
+  );
+}
+
+export function companyUserAssigneeOptions(
+  users: AssigneeUserIdentity[],
+  currentUserId: string | null | undefined,
+): AssigneeOption[] {
+  return users
+    .filter((user) => user.userId !== currentUserId)
+    .map((user) => ({
+      id: assigneeValueFromSelection({ assigneeUserId: user.userId }),
+      label: conciseAssignableUserLabel(user),
+      searchText: `${user.name} ${user.email} human ${user.userId}`.trim(),
+    }));
+}
+
 export function formatAssigneeUserLabel(
   userId: string | null | undefined,
   currentUserId: string | null | undefined,
+  usersById?: AssigneeUserDirectory | null,
 ): string | null {
   if (!userId) return null;
   if (currentUserId && userId === currentUserId) return "Me";
   if (userId === "local-board") return "Board";
+  const knownUser = usersById?.get(userId);
+  const knownLabel = knownUser ? displayAssignableUserLabel(knownUser) : null;
+  if (knownLabel) return knownLabel;
   return userId.slice(0, 5);
 }

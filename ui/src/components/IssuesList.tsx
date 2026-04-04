@@ -3,10 +3,11 @@ import { useQuery } from "@tanstack/react-query";
 import { pickTextColorForPillBg } from "@/lib/color-contrast";
 import { useDialog } from "../context/DialogContext";
 import { useCompany } from "../context/CompanyContext";
+import { accessApi } from "../api/access";
 import { issuesApi } from "../api/issues";
 import { authApi } from "../api/auth";
 import { queryKeys } from "../lib/queryKeys";
-import { formatAssigneeUserLabel } from "../lib/assignees";
+import { companyUserAssigneeOptions, createAssigneeUserDirectory, formatAssigneeUserLabel } from "../lib/assignees";
 import { groupBy } from "../lib/groupBy";
 import { formatDate, cn } from "../lib/utils";
 import { timeAgo } from "../lib/timeAgo";
@@ -102,6 +103,7 @@ function applyFilters(issues: Issue[], state: IssueViewState, currentUserId?: st
       for (const assignee of state.assignees) {
         if (assignee === "__unassigned" && !issue.assigneeAgentId && !issue.assigneeUserId) return true;
         if (assignee === "__me" && currentUserId && issue.assigneeUserId === currentUserId) return true;
+        if (assignee.startsWith("__user:") && issue.assigneeUserId === assignee.slice("__user:".length)) return true;
         if (issue.assigneeAgentId === assignee) return true;
       }
       return false;
@@ -236,6 +238,19 @@ export function IssuesList({
     queryFn: () => authApi.getSession(),
   });
   const currentUserId = session?.user?.id ?? session?.session?.userId ?? null;
+  const { data: assignableUsers } = useQuery({
+    queryKey: queryKeys.access.assignableUsers(selectedCompanyId!),
+    queryFn: () => accessApi.listAssignableUsers(selectedCompanyId!),
+    enabled: !!selectedCompanyId,
+  });
+  const assignableUsersById = useMemo(
+    () => createAssigneeUserDirectory(assignableUsers ?? []),
+    [assignableUsers],
+  );
+  const userAssigneeOptions = useMemo(
+    () => companyUserAssigneeOptions(assignableUsers ?? [], currentUserId),
+    [assignableUsers, currentUserId],
+  );
 
   // Scope the storage key per company so folding/view state is independent across companies.
   const scopedKey = selectedCompanyId ? `${viewStateKey}:${selectedCompanyId}` : viewStateKey;
@@ -337,11 +352,11 @@ export function IssuesList({
         key === "__unassigned"
           ? "Unassigned"
           : key.startsWith("__user:")
-            ? (formatAssigneeUserLabel(key.slice("__user:".length), currentUserId) ?? "User")
+            ? (formatAssigneeUserLabel(key.slice("__user:".length), currentUserId, assignableUsersById) ?? "User")
             : (agentName(key) ?? key.slice(0, 8)),
       items: groups[key]!,
     }));
-  }, [filtered, viewState.groupBy, agents, agentName, currentUserId]);
+  }, [filtered, viewState.groupBy, agents, agentName, currentUserId, assignableUsersById]);
 
   const newIssueDefaults = (groupKey?: string) => {
     const defaults: Record<string, string> = {};
@@ -515,6 +530,19 @@ export function IssuesList({
                             <span className="text-sm">Me</span>
                           </label>
                         )}
+                        {userAssigneeOptions.map((user) => {
+                          const userFilterKey = `__user:${user.id.slice("user:".length)}`;
+                          return (
+                            <label key={user.id} className="flex items-center gap-2 px-2 py-1 rounded-sm hover:bg-accent/50 cursor-pointer">
+                              <Checkbox
+                                checked={viewState.assignees.includes(userFilterKey)}
+                                onCheckedChange={() => updateView({ assignees: toggleInArray(viewState.assignees, userFilterKey) })}
+                              />
+                              <User className="h-3.5 w-3.5 text-muted-foreground" />
+                              <span className="text-sm">{user.label}</span>
+                            </label>
+                          );
+                        })}
                         {(agents ?? []).map((agent) => (
                           <label key={agent.id} className="flex items-center gap-2 px-2 py-1 rounded-sm hover:bg-accent/50 cursor-pointer">
                             <Checkbox
@@ -793,7 +821,7 @@ export function IssuesList({
                                 <span className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-dashed border-muted-foreground/35 bg-muted/30">
                                   <User className="h-3 w-3" />
                                 </span>
-                                {formatAssigneeUserLabel(issue.assigneeUserId, currentUserId) ?? "User"}
+                                {formatAssigneeUserLabel(issue.assigneeUserId, currentUserId, assignableUsersById) ?? "User"}
                               </span>
                             ) : (
                               <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -848,6 +876,33 @@ export function IssuesList({
                                 <span>Me</span>
                               </button>
                             )}
+                            {userAssigneeOptions
+                              .filter((user) => {
+                                if (!assigneeSearch.trim()) return true;
+                                return (user.searchText ?? user.label)
+                                  .toLowerCase()
+                                  .includes(assigneeSearch.toLowerCase());
+                              })
+                              .map((user) => {
+                                const userId = user.id.slice("user:".length);
+                                return (
+                                  <button
+                                    key={user.id}
+                                    className={cn(
+                                      "flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-xs hover:bg-accent/50",
+                                      issue.assigneeUserId === userId && "bg-accent",
+                                    )}
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      assignIssue(issue.id, null, userId);
+                                    }}
+                                  >
+                                    <User className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                                    <span>{user.label}</span>
+                                  </button>
+                                );
+                              })}
                             {(agents ?? [])
                               .filter((agent) => {
                                 if (!assigneeSearch.trim()) return true;

@@ -422,8 +422,14 @@ function buildWakeText(
     "HTTP rules:",
     "- Use Authorization: Bearer $PAPERCLIP_API_KEY on every API call.",
     "- Use X-Paperclip-Run-Id: $PAPERCLIP_RUN_ID on every mutating API call.",
+    '- Shell safety: do NOT use unquoted array expansion for curl headers (for example `curl ... ${AUTH_HEADER[@]}`), because it splits `Bearer` and the token into separate arguments.',
+    '- Safe header pattern: `AUTH_HEADER="Authorization: Bearer $PAPERCLIP_API_KEY"` and then `curl -fsS -H "$AUTH_HEADER" ...`.',
     "- Use only /api endpoints listed below.",
     "- Do NOT call guessed endpoints like /api/cloud-adapter/*, /api/cloud-adapters/*, /api/adapters/cloud/*, or /api/heartbeat.",
+    "",
+    "Safe curl examples:",
+    '- GET identity: `curl -fsS -H "Authorization: Bearer $PAPERCLIP_API_KEY" "$PAPERCLIP_API_URL/api/agents/me"`',
+    '- Checkout: `curl -fsS -X POST -H "Authorization: Bearer $PAPERCLIP_API_KEY" -H "X-Paperclip-Run-Id: $PAPERCLIP_RUN_ID" -H \'Content-Type: application/json\' -d \'{"agentId":"$PAPERCLIP_AGENT_ID","expectedStatuses":["todo","backlog","blocked"]}\' "$PAPERCLIP_API_URL/api/issues/{issueId}/checkout"`',
     "",
     "Workflow:",
     "1) GET /api/agents/me",
@@ -1054,6 +1060,30 @@ function extractResultText(value: unknown): string | null {
   return nonEmpty(record.text) ?? nonEmpty(record.summary) ?? null;
 }
 
+function classifyReportedRunFailure(summary: string | null): { errorCode: string; errorMessage: string } | null {
+  if (!summary) return null;
+
+  const normalized = summary.trim().toLowerCase();
+  const failureSignals = [
+    "failed to authenticate",
+    "authentication error",
+    "could not resolve host",
+    "unauthorized",
+    "permission denied",
+    "run completed but failed",
+    "request failed",
+  ];
+
+  if (!failureSignals.some((signal) => normalized.includes(signal))) {
+    return null;
+  }
+
+  return {
+    errorCode: "openclaw_gateway_run_reported_failure",
+    errorMessage: summary.trim(),
+  };
+}
+
 export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExecutionResult> {
   const urlValue = asString(ctx.config.url, "").trim();
   if (!urlValue) {
@@ -1410,6 +1440,24 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
         extractResultText(asRecord(latestResultPayload)) ??
         null;
       const summary = summaryFromEvents || summaryFromPayload || null;
+      const reportedFailure = classifyReportedRunFailure(summary);
+
+      if (reportedFailure) {
+        await ctx.onLog(
+          "stderr",
+          `[openclaw-gateway] run reported failure: ${reportedFailure.errorMessage}\n`,
+        );
+        return {
+          exitCode: 1,
+          signal: null,
+          timedOut: false,
+          errorMessage: reportedFailure.errorMessage,
+          errorCode: reportedFailure.errorCode,
+          provider: "openclaw",
+          resultJson: asRecord(latestResultPayload),
+          ...(summary ? { summary } : {}),
+        };
+      }
 
       const acceptedResult = asRecord(acceptedPayload?.result);
       const latestPayload = asRecord(latestResultPayload);

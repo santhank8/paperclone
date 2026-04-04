@@ -88,6 +88,42 @@ function clearDraft(draftKey: string) {
   }
 }
 
+const DISPLAY_AUTHOR_MARKER_RE = /<!--\s*paperclip-display-author:\s*([^>]+?)\s*-->/i;
+
+function parseDisplayAuthorMarker(body: string): { label: string | null; sanitizedBody: string } {
+  const match = body.match(DISPLAY_AUTHOR_MARKER_RE);
+  const sanitizedBody = body.replace(DISPLAY_AUTHOR_MARKER_RE, "").replace(/^\s+/, "");
+  return {
+    label: match?.[1]?.trim() || null,
+    sanitizedBody,
+  };
+}
+
+function extractLegacyAtlasBridgeField(body: string, label: string): string | null {
+  const escapedLabel = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const match = body.match(new RegExp(`(?:^|\\n)[-*]\\s+\\*\\*${escapedLabel}\\*\\*:\\s+(.+)$`, "m"));
+  return match?.[1]?.trim() || null;
+}
+
+function parseLegacyAtlasBridgeSync(body: string): {
+  execution: string | null;
+  slot: string | null;
+  action: string | null;
+  reason: string | null;
+} | null {
+  if (!body.startsWith("# Atlas Bridge sync")) {
+    return null;
+  }
+
+  const reasonMatch = body.match(/(?:^|\n)[-*]\s+Reason:\s+(.+)$/m);
+  return {
+    execution: extractLegacyAtlasBridgeField(body, "Execution"),
+    slot: extractLegacyAtlasBridgeField(body, "Slot"),
+    action: extractLegacyAtlasBridgeField(body, "Action"),
+    reason: reasonMatch?.[1]?.trim() || null,
+  };
+}
+
 function parseReassignment(target: string): CommentReassignment | null {
   if (!target || target === "__none__") {
     return { assigneeAgentId: null, assigneeUserId: null };
@@ -140,6 +176,11 @@ function CommentCard({
   const isHighlighted = highlightCommentId === comment.id;
   const isPending = comment.clientStatus === "pending";
   const isQueued = queued || comment.queueState === "queued" || comment.clientStatus === "queued";
+  const { label: displayAuthorLabel, sanitizedBody } = parseDisplayAuthorMarker(comment.body);
+  const fallbackAutomationLabel = comment.body.startsWith("# Atlas Bridge sync")
+    ? "Atlas Bridge · Reporter"
+    : "Automation";
+  const legacyAtlasBridgeSync = parseLegacyAtlasBridgeSync(sanitizedBody);
 
   return (
     <div
@@ -161,8 +202,12 @@ function CommentCard({
               size="sm"
             />
           </Link>
-        ) : (
+        ) : displayAuthorLabel ? (
+          <Identity name={displayAuthorLabel} size="sm" />
+        ) : comment.authorUserId ? (
           <Identity name="You" size="sm" />
+        ) : (
+          <Identity name={fallbackAutomationLabel} size="sm" />
         )}
         <span className="flex items-center gap-1.5">
           {isQueued ? (
@@ -196,10 +241,42 @@ function CommentCard({
               {formatDateTime(comment.createdAt)}
             </a>
           )}
-          <CopyMarkdownButton text={comment.body} />
+          <CopyMarkdownButton text={sanitizedBody} />
         </span>
       </div>
-      <MarkdownBody className="text-sm">{comment.body}</MarkdownBody>
+      {legacyAtlasBridgeSync ? (
+        <div className="space-y-3 text-sm">
+          <div className="font-medium">Служебный sync snapshot</div>
+          <div className="grid gap-2 md:grid-cols-2">
+            <div className="rounded-md border border-border/70 bg-accent/20 px-3 py-2">
+              <div className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">Execution</div>
+              <div className="mt-1">{legacyAtlasBridgeSync.execution ?? "n/a"}</div>
+            </div>
+            <div className="rounded-md border border-border/70 bg-accent/20 px-3 py-2">
+              <div className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">Слот</div>
+              <div className="mt-1">{legacyAtlasBridgeSync.slot ?? "n/a"}</div>
+            </div>
+            <div className="rounded-md border border-border/70 bg-accent/20 px-3 py-2">
+              <div className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">Причина</div>
+              <div className="mt-1">{legacyAtlasBridgeSync.reason ?? "n/a"}</div>
+            </div>
+            <div className="rounded-md border border-border/70 bg-accent/20 px-3 py-2">
+              <div className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">Действие</div>
+              <div className="mt-1">{legacyAtlasBridgeSync.action ?? "n/a"}</div>
+            </div>
+          </div>
+          <details className="rounded-md border border-border/70 bg-accent/10 px-3 py-2">
+            <summary className="cursor-pointer text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
+              Raw sync payload
+            </summary>
+            <div className="mt-3">
+              <MarkdownBody className="text-sm">{sanitizedBody}</MarkdownBody>
+            </div>
+          </details>
+        </div>
+      ) : (
+        <MarkdownBody className="text-sm">{sanitizedBody}</MarkdownBody>
+      )}
       {companyId && !isPending ? (
         <div className="mt-2 space-y-2">
           <PluginSlotOutlet
@@ -242,6 +319,84 @@ type TimelineItem =
   | { kind: "comment"; id: string; createdAtMs: number; comment: CommentWithRunMeta }
   | { kind: "run"; id: string; createdAtMs: number; run: LinkedRunItem };
 
+type DisplayTimelineItem =
+  | TimelineItem
+  | {
+    kind: "atlasSyncGroup";
+    id: string;
+    createdAtMs: number;
+    items: Array<Extract<TimelineItem, { kind: "comment" }>>;
+  }
+  | {
+    kind: "atlasServiceGroup";
+    id: string;
+    createdAtMs: number;
+    items: Array<Extract<TimelineItem, { kind: "comment" }>>;
+  };
+
+function isLegacyAtlasBridgeSyncComment(body: string): boolean {
+  const { sanitizedBody } = parseDisplayAuthorMarker(body);
+  return parseLegacyAtlasBridgeSync(sanitizedBody) !== null;
+}
+
+function isAtlasBridgeServiceComment(comment: CommentWithRunMeta): boolean {
+  if (comment.authorAgentId || comment.authorUserId) return false;
+  const { label } = parseDisplayAuthorMarker(comment.body);
+  return Boolean(label?.startsWith("Atlas Bridge ·"));
+}
+
+function compactTimelineItems(timeline: TimelineItem[]): DisplayTimelineItem[] {
+  const compacted: DisplayTimelineItem[] = [];
+  let pendingSyncItems: Array<Extract<TimelineItem, { kind: "comment" }>> = [];
+  let pendingServiceItems: Array<Extract<TimelineItem, { kind: "comment" }>> = [];
+
+  const flushSyncItems = () => {
+    if (pendingSyncItems.length === 0) return;
+    if (pendingSyncItems.length === 1) {
+      compacted.push(pendingSyncItems[0]);
+    } else {
+      compacted.push({
+        kind: "atlasSyncGroup",
+        id: `atlas-sync-group:${pendingSyncItems[0]!.id}:${pendingSyncItems[pendingSyncItems.length - 1]!.id}`,
+        createdAtMs: pendingSyncItems[pendingSyncItems.length - 1]!.createdAtMs,
+        items: pendingSyncItems,
+      });
+    }
+    pendingSyncItems = [];
+  };
+
+  const flushServiceItems = () => {
+    if (pendingServiceItems.length === 0) return;
+    compacted.push({
+      kind: "atlasServiceGroup",
+      id: `atlas-service-group:${pendingServiceItems[0]!.id}:${pendingServiceItems[pendingServiceItems.length - 1]!.id}`,
+      createdAtMs: pendingServiceItems[pendingServiceItems.length - 1]!.createdAtMs,
+      items: pendingServiceItems,
+    });
+    pendingServiceItems = [];
+  };
+
+  for (const item of timeline) {
+    if (item.kind === "comment" && isLegacyAtlasBridgeSyncComment(item.comment.body)) {
+      flushServiceItems();
+      pendingSyncItems.push(item);
+      continue;
+    }
+    if (item.kind === "comment" && isAtlasBridgeServiceComment(item.comment)) {
+      flushSyncItems();
+      pendingServiceItems.push(item);
+      continue;
+    }
+    flushSyncItems();
+    flushServiceItems();
+    compacted.push(item);
+  }
+
+  flushSyncItems();
+  flushServiceItems();
+  return compacted;
+}
+
 const TimelineList = memo(function TimelineList({
   timeline,
   agentMap,
@@ -255,13 +410,121 @@ const TimelineList = memo(function TimelineList({
   projectId?: string | null;
   highlightCommentId?: string | null;
 }) {
-  if (timeline.length === 0) {
+  const displayTimeline = useMemo(() => compactTimelineItems(timeline), [timeline]);
+
+  if (displayTimeline.length === 0) {
     return <p className="text-sm text-muted-foreground">No comments or runs yet.</p>;
   }
 
   return (
     <div className="space-y-3">
-      {timeline.map((item) => {
+      {displayTimeline.map((item) => {
+        if (item.kind === "atlasSyncGroup") {
+          const latest = item.items[item.items.length - 1]!;
+          const latestSync = parseLegacyAtlasBridgeSync(parseDisplayAuthorMarker(latest.comment.body).sanitizedBody);
+          return (
+            <div
+              key={item.id}
+              className="rounded-sm border border-border bg-accent/10 p-3 text-sm"
+            >
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <Identity name="Atlas Bridge · Reporter" size="sm" />
+                    <span className="font-medium">Служебные sync snapshots</span>
+                  </div>
+                  <p className="mt-1 text-muted-foreground">
+                    Свернул {item.items.length} технических sync-комментариев Atlas Bridge.
+                    Последний snapshot: {latestSync?.execution ?? "n/a"} на {latestSync?.slot ?? "n/a"}.
+                  </p>
+                </div>
+                <span className="shrink-0 text-xs text-muted-foreground">
+                  {formatDateTime(latest.comment.createdAt)}
+                </span>
+              </div>
+
+              <details className="mt-3 rounded-md border border-border/70 bg-background/60 px-3 py-2">
+                <summary className="cursor-pointer text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                  Развернуть техническую историю
+                </summary>
+                <div className="mt-3 space-y-2">
+                  {item.items.map((entry) => {
+                    const parsed = parseLegacyAtlasBridgeSync(
+                      parseDisplayAuthorMarker(entry.comment.body).sanitizedBody,
+                    );
+                    return (
+                      <div
+                        key={entry.id}
+                        className="grid gap-2 rounded-md border border-border/60 bg-accent/10 px-3 py-2 md:grid-cols-[140px_1fr]"
+                      >
+                        <div className="text-xs text-muted-foreground">
+                          {formatDateTime(entry.comment.createdAt)}
+                        </div>
+                        <div className="grid gap-1 text-xs">
+                          <div><strong>Execution:</strong> {parsed?.execution ?? "n/a"}</div>
+                          <div><strong>Слот:</strong> {parsed?.slot ?? "n/a"}</div>
+                          <div><strong>Причина:</strong> {parsed?.reason ?? "n/a"}</div>
+                          <div><strong>Действие:</strong> {parsed?.action ?? "n/a"}</div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </details>
+            </div>
+          );
+        }
+
+        if (item.kind === "atlasServiceGroup") {
+          const latest = item.items[item.items.length - 1]!;
+          return (
+            <div
+              key={item.id}
+              className="rounded-sm border border-border bg-accent/10 p-3 text-sm"
+            >
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <Identity name="Atlas Bridge · Service Log" size="sm" />
+                    <span className="font-medium">Служебные сообщения Atlas Bridge</span>
+                  </div>
+                  <p className="mt-1 text-muted-foreground">
+                    Свернул {item.items.length} технических bridge-сообщений. Смысловые комментарии ролей остаются в ленте отдельно.
+                  </p>
+                </div>
+                <span className="shrink-0 text-xs text-muted-foreground">
+                  {formatDateTime(latest.comment.createdAt)}
+                </span>
+              </div>
+
+              <details className="mt-3 rounded-md border border-border/70 bg-background/60 px-3 py-2">
+                <summary className="cursor-pointer text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                  Развернуть техническую историю
+                </summary>
+                <div className="mt-3 space-y-2">
+                  {item.items.map((entry) => {
+                    const parsed = parseDisplayAuthorMarker(entry.comment.body);
+                    return (
+                      <div
+                        key={entry.id}
+                        className="grid gap-2 rounded-md border border-border/60 bg-accent/10 px-3 py-2 md:grid-cols-[180px_1fr]"
+                      >
+                        <div className="text-xs text-muted-foreground">
+                          <div>{formatDateTime(entry.comment.createdAt)}</div>
+                          <div className="mt-1 font-medium text-foreground/80">{parsed.label ?? "Atlas Bridge"}</div>
+                        </div>
+                        <div className="text-sm">
+                          <MarkdownBody className="text-sm">{parsed.sanitizedBody}</MarkdownBody>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </details>
+            </div>
+          );
+        }
+
         if (item.kind === "run") {
           const run = item.run;
           return (
@@ -464,10 +727,11 @@ export function CommentThread({
   }
 
   const canSubmit = !submitting && !!body.trim();
+  const displayTimeline = useMemo(() => compactTimelineItems(timeline), [timeline]);
 
   return (
     <div className="space-y-4">
-      <h3 className="text-sm font-semibold">Comments &amp; Runs ({timeline.length + queuedComments.length})</h3>
+      <h3 className="text-sm font-semibold">Comments &amp; Runs ({displayTimeline.length + queuedComments.length})</h3>
 
       {timeline.length > 0 ? (
         <TimelineList

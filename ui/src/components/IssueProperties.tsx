@@ -3,6 +3,7 @@ import { pickTextColorForPillBg } from "@/lib/color-contrast";
 import { Link } from "@/lib/router";
 import type { Issue } from "@paperclipai/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { accessApi } from "../api/access";
 import { agentsApi } from "../api/agents";
 import { authApi } from "../api/auth";
 import { issuesApi } from "../api/issues";
@@ -11,7 +12,7 @@ import { useCompany } from "../context/CompanyContext";
 import { queryKeys } from "../lib/queryKeys";
 import { useProjectOrder } from "../hooks/useProjectOrder";
 import { getRecentAssigneeIds, sortAgentsByRecency, trackRecentAssignee } from "../lib/recent-assignees";
-import { formatAssigneeUserLabel } from "../lib/assignees";
+import { companyUserAssigneeOptions, createAssigneeUserDirectory, formatAssigneeUserLabel } from "../lib/assignees";
 import { StatusIcon } from "./StatusIcon";
 import { PriorityIcon } from "./PriorityIcon";
 import { Identity } from "./Identity";
@@ -141,6 +142,11 @@ export function IssueProperties({ issue, onUpdate, inline }: IssuePropertiesProp
     queryFn: () => agentsApi.list(companyId!),
     enabled: !!companyId,
   });
+  const { data: assignableUsers } = useQuery({
+    queryKey: queryKeys.access.assignableUsers(companyId!),
+    queryFn: () => accessApi.listAssignableUsers(companyId!),
+    enabled: !!companyId,
+  });
 
   const { data: projects } = useQuery({
     queryKey: queryKeys.projects.list(companyId!),
@@ -214,11 +220,20 @@ export function IssueProperties({ issue, onUpdate, inline }: IssuePropertiesProp
     () => sortAgentsByRecency((agents ?? []).filter((a) => a.status !== "terminated"), recentAssigneeIds),
     [agents, recentAssigneeIds],
   );
+  const assignableUsersById = useMemo(
+    () => createAssigneeUserDirectory(assignableUsers ?? []),
+    [assignableUsers],
+  );
+  const otherUserOptions = useMemo(
+    () => companyUserAssigneeOptions(assignableUsers ?? [], currentUserId),
+    [assignableUsers, currentUserId],
+  );
 
   const assignee = issue.assigneeAgentId
     ? agents?.find((a) => a.id === issue.assigneeAgentId)
     : null;
-  const userLabel = (userId: string | null | undefined) => formatAssigneeUserLabel(userId, currentUserId);
+  const userLabel = (userId: string | null | undefined) =>
+    formatAssigneeUserLabel(userId, currentUserId, assignableUsersById);
   const assigneeUserLabel = userLabel(issue.assigneeUserId);
   const creatorUserLabel = userLabel(issue.createdByUserId);
 
@@ -403,6 +418,30 @@ export function IssueProperties({ issue, onUpdate, inline }: IssuePropertiesProp
             {a.name}
           </button>
         ))}
+        {otherUserOptions
+          .filter((user) => {
+            if (!assigneeSearch.trim()) return true;
+            return (user.searchText ?? user.label).toLowerCase().includes(assigneeSearch.toLowerCase());
+          })
+          .map((user) => {
+            const userId = user.id.slice("user:".length);
+            return (
+              <button
+                key={user.id}
+                className={cn(
+                  "flex items-center gap-2 w-full px-2 py-1.5 text-xs rounded hover:bg-accent/50",
+                  issue.assigneeUserId === userId && "bg-accent"
+                )}
+                onClick={() => {
+                  onUpdate({ assigneeAgentId: null, assigneeUserId: userId });
+                  setAssigneeOpen(false);
+                }}
+              >
+                <User className="h-3 w-3 shrink-0 text-muted-foreground" />
+                {user.label}
+              </button>
+            );
+          })}
       </div>
     </>
   );

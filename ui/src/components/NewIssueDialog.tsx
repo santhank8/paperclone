@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { pickTextColorForSolidBg } from "@/lib/color-contrast";
 import { useDialog } from "../context/DialogContext";
 import { useCompany } from "../context/CompanyContext";
+import { accessApi } from "../api/access";
 import { executionWorkspacesApi } from "../api/execution-workspaces";
 import { issuesApi } from "../api/issues";
 import { instanceSettingsApi } from "../api/instanceSettings";
@@ -16,6 +17,7 @@ import { getRecentAssigneeIds, sortAgentsByRecency, trackRecentAssignee } from "
 import { useToast } from "../context/ToastContext";
 import {
   assigneeValueFromSelection,
+  companyUserAssigneeOptions,
   currentUserAssigneeOption,
   parseAssigneeValue,
 } from "../lib/assignees";
@@ -310,6 +312,11 @@ export function NewIssueDialog() {
   const { data: agents } = useQuery({
     queryKey: queryKeys.agents.list(effectiveCompanyId!),
     queryFn: () => agentsApi.list(effectiveCompanyId!),
+    enabled: !!effectiveCompanyId && newIssueOpen,
+  });
+  const { data: assignableUsers } = useQuery({
+    queryKey: queryKeys.access.assignableUsers(effectiveCompanyId!),
+    queryFn: () => accessApi.listAssignableUsers(effectiveCompanyId!),
     enabled: !!effectiveCompanyId && newIssueOpen,
   });
 
@@ -790,6 +797,7 @@ export function NewIssueDialog() {
   const assigneeOptions = useMemo<InlineEntityOption[]>(
     () => [
       ...currentUserAssigneeOption(currentUserId),
+      ...companyUserAssigneeOptions(assignableUsers ?? [], currentUserId),
       ...sortAgentsByRecency(
         (agents ?? []).filter((agent) => agent.status !== "terminated"),
         recentAssigneeIds,
@@ -799,7 +807,7 @@ export function NewIssueDialog() {
         searchText: `${agent.name} ${agent.role} ${agent.title ?? ""}`,
       })),
     ],
-    [agents, currentUserId, recentAssigneeIds],
+    [agents, assignableUsers, currentUserId, recentAssigneeIds],
   );
   const projectOptions = useMemo<InlineEntityOption[]>(
     () =>

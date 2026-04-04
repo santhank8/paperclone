@@ -21,6 +21,15 @@ export interface CompanyMembership {
   updatedAt: Date;
 }
 
+export interface CompanyAssignableUser {
+  membershipId: string;
+  companyId: string;
+  userId: string;
+  name: string;
+  email: string;
+  membershipRole: string | null;
+}
+
 export interface PrincipalPermissionGrant {
   id: string;
   companyId: string;

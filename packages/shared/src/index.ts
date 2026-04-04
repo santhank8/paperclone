@@ -255,6 +255,7 @@ export type {
   DashboardSummary,
   ActivityEvent,
   SidebarBadges,
+  CompanyAssignableUser,
   CompanyMembership,
   PrincipalPermissionGrant,
   Invite,

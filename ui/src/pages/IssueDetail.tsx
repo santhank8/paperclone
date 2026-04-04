@@ -208,6 +208,340 @@ function ActorIdentity({ evt, agentMap }: { evt: ActivityEvent; agentMap: Map<st
   return <Identity name={id || "Unknown"} size="sm" />;
 }
 
+type IssueActivityDisplayItem =
+  | {
+    kind: "event";
+    id: string;
+    actorLabel: string;
+    title: string;
+    body: string | null;
+    tone: "default" | "success" | "warning" | "error" | "info";
+    createdAt: string | Date;
+  }
+  | {
+    kind: "group";
+    id: string;
+    actorLabel: string;
+    title: string;
+    body: string;
+    tone: "default" | "success" | "warning" | "error" | "info";
+    createdAt: string | Date;
+    events: ActivityEvent[];
+  };
+
+type IssueActivityEventSummary = Omit<Extract<IssueActivityDisplayItem, { kind: "event" }>, "id" | "createdAt" | "kind">;
+
+function detailString(details: Record<string, unknown> | null, key: string): string | null {
+  const value = details?.[key];
+  return typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
+}
+
+function issueCommentSnippet(evt: ActivityEvent): string | null {
+  return detailString(asRecord(evt.details), "bodySnippet");
+}
+
+function isAtlasBridgeSyncCommentEvent(evt: ActivityEvent): boolean {
+  return evt.action === "issue.comment_added" && (issueCommentSnippet(evt)?.startsWith("# Atlas Bridge sync") ?? false);
+}
+
+function isAtlasBridgeDocumentNoise(evt: ActivityEvent): boolean {
+  if (!evt.action.startsWith("issue.document_")) return false;
+  const key = detailString(asRecord(evt.details), "key");
+  return key === "atlas-execution" || key === "atlas-debug-pack";
+}
+
+function technicalAtlasGroupKind(evt: ActivityEvent): "read" | "sync-comment" | "doc" | "reconcile" | "timeline" | "artifact" | null {
+  if (evt.action === "issue.read_marked") return "read";
+  if (isAtlasBridgeSyncCommentEvent(evt)) return "sync-comment";
+  if (isAtlasBridgeDocumentNoise(evt)) return "doc";
+  if (evt.action.startsWith("Atlas sync (reconcile:schedule)")) return "reconcile";
+  if (evt.action.startsWith("Atlas timeline #")) return "timeline";
+  if (evt.action.startsWith("Atlas artifact:")) return "artifact";
+  return null;
+}
+
+function summarizeTechnicalGroup(
+  kind: NonNullable<ReturnType<typeof technicalAtlasGroupKind>>,
+  events: ActivityEvent[],
+): IssueActivityDisplayItem | null {
+  if (events.length === 0) return null;
+  if (kind === "read" || kind === "doc") return null;
+
+  const latest = events[0]!;
+  const latestDetails = asRecord(latest.details);
+  const latestExecution = detailString(latestDetails, "executionState");
+  const latestSlot = detailString(latestDetails, "slotEnv");
+  const latestEventType = detailString(latestDetails, "eventType");
+  const artifactKinds = Array.from(
+    new Set(
+      events
+        .map((evt) => {
+          const actionMatch = evt.action.match(/^Atlas artifact:\s+([^/]+)/);
+          return actionMatch?.[1]?.trim() ?? null;
+        })
+        .filter((value): value is string => Boolean(value)),
+    ),
+  );
+
+  const config: Record<Exclude<typeof kind, "read" | "doc">, { title: string; body: string; tone: IssueActivityDisplayItem["tone"] }> = {
+    "sync-comment": {
+      title: "Свернуты служебные sync-комментарии",
+      body: `Скрыто ${events.length} технических snapshot-комментариев Atlas Bridge. Их детальная история доступна во вкладке Comments в свернутом блоке.`,
+      tone: "info",
+    },
+    reconcile: {
+      title: "Bridge периодически синхронизировал состояние",
+      body: `Свернуто ${events.length} reconcile-обновлений. Последнее состояние: ${latestExecution ?? "n/a"} на ${latestSlot ?? "n/a"}.`,
+      tone: "info",
+    },
+    timeline: {
+      title: "Свернута техническая timeline из Atlas",
+      body: `Скрыто ${events.length} низкоуровневых timeline-событий${latestEventType ? `, последнее: ${latestEventType}` : ""}.`,
+      tone: "default",
+    },
+    artifact: {
+      title: "Свернуты публикации artifacts",
+      body: `Скрыто ${events.length} технических artifact-событий${artifactKinds.length ? `: ${artifactKinds.join(", ")}` : ""}.`,
+      tone: "success",
+    },
+  };
+
+  const summary = config[kind];
+  return {
+    kind: "group",
+    id: `activity-group:${kind}:${latest.id}`,
+    actorLabel: "Atlas Bridge · Service Log",
+    title: summary.title,
+    body: summary.body,
+    tone: summary.tone,
+    createdAt: latest.createdAt,
+    events,
+  };
+}
+
+function describeAtlasActivityEvent(evt: ActivityEvent): IssueActivityEventSummary | null {
+  const details = asRecord(evt.details);
+  const slotEnv = detailString(details, "slotEnv");
+  const branch = detailString(details, "branch") ?? detailString(details, "slotBranch");
+  const repo = detailString(details, "repo");
+  const turnLabel = detailString(details, "turnLabel");
+  const verifyKind = evt.action.startsWith("Atlas artifact: VerifyReport");
+
+  if (evt.action === "Atlas Bridge requested Atlas cloud execution launch") {
+    return {
+      actorLabel: "Delivery Orchestrator",
+      title: "Оркестратор отправил задачу в Atlas",
+      body: [repo ? `Репозиторий ${repo}` : null, slotEnv ? `слот ${slotEnv}` : null, branch ? `ветка ${branch}` : null].filter(Boolean).join(", "),
+      tone: "info",
+    };
+  }
+
+  if (evt.action === "Atlas Bridge launch accepted by Atlas") {
+    return {
+      actorLabel: "Atlas Executor",
+      title: "Atlas принял execution-turn",
+      body: [slotEnv ? `Слот ${slotEnv}` : null, branch ? `ветка ${branch}` : null, detailString(details, "runtimeSessionId") ? `runtime session создан` : null].filter(Boolean).join(", "),
+      tone: "info",
+    };
+  }
+
+  if (evt.action === "Atlas Bridge requested Atlas follow-up execution turn") {
+    return {
+      actorLabel: "Atlas Executor",
+      title: turnLabel ? `${turnLabel} отправлен в текущий execution` : "Следующий turn отправлен в текущий execution",
+      body: [repo ? `Репозиторий ${repo}` : null, slotEnv ? `слот ${slotEnv}` : null, branch ? `ветка ${branch}` : null].filter(Boolean).join(", "),
+      tone: "info",
+    };
+  }
+
+  if (evt.action === "Atlas Bridge follow-up accepted by Atlas") {
+    return {
+      actorLabel: "Atlas Executor",
+      title: turnLabel ? `${turnLabel} принят Atlas` : "Follow-up turn принят Atlas",
+      body: [repo ? `Репозиторий ${repo}` : null, slotEnv ? `слот ${slotEnv}` : null, branch ? `ветка ${branch}` : null].filter(Boolean).join(", "),
+      tone: "info",
+    };
+  }
+
+  if (evt.action === "Atlas Bridge advanced issue to in_review after healthy stand sync") {
+    return {
+      actorLabel: "Reporter",
+      title: "Задача переведена в In Review",
+      body: slotEnv ? `Стенд ${slotEnv} успешно синхронизирован и готов к ручной проверке.` : "Стенд успешно синхронизирован и готов к ручной проверке.",
+      tone: "success",
+    };
+  }
+
+  if (evt.action.startsWith("Atlas stand transition")) {
+    const previousState = detailString(details, "previousAttachmentState") ?? "none";
+    const nextState = detailString(details, "nextAttachmentState") ?? "unknown";
+    return {
+      actorLabel: "Stand Controller",
+      title: "Состояние стенда изменилось",
+      body: `${slotEnv ?? "n/a"}: ${previousState} -> ${nextState}${branch ? `, ветка ${branch}` : ""}.`,
+      tone: nextState === "attached" ? "success" : nextState === "drifted" ? "warning" : "info",
+    };
+  }
+
+  if (verifyKind) {
+    return {
+      actorLabel: "Technical Verifier",
+      title: "Опубликован VerifyReport",
+      body: detailString(details, "artifactCreatedAt") ?? "Результат проверки опубликован.",
+      tone: "success",
+    };
+  }
+
+  if (evt.action === "issue.comment_added") {
+    const snippet = issueCommentSnippet(evt);
+    if (snippet?.includes("### Reporter")) {
+      return {
+        actorLabel: "Reporter",
+        title: "Опубликована человекочитаемая сводка",
+        body: "Новый комментарий содержит краткий итог и ссылки для ревью.",
+        tone: "success",
+      };
+    }
+  }
+
+  if (evt.action.startsWith("Atlas sync (")) {
+    const executionState = detailString(details, "executionState");
+    const attachmentState = detailString(details, "attachmentState");
+    return {
+      actorLabel: "Atlas Bridge",
+      title: "Bridge обновил состояние задачи",
+      body: [executionState ? `execution ${executionState}` : null, slotEnv ? `слот ${slotEnv}` : null, attachmentState ? `стенд ${attachmentState}` : null].filter(Boolean).join(", "),
+      tone: "default",
+    };
+  }
+
+  return null;
+}
+
+function buildIssueActivityItems(activity: ActivityEvent[]): IssueActivityDisplayItem[] {
+  const items: IssueActivityDisplayItem[] = [];
+  let pendingKind: NonNullable<ReturnType<typeof technicalAtlasGroupKind>> | null = null;
+  let pendingEvents: ActivityEvent[] = [];
+
+  const flushPending = () => {
+    if (!pendingKind || pendingEvents.length === 0) {
+      pendingKind = null;
+      pendingEvents = [];
+      return;
+    }
+    const summary = summarizeTechnicalGroup(pendingKind, pendingEvents);
+    if (summary) items.push(summary);
+    pendingKind = null;
+    pendingEvents = [];
+  };
+
+  for (const evt of activity) {
+    const groupKind = technicalAtlasGroupKind(evt);
+    if (groupKind) {
+      if (groupKind === "read") {
+        continue;
+      }
+      if (pendingKind === groupKind) {
+        pendingEvents.push(evt);
+      } else {
+        flushPending();
+        pendingKind = groupKind;
+        pendingEvents = [evt];
+      }
+      continue;
+    }
+
+    flushPending();
+
+    const atlasDescription = describeAtlasActivityEvent(evt);
+    if (atlasDescription) {
+      items.push({
+        kind: "event",
+        id: evt.id,
+        createdAt: evt.createdAt,
+        ...atlasDescription,
+      });
+      continue;
+    }
+
+    items.push({
+      kind: "event",
+      id: evt.id,
+      actorLabel: evt.actorType === "system" ? "System" : evt.actorType === "user" ? "Board" : evt.actorId || "Unknown",
+      title: formatAction(evt.action, asRecord(evt.details)),
+      body: null,
+      tone: "default",
+      createdAt: evt.createdAt,
+    });
+  }
+
+  flushPending();
+  return items;
+}
+
+function IssueActivityFeed({ activity }: { activity: ActivityEvent[] }) {
+  const items = useMemo(() => buildIssueActivityItems(activity), [activity]);
+
+  if (items.length === 0) {
+    return <p className="text-xs text-muted-foreground">Нет значимой activity по задаче.</p>;
+  }
+
+  return (
+    <div className="space-y-3">
+      {items.slice(0, 24).map((item) => {
+        const toneClasses =
+          item.tone === "success"
+            ? "border-emerald-200 bg-emerald-50/60 dark:border-emerald-500/30 dark:bg-emerald-500/10"
+            : item.tone === "warning"
+              ? "border-amber-200 bg-amber-50/60 dark:border-amber-500/30 dark:bg-amber-500/10"
+              : item.tone === "error"
+                ? "border-red-200 bg-red-50/60 dark:border-red-500/30 dark:bg-red-500/10"
+                : item.tone === "info"
+                  ? "border-sky-200 bg-sky-50/60 dark:border-sky-500/30 dark:bg-sky-500/10"
+                  : "border-border bg-background";
+
+        if (item.kind === "group") {
+          return (
+            <details key={item.id} className={`rounded-lg border px-3 py-3 ${toneClasses}`}>
+              <summary className="cursor-pointer list-none">
+                <div className="flex items-start gap-3">
+                  <Identity name={item.actorLabel} size="sm" />
+                  <div className="min-w-0 flex-1">
+                    <div className="text-sm font-medium">{item.title}</div>
+                    <div className="mt-1 text-xs text-muted-foreground">{item.body}</div>
+                  </div>
+                  <span className="shrink-0 text-[11px] text-muted-foreground">{relativeTime(item.createdAt)}</span>
+                </div>
+              </summary>
+              <div className="mt-3 space-y-2 border-t border-border/60 pt-3">
+                {item.events.map((evt) => (
+                  <div key={evt.id} className="grid gap-1 rounded-md border border-border/60 bg-background/70 px-3 py-2 text-xs">
+                    <div className="font-medium">{evt.action}</div>
+                    <div className="text-muted-foreground">{relativeTime(evt.createdAt)}</div>
+                  </div>
+                ))}
+              </div>
+            </details>
+          );
+        }
+
+        return (
+          <div key={item.id} className={`rounded-lg border px-3 py-3 ${toneClasses}`}>
+            <div className="flex items-start gap-3">
+              <Identity name={item.actorLabel} size="sm" />
+              <div className="min-w-0 flex-1">
+                <div className="text-sm font-medium">{item.title}</div>
+                {item.body ? <div className="mt-1 text-xs text-muted-foreground">{item.body}</div> : null}
+              </div>
+              <span className="shrink-0 text-[11px] text-muted-foreground">{relativeTime(item.createdAt)}</span>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export function IssueDetail() {
   const { issueId } = useParams<{ issueId: string }>();
   const { selectedCompanyId } = useCompany();
@@ -1327,15 +1661,7 @@ export function IssueDetail() {
           {!activity || activity.length === 0 ? (
             <p className="text-xs text-muted-foreground">No activity yet.</p>
           ) : (
-            <div className="space-y-1.5">
-              {activity.slice(0, 20).map((evt) => (
-                <div key={evt.id} className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                  <ActorIdentity evt={evt} agentMap={agentMap} />
-                  <span>{formatAction(evt.action, evt.details)}</span>
-                  <span className="ml-auto shrink-0">{relativeTime(evt.createdAt)}</span>
-                </div>
-              ))}
-            </div>
+            <IssueActivityFeed activity={activity} />
           )}
         </TabsContent>
 

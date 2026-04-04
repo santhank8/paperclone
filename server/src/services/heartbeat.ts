@@ -30,6 +30,7 @@ import { budgetService, type BudgetEnforcementScope } from "./budgets.js";
 import { secretService } from "./secrets.js";
 import { resolveDefaultAgentWorkspaceDir, resolveManagedProjectWorkspaceDir } from "../home-paths.js";
 import { summarizeHeartbeatRunResultJson } from "./heartbeat-run-summary.js";
+import { logActivity } from "./activity-log.js";
 import {
   buildWorkspaceReadyComment,
   cleanupExecutionWorkspaceArtifacts,
@@ -659,6 +660,8 @@ export function shouldResetTaskSessionForWake(
 
   const wakeReason = readNonEmptyString(contextSnapshot?.wakeReason);
   if (wakeReason === "issue_assigned") return true;
+  if (wakeReason === "issue_commented") return true;
+  if (wakeReason === "issue_comment_mentioned") return true;
   return false;
 }
 
@@ -676,6 +679,8 @@ function describeSessionResetReason(
 
   const wakeReason = readNonEmptyString(contextSnapshot?.wakeReason);
   if (wakeReason === "issue_assigned") return "wake reason is issue_assigned";
+  if (wakeReason === "issue_commented") return "wake reason is issue_commented";
+  if (wakeReason === "issue_comment_mentioned") return "wake reason is issue_comment_mentioned";
   return null;
 }
 
@@ -910,6 +915,39 @@ export function heartbeatService(db: Db) {
       .from(heartbeatRuns)
       .where(eq(heartbeatRuns.id, runId))
       .then((rows) => rows[0] ?? null);
+  }
+
+  async function logIssueExecutionActivity(
+    run: typeof heartbeatRuns.$inferSelect,
+    input: {
+      action: string;
+      status: string;
+      details?: Record<string, unknown> | null;
+    },
+  ) {
+    const context = parseObject(run.contextSnapshot);
+    const issueId = readNonEmptyString(context.issueId);
+    if (!issueId) return;
+
+    await logActivity(db, {
+      companyId: run.companyId,
+      actorType: "agent",
+      actorId: run.agentId,
+      agentId: run.agentId,
+      runId: run.id,
+      action: input.action,
+      entityType: "issue",
+      entityId: issueId,
+      details: {
+        heartbeatRunId: run.id,
+        status: input.status,
+        invocationSource: run.invocationSource,
+        triggerDetail: run.triggerDetail,
+        error: run.error ?? null,
+        errorCode: run.errorCode ?? null,
+        ...input.details,
+      },
+    });
   }
 
   async function getRuntimeState(agentId: string) {
@@ -1504,6 +1542,17 @@ export function heartbeatService(db: Db) {
           finishedAt: updated.finishedAt ? new Date(updated.finishedAt).toISOString() : null,
         },
       });
+      if (status === "succeeded" || status === "failed" || status === "cancelled" || status === "timed_out") {
+        await logIssueExecutionActivity(updated, {
+          action: "issue.execution_finished",
+          status: updated.status,
+          details: {
+            finishedAt: updated.finishedAt ? new Date(updated.finishedAt).toISOString() : null,
+          },
+        }).catch((err) => {
+          logger.warn({ err, runId: updated.id, status }, "failed to log issue execution final activity");
+        });
+      }
     }
 
     return updated;
@@ -1793,6 +1842,15 @@ export function heartbeatService(db: Db) {
     });
 
     await setWakeupStatus(claimed.wakeupRequestId, "claimed", { claimedAt });
+    await logIssueExecutionActivity(claimed, {
+      action: "issue.execution_started",
+      status: claimed.status,
+      details: {
+        startedAt: claimed.startedAt ? new Date(claimed.startedAt).toISOString() : null,
+      },
+    }).catch((err) => {
+      logger.warn({ err, runId: claimed.id }, "failed to log issue execution start activity");
+    });
     return claimed;
   }
 
@@ -3494,6 +3552,12 @@ export function heartbeatService(db: Db) {
         },
       });
 
+      await logIssueExecutionActivity(newRun, {
+        action: "issue.execution_queued",
+        status: newRun.status,
+      }).catch((err) => {
+        logger.warn({ err, runId: newRun.id }, "failed to log issue execution queued activity");
+      });
       await startNextQueuedRunForAgent(agent.id);
       return newRun;
     }
@@ -3602,6 +3666,12 @@ export function heartbeatService(db: Db) {
       },
     });
 
+    await logIssueExecutionActivity(newRun, {
+      action: "issue.execution_queued",
+      status: newRun.status,
+    }).catch((err) => {
+      logger.warn({ err, runId: newRun.id }, "failed to log issue execution queued activity");
+    });
     await startNextQueuedRunForAgent(agent.id);
 
     return newRun;
