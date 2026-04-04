@@ -1616,6 +1616,46 @@ export function issueService(db: Db) {
         if (adopted) return adopted;
       }
 
+      // Recover from inconsistent state: in_progress issue with null checkoutRunId
+      // but executionRunId pointing to a stale (terminal/missing) run. Clear the
+      // stale execution lock and adopt both lock fields for the new run.
+      if (
+        checkoutRunId &&
+        current.assigneeAgentId === agentId &&
+        current.status === "in_progress" &&
+        !current.checkoutRunId &&
+        current.executionRunId &&
+        current.executionRunId !== checkoutRunId
+      ) {
+        const stale = await isTerminalOrMissingHeartbeatRun(current.executionRunId);
+        if (stale) {
+          const now = new Date();
+          const adopted = await db
+            .update(issues)
+            .set({
+              checkoutRunId,
+              executionRunId: checkoutRunId,
+              executionLockedAt: now,
+              updatedAt: now,
+            })
+            .where(
+              and(
+                eq(issues.id, id),
+                eq(issues.status, "in_progress"),
+                eq(issues.assigneeAgentId, agentId),
+                isNull(issues.checkoutRunId),
+                eq(issues.executionRunId, current.executionRunId),
+              ),
+            )
+            .returning()
+            .then((rows) => rows[0] ?? null);
+          if (adopted) {
+            const [enriched] = await withIssueLabels(db, [adopted]);
+            return enriched;
+          }
+        }
+      }
+
       if (
         checkoutRunId &&
         current.assigneeAgentId === agentId &&
@@ -1700,6 +1740,7 @@ export function issueService(db: Db) {
           status: issues.status,
           assigneeAgentId: issues.assigneeAgentId,
           checkoutRunId: issues.checkoutRunId,
+          executionRunId: issues.executionRunId,
         })
         .from(issues)
         .where(eq(issues.id, id))
@@ -1734,6 +1775,56 @@ export function issueService(db: Db) {
             ...adopted,
             adoptedFromRunId: current.checkoutRunId,
           };
+        }
+      }
+
+      // Recover from inconsistent state: checkoutRunId is null but executionRunId
+      // references a stale (terminal/missing) run. This blocks all agent operations
+      // (update, comment, release) because sameRunLock(null, actorRunId) is false
+      // and the stale-checkout adoption branch above requires a non-null checkoutRunId.
+      // Adopt both lock fields atomically when the execution lock is stale.
+      if (
+        actorRunId &&
+        current.status === "in_progress" &&
+        current.assigneeAgentId === actorAgentId &&
+        !current.checkoutRunId &&
+        current.executionRunId
+      ) {
+        const stale = await isTerminalOrMissingHeartbeatRun(current.executionRunId);
+        if (stale) {
+          const now = new Date();
+          const adopted = await db
+            .update(issues)
+            .set({
+              checkoutRunId: actorRunId,
+              executionRunId: actorRunId,
+              executionLockedAt: now,
+              updatedAt: now,
+            })
+            .where(
+              and(
+                eq(issues.id, id),
+                eq(issues.status, "in_progress"),
+                eq(issues.assigneeAgentId, actorAgentId),
+                isNull(issues.checkoutRunId),
+                eq(issues.executionRunId, current.executionRunId),
+              ),
+            )
+            .returning({
+              id: issues.id,
+              status: issues.status,
+              assigneeAgentId: issues.assigneeAgentId,
+              checkoutRunId: issues.checkoutRunId,
+              executionRunId: issues.executionRunId,
+            })
+            .then((rows) => rows[0] ?? null);
+
+          if (adopted) {
+            return {
+              ...adopted,
+              adoptedFromRunId: current.executionRunId,
+            };
+          }
         }
       }
 
