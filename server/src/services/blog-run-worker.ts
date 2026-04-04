@@ -658,6 +658,20 @@ export function blogRunWorkerService(db: Db, deps: WorkerDeps = {}) {
               },
             });
           }
+          const operatorSummaryPath = firstNonEmptyString(bundle?.operator_summary_path, path.join(runDir, "preflight.publish_ready.md"));
+          if (operatorSummaryPath) {
+            artifacts.push({
+              artifactKind: "publish_ready_preflight_markdown",
+              contentType: "text/markdown",
+              storageKind: "local_fs",
+              storagePath: operatorSummaryPath,
+              bodyPreview: "publish-ready operator summary",
+              metadata: {
+                gate: "publish_ready",
+                format: "markdown",
+              },
+            });
+          }
           if (stepKey === "validate" && resolvePublishReadyGateMode(run) === "strict") {
             const merged = toRecord(bundleResults.publish_ready);
             if (merged.ok !== true) {

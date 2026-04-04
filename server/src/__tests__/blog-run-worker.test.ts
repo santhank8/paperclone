@@ -162,6 +162,7 @@ describe("blog run worker", () => {
       runResearchStep: vi.fn().mockResolvedValue({ research: "ok" }),
       runGrokArtifactStep: vi.fn().mockResolvedValue({ ok: true, source: "grok-web-artifact-step" }),
       runQualityGateBundle: vi.fn().mockResolvedValue({
+        operator_summary_path: "/tmp/preflight.publish_ready.md",
         results: {
           research_grounding: {
             ok: true,
@@ -188,6 +189,10 @@ describe("blog run worker", () => {
         expect.objectContaining({
           artifactKind: "publish_ready_preflight_json",
           bodyPreview: "failed gates: topic_alignment",
+        }),
+        expect.objectContaining({
+          artifactKind: "publish_ready_preflight_markdown",
+          storagePath: "/tmp/preflight.publish_ready.md",
         }),
       ]),
     }));

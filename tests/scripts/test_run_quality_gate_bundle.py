@@ -37,7 +37,9 @@ class RunQualityGateBundleTests(unittest.TestCase):
             )
             result = json.loads(raw)
             self.assertTrue((run_dir / "preflight.publish_ready.json").exists())
+            self.assertTrue((run_dir / "preflight.publish_ready.md").exists())
             self.assertIn("publish_ready", result["results"])
+            self.assertIn("operator_summary_path", result)
 
 
 if __name__ == "__main__":

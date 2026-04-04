@@ -106,11 +106,19 @@ def main() -> int:
     merged_path.write_text(json.dumps(merged, ensure_ascii=False, indent=2))
     results["publish_ready"] = merged
 
+    operator_summary = subprocess.check_output(
+        [sys.executable, str(ROOT / "publish_ready_operator_summary.py"), "--publish-ready", str(merged_path)],
+        text=True,
+    )
+    operator_summary_path = run_dir / "preflight.publish_ready.md"
+    operator_summary_path.write_text(operator_summary, encoding="utf-8")
+
     payload = {
       "ok": merged["ok"],
       "run_dir": str(run_dir),
       "results": results,
       "merged_path": str(merged_path),
+      "operator_summary_path": str(operator_summary_path),
     }
     text = json.dumps(payload, ensure_ascii=False, indent=2)
     if args.out:
