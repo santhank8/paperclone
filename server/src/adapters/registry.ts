@@ -47,6 +47,15 @@ import {
   models as openCodeModels,
 } from "@paperclipai/adapter-opencode-local";
 import {
+  execute as openCodeRemoteExecute,
+  testEnvironment as openCodeRemoteTestEnvironment,
+  sessionCodec as openCodeRemoteSessionCodec,
+} from "@paperclipai/adapter-opencode-remote/server";
+import {
+  agentConfigurationDoc as openCodeRemoteAgentConfigurationDoc,
+  models as openCodeRemoteModels,
+} from "@paperclipai/adapter-opencode-remote";
+import {
   execute as openclawGatewayExecute,
   testEnvironment as openclawGatewayTestEnvironment,
 } from "@paperclipai/adapter-openclaw-gateway/server";
@@ -175,6 +184,16 @@ const piLocalAdapter: ServerAdapterModule = {
   agentConfigurationDoc: piAgentConfigurationDoc,
 };
 
+const openCodeRemoteAdapter: ServerAdapterModule = {
+  type: "opencode_remote",
+  execute: openCodeRemoteExecute,
+  testEnvironment: openCodeRemoteTestEnvironment,
+  sessionCodec: openCodeRemoteSessionCodec,
+  models: openCodeRemoteModels,
+  supportsLocalAgentJwt: false,
+  agentConfigurationDoc: openCodeRemoteAgentConfigurationDoc,
+};
+
 const hermesLocalAdapter: ServerAdapterModule = {
   type: "hermes_local",
   execute: hermesExecute,
@@ -197,6 +216,7 @@ const adaptersByType = new Map<string, ServerAdapterModule>(
     cursorLocalAdapter,
     geminiLocalAdapter,
     openclawGatewayAdapter,
+    openCodeRemoteAdapter,
     hermesLocalAdapter,
     processAdapter,
     httpAdapter,
