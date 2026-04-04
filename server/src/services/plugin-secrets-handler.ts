@@ -68,6 +68,9 @@ const UUID_RE =
 /** Secret name restricted to alphanumeric, underscores, and dashes. */
 const SECRET_NAME_RE = /^[a-zA-Z0-9_-]+$/;
 
+/** Must equal the largest window used in any checkRateLimit call in this file. */
+const MAX_RATE_LIMIT_WINDOW_MS = 60_000;
+
 /**
  * Check whether a secretRef looks like a valid UUID.
  */
@@ -181,8 +184,7 @@ function checkRateLimit(key: string, maxAttempts: number, windowMs: number): boo
  */
 setInterval(() => {
   const now = Date.now();
-  // Assume worst-case window is 60s for eviction purposes
-  const windowStart = now - 60_000;
+  const windowStart = now - MAX_RATE_LIMIT_WINDOW_MS;
   for (const [key, timestamps] of _limiterState.entries()) {
     const valid = timestamps.filter((ts) => ts > windowStart);
     if (valid.length === 0) {
@@ -335,7 +337,7 @@ export function createPluginSecretsHandler(
       // ---------------------------------------------------------------
       // We use the verified companyId from the secret record to prevent
       // bypasses via fake caller-supplied company IDs.
-      if (!checkRateLimit(`${pluginId}:${secret.companyId}:resolve`, 30, 60_000)) {
+      if (!checkRateLimit(`${pluginId}:${secret.companyId}:resolve`, 30, MAX_RATE_LIMIT_WINDOW_MS)) {
         const err = new Error("Rate limit exceeded for secret resolution");
         err.name = "RateLimitExceededError";
         throw err;
@@ -426,7 +428,7 @@ export function createPluginSecretsHandler(
       // 0. Global Rate limit (Defence in depth)
       // ---------------------------------------------------------------
       // Blunt guard against massive parallel requests with unique fake companyIds
-      if (!checkRateLimit(`${pluginId}:global:write`, 50, 60_000)) {
+      if (!checkRateLimit(`${pluginId}:global:write`, 50, MAX_RATE_LIMIT_WINDOW_MS)) {
         const err = new Error("Global rate limit exceeded for secret creation");
         err.name = "RateLimitExceededError";
         throw err;
@@ -458,7 +460,7 @@ export function createPluginSecretsHandler(
       // 1b. Scoped Rate limiting — prevent resource exhaustion
       // ---------------------------------------------------------------
       // Now that companyId is verified, apply the specific rate limit.
-      if (!checkRateLimit(`${pluginId}:${companyId}:write`, 10, 60_000)) {
+      if (!checkRateLimit(`${pluginId}:${companyId}:write`, 10, MAX_RATE_LIMIT_WINDOW_MS)) {
         const err = new Error("Rate limit exceeded for secret creation");
         err.name = "RateLimitExceededError";
         throw err;
@@ -480,7 +482,7 @@ export function createPluginSecretsHandler(
       }
 
       // Value validation
-      if (!params.value) {
+      if (!params.value || params.value.trim().length === 0) {
         throw new Error("Secret value must not be empty.");
       }
       if (Buffer.byteLength(params.value, "utf8") > 65_536) {

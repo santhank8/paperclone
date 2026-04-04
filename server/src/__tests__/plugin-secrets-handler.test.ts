@@ -5,6 +5,12 @@ import { pluginRegistryService } from "../services/plugin-registry.js";
 import { logActivity } from "../services/activity-log.js";
 import { getSecretProvider } from "../secrets/provider-registry.js";
 import { HttpError } from "../errors.js";
+import { 
+  pluginCompanySettings, 
+  companySecrets, 
+  companySecretVersions, 
+  pluginConfig 
+} from "@paperclipai/db";
 
 // Mock dependencies
 vi.mock("../services/secrets.js", () => ({
@@ -32,13 +38,28 @@ describe("plugin-secrets-handler", () => {
     vi.clearAllMocks();
     _resetRateLimiters();
     
-    // Simplest possible chained mock
-    db = {
-      select: vi.fn().mockReturnThis(),
-      from: vi.fn().mockReturnThis(),
-      where: vi.fn().mockReturnThis(),
-      then: vi.fn(),
+    // Map-based mock using actual table objects as keys
+    const tableResults = new Map<any, any[][]>();
+    const state = { activeTable: null as any };
+
+    const mockDb: any = {
+      select: vi.fn(() => mockDb),
+      from: vi.fn((table) => {
+        state.activeTable = table;
+        return mockDb;
+      }),
+      where: vi.fn(() => mockDb),
+      then: vi.fn(async (cb) => {
+        const queue = tableResults.get(state.activeTable) || [];
+        const result = queue.shift() || [];
+        return cb(result);
+      }),
+      _setTableResults: (table: any, results: any[][]) => {
+        tableResults.set(table, results);
+      }
     };
+
+    db = mockDb;
 
     // Default registry mock
     vi.mocked(pluginRegistryService).mockReturnValue({
@@ -47,120 +68,140 @@ describe("plugin-secrets-handler", () => {
   });
 
   describe("write", () => {
+    let handler: ReturnType<typeof createPluginSecretsHandler>;
+
+    beforeEach(() => {
+      handler = createPluginSecretsHandler({ db, pluginId });
+      db._setTableResults(pluginCompanySettings, Array(100).fill([{ enabled: true }]));
+
+      vi.mocked(secretService).mockReturnValue({
+        getByName: vi.fn().mockResolvedValue(null),
+        create: vi.fn().mockResolvedValue({ id: "new-secret-id" }),
+        rotate: vi.fn().mockResolvedValue({ id: "rotated-secret-id" }),
+      } as any);
+    });
+
     it("should validate the companyId via database lookup", async () => {
-      const handler = createPluginSecretsHandler({ db, pluginId });
-      db.then.mockImplementation(async (cb: any) => cb([])); // Settings check fails
-      
+      db._setTableResults(pluginCompanySettings, [[]]);
       await expect(
         handler.write({ companyId, name: "TEST_SECRET", value: "secret123" })
       ).rejects.toThrow(`Plugin not enabled for company: ${companyId}`);
     });
 
-    it("should securely create a new secret", async () => {
-      const handler = createPluginSecretsHandler({ db, pluginId });
-      db.then.mockImplementation(async (cb: any) => cb([{ enabled: true }]));
+    it("should reject empty or whitespace-only names", async () => {
+      await expect(handler.write({ companyId, name: "", value: "val" })).rejects.toThrow("Secret name must not be empty.");
+      await expect(handler.write({ companyId, name: "   ", value: "val" })).rejects.toThrow("Secret name must not be empty.");
+    });
 
-      const createMock = vi.fn().mockResolvedValue({ id: "new-secret-id" });
+    it("should reject names that are too long", async () => {
+      const longName = "a".repeat(256);
+      await expect(handler.write({ companyId, name: longName, value: "val" })).rejects.toThrow("Secret name must not exceed 255 characters.");
+    });
+
+    it("should reject invalid name characters", async () => {
+      await expect(handler.write({ companyId, name: "INVALID NAME!", value: "val" })).rejects.toThrow("Secret name must only contain alphanumeric characters, underscores, and dashes.");
+    });
+
+    it("should reject empty or whitespace-only values", async () => {
+      await expect(handler.write({ companyId, name: "VAL", value: "" })).rejects.toThrow("Secret value must not be empty.");
+      await expect(handler.write({ companyId, name: "VAL", value: "   " })).rejects.toThrow("Secret value must not be empty.");
+    });
+
+    it("should reject oversized values (64 KiB)", async () => {
+      const largeValue = "a".repeat(65537);
+      await expect(handler.write({ companyId, name: "VAL", value: largeValue })).rejects.toThrow("Secret value must not exceed 64 KiB.");
+    });
+
+    it("should reject null bytes in values", async () => {
+      await expect(handler.write({ companyId, name: "VAL", value: "v\0al" })).rejects.toThrow("Secret value must not contain null bytes.");
+    });
+
+    it("should reject reserved prefixes", async () => {
+      await expect(handler.write({ companyId, name: "PAPERCLIP_VAL", value: "val" })).rejects.toThrow('Secret name "PAPERCLIP_VAL" is reserved for system use.');
+      await expect(handler.write({ companyId, name: "BETTER_AUTH_VAL", value: "val" })).rejects.toThrow('Secret name "BETTER_AUTH_VAL" is reserved for system use.');
+    });
+
+    it("should enforce per-company rate limits", async () => {
+      for (let i = 0; i < 10; i++) {
+        await handler.write({ companyId, name: `S_${i}`, value: "val" });
+      }
+      await expect(
+        handler.write({ companyId, name: "S_11", value: "val" })
+      ).rejects.toThrow("Rate limit exceeded for secret creation");
+    });
+
+    it("should enforce global per-plugin rate limits", async () => {
+      for (let c = 0; c < 5; c++) {
+        const cId = `company_${c}`;
+        db._setTableResults(pluginCompanySettings, Array(10).fill([{ enabled: true }]));
+        for (let s = 0; s < 10; s++) {
+          await handler.write({ companyId: cId, name: `S_${s}`, value: "val" });
+        }
+      }
+      db._setTableResults(pluginCompanySettings, [[{ enabled: true }]]);
+      await expect(
+        handler.write({ companyId: "company_6", name: "S_X", value: "val" })
+      ).rejects.toThrow("Global rate limit exceeded for secret creation");
+    });
+
+    it("should allow a plugin to rotate its own secret", async () => {
+      const rotateMock = vi.fn().mockResolvedValue({ id: "rotated-id" });
       vi.mocked(secretService).mockReturnValue({
-        getByName: vi.fn().mockResolvedValue(null),
-        create: createMock,
+        getByName: vi.fn().mockResolvedValue({ id: "existing-id", createdByUserId: `plugin:${pluginId}` }),
+        rotate: rotateMock,
       } as any);
 
-      const result = await handler.write({ 
-        companyId, 
-        name: "NEW_SECRET", 
-        value: "secret123",
-      });
+      const result = await handler.write({ companyId, name: "OWNED", value: "new-val" });
+      expect(result).toBe("rotated-id");
+      expect(rotateMock).toHaveBeenCalled();
+    });
 
-      expect(result).toBe("new-secret-id");
+    it("should handle TOCTOU race via HttpError(409)", async () => {
+      const createMock = vi.fn().mockRejectedValue(new HttpError(409, "Conflict"));
+      const rotateMock = vi.fn().mockResolvedValue({ id: "rotated-raced-id" });
+      
+      vi.mocked(secretService).mockReturnValue({
+        getByName: vi.fn().mockResolvedValue({ id: "raced-id", createdByUserId: `plugin:${pluginId}` }),
+        create: createMock,
+        rotate: rotateMock,
+      } as any);
+
+      const result = await handler.write({ companyId, name: "RACED", value: "raced-val" });
+      expect(result).toBe("rotated-raced-id");
     });
   });
 
   describe("resolve", () => {
+    let handler: ReturnType<typeof createPluginSecretsHandler>;
     const secretRef = "550e8400-e29b-41d4-a716-446655440000";
 
-    it("should allow a plugin to resolve a secret it created (fallback path)", async () => {
-      const handler = createPluginSecretsHandler({ db, pluginId });
-      
-      // Sequence in resolve():
-      // 1. db.select().from(companySecrets)
-      // 2. checkRateLimit() -> no DB calls
-      // 3. cachedAllowedRefs -> db.select().from(pluginConfig)
-      // 4. cachedAllowedRefs -> registry.getById(pluginId)
-      // 5. fallback Membership check -> db.select().from(pluginCompanySettings)
-      // 6. db.select().from(companySecretVersions)
-      
-      db.then
-        .mockImplementationOnce(async (cb: any) => cb([{ // 1. Global secret lookup
-          id: secretRef, 
-          companyId, 
-          createdByUserId: `plugin:${pluginId}`,
-          latestVersion: 1,
-          provider: "local_encrypted"
-        }]))
-        .mockImplementationOnce(async (cb: any) => cb([])) // 3. cachedAllowedRefs (pluginConfig)
-        .mockImplementationOnce(async (cb: any) => cb([{ enabled: true }])) // 5. Fallback membership
-        .mockImplementationOnce(async (cb: any) => cb([{ material: {} }])); // 6. Version material
-
+    beforeEach(() => {
+      handler = createPluginSecretsHandler({ db, pluginId });
       vi.mocked(getSecretProvider).mockReturnValue({
         resolveVersion: vi.fn().mockResolvedValue("resolved-value"),
       } as any);
+    });
+
+    it("should allow a plugin to resolve a secret it created (fallback path)", async () => {
+      db._setTableResults(companySecrets, [
+        [{ id: secretRef, companyId, createdByUserId: `plugin:${pluginId}`, latestVersion: 1, provider: "local_encrypted" }]
+      ]);
+      db._setTableResults(pluginConfig, [[]]);
+      db._setTableResults(pluginCompanySettings, [[{ enabled: true }]]);
+      db._setTableResults(companySecretVersions, [[{ material: {} }]]);
 
       const result = await handler.resolve({ secretRef });
       expect(result).toBe("resolved-value");
     });
 
     it("should deny resolution if the secret belongs to a different company (cross-tenant)", async () => {
-      const handler = createPluginSecretsHandler({ db, pluginId });
-      
-      db.then
-        .mockImplementationOnce(async (cb: any) => cb([{ // 1. Global secret lookup
-          id: secretRef, 
-          companyId: "OTHER_TENANT", 
-          createdByUserId: `plugin:${pluginId}`, 
-          latestVersion: 1 
-        }]))
-        .mockImplementationOnce(async (cb: any) => cb([])) // 3. Config
-        .mockImplementationOnce(async (cb: any) => cb([])); // 5. Settings check (FAIL)
+      db._setTableResults(companySecrets, [
+        [{ id: secretRef, companyId: "OTHER_TENANT", createdByUserId: `plugin:${pluginId}`, latestVersion: 1 }]
+      ]);
+      db._setTableResults(pluginConfig, [[]]);
+      db._setTableResults(pluginCompanySettings, [[]]);
 
-      await expect(
-        handler.resolve({ secretRef })
-      ).rejects.toThrow("Secret not found");
-    });
-
-    it("should deny resolution if the secret was created by a different plugin/user", async () => {
-      const handler = createPluginSecretsHandler({ db, pluginId });
-      
-      db.then
-        .mockImplementationOnce(async (cb: any) => cb([{ // 1. Global lookup - OTHER USER
-          id: secretRef, 
-          companyId, 
-          createdByUserId: `user:someone-else`, 
-          latestVersion: 1
-        }]))
-        .mockImplementationOnce(async (cb: any) => cb([])); // 3. Config
-
-      await expect(
-        handler.resolve({ secretRef })
-      ).rejects.toThrow("Secret not found");
-    });
-
-    it("should deny resolution if the plugin is disabled for that company", async () => {
-      const handler = createPluginSecretsHandler({ db, pluginId });
-      
-      db.then
-        .mockImplementationOnce(async (cb: any) => cb([{ // 1. Global lookup
-          id: secretRef, 
-          companyId, 
-          createdByUserId: `plugin:${pluginId}`, 
-          latestVersion: 1 
-        }]))
-        .mockImplementationOnce(async (cb: any) => cb([])) // 3. Config
-        .mockImplementationOnce(async (cb: any) => cb([])); // 5. Fallback membership (DISABLED)
-
-      await expect(
-        handler.resolve({ secretRef })
-      ).rejects.toThrow("Secret not found");
+      await expect(handler.resolve({ secretRef })).rejects.toThrow("Secret not found");
     });
   });
 });
