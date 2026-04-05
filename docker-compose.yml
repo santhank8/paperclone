@@ -27,6 +27,13 @@ services:
       IRONWORKS_DEPLOYMENT_EXPOSURE: "private"
       IRONWORKS_PUBLIC_URL: "${IRONWORKS_PUBLIC_URL:-http://localhost:3100}"
       BETTER_AUTH_SECRET: "${BETTER_AUTH_SECRET:?BETTER_AUTH_SECRET must be set}"
+      # LLM Provider API keys - pass through from host .env so adapters can use them
+      ANTHROPIC_API_KEY: "${ANTHROPIC_API_KEY:-}"
+      OPENAI_API_KEY: "${OPENAI_API_KEY:-}"
+      GEMINI_API_KEY: "${GEMINI_API_KEY:-}"
+      OPENROUTER_API_KEY: "${OPENROUTER_API_KEY:-}"
+      OLLAMA_API_KEY: "${OLLAMA_API_KEY:-}"
+      OLLAMA_BASE_URL: "${OLLAMA_BASE_URL:-}"
     volumes:
       - ironworks-data:/ironworks
     depends_on:
