@@ -24,7 +24,7 @@ vi.mock("./MarkdownEditor", () => ({
   }),
 }));
 
-import { InlineEditor } from "./InlineEditor";
+import { InlineEditor, queueContainedBlurCommit } from "./InlineEditor";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 (globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
@@ -38,6 +38,17 @@ function setNativeTextareaValue(textarea: HTMLTextAreaElement, value: string) {
     ._valueTracker;
   tracker?.setValue(previous);
   textarea.dispatchEvent(new Event("input", { bubbles: true }));
+}
+
+/** Matches `queueContainedBlurCommit` (double rAF before commit). Microtasks alone do not run these. */
+function flushDoubleRequestAnimationFrame(): Promise<void> {
+  return new Promise((resolve) => {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        resolve();
+      });
+    });
+  });
 }
 
 describe("InlineEditor", () => {
@@ -137,9 +148,11 @@ describe("InlineEditor", () => {
     act(() => {
       setNativeTextareaValue(textarea!, "");
     });
-    await act(async () => {
+    act(() => {
       outside.focus();
-      await Promise.resolve();
+    });
+    await act(async () => {
+      await flushDoubleRequestAnimationFrame();
     });
 
     expect(onSave).toHaveBeenCalledTimes(1);
@@ -150,5 +163,66 @@ describe("InlineEditor", () => {
       root.unmount();
     });
     outside.remove();
+  });
+});
+
+describe("queueContainedBlurCommit", () => {
+  let container: HTMLDivElement;
+  let inside: HTMLTextAreaElement;
+  let outside: HTMLButtonElement;
+  let originalRequestAnimationFrame: typeof window.requestAnimationFrame;
+  let originalCancelAnimationFrame: typeof window.cancelAnimationFrame;
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    originalRequestAnimationFrame = window.requestAnimationFrame;
+    originalCancelAnimationFrame = window.cancelAnimationFrame;
+    window.requestAnimationFrame = ((callback: FrameRequestCallback) =>
+      window.setTimeout(() => callback(performance.now()), 0)) as typeof window.requestAnimationFrame;
+    window.cancelAnimationFrame = ((id: number) => window.clearTimeout(id)) as typeof window.cancelAnimationFrame;
+
+    container = document.createElement("div");
+    inside = document.createElement("textarea");
+    outside = document.createElement("button");
+    container.appendChild(inside);
+    document.body.append(container, outside);
+  });
+
+  afterEach(() => {
+    window.requestAnimationFrame = originalRequestAnimationFrame;
+    window.cancelAnimationFrame = originalCancelAnimationFrame;
+    container.remove();
+    outside.remove();
+    vi.useRealTimers();
+  });
+
+  async function flushFrames() {
+    await act(async () => {
+      vi.runAllTimers();
+      await Promise.resolve();
+    });
+  }
+
+  it("commits when focus stays outside the editor container", async () => {
+    const onCommit = vi.fn();
+    const cancel = queueContainedBlurCommit(container, onCommit);
+
+    outside.focus();
+    await flushFrames();
+
+    expect(onCommit).toHaveBeenCalledTimes(1);
+    cancel();
+  });
+
+  it("skips the commit when focus returns inside before the delayed check completes", async () => {
+    const onCommit = vi.fn();
+    const cancel = queueContainedBlurCommit(container, onCommit);
+
+    outside.focus();
+    inside.focus();
+    await flushFrames();
+
+    expect(onCommit).not.toHaveBeenCalled();
+    cancel();
   });
 });
