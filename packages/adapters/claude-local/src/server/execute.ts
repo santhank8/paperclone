@@ -12,6 +12,7 @@ import {
   parseObject,
   parseJson,
   buildPaperclipEnv,
+  buildSandboxConfig,
   readPaperclipRuntimeSkillEntries,
   joinPromptSections,
   buildInvocationEnvForLogs,
@@ -484,6 +485,10 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
       });
     }
 
+    const sandbox = buildSandboxConfig(config, context, cwd, {
+      additionalRoPaths: [skillsDir],
+    });
+
     const proc = await runChildProcess(runId, command, args, {
       cwd,
       env,
@@ -492,6 +497,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
       graceSec,
       onSpawn,
       onLog,
+      sandbox,
     });
 
     const parsedStream = parseClaudeStreamJson(proc.stdout);
