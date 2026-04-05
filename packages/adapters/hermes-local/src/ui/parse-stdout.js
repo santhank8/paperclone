@@ -1,2 +1,2 @@
 
-export { parseHermesStdoutLine } from '../server/parse.js';
+export { parseHermesStdoutLine, createHermesStdoutParser } from '../server/parse.js';

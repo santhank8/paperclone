@@ -41,5 +41,9 @@ export function onHireApproved(
   adapterConfig?: Record<string, unknown>,
 ): Promise<HireApprovedHookResult>;
 export function parseHermesStdoutLine(line: string, ts: string): TranscriptEntry[];
+export function createHermesStdoutParser(): {
+  parseLine: (line: string, ts: string) => TranscriptEntry[];
+  reset: () => void;
+};
 export const sessionCodec: AdapterSessionCodec;
 export function createServerAdapter(): ServerAdapterModule;

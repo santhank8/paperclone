@@ -19,7 +19,7 @@ export { listHermesModels, getStaticHermesModels, formatConfiguredModels, resetH
 export { listHermesSkills as listSkills, syncHermesSkills as syncSkills, resolveHermesDesiredSkillNames as resolveDesiredSkillNames } from './skills.js';
 export { getHermesConfigSchema as getConfigSchema } from './config-schema.js';
 export { onHireApproved } from './hire-approved.js';
-export { parseHermesOutput, parseHermesStdoutLine, isUnknownSessionError } from './parse.js';
+export { parseHermesOutput, parseHermesStdoutLine, createHermesStdoutParser, isUnknownSessionError } from './parse.js';
 
 function readNonEmptyString(value) {
   return typeof value === 'string' && value.trim() ? value.trim() : null;

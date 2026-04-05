@@ -1,5 +1,7 @@
 
-import { parseHermesStdoutLine } from '../server/parse.js';
+import { createHermesStdoutParser } from '../server/parse.js';
+
+const stdoutParser = createHermesStdoutParser();
 
 /**
  * Minimal CLI adapter surface for hosts that want a stdout formatter entrypoint.
@@ -11,7 +13,7 @@ import { parseHermesStdoutLine } from '../server/parse.js';
  */
 export function formatStdoutEvent(line, debug = false) {
   const ts = new Date().toISOString();
-  const entries = parseHermesStdoutLine(line, ts);
+  const entries = stdoutParser.parseLine(line, ts);
   for (const entry of entries) {
     if (entry.kind === 'assistant' || entry.kind === 'system') {
       process.stdout.write(`${entry.text}\n`);
