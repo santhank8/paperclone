@@ -21,6 +21,7 @@ export const DEFAULT_ALLOWED_TYPES: readonly string[] = [
   "image/jpg",
   "image/webp",
   "image/gif",
+  "text/markdown",
 ];
 
 /**
