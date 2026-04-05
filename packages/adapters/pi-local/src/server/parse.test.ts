@@ -223,6 +223,43 @@ describe("parsePiJsonl", () => {
     const parsed = parsePiJsonl(stdout);
     expect(parsed.errors).toEqual(["Cloud Code Assist API error (429): RESOURCE_EXHAUSTED"]);
   });
+
+  it("does not treat successful auto-retry as an error", () => {
+    const stdout = [
+      JSON.stringify({
+        type: "auto_retry_end",
+        success: true,
+        attempt: 2,
+      }),
+    ].join("\n");
+
+    const parsed = parsePiJsonl(stdout);
+    expect(parsed.errors).toEqual([]);
+  });
+
+  it("surfaces standalone error events", () => {
+    const stdout = [
+      JSON.stringify({
+        type: "error",
+        message: "Connection to model provider lost",
+      }),
+    ].join("\n");
+
+    const parsed = parsePiJsonl(stdout);
+    expect(parsed.errors).toEqual(["Connection to model provider lost"]);
+  });
+
+  it("ignores error events with empty messages", () => {
+    const stdout = [
+      JSON.stringify({
+        type: "error",
+        message: "",
+      }),
+    ].join("\n");
+
+    const parsed = parsePiJsonl(stdout);
+    expect(parsed.errors).toEqual([]);
+  });
 });
 
 describe("isPiUnknownSessionError", () => {
