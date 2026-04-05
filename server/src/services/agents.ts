@@ -11,6 +11,15 @@ import {
   costEvents,
   heartbeatRunEvents,
   heartbeatRuns,
+  activityLog,
+  approvalComments,
+  approvals,
+  assets,
+  goals,
+  issueComments,
+  issues,
+  joinRequests,
+  projects,
 } from "@paperclipai/db";
 import { isUuidLike, normalizeAgentUrlKey } from "@paperclipai/shared";
 import { conflict, notFound, unprocessable } from "../errors.js";
@@ -473,13 +482,29 @@ export function agentService(db: Db) {
       if (!existing) return null;
 
       return db.transaction(async (tx) => {
+        // Nullify self-references
         await tx.update(agents).set({ reportsTo: null }).where(eq(agents.reportsTo, id));
+
+        // Delete rows with NOT NULL agent FK (would block deletion)
         await tx.delete(heartbeatRunEvents).where(eq(heartbeatRunEvents.agentId, id));
         await tx.delete(agentTaskSessions).where(eq(agentTaskSessions.agentId, id));
         await tx.delete(heartbeatRuns).where(eq(heartbeatRuns.agentId, id));
         await tx.delete(agentWakeupRequests).where(eq(agentWakeupRequests.agentId, id));
         await tx.delete(agentApiKeys).where(eq(agentApiKeys.agentId, id));
         await tx.delete(agentRuntimeState).where(eq(agentRuntimeState.agentId, id));
+        await tx.delete(costEvents).where(eq(costEvents.agentId, id));
+        // Nullify nullable agent FK columns to avoid FK violations while preserving history.
+        await tx.update(joinRequests).set({ createdAgentId: null }).where(eq(joinRequests.createdAgentId, id));
+        await tx.update(issues).set({ assigneeAgentId: null }).where(eq(issues.assigneeAgentId, id));
+        await tx.update(issues).set({ createdByAgentId: null }).where(eq(issues.createdByAgentId, id));
+        await tx.update(projects).set({ leadAgentId: null }).where(eq(projects.leadAgentId, id));
+        await tx.update(goals).set({ ownerAgentId: null }).where(eq(goals.ownerAgentId, id));
+        await tx.update(activityLog).set({ agentId: null }).where(eq(activityLog.agentId, id));
+        await tx.update(issueComments).set({ authorAgentId: null }).where(eq(issueComments.authorAgentId, id));
+        await tx.update(approvalComments).set({ authorAgentId: null }).where(eq(approvalComments.authorAgentId, id));
+        await tx.update(approvals).set({ requestedByAgentId: null }).where(eq(approvals.requestedByAgentId, id));
+        await tx.update(assets).set({ createdByAgentId: null }).where(eq(assets.createdByAgentId, id));
+
         const deleted = await tx
           .delete(agents)
           .where(eq(agents.id, id))
