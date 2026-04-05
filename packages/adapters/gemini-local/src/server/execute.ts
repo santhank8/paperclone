@@ -329,17 +329,12 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
   };
 
   const buildArgs = (resumeSessionId: string | null) => {
-    const args = ["--output-format", "stream-json"];
+    const args = ["--output-format", "json"];
     if (resumeSessionId) args.push("--resume", resumeSessionId);
     if (model && model !== DEFAULT_GEMINI_LOCAL_MODEL) args.push("--model", model);
     args.push("--approval-mode", "yolo");
-    if (sandbox) {
-      args.push("--sandbox");
-    } else {
-      args.push("--sandbox=none");
-    }
+
     if (extraArgs.length > 0) args.push(...extraArgs);
-    args.push("--prompt", prompt);
     return args;
   };
 
@@ -368,10 +363,15 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
       graceSec,
       onSpawn,
       onLog,
+      stdin: prompt,
     });
+    // Strip non-JSON noise lines (e.g. "Loaded cached credentials.") that
+    // Gemini CLI v0.35.3+ may print before the actual JSON output.
+    const jsonStart = proc.stdout.indexOf('{');
+    const cleanStdout = jsonStart !== -1 ? proc.stdout.slice(jsonStart) : proc.stdout;
     return {
       proc,
-      parsed: parseGeminiJsonl(proc.stdout),
+      parsed: parseGeminiJsonl(cleanStdout),
     };
   };
 

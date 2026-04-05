@@ -492,7 +492,7 @@ async function resolveSpawnTarget(
     const commandLine = [quoteForCmd(executable), ...args.map(quoteForCmd)].join(" ");
     return {
       command: shell,
-      args: ["/d", "/s", "/c", commandLine],
+      args: ["/d", "/c", commandLine],
     };
   }
 
@@ -956,6 +956,7 @@ export async function runChildProcess(
           cwd: opts.cwd,
           env: mergedEnv,
           shell: false,
+          windowsHide: false,
           stdio: [opts.stdin != null ? "pipe" : "ignore", "pipe", "pipe"],
         }) as ChildProcessWithEvents;
         const startedAt = new Date().toISOString();
