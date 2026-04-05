@@ -44,6 +44,7 @@ const RunTranscriptUxLab = lazy(() => import("./pages/RunTranscriptUxLab").then(
 const PluginManager = lazy(() => import("./pages/PluginManager").then(m => ({ default: m.PluginManager })));
 const PluginSettings = lazy(() => import("./pages/PluginSettings").then(m => ({ default: m.PluginSettings })));
 const PluginPage = lazy(() => import("./pages/PluginPage").then(m => ({ default: m.PluginPage })));
+const ChannelView = lazy(() => import("./pages/ChannelView").then(m => ({ default: m.ChannelView })));
 const InstanceGeneralSettings = lazy(() => import("./pages/InstanceGeneralSettings").then(m => ({ default: m.InstanceGeneralSettings })));
 const InstanceSettings = lazy(() => import("./pages/InstanceSettings").then(m => ({ default: m.InstanceSettings })));
 const InstanceExperimentalSettings = lazy(() => import("./pages/InstanceExperimentalSettings").then(m => ({ default: m.InstanceExperimentalSettings })));
@@ -203,6 +204,7 @@ function boardRoutes() {
       <Route path="board-briefing" element={<LazyPage><BoardBriefing /></LazyPage>} />
       <Route path="knowledge" element={<LazyPage variant="list"><KnowledgeBase /></LazyPage>} />
       <Route path="activity" element={<Activity />} />
+      <Route path="channels/:channelId" element={<LazyPage><ChannelView /></LazyPage>} />
       <Route path="inbox" element={<InboxRootRedirect />} />
       <Route path="inbox/mine" element={<Inbox />} />
       <Route path="inbox/recent" element={<Inbox />} />

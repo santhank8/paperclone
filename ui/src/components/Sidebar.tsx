@@ -16,23 +16,29 @@ import {
   Boxes,
   Repeat,
   Settings,
+  Hash,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
+import { NavLink } from "@/lib/router";
 import { SidebarSection } from "./SidebarSection";
 import { SidebarNavItem } from "./SidebarNavItem";
 import { SidebarProjects } from "./SidebarProjects";
 import { SidebarAgents } from "./SidebarAgents";
 import { useDialog } from "../context/DialogContext";
 import { useCompany } from "../context/CompanyContext";
+import { useSidebar } from "../context/SidebarContext";
 import { heartbeatsApi } from "../api/heartbeats";
+import { channelsApi } from "../api/channels";
 import { queryKeys } from "../lib/queryKeys";
 import { useInboxBadge } from "../hooks/useInboxBadge";
 import { Button } from "@/components/ui/button";
 import { PluginSlotOutlet } from "@/plugins/slots";
+import { cn } from "../lib/utils";
 
 export function Sidebar() {
   const { openNewIssue } = useDialog();
   const { selectedCompanyId, selectedCompany } = useCompany();
+  const { isMobile, setSidebarOpen } = useSidebar();
   const inboxBadge = useInboxBadge(selectedCompanyId);
   const { data: liveRuns } = useQuery({
     queryKey: queryKeys.liveRuns(selectedCompanyId!),
@@ -41,6 +47,13 @@ export function Sidebar() {
     refetchInterval: 10_000,
   });
   const liveRunCount = liveRuns?.length ?? 0;
+
+  const { data: channels } = useQuery({
+    queryKey: queryKeys.channels.list(selectedCompanyId!),
+    queryFn: () => channelsApi.list(selectedCompanyId!),
+    enabled: !!selectedCompanyId,
+    refetchInterval: 30_000,
+  });
 
   function openSearch() {
     document.dispatchEvent(new KeyboardEvent("keydown", { key: "k", metaKey: true }));
@@ -101,6 +114,34 @@ export function Sidebar() {
           <SidebarNavItem to="/playbooks" label="Playbooks" icon={BookTemplate} />
           <SidebarNavItem to="/board-briefing" label="Board Briefing" icon={FileText} />
         </SidebarSection>
+
+        {channels && channels.length > 0 && (
+          <SidebarSection label="Channels">
+            {channels.map((channel) => (
+              <NavLink
+                key={channel.id}
+                to={`/channels/${channel.id}`}
+                onClick={() => { if (isMobile) setSidebarOpen(false); }}
+                className={({ isActive }) =>
+                  cn(
+                    "flex items-center gap-2.5 px-3 py-2.5 min-h-[36px] text-[13px] font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:rounded-md",
+                    isActive
+                      ? "bg-accent text-foreground"
+                      : "text-foreground/80 hover:bg-accent/50 hover:text-foreground",
+                  )
+                }
+              >
+                <Hash className="h-4 w-4 shrink-0" />
+                <span className="flex-1 truncate">{channel.name}</span>
+                {channel.unreadCount != null && channel.unreadCount > 0 && (
+                  <span className="ml-auto rounded-full px-1.5 py-0.5 text-xs leading-none bg-primary text-primary-foreground">
+                    {channel.unreadCount}
+                  </span>
+                )}
+              </NavLink>
+            ))}
+          </SidebarSection>
+        )}
 
         <SidebarProjects />
 

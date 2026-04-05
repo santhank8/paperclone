@@ -16,3 +16,5 @@ export { heartbeatsApi } from "./heartbeats";
 export { instanceSettingsApi } from "./instanceSettings";
 export { sidebarBadgesApi } from "./sidebarBadges";
 export { companySkillsApi } from "./companySkills";
+export { channelsApi } from "./channels";
+export type { Channel, ChannelMessage } from "./channels";

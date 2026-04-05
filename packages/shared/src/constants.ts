@@ -345,6 +345,7 @@ export const LIVE_EVENT_TYPES = [
   "plugin.ui.updated",
   "plugin.worker.crashed",
   "plugin.worker.restarted",
+  "channel.message",
 ] as const;
 export type LiveEventType = (typeof LIVE_EVENT_TYPES)[number];
 

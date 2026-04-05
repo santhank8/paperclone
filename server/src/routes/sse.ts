@@ -84,6 +84,7 @@ function sseEventName_(type: string): string {
   ) {
     return "agent_run";
   }
+  if (type === "channel.message") return "channel_message";
   // Pass other event types through as-is (dots replaced with underscores for spec compliance)
   return type.replace(/\./g, "_");
 }

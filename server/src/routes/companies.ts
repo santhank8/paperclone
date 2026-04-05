@@ -22,6 +22,7 @@ import {
   seedSystemRoleTemplates,
 } from "../services/index.js";
 import { knowledgeService } from "../services/knowledge.js";
+import { ensureCompanyChannel } from "../services/channels.js";
 import type { StorageService } from "../storage/types.js";
 import { assertBoard, assertCompanyAccess, getActorInfo } from "./authz.js";
 import { ROLE_DEFAULT_CAPABILITIES } from "../services/role-defaults.js";
@@ -254,6 +255,13 @@ export function companyRoutes(db: Db, storage?: StorageService) {
       await seedSystemRoleTemplates(db, company.id);
     } catch {
       // Non-fatal -- company is created even if seeding fails
+    }
+
+    // Auto-create the #company channel for every new company
+    try {
+      await ensureCompanyChannel(db, company.id);
+    } catch {
+      // Non-fatal
     }
 
     res.status(201).json(company);

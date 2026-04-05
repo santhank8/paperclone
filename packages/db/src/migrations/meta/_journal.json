@@ -463,6 +463,13 @@
       "when": 1775959200001,
       "tag": "0065_agent_memory_vector",
       "breakpoints": true
+    },
+    {
+      "idx": 66,
+      "version": "7",
+      "when": 1775959200002,
+      "tag": "0066_agent_chat_rooms",
+      "breakpoints": true
     }
   ]
 }

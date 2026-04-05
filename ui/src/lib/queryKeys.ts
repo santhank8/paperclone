@@ -180,6 +180,11 @@ export const queryKeys = {
   billing: {
     subscription: (companyId: string) => ["billing", "subscription", companyId] as const,
   },
+  channels: {
+    list: (companyId: string) => ["channels", companyId] as const,
+    messages: (companyId: string, channelId: string) =>
+      ["channels", companyId, channelId, "messages"] as const,
+  },
   plugins: {
     all: ["plugins"] as const,
     examples: ["plugins", "examples"] as const,

@@ -1,0 +1,25 @@
+import {
+  pgTable,
+  uuid,
+  text,
+  timestamp,
+  index,
+  uniqueIndex,
+} from "drizzle-orm/pg-core";
+import { companies } from "./companies.js";
+
+export const agentChannels = pgTable(
+  "agent_channels",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    companyId: uuid("company_id").notNull().references(() => companies.id, { onDelete: "cascade" }),
+    scopeType: text("scope_type").notNull().default("company"),
+    scopeId: text("scope_id"),
+    name: text("name").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => ({
+    companyIdx: index("agent_channels_company_idx").on(table.companyId),
+    scopeIdx: uniqueIndex("agent_channels_scope_idx").on(table.companyId, table.scopeType, table.scopeId),
+  }),
+);

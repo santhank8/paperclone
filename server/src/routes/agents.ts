@@ -67,6 +67,7 @@ import { redactCurrentUserValue } from "../log-redaction.js";
 import { renderOrgChartSvg, renderOrgChartPng, type OrgNode, type OrgChartStyle, ORG_CHART_STYLES } from "./org-chart-svg.js";
 import { instanceSettingsService } from "../services/instance-settings.js";
 import { ensureLibraryAgentFolder } from "../services/playbook-execution.js";
+import { autoJoinAgentChannels } from "../services/channels.js";
 import { runClaudeLogin } from "@ironworksai/adapter-claude-local/server";
 import {
   DEFAULT_CODEX_LOCAL_BYPASS_APPROVALS_AND_SANDBOX,
@@ -1396,6 +1397,14 @@ export function agentRoutes(db: Db) {
       });
     }
 
+    // Wire: auto-join hired agent to #company and department channels (non-fatal)
+    autoJoinAgentChannels(
+      db,
+      companyId,
+      agent.id,
+      typeof normalizedHireInput.department === "string" ? normalizedHireInput.department : undefined,
+    ).catch(() => {});
+
     // Create workspace and hiring record if agent does not require approval (already active)
     if (!requiresApproval) {
       try {
@@ -1580,6 +1589,14 @@ export function agentRoutes(db: Db) {
 
     // Wire: auto-create library folder for new agent
     ensureLibraryAgentFolder(companyId, agent.name, db).catch(() => {});
+
+    // Wire: auto-join agent to #company and department channels
+    autoJoinAgentChannels(
+      db,
+      companyId,
+      agent.id,
+      typeof createInput.department === "string" ? createInput.department : undefined,
+    ).catch(() => {});
 
     // Build and store contractor onboarding packet if applicable
     if (resolvedEmploymentType === "contractor") {
