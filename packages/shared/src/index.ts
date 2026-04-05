@@ -377,6 +377,7 @@ export {
   updateCompanySchema,
   updateCompanyBrandingSchema,
   companyResetRequestSchema,
+  deleteCompanyRequestSchema,
   feedbackTargetTypeSchema,
   feedbackTraceStatusSchema,
   feedbackVoteValueSchema,
