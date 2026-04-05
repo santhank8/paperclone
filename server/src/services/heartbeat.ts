@@ -2,7 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { execFile as execFileCallback } from "node:child_process";
 import { promisify } from "node:util";
-import { and, asc, desc, eq, gt, gte, inArray, notInArray, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gt, gte, inArray, isNotNull, notInArray, sql } from "drizzle-orm";
 import type { Db } from "@ironworksai/db";
 import type { BillingType } from "@ironworksai/shared";
 import {
@@ -3396,6 +3396,85 @@ export function heartbeatService(db: Db) {
       logger.debug({ err, agentId: agent.id }, "web research injection failed, skipping");
     }
 
+    // ── Deadline Urgency: inject upcoming deadlines for this agent's issues ──
+    try {
+      const nowForDeadlines = new Date();
+      const urgentCutoff = new Date(nowForDeadlines.getTime() + 24 * 60 * 60 * 1000);
+      const soonCutoff = new Date(nowForDeadlines.getTime() + 72 * 60 * 60 * 1000);
+
+      const assignedWithDeadlines = await db
+        .select({
+          id: issues.id,
+          identifier: issues.identifier,
+          title: issues.title,
+          targetDate: issues.targetDate,
+          status: issues.status,
+        })
+        .from(issues)
+        .where(
+          and(
+            eq(issues.companyId, agent.companyId),
+            eq(issues.assigneeAgentId, agent.id),
+            sql`${issues.status} not in ('done', 'cancelled')`,
+            isNotNull(issues.targetDate),
+          ),
+        )
+        .orderBy(issues.targetDate);
+
+      if (assignedWithDeadlines.length > 0) {
+        const deadlineLines = assignedWithDeadlines.map((issue) => {
+          const td = issue.targetDate!;
+          const diffMs = td.getTime() - nowForDeadlines.getTime();
+          const diffMins = Math.round(diffMs / 60000);
+          const ref = issue.identifier ? `[${issue.identifier}]` : `[${issue.id.slice(0, 8)}]`;
+          if (diffMs < 0) {
+            return `OVERDUE: ${ref} ${issue.title} (was due ${Math.abs(Math.round(diffMs / 86400000))} day(s) ago)`;
+          } else if (td <= urgentCutoff) {
+            return `URGENT: ${ref} ${issue.title} (due in ${Math.round(diffMins / 60)}h)`;
+          } else if (td <= soonCutoff) {
+            return `SOON: ${ref} ${issue.title} (due in ${Math.round(diffMins / 1440)}d)`;
+          } else {
+            return `UPCOMING: ${ref} ${issue.title} (due ${td.toLocaleDateString("en-US", { timeZone: "America/Chicago", month: "short", day: "numeric" })})`;
+          }
+        });
+        context.ironworksUpcomingDeadlines = `You have ${assignedWithDeadlines.length} issues with deadlines:\n${deadlineLines.join("\n")}`;
+      }
+    } catch (err) {
+      logger.debug({ err, agentId: agent.id }, "deadline context injection failed, skipping");
+    }
+
+    // ── Dependency Context: inject blocked/blocker info for current issue ───
+    try {
+      const contextIssueIdForDeps = readNonEmptyString(context.issueId);
+      if (contextIssueIdForDeps) {
+        const [currentIssueForDeps] = await db
+          .select({ id: issues.id, dependsOn: issues.dependsOn, identifier: issues.identifier, title: issues.title })
+          .from(issues)
+          .where(eq(issues.id, contextIssueIdForDeps))
+          .limit(1);
+
+        if (currentIssueForDeps && Array.isArray(currentIssueForDeps.dependsOn) && currentIssueForDeps.dependsOn.length > 0) {
+          const blockingIssues = await db
+            .select({ id: issues.id, identifier: issues.identifier, title: issues.title, status: issues.status })
+            .from(issues)
+            .where(sql`${issues.id}::text = ANY(${JSON.stringify(currentIssueForDeps.dependsOn)}::text[])`);
+
+          const pendingBlockers = blockingIssues.filter((i) => i.status !== "done");
+          if (pendingBlockers.length > 0) {
+            const blockerList = pendingBlockers.map((i) => {
+              const ref = i.identifier ? `[${i.identifier}]` : `[${i.id.slice(0, 8)}]`;
+              return `${ref} ${i.title} (${i.status})`;
+            }).join(", ");
+            context.ironworksDependencyContext = `This issue is BLOCKED by: ${blockerList}. Do not start work on this issue until all blockers are done.`;
+          } else {
+            context.ironworksDependencyContext = "All dependencies for this issue are complete. You can proceed.";
+          }
+        }
+      }
+    } catch (err) {
+      logger.debug({ err, agentId: agent.id }, "dependency context injection failed, skipping");
+    }
+
     context.ironworksWorkspace = {
       cwd: executionWorkspace.cwd,
       source: executionWorkspace.source,
@@ -3656,7 +3735,25 @@ export function heartbeatService(db: Db) {
         issueCount: Array.isArray(context.issueIds) ? context.issueIds.length : (typeof context.issueId === "string" && context.issueId.length > 0 ? 1 : 0),
         isApprovalNeeded: typeof context.approvalId === "string" && context.approvalId.length > 0,
       });
-      const routedModel = selectModelForComplexity(taskComplexity, configuredModel, routingEnabled);
+      let routedModel = selectModelForComplexity(taskComplexity, configuredModel, routingEnabled);
+
+      // Fix 4: Check for escalation flag persisted from previous run.
+      // If set, override to complex model tier and clear the flag.
+      try {
+        const escalationState = await getRuntimeState(agent.id);
+        const stateJson = escalationState?.stateJson as Record<string, unknown> | undefined;
+        if (stateJson?.escalateNextRun === true || stateJson?.escalateNextRun === "true") {
+          await db.update(agentRuntimeState)
+            .set({ stateJson: sql`jsonb_set(coalesce(state_json, '{}'), '{escalateNextRun}', 'false')` })
+            .where(eq(agentRuntimeState.agentId, agent.id));
+          routedModel = selectModelForComplexity("complex", configuredModel, true);
+          logger.info(
+            { agentId: agent.id, runId: run.id, routedModel },
+            "[model-routing] Escalation flag triggered complex model override",
+          );
+        }
+      } catch { /* non-fatal: escalation flag check must not block the run */ }
+
       const routingApplied = routedModel && routedModel !== configuredModel;
       if (routingApplied) {
         logger.info(
@@ -3847,6 +3944,12 @@ export function heartbeatService(db: Db) {
         const responseSummary = adapterResult.summary ?? "";
         if (shouldEscalateModel(responseSummary)) {
           logEscalationSignal(agent.id, run.id, "cheap-model uncertainty detected in summary");
+          // Fix 4: Persist escalation flag so the next run uses the complex model tier.
+          try {
+            await db.update(agentRuntimeState)
+              .set({ stateJson: sql`jsonb_set(coalesce(state_json, '{}'), '{escalateNextRun}', 'true')` })
+              .where(eq(agentRuntimeState.agentId, agent.id));
+          } catch { /* non-fatal */ }
         }
       }
       // ─────────────────────────────────────────────────────────────────────

@@ -55,6 +55,10 @@ export const issues = pgTable(
     completedAt: timestamp("completed_at", { withTimezone: true }),
     cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
     hiddenAt: timestamp("hidden_at", { withTimezone: true }),
+    /** Target completion date. Used for deadline urgency classification. */
+    targetDate: timestamp("target_date", { withTimezone: true }),
+    /** Array of issue IDs this issue depends on. All must be status='done' before this can go in_progress. */
+    dependsOn: jsonb("depends_on").$type<string[]>().notNull().default([]),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },

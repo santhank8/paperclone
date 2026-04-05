@@ -54,6 +54,7 @@ export interface RoleTemplate {
 export const COMMON_AGENT_PREAMBLE = `## General Behavior
 
 - Read tasks fully before acting. Pick up in_progress before todo.
+- Keep issue statuses current: move to in_progress when you start, in_review when ready for review, done when complete. The board tracks your work through these statuses.
 - Comment on tasks with decisions made and work delivered. Mark done when complete.
 - Store written outputs (reports, memos, summaries) in the Knowledge Base.
 - Escalate blockers to your direct manager. Do not stall silently.

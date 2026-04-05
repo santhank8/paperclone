@@ -31,6 +31,7 @@ const ApprovalDetail = lazy(() => import("./pages/ApprovalDetail").then(m => ({ 
 const Costs = lazy(() => import("./pages/Costs").then(m => ({ default: m.Costs })));
 const AgentPerformance = lazy(() => import("./pages/AgentPerformance").then(m => ({ default: m.AgentPerformance })));
 const BoardBriefing = lazy(() => import("./pages/BoardBriefing").then(m => ({ default: m.BoardBriefing })));
+const Deliverables = lazy(() => import("./pages/Deliverables").then(m => ({ default: m.Deliverables })));
 const KnowledgeBase = lazy(() => import("./pages/KnowledgeBase").then(m => ({ default: m.KnowledgeBase })));
 const CompanySettings = lazy(() => import("./pages/CompanySettings").then(m => ({ default: m.CompanySettings })));
 const CompanySkills = lazy(() => import("./pages/CompanySkills").then(m => ({ default: m.CompanySkills })));
@@ -202,6 +203,7 @@ function boardRoutes() {
       <Route path="costs" element={<LazyPage variant="list"><Costs /></LazyPage>} />
       <Route path="performance" element={<LazyPage><AgentPerformance /></LazyPage>} />
       <Route path="board-briefing" element={<LazyPage><BoardBriefing /></LazyPage>} />
+      <Route path="deliverables" element={<LazyPage variant="list"><Deliverables /></LazyPage>} />
       <Route path="knowledge" element={<LazyPage variant="list"><KnowledgeBase /></LazyPage>} />
       <Route path="activity" element={<Activity />} />
       <Route path="channels/:channelId" element={<LazyPage><ChannelView /></LazyPage>} />

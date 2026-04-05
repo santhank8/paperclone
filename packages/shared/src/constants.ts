@@ -1008,6 +1008,37 @@ export const IMPORTANT_TASK_LABELS = [
   "budget",
 ] as const;
 
+// ── Deadline Urgency ──────────────────────────────────────────────────────────
+// Minutes thresholds for classifying how urgent an upcoming deadline is.
+
+export const DEADLINE_URGENCY = {
+  overdue: 0,
+  urgent: 24 * 60,      // 24 hours in minutes
+  soon: 72 * 60,        // 3 days in minutes
+  upcoming: 168 * 60,   // 1 week in minutes
+} as const;
+
+export type DeadlineUrgency = keyof typeof DEADLINE_URGENCY;
+
+// ── Deliverable Types ─────────────────────────────────────────────────────────
+// document_type values that are considered deliverables.
+
+export const DELIVERABLE_DOCUMENT_TYPES = [
+  "weekly-report",
+  "monthly-report",
+  "board-packet",
+  "post-mortem",
+  "decision",
+  "meeting-minutes",
+  "client-update",
+  "retrospective",
+] as const;
+
+export type DeliverableDocumentType = (typeof DELIVERABLE_DOCUMENT_TYPES)[number];
+
+export const DELIVERABLE_STATUSES = ["draft", "review", "approved", "delivered"] as const;
+export type DeliverableStatus = (typeof DELIVERABLE_STATUSES)[number];
+
 /** Western fallback models for council/cascade strategies. */
 export const WESTERN_COUNCIL_MODELS = {
   heavy: "devstral-2:cloud",        // Mistral 123B - best Western model

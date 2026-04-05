@@ -40,6 +40,14 @@ export async function saveSessionState(
     savedAt: now.toISOString(),
   });
 
+  // Fix 6: Keep only the latest session state per agent to prevent accumulation.
+  await db.delete(agentMemoryEntries)
+    .where(and(
+      eq(agentMemoryEntries.agentId, agentId),
+      eq(agentMemoryEntries.category, "session_state"),
+      eq(agentMemoryEntries.memoryType, "procedural"),
+    ));
+
   await db.insert(agentMemoryEntries).values({
     agentId,
     companyId,

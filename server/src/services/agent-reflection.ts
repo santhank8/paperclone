@@ -79,12 +79,16 @@ export async function performPostTaskReflection(
   }
 
   // Always: create a task reflection summary
+  const reflectionContent = opts.outcome === "completed"
+    ? `Task completed: ${opts.issueTitle}. Runs: ${runCount}. ${runCount > 5 ? "This was a complex task requiring multiple iterations." : "Completed efficiently."}`
+    : `Task cancelled: ${opts.issueTitle}. Runs: ${runCount}. Review what went wrong.`;
+
   await db.insert(agentMemoryEntries).values({
     agentId: opts.agentId,
     companyId: opts.companyId,
     memoryType: "episodic",
     category: "task_reflection",
-    content: `Task ${opts.outcome}: "${opts.issueTitle}" (${runCount} run${runCount === 1 ? "" : "s"}).`,
+    content: reflectionContent,
     sourceIssueId: opts.issueId,
     confidence: 80,
     lastAccessedAt: now,

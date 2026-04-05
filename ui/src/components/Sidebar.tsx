@@ -17,6 +17,7 @@ import {
   Repeat,
   Settings,
   Hash,
+  Package,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { NavLink } from "@/lib/router";
@@ -31,6 +32,7 @@ import { heartbeatsApi } from "../api/heartbeats";
 import { channelsApi } from "../api/channels";
 import { queryKeys } from "../lib/queryKeys";
 import { useInboxBadge } from "../hooks/useInboxBadge";
+import { sidebarBadgesApi } from "../api/sidebarBadges";
 import { Button } from "@/components/ui/button";
 import { PluginSlotOutlet } from "@/plugins/slots";
 import { cn } from "../lib/utils";
@@ -40,6 +42,13 @@ export function Sidebar() {
   const { selectedCompanyId, selectedCompany } = useCompany();
   const { isMobile, setSidebarOpen } = useSidebar();
   const inboxBadge = useInboxBadge(selectedCompanyId);
+  const { data: sidebarBadges } = useQuery({
+    queryKey: queryKeys.sidebarBadges(selectedCompanyId!),
+    queryFn: () => sidebarBadgesApi.get(selectedCompanyId!),
+    enabled: !!selectedCompanyId,
+    refetchInterval: 30_000,
+  });
+  const deliverablesReviewCount = sidebarBadges?.deliverablesReview ?? 0;
   const { data: liveRuns } = useQuery({
     queryKey: queryKeys.liveRuns(selectedCompanyId!),
     queryFn: () => heartbeatsApi.liveRunsForCompany(selectedCompanyId!),
@@ -113,6 +122,13 @@ export function Sidebar() {
           <SidebarNavItem to="/routines" label="Routines" icon={Repeat} />
           <SidebarNavItem to="/playbooks" label="Playbooks" icon={BookTemplate} />
           <SidebarNavItem to="/board-briefing" label="Board Briefing" icon={FileText} />
+          <SidebarNavItem
+            to="/deliverables"
+            label="Deliverables"
+            icon={Package}
+            badge={deliverablesReviewCount}
+            badgeTone="default"
+          />
         </SidebarSection>
 
         {channels && channels.length > 0 && (

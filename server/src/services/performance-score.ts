@@ -1,6 +1,6 @@
 import { and, asc, eq, gte, ne, sql } from "drizzle-orm";
 import type { Db } from "@ironworksai/db";
-import { agents, agentMemoryEntries, companies, heartbeatRuns, issues } from "@ironworksai/db";
+import { agents, agentMemoryEntries, approvals, companies, heartbeatRuns, issues } from "@ironworksai/db";
 import { logger } from "../middleware/logger.js";
 
 // ── Agent Performance Score ─────────────────────────────────────────────────
@@ -50,8 +50,14 @@ export async function computePerformanceScore(
     totalResolved > 0 ? Math.round((completed / totalResolved) * 25) : NEUTRAL_SCORE;
 
   // ── Factor 2: Approval pass rate ────────────────────────────────
-  // TODO: Wire into the approvals system when first-time-approval tracking is added
-  const approvalScore = NEUTRAL_SCORE;
+  const approvalRows = await db.select({
+    total: sql<number>`count(*)`,
+    approved: sql<number>`count(*) filter (where status = 'approved')`,
+  }).from(approvals).where(eq(approvals.requestedByAgentId, agentId));
+
+  const approvalTotal = Number(approvalRows[0]?.total ?? 0);
+  const approvalApproved = Number(approvalRows[0]?.approved ?? 0);
+  const approvalScore = approvalTotal > 0 ? Math.round((approvalApproved / approvalTotal) * 25) : NEUTRAL_SCORE;
 
   // ── Factor 3: Budget efficiency ─────────────────────────────────
   const agentRow = await db

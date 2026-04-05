@@ -15,6 +15,20 @@ const PLUGIN_EVENT_SET: ReadonlySet<string> = new Set(PLUGIN_EVENT_TYPES);
 
 let _pluginEventBus: PluginEventBus | null = null;
 
+// ── getGeneral() cache ────────────────────────────────────────────────────────
+// logActivity is a hot path; cache the settings to avoid a DB round-trip per call.
+let cachedGeneralSettings: { data: unknown; cachedAt: number } | null = null;
+const SETTINGS_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+async function getCachedGeneralSettings(db: Db) {
+  if (cachedGeneralSettings && Date.now() - cachedGeneralSettings.cachedAt < SETTINGS_CACHE_TTL_MS) {
+    return cachedGeneralSettings.data;
+  }
+  const data = await instanceSettingsService(db).getGeneral();
+  cachedGeneralSettings = { data, cachedAt: Date.now() };
+  return data;
+}
+
 /** Wire the plugin event bus so domain events are forwarded to plugins. */
 export function setPluginEventBus(bus: PluginEventBus): void {
   if (_pluginEventBus) {
@@ -102,8 +116,9 @@ export async function verifyLogIntegrity(
 }
 
 export async function logActivity(db: Db, input: LogActivityInput) {
+  const generalSettings = (await getCachedGeneralSettings(db)) as { censorUsernameInLogs: boolean };
   const currentUserRedactionOptions = {
-    enabled: (await instanceSettingsService(db).getGeneral()).censorUsernameInLogs,
+    enabled: generalSettings.censorUsernameInLogs,
   };
   const sanitizedDetails = input.details ? sanitizeRecord(input.details) : null;
   const redactedDetails = sanitizedDetails
@@ -113,6 +128,20 @@ export async function logActivity(db: Db, input: LogActivityInput) {
   // Task 3: Compute integrity hash for this entry and chain it to the previous.
   const entryId = randomUUID();
   const now = new Date();
+
+  // Fix 5: On the first logActivity call per company (after a server restart),
+  // seed the in-memory chain from the last persisted hash rather than "genesis".
+  if (!_lastHashByCompany.has(input.companyId)) {
+    const lastEntry = await db.select({ details: activityLog.details })
+      .from(activityLog)
+      .where(eq(activityLog.companyId, input.companyId))
+      .orderBy(desc(activityLog.createdAt))
+      .limit(1)
+      .then(rows => rows[0]);
+    const lastHash = (lastEntry?.details as Record<string, unknown> | null)?.integrityHash as string ?? "genesis";
+    _lastHashByCompany.set(input.companyId, lastHash);
+  }
+
   const previousHash = _lastHashByCompany.get(input.companyId) ?? "genesis";
   const integrityHash = computeEntryHash(
     entryId,

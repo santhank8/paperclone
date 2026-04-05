@@ -5,7 +5,7 @@ import { captureAnalyticsSnapshot } from "../services/analytics.js";
 import { checkContractorLifecycles } from "../services/contractor-lifecycle.js";
 import { decayStaleMemories } from "../services/agent-memory.js";
 import { generatePromptOptimizationSuggestion } from "../services/agent-reflection.js";
-import { runAllWeeklyReports, runAllMonthlyCostSummaries } from "../services/weekly-reports.js";
+import { runAllWeeklyReports, runAllMonthlyCostSummaries, runAllTeamRetrospectives } from "../services/weekly-reports.js";
 import { postStandingAgendas } from "../services/standing-agendas.js";
 import { runAllDailyStandups } from "../services/daily-standup.js";
 import { captureAllPerformanceSnapshots } from "../services/performance-score.js";
@@ -739,6 +739,10 @@ export function startRetentionScheduler(db: Db): NodeJS.Timeout {
       // Self-optimization suggestions generated weekly on Sunday alongside reports
       runAllPromptOptimizations(db).catch((err) =>
         logger.error({ err }, "scheduled prompt optimization suggestions failed"),
+      );
+      // Team retrospectives generated weekly on Sunday at 18:00 CT
+      runAllTeamRetrospectives(db).catch((err) =>
+        logger.error({ err }, "scheduled team retrospectives failed"),
       );
     }
 

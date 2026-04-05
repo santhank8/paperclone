@@ -185,6 +185,12 @@ export {
   type HiringRequestStatus,
   type RiskLevel,
   type WellKnownLabel,
+  DEADLINE_URGENCY,
+  type DeadlineUrgency,
+  DELIVERABLE_DOCUMENT_TYPES,
+  type DeliverableDocumentType,
+  DELIVERABLE_STATUSES,
+  type DeliverableStatus,
 } from "./constants.js";
 
 export type {

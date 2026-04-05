@@ -1,7 +1,8 @@
-import { and, desc, eq, inArray, not, sql } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, isNotNull, not, sql } from "drizzle-orm";
 import type { Db } from "@ironworksai/db";
-import { agents, approvals, heartbeatRuns } from "@ironworksai/db";
+import { agents, approvals, heartbeatRuns, knowledgePages } from "@ironworksai/db";
 import type { SidebarBadges } from "@ironworksai/shared";
+import { DELIVERABLE_DOCUMENT_TYPES } from "@ironworksai/shared";
 
 const ACTIONABLE_APPROVAL_STATUSES = ["pending", "revision_requested"];
 const FAILED_HEARTBEAT_STATUSES = ["failed", "timed_out"];
@@ -23,6 +24,7 @@ export function sidebarBadgeService(db: Db) {
         )
         .then((rows) => Number(rows[0]?.count ?? 0));
 
+      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
       const latestRunByAgent = await db
         .selectDistinctOn([heartbeatRuns.agentId], {
           runStatus: heartbeatRuns.status,
@@ -34,6 +36,7 @@ export function sidebarBadgeService(db: Db) {
             eq(heartbeatRuns.companyId, companyId),
             eq(agents.companyId, companyId),
             not(eq(agents.status, "terminated")),
+            gte(heartbeatRuns.createdAt, thirtyDaysAgo),
           ),
         )
         .orderBy(heartbeatRuns.agentId, desc(heartbeatRuns.createdAt));
@@ -42,6 +45,19 @@ export function sidebarBadgeService(db: Db) {
         FAILED_HEARTBEAT_STATUSES.includes(row.runStatus),
       ).length;
 
+      const deliverablesReview = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(knowledgePages)
+        .where(
+          and(
+            eq(knowledgePages.companyId, companyId),
+            eq(knowledgePages.deliverableStatus, "review"),
+            isNotNull(knowledgePages.documentType),
+            inArray(knowledgePages.documentType, [...DELIVERABLE_DOCUMENT_TYPES]),
+          ),
+        )
+        .then((rows) => Number(rows[0]?.count ?? 0));
+
       const joinRequests = extra?.joinRequests ?? 0;
       const unreadTouchedIssues = extra?.unreadTouchedIssues ?? 0;
       return {
@@ -49,6 +65,7 @@ export function sidebarBadgeService(db: Db) {
         approvals: actionableApprovals,
         failedRuns,
         joinRequests,
+        deliverablesReview,
       };
     },
   };

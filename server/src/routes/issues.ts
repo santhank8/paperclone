@@ -974,6 +974,20 @@ export function issueRoutes(db: Db, storage: StorageService) {
     if (commentBody && reopenRequested === true && isClosed && updateFields.status === undefined) {
       updateFields.status = "todo";
     }
+    // Dependency check: prevent transition to in_progress if blockers are not done
+    if (updateFields.status === "in_progress" && existing.status !== "in_progress") {
+      const blockingIds: string[] = Array.isArray(existing.dependsOn) ? existing.dependsOn : [];
+      if (blockingIds.length > 0) {
+        const blockers = await svc.getBlockers(blockingIds);
+        const pendingBlockers = blockers.filter((b) => b.status !== "done");
+        if (pendingBlockers.length > 0) {
+          const refs = pendingBlockers.map((b) => b.identifier ?? b.id.slice(0, 8)).join(", ");
+          res.status(422).json({ error: `Blocked by: ${refs}` });
+          return;
+        }
+      }
+    }
+
     let issue;
     try {
       issue = await svc.update(id, updateFields);
@@ -1149,6 +1163,69 @@ export function issueRoutes(db: Db, storage: StorageService) {
         playbookExec.onIssueCompleted(issue.id).catch((err) =>
           logger.warn({ err, issueId: issue.id }, "playbook dependency resolution failed"),
         );
+
+        // Dependency unblocking: find issues that depended on this one
+        // If all their deps are now done, transition blocked->todo and notify
+        (async () => {
+          try {
+            const dependants = await svc.getDependants(issue.companyId, issue.id);
+            for (const dep of dependants) {
+              const depFull = await svc.getById(dep.id);
+              if (!depFull) continue;
+              const blockerIds: string[] = Array.isArray(depFull.dependsOn) ? depFull.dependsOn : [];
+              if (blockerIds.length === 0) continue;
+              const blockers = await svc.getBlockers(blockerIds);
+              const stillBlocked = blockers.filter((b) => b.status !== "done");
+              if (stillBlocked.length === 0 && depFull.status === "blocked") {
+                await svc.update(dep.id, { status: "todo" });
+                // Post notification
+                const companyChannel = await findCompanyChannel(db, issue.companyId);
+                if (companyChannel) {
+                  const ref = depFull.identifier ?? depFull.id.slice(0, 8);
+                  const completedRef = issue.identifier ?? issue.id.slice(0, 8);
+                  await postChannelMessage(db, {
+                    channelId: companyChannel.id,
+                    companyId: issue.companyId,
+                    body: `[${ref}] ${depFull.title} is now unblocked ([${completedRef}] completed).`,
+                    messageType: "status_update",
+                    linkedIssueId: dep.id,
+                  });
+                }
+              }
+            }
+          } catch (err) {
+            logger.warn({ err, issueId: issue.id }, "dependency unblocking failed");
+          }
+        })();
+      }
+
+      // Overdue escalation: if this issue has a passed targetDate and is not done/cancelled
+      if (issue.targetDate && issue.status !== "done" && issue.status !== "cancelled") {
+        const nowCheck = new Date();
+        if (new Date(issue.targetDate) < nowCheck) {
+          (async () => {
+            try {
+              const companyChannel = await findCompanyChannel(db, issue.companyId);
+              if (companyChannel) {
+                const ref = issue.identifier ?? issue.id.slice(0, 8);
+                let assigneeName = "Unassigned";
+                if (issue.assigneeAgentId) {
+                  const agentInfo = await agentsSvc.getById(issue.assigneeAgentId);
+                  if (agentInfo) assigneeName = agentInfo.name;
+                }
+                await postChannelMessage(db, {
+                  channelId: companyChannel.id,
+                  companyId: issue.companyId,
+                  body: `Issue [${ref}] is overdue. Assigned to ${assigneeName}.`,
+                  messageType: "status_update",
+                  linkedIssueId: issue.id,
+                });
+              }
+            } catch (err) {
+              logger.warn({ err, issueId: issue.id }, "overdue escalation failed");
+            }
+          })();
+        }
       }
 
       // Goal progress: recalculate goal status when issues change status

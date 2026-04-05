@@ -159,6 +159,8 @@ function makeIssue(id: string, isUnreadForMe: boolean): Issue {
     hiddenAt: null,
     createdAt: new Date("2026-03-11T00:00:00.000Z"),
     updatedAt: new Date("2026-03-11T00:00:00.000Z"),
+    targetDate: null,
+    dependsOn: [],
     labels: [],
     labelIds: [],
     myLastTouchAt: new Date("2026-03-11T00:00:00.000Z"),

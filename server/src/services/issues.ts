@@ -1821,5 +1821,27 @@ export function issueService(db: Db) {
         goal: a.goalId ? goalMap.get(a.goalId) ?? null : null,
       }));
     },
+
+    /** Fetch minimal info for a list of issue IDs (used for dependency checks). */
+    getBlockers: async (ids: string[]) => {
+      if (ids.length === 0) return [];
+      return db
+        .select({ id: issues.id, identifier: issues.identifier, title: issues.title, status: issues.status })
+        .from(issues)
+        .where(inArray(issues.id, ids));
+    },
+
+    /** Find all issues that depend on a given issue ID. */
+    getDependants: async (companyId: string, issueId: string) => {
+      return db
+        .select({ id: issues.id, identifier: issues.identifier, title: issues.title, assigneeAgentId: issues.assigneeAgentId })
+        .from(issues)
+        .where(
+          and(
+            eq(issues.companyId, companyId),
+            sql`${issues.dependsOn}::jsonb @> ${JSON.stringify([issueId])}::jsonb`,
+          ),
+        );
+    },
   };
 }

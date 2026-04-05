@@ -8,7 +8,7 @@ import {
   updateProjectWorkspaceSchema,
 } from "@ironworksai/shared";
 import { validate } from "../middleware/validate.js";
-import { projectService, logActivity } from "../services/index.js";
+import { projectService, logActivity, generateClientUpdate } from "../services/index.js";
 import { conflict } from "../errors.js";
 import { assertCompanyAccess, getActorInfo } from "./authz.js";
 import { ensureLibraryProjectFolderExternal } from "../services/playbook-execution.js";
@@ -303,6 +303,22 @@ export function projectRoutes(db: Db) {
     });
 
     res.json(project);
+  });
+
+  // Generate a client-facing update report for a project
+  router.post("/companies/:companyId/projects/:projectId/client-update", async (req, res) => {
+    const companyId = req.params.companyId as string;
+    const projectId = req.params.projectId as string;
+    assertCompanyAccess(req, companyId);
+
+    const existing = await svc.getById(projectId);
+    if (!existing || existing.companyId !== companyId) {
+      res.status(404).json({ error: "Project not found" });
+      return;
+    }
+
+    const markdown = await generateClientUpdate(db, companyId, projectId);
+    res.status(201).json({ markdown });
   });
 
   return router;
