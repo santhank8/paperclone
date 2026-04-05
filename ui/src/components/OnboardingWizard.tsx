@@ -383,7 +383,7 @@ export function OnboardingWizard() {
       const company = await companiesApi.create({ name: companyName.trim() });
       setCreatedCompanyId(company.id);
       setCreatedCompanyPrefix(company.issuePrefix);
-      setSelectedCompanyId(company.id, { source: "route_sync" });
+      setSelectedCompanyId(company.id);
       queryClient.invalidateQueries({ queryKey: queryKeys.companies.all });
 
       if (companyGoal.trim()) {
@@ -581,7 +581,7 @@ export function OnboardingWizard() {
         });
       }
 
-      setSelectedCompanyId(createdCompanyId, { source: "route_sync" });
+      setSelectedCompanyId(createdCompanyId);
       reset();
       closeOnboarding();
       navigate(
