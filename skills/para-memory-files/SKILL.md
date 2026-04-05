@@ -68,6 +68,13 @@ Raw timeline of events -- the "when" layer.
 - Write continuously during conversations.
 - Extract durable facts to Layer 1 during heartbeats.
 
+**Daily notes hygiene:**
+
+- **Collapse repeated events.** If the same event type occurs multiple times (e.g., auth failures, retried API calls, identical heartbeat outcomes), write ONE entry with a count and run-ID list instead of N separate entries. Example:
+  - Bad: 12 separate "Auth failure" sections each with identical content
+  - Good: `## Auth Failures (12 runs): [id1, id2, ...] — all returned 401, exited immediately per operating rule.`
+- **Cap resolved-issue references.** Once an issue is closed (`done`/`cancelled`), stop appending new entries about it. A single "Closed ALLA-X: [one-line outcome]" is sufficient.
+- **Prune on weekly synthesis.** During weekly synthesis, collapse the week's daily notes into a summary and archive the raw files.
 ### Layer 3: Tacit Knowledge (`$AGENT_HOME/MEMORY.md`)
 
 How the user operates -- patterns, preferences, lessons learned.
