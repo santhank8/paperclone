@@ -80,11 +80,11 @@ async function refreshDashboardIfConfigured() {
 }
 
 function buildContext(topicScout, vertical, issueId) {
-  const topic = String(topicScout.selected_topic || '').trim();
+  const topic = String(topicScout?.selected_topic || '').trim();
   return {
     topic,
     verticalKey: vertical,
-    topicScout,
+    topicScout: topicScout || null,
     title: topic,
     publishReadyGateMode: 'strict',
     publicVerifyContractMode: 'compat',
@@ -99,6 +99,28 @@ function buildContext(topicScout, vertical, issueId) {
       backlog: false,
     },
     sourceRoutineIssueId: issueId || null,
+  };
+}
+
+function resolveTopicSelectionFromArgs(args, topicScout, recentTopics, publishedTitles, cooldownHours) {
+  const explicitTopic = String(args?.topic || '').trim();
+  if (explicitTopic) {
+    return {
+      selectedTopic: explicitTopic,
+      selectedBucket: String(args?.bucket || topicScout?.selected_bucket || '').trim() || null,
+      selectionReason: 'manual_topic_override',
+      topicScorecard: {},
+      selectedRank: 0,
+      cooldownApplied: false,
+      skippedRecentTopics: [],
+      skippedPublishedTopics: [],
+      explicitTopic: true,
+    };
+  }
+  const selected = selectTopicAvoidingPublished(topicScout, recentTopics, publishedTitles, cooldownHours);
+  return {
+    ...selected,
+    explicitTopic: false,
   };
 }
 
@@ -396,12 +418,25 @@ async function main() {
   const args = parseArgs(process.argv.slice(2));
   const vertical = String(args.vertical || 'ai-tech').trim();
   const issueId = String(args['issue-id'] || process.env.PAPERCLIP_TASK_ID || '').trim() || null;
+  const explicitTopic = String(args.topic || '').trim();
   process.env.ARTICLE_LOOP_REFRESH_VERTICAL = vertical;
-  const dashboardRefresh = await refreshDashboardIfConfigured().catch((error) => ({
-    ok: false,
-    error: String(error.message || error),
-  }));
-  const topicScout = await runTopicScout(vertical);
+  const dashboardRefresh = explicitTopic
+    ? { ok: true, skipped: true, reason: 'manual_topic_override' }
+    : await refreshDashboardIfConfigured().catch((error) => ({
+      ok: false,
+      error: String(error.message || error),
+    }));
+  const topicScout = explicitTopic
+    ? {
+        generated_at: new Date().toISOString(),
+        selected_topic: explicitTopic,
+        selected_bucket: String(args.bucket || '').trim() || null,
+        selection_reason: 'manual_topic_override',
+        topic_scorecard: {},
+        top10_candidates: [],
+        manual_topic_override: true,
+      }
+    : await runTopicScout(vertical);
   const client = new Client({ connectionString: DB_URL });
   await client.connect();
   let topic = null;
@@ -411,10 +446,11 @@ async function main() {
   let selectedRank = 1;
   let cooldownApplied = false;
   let skippedRecentTopics = [];
+  let skippedPublishedTopics = [];
   try {
     const recentTopics = await listRecentTopics(client, PROJECT_ID);
-    const publishedTitles = await listPublishedTitles().catch(() => []);
-    const selected = selectTopicAvoidingPublished(topicScout, recentTopics, publishedTitles, TOPIC_COOLDOWN_HOURS);
+    const publishedTitles = explicitTopic ? [] : await listPublishedTitles().catch(() => []);
+    const selected = resolveTopicSelectionFromArgs(args, topicScout, recentTopics, publishedTitles, TOPIC_COOLDOWN_HOURS);
     topic = selected.selectedTopic;
     selectedBucket = selected.selectedBucket;
     selectionReason = selected.selectionReason;
@@ -422,10 +458,11 @@ async function main() {
     selectedRank = selected.selectedRank;
     cooldownApplied = selected.cooldownApplied;
     skippedRecentTopics = selected.skippedRecentTopics;
+    skippedPublishedTopics = selected.skippedPublishedTopics;
   } finally {
     await client.end();
   }
-  const staleReason = getTopicScoutStaleReason(topicScout, RSS_MAX_AGE_HOURS);
+  const staleReason = explicitTopic ? null : getTopicScoutStaleReason(topicScout, RSS_MAX_AGE_HOURS);
   if (staleReason) {
     throw new Error(staleReason);
   }
@@ -438,6 +475,7 @@ async function main() {
   topicScout.topic_scorecard = topicScorecard;
   topicScout.cooldown_applied = cooldownApplied;
   topicScout.skipped_recent_topics = skippedRecentTopics;
+  topicScout.skipped_published_topics = skippedPublishedTopics;
   topicScout.selected_rank = selectedRank;
   const result = await createRun({
     topic,
@@ -465,5 +503,6 @@ module.exports = {
   normalizeTopicKey,
   selectTopicWithCooldown,
   selectTopicAvoidingPublished,
+  resolveTopicSelectionFromArgs,
   getTopicScoutStaleReason,
 };

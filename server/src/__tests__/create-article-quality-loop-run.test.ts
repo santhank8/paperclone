@@ -4,6 +4,7 @@ const {
   normalizeTopicKey,
   selectTopicWithCooldown,
   selectTopicAvoidingPublished,
+  resolveTopicSelectionFromArgs,
   getTopicScoutStaleReason,
 } = require("/Users/daehan/Documents/persona/paperclip/scripts/create_article_quality_loop_run.cjs");
 
@@ -124,5 +125,26 @@ describe("create_article_quality_loop_run topic cooldown", () => {
     expect(result.selectedTopic).toBe("GTC Spotlights NVIDIA RTX PCs and DGX Sparks Running Latest Open Models and AI Agents Locally");
     expect(result.selectedRank).toBe(2);
     expect(result.skippedPublishedTopics).toHaveLength(1);
+  });
+
+  it("honors explicit topic override without cooldown or published-title filtering", () => {
+    const result = resolveTopicSelectionFromArgs(
+      { topic: "Manual override topic", bucket: "market_strategy" },
+      {
+        selected_topic: "Old topic",
+        selected_bucket: "ai_updates",
+      },
+      [{ topic: "Manual override topic", created_at: "2026-04-05T00:00:00.000Z" }],
+      ["Manual override topic"],
+      12,
+    );
+
+    expect(result.selectedTopic).toBe("Manual override topic");
+    expect(result.selectedBucket).toBe("market_strategy");
+    expect(result.selectionReason).toBe("manual_topic_override");
+    expect(result.explicitTopic).toBe(true);
+    expect(result.cooldownApplied).toBe(false);
+    expect(result.skippedRecentTopics).toEqual([]);
+    expect(result.skippedPublishedTopics).toEqual([]);
   });
 });
