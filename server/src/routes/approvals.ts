@@ -34,6 +34,99 @@ export function approvalRoutes(db: Db) {
   const secretsSvc = secretService(db);
   const strictSecretsMode = process.env.PAPERCLIP_SECRETS_STRICT_MODE === "true";
 
+  async function queueRequesterApprovalWakeup(input: {
+    approval: {
+      id: string;
+      companyId: string;
+      status: string;
+      requestedByAgentId: string | null;
+      decisionNote?: string | null;
+    };
+    action:
+      | "approval.approved"
+      | "approval.rejected"
+      | "approval.revision_requested";
+    wakeReason:
+      | "approval_approved"
+      | "approval_rejected"
+      | "approval_revision_requested";
+    actorUserId: string;
+  }) {
+    const { approval, action, wakeReason, actorUserId } = input;
+    if (!approval.requestedByAgentId) return;
+
+    const linkedIssues = await issueApprovalsSvc.listIssuesForApproval(approval.id);
+    const linkedIssueIds = linkedIssues.map((issue) => issue.id);
+    const primaryIssueId = linkedIssueIds[0] ?? null;
+
+    try {
+      const wakeRun = await heartbeat.wakeup(approval.requestedByAgentId, {
+        source: "automation",
+        triggerDetail: "system",
+        reason: wakeReason,
+        payload: {
+          approvalId: approval.id,
+          approvalStatus: approval.status,
+          issueId: primaryIssueId,
+          issueIds: linkedIssueIds,
+          decisionNote: approval.decisionNote ?? null,
+          wakeReason,
+        },
+        requestedByActorType: "user",
+        requestedByActorId: actorUserId,
+        contextSnapshot: {
+          source: action,
+          approvalId: approval.id,
+          approvalStatus: approval.status,
+          issueId: primaryIssueId,
+          issueIds: linkedIssueIds,
+          taskId: primaryIssueId,
+          decisionNote: approval.decisionNote ?? null,
+          wakeReason,
+        },
+      });
+
+      await logActivity(db, {
+        companyId: approval.companyId,
+        actorType: "user",
+        actorId: actorUserId,
+        action: "approval.requester_wakeup_queued",
+        entityType: "approval",
+        entityId: approval.id,
+        details: {
+          requesterAgentId: approval.requestedByAgentId,
+          wakeRunId: wakeRun?.id ?? null,
+          wakeReason,
+          linkedIssueIds,
+        },
+      });
+    } catch (err) {
+      logger.warn(
+        {
+          err,
+          approvalId: approval.id,
+          requestedByAgentId: approval.requestedByAgentId,
+          wakeReason,
+        },
+        "failed to queue requester wakeup after approval decision",
+      );
+      await logActivity(db, {
+        companyId: approval.companyId,
+        actorType: "user",
+        actorId: actorUserId,
+        action: "approval.requester_wakeup_failed",
+        entityType: "approval",
+        entityId: approval.id,
+        details: {
+          requesterAgentId: approval.requestedByAgentId,
+          wakeReason,
+          linkedIssueIds,
+          error: err instanceof Error ? err.message : String(err),
+        },
+      });
+    }
+  }
+
   router.get("/companies/:companyId/approvals", async (req, res) => {
     const companyId = req.params.companyId as string;
     assertCompanyAccess(req, companyId);
@@ -121,6 +214,7 @@ export function approvalRoutes(db: Db) {
   router.post("/approvals/:id/approve", validate(resolveApprovalSchema), async (req, res) => {
     assertBoard(req);
     const id = req.params.id as string;
+    const actorUserId = req.actor.userId ?? "board";
     const { approval, applied } = await svc.approve(
       id,
       req.body.decidedByUserId ?? "board",
@@ -130,12 +224,11 @@ export function approvalRoutes(db: Db) {
     if (applied) {
       const linkedIssues = await issueApprovalsSvc.listIssuesForApproval(approval.id);
       const linkedIssueIds = linkedIssues.map((issue) => issue.id);
-      const primaryIssueId = linkedIssueIds[0] ?? null;
 
       await logActivity(db, {
         companyId: approval.companyId,
         actorType: "user",
-        actorId: req.actor.userId ?? "board",
+        actorId: actorUserId,
         action: "approval.approved",
         entityType: "approval",
         entityId: approval.id,
@@ -146,68 +239,12 @@ export function approvalRoutes(db: Db) {
         },
       });
 
-      if (approval.requestedByAgentId) {
-        try {
-          const wakeRun = await heartbeat.wakeup(approval.requestedByAgentId, {
-            source: "automation",
-            triggerDetail: "system",
-            reason: "approval_approved",
-            payload: {
-              approvalId: approval.id,
-              approvalStatus: approval.status,
-              issueId: primaryIssueId,
-              issueIds: linkedIssueIds,
-            },
-            requestedByActorType: "user",
-            requestedByActorId: req.actor.userId ?? "board",
-            contextSnapshot: {
-              source: "approval.approved",
-              approvalId: approval.id,
-              approvalStatus: approval.status,
-              issueId: primaryIssueId,
-              issueIds: linkedIssueIds,
-              taskId: primaryIssueId,
-              wakeReason: "approval_approved",
-            },
-          });
-
-          await logActivity(db, {
-            companyId: approval.companyId,
-            actorType: "user",
-            actorId: req.actor.userId ?? "board",
-            action: "approval.requester_wakeup_queued",
-            entityType: "approval",
-            entityId: approval.id,
-            details: {
-              requesterAgentId: approval.requestedByAgentId,
-              wakeRunId: wakeRun?.id ?? null,
-              linkedIssueIds,
-            },
-          });
-        } catch (err) {
-          logger.warn(
-            {
-              err,
-              approvalId: approval.id,
-              requestedByAgentId: approval.requestedByAgentId,
-            },
-            "failed to queue requester wakeup after approval",
-          );
-          await logActivity(db, {
-            companyId: approval.companyId,
-            actorType: "user",
-            actorId: req.actor.userId ?? "board",
-            action: "approval.requester_wakeup_failed",
-            entityType: "approval",
-            entityId: approval.id,
-            details: {
-              requesterAgentId: approval.requestedByAgentId,
-              linkedIssueIds,
-              error: err instanceof Error ? err.message : String(err),
-            },
-          });
-        }
-      }
+      await queueRequesterApprovalWakeup({
+        approval,
+        action: "approval.approved",
+        wakeReason: "approval_approved",
+        actorUserId,
+      });
     }
 
     res.json(redactApprovalPayload(approval));
@@ -216,6 +253,7 @@ export function approvalRoutes(db: Db) {
   router.post("/approvals/:id/reject", validate(resolveApprovalSchema), async (req, res) => {
     assertBoard(req);
     const id = req.params.id as string;
+    const actorUserId = req.actor.userId ?? "board";
     const { approval, applied } = await svc.reject(
       id,
       req.body.decidedByUserId ?? "board",
@@ -223,14 +261,26 @@ export function approvalRoutes(db: Db) {
     );
 
     if (applied) {
+      const linkedIssues = await issueApprovalsSvc.listIssuesForApproval(approval.id);
+      const linkedIssueIds = linkedIssues.map((issue) => issue.id);
       await logActivity(db, {
         companyId: approval.companyId,
         actorType: "user",
-        actorId: req.actor.userId ?? "board",
+        actorId: actorUserId,
         action: "approval.rejected",
         entityType: "approval",
         entityId: approval.id,
-        details: { type: approval.type },
+        details: {
+          type: approval.type,
+          requestedByAgentId: approval.requestedByAgentId,
+          linkedIssueIds,
+        },
+      });
+      await queueRequesterApprovalWakeup({
+        approval,
+        action: "approval.rejected",
+        wakeReason: "approval_rejected",
+        actorUserId,
       });
     }
 
@@ -243,20 +293,33 @@ export function approvalRoutes(db: Db) {
     async (req, res) => {
       assertBoard(req);
       const id = req.params.id as string;
+      const actorUserId = req.actor.userId ?? "board";
       const approval = await svc.requestRevision(
         id,
         req.body.decidedByUserId ?? "board",
         req.body.decisionNote,
       );
 
+      const linkedIssues = await issueApprovalsSvc.listIssuesForApproval(approval.id);
+      const linkedIssueIds = linkedIssues.map((issue) => issue.id);
       await logActivity(db, {
         companyId: approval.companyId,
         actorType: "user",
-        actorId: req.actor.userId ?? "board",
+        actorId: actorUserId,
         action: "approval.revision_requested",
         entityType: "approval",
         entityId: approval.id,
-        details: { type: approval.type },
+        details: {
+          type: approval.type,
+          requestedByAgentId: approval.requestedByAgentId,
+          linkedIssueIds,
+        },
+      });
+      await queueRequesterApprovalWakeup({
+        approval,
+        action: "approval.revision_requested",
+        wakeReason: "approval_revision_requested",
+        actorUserId,
       });
 
       res.json(redactApprovalPayload(approval));

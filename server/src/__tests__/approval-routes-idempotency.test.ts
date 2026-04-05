@@ -107,4 +107,111 @@ describe("approval routes idempotent retries", () => {
     expect(res.status).toBe(200);
     expect(mockLogActivity).not.toHaveBeenCalled();
   });
+
+  it("wakes the requesting agent when an approval is rejected", async () => {
+    mockApprovalService.reject.mockResolvedValue({
+      approval: {
+        id: "approval-1",
+        companyId: "company-1",
+        type: "hire_agent",
+        status: "rejected",
+        decisionNote: "Not yet",
+        payload: {},
+        requestedByAgentId: "agent-1",
+      },
+      applied: true,
+    });
+
+    const res = await request(createApp())
+      .post("/api/approvals/approval-1/reject")
+      .send({ decisionNote: "Not yet" });
+
+    expect(res.status).toBe(200);
+    expect(mockIssueApprovalService.listIssuesForApproval).toHaveBeenCalledWith("approval-1");
+    expect(mockHeartbeatService.wakeup).toHaveBeenCalledWith(
+      "agent-1",
+      expect.objectContaining({
+        reason: "approval_rejected",
+        payload: expect.objectContaining({
+          approvalId: "approval-1",
+          approvalStatus: "rejected",
+          decisionNote: "Not yet",
+          wakeReason: "approval_rejected",
+        }),
+        contextSnapshot: expect.objectContaining({
+          source: "approval.rejected",
+          wakeReason: "approval_rejected",
+          decisionNote: "Not yet",
+        }),
+      }),
+    );
+  });
+
+  it("wakes the requesting agent when an approval needs revision", async () => {
+    mockApprovalService.requestRevision.mockResolvedValue({
+      id: "approval-1",
+      companyId: "company-1",
+      type: "hire_agent",
+      status: "revision_requested",
+      decisionNote: "Please tighten the scope",
+      payload: {},
+      requestedByAgentId: "agent-1",
+    });
+
+    const res = await request(createApp())
+      .post("/api/approvals/approval-1/request-revision")
+      .send({ decisionNote: "Please tighten the scope" });
+
+    expect(res.status).toBe(200);
+    expect(mockIssueApprovalService.listIssuesForApproval).toHaveBeenCalledWith("approval-1");
+    expect(mockHeartbeatService.wakeup).toHaveBeenCalledWith(
+      "agent-1",
+      expect.objectContaining({
+        reason: "approval_revision_requested",
+        payload: expect.objectContaining({
+          approvalId: "approval-1",
+          approvalStatus: "revision_requested",
+          decisionNote: "Please tighten the scope",
+          wakeReason: "approval_revision_requested",
+        }),
+        contextSnapshot: expect.objectContaining({
+          source: "approval.revision_requested",
+          wakeReason: "approval_revision_requested",
+          decisionNote: "Please tighten the scope",
+        }),
+      }),
+    );
+  });
+
+  it.each([
+    [{ body: "Board note" }, "Board note"],
+    [{ content: "Compatibility note" }, "Compatibility note"],
+    [{ comments: "Legacy note" }, "Legacy note"],
+  ])("accepts approval comment payload aliases: %j", async (payload, expectedBody) => {
+    mockApprovalService.getById.mockResolvedValue({
+      id: "approval-1",
+      companyId: "company-1",
+      type: "hire_agent",
+      status: "approved",
+      payload: {},
+    });
+    mockApprovalService.addComment.mockResolvedValue({
+      id: "comment-1",
+      approvalId: "approval-1",
+      body: expectedBody,
+    });
+
+    const res = await request(createApp())
+      .post("/api/approvals/approval-1/comments")
+      .send(payload);
+
+    expect(res.status).toBe(201);
+    expect(mockApprovalService.addComment).toHaveBeenCalledWith(
+      "approval-1",
+      expectedBody,
+      expect.objectContaining({
+        userId: "user-1",
+      }),
+    );
+  });
 });
