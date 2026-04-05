@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "skills": {
+    "better-i18n": {
+      "source": "better-i18n/skills",
+      "sourceType": "github",
+      "computedHash": "85c3e3e06af6ef4a330d42ef0239727d92eb0f47aef0e849a825dc513447ba59"
+    },
+    "translation-expertise": {
+      "source": "shino369/claude-code-personal-workspace",
+      "sourceType": "github",
+      "computedHash": "2882794600d2a9e62692f2dd6cb567d5a939757e1b718ddf29547a4fe9fd482c"
+    },
+    "vercel-react-best-practices": {
+      "source": "vercel-labs/agent-skills",
+      "sourceType": "github",
+      "computedHash": "43ca6c197f8ec13055079da7053232d477068b03ca443f9ac1bc819b95cdd432"
+    }
+  }
+}
