@@ -1719,7 +1719,7 @@ function TalentPoolSection({ companyId }: { companyId: string }) {
     setFormRole(t.role);
     setFormDepartment(t.department ?? "engineering");
     setFormEmploymentType(t.employmentType);
-    setFormDescription(t.description ?? "");
+    setFormDescription(t.capabilities ?? "");
     setShowForm(true);
   }
 
@@ -1729,7 +1729,7 @@ function TalentPoolSection({ companyId }: { companyId: string }) {
       role: formRole,
       department: formDepartment,
       employmentType: formEmploymentType,
-      description: formDescription.trim() || null,
+      capabilities: formDescription.trim() || null,
     };
     if (editingId) {
       updateMutation.mutate({ id: editingId, data });
@@ -1739,7 +1739,7 @@ function TalentPoolSection({ companyId }: { companyId: string }) {
   }
 
   const templates = templatesQuery.data ?? [];
-  const isSystemTemplate = (t: RoleTemplate) => t.key.startsWith("system:");
+  const isSystemTemplate = (t: RoleTemplate) => t.isSystem ?? false;
   const isSaving = createMutation.isPending || updateMutation.isPending;
 
   return (
@@ -1888,8 +1888,8 @@ function TalentPoolSection({ companyId }: { companyId: string }) {
                     {(EMPLOYMENT_TYPE_LABELS as Record<string, string>)[t.employmentType] ?? t.employmentType}
                   </span>
                 </div>
-                {t.description && (
-                  <p className="text-xs text-muted-foreground/70 mt-0.5">{t.description}</p>
+                {t.capabilities && (
+                  <p className="text-xs text-muted-foreground/70 mt-0.5">{t.capabilities}</p>
                 )}
               </div>
               {!isSystemTemplate(t) && (

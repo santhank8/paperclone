@@ -464,8 +464,8 @@ export function HireAgentDialog() {
                         </>
                       )}
                     </div>
-                    {t.description && (
-                      <p className="text-xs text-muted-foreground/70 mt-1">{t.description}</p>
+                    {t.capabilities && (
+                      <p className="text-xs text-muted-foreground/70 mt-1">{t.capabilities}</p>
                     )}
                   </button>
                 ))}

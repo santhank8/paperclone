@@ -3,14 +3,16 @@ import { api } from "./client";
 export interface RoleTemplate {
   id: string;
   companyId: string;
-  key: string;
+  name: string;
   title: string;
   role: string;
   department: string | null;
   employmentType: string;
-  description: string | null;
-  defaultSkills: string[];
-  defaultInstructions: string | null;
+  capabilities: string | null;
+  defaultKbPageIds: string[];
+  defaultPermissions: Record<string, unknown>;
+  systemPromptTemplate: string | null;
+  isSystem: boolean;
   createdAt: Date;
   updatedAt: Date;
 }

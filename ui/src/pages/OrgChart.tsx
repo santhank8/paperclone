@@ -19,11 +19,11 @@ import { getRoleLevel, getAgentRingClass } from "../lib/role-icons";
 import { cn } from "../lib/utils";
 
 // Layout constants
-const CARD_MIN_W = 220;
-const CARD_MAX_W = 300;
-const CARD_W = 260;
-const CARD_H = 110;
-const GAP_X = 48;
+const CARD_MIN_W = 260;
+const CARD_MAX_W = 360;
+const CARD_W = 320;
+const CARD_H = 130;
+const GAP_X = 56;
 const GAP_Y = 100;
 const PADDING = 80;
 
@@ -413,7 +413,7 @@ export function OrgChart() {
   }
 
   return (
-    <div className="flex flex-col -mx-6 -mt-4 -mb-6 px-2 pt-2" style={{ height: "calc(100vh - 48px)" }}>
+    <div className="flex flex-col -mx-6 -mt-6 -mb-6" style={{ height: "calc(100vh - 40px)", width: "calc(100% + 3rem)" }}>
     <div className="mb-2 flex items-center justify-start gap-2 shrink-0">
       <Link to="/company/import">
         <Button variant="outline" size="sm">
