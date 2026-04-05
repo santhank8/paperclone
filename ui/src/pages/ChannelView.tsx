@@ -207,6 +207,66 @@ function MessageRow({ msg, agentMap, issueMap, replyMap, onPin, onUnpin, isPinne
   );
 }
 
+// ---- Analytics panel ----
+interface ChannelAnalyticsPanelProps {
+  companyId: string;
+  channelId: string;
+}
+
+function ChannelAnalyticsPanel({ companyId, channelId }: ChannelAnalyticsPanelProps) {
+  const { data, isLoading } = useQuery({
+    queryKey: queryKeys.channels.analytics(companyId, channelId),
+    queryFn: () => channelsApi.analytics(companyId, channelId),
+  });
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12 text-sm text-muted-foreground">
+        Loading analytics...
+      </div>
+    );
+  }
+  if (!data) return null;
+
+  return (
+    <div className="p-4 space-y-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        <StatCard label="Total Messages" value={data.totalMessages} />
+        <StatCard label="Decisions" value={data.decisionsCount} />
+        <StatCard label="Escalations" value={data.escalationsCount} />
+        <StatCard label="Avg / Day" value={data.avgMessagesPerDay} />
+        {Object.entries(data.messagesByType).map(([type, count]) => (
+          <StatCard key={type} label={type.replace(/_/g, " ")} value={count} />
+        ))}
+      </div>
+      {data.topContributors.length > 0 && (
+        <div>
+          <p className="text-[12px] font-semibold text-muted-foreground uppercase tracking-wide mb-2">
+            Top Contributors (last 30 days)
+          </p>
+          <div className="space-y-1">
+            {data.topContributors.map((c) => (
+              <div key={c.agentId} className="flex items-center justify-between text-[13px]">
+                <span className="text-foreground">{c.name}</span>
+                <span className="text-muted-foreground">{c.messageCount} messages</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function StatCard({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-lg border border-border bg-muted/20 px-3 py-2">
+      <p className="text-[11px] text-muted-foreground capitalize">{label}</p>
+      <p className="text-[18px] font-semibold text-foreground">{value}</p>
+    </div>
+  );
+}
+
 // ---- Main ChannelView ----
 export function ChannelView() {
   const { channelId } = useParams<{ channelId: string }>();
@@ -217,6 +277,7 @@ export function ChannelView() {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [draftBody, setDraftBody] = useState("");
   const [filter, setFilter] = useState<FilterMode>("all");
+  const [pinnedExpanded, setPinnedExpanded] = useState(true);
 
   // Fetch channels list to find the current channel name
   const { data: channels } = useQuery({
@@ -246,6 +307,40 @@ export function ChannelView() {
   const { data: session } = useQuery({
     queryKey: queryKeys.auth.session,
     queryFn: () => authApi.getSession(),
+  });
+
+  // Fetch pinned messages
+  const { data: pinnedMessages = [] } = useQuery({
+    queryKey: queryKeys.channels.pinned(selectedCompanyId!, channelId!),
+    queryFn: () => channelsApi.pinned(selectedCompanyId!, channelId!),
+    enabled: !!selectedCompanyId && !!channelId,
+  });
+
+  // Pin / unpin mutations
+  const pinMutation = useMutation({
+    mutationFn: (messageId: string) =>
+      channelsApi.pinMessage(selectedCompanyId!, channelId!, messageId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.channels.pinned(selectedCompanyId!, channelId!),
+      });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.channels.list(selectedCompanyId!),
+      });
+    },
+  });
+
+  const unpinMutation = useMutation({
+    mutationFn: (messageId: string) =>
+      channelsApi.unpinMessage(selectedCompanyId!, channelId!, messageId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.channels.pinned(selectedCompanyId!, channelId!),
+      });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.channels.list(selectedCompanyId!),
+      });
+    },
   });
 
   // Build agent map
@@ -357,35 +452,92 @@ export function ChannelView() {
           >
             Decisions &amp; Escalations
           </button>
+          <button
+            onClick={() => setFilter("analytics")}
+            className={cn(
+              "px-3 py-1 text-[12px] font-medium rounded-full transition-colors flex items-center gap-1",
+              filter === "analytics"
+                ? "bg-accent text-foreground"
+                : "text-muted-foreground hover:text-foreground hover:bg-accent/50",
+            )}
+          >
+            <BarChart2 className="h-3 w-3" />
+            Analytics
+          </button>
         </div>
       </div>
 
-      {/* Messages */}
+      {/* Messages / Analytics */}
       <div className="flex-1 min-h-0 overflow-y-auto py-2">
-        {filteredMessages.length === 0 ? (
-          <div className="flex items-center justify-center h-full text-sm text-muted-foreground">
-            {filter === "decisions"
-              ? "No decisions or escalations yet."
-              : "No messages yet. Start the conversation."}
-          </div>
+        {filter === "analytics" ? (
+          <ChannelAnalyticsPanel
+            companyId={selectedCompanyId!}
+            channelId={channelId!}
+          />
         ) : (
           <>
-            {filteredMessages.map((msg) => (
-              <MessageRow
-                key={msg.id}
-                msg={msg}
-                agentMap={agentMap}
-                issueMap={issueMap}
-                replyMap={replyMap}
-              />
-            ))}
+            {/* Pinned Messages collapsible section */}
+            {pinnedMessages.length > 0 && filter === "all" && (
+              <div className="mb-2 border-b border-border">
+                <button
+                  onClick={() => setPinnedExpanded((v) => !v)}
+                  className="flex items-center gap-1.5 w-full px-4 py-1.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide hover:text-foreground transition-colors"
+                >
+                  {pinnedExpanded ? (
+                    <ChevronDown className="h-3 w-3" />
+                  ) : (
+                    <ChevronRight className="h-3 w-3" />
+                  )}
+                  <Pin className="h-3 w-3" />
+                  Pinned ({pinnedMessages.length})
+                </button>
+                {pinnedExpanded && (
+                  <div className="bg-muted/20">
+                    {pinnedMessages.map((msg) => (
+                      <MessageRow
+                        key={`pinned-${msg.id}`}
+                        msg={msg}
+                        agentMap={agentMap}
+                        issueMap={issueMap}
+                        replyMap={replyMap}
+                        isPinned
+                        onUnpin={(id) => unpinMutation.mutate(id)}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {filteredMessages.length === 0 ? (
+              <div className="flex items-center justify-center h-full text-sm text-muted-foreground">
+                {filter === "decisions"
+                  ? "No decisions or escalations yet."
+                  : "No messages yet. Start the conversation."}
+              </div>
+            ) : (
+              <>
+                {filteredMessages.map((msg) => (
+                  <MessageRow
+                    key={msg.id}
+                    msg={msg}
+                    agentMap={agentMap}
+                    issueMap={issueMap}
+                    replyMap={replyMap}
+                    isPinned={pinnedMessages.some((p) => p.id === msg.id)}
+                    onPin={(id) => pinMutation.mutate(id)}
+                    onUnpin={(id) => unpinMutation.mutate(id)}
+                  />
+                ))}
+              </>
+            )}
+            <div ref={bottomRef} />
           </>
         )}
-        <div ref={bottomRef} />
       </div>
 
-      {/* Input */}
-      <div className="shrink-0 border-t border-border px-4 py-3">
+      {/* Input - hidden when viewing analytics */}
+      <div className={cn("shrink-0 border-t border-border px-4 py-3", filter === "analytics" && "hidden")}>
         <div className="flex items-end gap-2">
           <Textarea
             ref={textareaRef}

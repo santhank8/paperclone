@@ -470,6 +470,13 @@
       "when": 1775959200002,
       "tag": "0066_agent_chat_rooms",
       "breakpoints": true
+    },
+    {
+      "idx": 67,
+      "version": "7",
+      "when": 1775959200003,
+      "tag": "0067_channel_pinned_messages",
+      "breakpoints": true
     }
   ]
 }
