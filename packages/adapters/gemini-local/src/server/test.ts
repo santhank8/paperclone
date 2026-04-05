@@ -134,6 +134,14 @@ export async function testEnvironment(
     } else {
       const model = asString(config.model, DEFAULT_GEMINI_LOCAL_MODEL).trim();
       const approvalMode = asString(config.approvalMode, asBoolean(config.yolo, false) ? "yolo" : "default");
+      if (asBoolean(config.sandbox, false)) {
+        checks.push({
+          code: "gemini_sandbox_unsupported",
+          level: "warn",
+          message: "The sandbox setting is not supported by Gemini CLI v0.36.0 and will be ignored.",
+          hint: "Remove sandbox from adapter config, or use extraArgs if equivalent behavior becomes available.",
+        });
+      }
       const helloProbeTimeoutSec = Math.max(1, asNumber(config.helloProbeTimeoutSec, 30));
       const extraArgs = (() => {
         const fromExtraArgs = asStringArray(config.extraArgs);

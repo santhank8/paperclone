@@ -492,7 +492,7 @@ async function resolveSpawnTarget(
     const commandLine = [quoteForCmd(executable), ...args.map(quoteForCmd)].join(" ");
     return {
       command: shell,
-      args: ["/d", "/c", commandLine],
+      args: ["/d", "/s", "/c", commandLine],
     };
   }
 
