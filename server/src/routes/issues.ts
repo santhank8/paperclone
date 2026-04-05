@@ -44,6 +44,7 @@ import {
   workProductService,
 } from "../services/index.js";
 import { logger } from "../middleware/logger.js";
+import { archiveExecutionWorkspaceForTerminalIssue } from "../services/workspace-runtime.js";
 import { forbidden, HttpError, unauthorized } from "../errors.js";
 import { assertCompanyAccess, getActorInfo } from "./authz.js";
 import { shouldWakeAssigneeOnCheckout } from "./issues-checkout-wakeup.js";
@@ -1179,6 +1180,23 @@ export function issueRoutes(
       return;
     }
     await routinesSvc.syncRunStatusForIssue(issue.id);
+
+    // Archive linked execution workspace when issue transitions to terminal state.
+    // Fire-and-forget: cleanup should not block the HTTP response.
+    const wasTerminal = existing.status === "done" || existing.status === "cancelled";
+    const isNowTerminal = issue.status === "done" || issue.status === "cancelled";
+    if (!wasTerminal && isNowTerminal && issue.executionWorkspaceId) {
+      archiveExecutionWorkspaceForTerminalIssue({
+        db,
+        executionWorkspaceId: issue.executionWorkspaceId,
+        companyId: issue.companyId,
+      }).catch((err) =>
+        logger.warn(
+          { err, issueId: issue.id, executionWorkspaceId: issue.executionWorkspaceId },
+          "failed to archive execution workspace on terminal issue transition",
+        ),
+      );
+    }
 
     if (actor.runId) {
       await heartbeat.reportRunActivity(actor.runId).catch((err) =>
