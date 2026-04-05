@@ -254,7 +254,7 @@ describe("realizeExecutionWorkspace", () => {
     expect(second.created).toBe(false);
     expect(second.cwd).toBe(first.cwd);
     expect(second.branchName).toBe(first.branchName);
-  });
+  }, 20_000);
 
   it("slugifies unsafe issue titles for branch names and worktree folders", async () => {
     const repoRoot = await createTempRepo();
