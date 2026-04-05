@@ -58,6 +58,7 @@ export async function initJwtSecret(): Promise<void> {
   const envSecret = process.env.PAPERCLIP_AGENT_JWT_SECRET;
   if (envSecret) {
     cachedSecret = envSecret;
+    console.log("[agent-auth-jwt] Loaded JWT secret from env var");
   } else {
     // Attempt GCP Secret Manager
     const gcpProject = process.env.PAPERCLIP_GCP_PROJECT_ID;
@@ -75,6 +76,7 @@ export async function initJwtSecret(): Promise<void> {
           cachedSecret = typeof payload === "string"
             ? payload
             : Buffer.from(payload).toString("utf8");
+          console.log("[agent-auth-jwt] Loaded JWT secret from GCP Secret Manager");
         }
       } catch (err) {
         // Log but don't crash — fall through to null (JWT auth disabled)
