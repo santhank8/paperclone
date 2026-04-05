@@ -899,12 +899,15 @@ export function AgentDetail() {
         crumbs.push({ label: "Runs" });
       } else if (activeView === "budget") {
         crumbs.push({ label: "Budget" });
+      } else if (isAgentPluginTab(activeView)) {
+        const pluginTab = pluginTabItems.find((item) => item.value === activeView);
+        crumbs.push({ label: pluginTab?.label ?? "Plugin" });
       } else {
         crumbs.push({ label: "Dashboard" });
       }
     }
     setBreadcrumbs(crumbs);
-  }, [setBreadcrumbs, agent, routeAgentRef, canonicalAgentRef, activeView, urlRunId]);
+  }, [setBreadcrumbs, agent, routeAgentRef, canonicalAgentRef, activeView, urlRunId, pluginTabItems]);
 
   useEffect(() => {
     closePanel();
