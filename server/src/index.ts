@@ -1,4 +1,19 @@
 /// <reference path="./types/express.d.ts" />
+
+// Prevent unhandled promise rejections (e.g. from adapter WebSocket close events)
+// from crashing the server.  Log them instead and let the heartbeat service handle
+// run failure status updates.
+process.on("unhandledRejection", (reason, _promise) => {
+  const message = reason instanceof Error ? reason.message : String(reason);
+  const stack = reason instanceof Error ? reason.stack : undefined;
+  // eslint-disable-next-line no-console
+  console.error(`[paperclip] unhandled rejection (non-fatal): ${message}`);
+  if (stack) {
+    // eslint-disable-next-line no-console
+    console.error(stack);
+  }
+});
+
 import { existsSync, readFileSync, rmSync } from "node:fs";
 import { createServer } from "node:http";
 import { resolve } from "node:path";

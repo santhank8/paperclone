@@ -138,11 +138,19 @@ function resolveSessionKey(input: {
   configuredSessionKey: string | null;
   runId: string;
   issueId: string | null;
+  agentId?: string | null;
 }): string {
   const fallback = input.configuredSessionKey ?? "paperclip";
-  if (input.strategy === "run") return `paperclip:run:${input.runId}`;
-  if (input.strategy === "issue" && input.issueId) return `paperclip:issue:${input.issueId}`;
-  return fallback;
+  // Session keys must use the "agent:{agentId}:{rest}" format so the OpenClaw
+  // gateway resolves which agent owns the session.  Without this prefix the
+  // gateway falls back to DEFAULT_AGENT_ID ("main") and rejects requests where
+  // agentId != "main".
+  const agentId = nonEmpty(input.agentId) ?? "main";
+  if (input.strategy === "run") return `agent:${agentId}:paperclip:run:${input.runId}`;
+  if (input.strategy === "issue" && input.issueId) return `agent:${agentId}:paperclip:issue:${input.issueId}`;
+  // Apply agent prefix to fallback path ("fixed" strategy or "issue" with no
+  // issueId) so multi-agent gateway routing works in all cases.
+  return `agent:${agentId}:${fallback}`;
 }
 
 function isLoopbackHost(hostname: string): boolean {
@@ -658,6 +666,10 @@ class GatewayWsClient {
     ws.on("close", (code, reason) => {
       const reasonText = rawDataToString(reason);
       const err = new Error(`gateway closed (${code}): ${reasonText}`);
+      // failPending/rejectChallenge call Promise reject callbacks which
+      // schedule microtasks — they don't throw synchronously.  Unhandled
+      // rejections from orphaned promises are caught by the global
+      // process.on("unhandledRejection") handler in server/src/index.ts.
       this.failPending(err);
       this.rejectChallenge(err);
     });
@@ -1097,11 +1109,13 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
 
   const sessionKeyStrategy = normalizeSessionKeyStrategy(ctx.config.sessionKeyStrategy);
   const configuredSessionKey = nonEmpty(ctx.config.sessionKey);
+  const configuredAgentIdForSession = nonEmpty(ctx.config.agentId);
   const sessionKey = resolveSessionKey({
     strategy: sessionKeyStrategy,
     configuredSessionKey,
     runId: ctx.runId,
     issueId: wakePayload.issueId,
+    agentId: configuredAgentIdForSession,
   });
 
   const templateMessage = nonEmpty(payloadTemplate.message) ?? nonEmpty(payloadTemplate.text);
