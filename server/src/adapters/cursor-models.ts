@@ -47,6 +47,20 @@ function pushModelId(target: AdapterModel[], raw: string) {
   target.push({ id, label: id });
 }
 
+/** Strips common ANSI escape sequences from CLI output (e.g. Cursor progress lines). */
+function stripAnsiSequences(text: string): string {
+  return text
+    .replace(/\x1b\[[0-9;]*[A-Za-z]/g, "")
+    .replace(/\x1b\]8;;[^\x07]*\x07/g, "");
+}
+
+function trimCursorModelLabel(raw: string): string {
+  return raw
+    .trim()
+    .replace(/\s*\((current|default)\)\s*$/gi, "")
+    .trim();
+}
+
 function collectFromJsonValue(value: unknown, target: AdapterModel[]) {
   if (typeof value === "string") {
     pushModelId(target, value);
@@ -95,8 +109,23 @@ export function parseCursorModelsOutput(stdout: string, stderr: string): Adapter
   }
 
   for (const lineRaw of combined.split(/\r?\n/)) {
-    const line = lineRaw.trim();
+    const line = stripAnsiSequences(lineRaw).trim();
     if (!line) continue;
+
+    // Current `agent models` prints one model per line: `composer-2 - Composer 2`
+    // (older parsers only handled comma lists or single-token lines, so discovery was empty.)
+    const dashMatch = line.match(
+      /^([A-Za-z0-9][A-Za-z0-9._/-]*)\s+-\s+(.+)$/,
+    );
+    if (dashMatch) {
+      const id = sanitizeModelId(dashMatch[1] ?? "");
+      if (isLikelyModelId(id)) {
+        const label = trimCursorModelLabel(dashMatch[2] ?? "") || id;
+        models.push({ id, label });
+      }
+      continue;
+    }
+
     const bullet = line.replace(/^[-*]\s+/, "").trim();
     if (!bullet || bullet.includes(" ")) continue;
     pushModelId(models, bullet);
