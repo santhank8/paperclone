@@ -454,6 +454,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
       resultJson: attempt.parsed.resultEvent ?? {
         stdout: attempt.proc.stdout,
         stderr: attempt.proc.stderr,
+        ...(attempt.parsed.summary ? { summary: attempt.parsed.summary } : {}),
       },
       summary: attempt.parsed.summary,
       question: attempt.parsed.question,
