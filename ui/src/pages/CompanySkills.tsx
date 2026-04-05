@@ -52,6 +52,7 @@ import {
   RefreshCw,
   Save,
   Search,
+  Trash2,
 } from "lucide-react";
 
 type SkillTreeNode = {
@@ -505,6 +506,8 @@ function SkillPane({
   installUpdatePending,
   onSave,
   savePending,
+  onDelete,
+  deletePending,
 }: {
   loading: boolean;
   detail: CompanySkillDetail | null | undefined;
@@ -524,8 +527,11 @@ function SkillPane({
   installUpdatePending: boolean;
   onSave: () => void;
   savePending: boolean;
+  onDelete: () => void;
+  deletePending: boolean;
 }) {
   const { pushToast } = useToast();
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
 
   if (!detail) {
     if (loading) {
@@ -559,17 +565,27 @@ function SkillPane({
               <p className="mt-2 max-w-3xl text-sm text-muted-foreground">{detail.description}</p>
             )}
           </div>
-          {detail.editable ? (
+          <div className="flex items-center gap-4">
+            {detail.editable ? (
+              <button
+                className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
+                onClick={() => setEditMode(!editMode)}
+              >
+                <Pencil className="h-3.5 w-3.5" />
+                {editMode ? "Stop editing" : "Edit"}
+              </button>
+            ) : (
+              <div className="text-sm text-muted-foreground">{detail.editableReason}</div>
+            )}
             <button
-              className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
-              onClick={() => setEditMode(!editMode)}
+              className="inline-flex items-center gap-2 text-sm text-destructive hover:text-destructive/80"
+              onClick={() => setDeleteConfirmOpen(true)}
+              disabled={deletePending}
             >
-              <Pencil className="h-3.5 w-3.5" />
-              {editMode ? "Stop editing" : "Edit"}
+              <Trash2 className="h-3.5 w-3.5" />
+              Delete skill
             </button>
-          ) : (
-            <div className="text-sm text-muted-foreground">{detail.editableReason}</div>
-          )}
+          </div>
         </div>
 
         <div className="mt-4 space-y-3 border-t border-border pt-4 text-sm">
@@ -728,6 +744,33 @@ function SkillPane({
           </pre>
         )}
       </div>
+
+      <Dialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Delete skill</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete the skill <strong>{detail.name}</strong>?
+              This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setDeleteConfirmOpen(false)} disabled={deletePending}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                onDelete();
+                setDeleteConfirmOpen(false);
+              }}
+              disabled={deletePending}
+            >
+              {deletePending ? "Deleting..." : "Delete skill"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -987,6 +1030,26 @@ export function CompanySkills() {
     },
   });
 
+  const deleteSkill = useMutation({
+    mutationFn: () => companySkillsApi.delete(selectedCompanyId!, selectedSkillId!),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: queryKeys.companySkills.list(selectedCompanyId!) });
+      navigate("/skills");
+      pushToast({
+        tone: "success",
+        title: "Skill deleted",
+        body: "The skill has been removed.",
+      });
+    },
+    onError: (error) => {
+      pushToast({
+        tone: "error",
+        title: "Delete failed",
+        body: error instanceof Error ? error.message : "Failed to delete skill.",
+      });
+    },
+  });
+
   if (!selectedCompanyId) {
     return <EmptyState icon={Boxes} message="Select a company to manage skills." />;
   }
@@ -1162,6 +1225,8 @@ export function CompanySkills() {
             installUpdatePending={installUpdate.isPending}
             onSave={() => saveFile.mutate()}
             savePending={saveFile.isPending}
+            onDelete={() => deleteSkill.mutate()}
+            deletePending={deleteSkill.isPending}
           />
         </div>
       </div>
