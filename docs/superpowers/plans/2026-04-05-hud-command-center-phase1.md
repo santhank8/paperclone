@@ -1223,4 +1223,4 @@ git commit -m "feat(hud): Phase 1 complete — HUD Command Center design system 
 - **No tests for CSS changes:** This is a visual-only refactor with no logic changes. Testing is visual verification via browser.
 - **Incremental commits:** Each task produces a working commit. If any task introduces a visual bug, it can be reverted independently.
 - **Fonts may flash:** Until Google Fonts load, text will use system fonts (Inter already available). The `display=swap` strategy prevents invisible text.
-- **Existing light theme:** The light theme CSS block (lines 45-80 in index.css) is left untouched. It may look off since `:root` now has dark values — this is intentional and will be addressed in Phase 4.
+- **Existing light theme:** The `:root` block is replaced with HUD dark values. The light theme is deferred to Phase 4 — toggling to light mode will show the dark palette until Phase 4 adds proper light values.
