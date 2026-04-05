@@ -484,9 +484,10 @@ export function OrgChart() {
                   {agent && (() => {
                     const modelRaw = agent.adapterConfig?.model as string | undefined;
                     const modelName = modelRaw ? modelRaw.replace(/:cloud$/, "") : null;
+                    const provider = adapterLabels[agent.adapterType] ?? agent.adapterType;
                     return (
                       <span className="text-[10px] text-muted-foreground/60 font-mono leading-tight mt-1 truncate max-w-full">
-                        {modelName ?? (adapterLabels[agent.adapterType] ?? agent.adapterType)}
+                        {provider}{modelName ? ` - ${modelName}` : ""}
                       </span>
                     );
                   })()}
