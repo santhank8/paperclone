@@ -15,6 +15,16 @@ import { dashboardApi } from "../api/dashboard";
 import { activityApi } from "../api/activity";
 import { heartbeatsApi } from "../api/heartbeats";
 import { secretsApi } from "../api/secrets";
+import {
+  ChatLoadingSkeleton,
+  ChatDashboardCard,
+  ChatAgentStatusGrid,
+  ChatIssueList,
+  ChatCostBreakdown,
+  ChatApprovalCard,
+  ChatOrgChart,
+} from "../components/chat";
+import { useCallback, useMemo } from "react";
 
 export function useCopilotActions() {
   const navigate = useNavigate();
@@ -22,6 +32,13 @@ export function useCopilotActions() {
   const { companies, selectedCompany, selectedCompanyId, setSelectedCompanyId } = useCompany();
   const { openNewIssue, openNewProject, openNewGoal, openNewAgent } = useDialog();
   const queryClient = useQueryClient();
+
+  const companyNav = useCallback(
+    (subpath: string) => {
+      if (selectedCompany) navigate(`/${selectedCompany.issuePrefix}/${subpath}`);
+    },
+    [selectedCompany, navigate],
+  );
 
   // ── Readable context ──────────────────────────────────────────────
 
@@ -57,12 +74,73 @@ export function useCopilotActions() {
 
   // ── Chat suggestions ──────────────────────────────────────────────
 
+  const staticSuggestions = useMemo(() => {
+    const path = location.pathname.toLowerCase();
+
+    // Page-specific suggestions
+    if (path.includes("/dashboard")) {
+      return [
+        { title: "Dashboard summary", message: "How's the company doing?" },
+        { title: "Check agent status", message: "Show me the agents" },
+        { title: "View spend", message: "What's our spend this month?" },
+      ];
+    }
+    if (path.includes("/issues")) {
+      return [
+        { title: "Open issues", message: "Show me open issues" },
+        { title: "Urgent issues", message: "Any urgent issues?" },
+        { title: "Create issue", message: "Create a new issue" },
+      ];
+    }
+    if (path.includes("/agents")) {
+      return [
+        { title: "Agent status", message: "Show me all agents" },
+        { title: "Org chart", message: "Show me the org chart" },
+        { title: "Agent costs", message: "Which agent is spending the most?" },
+      ];
+    }
+    if (path.includes("/costs")) {
+      return [
+        { title: "Cost summary", message: "What's our spend this month?" },
+        { title: "Top spenders", message: "Which agents cost the most?" },
+        { title: "Budget status", message: "How much budget is left?" },
+      ];
+    }
+    if (path.includes("/approvals")) {
+      return [
+        { title: "Pending approvals", message: "Any pending approvals?" },
+        { title: "Review approvals", message: "Show me all pending approvals so I can review them" },
+        { title: "Dashboard", message: "How's the company doing?" },
+      ];
+    }
+    if (path.includes("/projects")) {
+      return [
+        { title: "List projects", message: "Show me all projects" },
+        { title: "Project issues", message: "What issues are in this project?" },
+        { title: "Create project", message: "Create a new project" },
+      ];
+    }
+    if (path.includes("/goals")) {
+      return [
+        { title: "List goals", message: "Show me all goals" },
+        { title: "Create goal", message: "Create a new goal" },
+        { title: "Dashboard", message: "How's the company doing?" },
+      ];
+    }
+
+    // Default suggestions
+    return [
+      { title: "Dashboard overview", message: "How's the company doing?" },
+      { title: "Show agents", message: "Show me the agents" },
+      { title: "Open issues", message: "What issues are open?" },
+    ];
+  }, [location.pathname]);
+
+  // Static chips — instant, no LLM round-trip
   useConfigureSuggestions({
-    instructions: "Suggest 3 relevant actions based on the current page context. Examples: show dashboard summary, list open issues, create a new issue, check agent status, view pending approvals, show cost breakdown. Keep suggestions short (under 8 words).",
-    maxSuggestions: 3,
-    minSuggestions: 1,
+    suggestions: staticSuggestions,
     available: "always",
-  }, [location.pathname, selectedCompanyId]);
+  }, [staticSuggestions]);
 
   // ── Navigation ────────────────────────────────────────────────────
 
@@ -165,6 +243,15 @@ export function useCopilotActions() {
         assigneeAgentId: i.assigneeAgentId,
         projectId: i.projectId,
       })));
+    },
+    render: ({ status, result }) => {
+      if (status === ToolCallStatus.Complete && result) {
+        try {
+          const issues = JSON.parse(result as string);
+          return <ChatIssueList issues={issues} onNavigate={companyNav} />;
+        } catch { /* fallback to text */ }
+      }
+      return <ChatLoadingSkeleton />;
     },
   });
 
@@ -513,6 +600,15 @@ export function useCopilotActions() {
         reportsTo: a.reportsTo,
       })));
     },
+    render: ({ status, result }) => {
+      if (status === ToolCallStatus.Complete && result) {
+        try {
+          const agents = JSON.parse(result as string);
+          return <ChatAgentStatusGrid agents={agents} onNavigate={companyNav} />;
+        } catch { /* fallback to text */ }
+      }
+      return <ChatLoadingSkeleton />;
+    },
   });
 
   useFrontendTool({
@@ -533,6 +629,15 @@ export function useCopilotActions() {
     handler: async () => {
       if (!selectedCompanyId) return "No company selected";
       return JSON.stringify(await agentsApi.org(selectedCompanyId));
+    },
+    render: ({ status, result }) => {
+      if (status === ToolCallStatus.Complete && result) {
+        try {
+          const tree = JSON.parse(result as string);
+          return <ChatOrgChart tree={tree} onNavigate={companyNav} />;
+        } catch { /* fallback to text */ }
+      }
+      return <ChatLoadingSkeleton />;
     },
   });
 
@@ -660,6 +765,32 @@ export function useCopilotActions() {
         createdAt: a.createdAt,
       })));
     },
+    render: ({ status, result }) => {
+      if (status === ToolCallStatus.Complete && result) {
+        try {
+          const approvals = JSON.parse(result as string);
+          return (
+            <ChatApprovalCard
+              approvals={approvals}
+              onApprove={async (id) => {
+                await approvalsApi.approve(id);
+                queryClient.invalidateQueries({ queryKey: ["approvals"] });
+              }}
+              onReject={async (id) => {
+                await approvalsApi.reject(id);
+                queryClient.invalidateQueries({ queryKey: ["approvals"] });
+              }}
+              onRequestRevision={async (id) => {
+                await approvalsApi.requestRevision(id);
+                queryClient.invalidateQueries({ queryKey: ["approvals"] });
+              }}
+              onNavigate={companyNav}
+            />
+          );
+        } catch { /* fallback to text */ }
+      }
+      return <ChatLoadingSkeleton />;
+    },
   });
 
   useFrontendTool({
@@ -725,6 +856,15 @@ export function useCopilotActions() {
       if (!selectedCompanyId) return "No company selected";
       return JSON.stringify(await dashboardApi.summary(selectedCompanyId));
     },
+    render: ({ status, result }) => {
+      if (status === ToolCallStatus.Complete && result) {
+        try {
+          const data = JSON.parse(result as string);
+          return <ChatDashboardCard data={data} companyName={selectedCompany?.name} onNavigate={companyNav} />;
+        } catch { /* fallback to text */ }
+      }
+      return <ChatLoadingSkeleton />;
+    },
   });
 
   useFrontendTool({
@@ -736,7 +876,20 @@ export function useCopilotActions() {
     }),
     handler: async ({ from, to }) => {
       if (!selectedCompanyId) return "No company selected";
-      return JSON.stringify(await costsApi.summary(selectedCompanyId, from, to));
+      const [summary, agentCosts] = await Promise.all([
+        costsApi.summary(selectedCompanyId, from, to),
+        costsApi.byAgent(selectedCompanyId, from, to),
+      ]);
+      return JSON.stringify({ summary, agentCosts });
+    },
+    render: ({ status, result }) => {
+      if (status === ToolCallStatus.Complete && result) {
+        try {
+          const { summary, agentCosts } = JSON.parse(result as string);
+          return <ChatCostBreakdown summary={summary} agentCosts={agentCosts} onNavigate={companyNav} />;
+        } catch { /* fallback to text */ }
+      }
+      return <ChatLoadingSkeleton />;
     },
   });
 

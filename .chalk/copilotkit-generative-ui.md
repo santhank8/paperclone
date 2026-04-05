@@ -4,12 +4,17 @@
 
 Add rich inline visualizations to the CopilotKit chat sidebar so that AI responses render interactive components instead of plain text. This transforms the sidebar from a text-only assistant into a visual command center — the key demo differentiator for Paperclip's CopilotKit integration.
 
-## Current State
+## Current State (post v2 migration)
 
-- 35+ `useCopilotAction` handlers registered, all returning plain JSON
-- 3 existing `renderAndWaitForResponse` instances — all destructive confirmation dialogs (`deleteIssue`, `deleteProject`, `terminateAgent`)
+- **v2 migration is complete** — all hooks use `@copilotkit/react-core/v2` APIs
+- 45 `useFrontendTool` handlers + 3 `useHumanInTheLoop` handlers registered, all returning plain JSON
+- 3 existing `useHumanInTheLoop` instances with `render` props — all destructive confirmation dialogs (`deleteIssue`, `deleteProject`, `terminateAgent`) using `ToolCallStatus.Complete` / `ToolCallStatus.Executing` pattern
+- Server runtime uses `BuiltInAgent` with `openai/gpt-5.4` via `createCopilotEndpointSingleRouteExpress`
+- Provider: `CopilotKitProvider` from `@copilotkit/react-core/v2`
+- Context: 4x `useAgentContext`, 1x `useConfigureSuggestions`
 - Rich chart/card components already exist on the Dashboard page (`ActivityCharts.tsx`, `MetricCard.tsx`, `ActiveAgentsPanel.tsx`, `KanbanBoard.tsx`) but are not exposed in chat
 - Styling system: Tailwind with `border-border`, `text-muted-foreground`, `rounded-lg`, `p-3`/`p-4`, alpha opacity patterns (`/5`, `/25`, `/50`)
+- No `ui/src/components/chat/` directory exists yet
 
 ## Architecture
 
@@ -27,35 +32,35 @@ ui/src/components/chat/
 ```
 
 Each component is a self-contained React component that:
-- Receives data via `args` from the action handler
+- Receives data via `args` / `result` from the tool handler
 - Fits within the ~340px sidebar width
 - Uses existing Tailwind color/spacing patterns
 - Is read-only OR interactive (approval actions, issue creation)
 
-Components are wired in via `render` props on existing actions in `useCopilotActions.tsx`. No new actions needed — we add `render` to actions that already return data.
+Components are wired in via `render` props on existing `useFrontendTool` / `useHumanInTheLoop` calls in `useCopilotActions.tsx`. No new tools needed — we add `render` to tools that already return data.
 
 ---
 
 ## Step 1: ChatDashboardCard — Mini Dashboard Summary
 
-**Action to modify:** `getDashboard`
+**Tool to modify:** `getDashboard` (`useFrontendTool`)
 
 **What it renders:** A compact card showing company health at a glance.
 
 ```
 ┌─────────────────────────────────┐
-│ 📊 ACME Dashboard               │
+│ ACME Dashboard                   │
 │                                  │
 │  12 Agents    47 Issues   $2.4k │
 │  ●3 run ●2 err  ●8 open  /5k   │
 │                                  │
 │  ████████░░  48% budget used     │
 │                                  │
-│  [View Dashboard →]              │
+│  [View Dashboard ->]             │
 └─────────────────────────────────┘
 ```
 
-**Data source:** `dashboardApi.getSummary(companyId)` — already called by the `getDashboard` action handler.
+**Data source:** `dashboardApi.getSummary(companyId)` — already called by the `getDashboard` handler.
 
 **Layout:**
 - Container: `rounded-lg border border-border bg-card p-3 text-sm space-y-2`
@@ -64,29 +69,31 @@ Components are wired in via `render` props on existing actions in `useCopilotAct
 - Budget bar: full-width `h-1.5 rounded-full bg-muted` with filled portion colored by utilization (emerald < 70%, yellow 70-90%, red > 90%)
 - Footer link: `text-xs text-primary hover:underline cursor-pointer` calling `navigate()`
 
-**Implementation:**
-1. Create `ChatDashboardCard.tsx` accepting `{ data: DashboardSummary; onNavigate: (path: string) => void }`
-2. Add `render` prop to the existing `getDashboard` action in `useCopilotActions.tsx`:
-   ```tsx
-   render: ({ args, status, result }) => {
-     if (status === "complete" && result) {
-       return <ChatDashboardCard data={result} onNavigate={navigate} />;
-     }
-     return null; // loading state handled by CopilotKit
-   },
-   ```
+**Wiring (v2 pattern):**
+```tsx
+useFrontendTool({
+  name: "getDashboard",
+  // ... existing config ...
+  render: ({ status, result }) => {
+    if (status === ToolCallStatus.Complete && result) {
+      return <ChatDashboardCard data={result} onNavigate={navigate} />;
+    }
+    return <ChatLoadingSkeleton />;
+  },
+});
+```
 
 ---
 
 ## Step 2: ChatAgentStatusGrid — Agent Overview
 
-**Action to modify:** `listAgents`
+**Tool to modify:** `listAgents` (`useFrontendTool`)
 
 **What it renders:** A grid of agent cards showing status at a glance.
 
 ```
 ┌─────────────────────────────────┐
-│ 🤖 5 Agents                     │
+│ 5 Agents                         │
 │                                  │
 │ ┌──────────┐ ┌──────────┐      │
 │ │ ● Alice   │ │ ○ Bob     │      │
@@ -94,7 +101,7 @@ Components are wired in via `render` props on existing actions in `useCopilotAct
 │ │ running   │ │ idle      │      │
 │ └──────────┘ └──────────┘      │
 │ ┌──────────┐ ┌──────────┐      │
-│ │ ⚠ Carol   │ │ ● Dave    │      │
+│ │ ! Carol   │ │ ● Dave    │      │
 │ │ Designer  │ │ Marketer  │      │
 │ │ error     │ │ active    │      │
 │ └──────────┘ └──────────┘      │
@@ -118,25 +125,25 @@ Components are wired in via `render` props on existing actions in `useCopilotAct
 
 ## Step 3: ChatIssueList — Inline Issue Preview
 
-**Action to modify:** `listIssues`
+**Tool to modify:** `listIssues` (`useFrontendTool`)
 
 **What it renders:** A compact issue list with status/priority indicators.
 
 ```
 ┌─────────────────────────────────┐
-│ 📋 8 Issues                      │
+│ 8 Issues                         │
 │                                  │
-│ 🔴 ACME-42  Fix login crash     │
-│    urgent · in_progress · Alice  │
+│ * ACME-42  Fix login crash       │
+│   urgent · in_progress · Alice   │
 │                                  │
-│ 🟡 ACME-38  Update docs         │
-│    medium · todo · unassigned    │
+│ * ACME-38  Update docs           │
+│   medium · todo · unassigned     │
 │                                  │
-│ 🟢 ACME-35  Add dark mode       │
-│    low · done · Bob              │
+│ * ACME-35  Add dark mode         │
+│   low · done · Bob               │
 │                                  │
-│ … and 5 more                     │
-│ [View all issues →]              │
+│ ... and 5 more                   │
+│ [View all issues ->]             │
 └─────────────────────────────────┘
 ```
 
@@ -156,18 +163,16 @@ Components are wired in via `render` props on existing actions in `useCopilotAct
 
 ## Step 4: ChatCostBreakdown — Budget & Spend Visualization
 
-**Actions to modify:** `getCostSummary`, `getCostsByAgent`
+**Tools to modify:** `getCostSummary`, `getCostsByAgent` (`useFrontendTool`)
 
 **What it renders:** Budget utilization with top spenders.
 
 ```
 ┌─────────────────────────────────┐
-│ 💰 Cost Summary (MTD)           │
+│ Cost Summary (MTD)               │
 │                                  │
-│      ┌─────────┐                │
-│      │  $2,450  │                │
-│      │  / $5,000│                │
-│      └─────────┘                │
+│         $2,450                   │
+│        / $5,000                  │
 │  ████████████░░░░░  49%          │
 │                                  │
 │  Top agents:                     │
@@ -175,7 +180,7 @@ Components are wired in via `render` props on existing actions in `useCopilotAct
 │  Bob      ████░░░░░░  $520      │
 │  Carol    ███░░░░░░░  $410      │
 │                                  │
-│  [View costs →]                  │
+│  [View costs ->]                 │
 └─────────────────────────────────┘
 ```
 
@@ -190,24 +195,24 @@ Components are wired in via `render` props on existing actions in `useCopilotAct
 
 ## Step 5: ChatApprovalCard — Actionable Approval
 
-**Action to modify:** `listApprovals` (or add render to `getApproval`)
+**Tool to modify:** New `useHumanInTheLoop` replacing or alongside `listApprovals`
 
 **What it renders:** Pending approvals with inline action buttons.
 
 ```
 ┌─────────────────────────────────┐
-│ ⏳ Pending Approval              │
+│ Pending Approval                 │
 │                                  │
 │ New Agent Request                │
 │ "Hire a QA engineer for ACME"   │
 │ Requested by: Alice (CTO)       │
 │ 2 hours ago                      │
 │                                  │
-│ [✓ Approve] [✗ Reject] [↻ Rev] │
+│ [Approve] [Reject] [Revise]     │
 └─────────────────────────────────┘
 ```
 
-**Pattern:** This uses `renderAndWaitForResponse` (v1) / `useHumanInTheLoop` (v2) since it requires user interaction.
+**Pattern:** Uses `useHumanInTheLoop` with `render` + `ToolCallStatus` (same pattern as existing `deleteIssue`/`deleteProject`/`terminateAgent`).
 
 **Layout:**
 - Container: `rounded-lg border border-amber-500/30 bg-amber-500/[0.04] p-3 text-sm space-y-2`
@@ -219,26 +224,46 @@ Components are wired in via `render` props on existing actions in `useCopilotAct
   - Reject: `rounded-md bg-destructive px-3 py-1.5 text-xs font-medium text-destructive-foreground`
   - Request Revision: `rounded-md border border-border px-3 py-1.5 text-xs font-medium hover:bg-accent`
 
+**Wiring:**
+```tsx
+useHumanInTheLoop({
+  name: "reviewApproval",
+  description: "Review a pending approval with inline approve/reject/revise actions",
+  parameters: z.object({
+    approvalId: z.string().describe("Approval ID"),
+  }),
+  render: ({ args, respond, status }) => {
+    if (status === ToolCallStatus.Complete) {
+      return <p className="text-sm text-muted-foreground">Approval reviewed.</p>;
+    }
+    if (status === ToolCallStatus.Executing && respond) {
+      return <ChatApprovalCard approvalId={args.approvalId} onDecision={respond} />;
+    }
+    return null;
+  },
+});
+```
+
 ---
 
 ## Step 6: ChatOrgChart — Mini Org Tree
 
-**Action to modify:** `getAgentOrgChart`
+**Tool to modify:** `getAgentOrgChart` (`useFrontendTool`)
 
 **What it renders:** A compact hierarchical view of the agent org chart.
 
 ```
 ┌─────────────────────────────────┐
-│ 🏢 Org Chart                    │
+│ Org Chart                        │
 │                                  │
 │ ● Alice (CEO)                    │
-│ ├── ● Bob (CTO)                 │
-│ │   ├── ○ Carol (Engineer)      │
-│ │   └── ● Dave (Engineer)       │
-│ └── ⚠ Eve (CFO)                │
-│     └── ○ Frank (Analyst)       │
+│ |-- ● Bob (CTO)                 │
+│ |   |-- ○ Carol (Engineer)      │
+│ |   +-- ● Dave (Engineer)       │
+│ +-- ! Eve (CFO)                 │
+│     +-- ○ Frank (Analyst)       │
 │                                  │
-│ [View full org chart →]          │
+│ [View full org chart ->]         │
 └─────────────────────────────────┘
 ```
 
@@ -248,8 +273,8 @@ Components are wired in via `render` props on existing actions in `useCopilotAct
 - Container: `rounded-lg border border-border bg-card p-3 text-sm`
 - Tree rendered with left padding per depth level (`pl-4` per level)
 - Each node: status dot + name `text-xs font-medium` + role `text-[10px] text-muted-foreground`
-- Connector lines: `border-l border-border/50` with `before:` pseudo-elements or unicode box-drawing chars (`├──`, `└──`)
-- Max depth 3, collapse deeper levels with "…"
+- Connector lines: `border-l border-border/50` with `before:` pseudo-elements or unicode box-drawing chars
+- Max depth 3, collapse deeper levels with "..."
 
 ---
 
@@ -257,27 +282,39 @@ Components are wired in via `render` props on existing actions in `useCopilotAct
 
 **File:** `ui/src/hooks/useCopilotActions.tsx`
 
-For each action, add a `render` prop that returns the corresponding chat component. The pattern depends on whether the component is read-only or interactive:
+For each tool, add a `render` prop that returns the corresponding chat component. The pattern depends on whether the component is read-only or interactive:
 
-### Read-only renders (Steps 1-4, 6):
+### Read-only renders (Steps 1-4, 6) — on `useFrontendTool`:
 ```tsx
-useCopilotAction({
+useFrontendTool({
   name: "getDashboard",
   // ... existing config ...
   render: ({ status, result }) => {
-    if (status === "complete" && result) {
+    if (status === ToolCallStatus.Complete && result) {
       return <ChatDashboardCard data={result} onNavigate={navigate} />;
     }
-    return <ChatLoadingSkeleton />;  // optional: skeleton while loading
+    return <ChatLoadingSkeleton />;
   },
 });
 ```
 
-### Interactive renders (Step 5 — approvals):
-Uses `renderAndWaitForResponse` since user needs to click Approve/Reject.
+### Interactive renders (Step 5 — approvals) — on `useHumanInTheLoop`:
+```tsx
+useHumanInTheLoop({
+  name: "reviewApproval",
+  // ... config ...
+  render: ({ args, respond, status }) => {
+    if (status === ToolCallStatus.Complete) return <p>Done.</p>;
+    if (status === ToolCallStatus.Executing && respond) {
+      return <ChatApprovalCard approvalId={args.approvalId} onDecision={respond} />;
+    }
+    return null;
+  },
+});
+```
 
 ### Loading state (optional):
-Add a simple `ChatLoadingSkeleton` component — a `rounded-lg border border-border bg-card p-3 animate-pulse` with gray placeholder blocks. Used when `status !== "complete"`.
+Add a simple `ChatLoadingSkeleton` component — a `rounded-lg border border-border bg-card p-3 animate-pulse` with gray placeholder blocks. Used when `status !== ToolCallStatus.Complete`.
 
 ---
 
@@ -285,13 +322,13 @@ Add a simple `ChatLoadingSkeleton` component — a `rounded-lg border border-bor
 
 Recommended sequence for a live demo:
 
-1. **"How's ACME doing?"** → `getDashboard` → ChatDashboardCard (metrics + budget bar)
-2. **"Show me the agents"** → `listAgents` → ChatAgentStatusGrid (2x2 grid with status dots)
-3. **"What's in the backlog?"** → `listIssues` with status=backlog → ChatIssueList (priority-colored rows)
-4. **"What's our spend this month?"** → `getCostSummary` + `getCostsByAgent` → ChatCostBreakdown (budget ring + top spenders)
-5. **"Any pending approvals?"** → `listApprovals` → ChatApprovalCard (with action buttons)
-6. **"Approve it"** → inline approve click → confirmation inline
-7. **"Show me the org chart"** → `getAgentOrgChart` → ChatOrgChart (indented tree)
+1. **"How's ACME doing?"** -> `getDashboard` -> ChatDashboardCard (metrics + budget bar)
+2. **"Show me the agents"** -> `listAgents` -> ChatAgentStatusGrid (2x2 grid with status dots)
+3. **"What's in the backlog?"** -> `listIssues` with status=backlog -> ChatIssueList (priority-colored rows)
+4. **"What's our spend this month?"** -> `getCostSummary` + `getCostsByAgent` -> ChatCostBreakdown (budget ring + top spenders)
+5. **"Any pending approvals?"** -> `listApprovals` -> ChatApprovalCard (with action buttons)
+6. **"Approve it"** -> inline approve click -> confirmation inline
+7. **"Show me the org chart"** -> `getAgentOrgChart` -> ChatOrgChart (indented tree)
 
 This demonstrates: **data viz**, **actionable UI**, **navigation**, and **live state** — all inline in the chat.
 
@@ -309,14 +346,3 @@ This demonstrates: **data viz**, **actionable UI**, **navigation**, and **live s
 | 6 | ChatOrgChart | Small | Medium — simple tree but looks polished |
 
 Steps 1-3 can ship as a first pass. Steps 4-6 add depth.
-
----
-
-## v2 Migration Note
-
-The `.chalk/copilotkit-v2-migration.md` plan describes migrating to v2 hooks. If doing both:
-- Build generative UI with v1 `render` / `renderAndWaitForResponse` first (works today)
-- Then migrate to v2 `useFrontendTool` `render` / `useHumanInTheLoop` as part of the v2 migration
-- The component code (`ChatDashboardCard`, etc.) is hook-agnostic — only the wiring in `useCopilotActions.tsx` changes
-
-Alternatively, do the v2 migration first, then add generative UI using v2 patterns directly. The components themselves are the same either way.
