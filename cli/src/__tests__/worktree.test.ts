@@ -78,6 +78,9 @@ function buildSourceConfig(): PaperclipConfig {
     telemetry: {
       enabled: true,
     },
+    feedbackExport: {
+      enabled: false,
+    },
     storage: {
       provider: "local_disk",
       localDisk: {

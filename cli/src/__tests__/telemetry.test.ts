@@ -64,6 +64,9 @@ function makeConfigPath(root: string, enabled: boolean): string {
         keyFilePath: path.join(root, "runtime", "secrets", "master.key"),
       },
     },
+    feedbackExport: {
+      enabled: false,
+    },
   }, null, 2));
   return configPath;
 }
@@ -94,6 +97,16 @@ describe("cli telemetry", () => {
 
     expect(client).toBeNull();
     expect(fs.existsSync(path.join(root, "home", "instances", "telemetry-test", "telemetry", "state.json"))).toBe(false);
+  });
+
+  it("does not enable telemetry when initTelemetry is called without opt-in", async () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "paperclip-cli-telemetry-"));
+    process.env.PAPERCLIP_HOME = path.join(root, "home");
+    process.env.PAPERCLIP_INSTANCE_ID = "telemetry-test";
+
+    const { initTelemetry } = await import("../telemetry.js");
+    const client = initTelemetry();
+    expect(client).toBeNull();
   });
 
   it("creates telemetry state only after the first event is tracked", async () => {

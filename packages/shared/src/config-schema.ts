@@ -96,8 +96,16 @@ export const secretsConfigSchema = z.object({
 });
 
 export const telemetryConfigSchema = z.object({
-  enabled: z.boolean().default(true),
+  enabled: z.boolean().default(false),
 }).default({});
+
+export const feedbackExportConfigSchema = z
+  .object({
+    enabled: z.boolean().default(false),
+    backendUrl: z.string().url().optional(),
+    backendToken: z.string().optional(),
+  })
+  .default({});
 
 export const paperclipConfigSchema = z
   .object({
@@ -107,6 +115,7 @@ export const paperclipConfigSchema = z
     logging: loggingConfigSchema,
     server: serverConfigSchema,
     telemetry: telemetryConfigSchema,
+    feedbackExport: feedbackExportConfigSchema,
     auth: authConfigSchema.default({
       baseUrlMode: "auto",
       disableSignUp: false,
@@ -180,5 +189,6 @@ export type SecretsConfig = z.infer<typeof secretsConfigSchema>;
 export type SecretsLocalEncryptedConfig = z.infer<typeof secretsLocalEncryptedConfigSchema>;
 export type AuthConfig = z.infer<typeof authConfigSchema>;
 export type TelemetryConfig = z.infer<typeof telemetryConfigSchema>;
+export type FeedbackExportConfig = z.infer<typeof feedbackExportConfigSchema>;
 export type ConfigMeta = z.infer<typeof configMetaSchema>;
 export type DatabaseBackupConfig = z.infer<typeof databaseBackupConfigSchema>;

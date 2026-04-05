@@ -1174,7 +1174,7 @@ describe("feedbackService.saveIssueVote", () => {
     expect(uploadTraceBundle).toHaveBeenCalledTimes(1);
   });
 
-  it("marks pending shared traces as failed when no feedback export backend is configured", async () => {
+  it("does not flush pending shared traces when no feedback export share client is configured", async () => {
     const { companyId, issueId, commentId } = await seedIssueWithAgentComment();
 
     const result = await svc.saveIssueVote({
@@ -1193,9 +1193,9 @@ describe("feedbackService.saveIssueVote", () => {
     });
 
     expect(flushResult).toMatchObject({
-      attempted: 1,
+      attempted: 0,
       sent: 0,
-      failed: 1,
+      failed: 0,
     });
 
     const traces = await svc.listFeedbackTraces({
@@ -1203,9 +1203,9 @@ describe("feedbackService.saveIssueVote", () => {
       issueId,
       includePayload: true,
     });
-    expect(traces[0]?.status).toBe("failed");
-    expect(traces[0]?.attemptCount).toBe(1);
-    expect(traces[0]?.failureReason).toBe("Feedback export backend is not configured");
+    expect(traces[0]?.status).toBe("pending");
+    expect(traces[0]?.attemptCount).toBe(0);
+    expect(traces[0]?.failureReason).toBeNull();
     expect(traces[0]?.exportedAt).toBeNull();
   });
 });

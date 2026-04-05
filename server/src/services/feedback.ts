@@ -63,7 +63,6 @@ const MAX_SKILLS = 20;
 const MAX_INSTRUCTION_FILES = 20;
 const MAX_TRACE_FILE_CHARS = 10_000_000;
 const DEFAULT_INSTANCE_SETTINGS_SINGLETON_KEY = "default";
-const FEEDBACK_EXPORT_BACKEND_NOT_CONFIGURED = "Feedback export backend is not configured";
 
 type FeedbackTraceRow = typeof feedbackExports.$inferSelect & {
   issueIdentifier: string | null;
@@ -1749,42 +1748,10 @@ export function feedbackService(db: Db, options: FeedbackServiceOptions = {}) {
     }) => {
       const shareClient = options.shareClient;
       if (!shareClient) {
-        const filters = [eq(feedbackExports.status, "pending")];
-        if (input?.companyId) {
-          filters.push(eq(feedbackExports.companyId, input.companyId));
-        }
-        if (input?.traceId) {
-          filters.push(eq(feedbackExports.id, input.traceId));
-        }
-
-        const rows = await db
-          .select({
-            id: feedbackExports.id,
-            attemptCount: feedbackExports.attemptCount,
-          })
-          .from(feedbackExports)
-          .where(and(...filters))
-          .orderBy(asc(feedbackExports.createdAt), asc(feedbackExports.id))
-          .limit(Math.max(1, Math.min(input?.limit ?? 25, 200)));
-
-        const attemptAt = input?.now ?? new Date();
-        for (const row of rows) {
-          await db
-            .update(feedbackExports)
-            .set({
-              status: "failed",
-              attemptCount: row.attemptCount + 1,
-              lastAttemptedAt: attemptAt,
-              failureReason: FEEDBACK_EXPORT_BACKEND_NOT_CONFIGURED,
-              updatedAt: attemptAt,
-            })
-            .where(eq(feedbackExports.id, row.id));
-        }
-
         return {
-          attempted: rows.length,
+          attempted: 0,
           sent: 0,
-          failed: rows.length,
+          failed: 0,
         };
       }
 

@@ -14,46 +14,33 @@ describe("feedback trace share client", () => {
     vi.restoreAllMocks();
   });
 
-  it("defaults to telemetry.paperclip.ing when no backend url is configured", async () => {
+  it("returns null when feedback export is disabled", () => {
     const client = createFeedbackTraceShareClientFromConfig({
+      feedbackExportEnabled: false,
+      feedbackExportBackendUrl: "https://telemetry.paperclip.ing",
+      feedbackExportBackendToken: undefined,
+    });
+    expect(client).toBeNull();
+  });
+
+  it("returns null when export is enabled but no backend url is configured", () => {
+    const client = createFeedbackTraceShareClientFromConfig({
+      feedbackExportEnabled: true,
       feedbackExportBackendUrl: undefined,
       feedbackExportBackendToken: undefined,
     });
-
-    await client.uploadTraceBundle({
-      traceId: "trace-1",
-      exportId: "export-1",
-      companyId: "company-1",
-      issueId: "issue-1",
-      issueIdentifier: "PAP-1",
-      adapterType: "codex_local",
-      captureStatus: "full",
-      notes: [],
-      envelope: {},
-      surface: null,
-      paperclipRun: null,
-      rawAdapterTrace: null,
-      normalizedAdapterTrace: null,
-      privacy: null,
-      integrity: {},
-      files: [],
-    });
-
-    expect(fetch).toHaveBeenCalledWith(
-      "https://telemetry.paperclip.ing/feedback-traces",
-      expect.objectContaining({
-        method: "POST",
-      }),
-    );
+    expect(client).toBeNull();
   });
 
-  it("wraps the feedback trace payload as gzip+base64 json before upload", async () => {
+  it("posts to the configured backend when export is enabled and url is set", async () => {
     const client = createFeedbackTraceShareClientFromConfig({
+      feedbackExportEnabled: true,
       feedbackExportBackendUrl: "https://telemetry.paperclip.ing",
       feedbackExportBackendToken: "test-token",
     });
+    expect(client).not.toBeNull();
 
-    await client.uploadTraceBundle({
+    await client!.uploadTraceBundle({
       traceId: "trace-1",
       exportId: "export-1",
       companyId: "company-1",

@@ -524,8 +524,9 @@ export async function startServer(): Promise<StartedServer> {
   });
   const uiMode = config.uiDevMiddleware ? "vite-dev" : config.serveUi ? "static" : "none";
   const storageService = createStorageServiceFromConfig(config);
+  const feedbackShareClient = createFeedbackTraceShareClientFromConfig(config);
   const feedback = feedbackService(db as any, {
-    shareClient: createFeedbackTraceShareClientFromConfig(config),
+    ...(feedbackShareClient ? { shareClient: feedbackShareClient } : {}),
   });
   const app = await createApp(db as any, {
     uiMode,

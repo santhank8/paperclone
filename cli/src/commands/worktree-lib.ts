@@ -225,7 +225,16 @@ export function buildWorktreeConfig(input: {
       disableSignUp: source?.auth.disableSignUp ?? false,
     },
     telemetry: {
-      enabled: source?.telemetry?.enabled ?? true,
+      enabled: source?.telemetry?.enabled ?? false,
+    },
+    feedbackExport: {
+      enabled: source?.feedbackExport?.enabled ?? false,
+      ...(source?.feedbackExport?.backendUrl
+        ? { backendUrl: source.feedbackExport.backendUrl }
+        : {}),
+      ...(source?.feedbackExport?.backendToken
+        ? { backendToken: source.feedbackExport.backendToken }
+        : {}),
     },
     storage: {
       provider: source?.storage.provider ?? "local_disk",

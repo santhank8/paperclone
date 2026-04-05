@@ -49,6 +49,9 @@ function createTempConfig(): string {
     telemetry: {
       enabled: true,
     },
+    feedbackExport: {
+      enabled: false,
+    },
     storage: {
       provider: "local_disk",
       localDisk: {

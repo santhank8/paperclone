@@ -497,7 +497,10 @@ export async function onboard(opts: OnboardOptions): Promise<void> {
     server,
     auth,
     telemetry: {
-      enabled: true,
+      enabled: false,
+    },
+    feedbackExport: {
+      enabled: false,
     },
     storage,
     secrets,
@@ -527,6 +530,8 @@ export async function onboard(opts: OnboardOptions): Promise<void> {
       `Storage: ${storage.provider}`,
       `Secrets: ${secrets.provider} (strict mode ${secrets.strictMode ? "on" : "off"})`,
       "Agent auth: PAPERCLIP_AGENT_JWT_SECRET configured",
+      "Telemetry: off (set telemetry.enabled true or PAPERCLIP_TELEMETRY_ENABLED=1 to opt in)",
+      "Feedback export: off (set feedbackExport.enabled true and backendUrl to upload traces)",
     ].join("\n"),
     "Configuration saved",
   );
