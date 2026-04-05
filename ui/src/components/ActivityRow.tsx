@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { Link } from "@/lib/router";
 import { Identity } from "./Identity";
 import { timeAgo } from "../lib/timeAgo";
@@ -53,7 +54,7 @@ function buildActionVerbs(t: Translations): Record<string, string> {
   };
 }
 
-function formatVerb(action: string, details: Record<string, unknown> | null | undefined, t: Translations): string {
+function formatVerb(action: string, details: Record<string, unknown> | null | undefined, t: Translations, actionVerbs: Record<string, string>): string {
   if (action === "issue.updated" && details) {
     const previous = (details._previous ?? {}) as Record<string, unknown>;
     if (details.status !== undefined) {
@@ -69,7 +70,7 @@ function formatVerb(action: string, details: Record<string, unknown> | null | un
         : t.activity.changedPriorityTo.replace("{to}", humanizeValue(details.priority));
     }
   }
-  return buildActionVerbs(t)[action] ?? action.replace(/[._]/g, " ");
+  return actionVerbs[action] ?? action.replace(/[._]/g, " ");
 }
 
 function entityLink(entityType: string, entityId: string, name?: string | null): string | null {
@@ -93,7 +94,8 @@ interface ActivityRowProps {
 
 export function ActivityRow({ event, agentMap, entityNameMap, entityTitleMap, className }: ActivityRowProps) {
   const { t } = useLanguage();
-  const verb = formatVerb(event.action, event.details, t);
+  const actionVerbs = useMemo(() => buildActionVerbs(t), [t]);
+  const verb = formatVerb(event.action, event.details, t, actionVerbs);
 
   const isHeartbeatEvent = event.entityType === "heartbeat_run";
   const heartbeatAgentId = isHeartbeatEvent

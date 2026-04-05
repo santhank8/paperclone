@@ -197,6 +197,7 @@ export const ptBR: DeepPartial<Translations> = {
     noAgentsMatchFilter: "Nenhum agente corresponde ao filtro selecionado.",
     noOrgHierarchy: "Nenhuma hierarquia organizacional definida.",
     createFirstToGetStarted: "Crie seu primeiro agente para começar.",
+    selectCompany: "Selecione uma empresa para ver os agentes.",
   },
   issues: {
     title: "Issues",

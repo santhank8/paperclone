@@ -195,6 +195,7 @@ export const en = {
     noAgentsMatchFilter: "No agents match the selected filter.",
     noOrgHierarchy: "No organizational hierarchy defined.",
     createFirstToGetStarted: "Create your first agent to get started.",
+    selectCompany: "Select a company to view agents.",
   },
   issues: {
     title: "Issues",

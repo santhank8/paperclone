@@ -120,7 +120,7 @@ export function Agents() {
   }, [setBreadcrumbs, t]);
 
   if (!selectedCompanyId) {
-    return <EmptyState icon={Bot} message={t.agents.noAgents} />;
+    return <EmptyState icon={Bot} message={t.agents.selectCompany} />;
   }
 
   if (isLoading) {
