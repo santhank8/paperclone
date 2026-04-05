@@ -139,7 +139,7 @@ Fonts are loaded via `<link rel="preload">` tags in `index.html` for optimal per
 | `--radius-lg` | `4px` |
 | `--radius-xl` | `6px` |
 
-Sharp, tactical edges. Near-zero rounding.
+Sharp, tactical edges. Near-zero rounding. **Note:** The existing codebase uses `rem` units for radius tokens — these are intentionally changed to `px` for precision at small values. Tailwind utilities referencing these tokens will pick up the new values automatically.
 
 ### Angled Corner Cuts
 
@@ -166,7 +166,7 @@ Applied to: dashboard cards, detail panels, dialog containers. Not applied to sm
 
 ## 4. CSS Animations
 
-All animations use only `transform`, `opacity`, `filter`, or `box-shadow` — GPU-composited properties. No layout triggers.
+All animations use `transform`, `opacity`, `filter`, or `box-shadow`. Of these, `transform` and `opacity` are truly GPU-composited. `filter` and `box-shadow` trigger paint but are promoted to their own compositor layer via `will-change` declarations. No layout-triggering properties (`width`, `height`, `top`, `left`) are animated.
 
 ### 4.1 Scan Line
 
@@ -177,12 +177,12 @@ A thin horizontal line sweeps down panels periodically. Uses `transform: transla
   0% { transform: translateY(0); opacity: 0; }
   5% { opacity: 1; }
   95% { opacity: 1; }
-  100% { transform: translateY(calc(var(--scan-height, 300px))); opacity: 0; }
+  100% { transform: translateY(100cqh); opacity: 0; }
 }
 ```
 
 - Applied via `::after` pseudo-element on `.hud-panel`, positioned `top: 0; left: 0; right: 0; height: 1px;`
-- `--scan-height` set per-panel (defaults to 300px, overridden with actual panel height via a tiny CSS custom property)
+- Panel uses CSS `container-type: size` and the pseudo-element uses `transform: translateY(100cqh)` at 100% keyframe to sweep the full container height. Fallback for browsers without container query support: fixed 300px default.
 - 1px height, `var(--primary)` color, 0.15 opacity
 - Duration: 8s, infinite, linear
 - `will-change: transform, opacity` on the pseudo-element
@@ -230,7 +230,7 @@ Numbers and data cells appear with a blur-to-sharp transition.
 }
 ```
 
-- Duration: 300ms, cubic-bezier(0.16, 1, 0.3, 1)
+- Duration: 300ms, cubic-bezier(0.16, 1, 0.3, 1), `will-change: filter, transform, opacity` on animated children
 - Staggered via `animation-delay` using `nth-child()` selectors: `.data-reveal > :nth-child(1) { animation-delay: 0ms }`, `.data-reveal > :nth-child(2) { animation-delay: 50ms }`, etc. up to 10 children. For dynamic lists beyond 10 items, inline `style="animation-delay: ${index * 50}ms"` via React.
 - Applied on page mount to data values, counters, table rows
 
@@ -246,7 +246,7 @@ Page entrance animation when navigating.
 }
 ```
 
-- Duration: 500ms, cubic-bezier(0.16, 1, 0.3, 1)
+- Duration: 500ms, cubic-bezier(0.16, 1, 0.3, 1), `will-change: filter, transform, opacity` on `.hud-boot`
 - Applied to main content wrapper on route change via a `.hud-boot` class
 - **Trigger mechanism:** Since CSS cannot detect SPA route changes, a small React hook (`useBootAnimation`) adds the `.hud-boot` class to the content wrapper on mount. The class is removed after the animation completes (via `animationend` event). This is the only JS involvement — the animation itself is pure CSS.
 - Single play (not infinite)
@@ -430,6 +430,10 @@ All buttons: Orbitron 11px, uppercase, `letter-spacing: 0.04em`, sharp 2px radiu
 | `ui/src/components/BreadcrumbBar.tsx` | Restyle with mono separators, Orbitron current |
 | `ui/src/components/SidebarNavItem.tsx` | Active state with glow, border bar |
 | `ui/src/components/SidebarSection.tsx` | JetBrains Mono headers, horizontal rules |
+| `ui/src/components/SidebarAgents.tsx` | Status dot glow-pulse, agent name/role typography |
+| `ui/src/components/SidebarProjects.tsx` | HUD styling for project list items |
+| `ui/src/components/InstanceSidebar.tsx` | HUD styling matching main sidebar aesthetic |
+| `ui/src/hooks/useBootAnimation.ts` | **New file.** Small hook that adds/removes `.hud-boot` class on route changes |
 | `ui/src/context/ThemeContext.tsx` | Default to dark theme for HUD aesthetic |
 
 ### Phase 2 (Dashboard) — separate spec
@@ -442,7 +446,7 @@ All buttons: Orbitron 11px, uppercase, `letter-spacing: 0.04em`, sharp 2px radiu
 
 **New dependencies: NONE.**
 
-- Fonts loaded via Google Fonts `@import` in CSS (no npm package)
+- Fonts loaded via `<link rel="preload">` in `index.html` (non-blocking, no npm package)
 - All animations in pure CSS `@keyframes`
 - Existing stack unchanged: Tailwind v4, Radix UI, shadcn, Lucide
 
@@ -454,7 +458,7 @@ All buttons: Orbitron 11px, uppercase, `letter-spacing: 0.04em`, sharp 2px radiu
 |--------|--------|
 | CSS animations | GPU-composited (`transform`, `opacity`, `filter`) preferred. `box-shadow` animations (glow-pulse) are paint-only — capped at 6 simultaneous instances per viewport to limit paint cost. On mobile, glow-pulse is reduced to static box-shadow (no animation). |
 | Layout triggers | Zero — no `width`, `height`, `top`, `left` animations on elements |
-| `will-change` | Applied only to animated pseudo-elements |
+| `will-change` | Applied to animated pseudo-elements, `.data-reveal > *`, and `.hud-boot` elements |
 | Font loading | `display=swap` — no FOIT |
 | Total CSS additions | ~4KB (keyframes + utility classes + variables) |
 | Bundle size change | 0KB JavaScript |
@@ -463,7 +467,20 @@ All buttons: Orbitron 11px, uppercase, `letter-spacing: 0.04em`, sharp 2px radiu
 
 ---
 
-## 9. Success Criteria
+## 9. Known Existing Style Updates
+
+### Scrollbars
+The existing `index.css` contains hardcoded dark scrollbar colors (gray/neutral). These must be updated in Phase 1 to use the new HUD palette: track → `var(--card)`, thumb → `var(--muted-foreground)`, hover thumb → `var(--primary)`.
+
+### MDXEditor / Markdown Styles
+The existing `.paperclip-markdown` and MDXEditor styles use Catppuccin Mocha colors (e.g., `#1e1e2e` for code block backgrounds). These will have low contrast against the new `--card` background (`#141929`). Review and adjust code block background to `var(--secondary)` or a slightly lighter value in Phase 1.
+
+### `color-scheme` Declaration
+Keep the existing `.dark { color-scheme: dark; }` pattern (toggled by ThemeContext class) rather than moving it to `:root`, to preserve future light theme toggle capability.
+
+---
+
+## 10. Success Criteria
 
 1. Every page feels like a mission control interface
 2. Active agents visibly pulse — the UI feels alive when agents are working
@@ -471,5 +488,5 @@ All buttons: Orbitron 11px, uppercase, `letter-spacing: 0.04em`, sharp 2px radiu
 4. Navigation feels instant with boot-in transitions
 5. Zero layout shift from animations
 6. No performance degradation on mobile
-7. Full dark/light mode support (dark is primary)
+7. Dark theme fully implemented as default; existing light theme preserved but not updated (deferred to Phase 4)
 8. Accessible — all animations respect motion preferences
