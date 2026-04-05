@@ -133,6 +133,28 @@ describe("blog run routes", () => {
     }));
   });
 
+  it("lists active blog runs for a company", async () => {
+    const app = createApp({
+      type: "board",
+      source: "local_implicit",
+      userId: "board-user",
+      companyIds: [companyId],
+    });
+
+    (mockBlogRunService as any).listForCompany = vi.fn().mockResolvedValue([
+      { ...run, failedReason: null },
+    ]);
+
+    const res = await request(app).get(`/api/companies/${companyId}/blog-runs?limit=3`);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveLength(1);
+    expect((mockBlogRunService as any).listForCompany).toHaveBeenCalledWith(companyId, {
+      limit: 3,
+      activeOnly: true,
+    });
+  });
+
   it("returns a blog run detail", async () => {
     const app = createApp({
       type: "board",

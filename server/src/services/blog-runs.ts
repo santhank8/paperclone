@@ -104,6 +104,11 @@ type MarkResumableInput = {
   notes?: string[];
 };
 
+type ListCompanyRunsInput = {
+  limit?: number;
+  activeOnly?: boolean;
+};
+
 type PublishStopReason = {
   incidentId: string;
   openedAt: string;
@@ -254,6 +259,90 @@ function parseFailedGateNames(message: string) {
     .split(",")
     .map((value) => value.trim())
     .filter(Boolean);
+}
+
+function isDashboardActiveRun(run: typeof blogRuns.$inferSelect) {
+  return run.status !== "public_verified";
+}
+
+function deriveApprovalState(
+  run: typeof blogRuns.$inferSelect,
+  latestApproval?: typeof blogPublishApprovals.$inferSelect | null,
+) {
+  if (run.status === "publish_approval_pending") return "pending";
+  if (latestApproval && !latestApproval.revokedAt) return "approved";
+  if (run.approvalKeyHash) return "approved";
+  return "not_requested";
+}
+
+function derivePublishState(run: typeof blogRuns.$inferSelect) {
+  if (run.currentStep === "publish" || run.status === "publish_running") return "running";
+  if (run.wordpressPostId || run.publishedUrl) return "published";
+  if (run.publishIdempotencyKey) return "ready";
+  return "idle";
+}
+
+function derivePublicVerifyState(run: typeof blogRuns.$inferSelect) {
+  if (run.status === "public_verified") return "verified";
+  if (run.currentStep === "public_verify" || run.status === "public_verify_running") return "running";
+  if (run.status === "published") return "pending";
+  if (run.failedReason && run.currentStep === "public_verify") return "failed";
+  return "idle";
+}
+
+function toRunListItem(
+  run: typeof blogRuns.$inferSelect,
+  latestAttempt?: typeof blogRunStepAttempts.$inferSelect | null,
+  latestApproval?: typeof blogPublishApprovals.$inferSelect | null,
+) {
+  return {
+    id: run.id,
+    companyId: run.companyId,
+    projectId: run.projectId,
+    issueId: run.issueId,
+    topic: run.topic,
+    lane: run.lane,
+    targetSite: run.targetSite,
+    status: run.status,
+    currentStep: run.currentStep,
+    approval: {
+      mode: run.approvalMode,
+      state: deriveApprovalState(run, latestApproval),
+      approvalKeyHash: run.approvalKeyHash,
+    },
+    publish: {
+      mode: run.publishMode,
+      state: derivePublishState(run),
+      wordpressPostId: run.wordpressPostId,
+      publishIdempotencyKey: run.publishIdempotencyKey,
+    },
+    publicVerify: {
+      state: derivePublicVerifyState(run),
+    },
+    latestAttempt: latestAttempt
+      ? {
+          stepKey: latestAttempt.stepKey,
+          status: latestAttempt.status,
+          attemptNumber: latestAttempt.attemptNumber,
+          errorCode: latestAttempt.errorCode,
+          errorMessage: latestAttempt.errorMessage,
+          finishedAt: latestAttempt.finishedAt,
+          updatedAt: latestAttempt.updatedAt,
+        }
+      : null,
+    latestApproval: latestApproval
+      ? {
+          targetSlug: latestApproval.targetSlug,
+          siteId: latestApproval.siteId,
+          approvedAt: latestApproval.approvedAt,
+          revokedAt: latestApproval.revokedAt,
+        }
+      : null,
+    publishedUrl: run.publishedUrl,
+    failedReason: run.failedReason,
+    createdAt: run.createdAt,
+    updatedAt: run.updatedAt,
+  };
 }
 
 function shouldUseHighThroughputLoop(run: typeof blogRuns.$inferSelect) {
@@ -579,6 +668,41 @@ export function blogRunService(
 
     async getById(id: string) {
       return getRunById(id);
+    },
+
+    async listForCompany(companyId: string, input?: ListCompanyRunsInput) {
+      const activeOnly = input?.activeOnly ?? true;
+      const limit = Math.min(Math.max(Number(input?.limit ?? 5) || 5, 1), 20);
+      const fetchSize = activeOnly ? Math.max(limit * 4, 20) : limit;
+      const rows = await db
+        .select()
+        .from(blogRuns)
+        .where(eq(blogRuns.companyId, companyId))
+        .orderBy(desc(blogRuns.updatedAt), desc(blogRuns.createdAt))
+        .limit(fetchSize);
+      const filtered = activeOnly ? rows.filter(isDashboardActiveRun) : rows;
+      const limited = filtered.slice(0, limit);
+      return Promise.all(
+        limited.map(async (run) => {
+          const [latestAttempt, latestApproval] = await Promise.all([
+            db
+              .select()
+              .from(blogRunStepAttempts)
+              .where(eq(blogRunStepAttempts.blogRunId, run.id))
+              .orderBy(desc(blogRunStepAttempts.updatedAt), desc(blogRunStepAttempts.attemptNumber))
+              .limit(1)
+              .then((rows) => rows[0] ?? null),
+            db
+              .select()
+              .from(blogPublishApprovals)
+              .where(eq(blogPublishApprovals.blogRunId, run.id))
+              .orderBy(desc(blogPublishApprovals.createdAt))
+              .limit(1)
+              .then((rows) => rows[0] ?? null),
+          ]);
+          return toRunListItem(run, latestAttempt, latestApproval);
+        }),
+      );
     },
 
     async getDetail(id: string) {

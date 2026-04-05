@@ -67,6 +67,15 @@ export function blogRunRoutes(db: Db) {
   const svc = blogRunService(db);
   const projectsSvc = projectService(db);
 
+  router.get("/companies/:companyId/blog-runs", async (req, res) => {
+    const companyId = req.params.companyId as string;
+    assertCompanyAccess(req, companyId);
+    const limit = Math.min(Math.max(Number(req.query.limit ?? 5) || 5, 1), 20);
+    const activeOnly = String(req.query.mode ?? "active").trim().toLowerCase() !== "all";
+    const runs = await svc.listForCompany(companyId, { limit, activeOnly });
+    res.json(runs);
+  });
+
   router.post("/projects/:projectId/blog-runs", validate(createBlogRunSchema), async (req, res) => {
     const projectId = Array.isArray(req.params.projectId) ? req.params.projectId[0] : req.params.projectId;
     const project = await projectsSvc.getById(projectId);

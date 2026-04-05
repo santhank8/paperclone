@@ -108,6 +108,73 @@ describeEmbeddedPostgres("blog run service", () => {
     });
   });
 
+  it("lists recent active blog runs for a company and excludes verified runs", async () => {
+    const { companyId, projectId } = await seedProject();
+    const svc = blogRunService(db);
+
+    const activeRun = await svc.create({
+      companyId,
+      projectId,
+      topic: "Active topic",
+      lane: "publish",
+      publishMode: "draft",
+    });
+
+    const verifiedRun = await svc.create({
+      companyId,
+      projectId,
+      topic: "Verified topic",
+      lane: "publish",
+      publishMode: "publish",
+    });
+
+    await db.update(blogRuns).set({
+      status: "public_verified",
+      currentStep: null,
+      updatedAt: new Date("2026-04-05T01:00:00.000Z"),
+    }).where(eq(blogRuns.id, verifiedRun!.id));
+
+    await db.update(blogRuns).set({
+      status: "draft_ready",
+      currentStep: "image",
+      updatedAt: new Date("2026-04-05T02:00:00.000Z"),
+    }).where(eq(blogRuns.id, activeRun!.id));
+
+    await db.insert(blogRunStepAttempts).values({
+      blogRunId: activeRun!.id,
+      companyId,
+      stepKey: "draft",
+      attemptNumber: 1,
+      status: "failed",
+      errorCode: "DRAFT_ERROR",
+      errorMessage: "draft_contract_missing_table",
+      startedAt: new Date("2026-04-05T01:30:00.000Z"),
+      finishedAt: new Date("2026-04-05T01:31:00.000Z"),
+    });
+
+    await db.insert(blogPublishApprovals).values({
+      blogRunId: activeRun!.id,
+      companyId,
+      targetSlug: "active-topic",
+      siteId: "fluxaivory.com",
+      artifactHash: "artifact-hash",
+      normalizedDomHash: "dom-hash",
+      approvalKeyHash: "approval-hash",
+    });
+
+    const runs = await svc.listForCompany(companyId, { limit: 5, activeOnly: true });
+
+    expect(runs).toHaveLength(1);
+    expect(runs[0]?.id).toBe(activeRun?.id);
+    expect(runs[0]?.status).toBe("draft_ready");
+    expect(runs[0]?.currentStep).toBe("image");
+    expect(runs[0]?.approval.state).toBe("approved");
+    expect(runs[0]?.publish.state).toBe("idle");
+    expect(runs[0]?.publicVerify.state).toBe("idle");
+    expect(runs[0]?.latestAttempt?.errorMessage).toBe("draft_contract_missing_table");
+    expect(runs[0]?.latestApproval?.targetSlug).toBe("active-topic");
+  });
+
   it("defaults live publish runs to strict public verify contract mode", async () => {
     const { companyId, projectId } = await seedProject();
     const svc = blogRunService(db);
