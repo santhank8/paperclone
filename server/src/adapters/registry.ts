@@ -70,6 +70,7 @@ import {
   execute as dashscopeExecute,
   testEnvironment as dashscopeTestEnvironment,
   sessionCodec as dashscopeSessionCodec,
+  listModels as dashscopeListModels,
 } from "@paperclipai/adapter-dashscope-local/server";
 import {
   agentConfigurationDoc as dashscopeAgentConfigurationDoc,
@@ -190,6 +191,7 @@ const dashscopeLocalAdapter: ServerAdapterModule = {
   sessionCodec: dashscopeSessionCodec,
   sessionManagement: getAdapterSessionManagement("dashscope_local") ?? undefined,
   models: dashscopeModels,
+  listModels: dashscopeListModels,
   supportsLocalAgentJwt: false,
   agentConfigurationDoc: dashscopeAgentConfigurationDoc,
 };
