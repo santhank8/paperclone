@@ -17,8 +17,8 @@ import { ThemeProvider } from "./context/ThemeContext";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { initPluginBridge } from "./plugins/bridge-init";
 import { PluginLauncherProvider } from "./plugins/launchers";
-import { CopilotKit } from "@copilotkit/react-core";
-import "@copilotkit/react-ui/styles.css";
+import { CopilotKitProvider } from "@copilotkit/react-core/v2";
+import "@copilotkit/react-core/v2/styles.css";
 import "@mdxeditor/editor/style.css";
 import "./index.css";
 
@@ -43,7 +43,7 @@ createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
-        <CopilotKit runtimeUrl="/api/copilotkit">
+        <CopilotKitProvider runtimeUrl="/api/copilotkit">
           <BrowserRouter>
             <CompanyProvider>
               <EditorAutocompleteProvider>
@@ -67,7 +67,7 @@ createRoot(document.getElementById("root")!).render(
               </EditorAutocompleteProvider>
             </CompanyProvider>
           </BrowserRouter>
-        </CopilotKit>
+        </CopilotKitProvider>
       </ThemeProvider>
     </QueryClientProvider>
   </StrictMode>

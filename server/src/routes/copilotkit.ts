@@ -1,8 +1,8 @@
 import {
   CopilotRuntime,
-  OpenAIAdapter,
-  copilotRuntimeNodeHttpEndpoint,
-} from "@copilotkit/runtime";
+  createCopilotEndpointSingleRouteExpress,
+  BuiltInAgent,
+} from "@copilotkit/runtime/v2";
 import { Router } from "express";
 
 export function copilotKitRoutes(): Router {
@@ -15,25 +15,22 @@ export function copilotKitRoutes(): Router {
     return router;
   }
 
-  const serviceAdapter = new OpenAIAdapter({
-    model: process.env.COPILOTKIT_MODEL ?? "gpt-5.4",
+  const rawModel = process.env.COPILOTKIT_MODEL ?? "gpt-5.4";
+  const model = rawModel.includes("/") ? rawModel : `openai/${rawModel}`;
+
+  const runtime = new CopilotRuntime({
+    agents: {
+      default: new BuiltInAgent({ model }),
+    },
   });
 
-  const runtime = new CopilotRuntime();
-
-  const handler = copilotRuntimeNodeHttpEndpoint({
-    endpoint: "/copilotkit",
-    runtime,
-    serviceAdapter,
-  });
-
-  router.all("/copilotkit", async (req, res, next) => {
-    try {
-      await handler(req, res);
-    } catch (err) {
-      next(err);
-    }
-  });
+  router.use(
+    "/copilotkit",
+    createCopilotEndpointSingleRouteExpress({
+      runtime,
+      basePath: "/",
+    }),
+  );
 
   return router;
 }

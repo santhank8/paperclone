@@ -1,4 +1,5 @@
-import { useCopilotAction, useCopilotReadable, useCopilotChatSuggestions } from "@copilotkit/react-core";
+import { useFrontendTool, useAgentContext, useConfigureSuggestions, useHumanInTheLoop, ToolCallStatus } from "@copilotkit/react-core/v2";
+import { z } from "zod";
 import { useNavigate, useLocation } from "@/lib/router";
 import { useCompany } from "../context/CompanyContext";
 import { useDialog } from "../context/DialogContext";
@@ -24,17 +25,17 @@ export function useCopilotActions() {
 
   // ── Readable context ──────────────────────────────────────────────
 
-  useCopilotReadable({
+  useAgentContext({
     description: "System context — you are the Paperclip AI assistant embedded in the Paperclip control-plane dashboard. Paperclip orchestrates AI agent companies with issues, projects, goals, agents, approvals, and budgets. Be concise and action-oriented. Prefer executing actions over lengthy explanations. When referring to entities include their identifier (e.g. ACME-42) when available.",
     value: "Paperclip AI assistant active",
   });
 
-  useCopilotReadable({
+  useAgentContext({
     description: "Current page URL path",
     value: location.pathname,
   });
 
-  useCopilotReadable({
+  useAgentContext({
     description: "Currently selected company (the org/workspace the user is viewing)",
     value: selectedCompany
       ? {
@@ -49,35 +50,40 @@ export function useCopilotActions() {
       : null,
   });
 
-  useCopilotReadable({
+  useAgentContext({
     description: "All companies available to the user",
     value: companies.map((c) => ({ id: c.id, name: c.name, issuePrefix: c.issuePrefix, status: c.status })),
   });
 
   // ── Chat suggestions ──────────────────────────────────────────────
 
-  useCopilotChatSuggestions({
+  useConfigureSuggestions({
     instructions: "Suggest 3 relevant actions based on the current page context. Examples: show dashboard summary, list open issues, create a new issue, check agent status, view pending approvals, show cost breakdown. Keep suggestions short (under 8 words).",
     maxSuggestions: 3,
     minSuggestions: 1,
+    available: "always",
   }, [location.pathname, selectedCompanyId]);
 
   // ── Navigation ────────────────────────────────────────────────────
 
-  useCopilotAction({
+  useFrontendTool({
     name: "navigate",
     description: "Navigate to a page in the app. Use issue prefix for company routes (e.g. /ACME/issues, /ACME/agents, /ACME/projects, /ACME/goals, /ACME/approvals, /ACME/costs, /ACME/dashboard, /instance/settings/heartbeats).",
-    parameters: [{ name: "path", type: "string", description: "The URL path to navigate to", required: true }],
+    parameters: z.object({
+      path: z.string().describe("The URL path to navigate to"),
+    }),
     handler: async ({ path }) => {
       navigate(path);
       return `Navigated to ${path}`;
     },
   });
 
-  useCopilotAction({
+  useFrontendTool({
     name: "switchCompany",
     description: "Switch to a different company/workspace",
-    parameters: [{ name: "companyId", type: "string", description: "The company ID to switch to", required: true }],
+    parameters: z.object({
+      companyId: z.string().describe("The company ID to switch to"),
+    }),
     handler: async ({ companyId }) => {
       setSelectedCompanyId(companyId, { source: "manual" });
       const company = companies.find((c) => c.id === companyId);
@@ -88,60 +94,60 @@ export function useCopilotActions() {
 
   // ── Companies ─────────────────────────────────────────────────────
 
-  useCopilotAction({
+  useFrontendTool({
     name: "listCompanies",
     description: "List all companies/workspaces",
-    parameters: [],
+    parameters: z.object({}),
     handler: async () => {
       const result = await companiesApi.list();
-      return result.map((c) => ({ id: c.id, name: c.name, issuePrefix: c.issuePrefix, status: c.status, description: c.description }));
+      return JSON.stringify(result.map((c) => ({ id: c.id, name: c.name, issuePrefix: c.issuePrefix, status: c.status, description: c.description })));
     },
   });
 
-  useCopilotAction({
+  useFrontendTool({
     name: "createCompany",
     description: "Create a new company/workspace",
-    parameters: [
-      { name: "name", type: "string", description: "Company name", required: true },
-      { name: "description", type: "string", description: "Company description" },
-      { name: "budgetMonthlyCents", type: "number", description: "Monthly budget in cents" },
-    ],
+    parameters: z.object({
+      name: z.string().describe("Company name"),
+      description: z.string().optional().describe("Company description"),
+      budgetMonthlyCents: z.number().optional().describe("Monthly budget in cents"),
+    }),
     handler: async ({ name, description, budgetMonthlyCents }) => {
       const result = await companiesApi.create({ name, description, budgetMonthlyCents });
       queryClient.invalidateQueries({ queryKey: ["companies"] });
-      return { id: result.id, name: result.name, issuePrefix: result.issuePrefix };
+      return JSON.stringify({ id: result.id, name: result.name, issuePrefix: result.issuePrefix });
     },
   });
 
-  useCopilotAction({
+  useFrontendTool({
     name: "updateCompany",
     description: "Update a company's settings",
-    parameters: [
-      { name: "companyId", type: "string", description: "Company ID", required: true },
-      { name: "name", type: "string", description: "New name" },
-      { name: "description", type: "string", description: "New description" },
-      { name: "budgetMonthlyCents", type: "number", description: "New monthly budget in cents" },
-      { name: "status", type: "string", description: "New status" },
-    ],
+    parameters: z.object({
+      companyId: z.string().describe("Company ID"),
+      name: z.string().optional().describe("New name"),
+      description: z.string().optional().describe("New description"),
+      budgetMonthlyCents: z.number().optional().describe("New monthly budget in cents"),
+      status: z.string().optional().describe("New status"),
+    }),
     handler: async ({ companyId, ...updates }) => {
       const data = Object.fromEntries(Object.entries(updates).filter(([, v]) => v !== undefined));
       const result = await companiesApi.update(companyId, data);
       queryClient.invalidateQueries({ queryKey: ["companies"] });
-      return { id: result.id, name: result.name };
+      return JSON.stringify({ id: result.id, name: result.name });
     },
   });
 
   // ── Issues ────────────────────────────────────────────────────────
 
-  useCopilotAction({
+  useFrontendTool({
     name: "listIssues",
     description: "List issues for the current company. Can filter by status, project, assignee, or search query.",
-    parameters: [
-      { name: "status", type: "string", description: "Filter by status (backlog, todo, in_progress, in_review, done, cancelled)" },
-      { name: "projectId", type: "string", description: "Filter by project ID" },
-      { name: "assigneeAgentId", type: "string", description: "Filter by assigned agent ID" },
-      { name: "q", type: "string", description: "Search query" },
-    ],
+    parameters: z.object({
+      status: z.string().optional().describe("Filter by status (backlog, todo, in_progress, in_review, done, cancelled)"),
+      projectId: z.string().optional().describe("Filter by project ID"),
+      assigneeAgentId: z.string().optional().describe("Filter by assigned agent ID"),
+      q: z.string().optional().describe("Search query"),
+    }),
     handler: async ({ status, projectId, assigneeAgentId, q }) => {
       if (!selectedCompanyId) return "No company selected";
       const filters: Record<string, string> = {};
@@ -150,7 +156,7 @@ export function useCopilotActions() {
       if (assigneeAgentId) filters.assigneeAgentId = assigneeAgentId;
       if (q) filters.q = q;
       const result = await issuesApi.list(selectedCompanyId, filters);
-      return result.map((i) => ({
+      return JSON.stringify(result.map((i) => ({
         id: i.id,
         identifier: i.identifier,
         title: i.title,
@@ -158,31 +164,33 @@ export function useCopilotActions() {
         priority: i.priority,
         assigneeAgentId: i.assigneeAgentId,
         projectId: i.projectId,
-      }));
+      })));
     },
   });
 
-  useCopilotAction({
+  useFrontendTool({
     name: "getIssue",
     description: "Get full details of a specific issue",
-    parameters: [{ name: "issueId", type: "string", description: "The issue ID", required: true }],
+    parameters: z.object({
+      issueId: z.string().describe("The issue ID"),
+    }),
     handler: async ({ issueId }) => {
-      return await issuesApi.get(issueId);
+      return JSON.stringify(await issuesApi.get(issueId));
     },
   });
 
-  useCopilotAction({
+  useFrontendTool({
     name: "createIssue",
     description: "Create a new issue/task",
-    parameters: [
-      { name: "title", type: "string", description: "Issue title", required: true },
-      { name: "description", type: "string", description: "Issue description (markdown)" },
-      { name: "status", type: "string", description: "Status: backlog, todo, in_progress, in_review, done, cancelled" },
-      { name: "priority", type: "string", description: "Priority: none, low, medium, high, urgent" },
-      { name: "projectId", type: "string", description: "Project ID to assign to" },
-      { name: "assigneeAgentId", type: "string", description: "Agent ID to assign" },
-      { name: "goalId", type: "string", description: "Goal ID to link to" },
-    ],
+    parameters: z.object({
+      title: z.string().describe("Issue title"),
+      description: z.string().optional().describe("Issue description (markdown)"),
+      status: z.string().optional().describe("Status: backlog, todo, in_progress, in_review, done, cancelled"),
+      priority: z.string().optional().describe("Priority: none, low, medium, high, urgent"),
+      projectId: z.string().optional().describe("Project ID to assign to"),
+      assigneeAgentId: z.string().optional().describe("Agent ID to assign"),
+      goalId: z.string().optional().describe("Goal ID to link to"),
+    }),
     handler: async ({ title, description, status, priority, projectId, assigneeAgentId, goalId }) => {
       if (!selectedCompanyId) return "No company selected";
       const data: Record<string, unknown> = { title };
@@ -194,122 +202,133 @@ export function useCopilotActions() {
       if (goalId) data.goalId = goalId;
       const result = await issuesApi.create(selectedCompanyId, data);
       queryClient.invalidateQueries({ queryKey: ["issues"] });
-      return { id: result.id, identifier: result.identifier, title: result.title, status: result.status };
+      return JSON.stringify({ id: result.id, identifier: result.identifier, title: result.title, status: result.status });
     },
   });
 
-  useCopilotAction({
+  useFrontendTool({
     name: "updateIssue",
     description: "Update an existing issue",
-    parameters: [
-      { name: "issueId", type: "string", description: "Issue ID", required: true },
-      { name: "title", type: "string", description: "New title" },
-      { name: "description", type: "string", description: "New description" },
-      { name: "status", type: "string", description: "New status" },
-      { name: "priority", type: "string", description: "New priority" },
-      { name: "projectId", type: "string", description: "New project ID" },
-      { name: "assigneeAgentId", type: "string", description: "New assignee agent ID" },
-      { name: "goalId", type: "string", description: "New goal ID" },
-    ],
+    parameters: z.object({
+      issueId: z.string().describe("Issue ID"),
+      title: z.string().optional().describe("New title"),
+      description: z.string().optional().describe("New description"),
+      status: z.string().optional().describe("New status"),
+      priority: z.string().optional().describe("New priority"),
+      projectId: z.string().optional().describe("New project ID"),
+      assigneeAgentId: z.string().optional().describe("New assignee agent ID"),
+      goalId: z.string().optional().describe("New goal ID"),
+    }),
     handler: async ({ issueId, ...updates }) => {
       const data = Object.fromEntries(Object.entries(updates).filter(([, v]) => v !== undefined));
       const result = await issuesApi.update(issueId, data);
       queryClient.invalidateQueries({ queryKey: ["issues"] });
-      return { id: result.id, identifier: result.identifier, title: result.title, status: result.status };
+      return JSON.stringify({ id: result.id, identifier: result.identifier, title: result.title, status: result.status });
     },
   });
 
-  useCopilotAction({
+  useFrontendTool({
     name: "addIssueComment",
     description: "Add a comment to an issue",
-    parameters: [
-      { name: "issueId", type: "string", description: "Issue ID", required: true },
-      { name: "body", type: "string", description: "Comment body (markdown)", required: true },
-      { name: "reopen", type: "boolean", description: "Whether to reopen the issue if closed" },
-    ],
+    parameters: z.object({
+      issueId: z.string().describe("Issue ID"),
+      body: z.string().describe("Comment body (markdown)"),
+      reopen: z.boolean().optional().describe("Whether to reopen the issue if closed"),
+    }),
     handler: async ({ issueId, body, reopen }) => {
       const result = await issuesApi.addComment(issueId, body, reopen);
       queryClient.invalidateQueries({ queryKey: ["issues", issueId] });
-      return { id: result.id, body: result.body };
+      return JSON.stringify({ id: result.id, body: result.body });
     },
   });
 
-  useCopilotAction({
+  useFrontendTool({
     name: "listIssueComments",
     description: "List all comments on an issue",
-    parameters: [{ name: "issueId", type: "string", description: "Issue ID", required: true }],
+    parameters: z.object({
+      issueId: z.string().describe("Issue ID"),
+    }),
     handler: async ({ issueId }) => {
-      return await issuesApi.listComments(issueId);
+      return JSON.stringify(await issuesApi.listComments(issueId));
     },
   });
 
-  useCopilotAction({
+  // ── Delete Issue (Human-in-the-loop) ─────────────────────────────
+
+  useHumanInTheLoop({
     name: "deleteIssue",
     description: "Delete an issue (requires user confirmation)",
-    parameters: [{ name: "issueId", type: "string", description: "Issue ID", required: true }],
-    renderAndWaitForResponse: ({ args, respond, status }) => {
-      if (status === "complete") return <p className="text-sm text-muted-foreground">Issue deleted.</p>;
-      return (
-        <div className="flex flex-col gap-2 rounded-md border border-destructive/50 bg-destructive/5 p-3 text-sm">
-          <p>Delete issue <strong>{args.issueId}</strong>? This cannot be undone.</p>
-          <div className="flex gap-2">
-            <button
-              className="rounded-md bg-destructive px-3 py-1.5 text-xs font-medium text-destructive-foreground hover:bg-destructive/90"
-              onClick={async () => {
-                await issuesApi.remove(args.issueId);
-                queryClient.invalidateQueries({ queryKey: ["issues"] });
-                respond("Issue deleted");
-              }}
-            >
-              Delete
-            </button>
-            <button
-              className="rounded-md border border-border px-3 py-1.5 text-xs font-medium hover:bg-accent"
-              onClick={() => respond("Cancelled by user")}
-            >
-              Cancel
-            </button>
+    parameters: z.object({
+      issueId: z.string().describe("Issue ID"),
+    }),
+    render: ({ args, respond, status }) => {
+      if (status === ToolCallStatus.Complete) {
+        return <p className="text-sm text-muted-foreground">Issue deleted.</p>;
+      }
+      if (status === ToolCallStatus.Executing && respond) {
+        return (
+          <div className="flex flex-col gap-2 rounded-md border border-destructive/50 bg-destructive/5 p-3 text-sm">
+            <p>Delete issue <strong>{args.issueId}</strong>? This cannot be undone.</p>
+            <div className="flex gap-2">
+              <button
+                className="rounded-md bg-destructive px-3 py-1.5 text-xs font-medium text-destructive-foreground hover:bg-destructive/90"
+                onClick={async () => {
+                  await issuesApi.remove(args.issueId);
+                  queryClient.invalidateQueries({ queryKey: ["issues"] });
+                  respond("Issue deleted");
+                }}
+              >
+                Delete
+              </button>
+              <button
+                className="rounded-md border border-border px-3 py-1.5 text-xs font-medium hover:bg-accent"
+                onClick={() => respond("Cancelled by user")}
+              >
+                Cancel
+              </button>
+            </div>
           </div>
-        </div>
-      );
+        );
+      }
+      return null;
     },
   });
 
   // ── Issue Labels ──────────────────────────────────────────────────
 
-  useCopilotAction({
+  useFrontendTool({
     name: "listLabels",
     description: "List all issue labels for the current company",
-    parameters: [],
+    parameters: z.object({}),
     handler: async () => {
       if (!selectedCompanyId) return "No company selected";
-      return await issuesApi.listLabels(selectedCompanyId);
+      return JSON.stringify(await issuesApi.listLabels(selectedCompanyId));
     },
   });
 
-  useCopilotAction({
+  useFrontendTool({
     name: "createLabel",
     description: "Create a new issue label",
-    parameters: [
-      { name: "name", type: "string", description: "Label name", required: true },
-      { name: "color", type: "string", description: "Label color (hex)", required: true },
-    ],
+    parameters: z.object({
+      name: z.string().describe("Label name"),
+      color: z.string().describe("Label color (hex)"),
+    }),
     handler: async ({ name, color }) => {
       if (!selectedCompanyId) return "No company selected";
-      return await issuesApi.createLabel(selectedCompanyId, { name, color });
+      return JSON.stringify(await issuesApi.createLabel(selectedCompanyId, { name, color }));
     },
   });
 
   // ── Projects ──────────────────────────────────────────────────────
 
-  useCopilotAction({
+  useFrontendTool({
     name: "listProjects",
     description: "List all projects for the current company",
-    parameters: [],
+    parameters: z.object({}),
     handler: async () => {
       if (!selectedCompanyId) return "No company selected";
       const result = await projectsApi.list(selectedCompanyId);
-      return result.map((p) => ({
+      return JSON.stringify(result.map((p) => ({
         id: p.id,
         name: p.name,
         urlKey: p.urlKey,
@@ -317,28 +336,30 @@ export function useCopilotActions() {
         description: p.description,
         leadAgentId: p.leadAgentId,
         targetDate: p.targetDate,
-      }));
+      })));
     },
   });
 
-  useCopilotAction({
+  useFrontendTool({
     name: "getProject",
     description: "Get full details of a project",
-    parameters: [{ name: "projectId", type: "string", description: "Project ID", required: true }],
+    parameters: z.object({
+      projectId: z.string().describe("Project ID"),
+    }),
     handler: async ({ projectId }) => {
-      return await projectsApi.get(projectId);
+      return JSON.stringify(await projectsApi.get(projectId));
     },
   });
 
-  useCopilotAction({
+  useFrontendTool({
     name: "createProject",
     description: "Create a new project",
-    parameters: [
-      { name: "name", type: "string", description: "Project name", required: true },
-      { name: "description", type: "string", description: "Project description" },
-      { name: "leadAgentId", type: "string", description: "Lead agent ID" },
-      { name: "targetDate", type: "string", description: "Target date (YYYY-MM-DD)" },
-    ],
+    parameters: z.object({
+      name: z.string().describe("Project name"),
+      description: z.string().optional().describe("Project description"),
+      leadAgentId: z.string().optional().describe("Lead agent ID"),
+      targetDate: z.string().optional().describe("Target date (YYYY-MM-DD)"),
+    }),
     handler: async ({ name, description, leadAgentId, targetDate }) => {
       if (!selectedCompanyId) return "No company selected";
       const data: Record<string, unknown> = { name };
@@ -347,71 +368,80 @@ export function useCopilotActions() {
       if (targetDate) data.targetDate = targetDate;
       const result = await projectsApi.create(selectedCompanyId, data);
       queryClient.invalidateQueries({ queryKey: ["projects"] });
-      return { id: result.id, name: result.name, urlKey: result.urlKey };
+      return JSON.stringify({ id: result.id, name: result.name, urlKey: result.urlKey });
     },
   });
 
-  useCopilotAction({
+  useFrontendTool({
     name: "updateProject",
     description: "Update a project",
-    parameters: [
-      { name: "projectId", type: "string", description: "Project ID", required: true },
-      { name: "name", type: "string", description: "New name" },
-      { name: "description", type: "string", description: "New description" },
-      { name: "status", type: "string", description: "New status (planned, active, paused, completed, cancelled)" },
-      { name: "leadAgentId", type: "string", description: "New lead agent ID" },
-      { name: "targetDate", type: "string", description: "New target date" },
-    ],
+    parameters: z.object({
+      projectId: z.string().describe("Project ID"),
+      name: z.string().optional().describe("New name"),
+      description: z.string().optional().describe("New description"),
+      status: z.string().optional().describe("New status (planned, active, paused, completed, cancelled)"),
+      leadAgentId: z.string().optional().describe("New lead agent ID"),
+      targetDate: z.string().optional().describe("New target date"),
+    }),
     handler: async ({ projectId, ...updates }) => {
       const data = Object.fromEntries(Object.entries(updates).filter(([, v]) => v !== undefined));
       const result = await projectsApi.update(projectId, data);
       queryClient.invalidateQueries({ queryKey: ["projects"] });
-      return { id: result.id, name: result.name, status: result.status };
+      return JSON.stringify({ id: result.id, name: result.name, status: result.status });
     },
   });
 
-  useCopilotAction({
+  // ── Delete Project (Human-in-the-loop) ────────────────────────────
+
+  useHumanInTheLoop({
     name: "deleteProject",
     description: "Delete a project (requires user confirmation)",
-    parameters: [{ name: "projectId", type: "string", description: "Project ID", required: true }],
-    renderAndWaitForResponse: ({ args, respond, status }) => {
-      if (status === "complete") return <p className="text-sm text-muted-foreground">Project deleted.</p>;
-      return (
-        <div className="flex flex-col gap-2 rounded-md border border-destructive/50 bg-destructive/5 p-3 text-sm">
-          <p>Delete project <strong>{args.projectId}</strong>? This cannot be undone.</p>
-          <div className="flex gap-2">
-            <button
-              className="rounded-md bg-destructive px-3 py-1.5 text-xs font-medium text-destructive-foreground hover:bg-destructive/90"
-              onClick={async () => {
-                await projectsApi.remove(args.projectId);
-                queryClient.invalidateQueries({ queryKey: ["projects"] });
-                respond("Project deleted");
-              }}
-            >
-              Delete
-            </button>
-            <button
-              className="rounded-md border border-border px-3 py-1.5 text-xs font-medium hover:bg-accent"
-              onClick={() => respond("Cancelled by user")}
-            >
-              Cancel
-            </button>
+    parameters: z.object({
+      projectId: z.string().describe("Project ID"),
+    }),
+    render: ({ args, respond, status }) => {
+      if (status === ToolCallStatus.Complete) {
+        return <p className="text-sm text-muted-foreground">Project deleted.</p>;
+      }
+      if (status === ToolCallStatus.Executing && respond) {
+        return (
+          <div className="flex flex-col gap-2 rounded-md border border-destructive/50 bg-destructive/5 p-3 text-sm">
+            <p>Delete project <strong>{args.projectId}</strong>? This cannot be undone.</p>
+            <div className="flex gap-2">
+              <button
+                className="rounded-md bg-destructive px-3 py-1.5 text-xs font-medium text-destructive-foreground hover:bg-destructive/90"
+                onClick={async () => {
+                  await projectsApi.remove(args.projectId);
+                  queryClient.invalidateQueries({ queryKey: ["projects"] });
+                  respond("Project deleted");
+                }}
+              >
+                Delete
+              </button>
+              <button
+                className="rounded-md border border-border px-3 py-1.5 text-xs font-medium hover:bg-accent"
+                onClick={() => respond("Cancelled by user")}
+              >
+                Cancel
+              </button>
+            </div>
           </div>
-        </div>
-      );
+        );
+      }
+      return null;
     },
   });
 
   // ── Goals ─────────────────────────────────────────────────────────
 
-  useCopilotAction({
+  useFrontendTool({
     name: "listGoals",
     description: "List all goals for the current company",
-    parameters: [],
+    parameters: z.object({}),
     handler: async () => {
       if (!selectedCompanyId) return "No company selected";
       const result = await goalsApi.list(selectedCompanyId);
-      return result.map((g) => ({
+      return JSON.stringify(result.map((g) => ({
         id: g.id,
         title: g.title,
         status: g.status,
@@ -419,20 +449,20 @@ export function useCopilotActions() {
         description: g.description,
         parentId: g.parentId,
         ownerAgentId: g.ownerAgentId,
-      }));
+      })));
     },
   });
 
-  useCopilotAction({
+  useFrontendTool({
     name: "createGoal",
     description: "Create a new goal",
-    parameters: [
-      { name: "title", type: "string", description: "Goal title", required: true },
-      { name: "description", type: "string", description: "Goal description" },
-      { name: "level", type: "string", description: "Goal level (company, team, individual)" },
-      { name: "parentId", type: "string", description: "Parent goal ID for sub-goals" },
-      { name: "ownerAgentId", type: "string", description: "Owner agent ID" },
-    ],
+    parameters: z.object({
+      title: z.string().describe("Goal title"),
+      description: z.string().optional().describe("Goal description"),
+      level: z.string().optional().describe("Goal level (company, team, individual)"),
+      parentId: z.string().optional().describe("Parent goal ID for sub-goals"),
+      ownerAgentId: z.string().optional().describe("Owner agent ID"),
+    }),
     handler: async ({ title, description, level, parentId, ownerAgentId }) => {
       if (!selectedCompanyId) return "No company selected";
       const data: Record<string, unknown> = { title };
@@ -442,38 +472,38 @@ export function useCopilotActions() {
       if (ownerAgentId) data.ownerAgentId = ownerAgentId;
       const result = await goalsApi.create(selectedCompanyId, data);
       queryClient.invalidateQueries({ queryKey: ["goals"] });
-      return { id: result.id, title: result.title, status: result.status };
+      return JSON.stringify({ id: result.id, title: result.title, status: result.status });
     },
   });
 
-  useCopilotAction({
+  useFrontendTool({
     name: "updateGoal",
     description: "Update a goal",
-    parameters: [
-      { name: "goalId", type: "string", description: "Goal ID", required: true },
-      { name: "title", type: "string", description: "New title" },
-      { name: "description", type: "string", description: "New description" },
-      { name: "status", type: "string", description: "New status (active, completed, cancelled)" },
-      { name: "ownerAgentId", type: "string", description: "New owner agent ID" },
-    ],
+    parameters: z.object({
+      goalId: z.string().describe("Goal ID"),
+      title: z.string().optional().describe("New title"),
+      description: z.string().optional().describe("New description"),
+      status: z.string().optional().describe("New status (active, completed, cancelled)"),
+      ownerAgentId: z.string().optional().describe("New owner agent ID"),
+    }),
     handler: async ({ goalId, ...updates }) => {
       const data = Object.fromEntries(Object.entries(updates).filter(([, v]) => v !== undefined));
       const result = await goalsApi.update(goalId, data);
       queryClient.invalidateQueries({ queryKey: ["goals"] });
-      return { id: result.id, title: result.title, status: result.status };
+      return JSON.stringify({ id: result.id, title: result.title, status: result.status });
     },
   });
 
   // ── Agents ────────────────────────────────────────────────────────
 
-  useCopilotAction({
+  useFrontendTool({
     name: "listAgents",
     description: "List all agents for the current company",
-    parameters: [],
+    parameters: z.object({}),
     handler: async () => {
       if (!selectedCompanyId) return "No company selected";
       const result = await agentsApi.list(selectedCompanyId);
-      return result.map((a) => ({
+      return JSON.stringify(result.map((a) => ({
         id: a.id,
         name: a.name,
         role: a.role,
@@ -481,287 +511,312 @@ export function useCopilotActions() {
         status: a.status,
         adapterType: a.adapterType,
         reportsTo: a.reportsTo,
-      }));
+      })));
     },
   });
 
-  useCopilotAction({
+  useFrontendTool({
     name: "getAgent",
     description: "Get full details of an agent",
-    parameters: [{ name: "agentId", type: "string", description: "Agent ID", required: true }],
+    parameters: z.object({
+      agentId: z.string().describe("Agent ID"),
+    }),
     handler: async ({ agentId }) => {
-      return await agentsApi.get(agentId);
+      return JSON.stringify(await agentsApi.get(agentId));
     },
   });
 
-  useCopilotAction({
+  useFrontendTool({
     name: "getAgentOrgChart",
     description: "Get the org chart (reporting hierarchy) for the current company",
-    parameters: [],
+    parameters: z.object({}),
     handler: async () => {
       if (!selectedCompanyId) return "No company selected";
-      return await agentsApi.org(selectedCompanyId);
+      return JSON.stringify(await agentsApi.org(selectedCompanyId));
     },
   });
 
-  useCopilotAction({
+  useFrontendTool({
     name: "pauseAgent",
     description: "Pause an agent so it stops processing tasks",
-    parameters: [{ name: "agentId", type: "string", description: "Agent ID", required: true }],
+    parameters: z.object({
+      agentId: z.string().describe("Agent ID"),
+    }),
     handler: async ({ agentId }) => {
       const result = await agentsApi.pause(agentId);
       queryClient.invalidateQueries({ queryKey: ["agents"] });
-      return { id: result.id, name: result.name, status: result.status };
+      return JSON.stringify({ id: result.id, name: result.name, status: result.status });
     },
   });
 
-  useCopilotAction({
+  useFrontendTool({
     name: "resumeAgent",
     description: "Resume a paused agent",
-    parameters: [{ name: "agentId", type: "string", description: "Agent ID", required: true }],
+    parameters: z.object({
+      agentId: z.string().describe("Agent ID"),
+    }),
     handler: async ({ agentId }) => {
       const result = await agentsApi.resume(agentId);
       queryClient.invalidateQueries({ queryKey: ["agents"] });
-      return { id: result.id, name: result.name, status: result.status };
+      return JSON.stringify({ id: result.id, name: result.name, status: result.status });
     },
   });
 
-  useCopilotAction({
+  // ── Terminate Agent (Human-in-the-loop) ───────────────────────────
+
+  useHumanInTheLoop({
     name: "terminateAgent",
     description: "Terminate an agent permanently (requires user confirmation)",
-    parameters: [{ name: "agentId", type: "string", description: "Agent ID", required: true }],
-    renderAndWaitForResponse: ({ args, respond, status }) => {
-      if (status === "complete") return <p className="text-sm text-muted-foreground">Agent terminated.</p>;
-      return (
-        <div className="flex flex-col gap-2 rounded-md border border-destructive/50 bg-destructive/5 p-3 text-sm">
-          <p>Terminate agent <strong>{args.agentId}</strong>? This is permanent and cannot be undone.</p>
-          <div className="flex gap-2">
-            <button
-              className="rounded-md bg-destructive px-3 py-1.5 text-xs font-medium text-destructive-foreground hover:bg-destructive/90"
-              onClick={async () => {
-                const result = await agentsApi.terminate(args.agentId);
-                queryClient.invalidateQueries({ queryKey: ["agents"] });
-                respond(`Agent ${result.name} terminated`);
-              }}
-            >
-              Terminate
-            </button>
-            <button
-              className="rounded-md border border-border px-3 py-1.5 text-xs font-medium hover:bg-accent"
-              onClick={() => respond("Cancelled by user")}
-            >
-              Cancel
-            </button>
+    parameters: z.object({
+      agentId: z.string().describe("Agent ID"),
+    }),
+    render: ({ args, respond, status }) => {
+      if (status === ToolCallStatus.Complete) {
+        return <p className="text-sm text-muted-foreground">Agent terminated.</p>;
+      }
+      if (status === ToolCallStatus.Executing && respond) {
+        return (
+          <div className="flex flex-col gap-2 rounded-md border border-destructive/50 bg-destructive/5 p-3 text-sm">
+            <p>Terminate agent <strong>{args.agentId}</strong>? This is permanent and cannot be undone.</p>
+            <div className="flex gap-2">
+              <button
+                className="rounded-md bg-destructive px-3 py-1.5 text-xs font-medium text-destructive-foreground hover:bg-destructive/90"
+                onClick={async () => {
+                  const result = await agentsApi.terminate(args.agentId);
+                  queryClient.invalidateQueries({ queryKey: ["agents"] });
+                  respond(`Agent ${result.name} terminated`);
+                }}
+              >
+                Terminate
+              </button>
+              <button
+                className="rounded-md border border-border px-3 py-1.5 text-xs font-medium hover:bg-accent"
+                onClick={() => respond("Cancelled by user")}
+              >
+                Cancel
+              </button>
+            </div>
           </div>
-        </div>
-      );
+        );
+      }
+      return null;
     },
   });
 
-  useCopilotAction({
+  useFrontendTool({
     name: "invokeAgent",
     description: "Trigger an agent heartbeat/run manually",
-    parameters: [{ name: "agentId", type: "string", description: "Agent ID", required: true }],
+    parameters: z.object({
+      agentId: z.string().describe("Agent ID"),
+    }),
     handler: async ({ agentId }) => {
       const result = await agentsApi.invoke(agentId);
       queryClient.invalidateQueries({ queryKey: ["heartbeat-runs"] });
-      return { runId: result.id, status: result.status };
+      return JSON.stringify({ runId: result.id, status: result.status });
     },
   });
 
-  useCopilotAction({
+  useFrontendTool({
     name: "wakeupAgent",
     description: "Wake up an agent with a specific trigger",
-    parameters: [
-      { name: "agentId", type: "string", description: "Agent ID", required: true },
-      { name: "reason", type: "string", description: "Reason for waking up the agent" },
-    ],
+    parameters: z.object({
+      agentId: z.string().describe("Agent ID"),
+      reason: z.string().optional().describe("Reason for waking up the agent"),
+    }),
     handler: async ({ agentId, reason }) => {
       const result = await agentsApi.wakeup(agentId, { source: "on_demand", triggerDetail: "manual", reason });
-      return result;
+      return JSON.stringify(result);
     },
   });
 
-  useCopilotAction({
+  useFrontendTool({
     name: "getAgentRuntimeState",
     description: "Get the runtime state of an agent (session info, task sessions)",
-    parameters: [{ name: "agentId", type: "string", description: "Agent ID", required: true }],
+    parameters: z.object({
+      agentId: z.string().describe("Agent ID"),
+    }),
     handler: async ({ agentId }) => {
-      return await agentsApi.runtimeState(agentId);
+      return JSON.stringify(await agentsApi.runtimeState(agentId));
     },
   });
 
   // ── Approvals ─────────────────────────────────────────────────────
 
-  useCopilotAction({
+  useFrontendTool({
     name: "listApprovals",
     description: "List approvals for the current company",
-    parameters: [
-      { name: "status", type: "string", description: "Filter by status (pending, approved, rejected, revision_requested)" },
-    ],
+    parameters: z.object({
+      status: z.string().optional().describe("Filter by status (pending, approved, rejected, revision_requested)"),
+    }),
     handler: async ({ status }) => {
       if (!selectedCompanyId) return "No company selected";
       const result = await approvalsApi.list(selectedCompanyId, status);
-      return result.map((a) => ({
+      return JSON.stringify(result.map((a) => ({
         id: a.id,
         type: a.type,
         status: a.status,
         requestedByAgentId: a.requestedByAgentId,
         decisionNote: a.decisionNote,
         createdAt: a.createdAt,
-      }));
+      })));
     },
   });
 
-  useCopilotAction({
+  useFrontendTool({
     name: "getApproval",
     description: "Get full details of an approval request",
-    parameters: [{ name: "approvalId", type: "string", description: "Approval ID", required: true }],
+    parameters: z.object({
+      approvalId: z.string().describe("Approval ID"),
+    }),
     handler: async ({ approvalId }) => {
-      return await approvalsApi.get(approvalId);
+      return JSON.stringify(await approvalsApi.get(approvalId));
     },
   });
 
-  useCopilotAction({
+  useFrontendTool({
     name: "approveApproval",
     description: "Approve an approval request",
-    parameters: [
-      { name: "approvalId", type: "string", description: "Approval ID", required: true },
-      { name: "decisionNote", type: "string", description: "Note explaining the decision" },
-    ],
+    parameters: z.object({
+      approvalId: z.string().describe("Approval ID"),
+      decisionNote: z.string().optional().describe("Note explaining the decision"),
+    }),
     handler: async ({ approvalId, decisionNote }) => {
       const result = await approvalsApi.approve(approvalId, decisionNote);
       queryClient.invalidateQueries({ queryKey: ["approvals"] });
-      return { id: result.id, status: result.status };
+      return JSON.stringify({ id: result.id, status: result.status });
     },
   });
 
-  useCopilotAction({
+  useFrontendTool({
     name: "rejectApproval",
     description: "Reject an approval request",
-    parameters: [
-      { name: "approvalId", type: "string", description: "Approval ID", required: true },
-      { name: "decisionNote", type: "string", description: "Note explaining the rejection" },
-    ],
+    parameters: z.object({
+      approvalId: z.string().describe("Approval ID"),
+      decisionNote: z.string().optional().describe("Note explaining the rejection"),
+    }),
     handler: async ({ approvalId, decisionNote }) => {
       const result = await approvalsApi.reject(approvalId, decisionNote);
       queryClient.invalidateQueries({ queryKey: ["approvals"] });
-      return { id: result.id, status: result.status };
+      return JSON.stringify({ id: result.id, status: result.status });
     },
   });
 
-  useCopilotAction({
+  useFrontendTool({
     name: "requestApprovalRevision",
     description: "Request revision on an approval",
-    parameters: [
-      { name: "approvalId", type: "string", description: "Approval ID", required: true },
-      { name: "decisionNote", type: "string", description: "Note explaining what needs revision" },
-    ],
+    parameters: z.object({
+      approvalId: z.string().describe("Approval ID"),
+      decisionNote: z.string().optional().describe("Note explaining what needs revision"),
+    }),
     handler: async ({ approvalId, decisionNote }) => {
       const result = await approvalsApi.requestRevision(approvalId, decisionNote);
       queryClient.invalidateQueries({ queryKey: ["approvals"] });
-      return { id: result.id, status: result.status };
+      return JSON.stringify({ id: result.id, status: result.status });
     },
   });
 
   // ── Dashboard & Costs ─────────────────────────────────────────────
 
-  useCopilotAction({
+  useFrontendTool({
     name: "getDashboard",
     description: "Get the dashboard summary for the current company (issue counts, agent activity, etc.)",
-    parameters: [],
+    parameters: z.object({}),
     handler: async () => {
       if (!selectedCompanyId) return "No company selected";
-      return await dashboardApi.summary(selectedCompanyId);
+      return JSON.stringify(await dashboardApi.summary(selectedCompanyId));
     },
   });
 
-  useCopilotAction({
+  useFrontendTool({
     name: "getCostSummary",
     description: "Get cost summary for the current company",
-    parameters: [
-      { name: "from", type: "string", description: "Start date (YYYY-MM-DD)" },
-      { name: "to", type: "string", description: "End date (YYYY-MM-DD)" },
-    ],
+    parameters: z.object({
+      from: z.string().optional().describe("Start date (YYYY-MM-DD)"),
+      to: z.string().optional().describe("End date (YYYY-MM-DD)"),
+    }),
     handler: async ({ from, to }) => {
       if (!selectedCompanyId) return "No company selected";
-      return await costsApi.summary(selectedCompanyId, from, to);
+      return JSON.stringify(await costsApi.summary(selectedCompanyId, from, to));
     },
   });
 
-  useCopilotAction({
+  useFrontendTool({
     name: "getCostsByAgent",
     description: "Get cost breakdown by agent for the current company",
-    parameters: [
-      { name: "from", type: "string", description: "Start date (YYYY-MM-DD)" },
-      { name: "to", type: "string", description: "End date (YYYY-MM-DD)" },
-    ],
+    parameters: z.object({
+      from: z.string().optional().describe("Start date (YYYY-MM-DD)"),
+      to: z.string().optional().describe("End date (YYYY-MM-DD)"),
+    }),
     handler: async ({ from, to }) => {
       if (!selectedCompanyId) return "No company selected";
-      return await costsApi.byAgent(selectedCompanyId, from, to);
+      return JSON.stringify(await costsApi.byAgent(selectedCompanyId, from, to));
     },
   });
 
-  useCopilotAction({
+  useFrontendTool({
     name: "getCostsByProject",
     description: "Get cost breakdown by project for the current company",
-    parameters: [
-      { name: "from", type: "string", description: "Start date (YYYY-MM-DD)" },
-      { name: "to", type: "string", description: "End date (YYYY-MM-DD)" },
-    ],
+    parameters: z.object({
+      from: z.string().optional().describe("Start date (YYYY-MM-DD)"),
+      to: z.string().optional().describe("End date (YYYY-MM-DD)"),
+    }),
     handler: async ({ from, to }) => {
       if (!selectedCompanyId) return "No company selected";
-      return await costsApi.byProject(selectedCompanyId, from, to);
+      return JSON.stringify(await costsApi.byProject(selectedCompanyId, from, to));
     },
   });
 
   // ── Activity ──────────────────────────────────────────────────────
 
-  useCopilotAction({
+  useFrontendTool({
     name: "listActivity",
     description: "List recent activity events for the current company",
-    parameters: [],
+    parameters: z.object({}),
     handler: async () => {
       if (!selectedCompanyId) return "No company selected";
-      return await activityApi.list(selectedCompanyId);
+      return JSON.stringify(await activityApi.list(selectedCompanyId));
     },
   });
 
-  useCopilotAction({
+  useFrontendTool({
     name: "getIssueActivity",
     description: "Get activity history for a specific issue",
-    parameters: [{ name: "issueId", type: "string", description: "Issue ID", required: true }],
+    parameters: z.object({
+      issueId: z.string().describe("Issue ID"),
+    }),
     handler: async ({ issueId }) => {
-      return await activityApi.forIssue(issueId);
+      return JSON.stringify(await activityApi.forIssue(issueId));
     },
   });
 
   // ── Heartbeat Runs ────────────────────────────────────────────────
 
-  useCopilotAction({
+  useFrontendTool({
     name: "listHeartbeatRuns",
     description: "List agent heartbeat runs (execution history) for the current company",
-    parameters: [
-      { name: "agentId", type: "string", description: "Filter by agent ID" },
-      { name: "limit", type: "number", description: "Max results (default 50)" },
-    ],
+    parameters: z.object({
+      agentId: z.string().optional().describe("Filter by agent ID"),
+      limit: z.number().optional().describe("Max results (default 50)"),
+    }),
     handler: async ({ agentId, limit }) => {
       if (!selectedCompanyId) return "No company selected";
       const result = await heartbeatsApi.list(selectedCompanyId, agentId, limit);
-      return result.map((r) => ({
+      return JSON.stringify(result.map((r) => ({
         id: r.id,
         status: r.status,
         invocationSource: r.invocationSource,
         startedAt: r.startedAt,
         finishedAt: r.finishedAt,
-      }));
+      })));
     },
   });
 
-  useCopilotAction({
+  useFrontendTool({
     name: "cancelHeartbeatRun",
     description: "Cancel a running agent heartbeat",
-    parameters: [{ name: "runId", type: "string", description: "Run ID", required: true }],
+    parameters: z.object({
+      runId: z.string().describe("Run ID"),
+    }),
     handler: async ({ runId }) => {
       await heartbeatsApi.cancel(runId);
       queryClient.invalidateQueries({ queryKey: ["heartbeat-runs"] });
@@ -771,30 +826,30 @@ export function useCopilotActions() {
 
   // ── Secrets ───────────────────────────────────────────────────────
 
-  useCopilotAction({
+  useFrontendTool({
     name: "listSecrets",
     description: "List secrets (API keys, tokens) for the current company. Values are not returned, only metadata.",
-    parameters: [],
+    parameters: z.object({}),
     handler: async () => {
       if (!selectedCompanyId) return "No company selected";
       const result = await secretsApi.list(selectedCompanyId);
-      return result.map((s) => ({ id: s.id, name: s.name, description: s.description, createdAt: s.createdAt }));
+      return JSON.stringify(result.map((s) => ({ id: s.id, name: s.name, description: s.description, createdAt: s.createdAt })));
     },
   });
 
   // ── UI Dialogs ────────────────────────────────────────────────────
 
-  useCopilotAction({
+  useFrontendTool({
     name: "openNewIssueDialog",
     description: "Open the new issue creation dialog with optional pre-filled values",
-    parameters: [
-      { name: "title", type: "string", description: "Pre-fill title" },
-      { name: "description", type: "string", description: "Pre-fill description" },
-      { name: "status", type: "string", description: "Pre-fill status" },
-      { name: "priority", type: "string", description: "Pre-fill priority" },
-      { name: "projectId", type: "string", description: "Pre-fill project" },
-      { name: "assigneeAgentId", type: "string", description: "Pre-fill assignee agent" },
-    ],
+    parameters: z.object({
+      title: z.string().optional().describe("Pre-fill title"),
+      description: z.string().optional().describe("Pre-fill description"),
+      status: z.string().optional().describe("Pre-fill status"),
+      priority: z.string().optional().describe("Pre-fill priority"),
+      projectId: z.string().optional().describe("Pre-fill project"),
+      assigneeAgentId: z.string().optional().describe("Pre-fill assignee agent"),
+    }),
     handler: async (defaults) => {
       const cleaned = Object.fromEntries(Object.entries(defaults).filter(([, v]) => v !== undefined));
       openNewIssue(Object.keys(cleaned).length > 0 ? cleaned : undefined);
@@ -802,30 +857,32 @@ export function useCopilotActions() {
     },
   });
 
-  useCopilotAction({
+  useFrontendTool({
     name: "openNewProjectDialog",
     description: "Open the new project creation dialog",
-    parameters: [],
+    parameters: z.object({}),
     handler: async () => {
       openNewProject();
       return "Opened new project dialog";
     },
   });
 
-  useCopilotAction({
+  useFrontendTool({
     name: "openNewGoalDialog",
     description: "Open the new goal creation dialog",
-    parameters: [{ name: "parentId", type: "string", description: "Parent goal ID for sub-goals" }],
+    parameters: z.object({
+      parentId: z.string().optional().describe("Parent goal ID for sub-goals"),
+    }),
     handler: async ({ parentId }) => {
       openNewGoal(parentId ? { parentId } : undefined);
       return "Opened new goal dialog";
     },
   });
 
-  useCopilotAction({
+  useFrontendTool({
     name: "openNewAgentDialog",
     description: "Open the new agent hiring dialog",
-    parameters: [],
+    parameters: z.object({}),
     handler: async () => {
       openNewAgent();
       return "Opened new agent dialog";

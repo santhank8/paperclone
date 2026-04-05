@@ -34,7 +34,7 @@ import {
 import { queryKeys } from "../lib/queryKeys";
 import { cn } from "../lib/utils";
 import { NotFoundPage } from "../pages/NotFound";
-import { CopilotSidebar } from "@copilotkit/react-ui";
+import { CopilotSidebar } from "@copilotkit/react-core/v2";
 import { useCopilotActions } from "../hooks/useCopilotActions";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
@@ -449,11 +449,10 @@ export function Layout() {
       <ToastViewport />
       <CopilotSidebar
         defaultOpen={false}
-        clickOutsideToClose={false}
         labels={{
-          title: "Paperclip AI",
-          initial: "Ask me to create issues, manage agents, check costs, or navigate anywhere in your workspace.",
-          placeholder: "Ask Paperclip AI...",
+          modalHeaderTitle: "Paperclip AI",
+          welcomeMessageText: "Ask me to create issues, manage agents, check costs, or navigate anywhere in your workspace.",
+          chatInputPlaceholder: "Ask Paperclip AI...",
         }}
       />
       </div>
