@@ -31,6 +31,9 @@ test('createHermesExecutionPlan includes resume and auth-aware env', async () =>
     assert.ok(plan.args.includes('resume-1'));
     assert.equal(plan.provider, 'copilot');
     assert.equal(plan.env.PAPERCLIP_API_KEY, 'pcp-token');
+    assert.equal(plan.env.PAPERCLIP_AGENT_ID, 'agent-1');
+    assert.equal(plan.env.PAPERCLIP_COMPANY_ID, 'company-1');
+    assert.equal(plan.env.PAPERCLIP_API_URL, 'http://127.0.0.1:3100/api');
     assert.equal(plan.env.PAPERCLIP_TASK_ID, 'ISS-1');
     assert.equal(plan.env.TERMINAL_CWD, baseCtx.cwd);
   } finally {

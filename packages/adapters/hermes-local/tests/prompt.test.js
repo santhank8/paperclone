@@ -38,9 +38,14 @@ test('buildPrompt renders task and approval sections', () => {
   assert.match(prompt, /Assigned issue/);
   assert.match(prompt, /Approval context/);
   assert.match(prompt, /revision_requested/);
-  assert.match(prompt, /\/agent-hires/);
-  assert.match(prompt, /\/approvals\/apr-1\/comments/);
-  assert.match(prompt, /"body":"Acknowledged\. Proceeding with the approved plan\."/);
+  assert.match(prompt, /\$PAPERCLIP_COMPANY_ID/);
+  assert.match(prompt, /\$PAPERCLIP_AGENT_ID/);
+  assert.match(prompt, /--data @\/tmp\/paperclip-agent-hire\.json/);
+  assert.match(prompt, /\/approvals\/\$PAPERCLIP_APPROVAL_ID\/comments/);
+  assert.match(prompt, /paperclip-approval-comment\.json/);
+  assert.match(prompt, /Never hand-copy UUIDs|Prefer \$PAPERCLIP_\* env vars/);
+  assert.doesNotMatch(prompt, /\{\{#hireModel\}\}|\{\{\/hireModel\}\}/);
+  assert.match(prompt, /Do not use write_file for env-backed JSON payloads/);
   assert.match(prompt, /X-Paperclip-Run-Id/);
 });
 

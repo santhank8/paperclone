@@ -6,6 +6,9 @@ description: Hermes companion skill for interpreting Paperclip wake context, tas
 # paperclip-runtime
 
 Environment variables commonly injected by the Hermes Paperclip adapter:
+- PAPERCLIP_API_URL
+- PAPERCLIP_COMPANY_ID
+- PAPERCLIP_AGENT_ID
 - PAPERCLIP_RUN_ID
 - PAPERCLIP_TASK_ID
 - PAPERCLIP_WAKE_REASON
@@ -20,5 +23,6 @@ Environment variables commonly injected by the Hermes Paperclip adapter:
 
 Rules:
 - Treat wakeReason as high-priority operator context.
+- Reuse the injected $PAPERCLIP_* env vars in commands instead of retyping UUIDs from the prompt.
 - If approval fields are present, inspect the approval before acting.
 - If taskId is present, act on that issue before scanning for unrelated work.

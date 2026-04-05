@@ -16,6 +16,9 @@ Use these endpoints:
 
 Rules:
 - Use /agent-hires for new subordinate agents.
+- Use `$PAPERCLIP_COMPANY_ID` and `$PAPERCLIP_AGENT_ID` exactly as provided; do not rewrite IDs manually after a shell error.
+- Prefer a temporary JSON payload file plus `--data @file` when calling `/agent-hires` or `/resubmit`.
+- Do not use `write_file` for env-backed hire payloads unless you replace every `$PAPERCLIP_*` placeholder with a literal value first.
 - Do not assume board approval should be disabled.
 - On revision_requested, gather the requested changes and resubmit an updated payload.
 - On rejected, stop the blocked plan and summarize the reason clearly.

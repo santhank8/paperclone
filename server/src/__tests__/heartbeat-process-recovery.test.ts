@@ -195,6 +195,25 @@ describeEmbeddedPostgres("heartbeat orphaned process recovery", () => {
     expect(wakeup?.status).toBe("claimed");
   });
 
+  it("returns an empty initializing log payload before a run log store is attached", async () => {
+    const { runId } = await seedRunFixture({
+      includeIssue: false,
+      runStatus: "running",
+    });
+    const heartbeat = heartbeatService(db);
+
+    const result = await heartbeat.readLog(runId);
+
+    expect(result).toMatchObject({
+      runId,
+      store: null,
+      logRef: null,
+      content: "",
+      nextOffset: 0,
+      initializing: true,
+    });
+  });
+
   it("queues exactly one retry when the recorded local pid is dead", async () => {
     const { agentId, runId, issueId } = await seedRunFixture({
       processPid: 999_999_999,

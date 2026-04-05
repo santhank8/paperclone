@@ -4133,7 +4133,16 @@ export function heartbeatService(db: Db) {
     readLog: async (runId: string, opts?: { offset?: number; limitBytes?: number }) => {
       const run = await getRun(runId);
       if (!run) throw notFound("Heartbeat run not found");
-      if (!run.logStore || !run.logRef) throw notFound("Run log not found");
+      if (!run.logStore || !run.logRef) {
+        return {
+          runId,
+          store: null,
+          logRef: null,
+          content: "",
+          nextOffset: 0,
+          initializing: true,
+        };
+      }
 
       const result = await runLogStore.read(
         {
@@ -4149,6 +4158,7 @@ export function heartbeatService(db: Db) {
         logRef: run.logRef,
         ...result,
         content: redactCurrentUserText(result.content, await getCurrentUserRedactionOptions()),
+        initializing: false,
       };
     },
 
