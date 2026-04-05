@@ -1,7 +1,57 @@
-// UI components for DashScope adapter (placeholder)
+// UI components for DashScope adapter
+import type { models } from "../index.js";
+
+export { models };
+
 export const configFields = [
-  { key: "model", label: "Model", type: "select", required: true },
-  { key: "temperature", label: "Temperature", type: "number", min: 0, max: 2, step: 0.1 },
-  { key: "topP", label: "Top P", type: "number", min: 0, max: 1, step: 0.05 },
-  { key: "maxTokens", label: "Max Tokens", type: "number", min: 1 },
+  { 
+    key: "model", 
+    label: "Model", 
+    type: "select", 
+    required: true,
+    options: models.map(m => ({ value: m.id, label: m.label }))
+  },
+  { 
+    key: "baseUrl", 
+    label: "API Base URL (optional)", 
+    type: "text", 
+    required: false,
+    placeholder: "Leave empty for standard endpoint",
+    help: "Leave empty to use standard DashScope endpoint"
+  },
+  { 
+    key: "temperature", 
+    label: "Temperature", 
+    type: "number", 
+    min: 0, 
+    max: 2, 
+    step: 0.1,
+    default: 0.7
+  },
+  { 
+    key: "topP", 
+    label: "Top P", 
+    type: "number", 
+    min: 0, 
+    max: 1, 
+    step: 0.05,
+    default: 0.8
+  },
+  { 
+    key: "maxTokens", 
+    label: "Max Tokens", 
+    type: "number", 
+    min: 1,
+    default: 2048
+  },
 ];
+
+/**
+ * List available DashScope models
+ * Can be called dynamically by UI to populate model dropdown
+ */
+export async function listModels(): Promise<typeof models> {
+  // Return static list from index.ts
+  // In future, could fetch from DashScope API dynamically
+  return models;
+}

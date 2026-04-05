@@ -1,3 +1,4 @@
+import * as http from "node:http";
 import * as https from "node:https";
 import { URL } from "node:url";
 import type { AdapterExecutionContext, AdapterExecutionResult } from "@paperclipai/adapter-utils";
@@ -10,69 +11,61 @@ import {
   renderTemplate,
 } from "@paperclipai/adapter-utils/server-utils";
 
-// OpenAI 兼容的消息格式
-interface OpenAIMessage {
+interface DashScopeMessage {
   role: "system" | "user" | "assistant";
   content: string;
 }
 
-// OpenAI 兼容的请求格式
-interface OpenAIRequest {
-  model: string;
-  messages: OpenAIMessage[];
-  temperature?: number;
-  top_p?: number;
-  max_tokens?: number;
+interface DashScopeUsage {
+  input_tokens: number;
+  output_tokens: number;
 }
 
-// OpenAI 兼容的响应格式
-interface OpenAIChoice {
-  message: {
-    role: string;
-    content: string;
+interface DashScopeResponse {
+  output?: {
+    text: string;
+    finish_reason?: string;
   };
-  finish_reason: string;
+  choices?: Array<{
+    message: {
+      content: string;
+      role: string;
+    };
+    finish_reason: string;
+  }>;
+  usage: DashScopeUsage;
+  request_id: string;
 }
 
-interface OpenAIUsage {
-  prompt_tokens: number;
-  completion_tokens: number;
-  total_tokens: number;
-}
-
-interface OpenAIResponse {
-  id: string;
-  object: string;
-  created: number;
-  model: string;
-  choices: OpenAIChoice[];
-  usage: OpenAIUsage;
+interface CallDashScopeOptions {
+  temperature?: number;
+  topP?: number;
+  maxTokens?: number;
+  timeoutSec?: number;
 }
 
 /**
- * 调用阿里云百炼 OpenAI 兼容 API
- * 端点：https://coding.dashscope.aliyuncs.com/v1/chat/completions
+ * Call DashScope API
+ * Uses standard DashScope endpoint: https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation
  */
 async function callDashScopeAPI(
   apiKey: string,
   model: string,
-  messages: OpenAIMessage[],
-  options: {
-    temperature?: number;
-    topP?: number;
-    maxTokens?: number;
-    timeoutSec?: number;
-  },
-): Promise<{ response: OpenAIResponse; latencyMs: number }> {
-  // 使用阿里云百炼 OpenAI 兼容端点
-  const url = new URL("https://coding.dashscope.aliyuncs.com/v1/chat/completions");
+  messages: DashScopeMessage[],
+  options: CallDashScopeOptions,
+): Promise<{ response: DashScopeResponse; latencyMs: number }> {
+  // Always use standard DashScope endpoint
+  const url = new URL("https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation");
   
-  const requestBody: OpenAIRequest = {
+  // Build request body in DashScope native format
+  const requestBody = {
     model,
-    messages,
-    ...(options.temperature !== undefined && { temperature: options.temperature }),
-    ...(options.topP !== undefined && { top_p: options.topP }),
-    ...(options.maxTokens !== undefined && { max_tokens: options.maxTokens }),
+    input: { messages },
+    parameters: {
+      ...(options.temperature !== undefined && { temperature: options.temperature }),
+      ...(options.topP !== undefined && { top_p: options.topP }),
+      ...(options.maxTokens !== undefined && { max_tokens: options.maxTokens }),
+    },
   };
 
   const body = JSON.stringify(requestBody);
@@ -97,7 +90,7 @@ async function callDashScopeAPI(
           return;
         }
         try {
-          const response: OpenAIResponse = JSON.parse(responseData);
+          const response: DashScopeResponse = JSON.parse(responseData);
           resolve({ response, latencyMs });
         } catch (e) {
           reject(new Error(`Failed to parse DashScope response: ${e}\n${responseData}`));
@@ -192,15 +185,17 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
       exitCode: 1,
       signal: null,
       timedOut: false,
-      errorMessage: "Model not specified. Set config.model to a valid DashScope model (e.g., qwen3.5-plus, qwen-max, qwen-plus).",
+      errorMessage: "Model not specified. Set config.model to a valid DashScope model (e.g., qwen-max, qwen-plus).",
       errorCode: "invalid_config",
     };
   }
 
-  await onLog("stdout", `[paperclip] Calling DashScope OpenAI-compatible API with model: ${model}\n`);
-  await onLog("stdout", `[paperclip] Endpoint: https://coding.dashscope.aliyuncs.com/v1/chat/completions\n`);
+  // Log configuration
+  await onLog("stdout", `[paperclip] Using DashScope standard endpoint\n`);
+  await onLog("stdout", `[paperclip] Endpoint: https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation\n`);
+  await onLog("stdout", `[paperclip] Model: ${model}\n`);
 
-  const messages: OpenAIMessage[] = [
+  const messages: DashScopeMessage[] = [
     { role: "system", content: "You are a helpful AI assistant integrated with Paperclip." },
     { role: "user", content: prompt },
   ];
@@ -213,13 +208,20 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
       timeoutSec,
     });
 
-    const choice = response.choices[0];
-    const outputText = choice?.message?.content ?? "";
-    const finishReason = choice?.finish_reason ?? "stop";
-
     await onLog("stdout", `[paperclip] DashScope response in ${latencyMs}ms\n`);
-    await onLog("stdout", `[paperclip] Tokens: prompt=${response.usage.prompt_tokens}, completion=${response.usage.completion_tokens}, total=${response.usage.total_tokens}\n`);
-    await onLog("stdout", `[paperclip] Finish reason: ${finishReason}\n`);
+    await onLog("stdout", `[paperclip] Tokens: input=${response.usage.input_tokens}, output=${response.usage.output_tokens}\n`);
+
+    // Extract output (DashScope native format)
+    let outputText = "";
+    let finishReason = "stop";
+    
+    if (response.output?.text !== undefined) {
+      outputText = response.output.text;
+      finishReason = response.output.finish_reason ?? "stop";
+    } else {
+      // Fallback for unexpected response format
+      outputText = JSON.stringify(response);
+    }
 
     return {
       exitCode: 0,
@@ -228,9 +230,9 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
       errorMessage: null,
       errorCode: null,
       usage: {
-        inputTokens: response.usage.prompt_tokens,
+        inputTokens: response.usage.input_tokens,
         cachedInputTokens: 0,
-        outputTokens: response.usage.completion_tokens,
+        outputTokens: response.usage.output_tokens,
       },
       sessionId: null,
       sessionParams: null,
@@ -241,12 +243,9 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
       billingType: "api",
       costUsd: 0,
       resultJson: {
-        output: {
-          text: outputText,
-          finish_reason: finishReason,
-        },
+        output: response.output || response.choices?.[0],
         usage: response.usage,
-        request_id: response.id,
+        request_id: response.request_id,
         latency_ms: latencyMs,
       },
       summary: outputText,
