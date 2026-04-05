@@ -130,7 +130,7 @@ Every heartbeat, read your direct reports' daily notes. Synthesize into a single
     key: "cto",
     title: "CTO",
     tagline: "Technical leadership, architecture, and engineering management",
-    icon: "code-2",
+    icon: "circuit-board",
     role: "manager",
     reportsTo: "ceo",
     department: "engineering",

@@ -49,6 +49,7 @@ const AGENT_ROLE_ICON_MAP: Record<string, LucideIcon> = {
   engineer: Terminal,
   designer: Palette,
   devops: Server,
+  marketer: PenLine,
   qa: Shield,
 };
 
