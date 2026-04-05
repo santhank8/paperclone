@@ -86,7 +86,7 @@ export function Layout() {
   const [notifCenterOpen, setNotifCenterOpen] = useState(false);
   const [focusMode, setFocusMode] = useState(false);
   const [showWelcome, setShowWelcome] = useState(() => !hasSeenWelcome());
-  const [showFirstLogin, setShowFirstLogin] = useState(() => !hasCompletedFirstLogin() && hasSeenWelcome());
+  const [showFirstLogin, setShowFirstLogin] = useState(false);
   const guidedTour = useGuidedTour();
   const notifs = useNotifications();
   const nextTheme = theme === "dark" ? "light" : "dark";
