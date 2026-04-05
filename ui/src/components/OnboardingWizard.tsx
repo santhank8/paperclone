@@ -84,12 +84,12 @@ interface RosterItem {
 }
 
 const LLM_PROVIDERS: readonly { key: string; label: string; secretName: string; placeholder: string; hint: string }[] = [
-  { key: "anthropic", label: "Anthropic (Claude)", secretName: "ANTHROPIC_API_KEY", placeholder: "sk-ant-...", hint: "API key from console.anthropic.com (subscription not supported)" },
-  { key: "openai", label: "OpenAI", secretName: "OPENAI_API_KEY", placeholder: "sk-...", hint: "API key from platform.openai.com/api-keys (subscription not supported)" },
-  { key: "google", label: "Google AI (Gemini)", secretName: "GEMINI_API_KEY", placeholder: "AIza...", hint: "API key from aistudio.google.com/apikey" },
-  { key: "openrouter", label: "OpenRouter", secretName: "OPENROUTER_API_KEY", placeholder: "sk-or-...", hint: "API key from openrouter.ai/keys - access 200+ models" },
-  { key: "ollama_cloud", label: "Ollama Cloud", secretName: "OLLAMA_API_KEY", placeholder: "API key", hint: "API key from ollama.com - open-source models, flat monthly pricing" },
-  { key: "ollama", label: "Ollama (self-hosted)", secretName: "OLLAMA_BASE_URL", placeholder: "http://localhost:11434", hint: "Your Ollama server URL - no API key needed" },
+  { key: "anthropic", label: "Anthropic (Claude)", secretName: "ANTHROPIC_API_KEY", placeholder: "sk-ant-...", hint: "console.anthropic.com" },
+  { key: "openai", label: "OpenAI", secretName: "OPENAI_API_KEY", placeholder: "sk-...", hint: "platform.openai.com/api-keys" },
+  { key: "google", label: "Google AI (Gemini)", secretName: "GEMINI_API_KEY", placeholder: "AIza...", hint: "aistudio.google.com/apikey" },
+  { key: "openrouter", label: "OpenRouter", secretName: "OPENROUTER_API_KEY", placeholder: "sk-or-...", hint: "openrouter.ai/keys" },
+  { key: "ollama_cloud", label: "Ollama Cloud", secretName: "OLLAMA_API_KEY", placeholder: "API key", hint: "ollama.com/settings" },
+  { key: "ollama", label: "Ollama (self-hosted)", secretName: "OLLAMA_BASE_URL", placeholder: "http://localhost:11434", hint: "Your Ollama server URL" },
 ];
 
 let rosterIdCounter = 0;
