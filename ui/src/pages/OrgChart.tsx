@@ -16,7 +16,9 @@ import { getRoleLevel, getAgentRingClass } from "../lib/role-icons";
 import { cn } from "../lib/utils";
 
 // Layout constants
-const CARD_W = 200;
+const CARD_MIN_W = 180;
+const CARD_MAX_W = 260;
+const CARD_W = 220;
 const CARD_H = 100;
 const GAP_X = 32;
 const GAP_Y = 80;
@@ -425,7 +427,9 @@ export function OrgChart() {
               style={{
                 left: node.x,
                 top: node.y,
-                width: CARD_W,
+                minWidth: CARD_MIN_W,
+                maxWidth: CARD_MAX_W,
+                width: "max-content",
                 minHeight: CARD_H,
               }}
               onClick={() => navigate(agent ? agentUrl(agent) : `/agents/${node.id}`)}
@@ -477,12 +481,16 @@ export function OrgChart() {
                       {departmentLabels[dept] ?? dept}
                     </span>
                   )}
-                  {agent && (
-                    <span className="text-[10px] text-muted-foreground/60 font-mono leading-tight mt-1">
-                      {adapterLabels[agent.adapterType] ?? agent.adapterType}
-                      {(agent as unknown as Record<string, unknown>).model ? ` - ${String((agent as unknown as Record<string, unknown>).model).replace(/:cloud$/, "")}` : ""}
-                    </span>
-                  )}
+                  {agent && (() => {
+                    const cfg = (agent as unknown as Record<string, unknown>).adapterConfig as Record<string, unknown> | undefined;
+                    const modelName = cfg?.model ? String(cfg.model).replace(/:cloud$/, "").replace(/:.+$/, "") : null;
+                    return (
+                      <span className="text-[10px] text-muted-foreground/60 font-mono leading-tight mt-1">
+                        {adapterLabels[agent.adapterType] ?? agent.adapterType}
+                        {modelName ? ` / ${modelName}` : ""}
+                      </span>
+                    );
+                  })()}
                 </div>
               </div>
             </div>
