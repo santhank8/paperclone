@@ -1900,7 +1900,6 @@ function resolveWorkerEntrypoint(
       }
     }
   }
-  }
 
   // Try the local plugin directory (standard npm install location)
   const packageName = plugin.packageName;
