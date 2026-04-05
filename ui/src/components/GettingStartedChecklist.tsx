@@ -103,11 +103,27 @@ export function markGettingStartedComplete(key: keyof ChecklistState) {
 
 interface GettingStartedChecklistProps {
   className?: string;
+  /** Pass live data so checklist auto-detects completed items */
+  hasCompany?: boolean;
+  hasProvider?: boolean;
+  hasAgents?: boolean;
+  hasTasks?: boolean;
 }
 
-export function GettingStartedChecklist({ className }: GettingStartedChecklistProps) {
+export function GettingStartedChecklist({ className, hasCompany, hasProvider, hasAgents, hasTasks }: GettingStartedChecklistProps) {
   const [state, setState] = useState<ChecklistState>(loadState);
   const [dismissed, setDismissed] = useState(isDismissed);
+
+  // Auto-detect completion from live data (overrides localStorage)
+  useEffect(() => {
+    let changed = false;
+    const next = { ...state };
+    if (hasCompany && !next.companyCreated) { next.companyCreated = true; changed = true; }
+    if (hasProvider && !next.providerConnected) { next.providerConnected = true; changed = true; }
+    if (hasAgents && !next.agentCreated) { next.agentCreated = true; changed = true; }
+    if (hasTasks && !next.taskAssigned) { next.taskAssigned = true; changed = true; }
+    if (changed) { setState(next); saveState(next); }
+  }, [hasCompany, hasProvider, hasAgents, hasTasks]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Listen for cross-component updates
   useEffect(() => {

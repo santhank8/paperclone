@@ -25,7 +25,7 @@ import { NotificationCenter, NotificationBell, useNotifications } from "./Notifi
 import { SampleDataBanner } from "./SampleDataToggle";
 import { GuidedTour, useGuidedTour, isFirstRun, markFirstRunSeen } from "./GuidedTour";
 import { WelcomeScreen, hasSeenWelcome } from "./WelcomeScreen";
-import { FirstLoginWizard, hasCompletedFirstLogin, type FirstLoginData } from "./FirstLoginWizard";
+// FirstLoginWizard removed - redundant with onboarding wizard
 import { useChordNavigation } from "../hooks/useKeyboardPowerUser";
 import { useDialog } from "../context/DialogContext";
 import { usePanel } from "../context/PanelContext";
@@ -86,7 +86,7 @@ export function Layout() {
   const [notifCenterOpen, setNotifCenterOpen] = useState(false);
   const [focusMode, setFocusMode] = useState(false);
   const [showWelcome, setShowWelcome] = useState(() => !hasSeenWelcome());
-  const [showFirstLogin, setShowFirstLogin] = useState(false);
+  // FirstLoginWizard state removed
   const guidedTour = useGuidedTour();
   const notifs = useNotifications();
   const nextTheme = theme === "dark" ? "light" : "dark";
@@ -470,16 +470,7 @@ export function Layout() {
         onPrev={guidedTour.prev}
         onDismiss={guidedTour.dismiss}
       />
-      <FirstLoginWizard
-        open={showFirstLogin}
-        onComplete={() => {
-          setShowFirstLogin(false);
-          if (!guidedTour.completed && isFirstRun()) {
-            markFirstRunSeen();
-            guidedTour.start();
-          }
-        }}
-      />
+      {/* FirstLoginWizard removed - redundant with onboarding wizard */}
       <ToastViewport />
       <AskAIButton />
     </div>

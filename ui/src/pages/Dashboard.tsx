@@ -802,7 +802,12 @@ export function Dashboard() {
       />
       <WelcomeBanner />
       <ApiKeyOnboardingBanner />
-      <GettingStartedChecklist />
+      <GettingStartedChecklist
+        hasCompany={!!selectedCompanyId}
+        hasProvider={!!(agents && agents.length > 0)}
+        hasAgents={!!(agents && agents.length > 0)}
+        hasTasks={!!(issues && issues.length > 0)}
+      />
       {error && <p role="alert" className="text-sm text-destructive">{error.message}</p>}
 
       {/* ── ANNOUNCEMENTS ── */}
