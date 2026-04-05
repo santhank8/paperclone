@@ -60,8 +60,10 @@ import { redactCurrentUserText, redactCurrentUserValue } from "../log-redaction.
 import {
   hasSessionCompactionThresholds,
   resolveSessionCompactionPolicy,
+  type AdapterFallbackEntry,
   type SessionCompactionPolicy,
 } from "@paperclipai/adapter-utils";
+import { categorizeAdapterError } from "./adapter-failure-taxonomy.js";
 
 const MAX_LIVE_LOG_CHUNK_BYTES = 8 * 1024;
 const HEARTBEAT_MAX_CONCURRENT_RUNS_DEFAULT = 1;
@@ -2861,17 +2863,14 @@ export function heartbeatService(db: Db) {
         ? createLocalAgentJwt(agent.id, agent.companyId, agent.adapterType, run.id)
         : null;
       if (adapter.supportsLocalAgentJwt && !authToken) {
-        logger.warn(
-          {
-            companyId: agent.companyId,
-            agentId: agent.id,
-            runId: run.id,
-            adapterType: agent.adapterType,
-          },
-          "local agent jwt secret missing or invalid; running without injected PAPERCLIP_API_KEY",
+        throw new Error(
+          `Cannot launch ${agent.adapterType} adapter for agent ${agent.id}: ` +
+          `local agent JWT secret is missing or invalid. ` +
+          `PAPERCLIP_API_KEY would not be injected, causing silent degradation. ` +
+          `Fix: ensure PAPERCLIP_AGENT_JWT_SECRET is set in server config.`,
         );
       }
-      const adapterResult = await adapter.execute({
+      let adapterResult = await adapter.execute({
         runId: run.id,
         agent,
         runtime: runtimeForAdapter,
@@ -2884,6 +2883,134 @@ export function heartbeatService(db: Db) {
         },
         authToken: authToken ?? undefined,
       });
+
+      // ---------------------------------------------------------------------------
+      // Adapter fallback chain
+      // ---------------------------------------------------------------------------
+      const primaryFailed =
+        adapterResult.timedOut ||
+        ((adapterResult.exitCode ?? 0) !== 0 && adapterResult.exitCode !== null) ||
+        !!adapterResult.errorMessage;
+      if (primaryFailed) {
+        const rawFallbackChain = (parseObject(agent.adapterConfig) as Record<string, unknown>).adapterFallbackChain;
+        const fallbackChain: AdapterFallbackEntry[] = Array.isArray(rawFallbackChain) ? rawFallbackChain as AdapterFallbackEntry[] : [];
+        if (fallbackChain.length > 0) {
+          const failureCategory = categorizeAdapterError(adapterResult.errorCode);
+          await appendRunEvent(currentRun, seq++, {
+            eventType: "adapter.fallback",
+            stream: "system",
+            level: "warn",
+            message: `primary adapter failed with category "${failureCategory}", attempting fallback chain`,
+            payload: {
+              primaryAdapterType: agent.adapterType,
+              primaryErrorCode: adapterResult.errorCode ?? null,
+              failureCategory,
+              fallbackChainLength: fallbackChain.length,
+            },
+          });
+          let fallbackSucceeded = false;
+          for (const entry of fallbackChain) {
+            if (entry.triggerOn && !entry.triggerOn.includes(failureCategory)) continue;
+            const maxAttempts = entry.maxAttempts ?? 1;
+            for (let attempt = 0; attempt < maxAttempts; attempt++) {
+              try {
+                const fallbackAdapter = getServerAdapter(entry.adapterType);
+                const fallbackAuthToken = fallbackAdapter.supportsLocalAgentJwt
+                  ? createLocalAgentJwt(agent.id, agent.companyId, entry.adapterType, run.id)
+                  : null;
+                const fallbackConfig = entry.adapterConfig
+                  ? { ...runtimeConfig, ...entry.adapterConfig }
+                  : runtimeConfig;
+                // Fallback does NOT inherit session state from the primary adapter
+                const fallbackRuntime = {
+                  ...runtimeForAdapter,
+                  sessionId: null,
+                  sessionParams: null,
+                  sessionDisplayId: null,
+                };
+                await appendRunEvent(currentRun, seq++, {
+                  eventType: "adapter.fallback",
+                  stream: "system",
+                  level: "info",
+                  message: `trying fallback adapter "${entry.adapterType}" (attempt ${attempt + 1}/${maxAttempts})`,
+                  payload: { fallbackAdapterType: entry.adapterType, attempt: attempt + 1, maxAttempts },
+                });
+                const fallbackResult = await fallbackAdapter.execute({
+                  runId: run.id,
+                  agent: { ...agent, adapterType: entry.adapterType, adapterConfig: entry.adapterConfig ?? agent.adapterConfig },
+                  runtime: fallbackRuntime,
+                  config: fallbackConfig,
+                  context,
+                  onLog,
+                  onMeta: onAdapterMeta,
+                  onSpawn: async (meta) => {
+                    await persistRunProcessMetadata(run.id, meta);
+                  },
+                  authToken: fallbackAuthToken ?? undefined,
+                });
+                const fallbackOk =
+                  !fallbackResult.timedOut &&
+                  (fallbackResult.exitCode ?? 0) === 0 &&
+                  !fallbackResult.errorMessage;
+                if (fallbackOk) {
+                  adapterResult = fallbackResult;
+                  fallbackSucceeded = true;
+                  await appendRunEvent(currentRun, seq++, {
+                    eventType: "adapter.fallback",
+                    stream: "system",
+                    level: "info",
+                    message: `fallback adapter "${entry.adapterType}" succeeded`,
+                    payload: { fallbackAdapterType: entry.adapterType },
+                  });
+                  break;
+                } else {
+                  await appendRunEvent(currentRun, seq++, {
+                    eventType: "adapter.fallback",
+                    stream: "system",
+                    level: "warn",
+                    message: `fallback adapter "${entry.adapterType}" failed (attempt ${attempt + 1}/${maxAttempts})`,
+                    payload: {
+                      fallbackAdapterType: entry.adapterType,
+                      attempt: attempt + 1,
+                      errorCode: fallbackResult.errorCode ?? null,
+                      errorMessage: fallbackResult.errorMessage ?? null,
+                    },
+                  });
+                }
+              } catch (fallbackErr) {
+                const errMsg = fallbackErr instanceof Error ? fallbackErr.message : String(fallbackErr);
+                await onLog("stderr", `[paperclip] Fallback adapter "${entry.adapterType}" attempt ${attempt + 1} threw: ${errMsg}\n`);
+                await appendRunEvent(currentRun, seq++, {
+                  eventType: "adapter.fallback",
+                  stream: "system",
+                  level: "error",
+                  message: `fallback adapter "${entry.adapterType}" threw exception`,
+                  payload: { fallbackAdapterType: entry.adapterType, error: errMsg },
+                });
+              }
+            }
+            if (fallbackSucceeded) break;
+          }
+          if (!fallbackSucceeded) {
+            // All fallback entries exhausted — override errorCode for clarity
+            adapterResult = {
+              ...adapterResult,
+              errorCode: "all_adapters_exhausted",
+              errorMessage:
+                adapterResult.errorMessage ??
+                `All adapters exhausted (primary: ${agent.adapterType}, failure: ${failureCategory})`,
+            };
+            await appendRunEvent(currentRun, seq++, {
+              eventType: "adapter.fallback",
+              stream: "system",
+              level: "error",
+              message: "all adapters in fallback chain exhausted",
+              payload: { primaryAdapterType: agent.adapterType, failureCategory },
+            });
+          }
+        }
+      }
+
       const adapterManagedRuntimeServices = adapterResult.runtimeServices
         ? await persistAdapterManagedRuntimeServices({
             db,
