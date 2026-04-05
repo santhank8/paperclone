@@ -7,6 +7,9 @@ import {
 const inputClass =
   "w-full rounded-md border border-border px-2.5 py-1.5 bg-transparent outline-none text-sm font-mono placeholder:text-muted-foreground/40";
 
+const textareaClass =
+  "w-full rounded-md border border-border px-2.5 py-1.5 bg-transparent outline-none text-sm font-mono placeholder:text-muted-foreground/40 min-h-[120px]";
+
 export function DashScopeLocalConfigFields({
   isCreate,
   values,
@@ -35,6 +38,30 @@ export function DashScopeLocalConfigFields({
         />
       </Field>
 
+      <Field label="Environment Variables" hint="KEY=VALUE format, one per line (e.g., DASHSCOPE_API_KEY=sk-xxx)">
+        <textarea
+          value={
+            isCreate
+              ? values?.envVars ?? ""
+              : (() => {
+                  const env = eff("adapterConfig", "env", config.env as Record<string, unknown>);
+                  if (!env || typeof env !== "object") return "";
+                  return Object.entries(env)
+                    .filter(([_, v]) => typeof v === "object" && v !== null && "value" in v)
+                    .map(([k, v]) => `${k}=${(v as { value: string }).value}`)
+                    .join("\n");
+                })()
+          }
+          onChange={(e) =>
+            isCreate
+              ? set!({ envVars: e.target.value })
+              : mark("adapterConfig", "env", e.target.value)
+          }
+          className={textareaClass}
+          placeholder="DASHSCOPE_API_KEY=sk-xxxxxxxxx"
+        />
+      </Field>
+
       <div className="rounded-md bg-muted/50 p-3 text-xs text-muted-foreground mt-4">
         <p className="font-medium mb-1">Available models:</p>
         <ul className="list-disc list-inside space-y-1 mb-2">
@@ -46,7 +73,7 @@ export function DashScopeLocalConfigFields({
         </ul>
         <p className="font-medium mt-2">Notes:</p>
         <ul className="list-disc list-inside space-y-1">
-          <li>Set DASHSCOPE_API_KEY in environment variables</li>
+          <li>Set DASHSCOPE_API_KEY in environment variables above</li>
           <li>API endpoint: https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation</li>
           <li>Uses DashScope native API format</li>
         </ul>
