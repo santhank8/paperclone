@@ -191,6 +191,7 @@ describeEmbeddedPostgres("blog pipeline live publish e2e", () => {
       runService: runSvc,
       artifactRoot: scratchRoot,
       publisher,
+      runGrokArtifactStep: vi.fn().mockResolvedValue({ ok: true, source: "grok-web-artifact-step" }),
       runResearchStep: vi.fn().mockResolvedValue({ summary: "research ok" }),
       runDraftStep: vi.fn().mockResolvedValue({
         title: "Live publish title",
@@ -201,6 +202,17 @@ describeEmbeddedPostgres("blog pipeline live publish e2e", () => {
       runDraftPolishStep: vi.fn().mockResolvedValue({ verdict: "pass" }),
       runFinalReviewStep: vi.fn().mockResolvedValue({ verdict: "approve" }),
       runValidateStep: vi.fn().mockResolvedValue({ ok: true }),
+      runQualityGateBundle: vi.fn().mockResolvedValue({
+        results: {
+          publish_ready: {
+            ok: true,
+            status: "pass",
+            failed_gates: [],
+            gate_reason_summary: {},
+            summary: "all publish-ready gates passed",
+          },
+        },
+      }),
       runPublicVerifyStep: vi.fn().mockResolvedValue(createSharedVerifyResult("pass")),
     });
 
@@ -290,6 +302,7 @@ describeEmbeddedPostgres("blog pipeline live publish e2e", () => {
       runService: runSvc,
       artifactRoot: scratchRoot,
       publisher: publisher as any,
+      runGrokArtifactStep: vi.fn().mockResolvedValue({ ok: true, source: "grok-web-artifact-step" }),
       runResearchStep: vi.fn().mockResolvedValue({ summary: "research ok" }),
       runDraftStep: vi.fn().mockResolvedValue({
         title: "Failure title",
@@ -300,6 +313,17 @@ describeEmbeddedPostgres("blog pipeline live publish e2e", () => {
       runDraftPolishStep: vi.fn().mockResolvedValue({ verdict: "pass" }),
       runFinalReviewStep: vi.fn().mockResolvedValue({ verdict: "approve" }),
       runValidateStep: vi.fn().mockResolvedValue({ ok: true }),
+      runQualityGateBundle: vi.fn().mockResolvedValue({
+        results: {
+          publish_ready: {
+            ok: true,
+            status: "pass",
+            failed_gates: [],
+            gate_reason_summary: {},
+            summary: "all publish-ready gates passed",
+          },
+        },
+      }),
       runPublicVerifyStep: vi.fn().mockResolvedValue(
         createSharedVerifyResult("fail", ["PUBLIC_VERIFY_REGRESSION", "READER_DECISION_UNCLEAR"])
       ),
@@ -357,6 +381,7 @@ describeEmbeddedPostgres("blog pipeline live publish e2e", () => {
       runService: runSvc,
       artifactRoot: scratchRoot,
       publisher,
+      runGrokArtifactStep: vi.fn().mockResolvedValue({ ok: true, source: "grok-web-artifact-step" }),
       runResearchStep: vi.fn().mockResolvedValue({
         summary: "research ok",
         notebook_reference: "Fluxaivory AI-Tech Research",

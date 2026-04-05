@@ -68,7 +68,8 @@ export function blogRunRoutes(db: Db) {
   const projectsSvc = projectService(db);
 
   router.post("/projects/:projectId/blog-runs", validate(createBlogRunSchema), async (req, res) => {
-    const project = await projectsSvc.getById(req.params.projectId);
+    const projectId = Array.isArray(req.params.projectId) ? req.params.projectId[0] : req.params.projectId;
+    const project = await projectsSvc.getById(projectId);
     if (!project) {
       res.status(404).json({ error: "Project not found" });
       return;

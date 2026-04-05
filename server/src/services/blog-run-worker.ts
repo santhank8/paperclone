@@ -11,6 +11,7 @@ import {
   runPublicVerifyStep,
   runResearchStep,
   runValidateStep,
+  type BlogPipelineRunContext,
   type BlogPipelineStepInput,
 } from "@paperclipai/blog-pipeline-core";
 import {
@@ -58,6 +59,13 @@ type WorkerDeps = {
   }) => Promise<Record<string, unknown> | null>;
 };
 
+type SpecialistGuidanceEntry = {
+  gate: string;
+  owner: string;
+  reasons: string[];
+  suggestions: string[];
+};
+
 function toRecord(value: unknown): Record<string, unknown> {
   if (value && typeof value === "object" && !Array.isArray(value)) {
     return value as Record<string, unknown>;
@@ -93,10 +101,10 @@ function publicVerifyFailureMessage(result: unknown) {
 }
 
 function isPublicVerifyPass(result: unknown) {
-  const record = toRecord(result);
-  if (isSharedPublicVerifyPayload(record)) {
-    return String(record.verdict ?? "").trim() === "pass";
+  if (isSharedPublicVerifyPayload(result)) {
+    return String(result.verdict ?? "").trim() === "pass";
   }
+  const record = toRecord(result);
   return record.ok !== false;
 }
 
@@ -244,6 +252,21 @@ function buildGuidanceForReasons(gate: string, reasons: string[]) {
   return [...new Set(suggestions)];
 }
 
+function normalizeGuidanceEntry(entry: unknown): SpecialistGuidanceEntry {
+  const record = toRecord(entry);
+  const gate = String(record.gate ?? "").trim();
+  return {
+    gate,
+    owner: String(record.owner ?? buildSpecialistOwner(gate)).trim() || buildSpecialistOwner(gate),
+    reasons: Array.isArray(record.reasons)
+      ? record.reasons.map((value: unknown) => String(value ?? "").trim()).filter(Boolean)
+      : [],
+    suggestions: Array.isArray(record.suggestions)
+      ? record.suggestions.map((value: unknown) => String(value ?? "").trim()).filter(Boolean)
+      : [],
+  };
+}
+
 async function buildRewriteGuidanceArtifacts(runDir: string, run: Record<string, unknown>, bundleResults: Record<string, unknown>) {
   const context = toRecord(run.contextJson);
   const articleLoop = toRecord(context.articleLoop);
@@ -256,22 +279,17 @@ async function buildRewriteGuidanceArtifacts(runDir: string, run: Record<string,
   const cacheJsonPath = path.join(runDir, "specialist-guidance.json");
   const cacheMdPath = path.join(runDir, "specialist-guidance.md");
   const existingCache = await readJsonArtifact(cacheJsonPath);
-  const existingEntries = Array.isArray(existingCache.guidance)
-    ? existingCache.guidance.map((entry: unknown) => toRecord(entry))
+  const existingEntries: SpecialistGuidanceEntry[] = Array.isArray(existingCache.guidance)
+    ? existingCache.guidance.map((entry: unknown) => normalizeGuidanceEntry(entry)).filter((entry) => entry.gate)
     : [];
-  const existingByGate = new Map(existingEntries.map((entry) => [String(entry.gate ?? "").trim(), entry]));
-  const guidanceEntries = [];
+  const existingByGate = new Map<string, SpecialistGuidanceEntry>(existingEntries.map((entry) => [entry.gate, entry]));
+  const guidanceEntries: SpecialistGuidanceEntry[] = [];
   let cacheChanged = false;
 
   for (const gate of failedGates) {
     const existing = existingByGate.get(gate);
     if (existing) {
-      guidanceEntries.push({
-        gate,
-        owner: String(existing.owner ?? buildSpecialistOwner(gate)),
-        reasons: Array.isArray(existing.reasons) ? existing.reasons.map((value: unknown) => String(value ?? "").trim()).filter(Boolean) : [],
-        suggestions: Array.isArray(existing.suggestions) ? existing.suggestions.map((value: unknown) => String(value ?? "").trim()).filter(Boolean) : [],
-      });
+      guidanceEntries.push(existing);
       continue;
     }
 
@@ -392,6 +410,32 @@ function firstNonEmptyString(...values: unknown[]) {
     if (normalized) return normalized;
   }
   return "";
+}
+
+function normalizeOptionalNumber(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && value.trim()) {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return null;
+}
+
+function buildStepContext(run: Record<string, unknown>): BlogPipelineRunContext {
+  const context = toRecord(run.contextJson);
+  const publishMode = String(run.publishMode ?? "draft").trim().toLowerCase();
+  return {
+    ...context,
+    run_id: firstNonEmptyString(context.run_id, run.id),
+    topic: firstNonEmptyString(run.topic, context.topic),
+    lane: firstNonEmptyString(run.lane, context.lane),
+    target_site: firstNonEmptyString(context.target_site, run.targetSite),
+    wordpress: {
+      publish: publishMode === "publish",
+      status: publishMode === "publish" ? "publish" : "draft",
+      post_id: normalizeOptionalNumber(run.wordpressPostId),
+    },
+  };
 }
 
 function buildGrokArtifactPlan(stepKey: string, runDir: string, run: Record<string, unknown>) {
@@ -690,7 +734,7 @@ export function blogRunWorkerService(db: Db, deps: WorkerDeps = {}) {
 
     const input: BlogPipelineStepInput = {
       runDir,
-      context: toRecord(run.contextJson),
+      context: buildStepContext(run),
     };
 
     try {
@@ -992,7 +1036,7 @@ function normalizePublishResult(result: unknown) {
     postId: post.id ?? null,
     post_id: post.id ?? null,
     status: post.status ?? null,
-    url: post.link ?? null,
+    url: record.publicUrl ?? post.link ?? null,
     featuredMedia: record.featuredMedia ?? null,
     featured_media: Object.keys(featuredMedia).length > 0 ? {
       media_id: featuredMedia.mediaId ?? null,

@@ -128,6 +128,17 @@ type PublishStopReason = {
   lastUpdatedAt: string;
 };
 
+type ArticleLoopContext = {
+  enabled: boolean;
+  articleAttempt: number;
+  maxAttempts: number;
+  specialistGuidanceUsed: Record<string, unknown>;
+  lastFailedGates: string[];
+  lastGateReasonSummary: Record<string, unknown>;
+  lastFailureMessage?: string;
+  backlog?: boolean;
+};
+
 type RequestPublishApprovalInput = {
   targetSlug: string;
   siteId?: string | null;
@@ -187,6 +198,7 @@ function resolveInitialHighThroughputQualityLoop(
 }
 
 function buildInitialContextJson(
+  topic: string,
   lane: string,
   publishMode: string,
   contextJson: Record<string, unknown> | null | undefined,
@@ -194,32 +206,17 @@ function buildInitialContextJson(
   const base = contextJson && typeof contextJson === "object" && !Array.isArray(contextJson)
     ? { ...contextJson }
     : {};
+  const normalizedTopic = String(topic || "").trim();
   const highThroughputQualityLoop = resolveInitialHighThroughputQualityLoop(lane, publishMode, base);
   return {
     ...base,
+    ...(normalizedTopic ? { topic: normalizedTopic } : {}),
     publicVerifyContractMode: resolveInitialPublicVerifyContractMode(lane, publishMode, base),
     publishReadyGateMode: resolveInitialPublishReadyGateMode(lane, publishMode, base),
     highThroughputQualityLoop,
     ...(highThroughputQualityLoop
       ? {
-          articleLoop: {
-            enabled: true,
-            articleAttempt: Number((base.articleLoop as Record<string, unknown> | undefined)?.articleAttempt ?? 1) || 1,
-            maxAttempts: Number((base.articleLoop as Record<string, unknown> | undefined)?.maxAttempts ?? 3) || 3,
-            specialistGuidanceUsed: (
-              ((base.articleLoop as Record<string, unknown> | undefined)?.specialistGuidanceUsed as Record<string, unknown> | undefined)
-              ?? {}
-            ),
-            lastFailedGates: (
-              ((base.articleLoop as Record<string, unknown> | undefined)?.lastFailedGates as unknown[] | undefined)
-              ?? []
-            ),
-            lastGateReasonSummary: (
-              ((base.articleLoop as Record<string, unknown> | undefined)?.lastGateReasonSummary as Record<string, unknown> | undefined)
-              ?? {}
-            ),
-            backlog: Boolean((base.articleLoop as Record<string, unknown> | undefined)?.backlog ?? false),
-          },
+          articleLoop: normalizeArticleLoopContext(base.articleLoop),
         }
       : {}),
   };
@@ -230,6 +227,22 @@ function toRecord(value: unknown): Record<string, unknown> {
     return value as Record<string, unknown>;
   }
   return {};
+}
+
+function normalizeArticleLoopContext(value: unknown): ArticleLoopContext {
+  const record = toRecord(value);
+  return {
+    enabled: true,
+    articleAttempt: Number(record.articleAttempt ?? 1) || 1,
+    maxAttempts: Number(record.maxAttempts ?? 3) || 3,
+    specialistGuidanceUsed: toRecord(record.specialistGuidanceUsed),
+    lastFailedGates: Array.isArray(record.lastFailedGates)
+      ? record.lastFailedGates.map((entry) => String(entry ?? "").trim()).filter(Boolean)
+      : [],
+    lastGateReasonSummary: toRecord(record.lastGateReasonSummary),
+    lastFailureMessage: typeof record.lastFailureMessage === "string" ? record.lastFailureMessage : undefined,
+    backlog: Boolean(record.backlog ?? false),
+  };
 }
 
 function parseFailedGateNames(message: string) {
@@ -520,6 +533,7 @@ export function blogRunService(
       const normalizedLane = normalizeLane(input.lane);
       const normalizedPublishMode = normalizePublishMode(input.publishMode);
       const initialContextJson = buildInitialContextJson(
+        input.topic,
         normalizedLane,
         normalizedPublishMode,
         input.contextJson ?? null,
@@ -735,33 +749,34 @@ export function blogRunService(
       const canLoop = shouldUseHighThroughputLoop(run) && stepKey === "validate" && isPublishReadyFailure;
       if (canLoop) {
         const context = toRecord(run.contextJson);
-        const loop = toRecord(context.articleLoop);
+        const loop = normalizeArticleLoopContext(context.articleLoop);
         const contextPatch = toRecord(input.contextJsonPatch);
         const patchedLoop = toRecord(contextPatch.articleLoop);
         const currentAttempt = Number(loop.articleAttempt ?? 1) || 1;
         const maxAttempts = Number(loop.maxAttempts ?? 3) || 3;
         const failedGates = parseFailedGateNames(errorMessage);
+        const nextArticleLoop = normalizeArticleLoopContext({
+          ...loop,
+          ...patchedLoop,
+          enabled: true,
+          articleAttempt: currentAttempt,
+          maxAttempts,
+          lastFailedGates: failedGates,
+          lastGateReasonSummary: patchedLoop.lastGateReasonSummary ?? loop.lastGateReasonSummary ?? {},
+          lastFailureMessage: errorMessage,
+        });
         const nextContext = {
           ...context,
           ...contextPatch,
-          articleLoop: {
-            ...loop,
-            ...patchedLoop,
-            enabled: true,
-            articleAttempt: currentAttempt,
-            maxAttempts,
-            lastFailedGates: failedGates,
-            lastGateReasonSummary: patchedLoop.lastGateReasonSummary ?? loop.lastGateReasonSummary ?? {},
-            lastFailureMessage: errorMessage,
-          },
+          articleLoop: nextArticleLoop,
         };
 
         if (currentAttempt < maxAttempts) {
-          nextContext.articleLoop = {
+          nextContext.articleLoop = normalizeArticleLoopContext({
             ...nextContext.articleLoop,
             articleAttempt: currentAttempt + 1,
             backlog: false,
-          };
+          });
           await db
             .update(blogRuns)
             .set({
@@ -785,10 +800,10 @@ export function blogRunService(
           return this.getDetail(runId);
         }
 
-        nextContext.articleLoop = {
+        nextContext.articleLoop = normalizeArticleLoopContext({
           ...nextContext.articleLoop,
           backlog: true,
-        };
+        });
         await db
           .update(blogRuns)
           .set({
