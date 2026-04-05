@@ -1917,6 +1917,7 @@ export function heartbeatService(db: Db) {
       intervalSec: Math.max(0, asNumber(heartbeat.intervalSec, 0)),
       wakeOnDemand: asBoolean(heartbeat.wakeOnDemand ?? heartbeat.wakeOnAssignment ?? heartbeat.wakeOnOnDemand ?? heartbeat.wakeOnAutomation, true),
       maxConcurrentRuns: normalizeMaxConcurrentRuns(heartbeat.maxConcurrentRuns),
+      skipIfNoAssignments: asBoolean(heartbeat.skipIfNoAssignments, false),
     };
   }
 
@@ -3439,6 +3440,29 @@ export function heartbeatService(db: Db) {
     if (source !== "timer" && !policy.wakeOnDemand) {
       await writeSkippedRequest("heartbeat.wakeOnDemand.disabled");
       return null;
+    }
+
+    if (source === "timer" && policy.skipIfNoAssignments) {
+      const assignedCount = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(issues)
+        .where(
+          and(
+            eq(issues.companyId, agent.companyId),
+            eq(issues.assigneeAgentId, agentId),
+            inArray(issues.status, ["todo", "in_progress", "blocked"]),
+          ),
+        )
+        .then(([row]) => Number(row?.count ?? 0));
+      if (assignedCount === 0) {
+        await writeSkippedRequest("heartbeat.skipIfNoAssignments");
+        // Reset the interval baseline so tickTimers doesn't fire again immediately.
+        await db
+          .update(agents)
+          .set({ lastHeartbeatAt: new Date() })
+          .where(eq(agents.id, agentId));
+        return null;
+      }
     }
 
     const bypassIssueExecutionLock =
