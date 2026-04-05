@@ -648,6 +648,26 @@ function handleLiveEvent(
     return;
   }
 
+  if (event.type === "issue.comment.injected") {
+    const commentId = readString(payload.commentId);
+    const issueId = readString(payload.issueId);
+    if (issueId && commentId) {
+      // Mark the comment as injected in the cached comment list
+      queryClient.setQueryData(
+        queryKeys.issues.comments(issueId),
+        (old: Array<Record<string, unknown>> | undefined) =>
+          old?.map((c) => (c.id === commentId ? { ...c, injected: true } : c)),
+      );
+    }
+    pushToast({
+      title: "Comment delivered to running agent",
+      tone: "success",
+      ttlMs: 3500,
+      dedupeKey: `injected:${commentId ?? event.id}`,
+    });
+    return;
+  }
+
   if (event.type === "activity.logged") {
     invalidateActivityQueries(queryClient, expectedCompanyId, payload);
     const action = readString(payload.action);

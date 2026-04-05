@@ -27,6 +27,7 @@ import { PluginSlotOutlet } from "@/plugins/slots";
 interface CommentWithRunMeta extends IssueComment {
   runId?: string | null;
   runAgentId?: string | null;
+  injected?: boolean;
   clientId?: string;
   clientStatus?: "pending" | "queued";
   queueState?: "queued";

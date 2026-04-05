@@ -1740,6 +1740,30 @@ export function issueRoutes(
       },
     });
 
+    // Attempt live injection into a running agent's stdin (fire-and-forget).
+    // NOTE: There is an inherent race here — if the run finishes between the
+    // `currentIssue` fetch above and the `injectComment` call below, the
+    // injection will fail silently (the runId is stale). This is intentional:
+    // the wakeup/coalesce path that follows will still enqueue the comment for
+    // the agent on its next run, so no user-visible data is lost.
+    let injected = false;
+    if (!interruptRequested && currentIssue.executionRunId) {
+      const commentAuthorIsExecutingAgent =
+        actor.actorType === "agent" && actor.actorId === currentIssue.assigneeAgentId;
+      if (!commentAuthorIsExecutingAgent) {
+        const authorName = actor.actorType === "user" ? "board" : (actor.actorId ?? "agent");
+        try {
+          injected = heartbeat.injectComment(currentIssue.executionRunId, req.body.body, authorName, {
+              companyId: currentIssue.companyId,
+              issueId: currentIssue.id,
+              commentId: comment.id,
+            });
+        } catch (err) {
+          logger.debug({ err, issueId: currentIssue.id, runId: currentIssue.executionRunId }, "live comment injection failed — stale runId race or process gone (non-fatal, wakeup path handles fallthrough)");
+        }
+      }
+    }
+
     // Merge all wakeups from this comment into one enqueue per agent to avoid duplicate runs.
     void (async () => {
       const wakeups = new Map<string, Parameters<typeof heartbeat.wakeup>[1]>();
@@ -1832,7 +1856,7 @@ export function issueRoutes(
       }
     })();
 
-    res.status(201).json(comment);
+    res.status(201).json({ ...comment, injected });
   });
 
   router.post("/issues/:id/feedback-votes", validate(upsertIssueFeedbackVoteSchema), async (req, res) => {
