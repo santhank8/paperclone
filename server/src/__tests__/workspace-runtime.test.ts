@@ -28,6 +28,7 @@ import {
   releaseRuntimeServicesForRun,
   resetRuntimeServicesForTests,
   resolveShell,
+  sanitizeBranchName,
   sanitizeRuntimeServiceBaseEnv,
   stopRuntimeServicesForExecutionWorkspace,
   type RealizedExecutionWorkspace,
@@ -257,6 +258,52 @@ describe("ensureServerWorkspaceLinksCurrent", () => {
   });
 });
 
+describe("sanitizeBranchName", () => {
+  it("keeps short branch names unchanged on both platforms", () => {
+    expect(sanitizeBranchName("PAP-42-fix-login", { platform: "linux" })).toBe("PAP-42-fix-login");
+    expect(sanitizeBranchName("PAP-42-fix-login", { platform: "win32" })).toBe("PAP-42-fix-login");
+  });
+
+  it("preserves 120-char limit on Unix", () => {
+    const long = "DSPA-1558-" + "a".repeat(200);
+    const result = sanitizeBranchName(long, { platform: "linux" });
+    expect(result.length).toBeLessThanOrEqual(120);
+    expect(result.length).toBeGreaterThan(40);
+  });
+
+  it("caps branch name at 40 chars on Windows", () => {
+    const long = "DSPA-1558-worktree-creation-fails-on-windows-branch-name-deep-repo-paths-exceed-max-path-260-chars";
+    const result = sanitizeBranchName(long, { platform: "win32" });
+    expect(result.length).toBeLessThanOrEqual(40);
+    expect(result.length).toBeGreaterThan(0);
+  });
+
+  it("truncates at word boundary (hyphen) on Windows", () => {
+    const input = "DSPA-1558-worktree-creation-fails-on-windows-overflow";
+    const result = sanitizeBranchName(input, { platform: "win32" });
+    expect(result.length).toBeLessThanOrEqual(40);
+    expect(result).not.toMatch(/-$/);
+    expect(result).toMatch(/[a-z0-9]$/);
+  });
+
+  it("returns fallback for empty input", () => {
+    expect(sanitizeBranchName("", { platform: "linux" })).toBe("paperclip-work");
+    expect(sanitizeBranchName("   ", { platform: "win32" })).toBe("paperclip-work");
+  });
+
+  it("sanitizes special characters before truncating", () => {
+    const input = "DSPA-100/fix: the (big) problem with spaces & symbols!!!";
+    const result = sanitizeBranchName(input, { platform: "win32" });
+    expect(result).not.toMatch(/[^A-Za-z0-9._/-]/);
+    expect(result.length).toBeLessThanOrEqual(40);
+  });
+
+  it("uses process.platform when no option is provided", () => {
+    const result = sanitizeBranchName("PAP-1-short");
+    expect(result).toBe("PAP-1-short");
+  });
+});
+
 describe("realizeExecutionWorkspace", () => {
   it("creates and reuses a git worktree for an issue-scoped branch", async () => {
     const repoRoot = await createTempRepo();
@@ -356,9 +403,14 @@ describe("realizeExecutionWorkspace", () => {
       },
     });
 
-    expect(realized.branchName).toBe(
-      "PAP-991-there-should-be-a-setting-for-the-allowance-of-thumbs-up-thumbs-down-data-rm-rf",
-    );
+    if (process.platform === "win32") {
+      expect(realized.branchName!.length).toBeLessThanOrEqual(40);
+      expect(realized.branchName).toBe("PAP-991-there-should-be-a-setting-for");
+    } else {
+      expect(realized.branchName).toBe(
+        "PAP-991-there-should-be-a-setting-for-the-allowance-of-thumbs-up-thumbs-down-data-rm-rf",
+      );
+    }
     expect(realized.branchName?.includes("/")).toBe(false);
     expect(path.basename(realized.cwd)).toBe(realized.branchName);
   });
