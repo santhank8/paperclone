@@ -71,6 +71,11 @@ const WAKE_COMMENT_IDS_KEY = "wakeCommentIds";
 const PAPERCLIP_WAKE_PAYLOAD_KEY = "paperclipWake";
 const DETACHED_PROCESS_ERROR_CODE = "process_detached";
 const LIVE_HEARTBEAT_RUN_STATUSES = ["queued", "running"] as const;
+const HEARTBEAT_QUEUE_START_LOCK_WATCHDOG_MS = 30 * 1000;
+const WATCHDOG_RECOVERY_COOLDOWN_HOURS = 12;
+const WATCHDOG_RECOVERY_REPEAT_THRESHOLD = 1;
+const OPEN_ISSUE_STATUSES = ["backlog", "todo", "in_progress", "in_review", "blocked"] as const;
+const READY_UNASSIGNED_STATUSES = ["backlog", "todo"] as const;
 const startLocksByAgent = new Map<string, Promise<void>>();
 const REPO_ONLY_CWD_SENTINEL = "/__paperclip_repo_only__";
 const MANAGED_WORKSPACE_GIT_CLONE_TIMEOUT_MS = 10 * 60 * 1000;
@@ -154,12 +159,6 @@ export function isOperationsOrchestratorAgent(agent: { role?: string | null; nam
   const name = (agent.name ?? "").toLowerCase();
   return role.includes("operat") || role === "coo" || name.includes("operations");
 }
-
-type OperationsHeartbeatTarget = {
-  issueId: string;
-  mode: "ops_active" | "cross_agent_recovery" | "ready_unassigned";
-  reason: string;
-};
 
 export async function resolveOperationsHeartbeatTarget(
   db: Db,
@@ -427,10 +426,14 @@ export async function resolveOperationsHeartbeatTarget(
 
   return null;
 }
+type OperationsHeartbeatTarget = {
+  issueId: string;
+  mode: "ops_active" | "cross_agent_recovery" | "ready_unassigned";
+  reason: string;
+};
 type DbExecutor = Db | Parameters<Parameters<Db["transaction"]>[0]>[0];
 const SESSIONED_LOCAL_ADAPTERS = new Set([
-  "claude_local",
-  "codex_local",
+
   "cursor",
   "gemini_local",
   "opencode_local",
