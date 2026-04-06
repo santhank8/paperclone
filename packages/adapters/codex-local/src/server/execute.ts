@@ -12,6 +12,7 @@ import {
   ensureCommandResolvable,
   ensurePaperclipSkillSymlink,
   ensurePathInEnv,
+  filterPreparedAgentQmdEnvOverrides,
   prepareAgentQmdEnvironment,
   readPaperclipRuntimeSkillEntries,
   resolveCommandForLogs,
@@ -375,7 +376,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
   if (runtimePrimaryUrl) {
     env.PAPERCLIP_RUNTIME_PRIMARY_URL = runtimePrimaryUrl;
   }
-  Object.assign(env, envOverrides);
+  Object.assign(env, filterPreparedAgentQmdEnvOverrides(envOverrides, Boolean(agentHome)));
   if (!hasExplicitApiKey && authToken) {
     env.PAPERCLIP_API_KEY = authToken;
   }
