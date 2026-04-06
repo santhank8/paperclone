@@ -951,10 +951,12 @@ export function agentRoutes(db: Db) {
     const companyId = req.params.companyId as string;
     assertCompanyAccess(req, companyId);
     const result = await svc.list(companyId);
-    const canReadConfigs = await actorCanReadConfigurationsForCompany(req, companyId);
-    if (canReadConfigs || req.actor.type === "board") {
-      res.json(result);
-      return;
+    if (req.actor.type === "board") {
+      const canReadConfigs = await actorCanReadConfigurationsForCompany(req, companyId);
+      if (canReadConfigs) {
+        res.json(result);
+        return;
+      }
     }
     res.json(result.map((agent) => redactForRestrictedAgentView(agent)));
   });
