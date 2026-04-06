@@ -579,6 +579,12 @@ export function createTestHarness(options: TestHarnessOptions): TestHarness {
           parentId: input.parentId ?? null,
           ownerAgentId: input.ownerAgentId ?? null,
           targetDate: null,
+          confidence: 50,
+          healthScore: null,
+          healthStatus: null,
+          startDate: null,
+          cadence: "quarterly",
+          goalType: "committed",
           createdAt: now,
           updatedAt: now,
         };
