@@ -12,6 +12,7 @@ import {
   mergeCoalescedContextSnapshot,
   prioritizeProjectWorkspaceCandidatesForRun,
   parseSessionCompactionPolicy,
+  resolveRuntimeSessionLegacyFallback,
   resolveRuntimeSessionParamsForWorkspace,
   stripWorkspaceRuntimeFromExecutionRunConfig,
   shouldResetTaskSessionForWake,
@@ -331,57 +332,68 @@ describe("shouldResetTaskSessionForWake", () => {
   });
 });
 
-describe("deriveTaskKeyWithHeartbeatFallback", () => {
-  it("returns explicit taskKey when present", () => {
-    expect(deriveTaskKeyWithHeartbeatFallback({ taskKey: "issue-123" }, null)).toBe("issue-123");
-  });
-
-  it("returns explicit issueId when no taskKey", () => {
-    expect(deriveTaskKeyWithHeartbeatFallback({ issueId: "issue-456" }, null)).toBe("issue-456");
-  });
-
-  it("returns __heartbeat__ for timer wakes with no explicit key", () => {
-    expect(deriveTaskKeyWithHeartbeatFallback({ wakeSource: "timer" }, null)).toBe("__heartbeat__");
-  });
-
-  it("prefers explicit key over heartbeat fallback even on timer wakes", () => {
+describe("resolveRuntimeSessionLegacyFallback", () => {
+  it("returns null for codex_local when there is no task key", () => {
     expect(
-      deriveTaskKeyWithHeartbeatFallback({ wakeSource: "timer", taskKey: "issue-789" }, null),
-    ).toBe("issue-789");
+      resolveRuntimeSessionLegacyFallback({
+        taskKey: null,
+        resetTaskSession: false,
+        adapterType: "codex_local",
+        legacySessionId: "thread-abc",
+      }),
+    ).toBeNull();
   });
 
-  it("returns null for non-timer wakes with no explicit key", () => {
-    expect(deriveTaskKeyWithHeartbeatFallback({ wakeSource: "on_demand" }, null)).toBeNull();
+  it("returns legacy session id for other adapters without a task key", () => {
+    expect(
+      resolveRuntimeSessionLegacyFallback({
+        taskKey: null,
+        resetTaskSession: false,
+        adapterType: "claude_local",
+        legacySessionId: "sess-1",
+      }),
+    ).toBe("sess-1");
   });
 
-  it("returns null for empty context", () => {
-    expect(deriveTaskKeyWithHeartbeatFallback({}, null)).toBeNull();
+  it("returns null when task key is set (task-scoped session wins over legacy fallback)", () => {
+    expect(
+      resolveRuntimeSessionLegacyFallback({
+        taskKey: "issue-1",
+        resetTaskSession: false,
+        adapterType: "claude_local",
+        legacySessionId: "sess-legacy",
+      }),
+    ).toBeNull();
   });
-});
 
-describe("comment wake batching", () => {
-  it("preserves ordered wake comment ids when coalescing queued follow-up wakes", () => {
-    const merged = mergeCoalescedContextSnapshot(
-      {
-        issueId: "issue-1",
-        wakeReason: "issue_commented",
-        wakeCommentId: "comment-1",
-        wakeCommentIds: ["comment-1"],
-        paperclipWake: {
-          latestCommentId: "comment-1",
-        },
-      },
-      {
-        issueId: "issue-1",
-        wakeReason: "issue_commented",
-        wakeCommentId: "comment-2",
-      },
-    );
+  it("returns null for claude_local when legacy session id is missing", () => {
+    expect(
+      resolveRuntimeSessionLegacyFallback({
+        taskKey: null,
+        resetTaskSession: false,
+        adapterType: "claude_local",
+        legacySessionId: null,
+      }),
+    ).toBeNull();
+    expect(
+      resolveRuntimeSessionLegacyFallback({
+        taskKey: null,
+        resetTaskSession: false,
+        adapterType: "claude_local",
+        legacySessionId: undefined,
+      }),
+    ).toBeNull();
+  });
 
-    expect(extractWakeCommentIds(merged)).toEqual(["comment-1", "comment-2"]);
-    expect(merged.commentId).toBe("comment-2");
-    expect(merged.wakeCommentId).toBe("comment-2");
-    expect(merged.paperclipWake).toBeUndefined();
+  it("returns null when task session reset is requested", () => {
+    expect(
+      resolveRuntimeSessionLegacyFallback({
+        taskKey: null,
+        resetTaskSession: true,
+        adapterType: "claude_local",
+        legacySessionId: "sess-1",
+      }),
+    ).toBeNull();
   });
 });
 

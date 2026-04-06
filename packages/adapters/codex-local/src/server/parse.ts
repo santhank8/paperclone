@@ -1,14 +1,43 @@
 import { asString, asNumber, parseObject, parseJson } from "@paperclipai/adapter-utils/server-utils";
 
+function firstNonEmptyLine(text: string): string {
+  return (
+    text
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .find(Boolean) ?? ""
+  );
+}
+
+/**
+ * When Codex exits non-zero but JSONL ends with a successful turn and reports no error, treat the run as
+ * successful at the adapter layer (see `doc/spec/agent-runs.md` codex-local). Requires empty stderr (after
+ * any adapter filtering) so stderr-only failures stay failures.
+ */
+export function codexStdoutIndicatesIgnorableNonZeroExit(
+  parsed: { lastTurnTerminal: "completed" | "failed" | null; errorMessage: string | null },
+  stderr: string,
+): boolean {
+  const parsedError = typeof parsed.errorMessage === "string" ? parsed.errorMessage.trim() : "";
+  return (
+    parsed.lastTurnTerminal === "completed" &&
+    parsedError.length === 0 &&
+    !firstNonEmptyLine(stderr)
+  );
+}
+
 export function parseCodexJsonl(stdout: string) {
   let sessionId: string | null = null;
   const messages: string[] = [];
   let errorMessage: string | null = null;
+  /** Last Codex turn terminal event in stream order (`turn.completed` vs `turn.failed`). */
+  let lastTurnTerminal: "completed" | "failed" | null = null;
   const usage = {
     inputTokens: 0,
     cachedInputTokens: 0,
     outputTokens: 0,
   };
+  let costUsd = 0;
 
   for (const rawLine of stdout.split(/\r?\n/)) {
     const line = rawLine.trim();
@@ -39,14 +68,18 @@ export function parseCodexJsonl(stdout: string) {
     }
 
     if (type === "turn.completed") {
+      lastTurnTerminal = "completed";
       const usageObj = parseObject(event.usage);
       usage.inputTokens = asNumber(usageObj.input_tokens, usage.inputTokens);
       usage.cachedInputTokens = asNumber(usageObj.cached_input_tokens, usage.cachedInputTokens);
       usage.outputTokens = asNumber(usageObj.output_tokens, usage.outputTokens);
+      costUsd = asNumber(event.total_cost_usd, asNumber(event.cost_usd, costUsd));
       continue;
     }
 
     if (type === "turn.failed") {
+      lastTurnTerminal = "failed";
+      costUsd = asNumber(event.total_cost_usd, asNumber(event.cost_usd, costUsd));
       const err = parseObject(event.error);
       const msg = asString(err.message, "").trim();
       if (msg) errorMessage = msg;
@@ -57,9 +90,23 @@ export function parseCodexJsonl(stdout: string) {
     sessionId,
     summary: messages.join("\n\n").trim(),
     usage,
+    costUsd,
     errorMessage,
+    lastTurnTerminal,
   };
 }
+
+const MISSING_THREAD_PATTERNS = [
+  "unknown (session|thread)",
+  "session .* not found",
+  "thread .* not found",
+  "conversation .* not found",
+  "missing rollout path for thread",
+  "state db missing rollout path",
+  "no rollout found for thread id",
+] as const;
+
+const MISSING_THREAD_ERROR_RE = new RegExp(MISSING_THREAD_PATTERNS.join("|"), "i");
 
 export function isCodexUnknownSessionError(stdout: string, stderr: string): boolean {
   const haystack = `${stdout}\n${stderr}`
@@ -67,7 +114,5 @@ export function isCodexUnknownSessionError(stdout: string, stderr: string): bool
     .map((line) => line.trim())
     .filter(Boolean)
     .join("\n");
-  return /unknown (session|thread)|session .* not found|thread .* not found|conversation .* not found|missing rollout path for thread|state db missing rollout path/i.test(
-    haystack,
-  );
+  return MISSING_THREAD_ERROR_RE.test(haystack);
 }

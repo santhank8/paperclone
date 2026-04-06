@@ -17,14 +17,11 @@ import { useCompany } from "../context/CompanyContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
 import { useGeneralSettings } from "../context/GeneralSettingsContext";
 import { queryKeys } from "../lib/queryKeys";
-import {
-  armIssueDetailInboxQuickArchive,
-  createIssueDetailLocationState,
-  createIssueDetailPath,
-} from "../lib/issueDetailBreadcrumb";
-import { hasBlockingShortcutDialog, isKeyboardShortcutTextInputTarget } from "../lib/keyboardShortcuts";
+import { createIssueDetailLocationState } from "../lib/issueDetailBreadcrumb";
+import { inboxIssueStatuses } from "../lib/issue-status";
 import { EmptyState } from "../components/EmptyState";
 import { PageSkeleton } from "../components/PageSkeleton";
+import { IssueCurrentOwnerBadge } from "../components/IssueCurrentOwnerBadge";
 import { IssueRow } from "../components/IssueRow";
 import { SwipeToArchive } from "../components/SwipeToArchive";
 
@@ -98,7 +95,8 @@ import {
   type InboxTab,
   type InboxWorkItem,
 } from "../lib/inbox";
-import { useDismissedInboxItems, useReadInboxItems } from "../hooks/useInboxBadge";
+import { useDismissedInboxItems } from "../hooks/useInboxBadge";
+import { ROUTES } from "../constants/routes";
 
 type InboxCategoryFilter =
   | "everything"
@@ -138,226 +136,16 @@ function readIssueIdFromRun(run: HeartbeatRun): string | null {
   return null;
 }
 
-
-type NonIssueUnreadState = "visible" | "fading" | "hidden" | null;
-const trailingIssueColumns: InboxIssueColumn[] = ["assignee", "project", "workspace", "labels", "updated"];
-const inboxIssueColumnLabels: Record<InboxIssueColumn, string> = {
-  status: "Status",
-  id: "ID",
-  assignee: "Assignee",
-  project: "Project",
-  workspace: "Workspace",
-  labels: "Tags",
-  updated: "Last updated",
-};
-const inboxIssueColumnDescriptions: Record<InboxIssueColumn, string> = {
-  status: "Issue state chip on the left edge.",
-  id: "Ticket identifier like PAP-1009.",
-  assignee: "Assigned agent or board user.",
-  project: "Linked project pill with its color.",
-  workspace: "Execution or project workspace used for the issue.",
-  labels: "Issue labels and tags.",
-  updated: "Latest visible activity time.",
-};
-
-export function InboxIssueMetaLeading({
-  issue,
-  isLive,
-  showStatus = true,
-  showIdentifier = true,
-}: {
-  issue: Issue;
-  isLive: boolean;
-  showStatus?: boolean;
-  showIdentifier?: boolean;
-}) {
+function InboxRowIndicatorPlaceholders() {
   return (
     <>
-      {showStatus ? (
-        <span className="hidden shrink-0 sm:inline-flex">
-          <StatusIcon status={issue.status} />
-        </span>
-      ) : null}
-      {showIdentifier ? (
-        <span className="shrink-0 font-mono text-xs text-muted-foreground">
-          {issue.identifier ?? issue.id.slice(0, 8)}
-        </span>
-      ) : null}
-      {isLive && (
-        <span
-          className={cn(
-            "inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 sm:gap-1.5 sm:px-2",
-            "bg-blue-500/10",
-          )}
-        >
-          <span className="relative flex h-2 w-2">
-            <span className="absolute inline-flex h-full w-full animate-pulse rounded-full bg-blue-400 opacity-75" />
-            <span
-              className={cn(
-                "relative inline-flex h-2 w-2 rounded-full",
-                "bg-blue-500",
-              )}
-            />
-          </span>
-          <span
-            className={cn(
-              "hidden text-[11px] font-medium sm:inline",
-              "text-blue-600 dark:text-blue-400",
-            )}
-          >
-            Live
-          </span>
-        </span>
-      )}
+      <span className="hidden h-2 w-2 shrink-0 sm:inline-flex" aria-hidden="true" />
+      <span className="hidden h-3.5 w-3.5 shrink-0 sm:inline-flex" aria-hidden="true" />
     </>
   );
 }
 
-function issueActivityText(issue: Issue): string {
-  return `Updated ${timeAgo(issue.lastActivityAt ?? issue.lastExternalCommentAt ?? issue.updatedAt)}`;
-}
-
-function issueTrailingGridTemplate(columns: InboxIssueColumn[]): string {
-  return columns
-    .map((column) => {
-      if (column === "assignee") return "minmax(7.5rem, 9.5rem)";
-      if (column === "project") return "minmax(6.5rem, 8.5rem)";
-      if (column === "workspace") return "minmax(9rem, 12rem)";
-      if (column === "labels") return "minmax(8rem, 10rem)";
-      return "minmax(6rem, 7rem)";
-    })
-    .join(" ");
-}
-
-export function InboxIssueTrailingColumns({
-  issue,
-  columns,
-  projectName,
-  projectColor,
-  workspaceName,
-  assigneeName,
-  currentUserId,
-}: {
-  issue: Issue;
-  columns: InboxIssueColumn[];
-  projectName: string | null;
-  projectColor: string | null;
-  workspaceName: string | null;
-  assigneeName: string | null;
-  currentUserId: string | null;
-}) {
-  const activityText = timeAgo(issue.lastActivityAt ?? issue.lastExternalCommentAt ?? issue.updatedAt);
-  const userLabel = formatAssigneeUserLabel(issue.assigneeUserId, currentUserId) ?? "User";
-
-  return (
-    <span
-      className="grid items-center gap-2"
-      style={{ gridTemplateColumns: issueTrailingGridTemplate(columns) }}
-    >
-      {columns.map((column) => {
-        if (column === "assignee") {
-          if (issue.assigneeAgentId) {
-            return (
-              <span key={column} className="min-w-0 text-xs text-foreground">
-                <Identity
-                  name={assigneeName ?? issue.assigneeAgentId.slice(0, 8)}
-                  size="sm"
-                  className="min-w-0"
-                />
-              </span>
-            );
-          }
-
-          if (issue.assigneeUserId) {
-            return (
-              <span key={column} className="min-w-0 truncate text-xs font-medium text-muted-foreground">
-                {userLabel}
-              </span>
-            );
-          }
-
-          return (
-            <span key={column} className="min-w-0 truncate text-xs text-muted-foreground">
-              Unassigned
-            </span>
-          );
-        }
-
-        if (column === "project") {
-          if (projectName) {
-            const accentColor = projectColor ?? "#64748b";
-            return (
-              <span
-                key={column}
-                className="inline-flex min-w-0 items-center gap-2 text-xs font-medium"
-                style={{ color: pickTextColorForPillBg(accentColor, 0.12) }}
-              >
-                <span
-                  className="h-1.5 w-1.5 shrink-0 rounded-full"
-                  style={{ backgroundColor: accentColor }}
-                />
-                <span className="truncate">{projectName}</span>
-              </span>
-            );
-          }
-
-          return (
-            <span key={column} className="min-w-0 truncate text-xs text-muted-foreground">
-              No project
-            </span>
-          );
-        }
-
-        if (column === "labels") {
-          if ((issue.labels ?? []).length > 0) {
-            return (
-              <span key={column} className="flex min-w-0 items-center gap-1 overflow-hidden text-[11px]">
-                {(issue.labels ?? []).slice(0, 2).map((label) => (
-                  <span
-                    key={label.id}
-                    className="inline-flex min-w-0 max-w-full items-center font-medium"
-                    style={{
-                      color: pickTextColorForPillBg(label.color, 0.12),
-                    }}
-                  >
-                    <span className="truncate">{label.name}</span>
-                  </span>
-                ))}
-                {(issue.labels ?? []).length > 2 ? (
-                  <span className="shrink-0 text-[11px] font-medium text-muted-foreground">
-                    +{(issue.labels ?? []).length - 2}
-                  </span>
-                ) : null}
-              </span>
-            );
-          }
-
-          return <span key={column} className="min-w-0" aria-hidden="true" />;
-        }
-
-        if (column === "workspace") {
-          if (!workspaceName) {
-            return <span key={column} className="min-w-0" aria-hidden="true" />;
-          }
-
-          return (
-            <span key={column} className="min-w-0 truncate text-xs text-muted-foreground">
-              {workspaceName}
-            </span>
-          );
-        }
-
-        return (
-          <span key={column} className="min-w-0 truncate text-right text-[11px] font-medium text-muted-foreground">
-            {activityText}
-          </span>
-        );
-      })}
-    </span>
-  );
-}
-
-export function FailedRunInboxRow({
+function FailedRunInboxRow({
   run,
   issueById,
   agentName: linkedAgentName,
@@ -432,14 +220,10 @@ export function FailedRunInboxRow({
           </span>
         ) : null}
         <Link
-          to={`/agents/${run.agentId}/runs/${run.id}`}
-          className={cn(
-            "flex min-w-0 flex-1 items-start gap-2 no-underline text-inherit transition-colors",
-            selected ? "hover:bg-transparent" : "hover:bg-accent/50",
-          )}
+          to={ROUTES.AGENT_RUN.replace(":agentId", run.agentId).replace(":runId", run.id)}
+          className="flex min-w-0 flex-1 items-start gap-2 no-underline text-inherit transition-colors hover:bg-accent/50"
         >
-          {!showUnreadSlot && <span className="hidden h-2 w-2 shrink-0 sm:inline-flex" aria-hidden="true" />}
-          <span className="hidden h-3.5 w-3.5 shrink-0 sm:inline-flex" aria-hidden="true" />
+          <InboxRowIndicatorPlaceholders />
           <span className="mt-0.5 shrink-0 rounded-md bg-red-500/20 p-1.5 sm:mt-0">
             <XCircle className="h-4 w-4 text-red-600 dark:text-red-400" />
           </span>
@@ -588,14 +372,10 @@ function ApprovalInboxRow({
           </span>
         ) : null}
         <Link
-          to={`/approvals/${approval.id}`}
-          className={cn(
-            "flex min-w-0 flex-1 items-start gap-2 no-underline text-inherit transition-colors",
-            selected ? "hover:bg-transparent" : "hover:bg-accent/50",
-          )}
+          to={ROUTES.APPROVAL_DETAIL.replace(":approvalId", approval.id)}
+          className="flex min-w-0 flex-1 items-start gap-2 no-underline text-inherit transition-colors hover:bg-accent/50"
         >
-          {!showUnreadSlot && <span className="hidden h-2 w-2 shrink-0 sm:inline-flex" aria-hidden="true" />}
-          <span className="hidden h-3.5 w-3.5 shrink-0 sm:inline-flex" aria-hidden="true" />
+          <InboxRowIndicatorPlaceholders />
           <span className="mt-0.5 shrink-0 rounded-md bg-muted p-1.5 sm:mt-0">
             <Icon className="h-4 w-4 text-muted-foreground" />
           </span>
@@ -727,8 +507,7 @@ function JoinRequestInboxRow({
           </span>
         ) : null}
         <div className="flex min-w-0 flex-1 items-start gap-2">
-          {!showUnreadSlot && <span className="hidden h-2 w-2 shrink-0 sm:inline-flex" aria-hidden="true" />}
-          <span className="hidden h-3.5 w-3.5 shrink-0 sm:inline-flex" aria-hidden="true" />
+          <InboxRowIndicatorPlaceholders />
           <span className="mt-0.5 shrink-0 rounded-md bg-muted p-1.5 sm:mt-0">
             <UserPlus className="h-4 w-4 text-muted-foreground" />
           </span>
@@ -917,7 +696,7 @@ export function Inbox() {
     queryFn: () =>
       issuesApi.list(selectedCompanyId!, {
         touchedByUserId: "me",
-        status: INBOX_MINE_ISSUE_STATUS_FILTER,
+        status: inboxIssueStatuses.join(","),
       }),
     enabled: !!selectedCompanyId,
   });
@@ -1045,7 +824,6 @@ export function Inbox() {
 
   const joinRequestsForTab = useMemo(() => {
     if (tab === "all" && !showJoinRequestsCategory) return [];
-    if (tab === "mine") return joinRequests.filter((jr) => !dismissed.has(`join:${jr.id}`));
     return joinRequests;
   }, [joinRequests, tab, showJoinRequestsCategory, dismissed]);
 
@@ -1566,23 +1344,20 @@ export function Inbox() {
   const canMarkAllRead = unreadIssueIds.length > 0;
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between gap-2">
-        <Tabs value={tab} onValueChange={(value) => navigate(`/inbox/${value}`)}>
-          <PageTabBar
-            items={[
-              {
-                value: "mine",
-                label: "Mine",
-              },
-              {
-                value: "recent",
-                label: "Recent",
-              },
-              { value: "unread", label: "Unread" },
-              { value: "all", label: "All" },
-            ]}
-          />
-        </Tabs>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-wrap items-center gap-2">
+          <Tabs value={tab} onValueChange={(value) => navigate(`${ROUTES.INBOX}/${value}`)}>
+            <PageTabBar
+              items={[
+                {
+                  value: "recent",
+                  label: "Recent",
+                },
+                { value: "unread", label: "Unread" },
+                { value: "all", label: "All" },
+              ]}
+            />
+          </Tabs>
 
         <div className="flex items-center gap-2">
           <div className="relative">
@@ -1920,6 +1695,8 @@ export function Inbox() {
                     unreadState={
                       isUnread ? "visible" : isFading ? "fading" : "hidden"
                     }
+                    desktopTrailing={<IssueCurrentOwnerBadge issue={issue} agentName={agentName} className="max-w-[180px]" />}
+                    unreadState={isUnread ? "visible" : isFading ? "fading" : "hidden"}
                     onMarkRead={() => markReadMutation.mutate(issue.id)}
                     onArchive={
                       canArchiveFromTab

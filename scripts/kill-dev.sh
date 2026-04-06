@@ -2,6 +2,10 @@
 #
 # Kill all local Paperclip dev server processes (across all worktrees).
 #
+# Does NOT kill processes started under LaunchAgent when they set
+# PAPERCLIP_MANAGED_BY_LAUNCHD=1 (see contrib/macos-launchagent/). To stop
+# that service use: launchctl bootout "gui/$(id -u)" ~/Library/LaunchAgents/io.paperclip.local.plist
+#
 # Usage:
 #   scripts/kill-dev.sh        # kill all paperclip dev processes
 #   scripts/kill-dev.sh --dry  # preview what would be killed
@@ -15,99 +19,45 @@ if [[ "${1:-}" == "--dry" || "${1:-}" == "--dry-run" || "${1:-}" == "-n" ]]; the
   DRY_RUN=true
 fi
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-REPO_PARENT="$(dirname "$REPO_ROOT")"
-
-node_pids=()
-node_lines=()
-pg_pids=()
-pg_pidfiles=()
-pg_data_dirs=()
-
-is_pid_running() {
+# macOS: wide ps output includes process environment; LaunchAgent should set PAPERCLIP_MANAGED_BY_LAUNCHD=1.
+is_launchagent_paperclip_service() {
   local pid="$1"
-  kill -0 "$pid" 2>/dev/null
-}
-
-read_pidfile_pid() {
-  local pidfile="$1"
-  local first_line
-  first_line="$(head -n 1 "$pidfile" 2>/dev/null | tr -d '[:space:]' || true)"
-  if [[ "$first_line" =~ ^[0-9]+$ ]] && (( first_line > 0 )); then
-    printf '%s\n' "$first_line"
-    return 0
-  fi
+  local cmd
+  local re1 re_true
+  cmd=$(ps wwwe -p "$pid" -o command= 2>/dev/null || true)
+  # Match exact boolean tokens (avoid false positives like =10, =100).
+  re1='(^|[[:space:]])PAPERCLIP_MANAGED_BY_LAUNCHD=1($|[[:space:]])'
+  re_true='(^|[[:space:]])PAPERCLIP_MANAGED_BY_LAUNCHD=true($|[[:space:]])'
+  [[ "$cmd" =~ $re1 ]] && return 0
+  [[ "$cmd" =~ $re_true ]] && return 0
   return 1
 }
 
-command_for_pid() {
-  local pid="$1"
-  ps -o command= -p "$pid" 2>/dev/null || true
-}
-
-append_postgres_from_pidfile() {
-  local pidfile="$1"
-  local pid cmd data_dir
-  pid="$(read_pidfile_pid "$pidfile" || true)"
-  [[ -n "$pid" ]] || return 0
-  is_pid_running "$pid" || return 0
-  cmd="$(command_for_pid "$pid")"
-  [[ "$cmd" == *postgres* ]] || return 0
-
-  for existing_pid in "${pg_pids[@]:-}"; do
-    [[ "$existing_pid" == "$pid" ]] && return 0
-  done
-
-  data_dir="$(dirname "$pidfile")"
-  pg_pids+=("$pid")
-  pg_pidfiles+=("$pidfile")
-  pg_data_dirs+=("$data_dir")
-}
-
-wait_for_pid_exit() {
-  local pid="$1"
-  local timeout_sec="$2"
-  local waited=0
-  while is_pid_running "$pid"; do
-    if (( waited >= timeout_sec * 10 )); then
-      return 1
-    fi
-    sleep 0.1
-    ((waited += 1))
-  done
-  return 0
-}
+# Collect PIDs of node processes running from any paperclip directory.
+# Matches paths like /Users/*/paperclip/... or /Users/*/paperclip-*/...
+# Excludes postgres-related processes.
+pids=()
+lines=()
+skipped_launchd=0
 
 while IFS= read -r line; do
   [[ -z "$line" ]] && continue
   [[ "$line" == *postgres* ]] && continue
   pid=$(echo "$line" | awk '{print $2}')
-  node_pids+=("$pid")
-  node_lines+=("$line")
+  if is_launchagent_paperclip_service "$pid"; then
+    skipped_launchd=$((skipped_launchd + 1))
+    continue
+  fi
+  pids+=("$pid")
+  lines+=("$line")
 done < <(ps aux | grep -E '/paperclip(-[^/]+)?/' | grep node | grep -v grep || true)
 
-candidate_pidfiles=()
-candidate_pidfiles+=(
-  "$HOME"/.paperclip/instances/*/db/postmaster.pid
-  "$REPO_ROOT"/.paperclip/instances/*/db/postmaster.pid
-  "$REPO_ROOT"/.paperclip/runtime-services/instances/*/db/postmaster.pid
-)
+if [[ $skipped_launchd -gt 0 ]]; then
+  echo "Skipped $skipped_launchd process(es) marked PAPERCLIP_MANAGED_BY_LAUNCHD (LaunchAgent service)."
+  echo ""
+fi
 
-for sibling_root in "$REPO_PARENT"/paperclip*; do
-  [[ -d "$sibling_root" ]] || continue
-  candidate_pidfiles+=(
-    "$sibling_root"/.paperclip/instances/*/db/postmaster.pid
-    "$sibling_root"/.paperclip/runtime-services/instances/*/db/postmaster.pid
-  )
-done
-
-for pidfile in "${candidate_pidfiles[@]:-}"; do
-  [[ -f "$pidfile" ]] || continue
-  append_postgres_from_pidfile "$pidfile"
-done
-
-if [[ ${#node_pids[@]} -eq 0 && ${#pg_pids[@]} -eq 0 ]]; then
+if [[ ${#pids[@]} -eq 0 ]]; then
   echo "No Paperclip dev processes found."
   exit 0
 fi
@@ -116,14 +66,15 @@ if [[ ${#node_pids[@]} -gt 0 ]]; then
   echo "Found ${#node_pids[@]} Paperclip dev node process(es):"
   echo ""
 
-  for i in "${!node_pids[@]:-}"; do
-    line="${node_lines[$i]}"
-    pid=$(echo "$line" | awk '{print $2}')
-    start=$(echo "$line" | awk '{print $9}')
-    cmd=$(echo "$line" | awk '{for(i=11;i<=NF;i++) printf "%s ", $i; print ""}')
-    cmd=$(echo "$cmd" | sed "s|$HOME/||g")
-    printf "  PID %-7s  started %-10s  %s\n" "$pid" "$start" "$cmd"
-  done
+for i in "${!pids[@]}"; do
+  line="${lines[$i]}"
+  pid="${pids[$i]}"
+  start=$(echo "$line" | awk '{print $9}')
+  cmd=$(echo "$line" | awk '{for(i=11;i<=NF;i++) printf "%s ", $i; print ""}')
+  # Shorten the command for readability
+  cmd=$(echo "$cmd" | sed "s|$HOME/||g")
+  printf "  PID %-7s  started %-10s  %s\n" "$pid" "$start" "$cmd"
+done
 
   echo ""
 fi
@@ -149,14 +100,10 @@ if [[ "$DRY_RUN" == true ]]; then
   exit 0
 fi
 
-if [[ ${#node_pids[@]} -gt 0 ]]; then
-  echo "Sending SIGTERM to Paperclip node processes..."
-  for pid in "${node_pids[@]}"; do
-    kill -TERM "$pid" 2>/dev/null && echo "  signaled $pid" || echo "  $pid already gone"
-  done
-  echo "Waiting briefly for node processes to exit..."
-  sleep 2
-fi
+echo "Sending SIGTERM..."
+for pid in "${pids[@]}"; do
+  kill "$pid" 2>/dev/null && echo "  sent SIGTERM to $pid" || echo "  $pid already gone"
+done
 
 leftover_pg_pids=()
 leftover_pg_data_dirs=()

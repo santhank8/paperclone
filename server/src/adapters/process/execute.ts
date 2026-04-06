@@ -1,4 +1,5 @@
 import type { AdapterExecutionContext, AdapterExecutionResult } from "../types.js";
+import { resolveHeartbeatChildTimeoutSec } from "@paperclipai/adapter-utils/server-utils";
 import {
   asString,
   asNumber,
@@ -31,7 +32,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     resolvedCommand,
   });
 
-  const timeoutSec = asNumber(config.timeoutSec, 0);
+  const timeoutSec = resolveHeartbeatChildTimeoutSec(config.timeoutSec);
   const graceSec = asNumber(config.graceSec, 15);
 
   if (onMeta) {

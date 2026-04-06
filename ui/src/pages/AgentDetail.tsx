@@ -12,7 +12,7 @@ import { budgetsApi } from "../api/budgets";
 import { heartbeatsApi } from "../api/heartbeats";
 import { instanceSettingsApi } from "../api/instanceSettings";
 import { ApiError } from "../api/client";
-import { ChartCard, RunActivityChart, PriorityChart, IssueStatusChart, SuccessRateChart } from "../components/ActivityCharts";
+import { ChartCard, RunActivityChart, PriorityChart, IssueStatusChart, OperationalEffectChart } from "../components/ActivityCharts";
 import { activityApi } from "../api/activity";
 import { issuesApi } from "../api/issues";
 import { usePanel } from "../context/PanelContext";
@@ -42,6 +42,7 @@ import { PackageFileTree, buildFileTree } from "../components/PackageFileTree";
 import { ScrollToBottom } from "../components/ScrollToBottom";
 import { formatCents, formatDate, relativeTime, formatTokens, visibleRunCostUsd } from "../lib/utils";
 import { cn } from "../lib/utils";
+import { getRunOperationalEffectBadge, getRunOperationalEffect, runTextSummary } from "../lib/run-operational-effect";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs } from "@/components/ui/tabs";
@@ -51,6 +52,21 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   MoreHorizontal,
   CheckCircle2,
@@ -290,95 +306,21 @@ function asNonEmptyString(value: unknown): string | null {
   return trimmed.length > 0 ? trimmed : null;
 }
 
-export function RunInvocationCard({
-  payload,
-  censorUsernameInLogs,
-}: {
-  payload: Record<string, unknown>;
-  censorUsernameInLogs: boolean;
-}) {
-  const commandLine = [
-    typeof payload.command === "string" ? payload.command : null,
-    ...(Array.isArray(payload.commandArgs)
-      ? payload.commandArgs.filter((value): value is string => typeof value === "string")
-      : []),
-  ]
-    .filter((value): value is string => Boolean(value))
-    .join(" ");
-
-  const hasAdvancedDetails =
-    commandLine.length > 0
-    || (Array.isArray(payload.commandNotes) && payload.commandNotes.length > 0)
-    || payload.prompt !== undefined
-    || payload.context !== undefined
-    || payload.env !== undefined;
+function RunOperationalEffectBadge({ run }: { run: HeartbeatRun }) {
+  const badge = getRunOperationalEffectBadge(run);
+  if (!badge) return null;
 
   return (
-    <div className="rounded-lg border border-border bg-background/60 p-3 space-y-2">
-      <div className="text-xs font-medium text-muted-foreground">Invocation</div>
-      {typeof payload.adapterType === "string" && (
-        <div className="text-xs"><span className="text-muted-foreground">Adapter: </span>{payload.adapterType}</div>
+    <span
+      className={cn(
+        "inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium",
+        badge.tone === "positive"
+          ? "bg-emerald-500/10 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300"
+          : "bg-amber-500/10 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300",
       )}
-      {typeof payload.cwd === "string" && (
-        <div className="text-xs break-all"><span className="text-muted-foreground">Working dir: </span><span className="font-mono">{payload.cwd}</span></div>
-      )}
-      {hasAdvancedDetails && (
-        <Collapsible>
-          <CollapsibleTrigger className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors group">
-            <ChevronRight className="h-3 w-3 transition-transform group-data-[state=open]:rotate-90" />
-            Details
-          </CollapsibleTrigger>
-          <CollapsibleContent className="pt-2 space-y-2">
-            {commandLine && (
-              <div className="text-xs break-all">
-                <span className="text-muted-foreground">Command: </span>
-                <span className="font-mono">{commandLine}</span>
-              </div>
-            )}
-            {Array.isArray(payload.commandNotes) && payload.commandNotes.length > 0 && (
-              <div>
-                <div className="text-xs text-muted-foreground mb-1">Command notes</div>
-                <ul className="list-disc pl-5 space-y-1">
-                  {payload.commandNotes
-                    .filter((value): value is string => typeof value === "string" && value.trim().length > 0)
-                    .map((note, idx) => (
-                      <li key={`${idx}-${note}`} className="text-xs break-all font-mono">
-                        {note}
-                      </li>
-                    ))}
-                </ul>
-              </div>
-            )}
-            {payload.prompt !== undefined && (
-              <div>
-                <div className="text-xs text-muted-foreground mb-1">Prompt</div>
-                <pre className="bg-neutral-100 dark:bg-neutral-950 rounded-md p-2 text-xs overflow-x-auto whitespace-pre-wrap">
-                  {typeof payload.prompt === "string"
-                    ? redactPathText(payload.prompt, censorUsernameInLogs)
-                    : JSON.stringify(redactPathValue(payload.prompt, censorUsernameInLogs), null, 2)}
-                </pre>
-              </div>
-            )}
-            {payload.context !== undefined && (
-              <div>
-                <div className="text-xs text-muted-foreground mb-1">Context</div>
-                <pre className="bg-neutral-100 dark:bg-neutral-950 rounded-md p-2 text-xs overflow-x-auto whitespace-pre-wrap">
-                  {JSON.stringify(redactPathValue(payload.context, censorUsernameInLogs), null, 2)}
-                </pre>
-              </div>
-            )}
-            {payload.env !== undefined && (
-              <div>
-                <div className="text-xs text-muted-foreground mb-1">Environment</div>
-                <pre className="bg-neutral-100 dark:bg-neutral-950 rounded-md p-2 text-xs overflow-x-auto whitespace-pre-wrap font-mono">
-                  {formatEnvForDisplay(payload.env, censorUsernameInLogs)}
-                </pre>
-              </div>
-            )}
-          </CollapsibleContent>
-        </Collapsible>
-      )}
-    </div>
+    >
+      {badge.label}
+    </span>
   );
 }
 
@@ -623,10 +565,14 @@ export function AgentDetail() {
   const { closePanel } = usePanel();
   const { openNewIssue } = useDialog();
   const { setBreadcrumbs } = useBreadcrumbs();
+  const { pushToast } = useToast();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [actionError, setActionError] = useState<string | null>(null);
   const [moreOpen, setMoreOpen] = useState(false);
+  const [invokeIssueDialogOpen, setInvokeIssueDialogOpen] = useState(false);
+  const [invokeIssueRefInput, setInvokeIssueRefInput] = useState("");
+  const [invokeLinkedFreshSession, setInvokeLinkedFreshSession] = useState(false);
   const activeView = urlRunId ? "runs" as AgentDetailView : parseAgentDetailView(urlTab ?? null);
   const needsDashboardData = activeView === "dashboard";
   const needsRunData = activeView === "runs" || Boolean(urlRunId);
@@ -791,6 +737,48 @@ export function AgentDetail() {
     },
   });
 
+  const invokeLinkedHeartbeat = useMutation({
+    mutationFn: async (input: { issueRef: string; forceFreshSession: boolean }) => {
+      if (!agentLookupRef) throw new Error("No agent reference");
+      const trimmed = input.issueRef.trim();
+      if (!trimmed) throw new Error("Enter an issue UUID or identifier (e.g. TCN-123).");
+      const issue = await issuesApi.get(trimmed);
+      if (resolvedCompanyId && issue.companyId !== resolvedCompanyId) {
+        throw new Error("That issue belongs to another company.");
+      }
+      const result = await agentsApi.invoke(agentLookupRef, resolvedCompanyId ?? undefined, {
+        issueId: issue.id,
+        taskId: issue.id,
+        taskKey: issue.id,
+        forceFreshSession: input.forceFreshSession,
+      });
+      if (!("id" in result)) {
+        throw new Error("Invoke was skipped (agent not invokable).");
+      }
+      return result as HeartbeatRun;
+    },
+    onSuccess: (data) => {
+      setInvokeIssueDialogOpen(false);
+      setInvokeIssueRefInput("");
+      setInvokeLinkedFreshSession(false);
+      setActionError(null);
+      queryClient.invalidateQueries({ queryKey: queryKeys.agents.detail(routeAgentRef) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.agents.detail(agentLookupRef) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.agents.runtimeState(agentLookupRef) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.agents.taskSessions(agentLookupRef) });
+      if (resolvedCompanyId && agent?.id) {
+        queryClient.invalidateQueries({ queryKey: queryKeys.agents.list(resolvedCompanyId) });
+        queryClient.invalidateQueries({ queryKey: queryKeys.heartbeats(resolvedCompanyId, agent.id) });
+      }
+      navigate(`/agents/${canonicalAgentRef}/runs/${data.id}`);
+    },
+    onError: (err) => {
+      const message =
+        err instanceof ApiError ? err.message : err instanceof Error ? err.message : "Invoke failed";
+      pushToast({ title: "Could not start run", body: message, tone: "error" });
+    },
+  });
+
   const budgetMutation = useMutation({
     mutationFn: (amount: number) =>
       budgetsApi.upsertPolicy(resolvedCompanyId!, {
@@ -930,11 +918,96 @@ export function AgentDetail() {
             <Plus className="h-3.5 w-3.5 sm:mr-1" />
             <span className="hidden sm:inline">Assign Task</span>
           </Button>
-          <RunButton
-            onClick={() => agentAction.mutate("invoke")}
-            disabled={agentAction.isPending || isPendingApproval}
-            label="Run Heartbeat"
-          />
+          <div className="flex items-stretch">
+            <RunButton
+              onClick={() => agentAction.mutate("invoke")}
+              disabled={agentAction.isPending || invokeLinkedHeartbeat.isPending || isPendingApproval}
+              label="Run Heartbeat"
+              className="rounded-r-none border-r-0 pr-2"
+            />
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={
+                    agentAction.isPending || invokeLinkedHeartbeat.isPending || isPendingApproval
+                  }
+                  className="rounded-l-none px-1.5"
+                  aria-label="More heartbeat options"
+                >
+                  <ChevronDown className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                  onClick={() => {
+                    setInvokeIssueRefInput("");
+                    setInvokeLinkedFreshSession(false);
+                    setInvokeIssueDialogOpen(true);
+                  }}
+                >
+                  Run linked to issue…
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+          <Dialog open={invokeIssueDialogOpen} onOpenChange={setInvokeIssueDialogOpen}>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle>Run heartbeat with issue context</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-3 py-1">
+                <p className="text-sm text-muted-foreground">
+                  Fills <code className="text-xs">issueId</code> / <code className="text-xs">taskKey</code>{" "}
+                  on the run so the server can resolve the issue&apos;s project workspace (not only{" "}
+                  <code className="text-xs">adapterConfig.cwd</code>).
+                </p>
+                <div className="space-y-2">
+                  <Label htmlFor="invoke-issue-ref">Issue UUID or identifier</Label>
+                  <Input
+                    id="invoke-issue-ref"
+                    placeholder="e.g. TCN-701"
+                    value={invokeIssueRefInput}
+                    onChange={(e) => setInvokeIssueRefInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        invokeLinkedHeartbeat.mutate({
+                          issueRef: invokeIssueRefInput,
+                          forceFreshSession: invokeLinkedFreshSession,
+                        });
+                      }
+                    }}
+                  />
+                </div>
+                <label className="flex items-center gap-2 text-sm cursor-pointer">
+                  <Checkbox
+                    checked={invokeLinkedFreshSession}
+                    onCheckedChange={(v) => setInvokeLinkedFreshSession(v === true)}
+                  />
+                  Fresh session (forceFreshSession)
+                </label>
+              </div>
+              <DialogFooter className="gap-2 sm:gap-0">
+                <Button type="button" variant="outline" onClick={() => setInvokeIssueDialogOpen(false)}>
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  disabled={invokeLinkedHeartbeat.isPending}
+                  onClick={() =>
+                    invokeLinkedHeartbeat.mutate({
+                      issueRef: invokeIssueRefInput,
+                      forceFreshSession: invokeLinkedFreshSession,
+                    })
+                  }
+                >
+                  {invokeLinkedHeartbeat.isPending ? "Starting…" : "Run"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
           <PauseResumeButton
             isPaused={agent.status === "paused"}
             onPause={() => agentAction.mutate("pause")}
@@ -1173,9 +1246,7 @@ function LatestRunCard({ runs, agentId }: { runs: HeartbeatRun[]; agentId: strin
   const isLive = run.status === "running" || run.status === "queued";
   const statusInfo = runStatusIcons[run.status] ?? { icon: Clock, color: "text-neutral-400" };
   const StatusIcon = statusInfo.icon;
-  const summaryRaw = run.resultJson
-    ? String((run.resultJson as Record<string, unknown>).summary ?? (run.resultJson as Record<string, unknown>).result ?? "")
-    : run.error ?? "";
+  const summary = runTextSummary(run) ?? "";
 
   // Extract a clean 2-3 line excerpt: first non-empty, non-header, non-list-mark lines
   const summary = useMemo(() => {
@@ -1225,6 +1296,7 @@ function LatestRunCard({ runs, agentId }: { runs: HeartbeatRun[]; agentId: strin
         <div className="flex items-center gap-2">
           <StatusIcon className={cn("h-3.5 w-3.5", statusInfo.color, run.status === "running" && "animate-spin")} />
           <StatusBadge status={run.status} />
+          <RunOperationalEffectBadge run={run} />
           <span className="font-mono text-xs text-muted-foreground">{run.id.slice(0, 8)}</span>
           <span className={cn(
             "inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium",
@@ -1281,8 +1353,8 @@ function AgentOverview({
         <ChartCard title="Issues by Status" subtitle="Last 14 days">
           <IssueStatusChart issues={assignedIssues} />
         </ChartCard>
-        <ChartCard title="Success Rate" subtitle="Last 14 days">
-          <SuccessRateChart runs={runs} />
+        <ChartCard title="Operational Effect" subtitle="Finished vs produced effect">
+          <OperationalEffectChart runs={runs} />
         </ChartCard>
       </div>
 
@@ -1364,6 +1436,12 @@ function CostsSection({
             <div>
               <span className="text-xs text-muted-foreground block">Total cost</span>
               <span className="text-lg font-semibold">{formatCents(runtimeState.totalCostCents)}</span>
+              {runtimeState.totalCostCents === 0
+                && (runtimeState.totalInputTokens > 0 || runtimeState.totalOutputTokens > 0 || runtimeState.totalCachedInputTokens > 0) ? (
+                  <span className="mt-1 block text-[11px] text-muted-foreground">
+                    Usage tracked; billed cost may be zero when runs are subscription-included.
+                  </span>
+                ) : null}
             </div>
           </div>
         </div>
@@ -2831,9 +2909,7 @@ function RunListItem({ run, isSelected, agentId }: { run: HeartbeatRun; isSelect
   const statusInfo = runStatusIcons[run.status] ?? { icon: Clock, color: "text-neutral-400" };
   const StatusIcon = statusInfo.icon;
   const metrics = runMetrics(run);
-  const summary = run.resultJson
-    ? String((run.resultJson as Record<string, unknown>).summary ?? (run.resultJson as Record<string, unknown>).result ?? "")
-    : run.error ?? "";
+  const summary = runTextSummary(run) ?? "";
 
   return (
     <Link
@@ -2848,6 +2924,7 @@ function RunListItem({ run, isSelected, agentId }: { run: HeartbeatRun; isSelect
         <span className="font-mono text-xs text-muted-foreground">
           {run.id.slice(0, 8)}
         </span>
+        <RunOperationalEffectBadge run={run} />
         <span className={cn(
           "inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium shrink-0",
           run.invocationSource === "timer" ? "bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300"
@@ -3108,6 +3185,7 @@ function RunDetail({ run: initialRun, agentRouteId, adapterType, adapterConfig }
   const sessionChanged = run.sessionIdBefore && run.sessionIdAfter && run.sessionIdBefore !== run.sessionIdAfter;
   const sessionId = run.sessionIdAfter || run.sessionIdBefore;
   const hasNonZeroExit = run.exitCode !== null && run.exitCode !== 0;
+  const operationalEffect = getRunOperationalEffect(run);
 
   return (
     <div className="space-y-4 min-w-0">
@@ -3118,6 +3196,7 @@ function RunDetail({ run: initialRun, agentRouteId, adapterType, adapterConfig }
           <div className="flex-1 p-4 space-y-3">
             <div className="flex items-center gap-2">
               <StatusBadge status={run.status} />
+              <RunOperationalEffectBadge run={run} />
               {(run.status === "running" || run.status === "queued") && (
                 <Button
                   variant="ghost"
@@ -3154,27 +3233,13 @@ function RunDetail({ run: initialRun, agentRouteId, adapterType, adapterConfig }
                 </Button>
               )}
             </div>
-            {/* Adapter type · provider · model */}
-            {(() => {
-              const displayProvider = metrics.provider
-                ?? asNonEmptyString(adapterConfig?.provider);
-              const displayModel = metrics.model
-                ?? asNonEmptyString(adapterConfig?.model);
-              if (!adapterType && !displayProvider && !displayModel) return null;
-              return (
-                <div className="text-[11px] text-muted-foreground font-mono flex items-center gap-1.5 flex-wrap">
-                  {adapterType && (
-                    <span className="bg-muted rounded px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide">{adapterType.replace(/_/g, " ")}</span>
-                  )}
-                  {displayProvider && displayModel && (
-                    <span>{displayProvider}/{displayModel}</span>
-                  )}
-                  {!displayProvider && displayModel && (
-                    <span>{displayModel}</span>
-                  )}
-                </div>
-              );
-            })()}
+            {operationalEffect && run.status !== "running" && run.status !== "queued" && (
+              <p className="text-xs text-muted-foreground">
+                Operational effect: {operationalEffect.producedEffect
+                  ? (operationalEffect.summary ?? `${operationalEffect.activityCount} activity events`)
+                  : "none recorded"}
+              </p>
+            )}
             {resumeRun.isError && (
               <div className="text-xs text-destructive">
                 {resumeRun.error instanceof Error ? resumeRun.error.message : "Failed to resume run"}

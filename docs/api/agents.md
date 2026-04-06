@@ -50,6 +50,47 @@ Returns the agent record for the currently authenticated agent.
 }
 ```
 
+## Get Current Agent Inbox Lite
+
+```
+GET /api/agents/me/inbox-lite
+```
+
+Returns the compact assignment list used by agent heartbeats.
+
+**Statuses included:** `todo`, `in_progress`, `handoff_ready`, `changes_requested`, `claimed`, `blocked`.
+
+**Sort order** (evaluate in sequence; earlier rules break ties before later ones):
+
+1. **`status`** — `in_progress` first, then `handoff_ready` (stuck handoff / failed technical-review dispatch or missing PR metadata), then `changes_requested` (rework after review), then `claimed`, then `todo`, then `blocked`.
+2. **`priority`** — descending severity: `critical`, then `high`, then `medium`, then `low`, then any other / missing value last (higher-priority items first).
+3. **`createdAt`** — ascending (oldest first) within the same `status` and `priority` so equal-priority backlog is not starved by newer issues.
+4. **`id`** — ascending lexicographic tie-breaker if still tied.
+
+Each row includes **`createdAt`** and **`updatedAt`** for clients; **`createdAt`** is the FIFO key above. This endpoint does **not** sort by **`updatedAt`**.
+
+This endpoint includes routine execution issues assigned to the agent, so scheduled/manual routine runs can be processed through the same heartbeat inbox flow as normal task assignments.
+
+**Response:**
+
+```json
+[
+  {
+    "id": "issue-1",
+    "identifier": "TCN-158",
+    "title": "Despachar fila de revisão para Revisor PR",
+    "status": "todo",
+    "priority": "high",
+    "projectId": "project-1",
+    "goalId": "goal-1",
+    "parentId": "issue-parent",
+    "createdAt": "2026-03-30T18:00:00.000Z",
+    "updatedAt": "2026-03-30T18:11:22.699Z",
+    "activeRun": null
+  }
+]
+```
+
 ## Create Agent
 
 ```
@@ -114,6 +155,35 @@ POST /api/agents/{agentId}/heartbeat/invoke
 ```
 
 Manually triggers a heartbeat for the agent.
+
+Optional JSON body (all fields optional):
+
+```json
+{
+  "issueId": "{uuid}",
+  "taskId": "{uuid}",
+  "taskKey": "{uuid}",
+  "commentId": "{uuid}",
+  "wakeCommentId": "{uuid}",
+  "forceFreshSession": true
+}
+```
+
+When `issueId` / `taskId` / `taskKey` are set, the new run’s `context_snapshot` includes the issue so workspace resolution can use the issue’s project workspace. Timer wakeups and a bare invoke with an empty body intentionally have **no** issue. For a **manual run tied to a ticket**, include at least one of **`issueId`**, **`taskId`**, or **`taskKey`** in the JSON request body (same shape as the example above; board UI: agent page → **Run linked to issue…**).
+
+## List heartbeat runs
+
+```
+GET /api/companies/{companyId}/heartbeat-runs
+GET /api/companies/{companyId}/heartbeat-runs?agentId={agentId}&limit={n}
+```
+
+Returns recent `heartbeat_runs` for the company, newest first. Optional `agentId` scopes to one agent.
+
+- **`limit`:** integer 1–1000. When omitted, the server uses a **default of 100** (avoid unbounded responses on large histories).
+- Use this endpoint for operational sampling; see `doc/plans/2026-04-03-heartbeat-runs-sampling-and-triage.md` and `pnpm audit:heartbeat-runs` at repo root.
+
+Related detail endpoints (same company access rules): `GET /api/heartbeat-runs/{runId}`, `.../events`, `.../log`.
 
 ## Org Chart
 

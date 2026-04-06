@@ -37,7 +37,9 @@ This starts:
 - API server: `http://localhost:3100`
 - UI: served by the API server in dev middleware mode (same origin as API)
 
-`pnpm dev` runs the server in watch mode and restarts on changes from workspace packages (including adapter packages). Use `pnpm dev:once` to run without file watching.
+`pnpm dev` runs the server with **`tsx watch`**, which reloads when workspace sources change. Under load or slow shutdowns, `tsx` may log `Previous process hasn't exited yet. Force killing` and take the API down; embedded Postgres can then refuse connections (`database system is shutting down`) until you restart cleanly.
+
+**Prefer `pnpm dev:once`** when you want a stable local server for hours (same port and UI; restart the process yourself after edits, or use the board “Restart required” banner / experimental guarded auto-restart).
 
 `pnpm dev:once` auto-applies pending local migrations by default before starting the dev server.
 
@@ -79,6 +81,14 @@ pnpm paperclipai run
 1. auto-onboard if config is missing
 2. `paperclipai doctor` with repair enabled
 3. starts the server when checks pass
+
+### macOS: run in the background (no Terminal window)
+
+You can wire the same CLI entry (`paperclipai run` / `cli` + `tsx` + `run`) to **launchd** as a user **LaunchAgent** so Paperclip stays up after you close Terminal and across logins (within your GUI session). Plist location, env vars, logs, and `launchctl kickstart` / reload steps are documented for operators in **`docs/guides/board-operator/macos-background-service.md`** (also listed under Guides → Board Operator in `docs/docs.json`).
+
+**`scripts/kill-dev.sh`** skips processes that set **`PAPERCLIP_MANAGED_BY_LAUNCHD=1`** (the template LaunchAgent plist sets this) so clearing terminal dev servers does not SIGTERM the background service. Stop the agent with `launchctl bootout` when you intend to shut it down.
+
+If Activity Monitor shows huge **`node (vitest …)`** usage while **`/api/health`** still returns **200**, that is expected: Vitest workers are separate from the LaunchAgent server. See **Node memory: Paperclip vs test runners** in **`docs/guides/board-operator/macos-background-service.md`**.
 
 ## Docker Quickstart (No local Node install)
 
@@ -287,6 +297,17 @@ Expected:
 - `/api/health` returns `{"status":"ok"}`
 - `/api/companies` returns a JSON array
 
+## Audit heartbeat runs (local operators)
+
+With dev server up and a company UUID:
+
+```sh
+export PAPERCLIP_COMPANY_ID='<uuid>'
+pnpm audit:heartbeat-runs
+```
+
+Optional: `PAPERCLIP_TOKEN` if the API requires board auth. JSON output: `pnpm audit:heartbeat-runs -- --json`. SQL equivalents and severity triage live in `doc/plans/2026-04-03-heartbeat-runs-sampling-and-triage.md`.
+
 ## Reset Local Dev Database
 
 To wipe local dev data and start fresh:
@@ -463,3 +484,7 @@ Networking behavior for this smoke script:
 - auto-detects and prints a Paperclip host URL reachable from inside OpenClaw Docker
 - default container-side host alias is `host.docker.internal` (override with `PAPERCLIP_HOST_FROM_CONTAINER` / `PAPERCLIP_HOST_PORT`)
 - if Paperclip rejects container hostnames in authenticated/private mode, allow `host.docker.internal` via `pnpm paperclipai allowed-hostname host.docker.internal` and restart Paperclip
+
+## Playwright CLI snapshots
+
+The directory `.playwright-cli/` is for **local** ad-hoc dumps from the Playwright CLI (page YAML / console logs). It is listed in `.gitignore` and must not be committed—snapshots belong in CI artifacts or in curated fixtures under `tests/` when tests need them.

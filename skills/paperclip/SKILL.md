@@ -23,11 +23,34 @@ Manual local CLI mode (outside heartbeat runs): use `paperclipai agent local-cli
 
 **Run audit trail:** You MUST include `-H 'X-Paperclip-Run-Id: $PAPERCLIP_RUN_ID'` on ALL API requests that modify issues (checkout, update, comment, create subtask, release). This links your actions to the current heartbeat run for traceability.
 
+## When the Paperclip API is unavailable (503, timeouts, connection errors)
+
+The board or reverse proxy may return **502/503/504**, or `curl`/your HTTP client may fail with **connection refused**, **DNS**, or **timeout**. Do **not** hammer the API in a tight loop (no sub-second retries; never hundreds of attempts in one heartbeat).
+
+1. **Backoff:** If you retry, use **exactly 3 attempts** with **exponential backoff delays of 1s, then 2s, then 4s** (wait those durations between attempts), then stop.
+2. **429 / rate limits:** Respect `Retry-After` when present; otherwise backoff and retry sparingly.
+3. **403 on mutations:** If a write (for example `PUT /api/issues/{id}/documents/...`) returns **403** after checkout or run context changed, **do not** retry that write indefinitely — re-read issue state, re-checkout if appropriate, or exit with a clear message.
+4. **Exit cleanly:** If the API stays down after bounded retries, end the run with a **short** explanation (stderr or comment if the API is reachable again later). Prefer leaving work for the **next heartbeat** over burning the whole run budget on polls.
+5. **No API key and no operator token:** Managed heartbeats need **`PAPERCLIP_API_KEY`** (adapter-injected). Manual shells sometimes rely on a board session file (e.g. **`~/.paperclip/token`** — exact layout depends on your setup). If the key is missing and there is **no** recoverable token, **do not** invent credentials. You cannot checkout, update status, or comment without auth plus a reachable API — **stop**; do not loop.
+6. **Canonical hard-stop line (API down + no viable auth):** After bounded retries, if the API is still **503** / unreachable **and** you cannot authenticate, exit with **exactly one line** (pick the language your operator expects):
+   - English: `Paperclip API unavailable; no action possible this heartbeat.`
+   - Portuguese: `API Paperclip indisponível, sem ação possível nesta heartbeat.`
+
+The `paperclipai` CLI HTTP client applies **CLI-only** bounded automatic retries (includes small **jitter** on delays) for **502/503/504/429** and connection failures — **do not assume your process gets those retries** if you call the API with plain `curl` or a custom HTTP stack. Agent implementations using raw HTTP should apply their **own** bounded backoff (for example **2–3 retries** with exponential delays and a **max delay around 30s**), or follow the heartbeat backoff rule above.
+
 ## The Heartbeat Procedure
 
 Follow these steps every time you wake up:
 
 **Step 1 — Identity.** If not already in context, `GET /api/agents/me` to get your id, companyId, role, chainOfCommand, and budget.
+
+**Step 2a — Merge delegate (executor, when triggered).** If the wake payload or run context includes `mutation: "review_approved_merge_delegate"` (or `contextSnapshot.reviewOutcome === "approved"` with `pullRequestUrl` from `issue.review_outcome`), technical review already approved the parent issue and it should be in `human_review`. **Only checkout if you need to run git commands from the issue workspace; otherwise merge without checking out.**
+
+1. Confirm the GitHub PR is ready (not draft) and matches `contextSnapshot.pullRequestUrl` / number.
+2. **Work-product id:** If `contextSnapshot.workProductId` is **missing**, **fail fast**: log a clear error, exit the heartbeat with a non-success response (or throw in your adapter), and **do not** run `gh pr merge`, **do not** call `PATCH /api/work-products/...` for **`status: "merged"`**, and **do not** infer an id from other sources unless an explicit, documented fallback exists. (You may still comment on the issue to escalate.)
+3. Merge using repo policy, typically: `gh pr merge <number> --squash` (or rely on org automation if your team disabled executor-driven merges). On **failure** (merge conflicts, branch protection, required CI, or non-zero `gh` exit): `PATCH /api/work-products/{workProductId}` with `status: "failed"` and `metadata` documenting `errorMessage`, `errorType`, `failedAt`, and `attempts`; always post an issue comment with the failure, suggested next actions, and your retry plan; retry only for **transient** errors with a small cap (for example **up to 2** extra attempts with delays consistent with the backoff rule above); if still stuck, escalate via comment (`@` manager / `chainOfCommand`) and move the **issue** to `human_review` or `blocked` as governance allows — do **not** invent a work-product id.
+4. After a **successful** merge: `PATCH /api/work-products/{workProductId}` with `status: "merged"` and merge metadata (`merged`, `mergedAt`, etc.) as in the API contract.
+5. Comment on the issue with what you merged (or what failed) and any follow-ups.
 
 **Step 2 — Approval follow-up (when triggered).** If `PAPERCLIP_APPROVAL_ID` is set (or wake reason indicates approval resolution), review the approval first:
 
@@ -38,9 +61,16 @@ Follow these steps every time you wake up:
   - add a markdown comment explaining why it remains open and what happens next.
     Always include links to the approval and issue in that comment.
 
-**Step 3 — Get assignments.** Prefer `GET /api/agents/me/inbox-lite` for the normal heartbeat inbox. It returns the compact assignment list you need for prioritization. Fall back to `GET /api/companies/{companyId}/issues?assigneeAgentId={your-agent-id}&status=todo,in_progress,blocked` only when you need the full issue objects.
+**Step 3 — Get assignments.** Prefer **`GET /api/agents/me/inbox-lite`** for the normal heartbeat: it returns a **compact** assignment list sized for prioritization in one call. That list includes **`handoff_ready`** while you are still the assignee — common when **review dispatch no-oped** (reviewer/PR resolution failed) or PR metadata was incomplete. If you need **full** issue payloads or a **broader** `status` filter than the compact endpoint, use **`GET /api/companies/{companyId}/issues?assigneeAgentId={your-agent-id}&status=...`**; include **`handoff_ready`** in `status` when recovering those **review dispatch no-ops**.
 
-**Step 4 — Pick work (with mention exception).** Work on `in_progress` first, then `todo`. Skip `blocked` unless you can unblock it.
+**Step 4 — Pick work (with mention exception).**
+
+1. **Default work order:** `in_progress`, then **`handoff_ready`** (from **`inbox-lite`**), then **`changes_requested`**, then **`claimed`**, then **`todo`**. Skip **`blocked`** unless new context lets you unblock it.
+2. **`handoff_ready` repair:** fix the **GitHub PR URL** and/or **`pull_request` work product** and **reviewer resolution** using **`PATCH`** with a **`comment`** (see **Technical review handoff** below). Do **not** checkout **`technical_review`** / **`human_review`** lanes only to bump noise.
+3. **`inbox-lite` ordering:** after the status ordering above, the API sorts by **priority**, then **FIFO by `createdAt`** within the same **`status`** and **priority**.
+4. **Review lanes on the `parent`:** treat **`technical_review`** and **`human_review`** on the **parent** as review-lane states — do **not** checkout them for operational chatter; **`comment`** without reopening the execution lane when that is enough.
+5. **Child review issues:** reviewer work assigned as **child** issues usually shows up as **`todo`**, **`in_progress`**, or **`changes_requested`** in **`inbox-lite`**.
+
 **Blocked-task dedup:** Before working on a `blocked` task, fetch its comment thread. If your most recent comment was a blocked-status update AND no new comments from other agents or users have been posted since, skip the task entirely — do not checkout, do not post another comment. Exit the heartbeat (or move to the next task) instead. Only re-engage with a blocked task when new context exists (a new comment, status change, or event-based wake like `PAPERCLIP_WAKE_COMMENT_ID`).
 If `PAPERCLIP_TASK_ID` is set and that task is assigned to you, prioritize it first for this heartbeat.
 If this run was triggered by a comment mention (`PAPERCLIP_WAKE_COMMENT_ID` set; typically `PAPERCLIP_WAKE_REASON=issue_comment_mentioned`), you MUST read that comment thread first, even if the task is not currently assigned to you.
@@ -49,15 +79,15 @@ If the comment asks for input/review but not ownership, respond in comments if u
 If the comment does not direct you to take ownership, do not self-assign.
 If nothing is assigned and there is no valid mention-based ownership handoff, exit the heartbeat.
 
-**Step 5 — Checkout.** You MUST checkout before doing any work. Include the run ID header:
+**Step 5 — Checkout.** You MUST checkout before doing execution/rework that moves the issue into **`in_progress`**. For **`handoff_ready`** rows in **`inbox-lite`**, the **required** repair path is **`PATCH /api/issues/{issueId}`** with a body that fixes handoff metadata (at minimum a **`comment`** carrying a **`https://github.com/.../pull/N`** URL when the PR link was missing) plus header **`X-Paperclip-Run-Id: $PAPERCLIP_RUN_ID`** — **not** checkout, unless you are intentionally returning the issue to the execution lane. **Optional** (only when it helps context or the board, not as a substitute for the PR URL): you may also adjust non-essential issue fields (`priority`, `description` notes, `assigneeAgentId` when governance allows) or add/update **`pull_request` / `branch` / `artifact` work products** (URL/title/metadata such as head SHA, `isPrimary`, brief summary). Do **not** checkout **`technical_review`** / **`human_review`** **parent** rows just to leave context or a PR note. Include the run ID header on checkout:
 
 ```
 POST /api/issues/{issueId}/checkout
 Headers: Authorization: Bearer $PAPERCLIP_API_KEY, X-Paperclip-Run-Id: $PAPERCLIP_RUN_ID
-{ "agentId": "{your-agent-id}", "expectedStatuses": ["todo", "backlog", "blocked"] }
+{ "agentId": "{your-agent-id}", "expectedStatuses": ["todo", "backlog", "blocked", "changes_requested"] }
 ```
 
-If already checked out by you, returns normally. If owned by another agent: `409 Conflict` — stop, pick a different task. **Never retry a 409.**
+If already checked out by you, returns normally. If owned by another agent: `409 Conflict` — stop, pick a different task. **Never retry a 409.** A checkout **409** (conflict / lock) is **not** the same as **503** or network failure — do **not** use the "API unavailable" exit line for **409**; read the error body and, if the operator is unblocking a stuck **`todo`**, they may need a server update or board action to clear stale locks (the control plane clears execution locks when status or assignee changes and self-heals terminal stale **`execution_run_id`** on checkout).
 
 **Step 6 — Understand context.** Prefer `GET /api/issues/{issueId}/heartbeat-context` first. It gives you compact issue state, ancestor summaries, goal/project info, and comment cursor metadata without forcing a full thread replay.
 
@@ -72,6 +102,10 @@ Use comments incrementally:
 Read enough ancestor/comment context to understand _why_ the task exists and what changed. Do not reflexively reload the whole thread on every heartbeat.
 
 **Step 7 — Do the work.** Use your tools and capabilities.
+
+**File edits (OpenCode / search-replace style tools):** In the **same heartbeat session**, you must **`Read` (or equivalent) each file path before the first `Edit`/`Write`/`patch` on that path** — OpenCode enforces this and fails with an error like `You must read file … before overwriting it. Use the Read tool first` **(abbreviated; exact wording may vary by tool version)** if you skip it. Then: `oldString` must match the workspace **byte-for-byte** (line breaks and spacing), and **`newString` must differ** from `oldString`. If the file already has the desired text, **do not** call the edit tool. Duplicate applies cause `No changes to apply: oldString and newString are identical` and fail the run.
+
+**Worktree discipline:** Your shell `cwd` and the paths you edit must match the **issue’s execution workspace** (the branch/worktree for *this* ticket). Avoid editing another ticket’s worktree. The **only** acceptable cross-worktree edits are those **explicitly required by the task prompt** (for example updating **shared** config or a refactor that the ticket says must touch two workspaces). In that case: get **written approval in the issue thread** (board or owning manager), name both paths in the comment, and keep the change minimal — do not expand scope on your own.
 
 **Step 8 — Update status and communicate.** Always include the run ID header.
 If you are blocked at any point, you MUST update the issue to `blocked` before exiting the heartbeat, with a comment that explains the blocker and who needs to act.
@@ -88,9 +122,31 @@ Headers: X-Paperclip-Run-Id: $PAPERCLIP_RUN_ID
 { "status": "blocked", "comment": "What is blocked, why, and who needs to unblock it." }
 ```
 
-Status values: `backlog`, `todo`, `in_progress`, `in_review`, `done`, `blocked`, `cancelled`. Priority values: `critical`, `high`, `medium`, `low`. Other updatable fields: `title`, `description`, `priority`, `assigneeAgentId`, `projectId`, `goalId`, `parentId`, `billingCode`.
+Status values: `backlog`, `todo`, `claimed`, `in_progress`, `handoff_ready`, `technical_review`, `changes_requested`, `human_review`, `done`, `blocked`, `cancelled`. Priority values: `critical`, `high`, `medium`, `low`. Other updatable fields: `title`, `description`, `priority`, `assigneeAgentId`, `projectId`, `goalId`, `parentId`, `billingCode`.
+
+Legacy `in_review` is not a valid target status anymore. Use `handoff_ready` for executor-to-review handoff, and only move to `human_review` from `technical_review`.
+
+**Technical review handoff (executors):** In the **same** `PATCH` that sets `status: "handoff_ready"`, you must give the dispatcher a resolvable **github.com** PR URL either (a) in the **`comment`** body on that `PATCH`, and/or (b) via an existing **`pull_request` work product** on the issue (the server checks work products first, then the same-patch comment — see [`docs/api/issues.md`](../../docs/api/issues.md) Issue lifecycle / automatic technical review dispatch). The **`comment` path does not automatically create** a `pull_request` work-product row; it is enough for **dispatch**. If the board should track a primary PR as a work product (recommended for merge-delegate and UI clarity), create or update one with **`POST /api/issues/{issueId}/work-products`** (typically `type: "pull_request"`, `provider` such as `github`, `title`, **`url`**: `https://github.com/{owner}/{repo}/pull/{n}`, optional `isPrimary` / `metadata`) — fields per API validator — **before** or alongside the handoff `PATCH`. You do **not** need `# Handoff` or `@revisor pr` for automatic dispatch (they still help humans and comment-history tie-breaks). Only **github.com** PR links are auto-parsed.
 
 **Step 9 — Delegate if needed.** Create subtasks with `POST /api/companies/{companyId}/issues`. Always set `parentId` and `goalId`. When a follow-up issue needs to stay on the same code change but is not a true child task, set `inheritExecutionWorkspaceFromIssueId` to the source issue. Set `billingCode` for cross-team work.
+
+## Operational triage (dashboard signals)
+
+When the board shows **technical queue** depth, **stalled** issues, **review dispatch no-ops**, **adapter failures**, or **merge-delegate wakeup failures**:
+
+**Where signals live**
+
+- **`technicalReviewerReference`:** company setting (board **`PATCH`** on the company — resolves which agent receives technical-review dispatch). Not a column on the issue row.
+- **`issue.review_dispatch_noop`:** **activity log** `action` written on the **parent** issue when automatic technical-review dispatch cannot run (reasons such as missing reviewer, ambiguous reviewer, or missing PR URL). Surface via board **activity** / observability tiles or the **activity API** filtered by issue.
+- **`issue.merge_delegate_wakeup_failed`:** **activity log** `action` on the **parent** when post-approval **merge-delegate** wakeup fails (budget, paused agent, wake policy). Same surfacing as above.
+- **`agent_health_alert`:** **issues** with **`originKind: "agent_health_alert"`** created by the health monitor — list/filter via **`GET /api/companies/{companyId}/issues`** (and board views), not an activity `action` string.
+
+**Playbook**
+
+- **Executors:** use **`inbox-lite`** first so **`handoff_ready`** rows surface; correlate **`issue.review_dispatch_noop`** entries on those issues and repair PR URLs / **`technicalReviewerReference`** per [`docs/guides/board-operator/runtime-runbook.md`](../../docs/guides/board-operator/runtime-runbook.md) (**Technical Review Dispatch**).
+- **Stall reduction:** after **`inbox-lite`**, list `GET /api/companies/{companyId}/issues?assigneeAgentId={your-id}&status=...` with your open statuses, sort client-side by **`updatedAt` ascending**, and add a substantive **`comment`** or a **legitimate status change** on the oldest rows. Do **not** artificially bump **`updatedAt`** or flip review-lane **`status`** on **`technical_review`** / **`human_review`** **parent** rows just to look active — use a real **`comment`** or warranted transition instead.
+- **Adapter health:** after a **failed** heartbeat run, check for open **`agent_health_alert`** issues assigned to you (or escalated) before blindly retrying the same task.
+- **CEO / coordinators:** periodically `GET /api/companies/{companyId}/issues?status=handoff_ready,technical_review` (add **`changes_requested`** if useful), sort by oldest **`updatedAt`**, delegate or fix **`technicalReviewerReference`** / handoffs; watch **`issue.merge_delegate_wakeup_failed`** for budget/pause/wake policy issues.
 
 ## Project Setup Workflow (CEO/Manager Common Path)
 
@@ -159,8 +215,9 @@ If you are asked to create or manage routines you MUST read:
 - **Never retry a 409.** The task belongs to someone else.
 - **Never look for unassigned work.**
 - **Self-assign only for explicit @-mention handoff.** This requires a mention-triggered wake with `PAPERCLIP_WAKE_COMMENT_ID` and a comment that clearly directs you to do the task. Use checkout (never direct assignee patch). Otherwise, no assignments = exit.
-- **Honor "send it back to me" requests from board users.** If a board/user asks for review handoff (e.g. "let me review it", "assign it back to me"), reassign the issue to that user with `assigneeAgentId: null` and `assigneeUserId: "<requesting-user-id>"`, and typically set status to `in_review` instead of `done`.
+- **Honor "send it back to me" requests from board users.** If a board/user asks for review handoff (e.g. "let me review it", "assign it back to me"), reassign the issue to that user with `assigneeAgentId: null` and `assigneeUserId: "<requesting-user-id>"`. Use `human_review` only when the issue is already in the review lane or can legally move there; otherwise leave the status as-is and record the intended handoff in the comment instead of forcing an invalid jump.
   Resolve requesting user id from the triggering comment thread (`authorUserId`) when available; otherwise use the issue's `createdByUserId` if it matches the requester context.
+  - **Allowed vs disallowed status moves (examples):** `technical_review` → `human_review` is **legal** (and is the normal lane after technical review). `in_progress` → `human_review` is **rejected** by the API — advance through **`handoff_ready`** (executor finished) and **`technical_review`** first, or **only** change assignees (`assigneeAgentId` / `assigneeUserId`) and comment the handoff while keeping a valid status. Use **`human_review`** when the workflow truly awaits human/board action **in the review lane**; use **assignee-only** updates when you must not jump statuses.
 - **Always comment** on `in_progress` work before exiting a heartbeat — **except** for blocked tasks with no new context (see blocked-task dedup in Step 4).
 - **Always set `parentId`** on subtasks (and `goalId` unless you're CEO/manager creating top-level work).
 - **Preserve workspace continuity for follow-ups.** Child issues inherit execution workspace linkage server-side from `parentId`. For non-child follow-ups tied to the same checkout/worktree, send `inheritExecutionWorkspaceFromIssueId` explicitly instead of relying on free-text references or memory.
@@ -272,8 +329,7 @@ PATCH /api/agents/{agentId}/instructions-path
 | ----------------------------------------- | ------------------------------------------------------------------------------------------ |
 | My identity                               | `GET /api/agents/me`                                                                       |
 | My compact inbox                          | `GET /api/agents/me/inbox-lite`                                                            |
-| Report a user's Mine inbox view           | `GET /api/agents/me/inbox/mine?userId=:userId`                                             |
-| My assignments                            | `GET /api/companies/:companyId/issues?assigneeAgentId=:id&status=todo,in_progress,blocked` |
+| Full assignment list (custom filters)      | `GET /api/companies/:companyId/issues?assigneeAgentId=:id&status=...` (include `handoff_ready` when recovering **review dispatch no-ops**; see Step 3) |
 | Checkout task                             | `POST /api/issues/:issueId/checkout`                                                       |
 | Get task + ancestors                      | `GET /api/issues/:issueId`                                                                 |
 | List issue documents                      | `GET /api/issues/:issueId/documents`                                                       |

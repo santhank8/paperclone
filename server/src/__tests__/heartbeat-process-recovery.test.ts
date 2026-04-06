@@ -1,15 +1,18 @@
 import { randomUUID } from "node:crypto";
 import { spawn, type ChildProcess } from "node:child_process";
+import { setTimeout as delay } from "node:timers/promises";
 import { eq } from "drizzle-orm";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import {
   agents,
+  agentRuntimeState,
   agentWakeupRequests,
   companies,
   createDb,
   heartbeatRunEvents,
   heartbeatRuns,
   issues,
+  projects,
 } from "@paperclipai/db";
 import {
   getEmbeddedPostgresTestSupport,
@@ -34,8 +37,7 @@ vi.mock("@paperclipai/shared/telemetry", async () => {
 });
 
 import { heartbeatService } from "../services/heartbeat.ts";
-const embeddedPostgresSupport = await getEmbeddedPostgresTestSupport();
-const describeEmbeddedPostgres = embeddedPostgresSupport.supported ? describe : describe.skip;
+import { instanceSettingsService } from "../services/instance-settings.ts";
 
 if (!embeddedPostgresSupport.supported) {
   console.warn(
@@ -49,7 +51,23 @@ function spawnAliveProcess() {
   });
 }
 
-describeEmbeddedPostgres("heartbeat orphaned process recovery", () => {
+async function waitForRunFinalStatus(
+  heartbeat: ReturnType<typeof heartbeatService>,
+  runId: string,
+  timeoutMs = 10_000,
+) {
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < timeoutMs) {
+    const run = await heartbeat.getRun(runId);
+    if (run && run.status !== "queued" && run.status !== "running") {
+      return run;
+    }
+    await delay(50);
+  }
+  throw new Error(`Timed out waiting for run ${runId} to finish`);
+}
+
+describe("heartbeat orphaned process recovery", () => {
   let db!: ReturnType<typeof createDb>;
   let tempDb: Awaited<ReturnType<typeof startEmbeddedPostgresTestDatabase>> | null = null;
   const childProcesses = new Set<ChildProcess>();
@@ -66,12 +84,12 @@ describeEmbeddedPostgres("heartbeat orphaned process recovery", () => {
       child.kill("SIGKILL");
     }
     childProcesses.clear();
+    await instanceSettingsService(db).updateExperimental({ enableIsolatedWorkspaces: false });
     await db.delete(issues);
     await db.delete(heartbeatRunEvents);
     await db.delete(heartbeatRuns);
+    await db.delete(agentRuntimeState);
     await db.delete(agentWakeupRequests);
-    await db.delete(agents);
-    await db.delete(companies);
   });
 
   afterAll(async () => {
@@ -92,13 +110,16 @@ describeEmbeddedPostgres("heartbeat orphaned process recovery", () => {
     includeIssue?: boolean;
     runErrorCode?: string | null;
     runError?: string | null;
+    startedAt?: Date;
+    updatedAt?: Date;
   }) {
     const companyId = randomUUID();
     const agentId = randomUUID();
     const runId = randomUUID();
     const wakeupRequestId = randomUUID();
     const issueId = randomUUID();
-    const now = new Date("2026-03-19T00:00:00.000Z");
+    const now = input?.startedAt ?? new Date("2026-03-19T00:00:00.000Z");
+    const updatedAt = input?.updatedAt ?? now;
     const issuePrefix = `T${companyId.replace(/-/g, "").slice(0, 6).toUpperCase()}`;
 
     await db.insert(companies).values({
@@ -147,7 +168,7 @@ describeEmbeddedPostgres("heartbeat orphaned process recovery", () => {
       errorCode: input?.runErrorCode ?? null,
       error: input?.runError ?? null,
       startedAt: now,
-      updatedAt: new Date("2026-03-19T00:00:00.000Z"),
+      updatedAt,
     });
 
     if (input?.includeIssue !== false) {
@@ -168,7 +189,7 @@ describeEmbeddedPostgres("heartbeat orphaned process recovery", () => {
     return { companyId, agentId, runId, wakeupRequestId, issueId };
   }
 
-  it("keeps a local run active when the recorded pid is still alive", async () => {
+  it("startup reap terminates a still-alive local pid and fails the run to unblock the queue", async () => {
     const child = spawnAliveProcess();
     childProcesses.add(child);
     expect(child.pid).toBeTypeOf("number");
@@ -180,26 +201,72 @@ describeEmbeddedPostgres("heartbeat orphaned process recovery", () => {
     const heartbeat = heartbeatService(db);
 
     const result = await heartbeat.reapOrphanedRuns();
-    expect(result.reaped).toBe(0);
+    expect(result.reaped).toBe(1);
+    expect(result.runIds).toEqual([runId]);
 
     const run = await heartbeat.getRun(runId);
-    expect(run?.status).toBe("running");
-    expect(run?.errorCode).toBe("process_detached");
+    expect(run?.status).toBe("failed");
+    expect(run?.errorCode).toBe("process_lost");
     expect(run?.error).toContain(String(child.pid));
+    expect(run?.error).toContain("terminated");
+    expect(run?.resultJson).toEqual(
+      expect.objectContaining({
+        processLoss: expect.objectContaining({
+          reason: "orphan_terminated",
+          processPid: child.pid,
+        }),
+      }),
+    );
 
     const wakeup = await db
       .select()
       .from(agentWakeupRequests)
       .where(eq(agentWakeupRequests.id, wakeupRequestId))
       .then((rows) => rows[0] ?? null);
-    expect(wakeup?.status).toBe("claimed");
+    expect(wakeup?.status).toBe("failed");
+  });
+
+  it("queues a retry on server_restart reap when process pid was never recorded", async () => {
+    const past = new Date(Date.now() - 120_000);
+    const { agentId, runId, issueId } = await seedRunFixture({
+      processPid: null,
+      startedAt: past,
+      updatedAt: past,
+    });
+    const heartbeat = heartbeatService(db);
+
+    const result = await heartbeat.reapOrphanedRuns();
+    expect(result.reaped).toBe(1);
+
+    const runs = await db
+      .select()
+      .from(heartbeatRuns)
+      .where(eq(heartbeatRuns.agentId, agentId));
+    expect(runs).toHaveLength(2);
+    const failedRun = runs.find((row) => row.id === runId);
+    const retryRun = runs.find((row) => row.id !== runId);
+    expect(failedRun?.status).toBe("failed");
+    expect(failedRun?.errorCode).toBe("process_lost");
+    expect(retryRun?.status).toBe("queued");
+    expect(retryRun?.retryOfRunId).toBe(runId);
+    expect(retryRun?.processLossRetryCount).toBe(1);
+
+    const issue = await db
+      .select()
+      .from(issues)
+      .where(eq(issues.id, issueId))
+      .then((rows) => rows[0] ?? null);
+    expect(issue?.executionRunId).toBe(retryRun?.id ?? null);
   });
 
   it("queues exactly one retry when the recorded local pid is dead", async () => {
+    const heartbeat = heartbeatService(db);
+    const now = new Date();
     const { agentId, runId, issueId } = await seedRunFixture({
       processPid: 999_999_999,
+      startedAt: now,
+      updatedAt: now,
     });
-    const heartbeat = heartbeatService(db);
 
     const result = await heartbeat.reapOrphanedRuns();
     expect(result.reaped).toBe(1);
@@ -215,6 +282,14 @@ describeEmbeddedPostgres("heartbeat orphaned process recovery", () => {
     const retryRun = runs.find((row) => row.id !== runId);
     expect(failedRun?.status).toBe("failed");
     expect(failedRun?.errorCode).toBe("process_lost");
+    expect(failedRun?.resultJson).toEqual(
+      expect.objectContaining({
+        processLoss: expect.objectContaining({
+          reason: "child_process_missing",
+          processPid: 999_999_999,
+        }),
+      }),
+    );
     expect(retryRun?.status).toBe("queued");
     expect(retryRun?.retryOfRunId).toBe(runId);
     expect(retryRun?.processLossRetryCount).toBe(1);
@@ -229,11 +304,14 @@ describeEmbeddedPostgres("heartbeat orphaned process recovery", () => {
   });
 
   it("does not queue a second retry after the first process-loss retry was already used", async () => {
+    const heartbeat = heartbeatService(db);
+    const now = new Date();
     const { agentId, runId, issueId } = await seedRunFixture({
       processPid: 999_999_999,
       processLossRetryCount: 1,
+      startedAt: now,
+      updatedAt: now,
     });
-    const heartbeat = heartbeatService(db);
 
     const result = await heartbeat.reapOrphanedRuns();
     expect(result.reaped).toBe(1);
@@ -255,6 +333,43 @@ describeEmbeddedPostgres("heartbeat orphaned process recovery", () => {
     expect(issue?.checkoutRunId).toBe(runId);
   });
 
+  it("records a server_restart diagnostic when the server reaps pre-restart runs", async () => {
+    const { runId } = await seedRunFixture({
+      processPid: 999_999_999,
+    });
+    const heartbeat = heartbeatService(db);
+
+    const result = await heartbeat.reapOrphanedRuns();
+    expect(result.reaped).toBe(1);
+
+    const failedRun = await heartbeat.getRun(runId);
+    expect(failedRun?.status).toBe("failed");
+    expect(failedRun?.errorCode).toBe("process_lost");
+    expect(failedRun?.error).toContain("after Paperclip server restart");
+    expect(failedRun?.resultJson).toEqual(
+      expect.objectContaining({
+        processLoss: expect.objectContaining({
+          reason: "server_restart",
+          processPid: 999_999_999,
+          serverStartedAt: expect.any(String),
+          runStartedAt: expect.any(String),
+        }),
+      }),
+    );
+
+    const events = await db
+      .select()
+      .from(heartbeatRunEvents)
+      .where(eq(heartbeatRunEvents.runId, runId));
+    const processLostEvent = events.find((event) => event.message?.includes("server restart"));
+    expect(processLostEvent?.payload).toEqual(
+      expect.objectContaining({
+        reason: "server_restart",
+        processPid: 999_999_999,
+      }),
+    );
+  });
+
   it("clears the detached warning when the run reports activity again", async () => {
     const { runId } = await seedRunFixture({
       includeIssue: false,
@@ -272,17 +387,138 @@ describeEmbeddedPostgres("heartbeat orphaned process recovery", () => {
     expect(run?.error).toBeNull();
   });
 
-  it("tracks the first heartbeat with the agent role instead of adapter type", async () => {
-    const { runId } = await seedRunFixture({
-      agentStatus: "running",
-      includeIssue: false,
+  it.each(["assignment", "on_demand"] as const)(
+    "coalesces %s wakeups into the active checkout run when executionRunId is missing",
+    async (source) => {
+      const { companyId, agentId, runId, issueId } = await seedRunFixture();
+      await db
+        .update(agents)
+        .set({ status: "running" })
+        .where(eq(agents.id, agentId));
+      await db
+        .update(issues)
+        .set({
+          executionRunId: null,
+          executionAgentNameKey: null,
+          executionLockedAt: null,
+        })
+        .where(eq(issues.id, issueId));
+
+      const heartbeat = heartbeatService(db);
+      const mergedRun = await heartbeat.wakeup(agentId, {
+        source,
+        triggerDetail: source === "assignment" ? "system" : "manual",
+        reason: source === "assignment" ? "issue_assigned" : "manual_resume",
+        contextSnapshot: { issueId },
+      });
+
+      expect(mergedRun?.id).toBe(runId);
+
+      const issue = await db
+        .select()
+        .from(issues)
+        .where(eq(issues.id, issueId))
+        .then((rows) => rows[0] ?? null);
+      expect(issue?.checkoutRunId).toBe(runId);
+      expect(issue?.executionRunId).toBe(runId);
+
+      const wakeups = await db
+        .select()
+        .from(agentWakeupRequests)
+        .where(eq(agentWakeupRequests.companyId, companyId));
+      expect(
+        wakeups.some(
+          (row) =>
+            row.status === "coalesced" &&
+            row.reason === "issue_execution_same_name" &&
+            row.runId === runId,
+        ),
+      ).toBe(true);
+    },
+  );
+
+  it("fails early when a git_worktree policy resolves to a non-git project workspace", async () => {
+    const companyId = randomUUID();
+    const agentId = randomUUID();
+    const projectId = randomUUID();
+    const issueId = randomUUID();
+    const issuePrefix = `T${companyId.replace(/-/g, "").slice(0, 6).toUpperCase()}`;
+
+    await instanceSettingsService(db).updateExperimental({ enableIsolatedWorkspaces: true });
+
+    await db.insert(companies).values({
+      id: companyId,
+      name: "Paperclip",
+      issuePrefix,
+      requireBoardApprovalForNewAgents: false,
     });
+
+    await db.insert(agents).values({
+      id: agentId,
+      companyId,
+      name: "WorktreeAgent",
+      role: "engineer",
+      status: "active",
+      adapterType: "process",
+      adapterConfig: {
+        command: "/usr/bin/true",
+      },
+      runtimeConfig: {},
+      permissions: {},
+    });
+
+    await db.insert(projects).values({
+      id: projectId,
+      companyId,
+      name: "Runtime Policy",
+      status: "in_progress",
+      executionWorkspacePolicy: {
+        enabled: true,
+        defaultMode: "isolated_workspace",
+        workspaceStrategy: {
+          type: "git_worktree",
+        },
+      },
+    });
+
+    await db.insert(issues).values({
+      id: issueId,
+      companyId,
+      projectId,
+      title: "Issue requiring worktree",
+      status: "todo",
+      priority: "medium",
+      assigneeAgentId: agentId,
+      issueNumber: 1,
+      identifier: `${issuePrefix}-1`,
+    });
+
     const heartbeat = heartbeatService(db);
-
-    await heartbeat.cancelRun(runId);
-
-    expect(mockTrackAgentFirstHeartbeat).toHaveBeenCalledWith(mockTelemetryClient, {
-      agentRole: "engineer",
+    const queuedRun = await heartbeat.wakeup(agentId, {
+      source: "assignment",
+      triggerDetail: "system",
+      reason: "issue_assigned",
+      contextSnapshot: { issueId },
     });
+
+    const runId = queuedRun?.id;
+    expect(runId).toBeDefined();
+    const run = await waitForRunFinalStatus(heartbeat, runId!);
+    expect(run.status).toBe("failed");
+    expect(run.errorCode).toBe("execution_workspace_policy_violation");
+    expect(run.error).toContain("requires a git checkout");
+    expect(run.resultJson).toEqual(
+      expect.objectContaining({
+        stage: "setup",
+        errorCode: "execution_workspace_policy_violation",
+      }),
+    );
+
+    const issue = await db
+      .select()
+      .from(issues)
+      .where(eq(issues.id, issueId))
+      .then((rows) => rows[0] ?? null);
+    expect(issue?.executionRunId).toBeNull();
   });
 });

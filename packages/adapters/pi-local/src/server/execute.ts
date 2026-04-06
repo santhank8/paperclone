@@ -10,7 +10,8 @@ import {
   parseObject,
   buildPaperclipEnv,
   joinPromptSections,
-  buildInvocationEnvForLogs,
+  expandShellStyleAgentHome,
+  redactEnvForLogs,
   ensureAbsoluteDirectory,
   ensureCommandResolvable,
   ensurePaperclipSkillSymlink,
@@ -23,6 +24,7 @@ import {
   renderPaperclipWakePrompt,
   stringifyPaperclipWakePayload,
   runChildProcess,
+  resolveHeartbeatChildTimeoutSec,
 } from "@paperclipai/adapter-utils/server-utils";
 import { isPiUnknownSessionError, parsePiJsonl } from "./parse.js";
 import { ensurePiModelConfiguredAndAvailable } from "./models.js";
@@ -39,6 +41,27 @@ function firstNonEmptyLine(text: string): string {
       .map((line) => line.trim())
       .find(Boolean) ?? ""
   );
+}
+
+function resolvePiErrorCode(input: {
+  timedOut: boolean;
+  exitCode: number | null;
+  stderrLine: string;
+  parsedErrorsJoined: string;
+}): string | null {
+  if (input.timedOut) return "timeout";
+  const hasExitFailure = (input.exitCode ?? 0) !== 0;
+  const hasParsedErrors = input.parsedErrorsJoined.trim().length > 0;
+  if (!hasExitFailure && !hasParsedErrors) return null;
+  const blob = `${input.stderrLine}\n${input.parsedErrorsJoined}`.toLowerCase();
+  if (
+    /\b(login|sign in|authenticate|authentication|unauthorized|not authenticated)\b/.test(blob) ||
+    /\b401\b/.test(blob) ||
+    /invalid_?api_?key|incorrect api key|api key.*invalid|missing api key/.test(blob)
+  ) {
+    return "pi_auth_required";
+  }
+  return "pi_exit_nonzero";
 }
 
 function parseModelProvider(model: string | null): string | null {
@@ -136,7 +159,8 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
       )
     : [];
   const configuredCwd = asString(config.cwd, "");
-  const useConfiguredInsteadOfAgentHome = workspaceSource === "agent_home" && configuredCwd.length > 0;
+  const useConfiguredInsteadOfAgentHome =
+    (workspaceSource === "agent_home" || workspaceSource === "adapter_config") && configuredCwd.length > 0;
   const effectiveWorkspaceCwd = useConfiguredInsteadOfAgentHome ? "" : workspaceCwd;
   const cwd = effectiveWorkspaceCwd || configuredCwd || process.cwd();
   await ensureAbsoluteDirectory(cwd, { createIfMissing: true });
@@ -224,7 +248,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     env: runtimeEnv,
   });
 
-  const timeoutSec = asNumber(config.timeoutSec, 0);
+  const timeoutSec = resolveHeartbeatChildTimeoutSec(config.timeoutSec);
   const graceSec = asNumber(config.graceSec, 20);
   const extraArgs = (() => {
     const fromExtraArgs = asStringArray(config.extraArgs);
@@ -301,7 +325,11 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     run: { id: runId, source: "on_demand" },
     context,
   };
-  const renderedSystemPromptExtension = renderTemplate(systemPromptExtension, templateData);
+  const renderedSystemPromptExtension = expandShellStyleAgentHome(
+    renderTemplate(systemPromptExtension, templateData),
+    agentHome || null,
+  );
+  const renderedHeartbeatPrompt = renderTemplate(promptTemplate, templateData);
   const renderedBootstrapPrompt =
     !canResumeSession && bootstrapPromptTemplate.trim().length > 0
       ? renderTemplate(bootstrapPromptTemplate, templateData).trim()
@@ -310,12 +338,10 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
   const shouldUseResumeDeltaPrompt = canResumeSession && wakePrompt.length > 0;
   const renderedHeartbeatPrompt = shouldUseResumeDeltaPrompt ? "" : renderTemplate(promptTemplate, templateData);
   const sessionHandoffNote = asString(context.paperclipSessionHandoffMarkdown, "").trim();
-  const userPrompt = joinPromptSections([
-    renderedBootstrapPrompt,
-    wakePrompt,
-    sessionHandoffNote,
-    renderedHeartbeatPrompt,
-  ]);
+  const userPrompt = expandShellStyleAgentHome(
+    joinPromptSections([renderedBootstrapPrompt, sessionHandoffNote, renderedHeartbeatPrompt]),
+    agentHome || null,
+  );
   const promptMetrics = {
     systemPromptChars: renderedSystemPromptExtension.length,
     promptChars: userPrompt.length,
@@ -440,6 +466,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
         signal: attempt.proc.signal,
         timedOut: true,
         errorMessage: `Timed out after ${timeoutSec}s`,
+        errorCode: "timeout",
         clearSession: clearSessionOnMissingSession,
       };
     }
@@ -452,12 +479,20 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     const stderrLine = firstNonEmptyLine(attempt.proc.stderr);
     const rawExitCode = attempt.proc.exitCode;
     const fallbackErrorMessage = stderrLine || `Pi exited with code ${rawExitCode ?? -1}`;
+    const parsedErrorsJoined = attempt.parsed.errors.join("\n");
+    const errorCode = resolvePiErrorCode({
+      timedOut: false,
+      exitCode: rawExitCode,
+      stderrLine,
+      parsedErrorsJoined,
+    });
 
     return {
       exitCode: rawExitCode,
       signal: attempt.proc.signal,
       timedOut: false,
       errorMessage: (rawExitCode ?? 0) === 0 ? null : fallbackErrorMessage,
+      errorCode,
       usage: {
         inputTokens: attempt.parsed.usage.inputTokens,
         outputTokens: attempt.parsed.usage.outputTokens,

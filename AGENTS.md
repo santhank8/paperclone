@@ -40,6 +40,14 @@ pnpm install
 pnpm dev
 ```
 
+`pnpm dev` uses **`tsx watch`** on the server. If the process dies with logs like `Previous process hasn't exited yet. Force killing`, or embedded Postgres ends up in `shutting down`, prefer a **single long-lived** server:
+
+```sh
+pnpm dev:once
+```
+
+Same URL as below; you restart manually after code changes (or use the board “Restart required” / guarded auto-restart from Instance Settings when enabled).
+
 This starts:
 
 - API: `http://localhost:3100`
@@ -51,6 +59,10 @@ Quick checks:
 curl http://localhost:3100/api/health
 curl http://localhost:3100/api/companies
 ```
+
+Operator tooling: `pnpm audit:heartbeat-runs` (with `PAPERCLIP_COMPANY_ID`) samples recent heartbeat runs for triage; see `doc/plans/2026-04-03-heartbeat-runs-sampling-and-triage.md`.
+
+On macOS, Paperclip can run as a user **LaunchAgent** (background, no terminal): see `docs/guides/board-operator/macos-background-service.md`.
 
 Reset local dev DB:
 
@@ -81,7 +93,10 @@ If you change schema/API behavior, update all impacted layers:
 4. Do not replace strategic docs wholesale unless asked.
 Prefer additive updates. Keep `doc/SPEC.md` and `doc/SPEC-implementation.md` aligned.
 
-5. Keep plan docs dated and centralized.
+5. Document every code change in the right place before commit.
+Before finishing a code change, review the existing documentation for that area and update the most specific relevant file. Use `docs/` for user/operator-facing behavior, `doc/` for internal engineering/reference material, package-level `CHANGELOG.md` files for shipped package changes, and repo/workspace `AGENTS.md` files for contributor workflow rules. Do not leave code-only changes undocumented or hide them in a generic report when a stable doc already exists.
+
+6. Keep plan docs dated and centralized.
 New plan documents belong in `doc/plans/` and should use `YYYY-MM-DD-slug.md` filenames.
 
 ## 6. Database Change Workflow
@@ -145,45 +160,4 @@ A change is done when all are true:
 1. Behavior matches `doc/SPEC-implementation.md`
 2. Typecheck, tests, and build pass
 3. Contracts are synced across db/shared/server/ui
-4. Docs updated when behavior or commands change
-
-## 11. Fork-Specific: HenkDz/paperclip
-
-This is a fork of `paperclipai/paperclip` with QoL patches and an **external-only** Hermes adapter story on branch `feat/externalize-hermes-adapter` ([tree](https://github.com/HenkDz/paperclip/tree/feat/externalize-hermes-adapter)).
-
-### Branch Strategy
-
-- `feat/externalize-hermes-adapter` → core has **no** `hermes-paperclip-adapter` dependency and **no** built-in `hermes_local` registration. Install Hermes via the Adapter Plugin manager (`@henkey/hermes-paperclip-adapter` or a `file:` path).
-- Older fork branches may still document built-in Hermes; treat this file as authoritative for the externalize branch.
-
-### Hermes (plugin only)
-
-- Register through **Board → Adapter manager** (same as Droid). Type remains `hermes_local` once the package is loaded.
-- UI uses generic **config-schema** + **ui-parser.js** from the package — no Hermes imports in `server/` or `ui/` source.
-- Optional: `file:` entry in `~/.paperclip/adapter-plugins.json` for local dev of the adapter repo.
-
-### Local Dev
-
-- Fork runs on port 3101+ (auto-detects if 3100 is taken by upstream instance)
-- `npx vite build` hangs on NTFS — use `node node_modules/vite/bin/vite.js build` instead
-- Server startup from NTFS takes 30-60s — don't assume failure immediately
-- Kill ALL paperclip processes before starting: `pkill -f "paperclip"; pkill -f "tsx.*index.ts"`
-- Vite cache survives `rm -rf dist` — delete both: `rm -rf ui/dist ui/node_modules/.vite`
-
-### Fork QoL Patches (not in upstream)
-
-These are local modifications in the fork's UI. If re-copying source, these must be re-applied:
-
-1. **stderr_group** — amber accordion for MCP init noise in `RunTranscriptView.tsx`
-2. **tool_group** — accordion for consecutive non-terminal tools (write, read, search, browser)
-3. **Dashboard excerpt** — `LatestRunCard` strips markdown, shows first 3 lines/280 chars
-
-### Plugin System
-
-PR #2218 (`feat/external-adapter-phase1`) adds external adapter support. See root `AGENTS.md` for full details.
-
-- Adapters can be loaded as external plugins via `~/.paperclip/adapter-plugins.json`
-- The plugin-loader should have ZERO hardcoded adapter imports — pure dynamic loading
-- `createServerAdapter()` must include ALL optional fields (especially `detectModel`)
-- Built-in UI adapters can shadow external plugin parsers — remove built-in when fully externalizing
-- Reference external adapters: Hermes (`@henkey/hermes-paperclip-adapter` or `file:`) and Droid (npm)
+4. Relevant docs/changelogs/AGENTS files updated in the appropriate location for every code change

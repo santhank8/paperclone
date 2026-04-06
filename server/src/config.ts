@@ -41,6 +41,10 @@ maybeRepairLegacyWorktreeConfigAndEnvFiles();
 
 type DatabaseMode = "embedded-postgres" | "postgres";
 
+function parseStrictListenPortEnv(): boolean {
+  return process.env.PAPERCLIP_STRICT_LISTEN_PORT === "true";
+}
+
 export interface Config {
   deploymentMode: DeploymentMode;
   deploymentExposure: DeploymentExposure;
@@ -75,7 +79,8 @@ export interface Config {
   heartbeatSchedulerEnabled: boolean;
   heartbeatSchedulerIntervalMs: number;
   companyDeletionEnabled: boolean;
-  telemetryEnabled: boolean;
+  /** When true, refuse to start if config.port is not free (no silent port drift). */
+  strictListenPort: boolean;
 }
 
 export function loadConfig(): Config {
@@ -234,7 +239,10 @@ export function loadConfig(): Config {
     authPublicBaseUrl,
     authDisableSignUp,
     databaseMode: fileDatabaseMode,
-    databaseUrl: process.env.DATABASE_URL ?? fileDbUrl,
+    // Embedded mode must not inherit repo-root `.env` DATABASE_URL (common in monorepos); that URL is for
+    // external Postgres and would skip embedded startup. Use `database.mode: "postgres"` for external DB.
+    databaseUrl:
+      fileDatabaseMode === "postgres" ? process.env.DATABASE_URL ?? fileDbUrl : undefined,
     embeddedPostgresDataDir: resolveHomeAwarePath(
       fileConfig?.database.embeddedPostgresDataDir ?? resolveDefaultEmbeddedPostgresDir(),
     ),
@@ -268,6 +276,6 @@ export function loadConfig(): Config {
     heartbeatSchedulerEnabled: process.env.HEARTBEAT_SCHEDULER_ENABLED !== "false",
     heartbeatSchedulerIntervalMs: Math.max(10000, Number(process.env.HEARTBEAT_SCHEDULER_INTERVAL_MS) || 30000),
     companyDeletionEnabled,
-    telemetryEnabled: fileConfig?.telemetry?.enabled ?? true,
+    strictListenPort: parseStrictListenPortEnv(),
   };
 }

@@ -38,21 +38,34 @@ export interface HeartbeatRun {
   retryOfRunId: string | null;
   processLossRetryCount: number;
   contextSnapshot: Record<string, unknown> | null;
+  operationalEffect?: HeartbeatRunOperationalEffect | null;
   createdAt: Date;
   updatedAt: Date;
 }
 
-export interface AgentWakeupSkipped {
-  status: "skipped";
-  reason: string;
-  message: string | null;
-  issueId: string | null;
-  executionRunId: string | null;
-  executionAgentId: string | null;
-  executionAgentName: string | null;
+export interface HeartbeatRunOperationalEffectCounts {
+  comments: number;
+  statusChanges: number;
+  handoffs: number;
+  assignmentChanges: number;
+  checkouts: number;
+  documents: number;
+  workProducts: number;
+  approvals: number;
+  attachments: number;
+  issueCreations: number;
+  releases: number;
+  otherMutations: number;
 }
 
-export type AgentWakeupResponse = HeartbeatRun | AgentWakeupSkipped;
+export interface HeartbeatRunOperationalEffect {
+  producedEffect: boolean;
+  activityCount: number;
+  actions: string[];
+  signals: string[];
+  summary: string | null;
+  counts: HeartbeatRunOperationalEffectCounts;
+}
 
 export interface HeartbeatRunEvent {
   id: number;

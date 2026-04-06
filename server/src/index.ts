@@ -24,17 +24,17 @@ import {
   instanceUserRoles,
 } from "@paperclipai/db";
 import detectPort from "detect-port";
+import { resolveListenPort } from "./resolve-listen-port.js";
 import { createApp } from "./app.js";
 import { loadConfig } from "./config.js";
 import { logger } from "./middleware/logger.js";
 import { setupLiveEventsWebSocketServer } from "./realtime/live-events-ws.js";
 import {
-  feedbackService,
+  agentHealthMonitorService,
   heartbeatService,
   reconcilePersistedRuntimeServicesOnStartup,
   routineService,
 } from "./services/index.js";
-import { createFeedbackTraceShareClientFromConfig } from "./services/feedback-share-client.js";
 import { createStorageServiceFromConfig } from "./storage/index.js";
 import { printStartupBanner } from "./startup-banner.js";
 import { getBoardClaimWarningUrl, initializeBoardClaimChallenge } from "./board-claim.js";
@@ -508,20 +508,7 @@ export async function startServer(): Promise<StartedServer> {
     authReady = true;
   }
   
-  const listenPort = await detectPort(config.port);
-  if (listenPort !== config.port) {
-    config.port = listenPort;
-  }
-  if (resolvedEmbeddedPostgresPort !== null && resolvedEmbeddedPostgresPort !== config.embeddedPostgresPort) {
-    config.embeddedPostgresPort = resolvedEmbeddedPostgresPort;
-  }
-  if (config.authBaseUrlMode === "explicit" && config.authPublicBaseUrl) {
-    config.authPublicBaseUrl = rewriteLocalUrlPort(config.authPublicBaseUrl, listenPort);
-  }
-  maybePersistWorktreeRuntimePorts({
-    serverPort: listenPort,
-    databasePort: resolvedEmbeddedPostgresPort,
-  });
+  const listenPort = await resolveListenPort(config.port, config.strictListenPort);
   const uiMode = config.uiDevMiddleware ? "vite-dev" : config.serveUi ? "static" : "none";
   const storageService = createStorageServiceFromConfig(config);
   const feedback = feedbackService(db as any, {
@@ -577,6 +564,7 @@ export async function startServer(): Promise<StartedServer> {
   if (config.heartbeatSchedulerEnabled) {
     const heartbeat = heartbeatService(db as any);
     const routines = routineService(db as any);
+    const agentHealthMonitor = agentHealthMonitorService(db as any);
   
     // Reap orphaned running runs at startup while in-memory execution state is empty,
     // then resume any persisted queued runs that were waiting on the previous process.
@@ -607,6 +595,17 @@ export async function startServer(): Promise<StartedServer> {
         })
         .catch((err) => {
           logger.error({ err }, "routine scheduler tick failed");
+        });
+
+      void agentHealthMonitor
+        .tick(new Date())
+        .then((result) => {
+          if (result.created > 0 || result.updated > 0 || result.resolved > 0) {
+            logger.info({ ...result }, "agent health monitor reconciled alerts");
+          }
+        })
+        .catch((err) => {
+          logger.error({ err }, "agent health monitor tick failed");
         });
   
       // Periodically reap orphaned runs (5-min staleness threshold) and make sure

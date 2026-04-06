@@ -27,6 +27,7 @@ import {
   companyMemberships,
 } from "@paperclipai/db";
 import { notFound, unprocessable } from "../errors.js";
+import { agentService } from "./agents.js";
 
 export function companyService(db: Db) {
   const ISSUE_PREFIX_FALLBACK = "CMP";
@@ -46,6 +47,7 @@ export function companyService(db: Db) {
     feedbackDataSharingConsentByUserId: companies.feedbackDataSharingConsentByUserId,
     feedbackDataSharingTermsVersion: companies.feedbackDataSharingTermsVersion,
     brandColor: companies.brandColor,
+    technicalReviewerReference: companies.technicalReviewerReference,
     logoAssetId: companyLogos.assetId,
     createdAt: companies.createdAt,
     updatedAt: companies.updatedAt,
@@ -197,6 +199,25 @@ export function companyService(db: Db) {
           if (!nextLogoAsset) throw notFound("Logo asset not found");
           if (nextLogoAsset.companyId !== existing.id) {
             throw unprocessable("Logo asset must belong to the same company");
+          }
+        }
+
+        // `technical_reviewer_reference` is plain text (no FK); validate like logoAssetId so
+        // PATCH cannot store dangling or cross-company agent references.
+        if (companyPatch.technicalReviewerReference !== undefined) {
+          const ref = companyPatch.technicalReviewerReference;
+          if (ref !== null && ref.trim().length > 0) {
+            const resolved = await agentService(db).resolveByReference(existing.id, ref);
+            if (resolved.ambiguous) {
+              throw unprocessable(
+                "Technical reviewer reference matches more than one active agent in this company",
+              );
+            }
+            if (!resolved.agent) {
+              throw unprocessable(
+                "Technical reviewer reference does not match any active agent in this company",
+              );
+            }
           }
         }
 

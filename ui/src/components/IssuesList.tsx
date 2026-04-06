@@ -8,12 +8,14 @@ import { authApi } from "../api/auth";
 import { queryKeys } from "../lib/queryKeys";
 import { formatAssigneeUserLabel } from "../lib/assignees";
 import { groupBy } from "../lib/groupBy";
+import { issueFilterGroups, issueStatusLabel, issueStatusOrder } from "../lib/issue-status";
 import { formatDate, cn } from "../lib/utils";
 import { timeAgo } from "../lib/timeAgo";
 import { StatusIcon } from "./StatusIcon";
 import { PriorityIcon } from "./PriorityIcon";
 import { EmptyState } from "./EmptyState";
 import { Identity } from "./Identity";
+import { IssueCurrentOwnerBadge } from "./IssueCurrentOwnerBadge";
 import { IssueRow } from "./IssueRow";
 import { PageSkeleton } from "./PageSkeleton";
 import { Button } from "@/components/ui/button";
@@ -27,11 +29,10 @@ import type { Issue } from "@paperclipai/shared";
 
 /* ── Helpers ── */
 
-const statusOrder = ["in_progress", "todo", "backlog", "in_review", "blocked", "done", "cancelled"];
 const priorityOrder = ["critical", "high", "medium", "low"];
 
-function statusLabel(status: string): string {
-  return status.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+function titleizeToken(value: string): string {
+  return value.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 /* ── View state ── */
@@ -64,9 +65,7 @@ const defaultViewState: IssueViewState = {
 
 const quickFilterPresets = [
   { label: "All", statuses: [] as string[] },
-  { label: "Active", statuses: ["todo", "in_progress", "in_review", "blocked"] },
-  { label: "Backlog", statuses: ["backlog"] },
-  { label: "Done", statuses: ["done", "cancelled"] },
+  ...issueFilterGroups.map((group) => ({ label: group.label, statuses: [...group.statuses] })),
 ];
 function getViewState(key: string): IssueViewState {
   try {
@@ -116,7 +115,7 @@ function sortIssues(issues: Issue[], state: IssueViewState): Issue[] {
   sorted.sort((a, b) => {
     switch (state.sortField) {
       case "status":
-        return dir * (statusOrder.indexOf(a.status) - statusOrder.indexOf(b.status));
+        return dir * (issueStatusOrder.indexOf(a.status as typeof issueStatusOrder[number]) - issueStatusOrder.indexOf(b.status as typeof issueStatusOrder[number]));
       case "priority":
         return dir * (priorityOrder.indexOf(a.priority) - priorityOrder.indexOf(b.priority));
       case "title":
@@ -225,7 +224,9 @@ export function IssuesList({
   const normalizedIssueSearch = deferredIssueSearch.trim().toLowerCase();
 
   useEffect(() => {
-    setIssueSearch(initialSearch ?? "");
+    const next = initialSearch ?? "";
+    setIssueSearch(next);
+    setDebouncedIssueSearch(next);
   }, [initialSearch]);
 
   // Reload view state from localStorage when company changes (scopedKey changes).
@@ -273,15 +274,15 @@ export function IssuesList({
     }
     if (viewState.groupBy === "status") {
       const groups = groupBy(filtered, (i) => i.status);
-      return statusOrder
+      return issueStatusOrder
         .filter((s) => groups[s]?.length)
-        .map((s) => ({ key: s, label: statusLabel(s), items: groups[s]! }));
+        .map((s) => ({ key: s, label: issueStatusLabel(s), items: groups[s]! }));
     }
     if (viewState.groupBy === "priority") {
       const groups = groupBy(filtered, (i) => i.priority);
       return priorityOrder
         .filter((p) => groups[p]?.length)
-        .map((p) => ({ key: p, label: statusLabel(p), items: groups[p]! }));
+        .map((p) => ({ key: p, label: titleizeToken(p), items: groups[p]! }));
     }
     // assignee
     const groups = groupBy(
@@ -674,14 +675,14 @@ export function IssuesList({
                   <div className="space-y-1">
                     <span className="text-xs text-muted-foreground">Status</span>
                     <div className="space-y-0.5">
-                      {statusOrder.map((s) => (
+                      {issueStatusOrder.map((s) => (
                         <label key={s} className="flex items-center gap-2 px-2 py-1 rounded-sm hover:bg-accent/50 cursor-pointer">
                           <Checkbox
                             checked={viewState.statuses.includes(s)}
                             onCheckedChange={() => updateView({ statuses: toggleInArray(viewState.statuses, s) })}
                           />
                           <StatusIcon status={s} />
-                          <span className="text-sm">{statusLabel(s)}</span>
+                          <span className="text-sm">{issueStatusLabel(s)}</span>
                         </label>
                       ))}
                     </div>
@@ -700,7 +701,7 @@ export function IssuesList({
                               onCheckedChange={() => updateView({ priorities: toggleInArray(viewState.priorities, p) })}
                             />
                             <PriorityIcon priority={p} />
-                            <span className="text-sm">{statusLabel(p)}</span>
+                            <span className="text-sm">{titleizeToken(p)}</span>
                           </label>
                         ))}
                       </div>
@@ -870,7 +871,237 @@ export function IssuesList({
         />
       )}
 
-      {listContent}
+      {viewState.viewMode === "board" ? (
+        <KanbanBoard
+          issues={filtered}
+          agents={agents}
+          liveIssueIds={liveIssueIds}
+          onUpdateIssue={onUpdateIssue}
+        />
+      ) : (
+        groupedContent.map((group) => (
+          <Collapsible
+            key={group.key}
+            open={!viewState.collapsedGroups.includes(group.key)}
+            onOpenChange={(open) => {
+              updateView({
+                collapsedGroups: open
+                  ? viewState.collapsedGroups.filter((k) => k !== group.key)
+                  : [...viewState.collapsedGroups, group.key],
+              });
+            }}
+          >
+            {group.label && (
+              <div className="flex items-center py-1.5 pl-1 pr-3">
+                <CollapsibleTrigger className="flex items-center gap-1.5">
+                  <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform [[data-state=open]>&]:rotate-90" />
+                  <span className="text-sm font-semibold uppercase tracking-wide">
+                    {group.label}
+                  </span>
+                </CollapsibleTrigger>
+                <Button
+                  variant="ghost"
+                  size="icon-xs"
+                  className="ml-auto text-muted-foreground"
+                  onClick={() => openNewIssue(newIssueDefaults(group.key))}
+                >
+                  <Plus className="h-3 w-3" />
+                </Button>
+              </div>
+            )}
+            <CollapsibleContent>
+              {group.items.map((issue) => (
+                <IssueRow
+                  key={issue.id}
+                  issue={issue}
+                  issueLinkState={issueLinkState}
+                  desktopLeadingSpacer
+                  mobileLeading={(
+                    <span
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                      }}
+                    >
+                      <StatusIcon
+                        status={issue.status}
+                        onChange={(s) => onUpdateIssue(issue.id, { status: s })}
+                      />
+                    </span>
+                  )}
+                  desktopMetaLeading={(
+                    <>
+                      <span
+                        className="hidden shrink-0 sm:inline-flex"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                        }}
+                      >
+                        <StatusIcon
+                          status={issue.status}
+                          onChange={(s) => onUpdateIssue(issue.id, { status: s })}
+                        />
+                      </span>
+                      <span className="shrink-0 font-mono text-xs text-muted-foreground">
+                        {issue.identifier ?? issue.id.slice(0, 8)}
+                      </span>
+                      {liveIssueIds?.has(issue.id) && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-blue-500/10 px-1.5 py-0.5 sm:gap-1.5 sm:px-2">
+                          <span className="relative flex h-2 w-2">
+                            <span className="absolute inline-flex h-full w-full animate-pulse rounded-full bg-blue-400 opacity-75" />
+                            <span className="relative inline-flex h-2 w-2 rounded-full bg-blue-500" />
+                          </span>
+                          <span className="hidden text-[11px] font-medium text-blue-600 dark:text-blue-400 sm:inline">
+                            Live
+                          </span>
+                        </span>
+                      )}
+                    </>
+                  )}
+                  mobileMeta={timeAgo(issue.updatedAt)}
+                  desktopTrailing={(
+                    <>
+                      {(issue.labels ?? []).length > 0 && (
+                        <span className="hidden items-center gap-1 overflow-hidden md:flex md:max-w-[240px]">
+                          {(issue.labels ?? []).slice(0, 3).map((label) => (
+                            <span
+                              key={label.id}
+                              className="inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] font-medium"
+                              style={{
+                                borderColor: label.color,
+                                color: pickTextColorForPillBg(label.color, 0.12),
+                                backgroundColor: `${label.color}1f`,
+                              }}
+                            >
+                              {label.name}
+                            </span>
+                          ))}
+                          {(issue.labels ?? []).length > 3 && (
+                            <span className="text-[10px] text-muted-foreground">
+                              +{(issue.labels ?? []).length - 3}
+                            </span>
+                          )}
+                        </span>
+                      )}
+                      <IssueCurrentOwnerBadge
+                        issue={issue}
+                        agentName={agentName}
+                        currentUserId={currentUserId}
+                        className="max-w-[180px]"
+                      />
+                      <Popover
+                        open={assigneePickerIssueId === issue.id}
+                        onOpenChange={(open) => {
+                          setAssigneePickerIssueId(open ? issue.id : null);
+                          if (!open) setAssigneeSearch("");
+                        }}
+                      >
+                        <PopoverTrigger asChild>
+                          <button
+                            className="flex w-[180px] shrink-0 items-center rounded-md px-2 py-1 transition-colors hover:bg-accent/50"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                            }}
+                          >
+                            {issue.assigneeAgentId && agentName(issue.assigneeAgentId) ? (
+                              <Identity name={agentName(issue.assigneeAgentId)!} size="sm" />
+                            ) : issue.assigneeUserId ? (
+                              <span className="inline-flex items-center gap-1.5 text-xs">
+                                <span className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-dashed border-muted-foreground/35 bg-muted/30">
+                                  <User className="h-3 w-3" />
+                                </span>
+                                {formatAssigneeUserLabel(issue.assigneeUserId, currentUserId) ?? "User"}
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+                                <span className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-dashed border-muted-foreground/35 bg-muted/30">
+                                  <User className="h-3 w-3" />
+                                </span>
+                                Assignee
+                              </span>
+                            )}
+                          </button>
+                        </PopoverTrigger>
+                        <PopoverContent
+                          className="w-56 p-1"
+                          align="end"
+                          onClick={(e) => e.stopPropagation()}
+                          onPointerDownOutside={() => setAssigneeSearch("")}
+                        >
+                          <input
+                            className="mb-1 w-full border-b border-border bg-transparent px-2 py-1.5 text-xs outline-none placeholder:text-muted-foreground/50"
+                            placeholder="Search assignees..."
+                            value={assigneeSearch}
+                            onChange={(e) => setAssigneeSearch(e.target.value)}
+                            autoFocus
+                          />
+                          <div className="max-h-48 overflow-y-auto overscroll-contain">
+                            <button
+                              className={cn(
+                                "flex w-full items-center gap-2 rounded px-2 py-1.5 text-xs hover:bg-accent/50",
+                                !issue.assigneeAgentId && !issue.assigneeUserId && "bg-accent",
+                              )}
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                assignIssue(issue.id, null, null);
+                              }}
+                            >
+                              No assignee
+                            </button>
+                            {currentUserId && (
+                              <button
+                                className={cn(
+                                  "flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-xs hover:bg-accent/50",
+                                  issue.assigneeUserId === currentUserId && "bg-accent",
+                                )}
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  assignIssue(issue.id, null, currentUserId);
+                                }}
+                              >
+                                <User className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                                <span>Me</span>
+                              </button>
+                            )}
+                            {(agents ?? [])
+                              .filter((agent) => {
+                                if (!assigneeSearch.trim()) return true;
+                                return agent.name
+                                  .toLowerCase()
+                                  .includes(assigneeSearch.toLowerCase());
+                              })
+                              .map((agent) => (
+                                <button
+                                  key={agent.id}
+                                  className={cn(
+                                    "flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-xs hover:bg-accent/50",
+                                    issue.assigneeAgentId === agent.id && "bg-accent",
+                                  )}
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    assignIssue(issue.id, agent.id, null);
+                                  }}
+                                >
+                                  <Identity name={agent.name} size="sm" className="min-w-0" />
+                                </button>
+                              ))}
+                          </div>
+                        </PopoverContent>
+                      </Popover>
+                    </>
+                  )}
+                  trailingMeta={formatDate(issue.createdAt)}
+                />
+              ))}
+            </CollapsibleContent>
+          </Collapsible>
+        ))
+      )}
     </div>
   );
 }

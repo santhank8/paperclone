@@ -95,6 +95,13 @@ export type {
 } from "./work-product.js";
 export type {
   Issue,
+  IssueCurrentOwner,
+  IssueCurrentOwnerActorType,
+  IssueCurrentOwnerAgent,
+  IssueCurrentOwnerBoard,
+  IssueCurrentOwnerRole,
+  IssueCurrentOwnerUnassigned,
+  IssueCurrentOwnerUser,
   IssueAssigneeAdapterOverrides,
   IssueComment,
   IssueDocument,
@@ -146,6 +153,8 @@ export type {
   AgentWakeupResponse,
   AgentWakeupSkipped,
   HeartbeatRun,
+  HeartbeatRunOperationalEffect,
+  HeartbeatRunOperationalEffectCounts,
   HeartbeatRunEvent,
   AgentRuntimeState,
   AgentTaskSession,

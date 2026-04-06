@@ -21,7 +21,14 @@ import {
   projectWorkspaces,
   projects,
 } from "@paperclipai/db";
-import { extractAgentMentionIds, extractProjectMentionIds, isUuidLike } from "@paperclipai/shared";
+import {
+  ISSUE_STATUSES,
+  ISSUE_STATUS_TRANSITIONS,
+  ISSUE_TERMINAL_STATUSES,
+  type IssueCurrentOwner,
+  extractAgentMentionIds,
+  extractProjectMentionIds,
+} from "@paperclipai/shared";
 import { conflict, notFound, unprocessable } from "../errors.js";
 import {
   defaultIssueExecutionWorkspaceSettingsForProject,
@@ -34,13 +41,27 @@ import { redactCurrentUserText } from "../log-redaction.js";
 import { resolveIssueGoalId, resolveNextIssueGoalId } from "./issue-goal-fallback.js";
 import { getDefaultCompanyGoal } from "./goals.js";
 
-const ALL_ISSUE_STATUSES = ["backlog", "todo", "in_progress", "in_review", "blocked", "done", "cancelled"];
 const MAX_ISSUE_COMMENT_PAGE_LIMIT = 500;
 
 function assertTransition(from: string, to: string) {
   if (from === to) return;
-  if (!ALL_ISSUE_STATUSES.includes(to)) {
+  if (!ISSUE_STATUSES.includes(to as typeof ISSUE_STATUSES[number])) {
+    if (to === "in_review") {
+      throw conflict(
+        "Unknown issue status: in_review. Legacy in_review was replaced by handoff_ready, technical_review, and human_review. Use handoff_ready to dispatch technical review.",
+      );
+    }
     throw conflict(`Unknown issue status: ${to}`);
+  }
+  if (!ISSUE_STATUSES.includes(from as typeof ISSUE_STATUSES[number])) return;
+  const allowed = ISSUE_STATUS_TRANSITIONS[from as typeof ISSUE_STATUSES[number]];
+  if (!allowed?.includes(to as typeof ISSUE_STATUSES[number])) {
+    if (to === "human_review" && from !== "technical_review") {
+      throw conflict(
+        `Invalid issue status transition: ${from} -> ${to}. Move the issue into handoff_ready first; Paperclip advances technical_review -> human_review after technical review is complete.`,
+      );
+    }
+    throw conflict(`Invalid issue status transition: ${from} -> ${to}`);
   }
 }
 
@@ -60,6 +81,16 @@ function applyStatusSideEffects(
     patch.cancelledAt = new Date();
   }
   return patch;
+}
+
+function statusRequiresAssignee(status: string | undefined) {
+  return status === "claimed" || status === "in_progress";
+}
+
+function assertInProgressTransitionUsesCheckout(currentStatus: string, nextStatus: string | undefined) {
+  if (nextStatus !== "in_progress") return;
+  if (currentStatus === "claimed") return;
+  throw unprocessable("Use POST /api/issues/:id/checkout to move an issue into in_progress.");
 }
 
 export interface IssueFilters {
@@ -94,6 +125,7 @@ type IssueActiveRunRow = {
 };
 type IssueWithLabels = IssueRow & { labels: IssueLabelRow[]; labelIds: string[] };
 type IssueWithLabelsAndRun = IssueWithLabels & { activeRun: IssueActiveRunRow | null };
+type IssueWithCurrentOwner<TIssue> = TIssue & { currentOwner: IssueCurrentOwner | null };
 type IssueUserCommentStats = {
   issueId: string;
   myLastCommentAt: Date | null;
@@ -123,6 +155,8 @@ function sameRunLock(checkoutRunId: string | null, actorRunId: string | null) {
 }
 
 const TERMINAL_HEARTBEAT_RUN_STATUSES = new Set(["succeeded", "failed", "cancelled", "timed_out"]);
+const TERMINAL_ISSUE_STATUSES = new Set(ISSUE_TERMINAL_STATUSES);
+const REVIEW_DISPATCH_ORIGIN_KIND = "technical_review_dispatch";
 
 function escapeLikePattern(value: string): string {
   return value.replace(/[\\%_]/g, "\\$&");
@@ -481,6 +515,181 @@ async function withIssueLabels(dbOrTx: any, rows: IssueRow[]): Promise<IssueWith
   });
 }
 
+type CurrentOwnerIssueLike = {
+  id: string;
+  status: string;
+  assigneeAgentId: string | null;
+  assigneeUserId: string | null;
+};
+
+type ReviewChildSummary = {
+  parentId: string | null;
+  status: string;
+  assigneeAgentId: string | null;
+  assigneeUserId: string | null;
+  updatedAt: Date;
+  createdAt: Date;
+};
+
+async function reviewChildMapForIssues(
+  dbOrTx: any,
+  issueRows: CurrentOwnerIssueLike[],
+): Promise<Map<string, ReviewChildSummary>> {
+  const handoffIssueIds = issueRows
+    .filter((issue) => issue.status === "handoff_ready")
+    .map((issue) => issue.id);
+  const map = new Map<string, ReviewChildSummary>();
+  if (handoffIssueIds.length === 0) return map;
+
+  const rows = await dbOrTx
+    .select({
+      parentId: issues.parentId,
+      status: issues.status,
+      assigneeAgentId: issues.assigneeAgentId,
+      assigneeUserId: issues.assigneeUserId,
+      updatedAt: issues.updatedAt,
+      createdAt: issues.createdAt,
+    })
+    .from(issues)
+    .where(
+      and(
+        inArray(issues.parentId, handoffIssueIds),
+        eq(issues.originKind, REVIEW_DISPATCH_ORIGIN_KIND),
+        isNull(issues.hiddenAt),
+      ),
+    )
+    .orderBy(desc(issues.updatedAt), desc(issues.createdAt));
+
+  for (const row of rows) {
+    if (!row.parentId) continue;
+    if (TERMINAL_ISSUE_STATUSES.has(row.status as typeof ISSUE_TERMINAL_STATUSES[number])) continue;
+    if (!map.has(row.parentId)) {
+      map.set(row.parentId, row);
+    }
+  }
+
+  return map;
+}
+
+function resolveCurrentOwner(
+  issue: CurrentOwnerIssueLike,
+  reviewChild: ReviewChildSummary | null | undefined,
+): IssueCurrentOwner | null {
+  if (issue.status === "done" || issue.status === "cancelled") return null;
+
+  if (issue.status === "handoff_ready") {
+    if (reviewChild?.assigneeAgentId) {
+      return {
+        actorType: "agent",
+        role: "technical_reviewer",
+        agentId: reviewChild.assigneeAgentId,
+        userId: null,
+        label: "Technical reviewer",
+      };
+    }
+    if (reviewChild?.assigneeUserId) {
+      return {
+        actorType: "user",
+        role: "technical_reviewer",
+        agentId: null,
+        userId: reviewChild.assigneeUserId,
+        label: "Technical reviewer",
+      };
+    }
+    return {
+      actorType: "unassigned",
+      role: "technical_reviewer",
+      agentId: null,
+      userId: null,
+      label: "Technical reviewer",
+    };
+  }
+
+  if (issue.status === "human_review") {
+    if (issue.assigneeUserId) {
+      if (issue.assigneeUserId === "local-board") {
+        return {
+          actorType: "board",
+          role: "human_reviewer",
+          agentId: null,
+          userId: null,
+          label: "Board",
+        };
+      }
+      return {
+        actorType: "user",
+        role: "human_reviewer",
+        agentId: null,
+        userId: issue.assigneeUserId,
+        label: "Human reviewer",
+      };
+    }
+    if (issue.assigneeAgentId) {
+      return {
+        actorType: "agent",
+        role: "human_reviewer",
+        agentId: issue.assigneeAgentId,
+        userId: null,
+        label: "Human reviewer",
+      };
+    }
+    return {
+      actorType: "board",
+      role: "human_reviewer",
+      agentId: null,
+      userId: null,
+      label: "Board",
+    };
+  }
+
+  if (issue.assigneeAgentId) {
+    return {
+      actorType: "agent",
+      role: "assignee",
+      agentId: issue.assigneeAgentId,
+      userId: null,
+      label: "Assigned agent",
+    };
+  }
+  if (issue.assigneeUserId) {
+    if (issue.assigneeUserId === "local-board") {
+      return {
+        actorType: "board",
+        role: "assignee",
+        agentId: null,
+        userId: null,
+        label: "Board",
+      };
+    }
+    return {
+      actorType: "user",
+      role: "assignee",
+      agentId: null,
+      userId: issue.assigneeUserId,
+      label: "Assigned user",
+    };
+  }
+  return {
+    actorType: "unassigned",
+    role: "queue",
+    agentId: null,
+    userId: null,
+    label: issue.status === "backlog" ? "Backlog" : "Unassigned",
+  };
+}
+
+async function withCurrentOwners<TIssue extends CurrentOwnerIssueLike>(
+  dbOrTx: any,
+  issueRows: TIssue[],
+): Promise<Array<IssueWithCurrentOwner<TIssue>>> {
+  if (issueRows.length === 0) return [];
+  const reviewChildByParentId = await reviewChildMapForIssues(dbOrTx, issueRows);
+  return issueRows.map((issue) => ({
+    ...issue,
+    currentOwner: resolveCurrentOwner(issue, reviewChildByParentId.get(issue.id)),
+  }));
+}
+
 const ACTIVE_RUN_STATUSES = ["queued", "running"];
 
 async function activeRunMapForIssues(
@@ -827,34 +1036,24 @@ export function issueService(db: Db) {
       const withLabels = await withIssueLabels(db, rows);
       const runMap = await activeRunMapForIssues(db, withLabels);
       const withRuns = withActiveRuns(withLabels, runMap);
-      if (withRuns.length === 0) {
-        return withRuns;
+      const withOwners = await withCurrentOwners(db, withRuns);
+      if (!contextUserId || withOwners.length === 0) {
+        return withOwners;
       }
 
-      const issueIds = withRuns.map((row) => row.id);
-      const [statsRows, readRows, lastActivityRows] = await Promise.all([
-        contextUserId
-          ? db
-            .select({
-              issueId: issueComments.issueId,
-              myLastCommentAt: sql<Date | null>`
-                MAX(CASE WHEN ${issueComments.authorUserId} = ${contextUserId} THEN ${issueComments.createdAt} END)
-              `,
-              lastExternalCommentAt: sql<Date | null>`
-                MAX(
-                  CASE
-                    WHEN ${issueComments.authorUserId} IS NULL OR ${issueComments.authorUserId} <> ${contextUserId}
-                    THEN ${issueComments.createdAt}
-                  END
-                )
-              `,
-            })
-            .from(issueComments)
-            .where(
-              and(
-                eq(issueComments.companyId, companyId),
-                inArray(issueComments.issueId, issueIds),
-              ),
+      const issueIds = withOwners.map((row) => row.id);
+      const statsRows = await db
+        .select({
+          issueId: issueComments.issueId,
+          myLastCommentAt: sql<Date | null>`
+            MAX(CASE WHEN ${issueComments.authorUserId} = ${contextUserId} THEN ${issueComments.createdAt} END)
+          `,
+          lastExternalCommentAt: sql<Date | null>`
+            MAX(
+              CASE
+                WHEN ${issueComments.authorUserId} IS NULL OR ${issueComments.authorUserId} <> ${contextUserId}
+                THEN ${issueComments.createdAt}
+              END
             )
             .groupBy(issueComments.issueId)
           : Promise.resolve([]),
@@ -948,23 +1147,14 @@ export function issueService(db: Db) {
 
       const readByIssueId = new Map(readRows.map((row) => [row.issueId, row.myLastReadAt]));
 
-      return withRuns.map((row) => {
-        const activity = lastActivityByIssueId.get(row.id);
-        const lastActivityAt = latestIssueActivityAt(
-          row.updatedAt,
-          activity?.latestCommentAt ?? null,
-          activity?.latestLogAt ?? null,
-        ) ?? row.updatedAt;
-        return {
-          ...row,
-          lastActivityAt,
-          ...deriveIssueUserContext(row, contextUserId, {
-            myLastCommentAt: statsByIssueId.get(row.id)?.myLastCommentAt ?? null,
-            myLastReadAt: readByIssueId.get(row.id) ?? null,
-            lastExternalCommentAt: statsByIssueId.get(row.id)?.lastExternalCommentAt ?? null,
-          }),
-        };
-      });
+      return withOwners.map((row) => ({
+        ...row,
+        ...deriveIssueUserContext(row, contextUserId, {
+          myLastCommentAt: statsByIssueId.get(row.id)?.myLastCommentAt ?? null,
+          myLastReadAt: readByIssueId.get(row.id) ?? null,
+          lastExternalCommentAt: statsByIssueId.get(row.id)?.lastExternalCommentAt ?? null,
+        }),
+      }));
     },
 
     countUnreadTouchedByUser: async (companyId: string, userId: string, status?: string) => {
@@ -1011,76 +1201,36 @@ export function issueService(db: Db) {
       return row;
     },
 
-    markUnread: async (companyId: string, issueId: string, userId: string) => {
-      const deleted = await db
-        .delete(issueReadStates)
-        .where(
-          and(
-            eq(issueReadStates.companyId, companyId),
-            eq(issueReadStates.issueId, issueId),
-            eq(issueReadStates.userId, userId),
-          ),
-        )
-        .returning();
-      return deleted.length > 0;
-    },
-
-    archiveInbox: async (companyId: string, issueId: string, userId: string, archivedAt: Date = new Date()) => {
-      const now = new Date();
-      const [row] = await db
-        .insert(issueInboxArchives)
-        .values({
-          companyId,
-          issueId,
-          userId,
-          archivedAt,
-          updatedAt: now,
-        })
-        .onConflictDoUpdate({
-          target: [issueInboxArchives.companyId, issueInboxArchives.issueId, issueInboxArchives.userId],
-          set: {
-            archivedAt,
-            updatedAt: now,
-          },
-        })
-        .returning();
-      return row;
-    },
-
-    unarchiveInbox: async (companyId: string, issueId: string, userId: string) => {
-      const [row] = await db
-        .delete(issueInboxArchives)
-        .where(
-          and(
-            eq(issueInboxArchives.companyId, companyId),
-            eq(issueInboxArchives.issueId, issueId),
-            eq(issueInboxArchives.userId, userId),
-          ),
-        )
-        .returning();
-      return row ?? null;
-    },
-
-    getById: async (raw: string) => {
-      const id = raw.trim();
-      if (/^[A-Z]+-\d+$/i.test(id)) {
-        return getIssueByIdentifier(id);
-      }
-      if (!isUuidLike(id)) {
-        return null;
-      }
-      return getIssueByUuid(id);
+    getById: async (id: string) => {
+      const row = await db
+        .select()
+        .from(issues)
+        .where(eq(issues.id, id))
+        .then((rows) => rows[0] ?? null);
+      if (!row) return null;
+      const [enriched] = await withIssueLabels(db, [row]);
+      const [withOwner] = await withCurrentOwners(db, [enriched]);
+      return withOwner;
     },
 
     getByIdentifier: async (identifier: string) => {
-      return getIssueByIdentifier(identifier);
+      const row = await db
+        .select()
+        .from(issues)
+        .where(eq(issues.identifier, identifier.toUpperCase()))
+        .then((rows) => rows[0] ?? null);
+      if (!row) return null;
+      const [enriched] = await withIssueLabels(db, [row]);
+      const [withOwner] = await withCurrentOwners(db, [enriched]);
+      return withOwner;
     },
 
     create: async (
       companyId: string,
       data: IssueCreateInput,
     ) => {
-      const { labelIds: inputLabelIds, inheritExecutionWorkspaceFromIssueId, ...issueData } = data;
+      assertInProgressTransitionUsesCheckout("new", data.status);
+      const { labelIds: inputLabelIds, ...issueData } = data;
       const isolatedWorkspacesEnabled = (await instanceSettings.getExperimental()).enableIsolatedWorkspaces;
       if (!isolatedWorkspacesEnabled) {
         delete issueData.executionWorkspaceId;
@@ -1096,8 +1246,14 @@ export function issueService(db: Db) {
       if (data.assigneeUserId) {
         await assertAssignableUser(companyId, data.assigneeUserId);
       }
-      if (data.status === "in_progress" && !data.assigneeAgentId && !data.assigneeUserId) {
-        throw unprocessable("in_progress issues require an assignee");
+      if (data.projectWorkspaceId) {
+        await assertValidProjectWorkspace(companyId, data.projectId, data.projectWorkspaceId);
+      }
+      if (data.executionWorkspaceId) {
+        await assertValidExecutionWorkspace(companyId, data.projectId, data.executionWorkspaceId);
+      }
+      if (statusRequiresAssignee(data.status) && !data.assigneeAgentId && !data.assigneeUserId) {
+        throw unprocessable(`${data.status} issues require an assignee`);
       }
       return db.transaction(async (tx) => {
         const defaultCompanyGoal = await getDefaultCompanyGoal(tx, companyId);
@@ -1224,7 +1380,8 @@ export function issueService(db: Db) {
           await syncIssueLabels(issue.id, companyId, inputLabelIds, tx);
         }
         const [enriched] = await withIssueLabels(tx, [issue]);
-        return enriched;
+        const [withOwner] = await withCurrentOwners(tx, [enriched]);
+        return withOwner;
       });
     },
 
@@ -1237,6 +1394,12 @@ export function issueService(db: Db) {
       if (!existing) return null;
 
       const { labelIds: nextLabelIds, ...issueData } = data;
+      const reopeningClosedIssue =
+        issueData.status === "todo"
+        && ISSUE_TERMINAL_STATUSES.includes(existing.status as typeof ISSUE_TERMINAL_STATUSES[number]);
+      if (issueData.status === "in_progress" && existing.status !== "in_progress") {
+        assertInProgressTransitionUsesCheckout(existing.status, issueData.status);
+      }
       const isolatedWorkspacesEnabled = (await instanceSettings.getExperimental()).enableIsolatedWorkspaces;
       if (!isolatedWorkspacesEnabled) {
         delete issueData.executionWorkspaceId;
@@ -1245,7 +1408,9 @@ export function issueService(db: Db) {
       }
 
       if (issueData.status) {
-        assertTransition(existing.status, issueData.status);
+        if (!reopeningClosedIssue) {
+          assertTransition(existing.status, issueData.status);
+        }
       }
 
       const patch: Partial<typeof issues.$inferInsert> = {
@@ -1261,8 +1426,8 @@ export function issueService(db: Db) {
       if (nextAssigneeAgentId && nextAssigneeUserId) {
         throw unprocessable("Issue can only have one assignee");
       }
-      if (patch.status === "in_progress" && !nextAssigneeAgentId && !nextAssigneeUserId) {
-        throw unprocessable("in_progress issues require an assignee");
+      if (statusRequiresAssignee(patch.status) && !nextAssigneeAgentId && !nextAssigneeUserId) {
+        throw unprocessable(`${patch.status} issues require an assignee`);
       }
       if (issueData.assigneeAgentId) {
         await assertAssignableAgent(existing.companyId, issueData.assigneeAgentId);
@@ -1291,12 +1456,18 @@ export function issueService(db: Db) {
       }
       if (issueData.status && issueData.status !== "in_progress") {
         patch.checkoutRunId = null;
+        patch.executionRunId = null;
+        patch.executionAgentNameKey = null;
+        patch.executionLockedAt = null;
       }
       if (
         (issueData.assigneeAgentId !== undefined && issueData.assigneeAgentId !== existing.assigneeAgentId) ||
         (issueData.assigneeUserId !== undefined && issueData.assigneeUserId !== existing.assigneeUserId)
       ) {
         patch.checkoutRunId = null;
+        patch.executionRunId = null;
+        patch.executionAgentNameKey = null;
+        patch.executionLockedAt = null;
       }
 
       return db.transaction(async (tx) => {
@@ -1329,7 +1500,8 @@ export function issueService(db: Db) {
           await syncIssueLabels(updated.id, existing.companyId, nextLabelIds, tx);
         }
         const [enriched] = await withIssueLabels(tx, [updated]);
-        return enriched;
+        const [withOwner] = await withCurrentOwners(tx, [enriched]);
+        return withOwner;
       });
     },
 
@@ -1364,7 +1536,8 @@ export function issueService(db: Db) {
 
         if (!removedIssue) return null;
         const [enriched] = await withIssueLabels(tx, [removedIssue]);
-        return enriched;
+        const [withOwner] = await withCurrentOwners(tx, [enriched]);
+        return withOwner;
       }),
 
     checkout: async (id: string, agentId: string, expectedStatuses: string[], checkoutRunId: string | null) => {
@@ -1410,10 +1583,11 @@ export function issueService(db: Db) {
 
       if (updated) {
         const [enriched] = await withIssueLabels(db, [updated]);
-        return enriched;
+        const [withOwner] = await withCurrentOwners(db, [enriched]);
+        return withOwner;
       }
 
-      const current = await db
+      let current = await db
         .select({
           id: issues.id,
           status: issues.status,
@@ -1426,6 +1600,72 @@ export function issueService(db: Db) {
         .then((rows) => rows[0] ?? null);
 
       if (!current) throw notFound("Issue not found");
+
+      // Stale execution_run_id (e.g. issue back in todo after a board PATCH cleared checkout but not
+      // execution, or release() before this fix) blocks checkout because executionLockCondition requires
+      // a matching run. Mention-triggered wakes bypass enqueue-time lock cleanup, so repair here.
+      if (
+        checkoutRunId &&
+        current.executionRunId &&
+        current.executionRunId !== checkoutRunId &&
+        expectedStatuses.includes(current.status) &&
+        (await isTerminalOrMissingHeartbeatRun(current.executionRunId))
+      ) {
+        const [clearedRow] = await db
+          .update(issues)
+          .set({
+            executionRunId: null,
+            executionAgentNameKey: null,
+            executionLockedAt: null,
+            updatedAt: new Date(),
+          })
+          .where(and(eq(issues.id, id), eq(issues.executionRunId, current.executionRunId)))
+          .returning({ id: issues.id });
+
+        if (clearedRow) {
+          const retried = await db
+            .update(issues)
+            .set({
+              assigneeAgentId: agentId,
+              assigneeUserId: null,
+              checkoutRunId,
+              executionRunId: checkoutRunId,
+              status: "in_progress",
+              startedAt: now,
+              updatedAt: new Date(),
+            })
+            .where(
+              and(
+                eq(issues.id, id),
+                inArray(issues.status, expectedStatuses),
+                or(isNull(issues.assigneeAgentId), sameRunAssigneeCondition),
+                or(isNull(issues.executionRunId), eq(issues.executionRunId, checkoutRunId)),
+              ),
+            )
+            .returning()
+            .then((rows) => rows[0] ?? null);
+
+          if (retried) {
+            const [enriched] = await withIssueLabels(db, [retried]);
+            const [withOwner] = await withCurrentOwners(db, [enriched]);
+            return withOwner;
+          }
+
+          current = await db
+            .select({
+              id: issues.id,
+              status: issues.status,
+              assigneeAgentId: issues.assigneeAgentId,
+              checkoutRunId: issues.checkoutRunId,
+              executionRunId: issues.executionRunId,
+            })
+            .from(issues)
+            .where(eq(issues.id, id))
+            .then((rows) => rows[0] ?? null);
+
+          if (!current) throw notFound("Issue not found");
+        }
+      }
 
       if (
         current.assigneeAgentId === agentId &&
@@ -1452,7 +1692,11 @@ export function issueService(db: Db) {
           )
           .returning()
           .then((rows) => rows[0] ?? null);
-        if (adopted) return adopted;
+        if (adopted) {
+          const [enriched] = await withIssueLabels(db, [adopted]);
+          const [withOwner] = await withCurrentOwners(db, [enriched]);
+          return withOwner;
+        }
       }
 
       if (
@@ -1471,7 +1715,8 @@ export function issueService(db: Db) {
         if (adopted) {
           const row = await db.select().from(issues).where(eq(issues.id, id)).then((rows) => rows[0]!);
           const [enriched] = await withIssueLabels(db, [row]);
-          return enriched;
+          const [withOwner] = await withCurrentOwners(db, [enriched]);
+          return withOwner;
         }
       }
 
@@ -1483,7 +1728,8 @@ export function issueService(db: Db) {
       ) {
         const row = await db.select().from(issues).where(eq(issues.id, id)).then((rows) => rows[0]!);
         const [enriched] = await withIssueLabels(db, [row]);
-        return enriched;
+        const [withOwner] = await withCurrentOwners(db, [enriched]);
+        return withOwner;
       }
 
       throw conflict("Issue checkout conflict", {
@@ -1502,6 +1748,7 @@ export function issueService(db: Db) {
           status: issues.status,
           assigneeAgentId: issues.assigneeAgentId,
           checkoutRunId: issues.checkoutRunId,
+          executionRunId: issues.executionRunId,
         })
         .from(issues)
         .where(eq(issues.id, id))
@@ -1515,6 +1762,45 @@ export function issueService(db: Db) {
         sameRunLock(current.checkoutRunId, actorRunId)
       ) {
         return { ...current, adoptedFromRunId: null as string | null };
+      }
+
+      // Mirror checkout() "repair" path: assignee is in_progress but checkout was cleared (e.g. process
+      // loss / migration). Bind the current heartbeat run as checkout owner so workspace setup can proceed.
+      if (
+        actorRunId &&
+        current.status === "in_progress" &&
+        current.assigneeAgentId === actorAgentId &&
+        current.checkoutRunId == null &&
+        (current.executionRunId == null || current.executionRunId === actorRunId)
+      ) {
+        const now = new Date();
+        const adopted = await db
+          .update(issues)
+          .set({
+            checkoutRunId: actorRunId,
+            executionRunId: actorRunId,
+            executionLockedAt: now,
+            updatedAt: now,
+          })
+          .where(
+            and(
+              eq(issues.id, id),
+              eq(issues.status, "in_progress"),
+              eq(issues.assigneeAgentId, actorAgentId),
+              isNull(issues.checkoutRunId),
+              or(isNull(issues.executionRunId), eq(issues.executionRunId, actorRunId)),
+            ),
+          )
+          .returning({
+            id: issues.id,
+            status: issues.status,
+            assigneeAgentId: issues.assigneeAgentId,
+            checkoutRunId: issues.checkoutRunId,
+          })
+          .then((rows) => rows[0] ?? null);
+        if (adopted) {
+          return { ...adopted, adoptedFromRunId: null as string | null };
+        }
       }
 
       if (
@@ -1581,6 +1867,9 @@ export function issueService(db: Db) {
           status: "todo",
           assigneeAgentId: null,
           checkoutRunId: null,
+          executionRunId: null,
+          executionAgentNameKey: null,
+          executionLockedAt: null,
           updatedAt: new Date(),
         })
         .where(eq(issues.id, id))
@@ -1588,7 +1877,8 @@ export function issueService(db: Db) {
         .then((rows) => rows[0] ?? null);
       if (!updated) return null;
       const [enriched] = await withIssueLabels(db, [updated]);
-      return enriched;
+      const [withOwner] = await withCurrentOwners(db, [enriched]);
+      return withOwner;
     },
 
     listLabels: (companyId: string) =>

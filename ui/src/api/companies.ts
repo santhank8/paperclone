@@ -33,9 +33,9 @@ export const companiesApi = {
         | "status"
         | "budgetMonthlyCents"
         | "requireBoardApprovalForNewAgents"
-        | "feedbackDataSharingEnabled"
         | "brandColor"
         | "logoAssetId"
+        | "technicalReviewerReference"
       >
     >,
   ) => api.patch<Company>(`/companies/${companyId}`, data),

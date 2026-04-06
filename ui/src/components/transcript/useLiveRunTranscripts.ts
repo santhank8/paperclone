@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import type { LiveEvent } from "@paperclipai/shared";
+import type { HeartbeatRunStatus, LiveEvent } from "@paperclipai/shared";
 import { instanceSettingsApi } from "../../api/instanceSettings";
 import { heartbeatsApi, type LiveRunForIssue } from "../../api/heartbeats";
 import { buildTranscript, getUIAdapter, onAdapterChange, type RunLogChunk, type TranscriptEntry } from "../../adapters";
 import { queryKeys } from "../../lib/queryKeys";
+import { filterRunsForLogPolling, TERMINAL_RUN_STATUSES } from "../../lib/liveRunLogPoll";
 
 const LOG_POLL_INTERVAL_MS = 2000;
 const LOG_READ_LIMIT_BYTES = 256_000;
@@ -17,10 +18,6 @@ interface UseLiveRunTranscriptsOptions {
 
 function readString(value: unknown): string | null {
   return typeof value === "string" && value.trim().length > 0 ? value : null;
-}
-
-function isTerminalStatus(status: string): boolean {
-  return status === "failed" || status === "timed_out" || status === "cancelled" || status === "succeeded";
 }
 
 function parsePersistedLogContent(
@@ -79,13 +76,15 @@ export function useLiveRunTranscripts({
   });
 
   const runById = useMemo(() => new Map(runs.map((run) => [run.id, run])), [runs]);
+  // Keep terminal membership aligned with TERMINAL_RUN_STATUSES in liveRunLogPoll (same as filterRunsForLogPolling).
   const activeRunIds = useMemo(
-    () => new Set(runs.filter((run) => !isTerminalStatus(run.status)).map((run) => run.id)),
+    () => new Set(runs.filter((run) => !TERMINAL_RUN_STATUSES.has(run.status)).map((run) => run.id)),
     [runs],
   );
-  const runIdsKey = useMemo(
-    () => runs.map((run) => run.id).sort((a, b) => a.localeCompare(b)).join(","),
-    [runs],
+  const runsForLogPoll = useMemo(() => filterRunsForLogPolling(runs), [runs]);
+  const runIdsKeyForLogPoll = useMemo(
+    () => runsForLogPoll.map((run) => run.id).sort((a, b) => a.localeCompare(b)).join(","),
+    [runsForLogPoll],
   );
 
   const appendChunks = (runId: string, chunks: Array<RunLogChunk & { dedupeKey: string }>) => {
@@ -137,7 +136,7 @@ export function useLiveRunTranscripts({
   }, [runs]);
 
   useEffect(() => {
-    if (runs.length === 0) return;
+    if (runsForLogPoll.length === 0) return;
 
     let cancelled = false;
 
@@ -162,7 +161,7 @@ export function useLiveRunTranscripts({
     };
 
     const readAll = async () => {
-      await Promise.all(runs.map((run) => readRunLog(run)));
+      await Promise.all(runsForLogPoll.map((run) => readRunLog(run)));
     };
 
     void readAll();
@@ -174,7 +173,7 @@ export function useLiveRunTranscripts({
       cancelled = true;
       window.clearInterval(interval);
     };
-  }, [runIdsKey, runs]);
+  }, [runIdsKeyForLogPoll, runsForLogPoll]);
 
   useEffect(() => {
     if (!companyId || activeRunIds.size === 0) return;
@@ -247,7 +246,11 @@ export function useLiveRunTranscripts({
           const status = readString(payload["status"]) ?? "updated";
           appendChunks(runId, [{
             ts: event.createdAt,
-            stream: isTerminalStatus(status) && status !== "succeeded" ? "stderr" : "system",
+            // WebSocket payload is untyped string; terminal check matches TERMINAL_RUN_STATUSES (see activeRunIds).
+            stream:
+              TERMINAL_RUN_STATUSES.has(status as HeartbeatRunStatus) && status !== "succeeded"
+                ? "stderr"
+                : "system",
             chunk: `run ${status}`,
             dedupeKey: `socket:status:${runId}:${status}:${readString(payload["finishedAt"]) ?? ""}`,
           }]);

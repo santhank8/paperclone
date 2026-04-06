@@ -30,7 +30,7 @@ export function resolveShell(): string {
 
 export interface ExecutionWorkspaceInput {
   baseCwd: string;
-  source: "project_primary" | "task_session" | "agent_home";
+  source: "project_primary" | "task_session" | "agent_home" | "adapter_config";
   projectId: string | null;
   workspaceId: string | null;
   repoUrl: string | null;

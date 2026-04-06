@@ -33,7 +33,22 @@ Common adapter choices:
 - `process` for generic local command execution
 
 For `opencode_local`, configure an explicit `adapterConfig.model` (`provider/model`).
-Paperclip validates the selected model against live `opencode models` output.
+
+**Model validation.** Paperclip validates the configured model against live `opencode models` output. The server runs that discovery with a **non-interactive stdin pipe** so the command works even when the API process has no TTY.
+
+**Timeout handling during heartbeat.** If the **discovery command times out**, Paperclip logs a warning and still attempts the run using the configured model string.
+
+**External directory handling.** For managed instruction bundles stored outside the working directory, Paperclip injects the matching OpenCode **`external_directory`** allowlist so symlinked instruction files stay readable during the run.
+
+**Permissions for `opencode run`.** For Paperclip-driven runs, the adapter sets `external_directory` to **`allow`** inside **`OPENCODE_PERMISSION`** so the CLI does not auto-reject permission prompts that would require a TTY.
+
+### Managed rollout defaults
+
+1. **Defaults:** managed roles target **`opencode_local`** with a free **`opencode/minimax-m2.5-free`** model via `pnpm rollout:codex-presets -- --apply` (see [Agent Runtime Guide](/agents-runtime)).
+2. **Targeting:** use `--apply` for the default scope; add **`--all-agents`** to retarget every OpenCode/Codex agent in the company. Confirm the resolved model id with **`opencode models`** on the host.
+3. **Bootstrap validation:** PATCH is **not** blocked solely because the OpenCode **hello probe** hit its time limit (slow host or loaded CLI). Use **Test environment** after rollout to confirm connectivity.
+4. **Script behavior:** the rollout patches **each agent independently** and reports HTTP failures at the end so one bad agent does not stop the rest.
+5. **`codex_local`:** set **`adapterConfig.model`** and **`adapterConfig.modelReasoningEffort`** explicitly instead of relying only on Codex `config.toml`. Use **`PAPERCLIP_OPENCODE_QUOTA_FALLBACK_MODEL`** when you need a different fallback than the script default.
 
 ## Agent Hiring via Governance
 

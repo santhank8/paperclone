@@ -21,10 +21,12 @@ import {
   renderPaperclipWakePrompt,
   stringifyPaperclipWakePayload,
   joinPromptSections,
+  expandShellStyleAgentHome,
   runChildProcess,
+  resolveHeartbeatChildTimeoutSec,
 } from "@paperclipai/adapter-utils/server-utils";
-import { parseCodexJsonl, isCodexUnknownSessionError } from "./parse.js";
-import { pathExists, prepareManagedCodexHome, resolveManagedCodexHomeDir, resolveSharedCodexHomeDir } from "./codex-home.js";
+import { codexStdoutIndicatesIgnorableNonZeroExit, parseCodexJsonl, isCodexUnknownSessionError } from "./parse.js";
+import { pathExists, prepareManagedCodexHome, resolveManagedCodexHomeDir } from "./codex-home.js";
 import { resolveCodexDesiredSkillNames } from "./skills.js";
 
 const __moduleDir = path.dirname(fileURLToPath(import.meta.url));
@@ -53,6 +55,25 @@ function firstNonEmptyLine(text: string): string {
       .map((line) => line.trim())
       .find(Boolean) ?? ""
   );
+}
+
+function resolveCodexErrorCode(input: {
+  timedOut: boolean;
+  exitCode: number | null;
+  parsedError: string;
+  stderrLine: string;
+}): string | null {
+  if (input.timedOut) return "timeout";
+  if ((input.exitCode ?? 0) === 0) return null;
+  const blob = `${input.parsedError}\n${input.stderrLine}`.toLowerCase();
+  if (
+    /\b(login|sign in|authenticate|authentication|unauthorized)\b/.test(blob) ||
+    /\b401\b/.test(blob) ||
+    /invalid_?api_?key|incorrect api key|api key.*invalid|missing api key/.test(blob)
+  ) {
+    return "codex_auth_required";
+  }
+  return "codex_exit_nonzero";
 }
 
 function hasNonEmptyEnvValue(env: Record<string, string>, key: string): boolean {
@@ -260,7 +281,8 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     : [];
   const runtimePrimaryUrl = asString(context.paperclipRuntimePrimaryUrl, "");
   const configuredCwd = asString(config.cwd, "");
-  const useConfiguredInsteadOfAgentHome = workspaceSource === "agent_home" && configuredCwd.length > 0;
+  const useConfiguredInsteadOfAgentHome =
+    (workspaceSource === "agent_home" || workspaceSource === "adapter_config") && configuredCwd.length > 0;
   const effectiveWorkspaceCwd = useConfiguredInsteadOfAgentHome ? "" : workspaceCwd;
   const cwd = effectiveWorkspaceCwd || configuredCwd || process.cwd();
   const envConfig = parseObject(config.env);
@@ -397,7 +419,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     resolvedCommand,
   });
 
-  const timeoutSec = asNumber(config.timeoutSec, 0);
+  const timeoutSec = resolveHeartbeatChildTimeoutSec(config.timeoutSec);
   const graceSec = asNumber(config.graceSec, 20);
   const extraArgs = (() => {
     const fromExtraArgs = asStringArray(config.extraArgs);
@@ -483,13 +505,15 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
   })();
   const renderedPrompt = shouldUseResumeDeltaPrompt ? "" : renderTemplate(promptTemplate, templateData);
   const sessionHandoffNote = asString(context.paperclipSessionHandoffMarkdown, "").trim();
-  const prompt = joinPromptSections([
-    promptInstructionsPrefix,
-    renderedBootstrapPrompt,
-    wakePrompt,
-    sessionHandoffNote,
-    renderedPrompt,
-  ]);
+  const prompt = expandShellStyleAgentHome(
+    joinPromptSections([
+      instructionsPrefix,
+      renderedBootstrapPrompt,
+      sessionHandoffNote,
+      renderedPrompt,
+    ]),
+    agentHome || null,
+  );
   const promptMetrics = {
     promptChars: prompt.length,
     instructionsChars,
@@ -568,6 +592,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
         signal: attempt.proc.signal,
         timedOut: true,
         errorMessage: `Timed out after ${timeoutSec}s`,
+        errorCode: "timeout",
         clearSession: clearSessionOnMissingSession,
       };
     }
@@ -588,15 +613,30 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
       parsedError ||
       stderrLine ||
       `Codex exited with code ${attempt.proc.exitCode ?? -1}`;
+    // Codex sometimes exits non-zero even after a successful `turn.completed` (e.g. nested tool/command
+    // failure semantics). When JSONL shows a completed turn and no parsed error, treat as adapter success
+    // but keep the real process exitCode on the result for diagnostics.
+    const processExitNonZero = (attempt.proc.exitCode ?? 0) !== 0;
+    const ignoreNonZeroExitForOutcome =
+      processExitNonZero && codexStdoutIndicatesIgnorableNonZeroExit(attempt.parsed, attempt.proc.stderr);
+    const errorCode = ignoreNonZeroExitForOutcome
+      ? null
+      : resolveCodexErrorCode({
+          timedOut: false,
+          exitCode: attempt.proc.exitCode,
+          parsedError,
+          stderrLine,
+        });
 
     return {
       exitCode: attempt.proc.exitCode,
       signal: attempt.proc.signal,
       timedOut: false,
       errorMessage:
-        (attempt.proc.exitCode ?? 0) === 0
+        (attempt.proc.exitCode ?? 0) === 0 || ignoreNonZeroExitForOutcome
           ? null
           : fallbackErrorMessage,
+      errorCode,
       usage: attempt.parsed.usage,
       sessionId: resolvedSessionId,
       sessionParams: resolvedSessionParams,
@@ -605,10 +645,18 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
       biller: resolveCodexBiller(effectiveEnv, billingType),
       model,
       billingType,
-      costUsd: null,
+      costUsd: attempt.parsed.costUsd,
       resultJson: {
         stdout: attempt.proc.stdout,
         stderr: attempt.proc.stderr,
+        ...(ignoreNonZeroExitForOutcome
+          ? {
+              paperclip: {
+                ignoredNonZeroExitCode: attempt.proc.exitCode,
+                reason: "codex_last_event_turn_completed",
+              },
+            }
+          : {}),
       },
       summary: attempt.parsed.summary,
       clearSession: Boolean(clearSessionOnMissingSession && !resolvedSessionId),

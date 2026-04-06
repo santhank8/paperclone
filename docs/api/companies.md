@@ -33,6 +33,21 @@ POST /api/companies
 
 ## Update Company
 
+With an explicit technical reviewer override:
+
+```
+PATCH /api/companies/{companyId}
+{
+  "name": "Updated Name",
+  "description": "Updated description",
+  "budgetMonthlyCents": 100000,
+  "logoAssetId": "b9f5e911-6de5-4cd0-8dc6-a55a13bc02f6",
+  "technicalReviewerReference": "revisor-pr"
+}
+```
+
+Same request with the field omitted (or `null`) is valid — the dispatcher then uses the fallback chain below:
+
 ```
 PATCH /api/companies/{companyId}
 {
@@ -42,6 +57,15 @@ PATCH /api/companies/{companyId}
   "logoAssetId": "b9f5e911-6de5-4cd0-8dc6-a55a13bc02f6"
 }
 ```
+
+`technicalReviewerReference` is optional. When present, it is an agent **name** reference (same resolution rules as `@AgentName` in comments — see [Issues API — Add Comment](./issues.md#add-comment) for mention matching). It is used when dispatching technical review children from `handoff_ready` issues.
+
+On **PATCH**, a non-null value must resolve to exactly one **non-terminated** agent in the **same company** (same resolution as dispatch). The API returns **422** when no agent matches or when the reference is ambiguous. There is **no database foreign key** on this column; enforcement is application-level.
+
+**Fallback precedence** when `technicalReviewerReference` is **omitted** or **`null`:**
+
+1. If the **`PAPERCLIP_TECHNICAL_REVIEWER_REFERENCE`** environment variable is set (non-empty after trim), use that string.
+2. Otherwise use the literal default **`revisor-pr`**.
 
 ## Upload Company Logo
 
@@ -84,5 +108,6 @@ Archives a company. Archived companies are hidden from default listings.
 | `logoAssetId` | string | Optional asset id for the stored logo image |
 | `logoUrl` | string | Optional Paperclip asset content path for the stored logo image |
 | `budgetMonthlyCents` | number | Monthly budget limit |
+| `technicalReviewerReference` | string \| null | Optional agent reference for automatic technical review dispatch |
 | `createdAt` | string | ISO timestamp |
 | `updatedAt` | string | ISO timestamp |

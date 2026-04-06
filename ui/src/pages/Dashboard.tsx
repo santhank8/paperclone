@@ -17,11 +17,13 @@ import { StatusIcon } from "../components/StatusIcon";
 
 import { ActivityRow } from "../components/ActivityRow";
 import { Identity } from "../components/Identity";
+import { IssueCurrentOwnerBadge } from "../components/IssueCurrentOwnerBadge";
+import { OperationalObservabilityPanel } from "../components/OperationalObservabilityPanel";
 import { timeAgo } from "../lib/timeAgo";
 import { cn, formatCents } from "../lib/utils";
 import { Bot, CircleDot, DollarSign, ShieldCheck, LayoutDashboard, PauseCircle } from "lucide-react";
 import { ActiveAgentsPanel } from "../components/ActiveAgentsPanel";
-import { ChartCard, RunActivityChart, PriorityChart, IssueStatusChart, SuccessRateChart } from "../components/ActivityCharts";
+import { ChartCard, RunActivityChart, PriorityChart, IssueStatusChart, OperationalEffectChart } from "../components/ActivityCharts";
 import { PageSkeleton } from "../components/PageSkeleton";
 import type { Agent, Issue } from "@paperclipai/shared";
 import { PluginSlotOutlet } from "@/plugins/slots";
@@ -293,8 +295,8 @@ export function Dashboard() {
             <ChartCard title="Issues by Status" subtitle="Last 14 days">
               <IssueStatusChart issues={issues ?? []} />
             </ChartCard>
-            <ChartCard title="Success Rate" subtitle="Last 14 days">
-              <SuccessRateChart runs={runs ?? []} />
+            <ChartCard title="Operational Effect" subtitle="Finished vs produced effect">
+              <OperationalEffectChart runs={runs ?? []} />
             </ChartCard>
           </div>
 
@@ -303,6 +305,13 @@ export function Dashboard() {
             context={{ companyId: selectedCompanyId }}
             className="grid gap-4 md:grid-cols-2"
             itemClassName="rounded-lg border bg-card p-4 shadow-sm"
+          />
+
+          <OperationalObservabilityPanel
+            activity={activity ?? []}
+            agents={agents ?? []}
+            issues={issues ?? []}
+            runs={runs ?? []}
           />
 
           <div className="grid md:grid-cols-2 gap-4">
@@ -366,6 +375,9 @@ export function Dashboard() {
                                 ? <span className="hidden sm:inline-flex"><Identity name={name} size="sm" /></span>
                                 : null;
                             })()}
+                            <span className="hidden sm:inline-flex">
+                              <IssueCurrentOwnerBadge issue={issue} agentName={agentName} className="max-w-[180px]" />
+                            </span>
                             <span className="text-xs text-muted-foreground sm:hidden">&middot;</span>
                             <span className="text-xs text-muted-foreground shrink-0 sm:order-last">
                               {timeAgo(issue.updatedAt)}

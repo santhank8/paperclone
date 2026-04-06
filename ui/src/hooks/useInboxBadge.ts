@@ -6,6 +6,7 @@ import { approvalsApi } from "../api/approvals";
 import { dashboardApi } from "../api/dashboard";
 import { heartbeatsApi } from "../api/heartbeats";
 import { issuesApi } from "../api/issues";
+import { inboxIssueStatuses } from "../lib/issue-status";
 import { queryKeys } from "../lib/queryKeys";
 import {
   computeInboxBadgeData,
@@ -17,7 +18,7 @@ import {
   READ_ITEMS_KEY,
 } from "../lib/inbox";
 
-const INBOX_ISSUE_STATUSES = "backlog,todo,in_progress,in_review,blocked,done";
+const INBOX_ISSUE_STATUSES = inboxIssueStatuses.join(",");
 
 export function useDismissedInboxItems() {
   const [dismissed, setDismissed] = useState<Set<string>>(loadDismissedInboxItems);
