@@ -3246,6 +3246,7 @@ export function heartbeatService(db: Db) {
           executionRunId: null,
           executionAgentNameKey: null,
           executionLockedAt: null,
+          checkoutRunId: null,
           updatedAt: new Date(),
         })
         .where(eq(issues.id, issue.id));
@@ -3535,6 +3536,7 @@ export function heartbeatService(db: Db) {
               executionRunId: null,
               executionAgentNameKey: null,
               executionLockedAt: null,
+              checkoutRunId: null,
               updatedAt: new Date(),
             })
             .where(eq(issues.id, issue.id));
