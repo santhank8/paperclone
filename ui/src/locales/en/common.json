@@ -195,6 +195,7 @@
     "backlog": "Backlog",
     "todo": "Todo",
     "in_progress": "In Progress",
+    "planned": "Planned",
     "done": "Done",
     "closed": "Closed"
   },
@@ -436,6 +437,43 @@
           "am": "AM",
           "pm": "PM"
         },
+        "pathInstructionsModal": {
+          "title": "How to get a full path",
+          "description": "Paste the absolute path (e.g.",
+          "choose": "Choose",
+          "platforms": {
+            "mac": "macOS",
+            "windows": "Windows",
+            "linux": "Linux"
+          },
+          "instructions": {
+            "mac": {
+              "steps": {
+                "1": "Open Finder and navigate to the folder.",
+                "2": "Right-click (or Control-click) the folder.",
+                "3": "Hold the Option key and choose \"Copy as Pathname\".",
+                "4": "Paste the copied path here."
+              },
+              "tip": "You can also open Terminal, type cd, drag the folder into the terminal window, press Enter, then run pwd."
+            },
+            "windows": {
+              "steps": {
+                "1": "Open File Explorer and navigate to the folder.",
+                "2": "Click in the address bar at the top and copy the full path.",
+                "3": "Paste the copied path here."
+              },
+              "tip": "Alternatively, hold Shift and right-click the folder, then select \"Copy as path\"."
+            },
+            "linux": {
+              "steps": {
+                "1": "Open a terminal and navigate to the directory with cd.",
+                "2": "Run pwd to print the full path.",
+                "3": "Copy the output and paste it here."
+              },
+              "tip": "In most file managers, Ctrl+L reveals the full path in the address bar."
+            }
+          }
+        },
         "liveRunWidget": {
           "title": "Live Runs",
           "description": "Streamed with the same transcript UI used on the full run detail page.",
@@ -483,12 +521,173 @@
       "title": "Projects",
       "add_project": "Add Project",
       "no_projects": "No projects yet.",
-      "select_company": "Select a company to view projects."
+      "select_company": "Select a company to view projects.",
+      "dialog": {
+        "new_project": "New project",
+        "project_name": "Project name",
+        "add_description": "Add description...",
+        "repo_url": "Repo URL",
+        "local_folder": "Local folder",
+        "optional": "optional",
+        "repo_help": "Link a GitHub repository so agents can clone, read, and push code for this project.",
+        "local_folder_help": "Set an absolute path on this machine where local agents will read and write files for this project.",
+        "github_repo_placeholder": "https://github.com/org/repo",
+        "absolute_path_placeholder": "/absolute/path/to/workspace",
+        "goal": "Goal",
+        "add_goal": "+ Goal",
+        "no_goal": "No goal",
+        "all_goals_selected": "All goals already selected.",
+        "target_date": "Target date",
+        "create_project": "Create project",
+        "creating": "Creating...",
+        "remove_goal_aria": "Remove goal {{title}}",
+        "workspace_name_local_default": "Local folder",
+        "workspace_name_repo_default": "GitHub repo",
+        "errors": {
+          "local_path_abs": "Local folder must be a full absolute path.",
+          "repo_invalid": "Repo must use a valid GitHub or GitHub Enterprise repo URL.",
+          "create_failed": "Failed to create project."
+        }
+      }
+    },
+    "projectDetail": {
+      "common": {
+        "project": "Project"
+      },
+      "tabs": {
+        "issues": "Issues",
+        "overview": "Overview",
+        "workspaces": "Workspaces",
+        "configuration": "Configuration",
+        "budget": "Budget"
+      },
+      "overview": {
+        "add_description": "Add a description...",
+        "status": "Status",
+        "target_date": "Target Date"
+      },
+      "paused_by_budget": "Paused by budget hard stop",
+      "loading_workspaces": "Loading workspaces...",
+      "toasts": {
+        "success_archive": "\"{{name}}\" has been archived",
+        "success_unarchive": "\"{{name}}\" has been unarchived",
+        "failed_archive": "Failed to archive project",
+        "failed_unarchive": "Failed to unarchive project"
+      },
+      "properties": {
+        "saving": "Saving",
+        "saved": "Saved",
+        "failed": "Failed",
+        "name": "Name",
+        "project_name": "Project name",
+        "description": "Description",
+        "add_description": "Add a description...",
+        "no_description": "No description",
+        "status": "Status",
+        "lead": "Lead",
+        "goals": "Goals",
+        "goal": "Goal",
+        "all_goals_linked": "All goals linked.",
+        "created": "Created",
+        "updated": "Updated",
+        "target_date": "Target Date",
+        "codebase": "Codebase",
+        "codebase_help_aria": "Codebase help",
+        "codebase_help": "Repo identifies the source of truth. Local folder is the default place agents write code.",
+        "repo": "Repo",
+        "change_repo": "Change repo",
+        "clear_repo": "Clear repo",
+        "not_set": "Not set.",
+        "set_repo": "Set repo",
+        "local_folder": "Local folder",
+        "paperclip_managed_folder": "Paperclip-managed folder.",
+        "change_local_folder": "Change local folder",
+        "set_local_folder": "Set local folder",
+        "clear_local_folder": "Clear local folder"
+      },
+      "archive": {
+        "danger_zone": "Danger Zone",
+        "archive": "Archive",
+        "unarchive": "Unarchive",
+        "archive_description": "Archive this project to hide it from the sidebar and project selectors.",
+        "unarchive_description": "Unarchive this project to restore it in the sidebar and project selectors.",
+        "archiving": "Archiving...",
+        "unarchiving": "Unarchiving...",
+        "confirm": "Confirm",
+        "action_project": "{{action}} project"
+      }
     },
     "issues": {
       "title": "Issues",
       "select_company": "Select a company to view issues.",
-      "no_issues": "No issues yet."
+      "no_issues": "No issues yet.",
+      "no_match": "No issues match the current filters or search.",
+      "toolbar": {
+        "new_issue": "New Issue",
+        "search_placeholder": "Search issues...",
+        "search_aria": "Search issues",
+        "list_view": "List view",
+        "board_view": "Board view",
+        "filter": "Filter",
+        "filters": "Filters",
+        "filters_with_count": "Filters: {{count}}",
+        "clear": "Clear",
+        "quick_filters": "Quick filters",
+        "quick": {
+          "all": "All",
+          "active": "Active",
+          "backlog": "Backlog",
+          "done": "Done"
+        },
+        "status": "Status",
+        "priority": "Priority",
+        "assignee": "Assignee",
+        "title": "Title",
+        "created": "Created",
+        "updated": "Updated",
+        "sort": "Sort",
+        "group": "Group",
+        "none": "None"
+      },
+      "assignee": {
+        "none": "No assignee",
+        "unassigned": "Unassigned",
+        "user": "User",
+        "me": "Me"
+      }
+    },
+    "goals": {
+      "title": "Goals",
+      "select_company": "Select a company to view goals.",
+      "no_goals": "No goals yet.",
+      "add_goal": "Add Goal",
+      "new_goal": "New Goal",
+      "dialog": {
+        "new_goal": "New goal",
+        "new_sub_goal": "New sub-goal",
+        "goal_title": "Goal title",
+        "add_description": "Add description...",
+        "parent_goal": "Parent goal",
+        "no_parent": "No parent",
+        "creating": "Creating...",
+        "create_goal": "Create goal",
+        "create_sub_goal": "Create sub-goal",
+        "levels": {
+          "company": "Company",
+          "team": "Team",
+          "agent": "Agent",
+          "task": "Task"
+        }
+      },
+      "properties": {
+        "status": "Status",
+        "level": "Level",
+        "owner": "Owner",
+        "none": "None",
+        "parent_goal": "Parent goal",
+        "created": "Created",
+        "updated": "Updated"
+      }
     },
     "agents": {
       "title": "Agents",
@@ -1079,6 +1278,37 @@
         "agent": "Agent",
         "task": "Task",
         "launch": "Launch"
+      }
+    },
+    "budgetPolicyCard": {
+      "scope": {
+        "project": "Project",
+        "company": "Company"
+      },
+      "window_lifetime": "Lifetime budget",
+      "window_monthly_utc": "Monthly UTC budget",
+      "observed": "Observed",
+      "percent_of_limit": "{{percent}}% of limit",
+      "no_cap_configured": "No cap configured",
+      "budget": "Budget",
+      "disabled": "Disabled",
+      "soft_alert_at": "Soft alert at {{percent}}%",
+      "pause": "pause",
+      "remaining": "Remaining",
+      "unlimited": "Unlimited",
+      "project_paused_message": "Execution is paused for this project until the budget is raised or the incident is dismissed.",
+      "scope_paused_message": "Heartbeats are paused for this scope until the budget is raised or the incident is dismissed.",
+      "budget_usd": "Budget (USD)",
+      "amount_placeholder": "0.00",
+      "saving": "Saving...",
+      "update_budget": "Update budget",
+      "set_budget": "Set budget",
+      "invalid_amount": "Enter a valid non-negative dollar amount.",
+      "status": {
+        "paused": "Paused",
+        "warning": "Warning",
+        "hard_stop": "Hard stop",
+        "healthy": "Healthy"
       }
     }
   },

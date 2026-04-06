@@ -195,6 +195,7 @@
     "backlog": "Backlog",
     "todo": "A fazer",
     "in_progress": "Em andamento",
+    "planned": "Planejado",
     "done": "Concluído",
     "closed": "Fechado"
   },
@@ -367,6 +368,43 @@
           "am": "AM",
           "pm": "PM"
         },
+        "pathInstructionsModal": {
+          "title": "Como obter um caminho completo",
+          "description": "Cole o caminho absoluto (ex.",
+          "choose": "Escolher",
+          "platforms": {
+            "mac": "macOS",
+            "windows": "Windows",
+            "linux": "Linux"
+          },
+          "instructions": {
+            "mac": {
+              "steps": {
+                "1": "Abra o Finder e navegue até a pasta.",
+                "2": "Clique com o botão direito (ou Control-clique) na pasta.",
+                "3": "Segure a tecla Option e escolha \"Copiar como nome do caminho\".",
+                "4": "Cole o caminho copiado aqui."
+              },
+              "tip": "Você também pode abrir o Terminal, digitar cd, arrastar a pasta para o terminal, pressionar Enter e depois executar pwd."
+            },
+            "windows": {
+              "steps": {
+                "1": "Abra o Explorador de Arquivos e navegue até a pasta.",
+                "2": "Clique na barra de endereço no topo e copie o caminho completo.",
+                "3": "Cole o caminho copiado aqui."
+              },
+              "tip": "Como alternativa, segure Shift e clique com o botão direito na pasta, depois selecione \"Copiar como caminho\"."
+            },
+            "linux": {
+              "steps": {
+                "1": "Abra um terminal e navegue até o diretório com cd.",
+                "2": "Execute pwd para mostrar o caminho completo.",
+                "3": "Copie a saída e cole aqui."
+              },
+              "tip": "Na maioria dos gerenciadores de arquivos, Ctrl+L mostra o caminho completo na barra de endereço."
+            }
+          }
+        },
         "liveRunWidget": {
           "title": "Execuções ao Vivo",
           "description": "Transmitido com a mesma interface de transcrição usada na página de detalhes da execução.",
@@ -422,12 +460,173 @@
       "title": "Projetos",
       "add_project": "Adicionar Projeto",
       "no_projects": "Nenhum projeto ainda.",
-      "select_company": "Selecione uma empresa para ver os projetos."
+      "select_company": "Selecione uma empresa para ver os projetos.",
+      "dialog": {
+        "new_project": "Novo projeto",
+        "project_name": "Nome do projeto",
+        "add_description": "Adicionar descrição...",
+        "repo_url": "URL do repo",
+        "local_folder": "Pasta local",
+        "optional": "opcional",
+        "repo_help": "Vincule um repositório GitHub para que os agentes possam clonar, ler e enviar código deste projeto.",
+        "local_folder_help": "Defina um caminho absoluto nesta máquina onde os agentes locais vão ler e escrever arquivos deste projeto.",
+        "github_repo_placeholder": "https://github.com/org/repo",
+        "absolute_path_placeholder": "/caminho/absoluto/para/workspace",
+        "goal": "Objetivo",
+        "add_goal": "+ Objetivo",
+        "no_goal": "Sem objetivo",
+        "all_goals_selected": "Todos os objetivos já foram selecionados.",
+        "target_date": "Data alvo",
+        "create_project": "Criar projeto",
+        "creating": "Criando...",
+        "remove_goal_aria": "Remover objetivo {{title}}",
+        "workspace_name_local_default": "Pasta local",
+        "workspace_name_repo_default": "Repo GitHub",
+        "errors": {
+          "local_path_abs": "A pasta local deve ser um caminho absoluto completo.",
+          "repo_invalid": "O repo deve usar uma URL válida de GitHub ou GitHub Enterprise.",
+          "create_failed": "Falha ao criar projeto."
+        }
+      }
+    },
+    "projectDetail": {
+      "common": {
+        "project": "Projeto"
+      },
+      "tabs": {
+        "issues": "Chamados",
+        "overview": "Visão geral",
+        "workspaces": "Espaços de trabalho",
+        "configuration": "Configuração",
+        "budget": "Orçamento"
+      },
+      "overview": {
+        "add_description": "Adicionar uma descrição...",
+        "status": "Status",
+        "target_date": "Data alvo"
+      },
+      "paused_by_budget": "Pausado por limite rígido de orçamento",
+      "loading_workspaces": "Carregando workspaces...",
+      "toasts": {
+        "success_archive": "\"{{name}}\" foi arquivado",
+        "success_unarchive": "\"{{name}}\" foi desarquivado",
+        "failed_archive": "Falha ao arquivar projeto",
+        "failed_unarchive": "Falha ao desarquivar projeto"
+      },
+      "properties": {
+        "saving": "Salvando",
+        "saved": "Salvo",
+        "failed": "Falhou",
+        "name": "Nome",
+        "project_name": "Nome do projeto",
+        "description": "Descrição",
+        "add_description": "Adicionar uma descrição...",
+        "no_description": "Sem descrição",
+        "status": "Status",
+        "lead": "Líder",
+        "goals": "Objetivos",
+        "goal": "Objetivo",
+        "all_goals_linked": "Todos os objetivos vinculados.",
+        "created": "Criado",
+        "updated": "Atualizado",
+        "target_date": "Data alvo",
+        "codebase": "Codebase",
+        "codebase_help_aria": "Ajuda de codebase",
+        "codebase_help": "O repositório identifica a fonte de verdade. A pasta local é o local padrão onde os agentes escrevem código.",
+        "repo": "Repo",
+        "change_repo": "Alterar repo",
+        "clear_repo": "Limpar repo",
+        "not_set": "Não definido.",
+        "set_repo": "Definir repo",
+        "local_folder": "Pasta local",
+        "paperclip_managed_folder": "Pasta gerenciada pelo Paperclip.",
+        "change_local_folder": "Alterar pasta local",
+        "set_local_folder": "Definir pasta local",
+        "clear_local_folder": "Limpar pasta local"
+      },
+      "archive": {
+        "danger_zone": "Zona de perigo",
+        "archive": "Arquivar",
+        "unarchive": "Desarquivar",
+        "archive_description": "Arquive este projeto para ocultá-lo da barra lateral e dos seletores de projeto.",
+        "unarchive_description": "Desarquive este projeto para restaurá-lo na barra lateral e nos seletores de projeto.",
+        "archiving": "Arquivando...",
+        "unarchiving": "Desarquivando...",
+        "confirm": "Confirmar",
+        "action_project": "{{action}} projeto"
+      }
     },
     "issues": {
       "title": "Chamados",
       "select_company": "Selecione uma empresa para ver os chamados.",
-      "no_issues": "Nenhum chamado ainda."
+      "no_issues": "Nenhum chamado ainda.",
+      "no_match": "Nenhum chamado corresponde aos filtros ou à busca atual.",
+      "toolbar": {
+        "new_issue": "Novo Chamado",
+        "search_placeholder": "Buscar chamados...",
+        "search_aria": "Buscar chamados",
+        "list_view": "Visualização em lista",
+        "board_view": "Visualização em quadro",
+        "filter": "Filtro",
+        "filters": "Filtros",
+        "filters_with_count": "Filtros: {{count}}",
+        "clear": "Limpar",
+        "quick_filters": "Filtros rápidos",
+        "quick": {
+          "all": "Todos",
+          "active": "Ativos",
+          "backlog": "Backlog",
+          "done": "Concluídos"
+        },
+        "status": "Status",
+        "priority": "Prioridade",
+        "assignee": "Responsável",
+        "title": "Título",
+        "created": "Criado",
+        "updated": "Atualizado",
+        "sort": "Ordenar",
+        "group": "Agrupar",
+        "none": "Nenhum"
+      },
+      "assignee": {
+        "none": "Sem responsável",
+        "unassigned": "Não atribuído",
+        "user": "Usuário",
+        "me": "Eu"
+      }
+    },
+    "goals": {
+      "title": "Objetivos",
+      "select_company": "Selecione uma empresa para ver os objetivos.",
+      "no_goals": "Nenhum objetivo ainda.",
+      "add_goal": "Adicionar objetivo",
+      "new_goal": "Novo objetivo",
+      "dialog": {
+        "new_goal": "Novo objetivo",
+        "new_sub_goal": "Novo subobjetivo",
+        "goal_title": "Título do objetivo",
+        "add_description": "Adicionar descrição...",
+        "parent_goal": "Objetivo pai",
+        "no_parent": "Sem pai",
+        "creating": "Criando...",
+        "create_goal": "Criar objetivo",
+        "create_sub_goal": "Criar subobjetivo",
+        "levels": {
+          "company": "Empresa",
+          "team": "Equipe",
+          "agent": "Agente",
+          "task": "Tarefa"
+        }
+      },
+      "properties": {
+        "status": "Status",
+        "level": "Nível",
+        "owner": "Responsável",
+        "none": "Nenhum",
+        "parent_goal": "Objetivo pai",
+        "created": "Criado",
+        "updated": "Atualizado"
+      }
     },
     "agents": {
       "title": "Agentes",
@@ -1018,6 +1217,37 @@
         "agent": "Agente",
         "task": "Tarefa",
         "launch": "Lançamento"
+      }
+    },
+    "budgetPolicyCard": {
+      "scope": {
+        "project": "Projeto",
+        "company": "Empresa"
+      },
+      "window_lifetime": "Orçamento vitalício",
+      "window_monthly_utc": "Orçamento mensal UTC",
+      "observed": "Observado",
+      "percent_of_limit": "{{percent}}% do limite",
+      "no_cap_configured": "Sem limite configurado",
+      "budget": "Orçamento",
+      "disabled": "Desativado",
+      "soft_alert_at": "Alerta suave em {{percent}}%",
+      "pause": "pausa",
+      "remaining": "Restante",
+      "unlimited": "Ilimitado",
+      "project_paused_message": "A execução está pausada para este projeto até que o orçamento seja aumentado ou o incidente seja dispensado.",
+      "scope_paused_message": "Os heartbeats estão pausados para este escopo até que o orçamento seja aumentado ou o incidente seja dispensado.",
+      "budget_usd": "Orçamento (USD)",
+      "amount_placeholder": "0.00",
+      "saving": "Salvando...",
+      "update_budget": "Atualizar orçamento",
+      "set_budget": "Definir orçamento",
+      "invalid_amount": "Insira um valor em dólar válido e não negativo.",
+      "status": {
+        "paused": "Pausado",
+        "warning": "Aviso",
+        "hard_stop": "Bloqueio rígido",
+        "healthy": "Saudável"
       }
     }
   },
