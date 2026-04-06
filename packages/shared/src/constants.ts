@@ -204,6 +204,7 @@ export const APPROVAL_STATUSES = [
   "pending",
   "revision_requested",
   "approved",
+  "completed",
   "rejected",
   "cancelled",
 ] as const;

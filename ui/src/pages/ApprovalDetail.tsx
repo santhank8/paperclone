@@ -149,7 +149,8 @@ export function ApprovalDetail() {
   const isActionable = approval.status === "pending" || approval.status === "revision_requested";
   const isBudgetApproval = approval.type === "budget_override_required";
   const TypeIcon = typeIcon[approval.type] ?? defaultTypeIcon;
-  const showApprovedBanner = searchParams.get("resolved") === "approved" && approval.status === "approved";
+  const isApprovedResolution = approval.status === "approved" || approval.status === "completed";
+  const showApprovedBanner = searchParams.get("resolved") === "approved" && isApprovedResolution;
   const primaryLinkedIssue = linkedIssues?.[0] ?? null;
   const resolvedCta =
     primaryLinkedIssue

@@ -71,7 +71,7 @@ describe("approval routes idempotent retries", () => {
         id: "approval-1",
         companyId: "company-1",
         type: "hire_agent",
-        status: "approved",
+        status: "completed",
         payload: {},
         requestedByAgentId: "agent-1",
       },

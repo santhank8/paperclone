@@ -17,6 +17,20 @@ export function approvalService(db: Db) {
   type ApprovalRecord = typeof approvals.$inferSelect;
   type ResolutionResult = { approval: ApprovalRecord; applied: boolean };
 
+  function storedResolutionStatus(targetStatus: "approved" | "rejected") {
+    return targetStatus === "approved" ? "completed" : "rejected";
+  }
+
+  function isEquivalentResolvedStatus(
+    status: ApprovalRecord["status"],
+    targetStatus: "approved" | "rejected",
+  ) {
+    if (targetStatus === "approved") {
+      return status === "approved" || status === "completed";
+    }
+    return status === "rejected";
+  }
+
   function redactApprovalComment<T extends { body: string }>(comment: T, censorUsernameInLogs: boolean): T {
     return {
       ...comment,
@@ -41,8 +55,9 @@ export function approvalService(db: Db) {
     decisionNote: string | null | undefined,
   ): Promise<ResolutionResult> {
     const existing = await getExistingApproval(id);
+    const nextStatus = storedResolutionStatus(targetStatus);
     if (!canResolveStatuses.has(existing.status)) {
-      if (existing.status === targetStatus) {
+      if (isEquivalentResolvedStatus(existing.status, targetStatus)) {
         return { approval: existing, applied: false };
       }
       throw unprocessable(
@@ -54,7 +69,7 @@ export function approvalService(db: Db) {
     const updated = await db
       .update(approvals)
       .set({
-        status: targetStatus,
+        status: nextStatus,
         decidedByUserId,
         decisionNote: decisionNote ?? null,
         decidedAt: now,
@@ -69,7 +84,7 @@ export function approvalService(db: Db) {
     }
 
     const latest = await getExistingApproval(id);
-    if (latest.status === targetStatus) {
+    if (isEquivalentResolvedStatus(latest.status, targetStatus)) {
       return { approval: latest, applied: false };
     }
 
