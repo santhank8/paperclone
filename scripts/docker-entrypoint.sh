@@ -55,4 +55,7 @@ usermod -s /bin/bash node 2>/dev/null || true
 /usr/sbin/sshd -e 2>&1 &
 echo "SSH server started on port 2222"
 
+# Symlink hermes into PATH (target resolved at use time; ln -s doesn't stat the target)
+ln -sfn /paperclip/.local/bin/hermes /usr/local/bin/hermes
+
 exec gosu node "$@"

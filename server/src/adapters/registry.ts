@@ -175,6 +175,49 @@ const piLocalAdapter: ServerAdapterModule = {
   agentConfigurationDoc: piAgentConfigurationDoc,
 };
 
+/**
+ * Discover models from hermes config.yaml custom_providers section.
+ * Falls back to the static hermesModels if config is unreadable.
+ */
+async function listHermesModels(): Promise<{ id: string; label: string }[]> {
+  const { readFile } = await import("node:fs/promises");
+  const { join } = await import("node:path");
+  const { homedir } = await import("node:os");
+  const configPath = join(homedir(), ".hermes", "config.yaml");
+  try {
+    const content = await readFile(configPath, "utf-8");
+    const models: { id: string; label: string }[] = [];
+    // Extract default model
+    const defaultMatch = content.match(/^model:\s*\n\s+default:\s*(.+)/m);
+    if (defaultMatch?.[1]) {
+      const id = defaultMatch[1].trim().replace(/['"]/g, "");
+      models.push({ id, label: `${id} (default)` });
+    }
+    // Extract custom_providers models
+    const cpSection = content.split(/^custom_providers:\s*$/m)[1];
+    if (cpSection) {
+      const lines = cpSection.split("\n");
+      let currentName = "";
+      for (const line of lines) {
+        // Stop at next top-level key
+        if (/^\S/.test(line) && !line.startsWith("-") && !line.startsWith(" ")) break;
+        const nameMatch = line.match(/^\s*-?\s*name:\s*(.+)/);
+        if (nameMatch) currentName = nameMatch[1].trim().replace(/['"]/g, "");
+        const modelMatch = line.match(/^\s+model:\s*(.+)/);
+        if (modelMatch) {
+          const id = modelMatch[1].trim().replace(/['"]/g, "");
+          if (!models.some((m) => m.id === id)) {
+            models.push({ id, label: currentName || id });
+          }
+        }
+      }
+    }
+    return models.length > 0 ? models : hermesModels;
+  } catch {
+    return hermesModels;
+  }
+}
+
 const hermesLocalAdapter: ServerAdapterModule = {
   type: "hermes_local",
   execute: hermesExecute,
@@ -183,6 +226,7 @@ const hermesLocalAdapter: ServerAdapterModule = {
   listSkills: hermesListSkills,
   syncSkills: hermesSyncSkills,
   models: hermesModels,
+  listModels: listHermesModels,
   supportsLocalAgentJwt: true,
   agentConfigurationDoc: hermesAgentConfigurationDoc,
   detectModel: () => detectModelFromHermes(),
