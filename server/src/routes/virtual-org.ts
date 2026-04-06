@@ -4,6 +4,10 @@ import {
   clarifyVirtualOrgInboxItemSchema,
   createVirtualOrgInboxItemSchema,
   officelyInternalDatabaseSetupSchema,
+  officelyPostHogSetupSchema,
+  officelySlackSetupSchema,
+  officelyStripeSetupSchema,
+  officelyXeroSetupSchema,
   upsertVirtualOrgCompanyProfileSchema,
 } from "@paperclipai/virtual-org-types";
 import { validate } from "../middleware/validate.js";
@@ -75,6 +79,86 @@ export function virtualOrgRoutes(db: Db) {
       const companyId = req.params.companyId as string;
       assertCompanyAccess(req, companyId);
       res.json(await svc.testOfficelyInternalDatabaseSetup(companyId, req.body));
+    },
+  );
+
+  router.post(
+    "/virtual-org/companies/:companyId/officely/xero/setup",
+    validate(officelyXeroSetupSchema),
+    async (req, res) => {
+      const companyId = req.params.companyId as string;
+      assertCompanyAccess(req, companyId);
+      res.json(await svc.saveOfficelyXeroSetup(companyId, req.body));
+    },
+  );
+
+  router.post(
+    "/virtual-org/companies/:companyId/officely/xero/test",
+    validate(officelyXeroSetupSchema),
+    async (req, res) => {
+      const companyId = req.params.companyId as string;
+      assertCompanyAccess(req, companyId);
+      res.json(await svc.testOfficelyXeroSetup(companyId, req.body));
+    },
+  );
+
+  router.post(
+    "/virtual-org/companies/:companyId/officely/slack/setup",
+    validate(officelySlackSetupSchema),
+    async (req, res) => {
+      const companyId = req.params.companyId as string;
+      assertCompanyAccess(req, companyId);
+      res.json(await svc.saveOfficelySlackSetup(companyId, req.body));
+    },
+  );
+
+  router.post(
+    "/virtual-org/companies/:companyId/officely/slack/test",
+    validate(officelySlackSetupSchema),
+    async (req, res) => {
+      const companyId = req.params.companyId as string;
+      assertCompanyAccess(req, companyId);
+      res.json(await svc.testOfficelySlackSetup(companyId, req.body));
+    },
+  );
+
+  router.post(
+    "/virtual-org/companies/:companyId/officely/stripe/setup",
+    validate(officelyStripeSetupSchema),
+    async (req, res) => {
+      const companyId = req.params.companyId as string;
+      assertCompanyAccess(req, companyId);
+      res.json(await svc.saveOfficelyStripeSetup(companyId, req.body));
+    },
+  );
+
+  router.post(
+    "/virtual-org/companies/:companyId/officely/stripe/test",
+    validate(officelyStripeSetupSchema),
+    async (req, res) => {
+      const companyId = req.params.companyId as string;
+      assertCompanyAccess(req, companyId);
+      res.json(await svc.testOfficelyStripeSetup(companyId, req.body));
+    },
+  );
+
+  router.post(
+    "/virtual-org/companies/:companyId/officely/posthog/setup",
+    validate(officelyPostHogSetupSchema),
+    async (req, res) => {
+      const companyId = req.params.companyId as string;
+      assertCompanyAccess(req, companyId);
+      res.json(await svc.saveOfficelyPostHogSetup(companyId, req.body));
+    },
+  );
+
+  router.post(
+    "/virtual-org/companies/:companyId/officely/posthog/test",
+    validate(officelyPostHogSetupSchema),
+    async (req, res) => {
+      const companyId = req.params.companyId as string;
+      assertCompanyAccess(req, companyId);
+      res.json(await svc.testOfficelyPostHogSetup(companyId, req.body));
     },
   );
 

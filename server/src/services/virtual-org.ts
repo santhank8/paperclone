@@ -17,11 +17,16 @@ import { companyService } from "./companies.js";
 import { officelyConnectorService } from "./officely-connectors.js";
 import { issueApprovalService } from "./issue-approvals.js";
 import { issueService } from "./issues.js";
+import { ensureOfficelyKnowledgeBaseAutomation } from "./virtual-org-default-automation.js";
 import { notFound } from "../errors.js";
 import { buildVirtualOrgPolicySnapshot, defaultAllowedActionsForStage, VIRTUAL_ORG_AGENT_TEMPLATES, VIRTUAL_ORG_SEED_COMPANIES } from "@paperclipai/virtual-org-core";
 import type {
   CreateVirtualOrgInboxItemInput,
   OfficelyInternalDatabaseSetupInput,
+  OfficelyPostHogSetupInput,
+  OfficelySlackSetupInput,
+  OfficelyStripeSetupInput,
+  OfficelyXeroSetupInput,
   UpsertVirtualOrgCompanyProfileInput,
   VirtualOrgPolicySnapshot,
 } from "@paperclipai/virtual-org-types";
@@ -265,6 +270,10 @@ export function virtualOrgService(db: Db) {
           );
         }
 
+        if (seed.key === "officely") {
+          await ensureOfficelyKnowledgeBaseAutomation(db, { companyId: company.id });
+        }
+
         results.push({ companyId: company.id, name: company.name });
       }
 
@@ -447,6 +456,46 @@ export function virtualOrgService(db: Db) {
     testOfficelyInternalDatabaseSetup: async (companyId: string, input: OfficelyInternalDatabaseSetupInput) => {
       await getCompany(companyId);
       return officelySvc.testInternalDatabaseSetup(companyId, input);
+    },
+
+    saveOfficelyXeroSetup: async (companyId: string, input: OfficelyXeroSetupInput) => {
+      await getCompany(companyId);
+      return officelySvc.saveXeroSetup(companyId, input);
+    },
+
+    testOfficelyXeroSetup: async (companyId: string, input: OfficelyXeroSetupInput) => {
+      await getCompany(companyId);
+      return officelySvc.testXeroSetup(companyId, input);
+    },
+
+    saveOfficelyStripeSetup: async (companyId: string, input: OfficelyStripeSetupInput) => {
+      await getCompany(companyId);
+      return officelySvc.saveStripeSetup(companyId, input);
+    },
+
+    testOfficelyStripeSetup: async (companyId: string, input: OfficelyStripeSetupInput) => {
+      await getCompany(companyId);
+      return officelySvc.testStripeSetup(companyId, input);
+    },
+
+    saveOfficelySlackSetup: async (companyId: string, input: OfficelySlackSetupInput) => {
+      await getCompany(companyId);
+      return officelySvc.saveSlackSetup(companyId, input);
+    },
+
+    testOfficelySlackSetup: async (companyId: string, input: OfficelySlackSetupInput) => {
+      await getCompany(companyId);
+      return officelySvc.testSlackSetup(companyId, input);
+    },
+
+    saveOfficelyPostHogSetup: async (companyId: string, input: OfficelyPostHogSetupInput) => {
+      await getCompany(companyId);
+      return officelySvc.savePostHogSetup(companyId, input);
+    },
+
+    testOfficelyPostHogSetup: async (companyId: string, input: OfficelyPostHogSetupInput) => {
+      await getCompany(companyId);
+      return officelySvc.testPostHogSetup(companyId, input);
     },
 
     createInboxItem: async (input: CreateVirtualOrgInboxItemInput) => {

@@ -14,6 +14,7 @@ export const companyProfiles = pgTable(
     activeCapabilities: jsonb("active_capabilities").$type<string[]>().notNull().default([]),
     decisionCadence: text("decision_cadence").notNull(),
     approvalPolicy: jsonb("approval_policy").$type<Record<string, unknown>>().notNull().default({}),
+    operatingSnapshotJson: jsonb("operating_snapshot_json").$type<Record<string, unknown>>().notNull().default({}),
     defaultRepo: text("default_repo"),
     allowedRepos: jsonb("allowed_repos").$type<string[]>().notNull().default([]),
     connectedTools: jsonb("connected_tools").$type<string[]>().notNull().default([]),

@@ -45,6 +45,116 @@ export const VIRTUAL_ORG_INBOX_STATUSES = [
 ] as const;
 export type VirtualOrgInboxStatus = (typeof VIRTUAL_ORG_INBOX_STATUSES)[number];
 
+export interface VirtualOrgRevenueScorecard {
+  currency: string;
+  periodStart: string;
+  periodEnd: string;
+  currentMrr: number;
+  previousMrr: number;
+  newMrr: number;
+  expansionMrr: number;
+  reactivationMrr: number;
+  contractionMrr: number;
+  churnedMrr: number;
+  netNewMrr: number;
+  overallChange: number;
+  newCustomers: number;
+  reactivatedCustomers: number;
+  expandedCustomers: number;
+  contractedCustomers: number;
+  lostCustomers: number;
+  currentCustomers: number;
+  previousCustomers: number;
+  revenueGrowthRate: number | null;
+  revenueChurnRate: number | null;
+  customerChurnRate: number | null;
+  estimatedLtv: number | null;
+  netPosition: "positive" | "flat" | "negative";
+  liveRevenueCurrency: string;
+  stripeRevenue: number;
+  manualRevenue: number;
+  totalRevenue: number;
+  collectionCurrency: string;
+  collectionPeriodStart: string;
+  collectionPeriodEnd: string;
+  collectedRevenue: number;
+  collectedViaStripe: number;
+  collectedManually: number;
+  collectedOther: number;
+  recentCollectionCurrency: string;
+  recentCollectionPeriodStart: string;
+  recentCollectionPeriodEnd: string;
+  recentCollectedRevenue: number;
+  recentCollectedViaStripe: number;
+  recentCollectedManually: number;
+  failedPayments: number;
+  failedPaymentAmount: number;
+  refunds: number;
+  refundAmount: number;
+}
+
+export interface VirtualOrgFounderActionItem {
+  id: string;
+  title: string;
+  summary: string;
+  recommendedAction: string;
+  priority: "high" | "medium" | "low";
+  source: "revenue" | "product" | "feedback";
+}
+
+export interface VirtualOrgProductPulse {
+  status: "healthy" | "watch" | "risk" | "unavailable";
+  checkedAt: string | null;
+  eventCount: number;
+  activeUserTotal: number;
+  onboardingEvent: string | null;
+  onboardingEventCount: number;
+  importantEventCounts: OfficelyPostHogEventMetric[];
+  summary: string;
+}
+
+export interface VirtualOrgFeedbackHighlight {
+  postedAt: string;
+  channelName: string | null;
+  channelBucket: "customer_feedback" | "tech_issues" | "other";
+  authorLabel: string | null;
+  text: string;
+  categories: string[];
+}
+
+export interface VirtualOrgFeedbackPulse {
+  status: "healthy" | "watch" | "risk" | "unavailable";
+  checkedAt: string | null;
+  channelId: string | null;
+  channelsReviewed: number;
+  channelsWithMessages: number;
+  messageCount: number;
+  customerMessageCount: number;
+  customerFeedbackMessages: number;
+  techIssueMessages: number;
+  bugMentions: number;
+  featureRequestMentions: number;
+  churnRiskMentions: number;
+  praiseMentions: number;
+  supportMentions: number;
+  summary: string;
+  highlights: VirtualOrgFeedbackHighlight[];
+}
+
+export interface VirtualOrgFounderBrief {
+  generatedAt: string;
+  headline: string;
+  summary: string;
+  productPulse: VirtualOrgProductPulse;
+  feedbackPulse: VirtualOrgFeedbackPulse;
+  actionItems: VirtualOrgFounderActionItem[];
+}
+
+export interface VirtualOrgOperatingSnapshot {
+  revenueScorecard?: VirtualOrgRevenueScorecard | null;
+  founderBrief?: VirtualOrgFounderBrief | null;
+}
+
 export interface VirtualOrgCompanyProfile {
   companyId: string;
   workspaceKey: string | null;
@@ -53,6 +163,7 @@ export interface VirtualOrgCompanyProfile {
   activeCapabilities: string[];
   decisionCadence: VirtualOrgDecisionCadence;
   approvalPolicy: Record<string, unknown>;
+  operatingSnapshotJson: VirtualOrgOperatingSnapshot;
   defaultRepo: string | null;
   allowedRepos: string[];
   connectedTools: string[];
@@ -247,6 +358,167 @@ export interface OfficelyInternalDatabaseTestResult {
   accountCount: number;
   sampleCompanies: string[];
   usedSavedConnection: boolean;
+}
+
+export interface OfficelyXeroSetupInput {
+  clientId?: string | null;
+  clientSecret?: string | null;
+}
+
+export interface OfficelyXeroCashReceiptPreview {
+  receivedAt: string;
+  amount: number;
+  currency: string;
+  bankAccountName: string | null;
+  reference: string | null;
+  companyName: string | null;
+}
+
+export interface OfficelyXeroSetupResult {
+  companyId: string;
+  connectorId: string;
+  hasSavedClientId: boolean;
+  hasSavedClientSecret: boolean;
+  invoiceCount: number;
+  cashReceiptCount: number;
+  stripeCashReceiptCount: number;
+  manualPaymentCount: number;
+  sampleCompanies: string[];
+  latestStripeCashReceipts: OfficelyXeroCashReceiptPreview[];
+  usedSavedClientId: boolean;
+  usedSavedClientSecret: boolean;
+}
+
+export interface OfficelyXeroTestResult {
+  companyId: string;
+  invoiceCount: number;
+  cashReceiptCount: number;
+  stripeCashReceiptCount: number;
+  manualPaymentCount: number;
+  sampleCompanies: string[];
+  latestStripeCashReceipts: OfficelyXeroCashReceiptPreview[];
+  usedSavedClientId: boolean;
+  usedSavedClientSecret: boolean;
+}
+
+export interface OfficelyStripeSetupInput {
+  secretKey?: string | null;
+}
+
+export interface OfficelyStripeSetupResult {
+  companyId: string;
+  connectorId: string;
+  hasSavedSecretKey: boolean;
+  eventCount: number;
+  failedPaymentCount: number;
+  refundCount: number;
+  cancellationCount: number;
+  upgradeCount: number;
+  downgradeCount: number;
+  sampleCompanies: string[];
+  usedSavedSecretKey: boolean;
+}
+
+export interface OfficelyStripeTestResult {
+  companyId: string;
+  eventCount: number;
+  failedPaymentCount: number;
+  refundCount: number;
+  cancellationCount: number;
+  upgradeCount: number;
+  downgradeCount: number;
+  sampleCompanies: string[];
+  usedSavedSecretKey: boolean;
+}
+
+export interface OfficelySlackSetupInput {
+  enabled: boolean;
+  botToken?: string | null;
+  appToken?: string | null;
+  defaultChannelId?: string | null;
+  founderUserId?: string | null;
+  intakeMode?: "dm_only" | "dm_and_channel";
+}
+
+export interface OfficelySlackSetupResult {
+  companyId: string;
+  connectorId: string;
+  enabled: boolean;
+  hasSavedBotToken: boolean;
+  hasSavedAppToken: boolean;
+  teamId: string | null;
+  teamName: string | null;
+  botUserId: string | null;
+  botUserName: string | null;
+  appId: string | null;
+  defaultChannelId: string | null;
+  founderUserId: string | null;
+  intakeMode: "dm_only" | "dm_and_channel";
+  usedSavedBotToken: boolean;
+  usedSavedAppToken: boolean;
+  checkedAt: string;
+}
+
+export interface OfficelySlackTestResult {
+  companyId: string;
+  enabled: boolean;
+  teamId: string | null;
+  teamName: string | null;
+  botUserId: string | null;
+  botUserName: string | null;
+  appId: string | null;
+  defaultChannelId: string | null;
+  founderUserId: string | null;
+  intakeMode: "dm_only" | "dm_and_channel";
+  usedSavedBotToken: boolean;
+  usedSavedAppToken: boolean;
+  checkedAt: string;
+}
+
+export interface OfficelyPostHogSetupInput {
+  enabled: boolean;
+  apiKey?: string | null;
+  projectId?: string | null;
+  baseUrl?: string | null;
+  onboardingEvent?: string | null;
+  importantEvents?: string[];
+}
+
+export interface OfficelyPostHogEventMetric {
+  eventName: string;
+  count: number;
+}
+
+export interface OfficelyPostHogSetupResult {
+  companyId: string;
+  connectorId: string;
+  enabled: boolean;
+  hasSavedApiKey: boolean;
+  projectId: string | null;
+  baseUrl: string;
+  eventCount: number;
+  activeUserTotal: number;
+  onboardingEvent: string | null;
+  onboardingEventCount: number;
+  importantEvents: string[];
+  importantEventCounts: OfficelyPostHogEventMetric[];
+  usedSavedApiKey: boolean;
+  checkedAt: string;
+}
+
+export interface OfficelyPostHogTestResult {
+  companyId: string;
+  enabled: boolean;
+  projectId: string | null;
+  baseUrl: string;
+  eventCount: number;
+  activeUserTotal: number;
+  onboardingEvent: string | null;
+  onboardingEventCount: number;
+  importantEvents: string[];
+  importantEventCounts: OfficelyPostHogEventMetric[];
+  usedSavedApiKey: boolean;
+  checkedAt: string;
 }
 
 export interface VirtualOrgPolicySnapshot {

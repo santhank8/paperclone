@@ -351,6 +351,13 @@
       "when": 1775173822120,
       "tag": "0049_absent_excalibur",
       "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "7",
+      "when": 1775182000000,
+      "tag": "0050_solid_gamora",
+      "breakpoints": true
     }
   ]
 }
