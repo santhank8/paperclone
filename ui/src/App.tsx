@@ -7,19 +7,20 @@ const OnboardingWizard = lazy(() => import("./components/OnboardingWizard").then
 import { PageSkeleton } from "./components/PageSkeleton";
 import { authApi } from "./api/auth";
 import { healthApi } from "./api/health";
-// Eagerly loaded — frequently accessed list pages
+// Dashboard is eager (landing page, must be instant)
 import { Dashboard } from "./pages/Dashboard";
-import { Companies } from "./pages/Companies";
-import { Agents } from "./pages/Agents";
-import { Projects } from "./pages/Projects";
-import { Issues } from "./pages/Issues";
-import { Routines } from "./pages/Routines";
-import { Goals } from "./pages/Goals";
-import { Approvals } from "./pages/Approvals";
+// All other pages are lazy-loaded for smaller initial bundle
+const Companies = lazy(() => import("./pages/Companies").then(m => ({ default: m.Companies })));
+const Agents = lazy(() => import("./pages/Agents").then(m => ({ default: m.Agents })));
+const Projects = lazy(() => import("./pages/Projects").then(m => ({ default: m.Projects })));
+const Issues = lazy(() => import("./pages/Issues").then(m => ({ default: m.Issues })));
+const Routines = lazy(() => import("./pages/Routines").then(m => ({ default: m.Routines })));
+const Goals = lazy(() => import("./pages/Goals").then(m => ({ default: m.Goals })));
+const Approvals = lazy(() => import("./pages/Approvals").then(m => ({ default: m.Approvals })));
 const Playbooks = lazy(() => import("./pages/Playbooks").then(m => ({ default: m.Playbooks })));
 const Library = lazy(() => import("./pages/Library").then(m => ({ default: m.Library })));
-import { Inbox } from "./pages/Inbox";
-import { Activity } from "./pages/Activity";
+const Inbox = lazy(() => import("./pages/Inbox").then(m => ({ default: m.Inbox })));
+const Activity = lazy(() => import("./pages/Activity").then(m => ({ default: m.Activity })));
 // Lazily loaded — detail / heavy pages
 const AgentDetail = lazy(() => import("./pages/AgentDetail").then(m => ({ default: m.AgentDetail })));
 const ProjectDetail = lazy(() => import("./pages/ProjectDetail").then(m => ({ default: m.ProjectDetail })));
@@ -180,7 +181,7 @@ function boardRoutes() {
       <Route index element={<Navigate to="dashboard" replace />} />
       <Route path="dashboard" element={<Dashboard />} />
       <Route path="onboarding" element={<OnboardingRoutePage />} />
-      <Route path="companies" element={<Companies />} />
+      <Route path="companies" element={<LazyPage variant="list"><Companies /></LazyPage>} />
       <Route path="company/settings" element={<LazyPage><CompanySettings /></LazyPage>} />
       <Route path="company/export/*" element={<LazyPage><CompanyExport /></LazyPage>} />
       <Route path="company/import" element={<LazyPage><CompanyImport /></LazyPage>} />
@@ -198,15 +199,15 @@ function boardRoutes() {
       <Route path="org" element={<LazyPage><OrgChart /></LazyPage>} />
       <Route path="hiring" element={<LazyPage variant="list"><Hiring /></LazyPage>} />
       <Route path="agents" element={<Navigate to="/agents/all" replace />} />
-      <Route path="agents/all" element={<Agents />} />
-      <Route path="agents/active" element={<Agents />} />
-      <Route path="agents/paused" element={<Agents />} />
-      <Route path="agents/error" element={<Agents />} />
+      <Route path="agents/all" element={<LazyPage variant="list"><Agents /></LazyPage>} />
+      <Route path="agents/active" element={<LazyPage variant="list"><Agents /></LazyPage>} />
+      <Route path="agents/paused" element={<LazyPage variant="list"><Agents /></LazyPage>} />
+      <Route path="agents/error" element={<LazyPage variant="list"><Agents /></LazyPage>} />
       <Route path="agents/new" element={<LazyPage><NewAgent /></LazyPage>} />
       <Route path="agents/:agentId" element={<LazyPage><AgentDetail /></LazyPage>} />
       <Route path="agents/:agentId/:tab" element={<LazyPage><AgentDetail /></LazyPage>} />
       <Route path="agents/:agentId/runs/:runId" element={<LazyPage><AgentDetail /></LazyPage>} />
-      <Route path="projects" element={<Projects />} />
+      <Route path="projects" element={<LazyPage variant="list"><Projects /></LazyPage>} />
       <Route path="projects/:projectId" element={<LazyPage><ProjectDetail /></LazyPage>} />
       <Route path="projects/:projectId/overview" element={<LazyPage><ProjectDetail /></LazyPage>} />
       <Route path="projects/:projectId/issues" element={<LazyPage><ProjectDetail /></LazyPage>} />
@@ -214,28 +215,28 @@ function boardRoutes() {
       <Route path="projects/:projectId/configuration" element={<LazyPage><ProjectDetail /></LazyPage>} />
       <Route path="projects/:projectId/activity" element={<LazyPage><ProjectDetail /></LazyPage>} />
       <Route path="projects/:projectId/budget" element={<LazyPage><ProjectDetail /></LazyPage>} />
-      <Route path="issues" element={<Issues />} />
+      <Route path="issues" element={<LazyPage variant="list"><Issues /></LazyPage>} />
       <Route path="issues/all" element={<Navigate to="/issues" replace />} />
       <Route path="issues/active" element={<Navigate to="/issues" replace />} />
       <Route path="issues/backlog" element={<Navigate to="/issues" replace />} />
       <Route path="issues/done" element={<Navigate to="/issues" replace />} />
       <Route path="issues/recent" element={<Navigate to="/issues" replace />} />
       <Route path="issues/:issueId" element={<LazyPage><IssueDetail /></LazyPage>} />
-      <Route path="routines" element={<Routines />} />
+      <Route path="routines" element={<LazyPage variant="list"><Routines /></LazyPage>} />
       <Route path="routines/:routineId" element={<LazyPage><RoutineDetail /></LazyPage>} />
       <Route path="execution-workspaces/:workspaceId" element={<LazyPage><ExecutionWorkspaceDetail /></LazyPage>} />
-      <Route path="goals" element={<Goals />} />
+      <Route path="goals" element={<LazyPage variant="list"><Goals /></LazyPage>} />
       <Route path="goals/:goalId" element={<LazyPage><GoalDetail /></LazyPage>} />
       <Route path="approvals" element={<Navigate to="/approvals/pending" replace />} />
-      <Route path="approvals/pending" element={<Approvals />} />
-      <Route path="approvals/all" element={<Approvals />} />
+      <Route path="approvals/pending" element={<LazyPage variant="list"><Approvals /></LazyPage>} />
+      <Route path="approvals/all" element={<LazyPage variant="list"><Approvals /></LazyPage>} />
       <Route path="approvals/:approvalId" element={<LazyPage><ApprovalDetail /></LazyPage>} />
       <Route path="costs" element={<LazyPage variant="list"><Costs /></LazyPage>} />
       <Route path="performance" element={<LazyPage><AgentPerformance /></LazyPage>} />
       <Route path="board-briefing" element={<LazyPage><BoardBriefing /></LazyPage>} />
       <Route path="deliverables" element={<LazyPage variant="list"><Deliverables /></LazyPage>} />
       <Route path="knowledge" element={<LazyPage variant="list"><KnowledgeBase /></LazyPage>} />
-      <Route path="activity" element={<Activity />} />
+      <Route path="activity" element={<LazyPage variant="list"><Activity /></LazyPage>} />
       <Route path="audit-log" element={<LazyPage variant="list"><AuditLog /></LazyPage>} />
       <Route path="platform-health" element={<LazyPage><PlatformHealth /></LazyPage>} />
       <Route path="sla" element={<LazyPage><SLASettings /></LazyPage>} />
@@ -245,10 +246,10 @@ function boardRoutes() {
       <Route path="marketplace" element={<LazyPage variant="list"><AgentMarketplace /></LazyPage>} />
       <Route path="channels/:channelId" element={<LazyPage><ChannelView /></LazyPage>} />
       <Route path="inbox" element={<InboxRootRedirect />} />
-      <Route path="inbox/mine" element={<Inbox />} />
-      <Route path="inbox/recent" element={<Inbox />} />
-      <Route path="inbox/unread" element={<Inbox />} />
-      <Route path="inbox/all" element={<Inbox />} />
+      <Route path="inbox/mine" element={<LazyPage variant="list"><Inbox /></LazyPage>} />
+      <Route path="inbox/recent" element={<LazyPage variant="list"><Inbox /></LazyPage>} />
+      <Route path="inbox/unread" element={<LazyPage variant="list"><Inbox /></LazyPage>} />
+      <Route path="inbox/all" element={<LazyPage variant="list"><Inbox /></LazyPage>} />
       <Route path="inbox/new" element={<Navigate to="/inbox/mine" replace />} />
       <Route path="keyboard-shortcuts" element={<LazyPage><KeyboardShortcuts /></LazyPage>} />
       <Route path="design-guide" element={<LazyPage><DesignGuide /></LazyPage>} />
