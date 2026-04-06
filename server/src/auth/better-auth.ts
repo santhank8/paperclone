@@ -67,7 +67,11 @@ export function deriveAuthTrustedOrigins(config: Config): string[] {
 
 export function createBetterAuthInstance(db: Db, config: Config, trustedOrigins?: string[]): BetterAuthInstance {
   const baseUrl = config.authBaseUrlMode === "explicit" ? config.authPublicBaseUrl : undefined;
-  const secret = process.env.BETTER_AUTH_SECRET ?? process.env.IRONWORKS_AGENT_JWT_SECRET ?? "ironworks-dev-secret";
+  const secret = process.env.BETTER_AUTH_SECRET ?? process.env.IRONWORKS_AGENT_JWT_SECRET ?? (
+    process.env.NODE_ENV !== "development"
+      ? (() => { throw new Error("BETTER_AUTH_SECRET environment variable is required"); })()
+      : "ironworks-dev-secret"
+  );
   const effectiveTrustedOrigins = trustedOrigins ?? deriveAuthTrustedOrigins(config);
 
   const publicUrl = process.env.IRONWORKS_PUBLIC_URL ?? baseUrl;

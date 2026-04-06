@@ -58,8 +58,8 @@ RUN test -f server/dist/index.js || (echo "ERROR: server build output missing" &
 FROM base AS production
 WORKDIR /app
 COPY --chown=node:node --from=build /app /app
-# AI CLI tools — use @latest until we verify pinnable versions
-RUN npm install --global --omit=dev @anthropic-ai/claude-code@latest @openai/codex@latest opencode-ai \
+# AI CLI tools — versions pinned for supply-chain safety; bump intentionally when upgrading
+RUN npm install --global --omit=dev @anthropic-ai/claude-code@1.0.0 @openai/codex@0.1.0 opencode-ai \
   && mkdir -p /ironworks \
   && chown node:node /ironworks
 

@@ -1,3 +1,8 @@
+# ==============================================================
+# DEVELOPMENT ONLY - Do NOT use in production.
+# For production, use docker-compose.production.yml
+# ==============================================================
+
 services:
   db:
     image: postgres:17-alpine

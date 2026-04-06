@@ -1,5 +1,7 @@
 import { Router, type Request } from "express";
+import { and, eq } from "drizzle-orm";
 import type { Db } from "@ironworksai/db";
+import { companyMemberships } from "@ironworksai/db";
 import {
   companyPortabilityExportSchema,
   companyPortabilityImportSchema,
@@ -367,13 +369,23 @@ export function companyRoutes(db: Db, storage?: StorageService) {
   /**
    * POST /api/companies/:companyId/agents/:agentId/grant-capability
    *
-   * Allows an agent with canManagePermissions (CEO, CTO) to grant or revoke
-   * a capability on another agent within the same company.
+   * Allows an authorized actor to grant or revoke a capability on another
+   * agent within the same company.
+   *
+   * Authorization rules (checked against req.actor, NOT the URL param):
+   *   - Board actor (session / board_key / local_implicit): must be an
+   *     instance admin OR a company owner/admin membership.
+   *   - Agent actor: the authenticated agent (req.actor.agentId) must have
+   *     canManagePermissions on its own permissions record.
+   *
+   * The :agentId URL param is retained for API compatibility and recorded in
+   * the activity log, but it is NOT used to make authorization decisions.
    *
    * Body: { targetAgentId: string, capability: string, value: boolean, temporary?: boolean }
    */
   router.post("/:companyId/agents/:agentId/grant-capability", async (req, res) => {
     const companyId = req.params.companyId as string;
+    // `:agentId` is kept for API compatibility / activity-log context only.
     const agentId = req.params.agentId as string;
     assertCompanyAccess(req, companyId);
 
@@ -406,18 +418,59 @@ export function companyRoutes(db: Db, storage?: StorageService) {
       return;
     }
 
-    // Resolve the acting agent
+    // SEC-AUTH-001 fix: authorize from req.actor, not the URL-param agent.
     const actorAgentSvc = agentService(db);
-    const actorAgent = await actorAgentSvc.getById(agentId);
-    if (!actorAgent || actorAgent.companyId !== companyId) {
-      res.status(404).json({ error: "Agent not found" });
-      return;
-    }
 
-    // Check that actor has canManagePermissions
-    const canManagePermissions = Boolean(actorAgent.permissions?.canManagePermissions);
-    if (!canManagePermissions) {
-      res.status(403).json({ error: "Agent does not have canManagePermissions" });
+    if (req.actor.type === "board") {
+      // Board actors: instance admins and local_implicit are always permitted.
+      // Regular board users must be an owner or admin of this company.
+      const isPrivilegedBoardActor =
+        req.actor.source === "local_implicit" || req.actor.isInstanceAdmin;
+
+      if (!isPrivilegedBoardActor) {
+        if (!req.actor.userId) {
+          res.status(403).json({ error: "Insufficient permissions to manage agent capabilities" });
+          return;
+        }
+        const membership = await db
+          .select({ membershipRole: companyMemberships.membershipRole })
+          .from(companyMemberships)
+          .where(
+            and(
+              eq(companyMemberships.companyId, companyId),
+              eq(companyMemberships.principalType, "user"),
+              eq(companyMemberships.principalId, req.actor.userId),
+              eq(companyMemberships.status, "active"),
+            ),
+          )
+          .then((rows) => rows[0] ?? null);
+
+        const role = membership?.membershipRole;
+        if (role !== "owner" && role !== "admin") {
+          res.status(403).json({ error: "Insufficient permissions to manage agent capabilities" });
+          return;
+        }
+      }
+    } else if (req.actor.type === "agent") {
+      // Agent actors: the AUTHENTICATED agent (from the bearer token) must have
+      // canManagePermissions. The URL-param :agentId is irrelevant for authz.
+      const callerAgentId = req.actor.agentId;
+      if (!callerAgentId) {
+        res.status(403).json({ error: "Agent authentication required" });
+        return;
+      }
+      const callerAgent = await actorAgentSvc.getById(callerAgentId);
+      if (!callerAgent || callerAgent.companyId !== companyId) {
+        res.status(403).json({ error: "Authenticated agent does not belong to this company" });
+        return;
+      }
+      const canManagePermissions = Boolean(callerAgent.permissions?.canManagePermissions);
+      if (!canManagePermissions) {
+        res.status(403).json({ error: "Agent does not have canManagePermissions" });
+        return;
+      }
+    } else {
+      res.status(401).json({ error: "Authentication required" });
       return;
     }
 

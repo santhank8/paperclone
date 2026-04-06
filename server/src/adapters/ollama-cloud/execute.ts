@@ -1,5 +1,6 @@
 import type { AdapterExecutionContext, AdapterExecutionResult } from "../types.js";
 import { asString } from "../utils.js";
+import { sanitizeForPrompt, redactSecrets, PROMPT_MAX_LENGTHS } from "../../lib/prompt-security.js";
 
 export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExecutionResult> {
   const { config, agent, context } = ctx;
@@ -28,33 +29,35 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     messages.push({ role: "system", content: systemPrompt });
   }
 
-  // Morning briefing / session context
-  const morningBriefing = strVal(context.ironworksMorningBriefing);
+  // Morning briefing / session context — redact secrets before sending to external API
+  const morningBriefing = redactSecrets(strVal(context.ironworksMorningBriefing));
   if (morningBriefing) {
     messages.push({ role: "system", content: morningBriefing });
   }
 
-  // Onboarding packet for contractors
-  const onboardingContext = strVal(context.ironworksOnboardingContext);
+  // Onboarding packet for contractors — redact secrets before sending to external API
+  const onboardingContext = redactSecrets(strVal(context.ironworksOnboardingContext));
   if (onboardingContext) {
     messages.push({ role: "system", content: onboardingContext });
   }
 
-  // Recent documents
-  const recentDocuments = strVal(context.ironworksRecentDocuments);
+  // Recent documents — redact secrets before sending to external API
+  const recentDocuments = redactSecrets(strVal(context.ironworksRecentDocuments));
   if (recentDocuments) {
     messages.push({ role: "system", content: `## Your Recent Documents\n${recentDocuments}` });
   }
 
-  // The actual task/issue context
-  const taskContext = strVal(context.taskContext) || strVal(context.issueContext);
-  if (taskContext) {
+  // The actual task/issue context — sanitize before including in the prompt
+  const rawTaskContext = strVal(context.taskContext) || strVal(context.issueContext);
+  if (rawTaskContext) {
+    const taskContext = sanitizeForPrompt(rawTaskContext, PROMPT_MAX_LENGTHS.taskContext);
     messages.push({ role: "user", content: taskContext });
   }
 
-  // Latest comments/messages
-  const latestComment = strVal(context.latestComment);
-  if (latestComment) {
+  // Latest comments/messages — sanitize before including in the prompt
+  const rawLatestComment = strVal(context.latestComment);
+  if (rawLatestComment) {
+    const latestComment = sanitizeForPrompt(rawLatestComment, PROMPT_MAX_LENGTHS.comment);
     messages.push({ role: "user", content: latestComment });
   }
 

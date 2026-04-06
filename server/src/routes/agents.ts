@@ -123,6 +123,11 @@ export function agentRoutes(db: Db) {
   const approvalsSvc = approvalService(db);
   const budgets = budgetService(db);
   const heartbeat = heartbeatService(db);
+
+  // Per-agent wakeup rate limit: track last invocation timestamp per agent ID.
+  // Requests within 60 seconds of the previous wakeup for the same agent are rejected.
+  const agentLastWakeup = new Map<string, number>();
+  const WAKEUP_RATE_LIMIT_MS = 60_000;
   const issueApprovalsSvc = issueApprovalService(db);
   const secretsSvc = secretService(db);
   const instructions = agentInstructionsService();
@@ -2470,6 +2475,15 @@ Your team is ready to work. Assign tasks by creating issues and setting an assig
 
   router.post("/agents/:id/wakeup", validate(wakeAgentSchema), async (req, res) => {
     const id = req.params.id as string;
+
+    // Per-agent rate limit: reject if invoked within WAKEUP_RATE_LIMIT_MS of last wakeup.
+    const lastWakeup = agentLastWakeup.get(id);
+    if (lastWakeup !== undefined && Date.now() - lastWakeup < WAKEUP_RATE_LIMIT_MS) {
+      res.status(429).json({ error: "Agent was invoked recently. Please wait before invoking again." });
+      return;
+    }
+    agentLastWakeup.set(id, Date.now());
+
     const agent = await svc.getById(id);
     if (!agent) {
       res.status(404).json({ error: "Agent not found" });

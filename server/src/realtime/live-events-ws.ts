@@ -4,7 +4,7 @@ import { createRequire } from "node:module";
 import type { Duplex } from "node:stream";
 import { and, eq, isNull } from "drizzle-orm";
 import type { Db } from "@ironworksai/db";
-import { agentApiKeys, companyMemberships, instanceUserRoles } from "@ironworksai/db";
+import { agentApiKeys, companies, companyMemberships, instanceUserRoles } from "@ironworksai/db";
 import type { DeploymentMode } from "@ironworksai/shared";
 import type { BetterAuthSessionResult } from "../auth/better-auth.js";
 import { logger } from "../middleware/logger.js";
@@ -109,6 +109,15 @@ async function authorizeUpgrade(
   // Browser board context has no bearer token in local_trusted and authenticated modes.
   if (!token) {
     if (opts.deploymentMode === "local_trusted") {
+      // Even in trusted mode, verify the company actually exists to prevent
+      // subscribing to events for arbitrary/nonexistent company IDs.
+      const companyExists = await db
+        .select({ id: companies.id })
+        .from(companies)
+        .where(eq(companies.id, companyId))
+        .limit(1);
+      if (companyExists.length === 0) return null;
+
       return {
         companyId,
         actorType: "board",
