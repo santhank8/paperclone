@@ -148,6 +148,7 @@ function boardRoutes() {
       <Route path="projects/:projectId/issues/:filter" element={<ProjectDetail />} />
       <Route path="projects/:projectId/workspaces/:workspaceId" element={<ProjectWorkspaceDetail />} />
       <Route path="projects/:projectId/workspaces" element={<ProjectDetail />} />
+      <Route path="projects/:projectId/artifacts" element={<ProjectDetail />} />
       <Route path="projects/:projectId/configuration" element={<ProjectDetail />} />
       <Route path="projects/:projectId/budget" element={<ProjectDetail />} />
       <Route path="issues" element={<Issues />} />
@@ -344,6 +345,7 @@ export function App() {
           <Route path="projects/:projectId/issues" element={<UnprefixedBoardRedirect />} />
           <Route path="projects/:projectId/issues/:filter" element={<UnprefixedBoardRedirect />} />
           <Route path="projects/:projectId/workspaces" element={<UnprefixedBoardRedirect />} />
+          <Route path="projects/:projectId/artifacts" element={<UnprefixedBoardRedirect />} />
           <Route path="projects/:projectId/workspaces/:workspaceId" element={<UnprefixedBoardRedirect />} />
           <Route path="projects/:projectId/configuration" element={<UnprefixedBoardRedirect />} />
           <Route path="execution-workspaces/:workspaceId" element={<UnprefixedBoardRedirect />} />

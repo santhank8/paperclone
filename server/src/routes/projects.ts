@@ -9,7 +9,7 @@ import {
 } from "@paperclipai/shared";
 import { trackProjectCreated } from "@paperclipai/shared/telemetry";
 import { validate } from "../middleware/validate.js";
-import { projectService, logActivity, workspaceOperationService } from "../services/index.js";
+import { projectService, logActivity, workspaceOperationService, workProductService } from "../services/index.js";
 import { conflict } from "../errors.js";
 import { assertCompanyAccess, getActorInfo } from "./authz.js";
 import { startRuntimeServicesForWorkspaceControl, stopRuntimeServicesForProjectWorkspace } from "../services/workspace-runtime.js";
@@ -19,6 +19,7 @@ export function projectRoutes(db: Db) {
   const router = Router();
   const svc = projectService(db);
   const workspaceOperations = workspaceOperationService(db);
+  const workProducts = workProductService(db);
 
   async function resolveCompanyIdForProjectReference(req: Request) {
     const companyIdQuery = req.query.companyId;
@@ -159,6 +160,18 @@ export function projectRoutes(db: Db) {
     assertCompanyAccess(req, existing.companyId);
     const workspaces = await svc.listWorkspaces(id);
     res.json(workspaces);
+  });
+
+  router.get("/projects/:id/work-products", async (req, res) => {
+    const id = req.params.id as string;
+    const existing = await svc.getById(id);
+    if (!existing) {
+      res.status(404).json({ error: "Project not found" });
+      return;
+    }
+    assertCompanyAccess(req, existing.companyId);
+    const items = await workProducts.listForProject(id, existing.companyId);
+    res.json(items);
   });
 
   router.post("/projects/:id/workspaces", validate(createProjectWorkspaceSchema), async (req, res) => {

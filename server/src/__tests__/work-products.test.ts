@@ -92,4 +92,21 @@ describe("workProductService", () => {
     expect(txUpdate).toHaveBeenCalledTimes(2);
     expect(result?.reviewState).toBe("ready_for_review");
   });
+
+  it("lists work products for a project scoped by company", async () => {
+    const row = createWorkProductRow();
+    const selectOrderBy = vi.fn(async () => [row]);
+    const selectWhere = vi.fn(() => ({ orderBy: selectOrderBy }));
+    const selectFrom = vi.fn(() => ({ where: selectWhere }));
+    const db = {
+      select: vi.fn(() => ({ from: selectFrom })),
+    };
+
+    const svc = workProductService(db as any);
+    const result = await svc.listForProject("project-1", "company-1");
+
+    expect(db.select).toHaveBeenCalledTimes(1);
+    expect(result).toHaveLength(1);
+    expect(result[0]?.id).toBe("work-product-1");
+  });
 });
