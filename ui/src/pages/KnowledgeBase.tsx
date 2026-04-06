@@ -56,6 +56,121 @@ import {
   X,
 } from "lucide-react";
 import { Link } from "@/lib/router";
+import { ChevronRight as ChevronRightIcon, Folder, FileText } from "lucide-react";
+
+/* ── KB Folder Tree ── */
+
+interface FolderNode {
+  name: string;
+  pages: KnowledgePage[];
+  children: Map<string, FolderNode>;
+}
+
+function buildFolderTree(pages: KnowledgePage[]): { rootPages: KnowledgePage[]; folders: Map<string, FolderNode> } {
+  const folders = new Map<string, FolderNode>();
+  const rootPages: KnowledgePage[] = [];
+
+  for (const page of pages) {
+    const slug = page.slug ?? "";
+    const slashIdx = slug.indexOf("/");
+    if (slashIdx > 0) {
+      const folderName = slug.substring(0, slashIdx);
+      if (!folders.has(folderName)) {
+        folders.set(folderName, { name: folderName, pages: [], children: new Map() });
+      }
+      folders.get(folderName)!.pages.push(page);
+    } else {
+      rootPages.push(page);
+    }
+  }
+
+  return { rootPages, folders };
+}
+
+function KBFolderTree({ pages, selectedPageId, onSelectPage }: {
+  pages: KnowledgePage[];
+  selectedPageId: string | null;
+  onSelectPage: (id: string) => void;
+}) {
+  const { rootPages, folders } = useMemo(() => buildFolderTree(pages), [pages]);
+  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(() => {
+    // Auto-expand folder containing selected page
+    const expanded = new Set<string>();
+    if (selectedPageId) {
+      for (const [name, folder] of folders) {
+        if (folder.pages.some((p) => p.id === selectedPageId)) expanded.add(name);
+      }
+    }
+    return expanded;
+  });
+
+  const toggleFolder = (name: string) => {
+    setExpandedFolders((prev) => {
+      const next = new Set(prev);
+      if (next.has(name)) next.delete(name); else next.add(name);
+      return next;
+    });
+  };
+
+  const folderLabel = (name: string) => name.charAt(0).toUpperCase() + name.slice(1).replace(/-/g, " ");
+
+  return (
+    <div className="space-y-0.5 py-1">
+      {/* Folders first */}
+      {[...folders.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([name, folder]) => {
+        const isExpanded = expandedFolders.has(name);
+        return (
+          <div key={name}>
+            <button
+              className="w-full flex items-center gap-1.5 px-3 py-1.5 text-left hover:bg-accent/50 transition-colors"
+              onClick={() => toggleFolder(name)}
+            >
+              <ChevronRightIcon className={cn("h-3 w-3 text-muted-foreground/60 transition-transform shrink-0", isExpanded && "rotate-90")} />
+              <Folder className="h-3.5 w-3.5 text-amber-500/70 shrink-0" />
+              <span className="text-xs font-medium text-muted-foreground truncate">{folderLabel(name)}</span>
+              <span className="text-[9px] text-muted-foreground/50 ml-auto shrink-0">{folder.pages.length}</span>
+            </button>
+            {isExpanded && (
+              <div className="ml-3">
+                {folder.pages.map((page) => (
+                  <KBPageRow key={page.id} page={page} selected={selectedPageId === page.id} onSelect={onSelectPage} indent />
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      })}
+      {/* Root pages (no folder) */}
+      {rootPages.map((page) => (
+        <KBPageRow key={page.id} page={page} selected={selectedPageId === page.id} onSelect={onSelectPage} />
+      ))}
+    </div>
+  );
+}
+
+function KBPageRow({ page, selected, onSelect, indent }: {
+  page: KnowledgePage;
+  selected: boolean;
+  onSelect: (id: string) => void;
+  indent?: boolean;
+}) {
+  return (
+    <button
+      className={cn(
+        "w-full text-left px-3 py-2 transition-colors flex items-start gap-2",
+        indent && "pl-6",
+        selected ? "bg-accent" : "hover:bg-accent/50",
+      )}
+      onClick={() => onSelect(page.id)}
+    >
+      <FileText className="h-3.5 w-3.5 text-muted-foreground/50 mt-0.5 shrink-0" />
+      <div className="min-w-0 flex-1">
+        <div className="text-sm font-medium truncate">{page.title}</div>
+        <span className="text-[10px] text-muted-foreground">{timeAgo(page.updatedAt)}</span>
+      </div>
+    </button>
+  );
+}
 
 /* ── Wiki Cross-Linking: [[Page Title]] detection (12.11) ── */
 
@@ -505,36 +620,11 @@ export function KnowledgeBase() {
               {search.trim() ? "No pages match your search." : "No pages yet. Create one to get started."}
             </div>
           ) : (
-            filteredPages.map((page) => (
-              <button
-                key={page.id}
-                className={cn(
-                  "w-full text-left px-3 py-2.5 border-b border-border/50 transition-colors",
-                  selectedPageId === page.id ? "bg-accent" : "hover:bg-accent/50",
-                )}
-                onClick={() => { setSelectedPageId(page.id); setEditing(false); setShowHistory(false); }}
-              >
-                <div className="text-sm font-medium truncate">{page.title}</div>
-                <div className="flex items-center gap-1.5 mt-0.5">
-                  <span className="text-[10px] text-muted-foreground">{timeAgo(page.updatedAt)}</span>
-                  {page.agentId && (
-                    <span className="inline-flex items-center gap-0.5 text-[9px] font-medium bg-purple-500/10 text-purple-400 px-1.5 py-0.5 rounded-full">
-                      <User className="h-2.5 w-2.5" />Agent
-                    </span>
-                  )}
-                  {!page.agentId && page.department && (
-                    <span className="inline-flex items-center gap-0.5 text-[9px] font-medium bg-blue-500/10 text-blue-400 px-1.5 py-0.5 rounded-full">
-                      <Users className="h-2.5 w-2.5" />{page.department}
-                    </span>
-                  )}
-                  {!page.agentId && !page.department && (
-                    <span className="inline-flex items-center gap-0.5 text-[9px] font-medium bg-muted text-muted-foreground px-1.5 py-0.5 rounded-full">
-                      <Building2 className="h-2.5 w-2.5" />Company
-                    </span>
-                  )}
-                </div>
-              </button>
-            ))
+            <KBFolderTree
+              pages={filteredPages}
+              selectedPageId={selectedPageId}
+              onSelectPage={(id) => { setSelectedPageId(id); setEditing(false); setShowHistory(false); }}
+            />
           )}
         </div>
       </div>
