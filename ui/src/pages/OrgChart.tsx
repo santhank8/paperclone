@@ -202,9 +202,10 @@ export function OrgChart() {
 
   const { data: skillMap } = useQuery({
     queryKey: ["expertise-map", "skills", selectedCompanyId!] as const,
-    queryFn: () => expertiseMapApi.skills(selectedCompanyId!),
+    queryFn: () => expertiseMapApi.skills(selectedCompanyId!).catch(() => null),
     enabled: !!selectedCompanyId,
     staleTime: 120_000,
+    retry: false,
   });
 
   // Hiring requests for vacant position placeholders (12.14)
