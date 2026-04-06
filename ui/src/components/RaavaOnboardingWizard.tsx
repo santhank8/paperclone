@@ -465,7 +465,6 @@ export function RaavaOnboardingWizard() {
     if (!companyId) {
       // Cannot skip company creation without a resolved company — stay on step 1.
       setStep(1);
-      setError("A company must be selected before skipping company setup.");
       return;
     }
 
