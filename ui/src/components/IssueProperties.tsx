@@ -5,6 +5,7 @@ import type { Issue } from "@paperclipai/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { agentsApi } from "../api/agents";
 import { authApi } from "../api/auth";
+import { instanceSettingsApi } from "../api/instanceSettings";
 import { issuesApi } from "../api/issues";
 import { projectsApi } from "../api/projects";
 import { useCompany } from "../context/CompanyContext";
@@ -170,6 +171,12 @@ export function IssueProperties({ issue, onUpdate, inline }: IssuePropertiesProp
     queryFn: () => issuesApi.list(companyId!),
     enabled: !!companyId && blockedByOpen,
   });
+
+  const { data: experimentalSettings } = useQuery({
+    queryKey: queryKeys.instance.experimentalSettings,
+    queryFn: () => instanceSettingsApi.getExperimental(),
+  });
+  const dependenciesEnabled = experimentalSettings?.enableDependencies === true;
 
   const createLabel = useMutation({
     mutationFn: (data: { name: string; color: string }) => issuesApi.createLabel(companyId!, data),
@@ -650,38 +657,42 @@ export function IssueProperties({ issue, onUpdate, inline }: IssuePropertiesProp
           {projectContent}
         </PropertyPicker>
 
-        <PropertyPicker
-          inline={inline}
-          label="Blocked by"
-          open={blockedByOpen}
-          onOpenChange={(open) => {
-            setBlockedByOpen(open);
-            if (!open) setBlockedBySearch("");
-          }}
-          triggerContent={blockedByTrigger}
-          triggerClassName="min-w-0 max-w-full"
-          popoverClassName="w-72"
-        >
-          {blockedByContent}
-        </PropertyPicker>
+        {dependenciesEnabled && (
+          <PropertyPicker
+            inline={inline}
+            label="Blocked by"
+            open={blockedByOpen}
+            onOpenChange={(open) => {
+              setBlockedByOpen(open);
+              if (!open) setBlockedBySearch("");
+            }}
+            triggerContent={blockedByTrigger}
+            triggerClassName="min-w-0 max-w-full"
+            popoverClassName="w-72"
+          >
+            {blockedByContent}
+          </PropertyPicker>
+        )}
 
-        <PropertyRow label="Blocking">
-          {blockingIssues.length > 0 ? (
-            <div className="flex flex-wrap gap-1">
-              {blockingIssues.map((relation) => (
-                <Link
-                  key={relation.id}
-                  to={`/issues/${relation.identifier ?? relation.id}`}
-                  className="inline-flex items-center rounded-full border border-border px-2 py-0.5 text-xs hover:bg-accent/50"
-                >
-                  {relation.identifier ?? relation.title}
-                </Link>
-              ))}
-            </div>
-          ) : (
-            <span className="text-sm text-muted-foreground">None</span>
-          )}
-        </PropertyRow>
+        {dependenciesEnabled && (
+          <PropertyRow label="Blocking">
+            {blockingIssues.length > 0 ? (
+              <div className="flex flex-wrap gap-1">
+                {blockingIssues.map((relation) => (
+                  <Link
+                    key={relation.id}
+                    to={`/issues/${relation.identifier ?? relation.id}`}
+                    className="inline-flex items-center rounded-full border border-border px-2 py-0.5 text-xs hover:bg-accent/50"
+                  >
+                    {relation.identifier ?? relation.title}
+                  </Link>
+                ))}
+              </div>
+            ) : (
+              <span className="text-sm text-muted-foreground">None</span>
+            )}
+          </PropertyRow>
+        )}
 
         {issue.parentId && (
           <PropertyRow label="Parent">
