@@ -68,9 +68,9 @@ export function RoutineVariablesEditor({
     <Collapsible open={open} onOpenChange={setOpen}>
       <CollapsibleTrigger className="flex w-full items-center justify-between rounded-lg border border-border/70 px-3 py-2 text-left">
         <div>
-          <p className="text-sm font-medium">{t("page.components.routineVariablesEditor.title")}</p>
+          <p className="text-sm font-medium">{t("page.inbox.components.routineVariablesEditor.title")}</p>
           <p className="text-xs text-muted-foreground">
-            {t("page.components.routineVariablesEditor.detected_hint", { name: "{{name}}" })}
+            {t("page.inbox.components.routineVariablesEditor.detected_hint", { name: "{{name}}" })}
           </p>
         </div>
         {open ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
@@ -83,7 +83,7 @@ export function RoutineVariablesEditor({
                 {`{{${variable.name}}}`}
               </Badge>
               <span className="text-xs text-muted-foreground">
-                {t("page.components.routineVariablesEditor.manual_run_hint")}
+                {t("page.inbox.components.routineVariablesEditor.manual_run_hint")}
               </span>
             </div>
 
@@ -101,7 +101,7 @@ export function RoutineVariablesEditor({
               </div>
 
               <div className="space-y-1.5">
-                <Label className="text-xs">{t("page.components.routineVariablesEditor.type")}</Label>
+                <Label className="text-xs">{t("page.inbox.components.routineVariablesEditor.type")}</Label>
                 <Select
                   value={variable.type}
                   onValueChange={(type) => onChange(updateVariableList(syncedVariables, variable.name, (current) => ({
@@ -116,7 +116,7 @@ export function RoutineVariablesEditor({
                   </SelectTrigger>
                   <SelectContent>
                     {variableTypes.map((type) => (
-                      <SelectItem key={type} value={type}>{t(`page.components.routineVariablesEditor.types.${type}`)}</SelectItem>
+                      <SelectItem key={type} value={type}>{t(`page.inbox.components.routineVariablesEditor.types.${type}`)}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -124,7 +124,7 @@ export function RoutineVariablesEditor({
 
               <div className="space-y-1.5 md:col-span-2">
                 <div className="flex items-center justify-between gap-3">
-                  <Label className="text-xs">{t("page.components.routineVariablesEditor.default_value")}</Label>
+                  <Label className="text-xs">{t("page.inbox.components.routineVariablesEditor.default_value")}</Label>
                   <label className="flex items-center gap-2 text-xs text-muted-foreground">
                     <input
                       type="checkbox"
@@ -134,7 +134,7 @@ export function RoutineVariablesEditor({
                         required: event.target.checked,
                       })))}
                     />
-                    {t("page.components.routineVariablesEditor.required")}
+                    {t("page.inbox.components.routineVariablesEditor.required")}
                   </label>
                 </div>
 
@@ -159,15 +159,15 @@ export function RoutineVariablesEditor({
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="__unset__">{t("page.components.routineVariablesEditor.no_default")}</SelectItem>
-                      <SelectItem value="true">{t("page.components.routineVariablesEditor.true")}</SelectItem>
-                      <SelectItem value="false">{t("page.components.routineVariablesEditor.false")}</SelectItem>
+                      <SelectItem value="__unset__">{t("page.inbox.components.routineVariablesEditor.no_default")}</SelectItem>
+                      <SelectItem value="true">{t("page.inbox.components.routineVariablesEditor.true")}</SelectItem>
+                      <SelectItem value="false">{t("page.inbox.components.routineVariablesEditor.false")}</SelectItem>
                     </SelectContent>
                   </Select>
                 ) : variable.type === "select" ? (
                   <div className="grid gap-3 md:grid-cols-2">
                     <div className="space-y-1.5">
-                      <Label className="text-xs">{t("page.components.routineVariablesEditor.options")}</Label>
+                      <Label className="text-xs">{t("page.inbox.components.routineVariablesEditor.options")}</Label>
                       <Input
                         value={variable.options.join(", ")}
                         onChange={(event) => {
@@ -185,7 +185,7 @@ export function RoutineVariablesEditor({
                       />
                     </div>
                     <div className="space-y-1.5">
-                      <Label className="text-xs">{t("page.components.routineVariablesEditor.default_option")}</Label>
+                      <Label className="text-xs">{t("page.inbox.components.routineVariablesEditor.default_option")}</Label>
                       <Select
                         value={typeof variable.defaultValue === "string" ? variable.defaultValue : "__unset__"}
                         onValueChange={(next) => onChange(updateVariableList(syncedVariables, variable.name, (current) => ({
@@ -194,10 +194,10 @@ export function RoutineVariablesEditor({
                         })))}
                       >
                         <SelectTrigger>
-                          <SelectValue placeholder={t("page.components.routineVariablesEditor.no_default")} />
+                          <SelectValue placeholder={t("page.inbox.components.routineVariablesEditor.no_default")} />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="__unset__">{t("page.components.routineVariablesEditor.no_default")}</SelectItem>
+                          <SelectItem value="__unset__">{t("page.inbox.components.routineVariablesEditor.no_default")}</SelectItem>
                           {variable.options.map((option) => (
                             <SelectItem key={option} value={option}>{option}</SelectItem>
                           ))}
@@ -213,7 +213,7 @@ export function RoutineVariablesEditor({
                       ...current,
                       defaultValue: event.target.value || null,
                     })))}
-                    placeholder={variable.type === "number" ? "42" : t("page.components.routineVariablesEditor.default_value")}
+                    placeholder={variable.type === "number" ? "42" : t("page.inbox.components.routineVariablesEditor.default_value")}
                   />
                 )}
               </div>
@@ -229,7 +229,7 @@ export function RoutineVariablesHint() {
   const { t } = useTranslation();
   return (
     <div className="rounded-lg border border-dashed border-border/70 px-3 py-2 text-xs text-muted-foreground">
-      {t("page.components.routineVariablesEditor.instructions_hint", { variable_name: "{{variable_name}}" })}
+      {t("page.inbox.components.routineVariablesEditor.instructions_hint", { variable_name: "{{variable_name}}" })}
     </div>
   );
 }
