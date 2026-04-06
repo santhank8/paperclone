@@ -128,6 +128,9 @@ async function buildClaudeRuntimeConfig(input: ClaudeExecutionInput): Promise<Cl
   await ensureAbsoluteDirectory(cwd, { createIfMissing: true });
 
   const envConfig = parseObject(config.env);
+  const envOverrides = Object.fromEntries(
+    Object.entries(envConfig).filter((entry): entry is [string, string] => typeof entry[1] === "string"),
+  );
   const hasExplicitApiKey =
     typeof envConfig.PAPERCLIP_API_KEY === "string" && envConfig.PAPERCLIP_API_KEY.trim().length > 0;
   const env: Record<string, string> = { ...buildPaperclipEnv(agent) };
@@ -205,7 +208,7 @@ async function buildClaudeRuntimeConfig(input: ClaudeExecutionInput): Promise<Cl
   }
   if (agentHome) {
     const preparedQmd = await prepareAgentQmdEnvironment(agentHome, {
-      baseEnv: { ...process.env, ...env },
+      baseEnv: { ...process.env, ...env, ...envOverrides },
     });
     Object.assign(env, preparedQmd.env);
     env.AGENT_HOME = agentHome;
@@ -223,9 +226,7 @@ async function buildClaudeRuntimeConfig(input: ClaudeExecutionInput): Promise<Cl
     env.PAPERCLIP_RUNTIME_PRIMARY_URL = runtimePrimaryUrl;
   }
 
-  for (const [key, value] of Object.entries(envConfig)) {
-    if (typeof value === "string") env[key] = value;
-  }
+  Object.assign(env, envOverrides);
 
   if (!hasExplicitApiKey && authToken) {
     env.PAPERCLIP_API_KEY = authToken;
