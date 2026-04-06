@@ -12,6 +12,7 @@ import { useLocation } from "@/lib/router";
 import { ApiError } from "../api/client";
 import { issuesApi } from "../api/issues";
 import { useAutosaveIndicator } from "../hooks/useAutosaveIndicator";
+import { repairCollapsedMarkdown } from "../lib/repair-collapsed-markdown";
 import { queryKeys } from "../lib/queryKeys";
 import { cn, relativeTime } from "../lib/utils";
 import { MarkdownBody } from "./MarkdownBody";
@@ -68,7 +69,7 @@ function saveFoldedDocumentKeys(issueId: string, keys: string[]) {
 }
 
 function renderBody(body: string, className?: string) {
-  return <MarkdownBody className={className}>{body}</MarkdownBody>;
+  return <MarkdownBody className={className}>{repairCollapsedMarkdown(body)}</MarkdownBody>;
 }
 
 function isPlanKey(key: string) {
