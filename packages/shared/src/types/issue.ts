@@ -81,6 +81,8 @@ export interface DocumentRevision {
   issueId: string;
   key: string;
   revisionNumber: number;
+  title: string | null;
+  format: DocumentFormat;
   body: string;
   changeSummary: string | null;
   createdByAgentId: string | null;
@@ -184,6 +186,7 @@ export interface Issue {
   currentOwner?: IssueCurrentOwner | null;
   myLastTouchAt?: Date | null;
   lastExternalCommentAt?: Date | null;
+  lastActivityAt?: Date | null;
   isUnreadForMe?: boolean;
   createdAt: Date;
   updatedAt: Date;

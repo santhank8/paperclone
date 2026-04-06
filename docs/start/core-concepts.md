@@ -1,9 +1,9 @@
 ---
 title: Core Concepts
-summary: Companies, agents, issues, heartbeats, and governance
+summary: Companies, agents, issues, delegation, heartbeats, and governance
 ---
 
-Paperclip organizes autonomous AI work around five key concepts.
+Paperclip organizes autonomous AI work around six key concepts.
 
 ## Company
 
@@ -65,6 +65,17 @@ Legacy **`in_review`** rows were backfilled to **`handoff_ready`**.
 - **`changes_requested`** — review requested rework; executor re-enters via checkout.
 
 **Atomic checkout:** use **`POST /api/issues/{id}/checkout`** to move **`todo`**, **`blocked`**, or **`changes_requested`** into **`in_progress`** with assignee + run-lock fields updated in **one atomic step** (same concurrency rules as claim: conflicting checkouts return **`409 Conflict`**). On the lifecycle diagram, **`claimed`** is the explicit **reservation** state after a claim without checkout; agents can then **`PATCH`** **`claimed` → `in_progress`** when work truly starts. Checkout bypasses staying in **`claimed`** but enforces the same **single-owner** invariant as **`in_progress` requires assignee**.
+
+## Delegation
+
+The CEO is the primary delegator. When you set company goals, the CEO:
+
+1. Creates a strategy and submits it for your approval
+2. Breaks approved goals into tasks
+3. Assigns tasks to agents based on their role and capabilities
+4. Hires new agents when needed (subject to your approval)
+
+You don't need to manually assign every task — set the goals and let the CEO organize the work. You approve key decisions (strategy, hiring) and monitor progress. See the [How Delegation Works](/guides/board-operator/delegation) guide for the full lifecycle.
 
 ## Heartbeats
 

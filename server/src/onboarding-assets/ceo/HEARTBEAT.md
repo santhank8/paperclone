@@ -38,7 +38,7 @@ If `PAPERCLIP_APPROVAL_ID` is set:
 
 ## 6. Delegation
 
-- Create subtasks with `POST /api/companies/{companyId}/issues`. Always set `parentId` and `goalId`.
+- Create subtasks with `POST /api/companies/{companyId}/issues`. Always set `parentId` and `goalId`. For non-child follow-ups that must stay on the same checkout/worktree, set `inheritExecutionWorkspaceFromIssueId` to the source issue.
 - Use `paperclip-create-agent` skill when hiring new agents.
 - Assign work to the right agent for the job.
 - For PR execution lanes: executor agents should follow **Technical review handoff** in [`../default/HEARTBEAT.md`](../default/HEARTBEAT.md) (section **6a**): same `PATCH` as `handoff_ready` with a **github.com** PR URL in the `comment` body (or a pull-request work product), so review dispatch does not noop.

@@ -54,11 +54,22 @@ const mockSecretService = vi.hoisted(() => ({
 }));
 
 const mockLogActivity = vi.hoisted(() => vi.fn());
+const mockTrackAgentCreated = vi.hoisted(() => vi.fn());
+const mockGetTelemetryClient = vi.hoisted(() => vi.fn());
 
 const mockAdapter = vi.hoisted(() => ({
   listSkills: vi.fn(),
   syncSkills: vi.fn(),
   testEnvironment: vi.fn(),
+}));
+
+vi.mock("@paperclipai/shared/telemetry", () => ({
+  trackAgentCreated: mockTrackAgentCreated,
+  trackErrorHandlerCrash: vi.fn(),
+}));
+
+vi.mock("../telemetry.js", () => ({
+  getTelemetryClient: mockGetTelemetryClient,
 }));
 
 vi.mock("../services/index.js", () => ({
@@ -79,7 +90,9 @@ vi.mock("../services/index.js", () => ({
 
 vi.mock("../adapters/index.js", () => ({
   findServerAdapter: vi.fn(() => mockAdapter),
+  findActiveServerAdapter: vi.fn(() => mockAdapter),
   listAdapterModels: vi.fn(),
+  detectAdapterModel: vi.fn(),
 }));
 
 function createDb(requireBoardApprovalForNewAgents = false) {
@@ -366,10 +379,30 @@ describe("agent skill routes", () => {
     );
   });
 
-  it("keeps runtime materialization for persistent skill adapters", async () => {
+  it("skips runtime materialization when listing Codex skills", async () => {
     mockAgentService.getById.mockResolvedValue(makeAgent("codex_local"));
     mockAdapter.listSkills.mockResolvedValue({
       adapterType: "codex_local",
+      supported: true,
+      mode: "ephemeral",
+      desiredSkills: ["paperclipai/paperclip/paperclip"],
+      entries: [],
+      warnings: [],
+    });
+
+    const res = await request(createApp())
+      .get("/api/agents/11111111-1111-4111-8111-111111111111/skills?companyId=company-1");
+
+    expect(res.status, JSON.stringify(res.body)).toBe(200);
+    expect(mockCompanySkillService.listRuntimeSkillEntries).toHaveBeenCalledWith("company-1", {
+      materializeMissing: false,
+    });
+  });
+
+  it("keeps runtime materialization for persistent skill adapters", async () => {
+    mockAgentService.getById.mockResolvedValue(makeAgent("cursor"));
+    mockAdapter.listSkills.mockResolvedValue({
+      adapterType: "cursor",
       supported: true,
       mode: "persistent",
       desiredSkills: ["paperclipai/paperclip/paperclip"],
@@ -445,6 +478,9 @@ describe("agent skill routes", () => {
         }),
       }),
     );
+    expect(mockTrackAgentCreated).toHaveBeenCalledWith(expect.anything(), {
+      agentRole: "engineer",
+    });
   });
 
   it("materializes a managed AGENTS.md for directly created local agents", async () => {
