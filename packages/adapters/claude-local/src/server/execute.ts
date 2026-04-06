@@ -81,6 +81,7 @@ interface ClaudeRuntimeConfig {
   timeoutSec: number;
   graceSec: number;
   extraArgs: string[];
+  mcpConfigPaths: string[];
 }
 
 function buildLoginResult(input: {
@@ -113,6 +114,7 @@ async function buildClaudeRuntimeConfig(input: ClaudeExecutionInput): Promise<Cl
   const command = asString(config.command, "claude");
   const workspaceContext = parseObject(context.paperclipWorkspace);
   const workspaceCwd = asString(workspaceContext.cwd, "");
+  const workspaceBaseCwd = asString(workspaceContext.baseCwd, "");
   const workspaceSource = asString(workspaceContext.source, "");
   const workspaceStrategy = asString(workspaceContext.strategy, "");
   const workspaceId = asString(workspaceContext.workspaceId, "") || null;
@@ -260,6 +262,28 @@ async function buildClaudeRuntimeConfig(input: ClaudeExecutionInput): Promise<Cl
     return asStringArray(config.args);
   })();
 
+  // Resolve MCP config paths: explicit adapter config takes precedence,
+  // otherwise auto-discover .mcp.json from the project base directory.
+  const mcpConfigPaths: string[] = (() => {
+    const explicit = asStringArray(config.mcpConfig);
+    if (explicit.length > 0) return explicit;
+    // Auto-discover: prefer baseCwd (original project root) over the effective cwd,
+    // since .mcp.json is typically untracked and absent from git worktrees.
+    const discoveryRoot = workspaceBaseCwd || configuredCwd;
+    if (discoveryRoot) return [path.join(discoveryRoot, ".mcp.json")];
+    return [];
+  })();
+  // Filter to only paths that actually exist on disk.
+  const resolvedMcpConfigPaths: string[] = [];
+  for (const p of mcpConfigPaths) {
+    try {
+      await fs.access(p);
+      resolvedMcpConfigPaths.push(p);
+    } catch {
+      // File does not exist — skip.
+    }
+  }
+
   return {
     command,
     resolvedCommand,
@@ -272,6 +296,7 @@ async function buildClaudeRuntimeConfig(input: ClaudeExecutionInput): Promise<Cl
     timeoutSec,
     graceSec,
     extraArgs,
+    mcpConfigPaths: resolvedMcpConfigPaths,
   };
 }
 
@@ -351,6 +376,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     timeoutSec,
     graceSec,
     extraArgs,
+    mcpConfigPaths,
   } = runtimeConfig;
   const effectiveEnv = Object.fromEntries(
     Object.entries({ ...process.env, ...env }).filter(
@@ -438,6 +464,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
       args.push("--append-system-prompt-file", effectiveInstructionsFilePath);
     }
     args.push("--add-dir", skillsDir);
+    if (mcpConfigPaths.length > 0) args.push("--mcp-config", ...mcpConfigPaths);
     if (extraArgs.length > 0) args.push(...extraArgs);
     return args;
   };

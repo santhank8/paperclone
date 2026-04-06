@@ -2620,6 +2620,7 @@ export function heartbeatService(db: Db) {
     ];
     context.paperclipWorkspace = {
       cwd: executionWorkspace.cwd,
+      baseCwd: executionWorkspace.baseCwd,
       source: executionWorkspace.source,
       mode: effectiveExecutionWorkspaceMode,
       strategy: executionWorkspace.strategy,
