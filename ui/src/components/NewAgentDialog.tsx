@@ -172,7 +172,7 @@ export function NewAgentDialog() {
 
               <Button className="w-full" size="lg" onClick={handleAskCeo}>
                 <Bot className="h-4 w-4 mr-2" />
-                Ask the CEO to create a new agent
+                Pedir ao CEO para criar um novo agente
               </Button>
 
               {/* Advanced link */}
