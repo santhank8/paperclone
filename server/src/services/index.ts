@@ -1,4 +1,5 @@
 export { companyService } from "./companies.js";
+export { companyBootstrapService } from "./company-bootstrap.js";
 export { feedbackService } from "./feedback.js";
 export { companySkillService } from "./company-skills.js";
 export { agentService, deduplicateAgentName } from "./agents.js";
@@ -26,6 +27,12 @@ export { companyPortabilityService } from "./company-portability.js";
 export { executionWorkspaceService } from "./execution-workspaces.js";
 export { workspaceOperationService } from "./workspace-operations.js";
 export { workProductService } from "./work-products.js";
+export { artifactService } from "./artifacts.js";
+export { deploymentService } from "./deployments.js";
+export { cloudDeploymentService } from "./cloud-deployments.js";
+export { sandboxService } from "./sandboxes.js";
+export { llmApiKeyService } from "./llm-api-keys.js";
+export { deliverableService } from "./deliverables.js";
 export { logActivity, type LogActivityInput } from "./activity-log.js";
 export { notifyHireApproved, type NotifyHireApprovedInput } from "./hire-hook.js";
 export { publishLiveEvent, subscribeCompanyLiveEvents } from "./live-events.js";
