@@ -241,7 +241,7 @@ export function CompanySettings() {
 
         {/* Company Profile card */}
         <div className="raava-card bg-white px-6 py-5 space-y-4 dark:bg-card">
-          <h2 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          <h2 className="font-display text-[15px] text-foreground">
             Company Profile
           </h2>
 
@@ -334,10 +334,10 @@ export function CompanySettings() {
           </div>
         </div>
 
-        {/* Connected Services card */}
+        {/* Integrations card */}
         <div className="raava-card bg-white px-6 py-5 space-y-4 dark:bg-card">
-          <h2 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            Connected Services
+          <h2 className="font-display text-[15px] text-foreground">
+            Integrations
           </h2>
 
           <div className="space-y-3">
@@ -367,7 +367,7 @@ export function CompanySettings() {
 
         {/* Team Defaults card */}
         <div className="raava-card bg-white px-6 py-5 space-y-4 dark:bg-card">
-          <h2 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          <h2 className="font-display text-[15px] text-foreground">
             Team Defaults
           </h2>
 
@@ -412,7 +412,7 @@ export function CompanySettings() {
             className="flex w-full items-center justify-between px-6 py-4 text-left"
           >
             <div>
-              <h2 className="text-sm font-medium text-foreground">Advanced</h2>
+              <h2 className="font-display text-[15px] text-foreground">Advanced</h2>
               <p className="text-xs text-muted-foreground">For advanced users</p>
             </div>
             {advancedOpen ? (

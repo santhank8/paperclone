@@ -586,16 +586,8 @@ export function RaavaOnboardingWizard() {
       // These will be populated when FleetOS provisioning is wired in.
       // For MVP, the agent is created in Paperclip's DB; FleetOS provisioning is a separate step.
       const adapterConfig: Record<string, unknown> = {};
-      // Store role credentials separately for vault injection — only include
-      // fields that have actual values to avoid sending empty strings.
-      const filteredCredentials = Object.fromEntries(
-        Object.entries(credentials).filter(([, v]) => v.trim())
-      );
-      if (Object.keys(filteredCredentials).length > 0) {
-        adapterConfig.roleCredentials = filteredCredentials;
-      }
 
-      // Create the agent
+      // Create the agent (without plaintext credentials in adapterConfig)
       const agent = await agentsApi.create(createdCompanyId, {
         name: agentName.trim(),
         role: selectedRole.agentRole,
@@ -613,6 +605,23 @@ export function RaavaOnboardingWizard() {
         },
       });
       createdAgentId = agent.id;
+
+      // Store role credentials as encrypted secrets and save refs in adapterConfig.
+      // This keeps plaintext credentials out of the agent record.
+      const filteredCredentials = Object.fromEntries(
+        Object.entries(credentials).filter(([, v]) => v.trim())
+      );
+      if (Object.keys(filteredCredentials).length > 0) {
+        const { secretRefs } = await agentsApi.storeCredentials(
+          createdCompanyId,
+          agent.id,
+          filteredCredentials,
+        );
+        // Update the agent's adapterConfig with secret references instead of plaintext
+        await agentsApi.update(agent.id, {
+          adapterConfig: { roleCredentialRefs: secretRefs },
+        }, createdCompanyId);
+      }
 
       // Create a project for onboarding
       const project = await projectsApi.create(createdCompanyId, {

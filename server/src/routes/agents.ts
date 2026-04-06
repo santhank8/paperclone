@@ -2347,5 +2347,87 @@ export function agentRoutes(db: Db) {
     });
   });
 
+  // -----------------------------------------------------------------------
+  // Credential bridge: store onboarding credentials as company secrets
+  // -----------------------------------------------------------------------
+  router.post("/companies/:companyId/agents/:agentId/store-credentials", async (req, res) => {
+    assertBoard(req);
+    const companyId = req.params.companyId as string;
+    const agentId = req.params.agentId as string;
+    assertCompanyAccess(req, companyId);
+
+    const agent = await svc.getById(agentId);
+    if (!agent) {
+      res.status(404).json({ error: "Agent not found" });
+      return;
+    }
+    if (agent.companyId !== companyId) {
+      res.status(403).json({ error: "Agent does not belong to this company" });
+      return;
+    }
+
+    const { credentials } = req.body as { credentials?: Record<string, string> };
+    if (!credentials || typeof credentials !== "object") {
+      res.status(400).json({ error: "credentials object is required" });
+      return;
+    }
+
+    const configuredDefaultProvider = process.env.PAPERCLIP_SECRETS_PROVIDER;
+    const defaultProvider = (
+      configuredDefaultProvider && ["local_encrypted", "aws_secrets_manager", "gcp_secret_manager", "vault"].includes(configuredDefaultProvider)
+        ? configuredDefaultProvider
+        : "local_encrypted"
+    ) as import("@paperclipai/shared").SecretProvider;
+
+    const secrets = secretService(db);
+    const secretRefs: Record<string, string> = {};
+
+    for (const [fieldId, value] of Object.entries(credentials)) {
+      if (typeof value !== "string" || !value.trim()) continue;
+
+      const secretName = `agent-${agentId}-${fieldId}`;
+
+      // If a secret with this name already exists, rotate it instead of creating
+      const existing = await secrets.getByName(companyId, secretName);
+      let secret;
+      if (existing) {
+        secret = await secrets.rotate(
+          existing.id,
+          { value },
+          { userId: req.actor.userId ?? "board", agentId: null },
+        );
+      } else {
+        secret = await secrets.create(
+          companyId,
+          {
+            name: secretName,
+            provider: defaultProvider,
+            value,
+            description: `Credential "${fieldId}" for agent ${agent.name}`,
+          },
+          { userId: req.actor.userId ?? "board", agentId: null },
+        );
+      }
+
+      secretRefs[fieldId] = secret.id;
+
+      await logActivity(db, {
+        companyId,
+        actorType: "user",
+        actorId: req.actor.userId ?? "board",
+        action: existing ? "secret.rotated" : "secret.created",
+        entityType: "secret",
+        entityId: secret.id,
+        details: {
+          name: secretName,
+          agentId,
+          source: "onboarding_wizard",
+        },
+      });
+    }
+
+    res.status(201).json({ secretRefs });
+  });
+
   return router;
 }
