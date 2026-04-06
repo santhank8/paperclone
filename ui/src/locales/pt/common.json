@@ -192,7 +192,7 @@
     "running": "Em execução",
     "queued": "Na fila",
     "cancelled": "Cancelada",
-    "backlog": "Backlog",
+    "backlog": "Pendências",
     "todo": "A fazer",
     "in_progress": "Em andamento",
     "planned": "Planejado",
@@ -744,7 +744,7 @@
         "reuse_existing": "Reutilizar workspace existente"
       },
       "status": {
-        "backlog": "Backlog",
+        "backlog": "Pendências",
         "todo": "A Fazer",
         "in_progress": "Em Progresso",
         "in_review": "Em Revisão",
