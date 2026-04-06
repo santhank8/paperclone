@@ -299,6 +299,26 @@ describe("inbox helpers", () => {
     });
   });
 
+  it("excludes read mine issues from the badge count", () => {
+    const result = computeInboxBadgeData({
+      approvals: [],
+      joinRequests: [],
+      dashboard: undefined,
+      heartbeatRuns: [],
+      mineIssues: [makeIssue("1", true), makeIssue("2", false)],
+      dismissed: new Set<string>(),
+    });
+
+    expect(result).toEqual({
+      inbox: 1,
+      approvals: 0,
+      failedRuns: 0,
+      joinRequests: 0,
+      mineIssues: 1,
+      alerts: 0,
+    });
+  });
+
   it("drops dismissed runs and alerts from the computed badge", () => {
     const result = computeInboxBadgeData({
       approvals: [],
