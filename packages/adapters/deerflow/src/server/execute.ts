@@ -343,6 +343,13 @@ export async function execute(
 
   let stdout = "";
   let toolCallCount = 0;
+  // Dedup stream noise: LangGraph streams AIMessageChunks incrementally, so the
+  // same tool call and the same title re-appear in many chunks. We track ids
+  // we've already logged to keep the stdout log readable and to keep
+  // toolCallCount honest (it's consumed by the "did any tool fire?" check
+  // downstream).
+  const loggedToolCallIds = new Set<string>();
+  let lastLoggedTitle = "";
   const usage: UsageSummary = { inputTokens: 0, outputTokens: 0 };
   let summary = "";
   let errorMessage: string | null = null;
@@ -456,13 +463,26 @@ export async function execute(
             lastAiContent += content;
           }
 
-          // Tool calls in AI message
+          // Tool calls in AI message. Dedup by id: LangGraph streams a tool
+          // call across several AIMessageChunks (first chunk has the name,
+          // subsequent chunks stream args incrementally). Without dedup we
+          // log "[tool_call] <name>" once and then 3-5 "[tool_call] unknown"
+          // lines per real call, and toolCallCount becomes meaningless.
           const toolCalls = msgData.tool_calls;
           if (Array.isArray(toolCalls) && toolCalls.length > 0) {
-            toolCallCount += toolCalls.length;
             for (const tc of toolCalls) {
               const tcObj = tc as Record<string, unknown>;
-              const name = asString(tcObj.name as unknown, "unknown");
+              const name = asString(tcObj.name as unknown, "");
+              const id = asString(tcObj.id as unknown, "");
+              // Partial chunk with no name → skip; we'll catch this call when
+              // the chunk carrying the name arrives.
+              if (!name) continue;
+              // Stable key: prefer the real id, fall back to name+position for
+              // streams that omit ids.
+              const key = id || `${name}:${loggedToolCallIds.size}`;
+              if (loggedToolCallIds.has(key)) continue;
+              loggedToolCallIds.add(key);
+              toolCallCount += 1;
               await onLog("stdout", `\n[tool_call] ${name}\n`);
             }
           }
@@ -494,8 +514,11 @@ export async function execute(
       } else if (sse.event === "values") {
         // Full state snapshot — extract artifacts, title, and AI messages.
         const stateData = parsed as Record<string, unknown>;
+        // Title is re-emitted on every state snapshot. Only log when it
+        // actually changes (first appearance, or an edit by TitleMiddleware).
         const title = asString(stateData.title as unknown, "");
-        if (title) {
+        if (title && title !== lastLoggedTitle) {
+          lastLoggedTitle = title;
           await onLog("stdout", `\n[title] ${title}\n`);
         }
         // Extract AI content from the values snapshot as a fallback.
@@ -552,8 +575,21 @@ export async function execute(
       /\bplease\s+provide\b/i,
       /\bwhat\s+(would|do)\s+you\s+(like|want)\s+me\s+to\b/i,
       /\bunable\s+to\s+(complete|proceed|do)\b/i,
+      // Agent produced a coherent summary but concluded the task cannot be
+      // fulfilled (e.g. required file is missing, required service is down).
+      // Without this, the agent writes "Summary: not available, not available,
+      // not available — the smoke test cannot be completed" and then calls
+      // the `done` transition, which is the wrong outcome.
+      /\bcannot\s+be\s+(completed|fulfilled|performed|accomplished)\b/i,
+      /\btask\s+cannot\s+be\s+(completed|done|fulfilled|executed)\b/i,
+      /\brequired\s+(file|resource|service|path|dependency)\s+(?:is\s+|was\s+)?not\s+(present|found|available|accessible)\b/i,
     ];
-    const isRefusal = refusalPatterns.some((p) => p.test(stdout));
+    // Only match refusal phrases in the tail of stdout — the agent's final
+    // assessment. Matching against the whole log false-positives on mid-run
+    // "the file was not found, let me check elsewhere" reasoning which the
+    // agent then resolves.
+    const tailForRefusalCheck = stdout.slice(-2500);
+    const isRefusal = refusalPatterns.some((p) => p.test(tailForRefusalCheck));
     if (isRefusal) {
       await onLog("stderr", `[deerflow] LLM response appears to be a refusal/clarification request — not marking issue as done\n`);
       errorMessage = "LLM did not produce actionable output (possible refusal or clarification request)";
