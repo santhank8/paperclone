@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { NavLink, useLocation, useNavigate } from "@/lib/router";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronRight, Plus, LayoutGrid, List, MessageSquare } from "lucide-react";
@@ -141,7 +141,7 @@ export function SidebarAgents() {
     return orderedAgents.some((a) => (a as unknown as Record<string, unknown>).department);
   }, [orderedAgents]);
 
-  function renderAgentLink(agent: Agent) {
+  const renderAgentLink = useCallback(function renderAgentLink(agent: Agent) {
     const runCount = liveCountByAgent.get(agent.id) ?? 0;
     const ref = agentRouteRef(agent);
     const isActive = activeAgentId === ref;
@@ -213,7 +213,7 @@ export function SidebarAgents() {
         </span>
       </div>
     );
-  }
+  }, [liveCountByAgent, activeAgentId, activeTab, isMobile, setSidebarOpen, navigate]);
 
   return (
     <Collapsible open={open} onOpenChange={setOpen}>

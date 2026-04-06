@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FeedbackModal } from "./FeedbackModal";
 import { BugReportModal } from "./BugReportModal";
 import { ChangelogModal, ChangelogTrigger } from "./ChangelogModal";
@@ -12,9 +12,10 @@ import { InstanceSidebar } from "./InstanceSidebar";
 import { BreadcrumbBar } from "./BreadcrumbBar";
 import { PropertiesPanel } from "./PropertiesPanel";
 import { CommandPalette } from "./CommandPalette";
-import { NewIssueDialog } from "./NewIssueDialog";
-import { NewProjectDialog } from "./NewProjectDialog";
-import { NewGoalDialog } from "./NewGoalDialog";
+// Lazy-load dialogs that pull in @mdxeditor/editor — keeps it out of the main bundle
+const NewIssueDialog = lazy(() => import("./NewIssueDialog").then((m) => ({ default: m.NewIssueDialog })));
+const NewProjectDialog = lazy(() => import("./NewProjectDialog").then((m) => ({ default: m.NewProjectDialog })));
+const NewGoalDialog = lazy(() => import("./NewGoalDialog").then((m) => ({ default: m.NewGoalDialog })));
 import { NewAgentDialog } from "./NewAgentDialog";
 import { HireAgentDialog } from "./HireAgentDialog";
 import { ToastViewport } from "./ToastViewport";
@@ -476,9 +477,9 @@ export function Layout() {
       </div>
       {isMobile && <MobileBottomNav visible={mobileNavVisible} />}
       <CommandPalette />
-      <NewIssueDialog />
-      <NewProjectDialog />
-      <NewGoalDialog />
+      <Suspense fallback={null}><NewIssueDialog /></Suspense>
+      <Suspense fallback={null}><NewProjectDialog /></Suspense>
+      <Suspense fallback={null}><NewGoalDialog /></Suspense>
       <NewAgentDialog />
       <HireAgentDialog />
       <FeedbackModal open={feedbackOpen} onClose={() => setFeedbackOpen(false)} />

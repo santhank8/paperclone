@@ -16,23 +16,23 @@ export function dashboardService(db: Db) {
 
       if (!company) throw notFound("Company not found");
 
-      const agentRows = await db
-        .select({ status: agents.status, count: sql<number>`count(*)` })
-        .from(agents)
-        .where(eq(agents.companyId, companyId))
-        .groupBy(agents.status);
-
-      const taskRows = await db
-        .select({ status: issues.status, count: sql<number>`count(*)` })
-        .from(issues)
-        .where(eq(issues.companyId, companyId))
-        .groupBy(issues.status);
-
-      const pendingApprovals = await db
-        .select({ count: sql<number>`count(*)` })
-        .from(approvals)
-        .where(and(eq(approvals.companyId, companyId), eq(approvals.status, "pending")))
-        .then((rows) => Number(rows[0]?.count ?? 0));
+      const [agentRows, taskRows, pendingApprovals] = await Promise.all([
+        db
+          .select({ status: agents.status, count: sql<number>`count(*)` })
+          .from(agents)
+          .where(eq(agents.companyId, companyId))
+          .groupBy(agents.status),
+        db
+          .select({ status: issues.status, count: sql<number>`count(*)` })
+          .from(issues)
+          .where(eq(issues.companyId, companyId))
+          .groupBy(issues.status),
+        db
+          .select({ count: sql<number>`count(*)` })
+          .from(approvals)
+          .where(and(eq(approvals.companyId, companyId), eq(approvals.status, "pending")))
+          .then((rows) => Number(rows[0]?.count ?? 0)),
+      ]);
 
       const agentCounts: Record<string, number> = {
         active: 0,
@@ -63,24 +63,26 @@ export function dashboardService(db: Db) {
 
       const now = new Date();
       const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-      const [{ monthSpend }] = await db
-        .select({
-          monthSpend: sql<number>`coalesce(sum(${costEvents.costCents}), 0)::int`,
-        })
-        .from(costEvents)
-        .where(
-          and(
-            eq(costEvents.companyId, companyId),
-            gte(costEvents.occurredAt, monthStart),
+      const [[{ monthSpend }], budgetOverview] = await Promise.all([
+        db
+          .select({
+            monthSpend: sql<number>`coalesce(sum(${costEvents.costCents}), 0)::int`,
+          })
+          .from(costEvents)
+          .where(
+            and(
+              eq(costEvents.companyId, companyId),
+              gte(costEvents.occurredAt, monthStart),
+            ),
           ),
-        );
+        budgets.overview(companyId),
+      ]);
 
       const monthSpendCents = Number(monthSpend);
       const utilization =
         company.budgetMonthlyCents > 0
           ? (monthSpendCents / company.budgetMonthlyCents) * 100
           : 0;
-      const budgetOverview = await budgets.overview(companyId);
 
       return {
         companyId,

@@ -54,45 +54,45 @@ export function executiveAnalyticsService(db: Db) {
       const prior = priorMonthWindow(now);
 
       async function periodMetrics(start: Date, end: Date) {
-        const [spendRow] = await db
-          .select({
-            totalCents: sql<number>`coalesce(sum(${costEvents.costCents}), 0)::int`,
-          })
-          .from(costEvents)
-          .where(
-            and(
-              eq(costEvents.companyId, companyId),
-              gte(costEvents.occurredAt, start),
-              lt(costEvents.occurredAt, end),
+        const [[spendRow], [issuesDone], [runHoursRow]] = await Promise.all([
+          db
+            .select({
+              totalCents: sql<number>`coalesce(sum(${costEvents.costCents}), 0)::int`,
+            })
+            .from(costEvents)
+            .where(
+              and(
+                eq(costEvents.companyId, companyId),
+                gte(costEvents.occurredAt, start),
+                lt(costEvents.occurredAt, end),
+              ),
             ),
-          );
-
-        const [issuesDone] = await db
-          .select({ count: sql<number>`count(*)::int` })
-          .from(issues)
-          .where(
-            and(
-              eq(issues.companyId, companyId),
-              eq(issues.status, "done"),
-              isNotNull(issues.completedAt),
-              gte(issues.completedAt, start),
-              lt(issues.completedAt, end),
+          db
+            .select({ count: sql<number>`count(*)::int` })
+            .from(issues)
+            .where(
+              and(
+                eq(issues.companyId, companyId),
+                eq(issues.status, "done"),
+                isNotNull(issues.completedAt),
+                gte(issues.completedAt, start),
+                lt(issues.completedAt, end),
+              ),
             ),
-          );
-
-        const [runHoursRow] = await db
-          .select({
-            totalMinutes: sql<number>`coalesce(sum(extract(epoch from (${heartbeatRuns.finishedAt} - ${heartbeatRuns.startedAt})) / 60.0), 0)::int`,
-          })
-          .from(heartbeatRuns)
-          .where(
-            and(
-              eq(heartbeatRuns.companyId, companyId),
-              isNotNull(heartbeatRuns.finishedAt),
-              gte(heartbeatRuns.startedAt, start),
-              lt(heartbeatRuns.startedAt, end),
+          db
+            .select({
+              totalMinutes: sql<number>`coalesce(sum(extract(epoch from (${heartbeatRuns.finishedAt} - ${heartbeatRuns.startedAt})) / 60.0), 0)::int`,
+            })
+            .from(heartbeatRuns)
+            .where(
+              and(
+                eq(heartbeatRuns.companyId, companyId),
+                isNotNull(heartbeatRuns.finishedAt),
+                gte(heartbeatRuns.startedAt, start),
+                lt(heartbeatRuns.startedAt, end),
+              ),
             ),
-          );
+        ]);
 
         const totalCents = Number(spendRow?.totalCents ?? 0);
         const doneCount = Number(issuesDone?.count ?? 0);
@@ -313,8 +313,10 @@ export function executiveAnalyticsService(db: Db) {
         return Number(row?.count ?? 0);
       }
 
-      const currentCount = await countDebt(thirtyDaysAgo, now);
-      const priorCount = await countDebt(sixtyDaysAgo, thirtyDaysAgo);
+      const [currentCount, priorCount] = await Promise.all([
+        countDebt(thirtyDaysAgo, now),
+        countDebt(sixtyDaysAgo, thirtyDaysAgo),
+      ]);
 
       // Also get total open tech debt
       const [openRow] = await db
@@ -349,58 +351,56 @@ export function executiveAnalyticsService(db: Db) {
       const now = new Date();
       const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
-      // Critical/high priority open issues that are overdue by SLA
-      const overdueIssues = await db
-        .select({
-          id: issues.id,
-          title: issues.title,
-          priority: issues.priority,
-          status: issues.status,
-          createdAt: issues.createdAt,
-          assigneeAgentId: issues.assigneeAgentId,
-        })
-        .from(issues)
-        .where(
-          and(
-            eq(issues.companyId, companyId),
-            inArray(issues.priority, ["critical", "high"]),
-            inArray(issues.status, ["backlog", "todo", "in_progress", "in_review", "blocked"]),
+      // Critical/high priority open issues, stale issues, and low-perf agents - fetched in parallel
+      const [overdueIssues, staleIssues, lowPerfAgents] = await Promise.all([
+        db
+          .select({
+            id: issues.id,
+            title: issues.title,
+            priority: issues.priority,
+            status: issues.status,
+            createdAt: issues.createdAt,
+            assigneeAgentId: issues.assigneeAgentId,
+          })
+          .from(issues)
+          .where(
+            and(
+              eq(issues.companyId, companyId),
+              inArray(issues.priority, ["critical", "high"]),
+              inArray(issues.status, ["backlog", "todo", "in_progress", "in_review", "blocked"]),
+            ),
           ),
-        );
-
-      // Issues open > 7 days with no progress (still in backlog or todo)
-      const staleIssues = await db
-        .select({
-          id: issues.id,
-          title: issues.title,
-          priority: issues.priority,
-          createdAt: issues.createdAt,
-        })
-        .from(issues)
-        .where(
-          and(
-            eq(issues.companyId, companyId),
-            inArray(issues.status, ["backlog", "todo"]),
-            lt(issues.createdAt, sevenDaysAgo),
+        db
+          .select({
+            id: issues.id,
+            title: issues.title,
+            priority: issues.priority,
+            createdAt: issues.createdAt,
+          })
+          .from(issues)
+          .where(
+            and(
+              eq(issues.companyId, companyId),
+              inArray(issues.status, ["backlog", "todo"]),
+              lt(issues.createdAt, sevenDaysAgo),
+            ),
           ),
-        );
-
-      // Agents with low performance score
-      const lowPerfAgents = await db
-        .select({
-          id: agents.id,
-          name: agents.name,
-          performanceScore: agents.performanceScore,
-        })
-        .from(agents)
-        .where(
-          and(
-            eq(agents.companyId, companyId),
-            ne(agents.status, "terminated"),
-            isNotNull(agents.performanceScore),
-            lt(agents.performanceScore, 40),
+        db
+          .select({
+            id: agents.id,
+            name: agents.name,
+            performanceScore: agents.performanceScore,
+          })
+          .from(agents)
+          .where(
+            and(
+              eq(agents.companyId, companyId),
+              ne(agents.status, "terminated"),
+              isNotNull(agents.performanceScore),
+              lt(agents.performanceScore, 40),
+            ),
           ),
-        );
+      ]);
 
       // Classify risks
       const risks: Array<{

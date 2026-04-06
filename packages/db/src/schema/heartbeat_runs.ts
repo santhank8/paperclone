@@ -47,5 +47,7 @@ export const heartbeatRuns = pgTable(
       table.agentId,
       table.startedAt,
     ),
+    // Used by scheduler/reaper scanning for queued or running runs across all companies.
+    statusCreatedIdx: index("heartbeat_runs_status_created_idx").on(table.status, table.createdAt),
   }),
 );

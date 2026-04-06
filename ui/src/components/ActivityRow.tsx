@@ -61,6 +61,15 @@ const ACTION_COLORS: Record<string, string> = {
   commented: "text-muted-foreground",
 };
 
+// Pre-computed list of ACTION_COLORS keywords for O(n) linear scan per render
+// (n is tiny ~11 entries, but avoids object re-allocation on every render)
+const ACTION_COLOR_KEYWORDS = Object.entries(ACTION_COLORS) as [string, string][];
+
+function getVerbColor(verb: string): string {
+  const lower = verb.toLowerCase();
+  return ACTION_COLOR_KEYWORDS.find(([keyword]) => lower.includes(keyword))?.[1] ?? "text-muted-foreground";
+}
+
 function humanizeValue(value: unknown): string {
   if (typeof value !== "string") return String(value ?? "none");
   return value.replace(/_/g, " ");
@@ -137,10 +146,8 @@ interface ActivityRowProps {
 export const ActivityRow = memo(function ActivityRow({ event, agentMap, entityNameMap, entityTitleMap, className }: ActivityRowProps) {
   const verb = formatVerb(event.action, event.details);
 
-  // Determine verb color
-  const verbColor = Object.entries(ACTION_COLORS).find(
-    ([keyword]) => verb.toLowerCase().includes(keyword),
-  )?.[1] ?? "text-muted-foreground";
+  // Determine verb color using module-level pre-computed keyword list
+  const verbColor = getVerbColor(verb);
 
   const isHeartbeatEvent = event.entityType === "heartbeat_run";
   const heartbeatAgentId = isHeartbeatEvent

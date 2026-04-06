@@ -77,6 +77,17 @@ interface SLATimerProps {
 const CLOSED_STATUSES = new Set(["done", "cancelled"]);
 const VALID_PRIORITIES = new Set(["critical", "high", "medium", "low"]);
 
+// Load policies once at module init; re-read from storage only when changed.
+// The SLATimer ticks every second — calling loadPolicies() in the render body
+// was hitting localStorage on every tick for every visible timer.
+let _cachedPolicies: SLAPolicies | null = null;
+function getCachedPolicies(): SLAPolicies {
+  if (!_cachedPolicies) {
+    _cachedPolicies = loadPolicies();
+  }
+  return _cachedPolicies;
+}
+
 export function SLATimer({ priority, status, createdAt, className }: SLATimerProps) {
   const [, setTick] = useState(0);
 
@@ -91,7 +102,7 @@ export function SLATimer({ priority, status, createdAt, className }: SLATimerPro
     return null;
   }
 
-  const policies = loadPolicies();
+  const policies = getCachedPolicies();
   const policy = policies[priority as Priority];
   if (!policy) return null;
 
