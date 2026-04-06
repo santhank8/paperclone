@@ -40,6 +40,7 @@ import {
 import { defaultCreateValues } from "./agent-config-defaults";
 import { getUIAdapter } from "../adapters";
 import { ClaudeLocalAdvancedFields } from "../adapters/claude-local/config-fields";
+import { ClaudeLocalOpenrouterAdvancedFields } from "../adapters/claude-local-openrouter/config-fields";
 import { MarkdownEditor } from "./MarkdownEditor";
 import { ChoosePathButton } from "./PathInstructionsModal";
 import { OpenCodeLogoIcon } from "./OpenCodeLogoIcon";
@@ -319,7 +320,7 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
     : overlay.adapterType ?? props.agent.adapterType;
   const NONLOCAL_TYPES = new Set(["process", "http", "openclaw_gateway"]);
   const isLocal = !NONLOCAL_TYPES.has(adapterType);
-  
+  const isHermesLocal = adapterType === "hermes_local";
   const showLegacyWorkingDirectoryField =
     isLocal && shouldShowLegacyWorkingDirectoryField({ isCreate, adapterConfig: config });
   const uiAdapter = useMemo(() => getUIAdapter(adapterType), [adapterType]);
@@ -815,6 +816,9 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
               )}
               {adapterType === "claude_local" && (
                 <ClaudeLocalAdvancedFields {...adapterFieldProps} />
+              )}
+              {adapterType === "claude_local_openrouter" && (
+                <ClaudeLocalOpenrouterAdvancedFields {...adapterFieldProps} />
               )}
               <uiAdapter.ConfigFields {...adapterFieldProps} />
 

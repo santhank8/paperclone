@@ -215,8 +215,10 @@ export function OnboardingWizard() {
   }, [disabledTypes]);
   const COMMAND_PLACEHOLDERS: Record<string, string> = {
     claude_local: "claude",
+    claude_local_openrouter: "claude-qwen3.6",
     codex_local: "codex",
     gemini_local: "gemini",
+    hermes_local: "hermes",
     pi_local: "pi",
     cursor: "agent",
     opencode_local: "opencode",
@@ -238,7 +240,7 @@ export function OnboardingWizard() {
         check.code === "claude_anthropic_api_key_overrides_subscription"
     ) ?? false;
   const shouldSuggestUnsetAnthropicApiKey =
-    adapterType === "claude_local" &&
+    (adapterType === "claude_local" || adapterType === "claude_local_openrouter") &&
     adapterEnvResult?.status === "fail" &&
     hasAnthropicApiKeyOverrideCheck;
   const filteredModels = useMemo(() => {
@@ -326,13 +328,13 @@ export function OnboardingWizard() {
       args,
       url,
       dangerouslySkipPermissions:
-        adapterType === "claude_local" || adapterType === "opencode_local",
+        adapterType === "claude_local" || adapterType === "claude_local_openrouter" || adapterType === "opencode_local",
       dangerouslyBypassSandbox:
         adapterType === "codex_local"
           ? DEFAULT_CODEX_LOCAL_BYPASS_APPROVALS_AND_SANDBOX
           : defaultCreateValues.dangerouslyBypassSandbox
     });
-    if (adapterType === "claude_local" && forceUnsetAnthropicApiKey) {
+    if ((adapterType === "claude_local" || adapterType === "claude_local_openrouter") && forceUnsetAnthropicApiKey) {
       const env =
         typeof config.env === "object" &&
         config.env !== null &&

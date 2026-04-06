@@ -25,6 +25,7 @@ export const AGENT_ADAPTER_TYPES = [
   "process",
   "http",
   "claude_local",
+  "claude_local_openrouter",
   "codex_local",
   "gemini_local",
   "opencode_local",

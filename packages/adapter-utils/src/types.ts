@@ -391,4 +391,15 @@ export interface CreateConfigValues {
   intervalSec: number;
   /** Arbitrary key-value pairs populated by schema-driven config fields. */
   adapterSchemaValues?: Record<string, unknown>;
+  // NVIDIA GLM adapter fields
+  apiKey?: string;
+  baseUrl?: string;
+  timeoutSec?: number;
+  temperature?: number;
+  topP?: number;
+  maxTokens?: number;
+  enableThinking?: boolean;
+  // OpenRouter Qwen adapter fields
+  siteUrl?: string;
+  siteName?: string;
 }

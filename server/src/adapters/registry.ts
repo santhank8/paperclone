@@ -83,6 +83,17 @@ import {
 import { BUILTIN_ADAPTER_TYPES } from "./builtin-adapter-types.js";
 import { buildExternalAdapters } from "./plugin-loader.js";
 import { getDisabledAdapterTypes } from "../services/adapter-plugin-store.js";
+import {
+  execute as claudeOpenrouterExecute,
+  listClaudeSkills as listClaudeOpenrouterSkills,
+  syncClaudeSkills as syncClaudeOpenrouterSkills,
+  testEnvironment as claudeOpenrouterTestEnvironment,
+  sessionCodec as claudeOpenrouterSessionCodec,
+} from "@paperclipai/adapter-claude-local-openrouter/server";
+import {
+  agentConfigurationDoc as claudeOpenrouterAgentConfigurationDoc,
+  models as claudeOpenrouterModels,
+} from "@paperclipai/adapter-claude-local-openrouter";
 import { processAdapter } from "./process/index.js";
 import { httpAdapter } from "./http/index.js";
 
@@ -193,6 +204,19 @@ const hermesLocalAdapter: ServerAdapterModule = {
   detectModel: () => detectModelFromHermes(),
 };
 
+const claudeLocalOpenrouterAdapter: ServerAdapterModule = {
+  type: "claude_local_openrouter",
+  execute: claudeOpenrouterExecute,
+  testEnvironment: claudeOpenrouterTestEnvironment,
+  listSkills: listClaudeOpenrouterSkills,
+  syncSkills: syncClaudeOpenrouterSkills,
+  sessionCodec: claudeOpenrouterSessionCodec,
+  sessionManagement: getAdapterSessionManagement("claude_local_openrouter") ?? undefined,
+  models: claudeOpenrouterModels,
+  supportsLocalAgentJwt: true,
+  agentConfigurationDoc: claudeOpenrouterAgentConfigurationDoc,
+};
+
 const adaptersByType = new Map<string, ServerAdapterModule>();
 
 // For builtin types that are overridden by an external adapter, we keep the
@@ -207,6 +231,7 @@ const pausedOverrides = new Set<string>();
 function registerBuiltInAdapters() {
   for (const adapter of [
     claudeLocalAdapter,
+    claudeLocalOpenrouterAdapter,
     codexLocalAdapter,
     openCodeLocalAdapter,
     piLocalAdapter,

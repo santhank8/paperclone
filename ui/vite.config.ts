@@ -13,6 +13,7 @@ export default defineConfig({
   },
   server: {
     port: 5173,
+    allowedHosts: ["barts-macbook-pro.tailbb3532.ts.net"],
     // WSL2 /mnt/ drives don't support inotify — fall back to polling so HMR works
     watch: process.cwd().startsWith("/mnt/") ? { usePolling: true, interval: 1000 } : undefined,
     proxy: {

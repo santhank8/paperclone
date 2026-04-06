@@ -40,5 +40,6 @@ export interface UIAdapterModule extends TranscriptParserSource {
   type: string;
   label: string;
   ConfigFields: ComponentType<AdapterConfigFieldsProps>;
+  AdvancedFields?: ComponentType<AdapterConfigFieldsProps>;
   buildAdapterConfig: (values: CreateConfigValues) => Record<string, unknown>;
 }

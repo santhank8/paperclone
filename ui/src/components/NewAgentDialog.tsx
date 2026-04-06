@@ -125,11 +125,12 @@ export function NewAgentDialog() {
               closeNewAgent();
             }}
           >
-            <span className="text-lg leading-none">&times;</span>
+            ×
           </Button>
         </div>
 
-        <div className="p-6 space-y-6">
+        {/* Body */}
+        <div className="p-4 space-y-4">
           {!showAdvancedCards ? (
             <>
               {/* Recommendation */}
@@ -144,10 +145,10 @@ export function NewAgentDialog() {
                 </p>
               </div>
 
-              <Button className="w-full" size="lg" onClick={handleAskCeo}>
-                <Bot className="h-4 w-4 mr-2" />
-                Ask the CEO to create a new agent
-              </Button>
+              {/* Secondary CTA: Manual config */}
+              <div className="text-xs text-center text-muted-foreground">
+                The CEO agent will configure the new agent's tools, permissions, and initial tasks.
+              </div>
 
               {/* Advanced link */}
               <div className="text-center">
