@@ -49,6 +49,9 @@ import { findServerAdapter, listAdapterModels, detectAdapterModel } from "../ada
 import { redactEventPayload } from "../redaction.js";
 import { redactCurrentUserValue } from "../log-redaction.js";
 import { renderOrgChartSvg, renderOrgChartPng, type OrgNode, type OrgChartStyle, ORG_CHART_STYLES } from "./org-chart-svg.js";
+import { createFleetOSClient, FleetOSProxyError } from "../services/fleetos-client.js";
+import { resolveRolePreset } from "../services/provision-role-presets.js";
+import { getProvisionStatus } from "../services/provision-poller.js";
 import { instanceSettingsService } from "../services/instance-settings.js";
 import { runClaudeLogin } from "@paperclipai/adapter-claude-local/server";
 import {
@@ -653,6 +656,68 @@ export function agentRoutes(db: Db) {
       status: String(node.status),
       reports,
     };
+  }
+
+  /**
+   * Attempt to kick off FleetOS container provisioning for a newly-created agent.
+   * This is fire-and-forget from the caller's perspective — if Fleet API is
+   * unreachable or provisioning fails to start, the agent record is still valid.
+   */
+  async function maybeStartProvisioning(
+    agent: { id: string; name: string; role: string; adapterType: string; adapterConfig: Record<string, unknown> | null },
+    companyId: string,
+  ): Promise<void> {
+    if (agent.adapterType !== "hermes_fleetos") return;
+
+    const adapterConfig = (agent.adapterConfig ?? {}) as Record<string, unknown>;
+    const apiKey =
+      (adapterConfig.apiKey as string | undefined) ??
+      process.env.FLEETOS_API_KEY ??
+      "";
+    const baseUrl =
+      (adapterConfig.fleetosUrl as string | undefined) ??
+      process.env.FLEETOS_API_URL;
+
+    if (!baseUrl || !apiKey) return;
+
+    const preset = resolveRolePreset(agent.role);
+
+    let client;
+    try {
+      client = createFleetOSClient(apiKey, baseUrl);
+    } catch {
+      return; // Config missing — skip silently
+    }
+
+    try {
+      const job = await client.startProvision({
+        template: preset.template,
+        tenant_id: companyId,
+        agent_name: agent.name,
+        agent_role: agent.role,
+        extra_fields: preset.extraFields,
+      });
+
+      await db
+        .update(agentsTable)
+        .set({
+          status: "provisioning",
+          provisionJobId: job.id,
+          provisionError: null,
+          updatedAt: new Date(),
+        })
+        .where(eq(agentsTable.id, agent.id));
+    } catch (err) {
+      // Fleet API unreachable or returned an error — log but don't fail agent creation.
+      const message = err instanceof Error ? err.message : String(err);
+      await db
+        .update(agentsTable)
+        .set({
+          provisionError: `Failed to start provisioning: ${message}`,
+          updatedAt: new Date(),
+        })
+        .where(eq(agentsTable.id, agent.id));
+    }
   }
 
   router.param("id", async (req, _res, next, rawId) => {
@@ -1357,6 +1422,12 @@ export function agentRoutes(db: Db) {
       });
     }
 
+    // Kick off FleetOS provisioning if this is a hermes_fleetos agent that
+    // does NOT require approval (approved agents are provisioned separately).
+    if (!requiresApproval) {
+      void maybeStartProvisioning(agent, companyId);
+    }
+
     res.status(201).json({ agent, approval });
   });
 
@@ -1438,7 +1509,24 @@ export function agentRoutes(db: Db) {
       );
     }
 
+    // Kick off FleetOS provisioning for hermes_fleetos agents
+    void maybeStartProvisioning(agent, companyId);
+
     res.status(201).json(agent);
+  });
+
+  // ---- Provision status endpoint ----
+  router.get("/agents/:id/provision-status", async (req, res) => {
+    const id = req.params.id as string;
+    const agent = await svc.getById(id);
+    if (!agent) {
+      res.status(404).json({ error: "Agent not found" });
+      return;
+    }
+    await assertCanReadAgent(req, agent);
+
+    const result = await getProvisionStatus(db, id);
+    res.json(result);
   });
 
   router.patch("/agents/:id/permissions", validate(updateAgentPermissionsSchema), async (req, res) => {

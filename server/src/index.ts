@@ -608,7 +608,13 @@ export async function startServer(): Promise<StartedServer> {
         });
     }, config.heartbeatSchedulerIntervalMs);
   }
-  
+
+  // Start the FleetOS provisioning poller (monitors in-flight provision jobs)
+  {
+    const { startProvisionPoller } = await import("./services/provision-poller.js");
+    startProvisionPoller(db as any, {}, logger);
+  }
+
   if (config.databaseBackupEnabled) {
     const backupIntervalMs = config.databaseBackupIntervalMinutes * 60 * 1000;
     let backupInFlight = false;
