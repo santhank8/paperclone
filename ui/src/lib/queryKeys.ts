@@ -133,7 +133,6 @@ export const queryKeys = {
   org: (companyId: string) => ["org", companyId] as const,
   global: {
     issues: (companyId: string) => ["global", "issues", companyId] as const,
-    dashboard: (companyId: string) => ["global", "dashboard", companyId] as const,
   },
   skills: {
     available: ["skills", "available"] as const,

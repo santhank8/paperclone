@@ -4,7 +4,6 @@ import { useQueries } from "@tanstack/react-query";
 import { useCompany } from "../context/CompanyContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
 import { issuesApi } from "../api/issues";
-import { dashboardApi } from "../api/dashboard";
 import { queryKeys } from "../lib/queryKeys";
 import { StatusIcon } from "../components/StatusIcon";
 import { CompanyPatternIcon } from "../components/CompanyPatternIcon";
@@ -36,15 +35,7 @@ export function GlobalDashboard() {
     })),
   });
 
-  const dashboardQueries = useQueries({
-    queries: activeCompanies.map((company) => ({
-      queryKey: queryKeys.global.dashboard(company.id),
-      queryFn: () => dashboardApi.summary(company.id),
-      enabled: activeCompanies.length > 0,
-    })),
-  });
-
-  const isLoading = issueQueries.some((q) => q.isLoading) || dashboardQueries.some((q) => q.isLoading);
+  const isLoading = issueQueries.some((q) => q.isLoading);
 
   if (activeCompanies.length === 0) {
     return (
@@ -61,23 +52,6 @@ export function GlobalDashboard() {
 
   return (
     <div className="space-y-6">
-      {/* Summary cards */}
-      <div className="grid grid-cols-2 xl:grid-cols-4 gap-2">
-        {activeCompanies.map((company, idx) => {
-          const dash = dashboardQueries[idx]?.data;
-          const issues = issueQueries[idx]?.data ?? [];
-          return (
-            <CompanySummaryCard
-              key={company.id}
-              company={company}
-              activeIssueCount={issues.length}
-              agentCount={dash ? dash.agents.active + dash.agents.running + dash.agents.paused : 0}
-              runningAgents={dash?.agents.running ?? 0}
-            />
-          );
-        })}
-      </div>
-
       {/* Issues by company */}
       {activeCompanies.map((company, idx) => {
         const issues = issueQueries[idx]?.data ?? [];
@@ -90,43 +64,6 @@ export function GlobalDashboard() {
         );
       })}
     </div>
-  );
-}
-
-function CompanySummaryCard({
-  company,
-  activeIssueCount,
-  agentCount,
-  runningAgents,
-}: {
-  company: Company;
-  activeIssueCount: number;
-  agentCount: number;
-  runningAgents: number;
-}) {
-  return (
-    <Link
-      to={`/${company.issuePrefix}/dashboard`}
-      className="flex items-center gap-3 rounded-lg border border-border bg-card p-4 hover:bg-accent/50 transition-colors no-underline text-inherit"
-    >
-      <CompanyPatternIcon
-        companyName={company.name}
-        logoUrl={company.logoUrl}
-        brandColor={company.brandColor}
-        className="rounded-[10px] shrink-0"
-      />
-      <div className="min-w-0 flex-1">
-        <p className="text-sm font-medium truncate">{company.name}</p>
-        <p className="text-xs text-muted-foreground mt-0.5">
-          {activeIssueCount} active issue{activeIssueCount !== 1 ? "s" : ""}
-          {" · "}
-          {agentCount} agent{agentCount !== 1 ? "s" : ""}
-          {runningAgents > 0 && (
-            <span className="text-blue-500"> · {runningAgents} running</span>
-          )}
-        </p>
-      </div>
-    </Link>
   );
 }
 
