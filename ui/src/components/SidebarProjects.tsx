@@ -35,7 +35,7 @@ function SortableProjectItem({
   activeProjectRef,
   companyId,
   companyPrefix,
-  isMobile,
+  closeDrawerOnNavigate,
   project,
   projectSidebarSlots,
   setSidebarOpen,
@@ -43,7 +43,7 @@ function SortableProjectItem({
   activeProjectRef: string | null;
   companyId: string | null;
   companyPrefix: string | null;
-  isMobile: boolean;
+  closeDrawerOnNavigate: boolean;
   project: Project;
   projectSidebarSlots: ProjectSidebarSlot[];
   setSidebarOpen: (open: boolean) => void;
@@ -75,7 +75,7 @@ function SortableProjectItem({
         <NavLink
           to={`/projects/${routeRef}/issues`}
           onClick={() => {
-            if (isMobile) setSidebarOpen(false);
+            if (closeDrawerOnNavigate) setSidebarOpen(false);
           }}
           className={cn(
             "flex items-center gap-2.5 px-3 py-1.5 text-[13px] font-medium transition-colors",
@@ -119,7 +119,7 @@ export function SidebarProjects() {
   const [open, setOpen] = useState(true);
   const { selectedCompany, selectedCompanyId } = useCompany();
   const { openNewProject } = useDialog();
-  const { isMobile, setSidebarOpen } = useSidebar();
+  const { isDesktopShell, setSidebarOpen } = useSidebar();
   const location = useLocation();
 
   const { data: projects } = useQuery({
@@ -219,7 +219,7 @@ export function SidebarProjects() {
                   activeProjectRef={activeProjectRef}
                   companyId={selectedCompanyId}
                   companyPrefix={selectedCompany?.issuePrefix ?? null}
-                  isMobile={isMobile}
+                  closeDrawerOnNavigate={!isDesktopShell}
                   project={project}
                   projectSidebarSlots={projectSidebarSlots}
                   setSidebarOpen={setSidebarOpen}

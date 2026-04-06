@@ -15,9 +15,9 @@ interface PageTabBarProps {
 }
 
 export function PageTabBar({ items, value, onValueChange, align = "center" }: PageTabBarProps) {
-  const { isMobile } = useSidebar();
+  const { isDesktopShell } = useSidebar();
 
-  if (isMobile && value !== undefined && onValueChange) {
+  if (!isDesktopShell && value !== undefined && onValueChange) {
     return (
       <select
         value={value}

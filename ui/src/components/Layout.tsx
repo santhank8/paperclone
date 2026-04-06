@@ -49,7 +49,8 @@ function readRememberedInstanceSettingsPath(): string {
 }
 
 export function Layout() {
-  const { sidebarOpen, setSidebarOpen, toggleSidebar, isMobile } = useSidebar();
+  const { sidebarOpen, setSidebarOpen, toggleSidebar, isMobile, isDesktopShell } = useSidebar();
+  const useDrawerNav = !isDesktopShell;
   const { openNewIssue, openOnboarding } = useDialog();
   const { togglePanelVisible } = usePanel();
   const {
@@ -162,9 +163,9 @@ export function Layout() {
     setMobileNavVisible(true);
   }, [isMobile]);
 
-  // Swipe gesture to open/close sidebar on mobile
+  // Swipe gesture to open/close sidebar when using drawer nav (phone + tablet)
   useEffect(() => {
-    if (!isMobile) return;
+    if (isDesktopShell) return;
 
     const EDGE_ZONE = 30; // px from left edge to start open-swipe
     const MIN_DISTANCE = 50; // minimum horizontal swipe distance
@@ -205,7 +206,7 @@ export function Layout() {
       document.removeEventListener("touchstart", onTouchStart);
       document.removeEventListener("touchend", onTouchEnd);
     };
-  }, [isMobile, sidebarOpen, setSidebarOpen]);
+  }, [isDesktopShell, sidebarOpen, setSidebarOpen]);
 
   const updateMobileNavVisibility = useCallback((currentTop: number) => {
     const delta = currentTop - lastMainScrollTop.current;
@@ -282,7 +283,7 @@ export function Layout() {
       <WorktreeBanner />
       <DevRestartBanner devServer={health?.devServer} />
       <div className={cn("min-h-0 flex-1", isMobile ? "w-full" : "flex overflow-hidden")}>
-        {isMobile && sidebarOpen && (
+        {useDrawerNav && sidebarOpen && (
           <button
             type="button"
             className="fixed inset-0 z-40 bg-black/50"
@@ -291,7 +292,7 @@ export function Layout() {
           />
         )}
 
-        {isMobile ? (
+        {useDrawerNav ? (
           <div
             className={cn(
               "fixed inset-y-0 left-0 z-50 flex flex-col overflow-hidden pt-[env(safe-area-inset-top)] transition-transform duration-100 ease-out",
@@ -327,7 +328,7 @@ export function Layout() {
                     aria-label="Instance settings"
                     title="Instance settings"
                     onClick={() => {
-                      if (isMobile) setSidebarOpen(false);
+                      if (useDrawerNav) setSidebarOpen(false);
                     }}
                   >
                     <Settings className="h-4 w-4" />
@@ -385,7 +386,7 @@ export function Layout() {
                     aria-label="Instance settings"
                     title="Instance settings"
                     onClick={() => {
-                      if (isMobile) setSidebarOpen(false);
+                      if (useDrawerNav) setSidebarOpen(false);
                     }}
                   >
                     <Settings className="h-4 w-4" />
@@ -410,7 +411,8 @@ export function Layout() {
         <div className={cn("flex min-w-0 flex-col", isMobile ? "w-full" : "h-full flex-1")}>
           <div
             className={cn(
-              isMobile && "sticky top-0 z-20 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/85",
+              useDrawerNav &&
+                "sticky top-0 z-20 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/85",
             )}
           >
             <BreadcrumbBar />

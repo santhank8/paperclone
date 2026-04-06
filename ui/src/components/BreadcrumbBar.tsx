@@ -32,7 +32,7 @@ function GlobalToolbarPlugins({ context }: { context: GlobalToolbarContext }) {
 
 export function BreadcrumbBar() {
   const { breadcrumbs } = useBreadcrumbs();
-  const { toggleSidebar, isMobile } = useSidebar();
+  const { toggleSidebar, isDesktopShell } = useSidebar();
   const { selectedCompanyId, selectedCompany } = useCompany();
 
   const globalToolbarSlotContext = useMemo(
@@ -53,7 +53,7 @@ export function BreadcrumbBar() {
     );
   }
 
-  const menuButton = isMobile && (
+  const menuButton = !isDesktopShell && (
     <Button
       variant="ghost"
       size="icon-sm"

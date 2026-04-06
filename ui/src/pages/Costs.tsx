@@ -579,7 +579,7 @@ export function Costs() {
             </div>
           ) : null}
 
-          <div className="grid gap-3 lg:grid-cols-4">
+          <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
             <MetricTile
               label="Inference spend"
               value={formatCents(spendData?.summary.spendCents ?? 0)}
@@ -845,7 +845,7 @@ export function Costs() {
                     Hard-stop spend limits for agents and projects. Provider subscription quota stays separate and appears under Providers.
                   </CardDescription>
                 </CardHeader>
-                <CardContent className="grid gap-3 px-5 pb-5 pt-0 md:grid-cols-4">
+                <CardContent className="grid gap-3 px-5 pb-5 pt-0 sm:grid-cols-2 lg:grid-cols-4">
                   <MetricTile
                     label="Active incidents"
                     value={String(activeBudgetIncidents.length)}

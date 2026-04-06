@@ -23,7 +23,7 @@ export function SidebarAgents() {
   const [open, setOpen] = useState(true);
   const { selectedCompanyId } = useCompany();
   const { openNewAgent } = useDialog();
-  const { isMobile, setSidebarOpen } = useSidebar();
+  const { isDesktopShell, setSidebarOpen } = useSidebar();
   const location = useLocation();
 
   const { data: agents } = useQuery({
@@ -106,7 +106,7 @@ export function SidebarAgents() {
                 key={agent.id}
                 to={activeTab ? `${agentUrl(agent)}/${activeTab}` : agentUrl(agent)}
                 onClick={() => {
-                  if (isMobile) setSidebarOpen(false);
+                  if (!isDesktopShell) setSidebarOpen(false);
                 }}
                 className={cn(
                   "flex items-center gap-2.5 px-3 py-1.5 text-[13px] font-medium transition-colors",
