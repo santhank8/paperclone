@@ -248,7 +248,7 @@ const USER_ROLES = [
 
 function StepIndicator({ current, total }: { current: number; total: number }) {
   return (
-    <div className="flex items-center justify-center gap-2 mb-8">
+    <div className="flex items-center justify-center gap-2 mb-6">
       {Array.from({ length: total }, (_, i) => {
         const stepNum = i + 1;
         const isActive = stepNum === current;
@@ -377,7 +377,7 @@ function CredentialInput({
             href={field.helpUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-[10px] text-[#224AE8] hover:underline"
+            className="text-[10px] text-primary hover:underline"
           >
             How to get this?
           </a>
@@ -741,10 +741,7 @@ export function RaavaOnboardingWizard() {
                 <Sparkles className="w-8 h-8 text-white" />
               </div>
 
-              <h2
-                className="text-2xl font-bold"
-                style={{ fontFamily: "Syne, system-ui, sans-serif" }}
-              >
+              <h2 className="font-display text-2xl text-foreground">
                 {hiredAgentName} is on your team!
               </h2>
               <p className="mt-2 text-sm text-muted-foreground">
@@ -804,15 +801,10 @@ export function RaavaOnboardingWizard() {
               {step === 1 && (
                 <div className="space-y-6">
                   <div className="text-center">
-                    <h2
-                      className="text-xl font-bold"
-                      style={{
-                        fontFamily: "Syne, system-ui, sans-serif",
-                      }}
-                    >
+                    <h2 className="font-display text-xl text-foreground">
                       Create Your Company
                     </h2>
-                    <p className="mt-1 text-sm text-muted-foreground">
+                    <p className="mt-1.5 text-sm text-muted-foreground">
                       Tell us about yourself and your company
                     </p>
                   </div>
@@ -886,15 +878,10 @@ export function RaavaOnboardingWizard() {
               {step === 2 && (
                 <div className="space-y-6">
                   <div className="text-center">
-                    <h2
-                      className="text-xl font-bold"
-                      style={{
-                        fontFamily: "Syne, system-ui, sans-serif",
-                      }}
-                    >
+                    <h2 className="font-display text-xl text-foreground">
                       Hire your first team member
                     </h2>
-                    <p className="mt-1 text-sm text-muted-foreground">
+                    <p className="mt-1.5 text-sm text-muted-foreground">
                       Choose a role for your AI team member
                     </p>
                   </div>
@@ -951,15 +938,10 @@ export function RaavaOnboardingWizard() {
               {step === 3 && selectedRole && (
                 <div className="space-y-6">
                   <div className="text-center">
-                    <h2
-                      className="text-xl font-bold"
-                      style={{
-                        fontFamily: "Syne, system-ui, sans-serif",
-                      }}
-                    >
+                    <h2 className="font-display text-xl text-foreground">
                       Set up {selectedRole.name}&apos;s tools
                     </h2>
-                    <p className="mt-1 text-sm text-muted-foreground">
+                    <p className="mt-1.5 text-sm text-muted-foreground">
                       Connect the services your team member needs
                     </p>
                   </div>
@@ -1030,15 +1012,10 @@ export function RaavaOnboardingWizard() {
               {step === 4 && selectedRole && (
                 <div className="space-y-6">
                   <div className="text-center">
-                    <h2
-                      className="text-xl font-bold"
-                      style={{
-                        fontFamily: "Syne, system-ui, sans-serif",
-                      }}
-                    >
+                    <h2 className="font-display text-xl text-foreground">
                       Name &amp; launch your team member
                     </h2>
-                    <p className="mt-1 text-sm text-muted-foreground">
+                    <p className="mt-1.5 text-sm text-muted-foreground">
                       Personalize your new {selectedRole.name}
                     </p>
                   </div>
