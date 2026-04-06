@@ -2074,6 +2074,48 @@
       "agent": "Agent",
       "task": "Task",
       "launch": "Launch"
+    },
+    "company": {
+      "title": "Name your company",
+      "description": "This is the organization your agents will work for.",
+      "company_name": "Company name",
+      "mission_optional": "Mission / goal (optional)",
+      "mission_placeholder": "What is this company trying to achieve?"
+    },
+    "agent": {
+      "title": "Create your first agent",
+      "description": "Choose how this agent will run tasks.",
+      "name": "Agent name",
+      "adapter_type": "Adapter type",
+      "recommended": "Recommended",
+      "more_adapter_types": "More Agent Adapter Types",
+      "model": "Model",
+      "no_models_discovered": "No models discovered.",
+      "adapter_environment_check": "Adapter environment check",
+      "adapter_environment_check_description": "Runs a live probe that asks the adapter CLI to respond with hello.",
+      "test_now": "Test now",
+      "gateway_url": "Gateway URL",
+      "webhook_url": "Webhook URL"
+    },
+    "task": {
+      "title": "Give it something to do",
+      "description": "Give your agent a small task to start with - a bug fix, a research question, writing a script.",
+      "task_title": "Task title",
+      "task_title_placeholder": "e.g. Research competitor pricing",
+      "description_optional": "Description (optional)",
+      "description_placeholder": "Add more detail about what the agent should do...",
+      "default_title": "Hire your first engineer and create a hiring plan",
+      "default_description": "You are the CEO. You set the direction for the company.\n\n- hire a founding engineer\n- write a hiring plan\n- break the roadmap into concrete tasks and start delegating work"
+    },
+    "launch": {
+      "title": "Ready to launch",
+      "description": "Everything is set up. Launching now will create the starter task, wake the agent, and open the issue."
+    },
+    "actions": {
+      "back": "Back",
+      "next": "Next",
+      "creating": "Creating...",
+      "create_open_issue": "Create & Open Issue"
     }
   }
 }
