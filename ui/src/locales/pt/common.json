@@ -1270,7 +1270,7 @@
       "title": "Configuracoes da instancia",
       "nav": {
         "general": "Geral",
-        "heartbeats": "Heartbeats",
+        "heartbeats": "Monitoramento",
         "experimental": "Experimental",
         "plugins": "Plugins"
       },
@@ -1346,6 +1346,62 @@
         "errors": {
           "load_failed": "Falha ao carregar configuracoes experimentais.",
           "update_failed": "Falha ao atualizar configuracoes experimentais."
+        }
+      },
+      "plugins": {
+        "title": "Gerenciador de Plugins",
+        "loading": "Carregando plugins...",
+        "install_plugin": "Instalar plugin",
+        "install_description": "Informe o nome do pacote npm do plugin que deseja instalar.",
+        "npm_package_name": "Nome do pacote npm",
+        "install": "Instalar",
+        "installing": "Instalando...",
+        "alpha": {
+          "title": "Plugins estao em alpha.",
+          "description": "O runtime de plugins e a superficie da API ainda estao mudando. Espere mudancas que quebram compatibilidade enquanto esse recurso amadurece."
+        },
+        "available_title": "Plugins disponiveis",
+        "installed_title": "Plugins instalados",
+        "examples": "Exemplos",
+        "example": "Exemplo",
+        "loading_examples": "Carregando exemplos inclusos...",
+        "no_examples": "Nenhum plugin de exemplo foi encontrado neste checkout.",
+        "not_installed": "Nao instalado",
+        "open_settings": "Abrir configuracoes",
+        "review": "Revisar",
+        "install_example": "Instalar exemplo",
+        "no_plugins_installed": "Nenhum plugin instalado",
+        "install_to_extend": "Instale um plugin para estender funcionalidades.",
+        "no_description": "Nenhuma descricao informada.",
+        "plugin_error": "Erro do plugin",
+        "view_full_error": "Ver erro completo",
+        "disable": "Desativar",
+        "configure": "Configurar",
+        "uninstall_plugin": "Desinstalar plugin",
+        "uninstall": "Desinstalar",
+        "uninstalling": "Desinstalando...",
+        "uninstall_confirm": "Tem certeza que deseja desinstalar {{name}}? Esta acao nao pode ser desfeita.",
+        "error_details": "Detalhes do erro",
+        "plugin_details": "Detalhes do plugin",
+        "error_details_description": "{{name}} entrou em estado de erro.",
+        "what_errored": "O que falhou",
+        "no_error_summary": "Nenhum resumo de erro disponivel.",
+        "full_error_output": "Saida completa do erro",
+        "no_stored_error": "Nenhuma mensagem de erro armazenada.",
+        "close": "Fechar",
+        "toasts": {
+          "install_success": "Plugin instalado com sucesso",
+          "install_failed": "Falha ao instalar plugin",
+          "uninstall_success": "Plugin desinstalado com sucesso",
+          "uninstall_failed": "Falha ao desinstalar plugin",
+          "enabled": "Plugin ativado",
+          "enable_failed": "Falha ao ativar plugin",
+          "disabled": "Plugin desativado",
+          "disable_failed": "Falha ao desativar plugin"
+        },
+        "errors": {
+          "load_failed": "Falha ao carregar plugins.",
+          "load_examples_failed": "Falha ao carregar exemplos inclusos."
         }
       }
     },

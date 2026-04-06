@@ -1407,6 +1407,62 @@
           "load_failed": "Failed to load experimental settings.",
           "update_failed": "Failed to update experimental settings."
         }
+      },
+      "plugins": {
+        "title": "Plugin Manager",
+        "loading": "Loading plugins...",
+        "install_plugin": "Install Plugin",
+        "install_description": "Enter the npm package name of the plugin you wish to install.",
+        "npm_package_name": "npm Package Name",
+        "install": "Install",
+        "installing": "Installing...",
+        "alpha": {
+          "title": "Plugins are alpha.",
+          "description": "The plugin runtime and API surface are still changing. Expect breaking changes while this feature settles."
+        },
+        "available_title": "Available Plugins",
+        "installed_title": "Installed Plugins",
+        "examples": "Examples",
+        "example": "Example",
+        "loading_examples": "Loading bundled examples...",
+        "no_examples": "No bundled example plugins were found in this checkout.",
+        "not_installed": "Not installed",
+        "open_settings": "Open Settings",
+        "review": "Review",
+        "install_example": "Install Example",
+        "no_plugins_installed": "No plugins installed",
+        "install_to_extend": "Install a plugin to extend functionality.",
+        "no_description": "No description provided.",
+        "plugin_error": "Plugin error",
+        "view_full_error": "View full error",
+        "disable": "Disable",
+        "configure": "Configure",
+        "uninstall_plugin": "Uninstall Plugin",
+        "uninstall": "Uninstall",
+        "uninstalling": "Uninstalling...",
+        "uninstall_confirm": "Are you sure you want to uninstall {{name}}? This action cannot be undone.",
+        "error_details": "Error Details",
+        "plugin_details": "Plugin Details",
+        "error_details_description": "{{name}} hit an error state.",
+        "what_errored": "What errored",
+        "no_error_summary": "No error summary available.",
+        "full_error_output": "Full error output",
+        "no_stored_error": "No stored error message.",
+        "close": "Close",
+        "toasts": {
+          "install_success": "Plugin installed successfully",
+          "install_failed": "Failed to install plugin",
+          "uninstall_success": "Plugin uninstalled successfully",
+          "uninstall_failed": "Failed to uninstall plugin",
+          "enabled": "Plugin enabled",
+          "enable_failed": "Failed to enable plugin",
+          "disabled": "Plugin disabled",
+          "disable_failed": "Failed to disable plugin"
+        },
+        "errors": {
+          "load_failed": "Failed to load plugins.",
+          "load_examples_failed": "Failed to load bundled examples."
+        }
       }
     },
     "company_settings": {
