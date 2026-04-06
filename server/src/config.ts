@@ -338,9 +338,7 @@ export function loadConfig(): Config {
         : (fileHeartbeatCleanup?.enabled ?? true),
     heartbeatCleanupPruneAfterHours: Math.max(
       1,
-      Number(process.env.PAPERCLIP_HEARTBEAT_PRUNE_HOURS) ||
-        fileHeartbeatCleanup?.pruneAfterHours ||
-        48,
+      Number(process.env.PAPERCLIP_HEARTBEAT_PRUNE_HOURS ?? fileHeartbeatCleanup?.pruneAfterHours ?? 48),
     ),
     companyDeletionEnabled,
     telemetryEnabled: fileConfig?.telemetry?.enabled ?? true,
