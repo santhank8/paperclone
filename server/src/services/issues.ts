@@ -1720,9 +1720,15 @@ export function issueService(db: Db) {
           or(isNull(issues.checkoutRunId), eq(issues.checkoutRunId, checkoutRunId)),
         )
         : and(eq(issues.assigneeAgentId, agentId), isNull(issues.checkoutRunId));
+      const queuedExecutionRunCondition = sql<boolean>`exists (
+        select 1
+        from ${heartbeatRuns}
+        where ${heartbeatRuns.id} = ${issues.executionRunId}
+          and ${heartbeatRuns.status} = 'queued'
+      )`;
       const executionLockCondition = checkoutRunId
-        ? or(isNull(issues.executionRunId), eq(issues.executionRunId, checkoutRunId))
-        : isNull(issues.executionRunId);
+        ? or(isNull(issues.executionRunId), eq(issues.executionRunId, checkoutRunId), queuedExecutionRunCondition)
+        : or(isNull(issues.executionRunId), queuedExecutionRunCondition);
       const updated = await db
         .update(issues)
         .set({
