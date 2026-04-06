@@ -5,7 +5,7 @@ import type { ComponentProps } from "react";
 import { createRoot } from "react-dom/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { DocumentRevision, Issue, IssueDocument } from "@paperclipai/shared";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { IssueDocumentsSection } from "./IssueDocumentsSection";
 import { queryKeys } from "../lib/queryKeys";
 
@@ -217,6 +217,15 @@ function createIssue(): Issue {
 
 describe("IssueDocumentsSection", () => {
   let container: HTMLDivElement;
+
+  beforeAll(() => {
+    vi.stubGlobal("localStorage", {
+      getItem: vi.fn(),
+      setItem: vi.fn(),
+      removeItem: vi.fn(),
+      clear: vi.fn(),
+    });
+  });
 
   beforeEach(() => {
     container = document.createElement("div");
