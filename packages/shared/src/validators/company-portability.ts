@@ -270,7 +270,6 @@ export const companyPortabilityImportSchema =
     adapterOverrides: z
       .record(z.string().min(1), portabilityAdapterOverrideSchema)
       .optional(),
-    defaultAgentConfig: portabilityDefaultAgentConfigSchema.optional(),
   });
 
 export type CompanyPortabilityImport = z.infer<

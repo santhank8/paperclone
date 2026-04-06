@@ -11,7 +11,7 @@ interface FileSystemHandleCreateOptions {
 
 interface FileSystemDirectoryHandle extends FileSystemHandle {
   kind: "directory";
-  values(): AsyncIterableIterator<FileSystemDirectoryHandle>;
+  values(): AsyncIterableIterator<FileSystemHandle>;
   getDirectoryHandle(
     name: string,
     options?: FileSystemHandleCreateOptions,

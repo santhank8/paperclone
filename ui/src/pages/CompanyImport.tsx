@@ -789,7 +789,7 @@ async function readLocalDirectory(): Promise<{
       } else if (entry.kind === "file") {
         // Skip macOS resource fork files and .DS_Store
         if (entry.name.startsWith("._") || entry.name === ".DS_Store") continue;
-        const file = await entry.getFile();
+        const file = await (entry as FileSystemFileHandle).getFile();
         yield { path: `${dirPath}/${entry.name}`, file };
       }
     }
@@ -1487,9 +1487,9 @@ export function CompanyImport() {
         <div className="grid gap-2 md:grid-cols-3">
           {(
             [
-              { key: "github", icon: Github, label: "GitHub repo" },
+              { key: "github", icon: Github, label: "GitHub repo", supported: true as boolean },
               { key: "directory", icon: FolderOpen, label: "Local folder", supported: supportsDirectoryPicker },
-              { key: "local", icon: Upload, label: "Local zip" },
+              { key: "local", icon: Upload, label: "Local zip", supported: true as boolean },
             ] as const
           ).filter(({ key, supported }) => key !== "directory" || supported).map(({ key, icon: Icon, label, supported }) => (
             <button
