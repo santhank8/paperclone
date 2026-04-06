@@ -50,6 +50,24 @@ export async function ensureCompanyChannel(db: Db, companyId: string): Promise<s
   return upsertChannel(db, companyId, "company", null, "company");
 }
 
+/**
+ * Seed default channels for a new company (idempotent - uses upsert).
+ * Creates: #company, #engineering, #marketing, #operations, #leadership
+ */
+export async function seedDefaultChannels(db: Db, companyId: string): Promise<void> {
+  const defaults: Array<{ scopeType: string; scopeId: string | null; name: string }> = [
+    { scopeType: "company", scopeId: null, name: "company" },
+    { scopeType: "department", scopeId: "engineering", name: "engineering" },
+    { scopeType: "department", scopeId: "marketing", name: "marketing" },
+    { scopeType: "department", scopeId: "operations", name: "operations" },
+    { scopeType: "department", scopeId: "leadership", name: "leadership" },
+  ];
+
+  for (const ch of defaults) {
+    await upsertChannel(db, companyId, ch.scopeType, ch.scopeId, ch.name);
+  }
+}
+
 /** Auto-create a department channel. Returns the channel id. */
 export async function ensureDepartmentChannel(
   db: Db,
