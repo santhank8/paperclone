@@ -77,7 +77,6 @@ const MAX_INLINE_WAKE_COMMENTS = 8;
 const MAX_INLINE_WAKE_COMMENT_BODY_CHARS = 4_000;
 const MAX_INLINE_WAKE_COMMENT_BODY_TOTAL_CHARS = 12_000;
 const execFile = promisify(execFileCallback);
-const execFile = promisify(execFileCallback);
 
 const POSTGRES_TEXT_NULL_BYTE = /\u0000/g;
 
@@ -94,7 +93,7 @@ function sanitizePostgresTextValue<T>(value: T): T {
     return value.map((entry) => sanitizePostgresTextValue(entry)) as T;
   }
   if (value && typeof value === "object" && !(value instanceof Date)) {
-    const prototype = Object.getPrototypeOf(value);
+    const prototype = Object.getPrototypeOf(toAny(value));
     if (prototype === Object.prototype || prototype === null) {
       const entries = Object.entries(value as Record<string, unknown>).map(([key, entry]) => [
         key,
@@ -105,6 +104,8 @@ function sanitizePostgresTextValue<T>(value: T): T {
   }
   return value;
 }
+
+function toAny(v: any): any { return v; }
 
 function normalizePriorityRank(priority: string | null | undefined) {
   switch ((priority ?? "").toLowerCase()) {
@@ -144,15 +145,6 @@ function classifyIssueTruthFromCommentBody(body: string | null | undefined): "co
   if (completionSignals.some((rx) => rx.test(text))) return "completion";
   if (blockerSignals.some((rx) => rx.test(text))) return "blocker";
   if (handoffSignals.some((rx) => rx.test(text))) return "handoff";
-  return null;
-}
-
-export function isOperationsOrchestratorAgent(agent: { role?: string | null; name: null }) {
-  const role = (agent.role ?? "").toLowerCase();
-  const name = (agent.name ?? "").toLowerCase();
-  return role.includes("operat") || role === "coo" || name.includes("operations");
-}
-
   return null;
 }
 
