@@ -100,6 +100,27 @@ describe("bootstrap claim routes", () => {
     vi.restoreAllMocks();
   });
 
+  it("rejects an unauthenticated bootstrap claim attempt", async () => {
+    const db = {
+      transaction: vi.fn(),
+    };
+    const app = createApp(
+      {
+        type: "board",
+        userId: null,
+        source: "api_key",
+        isInstanceAdmin: false,
+      },
+      db,
+    );
+
+    const res = await request(app).post("/api/bootstrap/claim").send({});
+
+    expect(res.status).toBe(401);
+    expect(res.body.error).toBe("Sign in before claiming instance admin");
+    expect(db.transaction).not.toHaveBeenCalled();
+  });
+
   it("claims the first instance admin from the browser", async () => {
     const tx = createClaimTxStub();
     const db = {
