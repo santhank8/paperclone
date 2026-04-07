@@ -34,7 +34,13 @@ function parseBaseUrlFromConfig(content: string): string | null {
     if (inModelSection) {
       const match = trimmed.match(/^\s*base_url\s*:\s*(.+)$/);
       if (match) {
-        return match[1].trim().replace(/#.*$/, "").trim().replace(/^['"]|['"]$/g, "");
+        const raw = match[1].trim();
+        // Strip surrounding quotes first (preserves # in URLs)
+        const unquoted = raw.replace(/^['"]|['"]$/g, "");
+        // Only strip inline comments for unquoted values
+        return raw.startsWith("'") || raw.startsWith('"')
+          ? unquoted
+          : unquoted.replace(/\s+#.*$/, "").trim();
       }
     }
   }
@@ -64,13 +70,13 @@ function dedupeModels(models: AdapterModel[]): AdapterModel[] {
   return deduped;
 }
 
-async function fetchModels(baseUrl: string): Promise<AdapterModel[]> {
+async function fetchModels(baseUrl: string): Promise<AdapterModel[] | null> {
   const endpoint = baseUrl.replace(/\/+$/, "") + "/models";
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), MODELS_TIMEOUT_MS);
   try {
     const response = await fetch(endpoint, { signal: controller.signal });
-    if (!response.ok) return [];
+    if (!response.ok) return null;
 
     const payload = (await response.json()) as { data?: unknown };
     const data = Array.isArray(payload.data) ? payload.data : [];
@@ -83,7 +89,7 @@ async function fetchModels(baseUrl: string): Promise<AdapterModel[]> {
     }
     return dedupeModels(models);
   } catch {
-    return [];
+    return null;
   } finally {
     clearTimeout(timeout);
   }
@@ -99,7 +105,7 @@ export async function listHermesModels(): Promise<AdapterModel[]> {
   }
 
   const fetched = await fetchModels(baseUrl);
-  if (fetched.length > 0) {
+  if (fetched !== null && fetched.length > 0) {
     const sorted = fetched.sort((a, b) =>
       a.id.localeCompare(b.id, "en", { numeric: true, sensitivity: "base" }),
     );
@@ -107,10 +113,14 @@ export async function listHermesModels(): Promise<AdapterModel[]> {
     return sorted;
   }
 
-  // Return stale cache if fresh fetch failed
-  if (cached && cached.baseUrl === baseUrl && cached.models.length > 0) {
+  // Return stale cache if fresh fetch failed (fetched === null)
+  if (fetched === null && cached && cached.baseUrl === baseUrl && cached.models.length > 0) {
     return cached.models;
   }
 
   return [];
+}
+
+export function resetHermesModelsCacheForTests(): void {
+  cached = null;
 }
