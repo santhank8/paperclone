@@ -5,7 +5,6 @@ import {
   timingSafeEqual
 } from "node:crypto";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { Router } from "express";
@@ -41,6 +40,8 @@ import {
 } from "../errors.js";
 import { logger } from "../middleware/logger.js";
 import { validate } from "../middleware/validate.js";
+import { listServerAdapters } from "../adapters/registry.js";
+import type { AdapterRuntimeSkillCatalog } from "../adapters/types.js";
 import {
   accessService,
   agentService,
@@ -129,171 +130,27 @@ function readSkillMarkdown(skillName: string): string | null {
   return null;
 }
 
-/** Resolve the Paperclip repo skills directory (built-in / managed skills). */
-function resolvePaperclipSkillsDir(): string | null {
-  const moduleDir = path.dirname(fileURLToPath(import.meta.url));
-  const candidates = [
-    path.resolve(moduleDir, "../../skills"),         // published
-    path.resolve(process.cwd(), "skills"),           // cwd (monorepo root)
-    path.resolve(moduleDir, "../../../skills"),       // dev
-  ];
-  for (const candidate of candidates) {
+async function listRuntimeSkillCatalogs(): Promise<AdapterRuntimeSkillCatalog[]> {
+  const catalogs: AdapterRuntimeSkillCatalog[] = [];
+  for (const adapter of listServerAdapters()) {
+    if (!adapter.listRuntimeSkillCatalog) continue;
     try {
-      if (fs.statSync(candidate).isDirectory()) return candidate;
-    } catch { /* skip */ }
-  }
-  return null;
-}
-
-/** Parse YAML frontmatter from a SKILL.md file to extract name and description. */
-function parseSkillFrontmatter(markdown: string): { title: string | null; description: string } {
-  const match = markdown.match(/^---\n([\s\S]*?)\n---/);
-  if (!match) return { title: null, description: "" };
-  const yaml = match[1];
-  const nameMatch = yaml.match(/^name:\s*(?:>\s*\n((?:\s{2,}[^\n]*\n?)+)|[|]\s*\n((?:\s{2,}[^\n]*\n?)+)|["']?([^"'\n]+?)["']?\s*$)/m);
-  let title: string | null = null;
-  if (nameMatch) {
-    const rawName = nameMatch[1] ?? nameMatch[2] ?? nameMatch[3] ?? "";
-    const collapsed = rawName
-      .split("\n")
-      .map((l: string) => l.trim())
-      .filter(Boolean)
-      .join(" ")
-      .trim();
-    title = collapsed.length > 0 ? collapsed : null;
-  }
-  // Extract description — handles both single-line and multi-line YAML values
-  const descMatch = yaml.match(
-    /^description:\s*(?:>\s*\n((?:\s{2,}[^\n]*\n?)+)|[|]\s*\n((?:\s{2,}[^\n]*\n?)+)|["']?(.*?)["']?\s*$)/m
-  );
-  if (!descMatch) return { title, description: "" };
-  const raw = descMatch[1] ?? descMatch[2] ?? descMatch[3] ?? "";
-  return {
-    title,
-    description: raw
-      .split("\n")
-      .map((l: string) => l.trim())
-      .filter(Boolean)
-      .join(" ")
-      .trim(),
-  };
-}
-
-interface AvailableSkill {
-  /** Directory name under the Claude skills folder (runtime key). */
-  name: string;
-  /** Optional display title from SKILL.md frontmatter `name`. */
-  title: string | null;
-  description: string;
-  /** True when a skill of the same folder name exists in the Paperclip repo `skills/` tree. */
-  isPaperclipManaged: boolean;
-}
-
-/** Claude Code config directory: ~/.claude by default, or $CLAUDE_HOME when set. */
-function resolveClaudeHomeDir(): string {
-  const fromEnv = process.env.CLAUDE_HOME?.trim();
-  if (fromEnv && fromEnv.length > 0) return path.resolve(fromEnv);
-  return path.resolve(path.join(os.homedir(), ".claude"));
-}
-
-function claudeHomeDisplayLabel(resolvedHome: string): string {
-  const fromEnv = process.env.CLAUDE_HOME?.trim();
-  if (fromEnv && fromEnv.length > 0) return "$CLAUDE_HOME";
-  try {
-    const home = os.homedir();
-    const defaultClaude = path.resolve(path.join(home, ".claude"));
-    if (path.resolve(resolvedHome) === defaultClaude) return "~/.claude";
-  } catch { /* skip */ }
-  return resolvedHome;
-}
-
-function normalizeEnabledPluginsValue(value: unknown): string[] {
-  if (value == null) return [];
-  if (Array.isArray(value)) {
-    const out: string[] = [];
-    for (const item of value) {
-      if (typeof item === "string" && item.trim()) out.push(item.trim());
-    }
-    return out;
-  }
-  if (typeof value === "object") {
-    return Object.entries(value as Record<string, unknown>)
-      .filter(([, v]) => {
-        if (v === true || v === 1 || v === "true") return true;
-        return false;
-      })
-      .map(([k]) => k)
-      .filter((k) => k.trim().length > 0);
-  }
-  return [];
-}
-
-function readJsonFileIfExists(filePath: string): Record<string, unknown> | null {
-  try {
-    const raw = fs.readFileSync(filePath, "utf8");
-    const parsed = JSON.parse(raw) as unknown;
-    return typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)
-      ? (parsed as Record<string, unknown>)
-      : null;
-  } catch {
-    return null;
-  }
-}
-
-/** Read `enabledPlugins` from Claude Code user settings (settings.json + settings.local.json). */
-function listClaudeEnabledPlugins(claudeHomeDir: string): string[] {
-  const base = readJsonFileIfExists(path.join(claudeHomeDir, "settings.json"));
-  const local = readJsonFileIfExists(path.join(claudeHomeDir, "settings.local.json"));
-  const fromBase = normalizeEnabledPluginsValue(base?.enabledPlugins);
-  const fromLocal = normalizeEnabledPluginsValue(local?.enabledPlugins);
-  if (fromLocal.length === 0) return [...fromBase].sort((a, b) => a.localeCompare(b));
-  const merged = new Set([...fromBase, ...fromLocal]);
-  return [...merged].sort((a, b) => a.localeCompare(b));
-}
-
-/** Discover all available Claude Code skills from ~/.claude/skills/ (or $CLAUDE_HOME/skills). */
-function listAvailableSkills(): AvailableSkill[] {
-  const claudeHomeDir = resolveClaudeHomeDir();
-  const claudeSkillsDir = path.join(claudeHomeDir, "skills");
-  const paperclipSkillsDir = resolvePaperclipSkillsDir();
-
-  // Build set of Paperclip-managed skill names
-  const paperclipSkillNames = new Set<string>();
-  if (paperclipSkillsDir) {
-    try {
-      for (const entry of fs.readdirSync(paperclipSkillsDir, { withFileTypes: true })) {
-        if (entry.isDirectory()) paperclipSkillNames.add(entry.name);
-      }
-    } catch { /* skip */ }
-  }
-
-  const skills: AvailableSkill[] = [];
-
-  try {
-    const entries = fs.readdirSync(claudeSkillsDir, { withFileTypes: true });
-    for (const entry of entries) {
-      if (!entry.isDirectory() && !entry.isSymbolicLink()) continue;
-      if (entry.name.startsWith(".")) continue;
-      const skillMdPath = path.join(claudeSkillsDir, entry.name, "SKILL.md");
-      let description = "";
-      let title: string | null = null;
-      try {
-        const md = fs.readFileSync(skillMdPath, "utf8");
-        const parsed = parseSkillFrontmatter(md);
-        description = parsed.description;
-        title = parsed.title;
-      } catch { /* no SKILL.md or unreadable */ }
-      skills.push({
-        name: entry.name,
-        title,
-        description,
-        isPaperclipManaged: paperclipSkillNames.has(entry.name),
+      const catalog = await adapter.listRuntimeSkillCatalog();
+      if (catalog) catalogs.push(catalog);
+    } catch (error) {
+      catalogs.push({
+        adapterType: adapter.type,
+        label: adapter.type,
+        readOnly: true,
+        locationLabel: null,
+        skills: [],
+        sections: [],
+        warnings: [error instanceof Error ? error.message : "Failed to load adapter runtime catalog."],
       });
     }
-  } catch { /* Claude skills dir doesn't exist */ }
-
-  skills.sort((a, b) => a.name.localeCompare(b.name));
-  return skills;
+  }
+  catalogs.sort((left, right) => left.label.localeCompare(right.label));
+  return catalogs;
 }
 
 function toJoinRequestResponse(row: typeof joinRequests.$inferSelect) {
@@ -1990,13 +1847,9 @@ export function accessRoutes(
     return company?.name ?? null;
   }
 
-  router.get("/skills/available", (_req, res) => {
-    const claudeHomeDir = resolveClaudeHomeDir();
-    res.json({
-      skills: listAvailableSkills(),
-      enabledPlugins: listClaudeEnabledPlugins(claudeHomeDir),
-      claudeHomeDisplay: claudeHomeDisplayLabel(claudeHomeDir),
-    });
+  router.get("/skills/available", async (_req, res) => {
+    const adapters = await listRuntimeSkillCatalogs();
+    res.json({ adapters });
   });
 
   router.get("/skills/index", (_req, res) => {
