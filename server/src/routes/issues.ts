@@ -1333,8 +1333,8 @@ export function issueRoutes(
     const statusBecameActionable =
       req.body.status !== undefined &&
       existing.status !== issue.status &&
-      ["blocked", "in_review"].includes(existing.status) &&
-      ["todo", "in_progress"].includes(issue.status);
+      existing.status !== "backlog" &&
+      ["todo", "in_progress", "in_review"].includes(issue.status);
 
     // Merge all wakeups from this update into one enqueue per agent to avoid duplicate runs.
     void (async () => {
