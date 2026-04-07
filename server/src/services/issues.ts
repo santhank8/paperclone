@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, isNull, ne, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gt, inArray, isNull, ne, or, sql } from "drizzle-orm";
 import type { Db } from "@paperclipai/db";
 import {
   activityLog,
@@ -1965,6 +1965,7 @@ export function issueService(db: Db) {
         afterCommentId?: string | null;
         order?: "asc" | "desc";
         limit?: number | null;
+        since?: Date | null;
       },
     ) => {
       const order = opts?.order === "asc" ? "asc" : "desc";
@@ -1975,6 +1976,9 @@ export function issueService(db: Db) {
           : null;
 
       const conditions = [eq(issueComments.issueId, issueId)];
+      if (opts?.since) {
+        conditions.push(gt(issueComments.createdAt, opts.since));
+      }
       if (afterCommentId) {
         const anchor = await db
           .select({
@@ -2038,6 +2042,44 @@ export function issueService(db: Db) {
         totalComments: Number(countRow?.totalComments ?? 0),
         latestCommentId: latest?.latestCommentId ?? null,
         latestCommentAt: latest?.latestCommentAt ?? null,
+      };
+    },
+
+    getContextDigest: async (issueId: string) => {
+      const issue = await db
+        .select({
+          id: issues.id,
+          identifier: issues.identifier,
+          title: issues.title,
+          description: issues.description,
+          status: issues.status,
+          priority: issues.priority,
+          companyId: issues.companyId,
+          assigneeAgentId: issues.assigneeAgentId,
+          projectId: issues.projectId,
+          parentId: issues.parentId,
+          executionRunId: issues.executionRunId,
+          updatedAt: issues.updatedAt,
+        })
+        .from(issues)
+        .where(eq(issues.id, issueId))
+        .then((rows) => rows[0] ?? null);
+
+      if (!issue) return null;
+
+      const commentStats = await db
+        .select({
+          count: sql<number>`count(*)::int`,
+          lastAt: sql<Date | null>`max(${issueComments.createdAt})`,
+        })
+        .from(issueComments)
+        .where(eq(issueComments.issueId, issueId))
+        .then((rows) => rows[0]);
+
+      return {
+        ...issue,
+        commentCount: commentStats?.count ?? 0,
+        lastCommentAt: commentStats?.lastAt ?? null,
       };
     },
 
