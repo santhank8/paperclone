@@ -62,8 +62,23 @@ import {
   resolveSessionCompactionPolicy,
   type SessionCompactionPolicy,
 } from "@paperclipai/adapter-utils";
+import {
+  agentStateGauge,
+  llmCallFailuresCounter,
+  rateLimitRetryDurationHistogram,
+} from "./metrics.js";
 
 const MAX_LIVE_LOG_CHUNK_BYTES = 8 * 1024;
+
+// In-process failure counter for degraded state transitions.
+// Resets on server restart — acceptable: degraded status persists in DB, counter prevents
+// immediate re-escalation to error on a fresh process.
+const agentConsecutiveFailures = new Map<string, number>();
+
+// Degraded heartbeat cooldown ladder (minutes): beat 1→2m, 2→5m, 3→10m, 4+→15m
+const DEGRADED_COOLDOWN_MINUTES = [2, 5, 10, 15] as const;
+const DEGRADED_MAX_BEATS = 5;      // consecutive failed beats before escalating to error
+const DEGRADED_MAX_MINUTES = 30;   // continuous degraded minutes before escalating to error
 const HEARTBEAT_MAX_CONCURRENT_RUNS_DEFAULT = 1;
 const HEARTBEAT_MAX_CONCURRENT_RUNS_MAX = 10;
 const DEFERRED_WAKE_CONTEXT_KEY = "_paperclipWakeContext";
@@ -2027,12 +2042,55 @@ export function heartbeatService(db: Db) {
     const isFirstHeartbeat = !existing.lastHeartbeatAt;
 
     const runningCount = await countRunningRunsForAgent(agentId);
-    const nextStatus =
-      runningCount > 0
-        ? "running"
-        : outcome === "succeeded" || outcome === "cancelled"
-          ? "idle"
-          : "error";
+    // Track consecutive failures for degraded state transitions.
+    const prevFailures = agentConsecutiveFailures.get(agentId) ?? 0;
+    if (outcome === "failed" || outcome === "timed_out") {
+      agentConsecutiveFailures.set(agentId, prevFailures + 1);
+    } else {
+      agentConsecutiveFailures.delete(agentId);
+    }
+    const currentFailures = agentConsecutiveFailures.get(agentId) ?? 0;
+
+    // Determine next agent status with degraded-state rules.
+    let nextStatus: string;
+    if (runningCount > 0) {
+      nextStatus = "running";
+    } else if (outcome === "succeeded" || outcome === "cancelled") {
+      nextStatus = "idle";
+    } else if (existing.status === "degraded" || currentFailures >= 3) {
+      // Evaluate degraded → error escalation
+      const meta = (existing.metadata ?? {}) as { degradedAt?: string; degradedBeats?: number };
+      const degradedAt = meta.degradedAt ? new Date(meta.degradedAt) : null;
+      const degradedBeats = (meta.degradedBeats ?? 0) + (existing.status === "degraded" ? 1 : 0);
+      const degradedTooLong = degradedAt != null && (Date.now() - degradedAt.getTime()) > DEGRADED_MAX_MINUTES * 60_000;
+      const tooManyBeats = degradedBeats >= DEGRADED_MAX_BEATS;
+      nextStatus = (degradedTooLong || tooManyBeats) ? "error" : "degraded";
+    } else {
+      nextStatus = "error";
+    }
+
+    // Build metadata update for degraded state transitions.
+    const existingMeta = (existing.metadata ?? {}) as Record<string, unknown>;
+    let metadataUpdate: Record<string, unknown> | undefined;
+    if (nextStatus === "degraded") {
+      const prevMeta = existingMeta as { degradedAt?: string; degradedBeats?: number };
+      const isEnteringDegraded = existing.status !== "degraded";
+      metadataUpdate = {
+        ...existingMeta,
+        degradedAt: isEnteringDegraded ? new Date().toISOString() : (prevMeta.degradedAt ?? new Date().toISOString()),
+        degradedBeats: isEnteringDegraded ? 1 : (prevMeta.degradedBeats ?? 0) + 1,
+      };
+    } else if (existing.status === "degraded" && nextStatus !== "degraded") {
+      // Emit Prometheus histogram for time spent in degraded state.
+      const degradedAt = (existingMeta as { degradedAt?: string }).degradedAt;
+      if (degradedAt) {
+        const durationSecs = (Date.now() - new Date(degradedAt).getTime()) / 1_000;
+        rateLimitRetryDurationHistogram.observe({ agent_id: agentId }, durationSecs);
+      }
+      // Clear degraded metadata on recovery/escalation.
+      const { degradedAt: _da, degradedBeats: _db, ...restMeta } = existingMeta as { degradedAt?: string; degradedBeats?: number } & Record<string, unknown>;
+      metadataUpdate = Object.keys(restMeta).length > 0 ? restMeta : undefined;
+    }
 
     const updated = await db
       .update(agents)
@@ -2040,6 +2098,7 @@ export function heartbeatService(db: Db) {
         status: nextStatus,
         lastHeartbeatAt: new Date(),
         updatedAt: new Date(),
+        ...(metadataUpdate !== undefined ? { metadata: metadataUpdate } : {}),
       })
       .where(eq(agents.id, agentId))
       .returning()
@@ -2063,6 +2122,15 @@ export function heartbeatService(db: Db) {
           outcome,
         },
       });
+      // Emit Prometheus agent state gauge.
+      // State encoding: 0=idle, 1=running, 2=degraded, 3=error, 4=paused/terminated
+      const stateValue =
+        updated.status === "running" ? 1
+        : updated.status === "degraded" ? 2
+        : updated.status === "error" ? 3
+        : updated.status === "paused" || updated.status === "terminated" ? 4
+        : 0;
+      agentStateGauge.set({ agent_id: agentId }, stateValue);
     }
   }
 
@@ -2239,6 +2307,20 @@ export function heartbeatService(db: Db) {
       if (!agent) return [];
       if (agent.status === "paused" || agent.status === "terminated" || agent.status === "pending_approval") {
         return [];
+      }
+      // Degraded cooldown gate: skip execution until the cooldown window has elapsed.
+      if (agent.status === "degraded") {
+        const meta = (agent.metadata ?? {}) as { degradedAt?: string; degradedBeats?: number };
+        const degradedAt = meta.degradedAt ? new Date(meta.degradedAt) : null;
+        const degradedBeats = meta.degradedBeats ?? 1;
+        const cooldownIdx = Math.min(degradedBeats - 1, DEGRADED_COOLDOWN_MINUTES.length - 1);
+        const cooldownMs = DEGRADED_COOLDOWN_MINUTES[cooldownIdx] * 60_000;
+        const nextAllowedAt = degradedAt ? degradedAt.getTime() + cooldownMs : null;
+        if (nextAllowedAt != null && Date.now() < nextAllowedAt) {
+          const waitSecs = Math.round((nextAllowedAt - Date.now()) / 1_000);
+          logger.debug({ agentId, waitSecs, degradedBeats }, "[paperclip] Agent is degraded and in cooldown; skipping heartbeat");
+          return [];
+        }
       }
       const policy = parseHeartbeatPolicy(agent);
       const runningCount = await countRunningRunsForAgent(agentId);
@@ -2993,6 +3075,11 @@ export function heartbeatService(db: Db) {
         outcome = "succeeded";
       } else {
         outcome = "failed";
+        // Emit LLM call failure counter.
+        llmCallFailuresCounter.inc({
+          agent_id: agent.id,
+          status_code: adapterResult.errorCode ?? "adapter_failed",
+        });
       }
 
       let logSummary: { bytes: number; sha256?: string; compressed: boolean } | null = null;

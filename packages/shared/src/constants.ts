@@ -12,6 +12,7 @@ export type AuthBaseUrlMode = (typeof AUTH_BASE_URL_MODES)[number];
 
 export const AGENT_STATUSES = [
   "active",
+  "degraded",
   "paused",
   "idle",
   "running",
