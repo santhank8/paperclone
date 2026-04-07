@@ -2,10 +2,11 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { inferOpenAiCompatibleBiller, type AdapterExecutionContext, type AdapterExecutionResult } from "@paperclipai/adapter-utils";
+import { inferOpenAiCompatibleBiller, type AdapterExecutionContext, type AdapterExecutionResult, type ExecutionSegment } from "@paperclipai/adapter-utils";
 import {
   asString,
   asNumber,
+  asBoolean,
   asStringArray,
   parseObject,
   buildPaperclipEnv,
@@ -23,6 +24,8 @@ import {
   renderPaperclipWakePrompt,
   stringifyPaperclipWakePayload,
   runChildProcess,
+  PREFLIGHT_ORCHESTRATION_PROMPT,
+  extractHandoffSection,
 } from "@paperclipai/adapter-utils/server-utils";
 import { isPiUnknownSessionError, parsePiJsonl } from "./parse.js";
 import { ensurePiModelConfiguredAndAvailable } from "./models.js";
@@ -118,6 +121,14 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
   const command = asString(config.command, "pi");
   const model = asString(config.model, "").trim();
   const thinking = asString(config.thinking, "").trim();
+
+  // Smart model routing config
+  const smartRouting = parseObject(config.smartModelRouting);
+  const routingEnabled = asBoolean(smartRouting.enabled, false);
+  const cheapModel = asString(smartRouting.cheapModel, "");
+  const cheapThinkingEffort = asString(smartRouting.cheapThinkingEffort, "");
+  const maxPreflightTurns = asNumber(smartRouting.maxPreflightTurns, 2);
+  const allowPreflightProgressComment = asBoolean(smartRouting.allowInitialProgressComment, false);
 
   // Parse model into provider and model id
   const provider = parseModelProvider(model);
@@ -260,6 +271,132 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     }
   }
 
+  // ---------------------------------------------------------------------------
+  // Smart model routing: cheap preflight phase
+  // ---------------------------------------------------------------------------
+  const shouldRunPreflight =
+    routingEnabled &&
+    cheapModel.length > 0 &&
+    !canResumeSession &&
+    Boolean(wakeTaskId);
+
+  let preflightSegment: ExecutionSegment | null = null;
+  let preflightHandoffNote = "";
+
+  if (shouldRunPreflight) {
+    // Parse cheap model provider/id the same way as primary model
+    const cheapProvider = parseModelProvider(cheapModel);
+    const cheapModelId = parseModelId(cheapModel);
+
+    let cheapModelAvailable = true;
+    try {
+      await ensurePiModelConfiguredAndAvailable({
+        model: cheapModel,
+        command,
+        cwd,
+        env: runtimeEnv,
+      });
+    } catch (err) {
+      cheapModelAvailable = false;
+      await onLog("stderr", `[paperclip] Preflight model "${cheapModel}" not available: ${err instanceof Error ? err.message : String(err)}. Continuing with primary model only.\n`);
+    }
+
+    if (cheapModelAvailable) {
+      const wakePromptForPreflight = renderPaperclipWakePrompt(context.paperclipWake, { resumedSession: false });
+      const preflightPromptSections = [
+        PREFLIGHT_ORCHESTRATION_PROMPT,
+        wakePromptForPreflight,
+        ...(allowPreflightProgressComment
+          ? []
+          : ["Do NOT post comments, leave status updates, or call the Paperclip API."]),
+      ];
+      const preflightPrompt = joinPromptSections(preflightPromptSections);
+
+      // Pi preflight: non-interactive JSON mode, no session resume, minimal tools
+      const preflightArgs: string[] = ["--mode", "json", "-p"];
+      preflightArgs.push("--append-system-prompt", PREFLIGHT_ORCHESTRATION_PROMPT);
+      if (cheapProvider) preflightArgs.push("--provider", cheapProvider);
+      if (cheapModelId) preflightArgs.push("--model", cheapModelId);
+      if (cheapThinkingEffort) preflightArgs.push("--thinking", cheapThinkingEffort);
+      preflightArgs.push("--tools", "read,bash,ls,grep,find");
+      // Use a temporary session file for preflight (ephemeral, not persisted)
+      const preflightSessionPath = buildSessionPath(agent.id, `preflight-${new Date().toISOString()}`);
+      try { await fs.writeFile(preflightSessionPath, "", { flag: "wx" }); } catch { /* ok if exists */ }
+      preflightArgs.push("--session", preflightSessionPath);
+      preflightArgs.push(preflightPrompt);
+
+      await onLog("stdout", `[paperclip] Smart routing: running cheap preflight with model "${cheapModel}"...\n`);
+      if (onMeta) {
+        await onMeta({
+          adapterType: "pi_local",
+          command: resolvedCommand,
+          cwd,
+          commandNotes: ["Smart model routing: cheap preflight phase"],
+          commandArgs: preflightArgs.map((value, index) =>
+            index === preflightArgs.length - 1 ? `<prompt ${preflightPrompt.length} chars>` : value
+          ),
+          env: loggedEnv,
+          prompt: preflightPrompt,
+          promptMetrics: { promptChars: preflightPrompt.length },
+          context,
+        });
+      }
+
+      const preflightTimeoutSec = timeoutSec > 0 ? Math.min(timeoutSec, 120) : 120;
+
+      try {
+        let preflightStdoutBuffer = "";
+        const preflightProc = await runChildProcess(runId, command, preflightArgs, {
+          cwd,
+          env: runtimeEnv,
+          timeoutSec: preflightTimeoutSec,
+          graceSec,
+          onSpawn,
+          onLog: async (stream, chunk) => {
+            if (stream === "stderr") { await onLog(stream, chunk); return; }
+            preflightStdoutBuffer += chunk;
+            const lines = preflightStdoutBuffer.split("\n");
+            preflightStdoutBuffer = lines.pop() || "";
+            for (const line of lines) {
+              if (line) await onLog(stream, line + "\n");
+            }
+          },
+        });
+        if (preflightStdoutBuffer) await onLog("stdout", preflightStdoutBuffer);
+
+        const preflightParsed = parsePiJsonl(preflightProc.stdout);
+        const preflightOk = (preflightProc.exitCode ?? 0) === 0 && !preflightProc.timedOut;
+        const preflightSummary = preflightParsed.finalMessage ?? preflightParsed.messages.join("\n\n").trim();
+
+        preflightSegment = {
+          phase: "cheap_preflight",
+          provider: cheapProvider,
+          biller: resolvePiBiller(runtimeEnv, cheapProvider),
+          model: cheapModel,
+          billingType: "unknown",
+          usage: preflightParsed.usage,
+          costUsd: preflightParsed.usage.costUsd ?? null,
+          summary: preflightOk ? (preflightSummary || null) : null,
+        };
+
+        if (preflightOk && preflightSummary) {
+          preflightHandoffNote = `## Preflight Summary (from ${cheapModel})\n\n${extractHandoffSection(preflightSummary)}`;
+          await onLog("stdout", `[paperclip] Preflight complete. Proceeding with primary model "${model}".\n`);
+        } else {
+          const reason = preflightProc.timedOut
+            ? "timed out"
+            : (preflightParsed.errors[0] || `exit code ${preflightProc.exitCode}`);
+          await onLog("stdout", `[paperclip] Preflight did not produce a handoff (${reason}). Continuing with primary model only.\n`);
+        }
+
+        // Clean up ephemeral preflight session file
+        try { await fs.unlink(preflightSessionPath); } catch { /* best effort */ }
+      } catch (err) {
+        await onLog("stderr", `[paperclip] Preflight failed: ${err instanceof Error ? err.message : String(err)}. Continuing with primary model only.\n`);
+      }
+    }
+  }
+
   // Handle instructions file and build system prompt extension
   const instructionsFilePath = asString(config.instructionsFilePath, "").trim();
   const resolvedInstructionsFilePath = instructionsFilePath
@@ -314,6 +451,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     renderedBootstrapPrompt,
     wakePrompt,
     sessionHandoffNote,
+    preflightHandoffNote,
     renderedHeartbeatPrompt,
   ]);
   const promptMetrics = {
@@ -322,6 +460,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     bootstrapPromptChars: renderedBootstrapPrompt.length,
     wakePromptChars: wakePrompt.length,
     sessionHandoffChars: sessionHandoffNote.length,
+    preflightHandoffChars: preflightHandoffNote.length,
     heartbeatPromptChars: renderedHeartbeatPrompt.length,
   };
 
@@ -504,8 +643,42 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
       }
     }
     const retry = await runAttempt(newSessionPath);
-    return toResult(retry, true);
+    const retryResult = toResult(retry, true);
+    if (preflightSegment) {
+      retryResult.executionSegments = [
+        preflightSegment,
+        {
+          phase: "primary",
+          provider: retryResult.provider ?? null,
+          biller: retryResult.biller ?? null,
+          model: retryResult.model ?? null,
+          billingType: retryResult.billingType ?? null,
+          usage: retryResult.usage,
+          costUsd: retryResult.costUsd ?? null,
+          summary: retryResult.summary ?? null,
+        },
+      ];
+    }
+    return retryResult;
   }
 
-  return toResult(initial);
+  const finalResult = toResult(initial);
+
+  if (preflightSegment) {
+    finalResult.executionSegments = [
+      preflightSegment,
+      {
+        phase: "primary",
+        provider: finalResult.provider ?? null,
+        biller: finalResult.biller ?? null,
+        model: finalResult.model ?? null,
+        billingType: finalResult.billingType ?? null,
+        usage: finalResult.usage,
+        costUsd: finalResult.costUsd ?? null,
+        summary: finalResult.summary ?? null,
+      },
+    ];
+  }
+
+  return finalResult;
 }
