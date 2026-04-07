@@ -12,6 +12,7 @@ import { messagingBridgeService } from "../services/messaging-bridges.js";
 import { issueService } from "../services/issues.js";
 import { agentService } from "../services/agents.js";
 import { secretService } from "../services/secrets.js";
+import { logger } from "../middleware/logger.js";
 
 const TELEGRAM_API = "https://api.telegram.org";
 const POLL_INTERVAL_MS = 10_000;
@@ -376,7 +377,7 @@ export async function startTelegramBridge(
   const bridgeSvc = messagingBridgeService(db);
   await bridgeSvc.updateStatus(companyId, "telegram", "connected");
 
-  console.log(`[telegram-bridge] Started for company ${companyId}`);
+  logger.info({ companyId }, "[telegram-bridge] started");
 
   startTelegramPollLoop(db, bot);
   startResponsePollLoop(db, bot);
@@ -394,7 +395,7 @@ export async function stopTelegramBridge(companyId: string): Promise<void> {
   if (bot.responsePollTimer) clearTimeout(bot.responsePollTimer);
   bots.delete(companyId);
 
-  console.log(`[telegram-bridge] Stopped for company ${companyId}`);
+  logger.info({ companyId }, "[telegram-bridge] stopped");
 }
 
 /**

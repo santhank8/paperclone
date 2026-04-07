@@ -1,5 +1,7 @@
 import { and, asc, desc, eq, inArray, isNull, ne, or, sql } from "drizzle-orm";
 import type { Db } from "@ironworksai/db";
+
+type DbOrTx = Parameters<Db["transaction"]>[0] extends (tx: infer T) => unknown ? T | Db : Db;
 import {
   activityLog,
   agents,
@@ -354,7 +356,7 @@ export function deriveIssueUserContext(
   };
 }
 
-async function labelMapForIssues(dbOrTx: any, issueIds: string[]): Promise<Map<string, IssueLabelRow[]>> {
+async function labelMapForIssues(dbOrTx: DbOrTx, issueIds: string[]): Promise<Map<string, IssueLabelRow[]>> {
   const map = new Map<string, IssueLabelRow[]>();
   if (issueIds.length === 0) return map;
   const rows = await dbOrTx
@@ -375,7 +377,7 @@ async function labelMapForIssues(dbOrTx: any, issueIds: string[]): Promise<Map<s
   return map;
 }
 
-async function withIssueLabels(dbOrTx: any, rows: IssueRow[]): Promise<IssueWithLabels[]> {
+async function withIssueLabels(dbOrTx: DbOrTx, rows: IssueRow[]): Promise<IssueWithLabels[]> {
   if (rows.length === 0) return [];
   const labelsByIssueId = await labelMapForIssues(dbOrTx, rows.map((row) => row.id));
   return rows.map((row) => {
@@ -391,7 +393,7 @@ async function withIssueLabels(dbOrTx: any, rows: IssueRow[]): Promise<IssueWith
 const ACTIVE_RUN_STATUSES = ["queued", "running"];
 
 async function activeRunMapForIssues(
-  dbOrTx: any,
+  dbOrTx: DbOrTx,
   issueRows: IssueWithLabels[],
 ): Promise<Map<string, IssueActiveRunRow>> {
   const map = new Map<string, IssueActiveRunRow>();
@@ -520,7 +522,7 @@ export function issueService(db: Db) {
     }
   }
 
-  async function assertValidLabelIds(companyId: string, labelIds: string[], dbOrTx: any = db) {
+  async function assertValidLabelIds(companyId: string, labelIds: string[], dbOrTx: DbOrTx = db) {
     if (labelIds.length === 0) return;
     const existing = await dbOrTx
       .select({ id: labels.id })
@@ -698,42 +700,44 @@ export function issueService(db: Db) {
       }
 
       const issueIds = withRuns.map((row) => row.id);
-      const statsRows = await db
-        .select({
-          issueId: issueComments.issueId,
-          myLastCommentAt: sql<Date | null>`
-            MAX(CASE WHEN ${issueComments.authorUserId} = ${contextUserId} THEN ${issueComments.createdAt} END)
-          `,
-          lastExternalCommentAt: sql<Date | null>`
-            MAX(
-              CASE
-                WHEN ${issueComments.authorUserId} IS NULL OR ${issueComments.authorUserId} <> ${contextUserId}
-                THEN ${issueComments.createdAt}
-              END
-            )
-          `,
-        })
-        .from(issueComments)
-        .where(
-          and(
-            eq(issueComments.companyId, companyId),
-            inArray(issueComments.issueId, issueIds),
+      const [statsRows, readRows] = await Promise.all([
+        db
+          .select({
+            issueId: issueComments.issueId,
+            myLastCommentAt: sql<Date | null>`
+              MAX(CASE WHEN ${issueComments.authorUserId} = ${contextUserId} THEN ${issueComments.createdAt} END)
+            `,
+            lastExternalCommentAt: sql<Date | null>`
+              MAX(
+                CASE
+                  WHEN ${issueComments.authorUserId} IS NULL OR ${issueComments.authorUserId} <> ${contextUserId}
+                  THEN ${issueComments.createdAt}
+                END
+              )
+            `,
+          })
+          .from(issueComments)
+          .where(
+            and(
+              eq(issueComments.companyId, companyId),
+              inArray(issueComments.issueId, issueIds),
+            ),
+          )
+          .groupBy(issueComments.issueId),
+        db
+          .select({
+            issueId: issueReadStates.issueId,
+            myLastReadAt: issueReadStates.lastReadAt,
+          })
+          .from(issueReadStates)
+          .where(
+            and(
+              eq(issueReadStates.companyId, companyId),
+              eq(issueReadStates.userId, contextUserId),
+              inArray(issueReadStates.issueId, issueIds),
+            ),
           ),
-        )
-        .groupBy(issueComments.issueId);
-      const readRows = await db
-        .select({
-          issueId: issueReadStates.issueId,
-          myLastReadAt: issueReadStates.lastReadAt,
-        })
-        .from(issueReadStates)
-        .where(
-          and(
-            eq(issueReadStates.companyId, companyId),
-            eq(issueReadStates.userId, contextUserId),
-            inArray(issueReadStates.issueId, issueIds),
-          ),
-        );
+      ]);
       const statsByIssueId = new Map(statsRows.map((row) => [row.issueId, row]));
       const readByIssueId = new Map(readRows.map((row) => [row.issueId, row.myLastReadAt]));
 

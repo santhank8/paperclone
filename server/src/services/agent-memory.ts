@@ -159,14 +159,58 @@ export async function extractMemoriesFromIssue(
 }
 
 /**
+ * Summarize a batch of memory entries using LLM.
+ * Falls back to concatenation if the API is unavailable.
+ */
+async function summarizeWithLLM(entries: Array<{ content: string }>, category: string): Promise<string> {
+  const apiKey = process.env.OLLAMA_API_KEY;
+  if (!apiKey || entries.length < 2) {
+    // Fallback: simple concatenation
+    const joined = entries.map((e) => e.content).join(" | ");
+    return joined.length > 2000 ? joined.slice(0, 2000) + "..." : joined;
+  }
+
+  const contents = entries.map((e, i) => `${i + 1}. ${e.content}`).join("\n");
+  const prompt = `Summarize these ${entries.length} memory entries from the "${category}" category into a concise paragraph. Preserve key facts, decisions, and lessons learned. Be specific - keep names, dates, and numbers. Do not add opinions.\n\nEntries:\n${contents.slice(0, 6000)}`;
+
+  try {
+    const res = await fetch("https://ollama.com/api/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify({
+        model: "qwen3.5:397b",
+        messages: [{ role: "user", content: prompt }],
+        stream: false,
+        options: { num_predict: 500 },
+      }),
+      signal: AbortSignal.timeout(30_000),
+    });
+
+    if (!res.ok) {
+      logger.debug({ status: res.status }, "memory consolidation LLM call failed, falling back to concatenation");
+      const joined = entries.map((e) => e.content).join(" | ");
+      return joined.length > 2000 ? joined.slice(0, 2000) + "..." : joined;
+    }
+
+    const data = (await res.json()) as { message?: { content?: string } };
+    const summary = data.message?.content?.trim();
+    if (summary && summary.length > 10) return summary;
+  } catch (err) {
+    logger.debug({ err }, "memory consolidation LLM call error, falling back to concatenation");
+  }
+
+  // Fallback
+  const joined = entries.map((e) => e.content).join(" | ");
+  return joined.length > 2000 ? joined.slice(0, 2000) + "..." : joined;
+}
+
+/**
  * Consolidate episodic memories older than 7 days into semantic summaries.
  *
  * Groups episodic entries by category, creates a single semantic entry per
  * category summarizing the group, then archives the originals.
- *
- * NOTE: This currently uses a simple concatenation approach. A future version
- * should use an AI call to generate proper summaries.
- * TODO: Replace concatenation with AI-powered summarization.
+ * Uses LLM-powered summarization when Ollama Cloud is available,
+ * falls back to concatenation otherwise.
  */
 export async function consolidateMemories(db: Db, agentId: string): Promise<void> {
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
@@ -207,16 +251,15 @@ export async function consolidateMemories(db: Db, agentId: string): Promise<void
     for (const [category, entries] of groups) {
       if (entries.length === 0) continue;
 
-      // Create consolidated semantic entry
-      const summary = entries.map((e) => e.content).join(" | ");
-      const truncatedSummary = summary.length > 2000 ? summary.slice(0, 2000) + "..." : summary;
+      // Create consolidated semantic entry using LLM summarization (or fallback)
+      const summary = await summarizeWithLLM(entries, category);
 
       await tx.insert(agentMemoryEntries).values({
         agentId,
         companyId,
         memoryType: "semantic",
         category,
-        content: `[Consolidated from ${entries.length} entries] ${truncatedSummary}`,
+        content: `[Consolidated from ${entries.length} entries] ${summary}`,
         confidence: 70,
         lastAccessedAt: now,
       });

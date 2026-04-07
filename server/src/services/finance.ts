@@ -1,4 +1,5 @@
 import { and, desc, eq, gte, lte, sql } from "drizzle-orm";
+import type { AnyPgColumn, AnyPgTable } from "drizzle-orm/pg-core";
 import type { Db } from "@ironworksai/db";
 import { agents, costEvents, financeEvents, goals, heartbeatRuns, issues, projects } from "@ironworksai/db";
 import { notFound, unprocessable } from "../errors.js";
@@ -8,9 +9,12 @@ export interface FinanceDateRange {
   to?: Date;
 }
 
+/** Drizzle pg table that exposes `id` and `companyId` columns — structural constraint for ownership checks. */
+type OwnedTable = AnyPgTable & { id: AnyPgColumn; companyId: AnyPgColumn };
+
 async function assertBelongsToCompany(
   db: Db,
-  table: any,
+  table: OwnedTable,
   id: string,
   companyId: string,
   label: string,

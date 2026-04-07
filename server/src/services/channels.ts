@@ -2,6 +2,12 @@ import { and, desc, eq, gt, gte, inArray, lt, or, sql } from "drizzle-orm";
 import type { Db } from "@ironworksai/db";
 import { agentChannels, agents, channelMemberships, channelMessages, issues } from "@ironworksai/db";
 
+// ---------------------------------------------------------------------------
+// Module-level constants
+// ---------------------------------------------------------------------------
+
+const ACTION_WORDS = ["use", "choose", "select", "implement", "adopt", "switch", "prefer", "recommend"] as const;
+
 export type Channel = typeof agentChannels.$inferSelect;
 export type Message = typeof channelMessages.$inferSelect;
 
@@ -499,19 +505,43 @@ export async function getPendingMentions(
 
   const pending: PendingMention[] = [];
 
+  // Batch: for each channel that has mentions, fetch all messages after the
+  // earliest mention's createdAt so we can check for agent replies in memory.
+  const earliestByChannel = new Map<string, Date>();
+  for (const mention of mentionRows) {
+    const existing = earliestByChannel.get(mention.channelId);
+    if (!existing || mention.createdAt < existing) {
+      earliestByChannel.set(mention.channelId, mention.createdAt);
+    }
+  }
+
+  // One query per channel (channels are typically 1-3 for a given agent).
+  const subsequentByChannel = new Map<
+    string,
+    Array<{ authorAgentId: string | null; createdAt: Date }>
+  >();
+  await Promise.all(
+    [...earliestByChannel.entries()].map(async ([cid, earliest]) => {
+      const rows = await db
+        .select({ authorAgentId: channelMessages.authorAgentId, createdAt: channelMessages.createdAt })
+        .from(channelMessages)
+        .where(
+          and(
+            eq(channelMessages.channelId, cid),
+            gt(channelMessages.createdAt, earliest),
+          ),
+        )
+        .orderBy(channelMessages.createdAt);
+      subsequentByChannel.set(cid, rows);
+    }),
+  );
+
   for (const mention of mentionRows) {
     // Check if the agent replied within the next 3 messages in the same channel
-    const nextMessages = await db
-      .select({ authorAgentId: channelMessages.authorAgentId })
-      .from(channelMessages)
-      .where(
-        and(
-          eq(channelMessages.channelId, mention.channelId),
-          gt(channelMessages.createdAt, mention.createdAt),
-        ),
-      )
-      .orderBy(channelMessages.createdAt)
-      .limit(3);
+    const allSubsequent = subsequentByChannel.get(mention.channelId) ?? [];
+    const nextMessages = allSubsequent
+      .filter((m) => m.createdAt > mention.createdAt)
+      .slice(0, 3);
 
     const agentReplied = nextMessages.some((m) => m.authorAgentId === agentId);
     if (agentReplied) continue;
@@ -858,12 +888,11 @@ export async function concludeDeliberation(
   });
 
   // Identify agreement: if all positions contain the same action keyword
-  const ACTION_WORDS = ["use", "choose", "select", "implement", "adopt", "switch", "prefer", "recommend"];
   const actionCounts = new Map<string, number>();
   for (const reply of replies) {
     const words = reply.body.toLowerCase().split(/\W+/);
     for (const w of words) {
-      if (ACTION_WORDS.includes(w)) {
+      if ((ACTION_WORDS as readonly string[]).includes(w)) {
         actionCounts.set(w, (actionCounts.get(w) ?? 0) + 1);
       }
     }
@@ -1152,34 +1181,39 @@ export async function getPendingDeliberations(
     .where(sql`${agentChannels.id} = ANY(${channelIds})`);
   const channelNameMap = new Map(channelRows.map((c) => [c.id, c.name]));
 
-  for (const msg of deliberationMsgs) {
-    // Check if concluded
-    const summary = await db
-      .select({ id: channelMessages.id })
+  // Batch both per-deliberation queries before the loop.
+  const deliberationIds = deliberationMsgs.map((m) => m.id);
+
+  const [summaryRows, agentReplyRows] = await Promise.all([
+    db
+      .select({ replyToId: channelMessages.replyToId })
       .from(channelMessages)
       .where(
         and(
-          eq(channelMessages.replyToId, msg.id),
+          inArray(channelMessages.replyToId, deliberationIds),
           eq(channelMessages.messageType, "deliberation_summary"),
         ),
-      )
-      .limit(1)
-      .then((rows) => rows[0] ?? null);
-    if (summary) continue;
-
-    // Check if this agent already replied
-    const agentReply = await db
-      .select({ id: channelMessages.id })
+      ),
+    db
+      .select({ replyToId: channelMessages.replyToId })
       .from(channelMessages)
       .where(
         and(
-          eq(channelMessages.replyToId, msg.id),
+          inArray(channelMessages.replyToId, deliberationIds),
           eq(channelMessages.authorAgentId, agentId),
         ),
-      )
-      .limit(1)
-      .then((rows) => rows[0] ?? null);
-    if (agentReply) continue;
+      ),
+  ]);
+
+  const concludedIds = new Set(summaryRows.map((r) => r.replyToId).filter((id): id is string => id !== null));
+  const repliedIds = new Set(agentReplyRows.map((r) => r.replyToId).filter((id): id is string => id !== null));
+
+  for (const msg of deliberationMsgs) {
+    // Check if concluded
+    if (concludedIds.has(msg.id)) continue;
+
+    // Check if this agent already replied
+    if (repliedIds.has(msg.id)) continue;
 
     let topic = "an ongoing discussion";
     try {
@@ -1481,63 +1515,65 @@ export async function getHighSignalMessages(
 ): Promise<Message[]> {
   const cutoff48h = new Date(Date.now() - 48 * 60 * 60 * 1000);
 
-  const mentionRows = await db
-    .select()
-    .from(channelMessages)
-    .where(
-      and(
-        eq(channelMessages.channelId, channelId),
-        sql`${channelMessages.mentions} @> ${JSON.stringify([agentId])}::jsonb`,
-      ),
-    )
-    .orderBy(desc(channelMessages.createdAt))
-    .limit(20);
+  const [mentionRows, decisionRows, escalationRows, questionRows, recentRows] = await Promise.all([
+    db
+      .select()
+      .from(channelMessages)
+      .where(
+        and(
+          eq(channelMessages.channelId, channelId),
+          sql`${channelMessages.mentions} @> ${JSON.stringify([agentId])}::jsonb`,
+        ),
+      )
+      .orderBy(desc(channelMessages.createdAt))
+      .limit(20),
 
-  const decisionRows = await db
-    .select()
-    .from(channelMessages)
-    .where(
-      and(
-        eq(channelMessages.channelId, channelId),
-        eq(channelMessages.messageType, "decision"),
-        gte(channelMessages.createdAt, cutoff48h),
-      ),
-    )
-    .orderBy(desc(channelMessages.createdAt))
-    .limit(20);
+    db
+      .select()
+      .from(channelMessages)
+      .where(
+        and(
+          eq(channelMessages.channelId, channelId),
+          eq(channelMessages.messageType, "decision"),
+          gte(channelMessages.createdAt, cutoff48h),
+        ),
+      )
+      .orderBy(desc(channelMessages.createdAt))
+      .limit(20),
 
-  const escalationRows = await db
-    .select()
-    .from(channelMessages)
-    .where(
-      and(
-        eq(channelMessages.channelId, channelId),
-        eq(channelMessages.messageType, "escalation"),
-        gte(channelMessages.createdAt, cutoff48h),
-      ),
-    )
-    .orderBy(desc(channelMessages.createdAt))
-    .limit(20);
+    db
+      .select()
+      .from(channelMessages)
+      .where(
+        and(
+          eq(channelMessages.channelId, channelId),
+          eq(channelMessages.messageType, "escalation"),
+          gte(channelMessages.createdAt, cutoff48h),
+        ),
+      )
+      .orderBy(desc(channelMessages.createdAt))
+      .limit(20),
 
-  const questionRows = await db
-    .select()
-    .from(channelMessages)
-    .where(
-      and(
-        eq(channelMessages.channelId, channelId),
-        eq(channelMessages.messageType, "question"),
-        gte(channelMessages.createdAt, cutoff48h),
-      ),
-    )
-    .orderBy(desc(channelMessages.createdAt))
-    .limit(20);
+    db
+      .select()
+      .from(channelMessages)
+      .where(
+        and(
+          eq(channelMessages.channelId, channelId),
+          eq(channelMessages.messageType, "question"),
+          gte(channelMessages.createdAt, cutoff48h),
+        ),
+      )
+      .orderBy(desc(channelMessages.createdAt))
+      .limit(20),
 
-  const recentRows = await db
-    .select()
-    .from(channelMessages)
-    .where(eq(channelMessages.channelId, channelId))
-    .orderBy(desc(channelMessages.createdAt))
-    .limit(50);
+    db
+      .select()
+      .from(channelMessages)
+      .where(eq(channelMessages.channelId, channelId))
+      .orderBy(desc(channelMessages.createdAt))
+      .limit(50),
+  ]);
 
   const selected: Message[] = [];
   const seenIds = new Set<string>();

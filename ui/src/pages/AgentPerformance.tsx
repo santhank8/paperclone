@@ -571,7 +571,7 @@ export function AgentPerformance() {
                   )}>
                     {row.rating}
                   </span>
-                  <Link to={agentUrl({ id: row.agentId, urlKey: null } as any)} className="no-underline text-inherit font-medium truncate">
+                  <Link to={agentUrl({ id: row.agentId, urlKey: null, name: null })} className="no-underline text-inherit font-medium truncate">
                     {row.name}
                   </Link>
                 </div>
@@ -669,7 +669,7 @@ export function AgentPerformance() {
                     <span className={cn("inline-flex items-center justify-center h-6 w-6 rounded border text-xs font-bold shrink-0", RATING_COLORS[row.rating])}>
                       {row.rating}
                     </span>
-                    <Link to={agentUrl({ id: row.agentId, urlKey: null } as any)} className="no-underline text-inherit font-medium truncate">
+                    <Link to={agentUrl({ id: row.agentId, urlKey: null, name: null })} className="no-underline text-inherit font-medium truncate">
                       {row.name}
                     </Link>
                   </div>
@@ -728,7 +728,7 @@ export function AgentPerformance() {
                     onClick={() => setExpandedRowId(expandedRowId === row.agentId ? null : row.agentId)}
                   >
                     <td className="px-4 py-3">
-                      <Link to={agentUrl({ id: row.agentId, urlKey: null } as any)} className="no-underline text-inherit" onClick={(e) => e.stopPropagation()}>
+                      <Link to={agentUrl({ id: row.agentId, urlKey: null, name: null })} className="no-underline text-inherit" onClick={(e) => e.stopPropagation()}>
                         <Identity name={row.name} size="sm" />
                       </Link>
                     </td>

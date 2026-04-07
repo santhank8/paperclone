@@ -15,7 +15,19 @@ export function announcementRoutes(db: Db) {
     assertCompanyAccess(req, companyId);
 
     const rows = await db
-      .select()
+      .select({
+        id: knowledgePages.id,
+        companyId: knowledgePages.companyId,
+        slug: knowledgePages.slug,
+        title: knowledgePages.title,
+        body: knowledgePages.body,
+        visibility: knowledgePages.visibility,
+        documentType: knowledgePages.documentType,
+        createdByUserId: knowledgePages.createdByUserId,
+        createdByAgentId: knowledgePages.createdByAgentId,
+        createdAt: knowledgePages.createdAt,
+        updatedAt: knowledgePages.updatedAt,
+      })
       .from(knowledgePages)
       .where(
         and(

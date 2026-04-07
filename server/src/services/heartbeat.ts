@@ -96,6 +96,12 @@ const MAX_LIVE_LOG_CHUNK_BYTES = 8 * 1024;
 const HEARTBEAT_MAX_CONCURRENT_RUNS_DEFAULT = 1;
 const HEARTBEAT_MAX_CONCURRENT_RUNS_MAX = 10;
 
+const COMPLETION_MARKERS = [
+  "Task complete",
+  "Issue resolved",
+  "No further action needed",
+] as const;
+
 // ── Tiered Context Classification ──────────────────────────────────────────
 type ContextTier = "minimal" | "standard" | "full";
 
@@ -2326,9 +2332,7 @@ export function heartbeatService(db: Db) {
       .where(eq(heartbeatRuns.status, "queued"));
 
     const agentIds = [...new Set(queuedRuns.map((r) => r.agentId))];
-    for (const agentId of agentIds) {
-      await startNextQueuedRunForAgent(agentId);
-    }
+    await Promise.all(agentIds.map((agentId) => startNextQueuedRunForAgent(agentId)));
   }
 
   async function updateRuntimeState(
@@ -4054,11 +4058,6 @@ Keep messages concise and substantive. Do not post empty status updates. If you 
       {
         const output = adapterResult.summary ?? "";
         if (output.length > 0) {
-          const COMPLETION_MARKERS = [
-            "Task complete",
-            "Issue resolved",
-            "No further action needed",
-          ] as const;
           for (const marker of COMPLETION_MARKERS) {
             const markerIdx = output.indexOf(marker);
             if (markerIdx !== -1) {
@@ -5326,25 +5325,27 @@ Keep messages concise and substantive. Do not post empty status updates. If you 
       .from(heartbeatRuns)
       .where(and(eq(heartbeatRuns.agentId, agentId), inArray(heartbeatRuns.status, ["queued", "running"])));
 
-    for (const run of runs) {
-      await setRunStatus(run.id, "cancelled", {
-        finishedAt: new Date(),
-        error: reason,
-        errorCode: "cancelled",
-      });
+    await Promise.all(
+      runs.map(async (run) => {
+        await setRunStatus(run.id, "cancelled", {
+          finishedAt: new Date(),
+          error: reason,
+          errorCode: "cancelled",
+        });
 
-      await setWakeupStatus(run.wakeupRequestId, "cancelled", {
-        finishedAt: new Date(),
-        error: reason,
-      });
+        await setWakeupStatus(run.wakeupRequestId, "cancelled", {
+          finishedAt: new Date(),
+          error: reason,
+        });
 
-      const running = runningProcesses.get(run.id);
-      if (running) {
-        running.child.kill("SIGTERM");
-        runningProcesses.delete(run.id);
-      }
-      await releaseIssueExecutionAndPromote(run);
-    }
+        const running = runningProcesses.get(run.id);
+        if (running) {
+          running.child.kill("SIGTERM");
+          runningProcesses.delete(run.id);
+        }
+        await releaseIssueExecutionAndPromote(run);
+      }),
+    );
 
     return runs.length;
   }
@@ -5370,9 +5371,7 @@ Keep messages concise and substantive. Do not post empty status updates. If you 
           .then((rows) => rows.map((row) => row.id))
         : await listProjectScopedRunIds(scope.companyId, scope.scopeId);
 
-    for (const runId of runIds) {
-      await cancelRunInternal(runId, "Cancelled due to budget pause");
-    }
+    await Promise.all(runIds.map((runId) => cancelRunInternal(runId, "Cancelled due to budget pause")));
 
     await cancelPendingWakeupsForBudgetScope(scope);
   }

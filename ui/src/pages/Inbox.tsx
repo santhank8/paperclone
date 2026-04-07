@@ -60,6 +60,7 @@ import {
   saveLastInboxTab,
   shouldShowInboxSection,
   type InboxTab,
+  type InboxWorkItem,
 } from "../lib/inbox";
 import { useDismissedInboxItems, useReadInboxItems } from "../hooks/useInboxBadge";
 
@@ -1484,8 +1485,7 @@ export function Inbox() {
     </div>
   );
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  function renderWorkItem(item: any) {
+  function renderWorkItem(item: InboxWorkItem) {
                 const isMineTab = tab === "mine";
 
                 if (item.kind === "approval") {
