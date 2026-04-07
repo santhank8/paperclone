@@ -57,6 +57,7 @@ import { redactEventPayload } from "../redaction.js";
 import { redactCurrentUserValue } from "../log-redaction.js";
 import { renderOrgChartSvg, renderOrgChartPng, type OrgNode, type OrgChartStyle, ORG_CHART_STYLES } from "./org-chart-svg.js";
 import { instanceSettingsService } from "../services/instance-settings.js";
+import { readIssueGoalTitle } from "../lib/goal-context.js";
 import { runClaudeLogin } from "@paperclipai/adapter-claude-local/server";
 import {
   DEFAULT_CODEX_LOCAL_BYPASS_APPROVALS_AND_SANDBOX,
@@ -1095,9 +1096,7 @@ export function agentRoutes(db: Db) {
         priority: issue.priority,
         projectId: issue.projectId,
         goalId: issue.goalId,
-        goalTitle: "goal" in issue && issue.goal != null
-          ? (issue.goal as { title: string }).title
-          : null,
+        goalTitle: readIssueGoalTitle(issue as Record<string, unknown>),
         parentId: issue.parentId,
         updatedAt: issue.updatedAt,
         activeRun: issue.activeRun,

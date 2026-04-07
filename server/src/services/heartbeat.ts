@@ -29,6 +29,7 @@ import { parseObject, asBoolean, asNumber, appendWithCap, MAX_EXCERPT_BYTES } fr
 import { costService } from "./costs.js";
 import { trackAgentFirstHeartbeat } from "@paperclipai/shared/telemetry";
 import { getTelemetryClient } from "../telemetry.js";
+import { applyIssueGoalContext } from "../lib/goal-context.js";
 import { companySkillService } from "./company-skills.js";
 import { budgetService, type BudgetEnforcementScope } from "./budgets.js";
 import { secretService } from "./secrets.js";
@@ -2704,23 +2705,9 @@ export function heartbeatService(db: Db) {
       context.projectId = executionWorkspace.projectId;
     }
 
-    // Inject goal context so adapters (and prompt templates) can reference
-    // the strategic goal this issue is aligned to.  When no goal is linked,
-    // explicitly clear any stale fields that may have been persisted in a
-    // previous run's contextSnapshot.
-    if (issueGoal) {
-      context.goalId = issueGoal.id;
-      context.goalTitle = issueGoal.title;
-      context.goalDescription = issueGoal.description ?? null;
-      context.goalLevel = issueGoal.level;
-      context.goalStatus = issueGoal.status;
-    } else {
-      delete context.goalId;
-      delete context.goalTitle;
-      delete context.goalDescription;
-      delete context.goalLevel;
-      delete context.goalStatus;
-    }
+    // Preserve current goal context for adapters and clear stale values when
+    // an issue no longer points at a goal.
+    applyIssueGoalContext(context, issueGoal);
     const runtimeSessionFallback = taskKey || resetTaskSession ? null : runtime.sessionId;
     let previousSessionDisplayId = truncateDisplayId(
       explicitResumeSessionDisplayId ??
