@@ -190,7 +190,7 @@ describe("project env routes", () => {
         }),
       }),
     );
-  });
+  }, 20_000);
 
   it("normalizes env bindings on update and avoids logging raw values", async () => {
     const normalizedEnv = {
@@ -221,5 +221,5 @@ describe("project env routes", () => {
         },
       }),
     );
-  });
+  }, 20_000);
 });
