@@ -874,6 +874,10 @@ export async function symlinkOrHardLink(source: string, target: string): Promise
       } catch (linkErr: unknown) {
         if ((linkErr as NodeJS.ErrnoException).code === "EXDEV") {
           // Cross-drive: hard links not supported, fall back to copy.
+          console.warn(
+            `[paperclip] symlinkOrHardLink: falling back to file copy for "${target}" ` +
+              "(source and target are on different drives — the copy will not stay in sync with the source).",
+          );
           await fs.copyFile(source, target);
           return;
         }
@@ -897,6 +901,25 @@ export async function ensurePaperclipSkillSymlink(
   }
 
   if (!existing.isSymbolicLink()) {
+    // On Windows, directory junctions are reported by libuv as plain directories
+    // (isDirectory() = true, isSymbolicLink() = false).  Try readlink to detect
+    // a junction: if it succeeds we have a stale/mispointed junction that needs
+    // repair; if it fails the entry is a real directory — leave it untouched.
+    if (process.platform === "win32" && existing.isDirectory()) {
+      const junctionTarget = await fs.readlink(target).catch(() => null);
+      if (junctionTarget !== null) {
+        const resolvedJunctionTarget = path.win32.isAbsolute(junctionTarget)
+          ? junctionTarget
+          : path.resolve(path.dirname(target), junctionTarget);
+        if (resolvedJunctionTarget === source) {
+          return "skipped";
+        }
+        // Junction points to a different target — repair it.
+        await fs.unlink(target);
+        await linkSkill(source, target);
+        return "repaired";
+      }
+    }
     return "skipped";
   }
 

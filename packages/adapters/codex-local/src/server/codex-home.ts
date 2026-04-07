@@ -62,14 +62,15 @@ async function ensureSymlink(target: string, source: string): Promise<void> {
     return;
   }
 
-  // Hard link repair (Windows only): hard links have nlink > 1 because
-  // multiple directory entries share the same inode.  If the target is a
-  // hard link whose inode differs from source, the source path changed
-  // (e.g. CODEX_HOME move) and the link is stale — replace it.
+  // Hard link repair (Windows only): compare inodes to detect an orphaned hard
+  // link.  When the source file is deleted and recreated it gets a new inode,
+  // making the existing hard link orphaned (it points at the old inode).  We
+  // rely on inode comparison alone rather than nlink so we also catch the case
+  // where nlink = 1 (source was recreated, so only one directory entry remains
+  // for the old inode — the target itself).
   // On non-Windows, a non-symlink file at target was not created by us —
   // leave it untouched to preserve the original guard behavior.
   if (process.platform !== "win32") return;
-  if (existing.nlink <= 1) return; // regular file, not a hard link we created
   const sourceStat = await fs.stat(source).catch(() => null);
   if (sourceStat && existing.ino !== sourceStat.ino) {
     await fs.unlink(target);
