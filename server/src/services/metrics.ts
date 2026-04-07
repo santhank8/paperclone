@@ -18,7 +18,7 @@ collectDefaultMetrics({ register: metricsRegistry, prefix: "paperclip_node_" });
 export const agentStateGauge = new Gauge({
   name: "paperclip_agent_state",
   help: "Current operational state of a Paperclip agent (0=idle, 1=in_progress, 2=degraded, 3=error)",
-  labelNames: ["agent_id", "state"] as const,
+  labelNames: ["agent_id"] as const,
   registers: [metricsRegistry],
 });
 
