@@ -178,23 +178,23 @@ export function DesignGuide() {
   const [selectValue, setSelectValue] = useState("in_progress");
   const [menuChecked, setMenuChecked] = useState(true);
   const [collapsibleOpen, setCollapsibleOpen] = useState(false);
-  const [inlineText, setInlineText] = useState("Click to edit this text");
-  const [inlineTitle, setInlineTitle] = useState("Editable Title");
+  const [inlineText, setInlineText] = useState("Clique para editar este texto");
+  const [inlineTitle, setInlineTitle] = useState("Titulo editavel");
   const [inlineDesc, setInlineDesc] = useState(
-    "This is an editable description. Click to edit it — the textarea auto-sizes to fit the content without layout shift."
+    "Esta e uma descricao editavel. Clique para editar; a area de texto ajusta a altura automaticamente sem deslocar o layout."
   );
   const [filters, setFilters] = useState<FilterValue[]>([
-    { key: "status", label: "Status", value: "Active" },
-    { key: "priority", label: "Priority", value: "High" },
+    { key: "status", label: "Status", value: "Ativo" },
+    { key: "priority", label: "Prioridade", value: "Alta" },
   ]);
 
   return (
     <div className="space-y-10 max-w-4xl">
       {/* Page header */}
       <div>
-        <h2 className="text-xl font-bold">Design Guide</h2>
+        <h2 className="text-xl font-bold">Guia de design</h2>
         <p className="text-sm text-muted-foreground mt-1">
-          Every component, style, and pattern used across Paperclip.
+          Cada componente, estilo e padrao usado no neurOS.
         </p>
       </div>
 
@@ -359,7 +359,7 @@ export function DesignGuide() {
 
         <SubSection title="With icons">
           <div className="flex items-center gap-2 flex-wrap">
-            <Button><Plus /> New Issue</Button>
+            <Button><Plus /> Nova tarefa</Button>
             <Button variant="outline"><Upload /> Upload</Button>
             <Button variant="destructive"><Trash2 /> Delete</Button>
             <Button size="sm"><Plus /> Add</Button>
@@ -546,11 +546,11 @@ export function DesignGuide() {
                 <SelectValue placeholder="Select status" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="backlog">Backlog</SelectItem>
-                <SelectItem value="todo">Todo</SelectItem>
-                <SelectItem value="in_progress">In Progress</SelectItem>
-                <SelectItem value="in_review">In Review</SelectItem>
-                <SelectItem value="done">Done</SelectItem>
+                <SelectItem value="backlog">Lista de espera</SelectItem>
+                <SelectItem value="todo">A fazer</SelectItem>
+                <SelectItem value="in_progress">Em andamento</SelectItem>
+                <SelectItem value="in_review">Em revisao</SelectItem>
+                <SelectItem value="done">Concluido</SelectItem>
               </SelectContent>
             </Select>
             <p className="text-xs text-muted-foreground">Current value: {selectValue}</p>
@@ -578,30 +578,30 @@ export function DesignGuide() {
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="sm">
-              Quick Actions
+              Acoes rapidas
               <ChevronDown className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="w-56">
             <DropdownMenuItem>
               <Check className="h-4 w-4" />
-              Mark as done
+              Marcar como concluida
               <DropdownMenuShortcut>⌘D</DropdownMenuShortcut>
             </DropdownMenuItem>
             <DropdownMenuItem>
               <BookOpen className="h-4 w-4" />
-              Open docs
+              Abrir docs
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuCheckboxItem
               checked={menuChecked}
               onCheckedChange={(value) => setMenuChecked(value === true)}
             >
-              Watch issue
+              Acompanhar tarefa
             </DropdownMenuCheckboxItem>
             <DropdownMenuItem variant="destructive">
               <Trash2 className="h-4 w-4" />
-              Delete issue
+              Excluir tarefa
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -613,7 +613,7 @@ export function DesignGuide() {
       <Section title="Popover">
         <Popover>
           <PopoverTrigger asChild>
-            <Button variant="outline" size="sm">Open Popover</Button>
+            <Button variant="outline" size="sm">Abrir popover</Button>
           </PopoverTrigger>
           <PopoverContent className="space-y-2">
             <p className="text-sm font-medium">Agent heartbeat</p>
@@ -650,7 +650,7 @@ export function DesignGuide() {
       <Section title="Sheet">
         <Sheet>
           <SheetTrigger asChild>
-            <Button variant="outline" size="sm">Open Side Panel</Button>
+            <Button variant="outline" size="sm">Abrir painel lateral</Button>
           </SheetTrigger>
           <SheetContent side="right">
             <SheetHeader>
@@ -732,15 +732,15 @@ export function DesignGuide() {
         <Breadcrumb>
           <BreadcrumbList>
             <BreadcrumbItem>
-              <BreadcrumbLink href="#">Projects</BreadcrumbLink>
+              <BreadcrumbLink href="#">Projetos</BreadcrumbLink>
             </BreadcrumbItem>
             <BreadcrumbSeparator />
             <BreadcrumbItem>
-              <BreadcrumbLink href="#">Paperclip App</BreadcrumbLink>
+              <BreadcrumbLink href="#">Aplicativo neurOS</BreadcrumbLink>
             </BreadcrumbItem>
             <BreadcrumbSeparator />
             <BreadcrumbItem>
-              <BreadcrumbPage>Issue List</BreadcrumbPage>
+              <BreadcrumbPage>Lista de tarefas</BreadcrumbPage>
             </BreadcrumbItem>
           </BreadcrumbList>
         </Breadcrumb>
@@ -768,10 +768,10 @@ export function DesignGuide() {
 
         <SubSection title="Metric Cards">
           <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-4">
-            <MetricCard icon={Bot} value={12} label="Active Agents" description="+3 this week" />
-            <MetricCard icon={CircleDot} value={48} label="Open Issues" />
-            <MetricCard icon={DollarSign} value="$1,234" label="Monthly Cost" description="Under budget" />
-            <MetricCard icon={Zap} value="99.9%" label="Uptime" />
+            <MetricCard icon={Bot} value={12} label="Agentes ativos" description="+3 nesta semana" />
+            <MetricCard icon={CircleDot} value={48} label="Tarefas abertas" />
+            <MetricCard icon={DollarSign} value="$1,234" label="Custo mensal" description="Dentro do orcamento" />
+            <MetricCard icon={Zap} value="99.9%" label="Disponibilidade" />
           </div>
         </SubSection>
       </Section>
@@ -783,22 +783,22 @@ export function DesignGuide() {
         <SubSection title="Default (pill) variant">
           <Tabs defaultValue="overview">
             <TabsList>
-              <TabsTrigger value="overview">Overview</TabsTrigger>
-              <TabsTrigger value="runs">Runs</TabsTrigger>
-              <TabsTrigger value="config">Config</TabsTrigger>
-              <TabsTrigger value="costs">Costs</TabsTrigger>
+              <TabsTrigger value="overview">Visao geral</TabsTrigger>
+              <TabsTrigger value="runs">Execucoes</TabsTrigger>
+              <TabsTrigger value="config">Configuracao</TabsTrigger>
+              <TabsTrigger value="costs">Custos</TabsTrigger>
             </TabsList>
             <TabsContent value="overview">
-              <p className="text-sm text-muted-foreground py-4">Overview tab content.</p>
+              <p className="text-sm text-muted-foreground py-4">Conteudo da aba de visao geral.</p>
             </TabsContent>
             <TabsContent value="runs">
-              <p className="text-sm text-muted-foreground py-4">Runs tab content.</p>
+              <p className="text-sm text-muted-foreground py-4">Conteudo da aba de execucoes.</p>
             </TabsContent>
             <TabsContent value="config">
-              <p className="text-sm text-muted-foreground py-4">Config tab content.</p>
+              <p className="text-sm text-muted-foreground py-4">Conteudo da aba de configuracao.</p>
             </TabsContent>
             <TabsContent value="costs">
-              <p className="text-sm text-muted-foreground py-4">Costs tab content.</p>
+              <p className="text-sm text-muted-foreground py-4">Conteudo da aba de custos.</p>
             </TabsContent>
           </Tabs>
         </SubSection>
@@ -897,12 +897,12 @@ export function DesignGuide() {
             size="sm"
             onClick={() =>
               setFilters([
-                { key: "status", label: "Status", value: "Active" },
-                { key: "priority", label: "Priority", value: "High" },
+                { key: "status", label: "Status", value: "Ativo" },
+                { key: "priority", label: "Prioridade", value: "Alta" },
               ])
             }
           >
-            Reset filters
+            Redefinir filtros
           </Button>
         )}
       </Section>
@@ -961,9 +961,9 @@ export function DesignGuide() {
         <div className="flex items-center gap-4">
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant="outline" size="sm">Hover me</Button>
+              <Button variant="outline" size="sm">Passe o mouse</Button>
             </TooltipTrigger>
-            <TooltipContent>This is a tooltip</TooltipContent>
+            <TooltipContent>Isto e uma dica de contexto</TooltipContent>
           </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
@@ -980,13 +980,13 @@ export function DesignGuide() {
       <Section title="Dialog">
         <Dialog>
           <DialogTrigger asChild>
-            <Button variant="outline">Open Dialog</Button>
+            <Button variant="outline">Abrir dialogo</Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Dialog Title</DialogTitle>
+              <DialogTitle>Titulo do dialogo</DialogTitle>
               <DialogDescription>
-                This is a sample dialog showing the standard layout with header, content, and footer.
+                Exemplo de dialogo com o layout padrao de cabecalho, conteudo e rodape.
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-3">
@@ -1014,8 +1014,8 @@ export function DesignGuide() {
         <div className="border border-border rounded-md">
           <EmptyState
             icon={Inbox}
-            message="No items to show. Create your first one to get started."
-            action="Create Item"
+            message="Nenhum item para mostrar. Crie o primeiro para comecar."
+            action="Criar item"
             onAction={() => {}}
           />
         </div>
@@ -1064,7 +1064,7 @@ export function DesignGuide() {
               <span className="absolute inline-flex h-full w-full rounded-full bg-cyan-400 animate-pulse" />
               <span className="inline-flex h-full w-full rounded-full bg-cyan-400" />
             </span>
-            <span className="text-cyan-400">Live</span>
+            <span className="text-cyan-400">Ao vivo</span>
           </div>
         </div>
       </Section>
@@ -1115,11 +1115,11 @@ export function DesignGuide() {
             </div>
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium text-muted-foreground hover:bg-accent/50 hover:text-accent-foreground cursor-pointer">
               <Bot className="h-4 w-4" />
-              Agents
+              Agentes
             </div>
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium text-muted-foreground hover:bg-accent/50 hover:text-accent-foreground cursor-pointer">
               <Hexagon className="h-4 w-4" />
-              Projects
+              Projetos
             </div>
           </div>
         </SubSection>
@@ -1309,12 +1309,12 @@ export function DesignGuide() {
       <Section title="Keyboard Shortcuts">
         <div className="border border-border rounded-md divide-y divide-border text-sm">
           {[
-            ["Cmd+K / Ctrl+K", "Open Command Palette"],
-            ["C", "New Issue (outside inputs)"],
-            ["[", "Toggle Sidebar"],
-            ["]", "Toggle Properties Panel"],
+            ["Cmd+K / Ctrl+K", "Abrir paleta de comandos"],
+            ["C", "Nova tarefa (fora dos campos de entrada)"],
+            ["[", "Alternar barra lateral"],
+            ["]", "Alternar painel de propriedades"],
 
-            ["Cmd+Enter / Ctrl+Enter", "Submit markdown comment"],
+            ["Cmd+Enter / Ctrl+Enter", "Enviar comentario em markdown"],
           ].map(([key, desc]) => (
             <div key={key} className="flex items-center justify-between px-4 py-2">
               <span className="text-muted-foreground">{desc}</span>

@@ -418,17 +418,17 @@ export function CompanySettings() {
 
       <div className="space-y-4">
         <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-          Feedback Sharing
+          Compartilhamento de feedback
         </div>
         <div className="space-y-3 rounded-md border border-border px-4 py-4">
           <ToggleField
-            label="Allow sharing voted AI outputs with Paperclip Labs"
-            hint="Only AI-generated outputs you explicitly vote on are eligible for feedback sharing."
+            label="Permitir compartilhar saídas de IA avaliadas com o neurOS Labs"
+            hint="Somente saídas geradas por IA que você avaliar explicitamente entram no compartilhamento."
             checked={!!selectedCompany.feedbackDataSharingEnabled}
             onChange={(enabled) => feedbackSharingMutation.mutate(enabled)}
           />
           <p className="text-sm text-muted-foreground">
-            Votes are always saved locally. This setting controls whether voted AI outputs may also be marked for sharing with Paperclip Labs.
+            Os votos sempre são salvos localmente. Esta configuração controla se saídas de IA avaliadas também podem ser marcadas para compartilhamento com o neurOS Labs.
           </p>
           <div className="space-y-1 text-xs text-muted-foreground">
             <div>
@@ -451,7 +451,7 @@ export function CompanySettings() {
                 rel="noreferrer"
                 className="inline-flex text-foreground underline underline-offset-4"
               >
-                Read our terms of service
+                Ler termos de serviço
               </a>
             ) : null}
           </div>
@@ -466,9 +466,9 @@ export function CompanySettings() {
         <div className="space-y-3 rounded-md border border-border px-4 py-4">
           <div className="flex items-center gap-1.5">
             <span className="text-xs text-muted-foreground">
-              Generate an OpenClaw agent invite snippet.
+              Gerar um snippet de convite para agente OpenClaw.
             </span>
-            <HintIcon text="Creates a short-lived OpenClaw agent invite and renders a copy-ready prompt." />
+            <HintIcon text="Cria um convite temporário de agente OpenClaw e renderiza um prompt pronto para copiar." />
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <Button
@@ -478,8 +478,8 @@ export function CompanySettings() {
               disabled={inviteMutation.isPending}
             >
               {inviteMutation.isPending
-                ? "Generating..."
-                : "Generate OpenClaw Invite Prompt"}
+                ? "Gerando..."
+                : "Gerar prompt de convite OpenClaw"}
             </Button>
           </div>
           {inviteError && (
@@ -492,7 +492,7 @@ export function CompanySettings() {
             >
               <div className="flex items-center justify-between gap-2">
                 <div className="text-xs text-muted-foreground">
-                  OpenClaw Invite Prompt
+                  Prompt de convite OpenClaw
                 </div>
                 {snippetCopied && (
                   <span
@@ -500,7 +500,7 @@ export function CompanySettings() {
                     className="flex items-center gap-1 text-xs text-green-600 animate-pulse"
                   >
                     <Check className="h-3 w-3" />
-                    Copied
+                    Copiado
                   </span>
                 )}
               </div>
@@ -527,7 +527,7 @@ export function CompanySettings() {
                       }
                     }}
                   >
-                    {snippetCopied ? "Copied snippet" : "Copy snippet"}
+                    {snippetCopied ? "Snippet copiado" : "Copiar snippet"}
                   </Button>
                 </div>
               </div>
@@ -566,12 +566,12 @@ export function CompanySettings() {
       {/* Danger Zone */}
       <div className="space-y-4">
         <div className="text-xs font-medium text-destructive uppercase tracking-wide">
-          Danger Zone
+          Zona de perigo
         </div>
         <div className="space-y-3 rounded-md border border-destructive/40 bg-destructive/5 px-4 py-4">
           <p className="text-sm text-muted-foreground">
-            Archive this company to hide it from the sidebar. This persists in
-            the database.
+            Arquive esta empresa para ocultá-la da barra lateral. Isso permanece
+            salvo no banco de dados.
           </p>
           <div className="flex items-center gap-2">
             <Button
@@ -584,7 +584,7 @@ export function CompanySettings() {
               onClick={() => {
                 if (!selectedCompanyId) return;
                 const confirmed = window.confirm(
-                  `Archive company "${selectedCompany.name}"? It will be hidden from the sidebar.`
+                  `Arquivar a empresa "${selectedCompany.name}"? Ela será ocultada da barra lateral.`
                 );
                 if (!confirmed) return;
                 const nextCompanyId =
@@ -600,16 +600,16 @@ export function CompanySettings() {
               }}
             >
               {archiveMutation.isPending
-                ? "Archiving..."
+                ? "Arquivando..."
                 : selectedCompany.status === "archived"
-                ? "Already archived"
-                : "Archive company"}
+                ? "Já arquivada"
+                : "Arquivar empresa"}
             </Button>
             {archiveMutation.isError && (
               <span className="text-xs text-destructive">
                 {archiveMutation.error instanceof Error
                   ? archiveMutation.error.message
-                  : "Failed to archive company"}
+                  : "Falha ao arquivar empresa"}
               </span>
             )}
           </div>
@@ -626,56 +626,56 @@ function buildAgentSnippet(input: AgentSnippetInput) {
   const candidateList =
     candidateUrls.length > 0
       ? candidateUrls.map((u) => `- ${u}`).join("\n")
-      : "- (No candidate URLs available yet.)";
+      : "- (Nenhuma URL candidata disponível ainda.)";
 
   const connectivityBlock =
     candidateUrls.length === 0
-      ? `No candidate URLs are available. Ask your user to configure a reachable hostname in Paperclip, then retry.
-Suggested steps:
-- choose a hostname that resolves to the Paperclip host from your runtime
-- run: pnpm paperclipai allowed-hostname <host>
-- restart Paperclip
-- verify with: curl -fsS http://<host>:3100/api/health
-- regenerate this invite snippet`
-      : `If none are reachable, ask your user to add a reachable hostname in Paperclip, restart, and retry.
-Suggested command:
+      ? `Nenhuma URL candidata está disponível. Peça ao usuário para configurar um hostname acessível no neurOS e tente novamente.
+Passos sugeridos:
+- escolha um hostname que resolva para o host do neurOS a partir do seu runtime
+- execute: pnpm paperclipai allowed-hostname <host>
+- reinicie o neurOS
+- verifique com: curl -fsS http://<host>:3100/api/health
+- gere este snippet de convite novamente`
+      : `Se nenhuma estiver acessível, peça ao usuário para adicionar um hostname acessível no neurOS, reiniciar e tentar novamente.
+Comando sugerido:
 - pnpm paperclipai allowed-hostname <host>
-Then verify with: curl -fsS <base-url>/api/health`;
+Depois verifique com: curl -fsS <base-url>/api/health`;
 
   const resolutionLine = resolutionTestUrl
-    ? `\nYou MUST test Paperclip-to-gateway reachability, call: ${resolutionTestUrl}?url=<urlencoded-gateway-url> (using the hostname that worked above). Do not assume your 172.x is necessarily reachable from Paperclip. Test it. `
+    ? `\nVocê DEVE testar a conectividade do neurOS até o gateway. Chame: ${resolutionTestUrl}?url=<urlencoded-gateway-url> (usando o hostname que funcionou acima). Não assuma que seu 172.x é necessariamente acessível a partir do neurOS. Teste. `
     : "";
 
-  return `You're invited to join a Paperclip organization.
+  return `Você foi convidado para entrar em uma organização do neurOS.
 
-The URLs you should try are:
+As URLs que você deve testar são:
 ${candidateList}
 
-Connectivity guidance:
-If you are running on a different machine than Paperclip, Paperclip must be reachable at one of the hostnames used above.
-Verify the hostname works from your runtime with: GET <base-url>/api/health
+Orientação de conectividade:
+Se você estiver executando em uma máquina diferente do neurOS, o neurOS precisa estar acessível em um dos hostnames usados acima.
+Verifique se o hostname funciona a partir do seu runtime com: GET <base-url>/api/health
 
 ${connectivityBlock}
 
-For your "agentName", just use your own agent name (OpenClaw or whatever your name is) and send it directly.
-You also need to send a gateway URL that Paperclip can access. Check your config and include that URL.${resolutionLine}
+Para o seu "agentName", use apenas o nome do seu próprio agente (OpenClaw ou o nome que você usa) e envie diretamente.
+Você também precisa enviar uma URL de gateway que o neurOS consiga acessar. Verifique sua configuração e inclua essa URL.${resolutionLine}
 
 ---
 
-This onboarding flow is for OpenClaw Gateway.
-When you submit the join request, use:
+Este fluxo de onboarding é para OpenClaw Gateway.
+Quando você enviar a requisição de entrada, use:
 - \`adapterType: "openclaw_gateway"\`
-- \`agentDefaultsPayload.url\` as your \`ws://\` or \`wss://\` gateway URL
-- \`agentDefaultsPayload.headers["x-openclaw-token"]\` with your gateway token
-- (legacy accepted) \`agentDefaultsPayload.headers["x-openclaw-auth"]\`
-- Keep device auth enabled (recommended). If \`devicePrivateKeyPem\` is omitted, Paperclip will generate and persist one during join so pairing approvals remain stable.
-- Only use \`disableDeviceAuth=true\` for special environments where pairing cannot be completed.
+- \`agentDefaultsPayload.url\` como sua URL de gateway \`ws://\` ou \`wss://\`
+- \`agentDefaultsPayload.headers["x-openclaw-token"]\` com o seu token do gateway
+- (legado aceito) \`agentDefaultsPayload.headers["x-openclaw-auth"]\`
+- Mantenha a autenticação do dispositivo habilitada (recomendado). Se \`devicePrivateKeyPem\` for omitido, o neurOS vai gerar e persistir uma chave durante a entrada para manter as aprovações de pareamento estáveis.
+- Use \`disableDeviceAuth=true\` apenas em ambientes especiais onde o pareamento não puder ser concluído.
 
-Do NOT use \`/v1/responses\` or \`/hooks/*\` in this join flow.
+NÃO use \`/v1/responses\` nem \`/hooks/*\` neste fluxo de entrada.
 
-Before you do anything, please respond to your user that you understand the instructions and you're going to work on them. Then do the step above in another session called "paperclip-onboarding" and then tell your user when you're done. Update your user in intermediate steps along the way so they know what's going on.
+Antes de fazer qualquer coisa, responda ao seu usuário que você entendeu as instruções e vai trabalhar nelas. Depois execute a etapa acima em outra sessão chamada "paperclip-onboarding" e avise o usuário quando terminar. Atualize o usuário durante as etapas intermediárias para que ele saiba o que está acontecendo.
 
-Then after you've connected to Paperclip (exchanged keys etc.) you MUST review and follow the onboarding instructions in onboarding.txt they give you.
+Depois que você se conectar ao neurOS (troca de chaves etc.), você DEVE revisar e seguir as instruções de onboarding em onboarding.txt que forem fornecidas.
 
 `;
 }

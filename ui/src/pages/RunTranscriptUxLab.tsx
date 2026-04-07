@@ -27,8 +27,8 @@ const surfaceOptions: Array<{
   {
     id: "live",
     label: "Issue Widget",
-    eyebrow: "Live stream",
-    description: "The issue-detail live run widget, optimized for following an active run without leaving the task page.",
+    eyebrow: "Fluxo ao vivo",
+    description: "O widget de execucao ao vivo na tarefa, otimizado para acompanhar uma execucao ativa sem sair da pagina.",
     icon: RadioTower,
   },
   {
@@ -165,7 +165,7 @@ function DashboardPreview({
                 <Identity name={runTranscriptFixtureMeta.agentName} size="sm" />
               </div>
               <div className="mt-2 text-[11px] text-muted-foreground">
-                {streaming ? "Live now" : "Finished 2m ago"}
+                {streaming ? "Ao vivo agora" : "Concluida ha 2 min"}
               </div>
             </div>
             <span className="rounded-full border border-border/70 bg-background/70 px-2 py-1 text-[10px] text-muted-foreground">
@@ -210,7 +210,7 @@ export function RunTranscriptUxLab() {
               </div>
               <h1 className="mt-4 text-2xl font-semibold tracking-tight">Run Transcript Fixtures</h1>
               <p className="mt-2 text-sm text-muted-foreground">
-                Built from a real Paperclip development run, then sanitized so no secrets, local paths, or environment details survive into the fixture.
+                Construido a partir de uma execucao real de desenvolvimento do neurOS e depois higienizado para que nenhum segredo, caminho local ou detalhe de ambiente permaneça no fixture.
               </p>
             </div>
 

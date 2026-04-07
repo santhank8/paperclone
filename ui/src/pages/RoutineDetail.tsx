@@ -427,8 +427,8 @@ export function RoutineDetail() {
     },
     onError: (error) => {
       pushToast({
-        title: "Failed to save routine",
-        body: error instanceof Error ? error.message : "Paperclip could not save the routine.",
+        title: "Falha ao salvar rotina",
+        body: error instanceof Error ? error.message : "O neurOS não conseguiu salvar a rotina.",
         tone: "error",
       });
     },
@@ -459,8 +459,8 @@ export function RoutineDetail() {
     },
     onError: (error) => {
       pushToast({
-        title: "Routine run failed",
-        body: error instanceof Error ? error.message : "Paperclip could not start the routine run.",
+        title: "Falha ao executar rotina",
+        body: error instanceof Error ? error.message : "O neurOS não conseguiu iniciar a execução da rotina.",
         tone: "error",
       });
     },
@@ -481,8 +481,8 @@ export function RoutineDetail() {
     },
     onError: (error) => {
       pushToast({
-        title: "Failed to update routine",
-        body: error instanceof Error ? error.message : "Paperclip could not update the routine.",
+        title: "Falha ao atualizar rotina",
+        body: error instanceof Error ? error.message : "O neurOS não conseguiu atualizar a rotina.",
         tone: "error",
       });
     },
@@ -528,8 +528,8 @@ export function RoutineDetail() {
     },
     onError: (error) => {
       pushToast({
-        title: "Failed to add trigger",
-        body: error instanceof Error ? error.message : "Paperclip could not create the trigger.",
+        title: "Falha ao adicionar gatilho",
+        body: error instanceof Error ? error.message : "O neurOS não conseguiu criar o gatilho.",
         tone: "error",
       });
     },
@@ -551,8 +551,8 @@ export function RoutineDetail() {
     },
     onError: (error) => {
       pushToast({
-        title: "Failed to update trigger",
-        body: error instanceof Error ? error.message : "Paperclip could not update the trigger.",
+        title: "Falha ao atualizar gatilho",
+        body: error instanceof Error ? error.message : "O neurOS não conseguiu atualizar o gatilho.",
         tone: "error",
       });
     },
@@ -573,8 +573,8 @@ export function RoutineDetail() {
     },
     onError: (error) => {
       pushToast({
-        title: "Failed to delete trigger",
-        body: error instanceof Error ? error.message : "Paperclip could not delete the trigger.",
+        title: "Falha ao excluir gatilho",
+        body: error instanceof Error ? error.message : "O neurOS não conseguiu excluir o gatilho.",
         tone: "error",
       });
     },
@@ -595,8 +595,8 @@ export function RoutineDetail() {
     },
     onError: (error) => {
       pushToast({
-        title: "Failed to rotate webhook secret",
-        body: error instanceof Error ? error.message : "Paperclip could not rotate the webhook secret.",
+        title: "Falha ao rotacionar segredo do webhook",
+        body: error instanceof Error ? error.message : "O neurOS não conseguiu rotacionar o segredo do webhook.",
         tone: "error",
       });
     },
@@ -646,7 +646,7 @@ export function RoutineDetail() {
   if (error || !routine) {
     return (
       <p className="pt-6 text-sm text-destructive">
-        {error instanceof Error ? error.message : "Routine not found"}
+        {error instanceof Error ? error.message : "Rotina não encontrada"}
       </p>
     );
   }
@@ -673,7 +673,7 @@ export function RoutineDetail() {
         <textarea
           ref={titleInputRef}
           className="flex-1 min-w-0 resize-none overflow-hidden bg-transparent text-xl font-bold outline-none placeholder:text-muted-foreground/50"
-          placeholder="Routine title"
+          placeholder="Título da rotina"
           rows={1}
           value={editDraft.title}
           onChange={(event) => {
@@ -729,7 +729,7 @@ export function RoutineDetail() {
         <div className="rounded-lg border border-blue-500/30 bg-blue-500/5 p-4 space-y-3 text-sm">
           <div>
             <p className="font-medium">{secretMessage.title}</p>
-            <p className="text-xs text-muted-foreground">Save this now. Paperclip will not show the secret value again.</p>
+            <p className="text-xs text-muted-foreground">Salve isso agora. O neurOS não mostrará esse valor secreto novamente.</p>
           </div>
           <div className="space-y-2">
             <div className="flex items-center gap-2">
@@ -753,15 +753,15 @@ export function RoutineDetail() {
       {/* Assignment row */}
       <div className="overflow-x-auto overscroll-x-contain">
         <div className="inline-flex min-w-full flex-wrap items-center gap-2 text-sm text-muted-foreground sm:min-w-max sm:flex-nowrap">
-          <span>For</span>
+          <span>Para</span>
           <InlineEntitySelector
             ref={assigneeSelectorRef}
             value={editDraft.assigneeAgentId}
             options={assigneeOptions}
-            placeholder="Assignee"
-            noneLabel="No assignee"
-            searchPlaceholder="Search assignees..."
-            emptyMessage="No assignees found."
+            placeholder="Responsável"
+            noneLabel="Sem responsável"
+            searchPlaceholder="Buscar responsáveis..."
+            emptyMessage="Nenhum responsável encontrado."
             onChange={(assigneeAgentId) => {
               if (assigneeAgentId) trackRecentAssignee(assigneeAgentId);
               setEditDraft((current) => ({ ...current, assigneeAgentId }));
@@ -784,7 +784,7 @@ export function RoutineDetail() {
                   <span className="truncate">{option.label}</span>
                 )
               ) : (
-                <span className="text-muted-foreground">Assignee</span>
+                <span className="text-muted-foreground">Responsável</span>
               )
             }
             renderOption={(option) => {
@@ -798,15 +798,15 @@ export function RoutineDetail() {
               );
             }}
           />
-          <span>in</span>
+          <span>em</span>
           <InlineEntitySelector
             ref={projectSelectorRef}
             value={editDraft.projectId}
             options={projectOptions}
-            placeholder="Project"
-            noneLabel="No project"
-            searchPlaceholder="Search projects..."
-            emptyMessage="No projects found."
+            placeholder="Projeto"
+            noneLabel="Sem projeto"
+            searchPlaceholder="Buscar projetos..."
+            emptyMessage="Nenhum projeto encontrado."
             onChange={(projectId) => setEditDraft((current) => ({ ...current, projectId }))}
             onConfirm={() => descriptionEditorRef.current?.focus()}
             renderTriggerValue={(option) =>
@@ -819,7 +819,7 @@ export function RoutineDetail() {
                   <span className="truncate">{option.label}</span>
                 </>
               ) : (
-                <span className="text-muted-foreground">Project</span>
+                <span className="text-muted-foreground">Projeto</span>
               )
             }
             renderOption={(option) => {
@@ -844,7 +844,7 @@ export function RoutineDetail() {
         ref={descriptionEditorRef}
         value={editDraft.description}
         onChange={(description) => setEditDraft((current) => ({ ...current, description }))}
-        placeholder="Add instructions..."
+        placeholder="Adicione instruções..."
         bordered={false}
         contentClassName="min-h-[120px] text-[15px] leading-7"
         onSubmit={() => {
@@ -860,10 +860,10 @@ export function RoutineDetail() {
         onChange={(variables) => setEditDraft((current) => ({ ...current, variables }))}
       />
 
-      {/* Advanced delivery settings */}
+      {/* Configurações avançadas de entrega */}
       <Collapsible open={advancedOpen} onOpenChange={setAdvancedOpen}>
         <CollapsibleTrigger className="flex w-full items-center justify-between text-left">
-          <span className="text-sm font-medium">Advanced delivery settings</span>
+          <span className="text-sm font-medium">Configurações avançadas de entrega</span>
           {advancedOpen ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
         </CollapsibleTrigger>
         <CollapsibleContent className="pt-3">
@@ -929,16 +929,16 @@ export function RoutineDetail() {
         <TabsList variant="line" className="w-full justify-start gap-1">
           <TabsTrigger value="triggers" className="gap-1.5">
             <Clock3 className="h-3.5 w-3.5" />
-            Triggers
+            Gatilhos
           </TabsTrigger>
           <TabsTrigger value="runs" className="gap-1.5">
             <Play className="h-3.5 w-3.5" />
-            Runs
+            Execuções
             {hasLiveRun && <span className="h-2 w-2 rounded-full bg-blue-500 animate-pulse" />}
           </TabsTrigger>
 <TabsTrigger value="activity" className="gap-1.5">
             <ActivityIcon className="h-3.5 w-3.5" />
-            Activity
+            Atividade
           </TabsTrigger>
         </TabsList>
 

@@ -476,10 +476,10 @@ function generateReadmeFromSelection(
   lines.push("pnpm paperclipai company import this-github-url-or-folder");
   lines.push("```");
   lines.push("");
-  lines.push("Veja [Paperclip](https://paperclip.ing) para mais informações.");
+  lines.push("Veja [neurOS](https://paperclip.ing) para mais informações.");
   lines.push("");
   lines.push("---");
-  lines.push(`Exportado do [Paperclip](https://paperclip.ing) em ${new Date().toISOString().split("T")[0]}`);
+  lines.push(`Exportado do [neurOS](https://paperclip.ing) em ${new Date().toISOString().split("T")[0]}`);
   lines.push("");
 
   return lines.join("\n");

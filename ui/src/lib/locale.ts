@@ -8,7 +8,7 @@ const statusLabels: Record<string, string> = {
   error: "Erro",
   pending_approval: "Aguardando aprovação",
   terminated: "Encerrado",
-  backlog: "Backlog",
+  backlog: "Lista de espera",
   todo: "A fazer",
   in_progress: "Em andamento",
   in_review: "Em revisão",

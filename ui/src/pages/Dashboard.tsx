@@ -168,7 +168,7 @@ export function Dashboard() {
       return (
         <EmptyState
           icon={LayoutDashboard}
-          message="Bem-vindo ao Paperclip. Configure sua primeira empresa e seu primeiro agente para começar."
+          message="Bem-vindo ao neurOS. Configure sua primeira empresa e seu primeiro agente para começar."
           action="Começar"
           onAction={openOnboarding}
         />

@@ -295,7 +295,7 @@ export function ExecutionWorkspaceDetail() {
     const crumbs = [
       { label: "Projetos", href: "/projects" },
       ...(project ? [{ label: project.name, href: `/projects/${projectRef}` }] : []),
-      ...(project ? [{ label: "Workspaces", href: `/projects/${projectRef}/workspaces` }] : []),
+      ...(project ? [{ label: "Espaços de trabalho", href: `/projects/${projectRef}/workspaces` }] : []),
       { label: workspace.name },
     ];
     setBreadcrumbs(crumbs);
@@ -403,7 +403,7 @@ export function ExecutionWorkspaceDetail() {
                   </div>
                   <h1 className="text-2xl font-semibold">{workspace.name}</h1>
                   <p className="max-w-2xl text-sm text-muted-foreground">
-                    Configure o workspace concreto de runtime que o Paperclip reutiliza neste fluxo de issue. Essas
+                    Configure o workspace concreto de runtime que o neurOS reutiliza neste fluxo de tarefa. Essas
                     configurações permanecem anexadas ao workspace de execução para que execuções futuras mantenham caminhos
                     locais, refs de repositório, provisionamento, teardown e comportamento dos serviços de runtime em sincronia
                     com o workspace real que está sendo reutilizado.
@@ -481,7 +481,7 @@ export function ExecutionWorkspaceDetail() {
               </div>
 
               <div className="mt-4 grid gap-4 md:grid-cols-2">
-                <Field label="Comando de provisionamento" hint="Executado quando o Paperclip prepara este workspace de execução">
+                <Field label="Comando de provisionamento" hint="Executado quando o neurOS prepara este workspace de execução">
                   <textarea
                     className="min-h-28 w-full rounded-lg border border-border bg-background px-3 py-2 font-mono text-sm outline-none"
                     value={form.provisionCommand}

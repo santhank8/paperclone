@@ -32,7 +32,7 @@ type ProjectWorkspaceSourceType = ProjectWorkspace["sourceType"];
 type ProjectWorkspaceVisibility = ProjectWorkspace["visibility"];
 
 const SOURCE_TYPE_OPTIONS: Array<{ value: ProjectWorkspaceSourceType; label: string; description: string }> = [
-  { value: "local_path", label: "Checkout git local", description: "Um caminho local que o Paperclip pode usar diretamente." },
+  { value: "local_path", label: "Checkout git local", description: "Um caminho local que o neurOS pode usar diretamente." },
   { value: "non_git_path", label: "Caminho local sem git", description: "Uma pasta local sem semântica de git." },
   { value: "git_repo", label: "Repositório git remoto", description: "Uma URL de repositório com refs opcionais e checkout local." },
   { value: "remote_managed", label: "Workspace remoto gerenciado", description: "Um workspace hospedado rastreado por referência externa." },
@@ -153,7 +153,7 @@ function validateWorkspaceForm(form: WorkspaceFormState) {
 
   if (form.sourceType === "remote_managed") {
     if (!remoteWorkspaceRef && !repoUrl) {
-      return "Workspaces remotos gerenciados exigem uma referência de workspace remoto ou URL de repositório.";
+      return "Espaços de trabalho remotos gerenciados exigem uma referência de workspace remoto ou URL de repositório.";
     }
   } else if (!cwd && !repoUrl) {
     return "O workspace exige pelo menos um caminho local ou URL de repositório.";
@@ -263,7 +263,7 @@ export function ProjectWorkspaceDetail() {
     setBreadcrumbs([
       { label: "Projetos", href: "/projects" },
       { label: project.name, href: `/projects/${canonicalProjectRef}` },
-      { label: "Workspaces", href: `/projects/${canonicalProjectRef}/workspaces` },
+      { label: "Espaços de trabalho", href: `/projects/${canonicalProjectRef}/workspaces` },
       { label: workspace?.name ?? routeWorkspaceId },
     ]);
   }, [setBreadcrumbs, project, canonicalProjectRef, workspace?.name, routeWorkspaceId]);
@@ -375,7 +375,7 @@ export function ProjectWorkspaceDetail() {
                 </div>
                 <h1 className="text-2xl font-semibold">{workspace.name}</h1>
                 <p className="max-w-2xl text-sm text-muted-foreground">
-                  Configure o workspace concreto que o Paperclip associa a este projeto. Esses valores controlam o
+                  Configure o workspace concreto que o neurOS associa a este projeto. Esses valores controlam o
                   comportamento de checkout por workspace, os serviços de runtime padrão para workspaces de execução
                   filhos e permitem sobrescrever comandos de setup ou limpeza quando um workspace exige tratamento especial.
                 </p>
@@ -532,7 +532,7 @@ export function ProjectWorkspaceDetail() {
                 </Field>
               </div>
 
-              <Field label="JSON de serviços de runtime" hint="Serviços de runtime padrão para este workspace. Workspaces de execução herdam essa configuração, a menos que definam uma sobrescrita. Se você ainda não souber os comandos corretos, peça ao CEO para configurá-los.">
+              <Field label="JSON de serviços de runtime" hint="Serviços de runtime padrão para este workspace. Espaços de trabalho de execução herdam essa configuração, a menos que definam uma sobrescrita. Se você ainda não souber os comandos corretos, peça ao CEO para configurá-los.">
                 <textarea
                   className="min-h-36 w-full rounded-lg border border-border bg-background px-3 py-2 font-mono text-sm outline-none"
                   value={form.runtimeConfig}
@@ -601,7 +601,7 @@ export function ProjectWorkspaceDetail() {
                 <div className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">Runtime services</div>
                 <h2 className="text-lg font-semibold">Serviços anexados</h2>
                 <p className="text-sm text-muted-foreground">
-                  Serviços compartilhados para este workspace do projeto. Workspaces de execução herdam essa configuração, a menos que a sobrescrevam.
+                  Serviços compartilhados para este workspace do projeto. Espaços de trabalho de execução herdam essa configuração, a menos que a sobrescrevam.
                 </p>
               </div>
               <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap">

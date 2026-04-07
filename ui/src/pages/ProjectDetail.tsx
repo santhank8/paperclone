@@ -597,7 +597,7 @@ export function ProjectDetail() {
 
   useEffect(() => {
     setBreadcrumbs([
-      { label: "Projects", href: "/projects" },
+      { label: "Projetos", href: "/projects" },
       { label: project?.name ?? routeProjectRef ?? "Project" },
     ]);
   }, [setBreadcrumbs, project, routeProjectRef]);
@@ -852,10 +852,10 @@ export function ProjectDetail() {
         <PageTabBar
           items={[
             { value: "list", label: "Issues" },
-            { value: "overview", label: "Overview" },
+            { value: "overview", label: "Visao geral" },
             ...(showWorkspacesTab ? [{ value: "workspaces", label: "Workspaces" }] : []),
-            { value: "configuration", label: "Configuration" },
-            { value: "budget", label: "Budget" },
+            { value: "configuration", label: "Configuracao" },
+            { value: "budget", label: "Orcamento" },
             ...pluginTabItems.map((item) => ({
               value: item.value,
               label: item.label,

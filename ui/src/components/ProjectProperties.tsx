@@ -690,7 +690,7 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
                     {codebase.effectiveLocalFolder}
                   </div>
                   {codebase.origin === "managed_checkout" && (
-                    <div className="text-[11px] text-muted-foreground">Pasta gerenciada pelo Paperclip.</div>
+                    <div className="text-[11px] text-muted-foreground">Pasta gerenciada pelo neurOS.</div>
                   )}
                 </div>
                 <div className="flex items-center gap-1">
@@ -722,7 +722,7 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
 
             {hasAdditionalLegacyWorkspaces && (
               <div className="text-[11px] text-muted-foreground">
-                Existem registros legados adicionais de workspace neste projeto. O Paperclip está usando o workspace principal como visão do código-base.
+                Existem registros legados adicionais de workspace neste projeto. O neurOS está usando o workspace principal como visão do código-base.
               </div>
             )}
 

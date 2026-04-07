@@ -38,11 +38,11 @@ import { StatusBadge } from "./StatusBadge";
 import { ChoosePathButton } from "./PathInstructionsModal";
 
 const projectStatuses = [
-  { value: "backlog", label: "Backlog" },
-  { value: "planned", label: "Planned" },
-  { value: "in_progress", label: "In Progress" },
-  { value: "completed", label: "Completed" },
-  { value: "cancelled", label: "Cancelled" },
+  { value: "backlog", label: "Lista de espera" },
+  { value: "planned", label: "Planejado" },
+  { value: "in_progress", label: "Em andamento" },
+  { value: "completed", label: "Concluído" },
+  { value: "cancelled", label: "Cancelado" },
 ];
 
 export function NewProjectDialog() {

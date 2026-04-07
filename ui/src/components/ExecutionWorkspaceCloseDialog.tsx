@@ -92,44 +92,44 @@ export function ExecutionWorkspaceCloseDialog({
         <DialogHeader>
           <DialogTitle>{actionLabel}</DialogTitle>
           <DialogDescription className="break-words text-xs sm:text-sm">
-            Archive <span className="font-medium text-foreground">{workspaceName}</span> and clean up any owned workspace
-            artifacts. Paperclip keeps the workspace record and issue history, but removes it from active workspace views.
+            Arquive <span className="font-medium text-foreground">{workspaceName}</span> e limpe quaisquer artefatos
+            pertencentes ao workspace. O neurOS mantém o registro do workspace e o histórico da tarefa, mas o remove das visualizações ativas.
           </DialogDescription>
         </DialogHeader>
 
         {readinessQuery.isLoading ? (
           <div className="flex items-center gap-2 rounded-xl border border-border bg-muted/30 px-3 py-2.5 text-xs sm:px-4 sm:py-3 sm:text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin shrink-0" />
-            Checking whether this workspace is safe to close...
+            Verificando se este workspace pode ser fechado com segurança...
           </div>
         ) : readinessQuery.error ? (
           <div className="rounded-xl border border-destructive/30 bg-destructive/5 px-3 py-2.5 text-xs sm:px-4 sm:py-3 sm:text-sm text-destructive">
-            {readinessQuery.error instanceof Error ? readinessQuery.error.message : "Failed to inspect workspace close readiness."}
+            {readinessQuery.error instanceof Error ? readinessQuery.error.message : "Falha ao inspecionar a prontidão de fechamento do workspace."}
           </div>
         ) : readiness ? (
           <div className="min-w-0 space-y-3 sm:space-y-4">
             <div className={`rounded-xl border px-3 py-2.5 text-xs sm:px-4 sm:py-3 sm:text-sm ${readinessTone(readiness.state)}`}>
               <div className="font-medium">
                 {readiness.state === "blocked"
-                  ? "Close is blocked"
+                  ? "Fechamento bloqueado"
                   : readiness.state === "ready_with_warnings"
-                    ? "Close is allowed with warnings"
-                    : "Close is ready"}
+                    ? "Fechamento permitido com avisos"
+                    : "Pronto para fechar"}
               </div>
               <div className="mt-1 text-xs opacity-80">
                 {readiness.isSharedWorkspace
-                  ? "This is a shared workspace session. Archiving it removes this session record but keeps the underlying project workspace."
+                  ? "Esta é uma sessão de workspace compartilhada. Arquivá-la remove o registro desta sessão, mas preserva o workspace base do projeto."
                   : readiness.git?.workspacePath && readiness.git.repoRoot && readiness.git.workspacePath !== readiness.git.repoRoot
-                    ? "This execution workspace has its own checkout path and can be archived independently."
+                    ? "Este workspace de execução tem seu próprio checkout e pode ser arquivado de forma independente."
                     : readiness.isProjectPrimaryWorkspace
-                      ? "This execution workspace currently points at the project's primary workspace path."
-                      : "This workspace is disposable and can be archived."}
+                      ? "Este workspace de execução aponta atualmente para o caminho principal de workspace do projeto."
+                      : "Este workspace é descartável e pode ser arquivado."}
               </div>
             </div>
 
             {blockingIssues.length > 0 ? (
               <section className="space-y-2">
-                <h3 className="text-xs font-medium sm:text-sm">Blocking issues</h3>
+                <h3 className="text-xs font-medium sm:text-sm">Tarefas bloqueadoras</h3>
                 <div className="space-y-1.5 sm:space-y-2">
                   {blockingIssues.map((issue) => (
                     <div key={issue.id} className="rounded-xl border border-destructive/20 bg-destructive/5 px-3 py-2 text-xs sm:px-4 sm:py-3 sm:text-sm">
@@ -147,7 +147,7 @@ export function ExecutionWorkspaceCloseDialog({
 
             {readiness.blockingReasons.length > 0 ? (
               <section className="space-y-2">
-                <h3 className="text-xs font-medium sm:text-sm">Blocking reasons</h3>
+                <h3 className="text-xs font-medium sm:text-sm">Motivos do bloqueio</h3>
                 <ul className="space-y-1.5 text-xs sm:space-y-2 sm:text-sm text-muted-foreground">
                   {readiness.blockingReasons.map((reason, idx) => (
                     <li key={`blocking-${idx}`} className="break-words rounded-lg border border-destructive/20 bg-destructive/5 px-2.5 py-1.5 sm:px-3 sm:py-2 text-destructive">
@@ -160,7 +160,7 @@ export function ExecutionWorkspaceCloseDialog({
 
             {readiness.warnings.length > 0 ? (
               <section className="space-y-2">
-                <h3 className="text-xs font-medium sm:text-sm">Warnings</h3>
+                <h3 className="text-xs font-medium sm:text-sm">Avisos</h3>
                 <ul className="space-y-1.5 text-xs sm:space-y-2 sm:text-sm text-muted-foreground">
                   {readiness.warnings.map((warning, idx) => (
                     <li key={`warning-${idx}`} className="break-words rounded-lg border border-amber-500/20 bg-amber-500/5 px-2.5 py-1.5 sm:px-3 sm:py-2">
@@ -173,33 +173,33 @@ export function ExecutionWorkspaceCloseDialog({
 
             {readiness.git ? (
               <section className="space-y-2">
-                <h3 className="text-xs font-medium sm:text-sm">Git status</h3>
+                <h3 className="text-xs font-medium sm:text-sm">Status do git</h3>
                 <div className="overflow-hidden rounded-xl border border-border bg-muted/20 px-3 py-2.5 text-xs sm:px-4 sm:py-3 sm:text-sm">
                   <div className="grid grid-cols-2 gap-2">
                     <div className="min-w-0">
                       <div className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Branch</div>
-                      <div className="truncate font-mono text-xs">{readiness.git.branchName ?? "Unknown"}</div>
+                      <div className="truncate font-mono text-xs">{readiness.git.branchName ?? "Desconhecida"}</div>
                     </div>
                     <div className="min-w-0">
-                      <div className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Base ref</div>
-                      <div className="truncate font-mono text-xs">{readiness.git.baseRef ?? "Not set"}</div>
+                      <div className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Ref base</div>
+                      <div className="truncate font-mono text-xs">{readiness.git.baseRef ?? "Não definida"}</div>
                     </div>
                     <div>
-                      <div className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Merged into base</div>
-                      <div>{readiness.git.isMergedIntoBase == null ? "Unknown" : readiness.git.isMergedIntoBase ? "Yes" : "No"}</div>
+                      <div className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Mesclada na base</div>
+                      <div>{readiness.git.isMergedIntoBase == null ? "Desconhecido" : readiness.git.isMergedIntoBase ? "Sim" : "Não"}</div>
                     </div>
                     <div>
-                      <div className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Ahead / behind</div>
+                      <div className="text-xs uppercase tracking-[0.16em] text-muted-foreground">À frente / atrás</div>
                       <div>
                         {(readiness.git.aheadCount ?? 0).toString()} / {(readiness.git.behindCount ?? 0).toString()}
                       </div>
                     </div>
                     <div>
-                      <div className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Dirty tracked files</div>
+                      <div className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Arquivos rastreados alterados</div>
                       <div>{readiness.git.dirtyEntryCount}</div>
                     </div>
                     <div>
-                      <div className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Untracked files</div>
+                      <div className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Arquivos não rastreados</div>
                       <div>{readiness.git.untrackedEntryCount}</div>
                     </div>
                   </div>

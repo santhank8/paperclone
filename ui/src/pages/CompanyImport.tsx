@@ -713,7 +713,7 @@ export function CompanyImport() {
   }, [companyAgents]);
 
   const localZipHelpText =
-    "Envie um .zip exportado diretamente do Paperclip. Arquivos recompactados por Finder, Explorer ou outras ferramentas de zip podem não importar corretamente.";
+    "Envie um .zip exportado diretamente do neurOS. Arquivos recompactados por Finder, Explorer ou outras ferramentas de zip podem não importar corretamente.";
 
   useEffect(() => {
     setBreadcrumbs([
@@ -1105,7 +1105,7 @@ export function CompanyImport() {
         <div>
           <h2 className="text-base font-semibold">Origem da importação</h2>
           <p className="text-xs text-muted-foreground mt-1">
-            Escolha um repositório do GitHub ou envie um pacote .zip local do Paperclip.
+            Escolha um repositório do GitHub ou envie um pacote .zip local do neurOS.
           </p>
         </div>
 

@@ -57,8 +57,8 @@ function BootstrapPendingPage({ hasActiveInvite = false }: { hasActiveInvite?: b
         <h1 className="text-xl font-semibold">Configuração da instância necessária</h1>
         <p className="mt-2 text-sm text-muted-foreground">
           {hasActiveInvite
-            ? "Ainda não existe um administrador da instância. Já há um convite de bootstrap ativo. Verifique os logs de inicialização do Paperclip para obter a primeira URL de convite de administrador ou rode este comando para gerá-la novamente:"
-            : "Ainda não existe um administrador da instância. Rode este comando no ambiente do Paperclip para gerar a primeira URL de convite de administrador:"}
+            ? "Ainda não existe um administrador da instância. Já há um convite de bootstrap ativo. Verifique os logs de inicialização do neurOS para obter a primeira URL de convite de administrador ou rode este comando para gerá-la novamente:"
+            : "Ainda não existe um administrador da instância. Rode este comando no ambiente do neurOS para gerar a primeira URL de convite de administrador:"}
         </p>
         <pre className="mt-4 overflow-x-auto rounded-md border border-border bg-muted/30 p-3 text-xs">
 {`pnpm paperclipai auth bootstrap-ceo`}

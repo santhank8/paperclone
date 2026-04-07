@@ -134,7 +134,7 @@ export function OpenClawGatewayConfigFields({
 
       {!isCreate && (
         <>
-          <Field label="Paperclip API URL override">
+          <Field label="Sobrescrita da URL da API do neurOS">
             <DraftInput
               value={
                 eff(
@@ -226,8 +226,8 @@ export function OpenClawGatewayConfigFields({
 
           <Field label="Device auth">
             <div className="text-xs text-muted-foreground leading-relaxed">
-              Always enabled for gateway agents. Paperclip persists a device key during onboarding so pairing approvals
-              remain stable across runs.
+              Sempre ativado para agentes do gateway. O neurOS persiste uma chave do dispositivo durante a configuracao
+              inicial para que as aprovacoes de pareamento permaneçam estaveis entre execucoes.
             </div>
           </Field>
         </>

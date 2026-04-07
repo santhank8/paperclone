@@ -494,7 +494,7 @@ const SecretField = React.memo(({
       label={label}
       description={
         description ||
-        "This secret is stored securely via the Paperclip secret provider."
+        "Este segredo é armazenado com segurança pelo provedor de segredos do neurOS."
       }
       required={isRequired}
       error={error}

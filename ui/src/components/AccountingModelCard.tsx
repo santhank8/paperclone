@@ -17,8 +17,8 @@ const SURFACES = [
     tone: "from-amber-500/14 via-amber-500/6 to-transparent",
   },
   {
-    title: "Live quotas",
-    description: "Provider or biller windows that can stop traffic in real time.",
+    title: "Cotas em tempo real",
+    description: "Janelas de provedor ou faturador que podem interromper o trafego em tempo real.",
     icon: Gauge,
     points: ["provider quota windows", "biller credit systems", "errors surfaced directly"],
     tone: "from-emerald-500/14 via-emerald-500/6 to-transparent",

@@ -205,7 +205,7 @@ export function InboxIssueMetaLeading({
               "text-blue-600 dark:text-blue-400",
             )}
           >
-            Live
+            Ao vivo
           </span>
         </span>
       )}
@@ -247,7 +247,7 @@ export function InboxIssueTrailingColumns({
   currentUserId: string | null;
 }) {
   const activityText = timeAgo(issue.lastActivityAt ?? issue.lastExternalCommentAt ?? issue.updatedAt);
-  const userLabel = formatAssigneeUserLabel(issue.assigneeUserId, currentUserId) ?? "User";
+  const userLabel = formatAssigneeUserLabel(issue.assigneeUserId, currentUserId) ?? "Usuário";
 
   return (
     <span
@@ -278,7 +278,7 @@ export function InboxIssueTrailingColumns({
 
           return (
             <span key={column} className="min-w-0 truncate text-xs text-muted-foreground">
-              Unassigned
+              Sem responsável
             </span>
           );
         }
@@ -814,7 +814,7 @@ export function Inbox() {
   const issueLinkState = useMemo(
     () =>
       createIssueDetailLocationState(
-        "Inbox",
+        "Caixa de entrada",
         `${location.pathname}${location.search}${location.hash}`,
         "inbox",
       ),
@@ -847,7 +847,7 @@ export function Inbox() {
   });
 
   useEffect(() => {
-    setBreadcrumbs([{ label: "Inbox" }]);
+    setBreadcrumbs([{ label: "Entrada" }]);
   }, [setBreadcrumbs]);
 
   useEffect(() => {
@@ -1738,7 +1738,7 @@ export function Inbox() {
             searchQuery.trim()
               ? "No inbox items match your search."
               : tab === "mine"
-              ? "Inbox zero."
+              ? "Caixa de entrada zerada."
               : tab === "unread"
               ? "No new inbox items."
               : tab === "recent"

@@ -183,7 +183,7 @@ export function InviteLandingPage() {
           )}
           {(onboardingSkillUrl || onboardingSkillPath || onboardingInstallPath) && (
             <div className="mt-3 space-y-1 rounded-md border border-border bg-muted/30 p-3 text-xs text-muted-foreground">
-              <p className="font-medium text-foreground">Bootstrap de skill do Paperclip</p>
+              <p className="font-medium text-foreground">Bootstrap de skill do neurOS</p>
               {onboardingSkillUrl && <p className="font-mono break-all">GET {onboardingSkillUrl}</p>}
               {!onboardingSkillUrl && onboardingSkillPath && <p className="font-mono break-all">GET {onboardingSkillPath}</p>}
               {onboardingInstallPath && <p className="font-mono break-all">Instalar em {onboardingInstallPath}</p>}
@@ -219,10 +219,10 @@ export function InviteLandingPage() {
       <div className="rounded-lg border border-border bg-card p-6">
         <h1 className="text-xl font-semibold">
           {invite.inviteType === "bootstrap_ceo"
-            ? "Inicialize sua instância do Paperclip"
+            ? "Inicialize sua instância do neurOS"
             : companyName
               ? `Entrar em ${companyName}`
-              : "Entrar nesta empresa do Paperclip"}
+              : "Entrar nesta empresa do neurOS"}
         </h1>
         <p className="mt-2 text-sm text-muted-foreground">
           {invite.inviteType !== "bootstrap_ceo" && companyName
