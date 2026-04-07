@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type DragEvent } from "react";
+import { useTranslation } from "react-i18next";
 import { pickTextColorForPillBg } from "@/lib/color-contrast";
 import { Link, useLocation, useNavigate, useParams } from "@/lib/router";
 import { useInfiniteQuery, useQuery, useMutation, useQueryClient, type InfiniteData } from "@tanstack/react-query";
@@ -365,6 +366,7 @@ function IssueDetailLoadingState({
 }
 
 export function IssueDetail() {
+  const { t } = useTranslation("issues");
   const { issueId } = useParams<{ issueId: string }>();
   const { selectedCompanyId } = useCompany();
   const { openNewIssue } = useDialog();
@@ -946,14 +948,14 @@ export function IssueDetail() {
         queryClient.invalidateQueries({ queryKey: queryKeys.approvals.list(resolvedCompanyId) });
       }
       pushToast({
-        title: variables.action === "approve" ? "Approval approved" : "Approval rejected",
+        title: variables.action === "approve" ? t("approvalApproved", { defaultValue: "Approval approved" }) : t("approvalRejected", { defaultValue: "Approval rejected" }),
         tone: "success",
       });
     },
     onError: (err, variables) => {
       pushToast({
-        title: variables.action === "approve" ? "Approval failed" : "Rejection failed",
-        body: err instanceof Error ? err.message : "Unable to update approval",
+        title: variables.action === "approve" ? t("approvalFailed", { defaultValue: "Approval failed" }) : t("rejectionFailed", { defaultValue: "Rejection failed" }),
+        body: err instanceof Error ? err.message : t("unableToUpdateApproval", { defaultValue: "Unable to update approval" }),
         tone: "error",
       });
     },
@@ -1028,8 +1030,8 @@ export function IssueDetail() {
         queryClient.setQueryData(queryKeys.issues.detail(issueId!), context.previousIssue);
       }
       pushToast({
-        title: "Comment failed",
-        body: err instanceof Error ? err.message : "Unable to post comment",
+        title: t("commentFailed", { defaultValue: "Comment failed" }),
+        body: err instanceof Error ? err.message : t("unableToPostComment", { defaultValue: "Unable to post comment" }),
         tone: "error",
       });
     },
@@ -1127,8 +1129,8 @@ export function IssueDetail() {
         queryClient.setQueryData(queryKeys.issues.detail(issueId!), context.previousIssue);
       }
       pushToast({
-        title: "Comment failed",
-        body: err instanceof Error ? err.message : "Unable to post comment",
+        title: t("commentFailed", { defaultValue: "Comment failed" }),
+        body: err instanceof Error ? err.message : t("unableToPostComment", { defaultValue: "Unable to post comment" }),
         tone: "error",
       });
     },
@@ -1185,8 +1187,8 @@ export function IssueDetail() {
       invalidateIssueDetail();
       invalidateIssueRunState();
       pushToast({
-        title: "Interrupt requested",
-        body: "The active run is stopping so queued comments can continue next.",
+        title: t("interruptRequested", { defaultValue: "Interrupt requested" }),
+        body: t("interruptRequestedBody", { defaultValue: "The active run is stopping so queued comments can continue next." }),
         tone: "success",
       });
     },
@@ -1195,8 +1197,8 @@ export function IssueDetail() {
       queryClient.setQueryData(queryKeys.issues.liveRuns(issueId!), context?.previousLiveRuns);
       queryClient.setQueryData(queryKeys.issues.activeRun(issueId!), context?.previousActiveRun);
       pushToast({
-        title: "Interrupt failed",
-        body: err instanceof Error ? err.message : "Unable to interrupt the active run",
+        title: t("interruptFailed", { defaultValue: "Interrupt failed" }),
+        body: err instanceof Error ? err.message : t("unableToInterruptRun", { defaultValue: "Unable to interrupt the active run" }),
         tone: "error",
       });
     },
@@ -1247,11 +1249,11 @@ export function IssueDetail() {
         title:
           variables.sharingPreferenceAtSubmit === "prompt"
             ? variables.allowSharing
-              ? "Feedback saved. Future votes will share"
-              : "Feedback saved. Future votes will stay local"
+              ? t("feedbackSavedShareFuture", { defaultValue: "Feedback saved. Future votes will share" })
+              : t("feedbackSavedLocalFuture", { defaultValue: "Feedback saved. Future votes will stay local" })
             : variables.allowSharing
-              ? "Feedback saved and sharing enabled"
-              : "Feedback saved",
+              ? t("feedbackSavedSharingEnabled", { defaultValue: "Feedback saved and sharing enabled" })
+              : t("feedbackSaved", { defaultValue: "Feedback saved" }),
         tone: "success",
       });
     },
@@ -1260,8 +1262,8 @@ export function IssueDetail() {
         queryClient.setQueryData(queryKeys.issues.feedbackVotes(issueId!), context.previousVotes);
       }
       pushToast({
-        title: "Failed to save feedback",
-        body: err instanceof Error ? err.message : "Unknown error",
+        title: t("failedToSaveFeedback", { defaultValue: "Failed to save feedback" }),
+        body: err instanceof Error ? err.message : t("unknownError", { defaultValue: "Unknown error" }),
         tone: "error",
       });
     },
@@ -1324,12 +1326,12 @@ export function IssueDetail() {
     onSuccess: () => {
       invalidateIssueCollections();
       navigate(sourceBreadcrumb.href.startsWith("/inbox") ? sourceBreadcrumb.href : "/inbox", { replace: true });
-      pushToast({ title: "Issue archived from inbox", tone: "success" });
+      pushToast({ title: t("issueArchivedFromInbox", { defaultValue: "Issue archived from inbox" }), tone: "success" });
     },
     onError: (err) => {
       pushToast({
-        title: "Archive failed",
-        body: err instanceof Error ? err.message : "Unable to archive this issue from the inbox",
+        title: t("archiveFailed", { defaultValue: "Archive failed" }),
+        body: err instanceof Error ? err.message : t("unableToArchiveFromInbox", { defaultValue: "Unable to archive this issue from the inbox" }),
         tone: "error",
       });
     },
@@ -1551,7 +1553,7 @@ export function IssueDetail() {
     const md = `# ${issue.identifier}: ${title}\n\n${body}`.trimEnd();
     await navigator.clipboard.writeText(md);
     setCopied(true);
-    pushToast({ title: "Copied to clipboard", tone: "success" });
+    pushToast({ title: t("copiedToClipboard", { defaultValue: "Copied to clipboard" }), tone: "success" });
     setTimeout(() => setCopied(false), 2000);
   };
 
@@ -1630,10 +1632,10 @@ export function IssueDetail() {
         )}
       >
         <Paperclip className="h-3.5 w-3.5 mr-1.5" />
-        {uploadAttachment.isPending || importMarkdownDocument.isPending ? "Uploading..." : (
+        {uploadAttachment.isPending || importMarkdownDocument.isPending ? t("uploading", { defaultValue: "Uploading..." }) : (
           <>
-            <span className="hidden sm:inline">Upload attachment</span>
-            <span className="sm:hidden">Upload</span>
+            <span className="hidden sm:inline">{t("uploadAttachment", { defaultValue: "Upload attachment" })}</span>
+            <span className="sm:hidden">{t("upload", { defaultValue: "Upload" })}</span>
           </>
         )}
       </Button>
@@ -1672,7 +1674,7 @@ export function IssueDetail() {
       {issue.hiddenAt && (
         <div className="flex items-center gap-2 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
           <EyeOff className="h-4 w-4 shrink-0" />
-          This issue is hidden
+          {t("issueIsHidden", { defaultValue: "This issue is hidden" })}
         </div>
       )}
 
@@ -1719,7 +1721,7 @@ export function IssueDetail() {
           ) : (
             <span className="inline-flex items-center gap-1 text-xs text-muted-foreground opacity-50 px-1 -mx-1 py-0.5">
               <Hexagon className="h-3 w-3 shrink-0" />
-              No project
+              {t("noProject", { defaultValue: "No project" })}
             </span>
           )}
 
@@ -1749,7 +1751,7 @@ export function IssueDetail() {
               variant="ghost"
               size="icon-xs"
               onClick={copyIssueToClipboard}
-              title="Copy issue as markdown"
+              title={t("copyIssueAsMarkdown", { defaultValue: "Copy issue as markdown" })}
             >
               {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
             </Button>
@@ -1757,7 +1759,7 @@ export function IssueDetail() {
               variant="ghost"
               size="icon-xs"
               onClick={() => setMobilePropsOpen(true)}
-              title="Properties"
+              title={t("properties", { defaultValue: "Properties" })}
             >
               <SlidersHorizontal className="h-4 w-4" />
             </Button>
@@ -1768,7 +1770,7 @@ export function IssueDetail() {
               variant="ghost"
               size="icon-xs"
               onClick={copyIssueToClipboard}
-              title="Copy issue as markdown"
+              title={t("copyIssueAsMarkdown", { defaultValue: "Copy issue as markdown" })}
             >
               {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
             </Button>
@@ -1780,7 +1782,7 @@ export function IssueDetail() {
                 panelVisible ? "opacity-0 pointer-events-none w-0 overflow-hidden" : "opacity-100",
               )}
               onClick={() => setPanelVisible(true)}
-              title="Show properties"
+              title={t("showProperties", { defaultValue: "Show properties" })}
             >
               <SlidersHorizontal className="h-4 w-4" />
             </Button>
@@ -1803,7 +1805,7 @@ export function IssueDetail() {
                 }}
               >
                 <EyeOff className="h-3 w-3" />
-                Hide this Issue
+                {t("hideThisIssue", { defaultValue: "Hide this Issue" })}
               </button>
             </PopoverContent>
             </Popover>
@@ -1822,7 +1824,7 @@ export function IssueDetail() {
           onSave={(description) => updateIssue.mutateAsync({ description })}
           as="p"
           className="text-[15px] leading-7 text-foreground"
-          placeholder="Add a description..."
+          placeholder={t("addDescription", { defaultValue: "Add a description..." })}
           multiline
           mentions={mentionOptions}
           imageUploadHandler={async (file) => {
@@ -1879,7 +1881,7 @@ export function IssueDetail() {
       {(childIssuesLoading || childIssues.length > 0) && (
         <div className="space-y-3">
           <div className="flex items-center justify-between gap-2">
-            <h3 className="text-sm font-medium text-muted-foreground">Sub-issues</h3>
+            <h3 className="text-sm font-medium text-muted-foreground">{t("subIssues", { defaultValue: "Sub-issues" })}</h3>
             <Button variant="outline" size="sm" onClick={openNewSubIssue} className="shadow-none">
               <ListTree className="h-3.5 w-3.5 mr-1.5" />
               <span className="hidden sm:inline">Add sub-issue</span>
@@ -1952,8 +1954,8 @@ export function IssueDetail() {
             {childIssues.length === 0 && (
               <Button variant="outline" size="sm" onClick={openNewSubIssue} className="shadow-none">
                 <ListTree className="h-3.5 w-3.5 mr-1.5" />
-                <span className="hidden sm:inline">Add sub-issue</span>
-                <span className="sm:hidden">Sub-issue</span>
+                <span className="hidden sm:inline">{t("addSubIssue", { defaultValue: "Add sub-issue" })}</span>
+                <span className="sm:hidden">{t("subIssue", { defaultValue: "Sub-issue" })}</span>
               </Button>
             )}
           </>
@@ -1982,7 +1984,7 @@ export function IssueDetail() {
         onDrop={(evt) => void handleAttachmentDrop(evt)}
       >
         <div className="flex items-center justify-between gap-2">
-          <h3 className="text-sm font-medium text-muted-foreground">Attachments</h3>
+          <h3 className="text-sm font-medium text-muted-foreground">{t("attachments", { defaultValue: "Attachments" })}</h3>
           {attachmentUploadButton}
         </div>
 
@@ -2014,7 +2016,7 @@ export function IssueDetail() {
                     className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 bg-black/60"
                     onClick={(e) => e.stopPropagation()}
                   >
-                    <p className="text-xs text-white font-medium">Delete?</p>
+                    <p className="text-xs text-white font-medium">{t("deleteConfirm", { defaultValue: "Delete?" })}</p>
                     <div className="flex gap-1.5">
                       <button
                         type="button"
@@ -2026,7 +2028,7 @@ export function IssueDetail() {
                         }}
                         disabled={deleteAttachment.isPending}
                       >
-                        Yes
+                        {t("yes", { defaultValue: "Yes" })}
                       </button>
                       <button
                         type="button"
@@ -2036,7 +2038,7 @@ export function IssueDetail() {
                           setConfirmDeleteId(null);
                         }}
                       >
-                        No
+                        {t("no", { defaultValue: "No" })}
                       </button>
                     </div>
                   </div>
@@ -2048,7 +2050,7 @@ export function IssueDetail() {
                       e.stopPropagation();
                       setConfirmDeleteId(attachment.id);
                     }}
-                    title="Delete attachment"
+                    title={t("deleteAttachment", { defaultValue: "Delete attachment" })}
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
@@ -2077,7 +2079,7 @@ export function IssueDetail() {
                     className="text-muted-foreground hover:text-destructive"
                     onClick={() => deleteAttachment.mutate(attachment.id)}
                     disabled={deleteAttachment.isPending}
-                    title="Delete attachment"
+                    title={t("deleteAttachment", { defaultValue: "Delete attachment" })}
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
@@ -2111,11 +2113,11 @@ export function IssueDetail() {
         <TabsList variant="line" className="w-full justify-start gap-1">
           <TabsTrigger value="chat" className="gap-1.5">
             <MessageSquare className="h-3.5 w-3.5" />
-            Chat
+            {t("tabChat", { defaultValue: "Chat" })}
           </TabsTrigger>
           <TabsTrigger value="activity" className="gap-1.5">
             <ActivityIcon className="h-3.5 w-3.5" />
-            Activity
+            {t("tabActivity", { defaultValue: "Activity" })}
           </TabsTrigger>
           {issuePluginTabItems.map((item) => (
             <TabsTrigger key={item.value} value={item.value}>
@@ -2235,9 +2237,9 @@ export function IssueDetail() {
               )}
               {linkedRuns && linkedRuns.length > 0 && (
                 <div className="mb-3 px-3 py-2 rounded-lg border border-border">
-                  <div className="text-sm font-medium text-muted-foreground mb-1">Cost Summary</div>
+                  <div className="text-sm font-medium text-muted-foreground mb-1">{t("costSummary", { defaultValue: "Cost Summary" })}</div>
                   {!issueCostSummary.hasCost && !issueCostSummary.hasTokens ? (
-                    <div className="text-xs text-muted-foreground">No cost data yet.</div>
+                    <div className="text-xs text-muted-foreground">{t("noCostDataYet", { defaultValue: "No cost data yet." })}</div>
                   ) : (
                     <div className="flex flex-wrap gap-3 text-xs text-muted-foreground tabular-nums">
                       {issueCostSummary.hasCost && (
@@ -2258,7 +2260,7 @@ export function IssueDetail() {
                 </div>
               )}
               {!activity || activity.length === 0 ? (
-                <p className="text-xs text-muted-foreground">No activity yet.</p>
+                <p className="text-xs text-muted-foreground">{t("noActivityYet", { defaultValue: "No activity yet." })}</p>
               ) : (
                 <div className="space-y-1.5">
                   {activity.slice(0, 20).map((evt) => (
@@ -2294,7 +2296,7 @@ export function IssueDetail() {
       <Sheet open={mobilePropsOpen} onOpenChange={setMobilePropsOpen}>
         <SheetContent side="bottom" className="max-h-[85dvh] pb-[env(safe-area-inset-bottom)]">
           <SheetHeader>
-            <SheetTitle className="text-sm">Properties</SheetTitle>
+            <SheetTitle className="text-sm">{t("properties", { defaultValue: "Properties" })}</SheetTitle>
           </SheetHeader>
           <ScrollArea className="flex-1 overflow-y-auto">
             <div className="px-4 pb-4">

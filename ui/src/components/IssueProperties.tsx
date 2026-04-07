@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { pickTextColorForPillBg } from "@/lib/color-contrast";
 import { Link } from "@/lib/router";
 import type { Issue } from "@paperclipai/shared";
@@ -158,6 +159,7 @@ export function IssueProperties({
   onUpdate,
   inline,
 }: IssuePropertiesProps) {
+  const { t } = useTranslation("issues");
   const { selectedCompanyId } = useCompany();
   const queryClient = useQueryClient();
   const companyId = issue.companyId ?? selectedCompanyId;
@@ -359,7 +361,7 @@ export function IssueProperties({
   ) : (
     <>
       <Tag className="h-3.5 w-3.5 text-muted-foreground" />
-      <span className="text-sm text-muted-foreground">No labels</span>
+      <span className="text-sm text-muted-foreground">{t("properties.noLabels", { defaultValue: "No labels" })}</span>
     </>
   );
   const labelsExtra = (issue.labelIds ?? []).length > 0 ? (
@@ -378,7 +380,7 @@ export function IssueProperties({
     <>
       <input
         className="w-full px-2 py-1.5 text-xs bg-transparent outline-none border-b border-border mb-1 placeholder:text-muted-foreground/50"
-        placeholder="Search labels..."
+        placeholder={t("properties.searchLabels", { defaultValue: "Search labels..." })}
         value={labelSearch}
         onChange={(e) => setLabelSearch(e.target.value)}
         autoFocus={!inline}
@@ -416,7 +418,7 @@ export function IssueProperties({
           />
           <input
             className="flex-1 px-2 py-1.5 text-xs bg-transparent outline-none rounded placeholder:text-muted-foreground/50"
-            placeholder="New label"
+            placeholder={t("properties.newLabel", { defaultValue: "New label" })}
             value={newLabelName}
             onChange={(e) => setNewLabelName(e.target.value)}
           />
@@ -432,7 +434,7 @@ export function IssueProperties({
           }
         >
           <Plus className="h-3 w-3" />
-          {createLabel.isPending ? "Creating…" : "Create label"}
+          {createLabel.isPending ? t("properties.creating", { defaultValue: "Creating…" }) : t("properties.createLabel", { defaultValue: "Create label" })}
         </button>
       </div>
     </>
@@ -448,7 +450,7 @@ export function IssueProperties({
   ) : (
     <>
       <User className="h-3.5 w-3.5 text-muted-foreground" />
-      <span className="text-sm text-muted-foreground">Unassigned</span>
+      <span className="text-sm text-muted-foreground">{t("properties.unassigned", { defaultValue: "Unassigned" })}</span>
     </>
   );
 
@@ -456,7 +458,7 @@ export function IssueProperties({
     <>
       <input
         className="w-full px-2 py-1.5 text-xs bg-transparent outline-none border-b border-border mb-1 placeholder:text-muted-foreground/50"
-        placeholder="Search assignees..."
+        placeholder={t("properties.searchAssignees", { defaultValue: "Search assignees..." })}
         value={assigneeSearch}
         onChange={(e) => setAssigneeSearch(e.target.value)}
         autoFocus={!inline}
@@ -469,7 +471,7 @@ export function IssueProperties({
           )}
           onClick={() => { onUpdate({ assigneeAgentId: null, assigneeUserId: null }); setAssigneeOpen(false); }}
         >
-          No assignee
+          {t("properties.noAssignee", { defaultValue: "No assignee" })}
         </button>
         {currentUserId && (
           <button
@@ -483,7 +485,7 @@ export function IssueProperties({
             }}
           >
             <User className="h-3 w-3 shrink-0 text-muted-foreground" />
-            Assign to me
+            {t("properties.assignToMe", { defaultValue: "Assign to me" })}
           </button>
         )}
         {issue.createdByUserId && issue.createdByUserId !== currentUserId && (
@@ -498,7 +500,7 @@ export function IssueProperties({
             }}
           >
             <User className="h-3 w-3 shrink-0 text-muted-foreground" />
-            {creatorUserLabel ? `Assign to ${creatorUserLabel}` : "Assign to requester"}
+            {creatorUserLabel ? t("properties.assignToUser", { defaultValue: "Assign to {{name}}", name: creatorUserLabel }) : t("properties.assignToRequester", { defaultValue: "Assign to requester" })}
           </button>
         )}
         {sortedAgents
@@ -609,7 +611,7 @@ export function IssueProperties({
   ) : (
     <>
       <Hexagon className="h-3.5 w-3.5 text-muted-foreground" />
-      <span className="text-sm text-muted-foreground">No project</span>
+      <span className="text-sm text-muted-foreground">{t("properties.noProject", { defaultValue: "No project" })}</span>
     </>
   );
 
@@ -617,7 +619,7 @@ export function IssueProperties({
     <>
       <input
         className="w-full px-2 py-1.5 text-xs bg-transparent outline-none border-b border-border mb-1 placeholder:text-muted-foreground/50"
-        placeholder="Search projects..."
+        placeholder={t("properties.searchProjects", { defaultValue: "Search projects..." })}
         value={projectSearch}
         onChange={(e) => setProjectSearch(e.target.value)}
         autoFocus={!inline}
@@ -639,7 +641,7 @@ export function IssueProperties({
             setProjectOpen(false);
           }}
         >
-          No project
+          {t("properties.noProject", { defaultValue: "No project" })}
         </button>
         {orderedProjects
           .filter((p) => {
@@ -786,7 +788,7 @@ export function IssueProperties({
       )}
     </div>
   ) : (
-    <span className="text-sm text-muted-foreground">No blockers</span>
+    <span className="text-sm text-muted-foreground">{t("properties.noBlockers", { defaultValue: "No blockers" })}</span>
   );
 
   const blockingIssues = issue.blocks ?? [];
@@ -817,7 +819,7 @@ export function IssueProperties({
     <>
       <input
         className="w-full px-2 py-1.5 text-xs bg-transparent outline-none border-b border-border mb-1 placeholder:text-muted-foreground/50"
-        placeholder="Search issues..."
+        placeholder={t("properties.searchIssues", { defaultValue: "Search issues..." })}
         value={blockedBySearch}
         onChange={(e) => setBlockedBySearch(e.target.value)}
         autoFocus={!inline}
@@ -830,7 +832,7 @@ export function IssueProperties({
           )}
           onClick={() => onUpdate({ blockedByIssueIds: [] })}
         >
-          No blockers
+          {t("properties.noBlockers", { defaultValue: "No blockers" })}
         </button>
         {blockerOptions.map((candidate) => {
           const selected = blockedByIds.includes(candidate.id);
@@ -858,7 +860,7 @@ export function IssueProperties({
   return (
     <div className="space-y-4">
       <div className="space-y-1">
-        <PropertyRow label="Status">
+        <PropertyRow label={t("properties.status", { defaultValue: "Status" })}>
           <StatusIcon
             status={issue.status}
             onChange={(status) => onUpdate({ status })}
@@ -866,7 +868,7 @@ export function IssueProperties({
           />
         </PropertyRow>
 
-        <PropertyRow label="Priority">
+        <PropertyRow label={t("properties.priority", { defaultValue: "Priority" })}>
           <PriorityIcon
             priority={issue.priority}
             onChange={(priority) => onUpdate({ priority })}
@@ -876,7 +878,7 @@ export function IssueProperties({
 
         <PropertyPicker
           inline={inline}
-          label="Labels"
+          label={t("properties.labels", { defaultValue: "Labels" })}
           open={labelsOpen}
           onOpenChange={(open) => { setLabelsOpen(open); if (!open) setLabelSearch(""); }}
           triggerContent={labelsTrigger}
@@ -889,7 +891,7 @@ export function IssueProperties({
 
         <PropertyPicker
           inline={inline}
-          label="Assignee"
+          label={t("properties.assignee", { defaultValue: "Assignee" })}
           open={assigneeOpen}
           onOpenChange={(open) => { setAssigneeOpen(open); if (!open) setAssigneeSearch(""); }}
           triggerContent={assigneeTrigger}
@@ -909,7 +911,7 @@ export function IssueProperties({
 
         <PropertyPicker
           inline={inline}
-          label="Project"
+          label={t("properties.project", { defaultValue: "Project" })}
           open={projectOpen}
           onOpenChange={(open) => { setProjectOpen(open); if (!open) setProjectSearch(""); }}
           triggerContent={projectTrigger}
@@ -930,7 +932,7 @@ export function IssueProperties({
 
         <PropertyPicker
           inline={inline}
-          label="Parent"
+          label={t("properties.parent", { defaultValue: "Parent" })}
           open={parentOpen}
           onOpenChange={(open) => {
             setParentOpen(open);
@@ -954,7 +956,7 @@ export function IssueProperties({
 
         <PropertyPicker
           inline={inline}
-          label="Blocked by"
+          label={t("properties.blockedBy", { defaultValue: "Blocked by" })}
           open={blockedByOpen}
           onOpenChange={(open) => {
             setBlockedByOpen(open);
@@ -967,7 +969,7 @@ export function IssueProperties({
           {blockedByContent}
         </PropertyPicker>
 
-        <PropertyRow label="Blocking">
+        <PropertyRow label={t("properties.blocking", { defaultValue: "Blocking" })}>
           {blockingIssues.length > 0 ? (
             <div className="flex flex-wrap gap-1">
               {blockingIssues.map((relation) => (
@@ -983,7 +985,7 @@ export function IssueProperties({
           ) : null}
         </PropertyRow>
 
-        <PropertyRow label="Sub-issues">
+        <PropertyRow label={t("properties.subIssues", { defaultValue: "Sub-issues" })}>
           <div className="flex flex-wrap items-center gap-1.5">
             {childIssues.length > 0
               ? childIssues.map((child) => (
@@ -1003,7 +1005,7 @@ export function IssueProperties({
                 onClick={onAddSubIssue}
               >
                 <Plus className="h-3 w-3" />
-                Add sub-issue
+                {t("properties.addSubIssue", { defaultValue: "Add sub-issue" })}
               </button>
             ) : null}
           </div>
@@ -1054,7 +1056,7 @@ export function IssueProperties({
         )}
 
         {issue.requestDepth > 0 && (
-          <PropertyRow label="Depth">
+          <PropertyRow label={t("properties.depth", { defaultValue: "Depth" })}>
             <span className="text-sm font-mono">{issue.requestDepth}</span>
           </PropertyRow>
         )}
@@ -1065,7 +1067,7 @@ export function IssueProperties({
           <Separator />
           <div className="space-y-1">
             {issue.currentExecutionWorkspace?.branchName && (
-              <PropertyRow label="Branch">
+              <PropertyRow label={t("properties.branch", { defaultValue: "Branch" })}>
                 <TruncatedCopyable
                   value={issue.currentExecutionWorkspace.branchName}
                   icon={GitBranch}
@@ -1073,7 +1075,7 @@ export function IssueProperties({
               </PropertyRow>
             )}
             {issue.currentExecutionWorkspace?.cwd && (
-              <PropertyRow label="Folder">
+              <PropertyRow label={t("properties.folder", { defaultValue: "Folder" })}>
                 <TruncatedCopyable
                   value={issue.currentExecutionWorkspace.cwd}
                   icon={FolderOpen}
@@ -1088,7 +1090,7 @@ export function IssueProperties({
 
       <div className="space-y-1">
         {(issue.createdByAgentId || issue.createdByUserId) && (
-          <PropertyRow label="Created by">
+          <PropertyRow label={t("properties.createdBy", { defaultValue: "Created by" })}>
             {issue.createdByAgentId ? (
               <Link
                 to={`/agents/${issue.createdByAgentId}`}
@@ -1105,19 +1107,19 @@ export function IssueProperties({
           </PropertyRow>
         )}
         {issue.startedAt && (
-          <PropertyRow label="Started">
+          <PropertyRow label={t("properties.started", { defaultValue: "Started" })}>
             <span className="text-sm">{formatDate(issue.startedAt)}</span>
           </PropertyRow>
         )}
         {issue.completedAt && (
-          <PropertyRow label="Completed">
+          <PropertyRow label={t("properties.completed", { defaultValue: "Completed" })}>
             <span className="text-sm">{formatDate(issue.completedAt)}</span>
           </PropertyRow>
         )}
-        <PropertyRow label="Created">
+        <PropertyRow label={t("properties.created", { defaultValue: "Created" })}>
           <span className="text-sm">{formatDate(issue.createdAt)}</span>
         </PropertyRow>
-        <PropertyRow label="Updated">
+        <PropertyRow label={t("properties.updated", { defaultValue: "Updated" })}>
           <span className="text-sm">{timeAgo(issue.updatedAt)}</span>
         </PropertyRow>
       </div>
