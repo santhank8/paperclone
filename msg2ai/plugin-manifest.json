@@ -1,0 +1,13 @@
+{
+  "service": "CRM",
+  "widgets": {
+    "msg2ai": {
+      "name": "LinkedIn Data Widget",
+      "description": "Displays LinkedIn profile data and outreach status for CRM records",
+      "version": "1.0.0",
+      "module": "Leads",
+      "location": "detail_view",
+      "url": "/app/widget.html"
+    }
+  }
+}
