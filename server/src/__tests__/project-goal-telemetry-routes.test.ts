@@ -22,6 +22,14 @@ const mockGoalService = vi.hoisted(() => ({
 }));
 
 const mockWorkspaceOperationService = vi.hoisted(() => ({}));
+const mockWorkProductService = vi.hoisted(() => ({
+  listForIssue: vi.fn(),
+  listForProject: vi.fn(),
+  getById: vi.fn(),
+  createForIssue: vi.fn(),
+  update: vi.fn(),
+  remove: vi.fn(),
+}));
 const mockLogActivity = vi.hoisted(() => vi.fn());
 const mockTrackProjectCreated = vi.hoisted(() => vi.fn());
 const mockTrackGoalCreated = vi.hoisted(() => vi.fn());
@@ -47,6 +55,7 @@ vi.mock("../services/index.js", () => ({
   logActivity: mockLogActivity,
   projectService: () => mockProjectService,
   workspaceOperationService: () => mockWorkspaceOperationService,
+  workProductService: () => mockWorkProductService,
 }));
 
 vi.mock("../services/workspace-runtime.js", () => ({
