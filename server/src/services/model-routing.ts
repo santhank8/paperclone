@@ -18,7 +18,7 @@ export const OLLAMA_CLOUD_MODEL_TABLE: Record<
   cmo_content: { primary: "kimi-k2.5", description: "Creative content" },
 
   // Code generation
-  code_generation: { primary: "devstral-2:cloud", description: "Best coding model (Mistral)" },
+  code_generation: { primary: "deepseek-v3.2", description: "Best coding model" },
   code_review: { primary: "deepseek-v3.2", description: "Deep code analysis" },
 
   // Writing and reports

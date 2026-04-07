@@ -9,7 +9,8 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
   const apiUrl = asString(config.url, "https://ollama.com/api/chat");
   const envRecord = (config.env && typeof config.env === "object") ? config.env as Record<string, string> : {};
   const apiKey = asString(config.apiKey, envRecord.OLLAMA_API_KEY ?? process.env.OLLAMA_API_KEY ?? "");
-  const model = asString(config.model, "kimi-k2.5");
+  const primaryModel = asString(config.model, "kimi-k2.5");
+  const fallbackModel = asString(config.fallbackModel, "");
   const maxTokens = typeof config.maxOutputTokens === "number" ? config.maxOutputTokens : 4096;
 
   if (!apiKey) {
@@ -66,56 +67,93 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     messages.push({ role: "user", content: latestComment });
   }
 
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 120_000); // 2 min timeout
+  // Try primary model, fall back to fallback model on 404/503
+  async function callModel(model: string): Promise<{
+    content: string;
+    inputTokens: number;
+    outputTokens: number;
+    usedModel: string;
+  }> {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 120_000);
+
+    try {
+      const res = await fetch(apiUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model,
+          messages,
+          stream: false,
+          options: { num_predict: maxTokens },
+        }),
+        signal: controller.signal,
+      });
+
+      if (!res.ok) {
+        const errorText = await res.text().catch(() => "");
+        throw new Error(`Ollama Cloud API returned ${res.status}: ${errorText}`);
+      }
+
+      const data = await res.json() as {
+        message?: { content?: string };
+        eval_count?: number;
+        prompt_eval_count?: number;
+      };
+
+      return {
+        content: data.message?.content ?? "",
+        inputTokens: data.prompt_eval_count ?? 0,
+        outputTokens: data.eval_count ?? 0,
+        usedModel: model,
+      };
+    } catch (err) {
+      if ((err as Error).name === "AbortError") {
+        throw Object.assign(new Error("Ollama Cloud request timed out after 120s"), { timedOut: true });
+      }
+      throw err;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
 
   try {
-    const res = await fetch(apiUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model,
-        messages,
-        stream: false,
-        options: {
-          num_predict: maxTokens,
-        },
-      }),
-      signal: controller.signal,
-    });
-
-    if (!res.ok) {
-      const errorText = await res.text().catch(() => "");
-      throw new Error(`Ollama Cloud API returned ${res.status}: ${errorText}`);
-    }
-
-    const data = await res.json() as {
-      message?: { content?: string };
-      eval_count?: number;
-      prompt_eval_count?: number;
-    };
-
-    const responseContent = data.message?.content ?? "";
-    const outputTokens = data.eval_count ?? 0;
-    const inputTokens = data.prompt_eval_count ?? 0;
-
+    const result = await callModel(primaryModel);
     return {
       exitCode: 0,
       signal: null,
       timedOut: false,
-      summary: responseContent,
-      model,
+      summary: result.content,
+      model: result.usedModel,
       provider: "ollama_cloud",
-      usage: {
-        inputTokens,
-        outputTokens,
-      },
+      usage: { inputTokens: result.inputTokens, outputTokens: result.outputTokens },
     };
-  } catch (err) {
-    if ((err as Error).name === "AbortError") {
+  } catch (primaryErr) {
+    // If primary fails and we have a fallback, try it
+    const errMsg = (primaryErr as Error).message ?? "";
+    const isRetryable = errMsg.includes("404") || errMsg.includes("503") || errMsg.includes("not found") || errMsg.includes("overloaded");
+
+    if (fallbackModel && isRetryable) {
+      try {
+        const result = await callModel(fallbackModel);
+        return {
+          exitCode: 0,
+          signal: null,
+          timedOut: false,
+          summary: result.content,
+          model: result.usedModel,
+          provider: "ollama_cloud",
+          usage: { inputTokens: result.inputTokens, outputTokens: result.outputTokens },
+        };
+      } catch {
+        // Fallback also failed - throw original error
+      }
+    }
+
+    if ((primaryErr as { timedOut?: boolean }).timedOut) {
       return {
         exitCode: 1,
         signal: "SIGTERM",
@@ -123,8 +161,6 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
         summary: "Ollama Cloud request timed out after 120s",
       };
     }
-    throw err;
-  } finally {
-    clearTimeout(timer);
+    throw primaryErr;
   }
 }
