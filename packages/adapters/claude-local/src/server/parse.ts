@@ -177,3 +177,56 @@ export function isClaudeUnknownSessionError(parsed: Record<string, unknown>): bo
     /no conversation found with session id|unknown session|session .* not found/i.test(msg),
   );
 }
+
+// Patterns that indicate a rate-limit or overloaded error from the API or LLAP gateway.
+const RATE_LIMIT_RE = /rate.?limit(?:ed)?|too many requests|overloaded|all.?accounts.?exhausted|capacity.?exhausted|try again in|retry.?after/i;
+
+/**
+ * Returns true when Claude's result JSON or stderr text indicates a transient
+ * rate-limit / overload error that is safe to retry with back-off.
+ */
+export function isClaudeRateLimitError(
+  parsed: Record<string, unknown> | null,
+  stderr: string,
+): boolean {
+  if (parsed) {
+    const subtype = asString(parsed.subtype, "").trim().toLowerCase();
+    // Claude SDK surfaces these as subtype strings on error results.
+    if (subtype === "error_rate_limited" || subtype === "rate_limited") return true;
+    if (subtype === "overloaded_error" || subtype === "overloaded") return true;
+
+    const resultText = asString(parsed.result, "").trim();
+    const errors = extractClaudeErrorMessages(parsed);
+    const allText = [resultText, ...errors].join("\n");
+    if (RATE_LIMIT_RE.test(allText)) return true;
+  }
+
+  if (RATE_LIMIT_RE.test(stderr)) return true;
+
+  return false;
+}
+
+/**
+ * Attempts to parse a `Retry-After` value (in seconds) from Claude's stderr.
+ * LLAP includes a `Retry-After` header in 429 responses; the Claude SDK
+ * sometimes surfaces this as "retry after N seconds" in its error output.
+ * Returns null when no value can be reliably detected.
+ */
+export function extractRetryAfterSeconds(stderr: string): number | null {
+  // Match "retry after N seconds" / "Retry-After: N" / "retry_after_seconds: N"
+  const match = stderr.match(/retry.?after[:\s]+([0-9]+(?:\.[0-9]+)?)\s*s(?:ec(?:ond)?s?)?/i)
+    ?? stderr.match(/retry_after_seconds["']?\s*:\s*([0-9]+(?:\.[0-9]+)?)/i);
+  if (!match) return null;
+  const value = parseFloat(match[1] ?? "");
+  return Number.isFinite(value) && value > 0 ? Math.ceil(value) : null;
+}
+
+/**
+ * Returns true when a successful Claude response (stderr/stdout) contains
+ * an `X-LLAP-Capacity-Pressure: high` signal, indicating the upstream
+ * LLM pool is approaching exhaustion. Consumers should proactively slow
+ * down further LLM calls for the remainder of the heartbeat.
+ */
+export function detectCapacityPressure(output: string): boolean {
+  return /x-llap-capacity-pressure:\s*high/i.test(output);
+}

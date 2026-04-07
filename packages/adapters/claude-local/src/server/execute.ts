@@ -30,6 +30,9 @@ import {
   detectClaudeLoginRequired,
   isClaudeMaxTurnsResult,
   isClaudeUnknownSessionError,
+  isClaudeRateLimitError,
+  extractRetryAfterSeconds,
+  detectCapacityPressure,
 } from "./parse.js";
 import { resolveClaudeDesiredSkillNames } from "./skills.js";
 
@@ -598,24 +601,90 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     };
   };
 
+  // Backoff constants for rate-limit retries (decorrelated jitter, AWS-style).
+  const BACKOFF_BASE_MS = 2_000;
+  const BACKOFF_MAX_MS = 120_000;
+  const BACKOFF_MAX_TOTAL_MS = 10 * 60 * 1_000; // 10 minutes per heartbeat
+
+  function nextBackoffMs(attempt: number, prevMs: number): number {
+    const exponential = Math.min(BACKOFF_MAX_MS, BACKOFF_BASE_MS * Math.pow(2, attempt));
+    const jitter = Math.random() * BACKOFF_BASE_MS;
+    return Math.min(exponential + jitter, BACKOFF_MAX_MS);
+  }
+
   try {
-    const initial = await runAttempt(sessionId ?? null);
-    if (
-      sessionId &&
-      !initial.proc.timedOut &&
-      (initial.proc.exitCode ?? 0) !== 0 &&
-      initial.parsed &&
-      isClaudeUnknownSessionError(initial.parsed)
-    ) {
+    let attempt = 0;
+    let prevBackoffMs = BACKOFF_BASE_MS;
+    const retryStartMs = Date.now();
+    let activeSessionId = sessionId ?? null;
+
+    while (true) {
+      const current = await runAttempt(activeSessionId);
+
+      // Session-not-found: retry once with a fresh session (existing behaviour).
+      if (
+        attempt === 0 &&
+        activeSessionId &&
+        !current.proc.timedOut &&
+        (current.proc.exitCode ?? 0) !== 0 &&
+        current.parsed &&
+        isClaudeUnknownSessionError(current.parsed)
+      ) {
+        await onLog(
+          "stdout",
+          `[paperclip] Claude resume session "${activeSessionId}" is unavailable; retrying with a fresh session.\n`,
+        );
+        const freshRetry = await runAttempt(null);
+        return toAdapterResult(freshRetry, { fallbackSessionId: null, clearSessionOnMissingSession: true });
+      }
+
+      // Detect X-LLAP-Capacity-Pressure on a successful response and warn.
+      const runSucceeded =
+        !current.proc.timedOut && (current.proc.exitCode ?? 0) === 0 && !current.parsed?.is_error;
+      if (runSucceeded && detectCapacityPressure(current.proc.stderr)) {
+        await onLog(
+          "stderr",
+          "[paperclip] X-LLAP-Capacity-Pressure: high detected — upstream LLM pool approaching exhaustion.\n",
+        );
+      }
+
+      // Check for rate-limit / overload error.
+      const isRateLimit =
+        !runSucceeded &&
+        !current.proc.timedOut &&
+        isClaudeRateLimitError(current.parsed, current.proc.stderr);
+
+      if (!isRateLimit) {
+        return toAdapterResult(current, { fallbackSessionId: runtimeSessionId || runtime.sessionId });
+      }
+
+      // Exponential backoff with decorrelated jitter; honour Retry-After when present.
+      const elapsedMs = Date.now() - retryStartMs;
+      const retryAfterSec = extractRetryAfterSeconds(current.proc.stderr);
+      const retryAfterMs = retryAfterSec != null ? retryAfterSec * 1_000 : null;
+      prevBackoffMs = nextBackoffMs(attempt, prevBackoffMs);
+      const sleepMs = retryAfterMs != null ? Math.max(prevBackoffMs, retryAfterMs) : prevBackoffMs;
+
+      if (elapsedMs + sleepMs >= BACKOFF_MAX_TOTAL_MS) {
+        await onLog(
+          "stderr",
+          `[paperclip] Rate-limit retry budget exhausted after ${Math.round(elapsedMs / 1_000)}s (${attempt + 1} attempt(s)). Returning error.\n`,
+        );
+        return toAdapterResult(current, { fallbackSessionId: runtimeSessionId || runtime.sessionId });
+      }
+
+      const retryAfterNote = retryAfterSec != null ? ` (Retry-After: ${retryAfterSec}s)` : "";
       await onLog(
         "stdout",
-        `[paperclip] Claude resume session "${sessionId}" is unavailable; retrying with a fresh session.\n`,
+        `[paperclip] Rate-limit error (attempt ${attempt + 1}); retrying in ${Math.round(sleepMs / 1_000)}s${retryAfterNote}.\n`,
       );
-      const retry = await runAttempt(null);
-      return toAdapterResult(retry, { fallbackSessionId: null, clearSessionOnMissingSession: true });
-    }
+      await new Promise<void>((resolve) => setTimeout(resolve, sleepMs));
 
-    return toAdapterResult(initial, { fallbackSessionId: runtimeSessionId || runtime.sessionId });
+      attempt++;
+      // Start a fresh Claude session on rate-limit retry — do not resume a
+      // half-completed context that may have contributed to the rate-limit.
+      activeSessionId = null;
+    }
   } finally {
     fs.rm(skillsDir, { recursive: true, force: true }).catch(() => {});
   }
