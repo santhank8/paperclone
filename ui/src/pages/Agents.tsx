@@ -25,7 +25,7 @@ import {
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
 import { Bot, Plus, List, GitBranch, SlidersHorizontal, Pause, Play, ChevronDown } from "lucide-react";
-import { AGENT_ROLE_LABELS, type Agent } from "@paperclipai/shared";
+import { AGENT_ROLE_LABELS, type Agent, type AgentStatus } from "@paperclipai/shared";
 
 import { getAdapterLabel } from "../adapters/adapter-display-registry";
 
@@ -443,7 +443,7 @@ function OrgTreeNode({
                 liveCount={liveRunByAgent.get(node.id)!.liveCount}
               />
             ) : (
-              <StatusBadgeMenu agentId={node.id} status={node.status} companyId={companyId} />
+              <StatusBadgeMenu agentId={node.id} status={node.status as AgentStatus} companyId={companyId} />
             )}
           </span>
           <div className="hidden sm:flex items-center gap-3">
@@ -465,7 +465,7 @@ function OrgTreeNode({
               </>
             )}
             <span className="w-20 flex justify-end">
-              <StatusBadgeMenu agentId={node.id} status={node.status} companyId={companyId} />
+              <StatusBadgeMenu agentId={node.id} status={node.status as AgentStatus} companyId={companyId} />
             </span>
           </div>
         </div>
