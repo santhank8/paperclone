@@ -36,30 +36,107 @@ const startLocksByAgent = new Map<string, Promise<void>>();
 const REPO_ONLY_CWD_SENTINEL = "/__paperclip_repo_only__";
 const DEERFLOW_PREFLIGHT_TIMEOUT_SEC_DEFAULT = 120;
 const DEERFLOW_RESEARCH_COMMENT_TAG = "<!-- deerflow:research -->";
-const DEERFLOW_RESEARCH_PROMPT = `Research the following task. Do NOT implement it — only gather context.
+
+// DeerFlow pre-flight research prompt.
+//
+// This prompt is sent to a Haiku-tier research assistant (typically a small
+// local model like Qwen 3.5 9B) with a strict LangGraph recursion limit
+// (defaults to 50 graph node visits ~= 15-20 tool-call turns). The earlier
+// version of this prompt told the assistant to "read the project workspace
+// to understand the codebase structure", which was an open-ended invitation
+// to breadth-first exploration — the model would fire many small bash/grep/ls
+// calls in sequence, exhaust the recursion budget, and return a
+// `GRAPH_RECURSION_LIMIT` error with no useful output.
+//
+// The new prompt imposes explicit budgets (tool-call count, failed-search
+// retry cap, read-file line-range discipline) and tells the model what to do
+// when it CAN'T find something (stop and report, don't keep searching). This
+// keeps the pre-flight bounded and produces a short, useful brief that the
+// managing engineer can read as starting context.
+const DEERFLOW_RESEARCH_PROMPT = `Research the task below and produce a short, directive research brief for the engineer who will do the actual work. Do NOT implement anything — only gather context and report back.
 
 # Task
 {issueTitle}
 
 {issueBody}
 
-## Your job
-1. Read the project workspace to understand the codebase structure
-2. Identify relevant files, patterns, and dependencies
-3. Check for existing implementations that can be reused
-4. Note any blockers, risks, or ambiguities
-5. Summarize findings in a structured brief (under 2000 chars)
+## Hard constraints (read these before touching any tool)
 
-Output format:
+- **Tool call budget: use AT MOST 6 tool calls total.** This is a hard budget, not a suggestion. Count them as you go. If you hit 6, STOP and output whatever brief you can assemble — partial context is still useful context.
+- **Failed-search rule: if you cannot find what you are looking for after 3 attempts, STOP.** Do not keep trying new search patterns. Report \`Could not locate <thing>\` in the brief — that IS useful information for the engineer.
+- **File read discipline: every \`read_file\` call MUST use \`start_line\` and \`end_line\` parameters.** Never read a full file. If you don't know the size yet, call \`bash wc -l <path>\` first, then read a bounded range.
+- **Do NOT spawn subagents. Do NOT use the \`task\` tool.** This is a quick research pass — no decomposition, no orchestration, no parallelism.
+- **Do NOT restate the task.** The engineer already has the full task title and body. Your only job is to add context they don't already have.
+
+## Your job
+
+1. Identify 2-4 files or modules directly relevant to the task (fewer is better)
+2. Note 1-2 existing patterns the implementer should follow, if any are obvious
+3. Flag any blockers or ambiguities that would prevent a quick implementation
+4. Stop and output the brief
+
+## Output format (keep the entire brief under 1500 characters)
+
+\`\`\`
 ## Research Brief
+
 ### Relevant Files
-- path/to/file — why it matters
+- path/to/file — one-line why it matters
+- path/to/other — one-line why
+
 ### Key Patterns
-- pattern description
+- pattern description (or "None noted")
+
 ### Risks & Blockers
-- risk description
-### Recommendation
-- concrete next steps for the implementing engineer`;
+- risk description (or "None identified")
+\`\`\`
+
+If you hit any hard constraint above, still produce the brief. An incomplete brief with "Could not locate X" is infinitely more useful than a recursion-limit error.`;
+
+/** LangGraph recursion budget used for DeerFlow pre-flight research runs.
+ *
+ * The regular adapter default (in `packages/adapters/deerflow/src/server/execute.ts`)
+ * is 50. Pre-flight gets a wider budget because the research prompt
+ * legitimately asks the assistant to explore an unfamiliar codebase — 50
+ * graph node visits translates to only ~15-20 model turns, which even a
+ * well-behaved model can exhaust walking a repo. 100 gives enough headroom
+ * for the restricted prompt (see DEERFLOW_PREFLIGHT_RESEARCH_PROMPT above)
+ * to finish on the typical exploration task without being a blanket
+ * band-aid on every DeerFlow run.
+ */
+export const DEERFLOW_PREFLIGHT_RECURSION_LIMIT = 100;
+
+/** Build the adapter config used for a DeerFlow pre-flight research run.
+ *
+ * Pre-flight is research-only: the assistant reads context and posts a
+ * comment; it does NOT implement anything, does NOT decompose into subtasks,
+ * and does NOT need extended thinking. Forcing these flags off strips the
+ * subagent/thinking instruction blocks from the lead-agent system prompt,
+ * keeping the context small and the behavior focused on producing a short
+ * brief. Everything else (model, dangerouslySkipPermissions, instructions
+ * file path, etc.) is inherited from the assistant's base adapter config.
+ *
+ * The recursion budget is also bumped to `DEERFLOW_PREFLIGHT_RECURSION_LIMIT`
+ * (100) — see that constant for rationale.
+ *
+ * Exported for unit testing.
+ */
+export function buildDeerflowPreflightConfig(
+  baseConfig: Record<string, unknown>,
+  timeoutSec: number,
+): Record<string, unknown> {
+  return {
+    ...baseConfig,
+    timeoutSec,
+    subagentEnabled: false,
+    thinkingEnabled: false,
+    recursionLimit: DEERFLOW_PREFLIGHT_RECURSION_LIMIT,
+  };
+}
+
+/** The current research prompt template. Exported for tests and for callers
+ * that need to verify the template contains specific guidance strings. */
+export const DEERFLOW_PREFLIGHT_RESEARCH_PROMPT = DEERFLOW_RESEARCH_PROMPT;
 
 // ---------------------------------------------------------------------------
 // Wakeup debounce — batches rapid assignment wakeups for the same agent
@@ -625,11 +702,10 @@ export function heartbeatService(db: Db) {
       ? createLocalAgentJwt(deerflowAgent.id, deerflowAgent.companyId, deerflowAgent.adapterType, parentRun.id)
       : null;
 
-    // Override timeout in config for shorter pre-flight runs
-    const preflightConfig: Record<string, unknown> = {
-      ...deerflowConfig,
-      timeoutSec,
-    };
+    // Build the adapter config for this pre-flight run. This strips
+    // subagent and thinking support — see buildDeerflowPreflightConfig
+    // for the rationale.
+    const preflightConfig = buildDeerflowPreflightConfig(deerflowConfig, timeoutSec);
 
     await onLog("stdout", `[preflight] Starting DeerFlow research (timeout: ${timeoutSec}s)\n`);
 
