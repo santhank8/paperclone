@@ -174,7 +174,15 @@ export interface CompanyPortabilityExportResult {
 
 export interface CompanyPortabilityExportPreviewFile {
   path: string;
-  kind: "company" | "agent" | "skill" | "project" | "issue" | "extension" | "readme" | "other";
+  kind:
+    | "company"
+    | "agent"
+    | "skill"
+    | "project"
+    | "issue"
+    | "extension"
+    | "readme"
+    | "other";
 }
 
 export interface CompanyPortabilityExportPreviewResult {
@@ -226,6 +234,7 @@ export interface CompanyPortabilityPreviewRequest {
   collisionStrategy?: CompanyPortabilityCollisionStrategy;
   nameOverrides?: Record<string, string>;
   selectedFiles?: string[];
+  defaultAgentConfig?: CompanyPortabilityDefaultAgentConfig;
 }
 
 export interface CompanyPortabilityPreviewAgentPlan {
@@ -273,6 +282,26 @@ export interface CompanyPortabilityPreviewResult {
 export interface CompanyPortabilityAdapterOverride {
   adapterType: string;
   adapterConfig?: Record<string, unknown>;
+}
+
+/** Default values applied to all agents during import, unless overridden per-agent */
+export interface CompanyPortabilityDefaultAgentConfig {
+  /** Default adapter type for all agents (e.g., "claude_local", "codex_local") */
+  adapterType?: string;
+  /** Default model for claude_local adapter (e.g., "claude-opus-4-6") */
+  model?: string;
+  /** Default command for claude_local adapter (e.g., "claude") */
+  command?: string;
+  /** Default extra CLI args applied to all agents */
+  extraArgs?: string[];
+  /** Default parameters applied to adapter config */
+  parameters?: Record<string, unknown>;
+  /** Default max turns per run (budget/safety cap) */
+  maxTurnsPerRun?: number;
+  /** Default heartbeat enabled flag */
+  heartbeatEnabled?: boolean;
+  /** Default heartbeat interval in seconds */
+  intervalSec?: number;
 }
 
 export interface CompanyPortabilityImportRequest extends CompanyPortabilityPreviewRequest {
