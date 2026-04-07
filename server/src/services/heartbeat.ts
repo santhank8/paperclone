@@ -386,7 +386,7 @@ function readNonEmptyString(value: unknown): string | null {
   return typeof value === "string" && value.trim().length > 0 ? value : null;
 }
 
-function normalizeLedgerBillingType(value: unknown): BillingType {
+export function normalizeLedgerBillingType(value: unknown): BillingType {
   const raw = readNonEmptyString(value);
   switch (raw) {
     case "api":
@@ -406,11 +406,11 @@ function normalizeLedgerBillingType(value: unknown): BillingType {
   }
 }
 
-function resolveLedgerBiller(result: Pick<AdapterExecutionResult, "biller" | "provider">): string {
+export function resolveLedgerBiller(result: Pick<AdapterExecutionResult, "biller" | "provider">): string {
   return readNonEmptyString(result.biller) ?? readNonEmptyString(result.provider) ?? "unknown";
 }
 
-function normalizeBilledCostCents(costUsd: number | null | undefined, billingType: BillingType): number {
+export function normalizeBilledCostCents(costUsd: number | null | undefined, billingType: BillingType): number {
   if (billingType === "subscription_included") return 0;
   if (typeof costUsd !== "number" || !Number.isFinite(costUsd)) return 0;
   return Math.max(0, Math.round(costUsd * 100));
@@ -492,7 +492,7 @@ export function buildExplicitResumeSessionOverride(input: {
   };
 }
 
-function normalizeUsageTotals(usage: UsageSummary | null | undefined): UsageTotals | null {
+export function normalizeUsageTotals(usage: UsageSummary | null | undefined): UsageTotals | null {
   if (!usage) return null;
   return {
     inputTokens: Math.max(0, Math.floor(asNumber(usage.inputTokens, 0))),
