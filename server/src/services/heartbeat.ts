@@ -3085,7 +3085,20 @@ export function heartbeatService(db: Db) {
           try {
             const issueComment = buildHeartbeatRunIssueComment(adapterResult.resultJson ?? null);
             if (issueComment) {
-              await issuesSvc.addComment(issueId, issueComment, { agentId: agent.id });
+              // Skip the system summary comment if the agent already posted a comment
+              // during this run (e.g. agents with the Paperclip skill post their own).
+              const agentPostedDuringRun = await db
+                .select({ id: issueComments.id })
+                .from(issueComments)
+                .where(and(
+                  eq(issueComments.issueId, issueId),
+                  eq(issueComments.createdByRunId, run.id),
+                ))
+                .limit(1)
+                .then((rows) => rows.length > 0);
+              if (!agentPostedDuringRun) {
+                await issuesSvc.addComment(issueId, issueComment, { agentId: agent.id });
+              }
             }
           } catch (err) {
             await onLog(
