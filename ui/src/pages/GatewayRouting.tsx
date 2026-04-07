@@ -26,7 +26,8 @@ import { queryKeys } from "../lib/queryKeys";
 import { cn } from "../lib/utils";
 import { EmptyState } from "../components/EmptyState";
 import { Button } from "@/components/ui/button";
-import { AdapterTypeDropdown, EnvVarEditor } from "../components/AgentConfigForm";
+import { AdapterTypeDropdown } from "../components/AgentConfigForm";
+import { EnvVarEditor } from "../components/EnvVarEditor";
 import { Field, DraftInput, DraftNumberInput, help } from "../components/agent-config-primitives";
 import { useDisabledAdaptersSync } from "../adapters/use-disabled-adapters";
 

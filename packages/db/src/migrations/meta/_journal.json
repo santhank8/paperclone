@@ -365,6 +365,20 @@
       "when": 1775455200000,
       "tag": "0051_adapter_config_overrides",
       "breakpoints": true
+    },
+    {
+      "idx": 52,
+      "version": "7",
+      "when": 1775487782768,
+      "tag": "0050_stiff_luckman",
+      "breakpoints": true
+    },
+    {
+      "idx": 53,
+      "version": "7",
+      "when": 1775524651831,
+      "tag": "0051_young_korg",
+      "breakpoints": true
     }
   ]
 }
