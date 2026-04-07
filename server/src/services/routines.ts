@@ -5,7 +5,6 @@ import {
   agents,
   companySecrets,
   goals,
-  heartbeatRuns,
   issues,
   projects,
   routineRuns,
@@ -43,7 +42,6 @@ import { queueIssueAssignmentWakeup, type IssueAssignmentWakeupDeps } from "./is
 import { logActivity } from "./activity-log.js";
 
 const OPEN_ISSUE_STATUSES = ["backlog", "todo", "in_progress", "in_review", "blocked"];
-const LIVE_HEARTBEAT_RUN_STATUSES = ["queued", "running"];
 const TERMINAL_ISSUE_STATUSES = new Set(["done", "cancelled"]);
 const MAX_CATCH_UP_RUNS = 25;
 const WEEKDAY_INDEX: Record<string, number> = {
@@ -452,7 +450,7 @@ export function routineService(db: Db, deps: { heartbeat?: IssueAssignmentWakeup
 
   async function listLiveIssueByRoutineIds(companyId: string, routineIds: string[]) {
     if (routineIds.length === 0) return new Map<string, RoutineListItem["activeIssue"]>();
-    const executionBoundRows = await db
+    const rows = await db
       .selectDistinctOn([issues.originId], {
         originId: issues.originId,
         id: issues.id,
@@ -463,13 +461,6 @@ export function routineService(db: Db, deps: { heartbeat?: IssueAssignmentWakeup
         updatedAt: issues.updatedAt,
       })
       .from(issues)
-      .innerJoin(
-        heartbeatRuns,
-        and(
-          eq(heartbeatRuns.id, issues.executionRunId),
-          inArray(heartbeatRuns.status, LIVE_HEARTBEAT_RUN_STATUSES),
-        ),
-      )
       .where(
         and(
           eq(issues.companyId, companyId),
@@ -477,56 +468,13 @@ export function routineService(db: Db, deps: { heartbeat?: IssueAssignmentWakeup
           inArray(issues.originId, routineIds),
           inArray(issues.status, OPEN_ISSUE_STATUSES),
           isNull(issues.hiddenAt),
+          isNotNull(issues.executionRunId),
         ),
       )
       .orderBy(issues.originId, desc(issues.updatedAt), desc(issues.createdAt));
 
-    const rowsByOriginId = new Map<string, (typeof executionBoundRows)[number]>();
-    for (const row of executionBoundRows) {
-      if (!row.originId) continue;
-      rowsByOriginId.set(row.originId, row);
-    }
-
-    const missingRoutineIds = routineIds.filter((routineId) => !rowsByOriginId.has(routineId));
-    if (missingRoutineIds.length > 0) {
-      const legacyRows = await db
-        .selectDistinctOn([issues.originId], {
-          originId: issues.originId,
-          id: issues.id,
-          identifier: issues.identifier,
-          title: issues.title,
-          status: issues.status,
-          priority: issues.priority,
-          updatedAt: issues.updatedAt,
-        })
-        .from(issues)
-        .innerJoin(
-          heartbeatRuns,
-          and(
-            eq(heartbeatRuns.companyId, issues.companyId),
-            inArray(heartbeatRuns.status, LIVE_HEARTBEAT_RUN_STATUSES),
-            sql`${heartbeatRuns.contextSnapshot} ->> 'issueId' = cast(${issues.id} as text)`,
-          ),
-        )
-        .where(
-          and(
-            eq(issues.companyId, companyId),
-            eq(issues.originKind, "routine_execution"),
-            inArray(issues.originId, missingRoutineIds),
-            inArray(issues.status, OPEN_ISSUE_STATUSES),
-            isNull(issues.hiddenAt),
-          ),
-        )
-        .orderBy(issues.originId, desc(issues.updatedAt), desc(issues.createdAt));
-
-      for (const row of legacyRows) {
-        if (!row.originId) continue;
-        rowsByOriginId.set(row.originId, row);
-      }
-    }
-
     const map = new Map<string, RoutineListItem["activeIssue"]>();
-    for (const row of rowsByOriginId.values()) {
+    for (const row of rows) {
       if (!row.originId) continue;
       map.set(row.originId, {
         id: row.id,
@@ -570,42 +518,10 @@ export function routineService(db: Db, deps: { heartbeat?: IssueAssignmentWakeup
     }
   }
 
-  async function findLiveExecutionIssue(routine: typeof routines.$inferSelect, executor: Db = db) {
-    const executionBoundIssue = await executor
-      .select()
-      .from(issues)
-      .innerJoin(
-        heartbeatRuns,
-        and(
-          eq(heartbeatRuns.id, issues.executionRunId),
-          inArray(heartbeatRuns.status, LIVE_HEARTBEAT_RUN_STATUSES),
-        ),
-      )
-      .where(
-        and(
-          eq(issues.companyId, routine.companyId),
-          eq(issues.originKind, "routine_execution"),
-          eq(issues.originId, routine.id),
-          inArray(issues.status, OPEN_ISSUE_STATUSES),
-          isNull(issues.hiddenAt),
-        ),
-      )
-      .orderBy(desc(issues.updatedAt), desc(issues.createdAt))
-      .limit(1)
-      .then((rows) => rows[0]?.issues ?? null);
-    if (executionBoundIssue) return executionBoundIssue;
-
+  async function findOpenExecutionIssue(routine: typeof routines.$inferSelect, executor: Db = db) {
     return executor
       .select()
       .from(issues)
-      .innerJoin(
-        heartbeatRuns,
-        and(
-          eq(heartbeatRuns.companyId, issues.companyId),
-          inArray(heartbeatRuns.status, LIVE_HEARTBEAT_RUN_STATUSES),
-          sql`${heartbeatRuns.contextSnapshot} ->> 'issueId' = cast(${issues.id} as text)`,
-        ),
-      )
       .where(
         and(
           eq(issues.companyId, routine.companyId),
@@ -613,11 +529,12 @@ export function routineService(db: Db, deps: { heartbeat?: IssueAssignmentWakeup
           eq(issues.originId, routine.id),
           inArray(issues.status, OPEN_ISSUE_STATUSES),
           isNull(issues.hiddenAt),
+          isNotNull(issues.executionRunId),
         ),
       )
       .orderBy(desc(issues.updatedAt), desc(issues.createdAt))
       .limit(1)
-      .then((rows) => rows[0]?.issues ?? null);
+      .then((rows) => rows[0] ?? null);
   }
 
   async function finalizeRun(runId: string, patch: Partial<typeof routineRuns.$inferInsert>, executor: Db = db) {
@@ -723,7 +640,7 @@ export function routineService(db: Db, deps: { heartbeat?: IssueAssignmentWakeup
 
       let createdIssue: Awaited<ReturnType<typeof issueSvc.create>> | null = null;
       try {
-        const activeIssue = await findLiveExecutionIssue(input.routine, txDb);
+        const activeIssue = await findOpenExecutionIssue(input.routine, txDb);
         if (activeIssue && input.routine.concurrencyPolicy !== "always_enqueue") {
           const status = input.routine.concurrencyPolicy === "skip_if_active" ? "skipped" : "coalesced";
           const updated = await finalizeRun(createdRun.id, {
@@ -772,7 +689,7 @@ export function routineService(db: Db, deps: { heartbeat?: IssueAssignmentWakeup
             throw error;
           }
 
-          const existingIssue = await findLiveExecutionIssue(input.routine, txDb);
+          const existingIssue = await findOpenExecutionIssue(input.routine, txDb);
           if (!existingIssue) throw error;
           const status = input.routine.concurrencyPolicy === "skip_if_active" ? "skipped" : "coalesced";
           const updated = await finalizeRun(createdRun.id, {
@@ -976,7 +893,7 @@ export function routineService(db: Db, deps: { heartbeat?: IssueAssignmentWakeup
                 : null,
             })),
           ),
-        findLiveExecutionIssue(row),
+        findOpenExecutionIssue(row),
       ]);
 
       return {
