@@ -19,6 +19,7 @@
     "secrets:migrate-inline-env": "tsx scripts/migrate-inline-env-secrets.ts",
     "db:backup": "./scripts/backup-db.sh",
     "paperclipai": "node cli/node_modules/tsx/dist/cli.mjs cli/src/index.ts",
+    "paperclipai:run": "node cli/node_modules/tsx/dist/cli.mjs cli/src/index.ts run",
     "build:npm": "./scripts/build-npm.sh",
     "release": "./scripts/release.sh",
     "release:canary": "./scripts/release.sh canary",
@@ -49,6 +50,7 @@
   },
   "packageManager": "pnpm@9.15.4",
   "pnpm": {
+    "autoInstallPeers": true,
     "patchedDependencies": {
       "embedded-postgres@18.1.0-beta.16": "patches/embedded-postgres@18.1.0-beta.16.patch"
     }
