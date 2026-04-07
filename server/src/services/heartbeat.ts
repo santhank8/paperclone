@@ -4440,17 +4440,18 @@ export function heartbeatService(db: Db) {
     resumeQueuedRuns,
 
     tickTimers: async (now = new Date()) => {
-      const scaleRows = await db
-        .select({
-          id: companies.id,
-          heartbeatFrequencyScalePercent: companies.heartbeatFrequencyScalePercent,
-        })
-        .from(companies);
+      const [scaleRows, allAgents] = await Promise.all([
+        db
+          .select({
+            id: companies.id,
+            heartbeatFrequencyScalePercent: companies.heartbeatFrequencyScalePercent,
+          })
+          .from(companies),
+        db.select().from(agents),
+      ]);
       const scaleByCompanyId = new Map(
         scaleRows.map((row) => [row.id, row.heartbeatFrequencyScalePercent]),
       );
-
-      const allAgents = await db.select().from(agents);
       let checked = 0;
       let enqueued = 0;
       let skipped = 0;

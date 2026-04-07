@@ -65,6 +65,15 @@ type BoardClaimStatus = {
   claimedByUserId: string | null;
 };
 
+export type BoardMeResponse = {
+  user: { id: string; name: string | null; email: string | null } | null;
+  userId: string;
+  isInstanceAdmin: boolean;
+  companyIds: string[];
+  source: string;
+  keyId: string | null;
+};
+
 type CliAuthChallengeStatus = {
   id: string;
   status: "pending" | "approved" | "cancelled" | "expired";
@@ -95,6 +104,9 @@ type CompanyInviteCreated = {
 };
 
 export const accessApi = {
+  /** Board session or API key (not agent JWT). Used to resolve company-scoped edit permissions. */
+  getBoardMe: () => api.get<BoardMeResponse>("/cli-auth/me"),
+
   createCompanyInvite: (
     companyId: string,
     input: {
