@@ -543,6 +543,10 @@ async function startServerChild() {
       if (restartInFlight || expected || shuttingDown) {
         return;
       }
+      // In watch mode, the outer restart loop handles unexpected deaths.
+      if (mode === "watch") {
+        return;
+      }
       if (signal) {
         exitForSignal(signal);
         return;
@@ -650,10 +654,53 @@ await startServerChild();
 installDevIntervals();
 
 if (mode === "watch") {
-  const exit = await waitForChildExit();
-  await removeLocalServiceRegistryRecord(devService.serviceKey);
-  if (exit.signal) {
-    exitForSignal(exit.signal);
+  const maxWatchRestarts = 5;
+  const watchRestartBackoffMs = 2000;
+  let watchRestartCount = 0;
+
+  while (true) {
+    const exit = await waitForChildExit();
+
+    // SIGINT (Ctrl+C) is always intentional — exit immediately.
+    if (exit.signal === "SIGINT") {
+      await removeLocalServiceRegistryRecord(devService.serviceKey);
+      exitForSignal(exit.signal);
+      break;
+    }
+
+    // Clean exit (code 0) means the child decided to stop — honour it.
+    if (!exit.signal && exit.code === 0) {
+      await removeLocalServiceRegistryRecord(devService.serviceKey);
+      process.exit(0);
+      break;
+    }
+
+    // Unexpected death (SIGTERM or non-zero exit) — attempt auto-restart.
+    watchRestartCount++;
+    if (watchRestartCount > maxWatchRestarts) {
+      console.error(
+        `[paperclip] watch mode child died ${watchRestartCount} times — giving up (last signal: ${exit.signal ?? "none"}, code: ${exit.code})`,
+      );
+      await removeLocalServiceRegistryRecord(devService.serviceKey);
+      if (exit.signal) {
+        exitForSignal(exit.signal);
+      }
+      process.exit(exit.code ?? 1);
+      break;
+    }
+
+    const backoff = watchRestartBackoffMs * watchRestartCount;
+    console.log(
+      `[paperclip] watch mode child exited unexpectedly (signal: ${exit.signal ?? "none"}, code: ${exit.code}) — restarting in ${backoff}ms (attempt ${watchRestartCount}/${maxWatchRestarts})`,
+    );
+    await new Promise((r) => setTimeout(r, backoff));
+
+    if (shuttingDown) {
+      await removeLocalServiceRegistryRecord(devService.serviceKey);
+      process.exit(0);
+      break;
+    }
+
+    await startServerChild();
   }
-  process.exit(exit.code ?? 0);
 }
