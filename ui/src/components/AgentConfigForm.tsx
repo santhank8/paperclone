@@ -438,7 +438,7 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
       : adapterType === "opencode_local"
         ? eff("adapterConfig", "variant", String(config.variant ?? ""))
       : eff("adapterConfig", "effort", String(config.effort ?? ""));
-  const showThinkingEffort = adapterType !== "gemini_local";
+  const showThinkingEffort = adapterType !== "gemini_local" && adapterType !== "pixel_local";
   const codexSearchEnabled = adapterType === "codex_local"
     ? (isCreate ? Boolean(val!.search) : eff("adapterConfig", "search", Boolean(config.search)))
     : false;
@@ -595,6 +595,8 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
                         DEFAULT_CODEX_LOCAL_BYPASS_APPROVALS_AND_SANDBOX;
                     } else if (t === "gemini_local") {
                       nextValues.model = DEFAULT_GEMINI_LOCAL_MODEL;
+                    } else if (t === "pixel_local") {
+                      nextValues.model = "";
                     } else if (t === "cursor") {
                       nextValues.model = DEFAULT_CURSOR_LOCAL_MODEL;
                     } else if (t === "opencode_local") {
@@ -613,6 +615,8 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
                             ? DEFAULT_CODEX_LOCAL_MODEL
                             : t === "gemini_local"
                               ? DEFAULT_GEMINI_LOCAL_MODEL
+                            : t === "pixel_local"
+                              ? ""
                             : t === "cursor"
                               ? DEFAULT_CURSOR_LOCAL_MODEL
                             : "",
@@ -725,6 +729,7 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
                       claude_local: "claude",
                       codex_local: "codex",
                       gemini_local: "gemini",
+                      pixel_local: "pixel",
                       pi_local: "pi",
                       cursor: "agent",
                       opencode_local: "opencode",
