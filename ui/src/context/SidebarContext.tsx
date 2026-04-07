@@ -36,7 +36,6 @@ export function SidebarProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const onResize = () => setShellFlags(computeShellFlags(window.innerWidth));
-    onResize();
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
   }, []);
@@ -47,7 +46,6 @@ export function SidebarProvider({ children }: { children: ReactNode }) {
       if (mql.matches) setSidebarOpen(true);
       else setSidebarOpen(false);
     };
-    onChange();
     mql.addEventListener("change", onChange);
     return () => mql.removeEventListener("change", onChange);
   }, []);

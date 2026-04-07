@@ -163,6 +163,11 @@ export function Layout() {
     setMobileNavVisible(true);
   }, [isMobile]);
 
+  const sidebarOpenRef = useRef(sidebarOpen);
+  useEffect(() => {
+    sidebarOpenRef.current = sidebarOpen;
+  }, [sidebarOpen]);
+
   // Swipe gesture to open/close sidebar when using drawer nav (phone + tablet)
   useEffect(() => {
     if (isDesktopShell) return;
@@ -188,13 +193,13 @@ export function Layout() {
       if (dy > MAX_VERTICAL) return; // vertical scroll, ignore
 
       // Swipe right from left edge → open
-      if (!sidebarOpen && startX < EDGE_ZONE && dx > MIN_DISTANCE) {
+      if (!sidebarOpenRef.current && startX < EDGE_ZONE && dx > MIN_DISTANCE) {
         setSidebarOpen(true);
         return;
       }
 
       // Swipe left when open → close
-      if (sidebarOpen && dx < -MIN_DISTANCE) {
+      if (sidebarOpenRef.current && dx < -MIN_DISTANCE) {
         setSidebarOpen(false);
       }
     };
@@ -206,7 +211,7 @@ export function Layout() {
       document.removeEventListener("touchstart", onTouchStart);
       document.removeEventListener("touchend", onTouchEnd);
     };
-  }, [isDesktopShell, sidebarOpen, setSidebarOpen]);
+  }, [isDesktopShell, setSidebarOpen]);
 
   const updateMobileNavVisibility = useCallback((currentTop: number) => {
     const delta = currentTop - lastMainScrollTop.current;
