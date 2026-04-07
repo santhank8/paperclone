@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { promises as fs } from "node:fs";
+import { promises as fs, realpathSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { and, asc, eq } from "drizzle-orm";
@@ -889,7 +889,7 @@ export async function discoverProjectWorkspaceSkillDirectories(target: ProjectSk
 
     const entries = await fs.readdir(absoluteRoot, { withFileTypes: true }).catch(() => []);
     for (const entry of entries) {
-      if (!entry.isDirectory()) continue;
+      if (!entry.isDirectory() && !entry.isSymbolicLink()) continue;
       const absoluteSkillDir = path.resolve(absoluteRoot, entry.name);
       if (!(await statPath(path.join(absoluteSkillDir, "SKILL.md")))?.isFile()) continue;
       discovered.set(absoluteSkillDir, "full");
@@ -1240,9 +1240,17 @@ function resolveDesiredSkillKeys(
   ));
 }
 
+function resolveRealPath(p: string): string {
+  try {
+    return realpathSync(p);
+  } catch {
+    return p;
+  }
+}
+
 function normalizeSkillDirectory(skill: CompanySkill) {
   if ((skill.sourceType !== "local_path" && skill.sourceType !== "catalog") || !skill.sourceLocator) return null;
-  const resolved = path.resolve(skill.sourceLocator);
+  const resolved = resolveRealPath(path.resolve(skill.sourceLocator));
   if (path.basename(resolved).toLowerCase() === "skill.md") {
     return path.dirname(resolved);
   }
@@ -1251,7 +1259,7 @@ function normalizeSkillDirectory(skill: CompanySkill) {
 
 function normalizeSourceLocatorDirectory(sourceLocator: string | null) {
   if (!sourceLocator) return null;
-  const resolved = path.resolve(sourceLocator);
+  const resolved = resolveRealPath(path.resolve(sourceLocator));
   return path.basename(resolved).toLowerCase() === "skill.md" ? path.dirname(resolved) : resolved;
 }
 
