@@ -260,15 +260,10 @@ export function CompanyRail() {
     return result;
   }, [sidebarCompanies, orderedIds]);
 
-  // Fetch subscription for the selected company to determine tier limits
-  // Silently fails if billing endpoint doesn't exist (no Polar/Stripe configured)
-  const { data: subscriptionData } = useQuery({
-    queryKey: queryKeys.billing.subscription(selectedCompanyId ?? ""),
-    queryFn: () => billingApi.getSubscription(selectedCompanyId!).catch(() => null),
-    enabled: !!selectedCompanyId,
-    staleTime: 60_000,
-    retry: false,
-  });
+  // Billing subscription - disabled until a payment provider (Polar/Stripe) is configured.
+  // Without a provider, the endpoint returns 404 which creates browser console noise.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const subscriptionData: any = null;
 
   const handleAddCompany = useCallback(() => {
     const companyCount = sidebarCompanies.length;
