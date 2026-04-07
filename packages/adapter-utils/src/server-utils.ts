@@ -911,7 +911,7 @@ export async function ensurePaperclipSkillSymlink(
         const resolvedJunctionTarget = path.win32.isAbsolute(junctionTarget)
           ? junctionTarget
           : path.resolve(path.dirname(target), junctionTarget);
-        if (resolvedJunctionTarget === source) {
+        if (resolvedJunctionTarget === path.win32.resolve(source)) {
           return "skipped";
         }
         // Junction points to a different target — repair it.
