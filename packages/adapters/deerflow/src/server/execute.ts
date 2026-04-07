@@ -13,92 +13,25 @@ import {
 import { acquire, release } from "./lifecycle.js";
 
 // ---------------------------------------------------------------------------
-// Paperclip issue lifecycle helpers
+// Paperclip issue interaction
+//
+// DeerFlow agents are assistants — they may only post comments on issues.
+// They MUST NOT call status mutation endpoints (PATCH /issues/:id, reopen,
+// interrupt). The senior agent (their manager) reviews the assistant's
+// comment and decides the issue's outcome. The server enforces this rule
+// in `routes/issues.ts`; this adapter cooperates by only ever calling the
+// comment endpoint.
 // ---------------------------------------------------------------------------
 
 const PAPERCLIP_BASE_URL = process.env.PAPERCLIP_INTERNAL_URL ?? "http://127.0.0.1:3100";
 
-async function checkoutIssue(
+const DEERFLOW_OUTPUT_TAG = "<!-- deerflow:research -->";
+
+async function postCommentToIssue(
   issueId: string,
-  agentId: string,
+  authToken: string,
   runId: string,
-  authToken: string,
-): Promise<boolean> {
-  try {
-    const res = await fetch(`${PAPERCLIP_BASE_URL}/api/issues/${issueId}/checkout`, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        authorization: `Bearer ${authToken}`,
-        "x-paperclip-run-id": runId,
-      },
-      body: JSON.stringify({
-        agentId,
-        expectedStatuses: ["todo", "backlog", "blocked"],
-      }),
-    });
-    return res.ok || res.status === 409; // 409 = already checked out by same run
-  } catch {
-    return false;
-  }
-}
-
-async function completeIssue(
-  issueId: string,
-  runId: string,
-  authToken: string,
-  summary: string,
-): Promise<void> {
-  try {
-    await fetch(`${PAPERCLIP_BASE_URL}/api/issues/${issueId}`, {
-      method: "PATCH",
-      headers: {
-        "content-type": "application/json",
-        authorization: `Bearer ${authToken}`,
-        "x-paperclip-run-id": runId,
-      },
-      body: JSON.stringify({
-        status: "done",
-        ...(summary ? { comment: summary.slice(0, 2000) } : {}),
-      }),
-    });
-  } catch {
-    // Best-effort — the run itself succeeded even if status update fails
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Retry helpers for non-substantive task pickups
-// ---------------------------------------------------------------------------
-
-/**
- * Retrieve the number of DeerFlow retry attempts for an issue by counting
- * comments that contain the `[deerflow-retry]` marker.
- */
-async function getDeerflowRetryCount(
-  issueId: string,
-  authToken: string,
-): Promise<number> {
-  try {
-    const res = await fetch(`${PAPERCLIP_BASE_URL}/api/issues/${issueId}/comments`, {
-      headers: { authorization: `Bearer ${authToken}` },
-    });
-    if (!res.ok) return 0;
-    const comments = (await res.json()) as Array<{ body?: string }>;
-    return comments.filter((c) => typeof c.body === "string" && c.body.includes("[deerflow-retry]")).length;
-  } catch {
-    return 0;
-  }
-}
-
-/**
- * Reset an issue back to "todo" for a retry attempt.  Adds a comment with
- * the `[deerflow-retry]` marker so retries can be counted.
- */
-async function resetIssueForRetry(
-  issueId: string,
-  authToken: string,
-  reason: string,
+  body: string,
 ): Promise<boolean> {
   try {
     const res = await fetch(`${PAPERCLIP_BASE_URL}/api/issues/${issueId}/comments`, {
@@ -106,47 +39,17 @@ async function resetIssueForRetry(
       headers: {
         "content-type": "application/json",
         authorization: `Bearer ${authToken}`,
+        "x-paperclip-run-id": runId,
       },
-      body: JSON.stringify({
-        body: `[deerflow-retry] Non-substantive response detected — resetting for retry.\nReason: ${reason}`,
-        reopen: true, // transitions issue back to "todo"
-      }),
+      // No `reopen`, no `interrupt` — comment-only.
+      body: JSON.stringify({ body }),
     });
     return res.ok;
   } catch {
+    // Best-effort. The run record still reflects success/failure.
     return false;
   }
 }
-
-/**
- * Block an issue that has exhausted its retry budget.  Adds a comment
- * explaining why the issue was blocked so a human can intervene.
- */
-async function blockIssue(
-  issueId: string,
-  runId: string,
-  authToken: string,
-  reason: string,
-): Promise<void> {
-  try {
-    await fetch(`${PAPERCLIP_BASE_URL}/api/issues/${issueId}`, {
-      method: "PATCH",
-      headers: {
-        "content-type": "application/json",
-        authorization: `Bearer ${authToken}`,
-        "x-paperclip-run-id": runId,
-      },
-      body: JSON.stringify({
-        status: "blocked",
-        comment: `[deerflow-retry] Blocked after exhausting retry budget.\nReason: ${reason}`,
-      }),
-    });
-  } catch {
-    // Best-effort
-  }
-}
-
-const MAX_DEERFLOW_RETRIES = 2;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -343,20 +246,21 @@ export async function execute(
 
   let stdout = "";
   let toolCallCount = 0;
+  // Dedup stream noise: LangGraph streams AIMessageChunks incrementally, so the
+  // same tool call and the same title re-appear in many chunks. We track ids
+  // we've already logged to keep the stdout log readable and to keep
+  // toolCallCount honest (it's consumed by the "did any tool fire?" check
+  // downstream).
+  const loggedToolCallIds = new Set<string>();
+  let lastLoggedTitle = "";
   const usage: UsageSummary = { inputTokens: 0, outputTokens: 0 };
   let summary = "";
   let errorMessage: string | null = null;
 
   try {
-    // 0. Checkout the issue if we have one
-    if (issueId && authToken) {
-      const checked = await checkoutIssue(issueId, ctx.agent.id, ctx.runId, authToken);
-      if (checked) {
-        await onLog("stdout", `[deerflow] Checked out issue ${issueId}\n`);
-      } else {
-        await onLog("stderr", `[deerflow] Failed to checkout issue ${issueId}\n`);
-      }
-    }
+    // Note: DeerFlow agents are assistants. They do NOT check out issues —
+    // checkout is an exclusive ownership primitive reserved for executors
+    // (their manager). The assistant just reads the issue and comments.
 
     // 1. Create or reuse thread
     if (!threadId) {
@@ -456,13 +360,26 @@ export async function execute(
             lastAiContent += content;
           }
 
-          // Tool calls in AI message
+          // Tool calls in AI message. Dedup by id: LangGraph streams a tool
+          // call across several AIMessageChunks (first chunk has the name,
+          // subsequent chunks stream args incrementally). Without dedup we
+          // log "[tool_call] <name>" once and then 3-5 "[tool_call] unknown"
+          // lines per real call, and toolCallCount becomes meaningless.
           const toolCalls = msgData.tool_calls;
           if (Array.isArray(toolCalls) && toolCalls.length > 0) {
-            toolCallCount += toolCalls.length;
             for (const tc of toolCalls) {
               const tcObj = tc as Record<string, unknown>;
-              const name = asString(tcObj.name as unknown, "unknown");
+              const name = asString(tcObj.name as unknown, "");
+              const id = asString(tcObj.id as unknown, "");
+              // Partial chunk with no name → skip; we'll catch this call when
+              // the chunk carrying the name arrives.
+              if (!name) continue;
+              // Stable key: prefer the real id, fall back to name+position for
+              // streams that omit ids.
+              const key = id || `${name}:${loggedToolCallIds.size}`;
+              if (loggedToolCallIds.has(key)) continue;
+              loggedToolCallIds.add(key);
+              toolCallCount += 1;
               await onLog("stdout", `\n[tool_call] ${name}\n`);
             }
           }
@@ -494,8 +411,11 @@ export async function execute(
       } else if (sse.event === "values") {
         // Full state snapshot — extract artifacts, title, and AI messages.
         const stateData = parsed as Record<string, unknown>;
+        // Title is re-emitted on every state snapshot. Only log when it
+        // actually changes (first appearance, or an edit by TitleMiddleware).
         const title = asString(stateData.title as unknown, "");
-        if (title) {
+        if (title && title !== lastLoggedTitle) {
+          lastLoggedTitle = title;
           await onLog("stdout", `\n[title] ${title}\n`);
         }
         // Extract AI content from the values snapshot as a fallback.
@@ -541,7 +461,11 @@ export async function execute(
       }
     }
 
-    summary = lastAiContent.slice(0, 500);
+    // Cap the summary generously. The full LLM output is useful research
+    // context for the parent agent, so we avoid over-truncating here; the
+    // tighter caps live at the API boundary (the comment endpoint) and in
+    // downstream consumers.
+    summary = lastAiContent.slice(0, 20000);
 
     // Detect when the LLM failed to produce useful output (e.g. asked for
     // clarification instead of doing the work).  In that case we must NOT
@@ -552,8 +476,21 @@ export async function execute(
       /\bplease\s+provide\b/i,
       /\bwhat\s+(would|do)\s+you\s+(like|want)\s+me\s+to\b/i,
       /\bunable\s+to\s+(complete|proceed|do)\b/i,
+      // Agent produced a coherent summary but concluded the task cannot be
+      // fulfilled (e.g. required file is missing, required service is down).
+      // Without this, the agent writes "Summary: not available, not available,
+      // not available — the smoke test cannot be completed" and then calls
+      // the `done` transition, which is the wrong outcome.
+      /\bcannot\s+be\s+(completed|fulfilled|performed|accomplished)\b/i,
+      /\btask\s+cannot\s+be\s+(completed|done|fulfilled|executed)\b/i,
+      /\brequired\s+(file|resource|service|path|dependency)\s+(?:is\s+|was\s+)?not\s+(present|found|available|accessible)\b/i,
     ];
-    const isRefusal = refusalPatterns.some((p) => p.test(stdout));
+    // Only match refusal phrases in the tail of stdout — the agent's final
+    // assessment. Matching against the whole log false-positives on mid-run
+    // "the file was not found, let me check elsewhere" reasoning which the
+    // agent then resolves.
+    const tailForRefusalCheck = stdout.slice(-2500);
+    const isRefusal = refusalPatterns.some((p) => p.test(tailForRefusalCheck));
     if (isRefusal) {
       await onLog("stderr", `[deerflow] LLM response appears to be a refusal/clarification request — not marking issue as done\n`);
       errorMessage = "LLM did not produce actionable output (possible refusal or clarification request)";
@@ -595,30 +532,23 @@ export async function execute(
       errorMessage = "LLM produced insufficient output with no tool usage";
     }
 
-    // -----------------------------------------------------------------------
-    // Retry logic for non-substantive responses
-    // If the LLM produced insufficient output we retry up to MAX_DEERFLOW_RETRIES
-    // times before blocking the issue for human review.
-    // -----------------------------------------------------------------------
-    if (errorMessage && issueId && authToken) {
-      const retryCount = await getDeerflowRetryCount(issueId, authToken);
-      if (retryCount < MAX_DEERFLOW_RETRIES) {
-        const reset = await resetIssueForRetry(issueId, authToken, errorMessage);
-        if (reset) {
-          await onLog("stderr", `[deerflow] Non-substantive response (attempt ${retryCount + 1}/${MAX_DEERFLOW_RETRIES}) — issue reset for retry\n`);
-        } else {
-          await onLog("stderr", `[deerflow] Failed to reset issue for retry\n`);
-        }
+    // Post the assistant's output to the issue as a tagged comment.
+    // Assistants never mutate status — the parent agent (manager) reviews
+    // this comment and decides the next move (delegate further, complete,
+    // block, etc.). On failure we still post a comment so the manager has
+    // visibility into what went wrong.
+    if (issueId && authToken) {
+      const commentBody = errorMessage
+        ? `${DEERFLOW_OUTPUT_TAG}\n## DeerFlow Output (failed)\n\n${errorMessage}${
+            summary ? `\n\n---\n${summary}` : ""
+          }`
+        : `${DEERFLOW_OUTPUT_TAG}\n## DeerFlow Research\n\n${summary || "(no output)"}`;
+      const posted = await postCommentToIssue(issueId, authToken, ctx.runId, commentBody);
+      if (posted) {
+        await onLog("stdout", `\n[deerflow] Posted research comment on issue ${issueId}\n`);
       } else {
-        await blockIssue(issueId, ctx.runId, authToken, errorMessage);
-        await onLog("stderr", `[deerflow] Retry budget exhausted (${retryCount}/${MAX_DEERFLOW_RETRIES}) — issue blocked\n`);
+        await onLog("stderr", `\n[deerflow] Failed to post research comment on issue ${issueId}\n`);
       }
-    }
-
-    // Mark issue as done on successful execution
-    if (!errorMessage && issueId && authToken) {
-      await completeIssue(issueId, ctx.runId, authToken, summary);
-      await onLog("stdout", `\n[deerflow] Marked issue ${issueId} as done\n`);
     }
 
     return {

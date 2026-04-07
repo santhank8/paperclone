@@ -157,6 +157,30 @@ export function issueRoutes(db: Db, storage: StorageService) {
     return true;
   }
 
+  /**
+   * Returns true if the actor is an agent that has at least one manager
+   * (i.e. an "assistant" — DeerFlow Haiku-tier or any other subordinate
+   * agent in the org graph). Managed agents are restricted to comment-only
+   * interactions on issues; status, assignee, and other lifecycle mutations
+   * are reserved for unmanaged agents (e.g. CTO, top-level engineers) and
+   * human users. The senior manager reviews the assistant's comment and
+   * decides the issue's outcome.
+   */
+  async function isActorManagedAgent(req: Request): Promise<boolean> {
+    if (req.actor.type !== "agent") return false;
+    const actorAgentId = req.actor.agentId;
+    if (!actorAgentId) return false;
+    const actorAgent = await agentsSvc.getById(actorAgentId);
+    if (!actorAgent) return false;
+    return Array.isArray(actorAgent.managerIds) && actorAgent.managerIds.length > 0;
+  }
+
+  function rejectManagedAgentMutation(res: Response, what: string) {
+    res.status(403).json({
+      error: `Managed agents (assistants) may only post plain comments on issues; ${what} is reserved for an unmanaged agent or a human user.`,
+    });
+  }
+
   async function normalizeIssueIdentifier(rawId: string): Promise<string> {
     if (/^[A-Z]+-\d+$/i.test(rawId)) {
       const issue = await svc.getByIdentifier(rawId);
@@ -488,6 +512,14 @@ export function issueRoutes(db: Db, storage: StorageService) {
       return;
     }
     assertCompanyAccess(req, existing.companyId);
+
+    // Managed agents (assistants) may not mutate issue state.
+    // They must use POST /issues/:id/comments without `reopen`/`interrupt`.
+    if (await isActorManagedAgent(req)) {
+      rejectManagedAgentMutation(res, "PATCH /issues/:id");
+      return;
+    }
+
     const assigneeWillChange =
       (req.body.assigneeAgentId !== undefined && req.body.assigneeAgentId !== existing.assigneeAgentId) ||
       (req.body.assigneeUserId !== undefined && req.body.assigneeUserId !== existing.assigneeUserId);
@@ -1004,6 +1036,13 @@ export function issueRoutes(db: Db, storage: StorageService) {
     }
     assertCompanyAccess(req, issue.companyId);
     if (!(await assertAgentRunCheckoutOwnership(req, res, issue))) return;
+
+    // Managed agents may comment but cannot reopen or interrupt — those are
+    // status mutations under the guise of a comment.
+    if ((req.body.reopen === true || req.body.interrupt === true) && (await isActorManagedAgent(req))) {
+      rejectManagedAgentMutation(res, "reopening or interrupting via comment");
+      return;
+    }
 
     const actor = getActorInfo(req);
     const reopenRequested = req.body.reopen === true;

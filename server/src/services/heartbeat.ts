@@ -667,20 +667,10 @@ export function heartbeatService(db: Db) {
       return null;
     }
 
-    // Post research as tagged comment on the issue
-    const commentBody = `${DEERFLOW_RESEARCH_COMMENT_TAG}\n## Pre-Flight Research (DeerFlow)\n\n${summary}`;
-    await db.insert(issueComments).values({
-      companyId: deerflowAgent.companyId,
-      issueId,
-      authorAgentId: deerflowAgent.id,
-      authorUserId: null,
-      body: commentBody,
-    });
-    await db
-      .update(issues)
-      .set({ updatedAt: new Date() })
-      .where(eq(issues.id, issueId));
-
+    // The DeerFlow adapter itself posts the research comment (tagged with
+    // DEERFLOW_RESEARCH_COMMENT_TAG) via the /comments API as the assistant
+    // agent. We return the summary here only so the caller can log how many
+    // chars were injected — the comment write is already done by the adapter.
     return summary;
   }
 
