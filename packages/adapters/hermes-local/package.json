@@ -1,5 +1,5 @@
 {
-  "name": "@paperclipai/shared",
+  "name": "@paperclipai/adapter-hermes-local",
   "version": "0.3.1",
   "license": "MIT",
   "homepage": "https://github.com/paperclipai/paperclip",
@@ -9,12 +9,14 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/paperclipai/paperclip",
-    "directory": "packages/shared"
+    "directory": "packages/adapters/hermes-local"
   },
   "type": "module",
   "exports": {
-    ".": "./dist/index.js",
-    "./*": "./dist/*.js"
+    ".": "./src/index.ts",
+    "./server": "./src/server/index.ts",
+    "./ui": "./src/ui/index.ts",
+    "./cli": "./src/cli/index.ts"
   },
   "publishConfig": {
     "access": "public",
@@ -23,16 +25,25 @@
         "types": "./dist/index.d.ts",
         "import": "./dist/index.js"
       },
-      "./*": {
-        "types": "./dist/*.d.ts",
-        "import": "./dist/*.js"
+      "./server": {
+        "types": "./dist/server/index.d.ts",
+        "import": "./dist/server/index.js"
+      },
+      "./ui": {
+        "types": "./dist/ui/index.d.ts",
+        "import": "./dist/ui/index.js"
+      },
+      "./cli": {
+        "types": "./dist/cli/index.d.ts",
+        "import": "./dist/cli/index.js"
       }
     },
     "main": "./dist/index.js",
     "types": "./dist/index.d.ts"
   },
   "files": [
-    "dist"
+    "dist",
+    "skills"
   ],
   "scripts": {
     "build": "tsc",
@@ -40,9 +51,11 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "zod": "^3.24.2"
+    "@paperclipai/adapter-utils": "workspace:*",
+    "picocolors": "^1.1.0"
   },
   "devDependencies": {
+    "@types/node": "^22.0.0",
     "typescript": "^5.7.3"
   }
 }
