@@ -3094,6 +3094,23 @@ export function heartbeatService(db: Db) {
             );
           }
         }
+        if (issueId && (outcome === "failed" || outcome === "timed_out")) {
+          try {
+            const errorDetail = adapterResult.errorMessage
+              ? `\n- Error: ${adapterResult.errorMessage}`
+              : "";
+            const exitDetail = adapterResult.exitCode != null
+              ? `\n- Exit code: ${adapterResult.exitCode}`
+              : "";
+            const failureComment = `## Run ${outcome === "timed_out" ? "timed out" : "failed"}${errorDetail}${exitDetail}`;
+            await issuesSvc.addComment(issueId, failureComment, { agentId: agent.id });
+          } catch (err) {
+            await onLog(
+              "stderr",
+              `[paperclip] Failed to post run failure comment: ${err instanceof Error ? err.message : String(err)}\n`,
+            );
+          }
+        }
         await releaseIssueExecutionAndPromote(finalizedRun);
       }
 
@@ -3160,6 +3177,15 @@ export function heartbeatService(db: Db) {
           level: "error",
           message,
         });
+        if (issueId) {
+          try {
+            await issuesSvc.addComment(
+              issueId,
+              `## Run failed\n- Error: ${message}`,
+              { agentId: agent.id },
+            );
+          } catch (_) { /* best-effort */ }
+        }
         await releaseIssueExecutionAndPromote(failedRun);
 
         await updateRuntimeState(agent, failedRun, {
@@ -3212,6 +3238,15 @@ export function heartbeatService(db: Db) {
               message,
             }).catch(() => undefined);
             await releaseIssueExecutionAndPromote(failedRun).catch(() => undefined);
+            // Post a failure comment on the issue so the failure is visible outside the run timeline.
+            const outerIssueId = readNonEmptyString(parseObject(failedRun.contextSnapshot).issueId);
+            if (outerIssueId) {
+              await issuesSvc.addComment(
+                outerIssueId,
+                `## Run failed during setup\n- Error: ${message}`,
+                { agentId: failedRun.agentId },
+              ).catch(() => undefined);
+            }
           }
           // Ensure the agent is not left stuck in "running" if the inner catch handler's
           // DB calls threw (e.g. a transient DB error in finalizeAgentStatus).
