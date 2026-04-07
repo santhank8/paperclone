@@ -1,5 +1,5 @@
 diff --git a/dist/server/execute.js b/dist/server/execute.js
-index 93cddf8243271f5fb3ab101617f9114257e41328..3a413ee906cdd8e9875f8e2ab56e9b0c38e8a87f 100644
+index 93cddf8243271f5fb3ab101617f9114257e41328..e8cb49d48feba384287b6b04e8954c614ef339a7 100644
 --- a/dist/server/execute.js
 +++ b/dist/server/execute.js
 @@ -41,6 +41,34 @@ const DEFAULT_PROMPT_TEMPLATE = `You are "{{agentName}}", an AI agent employee i
@@ -145,7 +145,36 @@ index 93cddf8243271f5fb3ab101617f9114257e41328..3a413ee906cdd8e9875f8e2ab56e9b0c
      const userEnv = config.env;
      if (userEnv && typeof userEnv === "object") {
          Object.assign(env, userEnv);
-@@ -380,7 +430,12 @@ export async function execute(ctx) {
+@@ -338,13 +388,27 @@ export async function execute(ctx) {
+         }
+         return ctx.onLog(stream, chunk);
+     };
+-    const result = await runChildProcess(ctx.runId, hermesCmd, args, {
++    let result = await runChildProcess(ctx.runId, hermesCmd, args, {
+         cwd,
+         env,
+         timeoutSec,
+         graceSec,
+         onLog: wrappedOnLog,
+     });
++    if (result.exitCode !== 0 && ((result.stderr && result.stderr.includes("Session not found")) || (result.stdout && result.stdout.includes("Session not found")))) {
++        const resumeIdx = args.indexOf("--resume");
++        if (resumeIdx !== -1) {
++            await ctx.onLog("stdout", `[hermes] Session lost. Auto-recovering without session state...\n`);
++            args.splice(resumeIdx, 2);
++            result = await runChildProcess(ctx.runId, hermesCmd, args, {
++                cwd,
++                env,
++                timeoutSec,
++                graceSec,
++                onLog: wrappedOnLog,
++            });
++        }
++    }
+     // ── Parse output ───────────────────────────────────────────────────────
+     const parsed = parseHermesOutput(result.stdout || "", result.stderr || "");
+     await ctx.onLog("stdout", `[hermes] Exit code: ${result.exitCode ?? "null"}, timed out: ${result.timedOut}\n`);
+@@ -380,7 +444,12 @@ export async function execute(ctx) {
          cost_usd: parsed.costUsd ?? null,
      };
      // Store session ID for next run
