@@ -742,6 +742,14 @@ export async function startServer(): Promise<StartedServer> {
         await telemetryClient.flush();
       }
 
+      // Close HTTP server first so in-flight requests drain before
+      // the database becomes unavailable.
+      await new Promise<void>((resolve) => {
+        server.close(() => resolve());
+        // If connections linger, force-close after a short grace period.
+        setTimeout(() => resolve(), 5000);
+      });
+
       if (embeddedPostgres && embeddedPostgresStartedByThisProcess) {
         logger.info({ signal }, "Stopping embedded PostgreSQL");
         try {
