@@ -23,6 +23,8 @@ import {
   renderPaperclipWakePrompt,
   stringifyPaperclipWakePayload,
   runChildProcess,
+  PREFLIGHT_ORCHESTRATION_PROMPT,
+  extractHandoffSection,
 } from "@paperclipai/adapter-utils/server-utils";
 import {
   parseClaudeStreamJson,
@@ -34,36 +36,6 @@ import {
 import { resolveClaudeDesiredSkillNames } from "./skills.js";
 
 const __moduleDir = path.dirname(fileURLToPath(import.meta.url));
-
-/**
- * Static prompt injected at the start of a cheap-model preflight pass.
- * Must match the codex_local version so handoff notes are consistent.
- */
-const PREFLIGHT_ORCHESTRATION_PROMPT = `You are a preflight orchestrator for a Paperclip agent.
-
-This is a BOUNDED ORCHESTRATION PASS \u2014 not the main task execution.
-
-Your responsibilities:
-1. Read the task context below and orient to what is being asked.
-2. Inspect the workspace at a shallow level if needed (ls, cat a few key files).
-3. Produce a compact handoff summary for the primary model that will do the real work.
-
-Hard constraints:
-- Do NOT make code changes or write files.
-- Do NOT run more than a few tool calls.
-- Do NOT attempt task completion.
-- Finish quickly \u2014 this is a triage pass only.
-
-End your response with a section titled "## Handoff Summary" containing:
-- What the task requires (1-3 sentences)
-- Key workspace observations relevant to the task
-- Recommended approach or starting point for the primary model`;
-
-function extractHandoffSection(summary: string): string {
-  const marker = summary.indexOf("## Handoff Summary");
-  if (marker === -1) return summary.trim();
-  return summary.slice(marker).trim();
-}
 
 /**
  * Create a tmpdir with `.claude/skills/` containing symlinks to skills from
