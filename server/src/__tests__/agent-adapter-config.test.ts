@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { prepareAdapterConfigForPersistence } = await import("../services/agent-adapter-config.js");
+const {
+  applyCreateDefaultsByAdapterType,
+  prepareAdapterConfigForPersistence,
+} = await import("../services/agent-adapter-config.js");
 
 describe("agent adapter config validation", () => {
   const secretsSvc = {
@@ -10,6 +13,12 @@ describe("agent adapter config validation", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  it("defaults hermes_local runs to no timeout when none is configured", () => {
+    expect(applyCreateDefaultsByAdapterType("hermes_local", {})).toMatchObject({
+      timeoutSec: 0,
+    });
   });
 
   it("rejects opencode_local configs without an explicit provider/model", async () => {

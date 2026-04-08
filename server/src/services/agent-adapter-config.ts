@@ -65,6 +65,9 @@ export function applyCreateDefaultsByAdapterType(
   adapterConfig: Record<string, unknown>,
 ): Record<string, unknown> {
   const next = { ...adapterConfig };
+  if (adapterType === "hermes_local" && next.timeoutSec == null) {
+    next.timeoutSec = 0;
+  }
   if (adapterType === "codex_local") {
     if (!asNonEmptyString(next.model)) {
       next.model = DEFAULT_CODEX_LOCAL_MODEL;

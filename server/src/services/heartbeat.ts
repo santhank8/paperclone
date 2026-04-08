@@ -95,22 +95,26 @@ const execFile = promisify(execFileCallback);
 
 const POSTGRES_TEXT_NULL_BYTE = /\u0000/g;
 
-function mapHermesCommandForRuntimeConfig(
+export function mapHermesCommandForRuntimeConfig(
   adapterType: string,
   config: Record<string, unknown>,
 ): Record<string, unknown> {
   if (adapterType !== "hermes_local") return config;
 
+  const newConfig = { ...config };
+  if (newConfig.timeoutSec == null || newConfig.timeoutSec === 0) {
+    // Hermes currently treats `0` as falsy and falls back to its internal
+    // 300-second default. Pass `-1` at runtime so Paperclip's "no timeout"
+    // intent survives until the adapter package is fixed upstream.
+    newConfig.timeoutSec = -1;
+  }
   const effectiveCommand = config.hermesCommand ?? config.command;
   if (!effectiveCommand) {
-    return config;
+    return newConfig;
   }
 
-  const newConfig = {
-    ...config,
-    command: effectiveCommand,
-    hermesCommand: effectiveCommand,
-  };
+  newConfig.command = effectiveCommand;
+  newConfig.hermesCommand = effectiveCommand;
   return newConfig;
 }
 
