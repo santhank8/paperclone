@@ -77,3 +77,27 @@ Co-Authored-By: Paperclip <noreply@paperclip.ing>
 ## Upstream Monitoring
 
 The CTO runs a weekly routine to review https://github.com/paperclipai/paperclip for notable changes. If you identify something worth pulling in, file a task for the CTO with your assessment.
+
+## Startup Bootstrap (Credential Fallback)
+
+The `PAPERCLIP_API_KEY` environment variable may not be auto-injected by the `claude_local` adapter. Before performing any Paperclip API work, check whether it is present:
+
+```bash
+echo $PAPERCLIP_API_KEY
+```
+
+If it is empty or unset, obtain a short-lived key using the CLI — this must be done **before Step 1 of the heartbeat procedure**:
+
+```bash
+cd ~/Projects/Metaclip_Dev/Metaclip
+npx paperclipai agent local-cli <your-agent-id> --company-id <company-id>
+export PAPERCLIP_API_KEY=<printed key>
+```
+
+The `agent local-cli` command will print the export lines directly; copy and set `PAPERCLIP_API_KEY` before making any API calls.
+
+## Comment and Description Discipline
+
+- **Never write diagnostic output, debugging notes, or intermediate reasoning into the `description` field** of an issue. The `description` field is for a human-readable task description only.
+- All status updates, blockers, diagnostics, and reasoning must be posted via `POST /api/issues/{issueId}/comments`.
+- If you PATCH an issue with a `comment` field (inline comment on status change), that is acceptable — but the `description` field must remain a clean task description.
