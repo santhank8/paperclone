@@ -1977,9 +1977,10 @@ export function issueService(db: Db) {
       const updated = await db
         .update(issues)
         .set({
-          status: "todo",
-          assigneeAgentId: null,
           checkoutRunId: null,
+          executionRunId: null,
+          executionLockedAt: null,
+          executionAgentNameKey: null,
           updatedAt: new Date(),
         })
         .where(eq(issues.id, id))
