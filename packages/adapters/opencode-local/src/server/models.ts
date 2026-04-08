@@ -148,11 +148,8 @@ export async function discoverOpenCodeModels(input: {
   const pathEnv = runtimeEnv.PATH ?? process.env.PATH ?? "(unset)";
   const opencodeVars = Object.entries(runtimeEnv)
     .filter(([k]) => k.startsWith("OPENCODE_"))
-    .map(([k, v]) => `${k}=${v}`)
+    .map(([k]) => `${k}=[redacted]`)
     .join(", ");
-
-  debugLog(
-    `discoverOpenCodeModels: command="${command} models" cwd="${cwd}" HOME="${home}" PATH="${path}"${opencodeVars ? ` OPENCODE_VARS=${opencodeVars}` : ""}`,
   );
 
   const result = await runChildProcess(
