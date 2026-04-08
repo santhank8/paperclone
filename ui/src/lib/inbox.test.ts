@@ -258,6 +258,7 @@ const dashboard: DashboardSummary = {
   },
   costs: {
     monthSpendCents: 900,
+    monthShadowSpendCents: 0,
     monthBudgetCents: 1000,
     monthUtilizationPercent: 90,
   },
@@ -530,7 +531,15 @@ describe("inbox helpers", () => {
   });
 
   it("hides the workspace column option unless isolated workspaces are enabled", () => {
-    expect(getAvailableInboxIssueColumns(false)).toEqual(["status", "id", "assignee", "project", "parent", "labels", "updated"]);
+    expect(getAvailableInboxIssueColumns(false)).toEqual([
+      "status",
+      "id",
+      "assignee",
+      "project",
+      "parent",
+      "labels",
+      "updated",
+    ]);
     expect(getAvailableInboxIssueColumns(true)).toEqual([
       "status",
       "id",
