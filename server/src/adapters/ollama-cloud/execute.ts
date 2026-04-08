@@ -73,7 +73,13 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
         `[${u.at ? new Date(u.at).toLocaleTimeString() : ""}] ${u.author}: ${u.body}`
       ).join("\n");
       messages.push({ role: "system", content: `## Recent Channel Messages\n${formatted}` });
+      console.log(`[ollama-cloud] Injected ${updates.length} channel messages from ${key}`);
     }
+  }
+  // Debug: log which channel keys are present
+  const presentKeys = channelContextKeys.filter(k => context[k]);
+  if (presentKeys.length === 0) {
+    console.log("[ollama-cloud] No channel messages in context. Keys checked:", channelContextKeys.join(", "));
   }
 
   // Channel posting instruction
@@ -97,17 +103,33 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
   }
 
   // When there is no task or comment, this is a routine check-in heartbeat.
-  // The platform awareness system prompt already primes conversational behavior;
-  // the user message just frames what to do with this particular run.
+  // The agent MUST respond using [CHANNEL #name] format for messages to appear.
   if (!rawTaskContext && !rawLatestComment) {
-    messages.push({
-      role: "user",
-      content:
-        "This is your regular check-in. Review any channel messages in your context, " +
-        "respond to teammates as needed, and post a brief status update if you have " +
-        "something substantive to share. If nothing requires your attention right now, " +
-        "you may skip posting — silence is better than an empty update.",
+    // Build a more explicit check-in prompt that forces the [CHANNEL] format
+    const hasChannelMessages = channelContextKeys.some(key => {
+      const val = context[key];
+      return Array.isArray(val) && val.length > 0;
     });
+
+    if (hasChannelMessages) {
+      messages.push({
+        role: "user",
+        content:
+          "You have unread channel messages above. Respond to them now.\n\n" +
+          "IMPORTANT: You MUST use this exact format to post your response:\n\n" +
+          "    [CHANNEL #leadership] Your response message here\n\n" +
+          "Replace #leadership with the correct channel name. Without this format, your response will not be posted. " +
+          "Do not write a status report. Write a direct conversational reply to the messages you see above.",
+      });
+    } else {
+      messages.push({
+        role: "user",
+        content:
+          "This is your regular check-in. No channel messages require your attention right now. " +
+          "If you have a substantive status update, post it using [CHANNEL #company] format. " +
+          "Otherwise, you may stay silent — silence is better than an empty update.",
+      });
+    }
   }
 
   // LLM04-A: Enforce an aggregate character cap on the total prompt size.
