@@ -12,6 +12,7 @@ vi.mock("../services/index.js", () => ({
   accessService: () => ({}),
   agentService: () => ({}),
   executionWorkspaceService: () => ({}),
+  feedbackService: () => ({}),
   goalService: () => ({}),
   heartbeatService: () => ({}),
   issueApprovalService: () => ({}),
