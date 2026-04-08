@@ -538,30 +538,39 @@ async function fileExists(value: string): Promise<boolean> {
 
 interface GitCryptDetection {
   detected: boolean;
+  // null means no symmetric key found — unlock will be attempted via GPG (git-crypt unlock with no args)
   keyPath: string | null;
 }
 
-async function detectGitCrypt(repoRoot: string): Promise<GitCryptDetection> {
+async function detectGitCrypt(
+  repoRoot: string,
+  strategy: Record<string, unknown>,
+): Promise<GitCryptDetection> {
   const gitCryptDir = path.join(repoRoot, ".git", "git-crypt");
   const hasGitCrypt = await directoryExists(gitCryptDir);
   if (!hasGitCrypt) return { detected: false, keyPath: null };
 
-  const repoName = path.basename(repoRoot);
-  const home = process.env.HOME ?? process.env.USERPROFILE ?? "";
-  const keyPaths = [
-    path.join(home, ".openclaw", `.git-crypt-key-${repoName}`),
-    path.join(repoRoot, ".git", "git-crypt", "keys", "default"),
-  ];
-  for (const kp of keyPaths) {
-    if (await fileExists(kp)) return { detected: true, keyPath: kp };
+  // 1. Explicit key path from workspace strategy config (highest precedence)
+  const configuredKeyPath = asString(parseObject(strategy.gitCrypt).keyPath, "").trim();
+  if (configuredKeyPath) {
+    const resolved = resolveHomeAwarePath(configuredKeyPath);
+    if (await fileExists(resolved)) return { detected: true, keyPath: resolved };
   }
+
+  // 2. GIT_CRYPT_KEY_PATH env var
+  const envKeyPath = process.env.GIT_CRYPT_KEY_PATH?.trim();
+  if (envKeyPath && await fileExists(envKeyPath)) {
+    return { detected: true, keyPath: envKeyPath };
+  }
+
+  // 3. No symmetric key found — will attempt GPG-based unlock
   return { detected: true, keyPath: null };
 }
 
 async function unlockGitCryptWorktree(
   repoRoot: string,
   worktreePath: string,
-  keyPath: string,
+  keyPath: string | null,
   branchName: string,
   recorder: WorkspaceOperationRecorder | null | undefined,
 ): Promise<string[]> {
@@ -585,20 +594,23 @@ async function unlockGitCryptWorktree(
     return warnings;
   }
 
-  // Run git-crypt unlock using the discovered key.
+  // Run git-crypt unlock. With a symmetric key file: `git-crypt unlock <keyPath>`.
+  // Without a key (keyPath null): `git-crypt unlock` — relies on GPG keyring.
+  const unlockArgs = keyPath ? ["unlock", keyPath] : ["unlock"];
+  const unlockCommand = keyPath ? `git-crypt unlock ${keyPath}` : "git-crypt unlock";
   let unlockFailed = false;
   try {
     if (recorder) {
       let unlockCode: number | null = null;
       await recorder.recordOperation({
         phase: "worktree_prepare",
-        command: `git-crypt unlock ${keyPath}`,
+        command: unlockCommand,
         cwd: worktreePath,
         metadata: { gitCryptKeyPath: keyPath, repoRoot, worktreePath },
         run: async () => {
           const result = await executeProcess({
             command: "git-crypt",
-            args: ["unlock", keyPath],
+            args: unlockArgs,
             cwd: worktreePath,
           });
           unlockCode = result.code;
@@ -615,7 +627,7 @@ async function unlockGitCryptWorktree(
     } else {
       const result = await executeProcess({
         command: "git-crypt",
-        args: ["unlock", keyPath],
+        args: unlockArgs,
         cwd: worktreePath,
       });
       if (result.code !== 0) {
@@ -1012,7 +1024,7 @@ export async function realizeExecutionWorkspace(input: {
   // Detect git-crypt before worktree creation so we can pass --no-checkout when needed.
   // Without --no-checkout, git applies smudge filters during checkout and encrypted files
   // land as ciphertext because the repo is not yet unlocked in the new worktree.
-  const gitCrypt = await detectGitCrypt(repoRoot);
+  const gitCrypt = await detectGitCrypt(repoRoot, rawStrategy);
 
   await fs.mkdir(worktreeParentDir, { recursive: true });
 
@@ -1105,24 +1117,19 @@ export async function realizeExecutionWorkspace(input: {
 
   // Unlock git-crypt before running the provision command so the provision
   // command sees decrypted files (e.g. .env files used by install scripts).
+  // keyPath null means no symmetric key was found — unlock is attempted via GPG.
   const gitCryptWarnings: string[] = [];
   if (gitCrypt.detected) {
-    if (gitCrypt.keyPath) {
-      const unlockWarnings = await unlockGitCryptWorktree(
-        repoRoot,
-        worktreePath,
-        gitCrypt.keyPath,
-        branchName,
-        input.recorder,
-      ).catch((err: unknown) => [
-        `git-crypt: unexpected error: ${err instanceof Error ? err.message : String(err)}`,
-      ]);
-      gitCryptWarnings.push(...unlockWarnings);
-    } else {
-      gitCryptWarnings.push(
-        "git-crypt repository detected but no unlock key found — files may be encrypted",
-      );
-    }
+    const unlockWarnings = await unlockGitCryptWorktree(
+      repoRoot,
+      worktreePath,
+      gitCrypt.keyPath,
+      branchName,
+      input.recorder,
+    ).catch((err: unknown) => [
+      `git-crypt: unexpected error: ${err instanceof Error ? err.message : String(err)}`,
+    ]);
+    gitCryptWarnings.push(...unlockWarnings);
   }
 
   await provisionExecutionWorktree({
