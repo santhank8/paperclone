@@ -135,7 +135,8 @@ export function MarkdownBody({ children, className, style, resolveImageSrc }: Ma
   if (resolveImageSrc) {
     components.img = ({ node: _node, src, alt, ...imgProps }) => {
       const resolved = src ? resolveImageSrc(src) : null;
-      return <img {...imgProps} src={resolved ?? src} alt={alt ?? ""} />;
+      const fallbackAlt = src ? decodeURIComponent(src.split("/").pop()?.replace(/\.[^.]+$/, "") ?? "Image") : "Image";
+      return <img {...imgProps} src={resolved ?? src} alt={alt || fallbackAlt} />;
     };
   }
 
