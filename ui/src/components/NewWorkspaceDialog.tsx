@@ -7,8 +7,8 @@ import {
   DialogContent,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { FolderOpen, Github, Plus } from "lucide-react";
-import { cn } from "../lib/utils";
+import { FolderOpen, Github, Plus, Loader2 } from "lucide-react";
+
 
 interface NewWorkspaceDialogProps {
   open: boolean;
@@ -219,8 +219,13 @@ export function NewWorkspaceDialog({
           >
             Cancel
           </Button>
+
+
+
+
           <Button
             size="sm"
+            className="min-w-[8.5rem] disabled:opacity-100"
             disabled={
               !name.trim() ||
               createWorkspace.isPending ||
@@ -228,8 +233,12 @@ export function NewWorkspaceDialog({
               (mode === "repo" && !repoUrl.trim())
             }
             onClick={handleSubmit}
+            aria-busy={createWorkspace.isPending}
           >
-            {createWorkspace.isPending ? "Creating…" : primaryWorkspaceId ? "Add workspace" : "Create workspace"}
+            <span className="inline-flex items-center justify-center gap-1.5">
+              {createWorkspace.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+              <span>{createWorkspace.isPending ? "Creating..." : primaryWorkspaceId ? "Add workspace" : "Create workspace"}</span>
+            </span>
           </Button>
         </div>
       </DialogContent>

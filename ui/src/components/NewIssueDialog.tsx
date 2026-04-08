@@ -48,7 +48,6 @@ import {
   Loader2,
   ListTree,
   X,
-  Check,
 } from "lucide-react";
 import { cn } from "../lib/utils";
 import { extractProviderIdWithFallback } from "../lib/model-utils";
