@@ -111,8 +111,18 @@ function isBedrockAuth(env: Record<string, string>): boolean {
   );
 }
 
+function isFoundryAuth(env: Record<string, string>): boolean {
+  return (
+    env.CLAUDE_CODE_USE_FOUNDRY === "1" ||
+    env.CLAUDE_CODE_USE_FOUNDRY === "true" ||
+    hasNonEmptyEnvValue(env, "ANTHROPIC_FOUNDRY_BASE_URL") ||
+    hasNonEmptyEnvValue(env, "ANTHROPIC_FOUNDRY_RESOURCE")
+  );
+}
+
 function resolveClaudeBillingType(env: Record<string, string>): "api" | "subscription" | "metered_api" {
   if (isBedrockAuth(env)) return "metered_api";
+  if (isFoundryAuth(env)) return "api";
   return hasNonEmptyEnvValue(env, "ANTHROPIC_API_KEY") ? "api" : "subscription";
 }
 
