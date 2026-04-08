@@ -1923,12 +1923,12 @@ export function pluginRoutes(
    * - 502 if the worker is unavailable or the RPC call fails
    */
   router.post("/plugins/:pluginId/webhooks/:endpointKey", async (req, res) => {
-      if (!webhookDeps) {
-        res.status(501).json({ error: "Webhook ingestion is not enabled" });
-        return;
-      }
+    if (!webhookDeps) {
+      res.status(501).json({ error: "Webhook ingestion is not enabled" });
+      return;
+    }
 
-      const { pluginId, endpointKey } = req.params;
+    const { pluginId, endpointKey } = req.params;
 
     // Step 1: Resolve the plugin
     const plugin = await resolvePlugin(registry, pluginId);
@@ -1986,7 +1986,7 @@ export function pluginRoutes(
     // Use the raw buffer stashed by the express.json() `verify` callback.
     // This preserves the exact bytes the provider signed, whereas
     // JSON.stringify(req.body) would re-serialize and break HMAC verification.
-      const { rawBody, parsedBody, payload } = buildWebhookPayload(req);
+    const { rawBody, parsedBody, payload } = buildWebhookPayload(req);
 
     // Step 6: Record the delivery in the database
     const startedAt = new Date();
@@ -2001,6 +2001,11 @@ export function pluginRoutes(
         startedAt,
       })
       .returning({ id: pluginWebhookDeliveries.id });
+
+    if (!delivery) {
+      res.status(500).json({ error: "Failed to record webhook delivery" });
+      return;
+    }
 
     // Step 7: Dispatch to the worker via handleWebhook RPC
     try {
@@ -2050,7 +2055,7 @@ export function pluginRoutes(
         error: errorMessage,
       });
     }
-    });
+  });
 
   // ===========================================================================
   // Plugin health dashboard — aggregated diagnostics for the settings page

@@ -187,5 +187,8 @@ export async function resolveMigrationConnection(): Promise<MigrationConnection>
     };
   }
 
+  // IMPORTANT: embedded startup serialization only covers cluster bootstrap and
+  // database availability. Callers must apply pending migrations immediately
+  // after acquiring this connection so concurrent boots do not drift in intent.
   return ensureEmbeddedPostgresConnection(target.dataDir, target.port);
 }

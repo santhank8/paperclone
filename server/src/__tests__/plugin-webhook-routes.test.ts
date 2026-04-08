@@ -129,4 +129,31 @@ describe("plugin webhook routes", () => {
     expect(deliveries).toHaveLength(1);
     expect(deliveries[0]?.payload).toEqual({});
   }, 15_000);
+
+  it("returns a structured 500 when delivery persistence yields no row", async () => {
+    const db = await createTestDb();
+    const plugin = await seedPlugin(db);
+    const originalInsert = db.insert.bind(db);
+    vi.spyOn(db, "insert").mockImplementation(((table: unknown) => {
+      if (table === pluginWebhookDeliveries) {
+        return {
+          values: () => ({
+            returning: async () => [],
+          }),
+        } as any;
+      }
+      return originalInsert(table as Parameters<typeof db.insert>[0]);
+    }) as typeof db.insert);
+    const workerManager = { call: vi.fn().mockResolvedValue(undefined) };
+    const app = createApp(db, workerManager);
+
+    const res = await request(app)
+      .post(`/api/plugins/${plugin.pluginKey}/webhooks/demo-ingest`)
+      .set("content-type", "application/json")
+      .send({ hello: "world" });
+
+    expect(res.status, JSON.stringify(res.body)).toBe(500);
+    expect(res.body).toEqual({ error: "Failed to record webhook delivery" });
+    expect(workerManager.call).not.toHaveBeenCalled();
+  });
 });
