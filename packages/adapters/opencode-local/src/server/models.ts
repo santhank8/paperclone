@@ -21,7 +21,7 @@ function resolveOpenCodeCommand(input: unknown): string {
 
 const discoveryCache = new Map<string, { expiresAt: number; models: AdapterModel[] }>();
 const VOLATILE_ENV_KEY_PREFIXES = ["PAPERCLIP_", "npm_", "NPM_"] as const;
-const VOLATILE_ENV_KEY_EXACT = new Set(["PWD", "OLDPWD", "SHLVL", "_", "TERM_SESSION_ID", "HOME"]);
+const VOLATILE_ENV_KEY_EXACT = new Set(["PWD", "OLDPWD", "SHLVL", "_", "TERM_SESSION_ID", "HOME", "USERPROFILE"]);
 
 function dedupeModels(models: AdapterModel[]): AdapterModel[] {
   const seen = new Set<string>();
@@ -128,8 +128,14 @@ export async function discoverOpenCodeModels(input: {
     // /etc/passwd entry (e.g. `docker run --user 1234` with a minimal
     // image). Fall back to process.env.HOME.
   }
-
-const VOLATILE_ENV_KEY_EXACT = new Set(["PWD", "OLDPWD", "SHLVL", "_", "TERM_SESSION_ID", "HOME", "USERPROFILE"]);
+  const homeDir =
+    (resolvedHome && resolvedHome.trim().length > 0 ? resolvedHome : undefined) ??
+    process.env.HOME ??
+    process.env.USERPROFILE;
+  const homeEnv =
+    homeDir && homeDir.trim().length > 0
+      ? { HOME: homeDir, USERPROFILE: homeDir }
+      : {};
   
   // Prevent OpenCode from writing an opencode.json into the working directory.
   const runtimeEnv = normalizeEnv(ensurePathInEnv({ ...process.env, ...env, ...homeEnv, OPENCODE_DISABLE_PROJECT_CONFIG: "true" }));
