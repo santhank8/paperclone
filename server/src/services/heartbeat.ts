@@ -2,8 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { execFile as execFileCallback } from "node:child_process";
 import { promisify } from "node:util";
-<<<<<<< HEAD
-import { and, asc, desc, eq, gt, inArray, isNull, ne, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gt, inArray, isNull, lt, ne, or, sql } from "drizzle-orm";
 import type { Db } from "@paperclipai/db";
 import type { BillingType, ExecutionWorkspace, ExecutionWorkspaceConfig } from "@paperclipai/shared";
 import {
@@ -2166,6 +2165,29 @@ export function heartbeatService(db: Db) {
     return Number(count ?? 0);
   }
 
+  async function recordHeartbeatCheck(agent: typeof agents.$inferSelect, checkedAt: Date) {
+    const updated = await db
+      .update(agents)
+      .set({
+        lastHeartbeatAt: checkedAt,
+        updatedAt: checkedAt,
+      })
+      .where(
+        and(
+          eq(agents.id, agent.id),
+          eq(agents.companyId, agent.companyId),
+          or(isNull(agents.lastHeartbeatAt), lt(agents.lastHeartbeatAt, checkedAt)),
+        ),
+      )
+      .returning()
+      .then((rows) => rows[0] ?? null);
+
+    if (!updated || agent.lastHeartbeatAt) return;
+
+    const tc = getTelemetryClient();
+    if (tc) trackAgentFirstHeartbeat(tc, { agentRole: updated.role });
+  }
+
   /**
    * Lightweight preflight check that determines whether an agent has any
    * pending work worth invoking the LLM adapter for. Uses up to three
@@ -3719,7 +3741,11 @@ export function heartbeatService(db: Db) {
       explicitResumeSession?.sessionDisplayId ??
       await resolveSessionBeforeForWakeup(agent, effectiveTaskKey);
 
-    const writeSkippedRequest = async (skipReason: string) => {
+    const writeSkippedRequest = async (
+      skipReason: string,
+      options?: { countsForHeartbeatInterval?: boolean },
+    ) => {
+      const finishedAt = new Date();
       await db.insert(agentWakeupRequests).values({
         companyId: agent.companyId,
         agentId,
@@ -3731,8 +3757,12 @@ export function heartbeatService(db: Db) {
         requestedByActorType: opts.requestedByActorType ?? null,
         requestedByActorId: opts.requestedByActorId ?? null,
         idempotencyKey: opts.idempotencyKey ?? null,
-        finishedAt: new Date(),
+        finishedAt,
       });
+
+      if (options?.countsForHeartbeatInterval) {
+        await recordHeartbeatCheck(agent, finishedAt);
+      }
     };
 
     let projectId = readNonEmptyString(enrichedContextSnapshot.projectId);
@@ -3789,7 +3819,9 @@ export function heartbeatService(db: Db) {
       if (!hasExplicitTarget) {
         const pending = await hasPendingWork(agent);
         if (!pending) {
-          await writeSkippedRequest("preflight.no_pending_work");
+          await writeSkippedRequest("preflight.no_pending_work", {
+            countsForHeartbeatInterval: source === "timer",
+          });
           publishLiveEvent({
             companyId: agent.companyId,
             type: "heartbeat.preflight.skipped",

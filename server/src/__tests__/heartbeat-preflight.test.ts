@@ -186,6 +186,12 @@ describeEmbeddedPostgres("heartbeat preflight check", () => {
     return db.select().from(agentWakeupRequests);
   }
 
+  async function getAgentRow(agentId: string) {
+    return db.query.agents.findFirst({
+      where: eq(agents.id, agentId),
+    });
+  }
+
   // ---- Tests ----
 
   it("skips timer wakeup when preflight is enabled and agent has no pending work", async () => {
@@ -226,6 +232,21 @@ describeEmbeddedPostgres("heartbeat preflight check", () => {
     process.env.HEARTBEAT_PREFLIGHT_ENABLED = "true";
     const { companyId, agentId } = await seedAgent({ preflightEnabled: true });
     await seedIssue(companyId, agentId, "in_progress");
+
+    const heartbeat = heartbeatService(db);
+    const result = await heartbeat.wakeup(agentId, {
+      source: "timer",
+      triggerDetail: "system",
+      reason: "heartbeat_timer",
+    });
+
+    expect(result).not.toBeNull();
+  });
+
+  it("proceeds with timer wakeup when agent has in_review issue", async () => {
+    process.env.HEARTBEAT_PREFLIGHT_ENABLED = "true";
+    const { companyId, agentId } = await seedAgent({ preflightEnabled: true });
+    await seedIssue(companyId, agentId, "in_review");
 
     const heartbeat = heartbeatService(db);
     const result = await heartbeat.wakeup(agentId, {
@@ -466,5 +487,30 @@ describeEmbeddedPostgres("heartbeat preflight check", () => {
 
     // No work + instance default true → should skip
     expect(result).toBeNull();
+  });
+
+  it("advances lastHeartbeatAt after a skipped timer preflight so the scheduler waits for the next interval", async () => {
+    process.env.HEARTBEAT_PREFLIGHT_ENABLED = "true";
+    const initialHeartbeatAt = new Date(Date.now() - 10 * 60 * 1000);
+    const { agentId } = await seedAgent({
+      preflightEnabled: true,
+      intervalSec: 300,
+      lastHeartbeatAt: initialHeartbeatAt,
+    });
+
+    const heartbeat = heartbeatService(db);
+    const firstTick = await heartbeat.tickTimers(new Date());
+
+    expect(firstTick).toEqual({ checked: 1, enqueued: 0, skipped: 1 });
+
+    const afterFirstTick = await getAgentRow(agentId);
+    expect(afterFirstTick?.lastHeartbeatAt).not.toBeNull();
+    expect(new Date(afterFirstTick!.lastHeartbeatAt!).getTime()).toBeGreaterThan(initialHeartbeatAt.getTime());
+    expect(await getWakeupRequests()).toHaveLength(1);
+
+    const secondTick = await heartbeat.tickTimers(new Date(Date.now() + 1_000));
+
+    expect(secondTick).toEqual({ checked: 1, enqueued: 0, skipped: 0 });
+    expect(await getWakeupRequests()).toHaveLength(1);
   });
 });
