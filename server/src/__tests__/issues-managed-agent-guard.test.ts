@@ -125,7 +125,36 @@ function asAgent(agentId: string) {
 // Tests
 // ---------------------------------------------------------------------------
 
-describe("issues route — managed agent guard", () => {
+// Three agent shapes used throughout these tests:
+//
+//   - assistant       : DeerFlow adapter, has a manager        → blocked
+//   - managed engineer: claude_local adapter, has a manager    → ALLOWED
+//   - top-level agent : either adapter, no manager             → ALLOWED
+//
+// The "managed engineer" case is the regression that the original guard
+// missed: senior engineers (Sr. Backend Engineer, etc.) all report to CTO,
+// so their managerIds are non-empty, but they are full executors and must
+// retain every lifecycle mutation right.
+const ASSISTANT_AGENT = {
+  id: "assistant-agent",
+  companyId: COMPANY_ID,
+  adapterType: "deerflow",
+  managerIds: ["engineer-agent"],
+};
+const MANAGED_ENGINEER = {
+  id: "engineer-agent",
+  companyId: COMPANY_ID,
+  adapterType: "claude_local",
+  managerIds: ["cto-agent"],
+};
+const TOP_LEVEL_AGENT = {
+  id: "cto-agent",
+  companyId: COMPANY_ID,
+  adapterType: "claude_local",
+  managerIds: [],
+};
+
+describe("issues route — managed assistant guard", () => {
   beforeEach(() => {
     mockIssueService.getById.mockReset().mockResolvedValue(baseIssue);
     mockIssueService.getByIdentifier.mockReset().mockResolvedValue(null);
@@ -145,12 +174,8 @@ describe("issues route — managed agent guard", () => {
   });
 
   describe("PATCH /issues/:id", () => {
-    it("rejects 403 when called by an agent that has a manager", async () => {
-      mockAgentService.getById.mockResolvedValue({
-        id: "assistant-agent",
-        companyId: COMPANY_ID,
-        managerIds: ["engineer-agent"],
-      });
+    it("rejects 403 when called by a DeerFlow assistant with a manager", async () => {
+      mockAgentService.getById.mockResolvedValue(ASSISTANT_AGENT);
       const app = createApp(asAgent("assistant-agent"));
 
       const res = await request(app)
@@ -158,22 +183,55 @@ describe("issues route — managed agent guard", () => {
         .send({ status: "done", comment: "I think this is done" });
 
       expect(res.status).toBe(403);
-      expect(res.body.error).toMatch(/Managed agents/i);
+      expect(res.body.error).toMatch(/Managed research assistants/i);
       expect(mockIssueService.update).not.toHaveBeenCalled();
       expect(mockIssueService.addComment).not.toHaveBeenCalled();
     });
 
-    it("allows the same PATCH from an agent without a manager", async () => {
-      mockAgentService.getById.mockResolvedValue({
-        id: "engineer-agent",
-        companyId: COMPANY_ID,
-        managerIds: [],
-      });
+    // Regression coverage for the bug that originally shipped: a managed
+    // engineer (claude_local agent that reports to a manager) was being
+    // incorrectly treated as a managed assistant and blocked from PATCH.
+    // This test fails against the buggy `managerIds.length > 0`-only check.
+    it("ALLOWS PATCH from a senior engineer (claude_local) that reports to a manager", async () => {
+      mockAgentService.getById.mockResolvedValue(MANAGED_ENGINEER);
       const app = createApp(asAgent("engineer-agent"));
 
       const res = await request(app)
         .patch(`/api/issues/${ISSUE_ID}`)
-        .send({ status: "done", comment: "Finished the work" });
+        .send({ status: "done", comment: "Engineer marking work done" });
+
+      expect(res.status).not.toBe(403);
+      expect(mockIssueService.update).toHaveBeenCalled();
+    });
+
+    it("allows PATCH from a top-level agent with no manager", async () => {
+      mockAgentService.getById.mockResolvedValue(TOP_LEVEL_AGENT);
+      const app = createApp(asAgent("cto-agent"));
+
+      const res = await request(app)
+        .patch(`/api/issues/${ISSUE_ID}`)
+        .send({ status: "done", comment: "CTO closing this out" });
+
+      expect(res.status).not.toBe(403);
+      expect(mockIssueService.update).toHaveBeenCalled();
+    });
+
+    // A DeerFlow agent without any manager is a top-level research agent
+    // (not a subordinate). Such an agent isn't constrained by this guard —
+    // the guard exists to enforce hierarchical review, and a top-level
+    // agent has no one to review its decisions.
+    it("allows PATCH from a top-level DeerFlow agent (no manager)", async () => {
+      mockAgentService.getById.mockResolvedValue({
+        id: "standalone-deerflow",
+        companyId: COMPANY_ID,
+        adapterType: "deerflow",
+        managerIds: [],
+      });
+      const app = createApp(asAgent("standalone-deerflow"));
+
+      const res = await request(app)
+        .patch(`/api/issues/${ISSUE_ID}`)
+        .send({ status: "done" });
 
       expect(res.status).not.toBe(403);
       expect(mockIssueService.update).toHaveBeenCalled();
@@ -181,12 +239,8 @@ describe("issues route — managed agent guard", () => {
   });
 
   describe("POST /issues/:id/comments", () => {
-    it("allows a managed agent to post a plain comment (no reopen, no interrupt)", async () => {
-      mockAgentService.getById.mockResolvedValue({
-        id: "assistant-agent",
-        companyId: COMPANY_ID,
-        managerIds: ["engineer-agent"],
-      });
+    it("allows a managed assistant to post a plain comment (no reopen, no interrupt)", async () => {
+      mockAgentService.getById.mockResolvedValue(ASSISTANT_AGENT);
       const app = createApp(asAgent("assistant-agent"));
 
       const res = await request(app)
@@ -195,16 +249,12 @@ describe("issues route — managed agent guard", () => {
 
       expect(res.status).not.toBe(403);
       expect(mockIssueService.addComment).toHaveBeenCalled();
-      // The managed agent's comment must NOT cause an issue update.
+      // The assistant's plain comment must NOT cause an issue update.
       expect(mockIssueService.update).not.toHaveBeenCalled();
     });
 
-    it("rejects 403 when a managed agent posts with reopen=true", async () => {
-      mockAgentService.getById.mockResolvedValue({
-        id: "assistant-agent",
-        companyId: COMPANY_ID,
-        managerIds: ["engineer-agent"],
-      });
+    it("rejects 403 when a managed assistant posts with reopen=true", async () => {
+      mockAgentService.getById.mockResolvedValue(ASSISTANT_AGENT);
       const app = createApp(asAgent("assistant-agent"));
 
       const res = await request(app)
@@ -217,12 +267,8 @@ describe("issues route — managed agent guard", () => {
       expect(mockIssueService.addComment).not.toHaveBeenCalled();
     });
 
-    it("rejects 403 when a managed agent posts with interrupt=true", async () => {
-      mockAgentService.getById.mockResolvedValue({
-        id: "assistant-agent",
-        companyId: COMPANY_ID,
-        managerIds: ["engineer-agent"],
-      });
+    it("rejects 403 when a managed assistant posts with interrupt=true", async () => {
+      mockAgentService.getById.mockResolvedValue(ASSISTANT_AGENT);
       const app = createApp(asAgent("assistant-agent"));
 
       const res = await request(app)
@@ -234,19 +280,32 @@ describe("issues route — managed agent guard", () => {
       expect(mockIssueService.update).not.toHaveBeenCalled();
     });
 
-    it("allows an unmanaged agent to post with reopen=true on a closed issue", async () => {
+    // Regression coverage for the same engineer-blocking bug as the PATCH
+    // test above — engineers must be able to reopen issues via comment
+    // (e.g. to retry a previously-failed delegation cycle).
+    it("ALLOWS a managed engineer to post with reopen=true on a closed issue", async () => {
       mockIssueService.getById.mockResolvedValue({ ...baseIssue, status: "done" });
       mockIssueService.update.mockResolvedValue({ ...baseIssue, status: "todo" });
-      mockAgentService.getById.mockResolvedValue({
-        id: "engineer-agent",
-        companyId: COMPANY_ID,
-        managerIds: [],
-      });
+      mockAgentService.getById.mockResolvedValue(MANAGED_ENGINEER);
       const app = createApp(asAgent("engineer-agent"));
 
       const res = await request(app)
         .post(`/api/issues/${ISSUE_ID}/comments`)
         .send({ body: "reopening to address feedback", reopen: true });
+
+      expect(res.status).not.toBe(403);
+      expect(mockIssueService.update).toHaveBeenCalledWith(ISSUE_ID, { status: "todo" });
+    });
+
+    it("allows a top-level agent to post with reopen=true on a closed issue", async () => {
+      mockIssueService.getById.mockResolvedValue({ ...baseIssue, status: "done" });
+      mockIssueService.update.mockResolvedValue({ ...baseIssue, status: "todo" });
+      mockAgentService.getById.mockResolvedValue(TOP_LEVEL_AGENT);
+      const app = createApp(asAgent("cto-agent"));
+
+      const res = await request(app)
+        .post(`/api/issues/${ISSUE_ID}/comments`)
+        .send({ body: "reopening", reopen: true });
 
       expect(res.status).not.toBe(403);
       expect(mockIssueService.update).toHaveBeenCalledWith(ISSUE_ID, { status: "todo" });
