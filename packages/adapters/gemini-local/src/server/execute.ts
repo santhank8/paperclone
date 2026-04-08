@@ -3,7 +3,7 @@ import type { Dirent } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import type { AdapterExecutionContext, AdapterExecutionResult } from "@paperclipai/adapter-utils";
+import type { AdapterExecutionContext, AdapterExecutionResult, ExecutionSegment } from "@paperclipai/adapter-utils";
 import {
   asBoolean,
   asNumber,
@@ -25,6 +25,8 @@ import {
   renderPaperclipWakePrompt,
   stringifyPaperclipWakePayload,
   runChildProcess,
+  PREFLIGHT_ORCHESTRATION_PROMPT,
+  extractHandoffSection,
 } from "@paperclipai/adapter-utils/server-utils";
 import { DEFAULT_GEMINI_LOCAL_MODEL } from "../index.js";
 import {
@@ -146,6 +148,14 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
   const model = asString(config.model, DEFAULT_GEMINI_LOCAL_MODEL).trim();
   const sandbox = asBoolean(config.sandbox, false);
 
+  // Smart model routing config
+  const smartRouting = parseObject(config.smartModelRouting);
+  const routingEnabled = asBoolean(smartRouting.enabled, false);
+  const cheapModel = asString(smartRouting.cheapModel, "");
+  const cheapThinkingEffort = asString(smartRouting.cheapThinkingEffort, "");
+  const maxPreflightTurns = asNumber(smartRouting.maxPreflightTurns, 2);
+  const allowPreflightProgressComment = asBoolean(smartRouting.allowInitialProgressComment, false);
+
   const workspaceContext = parseObject(context.paperclipWorkspace);
   const workspaceCwd = asString(workspaceContext.cwd, "");
   const workspaceSource = asString(workspaceContext.source, "");
@@ -254,6 +264,93 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     );
   }
 
+  // ---------------------------------------------------------------------------
+  // Smart model routing: cheap preflight phase
+  // ---------------------------------------------------------------------------
+  const shouldRunPreflight =
+    routingEnabled &&
+    cheapModel.length > 0 &&
+    !sessionId &&
+    Boolean(wakeTaskId);
+
+  let preflightSegment: ExecutionSegment | null = null;
+  let preflightHandoffNote = "";
+
+  if (shouldRunPreflight) {
+    const wakePromptForPreflight = renderPaperclipWakePrompt(context.paperclipWake, { resumedSession: false });
+    const preflightPromptSections = [
+      PREFLIGHT_ORCHESTRATION_PROMPT,
+      wakePromptForPreflight,
+      ...(allowPreflightProgressComment
+        ? []
+        : ["Do NOT post comments, leave status updates, or call the Paperclip API."]),
+    ];
+    const preflightPrompt = joinPromptSections(preflightPromptSections);
+
+    // Gemini preflight: uses --prompt flag (not stdin), --approval-mode yolo, --sandbox=none
+    const preflightArgs: string[] = ["--output-format", "stream-json"];
+    preflightArgs.push("--model", cheapModel);
+    preflightArgs.push("--approval-mode", "yolo");
+    preflightArgs.push("--sandbox=none");
+    preflightArgs.push("--prompt", preflightPrompt);
+
+    await onLog("stdout", `[paperclip] Smart routing: running cheap preflight with model "${cheapModel}"...\n`);
+    if (onMeta) {
+      await onMeta({
+        adapterType: "gemini_local",
+        command: resolvedCommand,
+        cwd,
+        commandNotes: ["Smart model routing: cheap preflight phase"],
+        commandArgs: preflightArgs.map((value, index) =>
+          index === preflightArgs.length - 1 ? `<prompt ${preflightPrompt.length} chars>` : value
+        ),
+        env: loggedEnv,
+        prompt: preflightPrompt,
+        promptMetrics: { promptChars: preflightPrompt.length },
+        context,
+      });
+    }
+
+    const preflightTimeoutSec = timeoutSec > 0 ? Math.min(timeoutSec, 120) : 120;
+
+    try {
+      const preflightProc = await runChildProcess(runId, command, preflightArgs, {
+        cwd,
+        env,
+        timeoutSec: preflightTimeoutSec,
+        graceSec,
+        onSpawn,
+        onLog,
+      });
+
+      const preflightParsed = parseGeminiJsonl(preflightProc.stdout);
+      const preflightOk = (preflightProc.exitCode ?? 0) === 0 && !preflightProc.timedOut;
+
+      preflightSegment = {
+        phase: "cheap_preflight",
+        provider: "google",
+        biller: "google",
+        model: cheapModel,
+        billingType,
+        usage: preflightParsed.usage,
+        costUsd: preflightParsed.costUsd ?? null,
+        summary: preflightOk ? (preflightParsed.summary || null) : null,
+      };
+
+      if (preflightOk && preflightParsed.summary) {
+        preflightHandoffNote = `## Preflight Summary (from ${cheapModel})\n\n${extractHandoffSection(preflightParsed.summary)}`;
+        await onLog("stdout", `[paperclip] Preflight complete. Proceeding with primary model "${model}".\n`);
+      } else {
+        const reason = preflightProc.timedOut
+          ? "timed out"
+          : (preflightParsed.errorMessage || `exit code ${preflightProc.exitCode}`);
+        await onLog("stdout", `[paperclip] Preflight did not produce a handoff (${reason}). Continuing with primary model only.\n`);
+      }
+    } catch (err) {
+      await onLog("stderr", `[paperclip] Preflight failed: ${err instanceof Error ? err.message : String(err)}. Continuing with primary model only.\n`);
+    }
+  }
+
   const instructionsFilePath = asString(config.instructionsFilePath, "").trim();
   const instructionsDir = instructionsFilePath ? `${path.dirname(instructionsFilePath)}/` : "";
   let instructionsPrefix = "";
@@ -314,6 +411,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     renderedBootstrapPrompt,
     wakePrompt,
     sessionHandoffNote,
+    preflightHandoffNote,
     paperclipEnvNote,
     apiAccessNote,
     renderedPrompt,
@@ -324,6 +422,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     bootstrapPromptChars: renderedBootstrapPrompt.length,
     wakePromptChars: wakePrompt.length,
     sessionHandoffChars: sessionHandoffNote.length,
+    preflightHandoffChars: preflightHandoffNote.length,
     runtimeNoteChars: paperclipEnvNote.length + apiAccessNote.length,
     heartbeatPromptChars: renderedPrompt.length,
   };
@@ -469,8 +568,44 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
       `[paperclip] Gemini resume session "${sessionId}" is unavailable; retrying with a fresh session.\n`,
     );
     const retry = await runAttempt(null);
-    return toResult(retry, true, true);
+    const retryResult = toResult(retry, true, true);
+
+    if (preflightSegment) {
+      retryResult.executionSegments = [
+        preflightSegment,
+        {
+          phase: "primary",
+          provider: retryResult.provider ?? null,
+          biller: retryResult.biller ?? null,
+          model: retryResult.model ?? null,
+          billingType: retryResult.billingType ?? null,
+          usage: retryResult.usage,
+          costUsd: retryResult.costUsd ?? null,
+          summary: retryResult.summary ?? null,
+        },
+      ];
+    }
+
+    return retryResult;
   }
 
-  return toResult(initial);
+  const finalResult = toResult(initial);
+
+  if (preflightSegment) {
+    finalResult.executionSegments = [
+      preflightSegment,
+      {
+        phase: "primary",
+        provider: finalResult.provider ?? null,
+        biller: finalResult.biller ?? null,
+        model: finalResult.model ?? null,
+        billingType: finalResult.billingType ?? null,
+        usage: finalResult.usage,
+        costUsd: finalResult.costUsd ?? null,
+        summary: finalResult.summary ?? null,
+      },
+    ];
+  }
+
+  return finalResult;
 }

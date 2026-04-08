@@ -2,10 +2,11 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { inferOpenAiCompatibleBiller, type AdapterExecutionContext, type AdapterExecutionResult } from "@paperclipai/adapter-utils";
+import { inferOpenAiCompatibleBiller, type AdapterExecutionContext, type AdapterExecutionResult, type ExecutionSegment } from "@paperclipai/adapter-utils";
 import {
   asString,
   asNumber,
+  asBoolean,
   asStringArray,
   parseObject,
   buildPaperclipEnv,
@@ -23,6 +24,8 @@ import {
   stringifyPaperclipWakePayload,
   joinPromptSections,
   runChildProcess,
+  PREFLIGHT_ORCHESTRATION_PROMPT,
+  extractHandoffSection,
 } from "@paperclipai/adapter-utils/server-utils";
 import { DEFAULT_CURSOR_LOCAL_MODEL } from "../index.js";
 import { parseCursorJsonl, isCursorUnknownSessionError } from "./parse.js";
@@ -170,6 +173,14 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
   const model = asString(config.model, DEFAULT_CURSOR_LOCAL_MODEL).trim();
   const mode = normalizeMode(asString(config.mode, ""));
 
+  // Smart model routing config
+  const smartRouting = parseObject(config.smartModelRouting);
+  const routingEnabled = asBoolean(smartRouting.enabled, false);
+  const cheapModel = asString(smartRouting.cheapModel, "");
+  const cheapThinkingEffort = asString(smartRouting.cheapThinkingEffort, "");
+  const maxPreflightTurns = asNumber(smartRouting.maxPreflightTurns, 2);
+  const allowPreflightProgressComment = asBoolean(smartRouting.allowInitialProgressComment, false);
+
   const workspaceContext = parseObject(context.paperclipWorkspace);
   const workspaceCwd = asString(workspaceContext.cwd, "");
   const workspaceSource = asString(workspaceContext.source, "");
@@ -308,6 +319,115 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     );
   }
 
+  // ---------------------------------------------------------------------------
+  // Smart model routing: cheap preflight phase
+  // ---------------------------------------------------------------------------
+  const shouldRunPreflight =
+    routingEnabled &&
+    cheapModel.length > 0 &&
+    !sessionId &&
+    Boolean(wakeTaskId);
+
+  let preflightSegment: ExecutionSegment | null = null;
+  let preflightHandoffNote = "";
+
+  if (shouldRunPreflight) {
+    const wakePromptForPreflight = renderPaperclipWakePrompt(context.paperclipWake, { resumedSession: false });
+    const preflightPromptSections = [
+      PREFLIGHT_ORCHESTRATION_PROMPT,
+      wakePromptForPreflight,
+      ...(allowPreflightProgressComment
+        ? []
+        : ["Do NOT post comments, leave status updates, or call the Paperclip API."]),
+    ];
+    const preflightPrompt = joinPromptSections(preflightPromptSections);
+
+    // Cursor preflight: use -p with stdin, --yolo for trust bypass, no --resume
+    const preflightArgs: string[] = ["-p", "--output-format", "stream-json", "--workspace", cwd];
+    preflightArgs.push("--model", cheapModel);
+    if (autoTrustEnabled) preflightArgs.push("--yolo");
+
+    await onLog("stdout", `[paperclip] Smart routing: running cheap preflight with model "${cheapModel}"...\n`);
+    if (onMeta) {
+      await onMeta({
+        adapterType: "cursor",
+        command: resolvedCommand,
+        cwd,
+        commandNotes: ["Smart model routing: cheap preflight phase"],
+        commandArgs: preflightArgs,
+        env: loggedEnv,
+        prompt: preflightPrompt,
+        promptMetrics: { promptChars: preflightPrompt.length },
+        context,
+      });
+    }
+
+    const preflightTimeoutSec = timeoutSec > 0 ? Math.min(timeoutSec, 120) : 120;
+
+    try {
+      let preflightStdoutLineBuffer = "";
+      const emitPreflightNormalizedLine = async (rawLine: string) => {
+        const normalized = normalizeCursorStreamLine(rawLine);
+        if (!normalized.line) return;
+        await onLog(normalized.stream ?? "stdout", `${normalized.line}\n`);
+      };
+      const flushPreflightChunk = async (chunk: string, finalize = false) => {
+        const combined = `${preflightStdoutLineBuffer}${chunk}`;
+        const lines = combined.split(/\r?\n/);
+        preflightStdoutLineBuffer = lines.pop() ?? "";
+        for (const line of lines) {
+          await emitPreflightNormalizedLine(line);
+        }
+        if (finalize) {
+          const trailing = preflightStdoutLineBuffer.trim();
+          preflightStdoutLineBuffer = "";
+          if (trailing) await emitPreflightNormalizedLine(trailing);
+        }
+      };
+
+      const preflightProc = await runChildProcess(runId, command, preflightArgs, {
+        cwd,
+        env,
+        stdin: preflightPrompt,
+        timeoutSec: preflightTimeoutSec,
+        graceSec,
+        onSpawn,
+        onLog: async (stream, chunk) => {
+          if (stream !== "stdout") { await onLog(stream, chunk); return; }
+          await flushPreflightChunk(chunk);
+        },
+      });
+      await flushPreflightChunk("", true);
+
+      const preflightParsed = parseCursorJsonl(preflightProc.stdout);
+      const preflightOk = (preflightProc.exitCode ?? 0) === 0 && !preflightProc.timedOut;
+
+      const preflightProvider = resolveProviderFromModel(cheapModel);
+      preflightSegment = {
+        phase: "cheap_preflight",
+        provider: preflightProvider,
+        biller: resolveCursorBiller(effectiveEnv, billingType, preflightProvider),
+        model: cheapModel,
+        billingType,
+        usage: preflightParsed.usage,
+        costUsd: preflightParsed.costUsd ?? null,
+        summary: preflightOk ? (preflightParsed.summary || null) : null,
+      };
+
+      if (preflightOk && preflightParsed.summary) {
+        preflightHandoffNote = `## Preflight Summary (from ${cheapModel})\n\n${extractHandoffSection(preflightParsed.summary)}`;
+        await onLog("stdout", `[paperclip] Preflight complete. Proceeding with primary model "${model}".\n`);
+      } else {
+        const reason = preflightProc.timedOut
+          ? "timed out"
+          : (preflightParsed.errorMessage || `exit code ${preflightProc.exitCode}`);
+        await onLog("stdout", `[paperclip] Preflight did not produce a handoff (${reason}). Continuing with primary model only.\n`);
+      }
+    } catch (err) {
+      await onLog("stderr", `[paperclip] Preflight failed: ${err instanceof Error ? err.message : String(err)}. Continuing with primary model only.\n`);
+    }
+  }
+
   const instructionsFilePath = asString(config.instructionsFilePath, "").trim();
   const instructionsDir = instructionsFilePath ? `${path.dirname(instructionsFilePath)}/` : "";
   let instructionsPrefix = "";
@@ -372,6 +492,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     renderedBootstrapPrompt,
     wakePrompt,
     sessionHandoffNote,
+    preflightHandoffNote,
     paperclipEnvNote,
     renderedPrompt,
   ]);
@@ -381,6 +502,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     bootstrapPromptChars: renderedBootstrapPrompt.length,
     wakePromptChars: wakePrompt.length,
     sessionHandoffChars: sessionHandoffNote.length,
+    preflightHandoffChars: preflightHandoffNote.length,
     runtimeNoteChars: paperclipEnvNote.length,
     heartbeatPromptChars: renderedPrompt.length,
   };
@@ -538,8 +660,42 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
       `[paperclip] Cursor resume session "${sessionId}" is unavailable; retrying with a fresh session.\n`,
     );
     const retry = await runAttempt(null);
-    return toResult(retry, true);
+    const retryResult = toResult(retry, true);
+    if (preflightSegment) {
+      retryResult.executionSegments = [
+        preflightSegment,
+        {
+          phase: "primary",
+          provider: retryResult.provider ?? null,
+          biller: retryResult.biller ?? null,
+          model: retryResult.model ?? null,
+          billingType: retryResult.billingType ?? null,
+          usage: retryResult.usage,
+          costUsd: retryResult.costUsd ?? null,
+          summary: retryResult.summary ?? null,
+        },
+      ];
+    }
+    return retryResult;
   }
 
-  return toResult(initial);
+  const finalResult = toResult(initial);
+
+  if (preflightSegment) {
+    finalResult.executionSegments = [
+      preflightSegment,
+      {
+        phase: "primary",
+        provider: finalResult.provider ?? null,
+        biller: finalResult.biller ?? null,
+        model: finalResult.model ?? null,
+        billingType: finalResult.billingType ?? null,
+        usage: finalResult.usage,
+        costUsd: finalResult.costUsd ?? null,
+        summary: finalResult.summary ?? null,
+      },
+    ];
+  }
+
+  return finalResult;
 }
