@@ -93,32 +93,46 @@ export async function injectChannelMessages(
     const CHANNEL_TOKEN_BUDGET = 2000;
     const agentRoleLower = (agent.role ?? "").toLowerCase();
     const isCeo = /\b(ceo|chief executive)\b/.test(agentRoleLower);
+    const isCsuite = /\b(ceo|cto|cfo|cmo|coo|chief|vp|director)\b/.test(agentRoleLower);
+
+    // CEO reads #company; all C-suite/directors also read #leadership
+    const channelsToRead: Array<{ channel: Awaited<ReturnType<typeof findCompanyChannel>>; contextKey: string }> = [];
+
     if (isCeo) {
       const companyChannel = await findCompanyChannel(db, agent.companyId);
-      if (companyChannel) {
-        const msgs = await getHighSignalMessages(db, companyChannel.id, agent.id, CHANNEL_TOKEN_BUDGET);
-        if (msgs.length > 0) {
-          context.ironworksCompanyChannelUpdates = msgs.map((m) => ({
-            author: m.authorAgentId ?? m.authorUserId ?? "system",
-            body: m.body,
-            type: m.messageType,
-            at: m.createdAt,
-          }));
-        }
-      }
-    } else {
+      if (companyChannel) channelsToRead.push({ channel: companyChannel, contextKey: "ironworksCompanyChannelUpdates" });
+    }
+
+    // C-suite and directors also read #leadership channel
+    if (isCsuite) {
+      const leadershipChannel = await findAgentDepartmentChannel(db, agent.companyId, "leadership");
+      if (leadershipChannel) channelsToRead.push({ channel: leadershipChannel, contextKey: "ironworksLeadershipChannelUpdates" });
+    }
+
+    // Everyone reads their own department channel
+    if (!isCeo) {
       const deptChannel = await findAgentDepartmentChannel(db, agent.companyId, agent.department ?? null);
-      if (deptChannel) {
-        const msgs = await getHighSignalMessages(db, deptChannel.id, agent.id, CHANNEL_TOKEN_BUDGET);
-        if (msgs.length > 0) {
-          context.ironworksTeamChannelUpdates = msgs.map((m) => ({
-            author: m.authorAgentId ?? m.authorUserId ?? "system",
-            body: m.body,
-            type: m.messageType,
-            at: m.createdAt,
-          }));
-        }
-      }
+      if (deptChannel) channelsToRead.push({ channel: deptChannel, contextKey: "ironworksTeamChannelUpdates" });
+    }
+
+    // Fetch messages from all relevant channels in parallel
+    const budgetPerChannel = Math.floor(CHANNEL_TOKEN_BUDGET / Math.max(1, channelsToRead.length));
+    const results = await Promise.all(
+      channelsToRead.map(async ({ channel, contextKey }) => {
+        if (!channel) return null;
+        const msgs = await getHighSignalMessages(db, channel.id, agent.id, budgetPerChannel);
+        return msgs.length > 0 ? { contextKey, msgs } : null;
+      }),
+    );
+
+    for (const result of results) {
+      if (!result) continue;
+      context[result.contextKey] = result.msgs.map((m) => ({
+        author: m.authorAgentId ?? m.authorUserId ?? "system",
+        body: m.body,
+        type: m.messageType,
+        at: m.createdAt,
+      }));
     }
   } catch (err) {
     logger.debug({ err, agentId: agent.id }, "channel context injection failed, skipping");
