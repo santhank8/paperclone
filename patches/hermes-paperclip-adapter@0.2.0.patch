@@ -1,5 +1,5 @@
 diff --git a/dist/server/execute.js b/dist/server/execute.js
-index 93cddf8..23e6762 100644
+index 93cddf8243271f5fb3ab101617f9114257e41328..7e7669cde5a2ad416e1798caf68653f2c2b6870a 100644
 --- a/dist/server/execute.js
 +++ b/dist/server/execute.js
 @@ -41,6 +41,34 @@ const DEFAULT_PROMPT_TEMPLATE = `You are "{{agentName}}", an AI agent employee i
@@ -51,8 +51,6 @@ index 93cddf8..23e6762 100644
 +   \`curl -s -X POST "{{paperclipApiUrl}}/issues/PARENT_ISSUE_ID/comments" "\${AUTH[@]}" "\${RUN[@]}" -H "Content-Type: application/json" -d '{"body":"{{agentName}} completed {{taskId}}. Summary: <brief>"}'\`
  {{/taskId}}
  
-@@ -68,8 +68,9 @@ Title: {{taskTitle}}
- 
  {{#commentId}}
  ## Comment on This Issue
  
@@ -72,7 +70,7 @@ index 93cddf8..23e6762 100644
 -   \`curl -s "{{paperclipApiUrl}}/companies/{{companyId}}/issues?assigneeAgentId={{agentId}}" | python3 -c "import sys,json;issues=json.loads(sys.stdin.read());[print(f'{i[\"identifier\"]} {i[\"status\"]:>12} {i[\"priority\"]:>6} {i[\"title\"]}') for i in issues if i['status'] not in ('done','cancelled')]" \`
 +1. List ALL open issues assigned to you (todo, backlog, in_progress) safely:
 +   \`curl -fsS "\${AUTH[@]}" -o /tmp/paperclip-issues.json "{{paperclipApiUrl}}/companies/{{companyId}}/issues?assigneeAgentId={{agentId}}"\`
-+   \`jq -r '.[] | select(.status != "done" and .status != "cancelled") | "\(.identifier) \(.status) \(.priority) \(.title)"' /tmp/paperclip-issues.json\`
++   \`jq -r '.[] | select(.status != "done" and .status != "cancelled") | "\\(.identifier) \\(.status) \\(.priority) \\(.title)"' /tmp/paperclip-issues.json\`
  
  2. If issues found, pick the highest priority one that is not done/cancelled and work on it:
 -   - Read the issue details: \`curl -s "{{paperclipApiUrl}}/issues/ISSUE_ID"\`
@@ -85,7 +83,7 @@ index 93cddf8..23e6762 100644
 -   \`curl -s "{{paperclipApiUrl}}/companies/{{companyId}}/issues?status=backlog" | python3 -c "import sys,json;issues=json.loads(sys.stdin.read());[print(f'{i[\"identifier\"]} {i[\"title\"]}') for i in issues if not i.get('assigneeAgentId')]" \`
 +3. If no issues assigned to you, check for unassigned issues safely:
 +   \`curl -fsS "\${AUTH[@]}" -o /tmp/paperclip-backlog.json "{{paperclipApiUrl}}/companies/{{companyId}}/issues?status=backlog"\`
-+   \`jq -r '.[] | select((.assigneeAgentId // "") == "") | "\(.identifier) \(.title)"' /tmp/paperclip-backlog.json\`
++   \`jq -r '.[] | select((.assigneeAgentId // "") == "") | "\\(.identifier) \\(.title)"' /tmp/paperclip-backlog.json\`
     If you find a relevant issue, assign it to yourself:
 -   \`curl -s -X PATCH "{{paperclipApiUrl}}/issues/ISSUE_ID" -H "Content-Type: application/json" -d '{"assigneeAgentId":"{{agentId}}","status":"todo"}'\`
 +   \`curl -s -X PATCH "{{paperclipApiUrl}}/issues/ISSUE_ID" "\${AUTH[@]}" "\${RUN[@]}" -H "Content-Type: application/json" -d '{"assigneeAgentId":"{{agentId}}","status":"todo"}'\`
@@ -137,4 +135,4 @@ index 93cddf8..23e6762 100644
 +        env.PAPERCLIP_WAKE_REASON = wakeReason;
      const userEnv = config.env;
      if (userEnv && typeof userEnv === "object") {
-         Object.assign(env, userEnv);e)
+         Object.assign(env, userEnv);
