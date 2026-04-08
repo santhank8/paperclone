@@ -25,6 +25,7 @@ import { IssuesList } from "../components/IssuesList";
 import { PageSkeleton } from "../components/PageSkeleton";
 import { PageTabBar } from "../components/PageTabBar";
 import { NewWorkspaceDialog } from "../components/NewWorkspaceDialog";
+import { WorkspaceCard } from "../components/WorkspaceCard";
 import { buildProjectWorkspaceSummaries } from "../lib/project-workspaces-tab";
 import { projectRouteRef, projectWorkspaceUrl } from "../lib/utils";
 import { timeAgo } from "../lib/timeAgo";
@@ -291,206 +292,75 @@ function ProjectWorkspacesContent({
   const activeSummaries = summaries.filter((summary) => summary.executionWorkspaceStatus !== "cleanup_failed");
   const cleanupFailedSummaries = summaries.filter((summary) => summary.executionWorkspaceStatus === "cleanup_failed");
 
-  const renderWorkspaceCard = (workspace: { id: string; name: string; isPrimary: boolean; cwd?: string | null; repoUrl?: string | null }) => {
-    const workspaceHref = projectWorkspaceUrl({ id: projectRef, urlKey: projectRef }, workspace.id);
-    const truncatePath = (path: string) => {
-      const parts = path.split("/").filter(Boolean);
-      if (parts.length <= 3) return path;
-      return `…/${parts.slice(-2).join("/")}`;
-    };
-
-    return (
-      <div
-        key={workspace.id}
-        className="flex items-center gap-3 border-b border-border px-4 py-3 last:border-b-0"
-      >
-        <Link
-          to={workspaceHref}
-          className="min-w-0 shrink truncate text-sm font-medium hover:underline"
-        >
-          {workspace.name}
-        </Link>
-        <div className="flex shrink-0 items-center gap-1.5 text-xs">
-          {workspace.isPrimary && (
-            <span className="rounded bg-emerald-500/10 px-1.5 py-0.5 font-medium text-emerald-500">primary</span>
-          )}
-        </div>
-        <div className="ml-auto flex shrink-0 items-center gap-2 text-xs text-muted-foreground">
-          {workspace.cwd && (
-            <span className="inline-flex items-center gap-1.5 font-mono">
-              <FolderOpen className="h-3 w-3 shrink-0" />
-              <span className="truncate" title={workspace.cwd}>{truncatePath(workspace.cwd)}</span>
-              <CopyText text={workspace.cwd} className="shrink-0" copiedLabel="Path copied">
-                <Copy className="h-3 w-3" />
-              </CopyText>
-            </span>
-          )}
-          {workspace.repoUrl && (
-            <span className="inline-flex items-center gap-1.5 font-mono">
-              <Github className="h-3 w-3 shrink-0" />
-              <span className="truncate" title={workspace.repoUrl}>{workspace.repoUrl}</span>
-            </span>
-          )}
-          <Button
-            variant="ghost"
-            size="icon-xs"
-            className="shrink-0 text-muted-foreground hover:text-destructive"
-            disabled={removeWorkspace.isPending}
-            onClick={() => {
-              if (confirm(`Delete workspace "${workspace.name}"?`)) {
-                removeWorkspace.mutate(workspace.id);
-              }
-            }}
-          >
-            <Trash2 className="h-3 w-3" />
-          </Button>
-        </div>
-      </div>
-    );
-  };
-
   const renderSummaryRow = (summary: ReturnType<typeof buildProjectWorkspaceSummaries>[number]) => {
-    const visibleIssues = summary.issues.slice(0, 5);
-    const hiddenIssueCount = Math.max(summary.issues.length - visibleIssues.length, 0);
-    const workspaceHref =
-      summary.kind === "project_workspace"
-        ? projectWorkspaceUrl({ id: projectRef, urlKey: projectRef }, summary.workspaceId)
-        : `/execution-workspaces/${summary.workspaceId}`;
     const hasRunningServices = summary.runningServiceCount > 0;
-
-    const truncatePath = (path: string) => {
-      const parts = path.split("/").filter(Boolean);
-      if (parts.length <= 3) return path;
-      return `…/${parts.slice(-2).join("/")}`;
-    };
-
     return (
-      <div
+      <WorkspaceCard
         key={summary.key}
-        className="border-b border-border px-4 py-3 last:border-b-0"
-      >
-        {/* Header row: name + actions */}
-        <div className="flex items-center gap-3">
-          <Link
-            to={workspaceHref}
-            className="min-w-0 shrink truncate text-sm font-medium hover:underline"
-          >
-            {summary.workspaceName}
-          </Link>
-
-          <div className="flex shrink-0 items-center gap-2 text-xs text-muted-foreground">
-            {summary.serviceCount > 0 ? (
-              <span className={`inline-flex items-center gap-1 ${hasRunningServices ? "text-emerald-500" : ""}`}>
-                <span className={`inline-block h-1.5 w-1.5 rounded-full ${hasRunningServices ? "bg-emerald-500" : "bg-muted-foreground/40"}`} />
-                {summary.runningServiceCount}/{summary.serviceCount}
-              </span>
-            ) : null}
-            {summary.executionWorkspaceStatus && summary.executionWorkspaceStatus !== "active" ? (
-              <span className="text-[11px] text-muted-foreground">{summary.executionWorkspaceStatus}</span>
-            ) : null}
-          </div>
-
-          <div className="ml-auto flex shrink-0 items-center gap-2">
-            <span className="text-xs text-muted-foreground">{timeAgo(summary.lastUpdatedAt)}</span>
-            {summary.hasRuntimeConfig ? (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-7 gap-1.5 px-2 text-xs"
-                disabled={controlWorkspaceRuntime.isPending}
-                onClick={() =>
-                  controlWorkspaceRuntime.mutate({
-                    key: summary.key,
-                    kind: summary.kind,
-                    workspaceId: summary.workspaceId,
-                    action: hasRunningServices ? "stop" : "start",
-                  })
-                }
-              >
-                {runtimeActionKey === `${summary.key}:start` || runtimeActionKey === `${summary.key}:stop` ? (
-                  <Loader2 className="h-3 w-3 animate-spin" />
-                ) : hasRunningServices ? (
-                  <Square className="h-3 w-3" />
-                ) : (
-                  <Play className="h-3 w-3" />
-                )}
-                {hasRunningServices ? "Stop" : "Start"}
-              </Button>
-            ) : null}
-            {summary.kind === "execution_workspace" && summary.executionWorkspaceId && summary.executionWorkspaceStatus ? (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-7 px-2 text-xs text-muted-foreground"
-                onClick={() => setClosingWorkspace({
-                  id: summary.executionWorkspaceId!,
-                  name: summary.workspaceName,
-                  status: summary.executionWorkspaceStatus!,
-                })}
-              >
-                {summary.executionWorkspaceStatus === "cleanup_failed" ? "Retry close" : "Close"}
-              </Button>
-            ) : null}
-          </div>
-        </div>
-
-        {/* Metadata lines: branch, folder */}
-        <div className="mt-1.5 space-y-0.5 text-xs text-muted-foreground">
-          {summary.branchName ? (
-            <div className="flex items-center gap-1.5">
-              <GitBranch className="h-3 w-3 shrink-0" />
-              <span className="font-mono">{summary.branchName}</span>
-            </div>
-          ) : null}
-          {summary.cwd ? (
-            <div className="flex items-center gap-1.5">
-              <FolderOpen className="h-3 w-3 shrink-0" />
-              <span className="truncate font-mono" title={summary.cwd}>
-                {truncatePath(summary.cwd)}
-              </span>
-              <CopyText text={summary.cwd} className="shrink-0" copiedLabel="Path copied">
-                <Copy className="h-3 w-3" />
-              </CopyText>
-            </div>
-          ) : null}
-          {summary.primaryServiceUrl ? (
-            <div className="flex items-center gap-1.5">
-              <a
-                href={summary.primaryServiceUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="font-mono hover:text-foreground hover:underline"
-              >
-                {summary.primaryServiceUrl}
-              </a>
-            </div>
-          ) : null}
-        </div>
-
-        {/* Issues */}
-        {summary.issues.length > 0 ? (
-          <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
-            <span className="font-medium text-muted-foreground/70">Issues</span>
-            {visibleIssues.map((issue) => (
-              <IssuesQuicklook key={issue.id} issue={issue}>
-                <Link
-                  to={`/issues/${issue.identifier ?? issue.id}`}
-                  className="font-mono hover:text-foreground hover:underline"
-                >
-                  {issue.identifier ?? issue.id.slice(0, 8)}
-                </Link>
-              </IssuesQuicklook>
-            ))}
-            {hiddenIssueCount > 0 ? (
-              <Link to={workspaceHref} className="hover:text-foreground hover:underline">
-                +{hiddenIssueCount} more
-              </Link>
-            ) : null}
-          </div>
-        ) : null}
-      </div>
+        id={summary.workspaceId}
+        href={summary.kind === "project_workspace"
+          ? projectWorkspaceUrl({ id: projectRef, urlKey: projectRef }, summary.workspaceId)
+          : `/execution-workspaces/${summary.workspaceId}`}
+        name={summary.workspaceName}
+        isPrimary={false}
+        cwd={summary.cwd}
+        branchName={summary.branchName}
+        services={summary.serviceCount > 0
+          ? { running: summary.runningServiceCount, total: summary.serviceCount }
+          : null}
+        statusBadge={summary.executionWorkspaceStatus && summary.executionWorkspaceStatus !== "active"
+          ? summary.executionWorkspaceStatus
+          : null}
+        timeAgoLabel={timeAgo(summary.lastUpdatedAt)}
+        runtimeAction={summary.hasRuntimeConfig
+          ? {
+              isPending: controlWorkspaceRuntime.isPending,
+              isRunning: hasRunningServices,
+              onAction: () =>
+                controlWorkspaceRuntime.mutate({
+                  key: summary.key,
+                  kind: summary.kind,
+                  workspaceId: summary.workspaceId,
+                  action: hasRunningServices ? "stop" : "start",
+                }),
+            }
+          : null}
+        closeAction={
+          summary.kind === "execution_workspace" &&
+          summary.executionWorkspaceId &&
+          summary.executionWorkspaceStatus
+            ? {
+                label: summary.executionWorkspaceStatus === "cleanup_failed" ? "Retry close" : "Close",
+                onClick: () =>
+                  setClosingWorkspace({
+                    id: summary.executionWorkspaceId!,
+                    name: summary.workspaceName,
+                    status: summary.executionWorkspaceStatus!,
+                  }),
+              }
+            : null}
+        issues={summary.issues}
+      />
     );
   };
+
+  const inactiveWorkspacesWithDetails = inactiveWorkspaces.map((w, i) => ({
+    key: `inactive:${w.id}`,
+    id: w.id,
+    href: projectWorkspaceUrl({ id: projectRef, urlKey: projectRef }, w.id),
+    name: w.name,
+    isPrimary: w.isPrimary,
+    cwd: w.cwd,
+    repoUrl: w.repoUrl,
+    deleteAction: {
+      isPending: removeWorkspace.isPending,
+      onDelete: () => {
+        if (confirm(`Delete workspace "${w.name}"?`)) {
+          removeWorkspace.mutate(w.id);
+        }
+      },
+    },
+  }));
 
   return (
     <>
@@ -506,9 +376,11 @@ function ProjectWorkspacesContent({
         </div>
 
         {/* Configured workspaces (including those with no activity) */}
-        {inactiveWorkspaces.length > 0 && (
+        {inactiveWorkspacesWithDetails.length > 0 && (
           <div className="rounded-xl border border-border bg-card">
-            {inactiveWorkspaces.map(renderWorkspaceCard)}
+            {inactiveWorkspacesWithDetails.map(({ key, ...card }) => (
+              <WorkspaceCard key={key} {...card} />
+            ))}
           </div>
         )}
 

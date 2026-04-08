@@ -6,7 +6,8 @@
       "WebFetch(qwenlm.github.io)",
       "Bash(pnpm *)",
       "Bash(ls *)",
-      "Bash(git commit *)"
+      "Bash(git commit *)",
+      "Bash(npx *)"
     ]
   },
   "$version": 3
