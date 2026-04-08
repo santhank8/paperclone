@@ -464,6 +464,14 @@ const app = await createApp(db as any, {
   resolveSession,
 });
 const server = createServer(app as unknown as Parameters<typeof createServer>[0]);
+
+// Increase keep-alive timeouts to safely outlive default idle timeouts
+// of common reverse proxies and load balancers (e.g. Caddy, Traefik, AWS ALB,
+// Nginx). This prevents intermittent 502/ECONNRESET errors caused by Node's
+// 5s default. See paperclipai/paperclip#3008.
+server.keepAliveTimeout = 185000;
+server.headersTimeout = 186000;
+
 const listenPort = await detectPort(config.port);
 
 if (listenPort !== config.port) {
