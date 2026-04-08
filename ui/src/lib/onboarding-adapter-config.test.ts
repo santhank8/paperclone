@@ -21,6 +21,19 @@ describe("buildOnboardingAdapterConfig", () => {
     ]);
   });
 
+  it("preserves opencode_local skip-permissions override", () => {
+    const config = buildOnboardingAdapterConfig({
+      adapterType: "opencode_local",
+      model: "",
+      command: "",
+      extraArgs: "",
+      url: "",
+      dangerouslySkipPermissions: false,
+    });
+
+    expect(config.dangerouslySkipPermissions).toBe(false);
+  });
+
   it("can force-clear ANTHROPIC_API_KEY for claude_local onboarding retries", () => {
     const config = buildOnboardingAdapterConfig({
       adapterType: "claude_local",
