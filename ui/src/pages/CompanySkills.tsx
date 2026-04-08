@@ -987,41 +987,6 @@ export function CompanySkills() {
     },
   });
 
-  const deleteSkill = useMutation({
-    mutationFn: () => companySkillsApi.delete(selectedCompanyId!, selectedSkillId!),
-    onSuccess: async (deletedSkill) => {
-      const remainingSkills = (skillsQuery.data ?? []).filter((skill) => skill.id !== deletedSkill.id);
-      queryClient.setQueryData(queryKeys.companySkills.list(selectedCompanyId!), remainingSkills);
-      queryClient.removeQueries({
-        queryKey: queryKeys.companySkills.detail(selectedCompanyId!, deletedSkill.id),
-      });
-      queryClient.removeQueries({
-        queryKey: ["company-skills", selectedCompanyId!, deletedSkill.id, "file"],
-      });
-      queryClient.removeQueries({
-        queryKey: queryKeys.companySkills.updateStatus(selectedCompanyId!, deletedSkill.id),
-      });
-      setDisplayedDetail(null);
-      setDisplayedFile(null);
-      setEditMode(false);
-      setDraft("");
-      await queryClient.invalidateQueries({ queryKey: queryKeys.companySkills.list(selectedCompanyId!) });
-      navigate(remainingSkills[0] ? skillRoute(remainingSkills[0].id) : "/skills", { replace: true });
-      pushToast({
-        tone: "success",
-        title: "Skill deleted",
-        body: deletedSkill.name,
-      });
-    },
-    onError: (error) => {
-      pushToast({
-        tone: "error",
-        title: "Delete failed",
-        body: error instanceof Error ? error.message : "Failed to delete skill.",
-      });
-    },
-  });
-
   const installUpdate = useMutation({
     mutationFn: () => companySkillsApi.installUpdate(selectedCompanyId!, selectedSkillId!),
     onSuccess: async (skill) => {
