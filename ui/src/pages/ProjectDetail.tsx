@@ -289,6 +289,10 @@ function ProjectWorkspacesContent({
     .filter((w) => !summaries.some((s) => s.workspaceId === w.id))
     .sort((a, b) => a.name.localeCompare(b.name));
 
+  const descriptionByWorkspaceId = new Map(
+    projectWorkspaces.map((w) => [w.id, w.description]),
+  );
+
   const activeSummaries = summaries.filter((summary) => summary.executionWorkspaceStatus !== "cleanup_failed");
   const cleanupFailedSummaries = summaries.filter((summary) => summary.executionWorkspaceStatus === "cleanup_failed");
 
@@ -302,6 +306,7 @@ function ProjectWorkspacesContent({
           ? projectWorkspaceUrl({ id: projectRef, urlKey: projectRef }, summary.workspaceId)
           : `/execution-workspaces/${summary.workspaceId}`}
         name={summary.workspaceName}
+        description={descriptionByWorkspaceId.get(summary.projectWorkspaceId ?? summary.workspaceId)}
         isPrimary={false}
         cwd={summary.cwd}
         branchName={summary.branchName}
