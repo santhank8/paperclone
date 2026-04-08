@@ -158,26 +158,43 @@ export function issueRoutes(db: Db, storage: StorageService) {
   }
 
   /**
-   * Returns true if the actor is an agent that has at least one manager
-   * (i.e. an "assistant" — DeerFlow Haiku-tier or any other subordinate
-   * agent in the org graph). Managed agents are restricted to comment-only
-   * interactions on issues; status, assignee, and other lifecycle mutations
-   * are reserved for unmanaged agents (e.g. CTO, top-level engineers) and
-   * human users. The senior manager reviews the assistant's comment and
-   * decides the issue's outcome.
+   * Returns true if the actor is a **managed research assistant** —
+   * specifically, a DeerFlow-adapter agent that reports to at least one
+   * manager. These are the Haiku-tier subordinates in the Vibe Stack org
+   * (Backend Assistant, CTO Assistant, etc.) and they are restricted to
+   * comment-only interactions on issues.
+   *
+   * Critically, this is NOT just "any agent with a manager". Senior
+   * engineers (Sr. Backend Engineer, Sr. QA Engineer, …) are claude_local
+   * agents that ALSO report to a manager (typically the CTO), but they
+   * are full executors and need every lifecycle mutation right that
+   * unmanaged agents have — they mark their own work done, reassign
+   * stalled subtasks, transition status, etc. The earlier version of
+   * this guard checked only `managerIds.length > 0`, which incorrectly
+   * blocked every senior engineer's PATCH and caused engineer self-wake
+   * loops on orphan issues that no one could close.
+   *
+   * The defining property of "managed assistant" in this codebase is the
+   * combination of (a) DeerFlow adapter type (Haiku-tier local model) and
+   * (b) presence of a manager edge. Top-level DeerFlow agents would not
+   * be managed by anyone and therefore aren't restricted; managed
+   * claude_local agents (engineers under CTO) aren't restricted either.
+   * Only the intersection — DeerFlow + has-manager — is the assistant
+   * class this guard is meant to constrain.
    */
-  async function isActorManagedAgent(req: Request): Promise<boolean> {
+  async function isActorManagedAssistant(req: Request): Promise<boolean> {
     if (req.actor.type !== "agent") return false;
     const actorAgentId = req.actor.agentId;
     if (!actorAgentId) return false;
     const actorAgent = await agentsSvc.getById(actorAgentId);
     if (!actorAgent) return false;
+    if (actorAgent.adapterType !== "deerflow") return false;
     return Array.isArray(actorAgent.managerIds) && actorAgent.managerIds.length > 0;
   }
 
-  function rejectManagedAgentMutation(res: Response, what: string) {
+  function rejectManagedAssistantMutation(res: Response, what: string) {
     res.status(403).json({
-      error: `Managed agents (assistants) may only post plain comments on issues; ${what} is reserved for an unmanaged agent or a human user.`,
+      error: `Managed research assistants may only post plain comments on issues; ${what} is reserved for an executor agent or a human user.`,
     });
   }
 
@@ -513,10 +530,13 @@ export function issueRoutes(db: Db, storage: StorageService) {
     }
     assertCompanyAccess(req, existing.companyId);
 
-    // Managed agents (assistants) may not mutate issue state.
-    // They must use POST /issues/:id/comments without `reopen`/`interrupt`.
-    if (await isActorManagedAgent(req)) {
-      rejectManagedAgentMutation(res, "PATCH /issues/:id");
+    // Managed research assistants (DeerFlow Haiku-tier subordinates) may
+    // not mutate issue state. They must use POST /issues/:id/comments
+    // without `reopen`/`interrupt`. Senior engineers — even though they
+    // also have a manager in agent_managers — are full executors and pass
+    // this check freely.
+    if (await isActorManagedAssistant(req)) {
+      rejectManagedAssistantMutation(res, "PATCH /issues/:id");
       return;
     }
 
@@ -1037,10 +1057,11 @@ export function issueRoutes(db: Db, storage: StorageService) {
     assertCompanyAccess(req, issue.companyId);
     if (!(await assertAgentRunCheckoutOwnership(req, res, issue))) return;
 
-    // Managed agents may comment but cannot reopen or interrupt — those are
-    // status mutations under the guise of a comment.
-    if ((req.body.reopen === true || req.body.interrupt === true) && (await isActorManagedAgent(req))) {
-      rejectManagedAgentMutation(res, "reopening or interrupting via comment");
+    // Managed research assistants may comment but cannot reopen or
+    // interrupt — those are status mutations under the guise of a comment.
+    // Senior engineers retain full reopen/interrupt rights.
+    if ((req.body.reopen === true || req.body.interrupt === true) && (await isActorManagedAssistant(req))) {
+      rejectManagedAssistantMutation(res, "reopening or interrupting via comment");
       return;
     }
 
