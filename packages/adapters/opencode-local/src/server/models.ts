@@ -129,11 +129,7 @@ export async function discoverOpenCodeModels(input: {
     // image). Fall back to process.env.HOME.
   }
 
-  // Cross-platform environment fix: Ensure Windows syncs USERPROFILE
-  const homeEnv = resolvedHome ? {
-    HOME: resolvedHome,
-    ...(process.platform === "win32" ? { USERPROFILE: resolvedHome } : {})
-  } : {};
+const VOLATILE_ENV_KEY_EXACT = new Set(["PWD", "OLDPWD", "SHLVL", "_", "TERM_SESSION_ID", "HOME", "USERPROFILE"]);
   
   // Prevent OpenCode from writing an opencode.json into the working directory.
   const runtimeEnv = normalizeEnv(ensurePathInEnv({ ...process.env, ...env, ...homeEnv, OPENCODE_DISABLE_PROJECT_CONFIG: "true" }));
