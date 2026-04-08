@@ -34,7 +34,37 @@ const HEARTBEAT_MAX_CONCURRENT_RUNS_MAX = 10;
 const DEFERRED_WAKE_CONTEXT_KEY = "_paperclipWakeContext";
 const startLocksByAgent = new Map<string, Promise<void>>();
 const REPO_ONLY_CWD_SENTINEL = "/__paperclip_repo_only__";
-const DEERFLOW_PREFLIGHT_TIMEOUT_SEC_DEFAULT = 120;
+
+/** Default wall-clock timeout for DeerFlow pre-flight research runs.
+ *
+ * The prior default was 120s. Empirical data from a running Vibe Stack
+ * deployment (Qwen 3.5 9B via local vLLM) after the prompt + recursion +
+ * catch-path fixes in prior PRs:
+ *
+ *   - Trivial task (VIB-33, "read line 1 of a known file"): pre-flight
+ *     completed successfully in ~12s with a 577-char research brief.
+ *   - Exploration task (VIB-29, walk a subtree to locate relevant files):
+ *     hit the 120s wall-clock timeout and produced a `DeerFlow Output
+ *     (failed) / Timed out after 120s` comment with partial AI content
+ *     captured from the streamed response.
+ *   - Historical runs on the pre-fix config (12 samples): successful
+ *     runs clustered at 33-110s; recursion-errored runs clustered at
+ *     64-214s (they'd have continued longer with the new recursion_limit
+ *     of 100 and the tighter prompt).
+ *
+ * 120s was provably insufficient for exploration tasks on a small local
+ * model. 180s gives 50% headroom, empirically covers the ~100-160s band
+ * where exploration tasks on the new prompt should converge, and keeps
+ * pre-flight inside a "cheap background research" latency contract — any
+ * higher and the manager waits too long before starting its own run on
+ * the issue.
+ *
+ * Deployments with slower models can override per-senior-engineer via
+ * `adapterConfig.deerflowPreflightTimeoutSec` on the claude_local agent
+ * whose pre-flight this is — `runDeerFlowPreflight` reads that value
+ * from `parentConfig`.
+ */
+const DEERFLOW_PREFLIGHT_TIMEOUT_SEC_DEFAULT = 180;
 const DEERFLOW_RESEARCH_COMMENT_TAG = "<!-- deerflow:research -->";
 
 // DeerFlow pre-flight research prompt.
