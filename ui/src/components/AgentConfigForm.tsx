@@ -282,10 +282,11 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
     }
 
     if (patch.adapterConfig && adapterType === "hermes_local") {
-      const effectCommand = (patch.adapterConfig as Record<string, unknown>).command ?? (patch.adapterConfig as Record<string, unknown>).hermesCommand;
+      const patchAdapterConfig = patch.adapterConfig as Record<string, unknown>;
+      const effectCommand = patchAdapterConfig.hermesCommand ?? patchAdapterConfig.command;
       if (effectCommand) {
-        (patch.adapterConfig as Record<string, unknown>).hermesCommand = effectCommand;
-        (patch.adapterConfig as Record<string, unknown>).command = effectCommand;
+        patchAdapterConfig.hermesCommand = effectCommand;
+        patchAdapterConfig.command = effectCommand;
       }
     }
     if (Object.keys(overlay.heartbeat).length > 0) {
@@ -401,7 +402,7 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
     const base = config as Record<string, unknown>;
     const combined = { ...base, ...overlay.adapterConfig };
     if (adapterType === "hermes_local") {
-      const effectCommand = combined.command ?? combined.hermesCommand;
+      const effectCommand = combined.hermesCommand ?? combined.command;
       if (effectCommand) {
         combined.hermesCommand = effectCommand;
         combined.command = effectCommand;
@@ -534,7 +535,7 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
             </Field>
             <Field label="Capabilities" hint={help.capabilities}>
               <MarkdownEditor
-                value={eff("identity", "capabilities", props.agent.capabilities ?? "")}
+                value={eff("identity", "capabilities", props.agent.capabilities ?? "") ?? ""}
                 onChange={(v) => mark("identity", "capabilities", v || null)}
                 placeholder="Describe what this agent can do..."
                 contentClassName="min-h-[44px] text-sm font-mono"
