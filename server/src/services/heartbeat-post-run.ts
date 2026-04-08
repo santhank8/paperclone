@@ -238,6 +238,10 @@ export async function extractAndPostAgentChannelMessages(
   agentOutput: string,
 ): Promise<void> {
   try {
+    logger.info(
+      { agentId: agent.id, outputLen: agentOutput.length, outputPreview: agentOutput.slice(0, 300) },
+      "extractAndPostAgentChannelMessages: processing agent output",
+    );
     const channelMsgs = extractChannelMessages(agentOutput);
     for (const { channel: channelName, body: messageBody } of channelMsgs) {
       const [targetChannel] = await db
