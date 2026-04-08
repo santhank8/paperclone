@@ -54,7 +54,7 @@ function parseModelsOutput(stdout: string): AdapterModel[] {
   const parsed: AdapterModel[] = [];
   // Strip ANSI escape sequences to prevent corrupted IDs
   const cleanStdout = stdout.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, "");
-for (const raw of cleanStdout.split(/\r?\n/)) {
+  for (const raw of cleanStdout.split(/\r?\n/)) {
     const line = raw.trim();
     if (!line) continue;
 
