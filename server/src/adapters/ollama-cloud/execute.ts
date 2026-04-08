@@ -67,6 +67,22 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     messages.push({ role: "user", content: latestComment });
   }
 
+  // If no task/issue context was provided but channel messages exist in context,
+  // inject a prompt telling the agent to check channels and respond.
+  // This enables conversational engagement even when no issues are assigned.
+  const hasChannelContext = Boolean(
+    context.ironworksCompanyChannelUpdates ||
+    context.ironworksTeamChannelUpdates ||
+    context.ironworksLeadershipChannelUpdates ||
+    context.ironworksPendingMentions,
+  );
+  if (!rawTaskContext && !rawLatestComment && hasChannelContext) {
+    messages.push({
+      role: "user",
+      content: "You have no assigned tasks right now. Check the channel messages above for any messages directed at you or relevant to your role. If someone introduced themselves, welcomed the team, asked a question, or requested a status update, respond using [CHANNEL #channelname] format. If there is nothing requiring your response, briefly post a status update to your department channel.",
+    });
+  }
+
   // LLM04-A: Enforce an aggregate character cap on the total prompt size.
   // If the assembled messages exceed 100,000 chars, truncate the longest
   // non-system messages (user/assistant) until we're within budget.
