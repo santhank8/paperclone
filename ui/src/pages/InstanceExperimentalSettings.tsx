@@ -149,13 +149,25 @@ export function InstanceExperimentalSettings() {
               provider URL. Agents targeting different provider URLs can still run concurrently.
             </p>
           </div>
-          <ToggleSwitch
-            checked={serializeAgentRunsByProviderUrl}
-            onCheckedChange={() =>
-              toggleMutation.mutate({ serializeAgentRunsByProviderUrl: !serializeAgentRunsByProviderUrl })}
-            disabled={toggleMutation.isPending}
+          <button
+            type="button"
+            data-slot="toggle"
             aria-label="Toggle provider-url run serialization"
-          />
+            disabled={toggleMutation.isPending}
+            className={cn(
+              "relative inline-flex h-5 w-9 items-center rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-60",
+              serializeAgentRunsByProviderUrl ? "bg-green-600" : "bg-muted",
+            )}
+            onClick={() =>
+              toggleMutation.mutate({ serializeAgentRunsByProviderUrl: !serializeAgentRunsByProviderUrl })}
+          >
+            <span
+              className={cn(
+                "inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform",
+                serializeAgentRunsByProviderUrl ? "translate-x-4.5" : "translate-x-0.5",
+              )}
+            />
+          </button>
         </div>
       </section>
     </div>
