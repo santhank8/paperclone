@@ -50,6 +50,8 @@ FROM base AS build
 WORKDIR /app
 COPY --from=deps /app /app
 COPY . .
+RUN pnpm --filter @ironworksai/shared build
+RUN pnpm --filter @ironworksai/db build
 RUN pnpm --filter @ironworksai/ui build
 RUN pnpm --filter @ironworksai/plugin-sdk build
 RUN pnpm --filter @ironworksai/server build
