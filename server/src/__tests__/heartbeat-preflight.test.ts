@@ -35,10 +35,10 @@ vi.mock("@paperclipai/shared/telemetry", async () => {
 });
 
 // Mock the adapter registry so executeRun (which fires in background after
-// a successful enqueue) does not try to spawn a real CLI process or resolve
-// company skills. We only care about the enqueue/preflight decision.
-vi.mock("../adapters/index.ts", async () => {
-  const actual = await vi.importActual<typeof import("../adapters/index.ts")>("../adapters/index.ts");
+// a successful enqueue) does not try to spawn a real CLI process.
+// We only care about the enqueue/preflight decision.
+vi.mock("../adapters/index.js", async () => {
+  const actual = await vi.importActual<typeof import("../adapters/index.js")>("../adapters/index.js");
   return {
     ...actual,
     getServerAdapter: () => ({
@@ -58,6 +58,16 @@ vi.mock("../adapters/index.ts", async () => {
     }),
   };
 });
+
+// Mock company-skills service so executeRun's skill resolution does not
+// attempt to INSERT into company_skills (which races with afterEach cleanup).
+vi.mock("../services/company-skills.js", () => ({
+  companySkillService: () => ({
+    listRuntimeSkillEntries: async () => [],
+    listFull: async () => [],
+    list: async () => [],
+  }),
+}));
 
 import { heartbeatService } from "../services/heartbeat.ts";
 
