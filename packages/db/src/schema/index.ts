@@ -80,3 +80,4 @@ export { channelDeliberations, channelDeliberationPositions, channelDeliberation
 export { bugReports } from "./bug_reports.js";
 export { workflowMaturity } from "./workflow_maturity.js";
 export { agentPromptVersions } from "./agent_prompt_versions.js";
+export { channelResponseState } from "./channel_response_state.js";

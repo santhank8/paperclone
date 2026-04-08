@@ -2,6 +2,7 @@ import { and, desc, eq, gt, gte, inArray, lt, or, sql } from "drizzle-orm";
 import type { Db } from "@ironworksai/db";
 import { agentChannels, agents, agentWakeupRequests, channelMemberships, channelMessages, issues } from "@ironworksai/db";
 import { logger } from "../middleware/logger.js";
+import { selectRespondingAgents, recordAgentResponse, recordHumanMessage } from "./channel-router.js";
 
 // ---------------------------------------------------------------------------
 // Module-level constants
@@ -15,6 +16,16 @@ export type Message = typeof channelMessages.$inferSelect;
 // ---------------------------------------------------------------------------
 // Internal helpers
 // ---------------------------------------------------------------------------
+
+/**
+ * Strip accumulated author prefixes from bridge messages.
+ * Removes patterns like "**Name:** **Name:** **Name:**" prepended by agents
+ * when posting their own messages to channels.
+ */
+function stripAuthorPrefix(body: string): string {
+  // Remove patterns like "**Name:** **Name:** **Name:**" at the start
+  return body.replace(/^(\*\*[\w\s]+:\*\*\s*)+/g, "").trim();
+}
 
 async function upsertChannel(
   db: Db,
@@ -244,9 +255,15 @@ export async function postMessage(
     reasoning?: string;
   },
 ): Promise<Message> {
+  // --- Strip accumulated author prefixes from bridge/non-agent messages ---
+  // Agents sometimes prepend "**Name:**" to their own output; strip it here
+  // so the stored message body is clean regardless of source.
+  const isHumanOrBridge = Boolean(opts.authorUserId) || (!opts.authorAgentId && !opts.authorUserId);
+  const cleanBody = isHumanOrBridge ? stripAuthorPrefix(opts.body) : opts.body;
+
   // --- Contradiction detection (non-fatal) ---
   // For decision messages posted by agents, check for contradictions with prior decisions.
-  let bodyWithNote = opts.body;
+  let bodyWithNote = cleanBody;
   if (
     opts.authorAgentId &&
     (opts.messageType === "decision" || opts.messageType === "message")
@@ -255,7 +272,7 @@ export async function postMessage(
       // Inline heuristic: find prior decision messages from this agent, check keyword negation overlap
       const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
       const newWords = new Set(
-        opts.body
+        cleanBody
           .toLowerCase()
           .split(/\W+/)
           .filter((w) => w.length >= 5),
@@ -276,14 +293,14 @@ export async function postMessage(
           .limit(50);
 
         const negWords = ["not", "never", "no", "stop", "cancel", "reject", "avoid", "remove", "disable"];
-        const newHasNeg = negWords.some((n) => opts.body.toLowerCase().includes(n));
+        const newHasNeg = negWords.some((n) => cleanBody.toLowerCase().includes(n));
         for (const prior of priorRows) {
           const priorWords = new Set(prior.body.toLowerCase().split(/\W+/).filter((w) => w.length >= 5));
           const priorHasNeg = negWords.some((n) => prior.body.toLowerCase().includes(n));
           const overlap = [...newWords].filter((w) => priorWords.has(w)).length;
           if (overlap >= 3 && newHasNeg !== priorHasNeg) {
             const priorDate = new Date(prior.createdAt).toLocaleDateString();
-            bodyWithNote = `${opts.body}\n\n[Note: This may contradict a prior decision. See message from ${priorDate}.]`;
+            bodyWithNote = `${cleanBody}\n\n[Note: This may contradict a prior decision. See message from ${priorDate}.]`;
             break;
           }
         }
@@ -383,53 +400,55 @@ export async function postMessage(
     }
   }
 
-  // --- Wake agents on channel activity ---
-  // When a message is posted (by a user, Nolan bridge, or another agent),
-  // wake all idle agents that belong to this channel so they respond promptly.
-  // Non-fatal: wakeup failures must never block message delivery.
-  try {
-    // Find agents in this channel (via department matching or company-wide channels)
-    const channel = await db
-      .select({ scopeType: agentChannels.scopeType, name: agentChannels.name })
-      .from(agentChannels)
-      .where(eq(agentChannels.id, opts.channelId))
-      .then((rows) => rows[0] ?? null);
-
-    if (channel) {
-      // Find agents to wake - company channel wakes C-suite, dept channel wakes dept members
-      const isCompanyChannel = channel.scopeType === "company" || channel.name === "company" || channel.name === "leadership";
-      const agentConditions = [
-        eq(agents.companyId, opts.companyId),
-        eq(agents.status, "idle"),
-      ];
-      // Don't wake the agent that just posted (avoid self-loop)
-      const eligibleAgents = await db
-        .select({ id: agents.id, name: agents.name })
-        .from(agents)
-        .where(and(...agentConditions))
-        .then((rows) => rows.filter((a) => a.id !== opts.authorAgentId));
-
-      // Limit wakeups to avoid thundering herd on Ollama Cloud (max 3 concurrent)
-      const toWake = eligibleAgents.slice(0, 3);
-
-      for (const agent of toWake) {
-        await db.insert(agentWakeupRequests).values({
-          agentId: agent.id,
-          companyId: opts.companyId,
-          source: "channel_message",
-          reason: `New message in #${channel.name}`,
-          requestedByActorType: opts.authorUserId ? "user" : "agent",
-          requestedByActorId: opts.authorUserId ?? opts.authorAgentId ?? "system",
-          payload: { channelName: channel.name, messagePreview: opts.body.slice(0, 200) },
-        });
+  // --- Route agents on channel activity ---
+  // Uses the channel router to select relevant agents based on @mentions and
+  // relevance scoring. Agent messages NEVER trigger wakeups (no cascade loops).
+  // Non-fatal: routing failures must never block message delivery.
+  if (isHumanOrBridge) {
+    try {
+      await recordHumanMessage(db, opts.channelId, opts.companyId);
+      const channel = await db
+        .select({ name: agentChannels.name })
+        .from(agentChannels)
+        .where(eq(agentChannels.id, opts.channelId))
+        .then((r) => r[0] ?? null);
+      if (channel) {
+        const toWake = await selectRespondingAgents(
+          db,
+          opts.channelId,
+          channel.name,
+          opts.companyId,
+          cleanBody,
+          null,
+        );
+        for (const agent of toWake) {
+          await db.insert(agentWakeupRequests).values({
+            agentId: agent.agentId,
+            companyId: opts.companyId,
+            source: "channel_relevance",
+            reason: `Relevant message in #${channel.name}`,
+            requestedByActorType: "user",
+            requestedByActorId: opts.authorUserId ?? "bridge",
+            payload: { channelName: channel.name, sequencePosition: agent.sequencePosition },
+          });
+        }
+        if (toWake.length > 0) {
+          logger.info(
+            { channelName: channel.name, agents: toWake.map((a) => a.agentName) },
+            "router selected agents for channel message",
+          );
+        }
       }
-
-      if (toWake.length > 0) {
-        logger.info({ channelName: channel.name, wokenAgents: toWake.map((a) => a.name) }, "woke agents on channel message");
-      }
+    } catch (err) {
+      logger.debug({ err }, "channel router failed, skipping");
     }
-  } catch (err) {
-    logger.debug({ err }, "channel wake-on-message failed, skipping");
+  } else if (opts.authorAgentId) {
+    // Agent posted - record it for rate limiting but DON'T wake anyone
+    try {
+      await recordAgentResponse(db, opts.channelId, opts.companyId);
+    } catch (err) {
+      logger.debug({ err }, "agent response recording failed, skipping");
+    }
   }
 
   return message;
