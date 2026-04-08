@@ -12,7 +12,7 @@ export const agentPermissionsSchema = z.object({
   canCreateAgents: z.boolean().optional().default(false),
 });
 
-export const agentInstructionsBundleModeSchema = z.enum(["managed", "external"]);
+export const agentInstructionsBundleModeSchema = z.enum(["managed", "external"], {});
 
 export const updateAgentInstructionsBundleSchema = z.object({
   mode: agentInstructionsBundleModeSchema.optional(),
@@ -31,7 +31,7 @@ export const upsertAgentInstructionsFileSchema = z.object({
 
 export type UpsertAgentInstructionsFile = z.infer<typeof upsertAgentInstructionsFileSchema>;
 
-const adapterConfigSchema = z.record(z.unknown()).superRefine((value, ctx) => {
+const adapterConfigSchema = z.record(z.string(), z.unknown()).superRefine((value, ctx) => {
   const envValue = value.env;
   if (envValue === undefined) return;
   const parsed = envConfigSchema.safeParse(envValue);
@@ -54,10 +54,10 @@ export const createAgentSchema = z.object({
   desiredSkills: z.array(z.string().min(1)).optional(),
   adapterType: agentAdapterTypeSchema,
   adapterConfig: adapterConfigSchema.optional().default({}),
-  runtimeConfig: z.record(z.unknown()).optional().default({}),
+  runtimeConfig: z.record(z.string(), z.unknown()).optional().default({}),
   budgetMonthlyCents: z.number().int().nonnegative().optional().default(0),
   permissions: agentPermissionsSchema.optional(),
-  metadata: z.record(z.unknown()).optional().nullable(),
+  metadata: z.record(z.string(), z.unknown()).optional().nullable(),
 });
 
 export type CreateAgent = z.infer<typeof createAgentSchema>;
@@ -105,7 +105,7 @@ export const wakeAgentSchema = z.object({
   source: z.enum(["timer", "assignment", "on_demand", "automation"]).optional().default("on_demand"),
   triggerDetail: z.enum(["manual", "ping", "callback", "system"]).optional(),
   reason: z.string().optional().nullable(),
-  payload: z.record(z.unknown()).optional().nullable(),
+  payload: z.record(z.string(), z.unknown()).optional().nullable(),
   idempotencyKey: z.string().optional().nullable(),
   forceFreshSession: z.preprocess(
     (value) => (value === null ? undefined : value),

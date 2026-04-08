@@ -25,13 +25,13 @@ export const issueExecutionWorkspaceSettingsSchema = z
   .object({
     mode: z.enum(ISSUE_EXECUTION_WORKSPACE_PREFERENCES).optional(),
     workspaceStrategy: executionWorkspaceStrategySchema.optional().nullable(),
-    workspaceRuntime: z.record(z.unknown()).optional().nullable(),
+    workspaceRuntime: z.record(z.string(), z.unknown()).optional().nullable(),
   })
   .strict();
 
 export const issueAssigneeAdapterOverridesSchema = z
   .object({
-    adapterConfig: z.record(z.unknown()).optional(),
+    adapterConfig: z.record(z.string(), z.unknown()).optional(),
     useProjectWorkspace: z.boolean().optional(),
   })
   .strict();

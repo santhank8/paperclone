@@ -44,7 +44,7 @@ export interface ManifestParseSuccess {
 export interface ManifestParseFailure {
   success: false;
   errors: string;
-  details: Array<{ path: (string | number)[]; message: string }>;
+  details: Array<{ path: PropertyKey[]; message: string }>;
 }
 
 /** Union of parse outcomes. */
@@ -128,7 +128,7 @@ export function pluginManifestValidator(): PluginManifestValidator {
         };
       }
 
-      const details = result.error.errors.map((issue) => ({
+      const details = result.error.issues.map((issue) => ({
         path: issue.path,
         message: issue.message,
       }));
