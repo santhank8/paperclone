@@ -1578,7 +1578,7 @@ export function issueService(db: Db) {
       if (
         normalizedIssueData.assigneeAgentId !== undefined &&
         normalizedIssueData.assigneeAgentId !== null &&
-        normalizedIssueData.assigneeUserId === undefined
+        normalizedIssueData.assigneeUserId == null
       ) {
         normalizedIssueData.assigneeUserId = null;
       }
