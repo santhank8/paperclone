@@ -1188,11 +1188,8 @@ export function NewIssueDialog() {
                     renderTriggerValue={(option) => (
                       <span className="truncate">{option?.label ?? "Workspace"}</span>
                     )}
-                    renderOption={(option, isSelected) => (
-                      <>
-                        <span className="truncate">{option.label}</span>
-                        {isSelected && <Check className="ml-auto h-3.5 w-3.5 shrink-0 text-muted-foreground" />}
-                      </>
+                    renderOption={(option) => (
+                      <span className="truncate">{option.label}</span>
                     )}
                   />
                 </>

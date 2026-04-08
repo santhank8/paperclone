@@ -177,6 +177,66 @@ Workspace rules:
 - For repo-only setup, omit `cwd` and provide `repoUrl`.
 - Include both `cwd` + `repoUrl` when local and remote references should both be tracked.
 
+## Multi-Workspace Delegation
+
+When a project has **multiple workspaces** (e.g. server, web, mobile) and the issue requires work across more than one repo, you MUST split the work into per-workspace subtasks.
+
+**Detection:** If the issue description, plan, or requirements mention changes that span different repos (e.g. "add API endpoint + build UI + update mobile app"), the work touches multiple workspaces.
+
+**How to split:**
+
+1. **Read the project's workspaces** with `GET /api/projects/{projectId}` to get the workspace list and descriptions. Use the `description` field to understand what each workspace is for.
+2. **Create one child issue per affected workspace**, each with:
+   - `parentId`: the parent issue id
+   - `projectId`: same project
+   - `projectWorkspaceId`: the specific workspace that needs changes
+   - `assigneeAgentId`: the agent best suited for that workspace (or leave unassigned for the manager to delegate)
+   - `title`: prefixed with the workspace name for clarity (e.g. "Server: …", "Web: …", "Mobile: …")
+   - `description`: scoped to what needs to be done in that specific repo
+3. **Comment on the parent** with a summary of all created subtasks and which workspace each targets.
+4. **Do NOT checkout the parent issue** if your work is fully delegated to child issues. Leave it as a tracker.
+
+**Example — multi-repo auth feature:**
+
+```bash
+# Parent: PAP-1 "Add user auth" (left as tracker)
+
+# Child 1 — server workspace
+POST /api/companies/{companyId}/issues
+{
+  "title": "Server: add auth API endpoints",
+  "description": "Add /auth/login, /auth/register, /auth/verify endpoints",
+  "parentId": "PAP-1-id",
+  "projectId": "restro-id",
+  "projectWorkspaceId": "server-workspace-id",
+  "assigneeAgentId": "backend-agent"
+}
+
+# Child 2 — web workspace
+POST /api/companies/{companyId}/issues
+{
+  "title": "Web: build login page",
+  "description": "Create login form with email/password + OAuth",
+  "parentId": "PAP-1-id",
+  "projectId": "restro-id",
+  "projectWorkspaceId": "web-workspace-id",
+  "assigneeAgentId": "frontend-agent"
+}
+
+# Child 3 — mobile workspace
+POST /api/companies/{companyId}/issues
+{
+  "title": "Mobile: add auth screen",
+  "description": "React Native login + registration screens",
+  "parentId": "PAP-1-id",
+  "projectId": "restro-id",
+  "projectWorkspaceId": "mobile-workspace-id",
+  "assigneeAgentId": "mobile-agent"
+}
+```
+
+**When NOT to split:** If the work only affects one workspace, create a single issue with the correct `projectWorkspaceId`. Do not create empty subtasks for unaffected workspaces.
+
 ## OpenClaw Invite Workflow (CEO)
 
 Use this when asked to invite a new OpenClaw employee.
