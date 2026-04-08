@@ -145,7 +145,7 @@ export async function discoverOpenCodeModels(input: {
   const runtimeEnv = normalizeEnv(ensurePathInEnv({ ...process.env, ...env, ...(resolvedHome ? { HOME: resolvedHome } : {}), OPENCODE_DISABLE_PROJECT_CONFIG: "true" }));
 
   const home = runtimeEnv.HOME ?? resolvedHome ?? process.env.HOME ?? "(unset)";
-  const path = runtimeEnv.PATH ?? process.env.PATH ?? "(unset)";
+  const pathEnv = runtimeEnv.PATH ?? process.env.PATH ?? "(unset)";
   const opencodeVars = Object.entries(runtimeEnv)
     .filter(([k]) => k.startsWith("OPENCODE_"))
     .map(([k, v]) => `${k}=${v}`)
