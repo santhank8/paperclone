@@ -22,6 +22,14 @@ const mockGoalService = vi.hoisted(() => ({
 }));
 
 const mockWorkspaceOperationService = vi.hoisted(() => ({}));
+const mockWorkProductService = vi.hoisted(() => ({
+  listForIssue: vi.fn(),
+  listForProject: vi.fn(),
+  getById: vi.fn(),
+  createForIssue: vi.fn(),
+  update: vi.fn(),
+  remove: vi.fn(),
+}));
 const mockSecretService = vi.hoisted(() => ({
   normalizeEnvBindingsForPersistence: vi.fn(),
 }));
@@ -45,13 +53,43 @@ vi.mock("../telemetry.js", () => ({
   getTelemetryClient: mockGetTelemetryClient,
 }));
 
-vi.mock("../services/index.js", () => ({
-  goalService: () => mockGoalService,
-  logActivity: mockLogActivity,
-  projectService: () => mockProjectService,
-  secretService: () => mockSecretService,
-  workspaceOperationService: () => mockWorkspaceOperationService,
-}));
+vi.mock("../services/index.js", async () => {
+  const actual = await vi.importActual<typeof import("../services/index.js")>("../services/index.js");
+  // #region agent log
+  fetch("http://127.0.0.1:7272/ingest/0436f857-6400-4f81-a41d-f18a7ecc3961", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "3da4c0" },
+    body: JSON.stringify({
+      sessionId: "3da4c0",
+      runId: "pre-fix",
+      hypothesisId: "H1",
+      location: "project-goal-telemetry-routes.test.ts:services-index-mock",
+      message: "Mocking services/index exports for project+goal routes",
+      data: {
+        actualKeys: Object.keys(actual ?? {}).sort(),
+        mockedKeys: [
+          "goalService",
+          "logActivity",
+          "projectService",
+          "secretService",
+          "workspaceOperationService",
+          "workProductService",
+        ].sort(),
+      },
+      timestamp: Date.now(),
+    }),
+  }).catch(() => {});
+  // #endregion agent log
+  return {
+    ...actual,
+    goalService: () => mockGoalService,
+    logActivity: mockLogActivity,
+    projectService: () => mockProjectService,
+    secretService: () => mockSecretService,
+    workspaceOperationService: () => mockWorkspaceOperationService,
+    workProductService: () => mockWorkProductService,
+  };
+});
 
 vi.mock("../services/workspace-runtime.js", () => ({
   startRuntimeServicesForWorkspaceControl: vi.fn(),

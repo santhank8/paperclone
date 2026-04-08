@@ -31,12 +31,12 @@ import { Button } from "@/components/ui/button";
 import { Tabs } from "@/components/ui/tabs";
 import { PluginLauncherOutlet } from "@/plugins/launchers";
 import { PluginSlotMount, PluginSlotOutlet, usePluginSlots } from "@/plugins/slots";
-import { Copy, FolderOpen, GitBranch, Loader2, Play, Square } from "lucide-react";
+import { Copy, ExternalLink, FolderOpen, GitBranch, Loader2, Play, Square } from "lucide-react";
 import { IssuesQuicklook } from "../components/IssuesQuicklook";
 
 /* ── Top-level tab types ── */
 
-type ProjectBaseTab = "overview" | "list" | "workspaces" | "configuration" | "budget";
+type ProjectBaseTab = "overview" | "list" | "workspaces" | "artifacts" | "configuration" | "budget";
 type ProjectPluginTab = `plugin:${string}`;
 type ProjectTab = ProjectBaseTab | ProjectPluginTab;
 
@@ -54,7 +54,94 @@ function resolveProjectTab(pathname: string, projectId: string): ProjectTab | nu
   if (tab === "budget") return "budget";
   if (tab === "issues") return "list";
   if (tab === "workspaces") return "workspaces";
+  if (tab === "artifacts") return "artifacts";
   return null;
+}
+
+function formatWorkProductType(type: string) {
+  return type.replace(/_/g, " ");
+}
+
+function ProjectArtifactsContent({ companyId, projectId }: { companyId: string; projectId: string }) {
+  const { data: workProducts = [], isLoading, error } = useQuery({
+    queryKey: queryKeys.projects.workProducts(companyId, projectId),
+    queryFn: () => projectsApi.listWorkProducts(projectId, companyId),
+  });
+  const { data: issues = [] } = useQuery({
+    queryKey: queryKeys.issues.listByProject(companyId, projectId),
+    queryFn: () => issuesApi.list(companyId, { projectId }),
+  });
+  const issueRefById = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const issue of issues) {
+      m.set(issue.id, issue.identifier ?? issue.id);
+    }
+    return m;
+  }, [issues]);
+
+  if (isLoading) {
+    return <p className="text-sm text-muted-foreground">Loading artifacts…</p>;
+  }
+  if (error) {
+    return <p className="text-sm text-destructive">{(error as Error).message}</p>;
+  }
+  if (workProducts.length === 0) {
+    return (
+      <div className="rounded-xl border border-border bg-card px-4 py-8 text-center text-sm text-muted-foreground">
+        No work products linked to this project yet. They appear when issues in this project record pull requests,
+        documents, and other outputs.
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      <p className="text-sm text-muted-foreground">
+        Pull requests, documents, and other outputs recorded on issues in this project.
+      </p>
+      <div className="overflow-hidden rounded-xl border border-border bg-card">
+        {workProducts.map((wp) => {
+          const issueRef = issueRefById.get(wp.issueId) ?? wp.issueId.slice(0, 8);
+          return (
+            <div
+              key={wp.id}
+              className="flex items-stretch gap-2 border-b border-border text-sm last:border-b-0"
+            >
+              <Link
+                to={`/issues/${wp.issueId}`}
+                className="flex min-w-0 flex-1 flex-col justify-center px-4 py-2.5 no-underline transition-colors hover:bg-accent/50"
+              >
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    {formatWorkProductType(wp.type)}
+                  </span>
+                </div>
+                <span className="truncate font-medium text-foreground">{wp.title}</span>
+                <span className="text-xs text-muted-foreground">
+                  {wp.provider} · {wp.status}
+                  {wp.isPrimary ? " · primary" : ""}
+                </span>
+              </Link>
+              <div className="flex shrink-0 items-center gap-2 border-l border-border px-3 text-xs text-muted-foreground">
+                <span className="font-mono">{issueRef}</span>
+                {wp.url ? (
+                  <a
+                    href={wp.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex rounded p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+                    title="Open external link"
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                  </a>
+                ) : null}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
 
 /* ── Overview tab content ── */
@@ -625,6 +712,10 @@ export function ProjectDetail() {
       navigate(`/projects/${canonicalProjectRef}/workspaces`, { replace: true });
       return;
     }
+    if (activeTab === "artifacts") {
+      navigate(`/projects/${canonicalProjectRef}/artifacts`, { replace: true });
+      return;
+    }
     if (activeTab === "list") {
       if (filter) {
         navigate(`/projects/${canonicalProjectRef}/issues/${filter}`, { replace: true });
@@ -757,6 +848,9 @@ export function ProjectDetail() {
     if (cachedTab === "workspaces" && workspaceTabDecisionLoaded && showWorkspacesTab) {
       return <Navigate to={`/projects/${canonicalProjectRef}/workspaces`} replace />;
     }
+    if (cachedTab === "artifacts") {
+      return <Navigate to={`/projects/${canonicalProjectRef}/artifacts`} replace />;
+    }
     if (cachedTab === "workspaces" && !workspaceTabDecisionLoaded) {
       return <PageSkeleton variant="detail" />;
     }
@@ -783,6 +877,8 @@ export function ProjectDetail() {
       navigate(`/projects/${canonicalProjectRef}/overview`);
     } else if (tab === "workspaces") {
       navigate(`/projects/${canonicalProjectRef}/workspaces`);
+    } else if (tab === "artifacts") {
+      navigate(`/projects/${canonicalProjectRef}/artifacts`);
     } else if (tab === "budget") {
       navigate(`/projects/${canonicalProjectRef}/budget`);
     } else if (tab === "configuration") {
@@ -854,6 +950,7 @@ export function ProjectDetail() {
             { value: "list", label: "Issues" },
             { value: "overview", label: "Overview" },
             ...(showWorkspacesTab ? [{ value: "workspaces", label: "Workspaces" }] : []),
+            { value: "artifacts", label: "Artifacts" },
             { value: "configuration", label: "Configuration" },
             { value: "budget", label: "Budget" },
             ...pluginTabItems.map((item) => ({
@@ -897,6 +994,10 @@ export function ProjectDetail() {
         ) : (
           <p className="text-sm text-muted-foreground">Loading workspaces...</p>
         )
+      ) : null}
+
+      {activeTab === "artifacts" && resolvedCompanyId ? (
+        <ProjectArtifactsContent companyId={resolvedCompanyId} projectId={project.id} />
       ) : null}
 
       {activeTab === "configuration" && (
