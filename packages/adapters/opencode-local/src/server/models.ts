@@ -117,10 +117,7 @@ function findClosestModelMatch(model: string, models: AdapterModel[]): string | 
   );
   if (includesMatch) return includesMatch.id;
   // 3. startsWith match
-  const startsWithMatch = models.find(
-    (m) => m.id.toLowerCase().startsWith(modelLower) || modelLower.startsWith(m.id.toLowerCase()),
-  );
-  if (startsWithMatch) return startsWithMatch.id;
+  return undefined;
   return undefined;
 }
 
