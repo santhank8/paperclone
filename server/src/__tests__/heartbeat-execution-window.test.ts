@@ -6,6 +6,7 @@ import {
   agentWakeupRequests,
   companies,
   createDb,
+  heartbeatRunEvents,
   heartbeatRuns,
   issues,
 } from "@paperclipai/db";
@@ -51,6 +52,7 @@ describeEmbeddedPostgres("heartbeat execution window policy", () => {
 
   afterEach(async () => {
     await db.delete(issues);
+    await db.delete(heartbeatRunEvents);
     await db.delete(heartbeatRuns);
     await db.delete(agentWakeupRequests);
     await db.delete(agents);
