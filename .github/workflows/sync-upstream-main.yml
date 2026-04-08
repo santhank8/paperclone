@@ -13,7 +13,7 @@ permissions:
   contents: write
 
 jobs:
-  sync-main:
+  sync-master:
     runs-on: ubuntu-latest
     if: github.repository != 'paperclipai/paperclip'
     steps:
