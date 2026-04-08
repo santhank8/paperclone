@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
-import type { Company } from "@paperclipai/shared";
+import { HEARTBEAT_FREQUENCY_SCALE_DEFAULT, type Company } from "@paperclipai/shared";
 import { assertDeleteConfirmation, resolveCompanyForDeletion } from "../commands/client/company.js";
 
 function makeCompany(overrides: Partial<Company>): Company {
-  return {
+  const base: Company = {
     id: "11111111-1111-1111-1111-111111111111",
     name: "Alpha",
     description: null,
@@ -20,11 +20,17 @@ function makeCompany(overrides: Partial<Company>): Company {
     feedbackDataSharingConsentByUserId: null,
     feedbackDataSharingTermsVersion: null,
     brandColor: null,
+    heartbeatFrequencyScalePercent: HEARTBEAT_FREQUENCY_SCALE_DEFAULT,
     logoAssetId: null,
     logoUrl: null,
     createdAt: new Date(),
     updatedAt: new Date(),
+  };
+  return {
+    ...base,
     ...overrides,
+    heartbeatFrequencyScalePercent:
+      overrides.heartbeatFrequencyScalePercent ?? base.heartbeatFrequencyScalePercent,
   };
 }
 

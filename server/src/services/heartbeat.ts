@@ -10,6 +10,7 @@ import {
   agentRuntimeState,
   agentTaskSessions,
   agentWakeupRequests,
+  companies,
   heartbeatRunEvents,
   heartbeatRuns,
   issueComments,
@@ -17,6 +18,7 @@ import {
   projects,
   projectWorkspaces,
 } from "@paperclipai/db";
+import { effectiveHeartbeatIntervalSec } from "@paperclipai/shared";
 import { conflict, notFound } from "../errors.js";
 import { logger } from "../middleware/logger.js";
 import { publishLiveEvent } from "./live-events.js";
@@ -4438,7 +4440,18 @@ export function heartbeatService(db: Db) {
     resumeQueuedRuns,
 
     tickTimers: async (now = new Date()) => {
-      const allAgents = await db.select().from(agents);
+      const [scaleRows, allAgents] = await Promise.all([
+        db
+          .select({
+            id: companies.id,
+            heartbeatFrequencyScalePercent: companies.heartbeatFrequencyScalePercent,
+          })
+          .from(companies),
+        db.select().from(agents),
+      ]);
+      const scaleByCompanyId = new Map(
+        scaleRows.map((row) => [row.id, row.heartbeatFrequencyScalePercent]),
+      );
       let checked = 0;
       let enqueued = 0;
       let skipped = 0;
@@ -4449,9 +4462,11 @@ export function heartbeatService(db: Db) {
         if (!policy.enabled || policy.intervalSec <= 0) continue;
 
         checked += 1;
+        const companyScale = scaleByCompanyId.get(agent.companyId) ?? 50;
+        const effectiveIntervalSec = effectiveHeartbeatIntervalSec(policy.intervalSec, companyScale);
         const baseline = new Date(agent.lastHeartbeatAt ?? agent.createdAt).getTime();
         const elapsedMs = now.getTime() - baseline;
-        if (elapsedMs < policy.intervalSec * 1000) continue;
+        if (elapsedMs < effectiveIntervalSec * 1000) continue;
 
         const run = await enqueueWakeup(agent.id, {
           source: "timer",

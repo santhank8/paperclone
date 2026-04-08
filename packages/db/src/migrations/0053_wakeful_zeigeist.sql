@@ -1,0 +1,1 @@
+ALTER TABLE "companies" ADD COLUMN "heartbeat_frequency_scale_percent" integer DEFAULT 50 NOT NULL;

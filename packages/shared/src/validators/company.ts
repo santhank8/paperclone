@@ -1,5 +1,9 @@
 import { z } from "zod";
 import { COMPANY_STATUSES } from "../constants.js";
+import {
+  HEARTBEAT_FREQUENCY_SCALE_MAX,
+  HEARTBEAT_FREQUENCY_SCALE_MIN,
+} from "../company-heartbeat-scale.js";
 
 const logoAssetIdSchema = z.string().uuid().nullable().optional();
 const brandColorSchema = z.string().regex(/^#[0-9a-fA-F]{6}$/).nullable().optional();
@@ -25,6 +29,12 @@ export const updateCompanySchema = createCompanySchema
     feedbackDataSharingTermsVersion: feedbackDataSharingTermsVersionSchema,
     brandColor: brandColorSchema,
     logoAssetId: logoAssetIdSchema,
+    heartbeatFrequencyScalePercent: z
+      .number()
+      .int()
+      .min(HEARTBEAT_FREQUENCY_SCALE_MIN)
+      .max(HEARTBEAT_FREQUENCY_SCALE_MAX)
+      .optional(),
   });
 
 export type UpdateCompany = z.infer<typeof updateCompanySchema>;

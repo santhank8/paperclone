@@ -17,6 +17,8 @@ export interface Company {
   feedbackDataSharingConsentByUserId: string | null;
   feedbackDataSharingTermsVersion: string | null;
   brandColor: string | null;
+  /** 0–100; 50 = default (1×). Scales timer-driven heartbeat cadence for agents with heartbeat enabled. */
+  heartbeatFrequencyScalePercent: number;
   logoAssetId: string | null;
   logoUrl: string | null;
   createdAt: Date;

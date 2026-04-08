@@ -375,6 +375,16 @@ export {
 } from "./execution-workspace-guards.js";
 
 export {
+  HEARTBEAT_FREQUENCY_SCALE_MIN,
+  HEARTBEAT_FREQUENCY_SCALE_MAX,
+  HEARTBEAT_FREQUENCY_SCALE_DEFAULT,
+  HEARTBEAT_EFFECTIVE_INTERVAL_MIN_SEC,
+  companyHeartbeatFrequencyMultiplier,
+  clampScalePercent,
+  effectiveHeartbeatIntervalSec,
+} from "./company-heartbeat-scale.js";
+
+export {
   instanceGeneralSettingsSchema,
   patchInstanceGeneralSettingsSchema,
   type PatchInstanceGeneralSettings,

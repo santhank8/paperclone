@@ -23,6 +23,8 @@ export const companies = pgTable(
     feedbackDataSharingConsentByUserId: text("feedback_data_sharing_consent_by_user_id"),
     feedbackDataSharingTermsVersion: text("feedback_data_sharing_terms_version"),
     brandColor: text("brand_color"),
+    /** 0–100; 50 = default (1× frequency). Scales timer heartbeats for all agents in the company proportionally. */
+    heartbeatFrequencyScalePercent: integer("heartbeat_frequency_scale_percent").notNull().default(50),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
