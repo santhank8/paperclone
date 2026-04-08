@@ -4,7 +4,7 @@ import { execFile as execFileCallback } from "node:child_process";
 import { promisify } from "node:util";
 import { and, asc, desc, eq, gt, inArray, isNull, or, sql } from "drizzle-orm";
 import type { Db } from "@paperclipai/db";
-import type { BillingType, ExecutionWorkspace, ExecutionWorkspaceConfig } from "@paperclipai/shared";
+import { buildAgentMentionHref, type BillingType, type ExecutionWorkspace, type ExecutionWorkspaceConfig } from "@paperclipai/shared";
 import {
   agents,
   agentRuntimeState,
@@ -76,6 +76,8 @@ const WATCHDOG_RECOVERY_COOLDOWN_HOURS = 12;
 const WATCHDOG_RECOVERY_REPEAT_THRESHOLD = 1;
 const OPEN_ISSUE_STATUSES = ["backlog", "todo", "in_progress", "in_review", "blocked"] as const;
 const READY_UNASSIGNED_STATUSES = ["backlog", "todo"] as const;
+const OPERATIONS_IDLE_WAKE_MARKER = "[operations-heartbeat-wakeup]";
+const OPERATIONS_IDLE_WAKE_COOLDOWN_MS = 2 * 60 * 60 * 1000;
 const startLocksByAgent = new Map<string, Promise<void>>();
 const REPO_ONLY_CWD_SENTINEL = "/__paperclip_repo_only__";
 const MANAGED_WORKSPACE_GIT_CLONE_TIMEOUT_MS = 10 * 60 * 1000;
@@ -171,6 +173,29 @@ function classifyIssueTruthFromCommentBody(body: string | null | undefined): "co
   if (blockerSignals.some((rx) => rx.test(text))) return "blocker";
   if (handoffSignals.some((rx) => rx.test(text))) return "handoff";
   return null;
+}
+
+function hasWaitStateTruthFromCommentBody(body: string | null | undefined): boolean {
+  if (!body) return false;
+  const text = body.toLowerCase();
+  const waitSignals = [
+    /\b(status|outcome)\s*:\s*(waiting|wait|standby|paused|blocked_on_external|waiting_on)\b/,
+    /\b(waiting on|awaiting|standing by|stand by)\b/,
+  ];
+  return waitSignals.some((rx) => rx.test(text));
+}
+
+function buildOperationsIdleWakeComment(input: {
+  assigneeAgentId: string;
+  assigneeName: string | null;
+}) {
+  const mentionLabel = `@${(input.assigneeName ?? "assigned-agent").trim() || "assigned-agent"}`;
+  const mention = `[${mentionLabel}](${buildAgentMentionHref(input.assigneeAgentId)})`;
+  return [
+    OPERATIONS_IDLE_WAKE_MARKER,
+    `${mention} this assigned issue appears idle with no blocker, handoff, completion, or wait-state truth.`,
+    "Please resume work now, or leave issue-level truth (status/outcome with blocker, handoff, completion, or wait-state).",
+  ].join("\n");
 }
 
 export function isOperationsOrchestratorAgent(agent: { role?: string | null; name?: string | null }) {
@@ -2996,6 +3021,195 @@ export function heartbeatService(db: Db) {
     });
   }
 
+  async function runOperationsHeartbeatSweep(input: {
+    agent: typeof agents.$inferSelect;
+    run: typeof heartbeatRuns.$inferSelect;
+  }) {
+    const companyId = input.agent.companyId;
+    const nowMs = Date.now();
+
+    const [target, boardRows, openAssignedIssues, openUnassignedCountRow] = await Promise.all([
+      resolveOperationsHeartbeatTarget(db, {
+        companyId,
+        operationsAgentId: input.agent.id,
+      }),
+      db
+        .select({ id: projects.id })
+        .from(projects)
+        .where(eq(projects.companyId, companyId)),
+      db
+        .select({
+          id: issues.id,
+          status: issues.status,
+          identifier: issues.identifier,
+          title: issues.title,
+          assigneeAgentId: issues.assigneeAgentId,
+          assigneeName: agents.name,
+          assigneeStatus: agents.status,
+        })
+        .from(issues)
+        .leftJoin(agents, and(eq(agents.id, issues.assigneeAgentId), eq(agents.companyId, issues.companyId)))
+        .where(
+          and(
+            eq(issues.companyId, companyId),
+            inArray(issues.status, OPEN_ISSUE_STATUSES as unknown as string[]),
+            sql`${issues.hiddenAt} is null`,
+            sql`${issues.assigneeAgentId} is not null`,
+          ),
+        ),
+      db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(issues)
+        .where(
+          and(
+            eq(issues.companyId, companyId),
+            inArray(issues.status, OPEN_ISSUE_STATUSES as unknown as string[]),
+            sql`${issues.hiddenAt} is null`,
+            sql`${issues.assigneeAgentId} is null`,
+          ),
+        )
+        .then((rows) => rows[0]),
+    ]);
+
+    const issueIds = openAssignedIssues.map((issue) => issue.id);
+    const assigneeAgentIds = Array.from(
+      new Set(openAssignedIssues.map((issue) => issue.assigneeAgentId).filter((id): id is string => Boolean(id))),
+    );
+
+    const [liveRunRows, latestCommentRows, latestOpsCommentRows] = await Promise.all([
+      assigneeAgentIds.length > 0
+        ? db
+            .select({ agentId: heartbeatRuns.agentId })
+            .from(heartbeatRuns)
+            .where(
+              and(
+                eq(heartbeatRuns.companyId, companyId),
+                inArray(heartbeatRuns.agentId, assigneeAgentIds),
+                inArray(heartbeatRuns.status, LIVE_HEARTBEAT_RUN_STATUSES as unknown as string[]),
+              ),
+            )
+        : Promise.resolve([]),
+      issueIds.length > 0
+        ? db
+            .selectDistinctOn([issueComments.issueId], {
+              issueId: issueComments.issueId,
+              body: issueComments.body,
+              createdAt: issueComments.createdAt,
+            })
+            .from(issueComments)
+            .where(and(eq(issueComments.companyId, companyId), inArray(issueComments.issueId, issueIds)))
+            .orderBy(issueComments.issueId, desc(issueComments.createdAt))
+        : Promise.resolve([]),
+      issueIds.length > 0
+        ? db
+            .selectDistinctOn([issueComments.issueId], {
+              issueId: issueComments.issueId,
+              body: issueComments.body,
+              createdAt: issueComments.createdAt,
+            })
+            .from(issueComments)
+            .where(
+              and(
+                eq(issueComments.companyId, companyId),
+                eq(issueComments.authorAgentId, input.agent.id),
+                inArray(issueComments.issueId, issueIds),
+              ),
+            )
+            .orderBy(issueComments.issueId, desc(issueComments.createdAt))
+        : Promise.resolve([]),
+    ]);
+
+    const activeAssigneeIds = new Set(liveRunRows.map((row) => row.agentId));
+    const latestCommentByIssueId = new Map(latestCommentRows.map((row) => [row.issueId, row]));
+    const latestOpsCommentByIssueId = new Map(latestOpsCommentRows.map((row) => [row.issueId, row]));
+
+    const idleOwnedIssues = openAssignedIssues.filter((issue) => {
+      const assigneeAgentId = issue.assigneeAgentId;
+      if (!assigneeAgentId) return false;
+      if (assigneeAgentId === input.agent.id) return false;
+
+      const assigneeUnavailable =
+        issue.assigneeStatus === "paused" ||
+        issue.assigneeStatus === "terminated" ||
+        issue.assigneeStatus === "pending_approval";
+      if (assigneeUnavailable) return false;
+      if (activeAssigneeIds.has(assigneeAgentId)) return false;
+
+      const latestComment = latestCommentByIssueId.get(issue.id);
+      const hasTruth =
+        classifyIssueTruthFromCommentBody(latestComment?.body) !== null ||
+        hasWaitStateTruthFromCommentBody(latestComment?.body);
+      if (hasTruth) return false;
+
+      const latestOpsComment = latestOpsCommentByIssueId.get(issue.id);
+      if (!latestOpsComment?.body.includes(OPERATIONS_IDLE_WAKE_MARKER)) return true;
+      return nowMs - latestOpsComment.createdAt.getTime() >= OPERATIONS_IDLE_WAKE_COOLDOWN_MS;
+    });
+
+    let wakeCommentCount = 0;
+    let wakeupCount = 0;
+    for (const issue of idleOwnedIssues) {
+      const assigneeAgentId = issue.assigneeAgentId;
+      if (!assigneeAgentId) continue;
+
+      try {
+        await issuesSvc.addComment(
+          issue.id,
+          buildOperationsIdleWakeComment({
+            assigneeAgentId,
+            assigneeName: issue.assigneeName,
+          }),
+          { agentId: input.agent.id, runId: input.run.id },
+        );
+        wakeCommentCount += 1;
+      } catch (err) {
+        logger.warn(
+          { err, issueId: issue.id, assigneeAgentId },
+          "operations heartbeat failed to post idle wake comment",
+        );
+      }
+
+      try {
+        await enqueueWakeup(assigneeAgentId, {
+          source: "automation",
+          triggerDetail: "system",
+          reason: "operations_idle_assignment_wakeup",
+          payload: {
+            issueId: issue.id,
+            mutation: "operations_idle_assignment_wakeup",
+            sourceRunId: input.run.id,
+          },
+          requestedByActorType: "agent",
+          requestedByActorId: input.agent.id,
+          contextSnapshot: {
+            issueId: issue.id,
+            taskId: issue.id,
+            source: "operations.heartbeat",
+            wakeReason: "operations_idle_assignment_wakeup",
+          },
+        });
+        wakeupCount += 1;
+      } catch (err) {
+        logger.warn(
+          { err, issueId: issue.id, assigneeAgentId },
+          "operations heartbeat failed to enqueue idle assignee wakeup",
+        );
+      }
+    }
+
+    return {
+      target,
+      sweep: {
+        boardCount: boardRows.length,
+        assignedOpenCount: openAssignedIssues.length,
+        unassignedOpenCount: Number(openUnassignedCountRow?.count ?? 0),
+        idleOwnedAssignedCount: idleOwnedIssues.length,
+        wakeCommentCount,
+        wakeupCount,
+      },
+    };
+  }
+
   async function executeRun(runId: string) {
     let run = await getRun(runId);
     if (!run) return;
@@ -3051,8 +3265,26 @@ export function heartbeatService(db: Db) {
       }
     }
 
+    let issueId = readNonEmptyString(context.issueId);
+
+    if (isOperationsOrchestratorAgent(agent)) {
+      const operationsSweep = await runOperationsHeartbeatSweep({ agent, run });
+      context.operationsHeartbeatSweep = {
+        ...operationsSweep.sweep,
+        targetIssueId: operationsSweep.target?.issueId ?? null,
+        targetMode: operationsSweep.target?.mode ?? null,
+        targetReason: operationsSweep.target?.reason ?? null,
+      };
+      if (!issueId && operationsSweep.target?.issueId) {
+        issueId = operationsSweep.target.issueId;
+        context.issueId = operationsSweep.target.issueId;
+        if (!readNonEmptyString(context.taskId)) {
+          context.taskId = operationsSweep.target.issueId;
+        }
+      }
+    }
+
     const wakeReason = readNonEmptyString(context.wakeReason);
-    const issueId = readNonEmptyString(context.issueId);
 
     if (wakeReason === "issue_assigned" && !issueId) {
       const errorMessage = "missing assigned issue context";
