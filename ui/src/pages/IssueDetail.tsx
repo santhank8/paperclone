@@ -1345,7 +1345,7 @@ export function IssueDetail() {
             </div>
           )}
 
-          <div className="ml-auto flex items-center gap-0.5 md:hidden shrink-0">
+          <div className="ml-auto flex items-center gap-0.5 lg:hidden shrink-0">
             <Button
               variant="ghost"
               size="icon-xs"
@@ -1364,7 +1364,7 @@ export function IssueDetail() {
             </Button>
           </div>
 
-          <div className="hidden md:flex items-center md:ml-auto shrink-0">
+          <div className="hidden lg:flex items-center lg:ml-auto shrink-0">
             <Button
               variant="ghost"
               size="icon-xs"

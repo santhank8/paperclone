@@ -260,7 +260,7 @@ export function OrgChart() {
 
   return (
     <div className="flex flex-col h-full">
-    <div className="mb-2 flex items-center justify-start gap-2 shrink-0">
+    <div className="mb-2 flex flex-wrap items-center justify-start gap-2 shrink-0">
       <Link to="/company/import">
         <Button variant="outline" size="sm">
           <Upload className="mr-1.5 h-3.5 w-3.5" />

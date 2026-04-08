@@ -635,7 +635,8 @@ export function AgentDetail() {
   const [configSaving, setConfigSaving] = useState(false);
   const saveConfigActionRef = useRef<(() => void) | null>(null);
   const cancelConfigActionRef = useRef<(() => void) | null>(null);
-  const { isMobile } = useSidebar();
+  const { isDesktopShell } = useSidebar();
+  const compactShell = !isDesktopShell;
   const routeAgentRef = agentId ?? "";
   const routeCompanyId = useMemo(() => {
     if (!companyPrefix) return null;
@@ -901,7 +902,7 @@ export function AgentDetail() {
   const showConfigActionBar = (activeView === "configuration" || activeView === "instructions") && (configDirty || configSaving);
 
   return (
-    <div className={cn("space-y-6", isMobile && showConfigActionBar && "pb-24")}>
+    <div className={cn("space-y-6", compactShell && showConfigActionBar && "pb-24")}>
       {/* Header */}
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-3 min-w-0">
@@ -1025,8 +1026,8 @@ export function AgentDetail() {
         </p>
       )}
 
-      {/* Floating Save/Cancel (desktop) */}
-      {!isMobile && (
+      {/* Floating Save/Cancel (wide desktop shell) */}
+      {isDesktopShell && (
         <div
           className={cn(
             "sticky top-6 z-10 float-right transition-opacity duration-150",
@@ -1055,8 +1056,8 @@ export function AgentDetail() {
         </div>
       )}
 
-      {/* Mobile bottom Save/Cancel bar */}
-      {isMobile && showConfigActionBar && (
+      {/* Phone / tablet bottom Save/Cancel bar */}
+      {compactShell && showConfigActionBar && (
         <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-background/95 backdrop-blur-sm">
           <div
             className="flex items-center justify-end gap-2 px-3 py-2"
@@ -1682,7 +1683,8 @@ function PromptsTab({
 }) {
   const queryClient = useQueryClient();
   const { selectedCompanyId } = useCompany();
-  const { isMobile } = useSidebar();
+  const { isDesktopShell } = useSidebar();
+  const compactInstructions = !isDesktopShell;
   const [selectedFile, setSelectedFile] = useState<string>("AGENTS.md");
   const [showFilePanel, setShowFilePanel] = useState(false);
   const [draft, setDraft] = useState<string | null>(null);
@@ -2151,12 +2153,12 @@ function PromptsTab({
         </CollapsibleContent>
       </Collapsible>
 
-      <div ref={containerRef} className={cn("flex gap-0", isMobile && "flex-col gap-3")}>
+      <div ref={containerRef} className={cn("flex gap-0", compactInstructions && "flex-col gap-3")}>
         <div className={cn(
           "border border-border rounded-lg p-3 space-y-3 shrink-0",
-          isMobile && showFilePanel && "block",
-          isMobile && !showFilePanel && "hidden",
-        )} style={isMobile ? undefined : { width: filePanelWidth }}>
+          compactInstructions && showFilePanel && "block",
+          compactInstructions && !showFilePanel && "hidden",
+        )} style={compactInstructions ? undefined : { width: filePanelWidth }}>
           <div className="flex items-center justify-between">
             <h4 className="text-sm font-medium">Files</h4>
             <div className="flex items-center gap-1">
@@ -2171,7 +2173,7 @@ function PromptsTab({
                   +
                 </Button>
               )}
-              {isMobile && (
+              {compactInstructions && (
                 <Button
                   type="button"
                   size="icon"
@@ -2247,7 +2249,7 @@ function PromptsTab({
             onSelectFile={(filePath) => {
               setSelectedFile(filePath);
               if (!fileOptions.includes(filePath)) setDraft("");
-              if (isMobile) setShowFilePanel(false);
+              if (compactInstructions) setShowFilePanel(false);
             }}
             onToggleCheck={() => {}}
             showCheckboxes={false}
@@ -2278,17 +2280,17 @@ function PromptsTab({
         </div>
 
         {/* Draggable separator */}
-        {!isMobile && (
+        {!compactInstructions && (
           <div
             className="w-1 shrink-0 cursor-col-resize hover:bg-border active:bg-primary/50 rounded transition-colors mx-1"
             onMouseDown={handleSeparatorDrag}
           />
         )}
 
-        <div className={cn("border border-border rounded-lg p-4 space-y-3 min-w-0 flex-1", isMobile && showFilePanel && "hidden")}>
+        <div className={cn("border border-border rounded-lg p-4 space-y-3 min-w-0 flex-1", compactInstructions && showFilePanel && "hidden")}>
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-2 min-w-0">
-              {isMobile && (
+              {compactInstructions && (
                 <Button
                   type="button"
                   size="icon"
@@ -2893,7 +2895,8 @@ function RunsTab({
   adapterType: string;
   adapterConfig: Record<string, unknown>;
 }) {
-  const { isMobile } = useSidebar();
+  const { isDesktopShell } = useSidebar();
+  const compactRuns = !isDesktopShell;
 
   if (runs.length === 0) {
     return <p className="text-sm text-muted-foreground">No runs yet.</p>;
@@ -2904,12 +2907,12 @@ function RunsTab({
     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
   );
 
-  // On mobile, don't auto-select so the list shows first; on desktop, auto-select latest
-  const effectiveRunId = isMobile ? selectedRunId : (selectedRunId ?? sorted[0]?.id ?? null);
+  // On phone/tablet, don't auto-select so the list shows first; on desktop, auto-select latest
+  const effectiveRunId = compactRuns ? selectedRunId : (selectedRunId ?? sorted[0]?.id ?? null);
   const selectedRun = sorted.find((r) => r.id === effectiveRunId) ?? null;
 
-  // Mobile: show either run list OR run detail with back button
-  if (isMobile) {
+  // Narrow shell: list + detail pattern
+  if (compactRuns) {
     if (selectedRun) {
       return (
         <div className="space-y-3 min-w-0 overflow-x-hidden">

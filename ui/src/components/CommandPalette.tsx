@@ -38,7 +38,7 @@ export function CommandPalette() {
   const navigate = useNavigate();
   const { selectedCompanyId } = useCompany();
   const { openNewIssue, openNewAgent } = useDialog();
-  const { isMobile, setSidebarOpen } = useSidebar();
+  const { isDesktopShell, setSidebarOpen } = useSidebar();
   const searchQuery = query.trim();
 
   useEffect(() => {
@@ -46,12 +46,12 @@ export function CommandPalette() {
       if (e.key === "k" && (e.metaKey || e.ctrlKey)) {
         e.preventDefault();
         setOpen(true);
-        if (isMobile) setSidebarOpen(false);
+        if (!isDesktopShell) setSidebarOpen(false);
       }
     }
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [isMobile, setSidebarOpen]);
+  }, [isDesktopShell, setSidebarOpen]);
 
   useEffect(() => {
     if (!open) setQuery("");
@@ -103,7 +103,7 @@ export function CommandPalette() {
   return (
     <CommandDialog open={open} onOpenChange={(v) => {
         setOpen(v);
-        if (v && isMobile) setSidebarOpen(false);
+        if (v && !isDesktopShell) setSidebarOpen(false);
       }}>
       <CommandInput
         placeholder="Search issues, agents, projects..."
