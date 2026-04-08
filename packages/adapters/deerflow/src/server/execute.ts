@@ -256,6 +256,12 @@ export async function execute(
   const usage: UsageSummary = { inputTokens: 0, outputTokens: 0 };
   let summary = "";
   let errorMessage: string | null = null;
+  let isTimedOut = false;
+  // Hoisted out of the try block so the final comment post (which runs after
+  // try/catch/finally) can include any partial AI content we managed to
+  // capture before an exception was thrown — e.g. the first few model turns
+  // before LangGraph hit its recursion limit and closed the stream.
+  let lastAiContent = "";
 
   try {
     // Note: DeerFlow agents are assistants. They do NOT check out issues —
@@ -325,7 +331,6 @@ export async function execute(
 
     // 4. Parse SSE stream
     const reader = runRes.body.getReader();
-    let lastAiContent = "";
 
     for await (const sse of parseSSE(reader)) {
       if (!sse.data) continue;
@@ -532,60 +537,76 @@ export async function execute(
       errorMessage = "LLM produced insufficient output with no tool usage";
     }
 
-    // Post the assistant's output to the issue as a tagged comment.
-    // Assistants never mutate status — the parent agent (manager) reviews
-    // this comment and decides the next move (delegate further, complete,
-    // block, etc.). On failure we still post a comment so the manager has
-    // visibility into what went wrong.
-    if (issueId && authToken) {
-      const commentBody = errorMessage
-        ? `${DEERFLOW_OUTPUT_TAG}\n## DeerFlow Output (failed)\n\n${errorMessage}${
-            summary ? `\n\n---\n${summary}` : ""
-          }`
-        : `${DEERFLOW_OUTPUT_TAG}\n## DeerFlow Research\n\n${summary || "(no output)"}`;
-      const posted = await postCommentToIssue(issueId, authToken, ctx.runId, commentBody);
-      if (posted) {
-        await onLog("stdout", `\n[deerflow] Posted research comment on issue ${issueId}\n`);
-      } else {
-        await onLog("stderr", `\n[deerflow] Failed to post research comment on issue ${issueId}\n`);
-      }
-    }
-
-    return {
-      exitCode: errorMessage ? 1 : 0,
-      signal: null,
-      timedOut: false,
-      errorMessage,
-      usage: usage.inputTokens > 0 || usage.outputTokens > 0 ? usage : undefined,
-      sessionParams: { threadId },
-      sessionDisplayId: threadId,
-      provider: "deerflow",
-      model: model || undefined,
-      billingType: "api",
-      summary: summary || undefined,
-    };
+    // End of streaming. Fall through to the unified post-and-return tail
+    // below — both the success path and the catch path go through there so
+    // that postCommentToIssue is ALWAYS called when we have an issue+token,
+    // regardless of whether the run succeeded, refused, or threw mid-stream.
   } catch (err) {
     const isAbort = err instanceof Error && err.name === "AbortError";
     const msg = err instanceof Error ? err.message : String(err);
 
-    if (!isAbort) {
+    if (isAbort) {
+      isTimedOut = true;
+      errorMessage = `Timed out after ${timeoutSec}s`;
+    } else {
+      errorMessage = msg;
       await onLog("stderr", `[deerflow error] ${msg}\n`);
     }
 
-    return {
-      exitCode: isAbort ? null : 1,
-      signal: isAbort ? "SIGTERM" : null,
-      timedOut: isAbort,
-      errorMessage: isAbort ? `Timed out after ${timeoutSec}s` : msg,
-      usage: usage.inputTokens > 0 || usage.outputTokens > 0 ? usage : undefined,
-      sessionParams: threadId ? { threadId } : undefined,
-      sessionDisplayId: threadId || undefined,
-      provider: "deerflow",
-      model: model || undefined,
-      billingType: "api",
-    };
+    // Capture any partial AI content that streamed before the exception so
+    // the failure comment can include diagnostic context (the model's first
+    // few turns of "let me search…" reasoning, etc.). The success path
+    // sets `summary` after the SSE loop ends; here we fall back to whatever
+    // we managed to stream.
+    if (!summary && lastAiContent) {
+      summary = lastAiContent.slice(0, 20000);
+    }
   } finally {
     if (timer) clearTimeout(timer);
     release();
   }
+
+  // ---------------------------------------------------------------------
+  // Unified post-and-return tail.
+  //
+  // Reached after either:
+  //   (a) the SSE stream completed cleanly (with or without errorMessage
+  //       set by the refusal/empty/ack guards inside the try block), or
+  //   (b) the try block threw and the catch above populated errorMessage
+  //       (and isTimedOut, if relevant).
+  //
+  // Posting the comment here — outside the try/catch/finally — guarantees
+  // the manager always sees a comment when the assistant ran, even when
+  // LangGraph closes the stream with a hard error like
+  // GraphRecursionError. Returning here also gives us a single source of
+  // truth for the AdapterExecutionResult shape.
+  // ---------------------------------------------------------------------
+
+  if (issueId && authToken) {
+    const commentBody = errorMessage
+      ? `${DEERFLOW_OUTPUT_TAG}\n## DeerFlow Output (failed)\n\n${errorMessage}${
+          summary ? `\n\n---\n${summary}` : ""
+        }`
+      : `${DEERFLOW_OUTPUT_TAG}\n## DeerFlow Research\n\n${summary || "(no output)"}`;
+    const posted = await postCommentToIssue(issueId, authToken, ctx.runId, commentBody);
+    if (posted) {
+      await onLog("stdout", `\n[deerflow] Posted research comment on issue ${issueId}\n`);
+    } else {
+      await onLog("stderr", `\n[deerflow] Failed to post research comment on issue ${issueId}\n`);
+    }
+  }
+
+  return {
+    exitCode: errorMessage ? (isTimedOut ? null : 1) : 0,
+    signal: isTimedOut ? "SIGTERM" : null,
+    timedOut: isTimedOut,
+    errorMessage,
+    usage: usage.inputTokens > 0 || usage.outputTokens > 0 ? usage : undefined,
+    sessionParams: threadId ? { threadId } : undefined,
+    sessionDisplayId: threadId || undefined,
+    provider: "deerflow",
+    model: model || undefined,
+    billingType: "api",
+    summary: summary || undefined,
+  };
 }
