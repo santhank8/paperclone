@@ -1414,6 +1414,11 @@ export function issueRoutes(
       existing.status === "backlog" &&
       issue.status !== "backlog" &&
       req.body.status !== undefined;
+    const statusBecameActionable =
+      req.body.status !== undefined &&
+      existing.status !== issue.status &&
+      ["blocked", "in_review"].includes(existing.status) &&
+      ["todo", "in_progress"].includes(issue.status);
 
     // Merge all wakeups from this update into one enqueue per agent to avoid duplicate runs.
     void (async () => {
@@ -1447,7 +1452,7 @@ export function issueRoutes(
         });
       }
 
-      if (!assigneeChanged && statusChangedFromBacklog && issue.assigneeAgentId) {
+      if (!assigneeChanged && (statusChangedFromBacklog || statusBecameActionable) && issue.assigneeAgentId) {
         addWakeup(issue.assigneeAgentId, {
           source: "automation",
           triggerDetail: "system",
