@@ -1815,24 +1815,13 @@ export function heartbeatService(db: Db) {
       issueContext && issueContext.assigneeAgentId === resolvedAgent.id
         ? parseIssueAssigneeAdapterOverrides(issueContext.assigneeAdapterOverrides)
         : null;
-    const projectId = issueContext?.projectId ?? readNonEmptyString(context.projectId);
-    const projectEnv = projectId
-      ? await db
-          .select({ env: projects.env })
-          .from(projects)
-          .where(and(eq(projects.id, projectId), eq(projects.companyId, resolvedAgent.companyId)))
-          .then((rows) => rows[0]?.env ?? null)
-      : null;
-
     const mergedConfig = issueAssigneeOverrides?.adapterConfig
       ? { ...parseObject(resolvedAgent.adapterConfig), ...issueAssigneeOverrides.adapterConfig }
       : parseObject(resolvedAgent.adapterConfig);
-    const { resolvedConfig } = await resolveExecutionRunAdapterConfig({
-      companyId: resolvedAgent.companyId,
-      executionRunConfig: stripWorkspaceRuntimeFromExecutionRunConfig(mergedConfig),
-      projectEnv,
-      secretsSvc,
-    });
+    const { config: resolvedConfig } = await secretsSvc.resolveAdapterConfigForRuntime(
+      resolvedAgent.companyId,
+      stripWorkspaceRuntimeFromExecutionRunConfig(mergedConfig),
+    );
 
     const resolvedEnv = Object.fromEntries(
       Object.entries(parseObject(resolvedConfig.env)).filter(
