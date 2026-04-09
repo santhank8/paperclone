@@ -10,6 +10,7 @@ import {
   agentRuntimeState,
   agentTaskSessions,
   agentWakeupRequests,
+  goals,
   heartbeatRunEvents,
   heartbeatRuns,
   issueComments,
@@ -28,6 +29,7 @@ import { parseObject, asBoolean, asNumber, appendWithCap, MAX_EXCERPT_BYTES } fr
 import { costService } from "./costs.js";
 import { trackAgentFirstHeartbeat } from "@paperclipai/shared/telemetry";
 import { getTelemetryClient } from "../telemetry.js";
+import { applyIssueGoalContext } from "../lib/goal-context.js";
 import { companySkillService } from "./company-skills.js";
 import { budgetService, type BudgetEnforcementScope } from "./budgets.js";
 import { secretService } from "./secrets.js";
@@ -2568,6 +2570,7 @@ export function heartbeatService(db: Db) {
             title: issues.title,
             status: issues.status,
             priority: issues.priority,
+            goalId: issues.goalId,
             projectId: issues.projectId,
             projectWorkspaceId: issues.projectWorkspaceId,
             executionWorkspaceId: issues.executionWorkspaceId,
@@ -2637,12 +2640,13 @@ export function heartbeatService(db: Db) {
       { useProjectWorkspace: requestedExecutionWorkspaceMode !== "agent_default" },
     );
     const issueRef = issueContext
-      ? {
+        ? {
           id: issueContext.id,
           identifier: issueContext.identifier,
           title: issueContext.title,
           status: issueContext.status,
           priority: issueContext.priority,
+          goalId: issueContext.goalId,
           projectId: issueContext.projectId,
           projectWorkspaceId: issueContext.projectWorkspaceId,
           executionWorkspaceId: issueContext.executionWorkspaceId,
@@ -2708,6 +2712,19 @@ export function heartbeatService(db: Db) {
       projectEnv: projectContext?.env ?? null,
       secretsSvc,
     });
+    const issueGoal = issueRef?.goalId
+      ? await db
+          .select({
+            id: goals.id,
+            title: goals.title,
+            description: goals.description,
+            level: goals.level,
+            status: goals.status,
+          })
+          .from(goals)
+          .where(and(eq(goals.id, issueRef.goalId), eq(goals.companyId, agent.companyId)))
+          .then((rows) => rows[0] ?? null)
+      : null;
     const runtimeSkillEntries = await companySkills.listRuntimeSkillEntries(agent.companyId);
     const runtimeConfig = {
       ...resolvedConfig,
@@ -2940,6 +2957,10 @@ export function heartbeatService(db: Db) {
     if (executionWorkspace.projectId && !readNonEmptyString(context.projectId)) {
       context.projectId = executionWorkspace.projectId;
     }
+
+    // Preserve current goal context for adapters and clear stale values when
+    // an issue no longer points at a goal.
+    applyIssueGoalContext(context, issueGoal);
     const runtimeSessionFallback = taskKey || resetTaskSession ? null : runtime.sessionId;
     let previousSessionDisplayId = truncateDisplayId(
       explicitResumeSessionDisplayId ??
