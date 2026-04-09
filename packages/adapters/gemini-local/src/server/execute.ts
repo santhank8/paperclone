@@ -35,6 +35,7 @@ import {
   parseGeminiJsonl,
 } from "./parse.js";
 import { firstNonEmptyLine } from "./utils.js";
+import { detectGeminiCliCapabilities, buildGeminiArgs } from "./capabilities.js";
 
 const __moduleDir = path.dirname(fileURLToPath(import.meta.url));
 
@@ -231,6 +232,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     includeRuntimeKeys: ["HOME"],
     resolvedCommand,
   });
+  const caps = await detectGeminiCliCapabilities(command, cwd, runtimeEnv);
 
   const timeoutSec = asNumber(config.timeoutSec, 0);
   const graceSec = asNumber(config.graceSec, 20);
@@ -239,7 +241,6 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     if (fromExtraArgs.length > 0) return fromExtraArgs;
     return asStringArray(config.args);
   })();
-
   const runtimeSessionParams = parseObject(runtime.sessionParams);
   const runtimeSessionId = asString(runtimeSessionParams.sessionId, runtime.sessionId ?? "");
   const runtimeSessionCwd = asString(runtimeSessionParams.cwd, "");
@@ -328,31 +329,33 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     heartbeatPromptChars: renderedPrompt.length,
   };
 
-  const buildArgs = (resumeSessionId: string | null) => {
-    const args = ["--output-format", "stream-json"];
-    if (resumeSessionId) args.push("--resume", resumeSessionId);
-    if (model && model !== DEFAULT_GEMINI_LOCAL_MODEL) args.push("--model", model);
-    args.push("--approval-mode", "yolo");
-    if (sandbox) {
-      args.push("--sandbox");
-    } else {
-      args.push("--sandbox=none");
-    }
-    if (extraArgs.length > 0) args.push(...extraArgs);
-    args.push("--prompt", prompt);
-    return args;
+  const outputFormat = asString(config.outputFormat, "stream-json");
+
+  const buildArgsLocal = (resumeSessionId: string | null) => {
+    return buildGeminiArgs(
+      {
+        prompt,
+        model: model !== DEFAULT_GEMINI_LOCAL_MODEL ? model : undefined,
+        resumeSessionId: resumeSessionId ?? undefined,
+        approvalMode: "yolo",
+        outputFormat,
+        sandbox,
+        additionalArgs: extraArgs,
+      },
+      caps
+    );
   };
 
   const runAttempt = async (resumeSessionId: string | null) => {
-    const args = buildArgs(resumeSessionId);
+    const { argv, stdin } = buildArgsLocal(resumeSessionId);
     if (onMeta) {
       await onMeta({
         adapterType: "gemini_local",
         command: resolvedCommand,
         cwd,
         commandNotes,
-        commandArgs: args.map((value, index) => (
-          index === args.length - 1 ? `<prompt ${prompt.length} chars>` : value
+        commandArgs: argv.map((value, index) => (
+          index === argv.length - 1 && value === prompt ? `<prompt ${prompt.length} chars>` : value
         )),
         env: loggedEnv,
         prompt,
@@ -361,13 +364,14 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
       });
     }
 
-    const proc = await runChildProcess(runId, command, args, {
+    const proc = await runChildProcess(runId, command, argv, {
       cwd,
       env,
       timeoutSec,
       graceSec,
       onSpawn,
       onLog,
+      stdin,
     });
     return {
       proc,
