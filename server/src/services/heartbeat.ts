@@ -1014,6 +1014,27 @@ function isProcessAlive(pid: number | null | undefined) {
   }
 }
 
+/**
+ * Best-effort kill of an orphaned child process by raw PID.
+ * Used when the in-memory ChildProcess handle was lost (e.g. after a server
+ * restart) but the OS process is still alive.  Sends SIGTERM first, then
+ * SIGKILL after `graceMs`.
+ */
+function killOrphanedPid(pid: number | null | undefined, graceMs = 5_000) {
+  if (!isProcessAlive(pid)) return;
+  const numPid = pid as number;
+  try {
+    process.kill(numPid, "SIGTERM");
+  } catch { /* already gone */ }
+  setTimeout(() => {
+    if (isProcessAlive(numPid)) {
+      try {
+        process.kill(numPid, "SIGKILL");
+      } catch { /* already gone */ }
+    }
+  }, graceMs);
+}
+
 function truncateDisplayId(value: string | null | undefined, max = 128) {
   if (!value) return null;
   return value.length > max ? value.slice(0, max) : value;
@@ -2346,24 +2367,33 @@ export function heartbeatService(db: Db) {
 
       const tracksLocalChild = isTrackedLocalChildProcessAdapter(adapterType);
       if (tracksLocalChild && run.processPid && isProcessAlive(run.processPid)) {
-        if (run.errorCode !== DETACHED_PROCESS_ERROR_CODE) {
-          const detachedMessage = `Lost in-memory process handle, but child pid ${run.processPid} is still alive`;
-          const detachedRun = await setRunStatus(run.id, "running", {
-            error: detachedMessage,
-            errorCode: DETACHED_PROCESS_ERROR_CODE,
+        // Kill the orphaned OS process and mark the run as failed so it
+        // doesn't linger indefinitely.  Previous behaviour only logged a
+        // warning and left the process (and run) alive.
+        killOrphanedPid(run.processPid);
+        const detachedMessage = `Killed orphaned child pid ${run.processPid} (in-memory handle lost after server restart)`;
+        const detachedRun = await setRunStatus(run.id, "failed", {
+          error: detachedMessage,
+          errorCode: DETACHED_PROCESS_ERROR_CODE,
+          finishedAt: now,
+        });
+        await setWakeupStatus(run.wakeupRequestId, "failed", {
+          finishedAt: now,
+          error: detachedMessage,
+        });
+        if (detachedRun) {
+          await appendRunEvent(detachedRun, await nextRunEventSeq(detachedRun.id), {
+            eventType: "lifecycle",
+            stream: "system",
+            level: "warn",
+            message: detachedMessage,
+            payload: {
+              processPid: run.processPid,
+            },
           });
-          if (detachedRun) {
-            await appendRunEvent(detachedRun, await nextRunEventSeq(detachedRun.id), {
-              eventType: "lifecycle",
-              stream: "system",
-              level: "warn",
-              message: detachedMessage,
-              payload: {
-                processPid: run.processPid,
-              },
-            });
-          }
+          await releaseIssueExecutionAndPromote(detachedRun);
         }
+        reaped.push(run.id);
         continue;
       }
 
@@ -4238,6 +4268,8 @@ export function heartbeatService(db: Db) {
           running.child.kill("SIGKILL");
         }
       }, graceMs);
+    } else if (run.processPid && isProcessAlive(run.processPid)) {
+      killOrphanedPid(run.processPid);
     }
 
     const cancelled = await setRunStatus(run.id, "cancelled", {
@@ -4289,6 +4321,8 @@ export function heartbeatService(db: Db) {
       if (running) {
         running.child.kill("SIGTERM");
         runningProcesses.delete(run.id);
+      } else if (run.processPid && isProcessAlive(run.processPid)) {
+        killOrphanedPid(run.processPid);
       }
       await releaseIssueExecutionAndPromote(run);
     }
