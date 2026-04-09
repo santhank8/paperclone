@@ -1,6 +1,7 @@
 #!/usr/bin/env -S node --import tsx
 import { spawn } from "node:child_process";
 import { existsSync, mkdirSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { createConnection } from "node:net";
 import path from "node:path";
 import { createInterface } from "node:readline/promises";
 import { stdin, stdout } from "node:process";
@@ -513,7 +514,30 @@ async function stopChildForRestart() {
   }
 }
 
+async function isPortInUse(port: number): Promise<boolean> {
+  return new Promise((resolve) => {
+    const socket = createConnection({ host: "127.0.0.1", port });
+    socket.once("connect", () => {
+      socket.destroy();
+      resolve(true);
+    });
+    socket.once("error", () => {
+      resolve(false);
+    });
+  });
+}
+
+async function waitForPortFree(port: number, timeoutMs = 10_000) {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    if (!(await isPortInUse(port))) return;
+    await new Promise((r) => setTimeout(r, 250));
+  }
+  console.warn(`[paperclip] port ${port} still in use after ${timeoutMs}ms — proceeding anyway`);
+}
+
 async function startServerChild() {
+  await waitForPortFree(serverPort);
   await buildPluginSdk();
 
   const serverScript = mode === "watch" ? "dev:watch" : "dev";
