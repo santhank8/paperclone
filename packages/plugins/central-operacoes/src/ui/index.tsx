@@ -1,4 +1,12 @@
-import { useEffect, useMemo, useState, type CSSProperties, type FormEvent, type ReactNode } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+  type ButtonHTMLAttributes,
+  type CSSProperties,
+  type FormEvent,
+  type ReactNode,
+} from "react";
 import {
   useHostContext,
   usePluginAction,
@@ -14,6 +22,43 @@ import {
   type PluginSidebarProps,
   type PluginWidgetProps,
 } from "@paperclipai/plugin-sdk/ui";
+import {
+  Activity,
+  Bot,
+  Building2,
+  ChevronDown,
+  ChevronUp,
+  Compass,
+  Copy,
+  FilePenLine,
+  FileSearch,
+  FolderOpen,
+  Gamepad2,
+  Gauge,
+  Headphones,
+  LayoutDashboard,
+  MessageSquareText,
+  Minus,
+  MonitorCog,
+  Network,
+  PanelsTopLeft,
+  Pause,
+  Play,
+  Plus,
+  RadioTower,
+  RefreshCw,
+  RotateCcw,
+  Save,
+  ShieldAlert,
+  Sparkles,
+  Target,
+  TerminalSquare,
+  Trash2,
+  Users,
+  Webhook,
+  Workflow,
+  type LucideIcon,
+} from "lucide-react";
 import {
   DEFAULT_CONFIG,
   JOB_KEYS,
@@ -172,7 +217,9 @@ const buttonStyle: CSSProperties = {
   color: "inherit",
   padding: "6px 12px",
   fontSize: "12px",
+  fontWeight: 600,
   cursor: "pointer",
+  transition: "transform 160ms ease, border-color 160ms ease, background 160ms ease, opacity 160ms ease",
 };
 
 const primaryButtonStyle: CSSProperties = {
@@ -215,6 +262,36 @@ const inputStyle: CSSProperties = {
   background: "transparent",
   color: "inherit",
   fontSize: "12px",
+};
+
+const disabledButtonStyle: CSSProperties = {
+  opacity: 0.55,
+  cursor: "not-allowed",
+};
+
+const buttonLabelStyle: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: "8px",
+  lineHeight: 1,
+  whiteSpace: "nowrap",
+};
+
+const fieldLabelStyle: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: "8px",
+  fontSize: "12px",
+  fontWeight: 600,
+};
+
+const toggleRowStyle: CSSProperties = {
+  ...subtleCardStyle,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: "12px",
 };
 
 const codeStyle: CSSProperties = {
@@ -311,6 +388,124 @@ const mutedTextStyle: CSSProperties = {
   lineHeight: 1.45,
 };
 
+const gatherMapShellStyle: CSSProperties = {
+  position: "relative",
+  minHeight: "680px",
+  overflow: "hidden",
+  borderRadius: "28px",
+  border: "1px solid color-mix(in srgb, var(--border) 84%, transparent)",
+  background:
+    "linear-gradient(90deg, #d8f1cd 0 16%, #ecf6e8 16% 20%, #f1ead7 20% 82%, #e6f2ee 82% 86%, #d8f1cd 86% 100%)",
+  boxShadow:
+    "inset 0 0 0 3px color-mix(in srgb, #97a88f 48%, transparent), inset 0 18px 34px color-mix(in srgb, #ffffff 52%, transparent)",
+};
+
+const gatherCampusCoreStyle: CSSProperties = {
+  position: "absolute",
+  inset: "34px 42px",
+  borderRadius: "26px",
+  border: "3px solid #8d9d97",
+  background:
+    "repeating-linear-gradient(0deg, #eadfc8 0 10px, #f3ebd8 10px 22px), repeating-linear-gradient(90deg, #eadfc8 0 12px, #f6efe1 12px 24px)",
+  boxShadow: "inset 0 0 0 3px color-mix(in srgb, #ffffff 38%, transparent)",
+};
+
+const gatherGardenLeftStyle: CSSProperties = {
+  position: "absolute",
+  inset: "20px auto 20px 18px",
+  width: "110px",
+  borderRadius: "26px",
+  background:
+    "radial-gradient(circle at 28px 40px, #77c96d 0 26px, transparent 26px), radial-gradient(circle at 54px 120px, #86d676 0 24px, transparent 24px), radial-gradient(circle at 34px 232px, #7fc46f 0 30px, transparent 30px), radial-gradient(circle at 68px 340px, #6eb95e 0 22px, transparent 22px), linear-gradient(180deg, #cbefbf 0%, #c0e5b8 100%)",
+  border: "3px solid color-mix(in srgb, #94b08a 68%, transparent)",
+};
+
+const gatherGardenRightStyle: CSSProperties = {
+  position: "absolute",
+  inset: "20px 18px 20px auto",
+  width: "110px",
+  borderRadius: "26px",
+  background:
+    "radial-gradient(circle at 66px 52px, #77c96d 0 24px, transparent 24px), radial-gradient(circle at 38px 160px, #8ad879 0 20px, transparent 20px), radial-gradient(circle at 74px 280px, #78c66d 0 28px, transparent 28px), radial-gradient(circle at 48px 420px, #7bc96f 0 22px, transparent 22px), linear-gradient(180deg, #cbefbf 0%, #c0e5b8 100%)",
+  border: "3px solid color-mix(in srgb, #94b08a 68%, transparent)",
+};
+
+const gatherHallNorthStyle: CSSProperties = {
+  position: "absolute",
+  left: "252px",
+  right: "184px",
+  top: "50px",
+  height: "126px",
+  borderRadius: "22px",
+  background:
+    "repeating-linear-gradient(0deg, #cfd7f5 0 10px, #d8e0fb 10px 20px), repeating-linear-gradient(90deg, #c7d3f3 0 10px, #d5def7 10px 20px)",
+  border: "3px solid #8895b8",
+};
+
+const gatherCorridorStyle: CSSProperties = {
+  position: "absolute",
+  left: "220px",
+  right: "154px",
+  top: "188px",
+  bottom: "126px",
+  borderRadius: "24px",
+  background:
+    "repeating-linear-gradient(0deg, #f0e3ce 0 12px, #f6ebdb 12px 24px), repeating-linear-gradient(90deg, #eadfcb 0 14px, #f6ecdd 14px 28px)",
+  border: "2px solid color-mix(in srgb, #c7b89e 72%, transparent)",
+  boxShadow: "inset 0 0 0 2px color-mix(in srgb, #ffffff 44%, transparent)",
+};
+
+function gatherRoomStyle(accent: string, floor: string): CSSProperties {
+  return {
+    position: "absolute",
+    overflow: "hidden",
+    borderRadius: "20px",
+    border: `3px solid ${accent}`,
+    background: floor,
+    boxShadow: "inset 0 0 0 2px color-mix(in srgb, #ffffff 36%, transparent)",
+  };
+}
+
+function gatherDeskStyle(accent: string, width = 126): CSSProperties {
+  return {
+    width,
+    height: "56px",
+    borderRadius: "12px",
+    border: `3px solid ${accent}`,
+    background:
+      "linear-gradient(180deg, #f8fafc 0 60%, #dfe6ef 60% 100%)",
+    boxShadow: "inset 0 -5px 0 color-mix(in srgb, #64748b 22%, transparent)",
+  };
+}
+
+const gatherMonitorStyle: CSSProperties = {
+  width: "22px",
+  height: "16px",
+  borderRadius: "5px",
+  border: "3px solid #475569",
+  background: "linear-gradient(180deg, #7dd3fc 0%, #60a5fa 100%)",
+  boxShadow: "0 3px 0 #475569",
+};
+
+const gatherLampStyle: CSSProperties = {
+  width: "12px",
+  height: "20px",
+  borderRadius: "999px 999px 6px 6px",
+  background: "linear-gradient(180deg, #fbbf24 0%, #f97316 100%)",
+  boxShadow: "0 0 0 3px color-mix(in srgb, #ffffff 24%, transparent)",
+};
+
+function gatherAvatarBodyStyle(color: string, highlight = false): CSSProperties {
+  return {
+    width: "24px",
+    height: "30px",
+    borderRadius: "10px 10px 8px 8px",
+    border: `3px solid ${highlight ? "#111827" : "color-mix(in srgb, #111827 72%, transparent)"}`,
+    background: color,
+    boxShadow: highlight ? "0 0 0 4px color-mix(in srgb, #ffffff 46%, transparent)" : undefined,
+  };
+}
+
 function tabButtonStyle(active: boolean): CSSProperties {
   return {
     appearance: "none",
@@ -382,6 +577,15 @@ function formatToken(value: string | null | undefined): string {
   return TOKEN_LABELS[value] ?? value.replaceAll("_", " ").replaceAll("-", " ");
 }
 
+function getInitials(name: string): string {
+  return name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? "")
+    .join("");
+}
+
 function getObjectString(value: unknown, key: string): string | null {
   if (!value || typeof value !== "object") return null;
   const next = (value as Record<string, unknown>)[key];
@@ -432,19 +636,111 @@ function Section({
         <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: "8px", flexWrap: "wrap" }}>
           {action}
           {collapsible ? (
-            <button
+            <ActionButton
               type="button"
-              style={buttonStyle}
+              icon={open ? ChevronUp : ChevronDown}
               aria-expanded={open}
+              aria-label={open ? `Recolher ${title}` : `Expandir ${title}`}
               onClick={() => setOpen((current) => !current)}
             >
               {open ? "Recolher" : "Expandir"}
-            </button>
+            </ActionButton>
           ) : null}
         </div>
       </div>
       {!collapsible || open ? <div style={layoutStack}>{children}</div> : null}
     </section>
+  );
+}
+
+type ActionButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
+  icon?: LucideIcon;
+  tone?: "success" | "warn" | "info";
+  variant?: "default" | "primary";
+};
+
+function ButtonLabel({
+  icon: Icon,
+  children,
+}: {
+  icon?: LucideIcon;
+  children: ReactNode;
+}) {
+  return (
+    <span style={buttonLabelStyle}>
+      {Icon ? <Icon size={14} aria-hidden="true" style={{ flexShrink: 0 }} /> : null}
+      <span>{children}</span>
+    </span>
+  );
+}
+
+function ActionButton({
+  icon,
+  tone,
+  variant = "default",
+  style,
+  disabled,
+  children,
+  ...props
+}: ActionButtonProps) {
+  const resolvedStyle =
+    variant === "primary"
+      ? primaryButtonStyle
+      : tone
+        ? toneButtonStyle(tone)
+        : buttonStyle;
+
+  return (
+    <button
+      {...props}
+      disabled={disabled}
+      style={{
+        ...resolvedStyle,
+        ...(disabled ? disabledButtonStyle : null),
+        ...style,
+      }}
+    >
+      <ButtonLabel icon={icon}>{children}</ButtonLabel>
+    </button>
+  );
+}
+
+function FieldLabel({
+  icon: Icon,
+  children,
+}: {
+  icon?: LucideIcon;
+  children: ReactNode;
+}) {
+  return (
+    <span style={fieldLabelStyle}>
+      {Icon ? <Icon size={14} aria-hidden="true" style={{ flexShrink: 0 }} /> : null}
+      <span>{children}</span>
+    </span>
+  );
+}
+
+function ToggleField({
+  icon,
+  label,
+  checked,
+  onChange,
+}: {
+  icon: LucideIcon;
+  label: string;
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+}) {
+  return (
+    <label style={toggleRowStyle}>
+      <FieldLabel icon={icon}>{label}</FieldLabel>
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(event) => onChange(event.target.checked)}
+        aria-label={label}
+      />
+    </label>
   );
 }
 
@@ -558,9 +854,9 @@ function PaginatedDomainCard({
       <MiniList items={items} empty={empty} render={render} />
       {hasMore ? (
         <div style={{ marginTop: "10px" }}>
-          <button type="button" style={buttonStyle} onClick={onLoadMore}>
+          <ActionButton type="button" icon={Plus} onClick={onLoadMore}>
             Carregar mais 20
-          </button>
+          </ActionButton>
         </div>
       ) : null}
     </div>
@@ -669,16 +965,16 @@ function CompactSurfaceSummary({ label, entityType }: { label: string; entityTyp
         Esta superfície contextualiza a entidade atual e permite registrar um pulso de instrumentação diretamente do ponto onde o operador está trabalhando.
       </div>
       <JsonBlock value={context} />
-      <button
+      <ActionButton
         type="button"
-        style={buttonStyle}
+        icon={Gauge}
         onClick={() => {
           if (!companyId) return;
           void writeMetric({ name: "surface_click", value: 1, companyId }).catch(console.error);
         }}
       >
         Registrar métrica
-      </button>
+      </ActionButton>
       {entityQuery.data ? <JsonBlock value={entityQuery.data} /> : null}
     </div>
   );
@@ -724,9 +1020,10 @@ function KitchenSinkPageWidgets({ context }: { context: PluginPageProps["context
 
       <MiniWidget title="Atalhos Operacionais" eyebrow="Ações">
         <div style={rowStyle}>
-          <button
+          <ActionButton
             type="button"
-            style={toneButtonStyle("success")}
+            icon={Target}
+            tone="success"
             onClick={() =>
               toast({
                 title: "Pulso operacional registrado",
@@ -735,10 +1032,11 @@ function KitchenSinkPageWidgets({ context }: { context: PluginPageProps["context
               })}
           >
             Confirmar ação
-          </button>
-          <button
+          </ActionButton>
+          <ActionButton
             type="button"
-            style={toneButtonStyle("warn")}
+            icon={ShieldAlert}
+            tone="warn"
             onClick={() =>
               toast({
                 title: "Alerta operacional",
@@ -747,10 +1045,11 @@ function KitchenSinkPageWidgets({ context }: { context: PluginPageProps["context
               })}
           >
             Sinalizar alerta
-          </button>
-          <button
+          </ActionButton>
+          <ActionButton
             type="button"
-            style={toneButtonStyle("info")}
+            icon={Compass}
+            tone="info"
             onClick={() =>
               toast({
                 title: "Abrir dashboard",
@@ -763,12 +1062,12 @@ function KitchenSinkPageWidgets({ context }: { context: PluginPageProps["context
               })}
           >
             Abrir com CTA
-          </button>
+          </ActionButton>
         </div>
         <div style={rowStyle}>
-          <button
+          <ActionButton
             type="button"
-            style={buttonStyle}
+            icon={Sparkles}
             onClick={() => {
               if (!context.companyId) return;
               void emitDemoEvent({ companyId: context.companyId, message: "Disparado pela página da Central de Operações" })
@@ -802,10 +1101,10 @@ function KitchenSinkPageWidgets({ context }: { context: PluginPageProps["context
             }}
           >
             Emitir evento
-          </button>
-          <button
+          </ActionButton>
+          <ActionButton
             type="button"
-            style={buttonStyle}
+            icon={RadioTower}
             onClick={() => {
               if (!context.companyId) return;
               void startProgressStream({ companyId: context.companyId, steps: 4 })
@@ -837,10 +1136,10 @@ function KitchenSinkPageWidgets({ context }: { context: PluginPageProps["context
             }}
           >
             Iniciar stream
-          </button>
-          <button
+          </ActionButton>
+          <ActionButton
             type="button"
-            style={buttonStyle}
+            icon={Gauge}
             onClick={() => {
               if (!context.companyId) return;
               void writeMetric({ companyId: context.companyId, name: "page_quick_action", value: 1 })
@@ -875,7 +1174,7 @@ function KitchenSinkPageWidgets({ context }: { context: PluginPageProps["context
             }}
           >
             Registrar métrica
-          </button>
+          </ActionButton>
         </div>
         <div style={{ display: "grid", gap: "6px" }}>
           <div style={mutedTextStyle}>
@@ -1040,9 +1339,9 @@ function KitchenSinkIssueCrudDemo({ context }: { context: PluginPageProps["conte
               <div style={{ display: "grid", gap: "10px", gridTemplateColumns: "minmax(0, 1.4fr) minmax(0, 1fr) auto" }}>
                 <input style={inputStyle} value={createTitle} onChange={(event) => setCreateTitle(event.target.value)} placeholder="Título da issue" />
                 <input style={inputStyle} value={createDescription} onChange={(event) => setCreateDescription(event.target.value)} placeholder="Descrição da issue" />
-                <button type="button" style={primaryButtonStyle} onClick={() => void handleCreate()}>
+                <ActionButton type="button" variant="primary" icon={Plus} onClick={() => void handleCreate()}>
                   Criar issue
-                </button>
+                </ActionButton>
               </div>
             </div>
 
@@ -1087,12 +1386,12 @@ function KitchenSinkIssueCrudDemo({ context }: { context: PluginPageProps["conte
                       <option value="blocked">{formatToken("blocked")}</option>
                       <option value="cancelled">{formatToken("cancelled")}</option>
                     </select>
-                    <button type="button" style={buttonStyle} onClick={() => void handleSave(issue.id)}>
+                    <ActionButton type="button" icon={Save} onClick={() => void handleSave(issue.id)}>
                       Salvar
-                    </button>
-                    <button type="button" style={buttonStyle} onClick={() => void handleDelete(issue.id)}>
+                    </ActionButton>
+                    <ActionButton type="button" icon={Trash2} onClick={() => void handleDelete(issue.id)}>
                       Excluir
-                    </button>
+                    </ActionButton>
                   </div>
                 </div>
               );
@@ -1205,9 +1504,9 @@ function KitchenSinkCompanyCrudDemo({ context }: { context: PluginPageProps["con
           onChange={(event) => setNewCompanyName(event.target.value)}
           placeholder="Nome da nova empresa"
         />
-        <button type="button" style={primaryButtonStyle} onClick={() => void handleCreate()}>
+        <ActionButton type="button" variant="primary" icon={Plus} onClick={() => void handleCreate()}>
           Criar empresa
-        </button>
+        </ActionButton>
       </div>
       {loading ? <div style={mutedTextStyle}>Carregando empresas…</div> : null}
       {error ? <div style={{ ...mutedTextStyle, color: "var(--destructive, #dc2626)" }}>{error}</div> : null}
@@ -1240,12 +1539,12 @@ function KitchenSinkCompanyCrudDemo({ context }: { context: PluginPageProps["con
                   <option value="paused">{formatToken("paused")}</option>
                   <option value="archived">{formatToken("archived")}</option>
                 </select>
-                <button type="button" style={buttonStyle} onClick={() => void handleSave(company.id)}>
+                <ActionButton type="button" icon={Save} onClick={() => void handleSave(company.id)}>
                   Salvar
-                </button>
-                <button type="button" style={buttonStyle} onClick={() => void handleDelete(company)} disabled={isCurrent}>
+                </ActionButton>
+                <ActionButton type="button" icon={Trash2} onClick={() => void handleDelete(company)} disabled={isCurrent}>
                   Excluir
-                </button>
+                </ActionButton>
               </div>
               {isCurrent ? <div style={{ ...mutedTextStyle, marginTop: "8px" }}>A empresa atual não pode ser excluída nesta visualização.</div> : null}
             </div>
@@ -1383,13 +1682,13 @@ function KitchenSinkStorageDemo({ context }: { context: PluginPageProps["context
               </div>
               <div style={rowStyle}>
                 {[-10, -1, 1, 10].map((delta) => (
-                  <button key={delta} type="button" style={buttonStyle} onClick={() => void adjust(delta)}>
+                  <ActionButton key={delta} type="button" icon={delta > 0 ? Plus : Minus} onClick={() => void adjust(delta)}>
                     {delta > 0 ? `+${delta}` : delta}
-                  </button>
+                  </ActionButton>
                 ))}
-                <button type="button" style={buttonStyle} onClick={() => void reset()}>
+                <ActionButton type="button" icon={RotateCcw} onClick={() => void reset()}>
                   Resetar
-                </button>
+                </ActionButton>
               </div>
             </div>
           </div>
@@ -1467,9 +1766,9 @@ function KitchenSinkHostIntegrationDemo({ context }: { context: PluginPageProps[
           <div style={subtleCardStyle}>
             <div style={sectionHeaderStyle}>
               <strong>Execuções ao Vivo</strong>
-              <button type="button" style={buttonStyle} onClick={() => void loadRuns()}>
+              <ActionButton type="button" icon={RefreshCw} onClick={() => void loadRuns()}>
                 Atualizar
-              </button>
+              </ActionButton>
             </div>
             {loading ? <div style={mutedTextStyle}>Carregando execuções…</div> : null}
             {error ? <div style={{ ...mutedTextStyle, color: "var(--destructive, #dc2626)" }}>{error}</div> : null}
@@ -1709,7 +2008,7 @@ function OperationsWorkbench({ context }: { context: PluginPageProps["context"] 
           >
             <strong>Criar follow-up</strong>
             <input style={inputStyle} value={issueTitle} onChange={(event) => setIssueTitle(event.target.value)} />
-            <button type="submit" style={primaryButtonStyle} disabled={!companyId}>Criar issue</button>
+            <ActionButton type="submit" variant="primary" icon={Plus} disabled={!companyId}>Criar issue</ActionButton>
           </form>
           <form
             style={actionClusterStyle}
@@ -1730,7 +2029,7 @@ function OperationsWorkbench({ context }: { context: PluginPageProps["context"] 
                 <option key={issue.id} value={issue.id}>{issue.title}</option>
               ))}
             </select>
-            <button type="submit" style={buttonStyle} disabled={!companyId || !selectedIssueId}>Mover para em revisão</button>
+            <ActionButton type="submit" icon={Workflow} disabled={!companyId || !selectedIssueId}>Mover para em revisão</ActionButton>
           </form>
           <form
             style={actionClusterStyle}
@@ -1747,7 +2046,7 @@ function OperationsWorkbench({ context }: { context: PluginPageProps["context"] 
           >
             <strong>Criar marco</strong>
             <input style={inputStyle} value={goalTitle} onChange={(event) => setGoalTitle(event.target.value)} />
-            <button type="submit" style={primaryButtonStyle} disabled={!companyId}>Criar meta</button>
+            <ActionButton type="submit" variant="primary" icon={Target} disabled={!companyId}>Criar meta</ActionButton>
           </form>
           <form
             style={actionClusterStyle}
@@ -1768,7 +2067,7 @@ function OperationsWorkbench({ context }: { context: PluginPageProps["context"] 
                 <option key={goal.id} value={goal.id}>{goal.title}</option>
               ))}
             </select>
-            <button type="submit" style={buttonStyle} disabled={!companyId || !selectedGoalId}>Mover para ativa</button>
+            <ActionButton type="submit" icon={Play} disabled={!companyId || !selectedGoalId}>Mover para ativa</ActionButton>
           </form>
         </div>
       </Section>
@@ -1799,10 +2098,10 @@ function OperationsWorkbench({ context }: { context: PluginPageProps["context"] 
               ))}
             </select>
             <div style={rowStyle}>
-              <button type="submit" style={primaryButtonStyle} disabled={!companyId || !selectedAgentId}>Invocar</button>
-              <button
+              <ActionButton type="submit" variant="primary" icon={Bot} disabled={!companyId || !selectedAgentId}>Invocar</ActionButton>
+              <ActionButton
                 type="button"
-                style={buttonStyle}
+                icon={Pause}
                 onClick={() => {
                   if (!companyId || !selectedAgentId) return;
                   void pauseAgent({ companyId, agentId: selectedAgentId })
@@ -1814,10 +2113,10 @@ function OperationsWorkbench({ context }: { context: PluginPageProps["context"] 
                 }}
               >
                 Pausar
-              </button>
-              <button
+              </ActionButton>
+              <ActionButton
                 type="button"
-                style={buttonStyle}
+                icon={Play}
                 onClick={() => {
                   if (!companyId || !selectedAgentId) return;
                   void resumeAgent({ companyId, agentId: selectedAgentId })
@@ -1829,11 +2128,11 @@ function OperationsWorkbench({ context }: { context: PluginPageProps["context"] 
                 }}
               >
                 Retomar
-              </button>
+              </ActionButton>
             </div>
-            <button
+            <ActionButton
               type="button"
-              style={buttonStyle}
+              icon={MessageSquareText}
               onClick={() => {
                 if (!companyId || !selectedAgentId) return;
                 void askAgent({ companyId, agentId: selectedAgentId, prompt: "Dê um resumo operacional curto." })
@@ -1842,22 +2141,22 @@ function OperationsWorkbench({ context }: { context: PluginPageProps["context"] 
               }}
             >
               Abrir stream de chat
-            </button>
+            </ActionButton>
             <JsonBlock value={agentStream.events.slice(-8)} />
           </form>
 
           <div style={actionClusterStyle}>
             <strong>Automação</strong>
             <div style={rowStyle}>
-              <button type="button" style={buttonStyle} onClick={() => void fetchJobsAndTrigger()}>
+              <ActionButton type="button" icon={RadioTower} onClick={() => void fetchJobsAndTrigger()}>
                 Disparar heartbeat
-              </button>
-              <button type="button" style={buttonStyle} onClick={() => void sendWebhook()}>
+              </ActionButton>
+              <ActionButton type="button" icon={Webhook} onClick={() => void sendWebhook()}>
                 Enviar webhook
-              </button>
-              <button
+              </ActionButton>
+              <ActionButton
                 type="button"
-                style={buttonStyle}
+                icon={Activity}
                 onClick={() => {
                   if (!companyId) return;
                   void startProgressStream({ companyId, steps: 4 })
@@ -1866,7 +2165,7 @@ function OperationsWorkbench({ context }: { context: PluginPageProps["context"] 
                 }}
               >
                 Stream de progresso
-              </button>
+              </ActionButton>
             </div>
             <JsonBlock value={jobOutput ?? overview.data?.lastJob ?? { note: "Sem job executado ainda." }} />
             <JsonBlock value={webhookOutput ?? overview.data?.lastWebhookIssue ?? overview.data?.lastWebhook ?? { note: "Sem webhook recebido ainda." }} />
@@ -1877,9 +2176,9 @@ function OperationsWorkbench({ context }: { context: PluginPageProps["context"] 
             <strong>Ferramentas operacionais</strong>
             <input style={inputStyle} value={toolMessage} onChange={(event) => setToolMessage(event.target.value)} />
             <div style={rowStyle}>
-              <button type="button" style={buttonStyle} onClick={() => void executeTool(TOOL_NAMES.echo)}>Eco de nota</button>
-              <button type="button" style={buttonStyle} onClick={() => void executeTool(TOOL_NAMES.companySummary)}>Resumo da empresa</button>
-              <button type="button" style={buttonStyle} onClick={() => void executeTool(TOOL_NAMES.createIssue)}>Criar issue</button>
+              <ActionButton type="button" icon={TerminalSquare} onClick={() => void executeTool(TOOL_NAMES.echo)}>Eco de nota</ActionButton>
+              <ActionButton type="button" icon={Building2} onClick={() => void executeTool(TOOL_NAMES.companySummary)}>Resumo da empresa</ActionButton>
+              <ActionButton type="button" icon={Plus} onClick={() => void executeTool(TOOL_NAMES.createIssue)}>Criar issue</ActionButton>
             </div>
             <JsonBlock value={toolOutput ?? { note: "Nenhuma ferramenta executada ainda." }} />
           </div>
@@ -1932,10 +2231,10 @@ function OperationsWorkbench({ context }: { context: PluginPageProps["context"] 
             <input style={inputStyle} value={workspacePath} onChange={(event) => setWorkspacePath(event.target.value)} />
             <textarea style={{ ...inputStyle, minHeight: "88px" }} value={workspaceContent} onChange={(event) => setWorkspaceContent(event.target.value)} />
             <div style={rowStyle}>
-              <button type="submit" style={buttonStyle} disabled={!companyId || !selectedProjectId}>Gravar arquivo</button>
-              <button
+              <ActionButton type="submit" icon={FilePenLine} disabled={!companyId || !selectedProjectId}>Gravar arquivo</ActionButton>
+              <ActionButton
                 type="button"
-                style={buttonStyle}
+                icon={FileSearch}
                 onClick={() => {
                   if (!companyId || !selectedProjectId) return;
                   void readWorkspaceFile({
@@ -1949,7 +2248,7 @@ function OperationsWorkbench({ context }: { context: PluginPageProps["context"] 
                 }}
               >
                 Ler arquivo
-              </button>
+              </ActionButton>
             </div>
           </form>
 
@@ -1977,7 +2276,7 @@ function OperationsWorkbench({ context }: { context: PluginPageProps["context"] 
                 <option key={command.key} value={command.key}>{command.label}</option>
               ))}
             </select>
-            <button type="submit" style={buttonStyle} disabled={!companyId || !selectedProjectId}>Executar comando</button>
+            <ActionButton type="submit" icon={TerminalSquare} disabled={!companyId || !selectedProjectId}>Executar comando</ActionButton>
             <JsonBlock value={overview.data?.lastProcessResult ?? { note: "Nenhum diagnóstico executado ainda." }} />
           </form>
         </div>
@@ -2199,7 +2498,7 @@ function KitchenSinkConsole({ context }: { context: { companyId: string | null; 
     <div style={{ display: "grid", gap: "14px" }}>
       <Section
         title="Visão Geral"
-        action={<button type="button" style={buttonStyle} onClick={() => refreshAll()}>Atualizar</button>}
+        action={<ActionButton type="button" icon={RefreshCw} onClick={() => refreshAll()}>Atualizar</ActionButton>}
       >
         <div style={rowStyle}>
           <Pill label={`Plugin: ${PLUGIN_DISPLAY_NAME}`} />
@@ -2313,7 +2612,7 @@ function KitchenSinkConsole({ context }: { context: { companyId: string | null; 
           >
             <strong>Criar issue</strong>
             <input style={inputStyle} value={issueTitle} onChange={(event) => setIssueTitle(event.target.value)} />
-            <button type="submit" style={primaryButtonStyle} disabled={!companyId}>Criar issue</button>
+            <ActionButton type="submit" variant="primary" icon={Plus} disabled={!companyId}>Criar issue</ActionButton>
           </form>
           <form
             style={layoutStack}
@@ -2334,7 +2633,7 @@ function KitchenSinkConsole({ context }: { context: { companyId: string | null; 
                 <option key={issue.id} value={issue.id}>{issue.title}</option>
               ))}
             </select>
-            <button type="submit" style={buttonStyle} disabled={!companyId || !selectedIssueId}>Mover para em revisão</button>
+            <ActionButton type="submit" icon={Workflow} disabled={!companyId || !selectedIssueId}>Mover para em revisão</ActionButton>
           </form>
           <form
             style={layoutStack}
@@ -2351,7 +2650,7 @@ function KitchenSinkConsole({ context }: { context: { companyId: string | null; 
           >
             <strong>Criar meta</strong>
             <input style={inputStyle} value={goalTitle} onChange={(event) => setGoalTitle(event.target.value)} />
-            <button type="submit" style={primaryButtonStyle} disabled={!companyId}>Criar meta</button>
+            <ActionButton type="submit" variant="primary" icon={Target} disabled={!companyId}>Criar meta</ActionButton>
           </form>
           <form
             style={layoutStack}
@@ -2372,7 +2671,7 @@ function KitchenSinkConsole({ context }: { context: { companyId: string | null; 
                 <option key={goal.id} value={goal.id}>{goal.title}</option>
               ))}
             </select>
-            <button type="submit" style={buttonStyle} disabled={!companyId || !selectedGoalId}>Mover para ativa</button>
+            <ActionButton type="submit" icon={Play} disabled={!companyId || !selectedGoalId}>Mover para ativa</ActionButton>
           </form>
         </div>
       </Section>
@@ -2404,10 +2703,10 @@ function KitchenSinkConsole({ context }: { context: { companyId: string | null; 
             <input style={inputStyle} value={stateKey} onChange={(event) => setStateKey(event.target.value)} placeholder="stateKey" />
             <textarea style={{ ...inputStyle, minHeight: "88px" }} value={stateValue} onChange={(event) => setStateValue(event.target.value)} />
             <div style={rowStyle}>
-              <button type="submit" style={primaryButtonStyle}>Gravar estado</button>
-              <button
+              <ActionButton type="submit" variant="primary" icon={Save}>Gravar estado</ActionButton>
+              <ActionButton
                 type="button"
-                style={buttonStyle}
+                icon={Trash2}
                 onClick={() => {
                   void deleteScopedState({
                     scopeKind: stateScopeKind,
@@ -2423,7 +2722,7 @@ function KitchenSinkConsole({ context }: { context: { companyId: string | null; 
                 }}
               >
                 Excluir estado
-              </button>
+              </ActionButton>
             </div>
             <JsonBlock value={stateQuery.data ?? { loading: true }} />
           </form>
@@ -2451,7 +2750,7 @@ function KitchenSinkConsole({ context }: { context: { companyId: string | null; 
             <input style={inputStyle} value={entityTitle} onChange={(event) => setEntityTitle(event.target.value)} placeholder="título" />
             <input style={inputStyle} value={entityScopeKind} onChange={(event) => setEntityScopeKind(event.target.value)} placeholder="scopeKind" />
             <input style={inputStyle} value={entityScopeId} onChange={(event) => setEntityScopeId(event.target.value)} placeholder="scopeId (opcional)" />
-            <button type="submit" style={primaryButtonStyle}>Criar ou atualizar entidade</button>
+            <ActionButton type="submit" variant="primary" icon={Save}>Criar ou atualizar entidade</ActionButton>
             <JsonBlock value={entityQuery.data ?? []} />
           </form>
         </div>
@@ -2459,9 +2758,10 @@ function KitchenSinkConsole({ context }: { context: { companyId: string | null; 
 
       <Section title="Eventos e Streams">
         <div style={rowStyle}>
-          <button
+          <ActionButton
             type="button"
-            style={primaryButtonStyle}
+            variant="primary"
+            icon={Sparkles}
             onClick={() => {
               if (!companyId) return;
               void emitDemoEvent({ companyId, message: "Evento manual da Central de Operações" })
@@ -2473,10 +2773,10 @@ function KitchenSinkConsole({ context }: { context: { companyId: string | null; 
             }}
           >
             Registrar evento operacional
-          </button>
-          <button
+          </ActionButton>
+          <ActionButton
             type="button"
-            style={buttonStyle}
+            icon={Activity}
             onClick={() => {
               if (!companyId) return;
               void startProgressStream({ companyId, steps: 5 })
@@ -2485,7 +2785,7 @@ function KitchenSinkConsole({ context }: { context: { companyId: string | null; 
             }}
           >
             Iniciar stream de progresso
-          </button>
+          </ActionButton>
         </div>
         <div style={{ display: "grid", gap: "12px", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))" }}>
           <div style={subtleCardStyle}>
@@ -2512,7 +2812,7 @@ function KitchenSinkConsole({ context }: { context: { companyId: string | null; 
           >
             <strong>HTTP</strong>
             <input style={inputStyle} value={httpUrl} onChange={(event) => setHttpUrl(event.target.value)} />
-            <button type="submit" style={buttonStyle}>Consultar URL</button>
+            <ActionButton type="submit" icon={Network}>Consultar URL</ActionButton>
           </form>
           <form
             style={layoutStack}
@@ -2525,7 +2825,7 @@ function KitchenSinkConsole({ context }: { context: { companyId: string | null; 
           >
             <strong>Segredos</strong>
             <input style={inputStyle} value={secretRef} onChange={(event) => setSecretRef(event.target.value)} placeholder="MY_SECRET_REF" />
-            <button type="submit" style={buttonStyle}>Resolver referência</button>
+            <ActionButton type="submit" icon={ShieldAlert}>Resolver referência</ActionButton>
           </form>
           <form
             style={layoutStack}
@@ -2541,9 +2841,9 @@ function KitchenSinkConsole({ context }: { context: { companyId: string | null; 
             <input style={inputStyle} value={metricName} onChange={(event) => setMetricName(event.target.value)} placeholder="nome da métrica" />
             <input style={inputStyle} value={metricValue} onChange={(event) => setMetricValue(event.target.value)} placeholder="valor da métrica" />
             <div style={rowStyle}>
-              <button
+              <ActionButton
                 type="button"
-                style={buttonStyle}
+                icon={Gauge}
                 onClick={() => {
                   if (!companyId) return;
                   void writeMetric({ companyId, name: metricName, value: Number(metricValue || "1") })
@@ -2552,8 +2852,8 @@ function KitchenSinkConsole({ context }: { context: { companyId: string | null; 
                 }}
               >
                 Gravar métrica
-              </button>
-              <button type="submit" style={buttonStyle} disabled={!companyId}>Gravar atividade</button>
+              </ActionButton>
+              <ActionButton type="submit" icon={Sparkles} disabled={!companyId}>Gravar atividade</ActionButton>
             </div>
           </form>
         </div>
@@ -2597,10 +2897,10 @@ function KitchenSinkConsole({ context }: { context: { companyId: string | null; 
             <input style={inputStyle} value={workspacePath} onChange={(event) => setWorkspacePath(event.target.value)} />
             <textarea style={{ ...inputStyle, minHeight: "88px" }} value={workspaceContent} onChange={(event) => setWorkspaceContent(event.target.value)} />
             <div style={rowStyle}>
-              <button type="submit" style={buttonStyle} disabled={!companyId || !selectedProjectId}>Gravar arquivo de notas</button>
-              <button
+              <ActionButton type="submit" icon={FilePenLine} disabled={!companyId || !selectedProjectId}>Gravar arquivo de notas</ActionButton>
+              <ActionButton
                 type="button"
-                style={buttonStyle}
+                icon={FileSearch}
                 onClick={() => {
                   if (!companyId || !selectedProjectId) return;
                   void readWorkspaceFile({
@@ -2614,7 +2914,7 @@ function KitchenSinkConsole({ context }: { context: { companyId: string | null; 
                 }}
               >
                 Ler arquivo
-              </button>
+              </ActionButton>
             </div>
           </form>
           <form
@@ -2641,7 +2941,7 @@ function KitchenSinkConsole({ context }: { context: { companyId: string | null; 
                 <option key={command.key} value={command.key}>{command.label}</option>
               ))}
             </select>
-            <button type="submit" style={buttonStyle} disabled={!companyId || !selectedProjectId}>Executar comando</button>
+            <ActionButton type="submit" icon={TerminalSquare} disabled={!companyId || !selectedProjectId}>Executar comando</ActionButton>
             <JsonBlock value={overview.data?.lastProcessResult ?? { note: "Nenhum processo executado ainda." }} />
           </form>
         </div>
@@ -2666,10 +2966,10 @@ function KitchenSinkConsole({ context }: { context: { companyId: string | null; 
               ))}
             </select>
             <div style={rowStyle}>
-              <button type="submit" style={primaryButtonStyle} disabled={!companyId || !selectedAgentId}>Invocar</button>
-              <button
+              <ActionButton type="submit" variant="primary" icon={Bot} disabled={!companyId || !selectedAgentId}>Invocar</ActionButton>
+              <ActionButton
                 type="button"
-                style={buttonStyle}
+                icon={Pause}
                 onClick={() => {
                   if (!companyId || !selectedAgentId) return;
                   void pauseAgent({ companyId, agentId: selectedAgentId })
@@ -2681,10 +2981,10 @@ function KitchenSinkConsole({ context }: { context: { companyId: string | null; 
                 }}
               >
                 Pausar
-              </button>
-              <button
+              </ActionButton>
+              <ActionButton
                 type="button"
-                style={buttonStyle}
+                icon={Play}
                 onClick={() => {
                   if (!companyId || !selectedAgentId) return;
                   void resumeAgent({ companyId, agentId: selectedAgentId })
@@ -2696,7 +2996,7 @@ function KitchenSinkConsole({ context }: { context: { companyId: string | null; 
                 }}
               >
                 Retomar
-              </button>
+              </ActionButton>
             </div>
           </form>
           <form
@@ -2710,7 +3010,7 @@ function KitchenSinkConsole({ context }: { context: { companyId: string | null; 
             }}
           >
             <strong>Stream de Chat do Agente</strong>
-            <button type="submit" style={buttonStyle} disabled={!companyId || !selectedAgentId}>Iniciar chat operacional</button>
+            <ActionButton type="submit" icon={MessageSquareText} disabled={!companyId || !selectedAgentId}>Iniciar chat operacional</ActionButton>
             <JsonBlock value={agentStream.events.slice(-12)} />
           </form>
         </div>
@@ -2720,21 +3020,21 @@ function KitchenSinkConsole({ context }: { context: { companyId: string | null; 
         <div style={{ display: "grid", gap: "12px", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))" }}>
           <div style={layoutStack}>
             <strong>Job de Heartbeat</strong>
-            <button type="button" style={buttonStyle} onClick={() => void fetchJobsAndTrigger()}>Disparar heartbeat</button>
+            <ActionButton type="button" icon={RadioTower} onClick={() => void fetchJobsAndTrigger()}>Disparar heartbeat</ActionButton>
             <JsonBlock value={jobOutput ?? overview.data?.lastJob ?? { note: "Ainda não há saída de job." }} />
           </div>
           <div style={layoutStack}>
             <strong>Webhook de Incidente</strong>
-            <button type="button" style={buttonStyle} onClick={() => void sendWebhook()}>Enviar webhook de incidente</button>
+            <ActionButton type="button" icon={Webhook} onClick={() => void sendWebhook()}>Enviar webhook de incidente</ActionButton>
             <JsonBlock value={webhookOutput ?? overview.data?.lastWebhookIssue ?? overview.data?.lastWebhook ?? { note: "Nenhum webhook recebido ainda." }} />
           </div>
           <div style={layoutStack}>
             <strong>Despachante de Ferramentas</strong>
             <input style={inputStyle} value={toolMessage} onChange={(event) => setToolMessage(event.target.value)} />
             <div style={rowStyle}>
-              <button type="button" style={buttonStyle} onClick={() => void executeTool(TOOL_NAMES.echo)}>Executar eco de nota</button>
-              <button type="button" style={buttonStyle} onClick={() => void executeTool(TOOL_NAMES.companySummary)}>Executar resumo da empresa</button>
-              <button type="button" style={buttonStyle} onClick={() => void executeTool(TOOL_NAMES.createIssue)}>Executar criação de issue</button>
+              <ActionButton type="button" icon={TerminalSquare} onClick={() => void executeTool(TOOL_NAMES.echo)}>Executar eco de nota</ActionButton>
+              <ActionButton type="button" icon={Building2} onClick={() => void executeTool(TOOL_NAMES.companySummary)}>Executar resumo da empresa</ActionButton>
+              <ActionButton type="button" icon={Plus} onClick={() => void executeTool(TOOL_NAMES.createIssue)}>Executar criação de issue</ActionButton>
             </div>
             <JsonBlock value={toolOutput ?? { note: "Ainda não há saída de ferramenta." }} />
           </div>
@@ -2757,12 +3057,12 @@ function OperationsHero({ context }: { context: PluginPageProps["context"] }) {
         <div style={{ fontSize: "11px", opacity: 0.68, textTransform: "uppercase", letterSpacing: "0.08em" }}>
           Plugin interno do produto
         </div>
-        <div style={{ display: "grid", gap: "8px" }}>
-          <h1 style={{ margin: 0, fontSize: "30px", lineHeight: 1.05 }}>{PLUGIN_DISPLAY_NAME}</h1>
-          <div style={{ ...mutedTextStyle, fontSize: "13px", opacity: 0.82 }}>
-            Use as guias para alternar entre visão geral, fluxo operacional e workbench avançado. A ideia é reduzir ruído sem perder profundidade quando a operação exigir abrir detalhes.
-          </div>
+      <div style={{ display: "grid", gap: "8px" }}>
+        <h1 style={{ margin: 0, fontSize: "30px", lineHeight: 1.05 }}>{PLUGIN_DISPLAY_NAME}</h1>
+        <div style={{ ...mutedTextStyle, fontSize: "13px", opacity: 0.82 }}>
+          Use as guias para alternar entre visão geral, fluxo operacional, Gather e workbench avançado. A ideia é reduzir ruído sem perder profundidade quando a operação exigir abrir detalhes.
         </div>
+      </div>
         <div style={rowStyle}>
           {context.companyId ? <Pill label={`empresa ${context.companyId.slice(0, 8)}`} /> : <Pill label="selecione uma empresa" />}
           {context.projectId ? <Pill label={`projeto ${context.projectId.slice(0, 8)}`} /> : null}
@@ -2797,12 +3097,447 @@ function OperationsHero({ context }: { context: PluginPageProps["context"] }) {
   );
 }
 
+function GatherDeskCluster({
+  top,
+  left,
+  accent,
+  width,
+  monitors = 2,
+  lamp = false,
+}: {
+  top: number;
+  left: number;
+  accent: string;
+  width?: number;
+  monitors?: number;
+  lamp?: boolean;
+}) {
+  return (
+    <div style={{ position: "absolute", top, left, display: "grid", gap: "6px", justifyItems: "center" }}>
+      <div style={{ ...gatherDeskStyle(accent, width) }} />
+      <div style={{ position: "absolute", top: 12, left: 16, display: "flex", gap: "8px", alignItems: "center" }}>
+        {Array.from({ length: monitors }).map((_, index) => (
+          <span key={index} style={gatherMonitorStyle} />
+        ))}
+        {lamp ? <span style={gatherLampStyle} /> : null}
+      </div>
+      <div
+        style={{
+          position: "absolute",
+          top: width && width > 130 ? 44 : 42,
+          left: "50%",
+          width: width && width > 130 ? "64px" : "46px",
+          height: "18px",
+          transform: "translateX(-50%)",
+          borderRadius: "999px",
+          background: "#334155",
+          opacity: 0.2,
+        }}
+      />
+    </div>
+  );
+}
+
+function GatherAvatar({
+  top,
+  left,
+  name,
+  detail,
+  color,
+  highlight = false,
+}: {
+  top: number;
+  left: number;
+  name: string;
+  detail: string;
+  color: string;
+  highlight?: boolean;
+}) {
+  return (
+    <div style={{ position: "absolute", top, left, display: "grid", justifyItems: "center", gap: "6px" }}>
+      <div
+        style={{
+          padding: "6px 10px",
+          borderRadius: "999px",
+          border: `2px solid ${highlight ? "#111827" : "color-mix(in srgb, #111827 52%, transparent)"}`,
+          background: "rgba(17, 24, 39, 0.88)",
+          color: "#f8fafc",
+          fontSize: "11px",
+          fontWeight: 700,
+          lineHeight: 1,
+          display: "inline-flex",
+          alignItems: "center",
+          gap: "6px",
+          whiteSpace: "nowrap",
+          boxShadow: "0 10px 24px rgba(15, 23, 42, 0.18)",
+        }}
+      >
+        <span
+          style={{
+            width: "8px",
+            height: "8px",
+            borderRadius: "999px",
+            background: highlight ? "#22c55e" : color,
+            boxShadow: `0 0 0 3px color-mix(in srgb, ${highlight ? "#22c55e" : color} 24%, transparent)`,
+          }}
+        />
+        <span>{name}</span>
+      </div>
+      <div style={{ ...gatherAvatarBodyStyle(color, highlight), display: "grid", placeItems: "center", color: "#0f172a", fontSize: "10px", fontWeight: 800 }}>
+        {highlight ? "VO" : getInitials(name)}
+      </div>
+      <div style={{ fontSize: "11px", fontWeight: 600, color: "#334155", textAlign: "center" }}>{detail}</div>
+    </div>
+  );
+}
+
+function GatherRoomLabel({
+  icon: Icon,
+  label,
+  tone,
+}: {
+  icon: LucideIcon;
+  label: string;
+  tone: string;
+}) {
+  return (
+    <div
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: "8px",
+        padding: "8px 12px",
+        borderRadius: "999px",
+        background: "rgba(255, 255, 255, 0.9)",
+        border: `2px solid ${tone}`,
+        fontSize: "12px",
+        fontWeight: 700,
+        color: "#1f2937",
+        boxShadow: "0 8px 18px rgba(15, 23, 42, 0.12)",
+      }}
+    >
+      <Icon size={14} aria-hidden="true" />
+      <span>{label}</span>
+    </div>
+  );
+}
+
+function OperationsGather({ context }: { context: PluginPageProps["context"] }) {
+  const overview = usePluginOverview(context.companyId);
+  const agents = usePluginData<AgentRecord[]>("agents", context.companyId ? { companyId: context.companyId } : {});
+
+  const avatarNames = (agents.data ?? []).map((agent) => agent.name);
+  const presence = [
+    { name: "Você", detail: "patrulha o corredor central", color: "#60a5fa", top: 366, left: 720, highlight: true },
+    { name: avatarNames[0] ?? "Alison", detail: "coordena follow-ups", color: "#f97316", top: 304, left: 516 },
+    { name: avatarNames[1] ?? "Brad", detail: "opera a fila crítica", color: "#22c55e", top: 308, left: 416 },
+    { name: avatarNames[2] ?? "Jinen", detail: "faz intake e triagem", color: "#a855f7", top: 214, left: 188 },
+    { name: avatarNames[3] ?? "Nova", detail: "mantém o pod CX ativo", color: "#ec4899", top: 454, left: 954 },
+  ];
+
+  return (
+    <div style={pageShellStyle}>
+      <Section
+        title="Gather Operacional"
+        eyebrow="Escritório virtual"
+        collapsible
+        description="Um mapa vivo da operação para orientar fluxo, presença e zonas de trabalho. A referência vira um escritório Paperclip: mais leitura espacial, menos listas secas."
+        action={<Pill label={`${presence.length} presenças`} />}
+      >
+        <div style={groupedGridStyle}>
+          <div style={spotlightCardStyle}>
+            <strong>Como usar esta vista</strong>
+            <div style={mutedTextStyle}>
+              O Gather da Central representa a operação como um escritório de squads. O corredor central funciona como eixo do turno, as salas laterais viram domínios de foco e cada pod concentra um tipo de decisão.
+            </div>
+            <div style={rowStyle}>
+              <Pill label={`${overview.data?.counts.projects ?? 0} projetos`} />
+              <Pill label={`${overview.data?.counts.issues ?? 0} issues`} />
+              <Pill label={`${overview.data?.counts.agents ?? 0} agentes`} />
+            </div>
+          </div>
+          <div style={actionClusterStyle}>
+            <strong>Zonas do escritório</strong>
+            <div style={{ display: "grid", gap: "8px", fontSize: "12px" }}>
+              <div>Command Center: coordenação de incidentes, jobs e follow-ups.</div>
+              <div>Pod CX/NOC: webhooks, atendimento e sinais externos.</div>
+              <div>Biblioteca: memória operacional, notas e rastros de execução.</div>
+              <div>Lounge: alinhamento rápido, retro de turno e descanso cognitivo.</div>
+            </div>
+          </div>
+          <div style={actionClusterStyle}>
+            <strong>Rituais sugeridos</strong>
+            <div style={{ display: "grid", gap: "8px", fontSize: "12px" }}>
+              <div>1. Abra o Gather para entender onde a carga está concentrada.</div>
+              <div>2. Salte para o Fluxo Operacional quando precisar agir sobre a fila.</div>
+              <div>3. Desça ao Workbench quando a situação exigir controle fino.</div>
+            </div>
+          </div>
+        </div>
+      </Section>
+
+      <section style={gatherMapShellStyle}>
+        <div style={gatherGardenLeftStyle} />
+        <div style={gatherGardenRightStyle} />
+        <div style={gatherCampusCoreStyle} />
+        <div style={gatherHallNorthStyle} />
+        <div style={gatherCorridorStyle} />
+
+        <div
+          style={{
+            ...gatherRoomStyle(
+              "#8992be",
+              "repeating-linear-gradient(0deg, #cfd6f5 0 12px, #d7def8 12px 24px), repeating-linear-gradient(90deg, #c9d2f2 0 12px, #d8e0fa 12px 24px)",
+            ),
+            top: "122px",
+            left: "102px",
+            width: "176px",
+            height: "228px",
+          }}
+        >
+          <div style={{ position: "absolute", top: "14px", left: "14px" }}>
+            <GatherRoomLabel icon={Users} label="War Room" tone="#8992be" />
+          </div>
+          <GatherDeskCluster top={72} left={18} accent="#a27d5e" width={132} monitors={1} lamp />
+          <div
+            style={{
+              position: "absolute",
+              right: "18px",
+              bottom: "22px",
+              width: "62px",
+              height: "62px",
+              borderRadius: "999px",
+              border: "3px solid #7c5f4d",
+              background: "radial-gradient(circle at 30% 30%, #f8fafc 0 10px, #cbd5e1 10px 22px, #94a3b8 22px 100%)",
+            }}
+          />
+        </div>
+
+        <div
+          style={{
+            ...gatherRoomStyle(
+              "#8d9d97",
+              "repeating-linear-gradient(0deg, #d6ddeb 0 14px, #e2e7f3 14px 28px), repeating-linear-gradient(90deg, #d9dfeb 0 14px, #ecf0f8 14px 28px)",
+            ),
+            left: "98px",
+            bottom: "92px",
+            width: "194px",
+            height: "232px",
+          }}
+        >
+          <div style={{ position: "absolute", top: "14px", left: "14px" }}>
+            <GatherRoomLabel icon={FolderOpen} label="Arquivo Vivo" tone="#8d9d97" />
+          </div>
+          <div
+            style={{
+              position: "absolute",
+              left: "18px",
+              right: "18px",
+              bottom: "20px",
+              display: "grid",
+              gap: "10px",
+            }}
+          >
+            <div style={{ height: "92px", borderRadius: "12px", border: "3px solid #64748b", background: "repeating-linear-gradient(90deg, #64748b 0 10px, #93a4ba 10px 18px)" }} />
+            <div style={{ display: "flex", gap: "14px" }}>
+              <div style={{ ...gatherDeskStyle("#6b7280", 64), height: "56px" }} />
+              <div style={{ ...gatherDeskStyle("#6b7280", 64), height: "56px" }} />
+            </div>
+          </div>
+        </div>
+
+        <div
+          style={{
+            ...gatherRoomStyle(
+              "#7a8a95",
+              "repeating-linear-gradient(0deg, #dfe6ea 0 12px, #e7edf1 12px 24px), repeating-linear-gradient(90deg, #d7dee3 0 12px, #e7edf1 12px 24px)",
+            ),
+            top: "206px",
+            left: "338px",
+            width: "404px",
+            height: "236px",
+          }}
+        >
+          <div style={{ position: "absolute", top: "14px", left: "50%", transform: "translateX(-50%)" }}>
+            <GatherRoomLabel icon={LayoutDashboard} label="Command Center" tone="#7a8a95" />
+          </div>
+          <GatherDeskCluster top={76} left={42} accent="#7a8a95" width={150} monitors={2} />
+          <GatherDeskCluster top={76} left={210} accent="#7a8a95" width={150} monitors={3} lamp />
+          <GatherDeskCluster top={156} left={98} accent="#7a8a95" width={176} monitors={2} />
+          <div
+            style={{
+              position: "absolute",
+              right: "26px",
+              top: "126px",
+              width: "26px",
+              height: "46px",
+              borderRadius: "14px",
+              border: "3px solid #60a5fa",
+              background: "linear-gradient(180deg, #bae6fd 0%, #38bdf8 100%)",
+            }}
+          />
+        </div>
+
+        <div
+          style={{
+            ...gatherRoomStyle(
+              "#8f86a8",
+              "repeating-linear-gradient(0deg, #cdd0ea 0 12px, #d9d7ef 12px 24px), repeating-linear-gradient(90deg, #cfcfe6 0 12px, #dddaf3 12px 24px)",
+            ),
+            left: "382px",
+            bottom: "96px",
+            width: "330px",
+            height: "166px",
+          }}
+        >
+          <div style={{ position: "absolute", top: "14px", left: "50%", transform: "translateX(-50%)" }}>
+            <GatherRoomLabel icon={Sparkles} label="Lounge de Alinhamento" tone="#8f86a8" />
+          </div>
+          <div
+            style={{
+              position: "absolute",
+              top: "74px",
+              left: "34px",
+              width: "118px",
+              height: "58px",
+              borderRadius: "16px",
+              border: "3px solid #a16f46",
+              background: "linear-gradient(180deg, #f59e0b 0%, #fdba74 100%)",
+            }}
+          />
+          <div
+            style={{
+              position: "absolute",
+              top: "68px",
+              right: "34px",
+              width: "104px",
+              height: "64px",
+              borderRadius: "999px",
+              border: "3px solid #a16f46",
+              background: "linear-gradient(180deg, #fef3c7 0%, #fde68a 100%)",
+            }}
+          />
+          <div
+            style={{
+              position: "absolute",
+              bottom: "20px",
+              left: "50%",
+              transform: "translateX(-50%)",
+              width: "160px",
+              height: "16px",
+              borderRadius: "999px",
+              background: "rgba(51, 65, 85, 0.12)",
+            }}
+          />
+        </div>
+
+        <div
+          style={{
+            ...gatherRoomStyle(
+              "#94a3b8",
+              "repeating-linear-gradient(0deg, #e4e9f1 0 14px, #edf1f6 14px 28px), repeating-linear-gradient(90deg, #e0e6ef 0 14px, #eef3f8 14px 28px)",
+            ),
+            top: "232px",
+            right: "132px",
+            width: "248px",
+            height: "288px",
+          }}
+        >
+          <div style={{ position: "absolute", top: "14px", left: "50%", transform: "translateX(-50%)" }}>
+            <GatherRoomLabel icon={Headphones} label="Pod CX / NOC" tone="#94a3b8" />
+          </div>
+          <GatherDeskCluster top={86} left={24} accent="#7c8aa1" width={186} monitors={2} />
+          <GatherDeskCluster top={184} left={30} accent="#7c8aa1" width={174} monitors={2} lamp />
+          <div
+            style={{
+              position: "absolute",
+              top: "76px",
+              right: "20px",
+              width: "24px",
+              height: "24px",
+              borderRadius: "999px",
+              background: "linear-gradient(180deg, #d8b4fe 0%, #c084fc 100%)",
+              boxShadow: "0 0 0 3px color-mix(in srgb, #ffffff 44%, transparent)",
+            }}
+          />
+        </div>
+
+        <div
+          style={{
+            position: "absolute",
+            bottom: "62px",
+            right: "138px",
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "10px",
+            padding: "10px 14px",
+            borderRadius: "18px",
+            border: "2px solid #7c8aa1",
+            background: "rgba(255,255,255,0.9)",
+            fontSize: "12px",
+            fontWeight: 700,
+            color: "#1f2937",
+            boxShadow: "0 10px 22px rgba(15, 23, 42, 0.08)",
+          }}
+        >
+          <Compass size={14} aria-hidden="true" />
+          <span>Entrada / Navegação</span>
+        </div>
+
+        {presence.map((avatar) => (
+          <GatherAvatar
+            key={`${avatar.name}-${avatar.top}-${avatar.left}`}
+            top={avatar.top}
+            left={avatar.left}
+            name={avatar.name}
+            detail={avatar.detail}
+            color={avatar.color}
+            highlight={avatar.highlight}
+          />
+        ))}
+      </section>
+
+      <div style={groupedGridStyle}>
+        <div style={actionClusterStyle}>
+          <strong>Presença em rotação</strong>
+          <div style={{ display: "grid", gap: "8px" }}>
+            {presence.map((avatar) => (
+              <div key={avatar.name} style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                <div style={{ ...gatherAvatarBodyStyle(avatar.color, avatar.highlight), width: "18px", height: "22px" }} />
+                <div style={{ display: "grid", gap: "2px" }}>
+                  <span style={{ fontSize: "12px", fontWeight: 700 }}>{avatar.name}</span>
+                  <span style={mutedTextStyle}>{avatar.detail}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div style={actionClusterStyle}>
+          <strong>Leitura rápida do turno</strong>
+          <StatusLine label="Fila aberta" value={`${overview.data?.counts.issues ?? 0} issues em vista`} />
+          <StatusLine label="Squads ativos" value={`${Math.max(2, Math.min(4, overview.data?.counts.agents ?? 2))} pods mapeados`} />
+          <StatusLine label="Memória do escritório" value={context.companyId ? `empresa ${context.companyId.slice(0, 8)}` : "aguardando escopo"} />
+        </div>
+        <div style={actionClusterStyle}>
+          <strong>Próximos encaixes</strong>
+          <div style={{ display: "grid", gap: "8px", fontSize: "12px" }}>
+            <div>Use avatares e pods depois para representar agentes ao vivo via stream.</div>
+            <div>Transforme salas em atalhos para filtros de fila, incidentes e rotinas.</div>
+            <div>Acople status, presença e chat contextual sem perder a leitura “jogo”.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function KitchenSinkPage({ context }: PluginPageProps) {
-  const [activeTab, setActiveTab] = useState<"overview" | "flow" | "workbench">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "flow" | "gather" | "workbench">("overview");
 
   const tabs = [
     {
       id: "overview" as const,
+      icon: LayoutDashboard,
       label: "Visão Geral",
       description: "Cockpit, radar do runtime e contexto imediato da operação atual.",
       content: (
@@ -2832,12 +3567,21 @@ export function KitchenSinkPage({ context }: PluginPageProps) {
     },
     {
       id: "flow" as const,
+      icon: Workflow,
       label: "Fluxo Operacional",
       description: "Memória persistente, intake, follow-up e leitura do estado vivo da operação.",
       content: <KitchenSinkEmbeddedApp context={context} />,
     },
     {
+      id: "gather" as const,
+      icon: Gamepad2,
+      label: "Gather",
+      description: "Escritório virtual da operação, com leitura espacial inspirada em um jogo top-down.",
+      content: <OperationsGather context={context} />,
+    },
+    {
       id: "workbench" as const,
+      icon: MonitorCog,
       label: "Workbench Avançado",
       description: "Área para coordenação de agentes, automação, workspace e diagnósticos controlados.",
       content: <OperationsWorkbench context={context} />,
@@ -2859,7 +3603,7 @@ export function KitchenSinkPage({ context }: PluginPageProps) {
               style={tabButtonStyle(tab.id === activeTab)}
               onClick={() => setActiveTab(tab.id)}
             >
-              {tab.label}
+              <ButtonLabel icon={tab.icon}>{tab.label}</ButtonLabel>
             </button>
           ))}
         </div>
@@ -2912,64 +3656,50 @@ export function KitchenSinkSettingsPage({ context }: PluginSettingsPageProps) {
 
       <div style={{ display: "grid", gap: "12px" }}>
         <strong>Configurações</strong>
-        <label style={rowStyle}>
-          <input
-            type="checkbox"
-            checked={configJson.showSidebarEntry !== false}
-            onChange={(event) => setField("showSidebarEntry", event.target.checked)}
-          />
-          <span>Exibir entrada na barra lateral</span>
-        </label>
-        <label style={rowStyle}>
-          <input
-            type="checkbox"
-            checked={configJson.showSidebarPanel !== false}
-            onChange={(event) => setField("showSidebarPanel", event.target.checked)}
-          />
-          <span>Exibir painel lateral</span>
-        </label>
-        <label style={rowStyle}>
-          <input
-            type="checkbox"
-            checked={configJson.showProjectSidebarItem !== false}
-            onChange={(event) => setField("showProjectSidebarItem", event.target.checked)}
-          />
-          <span>Exibir atalho lateral do projeto</span>
-        </label>
-        <label style={rowStyle}>
-          <input
-            type="checkbox"
-            checked={configJson.showCommentAnnotation !== false}
-            onChange={(event) => setField("showCommentAnnotation", event.target.checked)}
-          />
-          <span>Exibir anotação de comentário</span>
-        </label>
-        <label style={rowStyle}>
-          <input
-            type="checkbox"
-            checked={configJson.showCommentContextMenuItem !== false}
-            onChange={(event) => setField("showCommentContextMenuItem", event.target.checked)}
-          />
-          <span>Exibir ação contextual de comentário</span>
-        </label>
-        <label style={rowStyle}>
-          <input
-            type="checkbox"
-            checked={configJson.enableWorkspaceDemos !== false}
-            onChange={(event) => setField("enableWorkspaceDemos", event.target.checked)}
-          />
-          <span>Habilitar acesso ao workspace</span>
-        </label>
-        <label style={rowStyle}>
-          <input
-            type="checkbox"
-            checked={configJson.enableProcessDemos === true}
-            onChange={(event) => setField("enableProcessDemos", event.target.checked)}
-          />
-          <span>Habilitar diagnósticos locais</span>
-        </label>
+        <ToggleField
+          icon={PanelsTopLeft}
+          label="Exibir entrada na barra lateral"
+          checked={configJson.showSidebarEntry !== false}
+          onChange={(checked) => setField("showSidebarEntry", checked)}
+        />
+        <ToggleField
+          icon={LayoutDashboard}
+          label="Exibir painel lateral"
+          checked={configJson.showSidebarPanel !== false}
+          onChange={(checked) => setField("showSidebarPanel", checked)}
+        />
+        <ToggleField
+          icon={FolderOpen}
+          label="Exibir atalho lateral do projeto"
+          checked={configJson.showProjectSidebarItem !== false}
+          onChange={(checked) => setField("showProjectSidebarItem", checked)}
+        />
+        <ToggleField
+          icon={MessageSquareText}
+          label="Exibir anotação de comentário"
+          checked={configJson.showCommentAnnotation !== false}
+          onChange={(checked) => setField("showCommentAnnotation", checked)}
+        />
+        <ToggleField
+          icon={Copy}
+          label="Exibir ação contextual de comentário"
+          checked={configJson.showCommentContextMenuItem !== false}
+          onChange={(checked) => setField("showCommentContextMenuItem", checked)}
+        />
+        <ToggleField
+          icon={FileSearch}
+          label="Habilitar acesso ao workspace"
+          checked={configJson.enableWorkspaceDemos !== false}
+          onChange={(checked) => setField("enableWorkspaceDemos", checked)}
+        />
+        <ToggleField
+          icon={ShieldAlert}
+          label="Habilitar diagnósticos locais"
+          checked={configJson.enableProcessDemos === true}
+          onChange={(checked) => setField("enableProcessDemos", checked)}
+        />
         <label style={{ display: "grid", gap: "6px" }}>
-          <span style={{ fontSize: "12px" }}>URL do endpoint HTTP</span>
+          <FieldLabel icon={Network}>URL do endpoint HTTP</FieldLabel>
           <input
             style={inputStyle}
             value={String(configJson.httpDemoUrl ?? DEFAULT_CONFIG.httpDemoUrl)}
@@ -2977,7 +3707,7 @@ export function KitchenSinkSettingsPage({ context }: PluginSettingsPageProps) {
           />
         </label>
         <label style={{ display: "grid", gap: "6px" }}>
-          <span style={{ fontSize: "12px" }}>Referência de segredo</span>
+          <FieldLabel icon={ShieldAlert}>Referência de segredo</FieldLabel>
           <input
             style={inputStyle}
             value={String(configJson.secretRefExample ?? "")}
@@ -2985,7 +3715,7 @@ export function KitchenSinkSettingsPage({ context }: PluginSettingsPageProps) {
           />
         </label>
         <label style={{ display: "grid", gap: "6px" }}>
-          <span style={{ fontSize: "12px" }}>Arquivo de notas do workspace</span>
+          <FieldLabel icon={FilePenLine}>Arquivo de notas do workspace</FieldLabel>
           <input
             style={inputStyle}
             value={String(configJson.workspaceScratchFile ?? DEFAULT_CONFIG.workspaceScratchFile)}
@@ -2997,9 +3727,9 @@ export function KitchenSinkSettingsPage({ context }: PluginSettingsPageProps) {
       {error ? <div style={{ color: "var(--destructive, #c00)", fontSize: "12px" }}>{error}</div> : null}
 
       <div style={rowStyle}>
-        <button type="submit" style={primaryButtonStyle} disabled={saving}>
+        <ActionButton type="submit" variant="primary" icon={Save} disabled={saving}>
           {saving ? "Salvando…" : "Salvar configurações"}
-        </button>
+        </ActionButton>
         {savedMessage ? <span style={{ fontSize: "12px", opacity: 0.7 }}>{savedMessage}</span> : null}
       </div>
     </form>
@@ -3026,16 +3756,16 @@ export function KitchenSinkDashboardWidget({ context }: PluginWidgetProps) {
       </div>
       <div style={rowStyle}>
         <a href={pluginPagePath(context.companyPrefix)} style={{ fontSize: "12px" }}>Abrir página</a>
-        <button
+        <ActionButton
           type="button"
-          style={buttonStyle}
+          icon={Gauge}
           onClick={() => {
             if (!context.companyId) return;
             void writeMetric({ companyId: context.companyId, name: "dashboard_click", value: 1 }).catch(console.error);
           }}
         >
           Registrar métrica
-        </button>
+        </ActionButton>
       </div>
     </div>
   );
@@ -3116,16 +3846,16 @@ export function KitchenSinkToolbarButton() {
   const context = useHostContext();
   const startProgress = usePluginAction("start-progress-stream");
   return (
-    <button
+    <ActionButton
       type="button"
-      style={buttonStyle}
+      icon={Activity}
       onClick={() => {
         if (!context.companyId) return;
         void startProgress({ companyId: context.companyId, steps: 3 }).catch(console.error);
       }}
     >
       Ação Operacional
-    </button>
+    </ActionButton>
   );
 }
 
@@ -3133,9 +3863,9 @@ export function KitchenSinkContextMenuItem() {
   const context = useHostContext();
   const writeActivity = usePluginAction("write-activity");
   return (
-    <button
+    <ActionButton
       type="button"
-      style={buttonStyle}
+      icon={Sparkles}
       onClick={() => {
         if (!context.companyId) return;
         void writeActivity({
@@ -3147,7 +3877,7 @@ export function KitchenSinkContextMenuItem() {
       }}
     >
       Contexto Operacional
-    </button>
+    </ActionButton>
   );
 }
 
@@ -3178,9 +3908,9 @@ export function KitchenSinkCommentContextMenuItem({ context }: PluginCommentCont
   if (config.data && config.data.showCommentContextMenuItem === false) return null;
   return (
     <div style={rowStyle}>
-      <button
+      <ActionButton
         type="button"
-        style={buttonStyle}
+        icon={Copy}
         onClick={() => {
           if (!context.companyId) return;
           void copyCommentContext({
@@ -3193,7 +3923,7 @@ export function KitchenSinkCommentContextMenuItem({ context }: PluginCommentCont
         }}
       >
         Capturar para a Central
-      </button>
+      </ActionButton>
       {status ? <span style={{ fontSize: "11px", opacity: 0.7 }}>{status}</span> : null}
     </div>
   );
