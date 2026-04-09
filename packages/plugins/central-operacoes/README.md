@@ -8,7 +8,8 @@ Hoje ele entrega:
 - shell principal com guias por contexto operacional
 - seções colapsáveis com ícones de expandir e recolher para abrir e fechar blocos densos sob demanda
 - iconografia consistente aplicada aos botões, ações rápidas, toggles e controles contextuais do plugin
-- aba `Gather` com escritório virtual estilo jogo top-down para leitura espacial da operação
+- hero e visão geral limpos, sem metadados internos expostos ao operador
+- aba `Gather` redesenhada com HUD compacto, mapa dominante e menos texto explicativo
 - widget de dashboard e superfícies na barra lateral
 - visões operacionais de projeto e issue
 - superfícies de captura de comentários

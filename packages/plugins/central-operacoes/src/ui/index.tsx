@@ -814,16 +814,80 @@ function HeroMetric({
   label,
   value,
   detail,
+  icon: Icon,
 }: {
   label: string;
   value: ReactNode;
   detail: ReactNode;
+  icon: LucideIcon;
 }) {
   return (
     <div style={heroMetricStyle}>
-      <div style={{ fontSize: "11px", opacity: 0.68, textTransform: "uppercase", letterSpacing: "0.06em" }}>{label}</div>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px" }}>
+        <div style={{ fontSize: "11px", opacity: 0.68, textTransform: "uppercase", letterSpacing: "0.06em" }}>{label}</div>
+        <div
+          style={{
+            width: "28px",
+            height: "28px",
+            borderRadius: "10px",
+            display: "grid",
+            placeItems: "center",
+            background: "color-mix(in srgb, var(--foreground) 10%, transparent)",
+          }}
+        >
+          <Icon size={14} aria-hidden="true" />
+        </div>
+      </div>
       <div style={{ fontSize: "24px", fontWeight: 700, lineHeight: 1 }}>{value}</div>
       <div style={mutedTextStyle}>{detail}</div>
+    </div>
+  );
+}
+
+function GatherHudBadge({
+  icon: Icon,
+  value,
+  label,
+  tint,
+}: {
+  icon: LucideIcon;
+  value: ReactNode;
+  label: string;
+  tint: string;
+}) {
+  return (
+    <div
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: "10px",
+        minWidth: "132px",
+        padding: "10px 12px",
+        borderRadius: "16px",
+        border: "1px solid color-mix(in srgb, var(--border) 80%, transparent)",
+        background: "rgba(255, 255, 255, 0.82)",
+        backdropFilter: "blur(10px)",
+        boxShadow: "0 12px 24px rgba(15, 23, 42, 0.08)",
+      }}
+    >
+      <div
+        style={{
+          width: "34px",
+          height: "34px",
+          borderRadius: "12px",
+          display: "grid",
+          placeItems: "center",
+          background: tint,
+          color: "#0f172a",
+          flexShrink: 0,
+        }}
+      >
+        <Icon size={16} aria-hidden="true" />
+      </div>
+      <div style={{ display: "grid", gap: "2px", minWidth: 0 }}>
+        <strong style={{ fontSize: "15px", lineHeight: 1 }}>{value}</strong>
+        <span style={{ fontSize: "11px", opacity: 0.68, textTransform: "uppercase", letterSpacing: "0.06em" }}>{label}</span>
+      </div>
     </div>
   );
 }
@@ -1559,46 +1623,31 @@ function KitchenSinkCompanyCrudDemo({ context }: { context: PluginPageProps["con
 }
 
 function KitchenSinkTopRow({ context }: { context: PluginPageProps["context"] }) {
+  const overview = usePluginOverview(context.companyId);
+
   return (
     <Section
-      title="Cockpit Operacional"
+      title="Pulso do turno"
       eyebrow="Visão geral"
       collapsible
-      description="Abertura tática da Central com contexto ativo, rota principal e prioridades do operador."
-      action={<Pill label={context.companyId ? "empresa ativa" : "aguardando empresa"} />}
+      description="Leitura rápida da operação antes de abrir a fila ou entrar no workbench."
     >
       <div style={groupedGridStyle}>
         <div style={spotlightCardStyle}>
           <div style={{ fontSize: "13px", lineHeight: 1.6 }}>
-            A Central de Operações concentra intake, follow-up, métricas, automações, sinais do runtime e atalhos de coordenação em uma superfície única da empresa.
+            A Central concentra fila, execução e sinais em um único ponto de controle para o turno.
           </div>
           <div style={rowStyle}>
-            {context.companyId ? <Pill label={`Empresa ${context.companyId.slice(0, 8)}`} /> : <Pill label="Sem empresa selecionada" />}
-            {context.projectId ? <Pill label={`Projeto ${context.projectId.slice(0, 8)}`} /> : null}
-            {context.entityType ? <Pill label={`Contexto ${formatToken(context.entityType)}`} /> : null}
+            <Pill label={`${overview.data?.counts.issues ?? 0} issues`} />
+            <Pill label={`${overview.data?.counts.agents ?? 0} agentes`} />
+            <Pill label={`${overview.data?.recentRecords.length ?? 0} sinais`} />
           </div>
         </div>
 
         <div style={actionClusterStyle}>
-          <strong>Entrada principal</strong>
-          <div style={mutedTextStyle}>
-            Esta rota deve funcionar como hub primário do operador, reduzindo troca de contexto com o restante do host.
-          </div>
-          <a href={pluginPagePath(context.companyPrefix)} style={{ fontSize: "12px" }}>
-            {pluginPagePath(context.companyPrefix)}
-          </a>
-        </div>
-
-        <div style={actionClusterStyle}>
-          <strong>Prioridades do turno</strong>
-          <div style={mutedTextStyle}>
-            Organize a operação em três frentes: acompanhar a fila, validar execução ativa e registrar memória de trabalho útil.
-          </div>
-          <div style={{ display: "grid", gap: "6px", fontSize: "12px" }}>
-            <div>1. Registrar e avançar follow-ups sem sair do cockpit.</div>
-            <div>2. Ver execuções e heartbeats antes de intervir em agentes.</div>
-            <div>3. Consolidar notas e diagnósticos do workspace sob demanda.</div>
-          </div>
+          <StatusLine label="Fila" value={`${overview.data?.counts.issues ?? 0} abertas para coordenação`} />
+          <StatusLine label="Agentes" value={`${overview.data?.counts.agents ?? 0} prontos para acionar`} />
+          <StatusLine label="Runtime" value={`${overview.data?.recentRecords.length ?? 0} sinais recentes`} />
         </div>
       </div>
     </Section>
@@ -3053,44 +3102,37 @@ function OperationsHero({ context }: { context: PluginPageProps["context"] }) {
 
   return (
     <section style={heroShellStyle}>
-      <div style={{ display: "grid", gap: "12px" }}>
-        <div style={{ fontSize: "11px", opacity: 0.68, textTransform: "uppercase", letterSpacing: "0.08em" }}>
-          Plugin interno do produto
-        </div>
       <div style={{ display: "grid", gap: "8px" }}>
         <h1 style={{ margin: 0, fontSize: "30px", lineHeight: 1.05 }}>{PLUGIN_DISPLAY_NAME}</h1>
         <div style={{ ...mutedTextStyle, fontSize: "13px", opacity: 0.82 }}>
-          Use as guias para alternar entre visão geral, fluxo operacional, Gather e workbench avançado. A ideia é reduzir ruído sem perder profundidade quando a operação exigir abrir detalhes.
-        </div>
-      </div>
-        <div style={rowStyle}>
-          {context.companyId ? <Pill label={`empresa ${context.companyId.slice(0, 8)}`} /> : <Pill label="selecione uma empresa" />}
-          {context.projectId ? <Pill label={`projeto ${context.projectId.slice(0, 8)}`} /> : null}
-          {context.entityType ? <Pill label={`contexto ${formatToken(context.entityType)}`} /> : null}
-          <Pill label={`rota ${pluginPagePath(context.companyPrefix)}`} />
+          Coordene fila, agentes e sinais em uma única superfície.
         </div>
       </div>
 
       <div style={heroMetricGridStyle}>
         <HeroMetric
+          icon={FolderOpen}
           label="Projetos"
           value={overview.data?.counts.projects ?? 0}
-          detail="Projetos visíveis no escopo atual da empresa."
+          detail="escopo atual"
         />
         <HeroMetric
+          icon={Target}
           label="Issues"
           value={overview.data?.counts.issues ?? 0}
-          detail="Fila operacional disponível para coordenação imediata."
+          detail="fila ativa"
         />
         <HeroMetric
+          icon={Bot}
           label="Agentes"
           value={overview.data?.counts.agents ?? 0}
-          detail="Agentes que podem ser acionados ou pausados pela Central."
+          detail="prontos para coordenação"
         />
         <HeroMetric
+          icon={Activity}
           label="Sinais"
           value={overview.data?.recentRecords.length ?? 0}
-          detail="Registros recentes do runtime para leitura rápida."
+          detail="runtime recente"
         />
       </div>
     </section>
@@ -3227,56 +3269,90 @@ function OperationsGather({ context }: { context: PluginPageProps["context"] }) 
   const agents = usePluginData<AgentRecord[]>("agents", context.companyId ? { companyId: context.companyId } : {});
 
   const avatarNames = (agents.data ?? []).map((agent) => agent.name);
+  const queueCount = overview.data?.counts.issues ?? 0;
+  const projectCount = overview.data?.counts.projects ?? 0;
+  const agentCount = overview.data?.counts.agents ?? 0;
+  const signalCount = overview.data?.recentRecords.length ?? 0;
   const presence = [
-    { name: "Você", detail: "patrulha o corredor central", color: "#60a5fa", top: 366, left: 720, highlight: true },
-    { name: avatarNames[0] ?? "Alison", detail: "coordena follow-ups", color: "#f97316", top: 304, left: 516 },
-    { name: avatarNames[1] ?? "Brad", detail: "opera a fila crítica", color: "#22c55e", top: 308, left: 416 },
-    { name: avatarNames[2] ?? "Jinen", detail: "faz intake e triagem", color: "#a855f7", top: 214, left: 188 },
-    { name: avatarNames[3] ?? "Nova", detail: "mantém o pod CX ativo", color: "#ec4899", top: 454, left: 954 },
+    { name: "Você", detail: "corredor central", color: "#60a5fa", top: 366, left: 720, highlight: true },
+    { name: avatarNames[0] ?? "Helix", detail: "follow-up", color: "#f97316", top: 304, left: 516 },
+    { name: avatarNames[1] ?? "Neuro", detail: "fila crítica", color: "#22c55e", top: 308, left: 416 },
+    { name: avatarNames[2] ?? "Orbit 2", detail: "intake", color: "#a855f7", top: 214, left: 188 },
+    { name: avatarNames[3] ?? "Orbit", detail: "CX / NOC", color: "#ec4899", top: 454, left: 954 },
   ];
+  const overlayPanelStyle: CSSProperties = {
+    position: "absolute",
+    zIndex: 5,
+    padding: "14px",
+    borderRadius: "20px",
+    border: "1px solid color-mix(in srgb, var(--border) 78%, transparent)",
+    background: "rgba(255, 255, 255, 0.8)",
+    backdropFilter: "blur(12px)",
+    boxShadow: "0 18px 36px rgba(15, 23, 42, 0.12)",
+  };
 
   return (
     <div style={pageShellStyle}>
-      <Section
-        title="Gather Operacional"
-        eyebrow="Escritório virtual"
-        collapsible
-        description="Um mapa vivo da operação para orientar fluxo, presença e zonas de trabalho. A referência vira um escritório Paperclip: mais leitura espacial, menos listas secas."
-        action={<Pill label={`${presence.length} presenças`} />}
-      >
-        <div style={groupedGridStyle}>
-          <div style={spotlightCardStyle}>
-            <strong>Como usar esta vista</strong>
-            <div style={mutedTextStyle}>
-              O Gather da Central representa a operação como um escritório de squads. O corredor central funciona como eixo do turno, as salas laterais viram domínios de foco e cada pod concentra um tipo de decisão.
-            </div>
-            <div style={rowStyle}>
-              <Pill label={`${overview.data?.counts.projects ?? 0} projetos`} />
-              <Pill label={`${overview.data?.counts.issues ?? 0} issues`} />
-              <Pill label={`${overview.data?.counts.agents ?? 0} agentes`} />
-            </div>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px", flexWrap: "wrap" }}>
+        <div style={{ display: "inline-flex", alignItems: "center", gap: "10px" }}>
+          <div
+            style={{
+              width: "42px",
+              height: "42px",
+              borderRadius: "14px",
+              display: "grid",
+              placeItems: "center",
+              background: "color-mix(in srgb, var(--foreground) 10%, transparent)",
+            }}
+          >
+            <Gamepad2 size={18} aria-hidden="true" />
           </div>
-          <div style={actionClusterStyle}>
-            <strong>Zonas do escritório</strong>
-            <div style={{ display: "grid", gap: "8px", fontSize: "12px" }}>
-              <div>Command Center: coordenação de incidentes, jobs e follow-ups.</div>
-              <div>Pod CX/NOC: webhooks, atendimento e sinais externos.</div>
-              <div>Biblioteca: memória operacional, notas e rastros de execução.</div>
-              <div>Lounge: alinhamento rápido, retro de turno e descanso cognitivo.</div>
-            </div>
-          </div>
-          <div style={actionClusterStyle}>
-            <strong>Rituais sugeridos</strong>
-            <div style={{ display: "grid", gap: "8px", fontSize: "12px" }}>
-              <div>1. Abra o Gather para entender onde a carga está concentrada.</div>
-              <div>2. Salte para o Fluxo Operacional quando precisar agir sobre a fila.</div>
-              <div>3. Desça ao Workbench quando a situação exigir controle fino.</div>
-            </div>
-          </div>
+          <strong style={{ fontSize: "20px", lineHeight: 1.1 }}>Gather</strong>
         </div>
-      </Section>
+        <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", justifyContent: "flex-end" }}>
+          <GatherHudBadge icon={Users} value={presence.length} label="presenças" tint="color-mix(in srgb, #22c55e 18%, white)" />
+          <GatherHudBadge icon={Target} value={queueCount} label="issues" tint="color-mix(in srgb, #f59e0b 18%, white)" />
+          <GatherHudBadge icon={Bot} value={agentCount} label="agentes" tint="color-mix(in srgb, #60a5fa 18%, white)" />
+        </div>
+      </div>
 
       <section style={gatherMapShellStyle}>
+        <div style={{ ...overlayPanelStyle, top: "18px", left: "18px", width: "188px" }}>
+          <div style={{ fontSize: "11px", opacity: 0.62, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "10px" }}>
+            Pulso
+          </div>
+          <div style={{ display: "grid", gap: "10px" }}>
+            <StatusLine label="Projetos" value={`${projectCount} no escopo`} />
+            <StatusLine label="Sinais" value={`${signalCount} recentes`} />
+            <StatusLine label="Zonas" value="4 áreas ativas" />
+          </div>
+        </div>
+
+        <div style={{ ...overlayPanelStyle, top: "18px", right: "18px", width: "216px" }}>
+          <div style={{ fontSize: "11px", opacity: 0.62, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "10px" }}>
+            Ao vivo
+          </div>
+          <div style={{ display: "grid", gap: "10px" }}>
+            {presence.map((avatar) => (
+              <div key={avatar.name} style={{ display: "grid", gridTemplateColumns: "10px minmax(0, 1fr)", alignItems: "center", gap: "10px" }}>
+                <span
+                  style={{
+                    width: "10px",
+                    height: "10px",
+                    borderRadius: "999px",
+                    background: avatar.highlight ? "#22c55e" : avatar.color,
+                    boxShadow: `0 0 0 3px color-mix(in srgb, ${avatar.highlight ? "#22c55e" : avatar.color} 24%, transparent)`,
+                  }}
+                />
+                <div style={{ display: "grid", gap: "2px", minWidth: 0 }}>
+                  <span style={{ fontSize: "12px", fontWeight: 700, lineHeight: 1.2 }}>{avatar.name}</span>
+                  <span style={mutedTextStyle}>{avatar.detail}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
         <div style={gatherGardenLeftStyle} />
         <div style={gatherGardenRightStyle} />
         <div style={gatherCampusCoreStyle} />
@@ -3484,6 +3560,54 @@ function OperationsGather({ context }: { context: PluginPageProps["context"] }) 
           <span>Entrada / Navegação</span>
         </div>
 
+        <div
+          style={{
+            position: "absolute",
+            left: "50%",
+            bottom: "18px",
+            zIndex: 5,
+            transform: "translateX(-50%)",
+            display: "flex",
+            gap: "8px",
+            flexWrap: "wrap",
+            justifyContent: "center",
+            maxWidth: "calc(100% - 84px)",
+            padding: "10px 12px",
+            borderRadius: "20px",
+            border: "1px solid color-mix(in srgb, var(--border) 78%, transparent)",
+            background: "rgba(255, 255, 255, 0.8)",
+            backdropFilter: "blur(12px)",
+            boxShadow: "0 18px 36px rgba(15, 23, 42, 0.12)",
+          }}
+        >
+          {[
+            { icon: LayoutDashboard, label: "Command Center" },
+            { icon: Users, label: "War Room" },
+            { icon: Headphones, label: "CX / NOC" },
+            { icon: FolderOpen, label: "Arquivo" },
+            { icon: Sparkles, label: "Lounge" },
+          ].map(({ icon: Icon, label }) => (
+            <span
+              key={label}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "6px",
+                padding: "8px 10px",
+                borderRadius: "999px",
+                border: "1px solid color-mix(in srgb, var(--border) 76%, transparent)",
+                background: "rgba(255, 255, 255, 0.92)",
+                fontSize: "12px",
+                fontWeight: 700,
+                whiteSpace: "nowrap",
+              }}
+            >
+              <Icon size={14} aria-hidden="true" />
+              <span>{label}</span>
+            </span>
+          ))}
+        </div>
+
         {presence.map((avatar) => (
           <GatherAvatar
             key={`${avatar.name}-${avatar.top}-${avatar.left}`}
@@ -3496,37 +3620,6 @@ function OperationsGather({ context }: { context: PluginPageProps["context"] }) 
           />
         ))}
       </section>
-
-      <div style={groupedGridStyle}>
-        <div style={actionClusterStyle}>
-          <strong>Presença em rotação</strong>
-          <div style={{ display: "grid", gap: "8px" }}>
-            {presence.map((avatar) => (
-              <div key={avatar.name} style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                <div style={{ ...gatherAvatarBodyStyle(avatar.color, avatar.highlight), width: "18px", height: "22px" }} />
-                <div style={{ display: "grid", gap: "2px" }}>
-                  <span style={{ fontSize: "12px", fontWeight: 700 }}>{avatar.name}</span>
-                  <span style={mutedTextStyle}>{avatar.detail}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-        <div style={actionClusterStyle}>
-          <strong>Leitura rápida do turno</strong>
-          <StatusLine label="Fila aberta" value={`${overview.data?.counts.issues ?? 0} issues em vista`} />
-          <StatusLine label="Squads ativos" value={`${Math.max(2, Math.min(4, overview.data?.counts.agents ?? 2))} pods mapeados`} />
-          <StatusLine label="Memória do escritório" value={context.companyId ? `empresa ${context.companyId.slice(0, 8)}` : "aguardando escopo"} />
-        </div>
-        <div style={actionClusterStyle}>
-          <strong>Próximos encaixes</strong>
-          <div style={{ display: "grid", gap: "8px", fontSize: "12px" }}>
-            <div>Use avatares e pods depois para representar agentes ao vivo via stream.</div>
-            <div>Transforme salas em atalhos para filtros de fila, incidentes e rotinas.</div>
-            <div>Acople status, presença e chat contextual sem perder a leitura “jogo”.</div>
-          </div>
-        </div>
-      </div>
     </div>
   );
 }
@@ -3539,7 +3632,6 @@ export function KitchenSinkPage({ context }: PluginPageProps) {
       id: "overview" as const,
       icon: LayoutDashboard,
       label: "Visão Geral",
-      description: "Cockpit, radar do runtime e contexto imediato da operação atual.",
       content: (
         <div style={pageShellStyle}>
           <KitchenSinkTopRow context={context} />
@@ -3569,21 +3661,18 @@ export function KitchenSinkPage({ context }: PluginPageProps) {
       id: "flow" as const,
       icon: Workflow,
       label: "Fluxo Operacional",
-      description: "Memória persistente, intake, follow-up e leitura do estado vivo da operação.",
       content: <KitchenSinkEmbeddedApp context={context} />,
     },
     {
       id: "gather" as const,
       icon: Gamepad2,
       label: "Gather",
-      description: "Escritório virtual da operação, com leitura espacial inspirada em um jogo top-down.",
       content: <OperationsGather context={context} />,
     },
     {
       id: "workbench" as const,
       icon: MonitorCog,
       label: "Workbench Avançado",
-      description: "Área para coordenação de agentes, automação, workspace e diagnósticos controlados.",
       content: <OperationsWorkbench context={context} />,
     },
   ];
@@ -3607,7 +3696,6 @@ export function KitchenSinkPage({ context }: PluginPageProps) {
             </button>
           ))}
         </div>
-        <div style={mutedTextStyle}>{activeTabConfig.description}</div>
       </div>
 
       {activeTabConfig.content}
