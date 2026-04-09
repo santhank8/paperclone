@@ -996,6 +996,10 @@ describeEmbeddedPostgres("issueService.create workspace inheritance", () => {
 
     const updated = await svc.checkout(issueId, agentId, ["todo", "backlog", "blocked"], actorRunId);
 
+    expect(updated.identifier).toBe("PAP-1");
+    expect(updated.title).toBe("Recover stale execution lock");
+    expect(updated.labels).toEqual([]);
+    expect(updated.labelIds).toEqual([]);
     expect(updated.checkoutRunId).toBe(actorRunId);
     expect(updated.executionRunId).toBe(actorRunId);
 

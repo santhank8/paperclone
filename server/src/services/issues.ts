@@ -964,7 +964,11 @@ export function issueService(db: Db) {
       })
       .then((rows) => rows[0] ?? null);
 
-    return adopted;
+    if (!adopted) return null;
+
+    const row = await getIssueByUuid(input.issueId);
+    if (!row) throw notFound("Issue not found");
+    return row;
   }
 
   return {
