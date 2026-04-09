@@ -6,3 +6,7 @@ packages:
   - server
   - ui
   - cli
+
+minimumReleaseAge: 10080
+minimumReleaseAgeExclude:
+  - pnpm

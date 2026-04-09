@@ -68,7 +68,8 @@ type AdapterType =
   | "pi_local"
   | "cursor"
   | "http"
-  | "openclaw_gateway";
+  | "openclaw_gateway"
+  | "devin_local";
 
 const DEFAULT_TASK_DESCRIPTION = `You are the CEO. You set the direction for the company.
 
@@ -855,6 +856,12 @@ export function OnboardingWizard() {
                             desc: "Local multi-provider agent"
                           },
                           {
+                            value: "devin_local" as const,
+                            label: "Devin",
+                            icon: Bot,
+                            desc: "Local Devin agent"
+                          },
+                          {
                             value: "openclaw_gateway" as const,
                             label: "OpenClaw Gateway",
                             icon: Bot,
@@ -916,7 +923,8 @@ export function OnboardingWizard() {
                     adapterType === "hermes_local" ||
                     adapterType === "opencode_local" ||
                     adapterType === "pi_local" ||
-                    adapterType === "cursor") && (
+                    adapterType === "cursor" ||
+                    adapterType === "devin_local") && (
                     <div className="space-y-3">
                       <div>
                         <label className="text-xs text-muted-foreground mb-1 block">

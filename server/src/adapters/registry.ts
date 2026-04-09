@@ -79,6 +79,15 @@ import {
   agentConfigurationDoc as hermesAgentConfigurationDoc,
   models as hermesModels,
 } from "hermes-paperclip-adapter";
+import {
+  execute as devinExecute,
+  testEnvironment as devinTestEnvironment,
+  sessionCodec as devinSessionCodec,
+} from "@paperclipai/adapter-devin-local/server";
+import {
+  agentConfigurationDoc as devinAgentConfigurationDoc,
+  models as devinModels,
+} from "@paperclipai/adapter-devin-local";
 import { processAdapter } from "./process/index.js";
 import { httpAdapter } from "./http/index.js";
 
@@ -175,6 +184,16 @@ const piLocalAdapter: ServerAdapterModule = {
   agentConfigurationDoc: piAgentConfigurationDoc,
 };
 
+const devinLocalAdapter: ServerAdapterModule = {
+  type: "devin_local",
+  execute: devinExecute,
+  testEnvironment: devinTestEnvironment,
+  sessionCodec: devinSessionCodec,
+  models: devinModels,
+  supportsLocalAgentJwt: true,
+  agentConfigurationDoc: devinAgentConfigurationDoc,
+};
+
 const hermesLocalAdapter: ServerAdapterModule = {
   type: "hermes_local",
   execute: hermesExecute,
@@ -197,6 +216,7 @@ const adaptersByType = new Map<string, ServerAdapterModule>(
     cursorLocalAdapter,
     geminiLocalAdapter,
     openclawGatewayAdapter,
+    devinLocalAdapter,
     hermesLocalAdapter,
     processAdapter,
     httpAdapter,

@@ -31,7 +31,8 @@ type AdvancedAdapterType =
   | "pi_local"
   | "cursor"
   | "openclaw_gateway"
-  | "hermes_local";
+  | "hermes_local"
+  | "devin_local";
 
 const ADVANCED_ADAPTER_OPTIONS: Array<{
   value: AdvancedAdapterType;
@@ -89,6 +90,12 @@ const ADVANCED_ADAPTER_OPTIONS: Array<{
     label: "OpenClaw Gateway",
     icon: Bot,
     desc: "Invoke OpenClaw via gateway protocol",
+  },
+  {
+    value: "devin_local",
+    label: "Devin",
+    icon: Bot,
+    desc: "Local Devin agent",
   },
 ];
 
