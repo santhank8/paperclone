@@ -661,6 +661,18 @@ function handleLiveEvent(
       gatedPushToast(gate, pushToast, `activity:${action ?? "unknown"}`, toast);
     }
   }
+
+  if (event.type === "agent.chat.message" || event.type === "agent.chat.updated") {
+    const agentId = readString(payload.agentId);
+    const chatId = readString(payload.chatId);
+    if (agentId) {
+      queryClient.invalidateQueries({ queryKey: queryKeys.chats.list(agentId) });
+    }
+    if (agentId && chatId) {
+      queryClient.invalidateQueries({ queryKey: queryKeys.chats.detail(agentId, chatId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.chats.messages(agentId, chatId) });
+    }
+  }
 }
 
 function resolveLiveCompanyId(

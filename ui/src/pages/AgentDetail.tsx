@@ -10,6 +10,7 @@ import {
 import { companySkillsApi } from "../api/companySkills";
 import { budgetsApi } from "../api/budgets";
 import { heartbeatsApi } from "../api/heartbeats";
+import { splitTestingApi } from "../api/splitTesting";
 import { instanceSettingsApi } from "../api/instanceSettings";
 import { ApiError } from "../api/client";
 import { ChartCard, RunActivityChart, PriorityChart, IssueStatusChart, SuccessRateChart } from "../components/ActivityCharts";
@@ -70,6 +71,8 @@ import {
   ArrowLeft,
   HelpCircle,
   FolderOpen,
+  FlaskConical,
+  Sparkles,
 } from "lucide-react";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -88,6 +91,8 @@ import {
   type AgentRuntimeState,
   type LiveEvent,
   type WorkspaceOperation,
+  type SplitTestRun,
+  type SplitTestConfig,
 } from "@paperclipai/shared";
 import { redactHomePathUserSegments, redactHomePathUserSegmentsInValue } from "@paperclipai/adapter-utils";
 import { agentRouteRef } from "../lib/utils";
@@ -96,6 +101,7 @@ import {
   arraysEqual,
   isReadOnlyUnmanagedSkillEntry,
 } from "../lib/agent-skills-state";
+import { AgentChatTab } from "../components/AgentChatTab";
 
 const runStatusIcons: Record<string, { icon: typeof CheckCircle2; color: string }> = {
   succeeded: { icon: CheckCircle2, color: "text-green-600 dark:text-green-400" },
@@ -222,7 +228,7 @@ function scrollToContainerBottom(container: ScrollContainer, behavior: ScrollBeh
   container.scrollTo({ top: container.scrollHeight, behavior });
 }
 
-type AgentDetailView = "dashboard" | "instructions" | "configuration" | "skills" | "runs" | "budget";
+type AgentDetailView = "dashboard" | "instructions" | "configuration" | "skills" | "runs" | "budget" | "chat";
 
 function parseAgentDetailView(value: string | null): AgentDetailView {
   if (value === "instructions" || value === "prompts") return "instructions";
@@ -230,6 +236,7 @@ function parseAgentDetailView(value: string | null): AgentDetailView {
   if (value === "skills") return "skills";
   if (value === "budget") return "budget";
   if (value === "runs") return value;
+  if (value === "chat") return "chat";
   return "dashboard";
 }
 
@@ -914,6 +921,7 @@ export function AgentDetail() {
               { value: "configuration", label: "Configuration" },
               { value: "runs", label: "Runs" },
               { value: "budget", label: "Budget" },
+              { value: "chat", label: "Chat" },
             ]}
             value={activeView}
             onValueChange={(value) => navigate(`/agents/${canonicalAgentRef}/${value}`)}
@@ -1048,6 +1056,10 @@ export function AgentDetail() {
           />
         </div>
       ) : null}
+
+      {activeView === "chat" && agent && (
+        <AgentChatTab agent={agent} />
+      )}
     </div>
   );
 }
@@ -1364,6 +1376,8 @@ function AgentConfigurePage({
         <KeysTab agentId={agentId} companyId={companyId} />
       </div>
 
+      <SplitTestingConfigCard agent={agent} companyId={companyId} />
+
       {/* Configuration Revisions — collapsible at the bottom */}
       <div>
         <button
@@ -1411,6 +1425,166 @@ function AgentConfigurePage({
                 ))}
               </div>
             )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ---- Split Testing Config Card ---- */
+
+function SplitTestingConfigCard({ agent, companyId }: { agent: AgentDetailRecord; companyId?: string }) {
+  const queryClient = useQueryClient();
+  const { pushToast } = useToast();
+
+  const runtimeConfig = (agent.runtimeConfig ?? {}) as Record<string, unknown>;
+  const existing = (runtimeConfig.splitTesting ?? {}) as Record<string, unknown>;
+
+  const [enabled, setEnabled] = useState(Boolean(existing.enabled));
+  const [shadowModels, setShadowModels] = useState(
+    Array.isArray(existing.shadowModels) ? (existing.shadowModels as string[]).join(", ") : "",
+  );
+  const [judgeModel, setJudgeModel] = useState(
+    typeof existing.judgeModel === "string" ? existing.judgeModel : "claude-opus-4-6",
+  );
+  const [autoAnalyze, setAutoAnalyze] = useState(Boolean(existing.autoAnalyze));
+  const [dirty, setDirty] = useState(false);
+
+  function handleChange<T>(setter: React.Dispatch<React.SetStateAction<T>>) {
+    return (val: T) => { setter(val); setDirty(true); };
+  }
+
+  const saveMutation = useMutation({
+    mutationFn: () => {
+      const models = shadowModels.split(",").map((s) => s.trim()).filter(Boolean);
+      const splitTesting: SplitTestConfig = {
+        enabled,
+        shadowModels: models,
+        judgeModel: judgeModel.trim() || undefined,
+        autoAnalyze,
+      };
+      const nextRuntimeConfig = { ...runtimeConfig, splitTesting };
+      return agentsApi.update(agent.id, { runtimeConfig: nextRuntimeConfig }, companyId);
+    },
+    onSuccess: () => {
+      setDirty(false);
+      queryClient.invalidateQueries({ queryKey: queryKeys.agents.detail(agent.id) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.agents.detail(agent.urlKey) });
+      pushToast({ title: "Split testing config saved", tone: "success" });
+    },
+    onError: (err) => {
+      pushToast({ title: "Save failed", body: err instanceof Error ? err.message : "Unknown error", tone: "error" });
+    },
+  });
+
+  return (
+    <div>
+      <h3 className="text-sm font-medium mb-3">Split Testing</h3>
+      <div className="border border-border rounded-lg p-4 space-y-4">
+        <div className="flex items-center justify-between gap-4 text-sm">
+          <div className="space-y-1">
+            <div className="flex items-center gap-1.5">
+              <FlaskConical className="h-3.5 w-3.5" />
+              Enable split testing
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Shadow every agent run through additional models simultaneously to compare outputs and costs.
+            </p>
+          </div>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={enabled}
+            className={cn(
+              "relative inline-flex h-5 w-9 items-center rounded-full transition-colors shrink-0",
+              enabled ? "bg-green-600" : "bg-muted",
+            )}
+            onClick={() => handleChange(setEnabled)(!enabled)}
+          >
+            <span
+              className={cn(
+                "inline-block h-3.5 w-3.5 translate-x-0.5 rounded-full bg-white transition-transform",
+                enabled && "translate-x-[18px]",
+              )}
+            />
+          </button>
+        </div>
+
+        {enabled && (
+          <>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium">Shadow Models</label>
+              <p className="text-xs text-muted-foreground">Comma-separated model names (e.g. <span className="font-mono">claude-haiku-4-5-20251001, claude-opus-4-6</span>)</p>
+              <input
+                className="w-full rounded-md border border-border px-2.5 py-1.5 bg-transparent text-xs font-mono outline-none placeholder:text-muted-foreground/40"
+                placeholder="claude-haiku-4-5-20251001, gpt-4o-mini"
+                value={shadowModels}
+                onChange={(e) => handleChange(setShadowModels)(e.target.value)}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium">Judge Model</label>
+              <p className="text-xs text-muted-foreground">Model used to analyze and compare shadow run results</p>
+              <input
+                className="w-full rounded-md border border-border px-2.5 py-1.5 bg-transparent text-xs font-mono outline-none placeholder:text-muted-foreground/40"
+                placeholder="claude-opus-4-6"
+                value={judgeModel}
+                onChange={(e) => handleChange(setJudgeModel)(e.target.value)}
+              />
+            </div>
+
+            <div className="flex items-center justify-between gap-4 text-sm">
+              <div className="space-y-1">
+                <div>Auto-analyze after runs</div>
+                <p className="text-xs text-muted-foreground">Automatically run judge analysis after each set of shadow runs completes.</p>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={autoAnalyze}
+                className={cn(
+                  "relative inline-flex h-5 w-9 items-center rounded-full transition-colors shrink-0",
+                  autoAnalyze ? "bg-green-600" : "bg-muted",
+                )}
+                onClick={() => handleChange(setAutoAnalyze)(!autoAnalyze)}
+              >
+                <span
+                  className={cn(
+                    "inline-block h-3.5 w-3.5 translate-x-0.5 rounded-full bg-white transition-transform",
+                    autoAnalyze && "translate-x-[18px]",
+                  )}
+                />
+              </button>
+            </div>
+          </>
+        )}
+
+        {dirty && (
+          <div className="flex items-center gap-2 pt-1">
+            <Button
+              size="sm"
+              className="h-7 text-xs"
+              disabled={saveMutation.isPending}
+              onClick={() => saveMutation.mutate()}
+            >
+              {saveMutation.isPending ? "Saving…" : "Save"}
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 text-xs"
+              onClick={() => {
+                setEnabled(Boolean(existing.enabled));
+                setShadowModels(Array.isArray(existing.shadowModels) ? (existing.shadowModels as string[]).join(", ") : "");
+                setJudgeModel(typeof existing.judgeModel === "string" ? existing.judgeModel : "claude-opus-4-6");
+                setAutoAnalyze(Boolean(existing.autoAnalyze));
+                setDirty(false);
+              }}
+            >
+              Cancel
+            </Button>
           </div>
         )}
       </div>
@@ -3291,9 +3465,194 @@ function RunDetail({ run: initialRun, agentRouteId, adapterType }: { run: Heartb
         </div>
       )}
 
+      {/* Shadow Runs Panel */}
+      <ShadowRunsPanel run={run} />
+
       {/* Log viewer */}
       <LogViewer run={run} adapterType={adapterType} />
       <ScrollToBottom />
+    </div>
+  );
+}
+
+/* ---- Shadow Runs Panel ---- */
+
+function statusColor(status: string): string {
+  if (status === "done") return "text-green-600 dark:text-green-400";
+  if (status === "failed") return "text-red-600 dark:text-red-400";
+  if (status === "running") return "text-cyan-600 dark:text-cyan-400";
+  return "text-muted-foreground";
+}
+
+function ShadowRunsPanel({ run }: { run: HeartbeatRun }) {
+  const queryClient = useQueryClient();
+  const [open, setOpen] = useState(true);
+  const [judgeModel, setJudgeModel] = useState("claude-opus-4-6");
+  const [analyzeOpen, setAnalyzeOpen] = useState<string | null>(null);
+
+  const { data: shadowRuns, isLoading } = useQuery({
+    queryKey: ["shadow-runs", run.id],
+    queryFn: () => splitTestingApi.shadowRuns(run.id),
+    enabled: Boolean(run.id),
+    refetchInterval: (query) => {
+      const data = query.state.data;
+      if (!data) return false;
+      const hasActive = data.some((r) => r.status === "queued" || r.status === "running");
+      return hasActive ? 3000 : false;
+    },
+  });
+
+  const analyze = useMutation({
+    mutationFn: ({ model }: { model: string }) =>
+      splitTestingApi.analyze(run.id, model),
+    onSuccess: () => {
+      setTimeout(() => {
+        queryClient.invalidateQueries({ queryKey: ["shadow-runs", run.id] });
+      }, 3000);
+    },
+  });
+
+  if (!shadowRuns && !isLoading) return null;
+  if (shadowRuns && shadowRuns.length === 0) return null;
+
+  const hasJudgeAnalysis = shadowRuns?.some((r) => r.judgeAnalysis);
+
+  return (
+    <div className="rounded-lg border border-border bg-background/60">
+      <button
+        className="flex items-center gap-2 w-full px-4 py-3 text-left hover:bg-muted/30 transition-colors rounded-lg"
+        onClick={() => setOpen((v) => !v)}
+      >
+        <FlaskConical className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+        <span className="text-xs font-medium">Shadow Model Tests</span>
+        {shadowRuns && (
+          <span className="text-xs text-muted-foreground ml-1">
+            ({shadowRuns.length} model{shadowRuns.length !== 1 ? "s" : ""})
+          </span>
+        )}
+        <ChevronRight className={cn("h-3 w-3 ml-auto text-muted-foreground transition-transform", open && "rotate-90")} />
+      </button>
+
+      {open && shadowRuns && (
+        <div className="px-4 pb-4 space-y-4 border-t border-border pt-3">
+          {shadowRuns.map((shadow) => (
+            <ShadowRunCard key={shadow.id} shadow={shadow} />
+          ))}
+
+          {/* Judge Analysis Section */}
+          {hasJudgeAnalysis && (
+            <div className="rounded-md border border-border bg-muted/20 p-3">
+              <div className="flex items-center gap-1.5 mb-2">
+                <Sparkles className="h-3.5 w-3.5 text-yellow-500" />
+                <span className="text-xs font-medium">Judge Analysis</span>
+              </div>
+              {shadowRuns.find((r) => r.judgeAnalysis)?.judgeAnalysis && (
+                <pre className="text-xs whitespace-pre-wrap text-foreground font-sans leading-relaxed">
+                  {shadowRuns.find((r) => r.judgeAnalysis)?.judgeAnalysis}
+                </pre>
+              )}
+            </div>
+          )}
+
+          {/* Analyze button */}
+          <div className="flex items-center gap-2 pt-1">
+            {analyzeOpen ? (
+              <>
+                <input
+                  className="rounded-md border border-border px-2.5 py-1.5 bg-transparent text-xs font-mono outline-none placeholder:text-muted-foreground/40 w-56"
+                  placeholder="Judge model (e.g. claude-opus-4-6)"
+                  value={judgeModel}
+                  onChange={(e) => setJudgeModel(e.target.value)}
+                />
+                <Button
+                  size="sm"
+                  className="h-7 text-xs"
+                  disabled={analyze.isPending || !judgeModel.trim()}
+                  onClick={() => { analyze.mutate({ model: judgeModel }); setAnalyzeOpen(null); }}
+                >
+                  <Sparkles className="h-3.5 w-3.5 mr-1" />
+                  {analyze.isPending ? "Analyzing…" : "Run Analysis"}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-7 text-xs"
+                  onClick={() => setAnalyzeOpen(null)}
+                >
+                  Cancel
+                </Button>
+              </>
+            ) : (
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 text-xs"
+                onClick={() => setAnalyzeOpen("judge")}
+              >
+                <Sparkles className="h-3.5 w-3.5 mr-1" />
+                Analyze with Judge Model
+              </Button>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ShadowRunCard({ shadow }: { shadow: SplitTestRun }) {
+  const [expanded, setExpanded] = useState(false);
+  const durationSec = shadow.startedAt && shadow.finishedAt
+    ? Math.round((new Date(shadow.finishedAt).getTime() - new Date(shadow.startedAt).getTime()) / 1000)
+    : null;
+
+  const cost = shadow.costUsd ? parseFloat(shadow.costUsd) : null;
+
+  return (
+    <div className="border border-border/70 rounded-md overflow-hidden">
+      <button
+        className="flex items-center gap-2 w-full px-3 py-2.5 text-left hover:bg-muted/20 transition-colors"
+        onClick={() => setExpanded((v) => !v)}
+      >
+        <ChevronRight className={cn("h-3 w-3 text-muted-foreground shrink-0 transition-transform", expanded && "rotate-90")} />
+        <span className="text-xs font-mono font-medium flex-1 truncate">{shadow.model}</span>
+        <span className={cn("text-xs font-medium shrink-0", statusColor(shadow.status))}>{shadow.status}</span>
+        {durationSec !== null && (
+          <span className="text-xs text-muted-foreground shrink-0 ml-2">
+            {durationSec}s
+          </span>
+        )}
+        {cost !== null && cost > 0 && (
+          <span className="text-xs text-muted-foreground shrink-0 ml-2">
+            ${cost.toFixed(4)}
+          </span>
+        )}
+      </button>
+
+      {expanded && (
+        <div className="px-3 pb-3 space-y-2 border-t border-border/50 pt-2">
+          {shadow.error && (
+            <div className="text-xs text-red-600 dark:text-red-400 font-mono">{shadow.error}</div>
+          )}
+          {shadow.summary ? (
+            <div>
+              <div className="text-xs text-muted-foreground mb-1">Summary</div>
+              <pre className="text-xs whitespace-pre-wrap text-foreground font-sans leading-relaxed bg-muted/20 rounded p-2">
+                {shadow.summary}
+              </pre>
+            </div>
+          ) : shadow.status === "done" ? (
+            <div className="text-xs text-muted-foreground italic">No summary available</div>
+          ) : null}
+
+          {shadow.status === "queued" || shadow.status === "running" ? (
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Loader2 className="h-3 w-3 animate-spin" />
+              Running shadow model…
+            </div>
+          ) : null}
+        </div>
+      )}
     </div>
   );
 }

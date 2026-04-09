@@ -189,6 +189,18 @@ async function buildClaudeRuntimeConfig(input: ClaudeExecutionInput): Promise<Cl
   if (linkedIssueIds.length > 0) {
     env.PAPERCLIP_LINKED_ISSUE_IDS = linkedIssueIds.join(",");
   }
+  const chatId =
+    typeof context.chatId === "string" && context.chatId.trim().length > 0 ? context.chatId.trim() : null;
+  const chatMessage =
+    typeof context.chatMessage === "string" && context.chatMessage.trim().length > 0
+      ? context.chatMessage.trim()
+      : null;
+  if (chatId) {
+    env.PAPERCLIP_CHAT_ID = chatId;
+  }
+  if (chatMessage) {
+    env.PAPERCLIP_CHAT_MESSAGE = chatMessage;
+  }
   if (effectiveWorkspaceCwd) {
     env.PAPERCLIP_WORKSPACE_CWD = effectiveWorkspaceCwd;
   }

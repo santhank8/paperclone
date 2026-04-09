@@ -51,6 +51,8 @@ import {
   resolveExecutionWorkspaceMode,
 } from "./execution-workspace-policy.js";
 import { instanceSettingsService } from "./instance-settings.js";
+import { splitTestingService, parseSplitTestConfig } from "./split-testing.js";
+import { chatService } from "./chats.js";
 import { redactCurrentUserText, redactCurrentUserValue } from "../log-redaction.js";
 import {
   hasSessionCompactionThresholds,
@@ -837,6 +839,7 @@ export function heartbeatService(db: Db) {
     cancelWorkForScope: cancelBudgetScopeWork,
   };
   const budgets = budgetService(db, budgetHooks);
+  const splitTestSvc = splitTestingService(db);
 
   async function getAgent(agentId: string) {
     return db
@@ -2779,6 +2782,60 @@ export function heartbeatService(db: Db) {
         }
       }
       await finalizeAgentStatus(agent.id, outcome);
+
+      // Capture agent response for direct chat runs
+      if (outcome === "succeeded") {
+        const chatId = readNonEmptyString(context.chatId);
+        if (chatId) {
+          const responseText =
+            (typeof adapterResult.summary === "string" && adapterResult.summary.trim())
+              ? adapterResult.summary.trim()
+              : stdoutExcerpt.trim();
+          if (responseText) {
+            const chatSvc = chatService(db);
+            await chatSvc.addAgentMessage({
+              companyId: agent.companyId,
+              chatId,
+              body: responseText,
+              runId: run.id,
+            }).catch((err) => logger.warn({ err, runId: run.id }, "failed to write chat agent message"));
+          }
+        }
+      }
+
+      // Fire shadow runs for split testing (non-blocking)
+      if (outcome === "succeeded") {
+        const agentRtCfg = parseObject(agent.runtimeConfig);
+        const splitTestCfg = parseSplitTestConfig(agentRtCfg);
+        if (splitTestCfg) {
+          const shadowAgent = {
+            id: agent.id,
+            name: agent.name,
+            companyId: agent.companyId,
+            adapterType: agent.adapterType,
+            adapterConfig: agent.adapterConfig,
+          };
+          void splitTestSvc.createAndRunShadows({
+            primaryRunId: run.id,
+            agent: shadowAgent,
+            baseAdapterConfig: runtimeConfig,
+            context,
+            shadowModels: splitTestCfg.shadowModels,
+            primarySummary: typeof adapterResult.summary === "string" ? adapterResult.summary : null,
+          }).then(async () => {
+            if (splitTestCfg.autoAnalyze && splitTestCfg.judgeModel) {
+              void splitTestSvc.requestJudgeAnalysis(
+                run.id,
+                typeof adapterResult.summary === "string" ? adapterResult.summary : null,
+                splitTestCfg.judgeModel,
+                shadowAgent,
+                runtimeConfig,
+                context,
+              ).catch((err) => logger.warn({ err, runId: run.id }, "auto judge analysis failed"));
+            }
+          }).catch((err) => logger.warn({ err, runId: run.id }, "split testing shadow runs failed"));
+        }
+      }
     } catch (err) {
       const message = redactCurrentUserText(
         err instanceof Error ? err.message : "Unknown adapter failure",
@@ -3131,6 +3188,28 @@ export function heartbeatService(db: Db) {
     if (source !== "timer" && !policy.wakeOnDemand) {
       await writeSkippedRequest("heartbeat.wakeOnDemand.disabled");
       return null;
+    }
+
+    // Deterministic inbox gate: skip timer-triggered heartbeats when there is no assigned work.
+    // Event-driven wakes (assignment, mention, approval) always bypass this check.
+    if (source === "timer") {
+      const hasAssignedWork = await db
+        .select({ id: issues.id })
+        .from(issues)
+        .where(
+          and(
+            eq(issues.companyId, agent.companyId),
+            eq(issues.assigneeAgentId, agentId),
+            inArray(issues.status, ["todo", "in_progress", "blocked"]),
+          ),
+        )
+        .limit(1)
+        .then((rows) => rows.length > 0);
+
+      if (!hasAssignedWork) {
+        await writeSkippedRequest("inbox.empty");
+        return null;
+      }
     }
 
     const bypassIssueExecutionLock =

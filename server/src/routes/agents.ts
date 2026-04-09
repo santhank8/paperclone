@@ -40,8 +40,10 @@ import {
   issueService,
   logActivity,
   secretService,
+  splitTestingService,
   syncInstructionsBundleConfigFromFilePath,
   workspaceOperationService,
+  chatService,
 } from "../services/index.js";
 import { conflict, forbidden, notFound, unprocessable } from "../errors.js";
 import { assertBoard, assertCompanyAccess, assertInstanceAdmin, getActorInfo } from "./authz.js";
@@ -93,7 +95,9 @@ export function agentRoutes(db: Db) {
   const instructions = agentInstructionsService();
   const companySkills = companySkillService(db);
   const workspaceOperations = workspaceOperationService(db);
+  const splitTests = splitTestingService(db);
   const instanceSettings = instanceSettingsService(db);
+  const chats = chatService(db);
   const strictSecretsMode = process.env.PAPERCLIP_SECRETS_STRICT_MODE === "true";
 
   async function getCurrentUserRedactionOptions() {
@@ -2254,6 +2258,63 @@ export function agentRoutes(db: Db) {
     res.json(result);
   });
 
+  // Split test routes
+  router.get("/heartbeat-runs/:runId/shadow-runs", async (req, res) => {
+    const runId = req.params.runId as string;
+    const run = await heartbeat.getRun(runId);
+    if (!run) {
+      res.status(404).json({ error: "Heartbeat run not found" });
+      return;
+    }
+    assertCompanyAccess(req, run.companyId);
+    const shadows = await splitTests.getShadowRuns(runId);
+    res.json(shadows);
+  });
+
+  router.post("/heartbeat-runs/:runId/analyze", async (req, res) => {
+    assertBoard(req);
+    const runId = req.params.runId as string;
+    const run = await heartbeat.getRun(runId);
+    if (!run) {
+      res.status(404).json({ error: "Heartbeat run not found" });
+      return;
+    }
+    assertCompanyAccess(req, run.companyId);
+
+    const { judgeModel } = req.body as { judgeModel?: string };
+    if (!judgeModel || typeof judgeModel !== "string") {
+      res.status(400).json({ error: "judgeModel is required" });
+      return;
+    }
+
+    const agent = await agentService(db).getById(run.agentId);
+    if (!agent) {
+      res.status(404).json({ error: "Agent not found" });
+      return;
+    }
+
+    const baseConfig = asRecord(agent.adapterConfig) ?? {};
+    const { config: resolvedConfig } = await secretsSvc.resolveAdapterConfigForRuntime(agent.companyId, baseConfig);
+    const context = asRecord(run.contextSnapshot) ?? {};
+
+    const primarySummary = asRecord(run.resultJson) !== null
+      ? String(asRecord(run.resultJson)?.result ?? "")
+      : null;
+
+    const shadowAgent = {
+      id: agent.id,
+      name: agent.name,
+      companyId: agent.companyId,
+      adapterType: agent.adapterType,
+      adapterConfig: agent.adapterConfig,
+    };
+
+    void splitTests.requestJudgeAnalysis(runId, primarySummary, judgeModel, shadowAgent, resolvedConfig, context)
+      .catch(() => {});
+
+    res.json({ status: "analysis_started" });
+  });
+
   router.get("/issues/:issueId/live-runs", async (req, res) => {
     const rawId = req.params.issueId as string;
     const issueSvc = issueService(db);
@@ -2333,6 +2394,152 @@ export function agentRoutes(db: Db) {
       agentName: agent.name,
       adapterType: agent.adapterType,
     });
+  });
+
+  // ─── Agent Direct Chat ───────────────────────────────────────────────────
+
+  router.post("/agents/:id/chats", async (req, res) => {
+    const id = req.params.id as string;
+    const agent = await svc.getById(id);
+    if (!agent) {
+      res.status(404).json({ error: "Agent not found" });
+      return;
+    }
+    assertCompanyAccess(req, agent.companyId);
+    assertBoard(req);
+
+    const userId = req.actor.type === "board" ? (req.actor.userId ?? "unknown") : "system";
+    const chat = await chats.createChat({
+      companyId: agent.companyId,
+      agentId: agent.id,
+      initiatedByUserId: userId,
+    });
+    res.json(chat);
+  });
+
+  router.get("/agents/:id/chats", async (req, res) => {
+    const id = req.params.id as string;
+    const agent = await svc.getById(id);
+    if (!agent) {
+      res.status(404).json({ error: "Agent not found" });
+      return;
+    }
+    assertCompanyAccess(req, agent.companyId);
+
+    const list = await chats.listChats(agent.companyId, agent.id);
+    res.json(list);
+  });
+
+  router.get("/agents/:id/chats/:chatId", async (req, res) => {
+    const id = req.params.id as string;
+    const chatId = req.params.chatId as string;
+    const agent = await svc.getById(id);
+    if (!agent) {
+      res.status(404).json({ error: "Agent not found" });
+      return;
+    }
+    assertCompanyAccess(req, agent.companyId);
+
+    const chat = await chats.getChat(chatId, agent.companyId);
+    if (!chat) {
+      res.status(404).json({ error: "Chat not found" });
+      return;
+    }
+    const messages = await chats.getMessages(chatId, agent.companyId);
+    res.json({ ...chat, messages });
+  });
+
+  router.patch("/agents/:id/chats/:chatId", async (req, res) => {
+    const id = req.params.id as string;
+    const chatId = req.params.chatId as string;
+    const agent = await svc.getById(id);
+    if (!agent) {
+      res.status(404).json({ error: "Agent not found" });
+      return;
+    }
+    assertCompanyAccess(req, agent.companyId);
+    assertBoard(req);
+
+    const updates: { title?: string; status?: string } = {};
+    if (typeof req.body.title === "string") updates.title = req.body.title;
+    if (req.body.status === "active" || req.body.status === "archived") updates.status = req.body.status;
+
+    const updated = await chats.updateChat(chatId, agent.companyId, updates);
+    if (!updated) {
+      res.status(404).json({ error: "Chat not found" });
+      return;
+    }
+    res.json(updated);
+  });
+
+  router.get("/agents/:id/chats/:chatId/messages", async (req, res) => {
+    const id = req.params.id as string;
+    const chatId = req.params.chatId as string;
+    const agent = await svc.getById(id);
+    if (!agent) {
+      res.status(404).json({ error: "Agent not found" });
+      return;
+    }
+    assertCompanyAccess(req, agent.companyId);
+
+    const chat = await chats.getChat(chatId, agent.companyId);
+    if (!chat) {
+      res.status(404).json({ error: "Chat not found" });
+      return;
+    }
+    const messages = await chats.getMessages(chatId, agent.companyId);
+    res.json(messages);
+  });
+
+  router.post("/agents/:id/chats/:chatId/messages", async (req, res) => {
+    const id = req.params.id as string;
+    const chatId = req.params.chatId as string;
+    const agent = await svc.getById(id);
+    if (!agent) {
+      res.status(404).json({ error: "Agent not found" });
+      return;
+    }
+    assertCompanyAccess(req, agent.companyId);
+    assertBoard(req);
+
+    const body = typeof req.body.body === "string" ? req.body.body.trim() : "";
+    if (!body) {
+      res.status(422).json({ error: "Message body is required" });
+      return;
+    }
+
+    const chat = await chats.getChat(chatId, agent.companyId);
+    if (!chat) {
+      res.status(404).json({ error: "Chat not found" });
+      return;
+    }
+
+    const msg = await chats.addUserMessage({
+      companyId: agent.companyId,
+      chatId,
+      body,
+    });
+
+    // Trigger agent wakeup for this chat message
+    const userId = req.actor.type === "board" ? (req.actor.userId ?? "unknown") : "system";
+    const contextMessages = await chats.getContextMessages(chatId);
+    const run = await heartbeat.wakeup(agent.id, {
+      source: "on_demand",
+      triggerDetail: "manual",
+      reason: "direct_chat",
+      payload: { chatId, messageId: msg.id, message: body },
+      requestedByActorType: "user",
+      requestedByActorId: userId,
+      contextSnapshot: {
+        wakeReason: "direct_chat",
+        chatId,
+        chatMessageId: msg.id,
+        chatMessage: body,
+        chatContext: contextMessages.map((m) => ({ role: m.role, body: m.body })),
+      },
+    });
+
+    res.json({ message: msg, runId: run?.id ?? null });
   });
 
   return router;
