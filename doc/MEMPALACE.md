@@ -314,3 +314,58 @@ podman exec paperclip pnpm --filter @paperclipai/server exec tsx scripts/backfil
 
 **Empty palace data directory**
 - This is expected until the first post-run capture fires. Run an agent on a task with a binding configured, then check again.
+
+
+## How does the work align with the doc `memory-landscape.md`?
+
+The doc proposes a two-layer memory model. Here's how the implementation maps:
+
+### Layer 1: Memory binding + control plane ✅ Strong alignment
+
+The doc says Paperclip should own:
+
+| Doc requirement | Implementation | Status |
+|---|---|---|
+| Binding provider to company, optionally per-agent | `memory_bindings` + `memory_binding_targets` tables, with target types `company` and `agent` | ✅ Done |
+| Mapping Paperclip entities into provider scopes | `MemoryScope` type carries `companyId`, `agentId`, `projectId`, `issueId`, `runId` | ✅ Done |
+| Provenance back to issues, comments, documents, runs | `sourceRef` jsonb on `memory_operations`, `buildSourceFile()` in adapter | ✅ Done |
+| Cost / latency reporting | `memory_operations` table with `latency_ms`, `usage` jsonb, `success` flag | ✅ Done |
+| Browse and inspect UI | `MemoryOperations.tsx` (operation log) + `MemorySettings.tsx` (binding management) | ✅ Done |
+| Governance on destructive operations | Operation logging for all write/query/forget calls | ⚠️ Partial — logging exists but no approval gate on forget |
+
+### Layer 2: Provider adapter ✅ Strong alignment
+
+The doc says providers should own extraction, indexing, ranking, profile synthesis, and storage.
+
+| Doc requirement | Implementation | Status |
+|---|---|---|
+| Required portable core (write, query, get, forget) | `MemoryAdapter` interface with `write()`, `query()`, `get()`, `forget()` | ✅ Done |
+| Optional capability flags | `MemoryAdapterCapabilities` with `profile`, `browse`, `correction`, `asyncIngestion`, `multimodal`, `providerManagedExtraction` | ✅ Done |
+| Provider-native IDs without flattening | `MemoryRecordHandle` with `providerKey` + `providerRecordId` | ✅ Done |
+| Plugin-supplied adapters (not only built-ins) | Interface in `@paperclipai/plugin-sdk`, plugins can implement | ✅ Done |
+| Built-in local-first baseline | PARA adapter (file-based, zero-config) | ✅ Done |
+| Support for richer external systems | Mempalace adapter (MCP-based, stdio or remote HTTP) | ✅ Done |
+
+### Common primitives coverage
+
+The doc identifies 6 convergent primitives:
+
+| Primitive | Coverage |
+|---|---|
+| `ingest` (write) | ✅ `MemoryAdapter.write()` + `postRunCapture` hook |
+| `query` (search/recall) | ✅ `MemoryAdapter.query()` + `preRunHydrate` hook |
+| `scope` (partition) | ✅ `MemoryScope` with entity hierarchy |
+| `provenance` | ✅ `sourceRef` + operation logging |
+| `maintenance` (forget/correct) | ⚠️ `forget()` exists, but no dedupe/compact/correct |
+| `context assembly` | ✅ `MemoryContextBundle` with snippets + profileSummary |
+
+### Gaps vs the doc
+
+1. **Correction workflow** — the doc mentions correction as a capability flag; we have the flag (`correction: false` on both adapters) but no correction API endpoint.
+2. **Governance on destructive ops** — the doc calls for governance on forget; we log everything but don't gate through approvals.
+3. **Dedupe/compact/maintenance** — the doc mentions these under maintenance; not implemented.
+4. **Profile synthesis** — the capability flag exists and the query response supports `profileSummary`, but neither built-in adapter synthesizes profiles.
+
+These are all follow-up work and don't contradict the architecture — the capability flag system was designed exactly to handle providers that don't support these yet.
+
+**Bottom line:** The implementation aligns well with the doc's architecture and covers the core contract it recommends. The gaps are in advanced capabilities that the doc explicitly calls optional.
