@@ -72,7 +72,7 @@ const memoryRecordHandleSchema = z.object({
 export const memoryWriteSchema = z.object({
   scope: memoryScopeSchema,
   source: memorySourceRefSchema,
-  content: z.string().min(1),
+  content: z.string().min(1).max(100_000),
   metadata: z.record(z.unknown()).optional(),
   mode: z.enum(["append", "upsert", "summarize"]).optional(),
 });
@@ -82,7 +82,7 @@ export type MemoryWrite = z.infer<typeof memoryWriteSchema>;
 export const memoryQuerySchema = z.object({
   scope: memoryScopeSchema,
   query: z.string().min(1),
-  topK: z.number().int().positive().optional(),
+  topK: z.number().int().positive().max(100).optional(),
   intent: z.enum(["agent_preamble", "answer", "browse"]).optional(),
   metadataFilter: z.record(z.unknown()).optional(),
 });

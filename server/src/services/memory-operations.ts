@@ -201,7 +201,7 @@ export function memoryOperationService(db: Db) {
           latencyMs,
           success: false,
           error: message,
-        }).catch(() => {});
+        }).catch((err2) => { logger.warn({ err: err2 }, "failed to log memory query operation"); });
 
         throw err;
       }
@@ -246,7 +246,7 @@ export function memoryOperationService(db: Db) {
           latencyMs,
           success: false,
           error: message,
-        }).catch(() => {});
+        }).catch((err2) => { logger.warn({ err: err2 }, "failed to log memory forget operation"); });
 
         throw err;
       }

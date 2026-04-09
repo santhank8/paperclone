@@ -174,6 +174,10 @@ export function memoryBindingRoutes(db: Db) {
           return;
         }
       }
+      if (req.body.targetType === "company" && req.body.targetId !== binding.companyId) {
+        res.status(403).json({ error: "Company target must match the binding's company" });
+        return;
+      }
 
       let target;
       try {

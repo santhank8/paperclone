@@ -455,6 +455,7 @@ export function createMempalaceMemoryAdapter(
     const start = Date.now();
 
     for (const handle of handles) {
+      if (handle.providerKey !== PROVIDER_KEY) continue;
       const { drawerId } = decodeHandle(handle);
 
       try {

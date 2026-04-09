@@ -116,6 +116,10 @@ export function memoryOperationRoutes(db: Db) {
         res.status(403).json({ error: "Scope companyId does not match binding company" });
         return;
       }
+      if (req.body.source.companyId !== binding.companyId) {
+        res.status(403).json({ error: "Source companyId does not match binding company" });
+        return;
+      }
 
       const result = await opSvc.write(binding.id, req.body);
 

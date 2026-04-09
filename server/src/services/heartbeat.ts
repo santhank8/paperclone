@@ -3453,7 +3453,7 @@ export function heartbeatService(db: Db) {
           runId: run.id,
           outcome,
           taskSummary: issueContext?.title ?? readNonEmptyString(context.taskKey) ?? undefined,
-          resultJson: adapterResult.resultJson as Record<string, unknown> | null ?? null,
+          resultJson: (adapterResult.resultJson as Record<string, unknown> | null) ?? null,
           agentName: agent.name,
         });
         if (captureResult.bindingsCaptured > 0) {
