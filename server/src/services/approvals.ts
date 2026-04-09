@@ -17,6 +17,17 @@ export function approvalService(db: Db) {
   type ApprovalRecord = typeof approvals.$inferSelect;
   type ResolutionResult = { approval: ApprovalRecord; applied: boolean };
 
+  function mapHermesCommandForAdapterConfig(adapterConfig: Record<string, unknown>): Record<string, unknown> {
+    const effectiveCommand = adapterConfig.hermesCommand ?? adapterConfig.command;
+    if (!effectiveCommand) return adapterConfig;
+
+    return {
+      ...adapterConfig,
+      command: effectiveCommand,
+      hermesCommand: effectiveCommand,
+    };
+  }
+
   function redactApprovalComment<T extends { body: string }>(comment: T, censorUsernameInLogs: boolean): T {
     return {
       ...comment,
@@ -125,7 +136,7 @@ export function approvalService(db: Db) {
             adapterType: String(payload.adapterType ?? "process"),
             adapterConfig:
               typeof payload.adapterConfig === "object" && payload.adapterConfig !== null
-                ? (payload.adapterConfig as Record<string, unknown>)
+                ? mapHermesCommandForAdapterConfig(payload.adapterConfig as Record<string, unknown>)
                 : {},
             budgetMonthlyCents:
               typeof payload.budgetMonthlyCents === "number" ? payload.budgetMonthlyCents : 0,

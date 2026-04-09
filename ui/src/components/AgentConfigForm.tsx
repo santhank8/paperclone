@@ -280,6 +280,15 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
       const existing = (agent.adapterConfig ?? {}) as Record<string, unknown>;
       patch.adapterConfig = { ...existing, ...overlay.adapterConfig };
     }
+
+    if (patch.adapterConfig && adapterType === "hermes_local") {
+      const patchAdapterConfig = patch.adapterConfig as Record<string, unknown>;
+      const effectCommand = patchAdapterConfig.hermesCommand ?? patchAdapterConfig.command;
+      if (effectCommand) {
+        patchAdapterConfig.hermesCommand = effectCommand;
+        patchAdapterConfig.command = effectCommand;
+      }
+    }
     if (Object.keys(overlay.heartbeat).length > 0) {
       const existingRc = (agent.runtimeConfig ?? {}) as Record<string, unknown>;
       const existingHb = (existingRc.heartbeat ?? {}) as Record<string, unknown>;
@@ -391,7 +400,15 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
       return uiAdapter.buildAdapterConfig(val!);
     }
     const base = config as Record<string, unknown>;
-    return { ...base, ...overlay.adapterConfig };
+    const combined = { ...base, ...overlay.adapterConfig };
+    if (adapterType === "hermes_local") {
+      const effectCommand = combined.hermesCommand ?? combined.command;
+      if (effectCommand) {
+        combined.hermesCommand = effectCommand;
+        combined.command = effectCommand;
+      }
+    }
+    return combined;
   }
 
   const testEnvironment = useMutation({
@@ -714,11 +731,16 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
                       ? val!.command
                       : eff("adapterConfig", "command", String(config.command ?? ""))
                   }
-                  onCommit={(v) =>
-                    isCreate
-                      ? set!({ command: v })
-                      : mark("adapterConfig", "command", v || null)
-                  }
+                  onCommit={(v) => {
+                    if (isCreate) {
+                      set!({ command: v });
+                    } else {
+                      mark("adapterConfig", "command", v || null);
+                      if (adapterType === "hermes_local") {
+                        mark("adapterConfig", "hermesCommand", v || null);
+                      }
+                    }
+                  }}
                   immediate
                   className={inputClass}
                   placeholder={

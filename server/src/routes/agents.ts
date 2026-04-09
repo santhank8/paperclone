@@ -403,6 +403,21 @@ export function agentRoutes(db: Db) {
     return trimmed.length > 0 ? trimmed : null;
   }
 
+  function mapHermesCommandForAdapterConfig(
+    adapterType: string | null | undefined,
+    adapterConfig: Record<string, unknown>,
+  ): Record<string, unknown> {
+    if (adapterType !== "hermes_local") return adapterConfig;
+    const effectCommand = adapterConfig.hermesCommand ?? adapterConfig.command;
+    if (!effectCommand) return adapterConfig;
+
+    return {
+      ...adapterConfig,
+      hermesCommand: effectCommand,
+      command: effectCommand,
+    };
+  }
+
   function preserveInstructionsBundleConfig(
     existingAdapterConfig: Record<string, unknown>,
     nextAdapterConfig: Record<string, unknown>,
@@ -488,7 +503,7 @@ export function agentRoutes(db: Db) {
     adapterType: string | null | undefined,
     adapterConfig: Record<string, unknown>,
   ): Record<string, unknown> {
-    const next = { ...adapterConfig };
+    const next = mapHermesCommandForAdapterConfig(adapterType, { ...adapterConfig });
     if (adapterType === "codex_local") {
       if (!asNonEmptyString(next.model)) {
         next.model = DEFAULT_CODEX_LOCAL_MODEL;
@@ -808,7 +823,7 @@ export function agentRoutes(db: Db) {
         (req.body?.adapterConfig ?? {}) as Record<string, unknown>;
       const normalizedAdapterConfig = await secretsSvc.normalizeAdapterConfigForPersistence(
         companyId,
-        inputAdapterConfig,
+        mapHermesCommandForAdapterConfig(type, inputAdapterConfig),
         { strictMode: strictSecretsMode },
       );
       const { config: runtimeAdapterConfig } = await secretsSvc.resolveAdapterConfigForRuntime(
@@ -848,10 +863,11 @@ export function agentRoutes(db: Db) {
       return;
     }
 
-    const { config: runtimeConfig } = await secretsSvc.resolveAdapterConfigForRuntime(
+    const { config: runtimeConfigRaw } = await secretsSvc.resolveAdapterConfigForRuntime(
       agent.companyId,
       agent.adapterConfig,
     );
+    const runtimeConfig = mapHermesCommandForAdapterConfig(agent.adapterType, runtimeConfigRaw);
     const runtimeSkillConfig = await buildRuntimeSkillConfig(
       agent.companyId,
       agent.adapterType,
@@ -914,10 +930,11 @@ export function agentRoutes(db: Db) {
       }
 
       const adapter = findActiveServerAdapter(updated.adapterType);
-      const { config: runtimeConfig } = await secretsSvc.resolveAdapterConfigForRuntime(
+      const { config: runtimeConfigRaw } = await secretsSvc.resolveAdapterConfigForRuntime(
         updated.companyId,
         updated.adapterConfig,
       );
+      const runtimeConfig = mapHermesCommandForAdapterConfig(updated.adapterType, runtimeConfigRaw);
       const runtimeSkillConfig = {
         ...runtimeConfig,
         paperclipRuntimeSkills: runtimeSkillEntries,
