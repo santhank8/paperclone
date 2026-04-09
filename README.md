@@ -15,6 +15,8 @@
   <a href="https://discord.gg/m4HZY7xNG3"><img src="https://img.shields.io/discord/000000000?label=discord" alt="Discord" /></a>
 </p>
 
+> 🔒 **Supply Chain Security**: This workspace enforces a **minimum 7-day release age** for all package installations. See the [supply chain skill](.windsurf/workflows/supply-chain.md) for details.
+
 <br/>
 
 <div align="center">

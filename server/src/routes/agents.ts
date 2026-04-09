@@ -605,6 +605,7 @@ export function agentRoutes(db: Db) {
 
   const ADAPTERS_REQUIRING_MATERIALIZED_RUNTIME_SKILLS = new Set([
     "cursor",
+    "devin_local",
     "gemini_local",
     "opencode_local",
     "pi_local",

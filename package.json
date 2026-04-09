@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "install:safe": "node npm-install-safe.js",
     "dev": "pnpm --filter @paperclipai/server exec tsx ../scripts/dev-runner.ts watch",
     "dev:watch": "pnpm --filter @paperclipai/server exec tsx ../scripts/dev-runner.ts watch",
     "dev:once": "pnpm --filter @paperclipai/server exec tsx ../scripts/dev-runner.ts dev",
@@ -52,5 +53,8 @@
     "patchedDependencies": {
       "embedded-postgres@18.1.0-beta.16": "patches/embedded-postgres@18.1.0-beta.16.patch"
     }
+  },
+  "dependencies": {
+    "pnpm": "^10.33.0"
   }
 }

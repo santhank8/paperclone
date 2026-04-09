@@ -1,6 +1,7 @@
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import type { AdapterExecutionContext, AdapterExecutionResult } from "@paperclipai/adapter-utils";
 import {
   asString,
@@ -16,10 +17,65 @@ import {
   resolveCommandForLogs,
   renderTemplate,
   runChildProcess,
+  ensurePaperclipSkillSymlink,
+  readPaperclipRuntimeSkillEntries,
+  resolvePaperclipDesiredSkillNames,
+  removeMaintainerOnlySkillSymlinks,
 } from "@paperclipai/adapter-utils/server-utils";
+import { resolveDevinSkillsHome } from "./skills.js";
 
 const DEFAULT_COMMAND = "devin";
 const DEFAULT_PERMISSION_MODE = "dangerous";
+const __moduleDir = path.dirname(fileURLToPath(import.meta.url));
+
+async function ensureDevinSkillsInjected(
+  onLog: AdapterExecutionContext["onLog"],
+  config: Record<string, unknown>,
+  skillsEntries: Array<{ key: string; runtimeName: string; source: string }>,
+  desiredSkillNames?: string[],
+): Promise<void> {
+  const desiredSet = new Set(desiredSkillNames ?? skillsEntries.map((entry) => entry.key));
+  const selectedEntries = skillsEntries.filter((entry) => desiredSet.has(entry.key));
+  if (selectedEntries.length === 0) return;
+
+  const skillsHome = resolveDevinSkillsHome(config);
+  try {
+    await fs.mkdir(skillsHome, { recursive: true });
+  } catch (err) {
+    await onLog(
+      "stderr",
+      `[paperclip] Failed to prepare Devin skills directory ${skillsHome}: ${err instanceof Error ? err.message : String(err)}\n`,
+    );
+    return;
+  }
+  const removedSkills = await removeMaintainerOnlySkillSymlinks(
+    skillsHome,
+    selectedEntries.map((entry) => entry.runtimeName),
+  );
+  for (const skillName of removedSkills) {
+    await onLog(
+      "stderr",
+      `[paperclip] Removed maintainer-only Devin skill "${skillName}" from ${skillsHome}\n`,
+    );
+  }
+
+  for (const entry of selectedEntries) {
+    const target = path.join(skillsHome, entry.runtimeName);
+    try {
+      const result = await ensurePaperclipSkillSymlink(entry.source, target);
+      if (result === "skipped") continue;
+      await onLog(
+        "stderr",
+        `[paperclip] ${result === "repaired" ? "Repaired" : "Injected"} Devin skill "${entry.key}" into ${skillsHome}\n`,
+      );
+    } catch (err) {
+      await onLog(
+        "stderr",
+        `[paperclip] Failed to inject Devin skill "${entry.key}" into ${skillsHome}: ${err instanceof Error ? err.message : String(err)}\n`,
+      );
+    }
+  }
+}
 
 type DevinSession = {
   id: string;
@@ -102,10 +158,15 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
   const cwd = effectiveWorkspaceCwd || configuredCwd || process.cwd();
   await ensureAbsoluteDirectory(cwd, { createIfMissing: true });
 
+  const devinSkillEntries = await readPaperclipRuntimeSkillEntries(config, __moduleDir);
+  const desiredDevinSkillNames = resolvePaperclipDesiredSkillNames(config, devinSkillEntries);
+  await ensureDevinSkillsInjected(onLog, config, devinSkillEntries, desiredDevinSkillNames);
+
   const envConfig = parseObject(config.env);
   const hasExplicitApiKey =
     typeof envConfig.PAPERCLIP_API_KEY === "string" && envConfig.PAPERCLIP_API_KEY.trim().length > 0;
   const env: Record<string, string> = { ...buildPaperclipEnv(agent) };
+  env.PYTHONUNBUFFERED = "1";
   env.PAPERCLIP_RUN_ID = runId;
 
   const wakeTaskId =

@@ -3328,6 +3328,7 @@ function LogViewer({ run, adapterType }: { run: HeartbeatRun; adapterType: strin
   const [transcriptMode, setTranscriptMode] = useState<TranscriptMode>("nice");
   const logEndRef = useRef<HTMLDivElement>(null);
   const pendingLogLineRef = useRef("");
+  const seenLogChunkKeysRef = useRef(new Set<string>());
   const scrollContainerRef = useRef<ScrollContainer | null>(null);
   const isFollowingRef = useRef(false);
   const lastMetricsRef = useRef<{ scrollHeight: number; distanceFromBottom: number }>({
@@ -3373,7 +3374,19 @@ function LogViewer({ run, adapterType }: { run: HeartbeatRun; adapterType: strin
     }
 
     if (parsed.length > 0) {
-      setLogLines((prev) => [...prev, ...parsed]);
+      addLogEntries(parsed);
+    }
+  }
+
+  function addLogEntries(entries: Array<{ ts: string; stream: "stdout" | "stderr" | "system"; chunk: string }>) {
+    const toAdd = entries.filter(({ ts, stream, chunk }) => {
+      const key = `${ts}:${stream}:${chunk.slice(0, 512)}`;
+      if (seenLogChunkKeysRef.current.has(key)) return false;
+      seenLogChunkKeysRef.current.add(key);
+      return true;
+    });
+    if (toAdd.length > 0) {
+      setLogLines((prev) => [...prev, ...toAdd]);
     }
   }
 
@@ -3475,6 +3488,7 @@ function LogViewer({ run, adapterType }: { run: HeartbeatRun; adapterType: strin
   useEffect(() => {
     let cancelled = false;
     pendingLogLineRef.current = "";
+    seenLogChunkKeysRef.current.clear();
     setLogLines([]);
     setLogOffset(0);
     setLogError(null);
@@ -3542,9 +3556,9 @@ function LogViewer({ run, adapterType }: { run: HeartbeatRun; adapterType: strin
     return () => clearInterval(interval);
   }, [run.id, isLive, isStreamingConnected, events]);
 
-  // Poll shell log for running runs
+  // Poll shell log for running runs (always active as a fallback, even when WebSocket is connected)
   useEffect(() => {
-    if (!isLive || isStreamingConnected) return;
+    if (!isLive) return;
     const interval = setInterval(async () => {
       try {
         const result = await heartbeatsApi.log(run.id, logOffset, 256_000);
@@ -3562,7 +3576,7 @@ function LogViewer({ run, adapterType }: { run: HeartbeatRun; adapterType: strin
       }
     }, 2000);
     return () => clearInterval(interval);
-  }, [run.id, isLive, isStreamingConnected, logOffset]);
+  }, [run.id, isLive, logOffset]);
 
   // Stream live updates from websocket (primary path for running runs).
   useEffect(() => {
@@ -3609,7 +3623,7 @@ function LogViewer({ run, adapterType }: { run: HeartbeatRun; adapterType: strin
           const streamRaw = asNonEmptyString(payload.stream);
           const stream = streamRaw === "stderr" || streamRaw === "system" ? streamRaw : "stdout";
           const ts = asNonEmptyString((payload as Record<string, unknown>).ts) ?? event.createdAt;
-          setLogLines((prev) => [...prev, { ts, stream, chunk }]);
+          addLogEntries([{ ts, stream, chunk }]);
           return;
         }
 

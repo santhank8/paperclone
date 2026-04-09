@@ -1,4 +1,5 @@
 export { execute } from "./execute.js";
+export { listDevinSkills, syncDevinSkills } from "./skills.js";
 export { testEnvironment } from "./test.js";
 
 import type { AdapterSessionCodec } from "@paperclipai/adapter-utils";

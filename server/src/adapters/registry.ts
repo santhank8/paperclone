@@ -81,6 +81,8 @@ import {
 } from "hermes-paperclip-adapter";
 import {
   execute as devinExecute,
+  listDevinSkills,
+  syncDevinSkills,
   testEnvironment as devinTestEnvironment,
   sessionCodec as devinSessionCodec,
 } from "@paperclipai/adapter-devin-local/server";
@@ -188,6 +190,8 @@ const devinLocalAdapter: ServerAdapterModule = {
   type: "devin_local",
   execute: devinExecute,
   testEnvironment: devinTestEnvironment,
+  listSkills: listDevinSkills,
+  syncSkills: syncDevinSkills,
   sessionCodec: devinSessionCodec,
   models: devinModels,
   supportsLocalAgentJwt: true,
