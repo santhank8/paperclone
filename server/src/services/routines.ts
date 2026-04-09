@@ -620,6 +620,36 @@ export function routineService(db: Db, deps: { heartbeat?: IssueAssignmentWakeup
       .then((rows) => rows[0]?.issues ?? null);
   }
 
+  async function clearStaleExecutionLocksForRoutine(routine: typeof routines.$inferSelect, executor: Db = db) {
+    await executor
+      .update(issues)
+      .set({
+        executionRunId: null,
+        executionAgentNameKey: null,
+        executionLockedAt: null,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(issues.companyId, routine.companyId),
+          eq(issues.originKind, "routine_execution"),
+          eq(issues.originId, routine.id),
+          inArray(issues.status, OPEN_ISSUE_STATUSES),
+          isNull(issues.hiddenAt),
+          isNotNull(issues.executionRunId),
+          sql`not exists (
+            select 1
+            from ${heartbeatRuns}
+            where ${heartbeatRuns.id} = ${issues.executionRunId}
+              and ${heartbeatRuns.status} in (${sql.join(
+                LIVE_HEARTBEAT_RUN_STATUSES.map((status) => sql`${status}`),
+                sql`, `,
+              )})
+          )`,
+        ),
+      );
+  }
+
   async function finalizeRun(runId: string, patch: Partial<typeof routineRuns.$inferInsert>, executor: Db = db) {
     return executor
       .update(routineRuns)
@@ -678,6 +708,7 @@ export function routineService(db: Db, deps: { heartbeat?: IssueAssignmentWakeup
     const title = interpolateRoutineTemplate(input.routine.title, resolvedVariables) ?? input.routine.title;
     const description = interpolateRoutineTemplate(input.routine.description, resolvedVariables);
     const triggerPayload = mergeRoutineRunPayload(input.payload, resolvedVariables);
+    await clearStaleExecutionLocksForRoutine(input.routine);
     const run = await db.transaction(async (tx) => {
       const txDb = tx as unknown as Db;
       await tx.execute(

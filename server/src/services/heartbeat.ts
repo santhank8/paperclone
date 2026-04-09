@@ -2033,6 +2033,15 @@ export function heartbeatService(db: Db) {
       return { outcome: "satisfied" as const, queuedRun: null };
     }
 
+    if (wakeReason === "issue_commented" || wakeReason === "issue_comment_mentioned") {
+      await patchRunIssueCommentStatus(run.id, {
+        issueCommentStatus: "not_applicable",
+        issueCommentSatisfiedByCommentId: null,
+        issueCommentRetryQueuedAt: null,
+      });
+      return { outcome: "not_applicable" as const, queuedRun: null };
+    }
+
     if (readNonEmptyString(contextSnapshot.retryReason) === "missing_issue_comment") {
       await patchRunIssueCommentStatus(run.id, {
         issueCommentStatus: "retry_exhausted",
