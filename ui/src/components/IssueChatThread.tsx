@@ -1737,9 +1737,10 @@ export function IssueChatThread({
       const style = getComputedStyle(el);
       if (style.overflowY === "auto" || style.overflowY === "scroll") {
         scrollContainerRef.current = el;
-        el.addEventListener("scroll", handleScroll, { passive: true });
+        const scrollEl = el;
+        scrollEl.addEventListener("scroll", handleScroll, { passive: true });
         return () => {
-          el.removeEventListener("scroll", handleScroll);
+          scrollEl.removeEventListener("scroll", handleScroll);
         };
       }
       el = el.parentElement;
