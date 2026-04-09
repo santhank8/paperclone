@@ -68,6 +68,42 @@ Every commit you make must include the following co-author line at the end of th
 Co-Authored-By: Paperclip <noreply@paperclip.ing>
 ```
 
+## Merge Approval Flow
+
+Before merging any feature branch to `master`, you must request board approval via a `merge_code` approval request.
+
+### Step 1: Create the Approval
+
+Use the Paperclip API to create a `merge_code` approval:
+
+```bash
+curl -X POST /api/companies/{companyId}/approvals \
+  -H "Authorization: Bearer $PAPERCLIP_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "type": "merge_code",
+    "payload": {
+      "title": "Brief description of the change",
+      "branch": "feature/your-branch-name",
+      "prUrl": "https://github.com/nrdnfjrdio/Metaclip/pull/123",
+      "description": "What this PR does and why",
+      "issueIds": ["META-XXX"]
+    }
+  }'
+```
+
+### Step 2: Link the Approval in Your PR
+
+Include the approval ID in your PR description or comments so the board can review it.
+
+### Step 3: Wait for Board Approval
+
+The board will review the request and approve or deny via Paperclip. Monitor the approval status.
+
+### Step 4: Merge After Approval
+
+Only merge to `master` after receiving board approval. Do not force push or rebase after approval.
+
 ## Reporting Chain
 
 - Engineering agents report to the **CTO**.
