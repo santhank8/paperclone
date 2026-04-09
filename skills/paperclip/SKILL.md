@@ -24,6 +24,15 @@ Manual local CLI mode (outside heartbeat runs): use `paperclipai agent local-cli
 
 Follow these steps every time you wake up:
 
+**Step 0 — Direct chat short-circuit.** Check `PAPERCLIP_WAKE_REASON` first. If it equals `direct_chat`, **stop here and do not follow the normal heartbeat steps.** You have been woken up because a user sent you a message directly. Your job is to respond to that message conversationally, not to check your inbox.
+
+- The user's message is in `PAPERCLIP_CHAT_MESSAGE`.
+- The chat session id is in `PAPERCLIP_CHAT_ID`.
+- For conversation history, call `GET /api/agents/{PAPERCLIP_AGENT_ID}/chats/{PAPERCLIP_CHAT_ID}/messages` — it returns the last 50 messages in order.
+- Use your tools and knowledge to give a helpful, natural reply. You can call any API, read files, run searches, etc. — treat this like a direct conversation with a colleague.
+- Your entire response text will be captured as the agent chat message. Write it as prose addressed to the user. Do not narrate what you are doing step-by-step — just do the work and deliver the answer.
+- Do **not** do any inbox check, checkout, or status updates for this wakeup. Just respond to the message and exit.
+
 **Step 1 — Identity.** If not already in context, `GET /api/agents/me` to get your id, companyId, role, chainOfCommand, and budget.
 
 **Step 2 — Approval follow-up (when triggered).** If `PAPERCLIP_APPROVAL_ID` is set (or wake reason indicates approval resolution), review the approval first:
