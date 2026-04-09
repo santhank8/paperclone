@@ -138,7 +138,9 @@ export interface PluginRenderEnvironmentContext
 /**
  * Props passed to a plugin page component.
  *
- * A page is a full-page extension at `/plugins/:pluginId` or `/:company/plugins/:pluginId`.
+ * A page is a full-page extension resolved either by plugin id
+ * (`/plugins/:pluginId`) or by a company-scoped `routePath`
+ * (`/:company/:pluginRoutePath`).
  *
  * @see PLUGIN_SPEC.md §19.1 — Global Operator Routes
  * @see PLUGIN_SPEC.md §19.2 — Company-Context Routes

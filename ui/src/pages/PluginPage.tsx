@@ -10,10 +10,28 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import { NotFoundPage } from "./NotFound";
 
+const PLUGIN_ROUTE_ALIASES: Record<string, string[]> = {
+  // Compatibility bridge while older local installs still expose the legacy
+  // example route slug from persisted plugin manifests.
+  "paperclip-kitchen-sink-example": ["kitchensink", "operations-console"],
+};
+
+function matchesPluginPageRoute(
+  pluginKey: string,
+  declaredRoutePath: string | undefined,
+  requestedRoutePath: string,
+): boolean {
+  if (!declaredRoutePath) return false;
+  if (declaredRoutePath === requestedRoutePath) return true;
+  const aliases = PLUGIN_ROUTE_ALIASES[pluginKey];
+  return Boolean(aliases && aliases.includes(declaredRoutePath) && aliases.includes(requestedRoutePath));
+}
+
 /**
  * Company-context plugin page. Renders a plugin's `page` slot at
- * `/:companyPrefix/plugins/:pluginId` when the plugin declares a page slot
- * and is enabled for that company.
+ * `/:companyPrefix/:pluginRoutePath` when the plugin declares a page slot
+ * with a `routePath`, or at `/:companyPrefix/plugins/:pluginId` when using
+ * the plugin-id route.
  *
  * @see doc/plugins/PLUGIN_SPEC.md §19.2 — Company-Context Routes
  * @see doc/plugins/PLUGIN_SPEC.md §24.4 — Company-Context Plugin Page
@@ -67,7 +85,9 @@ export function PluginPage() {
     }
     if (!pluginRoutePath) return null;
     const matches = contributions.flatMap((contribution) => {
-      const slot = contribution.slots.find((entry) => entry.type === "page" && entry.routePath === pluginRoutePath);
+      const slot = contribution.slots.find((entry) =>
+        entry.type === "page" && matchesPluginPageRoute(contribution.pluginKey, entry.routePath, pluginRoutePath),
+      );
       if (!slot) return [];
       return [{
         ...slot,
@@ -115,7 +135,9 @@ export function PluginPage() {
 
   if (!pluginId && pluginRoutePath) {
     const duplicateMatches = contributions.filter((contribution) =>
-      contribution.slots.some((slot) => slot.type === "page" && slot.routePath === pluginRoutePath),
+      contribution.slots.some((slot) =>
+        slot.type === "page" && matchesPluginPageRoute(contribution.pluginKey, slot.routePath, pluginRoutePath),
+      ),
     );
     if (duplicateMatches.length > 1) {
       return (
