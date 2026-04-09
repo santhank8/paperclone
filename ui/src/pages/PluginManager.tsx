@@ -85,14 +85,14 @@ export function PluginManager() {
     queryFn: () => pluginsApi.list(),
   });
 
-  const examplesQuery = useQuery({
-    queryKey: queryKeys.plugins.examples,
-    queryFn: () => pluginsApi.listExamples(),
+  const catalogQuery = useQuery({
+    queryKey: queryKeys.plugins.catalog,
+    queryFn: () => pluginsApi.listCatalog(),
   });
 
   const invalidatePluginQueries = () => {
     queryClient.invalidateQueries({ queryKey: queryKeys.plugins.all });
-    queryClient.invalidateQueries({ queryKey: queryKeys.plugins.examples });
+    queryClient.invalidateQueries({ queryKey: queryKeys.plugins.catalog });
     queryClient.invalidateQueries({ queryKey: queryKeys.plugins.uiContributions });
   };
 
@@ -144,9 +144,10 @@ export function PluginManager() {
   });
 
   const installedPlugins = plugins ?? [];
-  const examples = examplesQuery.data ?? [];
+  const catalogEntries = catalogQuery.data ?? [];
   const installedByPackageName = new Map(installedPlugins.map((plugin) => [plugin.packageName, plugin]));
-  const examplePackageNames = new Set(examples.map((example) => example.packageName));
+  const installedByPluginKey = new Map(installedPlugins.map((plugin) => [plugin.pluginKey, plugin]));
+  const internalPluginKeys = new Set(catalogEntries.map((entry) => entry.pluginKey));
   const errorSummaryByPluginId = useMemo(
     () =>
       new Map(
@@ -219,34 +220,36 @@ export function PluginManager() {
       <section className="space-y-3">
         <div className="flex items-center gap-2">
           <FlaskConical className="h-5 w-5 text-muted-foreground" />
-          <h2 className="text-base font-semibold">Plugins disponíveis</h2>
-          <Badge variant="outline">Exemplos</Badge>
+          <h2 className="text-base font-semibold">Plugins internos</h2>
+          <Badge variant="outline">Paperclip</Badge>
         </div>
 
-        {examplesQuery.isLoading ? (
-          <div className="text-sm text-muted-foreground">Carregando exemplos incluídos...</div>
-        ) : examplesQuery.error ? (
-          <div className="text-sm text-destructive">Falha ao carregar os exemplos incluídos.</div>
-        ) : examples.length === 0 ? (
+        {catalogQuery.isLoading ? (
+          <div className="text-sm text-muted-foreground">Carregando catálogo interno...</div>
+        ) : catalogQuery.error ? (
+          <div className="text-sm text-destructive">Falha ao carregar o catálogo interno.</div>
+        ) : catalogEntries.length === 0 ? (
           <div className="rounded-md border border-dashed px-4 py-3 text-sm text-muted-foreground">
-            Nenhum plugin de exemplo incluído foi encontrado nesta cópia.
+            Nenhum plugin interno foi encontrado nesta cópia.
           </div>
         ) : (
           <ul className="divide-y rounded-md border bg-card">
-            {examples.map((example) => {
-              const installedPlugin = installedByPackageName.get(example.packageName);
+            {catalogEntries.map((entry) => {
+              const installedPlugin =
+                installedByPluginKey.get(entry.pluginKey) ??
+                installedByPackageName.get(entry.packageName);
               const installPending =
                 installMutation.isPending &&
                 installMutation.variables?.isLocalPath &&
-                installMutation.variables.packageName === example.localPath;
+                installMutation.variables.packageName === entry.localPath;
 
               return (
-                <li key={example.packageName}>
+                <li key={entry.pluginKey}>
                   <div className="flex items-center gap-4 px-4 py-3">
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="font-medium">{example.displayName}</span>
-                        <Badge variant="outline">Example</Badge>
+                        <span className="font-medium">{entry.displayName}</span>
+                        <Badge variant="outline">Interno</Badge>
                         {installedPlugin ? (
                           <Badge
                             variant={installedPlugin.status === "ready" ? "default" : "secondary"}
@@ -255,11 +258,11 @@ export function PluginManager() {
                             {installedPlugin.status}
                           </Badge>
                         ) : (
-                          <Badge variant="secondary">Not installed</Badge>
+                          <Badge variant="secondary">Não instalado</Badge>
                         )}
                       </div>
-                      <p className="mt-1 text-sm text-muted-foreground">{example.description}</p>
-                      <p className="mt-1 text-xs text-muted-foreground">{example.packageName}</p>
+                      <p className="mt-1 text-sm text-muted-foreground">{entry.description}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">{entry.packageName}</p>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       {installedPlugin ? (
@@ -286,12 +289,12 @@ export function PluginManager() {
                           disabled={installPending || installMutation.isPending}
                           onClick={() =>
                             installMutation.mutate({
-                              packageName: example.localPath,
+                              packageName: entry.localPath,
                               isLocalPath: true,
                             })
                           }
                         >
-                          {installPending ? "Instalando..." : "Instalar exemplo"}
+                          {installPending ? "Instalando..." : "Instalar plugin"}
                         </Button>
                       )}
                     </div>
@@ -333,8 +336,8 @@ export function PluginManager() {
                       >
                         {plugin.manifestJson.displayName ?? plugin.packageName}
                       </Link>
-                      {examplePackageNames.has(plugin.packageName) && (
-                        <Badge variant="outline">Exemplo</Badge>
+                      {internalPluginKeys.has(plugin.pluginKey) && (
+                        <Badge variant="outline">Interno</Badge>
                       )}
                     </div>
                     <div>

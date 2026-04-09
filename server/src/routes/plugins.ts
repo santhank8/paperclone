@@ -17,10 +17,7 @@
  * @see doc/plugins/PLUGIN_SPEC.md for the full plugin specification
  */
 
-import { existsSync } from "node:fs";
-import path from "node:path";
 import { randomUUID } from "node:crypto";
-import { fileURLToPath } from "node:url";
 import { Router } from "express";
 import type { Request } from "express";
 import { and, desc, eq, gte } from "drizzle-orm";
@@ -38,6 +35,7 @@ import {
 import { pluginRegistryService } from "../services/plugin-registry.js";
 import { pluginLifecycleManager } from "../services/plugin-lifecycle.js";
 import { getPluginUiContributionMetadata, pluginLoader } from "../services/plugin-loader.js";
+import { listFirstPartyPluginCatalog } from "../services/first-party-plugin-catalog.js";
 import { logActivity } from "../services/activity-log.js";
 import { publishGlobalLiveEvent } from "../services/live-events.js";
 import type { PluginJobScheduler } from "../services/plugin-job-scheduler.js";
@@ -85,13 +83,13 @@ interface PluginInstallRequest {
   isLocalPath?: boolean;
 }
 
-interface AvailablePluginExample {
+interface FirstPartyPluginCatalogResponse {
   packageName: string;
   pluginKey: string;
   displayName: string;
   description: string;
   localPath: string;
-  tag: "example";
+  tag: "first_party";
 }
 
 /** Response body for GET /api/plugins/:pluginId/health */
@@ -110,44 +108,6 @@ interface PluginHealthCheckResult {
 /** UUID v4 regex used for plugin ID route resolution. */
 const UUID_REGEX =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = path.resolve(__dirname, "../../..");
-
-const BUNDLED_PLUGIN_EXAMPLES: AvailablePluginExample[] = [
-  {
-    packageName: "@paperclipai/plugin-hello-world-example",
-    pluginKey: "paperclip.hello-world-example",
-    displayName: "Company Pulse",
-    description: "Dashboard widget that summarizes the current company workload, active agents, and goals.",
-    localPath: "packages/plugins/examples/plugin-hello-world-example",
-    tag: "example",
-  },
-  {
-    packageName: "@paperclipai/plugin-file-browser-example",
-    pluginKey: "paperclip-file-browser-example",
-    displayName: "Workspace Explorer",
-    description: "Project workspace explorer with file browsing, inline editing, creation, and comment-linked navigation.",
-    localPath: "packages/plugins/examples/plugin-file-browser-example",
-    tag: "example",
-  },
-  {
-    packageName: "@paperclipai/plugin-central-operacoes",
-    pluginKey: "paperclip-kitchen-sink-example",
-    displayName: "Central de Operações",
-    description: "Central operacional interna para diagnósticos, intake, ferramentas, streams, jobs e follow-up por webhook.",
-    localPath: "packages/plugins/examples/plugin-kitchen-sink-example",
-    tag: "example",
-  },
-];
-
-function listBundledPluginExamples(): AvailablePluginExample[] {
-  return BUNDLED_PLUGIN_EXAMPLES.flatMap((plugin) => {
-    const absoluteLocalPath = path.resolve(REPO_ROOT, plugin.localPath);
-    if (!existsSync(absoluteLocalPath)) return [];
-    return [{ ...plugin, localPath: absoluteLocalPath }];
-  });
-}
 
 /**
  * Resolve a plugin by either database ID or plugin key.
@@ -389,14 +349,25 @@ export function pluginRoutes(
   });
 
   /**
-   * GET /api/plugins/examples
+   * GET /api/plugins/catalog
    *
-   * Return first-party example plugins bundled in this repo, if present.
+   * Return first-party plugins bundled in this repo, if present.
    * These can be installed through the normal local-path install flow.
+   */
+  router.get("/plugins/catalog", async (req, res) => {
+    assertBoard(req);
+    res.json(listFirstPartyPluginCatalog() satisfies FirstPartyPluginCatalogResponse[]);
+  });
+
+  /**
+   * Deprecated compatibility alias.
+   *
+   * Historically the UI consumed `/plugins/examples` for bundled in-repo
+   * plugins. Keep it available while the frontend migrates to `/plugins/catalog`.
    */
   router.get("/plugins/examples", async (req, res) => {
     assertBoard(req);
-    res.json(listBundledPluginExamples());
+    res.json(listFirstPartyPluginCatalog() satisfies FirstPartyPluginCatalogResponse[]);
   });
 
   // IMPORTANT: Static routes must come before parameterized routes

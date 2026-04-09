@@ -1,33 +1,38 @@
-# Central de Operações
+# Exemplo: Kitchen Sink
 
-A Central de Operações é um plugin interno de primeira parte construído sobre o antigo pacote `kitchen-sink`.
+Este diretório não deve mais ser tratado como o plugin operacional oficial.
 
-Hoje ele funciona como um cockpit operacional prático para operadores do Paperclip:
+Ele permanece em `examples/` apenas como referência histórica e como base para estudar um plugin Paperclip mais amplo, cobrindo página, widgets, ações, webhooks, jobs, streams e superfícies contextuais.
 
-- rota operacional dedicada
-- widget de dashboard e superfícies na barra lateral
-- visões operacionais de projeto e issue
-- superfícies de captura de comentários
-- diagnósticos, estado, métricas, atividade e streams
-- intake de issues via ações, ferramentas e webhooks
-- notas de workspace e diagnósticos locais controlados
+O plugin first-party real derivado dele agora vive em:
 
-O pacote agora usa o nome `@paperclipai/plugin-central-operacoes`, enquanto o identificador técnico do plugin permanece compatível com instalações existentes. A UI e o worker agora atendem fluxos operacionais reais em vez de um demo genérico.
+```text
+packages/plugins/central-operacoes
+```
 
-## Instalação
+## Pacote real correspondente
+
+- nome: `@paperclipai/plugin-central-operacoes`
+- caminho: `./packages/plugins/central-operacoes`
+- função: cockpit operacional para intake, follow-up, automações, diagnósticos e coordenação de agentes
+
+## Quando usar este diretório
+
+- entender uma implementação extensa de plugin
+- copiar trechos de manifest, worker e UI para um novo plugin
+- comparar o exemplo legado com a versão first-party do produto
+
+## Instalação do plugin real
 
 ```sh
 pnpm --filter @paperclipai/plugin-central-operacoes build
-pnpm paperclipai plugin install ./packages/plugins/examples/plugin-kitchen-sink-example
+pnpm paperclipai plugin install ./packages/plugins/central-operacoes
 ```
-
-Ou instale pelo gerenciador de plugins do Paperclip como exemplo embutido depois que este repositório estiver compilado.
 
 ## Notas
 
-- O acesso ao workspace local e os diagnósticos de processo são restritos a ambientes confiáveis e usam comandos controlados por padrão.
-- O intake por webhook pode criar uma issue de follow-up quando o payload inclui `companyId` e `title`, com `projectId` e `description` opcionais.
-- A página de configurações controla quais superfícies operacionais ficam visíveis e se os diagnósticos locais ficam habilitados.
+- Instalações legadas que ainda apontem para este caminho de exemplo são sincronizadas automaticamente pelo host para o pacote real.
+- O acesso ao workspace local e os diagnósticos de processo continuam restritos a ambientes confiáveis e usam comandos controlados por padrão.
 
 ## Responsável
 
