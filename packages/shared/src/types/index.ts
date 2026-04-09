@@ -225,3 +225,9 @@ export type {
   PluginJobRunRecord,
   PluginWebhookDeliveryRecord,
 } from "./plugin.js";
+export type {
+  ExecutionThreadIssueSummary,
+  ExecutionThreadEntryKind,
+  ExecutionThreadEntry,
+  ExecutionThreadResponse,
+} from "./execution-thread.js";
