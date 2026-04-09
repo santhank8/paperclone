@@ -5,6 +5,8 @@ A Central de Operações é um plugin interno de primeira parte construído como
 Hoje ele entrega:
 
 - rota operacional dedicada
+- shell principal com guias por contexto operacional
+- seções colapsáveis para abrir e fechar blocos densos sob demanda
 - widget de dashboard e superfícies na barra lateral
 - visões operacionais de projeto e issue
 - superfícies de captura de comentários

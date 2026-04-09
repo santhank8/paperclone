@@ -243,11 +243,93 @@ const widgetStyle: CSSProperties = {
   background: "color-mix(in srgb, var(--card, transparent) 72%, transparent)",
 };
 
+const pageShellStyle: CSSProperties = {
+  display: "grid",
+  gap: "18px",
+};
+
+const heroShellStyle: CSSProperties = {
+  border: "1px solid color-mix(in srgb, var(--border) 78%, transparent)",
+  borderRadius: "18px",
+  padding: "18px",
+  display: "grid",
+  gap: "18px",
+  background:
+    "linear-gradient(135deg, color-mix(in srgb, var(--foreground) 8%, transparent), color-mix(in srgb, var(--card, transparent) 82%, transparent))",
+};
+
+const heroMetricGridStyle: CSSProperties = {
+  display: "grid",
+  gap: "12px",
+  gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+};
+
+const heroMetricStyle: CSSProperties = {
+  ...subtleCardStyle,
+  display: "grid",
+  gap: "6px",
+  alignContent: "start",
+  background: "color-mix(in srgb, var(--card, transparent) 78%, transparent)",
+};
+
+const tabRailStyle: CSSProperties = {
+  display: "flex",
+  flexWrap: "wrap",
+  gap: "8px",
+  padding: "6px",
+  border: "1px solid color-mix(in srgb, var(--border) 78%, transparent)",
+  borderRadius: "999px",
+  background: "color-mix(in srgb, var(--card, transparent) 72%, transparent)",
+};
+
+const groupedGridStyle: CSSProperties = {
+  display: "grid",
+  gap: "14px",
+  gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+};
+
+const actionClusterStyle: CSSProperties = {
+  ...subtleCardStyle,
+  display: "grid",
+  gap: "10px",
+  alignContent: "start",
+  background: "color-mix(in srgb, var(--card, transparent) 78%, transparent)",
+};
+
+const spotlightCardStyle: CSSProperties = {
+  ...subtleCardStyle,
+  display: "grid",
+  gap: "12px",
+  alignContent: "start",
+  background:
+    "linear-gradient(180deg, color-mix(in srgb, var(--foreground) 6%, transparent), color-mix(in srgb, var(--card, transparent) 78%, transparent))",
+};
+
 const mutedTextStyle: CSSProperties = {
   fontSize: "12px",
   opacity: 0.72,
   lineHeight: 1.45,
 };
+
+function tabButtonStyle(active: boolean): CSSProperties {
+  return {
+    appearance: "none",
+    border: "1px solid",
+    borderColor: active
+      ? "color-mix(in srgb, var(--foreground) 50%, var(--border))"
+      : "color-mix(in srgb, var(--border) 82%, transparent)",
+    borderRadius: "999px",
+    background: active
+      ? "color-mix(in srgb, var(--foreground) 12%, transparent)"
+      : "transparent",
+    color: "inherit",
+    padding: "8px 14px",
+    fontSize: "12px",
+    fontWeight: active ? 700 : 500,
+    cursor: "pointer",
+    transition: "background 160ms ease, border-color 160ms ease, transform 160ms ease",
+  };
+}
 
 const TOKEN_LABELS: Record<string, string> = {
   active: "ativo",
@@ -320,18 +402,48 @@ function Section({
   title,
   action,
   children,
+  description,
+  eyebrow,
+  collapsible = false,
+  defaultOpen = true,
 }: {
   title: string;
   action?: ReactNode;
   children: ReactNode;
+  description?: ReactNode;
+  eyebrow?: string;
+  collapsible?: boolean;
+  defaultOpen?: boolean;
 }) {
+  const [open, setOpen] = useState(defaultOpen);
+
   return (
     <section style={cardStyle}>
       <div style={sectionHeaderStyle}>
-        <strong>{title}</strong>
-        {action}
+        <div style={{ display: "grid", gap: "4px", minWidth: 0 }}>
+          {eyebrow ? (
+            <div style={{ fontSize: "11px", opacity: 0.65, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+              {eyebrow}
+            </div>
+          ) : null}
+          <strong>{title}</strong>
+          {description ? <div style={mutedTextStyle}>{description}</div> : null}
+        </div>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: "8px", flexWrap: "wrap" }}>
+          {action}
+          {collapsible ? (
+            <button
+              type="button"
+              style={buttonStyle}
+              aria-expanded={open}
+              onClick={() => setOpen((current) => !current)}
+            >
+              {open ? "Recolher" : "Expandir"}
+            </button>
+          ) : null}
+        </div>
       </div>
-      <div style={layoutStack}>{children}</div>
+      {!collapsible || open ? <div style={layoutStack}>{children}</div> : null}
     </section>
   );
 }
@@ -402,6 +514,24 @@ function StatusLine({ label, value }: { label: string; value: ReactNode }) {
   );
 }
 
+function HeroMetric({
+  label,
+  value,
+  detail,
+}: {
+  label: string;
+  value: ReactNode;
+  detail: ReactNode;
+}) {
+  return (
+    <div style={heroMetricStyle}>
+      <div style={{ fontSize: "11px", opacity: 0.68, textTransform: "uppercase", letterSpacing: "0.06em" }}>{label}</div>
+      <div style={{ fontSize: "24px", fontWeight: 700, lineHeight: 1 }}>{value}</div>
+      <div style={mutedTextStyle}>{detail}</div>
+    </div>
+  );
+}
+
 function PaginatedDomainCard({
   title,
   items,
@@ -429,7 +559,7 @@ function PaginatedDomainCard({
       {hasMore ? (
         <div style={{ marginTop: "10px" }}>
           <button type="button" style={buttonStyle} onClick={onLoadMore}>
-            Load 20 more
+            Carregar mais 20
           </button>
         </div>
       ) : null}
@@ -893,20 +1023,35 @@ function KitchenSinkIssueCrudDemo({ context }: { context: PluginPageProps["conte
   }
 
   return (
-    <Section title="Fila Operacional">
-      <div style={mutedTextStyle}>
-        Use esta fila para registrar follow-ups, atualizar status e manter a esteira operacional da empresa atual sem sair da Central.
-      </div>
+    <Section
+      title="Fila Operacional"
+      eyebrow="Intake e follow-up"
+      collapsible
+      description="Registre follow-ups, avance status e mantenha a esteira operacional da empresa atual sem sair da Central."
+      action={context.companyId ? <Pill label={`${issues.length} itens`} /> : undefined}
+    >
       {!context.companyId ? (
         <div style={mutedTextStyle}>Selecione uma empresa para começar a organizar a fila operacional.</div>
       ) : (
         <>
-          <div style={{ display: "grid", gap: "10px", gridTemplateColumns: "minmax(0, 1.4fr) minmax(0, 1fr) auto" }}>
-            <input style={inputStyle} value={createTitle} onChange={(event) => setCreateTitle(event.target.value)} placeholder="Título da issue" />
-            <input style={inputStyle} value={createDescription} onChange={(event) => setCreateDescription(event.target.value)} placeholder="Descrição da issue" />
-            <button type="button" style={primaryButtonStyle} onClick={() => void handleCreate()}>
-              Criar issue
-            </button>
+          <div style={groupedGridStyle}>
+            <div style={actionClusterStyle}>
+              <strong>Novo follow-up</strong>
+              <div style={{ display: "grid", gap: "10px", gridTemplateColumns: "minmax(0, 1.4fr) minmax(0, 1fr) auto" }}>
+                <input style={inputStyle} value={createTitle} onChange={(event) => setCreateTitle(event.target.value)} placeholder="Título da issue" />
+                <input style={inputStyle} value={createDescription} onChange={(event) => setCreateDescription(event.target.value)} placeholder="Descrição da issue" />
+                <button type="button" style={primaryButtonStyle} onClick={() => void handleCreate()}>
+                  Criar issue
+                </button>
+              </div>
+            </div>
+
+            <div style={actionClusterStyle}>
+              <strong>Estado da fila</strong>
+              <StatusLine label="Items carregados" value={issues.length} />
+              <StatusLine label="Escopo" value={context.companyId.slice(0, 8)} />
+              <StatusLine label="Status da leitura" value={loading ? "sincronizando" : "atualizado"} />
+            </div>
           </div>
           {loading ? <div style={mutedTextStyle}>Carregando issues…</div> : null}
           {error ? <div style={{ ...mutedTextStyle, color: "var(--destructive, #dc2626)" }}>{error}</div> : null}
@@ -1116,40 +1261,48 @@ function KitchenSinkCompanyCrudDemo({ context }: { context: PluginPageProps["con
 
 function KitchenSinkTopRow({ context }: { context: PluginPageProps["context"] }) {
   return (
-    <div
-      style={{
-        display: "grid",
-        gap: "14px",
-        gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
-        alignItems: "stretch",
-      }}
+    <Section
+      title="Cockpit Operacional"
+      eyebrow="Visão geral"
+      collapsible
+      description="Abertura tática da Central com contexto ativo, rota principal e prioridades do operador."
+      action={<Pill label={context.companyId ? "empresa ativa" : "aguardando empresa"} />}
     >
-      <Section title="Cockpit Operacional">
-        <div style={{ fontSize: "13px", lineHeight: 1.5 }}>
-          A Central de Operações concentra intake, follow-up, métricas, automações, sinais do runtime e atalhos de coordenação em uma página nativa da empresa.
+      <div style={groupedGridStyle}>
+        <div style={spotlightCardStyle}>
+          <div style={{ fontSize: "13px", lineHeight: 1.6 }}>
+            A Central de Operações concentra intake, follow-up, métricas, automações, sinais do runtime e atalhos de coordenação em uma superfície única da empresa.
+          </div>
+          <div style={rowStyle}>
+            {context.companyId ? <Pill label={`Empresa ${context.companyId.slice(0, 8)}`} /> : <Pill label="Sem empresa selecionada" />}
+            {context.projectId ? <Pill label={`Projeto ${context.projectId.slice(0, 8)}`} /> : null}
+            {context.entityType ? <Pill label={`Contexto ${formatToken(context.entityType)}`} /> : null}
+          </div>
         </div>
-        <div style={rowStyle}>
-          {context.companyId ? <Pill label={`Empresa: ${context.companyId.slice(0, 8)}`} /> : <Pill label="Sem empresa selecionada" />}
-          {context.projectId ? <Pill label={`Projeto: ${context.projectId.slice(0, 8)}`} /> : null}
-          {context.entityType ? <Pill label={`Contexto: ${formatToken(context.entityType)}`} /> : null}
-        </div>
-      </Section>
-      <div style={{ display: "grid", gap: "14px" }}>
-        <Section title="Acesso Rápido">
+
+        <div style={actionClusterStyle}>
+          <strong>Entrada principal</strong>
           <div style={mutedTextStyle}>
-            Esta rota é a entrada principal da Central para a empresa atual e deve funcionar como ponto único de coordenação operacional.
+            Esta rota deve funcionar como hub primário do operador, reduzindo troca de contexto com o restante do host.
           </div>
           <a href={pluginPagePath(context.companyPrefix)} style={{ fontSize: "12px" }}>
             {pluginPagePath(context.companyPrefix)}
           </a>
-        </Section>
-      <Section title="Foco de Operação">
-        <div style={mutedTextStyle}>
-          Priorize aqui o que reduz troca de contexto: registrar issues, acompanhar execuções, acionar agentes e validar diagnósticos do workspace.
         </div>
-        </Section>
+
+        <div style={actionClusterStyle}>
+          <strong>Prioridades do turno</strong>
+          <div style={mutedTextStyle}>
+            Organize a operação em três frentes: acompanhar a fila, validar execução ativa e registrar memória de trabalho útil.
+          </div>
+          <div style={{ display: "grid", gap: "6px", fontSize: "12px" }}>
+            <div>1. Registrar e avançar follow-ups sem sair do cockpit.</div>
+            <div>2. Ver execuções e heartbeats antes de intervir em agentes.</div>
+            <div>3. Consolidar notas e diagnósticos do workspace sob demanda.</div>
+          </div>
+        </div>
       </div>
-    </div>
+    </Section>
   );
 }
 
@@ -1203,29 +1356,47 @@ function KitchenSinkStorageDemo({ context }: { context: PluginPageProps["context
   }
 
   return (
-    <Section title="Memória Operacional">
-      <div style={mutedTextStyle}>
-        Este contador persiste no armazenamento escopado por empresa. Serve como base para cursores, confirmações, checkpoints e chaves externas que a operação precise lembrar.
-      </div>
+    <Section
+      title="Memória Operacional"
+      eyebrow="Estado persistente"
+      collapsible
+      description="Persistência escopada por empresa para guardar cursores, checkpoints e confirmações operacionais."
+      action={context.companyId ? <Pill label={stateKey} /> : undefined}
+    >
       {!context.companyId ? (
-            <div style={mutedTextStyle}>Selecione uma empresa para usar a memória operacional escopada.</div>
+        <div style={mutedTextStyle}>Selecione uma empresa para usar a memória operacional escopada.</div>
       ) : (
         <>
-          <div style={{ display: "grid", gap: "4px" }}>
-            <div style={{ fontSize: "26px", fontWeight: 700 }}>{currentValue}</div>
-            <div style={mutedTextStyle}>Armazenado em `company/{context.companyId}/{stateKey}`</div>
+          <div style={groupedGridStyle}>
+            <div style={spotlightCardStyle}>
+              <div style={{ fontSize: "11px", opacity: 0.68, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                Valor atual
+              </div>
+              <div style={{ fontSize: "30px", fontWeight: 700, lineHeight: 1 }}>{currentValue}</div>
+              <div style={mutedTextStyle}>Armazenado em `company/{context.companyId}/{stateKey}`</div>
+            </div>
+
+            <div style={actionClusterStyle}>
+              <strong>Ajuste rápido</strong>
+              <div style={mutedTextStyle}>
+                Use incrementos curtos para cursores e checkpoints, ou saltos maiores para confirmação de lotes operacionais.
+              </div>
+              <div style={rowStyle}>
+                {[-10, -1, 1, 10].map((delta) => (
+                  <button key={delta} type="button" style={buttonStyle} onClick={() => void adjust(delta)}>
+                    {delta > 0 ? `+${delta}` : delta}
+                  </button>
+                ))}
+                <button type="button" style={buttonStyle} onClick={() => void reset()}>
+                  Resetar
+                </button>
+              </div>
+            </div>
           </div>
-          <div style={rowStyle}>
-            {[-10, -1, 1, 10].map((delta) => (
-              <button key={delta} type="button" style={buttonStyle} onClick={() => void adjust(delta)}>
-                {delta > 0 ? `+${delta}` : delta}
-              </button>
-            ))}
-            <button type="button" style={buttonStyle} onClick={() => void reset()}>
-              Resetar
-            </button>
+          <div style={actionClusterStyle}>
+            <strong>Payload persistido</strong>
+            <JsonBlock value={revenueState.data ?? { scopeKind: "company", stateKey, value: 0 }} />
           </div>
-          <JsonBlock value={revenueState.data ?? { scopeKind: "company", stateKey, value: 0 }} />
         </>
       )}
     </Section>
@@ -1261,23 +1432,38 @@ function KitchenSinkHostIntegrationDemo({ context }: { context: PluginPageProps[
   }, [context.companyId]);
 
   return (
-    <Section title="Execuções e Heartbeats">
-      <div style={mutedTextStyle}>
-        Monitore aqui as execuções em andamento e os heartbeats mais recentes para entender o estado vivo da operação.
-      </div>
-      <div style={subtleCardStyle}>
-        <div style={rowStyle}>
-          <strong>Rota ativa</strong>
-          <Pill label={pluginPagePath(context.companyPrefix)} />
-        </div>
-        <div style={mutedTextStyle}>
-          A Central é montada diretamente no escopo da empresa para reduzir fricção no fluxo do operador.
-        </div>
-      </div>
+    <Section
+      title="Execuções e Heartbeats"
+      eyebrow="Estado vivo"
+      collapsible
+      description="Acompanhe execuções em andamento e heartbeats recentes para decidir quando intervir ou apenas observar."
+      action={context.companyId ? <Pill label={`${liveRuns.length} ao vivo`} /> : undefined}
+    >
       {!context.companyId ? (
         <div style={mutedTextStyle}>Selecione uma empresa para ler os dados de execução.</div>
       ) : (
-        <div style={{ display: "grid", gap: "12px", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))" }}>
+        <div style={{ display: "grid", gap: "12px" }}>
+          <div style={groupedGridStyle}>
+            <div style={actionClusterStyle}>
+              <strong>Execuções em andamento</strong>
+              <div style={{ fontSize: "28px", fontWeight: 700, lineHeight: 1 }}>{liveRuns.length}</div>
+              <div style={mutedTextStyle}>Visão imediata do que está ativo no host para a empresa atual.</div>
+            </div>
+            <div style={actionClusterStyle}>
+              <strong>Heartbeats recentes</strong>
+              <div style={{ fontSize: "28px", fontWeight: 700, lineHeight: 1 }}>{recentRuns.length}</div>
+              <div style={mutedTextStyle}>Use como sinal de saúde antes de acionar pausas, retomadas ou investigações.</div>
+            </div>
+            <div style={actionClusterStyle}>
+              <strong>Rota ativa</strong>
+              <Pill label={pluginPagePath(context.companyPrefix)} />
+              <div style={mutedTextStyle}>
+                A Central roda diretamente no escopo da empresa para reduzir fricção no fluxo do operador.
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display: "grid", gap: "12px", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))" }}>
           <div style={subtleCardStyle}>
             <div style={sectionHeaderStyle}>
               <strong>Execuções ao Vivo</strong>
@@ -1328,6 +1514,7 @@ function KitchenSinkHostIntegrationDemo({ context }: { context: PluginPageProps[
               }}
             />
           </div>
+          </div>
         </div>
       )}
     </Section>
@@ -1336,10 +1523,11 @@ function KitchenSinkHostIntegrationDemo({ context }: { context: PluginPageProps[
 
 function KitchenSinkEmbeddedApp({ context }: { context: PluginPageProps["context"] }) {
   return (
-    <div style={{ display: "grid", gap: "14px" }}>
-      <KitchenSinkTopRow context={context} />
-      <KitchenSinkStorageDemo context={context} />
-      <KitchenSinkIssueCrudDemo context={context} />
+    <div style={pageShellStyle}>
+      <div style={groupedGridStyle}>
+        <KitchenSinkStorageDemo context={context} />
+        <KitchenSinkIssueCrudDemo context={context} />
+      </div>
       <KitchenSinkHostIntegrationDemo context={context} />
     </div>
   );
@@ -1498,10 +1686,16 @@ function OperationsWorkbench({ context }: { context: PluginPageProps["context"] 
 
   return (
     <div style={{ display: "grid", gap: "14px" }}>
-      <Section title="Coordenação Operacional">
+      <Section
+        title="Coordenação Operacional"
+        eyebrow="Workbench"
+        collapsible
+        description="Agrupe criação de follow-ups, avanço de status e ativação de metas sem trocar de superfície."
+        action={companyId ? <Pill label={`${(issues.data ?? []).length} issues`} /> : undefined}
+      >
         <div style={{ display: "grid", gap: "10px", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))" }}>
           <form
-            style={layoutStack}
+            style={actionClusterStyle}
             onSubmit={(event) => {
               event.preventDefault();
               if (!companyId) return;
@@ -1518,7 +1712,7 @@ function OperationsWorkbench({ context }: { context: PluginPageProps["context"] 
             <button type="submit" style={primaryButtonStyle} disabled={!companyId}>Criar issue</button>
           </form>
           <form
-            style={layoutStack}
+            style={actionClusterStyle}
             onSubmit={(event) => {
               event.preventDefault();
               if (!companyId || !selectedIssueId) return;
@@ -1539,7 +1733,7 @@ function OperationsWorkbench({ context }: { context: PluginPageProps["context"] 
             <button type="submit" style={buttonStyle} disabled={!companyId || !selectedIssueId}>Mover para em revisão</button>
           </form>
           <form
-            style={layoutStack}
+            style={actionClusterStyle}
             onSubmit={(event) => {
               event.preventDefault();
               if (!companyId) return;
@@ -1556,7 +1750,7 @@ function OperationsWorkbench({ context }: { context: PluginPageProps["context"] 
             <button type="submit" style={primaryButtonStyle} disabled={!companyId}>Criar meta</button>
           </form>
           <form
-            style={layoutStack}
+            style={actionClusterStyle}
             onSubmit={(event) => {
               event.preventDefault();
               if (!companyId || !selectedGoalId) return;
@@ -1579,10 +1773,17 @@ function OperationsWorkbench({ context }: { context: PluginPageProps["context"] 
         </div>
       </Section>
 
-      <Section title="Agentes, Ferramentas e Automação">
+      <Section
+        title="Agentes, Ferramentas e Automação"
+        eyebrow="Workbench"
+        collapsible
+        defaultOpen={false}
+        description="Coordene agentes, dispare automações controladas e use ferramentas operacionais no mesmo grupo de execução."
+        action={companyId ? <Pill label={`${(agents.data ?? []).length} agentes`} /> : undefined}
+      >
         <div style={{ display: "grid", gap: "10px", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))" }}>
           <form
-            style={layoutStack}
+            style={actionClusterStyle}
             onSubmit={(event) => {
               event.preventDefault();
               if (!companyId || !selectedAgentId) return;
@@ -1645,7 +1846,7 @@ function OperationsWorkbench({ context }: { context: PluginPageProps["context"] 
             <JsonBlock value={agentStream.events.slice(-8)} />
           </form>
 
-          <div style={layoutStack}>
+          <div style={actionClusterStyle}>
             <strong>Automação</strong>
             <div style={rowStyle}>
               <button type="button" style={buttonStyle} onClick={() => void fetchJobsAndTrigger()}>
@@ -1672,7 +1873,7 @@ function OperationsWorkbench({ context }: { context: PluginPageProps["context"] 
             <JsonBlock value={progressStream.events.slice(-6)} />
           </div>
 
-          <div style={layoutStack}>
+          <div style={actionClusterStyle}>
             <strong>Ferramentas operacionais</strong>
             <input style={inputStyle} value={toolMessage} onChange={(event) => setToolMessage(event.target.value)} />
             <div style={rowStyle}>
@@ -1685,9 +1886,16 @@ function OperationsWorkbench({ context }: { context: PluginPageProps["context"] 
         </div>
       </Section>
 
-      <Section title="Workspace e Diagnósticos">
+      <Section
+        title="Workspace e Diagnósticos"
+        eyebrow="Workbench"
+        collapsible
+        defaultOpen={false}
+        description="Selecione workspaces, grave notas de apoio e rode diagnósticos controlados apenas quando houver necessidade explícita."
+        action={companyId ? <Pill label={`${(workspaceQuery.data ?? []).length} workspaces`} /> : undefined}
+      >
         <div style={{ display: "grid", gap: "10px", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))" }}>
-          <div style={layoutStack}>
+          <div style={actionClusterStyle}>
             <strong>Selecionar projeto e workspace</strong>
             <select style={inputStyle} value={selectedProjectId} onChange={(event) => setSelectedProjectId(event.target.value)}>
               <option value="">Selecione um projeto</option>
@@ -1705,7 +1913,7 @@ function OperationsWorkbench({ context }: { context: PluginPageProps["context"] 
           </div>
 
           <form
-            style={layoutStack}
+            style={actionClusterStyle}
             onSubmit={(event) => {
               event.preventDefault();
               if (!companyId || !selectedProjectId) return;
@@ -1746,7 +1954,7 @@ function OperationsWorkbench({ context }: { context: PluginPageProps["context"] 
           </form>
 
           <form
-            style={layoutStack}
+            style={actionClusterStyle}
             onSubmit={(event) => {
               event.preventDefault();
               if (!companyId || !selectedProjectId) return;
@@ -1775,7 +1983,14 @@ function OperationsWorkbench({ context }: { context: PluginPageProps["context"] 
         </div>
       </Section>
 
-      <Section title="Resultado Operacional">
+      <Section
+        title="Resultado Operacional"
+        eyebrow="Workbench"
+        collapsible
+        defaultOpen={false}
+        description="Saída consolidada das ações mais recentes para depuração rápida e conferência imediata."
+        action={<Pill label={result ? "atualizado" : "aguardando"} />}
+      >
         <JsonBlock value={result ?? { note: "Execute uma ação para ver o resultado aqui." }} />
       </Section>
     </div>
@@ -2533,12 +2748,125 @@ function KitchenSinkConsole({ context }: { context: { companyId: string | null; 
   );
 }
 
-export function KitchenSinkPage({ context }: PluginPageProps) {
+function OperationsHero({ context }: { context: PluginPageProps["context"] }) {
+  const overview = usePluginOverview(context.companyId);
+
   return (
-    <div style={layoutStack}>
-      <KitchenSinkPageWidgets context={context} />
-      <KitchenSinkEmbeddedApp context={context} />
-      <OperationsWorkbench context={context} />
+    <section style={heroShellStyle}>
+      <div style={{ display: "grid", gap: "12px" }}>
+        <div style={{ fontSize: "11px", opacity: 0.68, textTransform: "uppercase", letterSpacing: "0.08em" }}>
+          Plugin interno do produto
+        </div>
+        <div style={{ display: "grid", gap: "8px" }}>
+          <h1 style={{ margin: 0, fontSize: "30px", lineHeight: 1.05 }}>{PLUGIN_DISPLAY_NAME}</h1>
+          <div style={{ ...mutedTextStyle, fontSize: "13px", opacity: 0.82 }}>
+            Use as guias para alternar entre visão geral, fluxo operacional e workbench avançado. A ideia é reduzir ruído sem perder profundidade quando a operação exigir abrir detalhes.
+          </div>
+        </div>
+        <div style={rowStyle}>
+          {context.companyId ? <Pill label={`empresa ${context.companyId.slice(0, 8)}`} /> : <Pill label="selecione uma empresa" />}
+          {context.projectId ? <Pill label={`projeto ${context.projectId.slice(0, 8)}`} /> : null}
+          {context.entityType ? <Pill label={`contexto ${formatToken(context.entityType)}`} /> : null}
+          <Pill label={`rota ${pluginPagePath(context.companyPrefix)}`} />
+        </div>
+      </div>
+
+      <div style={heroMetricGridStyle}>
+        <HeroMetric
+          label="Projetos"
+          value={overview.data?.counts.projects ?? 0}
+          detail="Projetos visíveis no escopo atual da empresa."
+        />
+        <HeroMetric
+          label="Issues"
+          value={overview.data?.counts.issues ?? 0}
+          detail="Fila operacional disponível para coordenação imediata."
+        />
+        <HeroMetric
+          label="Agentes"
+          value={overview.data?.counts.agents ?? 0}
+          detail="Agentes que podem ser acionados ou pausados pela Central."
+        />
+        <HeroMetric
+          label="Sinais"
+          value={overview.data?.recentRecords.length ?? 0}
+          detail="Registros recentes do runtime para leitura rápida."
+        />
+      </div>
+    </section>
+  );
+}
+
+export function KitchenSinkPage({ context }: PluginPageProps) {
+  const [activeTab, setActiveTab] = useState<"overview" | "flow" | "workbench">("overview");
+
+  const tabs = [
+    {
+      id: "overview" as const,
+      label: "Visão Geral",
+      description: "Cockpit, radar do runtime e contexto imediato da operação atual.",
+      content: (
+        <div style={pageShellStyle}>
+          <KitchenSinkTopRow context={context} />
+          <Section
+            title="Radar do Runtime"
+            eyebrow="Sinais rápidos"
+            collapsible
+            description="Indicadores curtos para confirmar saúde do runtime, ações rápidas e cobertura das superfícies operacionais."
+          >
+            <KitchenSinkPageWidgets context={context} />
+          </Section>
+          {context.entityId || context.entityType ? (
+            <Section
+              title="Contexto Atual"
+              eyebrow="Superfície ativa"
+              collapsible
+              defaultOpen={false}
+              description="Resumo do contexto ativo no host para evitar perda de orientação ao alternar entre projeto, issue e comentário."
+            >
+              <CompactSurfaceSummary label="Resumo contextual" />
+            </Section>
+          ) : null}
+        </div>
+      ),
+    },
+    {
+      id: "flow" as const,
+      label: "Fluxo Operacional",
+      description: "Memória persistente, intake, follow-up e leitura do estado vivo da operação.",
+      content: <KitchenSinkEmbeddedApp context={context} />,
+    },
+    {
+      id: "workbench" as const,
+      label: "Workbench Avançado",
+      description: "Área para coordenação de agentes, automação, workspace e diagnósticos controlados.",
+      content: <OperationsWorkbench context={context} />,
+    },
+  ];
+
+  const activeTabConfig = tabs.find((tab) => tab.id === activeTab) ?? tabs[0];
+
+  return (
+    <div style={pageShellStyle}>
+      <OperationsHero context={context} />
+
+      <div style={{ display: "grid", gap: "10px" }}>
+        <div style={tabRailStyle}>
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              style={tabButtonStyle(tab.id === activeTab)}
+              onClick={() => setActiveTab(tab.id)}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+        <div style={mutedTextStyle}>{activeTabConfig.description}</div>
+      </div>
+
+      {activeTabConfig.content}
     </div>
   );
 }
