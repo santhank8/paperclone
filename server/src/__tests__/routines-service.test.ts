@@ -434,6 +434,90 @@ describeEmbeddedPostgres("routine service live-execution coalescing", () => {
     });
   });
 
+  it("does not dispatch overdue schedule runs when catch-up policy is skip_missed", async () => {
+    const { routine, svc } = await seedFixture();
+    const { trigger } = await svc.createTrigger(
+      routine.id,
+      {
+        kind: "schedule",
+        label: "every minute",
+        cronExpression: "* * * * *",
+        timezone: "UTC",
+      },
+      {},
+    );
+
+    const now = new Date("2026-03-20T12:00:00.000Z");
+    const pastNextRunAt = new Date("2026-03-20T11:55:00.000Z");
+
+    await db
+      .update(routineTriggers)
+      .set({ nextRunAt: pastNextRunAt })
+      .where(eq(routineTriggers.id, trigger.id));
+
+    const tick = await svc.tickScheduledTriggers(now);
+    expect(tick).toEqual({ triggered: 0 });
+
+    const dispatchedRuns = await db
+      .select({ id: routineRuns.id })
+      .from(routineRuns)
+      .where(eq(routineRuns.routineId, routine.id));
+    expect(dispatchedRuns).toHaveLength(0);
+
+    const updatedTrigger = await db
+      .select({ nextRunAt: routineTriggers.nextRunAt })
+      .from(routineTriggers)
+      .where(eq(routineTriggers.id, trigger.id))
+      .then((rows) => rows[0] ?? null);
+
+    expect(updatedTrigger?.nextRunAt).toBeTruthy();
+    expect(updatedTrigger!.nextRunAt!.getTime()).toBeGreaterThan(now.getTime());
+  });
+
+  it("skip_missed still runs on normal tick jitter (nextRunAt only seconds behind)", async () => {
+    const { companyId, agentId, projectId, svc } = await seedFixture();
+    const routine = await svc.create(
+      companyId,
+      {
+        projectId,
+        goalId: null,
+        parentIssueId: null,
+        title: "jitter test",
+        description: "should still fire",
+        assigneeAgentId: agentId,
+        priority: "medium",
+        status: "active",
+        concurrencyPolicy: "allow",
+        catchUpPolicy: "skip_missed",
+        variables: [],
+      },
+      {},
+    );
+    const trigger = await svc.createTrigger(
+      routine.id,
+      {
+        kind: "schedule",
+        label: "hourly",
+        cronExpression: "0 * * * *",
+        timezone: "UTC",
+      },
+      {},
+    );
+
+    // nextRunAt is 3 seconds in the past - normal tick jitter, NOT a missed run
+    const now = new Date("2026-03-20T12:00:03.000Z");
+    const slightlyPast = new Date("2026-03-20T12:00:00.000Z");
+
+    await db
+      .update(routineTriggers)
+      .set({ nextRunAt: slightlyPast })
+      .where(eq(routineTriggers.id, trigger.id));
+
+    const tick = await svc.tickScheduledTriggers(now);
+    // Should trigger because nextRunAt is within the current cron interval
+    expect(tick).toEqual({ triggered: 1 });
+  });
+
   it("blocks schedule triggers when required variables do not have defaults", async () => {
     const { companyId, agentId, projectId, svc } = await seedFixture();
     const variableRoutine = await svc.create(
