@@ -221,6 +221,7 @@ export function OnboardingWizard() {
     pi_local: "pi",
     cursor: "agent",
     opencode_local: "opencode",
+    copilot_local: "copilot",
   };
   const effectiveAdapterCommand =
     command.trim() ||
