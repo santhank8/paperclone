@@ -11,6 +11,15 @@ describe("instructionsBundleHasFile", () => {
     })).toBe(true);
   });
 
+  it("returns true when the file is already present in fileOptions", () => {
+    expect(instructionsBundleHasFile({
+      bundleMatchesDraft: true,
+      currentEntryFile: "AGENTS.md",
+      selectedFile: "AGENTS.md",
+      fileOptions: ["AGENTS.md", "HEARTBEAT.md"],
+    })).toBe(true);
+  });
+
   it("does not treat unrelated missing files as existing", () => {
     expect(instructionsBundleHasFile({
       bundleMatchesDraft: true,
