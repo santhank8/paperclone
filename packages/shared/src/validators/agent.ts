@@ -5,7 +5,7 @@ import {
   AGENT_STATUSES,
   INBOX_MINE_ISSUE_STATUS_FILTER,
 } from "../constants.js";
-import { agentAdapterTypeSchema } from "../adapter-type.js";
+import { agentAdapterTypeSchema, optionalAgentAdapterTypeSchema } from "../adapter-type.js";
 import { envConfigSchema } from "./secret.js";
 
 export const agentPermissionsSchema = z.object({
@@ -69,15 +69,24 @@ export const createAgentHireSchema = createAgentSchema.extend({
 
 export type CreateAgentHire = z.infer<typeof createAgentHireSchema>;
 
-export const updateAgentSchema = createAgentSchema
-  .omit({ permissions: true })
-  .partial()
-  .extend({
-    permissions: z.never().optional(),
-    replaceAdapterConfig: z.boolean().optional(),
-    status: z.enum(AGENT_STATUSES).optional(),
-    spentMonthlyCents: z.number().int().nonnegative().optional(),
-  });
+export const updateAgentSchema = z.object({
+  name: z.string().min(1).optional(),
+  role: z.enum(AGENT_ROLES).optional(),
+  title: z.string().optional().nullable(),
+  icon: z.enum(AGENT_ICON_NAMES).optional().nullable(),
+  reportsTo: z.string().uuid().optional().nullable(),
+  capabilities: z.string().optional().nullable(),
+  desiredSkills: z.array(z.string().min(1)).optional(),
+  adapterType: optionalAgentAdapterTypeSchema,
+  adapterConfig: adapterConfigSchema.optional(),
+  runtimeConfig: z.record(z.string(), z.unknown()).optional(),
+  budgetMonthlyCents: z.number().int().nonnegative().optional(),
+  metadata: z.record(z.string(), z.unknown()).optional().nullable(),
+  permissions: z.never().optional(),
+  replaceAdapterConfig: z.boolean().optional(),
+  status: z.enum(AGENT_STATUSES).optional(),
+  spentMonthlyCents: z.number().int().nonnegative().optional(),
+});
 
 export type UpdateAgent = z.infer<typeof updateAgentSchema>;
 
