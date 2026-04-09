@@ -98,6 +98,7 @@ async function resolveBindingsForAgent(
     .where(
       and(
         inArray(memoryBindings.id, bindingIds),
+        eq(memoryBindings.companyId, companyId),
         eq(memoryBindings.enabled, true),
       ),
     );

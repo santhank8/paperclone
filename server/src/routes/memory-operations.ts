@@ -36,8 +36,22 @@ export function memoryOperationRoutes(db: Db) {
     if (agentId) conditions.push(eq(memoryOperations.agentId, agentId as string));
     if (operationType) conditions.push(eq(memoryOperations.operationType, operationType as string));
     if (success !== undefined) conditions.push(eq(memoryOperations.success, success === "true"));
-    if (from) conditions.push(gte(memoryOperations.createdAt, new Date(from as string)));
-    if (to) conditions.push(lte(memoryOperations.createdAt, new Date(to as string)));
+    if (from) {
+      const fromDate = new Date(from as string);
+      if (isNaN(fromDate.getTime())) {
+        res.status(400).json({ error: "Invalid 'from' date" });
+        return;
+      }
+      conditions.push(gte(memoryOperations.createdAt, fromDate));
+    }
+    if (to) {
+      const toDate = new Date(to as string);
+      if (isNaN(toDate.getTime())) {
+        res.status(400).json({ error: "Invalid 'to' date" });
+        return;
+      }
+      conditions.push(lte(memoryOperations.createdAt, toDate));
+    }
 
     const where = and(...conditions);
 

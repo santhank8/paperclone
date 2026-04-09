@@ -1,5 +1,7 @@
 import { Router } from "express";
+import { eq, and } from "drizzle-orm";
 import type { Db } from "@paperclipai/db";
+import { agents } from "@paperclipai/db";
 import {
   createMemoryBindingSchema,
   updateMemoryBindingSchema,
@@ -160,6 +162,18 @@ export function memoryBindingRoutes(db: Db) {
         return;
       }
       assertCompanyAccess(req, binding.companyId);
+
+      // Prevent cross-company target assignments
+      if (req.body.targetType === "agent") {
+        const [agent] = await db
+          .select({ companyId: agents.companyId })
+          .from(agents)
+          .where(eq(agents.id, req.body.targetId));
+        if (!agent || agent.companyId !== binding.companyId) {
+          res.status(403).json({ error: "Target agent does not belong to this company" });
+          return;
+        }
+      }
 
       let target;
       try {
