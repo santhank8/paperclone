@@ -98,14 +98,8 @@ export function createMempalaceSidecar(config: MempalaceSidecarConfig): Mempalac
     _healthCheckTimer = setInterval(async () => {
       if (_status !== "running" || _stopping) return;
       try {
-        // Use a lightweight query as a liveness probe —
-        // the MCP SDK will throw if the connection is dead.
-        await mcpAdapter.query({
-          bindingKey: "__health__",
-          scope: { companyId: "__health__" },
-          query: "__ping__",
-          topK: 1,
-        });
+        // Lightweight MCP protocol-level liveness probe.
+        await mcpAdapter.ping();
       } catch {
         if (_stopping) return;
         setStatus("unhealthy");

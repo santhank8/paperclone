@@ -161,7 +161,16 @@ export function memoryBindingRoutes(db: Db) {
       }
       assertCompanyAccess(req, binding.companyId);
 
-      const target = await svc.addTarget(bindingId, req.body);
+      let target;
+      try {
+        target = await svc.addTarget(bindingId, req.body);
+      } catch (err) {
+        if ((err as { code?: string }).code === "23505") {
+          res.status(409).json({ error: "This target is already assigned to the binding" });
+          return;
+        }
+        throw err;
+      }
 
       const actor = getActorInfo(req);
       await logActivity(db, {

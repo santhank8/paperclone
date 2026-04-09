@@ -98,6 +98,10 @@ export function memoryOperationRoutes(db: Db) {
         res.status(404).json({ error: "Memory binding not found" });
         return;
       }
+      if (req.body.scope.companyId !== binding.companyId) {
+        res.status(403).json({ error: "Scope companyId does not match binding company" });
+        return;
+      }
 
       const result = await opSvc.write(binding.id, req.body);
 
@@ -132,6 +136,10 @@ export function memoryOperationRoutes(db: Db) {
         res.status(404).json({ error: "Memory binding not found" });
         return;
       }
+      if (req.body.scope.companyId !== binding.companyId) {
+        res.status(403).json({ error: "Scope companyId does not match binding company" });
+        return;
+      }
 
       const result = await opSvc.query(binding.id, req.body);
 
@@ -164,6 +172,10 @@ export function memoryOperationRoutes(db: Db) {
       const binding = await resolveAndAuthorize(req);
       if (!binding) {
         res.status(404).json({ error: "Memory binding not found" });
+        return;
+      }
+      if (req.body.scope.companyId !== binding.companyId) {
+        res.status(403).json({ error: "Scope companyId does not match binding company" });
         return;
       }
 

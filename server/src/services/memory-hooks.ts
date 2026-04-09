@@ -118,7 +118,11 @@ async function resolveBindingsForAgent(
     if (!adapter) continue;
 
     const config = (binding.config ?? {}) as Record<string, unknown>;
-    const hooks = (config.hooks ?? {}) as MemoryHooksConfig;
+    const rawHooks = config.hooks;
+    const hooks: MemoryHooksConfig =
+      rawHooks && typeof rawHooks === "object" && !Array.isArray(rawHooks)
+        ? (rawHooks as MemoryHooksConfig)
+        : {};
 
     resolved.push({
       bindingId: binding.id,
@@ -195,6 +199,7 @@ async function hydrateRunContext(
   for (const binding of hydrateBindings) {
     const topK = binding.hooks.preRunHydrate?.topK ?? 5;
 
+    const adapterStart = Date.now();
     try {
       const result: MemoryContextBundle = await binding.adapter.query({
         bindingKey: binding.bindingKey,
@@ -203,6 +208,7 @@ async function hydrateRunContext(
         topK,
         intent: "agent_preamble",
       });
+      const adapterLatencyMs = Date.now() - adapterStart;
 
       allSnippets.push(...result.snippets);
       if (result.usage) allUsage.push(...result.usage);
@@ -217,10 +223,12 @@ async function hydrateRunContext(
         operationType: "query",
         scope,
         usage: result.usage,
+        latencyMs: adapterLatencyMs,
         success: true,
         hookName: "preRunHydrate",
-      }).catch(() => {});
+      }).catch((err) => { logger.warn({ err }, "failed to log memory hook operation"); });
     } catch (err) {
+      const adapterLatencyMs = Date.now() - adapterStart;
       const message = err instanceof Error ? err.message : String(err);
       logger.warn(
         {
@@ -238,10 +246,11 @@ async function hydrateRunContext(
         bindingId: binding.bindingId,
         operationType: "query",
         scope,
+        latencyMs: adapterLatencyMs,
         success: false,
         error: message,
         hookName: "preRunHydrate",
-      }).catch(() => {});
+      }).catch((err) => { logger.warn({ err }, "failed to log memory hook operation"); });
     }
   }
 
@@ -308,6 +317,7 @@ async function captureRunResult(
     const captureDepth = binding.hooks.postRunCapture?.captureDepth ?? "summary";
     const content = buildCaptureContent(params, captureDepth);
 
+    const adapterStart = Date.now();
     try {
       const result = await binding.adapter.write({
         bindingKey: binding.bindingKey,
@@ -321,6 +331,7 @@ async function captureRunResult(
         content,
         mode: "append",
       });
+      const adapterLatencyMs = Date.now() - adapterStart;
 
       if (result.usage) allUsage.push(...result.usage);
       bindingsCaptured++;
@@ -331,10 +342,12 @@ async function captureRunResult(
         operationType: "write",
         scope,
         usage: result.usage,
+        latencyMs: adapterLatencyMs,
         success: true,
         hookName: "postRunCapture",
-      }).catch(() => {});
+      }).catch((err) => { logger.warn({ err }, "failed to log memory hook operation"); });
     } catch (err) {
+      const adapterLatencyMs = Date.now() - adapterStart;
       const message = err instanceof Error ? err.message : String(err);
       logger.warn(
         {
@@ -352,10 +365,11 @@ async function captureRunResult(
         bindingId: binding.bindingId,
         operationType: "write",
         scope,
+        latencyMs: adapterLatencyMs,
         success: false,
         error: message,
         hookName: "postRunCapture",
-      }).catch(() => {});
+      }).catch((err) => { logger.warn({ err }, "failed to log memory hook operation"); });
     }
   }
 
@@ -385,7 +399,14 @@ function buildCaptureContent(
     lines.push("### Result");
     const resultStr = JSON.stringify(params.resultJson, null, 2);
     const maxLen = 4000;
-    lines.push(resultStr.length > maxLen ? resultStr.slice(0, maxLen) + "\n..." : resultStr);
+    if (resultStr.length > maxLen) {
+      lines.push("```");
+      lines.push(resultStr.slice(0, maxLen));
+      lines.push("```");
+      lines.push(`(truncated — ${resultStr.length} chars total)`);
+    } else {
+      lines.push(resultStr);
+    }
   }
 
   return lines.join("\n");
@@ -403,12 +424,12 @@ async function logHookOperation(
     operationType: string;
     scope: MemoryScope;
     usage?: MemoryUsage[];
+    latencyMs: number;
     success: boolean;
     error?: string;
     hookName: string;
   },
 ) {
-  const start = Date.now();
   await db.insert(memoryOperations).values({
     companyId: params.companyId,
     bindingId: params.bindingId,
@@ -419,7 +440,7 @@ async function logHookOperation(
     runId: params.scope.runId ?? null,
     sourceRef: { hook: params.hookName },
     usage: params.usage ? (params.usage as unknown as Record<string, unknown>) : null,
-    latencyMs: Date.now() - start,
+    latencyMs: params.latencyMs,
     success: params.success,
     error: params.error ?? null,
   });

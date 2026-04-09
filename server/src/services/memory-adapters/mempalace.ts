@@ -151,6 +151,8 @@ export function createMempalaceMemoryAdapter(
   connect(): Promise<void>;
   /** Disconnect from the mempalace MCP server and kill the sidecar. */
   disconnect(): Promise<void>;
+  /** Lightweight liveness check using MCP protocol ping. */
+  ping(): Promise<void>;
   /** Whether the adapter is currently connected. */
   readonly connected: boolean;
 } {
@@ -484,6 +486,11 @@ export function createMempalaceMemoryAdapter(
     providerManagedExtraction: true,
   };
 
+  async function ping(): Promise<void> {
+    const c = ensureConnected();
+    await c.ping({ timeout: callTimeoutMs });
+  }
+
   return {
     key: PROVIDER_KEY,
     capabilities,
@@ -493,6 +500,7 @@ export function createMempalaceMemoryAdapter(
     forget,
     connect,
     disconnect,
+    ping,
     get connected() {
       return _connected;
     },

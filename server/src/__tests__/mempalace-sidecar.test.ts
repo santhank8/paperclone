@@ -8,12 +8,14 @@ import { createMempalaceSidecar, type SidecarStatus } from "../services/memory-a
 const mockCallTool = vi.fn();
 const mockConnect = vi.fn();
 const mockClose = vi.fn();
+const mockPing = vi.fn();
 
 vi.mock("@modelcontextprotocol/sdk/client/index.js", () => ({
   Client: vi.fn().mockImplementation(() => ({
     connect: mockConnect,
     close: mockClose,
     callTool: mockCallTool,
+    ping: mockPing,
   })),
 }));
 
@@ -111,10 +113,8 @@ describe("MempalaceSidecar", () => {
 
   // ── Health checking ─────────────────────────────────────────────────
 
-  it("health check succeeds when query works", async () => {
-    mockCallTool.mockResolvedValue({
-      content: [{ type: "text", text: "[]" }],
-    });
+  it("health check succeeds when ping works", async () => {
+    mockPing.mockResolvedValue(undefined);
 
     const sidecar = createMempalaceSidecar({
       palaceDir: "/tmp/palace",
@@ -126,13 +126,13 @@ describe("MempalaceSidecar", () => {
     await vi.advanceTimersByTimeAsync(1100);
 
     expect(sidecar.status).toBe("running");
-    expect(mockCallTool).toHaveBeenCalled();
+    expect(mockPing).toHaveBeenCalled();
 
     await sidecar.stop();
   });
 
   it("health check failure triggers restart schedule", async () => {
-    mockCallTool.mockRejectedValue(new Error("connection dead"));
+    mockPing.mockRejectedValue(new Error("connection dead"));
 
     const logs: string[] = [];
     const sidecar = createMempalaceSidecar({
@@ -155,7 +155,7 @@ describe("MempalaceSidecar", () => {
   // ── Restart with backoff ────────────────────────────────────────────
 
   it("restarts with exponential backoff on failure", async () => {
-    mockCallTool.mockRejectedValue(new Error("dead"));
+    mockPing.mockRejectedValue(new Error("dead"));
 
     const statuses: SidecarStatus[] = [];
     const sidecar = createMempalaceSidecar({
@@ -182,7 +182,7 @@ describe("MempalaceSidecar", () => {
   });
 
   it("marks as failed after max restart attempts", async () => {
-    mockCallTool.mockRejectedValue(new Error("dead"));
+    mockPing.mockRejectedValue(new Error("dead"));
     // Make connect fail on restarts too
     let connectCalls = 0;
     mockConnect.mockImplementation(() => {

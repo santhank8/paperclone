@@ -3131,9 +3131,11 @@ export function heartbeatService(db: Db) {
         });
       };
 
+      // ── Memory hooks (shared across pre-run hydration and post-run capture)
+      const memHooks = memoryHooksService(db);
+
       // ── Memory: pre-run hydration ──────────────────────────────────
       try {
-        const memHooks = memoryHooksService(db);
         const hydrateResult = await memHooks.hydrateRunContext({
           companyId: agent.companyId,
           agentId: agent.id,
@@ -3443,7 +3445,6 @@ export function heartbeatService(db: Db) {
 
       // ── Memory: post-run capture ──────────────────────────────────
       try {
-        const memHooks = memoryHooksService(db);
         const captureResult = await memHooks.captureRunResult({
           companyId: agent.companyId,
           agentId: agent.id,

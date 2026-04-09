@@ -11,6 +11,7 @@ import type {
   MemoryContextBundle,
 } from "@paperclipai/plugin-sdk";
 import { notFound, badRequest } from "../errors.js";
+import { logger } from "../middleware/logger.js";
 
 // ---------------------------------------------------------------------------
 // In-memory adapter registry — plugins register adapters at startup, the
@@ -143,7 +144,7 @@ export function memoryOperationService(db: Db) {
           success: false,
           error: message,
           sourceRef: body.source as unknown as Record<string, unknown>,
-        }).catch(() => {}); // best-effort log on failure path
+        }).catch((err) => { logger.warn({ err }, "failed to log memory operation"); });
 
         throw err;
       }

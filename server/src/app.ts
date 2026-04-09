@@ -398,12 +398,24 @@ export async function createApp(
   }).catch((err) => {
     logger.error({ err }, "Failed to load ready plugins on startup");
   });
+  // Async cleanup for mempalace sidecar — must happen before process.exit().
+  // The "exit" event is synchronous and cannot await promises, so we use
+  // signal handlers that fire before the index.ts shutdown calls process.exit(0).
+  const stopMempalace = async () => {
+    if (mempalaceSidecar) {
+      try {
+        await mempalaceSidecar.stop();
+      } catch (err) {
+        logger.warn({ err }, "mempalace sidecar stop failed during shutdown");
+      }
+    }
+  };
+  process.on("SIGTERM", () => { void stopMempalace(); });
+  process.on("SIGINT", () => { void stopMempalace(); });
+
   process.once("exit", () => {
     if (feedbackExportTimer) clearInterval(feedbackExportTimer);
     devWatcher?.close();
-    if (mempalaceSidecar) {
-      void mempalaceSidecar.stop();
-    }
     hostServiceCleanup.disposeAll();
     hostServiceCleanup.teardown();
   });
