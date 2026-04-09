@@ -1753,12 +1753,12 @@ export function IssueChatThread({
     // Don't override an intentional hash-based scroll on first render
     const hash = location.hash;
     if (!hasScrolledRef.current && (hash.startsWith("#comment-") || hash.startsWith("#activity-") || hash.startsWith("#run-"))) return;
-    bottomAnchorRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+    bottomAnchorRef.current?.scrollIntoView?.({ behavior: "smooth", block: "end" });
   }, [variant, messages, location.hash]);
 
   function handleJumpToLatest() {
     userScrolledUpRef.current = false;
-    bottomAnchorRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+    bottomAnchorRef.current?.scrollIntoView?.({ behavior: "smooth", block: "end" });
   }
 
   const chatCtx = useMemo<IssueChatMessageContext>(
