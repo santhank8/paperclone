@@ -42,6 +42,7 @@ export const portabilityCompanyManifestEntrySchema = z.object({
   feedbackDataSharingConsentAt: z.string().datetime().nullable().default(null),
   feedbackDataSharingConsentByUserId: z.string().nullable().default(null),
   feedbackDataSharingTermsVersion: z.string().nullable().default(null),
+  timezone: z.string().nullable().default(null),
 });
 
 export const portabilitySidebarOrderSchema = z.object({

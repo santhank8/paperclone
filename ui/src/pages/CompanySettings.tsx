@@ -10,6 +10,13 @@ import { accessApi } from "../api/access";
 import { assetsApi } from "../api/assets";
 import { queryKeys } from "../lib/queryKeys";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Settings, Check, Download, Upload } from "lucide-react";
 import { CompanyPatternIcon } from "../components/CompanyPatternIcon";
 import {
@@ -25,6 +32,13 @@ type AgentSnippetInput = {
 };
 
 const FEEDBACK_TERMS_URL = import.meta.env.VITE_FEEDBACK_TERMS_URL?.trim() || "https://paperclip.ing/tos";
+const TIMEZONE_OPTIONS = [
+  { value: "UTC", label: "UTC" },
+  { value: "Asia/Kathmandu", label: "Asia/Kathmandu" },
+] as const;
+const SETTINGS_FIELD_CLASSNAME =
+  "h-9 w-full rounded-md border border-border bg-transparent px-2.5 text-sm outline-none";
+const SETTINGS_SELECT_TRIGGER_CLASSNAME = "h-9 w-full text-sm";
 
 export function CompanySettings() {
   const {
@@ -39,6 +53,7 @@ export function CompanySettings() {
   // General settings local state
   const [companyName, setCompanyName] = useState("");
   const [description, setDescription] = useState("");
+  const [timezone, setTimezone] = useState("");
   const [brandColor, setBrandColor] = useState("");
   const [logoUrl, setLogoUrl] = useState("");
   const [logoUploadError, setLogoUploadError] = useState<string | null>(null);
@@ -48,6 +63,7 @@ export function CompanySettings() {
     if (!selectedCompany) return;
     setCompanyName(selectedCompany.name);
     setDescription(selectedCompany.description ?? "");
+    setTimezone(selectedCompany.timezone);
     setBrandColor(selectedCompany.brandColor ?? "");
     setLogoUrl(selectedCompany.logoUrl ?? "");
   }, [selectedCompany]);
@@ -61,12 +77,14 @@ export function CompanySettings() {
     !!selectedCompany &&
     (companyName !== selectedCompany.name ||
       description !== (selectedCompany.description ?? "") ||
+      timezone !== selectedCompany.timezone ||
       brandColor !== (selectedCompany.brandColor ?? ""));
 
   const generalMutation = useMutation({
     mutationFn: (data: {
       name: string;
       description: string | null;
+      timezone: string;
       brandColor: string | null;
     }) => companiesApi.update(selectedCompanyId!, data),
     onSuccess: () => {
@@ -241,9 +259,14 @@ export function CompanySettings() {
     generalMutation.mutate({
       name: companyName.trim(),
       description: description.trim() || null,
+      timezone: timezone.trim() || "UTC",
       brandColor: brandColor || null
     });
   }
+
+  const timezoneOptions = TIMEZONE_OPTIONS.some((option) => option.value === timezone)
+    ? TIMEZONE_OPTIONS
+    : [{ value: timezone, label: `${timezone} (current)` }, ...TIMEZONE_OPTIONS];
 
   return (
     <div className="max-w-2xl space-y-6">
@@ -260,7 +283,7 @@ export function CompanySettings() {
         <div className="space-y-3 rounded-md border border-border px-4 py-4">
           <Field label="Company name" hint="The display name for your company.">
             <input
-              className="w-full rounded-md border border-border bg-transparent px-2.5 py-1.5 text-sm outline-none"
+              className={SETTINGS_FIELD_CLASSNAME}
               type="text"
               value={companyName}
               onChange={(e) => setCompanyName(e.target.value)}
@@ -271,12 +294,29 @@ export function CompanySettings() {
             hint="Optional description shown in the company profile."
           >
             <input
-              className="w-full rounded-md border border-border bg-transparent px-2.5 py-1.5 text-sm outline-none"
+              className={SETTINGS_FIELD_CLASSNAME}
               type="text"
               value={description}
               placeholder="Optional company description"
               onChange={(e) => setDescription(e.target.value)}
             />
+          </Field>
+          <Field
+            label="Timezone"
+            hint="Used for company-local scheduling, including the default Monday morning COO routine. Limited to UTC and Asia/Kathmandu here for now."
+          >
+            <Select value={timezone} onValueChange={setTimezone}>
+              <SelectTrigger className={SETTINGS_SELECT_TRIGGER_CLASSNAME}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {timezoneOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </Field>
         </div>
       </div>
@@ -359,7 +399,7 @@ export function CompanySettings() {
                       }
                     }}
                     placeholder="Auto"
-                    className="w-28 rounded-md border border-border bg-transparent px-2.5 py-1.5 text-sm font-mono outline-none"
+                    className="h-9 w-28 rounded-md border border-border bg-transparent px-2.5 text-sm font-mono outline-none"
                   />
                   {brandColor && (
                     <Button

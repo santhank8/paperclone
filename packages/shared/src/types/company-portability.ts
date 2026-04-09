@@ -39,6 +39,7 @@ export interface CompanyPortabilityCompanyManifestEntry {
   feedbackDataSharingConsentAt: string | null;
   feedbackDataSharingConsentByUserId: string | null;
   feedbackDataSharingTermsVersion: string | null;
+  timezone: string | null;
 }
 
 export interface CompanyPortabilitySidebarOrder {

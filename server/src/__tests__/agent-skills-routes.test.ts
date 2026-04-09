@@ -53,6 +53,7 @@ const mockSecretService = vi.hoisted(() => ({
 const mockLogActivity = vi.hoisted(() => vi.fn());
 const mockTrackAgentCreated = vi.hoisted(() => vi.fn());
 const mockGetTelemetryClient = vi.hoisted(() => vi.fn());
+const mockEnsureDefaultRoutinesForAgentBestEffort = vi.hoisted(() => vi.fn());
 
 const mockAdapter = vi.hoisted(() => ({
   listSkills: vi.fn(),
@@ -66,6 +67,10 @@ vi.mock("@paperclipai/shared/telemetry", () => ({
 
 vi.mock("../telemetry.js", () => ({
   getTelemetryClient: mockGetTelemetryClient,
+}));
+
+vi.mock("../services/default-agent-routines.js", () => ({
+  ensureDefaultRoutinesForAgentBestEffort: mockEnsureDefaultRoutinesForAgentBestEffort,
 }));
 
 vi.mock("../services/index.js", () => ({
@@ -217,6 +222,7 @@ describe("agent skill routes", () => {
       }),
     );
     mockLogActivity.mockResolvedValue(undefined);
+    mockEnsureDefaultRoutinesForAgentBestEffort.mockResolvedValue(undefined);
     mockAccessService.canUser.mockResolvedValue(true);
     mockAccessService.hasPermission.mockResolvedValue(true);
     mockAccessService.getMembership.mockResolvedValue(null);
@@ -495,5 +501,43 @@ describe("agent skill routes", () => {
       | { payload?: { adapterConfig?: Record<string, unknown> } }
       | undefined;
     expect(approvalInput?.payload?.adapterConfig?.promptTemplate).toBeUndefined();
+  });
+
+  it("bootstraps the weekly ops routine for immediate coo hires", async () => {
+    const res = await request(createApp(createDb(false)))
+      .post("/api/companies/company-1/agent-hires")
+      .send({
+        name: "COO",
+        title: "COO",
+        role: "coo",
+        adapterType: "claude_local",
+        adapterConfig: {},
+      });
+
+    expect(res.status, JSON.stringify(res.body)).toBe(201);
+    expect(mockEnsureDefaultRoutinesForAgentBestEffort).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        agent: expect.objectContaining({
+          role: "coo",
+          title: "COO",
+        }),
+      }),
+    );
+  });
+
+  it("waits for board approval before bootstrapping coo routines", async () => {
+    const res = await request(createApp(createDb(true)))
+      .post("/api/companies/company-1/agent-hires")
+      .send({
+        name: "COO",
+        title: "COO",
+        role: "coo",
+        adapterType: "claude_local",
+        adapterConfig: {},
+      });
+
+    expect(res.status, JSON.stringify(res.body)).toBe(201);
+    expect(mockEnsureDefaultRoutinesForAgentBestEffort).not.toHaveBeenCalled();
   });
 });

@@ -1003,7 +1003,10 @@ export function RoutineDetail() {
 
           {/* Existing triggers */}
           {routine.triggers.length === 0 ? (
-            <p className="text-xs text-muted-foreground">No triggers configured yet.</p>
+            <p className="text-xs text-muted-foreground">
+              No triggers configured yet. The controls above are only for adding a new trigger; this routine is not
+              scheduled until one is saved.
+            </p>
           ) : (
             <div className="space-y-3">
               {routine.triggers.map((trigger) => (

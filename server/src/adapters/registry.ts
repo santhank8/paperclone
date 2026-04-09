@@ -79,6 +79,17 @@ import {
   agentConfigurationDoc as hermesAgentConfigurationDoc,
   models as hermesModels,
 } from "hermes-paperclip-adapter";
+import {
+  execute as qwenExecute,
+  listQwenSkills,
+  syncQwenSkills,
+  testEnvironment as qwenTestEnvironment,
+  sessionCodec as qwenSessionCodec,
+} from "@paperclipai/adapter-qwen-local/server";
+import {
+  agentConfigurationDoc as qwenAgentConfigurationDoc,
+  models as qwenModels,
+} from "@paperclipai/adapter-qwen-local";
 import { BUILTIN_ADAPTER_TYPES } from "./builtin-adapter-types.js";
 import { buildExternalAdapters } from "./plugin-loader.js";
 import { getDisabledAdapterTypes } from "../services/adapter-plugin-store.js";
@@ -191,6 +202,19 @@ const hermesLocalAdapter: ServerAdapterModule = {
   detectModel: () => detectModelFromHermes(),
 };
 
+const qwenLocalAdapter: ServerAdapterModule = {
+  type: "qwen_local",
+  execute: qwenExecute,
+  testEnvironment: qwenTestEnvironment,
+  listSkills: listQwenSkills,
+  syncSkills: syncQwenSkills,
+  sessionCodec: qwenSessionCodec,
+  sessionManagement: getAdapterSessionManagement("qwen_local") ?? undefined,
+  models: qwenModels,
+  supportsLocalAgentJwt: true,
+  agentConfigurationDoc: qwenAgentConfigurationDoc,
+};
+
 const adaptersByType = new Map<string, ServerAdapterModule>();
 
 // For builtin types that are overridden by an external adapter, we keep the
@@ -206,6 +230,7 @@ function registerBuiltInAdapters() {
   for (const adapter of [
     claudeLocalAdapter,
     codexLocalAdapter,
+    qwenLocalAdapter,
     openCodeLocalAdapter,
     piLocalAdapter,
     cursorLocalAdapter,

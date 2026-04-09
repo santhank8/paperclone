@@ -1,4 +1,4 @@
-# HEARTBEAT.md -- Ops Manager Review Checklist
+# HEARTBEAT.md -- COO Review Checklist
 
 Run this checklist on every heartbeat. Your job is to gather data, analyze it, and produce a structured report.
 

@@ -8,6 +8,7 @@ const mockAgentService = vi.hoisted(() => ({
 }));
 
 const mockNotifyHireApproved = vi.hoisted(() => vi.fn());
+const mockEnsureDefaultRoutinesForAgentBestEffort = vi.hoisted(() => vi.fn());
 
 vi.mock("../services/agents.js", () => ({
   agentService: vi.fn(() => mockAgentService),
@@ -15,6 +16,10 @@ vi.mock("../services/agents.js", () => ({
 
 vi.mock("../services/hire-hook.js", () => ({
   notifyHireApproved: mockNotifyHireApproved,
+}));
+
+vi.mock("../services/default-agent-routines.js", () => ({
+  ensureDefaultRoutinesForAgentBestEffort: mockEnsureDefaultRoutinesForAgentBestEffort,
 }));
 
 type ApprovalRecord = {
@@ -58,10 +63,18 @@ function createDbStub(selectResults: ApprovalRecord[][], updateResults: Approval
 describe("approvalService resolution idempotency", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockAgentService.activatePendingApproval.mockResolvedValue(undefined);
+    mockAgentService.activatePendingApproval.mockResolvedValue({
+      id: "agent-1",
+      companyId: "company-1",
+      name: "COO",
+      role: "coo",
+      title: "COO",
+      status: "idle",
+    });
     mockAgentService.create.mockResolvedValue({ id: "agent-1" });
     mockAgentService.terminate.mockResolvedValue(undefined);
     mockNotifyHireApproved.mockResolvedValue(undefined);
+    mockEnsureDefaultRoutinesForAgentBestEffort.mockResolvedValue(undefined);
   });
 
   it("treats repeated approve retries as no-ops after another worker resolves the approval", async () => {
@@ -102,6 +115,17 @@ describe("approvalService resolution idempotency", () => {
 
     expect(result.applied).toBe(true);
     expect(mockAgentService.activatePendingApproval).toHaveBeenCalledWith("agent-1");
+    expect(mockEnsureDefaultRoutinesForAgentBestEffort).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        agent: expect.objectContaining({ id: "agent-1" }),
+        actor: expect.objectContaining({
+          actorType: "user",
+          actorId: "board",
+          userId: "board",
+        }),
+      }),
+    );
     expect(mockNotifyHireApproved).toHaveBeenCalledTimes(1);
   });
 });

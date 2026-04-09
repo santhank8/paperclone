@@ -5,6 +5,7 @@ import { notFound, unprocessable } from "../errors.js";
 import { redactCurrentUserText } from "../log-redaction.js";
 import { agentService } from "./agents.js";
 import { budgetService } from "./budgets.js";
+import { ensureDefaultRoutinesForAgentBestEffort } from "./default-agent-routines.js";
 import { notifyHireApproved } from "./hire-hook.js";
 import { instanceSettingsService } from "./instance-settings.js";
 
@@ -108,12 +109,15 @@ export function approvalService(db: Db) {
       );
 
       let hireApprovedAgentId: string | null = null;
+      let hireApprovedAgent:
+        | Awaited<ReturnType<ReturnType<typeof agentService>["create"]>>
+        | null = null;
       const now = new Date();
       if (applied && updated.type === "hire_agent") {
         const payload = updated.payload as Record<string, unknown>;
         const payloadAgentId = typeof payload.agentId === "string" ? payload.agentId : null;
         if (payloadAgentId) {
-          await agentsSvc.activatePendingApproval(payloadAgentId);
+          hireApprovedAgent = await agentsSvc.activatePendingApproval(payloadAgentId);
           hireApprovedAgentId = payloadAgentId;
         } else {
           const created = await agentsSvc.create(updated.companyId, {
@@ -138,6 +142,7 @@ export function approvalService(db: Db) {
             permissions: undefined,
             lastHeartbeatAt: null,
           });
+          hireApprovedAgent = created;
           hireApprovedAgentId = created?.id ?? null;
         }
         if (hireApprovedAgentId) {
@@ -154,6 +159,16 @@ export function approvalService(db: Db) {
               },
               decidedByUserId,
             );
+          }
+          if (hireApprovedAgent) {
+            await ensureDefaultRoutinesForAgentBestEffort(db, {
+              agent: hireApprovedAgent,
+              actor: {
+                actorType: "user",
+                actorId: decidedByUserId,
+                userId: decidedByUserId,
+              },
+            });
           }
           void notifyHireApproved(db, {
             companyId: updated.companyId,

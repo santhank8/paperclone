@@ -69,6 +69,7 @@ import {
   loadDefaultAgentInstructionsBundle,
   resolveDefaultAgentInstructionsBundleRole,
 } from "../services/default-agent-instructions.js";
+import { ensureDefaultRoutinesForAgentBestEffort } from "../services/default-agent-routines.js";
 import { getTelemetryClient } from "../telemetry.js";
 
 export function agentRoutes(db: Db) {
@@ -1420,6 +1421,19 @@ export function agentRoutes(db: Db) {
       actor.actorType === "user" ? actor.actorId : null,
     );
 
+    if (!approval) {
+      await ensureDefaultRoutinesForAgentBestEffort(db, {
+        agent,
+        actor: {
+          actorType: actor.actorType,
+          actorId: actor.actorId,
+          agentId: actor.agentId,
+          userId: actor.actorType === "user" ? actor.actorId : null,
+          runId: actor.runId,
+        },
+      });
+    }
+
     if (approval) {
       await logActivity(db, {
         companyId,
@@ -1519,6 +1533,17 @@ export function agentRoutes(db: Db) {
         actor.actorType === "user" ? actor.actorId : null,
       );
     }
+
+    await ensureDefaultRoutinesForAgentBestEffort(db, {
+      agent,
+      actor: {
+        actorType: actor.actorType,
+        actorId: actor.actorId,
+        agentId: actor.agentId,
+        userId: actor.actorType === "user" ? actor.actorId : null,
+        runId: actor.runId,
+      },
+    });
 
     res.status(201).json(agent);
   });

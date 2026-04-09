@@ -28,6 +28,7 @@ interface CompanyContextValue {
     name: string;
     description?: string | null;
     budgetMonthlyCents?: number;
+    timezone?: string;
   }) => Promise<Company>;
 }
 
@@ -89,6 +90,7 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
       name: string;
       description?: string | null;
       budgetMonthlyCents?: number;
+      timezone?: string;
     }) =>
       companiesApi.create(data),
     onSuccess: (company) => {
@@ -102,6 +104,7 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
       name: string;
       description?: string | null;
       budgetMonthlyCents?: number;
+      timezone?: string;
     }) => {
       return createMutation.mutateAsync(data);
     },

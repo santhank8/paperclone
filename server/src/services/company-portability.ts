@@ -2429,6 +2429,7 @@ function buildManifestFromPackageFiles(
         asString(paperclipCompany.feedbackDataSharingConsentByUserId),
       feedbackDataSharingTermsVersion:
         asString(paperclipCompany.feedbackDataSharingTermsVersion),
+      timezone: asString(paperclipCompany.timezone),
     },
     sidebar: paperclipSidebar,
     agents: [],
@@ -3367,6 +3368,7 @@ export function companyPortabilityService(db: Db, storage?: StorageService) {
           feedbackDataSharingConsentAt: company.feedbackDataSharingConsentAt?.toISOString() ?? null,
           feedbackDataSharingConsentByUserId: company.feedbackDataSharingConsentByUserId ?? null,
           feedbackDataSharingTermsVersion: company.feedbackDataSharingTermsVersion ?? null,
+          timezone: company.timezone,
         }),
         sidebar: stripEmptyValues(sidebarOrder),
         agents: Object.keys(paperclipAgents).length > 0 ? paperclipAgents : undefined,
@@ -3893,6 +3895,9 @@ export function companyPortabilityService(db: Db, storage?: StorageService) {
         feedbackDataSharingTermsVersion: include.company
           ? (sourceManifest.company?.feedbackDataSharingTermsVersion ?? null)
           : null,
+        timezone: include.company
+          ? (sourceManifest.company?.timezone ?? "UTC")
+          : "UTC",
       });
       if (mode === "agent_safe" && options?.sourceCompanyId) {
         await access.copyActiveUserMemberships(options.sourceCompanyId, created.id);
@@ -3916,6 +3921,7 @@ export function companyPortabilityService(db: Db, storage?: StorageService) {
             : null,
           feedbackDataSharingConsentByUserId: sourceManifest.company.feedbackDataSharingConsentByUserId,
           feedbackDataSharingTermsVersion: sourceManifest.company.feedbackDataSharingTermsVersion,
+          timezone: sourceManifest.company.timezone ?? "UTC",
         });
         targetCompany = updated ?? targetCompany;
         companyAction = "updated";

@@ -4,11 +4,24 @@ import { COMPANY_STATUSES } from "../constants.js";
 const logoAssetIdSchema = z.string().uuid().nullable().optional();
 const brandColorSchema = z.string().regex(/^#[0-9a-fA-F]{6}$/).nullable().optional();
 const feedbackDataSharingTermsVersionSchema = z.string().min(1).nullable().optional();
+const timezoneSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .refine((value) => {
+    try {
+      new Intl.DateTimeFormat("en-US", { timeZone: value }).format(new Date());
+      return true;
+    } catch {
+      return false;
+    }
+  }, "Invalid timezone");
 
 export const createCompanySchema = z.object({
   name: z.string().min(1),
   description: z.string().optional().nullable(),
   budgetMonthlyCents: z.number().int().nonnegative().optional().default(0),
+  timezone: timezoneSchema.optional().default("UTC"),
 });
 
 export type CreateCompany = z.infer<typeof createCompanySchema>;
@@ -23,6 +36,7 @@ export const updateCompanySchema = createCompanySchema
     feedbackDataSharingConsentAt: z.coerce.date().nullable().optional(),
     feedbackDataSharingConsentByUserId: z.string().min(1).nullable().optional(),
     feedbackDataSharingTermsVersion: feedbackDataSharingTermsVersionSchema,
+    timezone: timezoneSchema.optional(),
     brandColor: brandColorSchema,
     logoAssetId: logoAssetIdSchema,
   });

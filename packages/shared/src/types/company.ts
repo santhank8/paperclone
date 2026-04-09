@@ -16,6 +16,7 @@ export interface Company {
   feedbackDataSharingConsentAt: Date | null;
   feedbackDataSharingConsentByUserId: string | null;
   feedbackDataSharingTermsVersion: string | null;
+  timezone: string;
   brandColor: string | null;
   logoAssetId: string | null;
   logoUrl: string | null;

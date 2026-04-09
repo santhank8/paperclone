@@ -34,6 +34,7 @@ import {
   reconcilePersistedRuntimeServicesOnStartup,
   routineService,
 } from "./services/index.js";
+import { reconcileDefaultAgentRoutinesOnStartup } from "./services/default-agent-routines.js";
 import { createFeedbackTraceShareClientFromConfig } from "./services/feedback-share-client.js";
 import { createStorageServiceFromConfig } from "./storage/index.js";
 import { printStartupBanner } from "./startup-banner.js";
@@ -572,6 +573,18 @@ export async function startServer(): Promise<StartedServer> {
     })
     .catch((err) => {
       logger.error({ err }, "startup reconciliation of persisted runtime services failed");
+    });
+  void reconcileDefaultAgentRoutinesOnStartup(db as any)
+    .then((result) => {
+      if (result.reconciled > 0) {
+        logger.info(
+          { reconciled: result.reconciled },
+          "reconciled default COO routines on startup",
+        );
+      }
+    })
+    .catch((err) => {
+      logger.error({ err }, "startup reconciliation of default COO routines failed");
     });
   
   if (config.heartbeatSchedulerEnabled) {

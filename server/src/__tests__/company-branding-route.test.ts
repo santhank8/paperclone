@@ -40,6 +40,11 @@ const mockFeedbackService = vi.hoisted(() => ({
   getFeedbackTraceById: vi.fn(),
   saveIssueVote: vi.fn(),
 }));
+const mockReconcileDefaultAgentRoutines = vi.hoisted(() => vi.fn());
+
+vi.mock("../services/default-agent-routines.js", () => ({
+  reconcileDefaultAgentRoutines: mockReconcileDefaultAgentRoutines,
+}));
 
 vi.mock("../services/index.js", () => ({
   accessService: () => mockAccessService,
@@ -86,6 +91,11 @@ function createApp(actor: Record<string, unknown>) {
 describe("PATCH /api/companies/:companyId/branding", () => {
   beforeEach(() => {
     vi.resetAllMocks();
+    mockReconcileDefaultAgentRoutines.mockResolvedValue({
+      reconciled: 1,
+      failed: 0,
+      failedAgentIds: [],
+    });
   });
 
   it("rejects non-CEO agent callers", async () => {
@@ -197,5 +207,65 @@ describe("PATCH /api/companies/:companyId/branding", () => {
     expect(res.status).toBe(400);
     expect(res.body.error).toBe("Validation error");
     expect(mockCompanyService.update).not.toHaveBeenCalled();
+  });
+
+  it("repairs default coo routines for board callers", async () => {
+    const app = createApp({
+      type: "board",
+      userId: "user-1",
+      source: "local_implicit",
+      companyIds: ["company-1"],
+    });
+
+    const res = await request(app)
+      .post("/api/companies/company-1/reconcile-default-agent-routines")
+      .send({});
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({
+      reconciled: 1,
+      failed: 0,
+      failedAgentIds: [],
+    });
+    expect(mockReconcileDefaultAgentRoutines).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        companyId: "company-1",
+        actor: expect.objectContaining({
+          actorType: "user",
+          actorId: "user-1",
+          userId: "user-1",
+        }),
+      }),
+    );
+    expect(mockLogActivity).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        companyId: "company-1",
+        action: "company.default_agent_routines_reconciled",
+        details: {
+          reconciled: 1,
+          failed: 0,
+          failedAgentIds: [],
+        },
+      }),
+    );
+  });
+
+  it("rejects agent callers for the default coo routine repair endpoint", async () => {
+    const app = createApp({
+      type: "agent",
+      agentId: "agent-1",
+      companyId: "company-1",
+      source: "agent_key",
+      runId: "run-1",
+    });
+
+    const res = await request(app)
+      .post("/api/companies/company-1/reconcile-default-agent-routines")
+      .send({});
+
+    expect(res.status).toBe(403);
+    expect(mockReconcileDefaultAgentRoutines).not.toHaveBeenCalled();
   });
 });

@@ -21,6 +21,7 @@ export const companiesApi = {
     name: string;
     description?: string | null;
     budgetMonthlyCents?: number;
+    timezone?: string;
   }) =>
     api.post<Company>("/companies", data),
   update: (
@@ -34,6 +35,7 @@ export const companiesApi = {
         | "budgetMonthlyCents"
         | "requireBoardApprovalForNewAgents"
         | "feedbackDataSharingEnabled"
+        | "timezone"
         | "brandColor"
         | "logoAssetId"
       >

@@ -1,4 +1,5 @@
 import { Router, type Request } from "express";
+import { z } from "zod";
 import type { Db } from "@paperclipai/db";
 import {
   DEFAULT_FEEDBACK_DATA_SHARING_TERMS_VERSION,
@@ -25,6 +26,9 @@ import {
 } from "../services/index.js";
 import type { StorageService } from "../storage/types.js";
 import { assertBoard, assertCompanyAccess, getActorInfo } from "./authz.js";
+import { reconcileDefaultAgentRoutines } from "../services/default-agent-routines.js";
+
+const reconcileDefaultAgentRoutinesSchema = z.object({});
 
 export function companyRoutes(db: Db, storage?: StorageService) {
   const router = Router();
@@ -369,6 +373,39 @@ export function companyRoutes(db: Db, storage?: StorageService) {
     });
     res.json(company);
   });
+
+  router.post(
+    "/:companyId/reconcile-default-agent-routines",
+    validate(reconcileDefaultAgentRoutinesSchema),
+    async (req, res) => {
+      assertBoard(req);
+      const companyId = req.params.companyId as string;
+      assertCompanyAccess(req, companyId);
+      const actor = getActorInfo(req);
+      const result = await reconcileDefaultAgentRoutines(db, {
+        companyId,
+        actor: {
+          actorType: actor.actorType,
+          actorId: actor.actorId,
+          agentId: actor.agentId,
+          userId: actor.actorType === "user" ? actor.actorId : null,
+          runId: actor.runId,
+        },
+      });
+      await logActivity(db, {
+        companyId,
+        actorType: actor.actorType,
+        actorId: actor.actorId,
+        agentId: actor.agentId,
+        runId: actor.runId,
+        action: "company.default_agent_routines_reconciled",
+        entityType: "company",
+        entityId: companyId,
+        details: result,
+      });
+      res.json(result);
+    },
+  );
 
   router.post("/:companyId/archive", async (req, res) => {
     assertBoard(req);
