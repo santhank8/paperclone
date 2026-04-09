@@ -221,7 +221,7 @@ function CopyMarkdownButton({ text }: { text: string }) {
   );
 }
 
-function CommentCard({
+const CommentCard = memo(function CommentCard({
   comment,
   agentMap,
   companyId,
@@ -371,7 +371,7 @@ function CommentCard({
       ) : null}
     </div>
   );
-}
+});
 
 type TimelineItem =
   | { kind: "comment"; id: string; createdAtMs: number; comment: CommentWithRunMeta }
