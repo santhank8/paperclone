@@ -303,7 +303,6 @@ describe("memoryHooksService", () => {
           }),
           query: "Fix the login bug",
           topK: 3,
-          intent: "agent_preamble",
         }),
       );
     });

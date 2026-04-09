@@ -277,7 +277,7 @@ async function main() {
           bindingKey: "backfill",
           scope,
           source: {
-            kind: "backfill",
+            kind: "run",
             companyId: run.companyId,
             runId: run.id,
             issueId,

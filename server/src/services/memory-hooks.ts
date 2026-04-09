@@ -206,7 +206,6 @@ async function hydrateRunContext(
         scope,
         query,
         topK,
-        intent: "agent_preamble",
       });
       const adapterLatencyMs = Date.now() - adapterStart;
 

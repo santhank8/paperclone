@@ -12,6 +12,7 @@ The paperclip server connects with:
     MEMPALACE_URL=http://mempalace:8080/mcp
 """
 
+import asyncio
 import os
 import json
 import logging
@@ -40,7 +41,7 @@ async def mcp_endpoint(request: Request) -> Response:
             status_code=400,
         )
 
-    response = handle_request(body)
+    response = await asyncio.to_thread(handle_request, body)
     if response is None:
         # Notification — no response expected
         return Response(status_code=204)
