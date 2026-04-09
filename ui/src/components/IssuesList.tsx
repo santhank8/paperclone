@@ -52,7 +52,7 @@ export type IssueViewState = {
 };
 
 const defaultViewState: IssueViewState = {
-  statuses: [],
+  statuses: ["todo", "in_progress", "in_review", "blocked", "backlog"],
   priorities: [],
   assignees: [],
   labels: [],
@@ -390,7 +390,7 @@ export function IssuesList({
                     className="h-3 w-3 ml-1 hidden sm:block"
                     onClick={(e) => {
                       e.stopPropagation();
-                      updateView({ statuses: [], priorities: [], assignees: [], labels: [], projects: [] });
+                      updateView({ statuses: ["todo", "in_progress", "in_review", "blocked", "backlog"], priorities: [], assignees: [], labels: [], projects: [] });
                     }}
                   />
                 )}
@@ -403,7 +403,7 @@ export function IssuesList({
                   {activeFilterCount > 0 && (
                     <button
                       className="text-xs text-muted-foreground hover:text-foreground"
-                      onClick={() => updateView({ statuses: [], priorities: [], assignees: [], labels: [] })}
+                      onClick={() => updateView({ statuses: ["todo", "in_progress", "in_review", "blocked", "backlog"], priorities: [], assignees: [], labels: [] })}
                     >
                       Clear
                     </button>
