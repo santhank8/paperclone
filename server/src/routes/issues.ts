@@ -1153,7 +1153,7 @@ export function issueRoutes(db: Db, storage: StorageService) {
       comment = await svc.addComment(id, commentBody, {
         agentId: actor.agentId ?? undefined,
         userId: actor.actorType === "user" ? actor.actorId : undefined,
-      });
+      }, { skipUpdatedAt: true }); // Issue already updated above, skip redundant UPDATE to avoid contention
 
       await logActivity(db, {
         companyId: issue.companyId,

@@ -1542,7 +1542,7 @@ export function issueService(db: Db) {
           return comment ? redactIssueComment(comment, censorUsernameInLogs) : null;
         })),
 
-    addComment: async (issueId: string, body: string, actor: { agentId?: string; userId?: string }) => {
+    addComment: async (issueId: string, body: string, actor: { agentId?: string; userId?: string }, options?: { skipUpdatedAt?: boolean }) => {
       const issue = await db
         .select({ companyId: issues.companyId })
         .from(issues)
@@ -1567,10 +1567,13 @@ export function issueService(db: Db) {
         .returning();
 
       // Update issue's updatedAt so comment activity is reflected in recency sorting
-      await db
-        .update(issues)
-        .set({ updatedAt: new Date() })
-        .where(eq(issues.id, issueId));
+      // Skip if caller already updated the issue (e.g., PATCH with status+comment)
+      if (!options?.skipUpdatedAt) {
+        await db
+          .update(issues)
+          .set({ updatedAt: new Date() })
+          .where(eq(issues.id, issueId));
+      }
 
       return redactIssueComment(comment, currentUserRedactionOptions.enabled);
     },
