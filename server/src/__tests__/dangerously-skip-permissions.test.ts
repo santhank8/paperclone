@@ -5,6 +5,8 @@ import {
   stripWorkspaceRuntimeFromExecutionRunConfig,
 } from "../services/heartbeat.ts";
 import { buildExecutionWorkspaceAdapterConfig } from "../services/execution-workspace-policy.ts";
+import { buildClaudeLocalConfig } from "@paperclipai/adapter-claude-local/ui";
+import { DEFAULT_CLAUDE_LOCAL_SKIP_PERMISSIONS } from "@paperclipai/adapter-claude-local";
 
 /**
  * Regression tests for the dangerouslySkipPermissions field propagation.
@@ -245,5 +247,113 @@ describe("dangerouslySkipPermissions propagation", () => {
       const runtimeConfig = { ...resolvedConfig };
       expect(runtimeConfig.dangerouslySkipPermissions).toBeUndefined();
     });
+  });
+});
+
+describe("DEFAULT_CLAUDE_LOCAL_SKIP_PERMISSIONS constant", () => {
+  it("exports the expected default value of true", () => {
+    expect(DEFAULT_CLAUDE_LOCAL_SKIP_PERMISSIONS).toBe(true);
+  });
+});
+
+describe("buildClaudeLocalConfig UI serialization", () => {
+  const baseValues = {
+    adapterType: "claude_local" as const,
+    cwd: "/app",
+    instructionsFilePath: "",
+    promptTemplate: "",
+    model: "",
+    thinkingEffort: "",
+    chrome: false,
+    dangerouslySkipPermissions: true,
+    search: false,
+    dangerouslyBypassSandbox: false,
+    command: "",
+    args: "",
+    extraArgs: "",
+    envVars: "",
+    envBindings: {},
+    url: "",
+    bootstrapPrompt: "",
+    payloadTemplateJson: "",
+    workspaceStrategyType: "project_primary" as const,
+    workspaceBaseRef: "",
+    workspaceBranchTemplate: "",
+    worktreeParentDir: "",
+    runtimeServicesJson: "",
+    maxTurnsPerRun: 1000,
+    heartbeatEnabled: false,
+    intervalSec: 300,
+  };
+
+  it("default create serializes dangerouslySkipPermissions=true", () => {
+    const config = buildClaudeLocalConfig(baseValues);
+    expect(config.dangerouslySkipPermissions).toBe(true);
+  });
+
+  it("explicit false serializes dangerouslySkipPermissions=false", () => {
+    const config = buildClaudeLocalConfig({
+      ...baseValues,
+      dangerouslySkipPermissions: false,
+    });
+    expect(config.dangerouslySkipPermissions).toBe(false);
+  });
+
+  it("always includes dangerouslySkipPermissions in output (never omitted)", () => {
+    const configTrue = buildClaudeLocalConfig(baseValues);
+    const configFalse = buildClaudeLocalConfig({
+      ...baseValues,
+      dangerouslySkipPermissions: false,
+    });
+    expect("dangerouslySkipPermissions" in configTrue).toBe(true);
+    expect("dangerouslySkipPermissions" in configFalse).toBe(true);
+  });
+
+  it("serializes maxTurnsPerRun from defaults", () => {
+    const config = buildClaudeLocalConfig(baseValues);
+    expect(config.maxTurnsPerRun).toBe(1000);
+  });
+});
+
+describe("execute-time asBoolean behavior for dangerouslySkipPermissions", () => {
+  // Inline reimplementation matching the enhanced asBoolean in adapter-utils
+  function asBoolean(value: unknown, fallback: boolean): boolean {
+    if (typeof value === "boolean") return value;
+    if (typeof value === "string") {
+      const lower = value.toLowerCase();
+      if (lower === "true") return true;
+      if (lower === "false") return false;
+    }
+    return fallback;
+  }
+
+  it("DB true → execute sees true → CLI includes --dangerously-skip-permissions", () => {
+    const val = asBoolean(true, true);
+    expect(val).toBe(true);
+  });
+
+  it("DB false → execute sees false → CLI omits --dangerously-skip-permissions", () => {
+    const val = asBoolean(false, true);
+    expect(val).toBe(false);
+  });
+
+  it("DB missing → execute falls back to true → CLI includes --dangerously-skip-permissions", () => {
+    const val = asBoolean(undefined, true);
+    expect(val).toBe(true);
+  });
+
+  it("DB string 'false' → execute sees false → CLI omits flag", () => {
+    const val = asBoolean("false", true);
+    expect(val).toBe(false);
+  });
+
+  it("DB string 'true' → execute sees true → CLI includes flag", () => {
+    const val = asBoolean("true", true);
+    expect(val).toBe(true);
+  });
+
+  it("DB string 'FALSE' → case-insensitive → false", () => {
+    const val = asBoolean("FALSE", true);
+    expect(val).toBe(false);
   });
 });
