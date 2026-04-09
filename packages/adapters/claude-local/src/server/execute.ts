@@ -300,23 +300,55 @@ export async function runClaudeLogin(input: {
     authToken: input.authToken,
   });
 
-  const proc = await runChildProcess(input.runId, runtime.command, ["login"], {
+  const primaryArgs = ["auth", "login"];
+  const primaryProc = await runChildProcess(input.runId, runtime.command, primaryArgs, {
     cwd: runtime.cwd,
     env: runtime.env,
     timeoutSec: runtime.timeoutSec,
     graceSec: runtime.graceSec,
     onLog,
   });
-
-  const loginMeta = detectClaudeLoginRequired({
+  const primaryMeta = detectClaudeLoginRequired({
     parsed: null,
-    stdout: proc.stdout,
-    stderr: proc.stderr,
+    stdout: primaryProc.stdout,
+    stderr: primaryProc.stderr,
+  });
+
+  const primaryOutput = `${primaryProc.stdout}\n${primaryProc.stderr}`;
+  const primaryLooksUnsupported =
+    primaryProc.exitCode !== 0 &&
+    !primaryProc.timedOut &&
+    !primaryMeta.loginUrl &&
+    /(unknown command|unknown option|invalid command|did you mean|usage:\s*claude)/i.test(primaryOutput);
+
+  if (!primaryLooksUnsupported) {
+    return buildLoginResult({
+      proc: primaryProc,
+      loginUrl: primaryMeta.loginUrl,
+    });
+  }
+
+  await onLog(
+    "stderr",
+    "[paperclip] Falling back to legacy `claude login` because `claude auth login` appears unsupported.\n",
+  );
+
+  const legacyProc = await runChildProcess(input.runId, runtime.command, ["login"], {
+    cwd: runtime.cwd,
+    env: runtime.env,
+    timeoutSec: runtime.timeoutSec,
+    graceSec: runtime.graceSec,
+    onLog,
+  });
+  const legacyMeta = detectClaudeLoginRequired({
+    parsed: null,
+    stdout: legacyProc.stdout,
+    stderr: legacyProc.stderr,
   });
 
   return buildLoginResult({
-    proc,
-    loginUrl: loginMeta.loginUrl,
+    proc: legacyProc,
+    loginUrl: legacyMeta.loginUrl,
   });
 }
 

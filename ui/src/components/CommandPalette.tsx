@@ -28,6 +28,7 @@ import {
   History,
   SquarePen,
   Plus,
+  Users,
 } from "lucide-react";
 import { Identity } from "./Identity";
 import { agentUrl, projectUrl } from "../lib/utils";
@@ -173,6 +174,10 @@ export function CommandPalette() {
           <CommandItem onSelect={() => go("/activity")}>
             <History className="mr-2 h-4 w-4" />
             Activity
+          </CommandItem>
+          <CommandItem onSelect={() => go("/company/members")}>
+            <Users className="mr-2 h-4 w-4" />
+            Members
           </CommandItem>
         </CommandGroup>
 

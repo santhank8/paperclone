@@ -1,6 +1,8 @@
 import { and, eq, inArray, sql } from "drizzle-orm";
 import type { Db } from "@paperclipai/db";
 import {
+  agents,
+  authUsers,
   companyMemberships,
   instanceUserRoles,
   principalPermissionGrants,
@@ -76,11 +78,76 @@ export function accessService(db: Db) {
   }
 
   async function listMembers(companyId: string) {
-    return db
+    const members = await db
       .select()
       .from(companyMemberships)
       .where(eq(companyMemberships.companyId, companyId))
       .orderBy(sql`${companyMemberships.createdAt} desc`);
+
+    if (members.length === 0) return members;
+
+    const userIds = Array.from(
+      new Set(
+        members
+          .filter((member) => member.principalType === "user")
+          .map((member) => member.principalId),
+      ),
+    );
+    const agentIds = Array.from(
+      new Set(
+        members
+          .filter((member) => member.principalType === "agent")
+          .map((member) => member.principalId),
+      ),
+    );
+
+    const userRows = userIds.length
+      ? await db
+          .select({
+            id: authUsers.id,
+            name: authUsers.name,
+            email: authUsers.email,
+          })
+          .from(authUsers)
+          .where(inArray(authUsers.id, userIds))
+      : [];
+
+    const agentRows = agentIds.length
+      ? await db
+          .select({
+            id: agents.id,
+            name: agents.name,
+          })
+          .from(agents)
+          .where(and(eq(agents.companyId, companyId), inArray(agents.id, agentIds)))
+      : [];
+
+    const userMap = new Map(userRows.map((row) => [row.id, row]));
+    const agentMap = new Map(agentRows.map((row) => [row.id, row]));
+
+    return members.map((member) => {
+      if (member.principalType === "user") {
+        const user = userMap.get(member.principalId);
+        return {
+          ...member,
+          principalName: user?.name ?? null,
+          principalEmail: user?.email ?? null,
+        };
+      }
+      if (member.principalType === "agent") {
+        const agent = agentMap.get(member.principalId);
+        return {
+          ...member,
+          principalName: agent?.name ?? null,
+          principalEmail: null,
+        };
+      }
+      return {
+        ...member,
+        principalName: null,
+        principalEmail: null,
+      };
+    });
   }
 
   async function listActiveUserMemberships(companyId: string) {

@@ -124,9 +124,15 @@ export function detectClaudeLoginRequired(input: {
   stdout: string;
   stderr: string;
 }): { requiresLogin: boolean; loginUrl: string | null } {
-  const resultText = asString(input.parsed?.result, "").trim();
-  const messages = [resultText, ...extractClaudeErrorMessages(input.parsed ?? {}), input.stdout, input.stderr]
-    .join("\n")
+  const parsedMessages = [
+    asString(input.parsed?.result, "").trim(),
+    ...extractClaudeErrorMessages(input.parsed ?? {}),
+  ];
+  const rawText =
+    input.parsed
+      ? [...parsedMessages, input.stderr].join("\n")
+      : [...parsedMessages, input.stdout, input.stderr].join("\n");
+  const messages = rawText
     .split(/\r?\n/)
     .map((line) => line.trim())
     .filter(Boolean);

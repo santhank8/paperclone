@@ -94,7 +94,23 @@ type CompanyInviteCreated = {
   inviteMessage?: string | null;
 };
 
+type CompanyMember = {
+  id: string;
+  companyId: string;
+  principalType: string;
+  principalId: string;
+  principalName?: string | null;
+  principalEmail?: string | null;
+  status: string;
+  membershipRole: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export const accessApi = {
+  listMembers: (companyId: string) =>
+    api.get<CompanyMember[]>(`/companies/${companyId}/members`),
+
   createCompanyInvite: (
     companyId: string,
     input: {
