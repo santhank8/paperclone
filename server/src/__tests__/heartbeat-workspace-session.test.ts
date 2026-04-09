@@ -13,6 +13,8 @@ import {
   prioritizeProjectWorkspaceCandidatesForRun,
   parseSessionCompactionPolicy,
   resolveRuntimeSessionParamsForWorkspace,
+  selectAssignedIssueForTimer,
+  shouldAllowExecutionWithoutAssignedIssue,
   stripWorkspaceRuntimeFromExecutionRunConfig,
   shouldResetTaskSessionForWake,
   type ResolvedWorkspaceForRun,
@@ -22,6 +24,7 @@ function buildResolvedWorkspace(overrides: Partial<ResolvedWorkspaceForRun> = {}
   return {
     cwd: "/tmp/project",
     source: "project_primary",
+    allowsProjectWorkspaceExecution: true,
     projectId: "project-1",
     workspaceId: "workspace-1",
     repoUrl: null,
@@ -356,6 +359,82 @@ describe("deriveTaskKeyWithHeartbeatFallback", () => {
 
   it("returns null for empty context", () => {
     expect(deriveTaskKeyWithHeartbeatFallback({}, null)).toBeNull();
+  });
+});
+
+describe("selectAssignedIssueForTimer", () => {
+  it("prefers in-progress issues over other actionable statuses", () => {
+    const selected = selectAssignedIssueForTimer([
+      {
+        id: "issue-todo",
+        projectId: "project-1",
+        status: "todo",
+        updatedAt: new Date("2026-04-09T10:00:00Z"),
+        createdAt: new Date("2026-04-09T09:00:00Z"),
+      },
+      {
+        id: "issue-progress",
+        projectId: "project-1",
+        status: "in_progress",
+        updatedAt: new Date("2026-04-09T11:00:00Z"),
+        createdAt: new Date("2026-04-09T08:00:00Z"),
+      },
+    ]);
+
+    expect(selected?.id).toBe("issue-progress");
+  });
+
+  it("ignores blocked and done issues when selecting timer work", () => {
+    const selected = selectAssignedIssueForTimer([
+      {
+        id: "issue-blocked",
+        projectId: "project-1",
+        status: "blocked",
+        updatedAt: new Date("2026-04-09T10:00:00Z"),
+        createdAt: new Date("2026-04-09T09:00:00Z"),
+      },
+      {
+        id: "issue-done",
+        projectId: "project-1",
+        status: "done",
+        updatedAt: new Date("2026-04-09T11:00:00Z"),
+        createdAt: new Date("2026-04-09T08:00:00Z"),
+      },
+    ]);
+
+    expect(selected).toBeNull();
+  });
+
+  it("uses the oldest updated actionable issue within the same priority band", () => {
+    const selected = selectAssignedIssueForTimer([
+      {
+        id: "issue-newer",
+        projectId: "project-1",
+        status: "todo",
+        updatedAt: new Date("2026-04-09T11:00:00Z"),
+        createdAt: new Date("2026-04-09T08:00:00Z"),
+      },
+      {
+        id: "issue-older",
+        projectId: "project-1",
+        status: "todo",
+        updatedAt: new Date("2026-04-09T09:00:00Z"),
+        createdAt: new Date("2026-04-09T07:00:00Z"),
+      },
+    ]);
+
+    expect(selected?.id).toBe("issue-older");
+  });
+});
+
+describe("shouldAllowExecutionWithoutAssignedIssue", () => {
+  it("allows CEO execution without an assigned issue", () => {
+    expect(shouldAllowExecutionWithoutAssignedIssue("ceo")).toBe(true);
+  });
+
+  it("rejects non-CEO execution without an assigned issue", () => {
+    expect(shouldAllowExecutionWithoutAssignedIssue("engineer")).toBe(false);
+    expect(shouldAllowExecutionWithoutAssignedIssue("coo")).toBe(false);
   });
 });
 
