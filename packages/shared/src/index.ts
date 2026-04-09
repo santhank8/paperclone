@@ -615,6 +615,7 @@ export {
 } from "./validators/index.js";
 
 export { API_PREFIX, API } from "./api.js";
+export { resolveZaiModelsEndpoint } from "./llm.js";
 export { normalizeAgentUrlKey, deriveAgentUrlKey, isUuidLike } from "./agent-url-key.js";
 export { deriveProjectUrlKey, normalizeProjectUrlKey, hasNonAsciiContent } from "./project-url-key.js";
 export {
