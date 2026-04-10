@@ -36,6 +36,7 @@ Request behavior fields:
 - waitTimeoutMs (number, optional): agent.wait timeout override (default timeoutSec * 1000)
 - autoPairOnFirstConnect (boolean, optional): on first "pairing required", attempt device.pair.list/device.pair.approve via shared auth, then retry once (default true)
 - paperclipApiUrl (string, optional): absolute Paperclip base URL advertised in wake text
+- paperclipApiKeyPath (string, optional): path the remote OpenClaw run should read for PAPERCLIP_API_KEY (default ~/.openclaw/workspace/paperclip-claimed-api-key.json)
 
 Session routing fields:
 - sessionKeyStrategy (string, optional): issue (default), fixed, or run

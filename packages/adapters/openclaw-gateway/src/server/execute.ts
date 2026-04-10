@@ -29,6 +29,8 @@ type WakePayload = {
   issueIds: string[];
 };
 
+const DEFAULT_PAPERCLIP_API_KEY_PATH = "~/.openclaw/workspace/paperclip-claimed-api-key.json";
+
 type GatewayDeviceIdentity = {
   deviceId: string;
   publicKeyRawBase64Url: string;
@@ -343,11 +345,13 @@ function buildPaperclipEnvForWake(ctx: AdapterExecutionContext, wakePayload: Wak
 }
 
 function buildWakeText(
+  config: Record<string, unknown>,
   payload: WakePayload,
   paperclipEnv: Record<string, string>,
   structuredWakePrompt: string,
 ): string {
-  const claimedApiKeyPath = "~/.openclaw/workspace/paperclip-claimed-api-key.json";
+  const claimedApiKeyPath =
+    nonEmpty(config.paperclipApiKeyPath) ?? DEFAULT_PAPERCLIP_API_KEY_PATH;
   const orderedKeys = [
     "PAPERCLIP_RUN_ID",
     "PAPERCLIP_AGENT_ID",
@@ -1088,6 +1092,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
   const structuredWakePrompt = renderPaperclipWakePrompt(ctx.context.paperclipWake);
   const structuredWakeJson = stringifyPaperclipWakePayload(ctx.context.paperclipWake);
   const wakeText = buildWakeText(
+    parseObject(ctx.config),
     wakePayload,
     paperclipEnv,
     structuredWakeJson

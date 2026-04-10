@@ -55,6 +55,18 @@ The agent request is built as:
   - all `payloadTemplate` fields merged in
   - `agentId` from config if set and not already in template
 
+## Paperclip API Key Path
+
+By default the wake text tells the remote OpenClaw run to load `PAPERCLIP_API_KEY`
+from `~/.openclaw/workspace/paperclip-claimed-api-key.json`.
+
+For multi-company deployments, set:
+
+- `paperclipApiKeyPath` in adapter config
+
+This lets each OpenClaw gateway agent read a company-scoped claimed API key file
+instead of sharing one global path.
+
 ## Timeouts
 
 - `timeoutSec` controls adapter-level request budget
