@@ -2,8 +2,16 @@ import { describe, expect, it } from "vitest";
 import { supportsInstructionsBundles } from "./instructions-bundles";
 
 describe("supportsInstructionsBundles", () => {
-  it("includes gemini_local in the local instructions-bundle adapters", () => {
-    expect(supportsInstructionsBundles("gemini_local")).toBe(true);
+  it.each([
+    "claude_local",
+    "codex_local",
+    "gemini_local",
+    "opencode_local",
+    "pi_local",
+    "hermes_local",
+    "cursor",
+  ])("includes %s in the instructions-bundle adapters", (adapterType) => {
+    expect(supportsInstructionsBundles(adapterType)).toBe(true);
   });
 
   it("rejects non-local adapters", () => {

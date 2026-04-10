@@ -1720,12 +1720,12 @@ function PromptsTab({
     externalBundleRef.current = null;
   }, [agent.id]);
 
-  const isLocal = supportsInstructionsBundles(agent.adapterType);
+  const supportsBundle = supportsInstructionsBundles(agent.adapterType);
 
   const { data: bundle, isLoading: bundleLoading } = useQuery({
     queryKey: queryKeys.agents.instructionsBundle(agent.id),
     queryFn: () => agentsApi.instructionsBundle(agent.id, companyId),
-    enabled: Boolean(companyId && isLocal),
+    enabled: Boolean(companyId && supportsBundle),
   });
 
   const persistedMode = bundle?.mode ?? "managed";
@@ -1762,7 +1762,7 @@ function PromptsTab({
   const { data: selectedFileDetail, isLoading: fileLoading } = useQuery({
     queryKey: queryKeys.agents.instructionsFile(agent.id, selectedOrEntryFile),
     queryFn: () => agentsApi.instructionsFile(agent.id, selectedOrEntryFile, companyId),
-    enabled: Boolean(companyId && isLocal && selectedFileExists),
+    enabled: Boolean(companyId && supportsBundle && selectedFileExists),
   });
 
   const updateBundle = useMutation({
@@ -1967,7 +1967,7 @@ function PromptsTab({
     document.body.style.userSelect = "none";
   }, [filePanelWidth]);
 
-  if (!isLocal) {
+  if (!supportsBundle) {
     return (
       <div className="max-w-3xl">
         <p className="text-sm text-muted-foreground">
