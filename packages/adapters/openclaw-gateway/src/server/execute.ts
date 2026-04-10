@@ -14,7 +14,10 @@ import {
 import { readFileSync } from "node:fs";
 import crypto, { randomUUID } from "node:crypto";
 import { WebSocket } from "ws";
-import { DEFAULT_OPENCLAW_GATEWAY_WS_URL } from "../defaults.js";
+import {
+  DEFAULT_OPENCLAW_GATEWAY_TIMEOUT_SEC,
+  DEFAULT_OPENCLAW_GATEWAY_WS_URL,
+} from "../defaults.js";
 
 type SessionKeyStrategy = "fixed" | "issue" | "run";
 
@@ -1067,7 +1070,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     };
   }
 
-  const timeoutSec = Math.max(0, Math.floor(asNumber(ctx.config.timeoutSec, 120)));
+  const timeoutSec = Math.max(0, Math.floor(asNumber(ctx.config.timeoutSec, DEFAULT_OPENCLAW_GATEWAY_TIMEOUT_SEC)));
   const timeoutMs = timeoutSec > 0 ? timeoutSec * 1000 : 0;
   const connectTimeoutMs = timeoutMs > 0 ? Math.min(timeoutMs, 15_000) : 10_000;
   const waitTimeoutMs = parseOptionalPositiveInteger(ctx.config.waitTimeoutMs) ?? (timeoutMs > 0 ? timeoutMs : 30_000);
@@ -1160,8 +1163,11 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     agentParams.agentId = configuredAgentId;
   }
 
+  // OpenClaw treats `agent` param `timeout` as whole seconds (not ms); subagent spawns use the same field.
   if (typeof agentParams.timeout !== "number") {
-    agentParams.timeout = waitTimeoutMs;
+    const runTimeoutSeconds =
+      timeoutSec > 0 ? timeoutSec : Math.max(1, Math.floor(waitTimeoutMs / 1000));
+    agentParams.timeout = runTimeoutSeconds;
   }
 
   if (ctx.onMeta) {

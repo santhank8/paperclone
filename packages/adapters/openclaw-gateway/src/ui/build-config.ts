@@ -1,5 +1,9 @@
 import type { CreateConfigValues } from "@paperclipai/adapter-utils";
-import { DEFAULT_OPENCLAW_GATEWAY_WS_URL } from "../defaults.js";
+import {
+  DEFAULT_OPENCLAW_GATEWAY_TIMEOUT_SEC,
+  DEFAULT_OPENCLAW_GATEWAY_WAIT_TIMEOUT_MS,
+  DEFAULT_OPENCLAW_GATEWAY_WS_URL,
+} from "../defaults.js";
 
 function parseJsonObject(text: string): Record<string, unknown> | null {
   const trimmed = text.trim();
@@ -22,8 +26,8 @@ export function buildOpenClawGatewayConfig(v: CreateConfigValues): Record<string
   if (gatewayTok) {
     ac.headers = { "x-openclaw-token": gatewayTok };
   }
-  ac.timeoutSec = 120;
-  ac.waitTimeoutMs = 120000;
+  ac.timeoutSec = DEFAULT_OPENCLAW_GATEWAY_TIMEOUT_SEC;
+  ac.waitTimeoutMs = DEFAULT_OPENCLAW_GATEWAY_WAIT_TIMEOUT_MS;
   ac.sessionKeyStrategy = "issue";
   ac.role = "operator";
   ac.scopes = ["operator.admin"];
