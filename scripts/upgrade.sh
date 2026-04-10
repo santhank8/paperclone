@@ -195,16 +195,23 @@ acquire_lock() {
 # ---------------------------------------------------------------------------
 # Agent state management
 #
-# Saves per-agent heartbeat/wakeOnDemand state before quiescing, then
-# restores each agent to its exact prior state afterward. Agents that
-# had heartbeats disabled before the upgrade stay disabled.
+# Saves per-agent full runtimeConfig (including the complete heartbeat object
+# with intervalSec, maxConcurrentRuns, etc.) before quiescing, then restores
+# each agent to its exact prior state afterward. Agents that had heartbeats
+# disabled before the upgrade stay disabled.
+#
+# The full runtimeConfig is saved (not just the heartbeat sub-object) because
+# the PATCH API replaces the entire runtimeConfig column — sending only
+# {runtimeConfig: {heartbeat: ...}} would wipe other runtimeConfig keys such
+# as env, model, and command.  Saving the full object also ensures intervalSec
+# is always captured even when the stored heartbeat object is sparse.
 # ---------------------------------------------------------------------------
 
 save_heartbeat_state() {
-  log "Saving current heartbeat state (full heartbeat objects)..."
+  log "Saving current agent runtimeConfig state (full runtimeConfig including heartbeat.intervalSec)..."
   local state
   state=$(api_curl "$API_URL/api/companies/$COMPANY_ID/agents" 2>/dev/null \
-    | jq '[.[] | {id: .id, name: .name, heartbeat: .runtimeConfig.heartbeat}]' \
+    | jq '[.[] | {id: .id, name: .name, runtimeConfig: .runtimeConfig, heartbeat: (.runtimeConfig.heartbeat // {})}]' \
     2>/dev/null) || state="[]"
   if [ -z "$state" ] || [ "$state" = "null" ]; then
     log "WARN: Could not fetch agent state — defaulting to empty list (no agents will be quiesced)"
@@ -217,13 +224,15 @@ quiesce_agents() {
   log "Quiescing all agents (disabling heartbeats and on-demand wakes only)..."
   for agent_id in $(jq -r '.[] | select(.heartbeat.enabled == true or .heartbeat.wakeOnDemand == true) | .id' "$HEARTBEAT_STATE_FILE"); do
     agent_name=$(jq -r --arg id "$agent_id" '.[] | select(.id == $id) | .name' "$HEARTBEAT_STATE_FILE")
-    # Merge just enabled+wakeOnDemand into the existing heartbeat object so
-    # other fields (intervalSec, cooldownSec, maxConcurrentRuns) are preserved.
+    # Patch the full runtimeConfig with only enabled+wakeOnDemand overridden so
+    # intervalSec, maxConcurrentRuns, and all other runtimeConfig keys survive.
+    saved_rc=$(jq -c --arg id "$agent_id" '.[] | select(.id == $id) | .runtimeConfig // {}' "$HEARTBEAT_STATE_FILE")
     saved_hb=$(jq -c --arg id "$agent_id" '.[] | select(.id == $id) | .heartbeat' "$HEARTBEAT_STATE_FILE")
     quiesced_hb=$(echo "$saved_hb" | jq -c '. + {enabled: false, wakeOnDemand: false}')
+    quiesced_rc=$(echo "$saved_rc" | jq -c --argjson hb "$quiesced_hb" '. + {heartbeat: $hb}')
     api_curl -X PATCH "$API_URL/api/agents/$agent_id" \
       -H "Content-Type: application/json" \
-      -d "{\"runtimeConfig\": {\"heartbeat\": $quiesced_hb}}" > /dev/null 2>&1 \
+      -d "{\"runtimeConfig\": $quiesced_rc}" > /dev/null 2>&1 \
       && log "  Quiesced: $agent_name" \
       || log "  WARN: Failed to quiesce: $agent_name"
   done
@@ -234,13 +243,13 @@ restore_heartbeats() {
     log "WARN: No heartbeat state file found, cannot restore"
     return
   fi
-  log "Restoring full agent heartbeat configs..."
+  log "Restoring full agent runtimeConfig (including heartbeat.intervalSec)..."
   for agent_id in $(jq -r '.[] | select(.heartbeat.enabled == true or .heartbeat.wakeOnDemand == true) | .id' "$HEARTBEAT_STATE_FILE"); do
     agent_name=$(jq -r --arg id "$agent_id" '.[] | select(.id == $id) | .name' "$HEARTBEAT_STATE_FILE")
-    saved_hb=$(jq -c --arg id "$agent_id" '.[] | select(.id == $id) | .heartbeat' "$HEARTBEAT_STATE_FILE")
+    saved_rc=$(jq -c --arg id "$agent_id" '.[] | select(.id == $id) | .runtimeConfig // {}' "$HEARTBEAT_STATE_FILE")
     api_curl -X PATCH "$API_URL/api/agents/$agent_id" \
       -H "Content-Type: application/json" \
-      -d "{\"runtimeConfig\": {\"heartbeat\": $saved_hb}}" > /dev/null 2>&1 \
+      -d "{\"runtimeConfig\": $saved_rc}" > /dev/null 2>&1 \
       && log "  Restored: $agent_name" \
       || log "  WARN: Failed to restore: $agent_name"
   done
