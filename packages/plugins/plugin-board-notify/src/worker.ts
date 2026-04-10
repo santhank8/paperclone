@@ -28,6 +28,14 @@ const DEFAULT_CONFIG: BoardNotifyConfig = {
   paperclipBaseUrl: "",
 };
 
+/** A GitHub PR or issue link extracted from markdown. */
+interface GitHubLink {
+  url: string;
+  /** e.g. "PR #13" or "Issue #42" */
+  label: string;
+  repo: string;
+}
+
 interface IssueContext {
   identifier: string;
   title: string;
@@ -37,6 +45,10 @@ interface IssueContext {
   latestComment: string;
   commentAuthor: string;
   issueUrl: string;
+  /** GitHub PRs/issues mentioned in the description or latest comment. */
+  githubLinks: GitHubLink[];
+  /** Plain-English action items extracted from the latest comment / description. */
+  actionItems: string[];
 }
 
 async function getConfig(ctx: PluginContext): Promise<BoardNotifyConfig> {
@@ -97,6 +109,63 @@ async function sendEmail(
 }
 
 // ---------------------------------------------------------------------------
+// GitHub link extraction
+// ---------------------------------------------------------------------------
+
+const GH_URL_RE = /https:\/\/github\.com\/([^/]+\/[^/]+)\/(pull|issues)\/([0-9]+)/g;
+
+/** Deduplicate GitHub PR / issue URLs from one or more markdown strings. */
+function extractGitHubLinks(...sources: string[]): GitHubLink[] {
+  const seen = new Set<string>();
+  const links: GitHubLink[] = [];
+  for (const src of sources) {
+    for (const m of src.matchAll(GH_URL_RE)) {
+      const url = m[0];
+      if (seen.has(url)) continue;
+      seen.add(url);
+      const kind = m[2] === "pull" ? "PR" : "Issue";
+      links.push({ url, label: `${kind} #${m[3]}`, repo: m[1]! });
+    }
+  }
+  return links;
+}
+
+// ---------------------------------------------------------------------------
+// Action-item extraction ("dumb it down" for the board reader)
+// ---------------------------------------------------------------------------
+
+/**
+ * Pull plain-English action items from markdown.
+ *
+ * Strategy:
+ *  1. Look for bullet lists that contain action verbs directed at the reader.
+ *  2. Strip markdown formatting so the result reads like a simple checklist.
+ *  3. If nothing is found, summarise the first sentence of the latest comment.
+ */
+function extractActionItems(latestComment: string, description: string): string[] {
+  const items: string[] = [];
+  const actionVerbs = /^\s*[-*]\s+(merge|approve|review|confirm|deploy|set|configure|run|check|fix|create|add|remove|update|verify|test|push|land|unblock|do one of|please)\b/i;
+
+  // Scan latest comment first (most relevant), then description.
+  for (const src of [latestComment, description]) {
+    for (const line of src.split('\n')) {
+      if (actionVerbs.test(line)) {
+        // Strip markdown link syntax, backticks, leading bullet
+        let clean = line
+          .replace(/^\s*[-*]\s+/, '')
+          .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+          .replace(/`([^`]+)`/g, '$1')
+          .trim();
+        if (clean.length > 0 && !items.includes(clean)) {
+          items.push(clean);
+        }
+      }
+    }
+  }
+  return items;
+}
+
+// ---------------------------------------------------------------------------
 // Issue context fetcher
 // ---------------------------------------------------------------------------
 
@@ -148,7 +217,10 @@ async function fetchIssueContext(
     ctx.logger.warn("Could not fetch comments for notification", {});
   }
 
-  return { identifier, title, description, status, priority, latestComment, commentAuthor, issueUrl };
+  const githubLinks = extractGitHubLinks(description, latestComment);
+  const actionItems = extractActionItems(latestComment, description);
+
+  return { identifier, title, description, status, priority, latestComment, commentAuthor, issueUrl, githubLinks, actionItems };
 }
 
 // ---------------------------------------------------------------------------
@@ -164,7 +236,13 @@ const STYLES = {
   commentBox: 'background: #f5f5f5; border-left: 3px solid #d1d5db; padding: 12px 16px; margin: 16px 0; border-radius: 4px; font-size: 14px; line-height: 1.5; white-space: pre-wrap; word-break: break-word;',
   commentAuthor: 'font-weight: 600; margin-bottom: 4px; font-size: 13px; color: #444;',
   button: 'display: inline-block; background: #111; color: #fff; padding: 10px 24px; border-radius: 6px; text-decoration: none; font-weight: 500; font-size: 14px; margin-top: 8px;',
+  buttonSecondary: 'display: inline-block; background: #fff; color: #111; padding: 8px 16px; border-radius: 6px; text-decoration: none; font-weight: 500; font-size: 13px; margin-top: 8px; border: 1px solid #d1d5db; margin-right: 8px;',
   footer: 'color: #999; font-size: 12px; margin-top: 24px; border-top: 1px solid #eee; padding-top: 12px;',
+  ghBadge: 'display: inline-block; background: #24292f; color: #fff; padding: 4px 10px; border-radius: 4px; font-size: 13px; font-weight: 500; text-decoration: none; margin-right: 6px; margin-bottom: 6px;',
+  actionBox: 'background: #fffbeb; border: 1px solid #fbbf24; border-radius: 8px; padding: 16px; margin: 16px 0;',
+  actionHeading: 'margin: 0 0 8px; font-size: 15px; font-weight: 600; color: #92400e;',
+  actionList: 'margin: 0; padding-left: 20px;',
+  actionItem: 'font-size: 14px; line-height: 1.6; color: #1a1a1a;',
   priorityBadge: (p: string) => {
     const colors: Record<string, string> = {
       critical: '#dc2626', high: '#ea580c', medium: '#ca8a04', low: '#65a30d',
@@ -183,6 +261,34 @@ function truncate(s: string, max: number): string {
   return s.slice(0, max).trimEnd() + '…';
 }
 
+/** Render GitHub PR/issue badges as linked buttons. */
+function githubLinksHtml(links: GitHubLink[]): string {
+  if (links.length === 0) return '';
+  const badges = links.map(l =>
+    `<a href="${escapeHtml(l.url)}" style="${STYLES.ghBadge}" title="${escapeHtml(l.repo)}">
+      ${escapeHtml(l.label)} · ${escapeHtml(l.repo.split('/')[1] ?? l.repo)}
+    </a>`
+  ).join('');
+  return `
+    <div style="margin-bottom: 16px;">
+      <div style="font-size: 13px; color: #666; margin-bottom: 6px;">GitHub:</div>
+      ${badges}
+    </div>
+  `;
+}
+
+/** Render the "what you need to do" action box. */
+function actionItemsHtml(items: string[]): string {
+  if (items.length === 0) return '';
+  const listItems = items.map(i => `<li style="${STYLES.actionItem}">${escapeHtml(i)}</li>`).join('');
+  return `
+    <div style="${STYLES.actionBox}">
+      <h3 style="${STYLES.actionHeading}">✅ What you need to do:</h3>
+      <ol style="${STYLES.actionList}">${listItems}</ol>
+    </div>
+  `;
+}
+
 function assignedEmailHtml(ic: IssueContext): string {
   return `
     <div style="${STYLES.wrapper}">
@@ -193,6 +299,8 @@ function assignedEmailHtml(ic: IssueContext): string {
         <tr><td style="${STYLES.labelCell}">Status</td><td style="${STYLES.valueCell}">${escapeHtml(ic.status)}</td></tr>
         ${ic.priority ? `<tr><td style="${STYLES.labelCell}">Priority</td><td style="${STYLES.valueCell}"><span style="${STYLES.priorityBadge(ic.priority)}">${escapeHtml(ic.priority)}</span></td></tr>` : ''}
       </table>
+      ${githubLinksHtml(ic.githubLinks)}
+      ${actionItemsHtml(ic.actionItems)}
       ${ic.description ? `<p style="font-size: 14px; color: #444; line-height: 1.5; margin: 0 0 16px;">${escapeHtml(truncate(stripMarkdownLinks(ic.description), 300))}</p>` : ''}
       ${ic.latestComment ? `
         <div style="margin-bottom: 16px;">
@@ -200,7 +308,10 @@ function assignedEmailHtml(ic: IssueContext): string {
           <div style="${STYLES.commentBox}">${escapeHtml(truncate(stripMarkdownLinks(ic.latestComment), 600))}</div>
         </div>
       ` : ''}
-      ${ic.issueUrl ? `<a href="${escapeHtml(ic.issueUrl)}" style="${STYLES.button}">View Issue →</a>` : ''}
+      <div style="margin-top: 16px;">
+        ${ic.issueUrl ? `<a href="${escapeHtml(ic.issueUrl)}" style="${STYLES.button}">View Issue →</a>` : ''}
+        ${ic.githubLinks.length > 0 ? `<a href="${escapeHtml(ic.githubLinks[0]!.url)}" style="${STYLES.buttonSecondary}">Open ${escapeHtml(ic.githubLinks[0]!.label)} →</a>` : ''}
+      </div>
       <p style="${STYLES.footer}">Paperclip Board Notifications</p>
     </div>
   `;
@@ -215,13 +326,18 @@ function blockedEmailHtml(ic: IssueContext): string {
         <tr><td style="${STYLES.labelCell}">Title</td><td style="${STYLES.valueCell}">${escapeHtml(ic.title)}</td></tr>
         ${ic.priority ? `<tr><td style="${STYLES.labelCell}">Priority</td><td style="${STYLES.valueCell}"><span style="${STYLES.priorityBadge(ic.priority)}">${escapeHtml(ic.priority)}</span></td></tr>` : ''}
       </table>
+      ${githubLinksHtml(ic.githubLinks)}
+      ${actionItemsHtml(ic.actionItems)}
       ${ic.latestComment ? `
         <div style="margin-bottom: 16px;">
           <div style="${STYLES.commentAuthor}">Latest from ${escapeHtml(ic.commentAuthor)}:</div>
           <div style="${STYLES.commentBox}">${escapeHtml(truncate(stripMarkdownLinks(ic.latestComment), 600))}</div>
         </div>
       ` : ''}
-      ${ic.issueUrl ? `<a href="${escapeHtml(ic.issueUrl)}" style="${STYLES.button}">View Issue →</a>` : ''}
+      <div style="margin-top: 16px;">
+        ${ic.issueUrl ? `<a href="${escapeHtml(ic.issueUrl)}" style="${STYLES.button}">View Issue →</a>` : ''}
+        ${ic.githubLinks.length > 0 ? `<a href="${escapeHtml(ic.githubLinks[0]!.url)}" style="${STYLES.buttonSecondary}">Open ${escapeHtml(ic.githubLinks[0]!.label)} →</a>` : ''}
+      </div>
       <p style="${STYLES.footer}">Paperclip Board Notifications</p>
     </div>
   `;
