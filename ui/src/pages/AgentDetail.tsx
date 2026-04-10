@@ -92,6 +92,7 @@ import {
 } from "@paperclipai/shared";
 import { redactHomePathUserSegments, redactHomePathUserSegmentsInValue } from "@paperclipai/adapter-utils";
 import { agentRouteRef } from "../lib/utils";
+import { resolveBundleDraft } from "../lib/bundle-draft";
 import {
   applyAgentSkillSnapshot,
   arraysEqual,
@@ -1867,23 +1868,13 @@ function PromptsTab({
 
   useEffect(() => {
     if (!bundle) return;
-    setBundleDraft((current) => {
-      // Preserve draft only if user has unsaved edits (draft differs from persisted state)
-      if (
-        current &&
-        (current.mode !== persistedMode ||
-         current.rootPath !== persistedRootPath ||
-         current.entryFile !== bundle.entryFile)
-      ) {
-        return current;
-      }
-      // Initialize or re-sync to latest persisted state
-      return {
+    setBundleDraft((current) =>
+      resolveBundleDraft(current, {
         mode: persistedMode,
         rootPath: persistedRootPath,
         entryFile: bundle.entryFile,
-      };
-    });
+      }),
+    );
   }, [bundle, persistedMode, persistedRootPath]);
 
   useEffect(() => {
