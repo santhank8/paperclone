@@ -1,4 +1,4 @@
-# Docker Quickstart
+﻿# Docker Quickstart
 
 Run Paperclip in Docker without installing Node or pnpm locally.
 
@@ -32,12 +32,18 @@ docker run --name paperclip \
   -p 3100:3100 \
   -e HOST=0.0.0.0 \
   -e PAPERCLIP_HOME=/paperclip \
+  -e PAPERCLIP_PUBLIC_URL=http://localhost:3100 \
   -e BETTER_AUTH_SECRET=$(openssl rand -hex 32) \
   -v "$(pwd)/data/docker-paperclip:/paperclip" \
   paperclip-local
 ```
 
 Open: `http://localhost:3100`
+
+The standalone `docker run` flow defaults to authenticated mode, so provide:
+
+- `BETTER_AUTH_SECRET` with a random secret at least 32 characters long
+- `PAPERCLIP_PUBLIC_URL=http://localhost:3100` (or your actual external URL)
 
 Data persistence:
 
@@ -135,6 +141,8 @@ docker run --name paperclip \
   -p 3100:3100 \
   -e HOST=0.0.0.0 \
   -e PAPERCLIP_HOME=/paperclip \
+  -e PAPERCLIP_PUBLIC_URL=http://localhost:3100 \
+  -e BETTER_AUTH_SECRET=replace-with-a-random-32-char-secret \
   -e OPENAI_API_KEY=... \
   -e ANTHROPIC_API_KEY=... \
   -v "$(pwd)/data/docker-paperclip:/paperclip" \
@@ -252,3 +260,4 @@ Notes:
 
 - The `docker-entrypoint.sh` adjusts the container `node` user UID/GID at startup to match the values passed via `USER_UID`/`USER_GID`, avoiding permission issues on bind-mounted volumes.
 - Paperclip data persists via Docker volumes/bind mounts (compose) or at `~/.local/share/paperclip` (quadlet).
+

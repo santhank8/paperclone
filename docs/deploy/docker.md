@@ -35,6 +35,8 @@ docker run --name paperclip \
   -p 3100:3100 \
   -e HOST=0.0.0.0 \
   -e PAPERCLIP_HOME=/paperclip \
+  -e PAPERCLIP_PUBLIC_URL=http://localhost:3100 \
+  -e BETTER_AUTH_SECRET=replace-with-a-random-32-char-secret \
   -v "$(pwd)/data/docker-paperclip:/paperclip" \
   paperclip-local
 ```
@@ -62,6 +64,8 @@ docker run --name paperclip \
   -p 3100:3100 \
   -e HOST=0.0.0.0 \
   -e PAPERCLIP_HOME=/paperclip \
+  -e PAPERCLIP_PUBLIC_URL=http://localhost:3100 \
+  -e BETTER_AUTH_SECRET=replace-with-a-random-32-char-secret \
   -e OPENAI_API_KEY=sk-... \
   -e ANTHROPIC_API_KEY=sk-... \
   -v "$(pwd)/data/docker-paperclip:/paperclip" \
