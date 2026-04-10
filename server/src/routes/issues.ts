@@ -57,6 +57,7 @@ import {
 } from "../attachment-types.js";
 import { queueIssueAssignmentWakeup } from "../services/issue-assignment-wakeup.js";
 import { applyIssueExecutionPolicyTransition, normalizeIssueExecutionPolicy } from "../services/issue-execution-policy.js";
+import { getAgentNotInvokableStatus, isAgentNotInvokableWakeupError } from "../services/wakeup-errors.js";
 
 const MAX_ISSUE_COMMENT_LIMIT = 500;
 const updateIssueRouteSchema = updateIssueSchema.extend({
@@ -115,6 +116,30 @@ export function issueRoutes(
       throw new HttpError(400, `Invalid ${field} query value`);
     }
     return parsed;
+  }
+
+  function parseOptionalQueryString(value: unknown) {
+    if (typeof value !== "string") return undefined;
+    const normalized = value.trim();
+    if (!normalized) return undefined;
+    const lower = normalized.toLowerCase();
+    if (lower === "null" || lower === "undefined") return undefined;
+    return normalized;
+  }
+
+  function logWakeupFailure(
+    err: unknown,
+    context: { issueId: string; agentId?: string },
+    message: string,
+  ) {
+    if (isAgentNotInvokableWakeupError(err)) {
+      logger.debug(
+        { err, issueId: context.issueId, agentId: context.agentId, agentStatus: getAgentNotInvokableStatus(err) },
+        `${message} (agent not invokable)`,
+      );
+      return;
+    }
+    logger.warn({ err, issueId: context.issueId, agentId: context.agentId }, message);
   }
 
   async function runSingleFileUpload(req: Request, res: Response) {
@@ -329,10 +354,18 @@ export function issueRoutes(
   router.get("/companies/:companyId/issues", async (req, res) => {
     const companyId = req.params.companyId as string;
     assertCompanyAccess(req, companyId);
-    const assigneeUserFilterRaw = req.query.assigneeUserId as string | undefined;
-    const touchedByUserFilterRaw = req.query.touchedByUserId as string | undefined;
-    const inboxArchivedByUserFilterRaw = req.query.inboxArchivedByUserId as string | undefined;
-    const unreadForUserFilterRaw = req.query.unreadForUserId as string | undefined;
+    const assigneeAgentId = parseOptionalQueryString(req.query.assigneeAgentId);
+    const participantAgentId = parseOptionalQueryString(req.query.participantAgentId);
+    const projectId = parseOptionalQueryString(req.query.projectId);
+    const executionWorkspaceId = parseOptionalQueryString(req.query.executionWorkspaceId);
+    const parentId = parseOptionalQueryString(req.query.parentId);
+    const labelId = parseOptionalQueryString(req.query.labelId);
+    const originKind = parseOptionalQueryString(req.query.originKind);
+    const originId = parseOptionalQueryString(req.query.originId);
+    const assigneeUserFilterRaw = parseOptionalQueryString(req.query.assigneeUserId);
+    const touchedByUserFilterRaw = parseOptionalQueryString(req.query.touchedByUserId);
+    const inboxArchivedByUserFilterRaw = parseOptionalQueryString(req.query.inboxArchivedByUserId);
+    const unreadForUserFilterRaw = parseOptionalQueryString(req.query.unreadForUserId);
     const assigneeUserId =
       assigneeUserFilterRaw === "me" && req.actor.type === "board"
         ? req.actor.userId
@@ -376,18 +409,18 @@ export function issueRoutes(
 
     const result = await svc.list(companyId, {
       status: req.query.status as string | undefined,
-      assigneeAgentId: req.query.assigneeAgentId as string | undefined,
-      participantAgentId: req.query.participantAgentId as string | undefined,
+      assigneeAgentId,
+      participantAgentId,
       assigneeUserId,
       touchedByUserId,
       inboxArchivedByUserId,
       unreadForUserId,
-      projectId: req.query.projectId as string | undefined,
-      executionWorkspaceId: req.query.executionWorkspaceId as string | undefined,
-      parentId: req.query.parentId as string | undefined,
-      labelId: req.query.labelId as string | undefined,
-      originKind: req.query.originKind as string | undefined,
-      originId: req.query.originId as string | undefined,
+      projectId,
+      executionWorkspaceId,
+      parentId,
+      labelId,
+      originKind,
+      originId,
       includeRoutineExecutions:
         req.query.includeRoutineExecutions === "true" || req.query.includeRoutineExecutions === "1",
       q: req.query.q as string | undefined,
@@ -1556,7 +1589,7 @@ export function issueRoutes(
       for (const { agentId, wakeup } of wakeups.values()) {
         heartbeat
           .wakeup(agentId, wakeup)
-          .catch((err) => logger.warn({ err, issueId: issue.id, agentId }, "failed to wake agent on issue update"));
+          .catch((err) => logWakeupFailure(err, { issueId: issue.id, agentId }, "failed to wake agent on issue update"));
       }
     })();
 
@@ -1670,7 +1703,7 @@ export function issueRoutes(
           requestedByActorId: actor.actorId,
           contextSnapshot: { issueId: issue.id, source: "issue.checkout" },
         })
-        .catch((err) => logger.warn({ err, issueId: issue.id }, "failed to wake assignee on issue checkout"));
+        .catch((err) => logWakeupFailure(err, { issueId: issue.id }, "failed to wake assignee on issue checkout"));
     }
 
     res.json(updated);
@@ -2043,7 +2076,8 @@ export function issueRoutes(
       for (const [agentId, wakeup] of wakeups.entries()) {
         heartbeat
           .wakeup(agentId, wakeup)
-          .catch((err) => logger.warn({ err, issueId: currentIssue.id, agentId }, "failed to wake agent on issue comment"));
+          .catch((err) =>
+            logWakeupFailure(err, { issueId: currentIssue.id, agentId }, "failed to wake agent on issue comment"));
       }
     })();
 

@@ -1450,4 +1450,52 @@ describeEmbeddedPostgres("issueService recovery transitions", () => {
     expect(transitionComment?.body).toContain("[issue-recovery-transition]");
     expect(transitionComment?.body).toContain(successor?.identifier ?? successorIssueId);
   });
+
+  it("supports asc comment pagination after an anchor comment id", async () => {
+    const companyId = randomUUID();
+    const issueId = randomUUID();
+    const firstCommentId = randomUUID();
+    const secondCommentId = randomUUID();
+    const firstCreatedAt = new Date("2026-01-01T00:00:00.000Z");
+    const secondCreatedAt = new Date("2026-01-01T00:01:00.000Z");
+
+    await db.insert(companies).values({
+      id: companyId,
+      name: "Paperclip",
+      issuePrefix: `T${companyId.replace(/-/g, "").slice(0, 6).toUpperCase()}`,
+      requireBoardApprovalForNewAgents: false,
+    });
+    await db.insert(issues).values({
+      id: issueId,
+      companyId,
+      title: "Comment pagination issue",
+      status: "todo",
+      priority: "medium",
+    });
+    await db.insert(issueComments).values([
+      {
+        id: firstCommentId,
+        companyId,
+        issueId,
+        body: "first",
+        createdAt: firstCreatedAt,
+        updatedAt: firstCreatedAt,
+      },
+      {
+        id: secondCommentId,
+        companyId,
+        issueId,
+        body: "second",
+        createdAt: secondCreatedAt,
+        updatedAt: secondCreatedAt,
+      },
+    ]);
+
+    const comments = await svc.listComments(issueId, {
+      afterCommentId: firstCommentId,
+      order: "asc",
+    });
+
+    expect(comments.map((comment) => comment.id)).toEqual([secondCommentId]);
+  });
 });

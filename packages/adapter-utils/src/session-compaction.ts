@@ -36,6 +36,15 @@ const ADAPTER_MANAGED_SESSION_POLICY: SessionCompactionPolicy = {
   maxSessionAgeHours: 0,
 };
 
+// Hermes sessions can expand quickly when provider-side compression fails.
+// Keep adapter-managed resumes, but force periodic Paperclip-side session rotation.
+const HERMES_SESSION_COMPACTION_POLICY: SessionCompactionPolicy = {
+  enabled: true,
+  maxSessionRuns: 6,
+  maxRawInputTokens: 28_000,
+  maxSessionAgeHours: 6,
+};
+
 export const LEGACY_SESSIONED_ADAPTER_TYPES = new Set([
   "claude_local",
   "codex_local",
@@ -80,7 +89,7 @@ export const ADAPTER_SESSION_MANAGEMENT: Record<string, AdapterSessionManagement
   hermes_local: {
     supportsSessionResume: true,
     nativeContextManagement: "confirmed",
-    defaultSessionCompaction: ADAPTER_MANAGED_SESSION_POLICY,
+    defaultSessionCompaction: HERMES_SESSION_COMPACTION_POLICY,
   },
 };
 

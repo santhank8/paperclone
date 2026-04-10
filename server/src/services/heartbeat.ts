@@ -982,6 +982,23 @@ function hasMissingSessionAdapterFailure(adapterResult: AdapterExecutionResult) 
   return messages.some((value) => /session not found|use a session id from a previous cli run|unknown session|failed to resume/i.test(value));
 }
 
+function hasContextOverflowAdapterFailure(adapterResult: AdapterExecutionResult) {
+  const resultRecord = parseObject(adapterResult.resultJson);
+  const messages = [
+    adapterResult.errorMessage,
+    readNonEmptyString(resultRecord.result),
+    readNonEmptyString(resultRecord.stderr),
+    readNonEmptyString(resultRecord.stdout),
+    readNonEmptyString(resultRecord.message),
+  ].filter((value): value is string => Boolean(value));
+
+  return messages.some((value) =>
+    /maximum context length|prompt contains at least .* input tokens|context too large|context length exceeded|max compression attempts|input_tokens/i.test(
+      value,
+    ),
+  );
+}
+
 export function buildExplicitResumeSessionOverride(input: {
   resumeFromRunId: string;
   resumeRunSessionIdBefore: string | null;
@@ -1581,8 +1598,13 @@ function resolveNextSessionState(input: {
     !sanitizeRuntimeSessionParams(hasExplicitParams ? explicitParams ?? null : null) &&
     !explicitSessionId &&
     !explicitDisplayId;
+  const shouldClearContextOverflowSession =
+    hasContextOverflowAdapterFailure(adapterResult) &&
+    !sanitizeRuntimeSessionParams(hasExplicitParams ? explicitParams ?? null : null) &&
+    !explicitSessionId &&
+    !explicitDisplayId;
 
-  if (adapterResult.clearSession || shouldClearMissingSession) {
+  if (adapterResult.clearSession || shouldClearMissingSession || shouldClearContextOverflowSession) {
     return {
       params: null as Record<string, unknown> | null,
       displayId: null as string | null,
@@ -2946,7 +2968,7 @@ export function heartbeatService(db: Db) {
         continue;
       }
 
-      const shouldRetry = tracksLocalChild && !!run.processPid && (run.processLossRetryCount ?? 0) < 1;
+      const shouldRetry = tracksLocalChild && (run.processLossRetryCount ?? 0) < 1;
       const baseMessage = run.processPid
         ? `Process lost -- child pid ${run.processPid} is no longer running`
         : "Process lost -- server may have restarted";

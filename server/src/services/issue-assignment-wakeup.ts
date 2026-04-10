@@ -1,4 +1,5 @@
 import { logger } from "../middleware/logger.js";
+import { getAgentNotInvokableStatus, isAgentNotInvokableWakeupError } from "./wakeup-errors.js";
 
 type WakeupTriggerDetail = "manual" | "ping" | "callback" | "system";
 type WakeupSource = "timer" | "assignment" | "on_demand" | "automation";
@@ -48,6 +49,14 @@ export function queueIssueAssignmentWakeup(input: {
       contextSnapshot: { issueId: input.issue.id, source: input.contextSource },
     })
     .catch((err) => {
+      if (isAgentNotInvokableWakeupError(err)) {
+        logger.debug(
+          { err, issueId: input.issue.id, agentStatus: getAgentNotInvokableStatus(err) },
+          "skipping assignee wakeup because agent is not invokable",
+        );
+        if (input.rethrowOnError) throw err;
+        return null;
+      }
       logger.warn({ err, issueId: input.issue.id }, "failed to wake assignee on issue assignment");
       if (input.rethrowOnError) throw err;
       return null;

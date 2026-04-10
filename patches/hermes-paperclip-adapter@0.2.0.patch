@@ -234,6 +234,7 @@
 +            env,
 +            timeoutSec,
 +            graceSec,
++            onSpawn: ctx.onSpawn,
 +            onLog: wrappedOnLog,
 +        });
 +    };
