@@ -189,7 +189,7 @@ export function isClaudeRateLimitedOutput(stdout: string, resultJson: Record<str
   if (asString(resultJson.error, "") === "rate_limit") return true;
   if (!asBoolean(resultJson.is_error, false)) return false;
   const resultText = asString(resultJson.result, "").trim();
-  return /(?:\brate\s*limit\b|\busage\s*limit\b|\bquota\b|\b429\b|too\s+many\s+requests)/i.test(
+  return /(?:\brate\s*limit\b|\busage\s*limit\b|\bquota\b|\b429\b|too\s+many\s+requests|(?:hit|reached)\s+your\s+limit)/i.test(
     resultText,
   );
 }
