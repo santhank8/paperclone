@@ -79,6 +79,13 @@ export interface Config {
   telemetryEnabled: boolean;
 }
 
+export function parseAllowedEmailDomains(raw: string): string[] {
+  return raw
+    .split(",")
+    .map((d) => d.trim().toLowerCase())
+    .filter((d) => d.length > 0);
+}
+
 export function loadConfig(): Config {
   const fileConfig = readConfigFile();
   const fileDatabaseMode =
@@ -174,10 +181,7 @@ export function loadConfig(): Config {
       : (fileConfig?.auth?.disableSignUp ?? false);
   const allowedEmailDomainsFromEnvRaw = process.env.PAPERCLIP_AUTH_ALLOWED_EMAIL_DOMAINS;
   const authAllowedEmailDomains: string[] = allowedEmailDomainsFromEnvRaw
-    ? allowedEmailDomainsFromEnvRaw
-      .split(",")
-      .map((d) => d.trim().toLowerCase())
-      .filter((d) => d.length > 0)
+    ? parseAllowedEmailDomains(allowedEmailDomainsFromEnvRaw)
     : (fileConfig?.auth?.allowedEmailDomains ?? []);
   const allowedHostnamesFromEnvRaw = process.env.PAPERCLIP_ALLOWED_HOSTNAMES;
   const allowedHostnamesFromEnv = allowedHostnamesFromEnvRaw

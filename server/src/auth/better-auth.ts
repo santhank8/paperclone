@@ -65,6 +65,15 @@ export function deriveAuthTrustedOrigins(config: Config): string[] {
   return Array.from(trustedOrigins);
 }
 
+export function isEmailDomainAllowed(
+  email: string | null | undefined,
+  allowedDomains: string[],
+): boolean {
+  if (allowedDomains.length === 0) return true;
+  const domain = (email ?? "").split("@")[1]?.toLowerCase() ?? "";
+  return allowedDomains.some((d) => d.toLowerCase() === domain);
+}
+
 export function createBetterAuthInstance(db: Db, config: Config, trustedOrigins?: string[]): BetterAuthInstance {
   const baseUrl = config.authBaseUrlMode === "explicit" ? config.authPublicBaseUrl : undefined;
   const secret = process.env.BETTER_AUTH_SECRET ?? process.env.PAPERCLIP_AGENT_JWT_SECRET;
@@ -103,12 +112,9 @@ export function createBetterAuthInstance(db: Db, config: Config, trustedOrigins?
             user: {
               create: {
                 before: async (user: { email?: string | null }) => {
-                  const email = user.email ?? "";
-                  const domain = email.split("@")[1]?.toLowerCase() ?? "";
-                  const allowed = config.authAllowedEmailDomains.some(
-                    (d) => d.toLowerCase() === domain,
-                  );
-                  if (!allowed) return false;
+                  if (!isEmailDomainAllowed(user.email, config.authAllowedEmailDomains)) {
+                    return false;
+                  }
                 },
               },
             },
