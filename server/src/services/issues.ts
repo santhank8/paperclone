@@ -876,9 +876,18 @@ export function issueService(db: Db) {
     actorAgentId: string;
     actorRunId: string;
     expectedCheckoutRunId: string;
+    expectedExecutionRunId: string | null;
   }) {
-    const stale = await isTerminalOrMissingHeartbeatRun(input.expectedCheckoutRunId);
-    if (!stale) return null;
+    const staleCheckoutRun = await isTerminalOrMissingHeartbeatRun(input.expectedCheckoutRunId);
+    if (!staleCheckoutRun) return null;
+    if (
+      input.expectedExecutionRunId &&
+      input.expectedExecutionRunId !== input.expectedCheckoutRunId &&
+      input.expectedExecutionRunId !== input.actorRunId
+    ) {
+      const staleExecutionRun = await isTerminalOrMissingHeartbeatRun(input.expectedExecutionRunId);
+      if (!staleExecutionRun) return null;
+    }
 
     const now = new Date();
     const adopted = await db
@@ -895,6 +904,9 @@ export function issueService(db: Db) {
           eq(issues.status, "in_progress"),
           eq(issues.assigneeAgentId, input.actorAgentId),
           eq(issues.checkoutRunId, input.expectedCheckoutRunId),
+          input.expectedExecutionRunId == null
+            ? isNull(issues.executionRunId)
+            : eq(issues.executionRunId, input.expectedExecutionRunId),
         ),
       )
       .returning({
@@ -907,6 +919,56 @@ export function issueService(db: Db) {
       .then((rows) => rows[0] ?? null);
 
     return adopted;
+  }
+
+  async function adoptMissingCheckoutRun(input: {
+    issueId: string;
+    actorAgentId: string;
+    actorRunId: string;
+    expectedExecutionRunId: string | null;
+  }) {
+    if (
+      input.expectedExecutionRunId &&
+      input.expectedExecutionRunId !== input.actorRunId &&
+      !(await isTerminalOrMissingHeartbeatRun(input.expectedExecutionRunId))
+    ) {
+      return null;
+    }
+
+    const now = new Date();
+    const adopted = await db
+      .update(issues)
+      .set({
+        checkoutRunId: input.actorRunId,
+        executionRunId: input.actorRunId,
+        executionLockedAt: now,
+        updatedAt: now,
+      })
+      .where(
+        and(
+          eq(issues.id, input.issueId),
+          eq(issues.status, "in_progress"),
+          eq(issues.assigneeAgentId, input.actorAgentId),
+          isNull(issues.checkoutRunId),
+          input.expectedExecutionRunId == null
+            ? isNull(issues.executionRunId)
+            : eq(issues.executionRunId, input.expectedExecutionRunId),
+        ),
+      )
+      .returning({
+        id: issues.id,
+        status: issues.status,
+        assigneeAgentId: issues.assigneeAgentId,
+        checkoutRunId: issues.checkoutRunId,
+        executionRunId: issues.executionRunId,
+      })
+      .then((rows) => rows[0] ?? null);
+
+    if (!adopted) return null;
+
+    const row = await getIssueByUuid(input.issueId);
+    if (!row) throw notFound("Issue not found");
+    return row;
   }
 
   return {
@@ -1828,27 +1890,14 @@ export function issueService(db: Db) {
         current.assigneeAgentId === agentId &&
         current.status === "in_progress" &&
         current.checkoutRunId == null &&
-        (current.executionRunId == null || current.executionRunId === checkoutRunId) &&
         checkoutRunId
       ) {
-        const adopted = await db
-          .update(issues)
-          .set({
-            checkoutRunId,
-            executionRunId: checkoutRunId,
-            updatedAt: new Date(),
-          })
-          .where(
-            and(
-              eq(issues.id, id),
-              eq(issues.status, "in_progress"),
-              eq(issues.assigneeAgentId, agentId),
-              isNull(issues.checkoutRunId),
-              or(isNull(issues.executionRunId), eq(issues.executionRunId, checkoutRunId)),
-            ),
-          )
-          .returning()
-          .then((rows) => rows[0] ?? null);
+        const adopted = await adoptMissingCheckoutRun({
+          issueId: id,
+          actorAgentId: agentId,
+          actorRunId: checkoutRunId,
+          expectedExecutionRunId: current.executionRunId,
+        });
         if (adopted) return adopted;
       }
 
@@ -1864,6 +1913,7 @@ export function issueService(db: Db) {
           actorAgentId: agentId,
           actorRunId: checkoutRunId,
           expectedCheckoutRunId: current.checkoutRunId,
+          expectedExecutionRunId: current.executionRunId,
         });
         if (adopted) {
           const row = await db.select().from(issues).where(eq(issues.id, id)).then((rows) => rows[0] ?? null);
@@ -1901,6 +1951,7 @@ export function issueService(db: Db) {
           status: issues.status,
           assigneeAgentId: issues.assigneeAgentId,
           checkoutRunId: issues.checkoutRunId,
+          executionRunId: issues.executionRunId,
         })
         .from(issues)
         .where(eq(issues.id, id))
@@ -1913,7 +1964,33 @@ export function issueService(db: Db) {
         current.assigneeAgentId === actorAgentId &&
         sameRunLock(current.checkoutRunId, actorRunId)
       ) {
-        return { ...current, adoptedFromRunId: null as string | null };
+        return {
+          ...current,
+          adoptedFromRunId: null as string | null,
+          adoptedFromLockType: null as "checkout" | "execution" | null,
+        };
+      }
+
+      if (
+        actorRunId &&
+        current.status === "in_progress" &&
+        current.assigneeAgentId === actorAgentId &&
+        current.checkoutRunId == null
+      ) {
+        const adopted = await adoptMissingCheckoutRun({
+          issueId: id,
+          actorAgentId,
+          actorRunId,
+          expectedExecutionRunId: current.executionRunId,
+        });
+
+        if (adopted) {
+          return {
+            ...adopted,
+            adoptedFromRunId: current.executionRunId,
+            adoptedFromLockType: current.executionRunId ? ("execution" as const) : null,
+          };
+        }
       }
 
       if (
@@ -1928,12 +2005,14 @@ export function issueService(db: Db) {
           actorAgentId,
           actorRunId,
           expectedCheckoutRunId: current.checkoutRunId,
+          expectedExecutionRunId: current.executionRunId,
         });
 
         if (adopted) {
           return {
             ...adopted,
             adoptedFromRunId: current.checkoutRunId,
+            adoptedFromLockType: "checkout" as const,
           };
         }
       }
@@ -1943,6 +2022,7 @@ export function issueService(db: Db) {
         status: current.status,
         assigneeAgentId: current.assigneeAgentId,
         checkoutRunId: current.checkoutRunId,
+        executionRunId: current.executionRunId,
         actorAgentId,
         actorRunId,
       });
