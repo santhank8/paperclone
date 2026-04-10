@@ -45,6 +45,15 @@ async function writeJson(filePath: string, data: unknown) {
   await fs.writeFile(filePath, `${JSON.stringify(data, null, 2)}\n`, "utf8");
 }
 
+async function readJson(filePath: string) {
+  try {
+    const raw = await fs.readFile(filePath, "utf8");
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
 export function blogArtifactMirrorService(input?: { baseDir?: string }) {
   const baseDir = path.resolve(input?.baseDir ?? resolveDefaultBlogRunsDir());
 
@@ -116,14 +125,33 @@ export function blogArtifactMirrorService(input?: { baseDir?: string }) {
     if (!fileName) return null;
     const runDir = resolveRunDir(runId);
     const record = result ?? {};
-    await writeJson(path.join(runDir, fileName), record);
+    const filePath = path.join(runDir, fileName);
+    let output = record;
+
     if (stepKey === "draft") {
-      const articleHtml = String(toRecord(record).article_html ?? "").trim();
+      const incoming = toRecord(record);
+      const existing = toRecord(await readJson(filePath));
+      const hasIncomingArticleHtml = String(incoming.article_html ?? "").trim().length > 0;
+      const hasExistingArticleHtml = String(existing.article_html ?? "").trim().length > 0;
+
+      if (!hasIncomingArticleHtml && hasExistingArticleHtml) {
+        output = {
+          ...existing,
+          ...incoming,
+          article_html: existing.article_html,
+          wordpress_body_html: incoming.wordpress_body_html ?? existing.wordpress_body_html ?? existing.article_html,
+        };
+      }
+    }
+
+    await writeJson(filePath, output);
+    if (stepKey === "draft") {
+      const articleHtml = String(toRecord(output).article_html ?? "").trim();
       if (articleHtml) {
         await fs.writeFile(path.join(runDir, "draft.md"), `${articleHtml}\n`, "utf8");
       }
     }
-    return path.join(runDir, fileName);
+    return filePath;
   }
 
   async function writeStepArtifacts(runId: string, stepKey: string, artifacts: unknown[]) {

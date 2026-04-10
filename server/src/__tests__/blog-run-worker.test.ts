@@ -294,6 +294,57 @@ describe("blog run worker", () => {
     }));
   });
 
+  it("fails draft when headline quality gate rejects the headline and attaches the gate artifact", async () => {
+    const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "paperclip-worker-headline-gate-"));
+    const runDir = path.join(tmp, "run-1");
+    await fs.mkdir(runDir, { recursive: true });
+    await fs.writeFile(path.join(runDir, "headline.gate.json"), JSON.stringify({
+      ok: false,
+      gate: "headline_quality",
+      verdict: "revise",
+      summary: "headline quality gate failed: headline_value_proposition, headline_specificity",
+      failed_axes: [
+        { axisId: "headline_value_proposition" },
+        { axisId: "headline_specificity" },
+      ],
+    }, null, 2));
+
+    const runService = {
+      getById: vi.fn().mockResolvedValue(createRun({ currentStep: "draft" })),
+      getDetail: vi.fn().mockResolvedValue({ ok: true }),
+      claimNextStep: vi.fn().mockResolvedValue(createClaim({ currentStep: "draft" }, { stepKey: "draft" })),
+      completeStep: vi.fn(),
+      failStep: vi.fn().mockResolvedValue({ run: { status: "failed", failedReason: "blog_run_headline_quality_failed:headline_value_proposition,headline_specificity" } }),
+    };
+    const worker = blogRunWorkerService({} as any, {
+      runService: runService as any,
+      artifactRoot: tmp,
+      runDraftStep: vi.fn().mockRejectedValue(new Error("blog_run_headline_quality_failed:headline_value_proposition,headline_specificity")),
+      runQualityGateBundle: vi.fn().mockResolvedValue({ results: {} }),
+    });
+
+    const result = await worker.runNext("run-1");
+
+    expect(runService.completeStep).not.toHaveBeenCalled();
+    expect(runService.failStep).toHaveBeenCalledWith("run-1", "draft", expect.objectContaining({
+      errorMessage: "blog_run_headline_quality_failed:headline_value_proposition,headline_specificity",
+      artifacts: expect.arrayContaining([
+        expect.objectContaining({
+          artifactKind: "headline_quality_gate_json",
+          storagePath: path.join(runDir, "headline.gate.json"),
+          bodyPreview: "headline quality gate failed: headline_value_proposition, headline_specificity",
+          metadata: expect.objectContaining({
+            gate: "headline_quality",
+            ok: false,
+            verdict: "revise",
+            failedAxes: ["headline_value_proposition", "headline_specificity"],
+          }),
+        }),
+      ]),
+    }));
+    expect(result).toMatchObject({ run: { status: "failed" } });
+  });
+
   it("soft-attaches grok artifact errors without failing the step", async () => {
     const runService = {
       getById: vi.fn().mockResolvedValue(createRun()),
@@ -346,6 +397,55 @@ describe("blog run worker", () => {
       errorMessage: "blog_run_validation_failed",
     }));
     expect(result).toMatchObject({ run: { status: "failed" } });
+  });
+
+  it("attaches validation rewrite guidance artifacts for opening-flow failures", async () => {
+    const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "paperclip-blog-worker-"));
+    const runDir = path.join(tmp, "run-1");
+    await fs.mkdir(runDir, { recursive: true });
+    await fs.writeFile(path.join(runDir, "validation.json"), JSON.stringify({
+      ok: false,
+      opening_flow: {
+        failures: ["opening_template_filler", "opening_learning_penalty"],
+      },
+      read_through: {
+        failures: ["paragraph_tension_flat_opening_block", "save_worthiness_no_scannable_structure"],
+      },
+    }, null, 2));
+
+    try {
+      const runService = {
+        getById: vi.fn().mockResolvedValue(createRun({ currentStep: "validate" })),
+        getDetail: vi.fn().mockResolvedValue({ ok: true }),
+        claimNextStep: vi.fn().mockResolvedValue(createClaim({ currentStep: "validate" }, { stepKey: "validate" })),
+        completeStep: vi.fn(),
+        failStep: vi.fn().mockResolvedValue({ run: { status: "failed", failedReason: "blog_run_validation_failed" } }),
+      };
+      const worker = blogRunWorkerService({} as any, {
+        runService: runService as any,
+        artifactRoot: tmp,
+        runValidateStep: vi.fn().mockResolvedValue({ ok: false }),
+      });
+
+      await worker.runNext("run-1");
+
+      expect(runService.failStep).toHaveBeenCalledWith("run-1", "validate", expect.objectContaining({
+        errorMessage: "blog_run_validation_failed",
+        artifacts: expect.arrayContaining([
+          expect.objectContaining({
+            artifactKind: "validation_rewrite_guidance_json",
+            storagePath: path.join(runDir, "validation-rewrite-guidance.json"),
+            bodyPreview: expect.stringContaining("opening_template_filler"),
+          }),
+          expect.objectContaining({
+            artifactKind: "validation_rewrite_guidance_markdown",
+            storagePath: path.join(runDir, "validation-rewrite-guidance.md"),
+          }),
+        ]),
+      }));
+    } finally {
+      await fs.rm(tmp, { recursive: true, force: true });
+    }
   });
 
   it("fails validate in strict publish-ready mode when merged preflight is not ok", async () => {

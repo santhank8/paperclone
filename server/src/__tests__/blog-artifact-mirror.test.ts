@@ -127,6 +127,63 @@ describeEmbeddedPostgres("blog artifact mirror integration", () => {
     });
   });
 
+  it("preserves structured draft html when the draft step completion payload only carries metadata", async () => {
+    const { companyId, projectId } = await seedProject();
+    const mirror = blogArtifactMirrorService({ baseDir: scratchRoot });
+    const svc = blogRunService(db, { artifactMirror: mirror });
+
+    const created = await svc.create({
+      companyId,
+      projectId,
+      topic: "Draft preservation topic",
+      lane: "publish",
+      contextJson: {
+        title: "Draft preservation title",
+      },
+    });
+
+    const draftDir = path.join(scratchRoot, created!.id);
+    await fs.mkdir(draftDir, { recursive: true });
+    await fs.writeFile(path.join(draftDir, "draft.json"), JSON.stringify({
+      title: "Structured title",
+      article_html: "<p>Structured article body</p>",
+      reader_outline: {
+        intro: "Structured intro",
+      },
+    }, null, 2));
+
+    const claim = await svc.claimNextStep(created!.id);
+    await svc.completeStep(created!.id, "research", {
+      attemptId: claim!.attempt!.id,
+      resultJson: { bundlePath: "/tmp/research.json" },
+      artifacts: [],
+    });
+
+    const draftClaim = await svc.claimNextStep(created!.id);
+    await svc.completeStep(created!.id, "draft", {
+      attemptId: draftClaim!.attempt!.id,
+      resultJson: {
+        ok: true,
+        generated_at: "2026-04-10T08:00:00.000Z",
+        title: "Structured title",
+        summary: "Metadata only payload",
+        body_path: path.join(draftDir, "draft.md"),
+      },
+      artifacts: [],
+    });
+
+    const mirroredDraft = JSON.parse(await fs.readFile(path.join(draftDir, "draft.json"), "utf8"));
+    expect(mirroredDraft).toMatchObject({
+      title: "Structured title",
+      summary: "Metadata only payload",
+      article_html: "<p>Structured article body</p>",
+      wordpress_body_html: "<p>Structured article body</p>",
+      reader_outline: {
+        intro: "Structured intro",
+      },
+    });
+  });
+
   it("writes a structured stop reason for automatic stop and follow-up failures", async () => {
     const { companyId, projectId } = await seedProject();
     const mirror = blogArtifactMirrorService({ baseDir: scratchRoot });

@@ -1,5 +1,5 @@
 import { createRequire } from "node:module";
-import { and, asc, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, lte, sql } from "drizzle-orm";
 import type { Db } from "@paperclipai/db";
 import {
   blogArtifacts,
@@ -41,6 +41,18 @@ const STEP_SEQUENCE = [
   "validate",
   "publish",
   "public_verify",
+] as const;
+
+const RUNNING_BLOG_RUN_STATUSES = [
+  "research_running",
+  "draft_running",
+  "image_running",
+  "editorial_review_running",
+  "draft_polish_running",
+  "final_review_running",
+  "validate_running",
+  "publish_running",
+  "public_verify_running",
 ] as const;
 
 type BlogRunStatus =
@@ -257,6 +269,29 @@ function toRecord(value: unknown): Record<string, unknown> {
     return value as Record<string, unknown>;
   }
   return {};
+}
+
+function mergeStepResultIntoContext(
+  current: Record<string, unknown> | null | undefined,
+  stepKey: string,
+  resultJson: Record<string, unknown> | null | undefined,
+) {
+  const base = toRecord(current);
+  const result = toRecord(resultJson);
+  if (!Object.keys(result).length) return base;
+
+  const merged = {
+    ...base,
+    ...result,
+  };
+
+  if (stepKey === "draft") {
+    merged.title = String(result.title ?? base.title ?? "").trim() || base.title || null;
+    merged.article_html = String(result.article_html ?? result.wordpress_body_html ?? base.article_html ?? "").trim() || base.article_html || null;
+    merged.wordpress_body_html = String(result.wordpress_body_html ?? result.article_html ?? base.wordpress_body_html ?? "").trim() || base.wordpress_body_html || null;
+  }
+
+  return merged;
 }
 
 function normalizeArticleLoopContext(value: unknown): ArticleLoopContext {
@@ -856,6 +891,7 @@ export function blogRunService(
       const updatePayload: Partial<typeof blogRuns.$inferInsert> = {
         status: next.status,
         currentStep: next.nextStep,
+        contextJson: mergeStepResultIntoContext(run.contextJson, stepKey, resultJson),
         updatedAt: new Date(),
       };
 
@@ -1020,6 +1056,70 @@ export function blogRunService(
       await artifactMirror.writeStepArtifacts(runId, stepKey, input.artifacts ?? []);
 
       return this.getDetail(runId);
+    },
+
+    async reconcileStaleRunningRuns(now: Date = new Date(), staleMs = 30_000) {
+      const cutoff = new Date(now.getTime() - staleMs);
+      const staleRuns = await db
+        .select()
+        .from(blogRuns)
+        .where(
+          and(
+            inArray(blogRuns.status, [...RUNNING_BLOG_RUN_STATUSES]),
+            lte(blogRuns.updatedAt, cutoff),
+          ),
+        )
+        .orderBy(asc(blogRuns.updatedAt));
+
+      let checked = 0;
+      let repaired = 0;
+      let skipped = 0;
+
+      for (const run of staleRuns) {
+        checked += 1;
+        if (!run.currentStep) {
+          skipped += 1;
+          continue;
+        }
+        const latestAttempt = await db
+          .select()
+          .from(blogRunStepAttempts)
+          .where(
+            and(
+              eq(blogRunStepAttempts.blogRunId, run.id),
+              eq(blogRunStepAttempts.stepKey, run.currentStep),
+            ),
+          )
+          .orderBy(desc(blogRunStepAttempts.updatedAt), desc(blogRunStepAttempts.attemptNumber))
+          .limit(1)
+          .then((rows) => rows[0] ?? null);
+        if (!latestAttempt) {
+          skipped += 1;
+          continue;
+        }
+        if (latestAttempt.status === "completed") {
+          await this.completeStep(run.id, run.currentStep, {
+            attemptId: latestAttempt.id,
+            resultJson: latestAttempt.resultJson ?? null,
+            artifacts: [],
+          });
+          repaired += 1;
+          continue;
+        }
+        if (latestAttempt.status === "failed") {
+          await this.failStep(run.id, run.currentStep, {
+            attemptId: latestAttempt.id,
+            errorCode: latestAttempt.errorCode ?? null,
+            errorMessage: latestAttempt.errorMessage ?? null,
+            artifacts: [],
+          });
+          repaired += 1;
+          continue;
+        }
+        skipped += 1;
+      }
+
+      return { checked, repaired, skipped };
     },
 
     async requestResumeReview(runId: string, input: RequestResumeReviewInput) {

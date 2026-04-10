@@ -347,6 +347,88 @@ describeEmbeddedPostgres("blog run service", () => {
     expect(completed?.artifacts).toHaveLength(1);
   });
 
+  it("merges draft step result into contextJson so publish can reuse title and article_html", async () => {
+    const { companyId, projectId } = await seedProject();
+    const svc = blogRunService(db);
+    const created = await svc.create({
+      companyId,
+      projectId,
+      topic: "Draft merge topic",
+      lane: "publish",
+      publishMode: "publish",
+      contextJson: {
+        topic: "Draft merge topic",
+      },
+    });
+
+    await db.update(blogRuns).set({
+      status: "draft_running",
+      currentStep: "draft",
+    }).where(eq(blogRuns.id, created!.id));
+
+    const attempt = await db.insert(blogRunStepAttempts).values({
+      blogRunId: created!.id,
+      companyId,
+      stepKey: "draft",
+      attemptNumber: 1,
+      status: "running",
+      startedAt: new Date(),
+    }).returning().then((rows) => rows[0]!);
+
+    const completed = await svc.completeStep(created!.id, "draft", {
+      attemptId: attempt.id,
+      resultJson: {
+        title: "Merged draft title",
+        article_html: "<p>Merged article body</p>",
+        wordpress_body_html: "<p>Merged article body</p>",
+      },
+    });
+
+    expect(completed?.run.contextJson).toMatchObject({
+      topic: "Draft merge topic",
+      title: "Merged draft title",
+      article_html: "<p>Merged article body</p>",
+      wordpress_body_html: "<p>Merged article body</p>",
+    });
+    expect(completed?.run.currentStep).toBe("image");
+  });
+
+  it("reconciles stale running runs whose latest attempt already failed", async () => {
+    const { companyId, projectId } = await seedProject();
+    const svc = blogRunService(db);
+    const created = await svc.create({
+      companyId,
+      projectId,
+      topic: "Stale research topic",
+    });
+
+    await db.update(blogRuns).set({
+      status: "research_running",
+      currentStep: "research",
+      updatedAt: new Date("2026-04-10T08:00:00.000Z"),
+    }).where(eq(blogRuns.id, created!.id));
+
+    const attempt = await db.insert(blogRunStepAttempts).values({
+      blogRunId: created!.id,
+      companyId,
+      stepKey: "research",
+      attemptNumber: 1,
+      status: "failed",
+      errorCode: "RESEARCH_FAILED",
+      errorMessage: "research command failed",
+      startedAt: new Date("2026-04-10T08:00:00.000Z"),
+      finishedAt: new Date("2026-04-10T08:00:05.000Z"),
+    }).returning().then((rows) => rows[0]!);
+
+    const result = await svc.reconcileStaleRunningRuns(new Date("2026-04-10T08:01:00.000Z"), 30_000);
+
+    expect(result).toMatchObject({ checked: 1, repaired: 1, skipped: 0 });
+    const detail = await svc.getDetail(created!.id);
+    expect(detail?.run.status).toBe("failed");
+    expect(detail?.run.failedReason).toBe("research command failed");
+    expect(detail?.attempts.find((entry) => entry.id === attempt.id)?.status).toBe("failed");
+  });
+
   it("moves validated runs into publish approval pending, then publish approved", async () => {
     const { companyId, projectId } = await seedProject();
     const svc = blogRunService(db);
