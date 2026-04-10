@@ -13,54 +13,74 @@ Metacorp exists solely to improve and extend Metaclip. We have no external custo
 |------|-----|
 | Upstream reference (read-only) | https://github.com/paperclipai/paperclip |
 | Our fork (active development) | https://github.com/nrdnfjrdio/Metaclip |
-| Local running instance | `~/Projects/Metaclip_Dev/Metaclip` |
+| Local running instance | `~/Projects/Metaclip_Dev/Metaclip` (LIVE — do not modify) |
 
-> **The local install is the live running instance of Metaclip. Never commit directly to `master` or make untracked edits outside of the feature-branch workflow.**
+> **CRITICAL: The local install at `~/Projects/Metaclip_Dev/Metaclip` is the live running Metaclip instance. Agents MUST NEVER make any file changes in this directory, on any branch. All development work is done exclusively on the GitHub repository (`nrdnfjrdio/Metaclip`) via GitHub API, `gh` CLI, or the GitHub web interface.**
 
-### Important: Watch Mode and Live Reload
+### Why Agents Must Never Modify the Local Repo
 
-The Metaclip dev server runs in **watch mode** from `~/Projects/Metaclip_Dev/Metaclip`. This means:
+The Metaclip dev server runs in **watch mode**. Any file change in `~/Projects/Metaclip_Dev/Metaclip` — on any branch — is immediately hot-reloaded into the live running server. This has caused breakage of the live Metaclip instance in the past. To prevent this:
 
-- **Any file change in the repo directory is immediately reflected in the running server** — including changes on feature branches, before any merge or PR.
-- This is expected dev-environment behavior. It does NOT mean you are bypassing governance.
-- The governance rules protect `master` (the canonical branch) and require board approval for merges. They do not prevent feature-branch changes from being hot-reloaded locally.
-- Agents should understand that stakeholders will see feature-branch work in the live UI as soon as files are written, even before a PR is raised. Keep experimental branches clearly named and document their status in comments.
+- **All code changes happen on GitHub** (remote), not in the local directory.
+- **The local repo is only updated** (via `git pull`) after a board-approved merge to `master` on GitHub.
+- **No agent touches the local repo directory directly**, ever.
 
 ## Governance Rules
 
 ### What you MUST do
 
-1. **Develop on feature branches only.** Never commit directly to `master`. Always create a new branch for your work:
+1. **Develop on feature branches on GitHub only.** Create branches via the GitHub API or `gh` CLI against the remote repo — never by checking out the local directory:
+   ```bash
+   gh api repos/nrdnfjrdio/Metaclip/git/refs \
+     -X POST \
+     -f ref="refs/heads/feature/<name>" \
+     -f sha="<master-sha>"
    ```
-   git checkout -b feature/<short-description>
+
+2. **Make all file changes via GitHub API or `gh` CLI** — never by writing to `~/Projects/Metaclip_Dev/Metaclip` on disk. Use:
+   ```bash
+   gh api repos/nrdnfjrdio/Metaclip/contents/<path> \
+     -X PUT -f message="<commit msg>" -f content="<base64>" -f sha="<file-sha>" \
+     -f branch="feature/<name>"
    ```
 
-2. **Get board approval before merging.** All merges to `master` require explicit approval from the board via a Paperclip approval request. Raise a PR and link the approval before merging.
+3. **Test on GitHub.** All validation happens at the PR/branch level on GitHub before any merge.
 
-3. **Cherry-pick intentionally from upstream.** Monitor https://github.com/paperclipai/paperclip for useful changes, but never run a full sync or rebase from upstream. Review changes first, then selectively apply what is relevant.
+4. **Get board approval before merging.** All merges to `master` require explicit approval from the board via a Paperclip `merge_code` approval request. Raise a PR, link the approval, and wait.
 
-4. **Coordinate with your commanding officer before implementing.** You may research and ideacraft freely, but must get sign-off from the CTO (or the CEO for cross-cutting concerns) before beginning implementation work.
+5. **Only after an approved merge:** request a local repo update. The CTO or Internal Affairs Lead may then pull the changes to the live instance:
+   ```bash
+   cd ~/Projects/Metaclip_Dev/Metaclip && git pull origin master
+   ```
+
+6. **Cherry-pick intentionally from upstream.** Monitor https://github.com/paperclipai/paperclip for useful changes, but never run a full sync or rebase from upstream. Review changes first, then selectively apply what is relevant.
+
+7. **Coordinate with your commanding officer before implementing.** You may research and ideacraft freely, but must get sign-off from the CTO (or the CEO for cross-cutting concerns) before beginning implementation work.
 
 ### What you must NEVER do
 
+- **Never modify any file in `~/Projects/Metaclip_Dev/Metaclip`** (local live instance) — on any branch, for any reason.
 - **Never push directly to `master`** without board approval.
 - **Never sync or rebase directly from upstream** (`paperclipai/paperclip`). Monitor it; cherry-pick selectively.
-- **Never commit directly to `master`** in the local repo at `~/Projects/Metaclip_Dev/Metaclip`. All changes must go through a feature branch and the PR/approval process.
 - **Never start implementation without commanding officer approval.** Ideacraft and research first, then ask.
 - **Never build features for external customers.** Metacorp has no customers. Scope all work to internal needs.
+- **Never restart the server without prior board-approval of the related merge.** See server restart rules below.
 
 ### Server Restart Authorization (CTO & Internal Affairs Lead Only)
 
-The **CTO** and **Internal Affairs Lead** are authorized to restart the Metaclip server at `~/Projects/Metaclip_Dev/Metaclip` for operational purposes. This includes:
+The **CTO** and **Internal Affairs Lead** are authorized to restart the Metaclip server at `~/Projects/Metaclip_Dev/Metaclip` for operational purposes. This authority may only be exercised **after the following sequence is complete**:
 
-- Deploying critical fixes that require server restart
-- Resolving operational issues blocking health checks or routine executions
-- Applying environment configuration changes
+1. A feature branch has been created and tested on GitHub.
+2. A board-approved merge to `master` has occurred.
+3. The local repo has been updated with `git pull origin master`.
+4. A server restart is then warranted by the nature of the change.
 
 **Requirements when exercising this authority:**
-1. Document the restart reason in the related issue comment
-2. Ensure no active runs are in progress that could be disrupted (check for blocking runs)
-3. Link to the approval or task that justifies the restart
+1. Document the restart reason in the related issue comment.
+2. Ensure no active runs are in progress that could be disrupted (check for blocking runs).
+3. Link to the board-approved merge PR and Paperclip approval that justifies the restart.
+
+Autonomous server restarts (without a board-approved merge in the chain) are **prohibited**.
 
 Other engineering agents remain prohibited from restarting the server and must escalate to CTO or Internal Affairs Lead for restart requests.
 
@@ -75,13 +95,19 @@ Other engineering agents remain prohibited from restarting the server and must e
       ↓
 4. CTO approves direction (required before coding)
       ↓
-5. Create feature branch: git checkout -b feature/<name>
+5. Create feature branch on GITHUB (via gh API / gh CLI) — NOT on local repo
       ↓
-6. Develop & test on branch
+6. Develop & commit via GitHub API — NOT by writing to ~/Projects/Metaclip_Dev/Metaclip
       ↓
-7. Open PR → request board approval in Paperclip
+7. Test on GitHub (PR-level, CI, review)
       ↓
-8. Board approves → merge to master
+8. Open PR → request board approval in Paperclip (merge_code type)
+      ↓
+9. Board approves → merge to master ON GITHUB
+      ↓
+10. CTO or Internal Affairs Lead runs: git pull origin master (on local live instance)
+      ↓
+11. Server restart ONLY if needed, ONLY by CTO or Internal Affairs Lead, ONLY now
 ```
 
 ## Commit Convention
@@ -137,27 +163,3 @@ Only merge to `master` after receiving board approval. Do not force push or reba
 ## Upstream Monitoring
 
 The CTO runs a weekly routine to review https://github.com/paperclipai/paperclip for notable changes. If you identify something worth pulling in, file a task for the CTO with your assessment.
-
-## Startup Bootstrap (Credential Fallback)
-
-The `PAPERCLIP_API_KEY` environment variable may not be auto-injected by the `claude_local` adapter. Before performing any Paperclip API work, check whether it is present:
-
-```bash
-echo $PAPERCLIP_API_KEY
-```
-
-If it is empty or unset, obtain a short-lived key using the CLI — this must be done **before Step 1 of the heartbeat procedure**:
-
-```bash
-cd ~/Projects/Metaclip_Dev/Metaclip
-npx paperclipai agent local-cli <your-agent-id> --company-id <company-id>
-export PAPERCLIP_API_KEY=<printed key>
-```
-
-The `agent local-cli` command will print the export lines directly; copy and set `PAPERCLIP_API_KEY` before making any API calls.
-
-## Comment and Description Discipline
-
-- **Never write diagnostic output, debugging notes, or intermediate reasoning into the `description` field** of an issue. The `description` field is for a human-readable task description only.
-- All status updates, blockers, diagnostics, and reasoning must be posted via `POST /api/issues/{issueId}/comments`.
-- If you PATCH an issue with a `comment` field (inline comment on status change), that is acceptable — but the `description` field must remain a clean task description.
