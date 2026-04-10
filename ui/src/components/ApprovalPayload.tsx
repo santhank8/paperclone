@@ -5,7 +5,7 @@ export const typeLabel: Record<string, string> = {
   hire_agent: "Hire Agent",
   approve_ceo_strategy: "CEO Strategy",
   budget_override_required: "Budget Override",
-  merge_code: "Code Merge",
+  merge_code: "Request | Merge Code",
 };
 
 /** Build a contextual label for an approval, e.g. "Hire Agent: Designer" */
