@@ -34,7 +34,7 @@ export interface DetectedAdapterModel {
   source: string;
 }
 
-export interface ClaudeLoginResult {
+export interface AdapterCliLoginResult {
   exitCode: number | null;
   signal: string | null;
   timedOut: boolean;
@@ -192,7 +192,9 @@ export const agentsApi = {
     companyId?: string,
   ) => api.post<AgentWakeupResponse>(agentPath(id, companyId, "/wakeup"), data),
   loginWithClaude: (id: string, companyId?: string) =>
-    api.post<ClaudeLoginResult>(agentPath(id, companyId, "/claude-login"), {}),
+    api.post<AdapterCliLoginResult>(agentPath(id, companyId, "/claude-login"), {}),
+  loginWithCodex: (id: string, companyId?: string) =>
+    api.post<AdapterCliLoginResult>(agentPath(id, companyId, "/codex-login"), {}),
   availableSkills: () =>
     api.get<{ skills: AvailableSkill[] }>("/skills/available"),
 };
