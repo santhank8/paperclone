@@ -324,8 +324,8 @@ export function NewIssueDialog() {
   const [buttonShake, setButtonShake] = useState(false);
   const [showTitleWarning, setShowTitleWarning] = useState(false);
   const [hasAttempted, setHasAttempted] = useState(false);
-  const shakeTimerRef = useRef<ReturnType<typeof setTimeout>>();
-  const warningTimerRef = useRef<ReturnType<typeof setTimeout>>();
+  const shakeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const warningTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const descriptionEditorRef = useRef<MarkdownEditorRef>(null);
   const stageFileInputRef = useRef<HTMLInputElement | null>(null);
   const assigneeSelectorRef = useRef<HTMLButtonElement | null>(null);
@@ -650,8 +650,8 @@ export function NewIssueDialog() {
   useEffect(() => {
     return () => {
       if (draftTimer.current) clearTimeout(draftTimer.current);
-      clearTimeout(shakeTimerRef.current);
-      clearTimeout(warningTimerRef.current);
+      if (shakeTimerRef.current) clearTimeout(shakeTimerRef.current);
+      if (warningTimerRef.current) clearTimeout(warningTimerRef.current);
     };
   }, []);
 
@@ -681,8 +681,8 @@ export function NewIssueDialog() {
     setHasAttempted(false);
     setButtonShake(false);
     setShowTitleWarning(false);
-    clearTimeout(shakeTimerRef.current);
-    clearTimeout(warningTimerRef.current);
+    if (shakeTimerRef.current) clearTimeout(shakeTimerRef.current);
+    if (warningTimerRef.current) clearTimeout(warningTimerRef.current);
     executionWorkspaceDefaultProjectId.current = null;
   }
 
@@ -713,8 +713,8 @@ export function NewIssueDialog() {
   function handleButtonClick() {
     if (!title.trim()) {
       setHasAttempted(true);
-      clearTimeout(shakeTimerRef.current);
-      clearTimeout(warningTimerRef.current);
+      if (shakeTimerRef.current) clearTimeout(shakeTimerRef.current);
+      if (warningTimerRef.current) clearTimeout(warningTimerRef.current);
       setButtonShake(true);
       shakeTimerRef.current = setTimeout(() => setButtonShake(false), 500);
       setShowTitleWarning(true);
