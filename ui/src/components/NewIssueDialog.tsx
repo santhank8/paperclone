@@ -321,7 +321,7 @@ export function NewIssueDialog() {
   const [priorityOpen, setPriorityOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const [companyOpen, setCompanyOpen] = useState(false);
-const [buttonShake, setButtonShake] = useState(false);
+  const [buttonShake, setButtonShake] = useState(false);
   const [showTitleWarning, setShowTitleWarning] = useState(false);
   const descriptionEditorRef = useRef<MarkdownEditorRef>(null);
   const stageFileInputRef = useRef<HTMLInputElement | null>(null);
