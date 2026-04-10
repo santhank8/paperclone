@@ -90,7 +90,14 @@ export async function startServer(): Promise<StartedServer> {
   if (process.env.PAPERCLIP_SECRETS_MASTER_KEY_FILE === undefined) {
     process.env.PAPERCLIP_SECRETS_MASTER_KEY_FILE = config.secretsMasterKeyFilePath;
   }
-  
+
+  if (typeof process.getuid === "function" && process.getuid() === 0) {
+    logger.warn(
+      "Running as root (uid=0): embedded PostgreSQL enables createPostgresUser for cluster startup. " +
+        "claude_local cannot use --dangerously-skip-permissions as root; Paperclip injects a broad default --allowed-tools list for headless runs—see CLAUDE_ROOT_HEADLESS_ALLOWED_TOOLS in packages/adapters/claude-local and override via adapter extraArgs for a tighter surface.",
+    );
+  }
+
   type MigrationSummary =
     | "skipped"
     | "already applied"

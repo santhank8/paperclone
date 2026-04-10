@@ -19,15 +19,17 @@ function SecretField({
   value,
   onCommit,
   placeholder,
+  hint,
 }: {
   label: string;
   value: string;
   onCommit: (v: string) => void;
   placeholder?: string;
+  hint?: string;
 }) {
   const [visible, setVisible] = useState(false);
   return (
-    <Field label={label}>
+    <Field label={label} hint={hint}>
       <div className="relative">
         <button
           type="button"
@@ -135,6 +137,7 @@ export function OpenClawGatewayConfigFields({
       {isCreate && set && (
         <SecretField
           label="Gateway auth token (x-openclaw-token)"
+          hint="Saved as adapterConfig.headers['x-openclaw-token'] in the agent record (plain JSON). It is not moved into Paperclip's secrets store by normalizeAdapterConfigForPersistence—use env-based or external vault flows if you need stronger handling."
           value={values!.openclawGatewayToken ?? ""}
           onCommit={(v) => set({ openclawGatewayToken: v.trim() })}
           placeholder="From gateway.token or openclaw.json → gateway.auth.token"

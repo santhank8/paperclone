@@ -17,6 +17,11 @@ import {
 import path from "node:path";
 import { detectClaudeLoginRequired, isClaudeRateLimitedOutput, parseClaudeStreamJson } from "./parse.js";
 import { isBedrockModelId } from "./models.js";
+import {
+  CLAUDE_ROOT_HEADLESS_ALLOWED_TOOLS,
+  resolveDangerouslySkipPermissions,
+  shouldInjectRootHeadlessAllowedTools,
+} from "./process-defaults.js";
 
 function summarizeStatus(checks: AdapterEnvironmentCheck[]): AdapterEnvironmentTestResult["status"] {
   if (checks.some((check) => check.level === "error")) return "fail";
@@ -154,7 +159,7 @@ export async function testEnvironment(
       const effort = asString(config.effort, "").trim();
       const chrome = asBoolean(config.chrome, false);
       const maxTurns = asNumber(config.maxTurnsPerRun, 0);
-      const dangerouslySkipPermissions = asBoolean(config.dangerouslySkipPermissions, true);
+      const dangerouslySkipPermissions = resolveDangerouslySkipPermissions(config.dangerouslySkipPermissions);
       const extraArgs = (() => {
         const fromExtraArgs = asStringArray(config.extraArgs);
         if (fromExtraArgs.length > 0) return fromExtraArgs;
@@ -162,6 +167,9 @@ export async function testEnvironment(
       })();
 
       const args = ["--print", "-", "--output-format", "stream-json", "--verbose"];
+      if (shouldInjectRootHeadlessAllowedTools(dangerouslySkipPermissions, extraArgs)) {
+        args.push("--allowed-tools", CLAUDE_ROOT_HEADLESS_ALLOWED_TOOLS);
+      }
       if (dangerouslySkipPermissions) args.push("--dangerously-skip-permissions");
       if (chrome) args.push("--chrome");
       // For Bedrock: only pass --model when the ID is a Bedrock-native identifier.

@@ -17,6 +17,11 @@ export function buildOpenClawGatewayConfig(v: CreateConfigValues): Record<string
   const ac: Record<string, unknown> = {};
   const trimmedUrl = typeof v.url === "string" ? v.url.trim() : "";
   ac.url = trimmedUrl || DEFAULT_OPENCLAW_GATEWAY_WS_URL;
+  const gatewayTok =
+    typeof v.openclawGatewayToken === "string" ? v.openclawGatewayToken.trim() : "";
+  if (gatewayTok) {
+    ac.headers = { "x-openclaw-token": gatewayTok };
+  }
   ac.timeoutSec = 120;
   ac.waitTimeoutMs = 120000;
   ac.sessionKeyStrategy = "issue";
