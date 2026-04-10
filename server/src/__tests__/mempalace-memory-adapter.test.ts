@@ -123,10 +123,10 @@ describe("MempalaceMemoryAdapter", () => {
     expect(callArgs.arguments.room).toBe("custom-room");
   });
 
-  it("write: upsert does delete then add", async () => {
+  it("write: upsert adds first then deletes old drawer", async () => {
     mockCallTool
-      .mockResolvedValueOnce(jsonResult({ success: true, drawer_id: "d-existing" })) // delete
-      .mockResolvedValueOnce(jsonResult({ success: true, drawer_id: "d-new" })); // add
+      .mockResolvedValueOnce(jsonResult({ success: true, drawer_id: "d-new" })) // add
+      .mockResolvedValueOnce(jsonResult({ success: true, drawer_id: "d-existing" })); // delete
 
     await adapter.write({
       bindingKey: "default",
@@ -138,19 +138,19 @@ describe("MempalaceMemoryAdapter", () => {
     });
 
     expect(mockCallTool).toHaveBeenCalledTimes(2);
-    const [deleteCall] = mockCallTool.mock.calls[0];
-    expect(deleteCall.name).toBe("mempalace_delete_drawer");
-    expect(deleteCall.arguments.drawer_id).toBe("d-existing");
-
-    const [addCall] = mockCallTool.mock.calls[1];
+    const [addCall] = mockCallTool.mock.calls[0];
     expect(addCall.name).toBe("mempalace_add_drawer");
     expect(addCall.arguments.content).toBe("Updated content");
+
+    const [deleteCall] = mockCallTool.mock.calls[1];
+    expect(deleteCall.name).toBe("mempalace_delete_drawer");
+    expect(deleteCall.arguments.drawer_id).toBe("d-existing");
   });
 
-  it("write: upsert continues if delete fails (drawer does not exist yet)", async () => {
+  it("write: upsert succeeds even if old drawer delete fails", async () => {
     mockCallTool
-      .mockRejectedValueOnce(new Error("Drawer not found")) // delete fails
-      .mockResolvedValueOnce(jsonResult({ success: true, drawer_id: "d-new" })); // add succeeds
+      .mockResolvedValueOnce(jsonResult({ success: true, drawer_id: "d-new" })) // add succeeds
+      .mockRejectedValueOnce(new Error("Drawer not found")); // delete fails (best-effort)
 
     const result = await adapter.write({
       bindingKey: "default",

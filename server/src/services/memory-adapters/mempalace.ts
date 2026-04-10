@@ -277,13 +277,8 @@ export function createMempalaceMemoryAdapter(
     const start = Date.now();
 
     if (req.mode === "upsert" && req.metadata?.drawerId) {
-      // mempalace has no update — delete then re-add
-      try {
-        await callTool("mempalace_delete_drawer", { drawer_id: req.metadata.drawerId });
-      } catch {
-        // drawer may not exist yet, continue with add
-      }
-
+      // Add new drawer first, then delete old — if add fails the old
+      // drawer is preserved (no data loss from non-atomic upsert)
       const result = await callTool("mempalace_add_drawer", {
         wing,
         room,
@@ -294,10 +289,17 @@ export function createMempalaceMemoryAdapter(
       const latency = Date.now() - start;
       const text = extractText(result);
       const parsed = tryParseJson(text) as Record<string, unknown> | null;
-      const drawerId = (parsed?.drawer_id as string) ?? (req.metadata.drawerId as string);
+      const newDrawerId = (parsed?.drawer_id as string) ?? (req.metadata.drawerId as string);
+
+      // Best-effort delete of old drawer after new one is confirmed
+      try {
+        await callTool("mempalace_delete_drawer", { drawer_id: req.metadata.drawerId });
+      } catch {
+        // old drawer deletion is best-effort
+      }
 
       return {
-        records: [encodeHandle(drawerId, wing, room)],
+        records: [encodeHandle(newDrawerId, wing, room)],
         usage: [{
           provider: PROVIDER_KEY,
           latencyMs: latency,
