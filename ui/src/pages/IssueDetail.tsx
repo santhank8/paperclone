@@ -1803,7 +1803,7 @@ export function IssueDetail() {
           </div>
         </div>
         <p className="text-xs text-muted-foreground">
-          Use the <code>code</code> label for tasks that change repository files. Those issues require the latest comment to include a GitHub commit or PR link before marking done. Non-code tasks can close without repo evidence.
+          GitHub evidence (commit or PR link in the latest comment) is required to close issues that have the <code>code</code> label or belong to a project with a repo-connected workspace. Non-code tasks outside repo projects can close without evidence.
         </p>
 
         <InlineEditor

@@ -51,7 +51,10 @@ If the task scope changes mid-flight, update the label before closeout so the is
 
 ## Closeout Evidence Pattern
 
-For `code`-labeled tasks, the latest completion comment must include a GitHub commit or pull request link before the issue can move to `done`.
+GitHub evidence is required before an issue can move to `done` when either condition is true:
+
+- the issue has the `code` label, or
+- the issue belongs to a project with a repo-connected workspace (`repoUrl` set).
 
 Accepted evidence:
 
@@ -62,8 +65,8 @@ Paperclip checks the `done` transition comment first. If that PATCH does not inc
 
 Rules:
 
-- Non-code tasks do not need GitHub evidence.
-- If the task ended up not requiring repository changes, remove the `code` label before closing.
+- Non-code tasks outside repo-connected projects do not need GitHub evidence.
+- If the task ended up not requiring repository changes, remove the `code` label before closing and ensure the issue is not attached to a repo-connected project.
 - If code work is finished but the latest comment still lacks traceability, keep the issue `in_progress` or mark it `blocked` with a note about the missing commit or PR link.
 
 ## Blocked Pattern

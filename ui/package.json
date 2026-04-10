@@ -13,6 +13,9 @@
     "directory": "ui"
   },
   "type": "module",
+  "engines": {
+    "node": ">=20.19.0 <21 || >=24.0.0"
+  },
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",

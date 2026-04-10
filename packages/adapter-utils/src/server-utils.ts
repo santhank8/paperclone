@@ -1052,7 +1052,8 @@ export async function runChildProcess(
     graceSec: number;
     onLog: (stream: "stdout" | "stderr", chunk: string) => Promise<void>;
     onLogError?: (err: unknown, runId: string, message: string) => void;
-    onSpawn?: (meta: { pid: number; startedAt: string }) => Promise<void>;
+    onBeforeSpawn?: () => Promise<void | boolean>;
+    onSpawn?: (meta: { pid: number; startedAt: string }) => Promise<void | boolean>;
     stdin?: string;
   },
 ): Promise<RunProcessResult> {
@@ -1081,7 +1082,27 @@ export async function runChildProcess(
 
     const mergedEnv = ensurePathInEnv(rawMerged);
     void resolveSpawnTarget(command, args, opts.cwd, mergedEnv)
-      .then((target) => {
+      .then(async (target) => {
+        if (opts.onBeforeSpawn) {
+          try {
+            const shouldContinue = await opts.onBeforeSpawn();
+            if (shouldContinue === false) {
+              resolve({
+                exitCode: null,
+                signal: "SIGTERM",
+                timedOut: false,
+                stdout: "",
+                stderr: "",
+                pid: null,
+                startedAt: null,
+              });
+              return;
+            }
+          } catch (err) {
+            onLogError(err, runId, "failed to validate child process before spawn");
+          }
+        }
+
         const child = spawn(target.command, target.args, {
           cwd: opts.cwd,
           env: mergedEnv,
@@ -1089,15 +1110,41 @@ export async function runChildProcess(
           stdio: [opts.stdin != null ? "pipe" : "ignore", "pipe", "pipe"],
         }) as ChildProcessWithEvents;
         const startedAt = new Date().toISOString();
-
-        const spawnPersistPromise =
-          typeof child.pid === "number" && child.pid > 0 && opts.onSpawn
-            ? opts.onSpawn({ pid: child.pid, startedAt }).catch((err) => {
-              onLogError(err, runId, "failed to record child process metadata");
-            })
-            : Promise.resolve();
+        const childPid = typeof child.pid === "number" && child.pid > 0 ? child.pid : null;
 
         runningProcesses.set(runId, { child, graceSec: opts.graceSec });
+
+        const writeStdin = () => {
+          if (opts.stdin != null && child.stdin) {
+            child.stdin.write(opts.stdin);
+            child.stdin.end();
+          }
+        };
+
+        const onSpawn = opts.onSpawn;
+
+        if (childPid !== null && onSpawn) {
+          void (async () => {
+            try {
+              const shouldContinue = await onSpawn({ pid: childPid, startedAt });
+              if (shouldContinue === false) {
+                child.kill("SIGTERM");
+                setTimeout(() => {
+                  if (!child.killed) {
+                    child.kill("SIGKILL");
+                  }
+                }, Math.max(1, opts.graceSec) * 1000);
+                return;
+              }
+            } catch (err) {
+              onLogError(err, runId, "failed to record child process metadata");
+            }
+
+            writeStdin();
+          })();
+        } else {
+          writeStdin();
+        }
 
         let timedOut = false;
         let stdout = "";
@@ -1132,15 +1179,6 @@ export async function runChildProcess(
             .then(() => opts.onLog("stderr", text))
             .catch((err) => onLogError(err, runId, "failed to append stderr log chunk"));
         });
-
-        const stdin = child.stdin;
-        if (opts.stdin != null && stdin) {
-          void spawnPersistPromise.finally(() => {
-            if (child.killed || stdin.destroyed) return;
-            stdin.write(opts.stdin as string);
-            stdin.end();
-          });
-        }
 
         child.on("error", (err: Error) => {
           if (timeout) clearTimeout(timeout);

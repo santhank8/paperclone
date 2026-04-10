@@ -3,6 +3,9 @@
   "version": "0.1.0",
   "type": "module",
   "private": true,
+  "engines": {
+    "node": ">=20.19.0 <21 || >=24.0.0"
+  },
   "description": "A Paperclip plugin",
   "scripts": {
     "prebuild": "node ../../../../scripts/ensure-plugin-build-deps.mjs",

@@ -1486,7 +1486,7 @@ export function issueService(db: Db) {
       }
       return db.transaction(async (tx) => {
         const defaultCompanyGoal = await getDefaultCompanyGoal(tx, companyId);
-        const projectGoalId = await getProjectDefaultGoalId(tx, companyId, issueData.projectId);
+        let projectId = issueData.projectId ?? null;
         let projectWorkspaceId = issueData.projectWorkspaceId ?? null;
         let executionWorkspaceId = issueData.executionWorkspaceId ?? null;
         let executionWorkspacePreference = issueData.executionWorkspacePreference ?? null;
@@ -1499,6 +1499,9 @@ export function issueService(db: Db) {
           issueData.executionWorkspaceSettings !== undefined;
         if (workspaceInheritanceIssueId) {
           const workspaceSource = await getWorkspaceInheritanceIssue(tx, companyId, workspaceInheritanceIssueId);
+          if (projectId == null && workspaceSource.projectId) {
+            projectId = workspaceSource.projectId;
+          }
           if (projectWorkspaceId == null && workspaceSource.projectWorkspaceId) {
             projectWorkspaceId = workspaceSource.projectWorkspaceId;
           }
@@ -1528,12 +1531,12 @@ export function issueService(db: Db) {
         if (
           executionWorkspaceSettings == null &&
           executionWorkspaceId == null &&
-          issueData.projectId
+          projectId
         ) {
           const project = await tx
             .select({ executionWorkspacePolicy: projects.executionWorkspacePolicy })
             .from(projects)
-            .where(and(eq(projects.id, issueData.projectId), eq(projects.companyId, companyId)))
+            .where(and(eq(projects.id, projectId), eq(projects.companyId, companyId)))
             .then((rows) => rows[0] ?? null);
           executionWorkspaceSettings =
             defaultIssueExecutionWorkspaceSettingsForProject(
@@ -1543,13 +1546,13 @@ export function issueService(db: Db) {
               ),
             ) as Record<string, unknown> | null;
         }
-        if (!projectWorkspaceId && issueData.projectId) {
+        if (!projectWorkspaceId && projectId) {
           const project = await tx
             .select({
               executionWorkspacePolicy: projects.executionWorkspacePolicy,
             })
             .from(projects)
-            .where(and(eq(projects.id, issueData.projectId), eq(projects.companyId, companyId)))
+            .where(and(eq(projects.id, projectId), eq(projects.companyId, companyId)))
             .then((rows) => rows[0] ?? null);
           const projectPolicy = parseProjectExecutionWorkspacePolicy(project?.executionWorkspacePolicy);
           projectWorkspaceId = projectPolicy?.defaultProjectWorkspaceId ?? null;
@@ -1557,16 +1560,16 @@ export function issueService(db: Db) {
             projectWorkspaceId = await tx
               .select({ id: projectWorkspaces.id })
               .from(projectWorkspaces)
-              .where(and(eq(projectWorkspaces.projectId, issueData.projectId), eq(projectWorkspaces.companyId, companyId)))
+              .where(and(eq(projectWorkspaces.projectId, projectId), eq(projectWorkspaces.companyId, companyId)))
               .orderBy(desc(projectWorkspaces.isPrimary), asc(projectWorkspaces.createdAt), asc(projectWorkspaces.id))
               .then((rows) => rows[0]?.id ?? null);
           }
         }
         if (projectWorkspaceId) {
-          await assertValidProjectWorkspace(companyId, issueData.projectId, projectWorkspaceId, tx);
+          await assertValidProjectWorkspace(companyId, projectId, projectWorkspaceId, tx);
         }
         if (executionWorkspaceId) {
-          await assertValidExecutionWorkspace(companyId, issueData.projectId, executionWorkspaceId, tx);
+          await assertValidExecutionWorkspace(companyId, projectId, executionWorkspaceId, tx);
         }
         // Self-correcting counter: use MAX(issue_number) + 1 if the counter
         // has drifted below the actual max, preventing identifier collisions.
@@ -1576,6 +1579,7 @@ export function issueService(db: Db) {
           .where(eq(issues.companyId, companyId));
         const currentMax = maxRow?.maxNum ?? 0;
 
+        const projectGoalId = await getProjectDefaultGoalId(tx, companyId, projectId);
         const [company] = await tx
           .update(companies)
           .set({
@@ -1591,11 +1595,12 @@ export function issueService(db: Db) {
           ...issueData,
           originKind: issueData.originKind ?? "manual",
           goalId: resolveIssueGoalId({
-            projectId: issueData.projectId,
+            projectId,
             goalId: issueData.goalId,
             projectGoalId,
             defaultGoalId: defaultCompanyGoal?.id ?? null,
           }),
+          ...(projectId ? { projectId } : {}),
           ...(projectWorkspaceId ? { projectWorkspaceId } : {}),
           ...(executionWorkspaceId ? { executionWorkspaceId } : {}),
           ...(executionWorkspacePreference ? { executionWorkspacePreference } : {}),

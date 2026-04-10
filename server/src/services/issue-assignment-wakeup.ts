@@ -28,7 +28,8 @@ export function queueIssueAssignmentWakeup(input: {
   requestedByActorId?: string | null;
   rethrowOnError?: boolean;
 }) {
-  if (!input.issue.assigneeAgentId || input.issue.status === "backlog") return;
+  if (!input.issue.assigneeAgentId) return;
+  if (["backlog", "done", "cancelled"].includes(input.issue.status)) return;
 
   return input.heartbeat
     .wakeup(input.issue.assigneeAgentId, {

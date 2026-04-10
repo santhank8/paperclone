@@ -24,6 +24,9 @@ import { registerWorktreeCommands } from "./commands/worktree.js";
 import { registerPluginCommands } from "./commands/client/plugin.js";
 import { registerClientAuthCommands } from "./commands/client/auth.js";
 import { cliVersion } from "./version.js";
+import { assertSupportedNodeVersionForModule } from "@paperclipai/shared/node-support";
+
+assertSupportedNodeVersionForModule(import.meta.url, "paperclipai");
 
 const program = new Command();
 const DATA_DIR_OPTION_HELP =

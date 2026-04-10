@@ -724,7 +724,7 @@ Required UX behaviors:
 
 ## 15.1 Environment
 
-- Node 20+
+- Node 20.19+ LTS or 24+
 - `DATABASE_URL` optional
 - if unset, auto-use PGlite and push schema
 

@@ -1,6 +1,7 @@
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import type { agents } from "@paperclipai/db";
 import { sessionCodec as codexSessionCodec } from "@paperclipai/adapter-codex-local/server";
@@ -16,6 +17,7 @@ import {
   prioritizeProjectWorkspaceCandidatesForRun,
   parseSessionCompactionPolicy,
   recoverProjectWorkspaceFromManifest,
+  resolveLocalPaperclipRepoFallbackCwd,
   resolveRuntimeSessionParamsForWorkspace,
   stripWorkspaceRuntimeFromExecutionRunConfig,
   shouldResetTaskSessionForWake,
@@ -145,6 +147,22 @@ describe("resolveRuntimeSessionParamsForWorkspace", () => {
       workspaceId: "workspace-1",
     });
     expect(result.warning).toBeNull();
+  });
+});
+
+describe("resolveLocalPaperclipRepoFallbackCwd", () => {
+  it("finds the repo from moduleDir when process.cwd() is outside the repo", async () => {
+    const originalCwd = process.cwd();
+    const outsideDir = await fs.mkdtemp(path.join(os.tmpdir(), "paperclip-outside-repo-"));
+    const expectedRepoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
+
+    try {
+      process.chdir(outsideDir);
+      await expect(resolveLocalPaperclipRepoFallbackCwd()).resolves.toBe(expectedRepoRoot);
+    } finally {
+      process.chdir(originalCwd);
+      await fs.rm(outsideDir, { recursive: true, force: true });
+    }
   });
 });
 

@@ -96,7 +96,7 @@ const publishPkg = {
   homepage: cliPkg.homepage,
   bugs: cliPkg.bugs,
   files: cliPkg.files,
-  engines: { node: ">=20" },
+  engines: { node: ">=20.19.0 <21 || >=24.0.0" },
   dependencies: sortedDeps,
 };
 

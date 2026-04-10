@@ -120,7 +120,8 @@ export interface AdapterExecutionContext {
   context: Record<string, unknown>;
   onLog: (stream: "stdout" | "stderr", chunk: string) => Promise<void>;
   onMeta?: (meta: AdapterInvocationMeta) => Promise<void>;
-  onSpawn?: (meta: { pid: number; startedAt: string }) => Promise<void>;
+  onBeforeSpawn?: () => Promise<void | boolean>;
+  onSpawn?: (meta: { pid: number; startedAt: string }) => Promise<void | boolean>;
   authToken?: string;
 }
 

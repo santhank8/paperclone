@@ -87,6 +87,17 @@ type CommentWakeActor = {
   agentId: string | null;
 };
 
+function readNonEmptyString(value: unknown) {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function readRecord(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  return value as Record<string, unknown>;
+}
+
 export function shouldWakeAgentForComment(
   actor: CommentWakeActor,
   targetAgentId: string | null | undefined,
@@ -96,13 +107,16 @@ export function shouldWakeAgentForComment(
 }
 
 const DONE_EVIDENCE_REQUIRED_ERROR =
-  "Cannot mark issue done for code-labeled issues: latest completion comment must include a GitHub commit or pull request link " +
-  "(https://github.com/<owner>/<repo>/commit/<sha> or /pull/<number>). If this was non-code work, remove the code label before closing. " +
-  "Otherwise keep the issue open until traceability is available.";
+  "Cannot mark issue done: latest completion comment must include a GitHub commit or pull request link " +
+  "(https://github.com/<owner>/<repo>/commit/<sha> or /pull/<number>). Evidence is required when the issue has the code label. " +
+  "If this was non-code work, remove the code label before closing. Otherwise keep the issue open until traceability is available.";
 
 export function buildDoneEvidenceRequiredDetails() {
   return {
     requiredLabel: "code",
+    enforcedSignals: {
+      codeLabel: "Issue has the 'code' label.",
+    },
     latestCommentRule: "Paperclip checks the transition comment first, then the current latest issue comment.",
     acceptedEvidence: {
       githubCommitUrl: "https://github.com/<owner>/<repo>/commit/<sha>",
@@ -422,6 +436,46 @@ export function issueRoutes(
 
   function parseBooleanQuery(value: unknown) {
     return value === true || value === "true" || value === "1";
+  }
+
+  async function resolveCreateIssueContextDefaults(
+    req: Request,
+    companyId: string,
+  ): Promise<{ projectId?: string; projectWorkspaceId?: string }> {
+    if (req.actor.type !== "agent") return {};
+    const actorAgentId = readNonEmptyString(req.actor.agentId);
+    const runId = readNonEmptyString(req.actor.runId);
+    if (!actorAgentId || !runId) return {};
+
+    const run = await heartbeat.getRun(runId);
+    if (!run || run.companyId !== companyId || run.agentId !== actorAgentId) return {};
+
+    const context = readRecord(run.contextSnapshot);
+    if (!context) return {};
+
+    const workspace = readRecord(context.paperclipWorkspace);
+    const contextIssueId = readNonEmptyString(context.issueId);
+    const sourceIssue =
+      contextIssueId &&
+      (!readNonEmptyString(context.projectId) || !readNonEmptyString(context.projectWorkspaceId))
+        ? await svc.getById(contextIssueId)
+        : null;
+
+    const projectId =
+      readNonEmptyString(context.projectId) ??
+      readNonEmptyString(workspace?.projectId) ??
+      sourceIssue?.projectId ??
+      null;
+    const projectWorkspaceId =
+      readNonEmptyString(context.projectWorkspaceId) ??
+      readNonEmptyString(workspace?.workspaceId) ??
+      sourceIssue?.projectWorkspaceId ??
+      null;
+
+    return {
+      ...(projectId ? { projectId } : {}),
+      ...(projectWorkspaceId ? { projectWorkspaceId } : {}),
+    };
   }
 
   function parseDateQuery(value: unknown, field: string) {
@@ -1383,7 +1437,17 @@ export function issueRoutes(
 
     const actor = getActorInfo(req);
     const executionPolicy = normalizeIssueExecutionPolicy(req.body.executionPolicy);
+    const shouldInheritCurrentRunWorkspace =
+      req.body.projectId === undefined &&
+      req.body.projectWorkspaceId === undefined &&
+      req.body.parentId === undefined &&
+      req.body.inheritExecutionWorkspaceFromIssueId === undefined &&
+      req.body.executionWorkspaceId === undefined;
+    const createDefaults = shouldInheritCurrentRunWorkspace
+      ? await resolveCreateIssueContextDefaults(req, companyId)
+      : {};
     const issue = await svc.create(companyId, {
+      ...createDefaults,
       ...req.body,
       executionPolicy,
       createdByAgentId: actor.agentId,
@@ -1430,6 +1494,16 @@ export function issueRoutes(
     if (!(await assertAgentRunCheckoutOwnership(req, res, existing))) return;
 
     const actor = getActorInfo(req);
+    const issuePatchLog = logger.child({
+      route: "PATCH /api/issues/:id",
+      issueId: id,
+      issueIdentifier: existing.identifier,
+      companyId: existing.companyId,
+      actorType: actor.actorType,
+      actorId: actor.actorId,
+      actorAgentId: actor.agentId,
+      runId: actor.runId,
+    });
     const isClosed = existing.status === "done" || existing.status === "cancelled";
     const existingRelations =
       Array.isArray(req.body.blockedByIssueIds)
@@ -1452,67 +1526,67 @@ export function issueRoutes(
     }
 
     if (interruptRequested) {
-      if (!commentBody) {
-        res.status(400).json({ error: "Interrupt is only supported when posting a comment" });
-        return;
-      }
-      if (req.actor.type !== "board") {
-        res.status(403).json({ error: "Only board users can interrupt active runs from issue comments" });
-        return;
-      }
-
-      const runToInterrupt = await resolveActiveIssueRun(existing);
-      if (runToInterrupt) {
-        const cancelled = await heartbeat.cancelRun(runToInterrupt.id);
-        if (cancelled) {
-          interruptedRunId = cancelled.id;
-          await logActivity(db, {
-            companyId: cancelled.companyId,
-            actorType: actor.actorType,
-            actorId: actor.actorId,
-            agentId: actor.agentId,
-            runId: actor.runId,
-            action: "heartbeat.cancelled",
-            entityType: "heartbeat_run",
-            entityId: cancelled.id,
-            details: { agentId: cancelled.agentId, source: "issue_comment_interrupt", issueId: existing.id },
-          });
+        if (!commentBody) {
+          res.status(400).json({ error: "Interrupt is only supported when posting a comment" });
+          return;
         }
-      }
-    }
-    if (commentBody && reopenRequested === true && isClosed && updateFields.status === undefined) {
-      updateFields.status = "todo";
-    }
-    const transitioningToDone = updateFields.status === "done" && existing.status !== "done";
-    if (transitioningToDone) {
-      const companyLabels = Array.isArray(updateFields.labelIds)
-        ? await svc.listLabels(existing.companyId)
-        : null;
-      const doneEvidenceRequired = issueRequiresDoneEvidence({
-        currentLabels: existing.labels,
-        nextLabelIds: updateFields.labelIds,
-        companyLabels,
-      });
-      if (doneEvidenceRequired) {
-        let latestExistingCommentBody: string | null = null;
-        if (!commentBody?.trim()) {
-          const latestComments = await svc.listComments(id);
-          latestExistingCommentBody = latestComments[0]?.body ?? null;
-        }
-        const evidenceCommentBody = resolveDoneTransitionEvidenceComment(commentBody, latestExistingCommentBody);
-        if (!containsGitHubCommitOrPrLink(evidenceCommentBody)) {
-          res.status(422).json(buildDoneEvidenceRequiredErrorResponse());
+        if (req.actor.type !== "board") {
+          res.status(403).json({ error: "Only board users can interrupt active runs from issue comments" });
           return;
         }
 
-        // Verify commit evidence is actually reachable on the remote
-        const remoteCheck = await verifyGitHubEvidenceIsRemoteVisible(evidenceCommentBody!);
-        if (!remoteCheck.valid) {
-          res.status(422).json(buildDoneEvidenceUnreachableErrorResponse(remoteCheck.error!));
-          return;
+        const runToInterrupt = await resolveActiveIssueRun(existing);
+        if (runToInterrupt) {
+          const cancelled = await heartbeat.cancelRun(runToInterrupt.id);
+          if (cancelled) {
+            interruptedRunId = cancelled.id;
+            await logActivity(db, {
+              companyId: cancelled.companyId,
+              actorType: actor.actorType,
+              actorId: actor.actorId,
+              agentId: actor.agentId,
+              runId: actor.runId,
+              action: "heartbeat.cancelled",
+              entityType: "heartbeat_run",
+              entityId: cancelled.id,
+              details: { agentId: cancelled.agentId, source: "issue_comment_interrupt", issueId: existing.id },
+            });
+          }
         }
       }
-    }
+      if (commentBody && reopenRequested === true && isClosed && updateFields.status === undefined) {
+        updateFields.status = "todo";
+      }
+      const transitioningToDone = updateFields.status === "done" && existing.status !== "done";
+      if (transitioningToDone) {
+        const companyLabels = Array.isArray(updateFields.labelIds)
+          ? await svc.listLabels(existing.companyId)
+          : null;
+        const doneEvidenceRequired = issueRequiresDoneEvidence({
+          currentLabels: existing.labels,
+          nextLabelIds: updateFields.labelIds,
+          companyLabels,
+        });
+        if (doneEvidenceRequired) {
+          let latestExistingCommentBody: string | null = null;
+          if (!commentBody?.trim()) {
+            const latestComments = await svc.listComments(id);
+            latestExistingCommentBody = latestComments[0]?.body ?? null;
+          }
+          const evidenceCommentBody = resolveDoneTransitionEvidenceComment(commentBody, latestExistingCommentBody);
+          if (!containsGitHubCommitOrPrLink(evidenceCommentBody)) {
+            res.status(422).json(buildDoneEvidenceRequiredErrorResponse());
+            return;
+          }
+
+          // Verify commit evidence is actually reachable on the remote
+          const remoteCheck = await verifyGitHubEvidenceIsRemoteVisible(evidenceCommentBody!);
+          if (!remoteCheck.valid) {
+            res.status(422).json(buildDoneEvidenceUnreachableErrorResponse(remoteCheck.error!));
+            return;
+          }
+        }
+      }
     if (hiddenAtRaw !== undefined) {
       updateFields.hiddenAt = hiddenAtRaw ? new Date(hiddenAtRaw) : null;
     }
@@ -1614,11 +1688,10 @@ export function issueRoutes(
         });
       }
     } catch (err) {
-      if (err instanceof HttpError && err.status === 422) {
-        logger.warn(
+      if (!(err instanceof HttpError) || err.status >= 500) {
+        issuePatchLog.error(
           {
-            issueId: id,
-            companyId: existing.companyId,
+            err,
             assigneePatch: {
               assigneeAgentId:
                 req.body.assigneeAgentId === undefined ? "__omitted__" : req.body.assigneeAgentId,
@@ -1629,10 +1702,12 @@ export function issueRoutes(
               assigneeAgentId: existing.assigneeAgentId,
               assigneeUserId: existing.assigneeUserId,
             },
-            error: err.message,
-            details: err.details,
+            requestedStatus: req.body.status === undefined ? "__omitted__" : req.body.status,
+            reopenRequested: reopenRequested === true,
+            interruptRequested: interruptRequested === true,
+            hasComment: Boolean(commentBody?.trim()),
           },
-          "issue update rejected with 422",
+          "unexpected PATCH /api/issues/:id failure",
         );
       }
       throw err;
@@ -1656,6 +1731,15 @@ export function issueRoutes(
     if (actor.runId) {
       await heartbeat.reportRunActivity(actor.runId).catch((err) =>
         logger.warn({ err, runId: actor.runId }, "failed to clear detached run warning after issue activity"));
+    }
+
+    const assigneeChanged = assigneeWillChange;
+    const assignmentActionabilityChanged =
+      assigneeChanged ||
+      (req.body.status !== undefined && issue.status !== existing.status);
+    if (assignmentActionabilityChanged) {
+      await heartbeat.cancelNonActionableIssueAssignmentWork(issue.companyId, issue.id).catch((err) =>
+        logger.warn({ err, issueId: issue.id }, "failed to cancel non-actionable issue assignment work"));
     }
 
     // Build activity details with previous values for changed fields
@@ -1809,8 +1893,6 @@ export function issueRoutes(
       });
 
     }
-    const assigneeChanged =
-      issue.assigneeAgentId !== existing.assigneeAgentId || issue.assigneeUserId !== existing.assigneeUserId;
     const statusChangedFromBacklog =
       existing.status === "backlog" &&
       issue.status !== "backlog" &&
@@ -1840,7 +1922,7 @@ export function issueRoutes(
 
       if (executionStageWakeup) {
         addWakeup(executionStageWakeup.agentId, executionStageWakeup.wakeup);
-      } else if (assigneeChanged && issue.assigneeAgentId && issue.status !== "backlog") {
+      } else if (assigneeChanged && issue.assigneeAgentId && !["backlog", "done", "cancelled"].includes(issue.status)) {
         addWakeup(issue.assigneeAgentId, {
           source: "assignment",
           triggerDetail: "system",

@@ -1,6 +1,9 @@
 #!/usr/bin/env -S node --import tsx
+import { assertSupportedNodeVersionForModule } from "../packages/shared/src/node-support.js";
 import { listLocalServiceRegistryRecords, removeLocalServiceRegistryRecord, terminateLocalService } from "../server/src/services/local-service-supervisor.ts";
 import { repoRoot } from "./dev-service-profile.ts";
+
+assertSupportedNodeVersionForModule(import.meta.url, "dev:list");
 
 function toDisplayLines(records: Awaited<ReturnType<typeof listLocalServiceRegistryRecords>>) {
   return records.map((record) => {

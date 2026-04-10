@@ -1140,6 +1140,68 @@ describeEmbeddedPostgres("issueService.create workspace inheritance", () => {
     });
   });
 
+  it("adopts stale self-owned checkout runs instead of throwing a self-conflict", async () => {
+    const { companyId, agentId, issuePrefix } = await seedCompanyAndAgent(db);
+    const staleRunId = randomUUID();
+    const currentRunId = randomUUID();
+    const issueId = randomUUID();
+
+    await insertHeartbeatRun(db, {
+      companyId,
+      agentId,
+      runId: staleRunId,
+      status: "failed",
+    });
+    await insertHeartbeatRun(db, {
+      companyId,
+      agentId,
+      runId: currentRunId,
+      status: "running",
+    });
+
+    await db.insert(issues).values({
+      id: issueId,
+      companyId,
+      title: "Stale self-owned checkout should be adopted",
+      status: "in_progress",
+      priority: "medium",
+      assigneeAgentId: agentId,
+      checkoutRunId: staleRunId,
+      executionRunId: staleRunId,
+      executionLockedAt: new Date("2026-04-01T00:05:00.000Z"),
+      issueNumber: 1,
+      identifier: `${issuePrefix}-1`,
+    });
+
+    const checkedOut = await svc.checkout(issueId, agentId, ["todo", "backlog", "blocked", "in_progress"], currentRunId);
+
+    expect(checkedOut).toMatchObject({
+      id: issueId,
+      status: "in_progress",
+      assigneeAgentId: agentId,
+      checkoutRunId: currentRunId,
+      executionRunId: currentRunId,
+    });
+
+    const persisted = await db
+      .select({
+        status: issues.status,
+        assigneeAgentId: issues.assigneeAgentId,
+        checkoutRunId: issues.checkoutRunId,
+        executionRunId: issues.executionRunId,
+      })
+      .from(issues)
+      .where(eq(issues.id, issueId))
+      .then((rows) => rows[0] ?? null);
+
+    expect(persisted).toEqual({
+      status: "in_progress",
+      assigneeAgentId: agentId,
+      checkoutRunId: currentRunId,
+      executionRunId: currentRunId,
+    });
+  });
+
   it("releases checkout and execution lock state together", async () => {
     const { companyId, agentId, issuePrefix } = await seedCompanyAndAgent(db);
     const runId = randomUUID();

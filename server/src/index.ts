@@ -23,6 +23,7 @@ import {
   companyMemberships,
   instanceUserRoles,
 } from "@paperclipai/db";
+import { assertSupportedNodeVersionForModule } from "@paperclipai/shared/node-support";
 import detectPort from "detect-port";
 import { createApp } from "./app.js";
 import { loadConfig } from "./config.js";
@@ -41,6 +42,8 @@ import { printStartupBanner } from "./startup-banner.js";
 import { getBoardClaimWarningUrl, initializeBoardClaimChallenge } from "./board-claim.js";
 import { maybePersistWorktreeRuntimePorts } from "./worktree-config.js";
 import { initTelemetry, getTelemetryClient } from "./telemetry.js";
+
+assertSupportedNodeVersionForModule(import.meta.url, "dev:server");
 
 type BetterAuthSessionUser = {
   id: string;

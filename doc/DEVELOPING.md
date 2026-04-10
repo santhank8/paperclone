@@ -12,8 +12,16 @@ Current implementation status:
 
 ## Prerequisites
 
-- Node.js 20+
+- Node.js 20.19+ LTS or 24+
 - pnpm 9+
+
+The repo now enforces this earlier:
+
+- `pnpm install` hard-fails on unsupported Node via repo-local `engine-strict`
+- root `pnpm dev`, `pnpm build`, `pnpm test:run`, `pnpm paperclipai`, and related scripts stop immediately with a direct version-correction message
+- package-local commands such as `cd server && pnpm dev` and `cd ui && pnpm dev` hard-fail too because workspace manifests mirror the same `engines.node` range
+- the main direct Paperclip entrypoints (`pnpm exec tsx cli/src/index.ts`, `pnpm --filter @paperclipai/server exec tsx ../scripts/dev-runner.ts ...`, `pnpm --filter @paperclipai/server exec tsx src/index.ts`, and similar manual invocations) self-check too
+- truly ad-hoc manual Node usage outside those Paperclip entrypoints remains unsupported rather than comprehensively guarded
 
 ## Dependency Lockfile Policy
 
@@ -22,6 +30,9 @@ GitHub Actions owns `pnpm-lock.yaml`.
 - Do not commit `pnpm-lock.yaml` in pull requests.
 - Pull request CI validates dependency resolution when manifests change.
 - Pushes to `master` regenerate `pnpm-lock.yaml` with `pnpm install --lockfile-only --no-frozen-lockfile`, commit it back if needed, and then run verification with `--frozen-lockfile`.
+- Repo-local support is aligned to the CI targets above: Node 20.19+ LTS and Node 24+. Odd-numbered releases like Node 21 are not supported local-dev targets.
+- The root manifest pins `jsdom` to `27.2.0` and overrides workspace resolution to that line so the live Vitest install stays on the safe `jsdom` 27 / `html-encoding-sniffer` 4 path.
+- `pnpm-lock.yaml` may still record older `jsdom@28` / `html-encoding-sniffer@6` metadata until GitHub Actions regenerates it; treat that as distinct from the currently installed workspace graph.
 
 ## Start Dev
 

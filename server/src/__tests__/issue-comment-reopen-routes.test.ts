@@ -20,6 +20,7 @@ const mockAccessService = vi.hoisted(() => ({
 const mockHeartbeatService = vi.hoisted(() => ({
   wakeup: vi.fn(async () => undefined),
   reportRunActivity: vi.fn(async () => undefined),
+  cancelNonActionableIssueAssignmentWork: vi.fn(async () => 0),
   getRun: vi.fn(async () => null),
   getActiveRunForAgent: vi.fn(async () => null),
   cancelRun: vi.fn(async () => null),
@@ -487,6 +488,32 @@ describe("issue comment reopen routes", () => {
           }),
         }),
       }),
+    );
+  });
+
+  it("allows combined status-change comment updates without an assignee change", async () => {
+    mockIssueService.getById.mockResolvedValue(makeIssue("todo"));
+    mockIssueService.update.mockImplementation(async (_id: string, patch: Record<string, unknown>) => ({
+      ...makeIssue("todo"),
+      ...patch,
+    }));
+
+    const res = await request(createApp())
+      .patch("/api/issues/11111111-1111-4111-8111-111111111111")
+      .send({ status: "in_review", comment: "Moving this forward with a status update comment." });
+
+    expect(res.status).toBe(200);
+    expect(mockIssueService.update).toHaveBeenCalledWith(
+      "11111111-1111-4111-8111-111111111111",
+      expect.objectContaining({
+        status: "in_review",
+        actorAgentId: null,
+        actorUserId: "local-board",
+      }),
+    );
+    expect(mockHeartbeatService.cancelNonActionableIssueAssignmentWork).toHaveBeenCalledWith(
+      "company-1",
+      "11111111-1111-4111-8111-111111111111",
     );
   });
 });
