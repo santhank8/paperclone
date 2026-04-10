@@ -1,16 +1,25 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
+  acquireInstanceServerLockMock,
   createAppMock,
   createDbMock,
   detectPortMock,
   feedbackExportServiceMock,
   feedbackServiceFactoryMock,
   fakeServer,
+  markListeningMock,
 } = vi.hoisted(() => {
   const createAppMock = vi.fn(async () => ((_: unknown, __: unknown) => {}) as never);
   const createDbMock = vi.fn(() => ({}) as never);
   const detectPortMock = vi.fn(async (port: number) => port);
+  const markListeningMock = vi.fn(async () => undefined);
+  const acquireInstanceServerLockMock = vi.fn(async () => ({
+    lockPath: "/tmp/paperclip-instance-server.lock.json",
+    record: { pid: process.pid },
+    markListening: markListeningMock,
+    release: vi.fn(async () => undefined),
+  }));
   const feedbackExportServiceMock = {
     flushPendingFeedbackTraces: vi.fn(async () => ({ attempted: 0, sent: 0, failed: 0 })),
   };
@@ -26,12 +35,14 @@ const {
   };
 
   return {
+    acquireInstanceServerLockMock,
     createAppMock,
     createDbMock,
     detectPortMock,
     feedbackExportServiceMock,
     feedbackServiceFactoryMock,
     fakeServer,
+    markListeningMock,
   };
 });
 
@@ -127,6 +138,10 @@ vi.mock("../services/index.js", () => ({
   })),
 }));
 
+vi.mock("../services/instance-server-lock.js", () => ({
+  acquireInstanceServerLock: acquireInstanceServerLockMock,
+}));
+
 vi.mock("../storage/index.js", () => ({
   createStorageServiceFromConfig: vi.fn(() => ({ id: "storage-service" })),
 }));
@@ -164,6 +179,15 @@ describe("startServer feedback export wiring", () => {
     const started = await startServer();
 
     expect(started.server).toBe(fakeServer);
+    expect(acquireInstanceServerLockMock).toHaveBeenCalledWith({
+      requestedHost: "127.0.0.1",
+      requestedPort: 3210,
+    });
+    expect(markListeningMock).toHaveBeenCalledWith({
+      apiUrl: "http://127.0.0.1:3210",
+      host: "127.0.0.1",
+      port: 3210,
+    });
     expect(feedbackServiceFactoryMock).toHaveBeenCalledTimes(1);
     expect(createAppMock).toHaveBeenCalledTimes(1);
     expect(createAppMock.mock.calls[0]?.[1]).toMatchObject({

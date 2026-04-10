@@ -36,6 +36,7 @@ import {
   routineService,
 } from "./services/index.js";
 import { createFeedbackTraceShareClientFromConfig } from "./services/feedback-share-client.js";
+import { acquireInstanceServerLock } from "./services/instance-server-lock.js";
 import { createStorageServiceFromConfig } from "./storage/index.js";
 import { printStartupBanner } from "./startup-banner.js";
 import { getBoardClaimWarningUrl, initializeBoardClaimChallenge } from "./board-claim.js";
@@ -81,6 +82,12 @@ export interface StartedServer {
 
 export async function startServer(): Promise<StartedServer> {
   let config = loadConfig();
+  const serverLock = await acquireInstanceServerLock({
+    requestedHost: config.host,
+    requestedPort: config.port,
+  });
+
+  return await (async (): Promise<StartedServer> => {
   initTelemetry({ enabled: config.telemetryEnabled });
   if (process.env.PAPERCLIP_SECRETS_PROVIDER === undefined) {
     process.env.PAPERCLIP_SECRETS_PROVIDER = config.secretsProvider;
@@ -542,6 +549,9 @@ export async function startServer(): Promise<StartedServer> {
   // This prevents intermittent 502/ECONNRESET errors caused by Node's 5s default.
   server.keepAliveTimeout = 185000;
   server.headersTimeout = 186000;
+  server.once("close", () => {
+    void serverLock.release();
+  });
   
   if (listenPort !== config.port) {
     logger.warn(`Requested port is busy; using next free port (requestedPort=${config.port}, selectedPort=${listenPort})`);
@@ -689,54 +699,64 @@ export async function startServer(): Promise<StartedServer> {
     server.listen(listenPort, config.host, () => {
       server.off("error", onError);
       logger.info(`Server listening on ${config.host}:${listenPort}`);
-      if (process.env.PAPERCLIP_OPEN_ON_LISTEN === "true") {
-        const openHost = config.host === "0.0.0.0" || config.host === "::" ? "127.0.0.1" : config.host;
-        const url = `http://${openHost}:${listenPort}`;
-        void import("open")
-          .then((mod) => mod.default(url))
-          .then(() => {
-            logger.info(`Opened browser at ${url}`);
-          })
-          .catch((err) => {
-            logger.warn({ err, url }, "Failed to open browser on startup");
-          });
-      }
-        printStartupBanner({
-          bind: config.bind,
+      void serverLock
+        .markListening({
           host: config.host,
-          deploymentMode: config.deploymentMode,
-        deploymentExposure: config.deploymentExposure,
-        authReady,
-        requestedPort: config.port,
-        listenPort,
-        uiMode,
-        db: startupDbInfo,
-        migrationSummary,
-        heartbeatSchedulerEnabled: config.heartbeatSchedulerEnabled,
-        heartbeatSchedulerIntervalMs: config.heartbeatSchedulerIntervalMs,
-        databaseBackupEnabled: config.databaseBackupEnabled,
-        databaseBackupIntervalMinutes: config.databaseBackupIntervalMinutes,
-        databaseBackupRetentionDays: config.databaseBackupRetentionDays,
-        databaseBackupDir: config.databaseBackupDir,
-      });
+          port: listenPort,
+          apiUrl: process.env.PAPERCLIP_API_URL ?? `http://${runtimeApiHost}:${listenPort}`,
+        })
+        .then(() => {
+          if (process.env.PAPERCLIP_OPEN_ON_LISTEN === "true") {
+            const openHost = config.host === "0.0.0.0" || config.host === "::" ? "127.0.0.1" : config.host;
+            const url = `http://${openHost}:${listenPort}`;
+            void import("open")
+              .then((mod) => mod.default(url))
+              .then(() => {
+                logger.info(`Opened browser at ${url}`);
+              })
+              .catch((err) => {
+                logger.warn({ err, url }, "Failed to open browser on startup");
+              });
+          }
+          printStartupBanner({
+            host: config.host,
+            deploymentMode: config.deploymentMode,
+            deploymentExposure: config.deploymentExposure,
+            authReady,
+            requestedPort: config.port,
+            listenPort,
+            uiMode,
+            db: startupDbInfo,
+            migrationSummary,
+            heartbeatSchedulerEnabled: config.heartbeatSchedulerEnabled,
+            heartbeatSchedulerIntervalMs: config.heartbeatSchedulerIntervalMs,
+            databaseBackupEnabled: config.databaseBackupEnabled,
+            databaseBackupIntervalMinutes: config.databaseBackupIntervalMinutes,
+            databaseBackupRetentionDays: config.databaseBackupRetentionDays,
+            databaseBackupDir: config.databaseBackupDir,
+          });
 
-      const boardClaimUrl = getBoardClaimWarningUrl(config.host, listenPort);
-      if (boardClaimUrl) {
-        const red = "\x1b[41m\x1b[30m";
-        const yellow = "\x1b[33m";
-        const reset = "\x1b[0m";
-        console.log(
-          [
-            `${red}  BOARD CLAIM REQUIRED  ${reset}`,
-            `${yellow}This instance was previously local_trusted and still has local-board as the only admin.${reset}`,
-            `${yellow}Sign in with a real user and open this one-time URL to claim ownership:${reset}`,
-            `${yellow}${boardClaimUrl}${reset}`,
-            `${yellow}If you are connecting over Tailscale, replace the host in this URL with your Tailscale IP/MagicDNS name.${reset}`,
-          ].join("\n"),
-        );
-      }
+          const boardClaimUrl = getBoardClaimWarningUrl(config.host, listenPort);
+          if (boardClaimUrl) {
+            const red = "\x1b[41m\x1b[30m";
+            const yellow = "\x1b[33m";
+            const reset = "\x1b[0m";
+            console.log(
+              [
+                `${red}  BOARD CLAIM REQUIRED  ${reset}`,
+                `${yellow}This instance was previously local_trusted and still has local-board as the only admin.${reset}`,
+                `${yellow}Sign in with a real user and open this one-time URL to claim ownership:${reset}`,
+                `${yellow}${boardClaimUrl}${reset}`,
+                `${yellow}If you are connecting over Tailscale, replace the host in this URL with your Tailscale IP/MagicDNS name.${reset}`,
+              ].join("\n"),
+            );
+          }
 
-      resolveListen();
+          resolveListen();
+        })
+        .catch((err) => {
+          rejectListen(err instanceof Error ? err : new Error(String(err)));
+        });
     });
   });
   
@@ -757,6 +777,7 @@ export async function startServer(): Promise<StartedServer> {
         }
       }
 
+      await serverLock.release();
       process.exit(0);
     };
 
@@ -775,6 +796,10 @@ export async function startServer(): Promise<StartedServer> {
     apiUrl: process.env.PAPERCLIP_API_URL ?? `http://${runtimeApiHost}:${listenPort}`,
     databaseUrl: activeDatabaseConnectionString,
   };
+  })().catch(async (error: unknown) => {
+    await serverLock.release();
+    throw error;
+  });
 }
 
 function isMainModule(metaUrl: string): boolean {
