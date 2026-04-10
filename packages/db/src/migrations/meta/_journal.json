@@ -393,6 +393,13 @@
       "when": 1775836800000,
       "tag": "0055_goal_acceptance_criteria",
       "breakpoints": true
+    },
+    {
+      "idx": 56,
+      "version": "7",
+      "when": 1775923200000,
+      "tag": "0056_goal_verification",
+      "breakpoints": true
     }
   ]
 }
