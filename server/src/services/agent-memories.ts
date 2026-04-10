@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { and, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, ne, sql } from "drizzle-orm";
 import type { Db } from "@paperclipai/db";
 import { agentMemories } from "@paperclipai/db";
 import type {
@@ -197,16 +197,25 @@ export function agentMemoryService(db: Db) {
         const total = countRows[0]?.n ?? 0;
         if (total > limits.maxPerAgent) {
           const overflow = total - limits.maxPerAgent;
-          // Oldest-first; never delete the row we just inserted/returned.
+          // Oldest-first. We exclude the row we just inserted/returned
+          // directly in the WHERE clause so the LIMIT always returns
+          // exactly `overflow` deletable rows — filtering after the
+          // fact would under-delete by one on createdAt ties (rapid
+          // saves within the same now() tick can collide because
+          // PostgreSQL's timestamp resolution is microsecond-level,
+          // not nanosecond).
           const toDelete = await tx
             .select({ id: agentMemories.id })
             .from(agentMemories)
-            .where(eq(agentMemories.agentId, input.agentId))
+            .where(
+              and(
+                eq(agentMemories.agentId, input.agentId),
+                ne(agentMemories.id, memoryRow.id),
+              ),
+            )
             .orderBy(agentMemories.createdAt)
             .limit(overflow);
-          const ids = toDelete
-            .map((r) => r.id)
-            .filter((id) => id !== memoryRow.id);
+          const ids = toDelete.map((r) => r.id);
           if (ids.length > 0) {
             await tx.delete(agentMemories).where(inArray(agentMemories.id, ids));
           }
@@ -294,10 +303,18 @@ export function agentMemoryService(db: Db) {
       return row ? rowToMemory(row) : null;
     },
 
-    remove: async (id: string): Promise<AgentMemory | null> => {
+    /**
+     * Delete a memory scoped to the given agent. Both `id` and
+     * `agentId` must match — if the row belongs to a different agent
+     * the DELETE is a no-op and returns null. This closes a TOCTOU
+     * gap where the route layer was the only enforcer of ownership:
+     * any future caller that skipped the pre-check would have
+     * deleted any agent's row by bare id.
+     */
+    remove: async (id: string, agentId: string): Promise<AgentMemory | null> => {
       const row = await db
         .delete(agentMemories)
-        .where(eq(agentMemories.id, id))
+        .where(and(eq(agentMemories.id, id), eq(agentMemories.agentId, agentId)))
         .returning()
         .then((rows) => rows[0] ?? null);
       return row ? rowToMemory(row) : null;

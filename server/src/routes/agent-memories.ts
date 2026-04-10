@@ -154,12 +154,10 @@ export function agentMemoryRoutes(db: Db) {
     assertCompanyAccess(req, agent.companyId);
     assertAgentIdentity(req, agentId);
 
-    const existing = await svc.getById(id);
-    if (!existing || existing.agentId !== agentId) {
-      res.status(404).json({ error: "Memory not found" });
-      return;
-    }
-    const removed = await svc.remove(id);
+    // Single scoped DELETE — the service filters by (id, agentId), so
+    // we don't need a separate ownership pre-check. A concurrent delete
+    // from another request just returns null here and we 404.
+    const removed = await svc.remove(id, agentId);
     if (!removed) {
       res.status(404).json({ error: "Memory not found" });
       return;

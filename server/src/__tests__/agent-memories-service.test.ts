@@ -187,6 +187,24 @@ describeEmbeddedPostgres("agentMemoryService", () => {
       expect(contents).toEqual(["memory-2", "memory-3", "memory-4"]);
     });
 
+    it("prune stays at the cap even when inserts share a timestamp tick", async () => {
+      // Regression guard for the Greptile P2: if the new row and the
+      // oldest rows share createdAt (PostgreSQL microsecond ties on
+      // rapid inserts), an order-then-filter approach would under-delete
+      // by one and leave count = cap + 1. The service now excludes the
+      // new row in the WHERE clause so the LIMIT returns exactly
+      // `overflow` deletable rows regardless of tie behavior.
+      process.env.PAPERCLIP_MEMORY_MAX_PER_AGENT = "2";
+      // No inter-save delay — force createdAt collisions if the host
+      // clock is coarse enough.
+      await svc.save({ companyId, agentId: agentIdA, content: "row-1" });
+      await svc.save({ companyId, agentId: agentIdA, content: "row-2" });
+      await svc.save({ companyId, agentId: agentIdA, content: "row-3" });
+      await svc.save({ companyId, agentId: agentIdA, content: "row-4" });
+      await svc.save({ companyId, agentId: agentIdA, content: "row-5" });
+      expect(await svc.countForAgent(agentIdA)).toBe(2);
+    });
+
     it("pruning does not touch another agent's memories", async () => {
       process.env.PAPERCLIP_MEMORY_MAX_PER_AGENT = "2";
       await svc.save({ companyId, agentId: agentIdA, content: "a-one" });
@@ -326,10 +344,22 @@ describeEmbeddedPostgres("agentMemoryService", () => {
         agentId: agentIdA,
         content: "to be removed",
       });
-      const removed = await svc.remove(saved.memory.id);
+      const removed = await svc.remove(saved.memory.id, agentIdA);
       expect(removed?.id).toBe(saved.memory.id);
       const after = await svc.getById(saved.memory.id);
       expect(after).toBeNull();
+    });
+
+    it("remove refuses to delete another agent's memory", async () => {
+      const saved = await svc.save({
+        companyId,
+        agentId: agentIdA,
+        content: "only alice may delete me",
+      });
+      const result = await svc.remove(saved.memory.id, agentIdB);
+      expect(result).toBeNull();
+      const stillThere = await svc.getById(saved.memory.id);
+      expect(stillThere?.id).toBe(saved.memory.id);
     });
 
     it("countForAgent returns 0 for an agent with no memories", async () => {
@@ -341,12 +371,12 @@ describeEmbeddedPostgres("agentMemoryService", () => {
       await svc.save({ companyId, agentId: agentIdA, content: "two" });
       expect(await svc.countForAgent(agentIdA)).toBe(2);
       const items = await svc.list({ agentId: agentIdA });
-      await svc.remove(items[0].id);
+      await svc.remove(items[0].id, agentIdA);
       expect(await svc.countForAgent(agentIdA)).toBe(1);
     });
 
     it("remove of a non-existent id returns null", async () => {
-      const res = await svc.remove(randomUUID());
+      const res = await svc.remove(randomUUID(), agentIdA);
       expect(res).toBeNull();
     });
   });
