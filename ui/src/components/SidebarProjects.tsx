@@ -20,6 +20,7 @@ import { projectsApi } from "../api/projects";
 import { queryKeys } from "../lib/queryKeys";
 import { cn, projectRouteRef } from "../lib/utils";
 import { useProjectOrder } from "../hooks/useProjectOrder";
+import { useGeneralSettings } from "../context/GeneralSettingsContext";
 import { BudgetSidebarMarker } from "./BudgetSidebarMarker";
 import {
   Collapsible,
@@ -28,6 +29,7 @@ import {
 } from "@/components/ui/collapsible";
 import { PluginSlotMount, usePluginSlots } from "@/plugins/slots";
 import type { Project } from "@paperclipai/shared";
+import { textFor } from "../lib/ui-language";
 
 type ProjectSidebarSlot = ReturnType<typeof usePluginSlots>["slots"][number];
 
@@ -56,6 +58,11 @@ function SortableProjectItem({
     transition,
     isDragging,
   } = useSortable({ id: project.id });
+  const { uiLanguage } = useGeneralSettings();
+  const budgetPausedTitle = textFor(uiLanguage, {
+    en: "Project paused by budget",
+    "zh-CN": "项目因预算被暂停",
+  });
 
   const routeRef = projectRouteRef(project);
 
@@ -89,7 +96,7 @@ function SortableProjectItem({
             style={{ backgroundColor: project.color ?? "#6366f1" }}
           />
           <span className="flex-1 truncate">{project.name}</span>
-          {project.pauseReason === "budget" ? <BudgetSidebarMarker title="Project paused by budget" /> : null}
+          {project.pauseReason === "budget" ? <BudgetSidebarMarker title={budgetPausedTitle} /> : null}
         </NavLink>
         {projectSidebarSlots.length > 0 && (
           <div className="ml-5 flex flex-col gap-0.5">
@@ -118,9 +125,24 @@ function SortableProjectItem({
 export function SidebarProjects() {
   const [open, setOpen] = useState(true);
   const { selectedCompany, selectedCompanyId } = useCompany();
+  const { uiLanguage } = useGeneralSettings();
   const { openNewProject } = useDialog();
   const { isMobile, setSidebarOpen } = useSidebar();
   const location = useLocation();
+  const copy = {
+    projects: textFor(uiLanguage, {
+      en: "Projects",
+      "zh-CN": "项目",
+    }),
+    newProject: textFor(uiLanguage, {
+      en: "New project",
+      "zh-CN": "新建项目",
+    }),
+    budgetPaused: textFor(uiLanguage, {
+      en: "Project paused by budget",
+      "zh-CN": "项目因预算被暂停",
+    }),
+  };
 
   const { data: projects } = useQuery({
     queryKey: queryKeys.projects.list(selectedCompanyId!),
@@ -186,7 +208,7 @@ export function SidebarProjects() {
               )}
             />
             <span className="text-[10px] font-medium uppercase tracking-widest font-mono text-muted-foreground/60">
-              Projects
+              {copy.projects}
             </span>
           </CollapsibleTrigger>
           <button
@@ -195,7 +217,7 @@ export function SidebarProjects() {
               openNewProject();
             }}
             className="flex items-center justify-center h-4 w-4 rounded text-muted-foreground/60 hover:text-foreground hover:bg-accent/50 transition-colors"
-            aria-label="New project"
+            aria-label={copy.newProject}
           >
             <Plus className="h-3 w-3" />
           </button>

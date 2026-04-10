@@ -1,5 +1,6 @@
 import { UserPlus, Lightbulb, ShieldAlert, ShieldCheck } from "lucide-react";
 import { formatCents } from "../lib/utils";
+import { readStoredUiLanguage, textFor } from "../lib/ui-language";
 
 export const typeLabel: Record<string, string> = {
   hire_agent: "Hire Agent",
@@ -7,6 +8,22 @@ export const typeLabel: Record<string, string> = {
   budget_override_required: "Budget Override",
   request_board_approval: "Board Approval",
 };
+
+function localizedApprovalTypeLabel(type: string): string {
+  const uiLanguage = readStoredUiLanguage();
+  switch (type) {
+    case "hire_agent":
+      return textFor(uiLanguage, { en: "Hire Agent", "zh-CN": "招聘智能体" });
+    case "approve_ceo_strategy":
+      return textFor(uiLanguage, { en: "CEO Strategy", "zh-CN": "CEO 战略" });
+    case "budget_override_required":
+      return textFor(uiLanguage, { en: "Budget Override", "zh-CN": "预算超限" });
+    case "request_board_approval":
+      return textFor(uiLanguage, { en: "Board Approval", "zh-CN": "董事会审批" });
+    default:
+      return typeLabel[type] ?? type;
+  }
+}
 
 function firstNonEmptyString(...values: unknown[]): string | null {
   for (const value of values) {
@@ -28,7 +45,7 @@ export function approvalSubject(payload?: Record<string, unknown> | null): strin
 
 /** Build a contextual label for an approval, e.g. "Hire Agent: Designer" */
 export function approvalLabel(type: string, payload?: Record<string, unknown> | null): string {
-  const base = typeLabel[type] ?? type;
+  const base = localizedApprovalTypeLabel(type);
   const subject = approvalSubject(payload);
   if (subject) {
     return `${base}: ${subject}`;

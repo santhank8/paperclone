@@ -4,6 +4,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { DEFAULT_FEEDBACK_DATA_SHARING_TERMS_VERSION } from "@paperclipai/shared";
 import { useCompany } from "../context/CompanyContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
+import { useGeneralSettings } from "../context/GeneralSettingsContext";
 import { useToast } from "../context/ToastContext";
 import { companiesApi } from "../api/companies";
 import { accessApi } from "../api/access";
@@ -17,6 +18,7 @@ import {
   ToggleField,
   HintIcon
 } from "../components/agent-config-primitives";
+import { textFor } from "../lib/ui-language";
 
 type AgentSnippetInput = {
   onboardingTextUrl: string;
@@ -33,9 +35,265 @@ export function CompanySettings() {
     selectedCompanyId,
     setSelectedCompanyId
   } = useCompany();
+  const { uiLanguage } = useGeneralSettings();
   const { setBreadcrumbs } = useBreadcrumbs();
   const { pushToast } = useToast();
   const queryClient = useQueryClient();
+  const copy = {
+    company: textFor(uiLanguage, {
+      en: "Company",
+      "zh-CN": "公司",
+    }),
+    settings: textFor(uiLanguage, {
+      en: "Settings",
+      "zh-CN": "设置",
+    }),
+    noCompanySelected: textFor(uiLanguage, {
+      en: "No company selected. Select a company from the switcher above.",
+      "zh-CN": "当前没有选中公司。请先从上方切换器选择一个公司。",
+    }),
+    title: textFor(uiLanguage, {
+      en: "Company Settings",
+      "zh-CN": "公司设置",
+    }),
+    general: textFor(uiLanguage, {
+      en: "General",
+      "zh-CN": "通用",
+    }),
+    companyName: textFor(uiLanguage, {
+      en: "Company name",
+      "zh-CN": "公司名称",
+    }),
+    companyNameHint: textFor(uiLanguage, {
+      en: "The display name for your company.",
+      "zh-CN": "公司对外显示的名称。",
+    }),
+    description: textFor(uiLanguage, {
+      en: "Description",
+      "zh-CN": "描述",
+    }),
+    descriptionHint: textFor(uiLanguage, {
+      en: "Optional description shown in the company profile.",
+      "zh-CN": "显示在公司资料中的可选描述。",
+    }),
+    descriptionPlaceholder: textFor(uiLanguage, {
+      en: "Optional company description",
+      "zh-CN": "可选的公司描述",
+    }),
+    appearance: textFor(uiLanguage, {
+      en: "Appearance",
+      "zh-CN": "外观",
+    }),
+    logo: textFor(uiLanguage, {
+      en: "Logo",
+      "zh-CN": "Logo",
+    }),
+    logoHint: textFor(uiLanguage, {
+      en: "Upload a PNG, JPEG, WEBP, GIF, or SVG logo image.",
+      "zh-CN": "上传 PNG、JPEG、WEBP、GIF 或 SVG 格式的 logo 图片。",
+    }),
+    removing: textFor(uiLanguage, {
+      en: "Removing...",
+      "zh-CN": "移除中...",
+    }),
+    removeLogo: textFor(uiLanguage, {
+      en: "Remove logo",
+      "zh-CN": "移除 Logo",
+    }),
+    logoUploadFailed: textFor(uiLanguage, {
+      en: "Logo upload failed",
+      "zh-CN": "Logo 上传失败",
+    }),
+    uploadingLogo: textFor(uiLanguage, {
+      en: "Uploading logo...",
+      "zh-CN": "正在上传 Logo...",
+    }),
+    brandColor: textFor(uiLanguage, {
+      en: "Brand color",
+      "zh-CN": "品牌颜色",
+    }),
+    brandColorHint: textFor(uiLanguage, {
+      en: "Sets the hue for the company icon. Leave empty for auto-generated color.",
+      "zh-CN": "设置公司图标的主色调。留空则自动生成颜色。",
+    }),
+    auto: textFor(uiLanguage, {
+      en: "Auto",
+      "zh-CN": "自动",
+    }),
+    clear: textFor(uiLanguage, {
+      en: "Clear",
+      "zh-CN": "清空",
+    }),
+    saving: textFor(uiLanguage, {
+      en: "Saving...",
+      "zh-CN": "保存中...",
+    }),
+    saveChanges: textFor(uiLanguage, {
+      en: "Save changes",
+      "zh-CN": "保存更改",
+    }),
+    saved: textFor(uiLanguage, {
+      en: "Saved",
+      "zh-CN": "已保存",
+    }),
+    saveFailed: textFor(uiLanguage, {
+      en: "Failed to save",
+      "zh-CN": "保存失败",
+    }),
+    hiring: textFor(uiLanguage, {
+      en: "Hiring",
+      "zh-CN": "招聘",
+    }),
+    requireBoardApproval: textFor(uiLanguage, {
+      en: "Require board approval for new hires",
+      "zh-CN": "新招聘需要董事会审批",
+    }),
+    requireBoardApprovalHint: textFor(uiLanguage, {
+      en: "New agent hires stay pending until approved by board.",
+      "zh-CN": "新 agent 的招聘在董事会批准前会保持待处理状态。",
+    }),
+    feedbackSharing: textFor(uiLanguage, {
+      en: "Feedback Sharing",
+      "zh-CN": "反馈共享",
+    }),
+    allowFeedbackSharing: textFor(uiLanguage, {
+      en: "Allow sharing voted AI outputs with Paperclip Labs",
+      "zh-CN": "允许把已投票的 AI 输出共享给 Paperclip Labs",
+    }),
+    allowFeedbackSharingHint: textFor(uiLanguage, {
+      en: "Only AI-generated outputs you explicitly vote on are eligible for feedback sharing.",
+      "zh-CN": "只有你明确投票过的 AI 输出才有资格被共享。",
+    }),
+    feedbackSharingDescription: textFor(uiLanguage, {
+      en: "Votes are always saved locally. This setting controls whether voted AI outputs may also be marked for sharing with Paperclip Labs.",
+      "zh-CN": "投票记录始终会保存在本地。这个设置决定已投票的 AI 输出是否也可以被标记为共享给 Paperclip Labs。",
+    }),
+    termsVersion: textFor(uiLanguage, {
+      en: "Terms version",
+      "zh-CN": "条款版本",
+    }),
+    enabledAt: textFor(uiLanguage, {
+      en: "Enabled",
+      "zh-CN": "已启用",
+    }),
+    byUser: textFor(uiLanguage, {
+      en: "by",
+      "zh-CN": "由",
+    }),
+    sharingDisabled: textFor(uiLanguage, {
+      en: "Sharing is currently disabled.",
+      "zh-CN": "当前共享处于关闭状态。",
+    }),
+    readTerms: textFor(uiLanguage, {
+      en: "Read our terms of service",
+      "zh-CN": "查看服务条款",
+    }),
+    invites: textFor(uiLanguage, {
+      en: "Invites",
+      "zh-CN": "邀请",
+    }),
+    invitesDescription: textFor(uiLanguage, {
+      en: "Generate an OpenClaw agent invite snippet.",
+      "zh-CN": "生成 OpenClaw agent 的邀请片段。",
+    }),
+    invitesHint: textFor(uiLanguage, {
+      en: "Creates a short-lived OpenClaw agent invite and renders a copy-ready prompt.",
+      "zh-CN": "创建一个短时有效的 OpenClaw agent 邀请，并生成可直接复制的提示词。",
+    }),
+    generating: textFor(uiLanguage, {
+      en: "Generating...",
+      "zh-CN": "生成中...",
+    }),
+    generateInvite: textFor(uiLanguage, {
+      en: "Generate OpenClaw Invite Prompt",
+      "zh-CN": "生成 OpenClaw 邀请提示词",
+    }),
+    createInviteFailed: textFor(uiLanguage, {
+      en: "Failed to create invite",
+      "zh-CN": "创建邀请失败",
+    }),
+    invitePrompt: textFor(uiLanguage, {
+      en: "OpenClaw Invite Prompt",
+      "zh-CN": "OpenClaw 邀请提示词",
+    }),
+    copied: textFor(uiLanguage, {
+      en: "Copied",
+      "zh-CN": "已复制",
+    }),
+    copiedSnippet: textFor(uiLanguage, {
+      en: "Copied snippet",
+      "zh-CN": "已复制片段",
+    }),
+    copySnippet: textFor(uiLanguage, {
+      en: "Copy snippet",
+      "zh-CN": "复制片段",
+    }),
+    companyPackages: textFor(uiLanguage, {
+      en: "Company Packages",
+      "zh-CN": "公司包",
+    }),
+    companyPackagesDescription: textFor(uiLanguage, {
+      en: "Import and export have moved to dedicated pages accessible from the Org Chart header.",
+      "zh-CN": "导入和导出已经移动到独立页面，可以从组织架构页头部进入。",
+    }),
+    export: textFor(uiLanguage, {
+      en: "Export",
+      "zh-CN": "导出",
+    }),
+    import: textFor(uiLanguage, {
+      en: "Import",
+      "zh-CN": "导入",
+    }),
+    dangerZone: textFor(uiLanguage, {
+      en: "Danger Zone",
+      "zh-CN": "危险区域",
+    }),
+    archiveDescription: textFor(uiLanguage, {
+      en: "Archive this company to hide it from the sidebar. This persists in the database.",
+      "zh-CN": "归档这个公司后，它会从侧边栏中隐藏，并且这个状态会持久化到数据库。",
+    }),
+    archiving: textFor(uiLanguage, {
+      en: "Archiving...",
+      "zh-CN": "归档中...",
+    }),
+    alreadyArchived: textFor(uiLanguage, {
+      en: "Already archived",
+      "zh-CN": "已归档",
+    }),
+    archiveCompany: textFor(uiLanguage, {
+      en: "Archive company",
+      "zh-CN": "归档公司",
+    }),
+    archiveFailed: textFor(uiLanguage, {
+      en: "Failed to archive company",
+      "zh-CN": "归档公司失败",
+    }),
+    archiveConfirm: (name: string) =>
+      textFor(uiLanguage, {
+        en: `Archive company "${name}"? It will be hidden from the sidebar.`,
+        "zh-CN": `确认归档公司“${name}”吗？归档后它会从侧边栏中隐藏。`,
+      }),
+    feedbackSharingEnabledToast: textFor(uiLanguage, {
+      en: "Feedback sharing enabled",
+      "zh-CN": "反馈共享已启用",
+    }),
+    feedbackSharingDisabledToast: textFor(uiLanguage, {
+      en: "Feedback sharing disabled",
+      "zh-CN": "反馈共享已关闭",
+    }),
+    feedbackSharingUpdateFailedToast: textFor(uiLanguage, {
+      en: "Failed to update feedback sharing",
+      "zh-CN": "更新反馈共享失败",
+    }),
+    unknownError: textFor(uiLanguage, {
+      en: "Unknown error",
+      "zh-CN": "未知错误",
+    }),
+    orgChart: textFor(uiLanguage, {
+      en: "Org Chart",
+      "zh-CN": "组织架构",
+    }),
+  };
   // General settings local state
   const [companyName, setCompanyName] = useState("");
   const [description, setDescription] = useState("");
@@ -92,14 +350,14 @@ export function CompanySettings() {
     onSuccess: (_company, enabled) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.companies.all });
       pushToast({
-        title: enabled ? "Feedback sharing enabled" : "Feedback sharing disabled",
+        title: enabled ? copy.feedbackSharingEnabledToast : copy.feedbackSharingDisabledToast,
         tone: "success",
       });
     },
     onError: (err) => {
       pushToast({
-        title: "Failed to update feedback sharing",
-        body: err instanceof Error ? err.message : "Unknown error",
+        title: copy.feedbackSharingUpdateFailedToast,
+        body: err instanceof Error ? err.message : copy.unknownError,
         tone: "error",
       });
     },
@@ -153,7 +411,7 @@ export function CompanySettings() {
     },
     onError: (err) => {
       setInviteError(
-        err instanceof Error ? err.message : "Failed to create invite"
+        err instanceof Error ? err.message : copy.createInviteFailed
       );
     }
   });
@@ -224,15 +482,15 @@ export function CompanySettings() {
 
   useEffect(() => {
     setBreadcrumbs([
-      { label: selectedCompany?.name ?? "Company", href: "/dashboard" },
-      { label: "Settings" }
+      { label: selectedCompany?.name ?? copy.company, href: "/dashboard" },
+      { label: copy.settings }
     ]);
-  }, [setBreadcrumbs, selectedCompany?.name]);
+  }, [copy.company, copy.settings, setBreadcrumbs, selectedCompany?.name]);
 
   if (!selectedCompany) {
     return (
       <div className="text-sm text-muted-foreground">
-        No company selected. Select a company from the switcher above.
+        {copy.noCompanySelected}
       </div>
     );
   }
@@ -249,16 +507,16 @@ export function CompanySettings() {
     <div className="max-w-2xl space-y-6">
       <div className="flex items-center gap-2">
         <Settings className="h-5 w-5 text-muted-foreground" />
-        <h1 className="text-lg font-semibold">Company Settings</h1>
+        <h1 className="text-lg font-semibold">{copy.title}</h1>
       </div>
 
       {/* General */}
       <div className="space-y-4">
         <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-          General
+          {copy.general}
         </div>
         <div className="space-y-3 rounded-md border border-border px-4 py-4">
-          <Field label="Company name" hint="The display name for your company.">
+          <Field label={copy.companyName} hint={copy.companyNameHint}>
             <input
               className="w-full rounded-md border border-border bg-transparent px-2.5 py-1.5 text-sm outline-none"
               type="text"
@@ -267,14 +525,14 @@ export function CompanySettings() {
             />
           </Field>
           <Field
-            label="Description"
-            hint="Optional description shown in the company profile."
+            label={copy.description}
+            hint={copy.descriptionHint}
           >
             <input
               className="w-full rounded-md border border-border bg-transparent px-2.5 py-1.5 text-sm outline-none"
               type="text"
               value={description}
-              placeholder="Optional company description"
+              placeholder={copy.descriptionPlaceholder}
               onChange={(e) => setDescription(e.target.value)}
             />
           </Field>
@@ -284,7 +542,7 @@ export function CompanySettings() {
       {/* Appearance */}
       <div className="space-y-4">
         <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-          Appearance
+          {copy.appearance}
         </div>
         <div className="space-y-3 rounded-md border border-border px-4 py-4">
           <div className="flex items-start gap-4">
@@ -298,8 +556,8 @@ export function CompanySettings() {
             </div>
             <div className="flex-1 space-y-3">
               <Field
-                label="Logo"
-                hint="Upload a PNG, JPEG, WEBP, GIF, or SVG logo image."
+                label={copy.logo}
+                hint={copy.logoHint}
               >
                 <div className="space-y-2">
                   <input
@@ -316,7 +574,7 @@ export function CompanySettings() {
                         onClick={handleClearLogo}
                         disabled={clearLogoMutation.isPending}
                       >
-                        {clearLogoMutation.isPending ? "Removing..." : "Remove logo"}
+                        {clearLogoMutation.isPending ? copy.removing : copy.removeLogo}
                       </Button>
                     </div>
                   )}
@@ -325,7 +583,7 @@ export function CompanySettings() {
                       {logoUploadError ??
                         (logoUploadMutation.error instanceof Error
                           ? logoUploadMutation.error.message
-                          : "Logo upload failed")}
+                          : copy.logoUploadFailed)}
                     </span>
                   )}
                   {clearLogoMutation.isError && (
@@ -334,13 +592,13 @@ export function CompanySettings() {
                     </span>
                   )}
                   {logoUploadMutation.isPending && (
-                    <span className="text-xs text-muted-foreground">Uploading logo...</span>
+                    <span className="text-xs text-muted-foreground">{copy.uploadingLogo}</span>
                   )}
                 </div>
               </Field>
               <Field
-                label="Brand color"
-                hint="Sets the hue for the company icon. Leave empty for auto-generated color."
+                label={copy.brandColor}
+                hint={copy.brandColorHint}
               >
                 <div className="flex items-center gap-2">
                   <input
@@ -358,7 +616,7 @@ export function CompanySettings() {
                         setBrandColor(v);
                       }
                     }}
-                    placeholder="Auto"
+                    placeholder={copy.auto}
                     className="w-28 rounded-md border border-border bg-transparent px-2.5 py-1.5 text-sm font-mono outline-none"
                   />
                   {brandColor && (
@@ -368,7 +626,7 @@ export function CompanySettings() {
                       onClick={() => setBrandColor("")}
                       className="text-xs text-muted-foreground"
                     >
-                      Clear
+                      {copy.clear}
                     </Button>
                   )}
                 </div>
@@ -386,16 +644,16 @@ export function CompanySettings() {
             onClick={handleSaveGeneral}
             disabled={generalMutation.isPending || !companyName.trim()}
           >
-            {generalMutation.isPending ? "Saving..." : "Save changes"}
+            {generalMutation.isPending ? copy.saving : copy.saveChanges}
           </Button>
           {generalMutation.isSuccess && (
-            <span className="text-xs text-muted-foreground">Saved</span>
+            <span className="text-xs text-muted-foreground">{copy.saved}</span>
           )}
           {generalMutation.isError && (
             <span className="text-xs text-destructive">
               {generalMutation.error instanceof Error
                   ? generalMutation.error.message
-                  : "Failed to save"}
+                  : copy.saveFailed}
             </span>
           )}
         </div>
@@ -404,12 +662,12 @@ export function CompanySettings() {
       {/* Hiring */}
       <div className="space-y-4" data-testid="company-settings-team-section">
         <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-          Hiring
+          {copy.hiring}
         </div>
         <div className="rounded-md border border-border px-4 py-3">
           <ToggleField
-            label="Require board approval for new hires"
-            hint="New agent hires stay pending until approved by board."
+            label={copy.requireBoardApproval}
+            hint={copy.requireBoardApprovalHint}
             checked={!!selectedCompany.requireBoardApprovalForNewAgents}
             onChange={(v) => settingsMutation.mutate(v)}
             toggleTestId="company-settings-team-approval-toggle"
@@ -419,31 +677,31 @@ export function CompanySettings() {
 
       <div className="space-y-4">
         <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-          Feedback Sharing
+          {copy.feedbackSharing}
         </div>
         <div className="space-y-3 rounded-md border border-border px-4 py-4">
           <ToggleField
-            label="Allow sharing voted AI outputs with Paperclip Labs"
-            hint="Only AI-generated outputs you explicitly vote on are eligible for feedback sharing."
+            label={copy.allowFeedbackSharing}
+            hint={copy.allowFeedbackSharingHint}
             checked={!!selectedCompany.feedbackDataSharingEnabled}
             onChange={(enabled) => feedbackSharingMutation.mutate(enabled)}
           />
           <p className="text-sm text-muted-foreground">
-            Votes are always saved locally. This setting controls whether voted AI outputs may also be marked for sharing with Paperclip Labs.
+            {copy.feedbackSharingDescription}
           </p>
           <div className="space-y-1 text-xs text-muted-foreground">
             <div>
-              Terms version: {selectedCompany.feedbackDataSharingTermsVersion ?? DEFAULT_FEEDBACK_DATA_SHARING_TERMS_VERSION}
+              {copy.termsVersion}: {selectedCompany.feedbackDataSharingTermsVersion ?? DEFAULT_FEEDBACK_DATA_SHARING_TERMS_VERSION}
             </div>
             {selectedCompany.feedbackDataSharingConsentAt ? (
               <div>
-                Enabled {new Date(selectedCompany.feedbackDataSharingConsentAt).toLocaleString()}
+                {copy.enabledAt} {new Date(selectedCompany.feedbackDataSharingConsentAt).toLocaleString()}
                 {selectedCompany.feedbackDataSharingConsentByUserId
-                  ? ` by ${selectedCompany.feedbackDataSharingConsentByUserId}`
+                  ? ` ${copy.byUser} ${selectedCompany.feedbackDataSharingConsentByUserId}`
                   : ""}
               </div>
             ) : (
-              <div>Sharing is currently disabled.</div>
+              <div>{copy.sharingDisabled}</div>
             )}
             {FEEDBACK_TERMS_URL ? (
               <a
@@ -452,7 +710,7 @@ export function CompanySettings() {
                 rel="noreferrer"
                 className="inline-flex text-foreground underline underline-offset-4"
               >
-                Read our terms of service
+                {copy.readTerms}
               </a>
             ) : null}
           </div>
@@ -462,14 +720,14 @@ export function CompanySettings() {
       {/* Invites */}
       <div className="space-y-4" data-testid="company-settings-invites-section">
         <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-          Invites
+          {copy.invites}
         </div>
         <div className="space-y-3 rounded-md border border-border px-4 py-4">
           <div className="flex items-center gap-1.5">
             <span className="text-xs text-muted-foreground">
-              Generate an OpenClaw agent invite snippet.
+              {copy.invitesDescription}
             </span>
-            <HintIcon text="Creates a short-lived OpenClaw agent invite and renders a copy-ready prompt." />
+            <HintIcon text={copy.invitesHint} />
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <Button
@@ -479,8 +737,8 @@ export function CompanySettings() {
               disabled={inviteMutation.isPending}
             >
               {inviteMutation.isPending
-                ? "Generating..."
-                : "Generate OpenClaw Invite Prompt"}
+                ? copy.generating
+                : copy.generateInvite}
             </Button>
           </div>
           {inviteError && (
@@ -493,7 +751,7 @@ export function CompanySettings() {
             >
               <div className="flex items-center justify-between gap-2">
                 <div className="text-xs text-muted-foreground">
-                  OpenClaw Invite Prompt
+                  {copy.invitePrompt}
                 </div>
                 {snippetCopied && (
                   <span
@@ -501,7 +759,7 @@ export function CompanySettings() {
                     className="flex items-center gap-1 text-xs text-green-600 animate-pulse"
                   >
                     <Check className="h-3 w-3" />
-                    Copied
+                    {copy.copied}
                   </span>
                 )}
               </div>
@@ -528,7 +786,7 @@ export function CompanySettings() {
                       }
                     }}
                   >
-                    {snippetCopied ? "Copied snippet" : "Copy snippet"}
+                    {snippetCopied ? copy.copiedSnippet : copy.copySnippet}
                   </Button>
                 </div>
               </div>
@@ -540,24 +798,24 @@ export function CompanySettings() {
       {/* Import / Export */}
       <div className="space-y-4">
         <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-          Company Packages
+          {copy.companyPackages}
         </div>
         <div className="rounded-md border border-border px-4 py-4">
           <p className="text-sm text-muted-foreground">
-            Import and export have moved to dedicated pages accessible from the{" "}
-            <a href="/org" className="underline hover:text-foreground">Org Chart</a> header.
+            {copy.companyPackagesDescription}{" "}
+            <a href="/org" className="underline hover:text-foreground">{copy.orgChart}</a>.
           </p>
           <div className="mt-3 flex items-center gap-2">
             <Button size="sm" variant="outline" asChild>
               <Link to="/company/export">
                 <Download className="mr-1.5 h-3.5 w-3.5" />
-                Export
+                {copy.export}
               </Link>
             </Button>
             <Button size="sm" variant="outline" asChild>
               <Link to="/company/import">
                 <Upload className="mr-1.5 h-3.5 w-3.5" />
-                Import
+                {copy.import}
               </Link>
             </Button>
           </div>
@@ -567,12 +825,11 @@ export function CompanySettings() {
       {/* Danger Zone */}
       <div className="space-y-4">
         <div className="text-xs font-medium text-destructive uppercase tracking-wide">
-          Danger Zone
+          {copy.dangerZone}
         </div>
         <div className="space-y-3 rounded-md border border-destructive/40 bg-destructive/5 px-4 py-4">
           <p className="text-sm text-muted-foreground">
-            Archive this company to hide it from the sidebar. This persists in
-            the database.
+            {copy.archiveDescription}
           </p>
           <div className="flex items-center gap-2">
             <Button
@@ -584,9 +841,7 @@ export function CompanySettings() {
               }
               onClick={() => {
                 if (!selectedCompanyId) return;
-                const confirmed = window.confirm(
-                  `Archive company "${selectedCompany.name}"? It will be hidden from the sidebar.`
-                );
+                const confirmed = window.confirm(copy.archiveConfirm(selectedCompany.name));
                 if (!confirmed) return;
                 const nextCompanyId =
                   companies.find(
@@ -601,16 +856,16 @@ export function CompanySettings() {
               }}
             >
               {archiveMutation.isPending
-                ? "Archiving..."
+                ? copy.archiving
                 : selectedCompany.status === "archived"
-                ? "Already archived"
-                : "Archive company"}
+                ? copy.alreadyArchived
+                : copy.archiveCompany}
             </Button>
             {archiveMutation.isError && (
               <span className="text-xs text-destructive">
                 {archiveMutation.error instanceof Error
                   ? archiveMutation.error.message
-                  : "Failed to archive company"}
+                  : copy.archiveFailed}
               </span>
             )}
           </div>

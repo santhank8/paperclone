@@ -10,6 +10,7 @@ import { heartbeatsApi } from "../api/heartbeats";
 import { useCompany } from "../context/CompanyContext";
 import { useDialog } from "../context/DialogContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
+import { useGeneralSettings } from "../context/GeneralSettingsContext";
 import { queryKeys } from "../lib/queryKeys";
 import { MetricCard } from "../components/MetricCard";
 import { EmptyState } from "../components/EmptyState";
@@ -25,6 +26,7 @@ import { ChartCard, RunActivityChart, PriorityChart, IssueStatusChart, SuccessRa
 import { PageSkeleton } from "../components/PageSkeleton";
 import type { Agent, Issue } from "@paperclipai/shared";
 import { PluginSlotOutlet } from "@/plugins/slots";
+import { textFor } from "../lib/ui-language";
 
 function getRecentIssues(issues: Issue[]): Issue[] {
   return [...issues]
@@ -33,12 +35,99 @@ function getRecentIssues(issues: Issue[]): Issue[] {
 
 export function Dashboard() {
   const { selectedCompanyId, companies } = useCompany();
+  const { uiLanguage } = useGeneralSettings();
   const { openOnboarding } = useDialog();
   const { setBreadcrumbs } = useBreadcrumbs();
   const [animatedActivityIds, setAnimatedActivityIds] = useState<Set<string>>(new Set());
   const seenActivityIdsRef = useRef<Set<string>>(new Set());
   const hydratedActivityRef = useRef(false);
   const activityAnimationTimersRef = useRef<number[]>([]);
+  const copy = {
+    dashboard: textFor(uiLanguage, {
+      en: "Dashboard",
+      "zh-CN": "仪表盘",
+    }),
+    welcome: textFor(uiLanguage, {
+      en: "Welcome to Paperclip. Set up your first company and agent to get started.",
+      "zh-CN": "欢迎使用 Paperclip。先创建第一个公司和智能体开始使用。",
+    }),
+    getStarted: textFor(uiLanguage, {
+      en: "Get Started",
+      "zh-CN": "开始使用",
+    }),
+    createOrSelectCompany: textFor(uiLanguage, {
+      en: "Create or select a company to view the dashboard.",
+      "zh-CN": "创建或选择一个公司以查看仪表盘。",
+    }),
+    noAgents: textFor(uiLanguage, {
+      en: "You have no agents.",
+      "zh-CN": "你还没有智能体。",
+    }),
+    createOneHere: textFor(uiLanguage, {
+      en: "Create one here",
+      "zh-CN": "点这里创建",
+    }),
+    openBudgets: textFor(uiLanguage, {
+      en: "Open budgets",
+      "zh-CN": "打开预算",
+    }),
+    agentsEnabled: textFor(uiLanguage, {
+      en: "Agents Enabled",
+      "zh-CN": "已启用智能体",
+    }),
+    tasksInProgress: textFor(uiLanguage, {
+      en: "Tasks In Progress",
+      "zh-CN": "进行中的任务",
+    }),
+    monthSpend: textFor(uiLanguage, {
+      en: "Month Spend",
+      "zh-CN": "本月花费",
+    }),
+    pendingApprovals: textFor(uiLanguage, {
+      en: "Pending Approvals",
+      "zh-CN": "待审批",
+    }),
+    unlimitedBudget: textFor(uiLanguage, {
+      en: "Unlimited budget",
+      "zh-CN": "预算不限",
+    }),
+    awaitingBoardReview: textFor(uiLanguage, {
+      en: "Awaiting board review",
+      "zh-CN": "等待董事会审核",
+    }),
+    runActivity: textFor(uiLanguage, {
+      en: "Run Activity",
+      "zh-CN": "运行活动",
+    }),
+    issuesByPriority: textFor(uiLanguage, {
+      en: "Issues by Priority",
+      "zh-CN": "按优先级统计任务",
+    }),
+    issuesByStatus: textFor(uiLanguage, {
+      en: "Issues by Status",
+      "zh-CN": "按状态统计任务",
+    }),
+    successRate: textFor(uiLanguage, {
+      en: "Success Rate",
+      "zh-CN": "成功率",
+    }),
+    last14Days: textFor(uiLanguage, {
+      en: "Last 14 days",
+      "zh-CN": "最近 14 天",
+    }),
+    recentActivity: textFor(uiLanguage, {
+      en: "Recent Activity",
+      "zh-CN": "最近活动",
+    }),
+    recentTasks: textFor(uiLanguage, {
+      en: "Recent Tasks",
+      "zh-CN": "最近任务",
+    }),
+    noTasks: textFor(uiLanguage, {
+      en: "No tasks yet.",
+      "zh-CN": "还没有任务。",
+    }),
+  };
 
   const { data: agents } = useQuery({
     queryKey: queryKeys.agents.list(selectedCompanyId!),
@@ -47,8 +136,8 @@ export function Dashboard() {
   });
 
   useEffect(() => {
-    setBreadcrumbs([{ label: "Dashboard" }]);
-  }, [setBreadcrumbs]);
+    setBreadcrumbs([{ label: copy.dashboard }]);
+  }, [copy.dashboard, setBreadcrumbs]);
 
   const { data, isLoading, error } = useQuery({
     queryKey: queryKeys.dashboard(selectedCompanyId!),
@@ -168,14 +257,14 @@ export function Dashboard() {
       return (
         <EmptyState
           icon={LayoutDashboard}
-          message="Welcome to Paperclip. Set up your first company and agent to get started."
-          action="Get Started"
+          message={copy.welcome}
+          action={copy.getStarted}
           onAction={openOnboarding}
         />
       );
     }
     return (
-      <EmptyState icon={LayoutDashboard} message="Create or select a company to view the dashboard." />
+      <EmptyState icon={LayoutDashboard} message={copy.createOrSelectCompany} />
     );
   }
 
@@ -194,14 +283,14 @@ export function Dashboard() {
           <div className="flex items-center gap-2.5">
             <Bot className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0" />
             <p className="text-sm text-amber-900 dark:text-amber-100">
-              You have no agents.
+              {copy.noAgents}
             </p>
           </div>
           <button
             onClick={() => openOnboarding({ initialStep: 2, companyId: selectedCompanyId! })}
             className="text-sm font-medium text-amber-700 hover:text-amber-900 dark:text-amber-300 dark:hover:text-amber-100 underline underline-offset-2 shrink-0"
           >
-            Create one here
+            {copy.createOneHere}
           </button>
         </div>
       )}
@@ -216,15 +305,19 @@ export function Dashboard() {
                 <PauseCircle className="mt-0.5 h-4 w-4 shrink-0 text-red-300" />
                 <div>
                   <p className="text-sm font-medium text-red-50">
-                    {data.budgets.activeIncidents} active budget incident{data.budgets.activeIncidents === 1 ? "" : "s"}
+                    {uiLanguage === "zh-CN"
+                      ? `${data.budgets.activeIncidents} 个活跃预算事件`
+                      : `${data.budgets.activeIncidents} active budget incident${data.budgets.activeIncidents === 1 ? "" : "s"}`}
                   </p>
                   <p className="text-xs text-red-100/70">
-                    {data.budgets.pausedAgents} agents paused · {data.budgets.pausedProjects} projects paused · {data.budgets.pendingApprovals} pending budget approvals
+                    {uiLanguage === "zh-CN"
+                      ? `${data.budgets.pausedAgents} 个智能体已暂停 · ${data.budgets.pausedProjects} 个项目已暂停 · ${data.budgets.pendingApprovals} 个预算审批待处理`
+                      : `${data.budgets.pausedAgents} agents paused · ${data.budgets.pausedProjects} projects paused · ${data.budgets.pendingApprovals} pending budget approvals`}
                   </p>
                 </div>
               </div>
               <Link to="/costs" className="text-sm underline underline-offset-2 text-red-100">
-                Open budgets
+                {copy.openBudgets}
               </Link>
             </div>
           ) : null}
@@ -233,67 +326,72 @@ export function Dashboard() {
             <MetricCard
               icon={Bot}
               value={data.agents.active + data.agents.running + data.agents.paused + data.agents.error}
-              label="Agents Enabled"
+              label={copy.agentsEnabled}
               to="/agents"
               description={
                 <span>
-                  {data.agents.running} running{", "}
-                  {data.agents.paused} paused{", "}
-                  {data.agents.error} errors
+                  {uiLanguage === "zh-CN"
+                    ? `${data.agents.running} 运行中，${data.agents.paused} 已暂停，${data.agents.error} 异常`
+                    : `${data.agents.running} running, ${data.agents.paused} paused, ${data.agents.error} errors`}
                 </span>
               }
             />
             <MetricCard
               icon={CircleDot}
               value={data.tasks.inProgress}
-              label="Tasks In Progress"
+              label={copy.tasksInProgress}
               to="/issues"
               description={
                 <span>
-                  {data.tasks.open} open{", "}
-                  {data.tasks.blocked} blocked
+                  {uiLanguage === "zh-CN"
+                    ? `${data.tasks.open} 打开，${data.tasks.blocked} 阻塞`
+                    : `${data.tasks.open} open, ${data.tasks.blocked} blocked`}
                 </span>
               }
             />
             <MetricCard
               icon={DollarSign}
               value={formatCents(data.costs.monthSpendCents)}
-              label="Month Spend"
+              label={copy.monthSpend}
               to="/costs"
               description={
                 <span>
                   {data.costs.monthBudgetCents > 0
-                    ? `${data.costs.monthUtilizationPercent}% of ${formatCents(data.costs.monthBudgetCents)} budget`
-                    : "Unlimited budget"}
+                    ? uiLanguage === "zh-CN"
+                      ? `已使用预算 ${data.costs.monthUtilizationPercent}% / ${formatCents(data.costs.monthBudgetCents)}`
+                      : `${data.costs.monthUtilizationPercent}% of ${formatCents(data.costs.monthBudgetCents)} budget`
+                    : copy.unlimitedBudget}
                 </span>
               }
             />
             <MetricCard
               icon={ShieldCheck}
               value={data.pendingApprovals + data.budgets.pendingApprovals}
-              label="Pending Approvals"
+              label={copy.pendingApprovals}
               to="/approvals"
               description={
                 <span>
                   {data.budgets.pendingApprovals > 0
-                    ? `${data.budgets.pendingApprovals} budget overrides awaiting board review`
-                    : "Awaiting board review"}
+                    ? uiLanguage === "zh-CN"
+                      ? `${data.budgets.pendingApprovals} 个预算覆盖等待董事会审核`
+                      : `${data.budgets.pendingApprovals} budget overrides awaiting board review`
+                    : copy.awaitingBoardReview}
                 </span>
               }
             />
           </div>
 
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <ChartCard title="Run Activity" subtitle="Last 14 days">
+            <ChartCard title={copy.runActivity} subtitle={copy.last14Days}>
               <RunActivityChart runs={runs ?? []} />
             </ChartCard>
-            <ChartCard title="Issues by Priority" subtitle="Last 14 days">
+            <ChartCard title={copy.issuesByPriority} subtitle={copy.last14Days}>
               <PriorityChart issues={issues ?? []} />
             </ChartCard>
-            <ChartCard title="Issues by Status" subtitle="Last 14 days">
+            <ChartCard title={copy.issuesByStatus} subtitle={copy.last14Days}>
               <IssueStatusChart issues={issues ?? []} />
             </ChartCard>
-            <ChartCard title="Success Rate" subtitle="Last 14 days">
+            <ChartCard title={copy.successRate} subtitle={copy.last14Days}>
               <SuccessRateChart runs={runs ?? []} />
             </ChartCard>
           </div>
@@ -310,7 +408,7 @@ export function Dashboard() {
             {recentActivity.length > 0 && (
               <div className="min-w-0">
                 <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">
-                  Recent Activity
+                  {copy.recentActivity}
                 </h3>
                 <div className="border border-border divide-y divide-border overflow-hidden">
                   {recentActivity.map((event) => (
@@ -330,11 +428,11 @@ export function Dashboard() {
             {/* Recent Tasks */}
             <div className="min-w-0">
               <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">
-                Recent Tasks
+                {copy.recentTasks}
               </h3>
               {recentIssues.length === 0 ? (
                 <div className="border border-border p-4">
-                  <p className="text-sm text-muted-foreground">No tasks yet.</p>
+                  <p className="text-sm text-muted-foreground">{copy.noTasks}</p>
                 </div>
               ) : (
                 <div className="border border-border divide-y divide-border overflow-hidden">

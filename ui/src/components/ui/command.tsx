@@ -6,6 +6,8 @@ import { SearchIcon, XIcon } from "lucide-react"
 import { Dialog as DialogPrimitive } from "radix-ui"
 
 import { cn } from "@/lib/utils"
+import { useGeneralSettings } from "@/context/GeneralSettingsContext"
+import { textFor } from "@/lib/ui-language"
 import {
   Dialog,
   DialogContent,
@@ -31,8 +33,8 @@ function Command({
 }
 
 function CommandDialog({
-  title = "Command Palette",
-  description = "Search for a command to run...",
+  title,
+  description,
   children,
   className,
   showCloseButton = true,
@@ -43,11 +45,24 @@ function CommandDialog({
   className?: string
   showCloseButton?: boolean
 }) {
+  const { uiLanguage } = useGeneralSettings()
+  const defaultTitle = textFor(uiLanguage, {
+    en: "Command Palette",
+    "zh-CN": "命令面板",
+  })
+  const defaultDescription = textFor(uiLanguage, {
+    en: "Search for a command to run...",
+    "zh-CN": "搜索要执行的命令...",
+  })
+  const closeLabel = textFor(uiLanguage, {
+    en: "Close",
+    "zh-CN": "关闭",
+  })
   return (
     <Dialog {...props}>
       <DialogHeader className="sr-only">
-        <DialogTitle>{title}</DialogTitle>
-        <DialogDescription>{description}</DialogDescription>
+        <DialogTitle>{title ?? defaultTitle}</DialogTitle>
+        <DialogDescription>{description ?? defaultDescription}</DialogDescription>
       </DialogHeader>
       <DialogContent
         className={cn("overflow-hidden p-0", className)}
@@ -62,7 +77,7 @@ function CommandDialog({
             className="ring-offset-background focus:ring-ring data-[state=open]:bg-accent data-[state=open]:text-muted-foreground absolute top-0 right-2 flex h-12 items-center rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
           >
             <XIcon />
-            <span className="sr-only">Close</span>
+            <span className="sr-only">{closeLabel}</span>
           </DialogPrimitive.Close>
         )}
       </DialogContent>

@@ -20,6 +20,8 @@ import {
 import { StatusIcon } from "./StatusIcon";
 import { PriorityIcon } from "./PriorityIcon";
 import { Identity } from "./Identity";
+import { useGeneralSettings } from "../context/GeneralSettingsContext";
+import { textFor } from "../lib/ui-language";
 import type { Issue } from "@paperclipai/shared";
 
 const boardStatuses = [
@@ -32,7 +34,19 @@ const boardStatuses = [
   "cancelled",
 ];
 
-function statusLabel(status: string): string {
+function statusLabel(status: string, uiLanguage: "en" | "zh-CN"): string {
+  if (uiLanguage === "zh-CN") {
+    const labels: Record<string, string> = {
+      backlog: "待规划",
+      todo: "待处理",
+      in_progress: "进行中",
+      in_review: "审核中",
+      blocked: "阻塞",
+      done: "已完成",
+      cancelled: "已取消",
+    };
+    return labels[status] ?? status.replace(/_/g, " ");
+  }
   return status.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
@@ -61,6 +75,7 @@ function KanbanColumn({
   agents?: Agent[];
   liveIssueIds?: Set<string>;
 }) {
+  const { uiLanguage } = useGeneralSettings();
   const { setNodeRef, isOver } = useDroppable({ id: status });
 
   const isEmpty = issues.length === 0;
@@ -72,7 +87,7 @@ function KanbanColumn({
         {(!isEmpty || isOver) && (
           <>
             <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              {statusLabel(status)}
+              {statusLabel(status, uiLanguage)}
             </span>
             <span className="text-xs text-muted-foreground/60 ml-auto tabular-nums">
               {issues.length}

@@ -7,18 +7,31 @@ import { projectsApi } from "../api/projects";
 import { heartbeatsApi } from "../api/heartbeats";
 import { useCompany } from "../context/CompanyContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
+import { useGeneralSettings } from "../context/GeneralSettingsContext";
 import { queryKeys } from "../lib/queryKeys";
 import { createIssueDetailLocationState } from "../lib/issueDetailBreadcrumb";
 import { EmptyState } from "../components/EmptyState";
 import { IssuesList } from "../components/IssuesList";
 import { CircleDot } from "lucide-react";
+import { textFor } from "../lib/ui-language";
 
 export function Issues() {
   const { selectedCompanyId } = useCompany();
+  const { uiLanguage } = useGeneralSettings();
   const { setBreadcrumbs } = useBreadcrumbs();
   const location = useLocation();
   const [searchParams] = useSearchParams();
   const queryClient = useQueryClient();
+  const copy = {
+    issues: textFor(uiLanguage, {
+      en: "Issues",
+      "zh-CN": "任务",
+    }),
+    selectCompany: textFor(uiLanguage, {
+      en: "Select a company to view issues.",
+      "zh-CN": "请先选择公司以查看任务。",
+    }),
+  };
 
   const initialSearch = searchParams.get("q") ?? "";
   const participantAgentId = searchParams.get("participantAgentId") ?? undefined;
@@ -68,16 +81,16 @@ export function Issues() {
   const issueLinkState = useMemo(
     () =>
       createIssueDetailLocationState(
-        "Issues",
+        copy.issues,
         `${location.pathname}${location.search}${location.hash}`,
         "issues",
       ),
-    [location.pathname, location.search, location.hash],
+    [copy.issues, location.pathname, location.search, location.hash],
   );
 
   useEffect(() => {
-    setBreadcrumbs([{ label: "Issues" }]);
-  }, [setBreadcrumbs]);
+    setBreadcrumbs([{ label: copy.issues }]);
+  }, [copy.issues, setBreadcrumbs]);
 
   const { data: issues, isLoading, error } = useQuery({
     queryKey: [...queryKeys.issues.list(selectedCompanyId!), "participant-agent", participantAgentId ?? "__all__"],
@@ -94,7 +107,7 @@ export function Issues() {
   });
 
   if (!selectedCompanyId) {
-    return <EmptyState icon={CircleDot} message="Select a company to view issues." />;
+    return <EmptyState icon={CircleDot} message={copy.selectCompany} />;
   }
 
   return (

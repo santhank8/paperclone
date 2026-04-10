@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Puzzle, ArrowLeft, ShieldAlert, ActivitySquare, CheckCircle, XCircle, Loader2, Clock, Cpu, Webhook, CalendarClock, AlertTriangle } from "lucide-react";
 import { useCompany } from "@/context/CompanyContext";
 import { useBreadcrumbs } from "@/context/BreadcrumbContext";
+import { useGeneralSettings } from "@/context/GeneralSettingsContext";
 import { Link, Navigate, useParams } from "@/lib/router";
 import { PluginSlotMount, usePluginSlots } from "@/plugins/slots";
 import { pluginsApi } from "@/api/plugins";
@@ -25,6 +26,53 @@ import {
   getDefaultValues,
   type JsonSchemaNode,
 } from "@/components/JsonSchemaForm";
+import { textFor, type UiLanguage } from "@/lib/ui-language";
+
+function getUiLocale(language: UiLanguage): string {
+  return language === "zh-CN" ? "zh-CN" : "en";
+}
+
+function getStatusLabel(language: UiLanguage, status: string): string {
+  switch (status) {
+    case "ready":
+      return textFor(language, { en: "Ready", "zh-CN": "就绪" });
+    case "error":
+      return textFor(language, { en: "Error", "zh-CN": "错误" });
+    case "running":
+      return textFor(language, { en: "Running", "zh-CN": "运行中" });
+    case "healthy":
+      return textFor(language, { en: "Healthy", "zh-CN": "健康" });
+    case "unhealthy":
+      return textFor(language, { en: "Unhealthy", "zh-CN": "异常" });
+    case "success":
+    case "succeeded":
+      return textFor(language, { en: "Success", "zh-CN": "成功" });
+    case "failed":
+      return textFor(language, { en: "Failed", "zh-CN": "失败" });
+    case "pending":
+      return textFor(language, { en: "Pending", "zh-CN": "等待中" });
+    case "queued":
+      return textFor(language, { en: "Queued", "zh-CN": "排队中" });
+    case "cancelled":
+      return textFor(language, { en: "Cancelled", "zh-CN": "已取消" });
+    case "processed":
+      return textFor(language, { en: "Processed", "zh-CN": "已处理" });
+    case "received":
+      return textFor(language, { en: "Received", "zh-CN": "已接收" });
+    case "warn":
+      return textFor(language, { en: "Warn", "zh-CN": "警告" });
+    case "debug":
+      return textFor(language, { en: "Debug", "zh-CN": "调试" });
+    case "info":
+      return textFor(language, { en: "Info", "zh-CN": "信息" });
+    case "manual":
+      return textFor(language, { en: "Manual", "zh-CN": "手动" });
+    case "schedule":
+      return textFor(language, { en: "Schedule", "zh-CN": "定时" });
+    default:
+      return status;
+  }
+}
 
 /**
  * PluginSettings page component.
@@ -59,9 +107,190 @@ import {
  */
 export function PluginSettings() {
   const { selectedCompany, selectedCompanyId } = useCompany();
+  const { uiLanguage } = useGeneralSettings();
   const { setBreadcrumbs } = useBreadcrumbs();
   const { companyPrefix, pluginId } = useParams<{ companyPrefix?: string; pluginId: string }>();
   const [activeTab, setActiveTab] = useState<"configuration" | "status">("configuration");
+  const copy = {
+    company: textFor(uiLanguage, {
+      en: "Company",
+      "zh-CN": "公司",
+    }),
+    settings: textFor(uiLanguage, {
+      en: "Settings",
+      "zh-CN": "设置",
+    }),
+    plugins: textFor(uiLanguage, {
+      en: "Plugins",
+      "zh-CN": "插件",
+    }),
+    pluginDetails: textFor(uiLanguage, {
+      en: "Plugin Details",
+      "zh-CN": "插件详情",
+    }),
+    loadingPluginDetails: textFor(uiLanguage, {
+      en: "Loading plugin details...",
+      "zh-CN": "正在加载插件详情...",
+    }),
+    noDescription: textFor(uiLanguage, {
+      en: "No description provided.",
+      "zh-CN": "未提供描述。",
+    }),
+    configuration: textFor(uiLanguage, {
+      en: "Configuration",
+      "zh-CN": "配置",
+    }),
+    status: textFor(uiLanguage, {
+      en: "Status",
+      "zh-CN": "状态",
+    }),
+    about: textFor(uiLanguage, {
+      en: "About",
+      "zh-CN": "关于",
+    }),
+    description: textFor(uiLanguage, {
+      en: "Description",
+      "zh-CN": "描述",
+    }),
+    author: textFor(uiLanguage, {
+      en: "Author",
+      "zh-CN": "作者",
+    }),
+    categories: textFor(uiLanguage, {
+      en: "Categories",
+      "zh-CN": "分类",
+    }),
+    none: textFor(uiLanguage, {
+      en: "None",
+      "zh-CN": "无",
+    }),
+    pluginSettings: textFor(uiLanguage, {
+      en: "Settings",
+      "zh-CN": "设置",
+    }),
+    noSettingsRequired: textFor(uiLanguage, {
+      en: "This plugin does not require any settings.",
+      "zh-CN": "这个插件不需要额外设置。",
+    }),
+    runtimeDashboard: textFor(uiLanguage, {
+      en: "Runtime Dashboard",
+      "zh-CN": "运行时面板",
+    }),
+    runtimeDashboardDescription: textFor(uiLanguage, {
+      en: "Worker process, scheduled jobs, and webhook deliveries",
+      "zh-CN": "Worker 进程、计划任务和 Webhook 投递情况",
+    }),
+    workerProcess: textFor(uiLanguage, {
+      en: "Worker Process",
+      "zh-CN": "Worker 进程",
+    }),
+    pid: textFor(uiLanguage, {
+      en: "PID",
+      "zh-CN": "PID",
+    }),
+    uptime: textFor(uiLanguage, {
+      en: "Uptime",
+      "zh-CN": "运行时长",
+    }),
+    pendingRpcs: textFor(uiLanguage, {
+      en: "Pending RPCs",
+      "zh-CN": "待处理 RPC",
+    }),
+    crashes: textFor(uiLanguage, {
+      en: "Crashes",
+      "zh-CN": "崩溃次数",
+    }),
+    consecutiveAndTotalCrashes: (consecutive: number, total: number) =>
+      uiLanguage === "zh-CN"
+        ? `连续 ${consecutive} 次 / 总计 ${total} 次`
+        : `${consecutive} consecutive / ${total} total`,
+    lastCrash: textFor(uiLanguage, {
+      en: "Last Crash",
+      "zh-CN": "最近崩溃时间",
+    }),
+    noWorkerProcess: textFor(uiLanguage, {
+      en: "No worker process registered.",
+      "zh-CN": "没有已注册的 worker 进程。",
+    }),
+    recentJobRuns: textFor(uiLanguage, {
+      en: "Recent Job Runs",
+      "zh-CN": "最近任务运行",
+    }),
+    noJobRuns: textFor(uiLanguage, {
+      en: "No job runs recorded yet.",
+      "zh-CN": "还没有记录到任务运行。",
+    }),
+    recentWebhookDeliveries: textFor(uiLanguage, {
+      en: "Recent Webhook Deliveries",
+      "zh-CN": "最近 Webhook 投递",
+    }),
+    noWebhookDeliveries: textFor(uiLanguage, {
+      en: "No webhook deliveries recorded yet.",
+      "zh-CN": "还没有记录到 Webhook 投递。",
+    }),
+    lastChecked: textFor(uiLanguage, {
+      en: "Last checked:",
+      "zh-CN": "最近检查：",
+    }),
+    diagnosticsUnavailable: textFor(uiLanguage, {
+      en: "Runtime diagnostics are unavailable right now.",
+      "zh-CN": "当前无法获取运行时诊断信息。",
+    }),
+    recentLogs: textFor(uiLanguage, {
+      en: "Recent Logs",
+      "zh-CN": "最近日志",
+    }),
+    logEntries: (count: number) =>
+      uiLanguage === "zh-CN" ? `最近 ${count} 条日志` : `Last ${count} log entries`,
+    healthStatus: textFor(uiLanguage, {
+      en: "Health Status",
+      "zh-CN": "健康状态",
+    }),
+    checkingHealth: textFor(uiLanguage, {
+      en: "Checking health...",
+      "zh-CN": "正在检查健康状态...",
+    }),
+    overall: textFor(uiLanguage, {
+      en: "Overall",
+      "zh-CN": "总体",
+    }),
+    lifecycle: textFor(uiLanguage, {
+      en: "Lifecycle",
+      "zh-CN": "生命周期",
+    }),
+    healthChecksWhenReady: textFor(uiLanguage, {
+      en: "Health checks run once the plugin is ready.",
+      "zh-CN": "插件进入就绪状态后才会执行健康检查。",
+    }),
+    details: textFor(uiLanguage, {
+      en: "Details",
+      "zh-CN": "详情",
+    }),
+    pluginId: textFor(uiLanguage, {
+      en: "Plugin ID",
+      "zh-CN": "插件 ID",
+    }),
+    pluginKey: textFor(uiLanguage, {
+      en: "Plugin Key",
+      "zh-CN": "插件 Key",
+    }),
+    npmPackage: textFor(uiLanguage, {
+      en: "NPM Package",
+      "zh-CN": "NPM 包",
+    }),
+    version: textFor(uiLanguage, {
+      en: "Version",
+      "zh-CN": "版本",
+    }),
+    permissions: textFor(uiLanguage, {
+      en: "Permissions",
+      "zh-CN": "权限",
+    }),
+    noPermissionsRequested: textFor(uiLanguage, {
+      en: "No special permissions requested.",
+      "zh-CN": "未请求特殊权限。",
+    }),
+  };
 
   const { data: plugin, isLoading: pluginLoading } = useQuery({
     queryKey: queryKeys.plugins.detail(pluginId!),
@@ -114,19 +343,19 @@ export function PluginSettings() {
 
   useEffect(() => {
     setBreadcrumbs([
-      { label: selectedCompany?.name ?? "Company", href: "/dashboard" },
-      { label: "Settings", href: "/instance/settings/heartbeats" },
-      { label: "Plugins", href: "/instance/settings/plugins" },
-      { label: plugin?.manifestJson?.displayName ?? plugin?.packageName ?? "Plugin Details" },
+      { label: selectedCompany?.name ?? copy.company, href: "/dashboard" },
+      { label: copy.settings, href: "/instance/settings/heartbeats" },
+      { label: copy.plugins, href: "/instance/settings/plugins" },
+      { label: plugin?.manifestJson?.displayName ?? plugin?.packageName ?? copy.pluginDetails },
     ]);
-  }, [selectedCompany?.name, setBreadcrumbs, companyPrefix, plugin]);
+  }, [companyPrefix, copy.company, copy.pluginDetails, copy.plugins, copy.settings, plugin, selectedCompany?.name, setBreadcrumbs]);
 
   useEffect(() => {
     setActiveTab("configuration");
   }, [pluginId]);
 
   if (pluginLoading) {
-    return <div className="p-4 text-sm text-muted-foreground">Loading plugin details...</div>;
+    return <div className="p-4 text-sm text-muted-foreground">{copy.loadingPluginDetails}</div>;
   }
 
   if (!plugin) {
@@ -140,7 +369,7 @@ export function PluginSettings() {
       : plugin.status === "error"
         ? "destructive"
         : "secondary";
-  const pluginDescription = plugin.manifestJson.description || "No description provided.";
+  const pluginDescription = plugin.manifestJson.description || copy.noDescription;
   const pluginCapabilities = plugin.manifestJson.capabilities ?? [];
 
   return (
@@ -155,7 +384,7 @@ export function PluginSettings() {
           <Puzzle className="h-6 w-6 text-muted-foreground" />
           <h1 className="text-xl font-semibold">{plugin.manifestJson.displayName ?? plugin.packageName}</h1>
           <Badge variant={statusVariant} className="ml-2">
-            {displayStatus}
+            {getStatusLabel(uiLanguage, displayStatus)}
           </Badge>
           <Badge variant="outline" className="ml-1">
             v{plugin.manifestJson.version ?? plugin.version}
@@ -167,8 +396,8 @@ export function PluginSettings() {
         <PageTabBar
           align="start"
           items={[
-            { value: "configuration", label: "Configuration" },
-            { value: "status", label: "Status" },
+            { value: "configuration", label: copy.configuration },
+            { value: "status", label: copy.status },
           ]}
           value={activeTab}
           onValueChange={(value) => setActiveTab(value as "configuration" | "status")}
@@ -177,19 +406,19 @@ export function PluginSettings() {
         <TabsContent value="configuration" className="space-y-6">
           <div className="space-y-8">
             <section className="space-y-5">
-              <h2 className="text-base font-semibold">About</h2>
+              <h2 className="text-base font-semibold">{copy.about}</h2>
               <div className="grid gap-8 lg:grid-cols-[minmax(0,1.4fr)_minmax(220px,0.8fr)]">
                 <div className="space-y-2">
-                  <h3 className="text-sm font-medium text-muted-foreground">Description</h3>
+                  <h3 className="text-sm font-medium text-muted-foreground">{copy.description}</h3>
                   <p className="text-sm leading-6 text-foreground/90">{pluginDescription}</p>
                 </div>
                 <div className="space-y-4 text-sm">
                   <div className="space-y-1.5">
-                    <h3 className="font-medium text-muted-foreground">Author</h3>
-                    <p className="text-foreground">{plugin.manifestJson.author}</p>
+                    <h3 className="font-medium text-muted-foreground">{copy.author}</h3>
+                    <p className="text-foreground">{plugin.manifestJson.author || copy.none}</p>
                   </div>
                   <div className="space-y-2">
-                    <h3 className="font-medium text-muted-foreground">Categories</h3>
+                    <h3 className="font-medium text-muted-foreground">{copy.categories}</h3>
                     <div className="flex flex-wrap gap-2">
                       {plugin.categories.length > 0 ? (
                         plugin.categories.map((category) => (
@@ -198,7 +427,7 @@ export function PluginSettings() {
                           </Badge>
                         ))
                       ) : (
-                        <span className="text-foreground">None</span>
+                        <span className="text-foreground">{copy.none}</span>
                       )}
                     </div>
                   </div>
@@ -210,7 +439,7 @@ export function PluginSettings() {
 
             <section className="space-y-4">
               <div className="space-y-1">
-                <h2 className="text-base font-semibold">Settings</h2>
+                <h2 className="text-base font-semibold">{copy.pluginSettings}</h2>
               </div>
               {hasCustomSettingsPage ? (
                 <div className="space-y-3">
@@ -237,7 +466,7 @@ export function PluginSettings() {
                 />
               ) : (
                 <p className="text-sm text-muted-foreground">
-                  This plugin does not require any settings.
+                  {copy.noSettingsRequired}
                 </p>
               )}
             </section>
@@ -251,10 +480,10 @@ export function PluginSettings() {
                 <CardHeader>
                   <CardTitle className="text-base flex items-center gap-1.5">
                     <Cpu className="h-4 w-4" />
-                    Runtime Dashboard
+                    {copy.runtimeDashboard}
                   </CardTitle>
                   <CardDescription>
-                    Worker process, scheduled jobs, and webhook deliveries
+                    {copy.runtimeDashboardDescription}
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
@@ -263,26 +492,26 @@ export function PluginSettings() {
                       <div>
                         <h3 className="text-sm font-medium mb-3 flex items-center gap-1.5">
                           <Cpu className="h-3.5 w-3.5 text-muted-foreground" />
-                          Worker Process
+                          {copy.workerProcess}
                         </h3>
                         {dashboardData.worker ? (
                           <div className="grid grid-cols-2 gap-3 text-sm">
                             <div className="flex justify-between">
-                              <span className="text-muted-foreground">Status</span>
+                              <span className="text-muted-foreground">{copy.status}</span>
                               <Badge variant={dashboardData.worker.status === "running" ? "default" : "secondary"}>
-                                {dashboardData.worker.status}
+                                {getStatusLabel(uiLanguage, dashboardData.worker.status)}
                               </Badge>
                             </div>
                             <div className="flex justify-between">
-                              <span className="text-muted-foreground">PID</span>
+                              <span className="text-muted-foreground">{copy.pid}</span>
                               <span className="font-mono text-xs">{dashboardData.worker.pid ?? "—"}</span>
                             </div>
                             <div className="flex justify-between">
-                              <span className="text-muted-foreground">Uptime</span>
-                              <span className="text-xs">{formatUptime(dashboardData.worker.uptime)}</span>
+                              <span className="text-muted-foreground">{copy.uptime}</span>
+                              <span className="text-xs">{formatUptime(dashboardData.worker.uptime, uiLanguage)}</span>
                             </div>
                             <div className="flex justify-between">
-                              <span className="text-muted-foreground">Pending RPCs</span>
+                              <span className="text-muted-foreground">{copy.pendingRpcs}</span>
                               <span className="text-xs">{dashboardData.worker.pendingRequests}</span>
                             </div>
                             {dashboardData.worker.totalCrashes > 0 && (
@@ -290,23 +519,26 @@ export function PluginSettings() {
                                 <div className="flex justify-between col-span-2">
                                   <span className="text-muted-foreground flex items-center gap-1">
                                     <AlertTriangle className="h-3 w-3 text-amber-500" />
-                                    Crashes
+                                    {copy.crashes}
                                   </span>
                                   <span className="text-xs">
-                                    {dashboardData.worker.consecutiveCrashes} consecutive / {dashboardData.worker.totalCrashes} total
+                                    {copy.consecutiveAndTotalCrashes(
+                                      dashboardData.worker.consecutiveCrashes,
+                                      dashboardData.worker.totalCrashes,
+                                    )}
                                   </span>
                                 </div>
                                 {dashboardData.worker.lastCrashAt && (
                                   <div className="flex justify-between col-span-2">
-                                    <span className="text-muted-foreground">Last Crash</span>
-                                    <span className="text-xs">{formatTimestamp(dashboardData.worker.lastCrashAt)}</span>
+                                    <span className="text-muted-foreground">{copy.lastCrash}</span>
+                                    <span className="text-xs">{formatTimestamp(dashboardData.worker.lastCrashAt, uiLanguage)}</span>
                                   </div>
                                 )}
                               </>
                             )}
                           </div>
                         ) : (
-                          <p className="text-sm text-muted-foreground italic">No worker process registered.</p>
+                          <p className="text-sm text-muted-foreground italic">{copy.noWorkerProcess}</p>
                         )}
                       </div>
 
@@ -315,7 +547,7 @@ export function PluginSettings() {
                       <div>
                         <h3 className="text-sm font-medium mb-3 flex items-center gap-1.5">
                           <CalendarClock className="h-3.5 w-3.5 text-muted-foreground" />
-                          Recent Job Runs
+                          {copy.recentJobRuns}
                         </h3>
                         {dashboardData.recentJobRuns.length > 0 ? (
                           <div className="space-y-2">
@@ -330,18 +562,18 @@ export function PluginSettings() {
                                     {run.jobKey ?? run.jobId.slice(0, 8)}
                                   </span>
                                   <Badge variant="outline" className="px-1 py-0 text-[10px]">
-                                    {run.trigger}
+                                    {getStatusLabel(uiLanguage, run.trigger)}
                                   </Badge>
                                 </div>
                                 <div className="flex shrink-0 items-center gap-2 text-xs text-muted-foreground">
-                                  {run.durationMs != null ? <span>{formatDuration(run.durationMs)}</span> : null}
-                                  <span title={run.createdAt}>{formatRelativeTime(run.createdAt)}</span>
+                                  {run.durationMs != null ? <span>{formatDuration(run.durationMs, uiLanguage)}</span> : null}
+                                  <span title={run.createdAt}>{formatRelativeTime(run.createdAt, uiLanguage)}</span>
                                 </div>
                               </div>
                             ))}
                           </div>
                         ) : (
-                          <p className="text-sm text-muted-foreground italic">No job runs recorded yet.</p>
+                          <p className="text-sm text-muted-foreground italic">{copy.noJobRuns}</p>
                         )}
                       </div>
 
@@ -350,7 +582,7 @@ export function PluginSettings() {
                       <div>
                         <h3 className="text-sm font-medium mb-3 flex items-center gap-1.5">
                           <Webhook className="h-3.5 w-3.5 text-muted-foreground" />
-                          Recent Webhook Deliveries
+                          {copy.recentWebhookDeliveries}
                         </h3>
                         {dashboardData.recentWebhookDeliveries.length > 0 ? (
                           <div className="space-y-2">
@@ -366,25 +598,25 @@ export function PluginSettings() {
                                   </span>
                                 </div>
                                 <div className="flex shrink-0 items-center gap-2 text-xs text-muted-foreground">
-                                  {delivery.durationMs != null ? <span>{formatDuration(delivery.durationMs)}</span> : null}
-                                  <span title={delivery.createdAt}>{formatRelativeTime(delivery.createdAt)}</span>
+                                  {delivery.durationMs != null ? <span>{formatDuration(delivery.durationMs, uiLanguage)}</span> : null}
+                                  <span title={delivery.createdAt}>{formatRelativeTime(delivery.createdAt, uiLanguage)}</span>
                                 </div>
                               </div>
                             ))}
                           </div>
                         ) : (
-                          <p className="text-sm text-muted-foreground italic">No webhook deliveries recorded yet.</p>
+                          <p className="text-sm text-muted-foreground italic">{copy.noWebhookDeliveries}</p>
                         )}
                       </div>
 
                       <div className="flex items-center gap-1.5 border-t border-border/50 pt-2 text-xs text-muted-foreground">
                         <Clock className="h-3 w-3" />
-                        Last checked: {new Date(dashboardData.checkedAt).toLocaleTimeString()}
+                        {copy.lastChecked} {new Intl.DateTimeFormat(getUiLocale(uiLanguage), { timeStyle: "medium" }).format(new Date(dashboardData.checkedAt))}
                       </div>
                     </>
                   ) : (
                     <p className="text-sm text-muted-foreground">
-                      Runtime diagnostics are unavailable right now.
+                      {copy.diagnosticsUnavailable}
                     </p>
                   )}
                 </CardContent>
@@ -395,9 +627,9 @@ export function PluginSettings() {
                   <CardHeader>
                     <CardTitle className="text-base flex items-center gap-1.5">
                       <ActivitySquare className="h-4 w-4" />
-                      Recent Logs
+                      {copy.recentLogs}
                     </CardTitle>
-                    <CardDescription>Last {recentLogs.length} log entries</CardDescription>
+                    <CardDescription>{copy.logEntries(recentLogs.length)}</CardDescription>
                   </CardHeader>
                   <CardContent>
                     <div className="max-h-64 space-y-1 overflow-y-auto font-mono text-xs">
@@ -414,8 +646,10 @@ export function PluginSettings() {
                                   : "text-muted-foreground"
                           }`}
                         >
-                          <span className="shrink-0 text-muted-foreground/50">{new Date(entry.createdAt).toLocaleTimeString()}</span>
-                          <Badge variant="outline" className="h-4 shrink-0 px-1 text-[10px]">{entry.level}</Badge>
+                          <span className="shrink-0 text-muted-foreground/50">
+                            {new Intl.DateTimeFormat(getUiLocale(uiLanguage), { timeStyle: "medium" }).format(new Date(entry.createdAt))}
+                          </span>
+                          <Badge variant="outline" className="h-4 shrink-0 px-1 text-[10px]">{getStatusLabel(uiLanguage, entry.level)}</Badge>
                           <span className="truncate" title={entry.message}>{entry.message}</span>
                         </div>
                       ))}
@@ -430,18 +664,18 @@ export function PluginSettings() {
                 <CardHeader>
                   <CardTitle className="text-base flex items-center gap-1.5">
                     <ActivitySquare className="h-4 w-4" />
-                    Health Status
+                    {copy.healthStatus}
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
                   {healthLoading ? (
-                    <p className="text-sm text-muted-foreground">Checking health...</p>
+                    <p className="text-sm text-muted-foreground">{copy.checkingHealth}</p>
                   ) : healthData ? (
                     <div className="space-y-4 text-sm">
                       <div className="flex items-center justify-between">
-                        <span className="text-muted-foreground">Overall</span>
+                        <span className="text-muted-foreground">{copy.overall}</span>
                         <Badge variant={healthData.healthy ? "default" : "destructive"}>
-                          {healthData.status}
+                          {getStatusLabel(uiLanguage, healthData.status)}
                         </Badge>
                       </div>
 
@@ -469,12 +703,12 @@ export function PluginSettings() {
                       ) : null}
                     </div>
                   ) : (
-                    <div className="space-y-3 text-sm text-muted-foreground">
+                      <div className="space-y-3 text-sm text-muted-foreground">
                       <div className="flex items-center justify-between">
-                        <span>Lifecycle</span>
-                        <Badge variant={statusVariant}>{displayStatus}</Badge>
+                        <span>{copy.lifecycle}</span>
+                        <Badge variant={statusVariant}>{getStatusLabel(uiLanguage, displayStatus)}</Badge>
                       </div>
-                      <p>Health checks run once the plugin is ready.</p>
+                      <p>{copy.healthChecksWhenReady}</p>
                       {plugin.lastError ? (
                         <div className="break-words rounded border border-destructive/20 bg-destructive/10 p-2 text-xs text-destructive">
                           {plugin.lastError}
@@ -487,25 +721,25 @@ export function PluginSettings() {
 
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-base">Details</CardTitle>
+                  <CardTitle className="text-base">{copy.details}</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3 text-sm text-muted-foreground">
                   <div className="flex justify-between gap-3">
-                    <span>Plugin ID</span>
+                    <span>{copy.pluginId}</span>
                     <span className="font-mono text-xs text-right">{plugin.id}</span>
                   </div>
                   <div className="flex justify-between gap-3">
-                    <span>Plugin Key</span>
+                    <span>{copy.pluginKey}</span>
                     <span className="font-mono text-xs text-right">{plugin.pluginKey}</span>
                   </div>
                   <div className="flex justify-between gap-3">
-                    <span>NPM Package</span>
+                    <span>{copy.npmPackage}</span>
                     <span className="max-w-[170px] truncate text-right text-xs" title={plugin.packageName}>
                       {plugin.packageName}
                     </span>
                   </div>
                   <div className="flex justify-between gap-3">
-                    <span>Version</span>
+                    <span>{copy.version}</span>
                     <span className="text-right text-foreground">v{plugin.manifestJson.version ?? plugin.version}</span>
                   </div>
                 </CardContent>
@@ -515,7 +749,7 @@ export function PluginSettings() {
                 <CardHeader>
                   <CardTitle className="text-base flex items-center gap-1.5">
                     <ShieldAlert className="h-4 w-4" />
-                    Permissions
+                    {copy.permissions}
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -528,7 +762,7 @@ export function PluginSettings() {
                       ))}
                     </ul>
                   ) : (
-                    <p className="text-sm text-muted-foreground italic">No special permissions requested.</p>
+                    <p className="text-sm text-muted-foreground italic">{copy.noPermissionsRequested}</p>
                   )}
                 </CardContent>
               </Card>
@@ -563,7 +797,46 @@ interface PluginConfigFormProps {
  * re-renders on field changes, not the entire page.
  */
 function PluginConfigForm({ pluginId, schema, initialValues, isLoading, pluginStatus, supportsConfigTest }: PluginConfigFormProps) {
+  const { uiLanguage } = useGeneralSettings();
   const queryClient = useQueryClient();
+  const copy = {
+    configurationSaved: textFor(uiLanguage, {
+      en: "Configuration saved.",
+      "zh-CN": "配置已保存。",
+    }),
+    configurationSaveFailed: textFor(uiLanguage, {
+      en: "Failed to save configuration.",
+      "zh-CN": "保存配置失败。",
+    }),
+    configurationTestPassed: textFor(uiLanguage, {
+      en: "Configuration test passed.",
+      "zh-CN": "配置测试通过。",
+    }),
+    configurationTestFailed: textFor(uiLanguage, {
+      en: "Configuration test failed.",
+      "zh-CN": "配置测试失败。",
+    }),
+    loadingConfiguration: textFor(uiLanguage, {
+      en: "Loading configuration...",
+      "zh-CN": "正在加载配置...",
+    }),
+    saving: textFor(uiLanguage, {
+      en: "Saving...",
+      "zh-CN": "保存中...",
+    }),
+    saveConfiguration: textFor(uiLanguage, {
+      en: "Save Configuration",
+      "zh-CN": "保存配置",
+    }),
+    testing: textFor(uiLanguage, {
+      en: "Testing...",
+      "zh-CN": "测试中...",
+    }),
+    testConfiguration: textFor(uiLanguage, {
+      en: "Test Configuration",
+      "zh-CN": "测试配置",
+    }),
+  };
 
   // Form values: start with saved values, fall back to schema defaults
   const [values, setValues] = useState<Record<string, unknown>>(() => ({
@@ -600,14 +873,14 @@ function PluginConfigForm({ pluginId, schema, initialValues, isLoading, pluginSt
     mutationFn: (configJson: Record<string, unknown>) =>
       pluginsApi.saveConfig(pluginId, configJson),
     onSuccess: () => {
-      setSaveMessage({ type: "success", text: "Configuration saved." });
+      setSaveMessage({ type: "success", text: copy.configurationSaved });
       setTestResult(null);
       queryClient.invalidateQueries({ queryKey: queryKeys.plugins.config(pluginId) });
       // Clear success message after 3s
       setTimeout(() => setSaveMessage(null), 3000);
     },
     onError: (err: Error) => {
-      setSaveMessage({ type: "error", text: err.message || "Failed to save configuration." });
+      setSaveMessage({ type: "error", text: err.message || copy.configurationSaveFailed });
     },
   });
 
@@ -617,13 +890,13 @@ function PluginConfigForm({ pluginId, schema, initialValues, isLoading, pluginSt
       pluginsApi.testConfig(pluginId, configJson),
     onSuccess: (result) => {
       if (result.valid) {
-        setTestResult({ type: "success", text: "Configuration test passed." });
+        setTestResult({ type: "success", text: copy.configurationTestPassed });
       } else {
-        setTestResult({ type: "error", text: result.message || "Configuration test failed." });
+        setTestResult({ type: "error", text: result.message || copy.configurationTestFailed });
       }
     },
     onError: (err: Error) => {
-      setTestResult({ type: "error", text: err.message || "Configuration test failed." });
+      setTestResult({ type: "error", text: err.message || copy.configurationTestFailed });
     },
   });
 
@@ -661,7 +934,7 @@ function PluginConfigForm({ pluginId, schema, initialValues, isLoading, pluginSt
     return (
       <div className="flex items-center gap-2 text-sm text-muted-foreground py-4">
         <Loader2 className="h-4 w-4 animate-spin" />
-        Loading configuration...
+        {copy.loadingConfiguration}
       </div>
     );
   }
@@ -711,10 +984,10 @@ function PluginConfigForm({ pluginId, schema, initialValues, isLoading, pluginSt
           {saveMutation.isPending ? (
             <>
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              Saving...
+              {copy.saving}
             </>
           ) : (
-            "Save Configuration"
+            copy.saveConfiguration
           )}
         </Button>
         {pluginStatus === "ready" && supportsConfigTest && (
@@ -727,10 +1000,10 @@ function PluginConfigForm({ pluginId, schema, initialValues, isLoading, pluginSt
             {testMutation.isPending ? (
               <>
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                Testing...
+                {copy.testing}
               </>
             ) : (
-              "Test Configuration"
+              copy.testConfiguration
             )}
           </Button>
         )}
@@ -746,9 +1019,18 @@ function PluginConfigForm({ pluginId, schema, initialValues, isLoading, pluginSt
 /**
  * Format an uptime value (in milliseconds) to a human-readable string.
  */
-function formatUptime(uptimeMs: number | null): string {
+function formatUptime(uptimeMs: number | null, language: UiLanguage): string {
   if (uptimeMs == null) return "—";
   const totalSeconds = Math.floor(uptimeMs / 1000);
+  if (language === "zh-CN") {
+    if (totalSeconds < 60) return `${totalSeconds}秒`;
+    const minutes = Math.floor(totalSeconds / 60);
+    if (minutes < 60) return `${minutes}分 ${totalSeconds % 60}秒`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours}小时 ${minutes % 60}分`;
+    const days = Math.floor(hours / 24);
+    return `${days}天 ${hours % 24}小时`;
+  }
   if (totalSeconds < 60) return `${totalSeconds}s`;
   const minutes = Math.floor(totalSeconds / 60);
   if (minutes < 60) return `${minutes}m ${totalSeconds % 60}s`;
@@ -761,7 +1043,12 @@ function formatUptime(uptimeMs: number | null): string {
 /**
  * Format a duration in milliseconds to a compact display string.
  */
-function formatDuration(ms: number): string {
+function formatDuration(ms: number, language: UiLanguage): string {
+  if (language === "zh-CN") {
+    if (ms < 1000) return `${ms}毫秒`;
+    if (ms < 60000) return `${(ms / 1000).toFixed(1)}秒`;
+    return `${(ms / 60000).toFixed(1)}分钟`;
+  }
   if (ms < 1000) return `${ms}ms`;
   if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
   return `${(ms / 60000).toFixed(1)}m`;
@@ -770,27 +1057,33 @@ function formatDuration(ms: number): string {
 /**
  * Format an ISO timestamp to a relative time string (e.g., "2m ago").
  */
-function formatRelativeTime(isoString: string): string {
+function formatRelativeTime(isoString: string, language: UiLanguage): string {
   const now = Date.now();
   const then = new Date(isoString).getTime();
   const diffMs = now - then;
+  const rtf = new Intl.RelativeTimeFormat(getUiLocale(language), { numeric: "auto" });
 
-  if (diffMs < 0) return "just now";
+  if (diffMs < 0) {
+    return language === "zh-CN" ? "刚刚" : "just now";
+  }
   const seconds = Math.floor(diffMs / 1000);
-  if (seconds < 60) return `${seconds}s ago`;
+  if (seconds < 60) return rtf.format(-seconds, "second");
   const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
+  if (minutes < 60) return rtf.format(-minutes, "minute");
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
+  if (hours < 24) return rtf.format(-hours, "hour");
   const days = Math.floor(hours / 24);
-  return `${days}d ago`;
+  return rtf.format(-days, "day");
 }
 
 /**
  * Format a unix timestamp (ms since epoch) to a locale string.
  */
-function formatTimestamp(epochMs: number): string {
-  return new Date(epochMs).toLocaleString();
+function formatTimestamp(epochMs: number, language: UiLanguage): string {
+  return new Intl.DateTimeFormat(getUiLocale(language), {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(new Date(epochMs));
 }
 
 /**

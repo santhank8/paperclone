@@ -19,15 +19,18 @@ import { SidebarProjects } from "./SidebarProjects";
 import { SidebarAgents } from "./SidebarAgents";
 import { useDialog } from "../context/DialogContext";
 import { useCompany } from "../context/CompanyContext";
+import { useGeneralSettings } from "../context/GeneralSettingsContext";
 import { heartbeatsApi } from "../api/heartbeats";
 import { queryKeys } from "../lib/queryKeys";
 import { useInboxBadge } from "../hooks/useInboxBadge";
 import { Button } from "@/components/ui/button";
 import { PluginSlotOutlet } from "@/plugins/slots";
+import { textFor } from "../lib/ui-language";
 
 export function Sidebar() {
   const { openNewIssue } = useDialog();
   const { selectedCompanyId, selectedCompany } = useCompany();
+  const { uiLanguage } = useGeneralSettings();
   const inboxBadge = useInboxBadge(selectedCompanyId);
   const { data: liveRuns } = useQuery({
     queryKey: queryKeys.liveRuns(selectedCompanyId!),
@@ -46,6 +49,65 @@ export function Sidebar() {
     companyPrefix: selectedCompany?.issuePrefix ?? null,
   };
 
+  const copy = {
+    selectCompany: textFor(uiLanguage, {
+      en: "Select company",
+      "zh-CN": "选择公司",
+    }),
+    newIssue: textFor(uiLanguage, {
+      en: "New Issue",
+      "zh-CN": "新建任务",
+    }),
+    dashboard: textFor(uiLanguage, {
+      en: "Dashboard",
+      "zh-CN": "仪表盘",
+    }),
+    inbox: textFor(uiLanguage, {
+      en: "Inbox",
+      "zh-CN": "收件箱",
+    }),
+    work: textFor(uiLanguage, {
+      en: "Work",
+      "zh-CN": "工作",
+    }),
+    issues: textFor(uiLanguage, {
+      en: "Issues",
+      "zh-CN": "任务",
+    }),
+    routines: textFor(uiLanguage, {
+      en: "Routines",
+      "zh-CN": "例行任务",
+    }),
+    goals: textFor(uiLanguage, {
+      en: "Goals",
+      "zh-CN": "目标",
+    }),
+    company: textFor(uiLanguage, {
+      en: "Company",
+      "zh-CN": "公司",
+    }),
+    org: textFor(uiLanguage, {
+      en: "Org",
+      "zh-CN": "组织架构",
+    }),
+    skills: textFor(uiLanguage, {
+      en: "Skills",
+      "zh-CN": "技能",
+    }),
+    costs: textFor(uiLanguage, {
+      en: "Costs",
+      "zh-CN": "成本",
+    }),
+    activity: textFor(uiLanguage, {
+      en: "Activity",
+      "zh-CN": "活动",
+    }),
+    settings: textFor(uiLanguage, {
+      en: "Settings",
+      "zh-CN": "设置",
+    }),
+  };
+
   return (
     <aside className="w-60 h-full min-h-0 border-r border-border bg-background flex flex-col">
       {/* Top bar: Company name (bold) + Search — aligned with top sections (no visible border) */}
@@ -57,7 +119,7 @@ export function Sidebar() {
           />
         )}
         <span className="flex-1 text-sm font-bold text-foreground truncate pl-1">
-          {selectedCompany?.name ?? "Select company"}
+          {selectedCompany?.name ?? copy.selectCompany}
         </span>
         <Button
           variant="ghost"
@@ -77,12 +139,12 @@ export function Sidebar() {
             className="flex items-center gap-2.5 px-3 py-2 text-[13px] font-medium text-muted-foreground hover:bg-accent/50 hover:text-foreground transition-colors"
           >
             <SquarePen className="h-4 w-4 shrink-0" />
-            <span className="truncate">New Issue</span>
+            <span className="truncate">{copy.newIssue}</span>
           </button>
-          <SidebarNavItem to="/dashboard" label="Dashboard" icon={LayoutDashboard} liveCount={liveRunCount} />
+          <SidebarNavItem to="/dashboard" label={copy.dashboard} icon={LayoutDashboard} liveCount={liveRunCount} />
           <SidebarNavItem
             to="/inbox"
-            label="Inbox"
+            label={copy.inbox}
             icon={Inbox}
             badge={inboxBadge.inbox}
             badgeTone={inboxBadge.failedRuns > 0 ? "danger" : "default"}
@@ -97,22 +159,22 @@ export function Sidebar() {
           />
         </div>
 
-        <SidebarSection label="Work">
-          <SidebarNavItem to="/issues" label="Issues" icon={CircleDot} />
-          <SidebarNavItem to="/routines" label="Routines" icon={Repeat} textBadge="Beta" textBadgeTone="amber" />
-          <SidebarNavItem to="/goals" label="Goals" icon={Target} />
+        <SidebarSection label={copy.work}>
+          <SidebarNavItem to="/issues" label={copy.issues} icon={CircleDot} />
+          <SidebarNavItem to="/routines" label={copy.routines} icon={Repeat} textBadge={uiLanguage === "zh-CN" ? "测试版" : "Beta"} textBadgeTone="amber" />
+          <SidebarNavItem to="/goals" label={copy.goals} icon={Target} />
         </SidebarSection>
 
         <SidebarProjects />
 
         <SidebarAgents />
 
-        <SidebarSection label="Company">
-          <SidebarNavItem to="/org" label="Org" icon={Network} />
-          <SidebarNavItem to="/skills" label="Skills" icon={Boxes} />
-          <SidebarNavItem to="/costs" label="Costs" icon={DollarSign} />
-          <SidebarNavItem to="/activity" label="Activity" icon={History} />
-          <SidebarNavItem to="/company/settings" label="Settings" icon={Settings} />
+        <SidebarSection label={copy.company}>
+          <SidebarNavItem to="/org" label={copy.org} icon={Network} />
+          <SidebarNavItem to="/skills" label={copy.skills} icon={Boxes} />
+          <SidebarNavItem to="/costs" label={copy.costs} icon={DollarSign} />
+          <SidebarNavItem to="/activity" label={copy.activity} icon={History} />
+          <SidebarNavItem to="/company/settings" label={copy.settings} icon={Settings} />
         </SidebarSection>
 
         <PluginSlotOutlet

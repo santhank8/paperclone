@@ -18,6 +18,7 @@ import { issuesApi } from "../api/issues";
 import { usePanel } from "../context/PanelContext";
 import { useSidebar } from "../context/SidebarContext";
 import { useCompany } from "../context/CompanyContext";
+import { useGeneralSettings } from "../context/GeneralSettingsContext";
 import { useToast } from "../context/ToastContext";
 import { useDialog } from "../context/DialogContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
@@ -97,6 +98,7 @@ import {
   arraysEqual,
   isReadOnlyUnmanagedSkillEntry,
 } from "../lib/agent-skills-state";
+import { textFor, type UiLanguage } from "../lib/ui-language";
 
 const runStatusIcons: Record<string, { icon: typeof CheckCircle2; color: string }> = {
   succeeded: { icon: CheckCircle2, color: "text-green-600 dark:text-green-400" },
@@ -162,12 +164,50 @@ function formatEnvForDisplay(envValue: unknown, censorUsernameInLogs: boolean): 
     .join("\n");
 }
 
-const sourceLabels: Record<string, string> = {
-  timer: "Timer",
-  assignment: "Assignment",
-  on_demand: "On-demand",
-  automation: "Automation",
-};
+function sourceLabel(source: string, uiLanguage: UiLanguage): string {
+  const labels: Record<string, { en: string; zh: string }> = {
+    timer: { en: "Timer", zh: "定时器" },
+    assignment: { en: "Assignment", zh: "任务分配" },
+    on_demand: { en: "On-demand", zh: "按需触发" },
+    automation: { en: "Automation", zh: "自动化" },
+  };
+  const label = labels[source];
+  return label ? (uiLanguage === "zh-CN" ? label.zh : label.en) : source;
+}
+
+function agentDetailViewLabel(view: AgentDetailView, uiLanguage: UiLanguage): string {
+  const labels: Record<AgentDetailView, { en: string; zh: string }> = {
+    dashboard: { en: "Dashboard", zh: "仪表盘" },
+    instructions: { en: "Instructions", zh: "说明" },
+    configuration: { en: "Configuration", zh: "配置" },
+    skills: { en: "Skills", zh: "技能" },
+    runs: { en: "Runs", zh: "运行记录" },
+    budget: { en: "Budget", zh: "预算" },
+  };
+  return uiLanguage === "zh-CN" ? labels[view].zh : labels[view].en;
+}
+
+function workspaceOperationPhaseLabel(phase: WorkspaceOperation["phase"], uiLanguage: UiLanguage) {
+  const labels: Record<string, { en: string; zh: string }> = {
+    worktree_prepare: { en: "Worktree setup", zh: "工作树准备" },
+    workspace_provision: { en: "Provision", zh: "工作区创建" },
+    workspace_teardown: { en: "Teardown", zh: "工作区回收" },
+    worktree_cleanup: { en: "Worktree cleanup", zh: "工作树清理" },
+  };
+  const label = labels[phase];
+  return label ? (uiLanguage === "zh-CN" ? label.zh : label.en) : phase;
+}
+
+function workspaceOperationStatusLabel(status: WorkspaceOperation["status"], uiLanguage: UiLanguage) {
+  const labels: Record<string, { en: string; zh: string }> = {
+    succeeded: { en: "Succeeded", zh: "成功" },
+    failed: { en: "Failed", zh: "失败" },
+    running: { en: "Running", zh: "运行中" },
+    skipped: { en: "Skipped", zh: "已跳过" },
+  };
+  const label = labels[status];
+  return label ? (uiLanguage === "zh-CN" ? label.zh : label.en) : status.replace("_", " ");
+}
 
 const LIVE_SCROLL_BOTTOM_TOLERANCE_PX = 32;
 type ScrollContainer = Window | HTMLElement;
@@ -297,6 +337,7 @@ export function RunInvocationCard({
   payload: Record<string, unknown>;
   censorUsernameInLogs: boolean;
 }) {
+  const { uiLanguage } = useGeneralSettings();
   const commandLine = [
     typeof payload.command === "string" ? payload.command : null,
     ...(Array.isArray(payload.commandArgs)
@@ -312,32 +353,43 @@ export function RunInvocationCard({
     || payload.prompt !== undefined
     || payload.context !== undefined
     || payload.env !== undefined;
+  const copy = {
+    invocation: textFor(uiLanguage, { en: "Invocation", "zh-CN": "调用信息" }),
+    adapter: textFor(uiLanguage, { en: "Adapter", "zh-CN": "适配器" }),
+    workingDir: textFor(uiLanguage, { en: "Working dir", "zh-CN": "工作目录" }),
+    details: textFor(uiLanguage, { en: "Details", "zh-CN": "详情" }),
+    command: textFor(uiLanguage, { en: "Command", "zh-CN": "命令" }),
+    commandNotes: textFor(uiLanguage, { en: "Command notes", "zh-CN": "命令说明" }),
+    prompt: textFor(uiLanguage, { en: "Prompt", "zh-CN": "提示词" }),
+    context: textFor(uiLanguage, { en: "Context", "zh-CN": "上下文" }),
+    environment: textFor(uiLanguage, { en: "Environment", "zh-CN": "环境变量" }),
+  };
 
   return (
     <div className="rounded-lg border border-border bg-background/60 p-3 space-y-2">
-      <div className="text-xs font-medium text-muted-foreground">Invocation</div>
+      <div className="text-xs font-medium text-muted-foreground">{copy.invocation}</div>
       {typeof payload.adapterType === "string" && (
-        <div className="text-xs"><span className="text-muted-foreground">Adapter: </span>{payload.adapterType}</div>
+        <div className="text-xs"><span className="text-muted-foreground">{copy.adapter}: </span>{payload.adapterType}</div>
       )}
       {typeof payload.cwd === "string" && (
-        <div className="text-xs break-all"><span className="text-muted-foreground">Working dir: </span><span className="font-mono">{payload.cwd}</span></div>
+        <div className="text-xs break-all"><span className="text-muted-foreground">{copy.workingDir}: </span><span className="font-mono">{payload.cwd}</span></div>
       )}
       {hasAdvancedDetails && (
         <Collapsible>
           <CollapsibleTrigger className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors group">
             <ChevronRight className="h-3 w-3 transition-transform group-data-[state=open]:rotate-90" />
-            Details
+            {copy.details}
           </CollapsibleTrigger>
           <CollapsibleContent className="pt-2 space-y-2">
             {commandLine && (
               <div className="text-xs break-all">
-                <span className="text-muted-foreground">Command: </span>
+                <span className="text-muted-foreground">{copy.command}: </span>
                 <span className="font-mono">{commandLine}</span>
               </div>
             )}
             {Array.isArray(payload.commandNotes) && payload.commandNotes.length > 0 && (
               <div>
-                <div className="text-xs text-muted-foreground mb-1">Command notes</div>
+                <div className="text-xs text-muted-foreground mb-1">{copy.commandNotes}</div>
                 <ul className="list-disc pl-5 space-y-1">
                   {payload.commandNotes
                     .filter((value): value is string => typeof value === "string" && value.trim().length > 0)
@@ -351,7 +403,7 @@ export function RunInvocationCard({
             )}
             {payload.prompt !== undefined && (
               <div>
-                <div className="text-xs text-muted-foreground mb-1">Prompt</div>
+                <div className="text-xs text-muted-foreground mb-1">{copy.prompt}</div>
                 <pre className="bg-neutral-100 dark:bg-neutral-950 rounded-md p-2 text-xs overflow-x-auto whitespace-pre-wrap">
                   {typeof payload.prompt === "string"
                     ? redactPathText(payload.prompt, censorUsernameInLogs)
@@ -361,7 +413,7 @@ export function RunInvocationCard({
             )}
             {payload.context !== undefined && (
               <div>
-                <div className="text-xs text-muted-foreground mb-1">Context</div>
+                <div className="text-xs text-muted-foreground mb-1">{copy.context}</div>
                 <pre className="bg-neutral-100 dark:bg-neutral-950 rounded-md p-2 text-xs overflow-x-auto whitespace-pre-wrap">
                   {JSON.stringify(redactPathValue(payload.context, censorUsernameInLogs), null, 2)}
                 </pre>
@@ -369,7 +421,7 @@ export function RunInvocationCard({
             )}
             {payload.env !== undefined && (
               <div>
-                <div className="text-xs text-muted-foreground mb-1">Environment</div>
+                <div className="text-xs text-muted-foreground mb-1">{copy.environment}</div>
                 <pre className="bg-neutral-100 dark:bg-neutral-950 rounded-md p-2 text-xs overflow-x-auto whitespace-pre-wrap font-mono">
                   {formatEnvForDisplay(payload.env, censorUsernameInLogs)}
                 </pre>
@@ -402,21 +454,6 @@ function parseStoredLogContent(content: string): RunLogChunk[] {
   return parsed;
 }
 
-function workspaceOperationPhaseLabel(phase: WorkspaceOperation["phase"]) {
-  switch (phase) {
-    case "worktree_prepare":
-      return "Worktree setup";
-    case "workspace_provision":
-      return "Provision";
-    case "workspace_teardown":
-      return "Teardown";
-    case "worktree_cleanup":
-      return "Worktree cleanup";
-    default:
-      return phase;
-  }
-}
-
 function workspaceOperationStatusTone(status: WorkspaceOperation["status"]) {
   switch (status) {
     case "succeeded":
@@ -433,6 +470,7 @@ function workspaceOperationStatusTone(status: WorkspaceOperation["status"]) {
 }
 
 function WorkspaceOperationStatusBadge({ status }: { status: WorkspaceOperation["status"] }) {
+  const { uiLanguage } = useGeneralSettings();
   return (
     <span
       className={cn(
@@ -440,7 +478,7 @@ function WorkspaceOperationStatusBadge({ status }: { status: WorkspaceOperation[
         workspaceOperationStatusTone(status),
       )}
     >
-      {status.replace("_", " ")}
+      {workspaceOperationStatusLabel(status, uiLanguage)}
     </span>
   );
 }
@@ -452,6 +490,7 @@ function WorkspaceOperationLogViewer({
   operation: WorkspaceOperation;
   censorUsernameInLogs: boolean;
 }) {
+  const { uiLanguage } = useGeneralSettings();
   const [open, setOpen] = useState(false);
   const { data: logData, isLoading, error } = useQuery({
     queryKey: ["workspace-operation-log", operation.id],
@@ -464,6 +503,13 @@ function WorkspaceOperationLogViewer({
     () => (logData?.content ? parseStoredLogContent(logData.content) : []),
     [logData?.content],
   );
+  const copy = {
+    hideLog: textFor(uiLanguage, { en: "Hide full log", "zh-CN": "隐藏完整日志" }),
+    showLog: textFor(uiLanguage, { en: "Show full log", "zh-CN": "显示完整日志" }),
+    loading: textFor(uiLanguage, { en: "Loading log...", "zh-CN": "正在加载日志..." }),
+    failed: textFor(uiLanguage, { en: "Failed to load workspace operation log", "zh-CN": "加载工作区操作日志失败" }),
+    empty: textFor(uiLanguage, { en: "No persisted log lines.", "zh-CN": "没有已持久化的日志行。" }),
+  };
 
   return (
     <div className="space-y-2">
@@ -472,25 +518,25 @@ function WorkspaceOperationLogViewer({
         className="text-[11px] text-muted-foreground underline underline-offset-2 hover:text-foreground"
         onClick={() => setOpen((value) => !value)}
       >
-        {open ? "Hide full log" : "Show full log"}
+        {open ? copy.hideLog : copy.showLog}
       </button>
       {open && (
         <div className="rounded-md border border-border bg-background/70 p-2">
-          {isLoading && <div className="text-xs text-muted-foreground">Loading log...</div>}
+          {isLoading && <div className="text-xs text-muted-foreground">{copy.loading}</div>}
           {error && (
             <div className="text-xs text-destructive">
-              {error instanceof Error ? error.message : "Failed to load workspace operation log"}
+              {error instanceof Error ? error.message : copy.failed}
             </div>
           )}
           {!isLoading && !error && chunks.length === 0 && (
-            <div className="text-xs text-muted-foreground">No persisted log lines.</div>
+            <div className="text-xs text-muted-foreground">{copy.empty}</div>
           )}
           {chunks.length > 0 && (
             <div className="max-h-64 overflow-y-auto rounded bg-neutral-100 p-2 font-mono text-xs dark:bg-neutral-950">
               {chunks.map((chunk, index) => (
                 <div key={`${chunk.ts}-${index}`} className="flex gap-2">
                   <span className="shrink-0 text-neutral-500">
-                    {new Date(chunk.ts).toLocaleTimeString("en-US", { hour12: false })}
+                    {new Date(chunk.ts).toLocaleTimeString(uiLanguage === "zh-CN" ? "zh-CN" : "en-US", { hour12: false })}
                   </span>
                   <span
                     className={cn(
@@ -522,12 +568,28 @@ function WorkspaceOperationsSection({
   operations: WorkspaceOperation[];
   censorUsernameInLogs: boolean;
 }) {
+  const { uiLanguage } = useGeneralSettings();
   if (operations.length === 0) return null;
+  const copy = {
+    workspace: textFor(uiLanguage, { en: "Workspace", "zh-CN": "工作区" }),
+    to: textFor(uiLanguage, { en: "to", "zh-CN": "到" }),
+    command: textFor(uiLanguage, { en: "Command", "zh-CN": "命令" }),
+    workingDir: textFor(uiLanguage, { en: "Working dir", "zh-CN": "工作目录" }),
+    branch: textFor(uiLanguage, { en: "Branch", "zh-CN": "分支" }),
+    baseRef: textFor(uiLanguage, { en: "Base ref", "zh-CN": "基准引用" }),
+    worktree: textFor(uiLanguage, { en: "Worktree", "zh-CN": "工作树" }),
+    repoRoot: textFor(uiLanguage, { en: "Repo root", "zh-CN": "仓库根目录" }),
+    cleanup: textFor(uiLanguage, { en: "Cleanup", "zh-CN": "清理方式" }),
+    createdByRun: textFor(uiLanguage, { en: "Created by this run", "zh-CN": "由本次运行创建" }),
+    reusedWorkspace: textFor(uiLanguage, { en: "Reused existing workspace", "zh-CN": "复用了现有工作区" }),
+    stderrExcerpt: textFor(uiLanguage, { en: "stderr excerpt", "zh-CN": "stderr 摘录" }),
+    stdoutExcerpt: textFor(uiLanguage, { en: "stdout excerpt", "zh-CN": "stdout 摘录" }),
+  };
 
   return (
     <div className="rounded-lg border border-border bg-background/60 p-3 space-y-3">
       <div className="text-xs font-medium text-muted-foreground">
-        Workspace ({operations.length})
+        {copy.workspace} ({operations.length})
       </div>
       <div className="space-y-3">
         {operations.map((operation) => {
@@ -535,22 +597,22 @@ function WorkspaceOperationsSection({
           return (
             <div key={operation.id} className="rounded-md border border-border/70 bg-background/70 p-3 space-y-2">
               <div className="flex flex-wrap items-center gap-2">
-                <div className="text-sm font-medium">{workspaceOperationPhaseLabel(operation.phase)}</div>
+                <div className="text-sm font-medium">{workspaceOperationPhaseLabel(operation.phase, uiLanguage)}</div>
                 <WorkspaceOperationStatusBadge status={operation.status} />
                 <div className="text-[11px] text-muted-foreground">
                   {relativeTime(operation.startedAt)}
-                  {operation.finishedAt && ` to ${relativeTime(operation.finishedAt)}`}
+                  {operation.finishedAt && ` ${copy.to} ${relativeTime(operation.finishedAt)}`}
                 </div>
               </div>
               {operation.command && (
                 <div className="text-xs break-all">
-                  <span className="text-muted-foreground">Command: </span>
+                  <span className="text-muted-foreground">{copy.command}: </span>
                   <span className="font-mono">{operation.command}</span>
                 </div>
               )}
               {operation.cwd && (
                 <div className="text-xs break-all">
-                  <span className="text-muted-foreground">Working dir: </span>
+                  <span className="text-muted-foreground">{copy.workingDir}: </span>
                   <span className="font-mono">{operation.cwd}</span>
                 </div>
               )}
@@ -561,30 +623,30 @@ function WorkspaceOperationsSection({
                 || asNonEmptyString(metadata?.cleanupAction)) && (
                 <div className="grid gap-1 text-xs sm:grid-cols-2">
                   {asNonEmptyString(metadata?.branchName) && (
-                    <div><span className="text-muted-foreground">Branch: </span><span className="font-mono">{metadata?.branchName as string}</span></div>
+                    <div><span className="text-muted-foreground">{copy.branch}: </span><span className="font-mono">{metadata?.branchName as string}</span></div>
                   )}
                   {asNonEmptyString(metadata?.baseRef) && (
-                    <div><span className="text-muted-foreground">Base ref: </span><span className="font-mono">{metadata?.baseRef as string}</span></div>
+                    <div><span className="text-muted-foreground">{copy.baseRef}: </span><span className="font-mono">{metadata?.baseRef as string}</span></div>
                   )}
                   {asNonEmptyString(metadata?.worktreePath) && (
-                    <div className="break-all"><span className="text-muted-foreground">Worktree: </span><span className="font-mono">{metadata?.worktreePath as string}</span></div>
+                    <div className="break-all"><span className="text-muted-foreground">{copy.worktree}: </span><span className="font-mono">{metadata?.worktreePath as string}</span></div>
                   )}
                   {asNonEmptyString(metadata?.repoRoot) && (
-                    <div className="break-all"><span className="text-muted-foreground">Repo root: </span><span className="font-mono">{metadata?.repoRoot as string}</span></div>
+                    <div className="break-all"><span className="text-muted-foreground">{copy.repoRoot}: </span><span className="font-mono">{metadata?.repoRoot as string}</span></div>
                   )}
                   {asNonEmptyString(metadata?.cleanupAction) && (
-                    <div><span className="text-muted-foreground">Cleanup: </span><span className="font-mono">{metadata?.cleanupAction as string}</span></div>
+                    <div><span className="text-muted-foreground">{copy.cleanup}: </span><span className="font-mono">{metadata?.cleanupAction as string}</span></div>
                   )}
                 </div>
               )}
               {typeof metadata?.created === "boolean" && (
                 <div className="text-xs text-muted-foreground">
-                  {metadata.created ? "Created by this run" : "Reused existing workspace"}
+                  {metadata.created ? copy.createdByRun : copy.reusedWorkspace}
                 </div>
               )}
               {operation.stderrExcerpt && operation.stderrExcerpt.trim() && (
                 <div>
-                  <div className="mb-1 text-xs text-red-700 dark:text-red-300">stderr excerpt</div>
+                  <div className="mb-1 text-xs text-red-700 dark:text-red-300">{copy.stderrExcerpt}</div>
                   <pre className="rounded-md bg-red-50 p-2 text-xs whitespace-pre-wrap break-all text-red-800 dark:bg-neutral-950 dark:text-red-100">
                     {redactPathText(operation.stderrExcerpt, censorUsernameInLogs)}
                   </pre>
@@ -592,7 +654,7 @@ function WorkspaceOperationsSection({
               )}
               {operation.stdoutExcerpt && operation.stdoutExcerpt.trim() && (
                 <div>
-                  <div className="mb-1 text-xs text-muted-foreground">stdout excerpt</div>
+                  <div className="mb-1 text-xs text-muted-foreground">{copy.stdoutExcerpt}</div>
                   <pre className="rounded-md bg-neutral-100 p-2 text-xs whitespace-pre-wrap break-all dark:bg-neutral-950">
                     {redactPathText(operation.stdoutExcerpt, censorUsernameInLogs)}
                   </pre>
@@ -620,6 +682,7 @@ export function AgentDetail() {
     runId?: string;
   }>();
   const { companies, selectedCompanyId, setSelectedCompanyId } = useCompany();
+  const { uiLanguage } = useGeneralSettings();
   const { closePanel } = usePanel();
   const { openNewIssue } = useDialog();
   const { setBreadcrumbs } = useBreadcrumbs();
@@ -728,6 +791,23 @@ export function AgentDetail() {
     () => (heartbeats ?? []).find((r) => r.status === "running" || r.status === "queued") ?? null,
     [heartbeats],
   );
+  const copy = {
+    agents: textFor(uiLanguage, { en: "Agents", "zh-CN": "智能体" }),
+    agentFallback: textFor(uiLanguage, { en: "Agent", "zh-CN": "智能体" }),
+    assignTask: textFor(uiLanguage, { en: "Assign Task", "zh-CN": "分配任务" }),
+    runHeartbeat: textFor(uiLanguage, { en: "Run Heartbeat", "zh-CN": "运行心跳" }),
+    live: textFor(uiLanguage, { en: "Live", "zh-CN": "实时" }),
+    copyAgentId: textFor(uiLanguage, { en: "Copy Agent ID", "zh-CN": "复制智能体 ID" }),
+    resetSessions: textFor(uiLanguage, { en: "Reset Sessions", "zh-CN": "重置会话" }),
+    terminate: textFor(uiLanguage, { en: "Terminate", "zh-CN": "终止" }),
+    pendingApproval: textFor(uiLanguage, {
+      en: "This agent is pending board approval and cannot be invoked yet.",
+      "zh-CN": "该智能体仍在等待审批，暂时无法调用。",
+    }),
+    cancel: textFor(uiLanguage, { en: "Cancel", "zh-CN": "取消" }),
+    saving: textFor(uiLanguage, { en: "Saving…", "zh-CN": "保存中…" }),
+    save: textFor(uiLanguage, { en: "Save", "zh-CN": "保存" }),
+  };
 
   useEffect(() => {
     if (!agent) return;
@@ -851,32 +931,32 @@ export function AgentDetail() {
 
   useEffect(() => {
     const crumbs: { label: string; href?: string }[] = [
-      { label: "Agents", href: "/agents" },
+      { label: copy.agents, href: "/agents" },
     ];
-    const agentName = agent?.name ?? routeAgentRef ?? "Agent";
+    const agentName = agent?.name ?? routeAgentRef ?? copy.agentFallback;
     if (activeView === "dashboard" && !urlRunId) {
       crumbs.push({ label: agentName });
     } else {
       crumbs.push({ label: agentName, href: `/agents/${canonicalAgentRef}/dashboard` });
       if (urlRunId) {
-        crumbs.push({ label: "Runs", href: `/agents/${canonicalAgentRef}/runs` });
-        crumbs.push({ label: `Run ${urlRunId.slice(0, 8)}` });
+        crumbs.push({ label: agentDetailViewLabel("runs", uiLanguage), href: `/agents/${canonicalAgentRef}/runs` });
+        crumbs.push({ label: `${textFor(uiLanguage, { en: "Run", "zh-CN": "运行" })} ${urlRunId.slice(0, 8)}` });
       } else if (activeView === "instructions") {
-        crumbs.push({ label: "Instructions" });
+        crumbs.push({ label: agentDetailViewLabel("instructions", uiLanguage) });
       } else if (activeView === "configuration") {
-        crumbs.push({ label: "Configuration" });
+        crumbs.push({ label: agentDetailViewLabel("configuration", uiLanguage) });
       // } else if (activeView === "skills") { // TODO: bring back later
       //   crumbs.push({ label: "Skills" });
       } else if (activeView === "runs") {
-        crumbs.push({ label: "Runs" });
+        crumbs.push({ label: agentDetailViewLabel("runs", uiLanguage) });
       } else if (activeView === "budget") {
-        crumbs.push({ label: "Budget" });
+        crumbs.push({ label: agentDetailViewLabel("budget", uiLanguage) });
       } else {
-        crumbs.push({ label: "Dashboard" });
+        crumbs.push({ label: agentDetailViewLabel("dashboard", uiLanguage) });
       }
     }
     setBreadcrumbs(crumbs);
-  }, [setBreadcrumbs, agent, routeAgentRef, canonicalAgentRef, activeView, urlRunId]);
+  }, [setBreadcrumbs, agent, routeAgentRef, canonicalAgentRef, activeView, urlRunId, copy.agents, copy.agentFallback, uiLanguage]);
 
   useEffect(() => {
     closePanel();
@@ -928,12 +1008,12 @@ export function AgentDetail() {
             onClick={() => openNewIssue({ assigneeAgentId: agent.id })}
           >
             <Plus className="h-3.5 w-3.5 sm:mr-1" />
-            <span className="hidden sm:inline">Assign Task</span>
+            <span className="hidden sm:inline">{copy.assignTask}</span>
           </Button>
           <RunButton
             onClick={() => agentAction.mutate("invoke")}
             disabled={agentAction.isPending || isPendingApproval}
-            label="Run Heartbeat"
+            label={copy.runHeartbeat}
           />
           <PauseResumeButton
             isPaused={agent.status === "paused"}
@@ -951,7 +1031,7 @@ export function AgentDetail() {
                 <span className="animate-pulse absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75" />
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500" />
               </span>
-              <span className="text-[11px] font-medium text-blue-600 dark:text-blue-400">Live</span>
+              <span className="text-[11px] font-medium text-blue-600 dark:text-blue-400">{copy.live}</span>
             </Link>
           )}
 
@@ -971,7 +1051,7 @@ export function AgentDetail() {
                 }}
               >
                 <Copy className="h-3 w-3" />
-                Copy Agent ID
+                {copy.copyAgentId}
               </button>
               <button
                 className="flex items-center gap-2 w-full px-2 py-1.5 text-xs rounded hover:bg-accent/50"
@@ -981,7 +1061,7 @@ export function AgentDetail() {
                 }}
               >
                 <RotateCcw className="h-3 w-3" />
-                Reset Sessions
+                {copy.resetSessions}
               </button>
               <button
                 className="flex items-center gap-2 w-full px-2 py-1.5 text-xs rounded hover:bg-accent/50 text-destructive"
@@ -991,7 +1071,7 @@ export function AgentDetail() {
                 }}
               >
                 <Trash2 className="h-3 w-3" />
-                Terminate
+                {copy.terminate}
               </button>
             </PopoverContent>
           </Popover>
@@ -1005,12 +1085,12 @@ export function AgentDetail() {
         >
           <PageTabBar
             items={[
-              { value: "dashboard", label: "Dashboard" },
-              { value: "instructions", label: "Instructions" },
-              { value: "skills", label: "Skills" },
-              { value: "configuration", label: "Configuration" },
-              { value: "runs", label: "Runs" },
-              { value: "budget", label: "Budget" },
+              { value: "dashboard", label: agentDetailViewLabel("dashboard", uiLanguage) },
+              { value: "instructions", label: agentDetailViewLabel("instructions", uiLanguage) },
+              { value: "skills", label: agentDetailViewLabel("skills", uiLanguage) },
+              { value: "configuration", label: agentDetailViewLabel("configuration", uiLanguage) },
+              { value: "runs", label: agentDetailViewLabel("runs", uiLanguage) },
+              { value: "budget", label: agentDetailViewLabel("budget", uiLanguage) },
             ]}
             value={activeView}
             onValueChange={(value) => navigate(`/agents/${canonicalAgentRef}/${value}`)}
@@ -1021,7 +1101,7 @@ export function AgentDetail() {
       {actionError && <p className="text-sm text-destructive">{actionError}</p>}
       {isPendingApproval && (
         <p className="text-sm text-amber-500">
-          This agent is pending board approval and cannot be invoked yet.
+          {copy.pendingApproval}
         </p>
       )}
 
@@ -1042,14 +1122,14 @@ export function AgentDetail() {
               onClick={() => cancelConfigActionRef.current?.()}
               disabled={configSaving}
             >
-              Cancel
+              {copy.cancel}
             </Button>
             <Button
               size="sm"
               onClick={() => saveConfigActionRef.current?.()}
               disabled={configSaving}
             >
-              {configSaving ? "Saving…" : "Save"}
+              {configSaving ? copy.saving : copy.save}
             </Button>
           </div>
         </div>
@@ -1068,14 +1148,14 @@ export function AgentDetail() {
               onClick={() => cancelConfigActionRef.current?.()}
               disabled={configSaving}
             >
-              Cancel
+              {copy.cancel}
             </Button>
             <Button
               size="sm"
               onClick={() => saveConfigActionRef.current?.()}
               disabled={configSaving}
             >
-              {configSaving ? "Saving…" : "Save"}
+              {configSaving ? copy.saving : copy.save}
             </Button>
           </div>
         </div>
@@ -1162,6 +1242,7 @@ function SummaryRow({ label, children }: { label: string; children: React.ReactN
 }
 
 function LatestRunCard({ runs, agentId }: { runs: HeartbeatRun[]; agentId: string }) {
+  const { uiLanguage } = useGeneralSettings();
   if (runs.length === 0) return null;
 
   const sorted = [...runs].sort(
@@ -1194,6 +1275,11 @@ function LatestRunCard({ runs, agentId }: { runs: HeartbeatRun[]; agentId: strin
     }
     return excerpt.join(" ");
   }, [summaryRaw]);
+  const copy = {
+    liveRun: textFor(uiLanguage, { en: "Live Run", "zh-CN": "实时运行" }),
+    latestRun: textFor(uiLanguage, { en: "Latest Run", "zh-CN": "最近运行" }),
+    viewDetails: textFor(uiLanguage, { en: "View details", "zh-CN": "查看详情" }),
+  };
 
   return (
     <div className="space-y-3">
@@ -1205,13 +1291,13 @@ function LatestRunCard({ runs, agentId }: { runs: HeartbeatRun[]; agentId: strin
               <span className="relative inline-flex rounded-full h-2 w-2 bg-cyan-400" />
             </span>
           )}
-          {isLive ? "Live Run" : "Latest Run"}
+          {isLive ? copy.liveRun : copy.latestRun}
         </h3>
         <Link
           to={`/agents/${agentId}/runs/${run.id}`}
           className="shrink-0 text-xs text-muted-foreground hover:text-foreground transition-colors no-underline"
         >
-          View details &rarr;
+          {copy.viewDetails} &rarr;
         </Link>
       </div>
 
@@ -1233,7 +1319,7 @@ function LatestRunCard({ runs, agentId }: { runs: HeartbeatRun[]; agentId: strin
               : run.invocationSource === "on_demand" ? "bg-cyan-100 text-cyan-700 dark:bg-cyan-900/50 dark:text-cyan-300"
               : "bg-muted text-muted-foreground"
           )}>
-            {sourceLabels[run.invocationSource] ?? run.invocationSource}
+            {sourceLabel(run.invocationSource, uiLanguage)}
           </span>
           <span className="ml-auto text-xs text-muted-foreground">{relativeTime(run.createdAt)}</span>
         </div>
@@ -1265,6 +1351,18 @@ function AgentOverview({
   agentId: string;
   agentRouteId: string;
 }) {
+  const { uiLanguage } = useGeneralSettings();
+  const copy = {
+    runActivity: textFor(uiLanguage, { en: "Run Activity", "zh-CN": "运行活跃度" }),
+    issuesByPriority: textFor(uiLanguage, { en: "Issues by Priority", "zh-CN": "按优先级统计任务" }),
+    issuesByStatus: textFor(uiLanguage, { en: "Issues by Status", "zh-CN": "按状态统计任务" }),
+    successRate: textFor(uiLanguage, { en: "Success Rate", "zh-CN": "成功率" }),
+    last14Days: textFor(uiLanguage, { en: "Last 14 days", "zh-CN": "最近 14 天" }),
+    recentIssues: textFor(uiLanguage, { en: "Recent Issues", "zh-CN": "最近任务" }),
+    seeAll: textFor(uiLanguage, { en: "See All", "zh-CN": "查看全部" }),
+    noRecentIssues: textFor(uiLanguage, { en: "No recent issues.", "zh-CN": "最近没有任务。" }),
+    costs: textFor(uiLanguage, { en: "Costs", "zh-CN": "成本" }),
+  };
   return (
     <div className="space-y-8">
       {/* Latest Run */}
@@ -1272,16 +1370,16 @@ function AgentOverview({
 
       {/* Charts */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <ChartCard title="Run Activity" subtitle="Last 14 days">
+        <ChartCard title={copy.runActivity} subtitle={copy.last14Days}>
           <RunActivityChart runs={runs} />
         </ChartCard>
-        <ChartCard title="Issues by Priority" subtitle="Last 14 days">
+        <ChartCard title={copy.issuesByPriority} subtitle={copy.last14Days}>
           <PriorityChart issues={assignedIssues} />
         </ChartCard>
-        <ChartCard title="Issues by Status" subtitle="Last 14 days">
+        <ChartCard title={copy.issuesByStatus} subtitle={copy.last14Days}>
           <IssueStatusChart issues={assignedIssues} />
         </ChartCard>
-        <ChartCard title="Success Rate" subtitle="Last 14 days">
+        <ChartCard title={copy.successRate} subtitle={copy.last14Days}>
           <SuccessRateChart runs={runs} />
         </ChartCard>
       </div>
@@ -1289,16 +1387,16 @@ function AgentOverview({
       {/* Recent Issues */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <h3 className="text-sm font-medium">Recent Issues</h3>
+          <h3 className="text-sm font-medium">{copy.recentIssues}</h3>
           <Link
             to={`/issues?participantAgentId=${agentId}`}
             className="text-xs text-muted-foreground hover:text-foreground transition-colors"
           >
-            See All &rarr;
+            {copy.seeAll} &rarr;
           </Link>
         </div>
         {assignedIssues.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No recent issues.</p>
+          <p className="text-sm text-muted-foreground">{copy.noRecentIssues}</p>
         ) : (
           <div className="border border-border rounded-lg">
             {assignedIssues.slice(0, 10).map((issue) => (
@@ -1312,7 +1410,9 @@ function AgentOverview({
             ))}
             {assignedIssues.length > 10 && (
               <div className="px-3 py-2 text-xs text-muted-foreground text-center border-t border-border">
-                +{assignedIssues.length - 10} more issues
+                {uiLanguage === "zh-CN"
+                  ? `另外还有 ${assignedIssues.length - 10} 个任务`
+                  : `+${assignedIssues.length - 10} more issues`}
               </div>
             )}
           </div>
@@ -1321,7 +1421,7 @@ function AgentOverview({
 
       {/* Costs */}
       <div className="space-y-3">
-        <h3 className="text-sm font-medium">Costs</h3>
+        <h3 className="text-sm font-medium">{copy.costs}</h3>
         <CostsSection runtimeState={runtimeState} runs={runs} />
       </div>
     </div>
@@ -1337,12 +1437,24 @@ function CostsSection({
   runtimeState?: AgentRuntimeState;
   runs: HeartbeatRun[];
 }) {
+  const { uiLanguage } = useGeneralSettings();
   const runsWithCost = runs
     .filter((r) => {
       const metrics = runMetrics(r);
       return metrics.cost > 0 || metrics.input > 0 || metrics.output > 0 || metrics.cached > 0;
     })
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  const copy = {
+    inputTokens: textFor(uiLanguage, { en: "Input tokens", "zh-CN": "输入令牌" }),
+    outputTokens: textFor(uiLanguage, { en: "Output tokens", "zh-CN": "输出令牌" }),
+    cachedTokens: textFor(uiLanguage, { en: "Cached tokens", "zh-CN": "缓存令牌" }),
+    totalCost: textFor(uiLanguage, { en: "Total cost", "zh-CN": "总成本" }),
+    date: textFor(uiLanguage, { en: "Date", "zh-CN": "日期" }),
+    run: textFor(uiLanguage, { en: "Run", "zh-CN": "运行" }),
+    input: textFor(uiLanguage, { en: "Input", "zh-CN": "输入" }),
+    output: textFor(uiLanguage, { en: "Output", "zh-CN": "输出" }),
+    cost: textFor(uiLanguage, { en: "Cost", "zh-CN": "成本" }),
+  };
 
   return (
     <div className="space-y-4">
@@ -1350,19 +1462,19 @@ function CostsSection({
         <div className="border border-border rounded-lg p-4">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 tabular-nums">
             <div>
-              <span className="text-xs text-muted-foreground block">Input tokens</span>
+              <span className="text-xs text-muted-foreground block">{copy.inputTokens}</span>
               <span className="text-lg font-semibold">{formatTokens(runtimeState.totalInputTokens)}</span>
             </div>
             <div>
-              <span className="text-xs text-muted-foreground block">Output tokens</span>
+              <span className="text-xs text-muted-foreground block">{copy.outputTokens}</span>
               <span className="text-lg font-semibold">{formatTokens(runtimeState.totalOutputTokens)}</span>
             </div>
             <div>
-              <span className="text-xs text-muted-foreground block">Cached tokens</span>
+              <span className="text-xs text-muted-foreground block">{copy.cachedTokens}</span>
               <span className="text-lg font-semibold">{formatTokens(runtimeState.totalCachedInputTokens)}</span>
             </div>
             <div>
-              <span className="text-xs text-muted-foreground block">Total cost</span>
+              <span className="text-xs text-muted-foreground block">{copy.totalCost}</span>
               <span className="text-lg font-semibold">{formatCents(runtimeState.totalCostCents)}</span>
             </div>
           </div>
@@ -1373,11 +1485,11 @@ function CostsSection({
           <table className="w-full text-xs">
             <thead>
               <tr className="border-b border-border bg-accent/20">
-                <th className="text-left px-3 py-2 font-medium text-muted-foreground">Date</th>
-                <th className="text-left px-3 py-2 font-medium text-muted-foreground">Run</th>
-                <th className="text-right px-3 py-2 font-medium text-muted-foreground">Input</th>
-                <th className="text-right px-3 py-2 font-medium text-muted-foreground">Output</th>
-                <th className="text-right px-3 py-2 font-medium text-muted-foreground">Cost</th>
+                <th className="text-left px-3 py-2 font-medium text-muted-foreground">{copy.date}</th>
+                <th className="text-left px-3 py-2 font-medium text-muted-foreground">{copy.run}</th>
+                <th className="text-right px-3 py-2 font-medium text-muted-foreground">{copy.input}</th>
+                <th className="text-right px-3 py-2 font-medium text-muted-foreground">{copy.output}</th>
+                <th className="text-right px-3 py-2 font-medium text-muted-foreground">{copy.cost}</th>
               </tr>
             </thead>
             <tbody>
@@ -1427,6 +1539,7 @@ function AgentConfigurePage({
   onSavingChange: (saving: boolean) => void;
   updatePermissions: { mutate: (permissions: AgentPermissionUpdate) => void; isPending: boolean };
 }) {
+  const { uiLanguage } = useGeneralSettings();
   const queryClient = useQueryClient();
   const [revisionsOpen, setRevisionsOpen] = useState(false);
 
@@ -1443,6 +1556,14 @@ function AgentConfigurePage({
       queryClient.invalidateQueries({ queryKey: queryKeys.agents.configRevisions(agent.id) });
     },
   });
+  const copy = {
+    apiKeys: textFor(uiLanguage, { en: "API Keys", "zh-CN": "API 密钥" }),
+    configurationRevisions: textFor(uiLanguage, { en: "Configuration Revisions", "zh-CN": "配置修订记录" }),
+    noConfigurationRevisions: textFor(uiLanguage, { en: "No configuration revisions yet.", "zh-CN": "还没有配置修订记录。" }),
+    restore: textFor(uiLanguage, { en: "Restore", "zh-CN": "恢复" }),
+    changed: textFor(uiLanguage, { en: "Changed", "zh-CN": "变更字段" }),
+    noTrackedChanges: textFor(uiLanguage, { en: "no tracked changes", "zh-CN": "无可追踪变更" }),
+  };
 
   return (
     <div className="max-w-3xl space-y-6">
@@ -1458,7 +1579,7 @@ function AgentConfigurePage({
         hideInstructionsFile
       />
       <div>
-        <h3 className="text-sm font-medium mb-3">API Keys</h3>
+        <h3 className="text-sm font-medium mb-3">{copy.apiKeys}</h3>
         <KeysTab agentId={agentId} companyId={companyId} />
       </div>
 
@@ -1472,13 +1593,13 @@ function AgentConfigurePage({
             ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
             : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
           }
-          Configuration Revisions
+          {copy.configurationRevisions}
           <span className="text-xs font-normal text-muted-foreground">{configRevisions?.length ?? 0}</span>
         </button>
         {revisionsOpen && (
           <div className="mt-3">
             {(configRevisions ?? []).length === 0 ? (
-              <p className="text-sm text-muted-foreground">No configuration revisions yet.</p>
+              <p className="text-sm text-muted-foreground">{copy.noConfigurationRevisions}</p>
             ) : (
               <div className="space-y-2">
                 {(configRevisions ?? []).slice(0, 10).map((revision) => (
@@ -1498,12 +1619,12 @@ function AgentConfigurePage({
                         onClick={() => rollbackConfig.mutate(revision.id)}
                         disabled={rollbackConfig.isPending}
                       >
-                        Restore
+                        {copy.restore}
                       </Button>
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      Changed:{" "}
-                      {revision.changedKeys.length > 0 ? revision.changedKeys.join(", ") : "no tracked changes"}
+                      {copy.changed}:{" "}
+                      {revision.changedKeys.length > 0 ? revision.changedKeys.join(", ") : copy.noTrackedChanges}
                     </p>
                   </div>
                 ))}
@@ -1540,6 +1661,7 @@ function ConfigurationTab({
   hideInstructionsFile?: boolean;
 }) {
   const queryClient = useQueryClient();
+  const { uiLanguage } = useGeneralSettings();
   const { pushToast } = useToast();
   const [awaitingRefreshAfterSave, setAwaitingRefreshAfterSave] = useState(false);
   const lastAgentRef = useRef(agent);
@@ -1571,8 +1693,12 @@ function ConfigurationTab({
           ? err.message
           : err instanceof Error
             ? err.message
-            : "Could not save agent";
-      pushToast({ title: "Save failed", body: message, tone: "error" });
+            : textFor(uiLanguage, { en: "Could not save agent", "zh-CN": "无法保存智能体" });
+      pushToast({
+        title: textFor(uiLanguage, { en: "Save failed", "zh-CN": "保存失败" }),
+        body: message,
+        tone: "error",
+      });
     },
   });
 
@@ -1594,12 +1720,21 @@ function ConfigurationTab({
   const taskAssignLocked = agent.role === "ceo" || canCreateAgents;
   const taskAssignHint =
     taskAssignSource === "ceo_role"
-      ? "Enabled automatically for CEO agents."
+      ? textFor(uiLanguage, { en: "Enabled automatically for CEO agents.", "zh-CN": "CEO 智能体会自动启用此权限。" })
       : taskAssignSource === "agent_creator"
-        ? "Enabled automatically while this agent can create new agents."
+        ? textFor(uiLanguage, { en: "Enabled automatically while this agent can create new agents.", "zh-CN": "当该智能体可以创建新智能体时，会自动启用此权限。" })
         : taskAssignSource === "explicit_grant"
-          ? "Enabled via explicit company permission grant."
-          : "Disabled unless explicitly granted.";
+          ? textFor(uiLanguage, { en: "Enabled via explicit company permission grant.", "zh-CN": "通过公司的显式权限授予启用。" })
+          : textFor(uiLanguage, { en: "Disabled unless explicitly granted.", "zh-CN": "除非显式授权，否则保持禁用。" });
+  const copy = {
+    permissions: textFor(uiLanguage, { en: "Permissions", "zh-CN": "权限" }),
+    canCreateAgents: textFor(uiLanguage, { en: "Can create new agents", "zh-CN": "可创建新智能体" }),
+    canCreateAgentsHint: textFor(uiLanguage, {
+      en: "Lets this agent create or hire agents and implicitly assign tasks.",
+      "zh-CN": "允许该智能体创建或招募智能体，并隐式获得任务分配能力。",
+    }),
+    canAssignTasks: textFor(uiLanguage, { en: "Can assign tasks", "zh-CN": "可分配任务" }),
+  };
 
   return (
     <div className="space-y-6">
@@ -1619,13 +1754,13 @@ function ConfigurationTab({
       />
 
       <div>
-        <h3 className="text-sm font-medium mb-3">Permissions</h3>
+        <h3 className="text-sm font-medium mb-3">{copy.permissions}</h3>
         <div className="border border-border rounded-lg p-4 space-y-4">
           <div className="flex items-center justify-between gap-4 text-sm">
             <div className="space-y-1">
-              <div>Can create new agents</div>
+              <div>{copy.canCreateAgents}</div>
               <p className="text-xs text-muted-foreground">
-                Lets this agent create or hire agents and implicitly assign tasks.
+                {copy.canCreateAgentsHint}
               </p>
             </div>
             <ToggleSwitch
@@ -1641,7 +1776,7 @@ function ConfigurationTab({
           </div>
           <div className="flex items-center justify-between gap-4 text-sm">
             <div className="space-y-1">
-              <div>Can assign tasks</div>
+              <div>{copy.canAssignTasks}</div>
               <p className="text-xs text-muted-foreground">
                 {taskAssignHint}
               </p>
@@ -1682,6 +1817,7 @@ function PromptsTab({
 }) {
   const queryClient = useQueryClient();
   const { selectedCompanyId } = useCompany();
+  const { uiLanguage } = useGeneralSettings();
   const { isMobile } = useSidebar();
   const [selectedFile, setSelectedFile] = useState<string>("AGENTS.md");
   const [showFilePanel, setShowFilePanel] = useState(false);
@@ -1971,12 +2107,33 @@ function PromptsTab({
     document.body.style.cursor = "col-resize";
     document.body.style.userSelect = "none";
   }, [filePanelWidth]);
+  const copy = {
+    localOnly: textFor(uiLanguage, { en: "Instructions bundles are only available for local adapters.", "zh-CN": "说明文件包仅适用于本地适配器。" }),
+    advanced: textFor(uiLanguage, { en: "Advanced", "zh-CN": "高级" }),
+    mode: textFor(uiLanguage, { en: "Mode", "zh-CN": "模式" }),
+    managed: textFor(uiLanguage, { en: "Managed", "zh-CN": "托管" }),
+    external: textFor(uiLanguage, { en: "External", "zh-CN": "外部" }),
+    rootPath: textFor(uiLanguage, { en: "Root path", "zh-CN": "根路径" }),
+    managedShort: textFor(uiLanguage, { en: "(managed)", "zh-CN": "（托管）" }),
+    entryFile: textFor(uiLanguage, { en: "Entry file", "zh-CN": "入口文件" }),
+    files: textFor(uiLanguage, { en: "Files", "zh-CN": "文件" }),
+    create: textFor(uiLanguage, { en: "Create", "zh-CN": "创建" }),
+    cancel: textFor(uiLanguage, { en: "Cancel", "zh-CN": "取消" }),
+    virtualFile: textFor(uiLanguage, { en: "virtual file", "zh-CN": "虚拟文件" }),
+    entry: textFor(uiLanguage, { en: "entry", "zh-CN": "入口" }),
+    deprecatedVirtualFile: textFor(uiLanguage, { en: "Deprecated virtual file", "zh-CN": "已弃用的虚拟文件" }),
+    newBundleFile: textFor(uiLanguage, { en: "New file in this bundle", "zh-CN": "该文件包中的新文件" }),
+    delete: textFor(uiLanguage, { en: "Delete", "zh-CN": "删除" }),
+    deleteConfirm: textFor(uiLanguage, { en: "Delete", "zh-CN": "删除" }),
+    agentInstructions: textFor(uiLanguage, { en: "Agent instructions", "zh-CN": "智能体说明" }),
+    fileContents: textFor(uiLanguage, { en: "File contents", "zh-CN": "文件内容" }),
+  };
 
   if (!isLocal) {
     return (
       <div className="max-w-3xl">
         <p className="text-sm text-muted-foreground">
-          Instructions bundles are only available for local adapters.
+          {copy.localOnly}
         </p>
       </div>
     );
@@ -2001,14 +2158,14 @@ function PromptsTab({
       <Collapsible defaultOpen={currentMode === "external"}>
         <CollapsibleTrigger className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors group">
           <ChevronRight className="h-3 w-3 transition-transform group-data-[state=open]:rotate-90" />
-          Advanced
+          {copy.advanced}
         </CollapsibleTrigger>
         <CollapsibleContent className="pt-4 pb-6">
           <TooltipProvider>
             <div className="grid gap-x-6 gap-y-4 sm:grid-cols-[auto_1fr_1fr]">
               <label className="space-y-1.5">
                 <span className="text-xs font-medium text-muted-foreground flex items-center gap-1">
-                  Mode
+                  {copy.mode}
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <HelpCircle className="h-3 w-3 text-muted-foreground cursor-help" />
@@ -2040,7 +2197,7 @@ function PromptsTab({
                       setSelectedFile(nextEntryFile);
                     }}
                   >
-                    Managed
+                    {copy.managed}
                   </Button>
                   <Button
                     type="button"
@@ -2057,13 +2214,13 @@ function PromptsTab({
                       setSelectedFile(externalBundle?.selectedFile ?? nextEntryFile);
                     }}
                   >
-                    External
+                    {copy.external}
                   </Button>
                 </div>
               </label>
               <label className="space-y-1.5 min-w-0">
                 <span className="text-xs font-medium text-muted-foreground flex items-center gap-1">
-                  Root path
+                  {copy.rootPath}
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <HelpCircle className="h-3 w-3 text-muted-foreground cursor-help" />
@@ -2075,7 +2232,7 @@ function PromptsTab({
                 </span>
                 {currentMode === "managed" ? (
                   <div className="flex items-center gap-1.5 font-mono text-xs text-muted-foreground pt-1.5">
-                    <span className="min-w-0 truncate" title={currentRootPath || undefined}>{currentRootPath || "(managed)"}</span>
+                    <span className="min-w-0 truncate" title={currentRootPath || undefined}>{currentRootPath || copy.managedShort}</span>
                     {currentRootPath && (
                       <CopyText text={currentRootPath} className="shrink-0">
                         <Copy className="h-3.5 w-3.5" />
@@ -2112,7 +2269,7 @@ function PromptsTab({
               </label>
               <label className="space-y-1.5">
                 <span className="text-xs font-medium text-muted-foreground flex items-center gap-1">
-                  Entry file
+                  {copy.entryFile}
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <HelpCircle className="h-3 w-3 text-muted-foreground cursor-help" />
@@ -2152,13 +2309,13 @@ function PromptsTab({
       </Collapsible>
 
       <div ref={containerRef} className={cn("flex gap-0", isMobile && "flex-col gap-3")}>
-        <div className={cn(
-          "border border-border rounded-lg p-3 space-y-3 shrink-0",
+          <div className={cn(
+            "border border-border rounded-lg p-3 space-y-3 shrink-0",
           isMobile && showFilePanel && "block",
           isMobile && !showFilePanel && "hidden",
         )} style={isMobile ? undefined : { width: filePanelWidth }}>
           <div className="flex items-center justify-between">
-            <h4 className="text-sm font-medium">Files</h4>
+            <h4 className="text-sm font-medium">{copy.files}</h4>
             <div className="flex items-center gap-1">
               {!showNewFileInput && (
                 <Button
@@ -2216,7 +2373,7 @@ function PromptsTab({
                     setShowNewFileInput(false);
                   }}
                 >
-                  Create
+                  {copy.create}
                 </Button>
                 <Button
                   type="button"
@@ -2228,7 +2385,7 @@ function PromptsTab({
                     setNewFilePath("");
                   }}
                 >
-                  Cancel
+                  {copy.cancel}
                 </Button>
               </div>
             </div>
@@ -2259,7 +2416,7 @@ function PromptsTab({
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <span className="ml-3 shrink-0 rounded border border-amber-500/40 bg-amber-500/10 text-amber-200 px-1.5 py-0.5 text-[10px] uppercase tracking-wide cursor-help">
-                        virtual file
+                        {copy.virtualFile}
                       </span>
                     </TooltipTrigger>
                     <TooltipContent side="right" sideOffset={4}>
@@ -2270,7 +2427,7 @@ function PromptsTab({
               }
               return (
                 <span className="ml-3 shrink-0 rounded border border-border text-muted-foreground px-1.5 py-0.5 text-[10px] uppercase tracking-wide">
-                  {file.isEntryFile ? "entry" : `${file.size}b`}
+                  {file.isEntryFile ? copy.entry : `${file.size}b`}
                 </span>
               );
             }}
@@ -2304,9 +2461,9 @@ function PromptsTab({
                 <p className="text-xs text-muted-foreground">
                   {selectedFileExists
                     ? selectedFileSummary?.deprecated
-                      ? "Deprecated virtual file"
-                      : `${selectedFileDetail?.language ?? "text"} file`
-                    : "New file in this bundle"}
+                      ? copy.deprecatedVirtualFile
+                      : `${selectedFileDetail?.language ?? "text"} ${textFor(uiLanguage, { en: "file", "zh-CN": "文件" })}`
+                    : copy.newBundleFile}
                 </p>
               </div>
             </div>
@@ -2316,7 +2473,7 @@ function PromptsTab({
                 size="sm"
                 variant="outline"
                 onClick={() => {
-                  if (confirm(`Delete ${selectedOrEntryFile}?`)) {
+                  if (confirm(uiLanguage === "zh-CN" ? `删除 ${selectedOrEntryFile}？` : `Delete ${selectedOrEntryFile}?`)) {
                     deleteFile.mutate(selectedOrEntryFile, {
                       onSuccess: () => {
                         setSelectedFile(currentEntryFile);
@@ -2327,7 +2484,7 @@ function PromptsTab({
                 }}
                 disabled={deleteFile.isPending}
               >
-                Delete
+                {copy.delete}
               </Button>
             )}
           </div>
@@ -2339,7 +2496,7 @@ function PromptsTab({
               key={selectedOrEntryFile}
               value={displayValue}
               onChange={(value) => setDraft(value ?? "")}
-              placeholder="# Agent instructions"
+              placeholder={`# ${copy.agentInstructions}`}
               contentClassName="min-h-[420px] text-sm font-mono"
               imageUploadHandler={async (file) => {
                 const namespace = `agents/${agent.id}/instructions/${selectedOrEntryFile.replaceAll("/", "-")}`;
@@ -2352,7 +2509,7 @@ function PromptsTab({
               value={displayValue}
               onChange={(event) => setDraft(event.target.value)}
               className="min-h-[420px] w-full rounded-md border border-border bg-transparent px-3 py-2 font-mono text-sm outline-none"
-              placeholder="File contents"
+              placeholder={copy.fileContents}
             />
           )}
         </div>
@@ -2436,6 +2593,7 @@ function AgentSkillsTab({
     adapterEntry: AgentSkillEntry | null;
   };
 
+  const { uiLanguage } = useGeneralSettings();
   const queryClient = useQueryClient();
   const [skillDraft, setSkillDraft] = useState<string[]>([]);
   const [lastSavedSkills, setLastSavedSkills] = useState<string[]>([]);
@@ -2588,28 +2746,48 @@ function AgentSkillsTab({
   const skillApplicationLabel = useMemo(() => {
     switch (skillSnapshot?.mode) {
       case "persistent":
-        return "Kept in the workspace";
+        return textFor(uiLanguage, { en: "Kept in the workspace", "zh-CN": "保留在工作区中" });
       case "ephemeral":
-        return "Applied when the agent runs";
+        return textFor(uiLanguage, { en: "Applied when the agent runs", "zh-CN": "在智能体运行时应用" });
       case "unsupported":
-        return "Tracked only";
+        return textFor(uiLanguage, { en: "Tracked only", "zh-CN": "仅跟踪，不管理" });
       default:
-        return "Unknown";
+        return textFor(uiLanguage, { en: "Unknown", "zh-CN": "未知" });
     }
-  }, [skillSnapshot?.mode]);
+  }, [skillSnapshot?.mode, uiLanguage]);
   const unsupportedSkillMessage = useMemo(() => {
     if (skillSnapshot?.mode !== "unsupported") return null;
     if (agent.adapterType === "openclaw_gateway") {
-      return "Paperclip cannot manage OpenClaw skills here. Visit your OpenClaw instance to manage this agent's skills.";
+      return textFor(uiLanguage, {
+        en: "Paperclip cannot manage OpenClaw skills here. Visit your OpenClaw instance to manage this agent's skills.",
+        "zh-CN": "Paperclip 无法在这里管理 OpenClaw 技能。请前往你的 OpenClaw 实例管理该智能体的技能。",
+      });
     }
-    return "Paperclip cannot manage skills for this adapter yet. Manage them in the adapter directly.";
-  }, [agent.adapterType, skillSnapshot?.mode]);
+    return textFor(uiLanguage, {
+      en: "Paperclip cannot manage skills for this adapter yet. Manage them in the adapter directly.",
+      "zh-CN": "Paperclip 目前还不能管理这个适配器的技能，请直接在适配器中管理。",
+    });
+  }, [agent.adapterType, skillSnapshot?.mode, uiLanguage]);
   const hasUnsavedChanges = !arraysEqual(skillDraft, lastSavedSkills);
   const saveStatusLabel = syncSkills.isPending
-    ? "Saving changes..."
+    ? textFor(uiLanguage, { en: "Saving changes...", "zh-CN": "正在保存更改..." })
     : hasUnsavedChanges
-      ? "Saving soon..."
+      ? textFor(uiLanguage, { en: "Saving soon...", "zh-CN": "即将保存..." })
       : null;
+  const copy = {
+    viewCompanySkills: textFor(uiLanguage, { en: "View company skills library", "zh-CN": "查看公司技能库" }),
+    view: textFor(uiLanguage, { en: "View", "zh-CN": "查看" }),
+    location: textFor(uiLanguage, { en: "Location", "zh-CN": "位置" }),
+    manageInAdapter: textFor(uiLanguage, { en: "Manage skills in the adapter directly.", "zh-CN": "请直接在适配器中管理技能。" }),
+    importFirst: textFor(uiLanguage, { en: "Import skills into the company library first, then attach them here.", "zh-CN": "请先将技能导入公司技能库，然后再在这里附加。" }),
+    requiredByPaperclip: textFor(uiLanguage, { en: "Required by Paperclip", "zh-CN": "由 Paperclip 强制要求" }),
+    userInstalledSkills: textFor(uiLanguage, { en: "User-installed skills, not managed by Paperclip", "zh-CN": "用户安装的技能，不由 Paperclip 管理" }),
+    missingRequestedSkills: textFor(uiLanguage, { en: "Requested skills missing from the company library", "zh-CN": "请求的技能未出现在公司技能库中" }),
+    adapter: textFor(uiLanguage, { en: "Adapter", "zh-CN": "适配器" }),
+    skillsApplied: textFor(uiLanguage, { en: "Skills applied", "zh-CN": "技能应用方式" }),
+    selectedSkills: textFor(uiLanguage, { en: "Selected skills", "zh-CN": "已选技能" }),
+    updateFailed: textFor(uiLanguage, { en: "Failed to update skills", "zh-CN": "更新技能失败" }),
+  };
 
   return (
     <div className="max-w-4xl space-y-5">
@@ -2618,7 +2796,7 @@ function AgentSkillsTab({
           to="/skills"
           className="text-sm font-medium text-foreground underline-offset-4 no-underline transition-colors hover:text-foreground/70 hover:underline"
         >
-          View company skills library
+          {copy.viewCompanySkills}
         </Link>
         {saveStatusLabel ? (
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -2665,7 +2843,7 @@ function AgentSkillsTab({
                         to={skill.linkTo}
                         className="shrink-0 text-xs text-muted-foreground no-underline hover:text-foreground"
                       >
-                        View
+                        {copy.view}
                       </Link>
                     ) : null}
                   </div>
@@ -2678,7 +2856,7 @@ function AgentSkillsTab({
                     <p className="mt-1 text-xs text-muted-foreground">{skill.originLabel}</p>
                   )}
                   {skill.readOnly && skill.locationLabel && (
-                    <p className="mt-1 text-xs text-muted-foreground">Location: {skill.locationLabel}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">{copy.location}: {skill.locationLabel}</p>
                   )}
                   {skill.detail && (
                     <p className="mt-1 text-xs text-muted-foreground">{skill.detail}</p>
@@ -2727,7 +2905,7 @@ function AgentSkillsTab({
                         <span>{checkbox}</span>
                       </TooltipTrigger>
                       <TooltipContent side="top">
-                        {unsupportedSkillMessage ?? "Manage skills in the adapter directly."}
+                        {unsupportedSkillMessage ?? copy.manageInAdapter}
                       </TooltipContent>
                     </Tooltip>
                   ) : (
@@ -2742,7 +2920,7 @@ function AgentSkillsTab({
               return (
                 <section className="border-y border-border">
                   <div className="px-3 py-6 text-sm text-muted-foreground">
-                    Import skills into the company library first, then attach them here.
+                    {copy.importFirst}
                   </div>
                 </section>
               );
@@ -2760,7 +2938,7 @@ function AgentSkillsTab({
                   <section className="border-y border-border">
                     <div className="border-b border-border bg-muted/40 px-3 py-2">
                       <span className="text-xs font-medium text-muted-foreground">
-                        Required by Paperclip
+                        {copy.requiredByPaperclip}
                       </span>
                     </div>
                     {requiredSkillRows.map(renderSkillRow)}
@@ -2777,7 +2955,7 @@ function AgentSkillsTab({
                       onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setUnmanagedOpen((v) => !v); } }}
                     >
                       <span className="text-xs font-medium text-muted-foreground">
-                        ({unmanagedSkillRows.length}) User-installed skills, not managed by Paperclip
+                        ({unmanagedSkillRows.length}) {copy.userInstalledSkills}
                       </span>
                       {unmanagedOpen ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />}
                     </div>
@@ -2790,7 +2968,7 @@ function AgentSkillsTab({
 
           {desiredOnlyMissingSkills.length > 0 && (
             <div className="rounded-xl border border-amber-300/60 bg-amber-50/60 px-4 py-3 text-sm text-amber-800 dark:border-amber-500/30 dark:bg-amber-950/20 dark:text-amber-200">
-              <div className="font-medium">Requested skills missing from the company library</div>
+              <div className="font-medium">{copy.missingRequestedSkills}</div>
               <div className="mt-1 text-xs">
                 {desiredOnlyMissingSkills.join(", ")}
               </div>
@@ -2800,22 +2978,22 @@ function AgentSkillsTab({
           <section className="border-t border-border pt-4">
             <div className="grid gap-2 text-sm sm:grid-cols-2">
               <div className="flex items-center justify-between gap-3 border-b border-border/60 py-2">
-                <span className="text-muted-foreground">Adapter</span>
+                <span className="text-muted-foreground">{copy.adapter}</span>
                 <span className="font-medium">{adapterLabels[agent.adapterType] ?? agent.adapterType}</span>
               </div>
               <div className="flex items-center justify-between gap-3 border-b border-border/60 py-2">
-                <span className="text-muted-foreground">Skills applied</span>
+                <span className="text-muted-foreground">{copy.skillsApplied}</span>
                 <span>{skillApplicationLabel}</span>
               </div>
               <div className="flex items-center justify-between gap-3 border-b border-border/60 py-2">
-                <span className="text-muted-foreground">Selected skills</span>
+                <span className="text-muted-foreground">{copy.selectedSkills}</span>
                 <span>{skillDraft.length}</span>
               </div>
             </div>
 
             {syncSkills.isError && (
               <p className="mt-3 text-xs text-destructive">
-                {syncSkills.error instanceof Error ? syncSkills.error.message : "Failed to update skills"}
+                {syncSkills.error instanceof Error ? syncSkills.error.message : copy.updateFailed}
               </p>
             )}
           </section>
@@ -2828,6 +3006,7 @@ function AgentSkillsTab({
 /* ---- Runs Tab ---- */
 
 function RunListItem({ run, isSelected, agentId }: { run: HeartbeatRun; isSelected: boolean; agentId: string }) {
+  const { uiLanguage } = useGeneralSettings();
   const statusInfo = runStatusIcons[run.status] ?? { icon: Clock, color: "text-neutral-400" };
   const StatusIcon = statusInfo.icon;
   const metrics = runMetrics(run);
@@ -2855,7 +3034,7 @@ function RunListItem({ run, isSelected, agentId }: { run: HeartbeatRun; isSelect
             : run.invocationSource === "on_demand" ? "bg-cyan-100 text-cyan-700 dark:bg-cyan-900/50 dark:text-cyan-300"
             : "bg-muted text-muted-foreground"
         )}>
-          {sourceLabels[run.invocationSource] ?? run.invocationSource}
+          {sourceLabel(run.invocationSource, uiLanguage)}
         </span>
         <span className="ml-auto text-[11px] text-muted-foreground shrink-0">
           {relativeTime(run.createdAt)}
@@ -2868,7 +3047,7 @@ function RunListItem({ run, isSelected, agentId }: { run: HeartbeatRun; isSelect
       )}
       {(metrics.totalTokens > 0 || metrics.cost > 0) && (
         <div className="flex items-center gap-2 pl-5.5 text-[11px] text-muted-foreground tabular-nums">
-          {metrics.totalTokens > 0 && <span>{formatTokens(metrics.totalTokens)} tok</span>}
+          {metrics.totalTokens > 0 && <span>{formatTokens(metrics.totalTokens)} {textFor(uiLanguage, { en: "tok", "zh-CN": "令牌" })}</span>}
           {metrics.cost > 0 && <span>${metrics.cost.toFixed(3)}</span>}
         </div>
       )}
@@ -2893,10 +3072,11 @@ function RunsTab({
   adapterType: string;
   adapterConfig: Record<string, unknown>;
 }) {
+  const { uiLanguage } = useGeneralSettings();
   const { isMobile } = useSidebar();
 
   if (runs.length === 0) {
-    return <p className="text-sm text-muted-foreground">No runs yet.</p>;
+    return <p className="text-sm text-muted-foreground">{textFor(uiLanguage, { en: "No runs yet.", "zh-CN": "还没有运行记录。" })}</p>;
   }
 
   // Sort by created descending
@@ -2918,7 +3098,7 @@ function RunsTab({
             className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors no-underline"
           >
             <ArrowLeft className="h-3.5 w-3.5" />
-            Back to runs
+            {textFor(uiLanguage, { en: "Back to runs", "zh-CN": "返回运行记录" })}
           </Link>
           <RunDetail key={selectedRun.id} run={selectedRun} agentRouteId={agentRouteId} adapterType={adapterType} adapterConfig={adapterConfig} />
         </div>
@@ -2961,6 +3141,7 @@ function RunsTab({
 /* ---- Run Detail (expanded) ---- */
 
 function RunDetail({ run: initialRun, agentRouteId, adapterType, adapterConfig }: { run: HeartbeatRun; agentRouteId: string; adapterType: string; adapterConfig: Record<string, unknown> }) {
+  const { uiLanguage } = useGeneralSettings();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const { data: hydratedRun } = useQuery({
@@ -3009,7 +3190,7 @@ function RunDetail({ run: initialRun, agentRouteId, adapterType, adapterConfig }
         payload: resumePayload,
       }, run.companyId);
       if (!("id" in result)) {
-        throw new Error(result.message ?? "Resume request was skipped.");
+        throw new Error(result.message ?? textFor(uiLanguage, { en: "Resume request was skipped.", "zh-CN": "恢复请求被跳过。" }));
       }
       return result;
     },
@@ -3041,7 +3222,7 @@ function RunDetail({ run: initialRun, agentRouteId, adapterType, adapterConfig }
         payload: retryPayload,
       }, run.companyId);
       if (!("id" in result)) {
-        throw new Error(result.message ?? "Retry was skipped.");
+        throw new Error(result.message ?? textFor(uiLanguage, { en: "Retry was skipped.", "zh-CN": "重试被跳过。" }));
       }
       return result;
     },
@@ -3097,8 +3278,8 @@ function RunDetail({ run: initialRun, agentRouteId, adapterType, adapterConfig }
   }, [isRunning, run.startedAt]);
 
   const timeFormat: Intl.DateTimeFormatOptions = { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false };
-  const startTime = run.startedAt ? new Date(run.startedAt).toLocaleTimeString("en-US", timeFormat) : null;
-  const endTime = run.finishedAt ? new Date(run.finishedAt).toLocaleTimeString("en-US", timeFormat) : null;
+  const startTime = run.startedAt ? new Date(run.startedAt).toLocaleTimeString(uiLanguage === "zh-CN" ? "zh-CN" : "en-US", timeFormat) : null;
+  const endTime = run.finishedAt ? new Date(run.finishedAt).toLocaleTimeString(uiLanguage === "zh-CN" ? "zh-CN" : "en-US", timeFormat) : null;
   const durationSec = run.startedAt && run.finishedAt
     ? Math.round((new Date(run.finishedAt).getTime() - new Date(run.startedAt).getTime()) / 1000)
     : null;
@@ -3108,6 +3289,51 @@ function RunDetail({ run: initialRun, agentRouteId, adapterType, adapterConfig }
   const sessionChanged = run.sessionIdBefore && run.sessionIdAfter && run.sessionIdBefore !== run.sessionIdAfter;
   const sessionId = run.sessionIdAfter || run.sessionIdBefore;
   const hasNonZeroExit = run.exitCode !== null && run.exitCode !== 0;
+  const copy = {
+    cancelling: textFor(uiLanguage, { en: "Cancelling…", "zh-CN": "取消中…" }),
+    cancel: textFor(uiLanguage, { en: "Cancel", "zh-CN": "取消" }),
+    resuming: textFor(uiLanguage, { en: "Resuming…", "zh-CN": "恢复中…" }),
+    resume: textFor(uiLanguage, { en: "Resume", "zh-CN": "恢复" }),
+    retrying: textFor(uiLanguage, { en: "Retrying…", "zh-CN": "重试中…" }),
+    retry: textFor(uiLanguage, { en: "Retry", "zh-CN": "重试" }),
+    resumeFailed: textFor(uiLanguage, { en: "Failed to resume run", "zh-CN": "恢复运行失败" }),
+    retryFailed: textFor(uiLanguage, { en: "Failed to retry run", "zh-CN": "重试运行失败" }),
+    duration: textFor(uiLanguage, { en: "Duration", "zh-CN": "耗时" }),
+    runningClaudeLogin: textFor(uiLanguage, { en: "Running claude login...", "zh-CN": "正在执行 Claude 登录..." }),
+    loginToClaude: textFor(uiLanguage, { en: "Login to Claude Code", "zh-CN": "登录 Claude Code" }),
+    claudeLoginFailed: textFor(uiLanguage, { en: "Failed to run Claude login", "zh-CN": "执行 Claude 登录失败" }),
+    loginUrl: textFor(uiLanguage, { en: "Login URL", "zh-CN": "登录链接" }),
+    signal: textFor(uiLanguage, { en: "signal", "zh-CN": "信号" }),
+    input: textFor(uiLanguage, { en: "Input", "zh-CN": "输入" }),
+    output: textFor(uiLanguage, { en: "Output", "zh-CN": "输出" }),
+    cached: textFor(uiLanguage, { en: "Cached", "zh-CN": "缓存" }),
+    cost: textFor(uiLanguage, { en: "Cost", "zh-CN": "成本" }),
+    session: textFor(uiLanguage, { en: "Session", "zh-CN": "会话" }),
+    changed: textFor(uiLanguage, { en: "changed", "zh-CN": "已变化" }),
+    before: textFor(uiLanguage, { en: "Before", "zh-CN": "之前" }),
+    id: "ID",
+    after: textFor(uiLanguage, { en: "After", "zh-CN": "之后" }),
+    clearSessionConfirm: textFor(uiLanguage, {
+      en: "Clear session for these issues touched by this run?",
+      "zh-CN": "要清除此运行触及的这些任务的会话吗？",
+    }),
+    clearSessionSingle: textFor(uiLanguage, {
+      en: "Clear session for 1 issue touched by this run?",
+      "zh-CN": "要清除此运行触及的 1 个任务的会话吗？",
+    }),
+    clearSessionPluralPrefix: textFor(uiLanguage, {
+      en: "Clear session for",
+      "zh-CN": "要清除此运行触及的",
+    }),
+    clearSessionPluralSuffix: textFor(uiLanguage, {
+      en: "issues touched by this run?",
+      "zh-CN": "个任务的会话吗？",
+    }),
+    clearingSession: textFor(uiLanguage, { en: "clearing session...", "zh-CN": "正在清除会话..." }),
+    clearSessionForIssues: textFor(uiLanguage, { en: "clear session for these issues", "zh-CN": "清除这些任务的会话" }),
+    clearSessionsFailed: textFor(uiLanguage, { en: "Failed to clear sessions", "zh-CN": "清除会话失败" }),
+    issuesTouched: textFor(uiLanguage, { en: "Issues Touched", "zh-CN": "触及的任务" }),
+  };
 
   return (
     <div className="space-y-4 min-w-0">
@@ -3126,7 +3352,7 @@ function RunDetail({ run: initialRun, agentRouteId, adapterType, adapterConfig }
                   onClick={() => cancelRun.mutate()}
                   disabled={cancelRun.isPending}
                 >
-                  {cancelRun.isPending ? "Cancelling…" : "Cancel"}
+                  {cancelRun.isPending ? copy.cancelling : copy.cancel}
                 </Button>
               )}
               {canResumeLostRun && (
@@ -3138,7 +3364,7 @@ function RunDetail({ run: initialRun, agentRouteId, adapterType, adapterConfig }
                   disabled={resumeRun.isPending}
                 >
                   <RotateCcw className="h-3.5 w-3.5 mr-1" />
-                  {resumeRun.isPending ? "Resuming…" : "Resume"}
+                  {resumeRun.isPending ? copy.resuming : copy.resume}
                 </Button>
               )}
               {canRetryRun && !canResumeLostRun && (
@@ -3150,7 +3376,7 @@ function RunDetail({ run: initialRun, agentRouteId, adapterType, adapterConfig }
                   disabled={retryRun.isPending}
                 >
                   <RotateCcw className="h-3.5 w-3.5 mr-1" />
-                  {retryRun.isPending ? "Retrying…" : "Retry"}
+                  {retryRun.isPending ? copy.retrying : copy.retry}
                 </Button>
               )}
             </div>
@@ -3177,12 +3403,12 @@ function RunDetail({ run: initialRun, agentRouteId, adapterType, adapterConfig }
             })()}
             {resumeRun.isError && (
               <div className="text-xs text-destructive">
-                {resumeRun.error instanceof Error ? resumeRun.error.message : "Failed to resume run"}
+                {resumeRun.error instanceof Error ? resumeRun.error.message : copy.resumeFailed}
               </div>
             )}
             {retryRun.isError && (
               <div className="text-xs text-destructive">
-                {retryRun.error instanceof Error ? retryRun.error.message : "Failed to retry run"}
+                {retryRun.error instanceof Error ? retryRun.error.message : copy.retryFailed}
               </div>
             )}
             {startTime && (
@@ -3198,7 +3424,7 @@ function RunDetail({ run: initialRun, agentRouteId, adapterType, adapterConfig }
                 </div>
                 {displayDurationSec !== null && (
                   <div className="text-xs text-muted-foreground">
-                    Duration: {displayDurationSec >= 60 ? `${Math.floor(displayDurationSec / 60)}m ${displayDurationSec % 60}s` : `${displayDurationSec}s`}
+                    {copy.duration}: {displayDurationSec >= 60 ? `${Math.floor(displayDurationSec / 60)}m ${displayDurationSec % 60}s` : `${displayDurationSec}s`}
                   </div>
                 )}
               </div>
@@ -3218,18 +3444,18 @@ function RunDetail({ run: initialRun, agentRouteId, adapterType, adapterConfig }
                   onClick={() => runClaudeLogin.mutate()}
                   disabled={runClaudeLogin.isPending}
                 >
-                  {runClaudeLogin.isPending ? "Running claude login..." : "Login to Claude Code"}
+                  {runClaudeLogin.isPending ? copy.runningClaudeLogin : copy.loginToClaude}
                 </Button>
                 {runClaudeLogin.isError && (
                   <p className="text-xs text-destructive">
                     {runClaudeLogin.error instanceof Error
                       ? runClaudeLogin.error.message
-                      : "Failed to run Claude login"}
+                      : copy.claudeLoginFailed}
                   </p>
                 )}
                 {claudeLoginResult?.loginUrl && (
                   <p className="text-xs">
-                    Login URL:
+                    {copy.loginUrl}:
                     <a
                       href={claudeLoginResult.loginUrl}
                       className="text-blue-600 underline underline-offset-2 ml-1 break-all dark:text-blue-400"
@@ -3259,7 +3485,7 @@ function RunDetail({ run: initialRun, agentRouteId, adapterType, adapterConfig }
             {hasNonZeroExit && (
               <div className="text-xs text-red-600 dark:text-red-400">
                 Exit code {run.exitCode}
-                {run.signal && <span className="text-muted-foreground ml-1">(signal: {run.signal})</span>}
+                {run.signal && <span className="text-muted-foreground ml-1">({copy.signal}: {run.signal})</span>}
               </div>
             )}
           </div>
@@ -3268,19 +3494,19 @@ function RunDetail({ run: initialRun, agentRouteId, adapterType, adapterConfig }
           {hasMetrics && (
             <div className="border-t sm:border-t-0 sm:border-l border-border p-4 grid grid-cols-2 gap-x-4 sm:gap-x-8 gap-y-3 content-center tabular-nums">
               <div>
-                <div className="text-xs text-muted-foreground">Input</div>
+                <div className="text-xs text-muted-foreground">{copy.input}</div>
                 <div className="text-sm font-medium font-mono">{formatTokens(metrics.input)}</div>
               </div>
               <div>
-                <div className="text-xs text-muted-foreground">Output</div>
+                <div className="text-xs text-muted-foreground">{copy.output}</div>
                 <div className="text-sm font-medium font-mono">{formatTokens(metrics.output)}</div>
               </div>
               <div>
-                <div className="text-xs text-muted-foreground">Cached</div>
+                <div className="text-xs text-muted-foreground">{copy.cached}</div>
                 <div className="text-sm font-medium font-mono">{formatTokens(metrics.cached)}</div>
               </div>
               <div>
-                <div className="text-xs text-muted-foreground">Cost</div>
+                <div className="text-xs text-muted-foreground">{copy.cost}</div>
                 <div className="text-sm font-medium font-mono">{metrics.cost > 0 ? `$${metrics.cost.toFixed(4)}` : "-"}</div>
               </div>
             </div>
@@ -3295,20 +3521,20 @@ function RunDetail({ run: initialRun, agentRouteId, adapterType, adapterConfig }
               onClick={() => setSessionOpen((v) => !v)}
             >
               <ChevronRight className={cn("h-3 w-3 transition-transform", sessionOpen && "rotate-90")} />
-              Session
-              {sessionChanged && <span className="text-yellow-400 ml-1">(changed)</span>}
+              {copy.session}
+              {sessionChanged && <span className="text-yellow-400 ml-1">({copy.changed})</span>}
             </button>
             {sessionOpen && (
               <div className="px-4 pb-3 space-y-1 text-xs">
                 {run.sessionIdBefore && (
                   <div className="flex items-center gap-2">
-                    <span className="text-muted-foreground w-12">{sessionChanged ? "Before" : "ID"}</span>
+                    <span className="text-muted-foreground w-12">{sessionChanged ? copy.before : copy.id}</span>
                     <CopyText text={run.sessionIdBefore} className="font-mono" />
                   </div>
                 )}
                 {sessionChanged && run.sessionIdAfter && (
                   <div className="flex items-center gap-2">
-                    <span className="text-muted-foreground w-12">After</span>
+                    <span className="text-muted-foreground w-12">{copy.after}</span>
                     <CopyText text={run.sessionIdAfter} className="font-mono" />
                   </div>
                 )}
@@ -3320,22 +3546,24 @@ function RunDetail({ run: initialRun, agentRouteId, adapterType, adapterConfig }
                       disabled={clearSessionsForTouchedIssues.isPending}
                       onClick={() => {
                         const issueCount = touchedIssueIds.length;
-                        const confirmed = window.confirm(
-                          `Clear session for ${issueCount} issue${issueCount === 1 ? "" : "s"} touched by this run?`,
-                        );
+                        const confirmed = window.confirm(issueCount === 1
+                          ? copy.clearSessionSingle
+                          : uiLanguage === "zh-CN"
+                            ? `${copy.clearSessionPluralPrefix}${issueCount}${copy.clearSessionPluralSuffix}`
+                            : `${copy.clearSessionPluralPrefix} ${issueCount} issues touched by this run?`);
                         if (!confirmed) return;
                         clearSessionsForTouchedIssues.mutate();
                       }}
                     >
                       {clearSessionsForTouchedIssues.isPending
-                        ? "clearing session..."
-                        : "clear session for these issues"}
+                        ? copy.clearingSession
+                        : copy.clearSessionForIssues}
                     </button>
                     {clearSessionsForTouchedIssues.isError && (
                       <p className="text-[11px] text-destructive mt-1">
                         {clearSessionsForTouchedIssues.error instanceof Error
                           ? clearSessionsForTouchedIssues.error.message
-                          : "Failed to clear sessions"}
+                          : copy.clearSessionsFailed}
                       </p>
                     )}
                   </div>
@@ -3349,7 +3577,7 @@ function RunDetail({ run: initialRun, agentRouteId, adapterType, adapterConfig }
       {/* Issues touched by this run */}
       {touchedIssues && touchedIssues.length > 0 && (
         <div className="space-y-2">
-          <span className="text-xs font-medium text-muted-foreground">Issues Touched ({touchedIssues.length})</span>
+          <span className="text-xs font-medium text-muted-foreground">{copy.issuesTouched} ({touchedIssues.length})</span>
           <div className="border border-border rounded-lg divide-y divide-border">
             {touchedIssues.map((issue) => (
               <Link
@@ -3394,6 +3622,7 @@ function RunDetail({ run: initialRun, agentRouteId, adapterType, adapterConfig }
 /* ---- Log Viewer ---- */
 
 function LogViewer({ run, adapterType }: { run: HeartbeatRun; adapterType: string }) {
+  const { uiLanguage } = useGeneralSettings();
   const [events, setEvents] = useState<HeartbeatRunEvent[]>([]);
   const [logLines, setLogLines] = useState<Array<{ ts: string; stream: "stdout" | "stderr" | "system"; chunk: string }>>([]);
   const [loading, setLoading] = useState(true);
@@ -3782,13 +4011,28 @@ function LogViewer({ run, adapterType }: { run: HeartbeatRun; adapterType: strin
   useEffect(() => {
     setTranscriptMode("nice");
   }, [run.id]);
+  const copy = {
+    loadingRunLogs: textFor(uiLanguage, { en: "Loading run logs...", "zh-CN": "正在加载运行日志..." }),
+    noLogEvents: textFor(uiLanguage, { en: "No log events.", "zh-CN": "没有日志事件。" }),
+    transcript: textFor(uiLanguage, { en: "Transcript", "zh-CN": "转录" }),
+    jumpToLive: textFor(uiLanguage, { en: "Jump to live", "zh-CN": "跳到最新" }),
+    live: textFor(uiLanguage, { en: "Live", "zh-CN": "实时" }),
+    waitingForTranscript: textFor(uiLanguage, { en: "Waiting for transcript...", "zh-CN": "等待转录内容..." }),
+    noPersistedTranscript: textFor(uiLanguage, { en: "No persisted transcript for this run.", "zh-CN": "该运行没有已持久化的转录内容。" }),
+    failureDetails: textFor(uiLanguage, { en: "Failure details", "zh-CN": "失败详情" }),
+    error: textFor(uiLanguage, { en: "Error", "zh-CN": "错误" }),
+    stderrExcerpt: textFor(uiLanguage, { en: "stderr excerpt", "zh-CN": "stderr 摘录" }),
+    adapterResultJson: textFor(uiLanguage, { en: "adapter result JSON", "zh-CN": "适配器结果 JSON" }),
+    stdoutExcerpt: textFor(uiLanguage, { en: "stdout excerpt", "zh-CN": "stdout 摘录" }),
+    events: textFor(uiLanguage, { en: "Events", "zh-CN": "事件" }),
+  };
 
   if (loading && logLoading) {
-    return <p className="text-xs text-muted-foreground">Loading run logs...</p>;
+    return <p className="text-xs text-muted-foreground">{copy.loadingRunLogs}</p>;
   }
 
   if (events.length === 0 && logLines.length === 0 && !logError) {
-    return <p className="text-xs text-muted-foreground">No log events.</p>;
+    return <p className="text-xs text-muted-foreground">{copy.noLogEvents}</p>;
   }
 
   const levelColors: Record<string, string> = {
@@ -3815,7 +4059,7 @@ function LogViewer({ run, adapterType }: { run: HeartbeatRun; adapterType: strin
 
       <div className="flex items-center justify-between">
         <span className="text-xs font-medium text-muted-foreground">
-          Transcript ({transcript.length})
+          {copy.transcript} ({transcript.length})
         </span>
         <div className="flex items-center gap-2">
           <div className="inline-flex rounded-lg border border-border/70 bg-background/70 p-0.5">
@@ -3847,7 +4091,7 @@ function LogViewer({ run, adapterType }: { run: HeartbeatRun; adapterType: strin
                 lastMetricsRef.current = readScrollMetrics(container);
               }}
             >
-              Jump to live
+              {copy.jumpToLive}
             </Button>
           )}
           {isLive && (
@@ -3856,7 +4100,7 @@ function LogViewer({ run, adapterType }: { run: HeartbeatRun; adapterType: strin
                 <span className="animate-pulse absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75" />
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-cyan-400" />
               </span>
-              Live
+              {copy.live}
             </span>
           )}
         </div>
@@ -3866,7 +4110,7 @@ function LogViewer({ run, adapterType }: { run: HeartbeatRun; adapterType: strin
           entries={transcript}
           mode={transcriptMode}
           streaming={isLive}
-          emptyMessage={run.logRef ? "Waiting for transcript..." : "No persisted transcript for this run."}
+          emptyMessage={run.logRef ? copy.waitingForTranscript : copy.noPersistedTranscript}
         />
         {logError && (
           <div className="mt-3 rounded-xl border border-red-500/20 bg-red-500/[0.06] px-3 py-2 text-xs text-red-700 dark:text-red-300">
@@ -3878,16 +4122,16 @@ function LogViewer({ run, adapterType }: { run: HeartbeatRun; adapterType: strin
 
       {(run.status === "failed" || run.status === "timed_out") && (
         <div className="rounded-lg border border-red-300 dark:border-red-500/30 bg-red-50 dark:bg-red-950/20 p-3 space-y-2">
-          <div className="text-xs font-medium text-red-700 dark:text-red-300">Failure details</div>
+          <div className="text-xs font-medium text-red-700 dark:text-red-300">{copy.failureDetails}</div>
           {run.error && (
             <div className="text-xs text-red-600 dark:text-red-200">
-              <span className="text-red-700 dark:text-red-300">Error: </span>
+              <span className="text-red-700 dark:text-red-300">{copy.error}: </span>
               {redactPathText(run.error, censorUsernameInLogs)}
             </div>
           )}
           {run.stderrExcerpt && run.stderrExcerpt.trim() && (
             <div>
-              <div className="text-xs text-red-700 dark:text-red-300 mb-1">stderr excerpt</div>
+              <div className="text-xs text-red-700 dark:text-red-300 mb-1">{copy.stderrExcerpt}</div>
               <pre className="bg-red-50 dark:bg-neutral-950 rounded-md p-2 text-xs overflow-x-auto whitespace-pre-wrap text-red-800 dark:text-red-100">
                 {redactPathText(run.stderrExcerpt, censorUsernameInLogs)}
               </pre>
@@ -3895,7 +4139,7 @@ function LogViewer({ run, adapterType }: { run: HeartbeatRun; adapterType: strin
           )}
           {run.resultJson && (
             <div>
-              <div className="text-xs text-red-700 dark:text-red-300 mb-1">adapter result JSON</div>
+              <div className="text-xs text-red-700 dark:text-red-300 mb-1">{copy.adapterResultJson}</div>
               <pre className="bg-red-50 dark:bg-neutral-950 rounded-md p-2 text-xs overflow-x-auto whitespace-pre-wrap text-red-800 dark:text-red-100">
                 {JSON.stringify(redactPathValue(run.resultJson, censorUsernameInLogs), null, 2)}
               </pre>
@@ -3903,7 +4147,7 @@ function LogViewer({ run, adapterType }: { run: HeartbeatRun; adapterType: strin
           )}
           {run.stdoutExcerpt && run.stdoutExcerpt.trim() && !run.resultJson && (
             <div>
-              <div className="text-xs text-red-700 dark:text-red-300 mb-1">stdout excerpt</div>
+              <div className="text-xs text-red-700 dark:text-red-300 mb-1">{copy.stdoutExcerpt}</div>
               <pre className="bg-red-50 dark:bg-neutral-950 rounded-md p-2 text-xs overflow-x-auto whitespace-pre-wrap text-red-800 dark:text-red-100">
                 {redactPathText(run.stdoutExcerpt, censorUsernameInLogs)}
               </pre>
@@ -3914,7 +4158,7 @@ function LogViewer({ run, adapterType }: { run: HeartbeatRun; adapterType: strin
 
       {events.length > 0 && (
         <div>
-          <div className="mb-2 text-xs font-medium text-muted-foreground">Events ({events.length})</div>
+          <div className="mb-2 text-xs font-medium text-muted-foreground">{copy.events} ({events.length})</div>
           <div className="bg-neutral-100 dark:bg-neutral-950 rounded-lg p-3 font-mono text-xs space-y-0.5">
             {events.map((evt) => {
               const color = evt.color
@@ -3925,7 +4169,7 @@ function LogViewer({ run, adapterType }: { run: HeartbeatRun; adapterType: strin
               return (
                 <div key={evt.id} className="flex gap-2">
                   <span className="text-neutral-400 dark:text-neutral-600 shrink-0 select-none w-16">
-                    {new Date(evt.createdAt).toLocaleTimeString("en-US", { hour12: false })}
+                    {new Date(evt.createdAt).toLocaleTimeString(uiLanguage === "zh-CN" ? "zh-CN" : "en-US", { hour12: false })}
                   </span>
                   <span className={cn("shrink-0 w-14", evt.stream ? (streamColors[evt.stream] ?? "text-neutral-500") : "text-neutral-500")}>
                     {evt.stream ? `[${evt.stream}]` : ""}
@@ -3950,6 +4194,7 @@ function LogViewer({ run, adapterType }: { run: HeartbeatRun; adapterType: strin
 /* ---- Keys Tab ---- */
 
 function KeysTab({ agentId, companyId }: { agentId: string; companyId?: string }) {
+  const { uiLanguage } = useGeneralSettings();
   const queryClient = useQueryClient();
   const [newKeyName, setNewKeyName] = useState("");
   const [newToken, setNewToken] = useState<string | null>(null);
@@ -3962,7 +4207,7 @@ function KeysTab({ agentId, companyId }: { agentId: string; companyId?: string }
   });
 
   const createKey = useMutation({
-    mutationFn: () => agentsApi.createKey(agentId, newKeyName.trim() || "Default", companyId),
+    mutationFn: () => agentsApi.createKey(agentId, newKeyName.trim() || copy.defaultKeyName, companyId),
     onSuccess: (data) => {
       setNewToken(data.token);
       setTokenVisible(true);
@@ -3987,6 +4232,29 @@ function KeysTab({ agentId, companyId }: { agentId: string; companyId?: string }
 
   const activeKeys = (keys ?? []).filter((k: AgentKey) => !k.revokedAt);
   const revokedKeys = (keys ?? []).filter((k: AgentKey) => k.revokedAt);
+  const copy = {
+    defaultKeyName: textFor(uiLanguage, { en: "Default", "zh-CN": "默认" }),
+    keyCreated: textFor(uiLanguage, { en: "API key created — copy it now, it will not be shown again.", "zh-CN": "API 密钥已创建，请立即复制，之后将不再显示。" }),
+    hide: textFor(uiLanguage, { en: "Hide", "zh-CN": "隐藏" }),
+    show: textFor(uiLanguage, { en: "Show", "zh-CN": "显示" }),
+    copy: textFor(uiLanguage, { en: "Copy", "zh-CN": "复制" }),
+    copied: textFor(uiLanguage, { en: "Copied!", "zh-CN": "已复制！" }),
+    dismiss: textFor(uiLanguage, { en: "Dismiss", "zh-CN": "关闭" }),
+    createApiKey: textFor(uiLanguage, { en: "Create API Key", "zh-CN": "创建 API 密钥" }),
+    apiKeyHint: textFor(uiLanguage, {
+      en: "API keys allow this agent to authenticate calls to the Paperclip server.",
+      "zh-CN": "API 密钥允许该智能体对 Paperclip 服务端进行鉴权调用。",
+    }),
+    keyNamePlaceholder: textFor(uiLanguage, { en: "Key name (e.g. production)", "zh-CN": "密钥名称（例如 production）" }),
+    create: textFor(uiLanguage, { en: "Create", "zh-CN": "创建" }),
+    loadingKeys: textFor(uiLanguage, { en: "Loading keys...", "zh-CN": "正在加载密钥..." }),
+    noActiveKeys: textFor(uiLanguage, { en: "No active API keys.", "zh-CN": "没有可用的 API 密钥。" }),
+    activeKeys: textFor(uiLanguage, { en: "Active Keys", "zh-CN": "有效密钥" }),
+    created: textFor(uiLanguage, { en: "Created", "zh-CN": "创建于" }),
+    revoke: textFor(uiLanguage, { en: "Revoke", "zh-CN": "吊销" }),
+    revokedKeys: textFor(uiLanguage, { en: "Revoked Keys", "zh-CN": "已吊销密钥" }),
+    revoked: textFor(uiLanguage, { en: "Revoked", "zh-CN": "吊销于" }),
+  };
 
   return (
     <div className="space-y-6">
@@ -3994,7 +4262,7 @@ function KeysTab({ agentId, companyId }: { agentId: string; companyId?: string }
       {newToken && (
         <div className="border border-yellow-300 dark:border-yellow-600/40 bg-yellow-50 dark:bg-yellow-500/5 rounded-lg p-4 space-y-2">
           <p className="text-sm font-medium text-yellow-700 dark:text-yellow-400">
-            API key created — copy it now, it will not be shown again.
+            {copy.keyCreated}
           </p>
           <div className="flex items-center gap-2">
             <code className="flex-1 bg-neutral-100 dark:bg-neutral-950 rounded px-3 py-1.5 text-xs font-mono text-green-700 dark:text-green-300 truncate">
@@ -4004,7 +4272,7 @@ function KeysTab({ agentId, companyId }: { agentId: string; companyId?: string }
               variant="ghost"
               size="icon-sm"
               onClick={() => setTokenVisible((v) => !v)}
-              title={tokenVisible ? "Hide" : "Show"}
+              title={tokenVisible ? copy.hide : copy.show}
             >
               {tokenVisible ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
             </Button>
@@ -4012,11 +4280,11 @@ function KeysTab({ agentId, companyId }: { agentId: string; companyId?: string }
               variant="ghost"
               size="icon-sm"
               onClick={copyToken}
-              title="Copy"
+              title={copy.copy}
             >
               <Copy className="h-3.5 w-3.5" />
             </Button>
-            {copied && <span className="text-xs text-green-400">Copied!</span>}
+            {copied && <span className="text-xs text-green-400">{copy.copied}</span>}
           </div>
           <Button
             variant="ghost"
@@ -4024,7 +4292,7 @@ function KeysTab({ agentId, companyId }: { agentId: string; companyId?: string }
             className="text-muted-foreground text-xs"
             onClick={() => setNewToken(null)}
           >
-            Dismiss
+            {copy.dismiss}
           </Button>
         </div>
       )}
@@ -4033,14 +4301,14 @@ function KeysTab({ agentId, companyId }: { agentId: string; companyId?: string }
       <div className="border border-border rounded-lg p-4 space-y-3">
         <h3 className="text-xs font-medium text-muted-foreground flex items-center gap-2">
           <Key className="h-3.5 w-3.5" />
-          Create API Key
+          {copy.createApiKey}
         </h3>
         <p className="text-xs text-muted-foreground">
-          API keys allow this agent to authenticate calls to the Paperclip server.
+          {copy.apiKeyHint}
         </p>
         <div className="flex items-center gap-2">
           <Input
-            placeholder="Key name (e.g. production)"
+            placeholder={copy.keyNamePlaceholder}
             value={newKeyName}
             onChange={(e) => setNewKeyName(e.target.value)}
             className="h-8 text-sm"
@@ -4054,22 +4322,22 @@ function KeysTab({ agentId, companyId }: { agentId: string; companyId?: string }
             disabled={createKey.isPending}
           >
             <Plus className="h-3.5 w-3.5 mr-1" />
-            Create
+            {copy.create}
           </Button>
         </div>
       </div>
 
       {/* Active keys */}
-      {isLoading && <p className="text-sm text-muted-foreground">Loading keys...</p>}
+      {isLoading && <p className="text-sm text-muted-foreground">{copy.loadingKeys}</p>}
 
       {!isLoading && activeKeys.length === 0 && !newToken && (
-        <p className="text-sm text-muted-foreground">No active API keys.</p>
+        <p className="text-sm text-muted-foreground">{copy.noActiveKeys}</p>
       )}
 
       {activeKeys.length > 0 && (
         <div>
           <h3 className="text-xs font-medium text-muted-foreground mb-2">
-            Active Keys
+            {copy.activeKeys}
           </h3>
           <div className="border border-border rounded-lg divide-y divide-border">
             {activeKeys.map((key: AgentKey) => (
@@ -4077,7 +4345,7 @@ function KeysTab({ agentId, companyId }: { agentId: string; companyId?: string }
                 <div>
                   <span className="text-sm font-medium">{key.name}</span>
                   <span className="text-xs text-muted-foreground ml-3">
-                    Created {formatDate(key.createdAt)}
+                    {copy.created} {formatDate(key.createdAt)}
                   </span>
                 </div>
                 <Button
@@ -4087,7 +4355,7 @@ function KeysTab({ agentId, companyId }: { agentId: string; companyId?: string }
                   onClick={() => revokeKey.mutate(key.id)}
                   disabled={revokeKey.isPending}
                 >
-                  Revoke
+                  {copy.revoke}
                 </Button>
               </div>
             ))}
@@ -4099,7 +4367,7 @@ function KeysTab({ agentId, companyId }: { agentId: string; companyId?: string }
       {revokedKeys.length > 0 && (
         <div>
           <h3 className="text-xs font-medium text-muted-foreground mb-2">
-            Revoked Keys
+            {copy.revokedKeys}
           </h3>
           <div className="border border-border rounded-lg divide-y divide-border opacity-50">
             {revokedKeys.map((key: AgentKey) => (
@@ -4107,7 +4375,7 @@ function KeysTab({ agentId, companyId }: { agentId: string; companyId?: string }
                 <div>
                   <span className="text-sm line-through">{key.name}</span>
                   <span className="text-xs text-muted-foreground ml-3">
-                    Revoked {key.revokedAt ? formatDate(key.revokedAt) : ""}
+                    {copy.revoked} {key.revokedAt ? formatDate(key.revokedAt) : ""}
                   </span>
                 </div>
               </div>

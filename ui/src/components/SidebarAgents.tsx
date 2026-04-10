@@ -5,6 +5,7 @@ import { ChevronRight, Plus } from "lucide-react";
 import { useCompany } from "../context/CompanyContext";
 import { useDialog } from "../context/DialogContext";
 import { useSidebar } from "../context/SidebarContext";
+import { useGeneralSettings } from "../context/GeneralSettingsContext";
 import { agentsApi } from "../api/agents";
 import { authApi } from "../api/auth";
 import { heartbeatsApi } from "../api/heartbeats";
@@ -19,12 +20,32 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import type { Agent } from "@paperclipai/shared";
+import { textFor } from "../lib/ui-language";
 export function SidebarAgents() {
   const [open, setOpen] = useState(true);
   const { selectedCompanyId } = useCompany();
+  const { uiLanguage } = useGeneralSettings();
   const { openNewAgent } = useDialog();
   const { isMobile, setSidebarOpen } = useSidebar();
   const location = useLocation();
+  const copy = {
+    agents: textFor(uiLanguage, {
+      en: "Agents",
+      "zh-CN": "智能体",
+    }),
+    newAgent: textFor(uiLanguage, {
+      en: "New agent",
+      "zh-CN": "新建智能体",
+    }),
+    budgetPaused: textFor(uiLanguage, {
+      en: "Agent paused by budget",
+      "zh-CN": "智能体因预算被暂停",
+    }),
+    live: textFor(uiLanguage, {
+      en: "live",
+      "zh-CN": "在线",
+    }),
+  };
 
   const { data: agents } = useQuery({
     queryKey: queryKeys.agents.list(selectedCompanyId!),
@@ -81,7 +102,7 @@ export function SidebarAgents() {
               )}
             />
             <span className="text-[10px] font-medium uppercase tracking-widest font-mono text-muted-foreground/60">
-              Agents
+              {copy.agents}
             </span>
           </CollapsibleTrigger>
           <button
@@ -90,7 +111,7 @@ export function SidebarAgents() {
               openNewAgent();
             }}
             className="flex items-center justify-center h-4 w-4 rounded text-muted-foreground/60 hover:text-foreground hover:bg-accent/50 transition-colors"
-            aria-label="New agent"
+            aria-label={copy.newAgent}
           >
             <Plus className="h-3 w-3" />
           </button>
@@ -120,7 +141,7 @@ export function SidebarAgents() {
                 {(agent.pauseReason === "budget" || runCount > 0) && (
                   <span className="ml-auto flex items-center gap-1.5 shrink-0">
                     {agent.pauseReason === "budget" ? (
-                      <BudgetSidebarMarker title="Agent paused by budget" />
+                      <BudgetSidebarMarker title={copy.budgetPaused} />
                     ) : null}
                     {runCount > 0 ? (
                       <span className="relative flex h-2 w-2">
@@ -130,7 +151,7 @@ export function SidebarAgents() {
                     ) : null}
                     {runCount > 0 ? (
                       <span className="text-[11px] font-medium text-blue-600 dark:text-blue-400">
-                        {runCount} live
+                        {runCount} {copy.live}
                       </span>
                     ) : null}
                   </span>

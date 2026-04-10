@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Archive } from "lucide-react";
+import { useGeneralSettings } from "../context/GeneralSettingsContext";
 import { cn } from "../lib/utils";
+import { textFor } from "../lib/ui-language";
 
 interface SwipeToArchiveProps {
   children: ReactNode;
@@ -21,6 +23,7 @@ export function SwipeToArchive({
   selected = false,
   className,
 }: SwipeToArchiveProps) {
+  const { uiLanguage } = useGeneralSettings();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const startPointRef = useRef<{ x: number; y: number } | null>(null);
   const widthRef = useRef(0);
@@ -146,7 +149,7 @@ export function SwipeToArchive({
       >
         <span className="inline-flex items-center gap-2 text-sm font-medium">
           <Archive className="h-4 w-4" />
-          Archive
+          {textFor(uiLanguage, { en: "Archive", "zh-CN": "归档" })}
         </span>
       </div>
       <div

@@ -26,12 +26,14 @@ import { ProviderQuotaCard } from "../components/ProviderQuotaCard";
 import { StatusBadge } from "../components/StatusBadge";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
 import { useCompany } from "../context/CompanyContext";
-import { useDateRange, PRESET_KEYS, PRESET_LABELS } from "../hooks/useDateRange";
+import { useGeneralSettings } from "../context/GeneralSettingsContext";
+import { useDateRange, PRESET_KEYS } from "../hooks/useDateRange";
 import { queryKeys } from "../lib/queryKeys";
 import { billingTypeDisplayName, cn, formatCents, formatTokens, providerDisplayName } from "../lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { textFor } from "../lib/ui-language";
 
 const NO_COMPANY = "__none__";
 
@@ -108,37 +110,53 @@ function FinanceSummaryCard({
   estimatedDebitCents: number;
   eventCount: number;
 }) {
+  const { uiLanguage } = useGeneralSettings();
   return (
     <Card>
       <CardHeader className="px-5 pt-5 pb-2">
-        <CardTitle className="text-base">Finance ledger</CardTitle>
+        <CardTitle className="text-base">{textFor(uiLanguage, { en: "Finance ledger", "zh-CN": "财务台账" })}</CardTitle>
         <CardDescription>
-          Account-level charges that do not map to a single inference request.
+          {textFor(uiLanguage, {
+            en: "Account-level charges that do not map to a single inference request.",
+            "zh-CN": "不映射到单次推理请求的账户级收费。",
+          })}
         </CardDescription>
       </CardHeader>
       <CardContent className="grid gap-3 px-5 pb-5 pt-2 sm:grid-cols-2 xl:grid-cols-4">
         <MetricTile
-          label="Debits"
+          label={textFor(uiLanguage, { en: "Debits", "zh-CN": "支出" })}
           value={formatCents(debitCents)}
-          subtitle={`${eventCount} total event${eventCount === 1 ? "" : "s"} in range`}
+          subtitle={textFor(uiLanguage, {
+            en: `${eventCount} total event${eventCount === 1 ? "" : "s"} in range`,
+            "zh-CN": `当前范围内共 ${eventCount} 条事件`,
+          })}
           icon={ArrowUpRight}
         />
         <MetricTile
-          label="Credits"
+          label={textFor(uiLanguage, { en: "Credits", "zh-CN": "入账" })}
           value={formatCents(creditCents)}
-          subtitle="Refunds, offsets, and credit returns"
+          subtitle={textFor(uiLanguage, {
+            en: "Refunds, offsets, and credit returns",
+            "zh-CN": "退款、冲抵与积分返还",
+          })}
           icon={ArrowDownLeft}
         />
         <MetricTile
-          label="Net"
+          label={textFor(uiLanguage, { en: "Net", "zh-CN": "净额" })}
           value={formatCents(netCents)}
-          subtitle="Debit minus credit for the selected period"
+          subtitle={textFor(uiLanguage, {
+            en: "Debit minus credit for the selected period",
+            "zh-CN": "所选时间范围内的支出减入账",
+          })}
           icon={ReceiptText}
         />
         <MetricTile
-          label="Estimated"
+          label={textFor(uiLanguage, { en: "Estimated", "zh-CN": "估算" })}
           value={formatCents(estimatedDebitCents)}
-          subtitle="Estimated debits that are not yet invoice-authoritative"
+          subtitle={textFor(uiLanguage, {
+            en: "Estimated debits that are not yet invoice-authoritative",
+            "zh-CN": "尚未以发票为准的预估支出",
+          })}
           icon={Coins}
         />
       </CardContent>
@@ -149,6 +167,7 @@ function FinanceSummaryCard({
 export function Costs() {
   const { selectedCompanyId } = useCompany();
   const { setBreadcrumbs } = useBreadcrumbs();
+  const { uiLanguage } = useGeneralSettings();
   const queryClient = useQueryClient();
 
   const [mainTab, setMainTab] = useState<"overview" | "budgets" | "providers" | "billers" | "finance">("overview");
@@ -168,8 +187,8 @@ export function Costs() {
   } = useDateRange();
 
   useEffect(() => {
-    setBreadcrumbs([{ label: "Costs" }]);
-  }, [setBreadcrumbs]);
+    setBreadcrumbs([{ label: textFor(uiLanguage, { en: "Costs", "zh-CN": "成本" }) }]);
+  }, [setBreadcrumbs, uiLanguage]);
 
   const [today, setToday] = useState(() => new Date().toDateString());
   const todayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -464,7 +483,7 @@ export function Costs() {
         value: "all",
         label: (
           <span className="flex items-center gap-1.5">
-            <span>All providers</span>
+            <span>{textFor(uiLanguage, { en: "All providers", "zh-CN": "全部提供方" })}</span>
             {providerKeys.length > 0 ? (
               <>
                 <span className="font-mono text-xs text-muted-foreground">{formatTokens(allTokens)}</span>
@@ -479,7 +498,7 @@ export function Costs() {
         label: <ProviderTabLabel provider={provider} rows={byProvider.get(provider) ?? []} />,
       })),
     ];
-  }, [byProvider]);
+  }, [byProvider, uiLanguage]);
 
   const billerTabItems = useMemo(() => {
     const billerKeys = Array.from(byBiller.keys());
@@ -496,7 +515,7 @@ export function Costs() {
         value: "all",
         label: (
           <span className="flex items-center gap-1.5">
-            <span>All billers</span>
+            <span>{textFor(uiLanguage, { en: "All billers", "zh-CN": "全部计费方" })}</span>
             {billerKeys.length > 0 ? (
               <>
                 <span className="font-mono text-xs text-muted-foreground">{formatTokens(allTokens)}</span>
@@ -511,7 +530,7 @@ export function Costs() {
         label: <BillerTabLabel biller={biller} rows={byBiller.get(biller) ?? []} />,
       })),
     ];
-  }, [byBiller]);
+  }, [byBiller, uiLanguage]);
 
   const inferenceTokenTotal =
     (spendData?.byAgent ?? []).reduce(
@@ -527,9 +546,17 @@ export function Costs() {
     agent: budgetPolicies.filter((policy) => policy.scopeType === "agent"),
     project: budgetPolicies.filter((policy) => policy.scopeType === "project"),
   }), [budgetPolicies]);
+  const presetLabels = useMemo(() => ({
+    mtd: textFor(uiLanguage, { en: "Month to Date", "zh-CN": "本月至今" }),
+    "7d": textFor(uiLanguage, { en: "Last 7 Days", "zh-CN": "最近 7 天" }),
+    "30d": textFor(uiLanguage, { en: "Last 30 Days", "zh-CN": "最近 30 天" }),
+    ytd: textFor(uiLanguage, { en: "Year to Date", "zh-CN": "今年至今" }),
+    all: textFor(uiLanguage, { en: "All Time", "zh-CN": "全部时间" }),
+    custom: textFor(uiLanguage, { en: "Custom", "zh-CN": "自定义" }),
+  }), [uiLanguage]);
 
   if (!selectedCompanyId) {
-    return <EmptyState icon={DollarSign} message="Select a company to view costs." />;
+    return <EmptyState icon={DollarSign} message={textFor(uiLanguage, { en: "Select a company to view costs.", "zh-CN": "请选择一个公司以查看成本。" })} />;
   }
 
   const showCustomPrompt = preset === "custom" && !customReady;
@@ -541,9 +568,12 @@ export function Costs() {
       <div className="space-y-5">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div>
-                <h1 className="text-3xl font-semibold tracking-tight">Costs</h1>
+                <h1 className="text-3xl font-semibold tracking-tight">{textFor(uiLanguage, { en: "Costs", "zh-CN": "成本" })}</h1>
                 <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-                  Inference spend, platform fees, credits, and live quota windows.
+                  {textFor(uiLanguage, {
+                    en: "Inference spend, platform fees, credits, and live quota windows.",
+                    "zh-CN": "推理支出、平台费用、积分，以及实时配额窗口。",
+                  })}
                 </p>
             </div>
 
@@ -555,7 +585,7 @@ export function Costs() {
                   size="sm"
                   onClick={() => setPreset(key)}
                 >
-                  {PRESET_LABELS[key]}
+                  {presetLabels[key]}
                 </Button>
               ))}
             </div>
@@ -569,7 +599,7 @@ export function Costs() {
                 onChange={(event) => setCustomFrom(event.target.value)}
                 className="h-9 rounded-md border border-input bg-background px-3 text-sm text-foreground"
               />
-              <span className="text-sm text-muted-foreground">to</span>
+              <span className="text-sm text-muted-foreground">{textFor(uiLanguage, { en: "to", "zh-CN": "至" })}</span>
               <input
                 type="date"
                 value={customTo}
@@ -581,37 +611,52 @@ export function Costs() {
 
           <div className="grid gap-3 lg:grid-cols-4">
             <MetricTile
-              label="Inference spend"
+              label={textFor(uiLanguage, { en: "Inference spend", "zh-CN": "推理支出" })}
               value={formatCents(spendData?.summary.spendCents ?? 0)}
-              subtitle={`${formatTokens(inferenceTokenTotal)} tokens across request-scoped events`}
+              subtitle={textFor(uiLanguage, {
+                en: `${formatTokens(inferenceTokenTotal)} tokens across request-scoped events`,
+                "zh-CN": `请求级事件共 ${formatTokens(inferenceTokenTotal)} tokens`,
+              })}
               icon={DollarSign}
             />
             <MetricTile
-              label="Budget"
+              label={textFor(uiLanguage, { en: "Budget", "zh-CN": "预算" })}
               value={activeBudgetIncidents.length > 0 ? String(activeBudgetIncidents.length) : (
                 spendData?.summary.budgetCents && spendData.summary.budgetCents > 0
                   ? `${spendData.summary.utilizationPercent}%`
-                  : "Open"
+                  : textFor(uiLanguage, { en: "Open", "zh-CN": "开放" })
               )}
               subtitle={
                 activeBudgetIncidents.length > 0
-                  ? `${budgetData?.pausedAgentCount ?? 0} agents paused · ${budgetData?.pausedProjectCount ?? 0} projects paused`
+                  ? textFor(uiLanguage, {
+                      en: `${budgetData?.pausedAgentCount ?? 0} agents paused · ${budgetData?.pausedProjectCount ?? 0} projects paused`,
+                      "zh-CN": `${budgetData?.pausedAgentCount ?? 0} 个智能体已暂停 · ${budgetData?.pausedProjectCount ?? 0} 个项目已暂停`,
+                    })
                   : spendData?.summary.budgetCents && spendData.summary.budgetCents > 0
-                    ? `${formatCents(spendData.summary.spendCents)} of ${formatCents(spendData.summary.budgetCents)}`
-                    : "No monthly cap configured"
+                    ? textFor(uiLanguage, {
+                        en: `${formatCents(spendData.summary.spendCents)} of ${formatCents(spendData.summary.budgetCents)}`,
+                        "zh-CN": `${formatCents(spendData.summary.spendCents)} / ${formatCents(spendData.summary.budgetCents)}`,
+                      })
+                    : textFor(uiLanguage, { en: "No monthly cap configured", "zh-CN": "未配置月度上限" })
               }
               icon={Coins}
             />
             <MetricTile
-              label="Finance net"
+              label={textFor(uiLanguage, { en: "Finance net", "zh-CN": "财务净额" })}
               value={formatCents(financeData?.summary.netCents ?? 0)}
-              subtitle={`${formatCents(financeData?.summary.debitCents ?? 0)} debits · ${formatCents(financeData?.summary.creditCents ?? 0)} credits`}
+              subtitle={textFor(uiLanguage, {
+                en: `${formatCents(financeData?.summary.debitCents ?? 0)} debits · ${formatCents(financeData?.summary.creditCents ?? 0)} credits`,
+                "zh-CN": `${formatCents(financeData?.summary.debitCents ?? 0)} 支出 · ${formatCents(financeData?.summary.creditCents ?? 0)} 入账`,
+              })}
               icon={ReceiptText}
             />
             <MetricTile
-              label="Finance events"
+              label={textFor(uiLanguage, { en: "Finance events", "zh-CN": "财务事件" })}
               value={String(financeData?.summary.eventCount ?? 0)}
-              subtitle={`${formatCents(financeData?.summary.estimatedDebitCents ?? 0)} estimated in range`}
+              subtitle={textFor(uiLanguage, {
+                en: `${formatCents(financeData?.summary.estimatedDebitCents ?? 0)} estimated in range`,
+                "zh-CN": `当前范围内预估 ${formatCents(financeData?.summary.estimatedDebitCents ?? 0)}`,
+              })}
               icon={ArrowUpRight}
             />
           </div>
@@ -619,16 +664,16 @@ export function Costs() {
 
       <Tabs value={mainTab} onValueChange={(value) => setMainTab(value as typeof mainTab)}>
         <TabsList variant="line" className="justify-start">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="budgets">Budgets</TabsTrigger>
-          <TabsTrigger value="providers">Providers</TabsTrigger>
-          <TabsTrigger value="billers">Billers</TabsTrigger>
-          <TabsTrigger value="finance">Finance</TabsTrigger>
+          <TabsTrigger value="overview">{textFor(uiLanguage, { en: "Overview", "zh-CN": "总览" })}</TabsTrigger>
+          <TabsTrigger value="budgets">{textFor(uiLanguage, { en: "Budgets", "zh-CN": "预算" })}</TabsTrigger>
+          <TabsTrigger value="providers">{textFor(uiLanguage, { en: "Providers", "zh-CN": "提供方" })}</TabsTrigger>
+          <TabsTrigger value="billers">{textFor(uiLanguage, { en: "Billers", "zh-CN": "计费方" })}</TabsTrigger>
+          <TabsTrigger value="finance">{textFor(uiLanguage, { en: "Finance", "zh-CN": "财务" })}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="mt-4 space-y-4">
           {showCustomPrompt ? (
-            <p className="text-sm text-muted-foreground">Select a start and end date to load data.</p>
+            <p className="text-sm text-muted-foreground">{textFor(uiLanguage, { en: "Select a start and end date to load data.", "zh-CN": "请选择开始和结束日期以加载数据。" })}</p>
           ) : showOverviewLoading ? (
             <PageSkeleton variant="costs" />
           ) : overviewError ? (
@@ -657,9 +702,12 @@ export function Costs() {
               <div className="grid gap-4 xl:grid-cols-[1.3fr,1fr]">
                 <Card>
                   <CardHeader className="px-5 pt-5 pb-2">
-                    <CardTitle className="text-base">Inference ledger</CardTitle>
+                    <CardTitle className="text-base">{textFor(uiLanguage, { en: "Inference ledger", "zh-CN": "推理台账" })}</CardTitle>
                     <CardDescription>
-                      Request-scoped inference spend for the selected period.
+                      {textFor(uiLanguage, {
+                        en: "Request-scoped inference spend for the selected period.",
+                        "zh-CN": "所选时间范围内按请求归因的推理支出。",
+                      })}
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4 px-5 pb-5 pt-2">
@@ -670,12 +718,17 @@ export function Costs() {
                         </div>
                         <div className="mt-1 text-sm text-muted-foreground">
                           {spendData?.summary.budgetCents && spendData.summary.budgetCents > 0
-                            ? `Budget ${formatCents(spendData.summary.budgetCents)}`
-                            : "Unlimited budget"}
+                            ? textFor(uiLanguage, {
+                                en: `Budget ${formatCents(spendData.summary.budgetCents)}`,
+                                "zh-CN": `预算 ${formatCents(spendData.summary.budgetCents)}`,
+                              })
+                            : textFor(uiLanguage, { en: "Unlimited budget", "zh-CN": "不限额预算" })}
                         </div>
                       </div>
                       <div className="border border-border px-4 py-3 text-right">
-                        <div className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">usage</div>
+                        <div className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
+                          {textFor(uiLanguage, { en: "usage", "zh-CN": "用量" })}
+                        </div>
                         <div className="mt-1 text-lg font-medium tabular-nums">
                           {formatTokens(inferenceTokenTotal)}
                         </div>
@@ -697,7 +750,10 @@ export function Costs() {
                           />
                         </div>
                         <div className="text-xs text-muted-foreground">
-                          {spendData.summary.utilizationPercent}% of monthly budget consumed in this range.
+                          {textFor(uiLanguage, {
+                            en: `${spendData.summary.utilizationPercent}% of monthly budget consumed in this range.`,
+                            "zh-CN": `当前范围内已消耗月度预算的 ${spendData.summary.utilizationPercent}%。`,
+                          })}
                         </div>
                       </div>
                     ) : null}
@@ -716,12 +772,12 @@ export function Costs() {
               <div className="grid gap-4 xl:grid-cols-[1.25fr,0.95fr]">
                 <Card>
                   <CardHeader className="px-5 pt-5 pb-2">
-                    <CardTitle className="text-base">By agent</CardTitle>
-                    <CardDescription>What each agent consumed in the selected period.</CardDescription>
+                    <CardTitle className="text-base">{textFor(uiLanguage, { en: "By agent", "zh-CN": "按智能体" })}</CardTitle>
+                    <CardDescription>{textFor(uiLanguage, { en: "What each agent consumed in the selected period.", "zh-CN": "所选时间范围内各智能体的消耗。" })}</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-2 px-5 pb-5 pt-2">
                     {(spendData?.byAgent.length ?? 0) === 0 ? (
-                      <p className="text-sm text-muted-foreground">No cost events yet.</p>
+                      <p className="text-sm text-muted-foreground">{textFor(uiLanguage, { en: "No cost events yet.", "zh-CN": "还没有成本事件。" })}</p>
                     ) : (
                       spendData?.byAgent.map((row) => {
                         const modelRows = agentModelRows.get(row.agentId) ?? [];
@@ -747,15 +803,20 @@ export function Costs() {
                               <div className="text-right text-sm tabular-nums">
                                 <div className="font-medium">{formatCents(row.costCents)}</div>
                                 <div className="text-xs text-muted-foreground">
-                                  in {formatTokens(row.inputTokens + row.cachedInputTokens)} · out {formatTokens(row.outputTokens)}
+                                  {textFor(uiLanguage, {
+                                    en: `in ${formatTokens(row.inputTokens + row.cachedInputTokens)} · out ${formatTokens(row.outputTokens)}`,
+                                    "zh-CN": `输入 ${formatTokens(row.inputTokens + row.cachedInputTokens)} · 输出 ${formatTokens(row.outputTokens)}`,
+                                  })}
                                 </div>
                                 {(row.apiRunCount > 0 || row.subscriptionRunCount > 0) ? (
                                   <div className="text-xs text-muted-foreground">
-                                    {row.apiRunCount > 0 ? `${row.apiRunCount} api` : "0 api"}
+                                    {row.apiRunCount > 0
+                                      ? textFor(uiLanguage, { en: `${row.apiRunCount} api`, "zh-CN": `${row.apiRunCount} 次 API` })
+                                      : textFor(uiLanguage, { en: "0 api", "zh-CN": "0 次 API" })}
                                     {" · "}
                                     {row.subscriptionRunCount > 0
-                                      ? `${row.subscriptionRunCount} subscription`
-                                      : "0 subscription"}
+                                      ? textFor(uiLanguage, { en: `${row.subscriptionRunCount} subscription`, "zh-CN": `${row.subscriptionRunCount} 次订阅` })
+                                      : textFor(uiLanguage, { en: "0 subscription", "zh-CN": "0 次订阅" })}
                                   </div>
                                 ) : null}
                               </div>
@@ -786,7 +847,7 @@ export function Costs() {
                                           <span className="ml-1 font-normal text-muted-foreground">({sharePct}%)</span>
                                         </div>
                                         <div className="text-muted-foreground">
-                                          {formatTokens(modelRow.inputTokens + modelRow.cachedInputTokens + modelRow.outputTokens)} tok
+                                          {formatTokens(modelRow.inputTokens + modelRow.cachedInputTokens + modelRow.outputTokens)} {textFor(uiLanguage, { en: "tok", "zh-CN": "tok" })}
                                         </div>
                                       </div>
                                     </div>
@@ -804,19 +865,19 @@ export function Costs() {
                 <div className="space-y-4">
                   <Card>
                     <CardHeader className="px-5 pt-5 pb-2">
-                      <CardTitle className="text-base">By project</CardTitle>
-                      <CardDescription>Run costs attributed through project-linked issues.</CardDescription>
+                      <CardTitle className="text-base">{textFor(uiLanguage, { en: "By project", "zh-CN": "按项目" })}</CardTitle>
+                      <CardDescription>{textFor(uiLanguage, { en: "Run costs attributed through project-linked issues.", "zh-CN": "通过项目关联任务归因的运行成本。" })}</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-2 px-5 pb-5 pt-2">
                       {(spendData?.byProject.length ?? 0) === 0 ? (
-                        <p className="text-sm text-muted-foreground">No project-attributed run costs yet.</p>
+                        <p className="text-sm text-muted-foreground">{textFor(uiLanguage, { en: "No project-attributed run costs yet.", "zh-CN": "还没有归因到项目的运行成本。" })}</p>
                       ) : (
                         spendData?.byProject.map((row, index) => (
                           <div
                             key={row.projectId ?? `unattributed-${index}`}
                             className="flex items-center justify-between gap-3 border border-border px-3 py-2 text-sm"
                           >
-                            <span className="truncate">{row.projectName ?? row.projectId ?? "Unattributed"}</span>
+                            <span className="truncate">{row.projectName ?? row.projectId ?? textFor(uiLanguage, { en: "Unattributed", "zh-CN": "未归因" })}</span>
                             <span className="font-medium tabular-nums">{formatCents(row.costCents)}</span>
                           </div>
                         ))
@@ -824,7 +885,13 @@ export function Costs() {
                     </CardContent>
                   </Card>
 
-                  <FinanceTimelineCard rows={topFinanceEvents.slice(0, 6)} emptyMessage="No finance events yet. Add account-level charges once biller invoices or credits land." />
+                  <FinanceTimelineCard
+                    rows={topFinanceEvents.slice(0, 6)}
+                    emptyMessage={textFor(uiLanguage, {
+                      en: "No finance events yet. Add account-level charges once biller invoices or credits land.",
+                      "zh-CN": "还没有财务事件。等 biller 发票或积分到账后，可在此添加账户级费用。",
+                    })}
+                  />
                 </div>
               </div>
             </>
@@ -840,34 +907,37 @@ export function Costs() {
             <>
               <Card className="border-border/70 bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.02))]">
                 <CardHeader className="px-5 pt-5 pb-3">
-                  <CardTitle className="text-base">Budget control plane</CardTitle>
+                  <CardTitle className="text-base">{textFor(uiLanguage, { en: "Budget control plane", "zh-CN": "预算控制台" })}</CardTitle>
                   <CardDescription>
-                    Hard-stop spend limits for agents and projects. Provider subscription quota stays separate and appears under Providers.
+                    {textFor(uiLanguage, {
+                      en: "Hard-stop spend limits for agents and projects. Provider subscription quota stays separate and appears under Providers.",
+                      "zh-CN": "智能体和项目的硬停止支出限制。Provider 订阅配额独立显示在 Providers 下。",
+                    })}
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="grid gap-3 px-5 pb-5 pt-0 md:grid-cols-4">
                   <MetricTile
-                    label="Active incidents"
+                    label={textFor(uiLanguage, { en: "Active incidents", "zh-CN": "活动事件" })}
                     value={String(activeBudgetIncidents.length)}
-                    subtitle="Open soft or hard threshold crossings"
+                    subtitle={textFor(uiLanguage, { en: "Open soft or hard threshold crossings", "zh-CN": "未处理的软阈值或硬阈值越线" })}
                     icon={ReceiptText}
                   />
                   <MetricTile
-                    label="Pending approvals"
+                    label={textFor(uiLanguage, { en: "Pending approvals", "zh-CN": "待审批" })}
                     value={String(budgetData?.pendingApprovalCount ?? 0)}
-                    subtitle="Budget override approvals awaiting board action"
+                    subtitle={textFor(uiLanguage, { en: "Budget override approvals awaiting board action", "zh-CN": "等待董事会处理的预算覆盖审批" })}
                     icon={ArrowUpRight}
                   />
                   <MetricTile
-                    label="Paused agents"
+                    label={textFor(uiLanguage, { en: "Paused agents", "zh-CN": "已暂停智能体" })}
                     value={String(budgetData?.pausedAgentCount ?? 0)}
-                    subtitle="Agent heartbeats blocked by budget"
+                    subtitle={textFor(uiLanguage, { en: "Agent heartbeats blocked by budget", "zh-CN": "被预算阻塞的智能体心跳" })}
                     icon={Coins}
                   />
                   <MetricTile
-                    label="Paused projects"
+                    label={textFor(uiLanguage, { en: "Paused projects", "zh-CN": "已暂停项目" })}
                     value={String(budgetData?.pausedProjectCount ?? 0)}
-                    subtitle="Project execution blocked by budget"
+                    subtitle={textFor(uiLanguage, { en: "Project execution blocked by budget", "zh-CN": "被预算阻塞的项目执行" })}
                     icon={DollarSign}
                   />
                 </CardContent>
@@ -876,9 +946,12 @@ export function Costs() {
               {activeBudgetIncidents.length > 0 ? (
                 <div className="space-y-3">
                   <div>
-                    <h2 className="text-lg font-semibold">Active incidents</h2>
+                    <h2 className="text-lg font-semibold">{textFor(uiLanguage, { en: "Active incidents", "zh-CN": "活动事件" })}</h2>
                     <p className="text-sm text-muted-foreground">
-                      Resolve hard stops here by raising the budget or explicitly keeping the scope paused.
+                      {textFor(uiLanguage, {
+                        en: "Resolve hard stops here by raising the budget or explicitly keeping the scope paused.",
+                        "zh-CN": "你可以在这里通过提高预算或显式保持暂停来处理硬停止事件。",
+                      })}
                     </p>
                   </div>
                   <div className="grid gap-4 xl:grid-cols-2">
@@ -907,13 +980,19 @@ export function Costs() {
                   return (
                     <section key={scopeType} className="space-y-3">
                       <div>
-                        <h2 className="text-lg font-semibold capitalize">{scopeType} budgets</h2>
+                        <h2 className="text-lg font-semibold capitalize">
+                          {scopeType === "company"
+                            ? textFor(uiLanguage, { en: "Company budgets", "zh-CN": "公司预算" })
+                            : scopeType === "agent"
+                              ? textFor(uiLanguage, { en: "Agent budgets", "zh-CN": "智能体预算" })
+                              : textFor(uiLanguage, { en: "Project budgets", "zh-CN": "项目预算" })}
+                        </h2>
                         <p className="text-sm text-muted-foreground">
                           {scopeType === "company"
-                            ? "Company-wide monthly policy."
+                            ? textFor(uiLanguage, { en: "Company-wide monthly policy.", "zh-CN": "公司级月度策略。" })
                             : scopeType === "agent"
-                              ? "Recurring monthly spend policies for individual agents."
-                              : "Lifetime spend policies for execution-bound projects."}
+                              ? textFor(uiLanguage, { en: "Recurring monthly spend policies for individual agents.", "zh-CN": "单个智能体的循环月度支出策略。" })
+                              : textFor(uiLanguage, { en: "Lifetime spend policies for execution-bound projects.", "zh-CN": "执行型项目的生命周期支出策略。" })}
                         </p>
                       </div>
                       <div className="grid gap-4 xl:grid-cols-2">
@@ -939,7 +1018,10 @@ export function Costs() {
                 {budgetPolicies.length === 0 ? (
                   <Card>
                     <CardContent className="px-5 py-8 text-sm text-muted-foreground">
-                      No budget policies yet. Set agent and project budgets from their detail pages, or use the existing company monthly budget control.
+                      {textFor(uiLanguage, {
+                        en: "No budget policies yet. Set agent and project budgets from their detail pages, or use the existing company monthly budget control.",
+                        "zh-CN": "还没有预算策略。你可以在智能体和项目详情页设置预算，或使用现有的公司月度预算控制。",
+                      })}
                     </CardContent>
                   </Card>
                 ) : null}
@@ -950,7 +1032,7 @@ export function Costs() {
 
         <TabsContent value="providers" className="mt-4 space-y-4">
           {showCustomPrompt ? (
-            <p className="text-sm text-muted-foreground">Select a start and end date to load data.</p>
+            <p className="text-sm text-muted-foreground">{textFor(uiLanguage, { en: "Select a start and end date to load data.", "zh-CN": "请选择开始和结束日期以加载数据。" })}</p>
           ) : (
             <>
               <Tabs value={effectiveProvider} onValueChange={setActiveProvider}>
@@ -958,7 +1040,7 @@ export function Costs() {
 
                 <TabsContent value="all" className="mt-4">
                   {providers.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">No cost events in this period.</p>
+                    <p className="text-sm text-muted-foreground">{textFor(uiLanguage, { en: "No cost events in this period.", "zh-CN": "当前时间范围内没有成本事件。" })}</p>
                   ) : (
                     <div className="grid gap-4 md:grid-cols-2">
                       {providers.map((provider) => (
@@ -1005,7 +1087,7 @@ export function Costs() {
 
         <TabsContent value="billers" className="mt-4 space-y-4">
           {showCustomPrompt ? (
-            <p className="text-sm text-muted-foreground">Select a start and end date to load data.</p>
+            <p className="text-sm text-muted-foreground">{textFor(uiLanguage, { en: "Select a start and end date to load data.", "zh-CN": "请选择开始和结束日期以加载数据。" })}</p>
           ) : (
             <>
               <Tabs value={effectiveBiller} onValueChange={setActiveBiller}>
@@ -1013,7 +1095,7 @@ export function Costs() {
 
                 <TabsContent value="all" className="mt-4">
                   {billers.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">No billable events in this period.</p>
+                    <p className="text-sm text-muted-foreground">{textFor(uiLanguage, { en: "No billable events in this period.", "zh-CN": "当前时间范围内没有可计费事件。" })}</p>
                   ) : (
                     <div className="grid gap-4 md:grid-cols-2">
                       {billers.map((biller) => {
@@ -1058,7 +1140,7 @@ export function Costs() {
 
         <TabsContent value="finance" className="mt-4 space-y-4">
           {showCustomPrompt ? (
-            <p className="text-sm text-muted-foreground">Select a start and end date to load data.</p>
+            <p className="text-sm text-muted-foreground">{textFor(uiLanguage, { en: "Select a start and end date to load data.", "zh-CN": "请选择开始和结束日期以加载数据。" })}</p>
           ) : financeLoading ? (
             <PageSkeleton variant="costs" />
           ) : financeError ? (
@@ -1077,12 +1159,12 @@ export function Costs() {
                 <div className="space-y-4">
                   <Card>
                     <CardHeader className="px-5 pt-5 pb-2">
-                      <CardTitle className="text-base">By biller</CardTitle>
-                      <CardDescription>Account-level financial events grouped by who charged or credited them.</CardDescription>
+                      <CardTitle className="text-base">{textFor(uiLanguage, { en: "By biller", "zh-CN": "按 biller" })}</CardTitle>
+                      <CardDescription>{textFor(uiLanguage, { en: "Account-level financial events grouped by who charged or credited them.", "zh-CN": "按收费或入账方聚合的账户级财务事件。" })}</CardDescription>
                     </CardHeader>
                     <CardContent className="grid gap-4 px-5 pb-5 pt-2 md:grid-cols-2">
                       {(financeData?.byBiller.length ?? 0) === 0 ? (
-                        <p className="text-sm text-muted-foreground">No finance events yet.</p>
+                        <p className="text-sm text-muted-foreground">{textFor(uiLanguage, { en: "No finance events yet.", "zh-CN": "还没有财务事件。" })}</p>
                       ) : (
                         financeData?.byBiller.map((row) => <FinanceBillerCard key={row.biller} row={row} />)
                       )}

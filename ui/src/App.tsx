@@ -48,8 +48,10 @@ import { NotFoundPage } from "./pages/NotFound";
 import { queryKeys } from "./lib/queryKeys";
 import { useCompany } from "./context/CompanyContext";
 import { useDialog } from "./context/DialogContext";
+import { useGeneralSettings } from "./context/GeneralSettingsContext";
 import { loadLastInboxTab } from "./lib/inbox";
 import { shouldRedirectCompanylessRouteToOnboarding } from "./lib/onboarding-route";
+import { textFor } from "./lib/ui-language";
 
 function BootstrapPendingPage({ hasActiveInvite = false }: { hasActiveInvite?: boolean }) {
   return (
@@ -199,21 +201,34 @@ function LegacySettingsRedirect() {
 function OnboardingRoutePage() {
   const { companies } = useCompany();
   const { openOnboarding } = useDialog();
+  const { uiLanguage } = useGeneralSettings();
   const { companyPrefix } = useParams<{ companyPrefix?: string }>();
   const matchedCompany = companyPrefix
     ? companies.find((company) => company.issuePrefix.toUpperCase() === companyPrefix.toUpperCase()) ?? null
     : null;
 
   const title = matchedCompany
-    ? `Add another agent to ${matchedCompany.name}`
+    ? textFor(uiLanguage, {
+        en: `Add another agent to ${matchedCompany.name}`,
+        "zh-CN": `为 ${matchedCompany.name} 再添加一个智能体`,
+      })
     : companies.length > 0
-      ? "Create another company"
-      : "Create your first company";
+      ? textFor(uiLanguage, { en: "Create another company", "zh-CN": "创建另一家公司" })
+      : textFor(uiLanguage, { en: "Create your first company", "zh-CN": "创建第一家公司" });
   const description = matchedCompany
-    ? "Run onboarding again to add an agent and a starter task for this company."
+    ? textFor(uiLanguage, {
+        en: "Run onboarding again to add an agent and a starter task for this company.",
+        "zh-CN": "重新运行 onboarding，为这家公司添加一个智能体和一个起始任务。",
+      })
     : companies.length > 0
-      ? "Run onboarding again to create another company and seed its first agent."
-      : "Get started by creating a company and your first agent.";
+      ? textFor(uiLanguage, {
+          en: "Run onboarding again to create another company and seed its first agent.",
+          "zh-CN": "重新运行 onboarding，创建另一家公司并初始化它的第一个智能体。",
+        })
+      : textFor(uiLanguage, {
+          en: "Get started by creating a company and your first agent.",
+          "zh-CN": "从创建一家公司和你的第一个智能体开始。",
+        });
 
   return (
     <div className="mx-auto max-w-xl py-10">
@@ -228,7 +243,9 @@ function OnboardingRoutePage() {
                 : openOnboarding()
             }
           >
-            {matchedCompany ? "Add Agent" : "Start Onboarding"}
+            {matchedCompany
+              ? textFor(uiLanguage, { en: "Add Agent", "zh-CN": "添加智能体" })
+              : textFor(uiLanguage, { en: "Start Onboarding", "zh-CN": "开始引导" })}
           </Button>
         </div>
       </div>
@@ -291,16 +308,21 @@ function UnprefixedBoardRedirect() {
 
 function NoCompaniesStartPage() {
   const { openOnboarding } = useDialog();
+  const { uiLanguage } = useGeneralSettings();
 
   return (
     <div className="mx-auto max-w-xl py-10">
       <div className="rounded-lg border border-border bg-card p-6">
-        <h1 className="text-xl font-semibold">Create your first company</h1>
+        <h1 className="text-xl font-semibold">
+          {textFor(uiLanguage, { en: "Create your first company", "zh-CN": "创建第一家公司" })}
+        </h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Get started by creating a company.
+          {textFor(uiLanguage, { en: "Get started by creating a company.", "zh-CN": "从创建一家公司开始。" })}
         </p>
         <div className="mt-4">
-          <Button onClick={() => openOnboarding()}>New Company</Button>
+          <Button onClick={() => openOnboarding()}>
+            {textFor(uiLanguage, { en: "New Company", "zh-CN": "新建公司" })}
+          </Button>
         </div>
       </div>
     </div>

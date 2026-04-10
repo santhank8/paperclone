@@ -16,35 +16,18 @@ import { formatAssigneeUserLabel } from "../lib/assignees";
 import type { InboxIssueColumn } from "../lib/inbox";
 import { cn } from "../lib/utils";
 import { timeAgo } from "../lib/timeAgo";
+import { useGeneralSettings } from "../context/GeneralSettingsContext";
+import { readStoredUiLanguage, textFor } from "../lib/ui-language";
 import { Identity } from "./Identity";
 import { StatusIcon } from "./StatusIcon";
 
 export const issueTrailingColumns: InboxIssueColumn[] = ["assignee", "project", "workspace", "parent", "labels", "updated"];
 
-const issueColumnLabels: Record<InboxIssueColumn, string> = {
-  status: "Status",
-  id: "ID",
-  assignee: "Assignee",
-  project: "Project",
-  workspace: "Workspace",
-  parent: "Parent issue",
-  labels: "Tags",
-  updated: "Last updated",
-};
-
-const issueColumnDescriptions: Record<InboxIssueColumn, string> = {
-  status: "Issue state chip on the left edge.",
-  id: "Ticket identifier like PAP-1009.",
-  assignee: "Assigned agent or board user.",
-  project: "Linked project pill with its color.",
-  workspace: "Execution or project workspace used for the issue.",
-  parent: "Parent issue identifier and title.",
-  labels: "Issue labels and tags.",
-  updated: "Latest visible activity time.",
-};
-
 export function issueActivityText(issue: Issue): string {
-  return `Updated ${timeAgo(issue.lastActivityAt ?? issue.lastExternalCommentAt ?? issue.updatedAt)}`;
+  const uiLanguage = readStoredUiLanguage();
+  return uiLanguage === "zh-CN"
+    ? `更新于 ${timeAgo(issue.lastActivityAt ?? issue.lastExternalCommentAt ?? issue.updatedAt)}`
+    : `Updated ${timeAgo(issue.lastActivityAt ?? issue.lastExternalCommentAt ?? issue.updatedAt)}`;
 }
 
 function issueTrailingGridTemplate(columns: InboxIssueColumn[]): string {
@@ -73,6 +56,33 @@ export function IssueColumnPicker({
   onResetColumns: () => void;
   title: string;
 }) {
+  const { uiLanguage } = useGeneralSettings();
+  const issueColumnLabels: Record<InboxIssueColumn, string> = {
+    status: textFor(uiLanguage, { en: "Status", "zh-CN": "状态" }),
+    id: "ID",
+    assignee: textFor(uiLanguage, { en: "Assignee", "zh-CN": "负责人" }),
+    project: textFor(uiLanguage, { en: "Project", "zh-CN": "项目" }),
+    workspace: textFor(uiLanguage, { en: "Workspace", "zh-CN": "工作区" }),
+    parent: textFor(uiLanguage, { en: "Parent issue", "zh-CN": "父任务" }),
+    labels: textFor(uiLanguage, { en: "Tags", "zh-CN": "标签" }),
+    updated: textFor(uiLanguage, { en: "Last updated", "zh-CN": "最近更新" }),
+  };
+  const issueColumnDescriptions: Record<InboxIssueColumn, string> = {
+    status: textFor(uiLanguage, { en: "Issue state chip on the left edge.", "zh-CN": "左侧显示的任务状态标签。" }),
+    id: textFor(uiLanguage, { en: "Ticket identifier like PAP-1009.", "zh-CN": "类似 PAP-1009 的任务编号。" }),
+    assignee: textFor(uiLanguage, { en: "Assigned agent or board user.", "zh-CN": "已分配的智能体或看板用户。" }),
+    project: textFor(uiLanguage, { en: "Linked project pill with its color.", "zh-CN": "带颜色的关联项目标签。" }),
+    workspace: textFor(uiLanguage, { en: "Execution or project workspace used for the issue.", "zh-CN": "任务使用的执行工作区或项目工作区。" }),
+    parent: textFor(uiLanguage, { en: "Parent issue identifier and title.", "zh-CN": "父任务编号和标题。" }),
+    labels: textFor(uiLanguage, { en: "Issue labels and tags.", "zh-CN": "任务标签。" }),
+    updated: textFor(uiLanguage, { en: "Latest visible activity time.", "zh-CN": "最近可见活动时间。" }),
+  };
+  const copy = {
+    columns: textFor(uiLanguage, { en: "Columns", "zh-CN": "列" }),
+    desktopRows: textFor(uiLanguage, { en: "Desktop issue rows", "zh-CN": "桌面端任务行" }),
+    resetDefaults: textFor(uiLanguage, { en: "Reset defaults", "zh-CN": "恢复默认" }),
+    resetSummary: textFor(uiLanguage, { en: "status, id, updated", "zh-CN": "状态、编号、更新时间" }),
+  };
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -83,14 +93,14 @@ export function IssueColumnPicker({
           className="hidden h-8 shrink-0 px-2 text-xs sm:inline-flex"
         >
           <Columns3 className="mr-1 h-3.5 w-3.5" />
-          Columns
+          {copy.columns}
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-[300px] rounded-xl border-border/70 p-1.5 shadow-xl shadow-black/10">
         <DropdownMenuLabel className="px-2 pb-1 pt-1.5">
           <div className="space-y-1">
             <div className="text-[10px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
-              Desktop issue rows
+              {copy.desktopRows}
             </div>
             <div className="text-sm font-medium text-foreground">
               {title}
@@ -121,8 +131,8 @@ export function IssueColumnPicker({
           onSelect={onResetColumns}
           className="rounded-lg px-3 py-2 text-sm"
         >
-          Reset defaults
-          <span className="ml-auto text-xs text-muted-foreground">status, id, updated</span>
+          {copy.resetDefaults}
+          <span className="ml-auto text-xs text-muted-foreground">{copy.resetSummary}</span>
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
@@ -142,6 +152,7 @@ export function InboxIssueMetaLeading({
   showIdentifier?: boolean;
   statusSlot?: ReactNode;
 }) {
+  const { uiLanguage } = useGeneralSettings();
   return (
     <>
       {showStatus ? (
@@ -176,7 +187,7 @@ export function InboxIssueMetaLeading({
               "text-blue-600 dark:text-blue-400",
             )}
           >
-            Live
+            {textFor(uiLanguage, { en: "Live", "zh-CN": "在线" })}
           </span>
         </span>
       )}
@@ -207,8 +218,9 @@ export function InboxIssueTrailingColumns({
   parentTitle: string | null;
   assigneeContent?: ReactNode;
 }) {
+  const { uiLanguage } = useGeneralSettings();
   const activityText = timeAgo(issue.lastActivityAt ?? issue.lastExternalCommentAt ?? issue.updatedAt);
-  const userLabel = formatAssigneeUserLabel(issue.assigneeUserId, currentUserId) ?? "User";
+  const userLabel = formatAssigneeUserLabel(issue.assigneeUserId, currentUserId) ?? textFor(uiLanguage, { en: "User", "zh-CN": "用户" });
 
   return (
     <span
@@ -243,7 +255,7 @@ export function InboxIssueTrailingColumns({
 
           return (
             <span key={column} className="min-w-0 truncate text-xs text-muted-foreground">
-              Unassigned
+              {textFor(uiLanguage, { en: "Unassigned", "zh-CN": "未分配" })}
             </span>
           );
         }

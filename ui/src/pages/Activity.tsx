@@ -7,6 +7,7 @@ import { projectsApi } from "../api/projects";
 import { goalsApi } from "../api/goals";
 import { useCompany } from "../context/CompanyContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
+import { useGeneralSettings } from "../context/GeneralSettingsContext";
 import { queryKeys } from "../lib/queryKeys";
 import { EmptyState } from "../components/EmptyState";
 import { ActivityRow } from "../components/ActivityRow";
@@ -20,15 +21,31 @@ import {
 } from "@/components/ui/select";
 import { History } from "lucide-react";
 import type { Agent } from "@paperclipai/shared";
+import { textFor } from "../lib/ui-language";
+
+function activityEntityTypeLabel(type: string, uiLanguage: "en" | "zh-CN") {
+  const labels: Record<string, { en: string; "zh-CN": string }> = {
+    all: { en: "All types", "zh-CN": "全部类型" },
+    issue: { en: "Issue", "zh-CN": "任务" },
+    agent: { en: "Agent", "zh-CN": "智能体" },
+    project: { en: "Project", "zh-CN": "项目" },
+    goal: { en: "Goal", "zh-CN": "目标" },
+    approval: { en: "Approval", "zh-CN": "审批" },
+    heartbeat_run: { en: "Heartbeat run", "zh-CN": "心跳运行" },
+    company: { en: "Company", "zh-CN": "公司" },
+  };
+  return textFor(uiLanguage, labels[type] ?? { en: type.charAt(0).toUpperCase() + type.slice(1), "zh-CN": type });
+}
 
 export function Activity() {
   const { selectedCompanyId } = useCompany();
   const { setBreadcrumbs } = useBreadcrumbs();
+  const { uiLanguage } = useGeneralSettings();
   const [filter, setFilter] = useState("all");
 
   useEffect(() => {
-    setBreadcrumbs([{ label: "Activity" }]);
-  }, [setBreadcrumbs]);
+    setBreadcrumbs([{ label: textFor(uiLanguage, { en: "Activity", "zh-CN": "活动" }) }]);
+  }, [setBreadcrumbs, uiLanguage]);
 
   const { data, isLoading, error } = useQuery({
     queryKey: queryKeys.activity(selectedCompanyId!),
@@ -82,7 +99,7 @@ export function Activity() {
   }, [issues]);
 
   if (!selectedCompanyId) {
-    return <EmptyState icon={History} message="Select a company to view activity." />;
+    return <EmptyState icon={History} message={textFor(uiLanguage, { en: "Select a company to view activity.", "zh-CN": "请选择一个公司以查看活动。" })} />;
   }
 
   if (isLoading) {
@@ -103,13 +120,13 @@ export function Activity() {
       <div className="flex items-center justify-end">
         <Select value={filter} onValueChange={setFilter}>
           <SelectTrigger className="w-[140px] h-8 text-xs">
-            <SelectValue placeholder="Filter by type" />
+            <SelectValue placeholder={textFor(uiLanguage, { en: "Filter by type", "zh-CN": "按类型筛选" })} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All types</SelectItem>
+            <SelectItem value="all">{activityEntityTypeLabel("all", uiLanguage)}</SelectItem>
             {entityTypes.map((type) => (
               <SelectItem key={type} value={type}>
-                {type.charAt(0).toUpperCase() + type.slice(1)}
+                {activityEntityTypeLabel(type, uiLanguage)}
               </SelectItem>
             ))}
           </SelectContent>
@@ -119,7 +136,7 @@ export function Activity() {
       {error && <p className="text-sm text-destructive">{error.message}</p>}
 
       {filtered && filtered.length === 0 && (
-        <EmptyState icon={History} message="No activity yet." />
+        <EmptyState icon={History} message={textFor(uiLanguage, { en: "No activity yet.", "zh-CN": "还没有活动记录。" })} />
       )}
 
       {filtered && filtered.length > 0 && (

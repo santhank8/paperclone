@@ -9,8 +9,10 @@ import {
 } from "lucide-react";
 import { useCompany } from "../context/CompanyContext";
 import { useDialog } from "../context/DialogContext";
+import { useGeneralSettings } from "../context/GeneralSettingsContext";
 import { cn } from "../lib/utils";
 import { useInboxBadge } from "../hooks/useInboxBadge";
+import { textFor } from "../lib/ui-language";
 
 interface MobileBottomNavProps {
   visible: boolean;
@@ -37,23 +39,32 @@ export function MobileBottomNav({ visible }: MobileBottomNavProps) {
   const location = useLocation();
   const { selectedCompanyId } = useCompany();
   const { openNewIssue } = useDialog();
+  const { uiLanguage } = useGeneralSettings();
   const inboxBadge = useInboxBadge(selectedCompanyId);
+  const copy = {
+    home: textFor(uiLanguage, { en: "Home", "zh-CN": "首页" }),
+    issues: textFor(uiLanguage, { en: "Issues", "zh-CN": "任务" }),
+    create: textFor(uiLanguage, { en: "Create", "zh-CN": "新建" }),
+    agents: textFor(uiLanguage, { en: "Agents", "zh-CN": "智能体" }),
+    inbox: textFor(uiLanguage, { en: "Inbox", "zh-CN": "收件箱" }),
+    mobileNavigation: textFor(uiLanguage, { en: "Mobile navigation", "zh-CN": "移动端导航" }),
+  };
 
   const items = useMemo<MobileNavItem[]>(
     () => [
-      { type: "link", to: "/dashboard", label: "Home", icon: House },
-      { type: "link", to: "/issues", label: "Issues", icon: CircleDot },
-      { type: "action", label: "Create", icon: SquarePen, onClick: () => openNewIssue() },
-      { type: "link", to: "/agents/all", label: "Agents", icon: Users },
+      { type: "link", to: "/dashboard", label: copy.home, icon: House },
+      { type: "link", to: "/issues", label: copy.issues, icon: CircleDot },
+      { type: "action", label: copy.create, icon: SquarePen, onClick: () => openNewIssue() },
+      { type: "link", to: "/agents/all", label: copy.agents, icon: Users },
       {
         type: "link",
         to: "/inbox",
-        label: "Inbox",
+        label: copy.inbox,
         icon: Inbox,
         badge: inboxBadge.inbox,
       },
     ],
-    [openNewIssue, inboxBadge.inbox],
+    [copy.agents, copy.create, copy.home, copy.inbox, copy.issues, openNewIssue, inboxBadge.inbox],
   );
 
   return (
@@ -62,7 +73,7 @@ export function MobileBottomNav({ visible }: MobileBottomNavProps) {
         "fixed bottom-0 left-0 right-0 z-30 border-t border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/85 transition-transform duration-200 ease-out md:hidden pb-[env(safe-area-inset-bottom)]",
         visible ? "translate-y-0" : "translate-y-full",
       )}
-      aria-label="Mobile navigation"
+      aria-label={copy.mobileNavigation}
     >
       <div className="grid h-16 grid-cols-5 px-1">
         {items.map((item) => {

@@ -7,6 +7,7 @@ import { useCompany } from "../context/CompanyContext";
 import { useDialog } from "../context/DialogContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
 import { useSidebar } from "../context/SidebarContext";
+import { useGeneralSettings } from "../context/GeneralSettingsContext";
 import { queryKeys } from "../lib/queryKeys";
 import { StatusBadge } from "../components/StatusBadge";
 import { agentStatusDot, agentStatusDotDefault } from "../lib/status-colors";
@@ -21,6 +22,7 @@ import { Bot, Plus, List, GitBranch, SlidersHorizontal } from "lucide-react";
 import { AGENT_ROLE_LABELS, type Agent } from "@paperclipai/shared";
 
 import { getAdapterLabel } from "../adapters/adapter-display-registry";
+import { textFor } from "../lib/ui-language";
 
 const roleLabels = AGENT_ROLE_LABELS as Record<string, string>;
 
@@ -55,6 +57,7 @@ function filterOrgTree(nodes: OrgNode[], tab: FilterTab, showTerminated: boolean
 
 export function Agents() {
   const { selectedCompanyId } = useCompany();
+  const { uiLanguage } = useGeneralSettings();
   const { openNewAgent } = useDialog();
   const { setBreadcrumbs } = useBreadcrumbs();
   const navigate = useNavigate();
@@ -67,6 +70,58 @@ export function Agents() {
   const effectiveView: "list" | "org" = forceListView ? "list" : view;
   const [showTerminated, setShowTerminated] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const copy = {
+    agents: textFor(uiLanguage, {
+      en: "Agents",
+      "zh-CN": "智能体",
+    }),
+    selectCompany: textFor(uiLanguage, {
+      en: "Select a company to view agents.",
+      "zh-CN": "请先选择公司以查看智能体。",
+    }),
+    all: textFor(uiLanguage, {
+      en: "All",
+      "zh-CN": "全部",
+    }),
+    active: textFor(uiLanguage, {
+      en: "Active",
+      "zh-CN": "活跃",
+    }),
+    paused: textFor(uiLanguage, {
+      en: "Paused",
+      "zh-CN": "暂停",
+    }),
+    error: textFor(uiLanguage, {
+      en: "Error",
+      "zh-CN": "异常",
+    }),
+    filters: textFor(uiLanguage, {
+      en: "Filters",
+      "zh-CN": "筛选",
+    }),
+    showTerminated: textFor(uiLanguage, {
+      en: "Show terminated",
+      "zh-CN": "显示已终止",
+    }),
+    newAgent: textFor(uiLanguage, {
+      en: "New Agent",
+      "zh-CN": "新建智能体",
+    }),
+    agentCount: (count: number) =>
+      uiLanguage === "zh-CN" ? `${count} 个智能体` : `${count} agent${count !== 1 ? "s" : ""}`,
+    noAgents: textFor(uiLanguage, {
+      en: "Create your first agent to get started.",
+      "zh-CN": "创建你的第一个智能体开始使用。",
+    }),
+    noAgentsMatchFilter: textFor(uiLanguage, {
+      en: "No agents match the selected filter.",
+      "zh-CN": "没有智能体匹配当前筛选条件。",
+    }),
+    noOrgHierarchy: textFor(uiLanguage, {
+      en: "No organizational hierarchy defined.",
+      "zh-CN": "尚未定义组织层级结构。",
+    }),
+  };
 
   const { data: agents, isLoading, error } = useQuery({
     queryKey: queryKeys.agents.list(selectedCompanyId!),
@@ -109,11 +164,11 @@ export function Agents() {
   }, [agents]);
 
   useEffect(() => {
-    setBreadcrumbs([{ label: "Agents" }]);
-  }, [setBreadcrumbs]);
+    setBreadcrumbs([{ label: copy.agents }]);
+  }, [copy.agents, setBreadcrumbs]);
 
   if (!selectedCompanyId) {
-    return <EmptyState icon={Bot} message="Select a company to view agents." />;
+    return <EmptyState icon={Bot} message={copy.selectCompany} />;
   }
 
   if (isLoading) {
@@ -129,10 +184,10 @@ export function Agents() {
         <Tabs value={tab} onValueChange={(v) => navigate(`/agents/${v}`)}>
           <PageTabBar
             items={[
-              { value: "all", label: "All" },
-              { value: "active", label: "Active" },
-              { value: "paused", label: "Paused" },
-              { value: "error", label: "Error" },
+              { value: "all", label: copy.all },
+              { value: "active", label: copy.active },
+              { value: "paused", label: copy.paused },
+              { value: "error", label: copy.error },
             ]}
             value={tab}
             onValueChange={(v) => navigate(`/agents/${v}`)}
@@ -149,7 +204,7 @@ export function Agents() {
               onClick={() => setFiltersOpen(!filtersOpen)}
             >
               <SlidersHorizontal className="h-3 w-3" />
-              Filters
+              {copy.filters}
               {showTerminated && <span className="ml-0.5 px-1 bg-foreground/10 rounded text-[10px]">1</span>}
             </button>
             {filtersOpen && (
@@ -164,7 +219,7 @@ export function Agents() {
                   )}>
                     {showTerminated && <span className="text-background text-[10px] leading-none">&#10003;</span>}
                   </span>
-                  Show terminated
+                  {copy.showTerminated}
                 </button>
               </div>
             )}
@@ -194,13 +249,13 @@ export function Agents() {
           )}
           <Button size="sm" variant="outline" onClick={openNewAgent}>
             <Plus className="h-3.5 w-3.5 mr-1.5" />
-            New Agent
+            {copy.newAgent}
           </Button>
         </div>
       </div>
 
       {filtered.length > 0 && (
-        <p className="text-xs text-muted-foreground">{filtered.length} agent{filtered.length !== 1 ? "s" : ""}</p>
+        <p className="text-xs text-muted-foreground">{copy.agentCount(filtered.length)}</p>
       )}
 
       {error && <p className="text-sm text-destructive">{error.message}</p>}
@@ -208,8 +263,8 @@ export function Agents() {
       {agents && agents.length === 0 && (
         <EmptyState
           icon={Bot}
-          message="Create your first agent to get started."
-          action="New Agent"
+          message={copy.noAgents}
+          action={copy.newAgent}
           onAction={openNewAgent}
         />
       )}
@@ -273,7 +328,7 @@ export function Agents() {
 
       {effectiveView === "list" && agents && agents.length > 0 && filtered.length === 0 && (
         <p className="text-sm text-muted-foreground text-center py-8">
-          No agents match the selected filter.
+          {copy.noAgentsMatchFilter}
         </p>
       )}
 
@@ -288,13 +343,13 @@ export function Agents() {
 
       {effectiveView === "org" && orgTree && orgTree.length > 0 && filteredOrg.length === 0 && (
         <p className="text-sm text-muted-foreground text-center py-8">
-          No agents match the selected filter.
+          {copy.noAgentsMatchFilter}
         </p>
       )}
 
       {effectiveView === "org" && orgTree && orgTree.length === 0 && (
         <p className="text-sm text-muted-foreground text-center py-8">
-          No organizational hierarchy defined.
+          {copy.noOrgHierarchy}
         </p>
       )}
     </div>
@@ -390,6 +445,11 @@ function LiveRunIndicator({
   runId: string;
   liveCount: number;
 }) {
+  const { uiLanguage } = useGeneralSettings();
+  const liveLabel = textFor(uiLanguage, {
+    en: "Live",
+    "zh-CN": "在线",
+  });
   return (
     <Link
       to={`/agents/${agentRef}/runs/${runId}`}
@@ -401,7 +461,7 @@ function LiveRunIndicator({
         <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500" />
       </span>
       <span className="text-[11px] font-medium text-blue-600 dark:text-blue-400">
-        Live{liveCount > 1 ? ` (${liveCount})` : ""}
+        {liveLabel}{liveCount > 1 ? ` (${liveCount})` : ""}
       </span>
     </Link>
   );

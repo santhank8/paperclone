@@ -2,7 +2,9 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { IssueExecutionWorkspaceSettings, Project, RoutineVariable } from "@paperclipai/shared";
 import { useQuery } from "@tanstack/react-query";
 import { instanceSettingsApi } from "../api/instanceSettings";
+import { useGeneralSettings } from "../context/GeneralSettingsContext";
 import { queryKeys } from "../lib/queryKeys";
+import { textFor } from "../lib/ui-language";
 import { IssueWorkspaceCard } from "./IssueWorkspaceCard";
 import { Button } from "@/components/ui/button";
 import {
@@ -129,6 +131,7 @@ export function RoutineRunVariablesDialog({
   isPending: boolean;
   onSubmit: (data: RoutineRunDialogSubmitData) => void;
 }) {
+  const { uiLanguage } = useGeneralSettings();
   const [values, setValues] = useState<Record<string, unknown>>({});
   const [workspaceConfig, setWorkspaceConfig] = useState(() => buildInitialWorkspaceConfig(project));
   const [workspaceConfigValid, setWorkspaceConfigValid] = useState(true);
@@ -195,9 +198,9 @@ export function RoutineRunVariablesDialog({
     <Dialog open={open} onOpenChange={(next) => !isPending && onOpenChange(next)}>
       <DialogContent className="max-w-xl">
         <DialogHeader>
-          <DialogTitle>Run routine</DialogTitle>
+          <DialogTitle>{textFor(uiLanguage, { en: "Run routine", "zh-CN": "运行例行任务" })}</DialogTitle>
           <DialogDescription>
-            Fill in the routine variables before starting the execution issue.
+            {textFor(uiLanguage, { en: "Fill in the routine variables before starting the execution issue.", "zh-CN": "在启动执行任务前，先填写例行任务变量。" })}
           </DialogDescription>
         </DialogHeader>
 
@@ -226,9 +229,9 @@ export function RoutineRunVariablesDialog({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="__unset__">No value</SelectItem>
-                    <SelectItem value="true">True</SelectItem>
-                    <SelectItem value="false">False</SelectItem>
+                    <SelectItem value="__unset__">{textFor(uiLanguage, { en: "No value", "zh-CN": "无值" })}</SelectItem>
+                    <SelectItem value="true">{textFor(uiLanguage, { en: "True", "zh-CN": "是" })}</SelectItem>
+                    <SelectItem value="false">{textFor(uiLanguage, { en: "False", "zh-CN": "否" })}</SelectItem>
                   </SelectContent>
                 </Select>
               ) : variable.type === "select" ? (
@@ -240,10 +243,10 @@ export function RoutineRunVariablesDialog({
                   }))}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Choose a value" />
+                    <SelectValue placeholder={textFor(uiLanguage, { en: "Choose a value", "zh-CN": "请选择一个值" })} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="__unset__">No value</SelectItem>
+                    <SelectItem value="__unset__">{textFor(uiLanguage, { en: "No value", "zh-CN": "无值" })}</SelectItem>
                     {variable.options.map((option) => (
                       <SelectItem key={option} value={option}>{option}</SelectItem>
                     ))}
@@ -275,17 +278,17 @@ export function RoutineRunVariablesDialog({
         <DialogFooter showCloseButton={false}>
           {missingRequired.length > 0 ? (
             <p className="mr-auto text-xs text-amber-600">
-              Missing: {missingRequired.join(", ")}
+              {uiLanguage === "zh-CN" ? `缺少：${missingRequired.join("、")}` : `Missing: ${missingRequired.join(", ")}`}
             </p>
           ) : workspaceSelectionEnabled && !workspaceConfigValid ? (
             <p className="mr-auto text-xs text-amber-600">
-              Choose an existing workspace before running.
+              {textFor(uiLanguage, { en: "Choose an existing workspace before running.", "zh-CN": "运行前请先选择一个已有工作区。" })}
             </p>
           ) : (
             <span className="mr-auto" />
           )}
           <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={isPending}>
-            Cancel
+            {textFor(uiLanguage, { en: "Cancel", "zh-CN": "取消" })}
           </Button>
           <Button
             onClick={() => {
@@ -314,7 +317,9 @@ export function RoutineRunVariablesDialog({
             }}
             disabled={isPending || !canSubmit}
           >
-            {isPending ? "Running..." : "Run routine"}
+            {isPending
+              ? textFor(uiLanguage, { en: "Running...", "zh-CN": "运行中..." })
+              : textFor(uiLanguage, { en: "Run routine", "zh-CN": "运行例行任务" })}
           </Button>
         </DialogFooter>
       </DialogContent>

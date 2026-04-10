@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import type { CompanySecret, EnvBinding } from "@paperclipai/shared";
 import { X } from "lucide-react";
 import { cn } from "../lib/utils";
+import { useGeneralSettings } from "../context/GeneralSettingsContext";
+import { textFor } from "../lib/ui-language";
 
 const inputClass =
   "w-full rounded-md border border-border px-2.5 py-1.5 bg-transparent outline-none text-sm font-mono placeholder:text-muted-foreground/40";
@@ -65,6 +67,7 @@ export function EnvVarEditor({
   onCreateSecret: (name: string, value: string) => Promise<CompanySecret>;
   onChange: (env: Record<string, EnvBinding> | undefined) => void;
 }) {
+  const { uiLanguage } = useGeneralSettings();
   const [rows, setRows] = useState<Row[]>(() => toRows(value));
   const [sealError, setSealError] = useState<string | null>(null);
   const valueRef = useRef(value);
@@ -144,8 +147,8 @@ export function EnvVarEditor({
     const plain = row.plainValue;
     if (!key || plain.length === 0) return;
 
-    const suggested = defaultSecretName(key) || "secret";
-    const name = window.prompt("Secret name", suggested)?.trim();
+    const suggested = defaultSecretName(key) || textFor(uiLanguage, { en: "secret", "zh-CN": "secret" });
+    const name = window.prompt(textFor(uiLanguage, { en: "Secret name", "zh-CN": "密钥名称" }), suggested)?.trim();
     if (!name) return;
 
     try {
@@ -153,9 +156,20 @@ export function EnvVarEditor({
       const created = await onCreateSecret(name, plain);
       updateRow(index, { source: "secret", secretId: created.id });
     } catch (error) {
-      setSealError(error instanceof Error ? error.message : "Failed to create secret");
+      setSealError(error instanceof Error ? error.message : textFor(uiLanguage, { en: "Failed to create secret", "zh-CN": "创建密钥失败" }));
     }
   }
+  const copy = {
+    plain: textFor(uiLanguage, { en: "Plain", "zh-CN": "明文" }),
+    secret: textFor(uiLanguage, { en: "Secret", "zh-CN": "密钥" }),
+    selectSecret: textFor(uiLanguage, { en: "Select secret...", "zh-CN": "选择密钥..." }),
+    new: textFor(uiLanguage, { en: "New", "zh-CN": "新建" }),
+    createFromCurrent: textFor(uiLanguage, { en: "Create secret from current plain value", "zh-CN": "根据当前明文值创建密钥" }),
+    value: textFor(uiLanguage, { en: "value", "zh-CN": "值" }),
+    seal: textFor(uiLanguage, { en: "Seal", "zh-CN": "加密保存" }),
+    sealTitle: textFor(uiLanguage, { en: "Store value as secret and replace with reference", "zh-CN": "将该值保存为密钥并替换为引用" }),
+    runtimeNote: textFor(uiLanguage, { en: "PAPERCLIP_* variables are injected automatically at runtime.", "zh-CN": "PAPERCLIP_* 变量会在运行时自动注入。" }),
+  };
 
   return (
     <div className="space-y-1.5">
@@ -183,8 +197,8 @@ export function EnvVarEditor({
                 })
               }
             >
-              <option value="plain">Plain</option>
-              <option value="secret">Secret</option>
+              <option value="plain">{copy.plain}</option>
+              <option value="secret">{copy.secret}</option>
             </select>
             {row.source === "secret" ? (
               <>
@@ -193,7 +207,7 @@ export function EnvVarEditor({
                   value={row.secretId}
                   onChange={(event) => updateRow(index, { secretId: event.target.value })}
                 >
-                  <option value="">Select secret...</option>
+                  <option value="">{copy.selectSecret}</option>
                   {secrets.map((secret) => (
                     <option key={secret.id} value={secret.id}>
                       {secret.name}
@@ -205,16 +219,16 @@ export function EnvVarEditor({
                   className="inline-flex items-center rounded-md border border-border px-2 py-0.5 text-xs text-muted-foreground hover:bg-accent/50 transition-colors shrink-0"
                   onClick={() => sealRow(index)}
                   disabled={!row.key.trim() || !row.plainValue}
-                  title="Create secret from current plain value"
+                  title={copy.createFromCurrent}
                 >
-                  New
+                  {copy.new}
                 </button>
               </>
             ) : (
               <>
                 <input
                   className={cn(inputClass, "flex-[3]")}
-                  placeholder="value"
+                  placeholder={copy.value}
                   value={row.plainValue}
                   onChange={(event) => updateRow(index, { plainValue: event.target.value })}
                 />
@@ -223,9 +237,9 @@ export function EnvVarEditor({
                   className="inline-flex items-center rounded-md border border-border px-2 py-0.5 text-xs text-muted-foreground hover:bg-accent/50 transition-colors shrink-0"
                   onClick={() => sealRow(index)}
                   disabled={!row.key.trim() || !row.plainValue}
-                  title="Store value as secret and replace with reference"
+                  title={copy.sealTitle}
                 >
-                  Seal
+                  {copy.seal}
                 </button>
               </>
             )}
@@ -245,7 +259,7 @@ export function EnvVarEditor({
       })}
       {sealError && <p className="text-[11px] text-destructive">{sealError}</p>}
       <p className="text-[11px] text-muted-foreground/60">
-        PAPERCLIP_* variables are injected automatically at runtime.
+        {copy.runtimeNote}
       </p>
     </div>
   );

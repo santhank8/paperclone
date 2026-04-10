@@ -4,6 +4,8 @@ import { timeAgo } from "../lib/timeAgo";
 import { cn } from "../lib/utils";
 import { formatActivityVerb } from "../lib/activity-format";
 import { deriveProjectUrlKey, type ActivityEvent, type Agent } from "@paperclipai/shared";
+import { useGeneralSettings } from "../context/GeneralSettingsContext";
+import { textFor } from "../lib/ui-language";
 
 function entityLink(entityType: string, entityId: string, name?: string | null): string | null {
   switch (entityType) {
@@ -25,7 +27,8 @@ interface ActivityRowProps {
 }
 
 export function ActivityRow({ event, agentMap, entityNameMap, entityTitleMap, className }: ActivityRowProps) {
-  const verb = formatActivityVerb(event.action, event.details, { agentMap });
+  const { uiLanguage } = useGeneralSettings();
+  const verb = formatActivityVerb(event.action, event.details, { agentMap, uiLanguage });
 
   const isHeartbeatEvent = event.entityType === "heartbeat_run";
   const heartbeatAgentId = isHeartbeatEvent
@@ -43,7 +46,13 @@ export function ActivityRow({ event, agentMap, entityNameMap, entityTitleMap, cl
     : entityLink(event.entityType, event.entityId, name);
 
   const actor = event.actorType === "agent" ? agentMap.get(event.actorId) : null;
-  const actorName = actor?.name ?? (event.actorType === "system" ? "System" : event.actorType === "user" ? "Board" : event.actorId || "Unknown");
+  const actorName = actor?.name ?? (
+    event.actorType === "system"
+      ? textFor(uiLanguage, { en: "System", "zh-CN": "系统" })
+      : event.actorType === "user"
+        ? textFor(uiLanguage, { en: "Board", "zh-CN": "董事会" })
+        : event.actorId || textFor(uiLanguage, { en: "Unknown", "zh-CN": "未知" })
+  );
 
   const inner = (
     <div className="flex gap-3">

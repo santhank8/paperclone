@@ -8,6 +8,8 @@ import {
   formatDateTime,
   providerDisplayName,
 } from "@/lib/utils";
+import { useGeneralSettings } from "../context/GeneralSettingsContext";
+import { textFor } from "../lib/ui-language";
 
 interface FinanceTimelineCardProps {
   rows: FinanceEvent[];
@@ -18,15 +20,22 @@ export function FinanceTimelineCard({
   rows,
   emptyMessage = "No financial events in this period.",
 }: FinanceTimelineCardProps) {
+  const { uiLanguage } = useGeneralSettings();
   return (
     <Card>
       <CardHeader className="px-4 pt-4 pb-1">
-        <CardTitle className="text-base">Recent financial events</CardTitle>
-        <CardDescription>Top-ups, fees, credits, commitments, and other non-request charges.</CardDescription>
+        <CardTitle className="text-base">{textFor(uiLanguage, { en: "Recent financial events", "zh-CN": "最近财务事件" })}</CardTitle>
+        <CardDescription>
+          {textFor(uiLanguage, { en: "Top-ups, fees, credits, commitments, and other non-request charges.", "zh-CN": "充值、费用、积分、承诺金及其他非请求级收费。" })}
+        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3 px-4 pb-4 pt-3">
         {rows.length === 0 ? (
-          <p className="text-sm text-muted-foreground">{emptyMessage}</p>
+          <p className="text-sm text-muted-foreground">
+            {emptyMessage === "No financial events in this period."
+              ? textFor(uiLanguage, { en: emptyMessage, "zh-CN": "当前时间范围内没有财务事件。" })
+              : emptyMessage}
+          </p>
         ) : (
           rows.map((row) => (
             <div
@@ -50,16 +59,20 @@ export function FinanceTimelineCard({
                   {(row.description || row.externalInvoiceId || row.region || row.pricingTier) && (
                     <div className="space-y-1 text-xs text-muted-foreground">
                       {row.description ? <div>{row.description}</div> : null}
-                      {row.externalInvoiceId ? <div>invoice {row.externalInvoiceId}</div> : null}
-                      {row.region ? <div>region {row.region}</div> : null}
-                      {row.pricingTier ? <div>tier {row.pricingTier}</div> : null}
+                      {row.externalInvoiceId ? <div>{textFor(uiLanguage, { en: `invoice ${row.externalInvoiceId}`, "zh-CN": `发票 ${row.externalInvoiceId}` })}</div> : null}
+                      {row.region ? <div>{textFor(uiLanguage, { en: `region ${row.region}`, "zh-CN": `区域 ${row.region}` })}</div> : null}
+                      {row.pricingTier ? <div>{textFor(uiLanguage, { en: `tier ${row.pricingTier}`, "zh-CN": `层级 ${row.pricingTier}` })}</div> : null}
                     </div>
                   )}
                 </div>
                 <div className="text-right tabular-nums">
                   <div className="text-sm font-semibold">{formatCents(row.amountCents)}</div>
                   <div className="text-xs text-muted-foreground">{row.currency}</div>
-                  {row.estimated ? <div className="text-[11px] uppercase tracking-[0.12em] text-amber-600">estimated</div> : null}
+                  {row.estimated ? (
+                    <div className="text-[11px] uppercase tracking-[0.12em] text-amber-600">
+                      {textFor(uiLanguage, { en: "estimated", "zh-CN": "估算" })}
+                    </div>
+                  ) : null}
                 </div>
               </div>
             </div>

@@ -7,6 +7,8 @@ import {
 } from "../../components/agent-config-primitives";
 import { ChoosePathButton } from "../../components/PathInstructionsModal";
 import { LocalWorkspaceRuntimeFields } from "../local-workspace-runtime-fields";
+import { useGeneralSettings } from "../../context/GeneralSettingsContext";
+import { textFor } from "../../lib/ui-language";
 
 const inputClass =
   "w-full rounded-md border border-border px-2.5 py-1.5 bg-transparent outline-none text-sm font-mono placeholder:text-muted-foreground/40";
@@ -25,13 +27,19 @@ export function CodexLocalConfigFields({
   models,
   hideInstructionsFile,
 }: AdapterConfigFieldsProps) {
+  const { uiLanguage } = useGeneralSettings();
   const bypassEnabled =
     config.dangerouslyBypassApprovalsAndSandbox === true || config.dangerouslyBypassSandbox === true;
+  const copy = {
+    instructionsFile: textFor(uiLanguage, { en: "Agent instructions file", "zh-CN": "智能体说明文件" }),
+    bypassSandbox: textFor(uiLanguage, { en: "Bypass sandbox", "zh-CN": "绕过沙箱" }),
+    enableSearch: textFor(uiLanguage, { en: "Enable search", "zh-CN": "启用搜索" }),
+  };
 
   return (
     <>
       {!hideInstructionsFile && (
-        <Field label="Agent instructions file" hint={instructionsFileHint}>
+        <Field label={copy.instructionsFile} hint={instructionsFileHint}>
           <div className="flex items-center gap-2">
             <DraftInput
               value={
@@ -57,7 +65,7 @@ export function CodexLocalConfigFields({
         </Field>
       )}
       <ToggleField
-        label="Bypass sandbox"
+        label={copy.bypassSandbox}
         hint={help.dangerouslyBypassSandbox}
         checked={
           isCreate
@@ -75,7 +83,7 @@ export function CodexLocalConfigFields({
         }
       />
       <ToggleField
-        label="Enable search"
+        label={copy.enableSearch}
         hint={help.search}
         checked={
           isCreate

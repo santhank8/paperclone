@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { agentsApi, type OrgNode } from "../api/agents";
 import { useCompany } from "../context/CompanyContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
+import { useGeneralSettings } from "../context/GeneralSettingsContext";
 import { queryKeys } from "../lib/queryKeys";
 import { agentUrl } from "../lib/utils";
 import { Button } from "@/components/ui/button";
@@ -12,6 +13,7 @@ import { PageSkeleton } from "../components/PageSkeleton";
 import { AgentIcon } from "../components/AgentIconPicker";
 import { Download, Network, Upload } from "lucide-react";
 import { AGENT_ROLE_LABELS, type Agent } from "@paperclipai/shared";
+import { textFor } from "../lib/ui-language";
 
 // Layout constants
 const CARD_W = 200;
@@ -132,8 +134,47 @@ const defaultDotColor = "#a3a3a3";
 
 export function OrgChart() {
   const { selectedCompanyId } = useCompany();
+  const { uiLanguage } = useGeneralSettings();
   const { setBreadcrumbs } = useBreadcrumbs();
   const navigate = useNavigate();
+  const copy = {
+    orgChart: textFor(uiLanguage, {
+      en: "Org Chart",
+      "zh-CN": "组织架构",
+    }),
+    selectCompany: textFor(uiLanguage, {
+      en: "Select a company to view the org chart.",
+      "zh-CN": "请先选择公司以查看组织架构。",
+    }),
+    noHierarchy: textFor(uiLanguage, {
+      en: "No organizational hierarchy defined.",
+      "zh-CN": "尚未定义组织层级结构。",
+    }),
+    importCompany: textFor(uiLanguage, {
+      en: "Import company",
+      "zh-CN": "导入公司",
+    }),
+    exportCompany: textFor(uiLanguage, {
+      en: "Export company",
+      "zh-CN": "导出公司",
+    }),
+    zoomIn: textFor(uiLanguage, {
+      en: "Zoom in",
+      "zh-CN": "放大",
+    }),
+    zoomOut: textFor(uiLanguage, {
+      en: "Zoom out",
+      "zh-CN": "缩小",
+    }),
+    fitToScreen: textFor(uiLanguage, {
+      en: "Fit to screen",
+      "zh-CN": "适应屏幕",
+    }),
+    fit: textFor(uiLanguage, {
+      en: "Fit",
+      "zh-CN": "适配",
+    }),
+  };
 
   const { data: orgTree, isLoading } = useQuery({
     queryKey: queryKeys.org(selectedCompanyId!),
@@ -154,8 +195,8 @@ export function OrgChart() {
   }, [agents]);
 
   useEffect(() => {
-    setBreadcrumbs([{ label: "Org Chart" }]);
-  }, [setBreadcrumbs]);
+    setBreadcrumbs([{ label: copy.orgChart }]);
+  }, [copy.orgChart, setBreadcrumbs]);
 
   // Layout computation
   const layout = useMemo(() => layoutForest(orgTree ?? []), [orgTree]);
@@ -247,7 +288,7 @@ export function OrgChart() {
   }, [zoom, pan]);
 
   if (!selectedCompanyId) {
-    return <EmptyState icon={Network} message="Select a company to view the org chart." />;
+    return <EmptyState icon={Network} message={copy.selectCompany} />;
   }
 
   if (isLoading) {
@@ -255,7 +296,7 @@ export function OrgChart() {
   }
 
   if (orgTree && orgTree.length === 0) {
-    return <EmptyState icon={Network} message="No organizational hierarchy defined." />;
+    return <EmptyState icon={Network} message={copy.noHierarchy} />;
   }
 
   return (
@@ -264,13 +305,13 @@ export function OrgChart() {
       <Link to="/company/import">
         <Button variant="outline" size="sm">
           <Upload className="mr-1.5 h-3.5 w-3.5" />
-          Import company
+          {copy.importCompany}
         </Button>
       </Link>
       <Link to="/company/export">
         <Button variant="outline" size="sm">
           <Download className="mr-1.5 h-3.5 w-3.5" />
-          Export company
+          {copy.exportCompany}
         </Button>
       </Link>
     </div>
@@ -299,7 +340,7 @@ export function OrgChart() {
             }
             setZoom(newZoom);
           }}
-          aria-label="Zoom in"
+          aria-label={copy.zoomIn}
         >
           +
         </button>
@@ -316,7 +357,7 @@ export function OrgChart() {
             }
             setZoom(newZoom);
           }}
-          aria-label="Zoom out"
+          aria-label={copy.zoomOut}
         >
           &minus;
         </button>
@@ -334,10 +375,10 @@ export function OrgChart() {
             setZoom(fitZoom);
             setPan({ x: (cW - chartW) / 2, y: (cH - chartH) / 2 });
           }}
-          title="Fit to screen"
-          aria-label="Fit chart to screen"
+          title={copy.fitToScreen}
+          aria-label={copy.fitToScreen}
         >
-          Fit
+          {copy.fit}
         </button>
       </div>
 

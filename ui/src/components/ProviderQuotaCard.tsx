@@ -12,6 +12,8 @@ import {
   providerDisplayName,
   quotaSourceDisplayName,
 } from "@/lib/utils";
+import { useGeneralSettings } from "../context/GeneralSettingsContext";
+import { textFor } from "../lib/ui-language";
 
 // ordered display labels for rolling-window rows
 const ROLLING_WINDOWS = ["5h", "24h", "7d"] as const;
@@ -48,6 +50,7 @@ export function ProviderQuotaCard({
   quotaSource = null,
   quotaLoading = false,
 }: ProviderQuotaCardProps) {
+  const { uiLanguage } = useGeneralSettings();
   // single-pass aggregation over rows — memoized so the 8 derived values are not
   // recomputed on every parent render tick (providers tab polls every 30s, and each
   // card is mounted twice: once in the "all" tab grid and once in its per-provider tab).
@@ -138,16 +141,17 @@ export function ProviderQuotaCard({
               {providerDisplayName(provider)}
             </CardTitle>
             <CardDescription className="text-xs mt-0.5">
-              <span className="font-mono">{formatTokens(totalInputTokens)}</span> in
+              <span className="font-mono">{formatTokens(totalInputTokens)}</span> {textFor(uiLanguage, { en: "in", "zh-CN": "输入" })}
               {" · "}
-              <span className="font-mono">{formatTokens(totalOutputTokens)}</span> out
+              <span className="font-mono">{formatTokens(totalOutputTokens)}</span> {textFor(uiLanguage, { en: "out", "zh-CN": "输出" })}
               {(totalApiRuns > 0 || totalSubRuns > 0) && (
                 <span className="ml-1.5">
                   ·{" "}
-                  {totalApiRuns > 0 && `~${totalApiRuns} api`}
+                  {totalApiRuns > 0 && textFor(uiLanguage, { en: `~${totalApiRuns} api`, "zh-CN": `~${totalApiRuns} 次 API` })}
                   {totalApiRuns > 0 && totalSubRuns > 0 && " / "}
-                  {totalSubRuns > 0 && `~${totalSubRuns} sub`}
-                  {" runs"}
+                  {totalSubRuns > 0 && textFor(uiLanguage, { en: `~${totalSubRuns} sub`, "zh-CN": `~${totalSubRuns} 次订阅` })}
+                  {" "}
+                  {textFor(uiLanguage, { en: "runs", "zh-CN": "运行" })}
                 </span>
               )}
             </CardDescription>
@@ -162,17 +166,23 @@ export function ProviderQuotaCard({
         {hasBudget && (
           <div className="space-y-3">
             <QuotaBar
-              label="Period spend"
+              label={textFor(uiLanguage, { en: "Period spend", "zh-CN": "周期支出" })}
               percentUsed={budgetPct}
               leftLabel={formatCents(totalCostCents)}
-              rightLabel={`${Math.round(budgetPct)}% of allocation`}
+              rightLabel={textFor(uiLanguage, {
+                en: `${Math.round(budgetPct)}% of allocation`,
+                "zh-CN": `占分配额度的 ${Math.round(budgetPct)}%`,
+              })}
               showDeficitNotch={showDeficitNotch}
             />
             <QuotaBar
-              label="This week"
+              label={textFor(uiLanguage, { en: "This week", "zh-CN": "本周" })}
               percentUsed={weekPct}
               leftLabel={formatCents(weekSpendCents)}
-              rightLabel={`~${formatCents(Math.round(weeklyBudgetShare))} / wk`}
+              rightLabel={textFor(uiLanguage, {
+                en: `~${formatCents(Math.round(weeklyBudgetShare))} / wk`,
+                "zh-CN": `~${formatCents(Math.round(weeklyBudgetShare))} / 周`,
+              })}
               showDeficitNotch={weekPct >= 100}
             />
           </div>
@@ -184,7 +194,7 @@ export function ProviderQuotaCard({
             <div className="border-t border-border" />
             <div className="space-y-2">
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                Rolling windows
+                {textFor(uiLanguage, { en: "Rolling windows", "zh-CN": "滚动窗口" })}
               </p>
               <div className="space-y-2.5">
                 {ROLLING_WINDOWS.map((w) => {
@@ -223,20 +233,20 @@ export function ProviderQuotaCard({
             <div className="border-t border-border" />
             <div className="space-y-2">
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                Subscription
+                {textFor(uiLanguage, { en: "Subscription", "zh-CN": "订阅" })}
               </p>
               <p className="text-xs text-muted-foreground">
-                <span className="font-mono text-foreground">{totalSubRuns}</span> runs
+                <span className="font-mono text-foreground">{totalSubRuns}</span> {textFor(uiLanguage, { en: "runs", "zh-CN": "次运行" })}
                 {" · "}
                 {totalSubTokens > 0 && (
                   <>
-                    <span className="font-mono text-foreground">{formatTokens(totalSubTokens)}</span> total
+                    <span className="font-mono text-foreground">{formatTokens(totalSubTokens)}</span> {textFor(uiLanguage, { en: "total", "zh-CN": "总计" })}
                     {" · "}
                   </>
                 )}
-                <span className="font-mono text-foreground">{formatTokens(totalSubInputTokens)}</span> in
+                <span className="font-mono text-foreground">{formatTokens(totalSubInputTokens)}</span> {textFor(uiLanguage, { en: "in", "zh-CN": "输入" })}
                 {" · "}
-                <span className="font-mono text-foreground">{formatTokens(totalSubOutputTokens)}</span> out
+                <span className="font-mono text-foreground">{formatTokens(totalSubOutputTokens)}</span> {textFor(uiLanguage, { en: "out", "zh-CN": "输出" })}
               </p>
               {subSharePct > 0 && (
                 <>
@@ -247,7 +257,10 @@ export function ProviderQuotaCard({
                     />
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    {Math.round(subSharePct)}% of token usage via subscription
+                    {textFor(uiLanguage, {
+                      en: `${Math.round(subSharePct)}% of token usage via subscription`,
+                      "zh-CN": `通过订阅产生了 ${Math.round(subSharePct)}% 的 token 用量`,
+                    })}
                   </p>
                 </>
               )}
@@ -278,7 +291,7 @@ export function ProviderQuotaCard({
                       </div>
                       <div className="flex items-center gap-3 shrink-0 tabular-nums text-xs">
                         <span className="text-muted-foreground">
-                          {formatTokens(rowTokens)} tok
+                          {formatTokens(rowTokens)} {textFor(uiLanguage, { en: "tok", "zh-CN": "tok" })}
                         </span>
                         <span className="font-medium">{formatCents(row.costCents)}</span>
                       </div>
@@ -288,13 +301,19 @@ export function ProviderQuotaCard({
                       <div
                         className="absolute inset-y-0 left-0 bg-primary/60 transition-[width] duration-150"
                         style={{ width: `${tokenPct}%` }}
-                        title={`${Math.round(tokenPct)}% of provider tokens`}
+                        title={textFor(uiLanguage, {
+                          en: `${Math.round(tokenPct)}% of provider tokens`,
+                          "zh-CN": `占 provider token 的 ${Math.round(tokenPct)}%`,
+                        })}
                       />
                       {/* cost share overlay — narrower, opaque, shows relative cost weight */}
                       <div
                         className="absolute inset-y-0 left-0 bg-primary/85 transition-[width] duration-150"
                         style={{ width: `${costPct}%` }}
-                        title={`${Math.round(costPct)}% of provider cost`}
+                        title={textFor(uiLanguage, {
+                          en: `${Math.round(costPct)}% of provider cost`,
+                          "zh-CN": `占 provider 成本的 ${Math.round(costPct)}%`,
+                        })}
                       />
                     </div>
                   </div>
@@ -311,7 +330,7 @@ export function ProviderQuotaCard({
             <div className="space-y-2">
               <div className="flex items-center justify-between gap-3">
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                  Subscription quota
+                  {textFor(uiLanguage, { en: "Subscription quota", "zh-CN": "订阅配额" })}
                 </p>
                 {quotaSource && !isClaudeQuotaPanel && !isCodexQuotaPanel ? (
                   <span className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
@@ -350,7 +369,12 @@ export function ProviderQuotaCard({
                             {qw.valueLabel != null ? (
                               <span className="font-medium tabular-nums">{qw.valueLabel}</span>
                             ) : qw.usedPercent != null ? (
-                              <span className="font-medium tabular-nums">{qw.usedPercent}% used</span>
+                              <span className="font-medium tabular-nums">
+                                {textFor(uiLanguage, {
+                                  en: `${qw.usedPercent}% used`,
+                                  "zh-CN": `已用 ${qw.usedPercent}%`,
+                                })}
+                              </span>
                             ) : null}
                           </div>
                           {qw.usedPercent != null && fillColor != null && (
@@ -367,7 +391,10 @@ export function ProviderQuotaCard({
                             </p>
                           ) : qw.resetsAt ? (
                             <p className="text-xs text-muted-foreground">
-                              resets {new Date(qw.resetsAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+                              {textFor(uiLanguage, {
+                                en: `resets ${new Date(qw.resetsAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}`,
+                                "zh-CN": `重置时间 ${new Date(qw.resetsAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}`,
+                              })}
                             </p>
                           ) : null}
                         </div>

@@ -12,6 +12,7 @@ import { heartbeatsApi } from "../api/heartbeats";
 import { assetsApi } from "../api/assets";
 import { usePanel } from "../context/PanelContext";
 import { useCompany } from "../context/CompanyContext";
+import { useGeneralSettings } from "../context/GeneralSettingsContext";
 import { useToast } from "../context/ToastContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
 import { queryKeys } from "../lib/queryKeys";
@@ -33,12 +34,36 @@ import { PluginLauncherOutlet } from "@/plugins/launchers";
 import { PluginSlotMount, PluginSlotOutlet, usePluginSlots } from "@/plugins/slots";
 import { Copy, FolderOpen, GitBranch, Loader2, Play, Square } from "lucide-react";
 import { IssuesQuicklook } from "../components/IssuesQuicklook";
+import { textFor } from "../lib/ui-language";
 
 /* ── Top-level tab types ── */
 
 type ProjectBaseTab = "overview" | "list" | "workspaces" | "configuration" | "budget";
 type ProjectPluginTab = `plugin:${string}`;
 type ProjectTab = ProjectBaseTab | ProjectPluginTab;
+
+function executionWorkspaceStatusLabel(status: ExecutionWorkspace["status"], uiLanguage: "en" | "zh-CN") {
+  return textFor(uiLanguage, {
+    en:
+      status === "cleanup_failed"
+        ? "Cleanup failed"
+        : status === "in_review"
+          ? "In Review"
+          : status.charAt(0).toUpperCase() + status.slice(1).replaceAll("_", " "),
+    "zh-CN":
+      status === "active"
+        ? "活跃"
+        : status === "idle"
+          ? "空闲"
+          : status === "in_review"
+            ? "评审中"
+            : status === "archived"
+              ? "已归档"
+              : status === "cleanup_failed"
+                ? "清理失败"
+                : status,
+  });
+}
 
 function isProjectPluginTab(value: string | null): value is ProjectPluginTab {
   return typeof value === "string" && value.startsWith("plugin:");
@@ -68,6 +93,7 @@ function OverviewContent({
   onUpdate: (data: Record<string, unknown>) => void;
   imageUploadHandler?: (file: File) => Promise<string>;
 }) {
+  const { uiLanguage } = useGeneralSettings();
   return (
     <div className="space-y-6">
       <InlineEditor
@@ -76,21 +102,21 @@ function OverviewContent({
         nullable
         as="p"
         className="text-sm text-muted-foreground"
-        placeholder="Add a description..."
+        placeholder={textFor(uiLanguage, { en: "Add a description...", "zh-CN": "添加描述..." })}
         multiline
         imageUploadHandler={imageUploadHandler}
       />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
         <div>
-          <span className="text-muted-foreground">Status</span>
+          <span className="text-muted-foreground">{textFor(uiLanguage, { en: "Status", "zh-CN": "状态" })}</span>
           <div className="mt-1">
             <StatusBadge status={project.status} />
           </div>
         </div>
         {project.targetDate && (
           <div>
-            <span className="text-muted-foreground">Target Date</span>
+            <span className="text-muted-foreground">{textFor(uiLanguage, { en: "Target Date", "zh-CN": "目标日期" })}</span>
             <p>{project.targetDate}</p>
           </div>
         )}
@@ -108,6 +134,7 @@ function ColorPicker({
   currentColor: string;
   onSelect: (color: string) => void;
 }) {
+  const { uiLanguage } = useGeneralSettings();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -128,7 +155,7 @@ function ColorPicker({
         onClick={() => setOpen(!open)}
         className="shrink-0 h-5 w-5 rounded-md cursor-pointer hover:ring-2 hover:ring-foreground/20 transition-[box-shadow]"
         style={{ backgroundColor: currentColor }}
-        aria-label="Change project color"
+        aria-label={textFor(uiLanguage, { en: "Change project color", "zh-CN": "更改项目颜色" })}
       />
       {open && (
         <div className="absolute top-full left-0 mt-2 p-2 bg-popover border border-border rounded-lg shadow-lg z-50 w-max">
@@ -146,7 +173,7 @@ function ColorPicker({
                     : "hover:ring-2 hover:ring-foreground/30"
                 }`}
                 style={{ backgroundColor: color }}
-                aria-label={`Select color ${color}`}
+                aria-label={textFor(uiLanguage, { en: `Select color ${color}`, "zh-CN": `选择颜色 ${color}` })}
               />
             ))}
           </div>
@@ -228,6 +255,7 @@ function ProjectWorkspacesContent({
   projectRef: string;
   summaries: ReturnType<typeof buildProjectWorkspaceSummaries>;
 }) {
+  const { uiLanguage } = useGeneralSettings();
   const queryClient = useQueryClient();
   const [runtimeActionKey, setRuntimeActionKey] = useState<string | null>(null);
   const [closingWorkspace, setClosingWorkspace] = useState<{
@@ -257,7 +285,7 @@ function ProjectWorkspacesContent({
   });
 
   if (summaries.length === 0) {
-    return <p className="text-sm text-muted-foreground">No non-default workspace activity yet.</p>;
+    return <p className="text-sm text-muted-foreground">{textFor(uiLanguage, { en: "No non-default workspace activity yet.", "zh-CN": "还没有非默认工作区活动。" })}</p>;
   }
 
   const activeSummaries = summaries.filter((summary) => summary.executionWorkspaceStatus !== "cleanup_failed");
@@ -300,7 +328,9 @@ function ProjectWorkspacesContent({
               </span>
             ) : null}
             {summary.executionWorkspaceStatus && summary.executionWorkspaceStatus !== "active" ? (
-              <span className="text-[11px] text-muted-foreground">{summary.executionWorkspaceStatus}</span>
+              <span className="text-[11px] text-muted-foreground">
+                {executionWorkspaceStatusLabel(summary.executionWorkspaceStatus, uiLanguage)}
+              </span>
             ) : null}
           </div>
 
@@ -328,7 +358,7 @@ function ProjectWorkspacesContent({
                 ) : (
                   <Play className="h-3 w-3" />
                 )}
-                {hasRunningServices ? "Stop" : "Start"}
+                {hasRunningServices ? textFor(uiLanguage, { en: "Stop", "zh-CN": "停止" }) : textFor(uiLanguage, { en: "Start", "zh-CN": "启动" })}
               </Button>
             ) : null}
             {summary.kind === "execution_workspace" && summary.executionWorkspaceId && summary.executionWorkspaceStatus ? (
@@ -342,7 +372,9 @@ function ProjectWorkspacesContent({
                   status: summary.executionWorkspaceStatus!,
                 })}
               >
-                {summary.executionWorkspaceStatus === "cleanup_failed" ? "Retry close" : "Close"}
+                {summary.executionWorkspaceStatus === "cleanup_failed"
+                  ? textFor(uiLanguage, { en: "Retry close", "zh-CN": "重试关闭" })
+                  : textFor(uiLanguage, { en: "Close", "zh-CN": "关闭" })}
               </Button>
             ) : null}
           </div>
@@ -362,7 +394,7 @@ function ProjectWorkspacesContent({
               <span className="truncate font-mono" title={summary.cwd}>
                 {truncatePath(summary.cwd)}
               </span>
-              <CopyText text={summary.cwd} className="shrink-0" copiedLabel="Path copied">
+              <CopyText text={summary.cwd} className="shrink-0" copiedLabel={textFor(uiLanguage, { en: "Path copied", "zh-CN": "路径已复制" })}>
                 <Copy className="h-3 w-3" />
               </CopyText>
             </div>
@@ -384,7 +416,7 @@ function ProjectWorkspacesContent({
         {/* Issues */}
         {summary.issues.length > 0 ? (
           <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
-            <span className="font-medium text-muted-foreground/70">Issues</span>
+            <span className="font-medium text-muted-foreground/70">{textFor(uiLanguage, { en: "Issues", "zh-CN": "任务" })}</span>
             {visibleIssues.map((issue) => (
               <IssuesQuicklook key={issue.id} issue={issue}>
                 <Link
@@ -397,7 +429,7 @@ function ProjectWorkspacesContent({
             ))}
             {hiddenIssueCount > 0 ? (
               <Link to={workspaceHref} className="hover:text-foreground hover:underline">
-                +{hiddenIssueCount} more
+                +{hiddenIssueCount} {textFor(uiLanguage, { en: "more", "zh-CN": "更多" })}
               </Link>
             ) : null}
           </div>
@@ -415,7 +447,7 @@ function ProjectWorkspacesContent({
         {cleanupFailedSummaries.length > 0 ? (
           <div className="space-y-2">
             <div className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
-              Cleanup attention needed
+              {textFor(uiLanguage, { en: "Cleanup attention needed", "zh-CN": "需要关注清理状态" })}
             </div>
             <div className="overflow-hidden rounded-xl border border-amber-500/20 bg-amber-500/5">
               {cleanupFailedSummaries.map(renderSummaryRow)}
@@ -453,6 +485,7 @@ export function ProjectDetail() {
     filter?: string;
   }>();
   const { companies, selectedCompanyId, setSelectedCompanyId } = useCompany();
+  const { uiLanguage } = useGeneralSettings();
   const { closePanel } = usePanel();
   const { setBreadcrumbs } = useBreadcrumbs();
   const { pushToast } = useToast();
@@ -570,17 +603,19 @@ export function ProjectDetail() {
       ),
     onSuccess: (updatedProject, archived) => {
       invalidateProject();
-      const name = updatedProject?.name ?? project?.name ?? "Project";
+      const name = updatedProject?.name ?? project?.name ?? textFor(uiLanguage, { en: "Project", "zh-CN": "项目" });
       if (archived) {
-        pushToast({ title: `"${name}" has been archived`, tone: "success" });
+        pushToast({ title: textFor(uiLanguage, { en: `"${name}" has been archived`, "zh-CN": `“${name}” 已归档` }), tone: "success" });
         navigate("/dashboard");
       } else {
-        pushToast({ title: `"${name}" has been unarchived`, tone: "success" });
+        pushToast({ title: textFor(uiLanguage, { en: `"${name}" has been unarchived`, "zh-CN": `“${name}” 已取消归档` }), tone: "success" });
       }
     },
     onError: (_, archived) => {
       pushToast({
-        title: archived ? "Failed to archive project" : "Failed to unarchive project",
+        title: archived
+          ? textFor(uiLanguage, { en: "Failed to archive project", "zh-CN": "归档项目失败" })
+          : textFor(uiLanguage, { en: "Failed to unarchive project", "zh-CN": "取消归档项目失败" }),
         tone: "error",
       });
     },
@@ -588,7 +623,7 @@ export function ProjectDetail() {
 
   const uploadImage = useMutation({
     mutationFn: async (file: File) => {
-      if (!resolvedCompanyId) throw new Error("No company selected");
+      if (!resolvedCompanyId) throw new Error(textFor(uiLanguage, { en: "No company selected", "zh-CN": "未选择公司" }));
       return assetsApi.uploadImage(resolvedCompanyId, file, `projects/${projectLookupRef || "draft"}`);
     },
   });
@@ -603,10 +638,10 @@ export function ProjectDetail() {
 
   useEffect(() => {
     setBreadcrumbs([
-      { label: "Projects", href: "/projects" },
-      { label: project?.name ?? routeProjectRef ?? "Project" },
+      { label: textFor(uiLanguage, { en: "Projects", "zh-CN": "项目" }), href: "/projects" },
+      { label: project?.name ?? routeProjectRef ?? textFor(uiLanguage, { en: "Project", "zh-CN": "项目" }) },
     ]);
-  }, [setBreadcrumbs, project, routeProjectRef]);
+  }, [setBreadcrumbs, project, routeProjectRef, uiLanguage]);
 
   useEffect(() => {
     if (!project) return;
@@ -700,7 +735,7 @@ export function ProjectDetail() {
       companyId: resolvedCompanyId ?? "",
       scopeType: "project",
       scopeId: project?.id ?? routeProjectRef,
-      scopeName: project?.name ?? "Project",
+      scopeName: project?.name ?? textFor(uiLanguage, { en: "Project", "zh-CN": "项目" }),
       metric: "billed_cents",
       windowKind: "lifetime",
       amount: 0,
@@ -817,7 +852,7 @@ export function ProjectDetail() {
           {project.pauseReason === "budget" ? (
             <div className="inline-flex items-center gap-2 rounded-full border border-red-500/30 bg-red-500/10 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.18em] text-red-200">
               <span className="h-2 w-2 rounded-full bg-red-400" />
-              Paused by budget hard stop
+              {textFor(uiLanguage, { en: "Paused by budget hard stop", "zh-CN": "因预算硬停止而暂停" })}
             </div>
           ) : null}
         </div>
@@ -857,11 +892,11 @@ export function ProjectDetail() {
       <Tabs value={activeTab ?? "list"} onValueChange={(value) => handleTabChange(value as ProjectTab)}>
         <PageTabBar
           items={[
-            { value: "list", label: "Issues" },
-            { value: "overview", label: "Overview" },
-            ...(showWorkspacesTab ? [{ value: "workspaces", label: "Workspaces" }] : []),
-            { value: "configuration", label: "Configuration" },
-            { value: "budget", label: "Budget" },
+            { value: "list", label: textFor(uiLanguage, { en: "Issues", "zh-CN": "任务" }) },
+            { value: "overview", label: textFor(uiLanguage, { en: "Overview", "zh-CN": "总览" }) },
+            ...(showWorkspacesTab ? [{ value: "workspaces", label: textFor(uiLanguage, { en: "Workspaces", "zh-CN": "工作区" }) }] : []),
+            { value: "configuration", label: textFor(uiLanguage, { en: "Configuration", "zh-CN": "配置" }) },
+            { value: "budget", label: textFor(uiLanguage, { en: "Budget", "zh-CN": "预算" }) },
             ...pluginTabItems.map((item) => ({
               value: item.value,
               label: item.label,
@@ -901,7 +936,7 @@ export function ProjectDetail() {
             />
           )
         ) : (
-          <p className="text-sm text-muted-foreground">Loading workspaces...</p>
+          <p className="text-sm text-muted-foreground">{textFor(uiLanguage, { en: "Loading workspaces...", "zh-CN": "正在加载工作区..." })}</p>
         )
       ) : null}
 

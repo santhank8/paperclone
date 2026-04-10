@@ -10,11 +10,13 @@ import { issuesApi } from "../api/issues";
 import { heartbeatsApi } from "../api/heartbeats";
 import { useCompany } from "../context/CompanyContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
+import { useGeneralSettings } from "../context/GeneralSettingsContext";
 import { useToast } from "../context/ToastContext";
 import { queryKeys } from "../lib/queryKeys";
 import { groupBy } from "../lib/groupBy";
 import { createIssueDetailLocationState } from "../lib/issueDetailBreadcrumb";
 import { getRecentAssigneeIds, sortAgentsByRecency, trackRecentAssignee } from "../lib/recent-assignees";
+import { readStoredUiLanguage, textFor, type UiLanguage } from "../lib/ui-language";
 import { ToggleSwitch } from "@/components/ui/toggle-switch";
 import { EmptyState } from "../components/EmptyState";
 import { IssuesList } from "../components/IssuesList";
@@ -53,15 +55,23 @@ import type { RoutineListItem, RoutineVariable } from "@paperclipai/shared";
 
 const concurrencyPolicies = ["coalesce_if_active", "always_enqueue", "skip_if_active"];
 const catchUpPolicies = ["skip_missed", "enqueue_missed_with_cap"];
-const concurrencyPolicyDescriptions: Record<string, string> = {
-  coalesce_if_active: "If a run is already active, keep just one follow-up run queued.",
-  always_enqueue: "Queue every trigger occurrence, even if the routine is already running.",
-  skip_if_active: "Drop new trigger occurrences while a run is still active.",
-};
-const catchUpPolicyDescriptions: Record<string, string> = {
-  skip_missed: "Ignore windows that were missed while the scheduler or routine was paused.",
-  enqueue_missed_with_cap: "Catch up missed schedule windows in capped batches after recovery.",
-};
+
+function routineStatusLabel(value: string | null | undefined, uiLanguage: UiLanguage) {
+  if (!value) return null;
+  const labels: Record<string, { en: string; zh: string }> = {
+    active: { en: "active", zh: "运行中" },
+    paused: { en: "paused", zh: "已暂停" },
+    archived: { en: "archived", zh: "已归档" },
+    queued: { en: "queued", zh: "排队中" },
+    running: { en: "running", zh: "运行中" },
+    succeeded: { en: "succeeded", zh: "已成功" },
+    failed: { en: "failed", zh: "失败" },
+    timed_out: { en: "timed out", zh: "超时" },
+  };
+  const label = labels[value];
+  if (label) return uiLanguage === "zh-CN" ? label.zh : label.en;
+  return value.replaceAll("_", " ");
+}
 
 function autoResizeTextarea(element: HTMLTextAreaElement | null) {
   if (!element) return;
@@ -70,8 +80,9 @@ function autoResizeTextarea(element: HTMLTextAreaElement | null) {
 }
 
 function formatLastRunTimestamp(value: Date | string | null | undefined) {
-  if (!value) return "Never";
-  return new Date(value).toLocaleString();
+  const uiLanguage = readStoredUiLanguage();
+  if (!value) return textFor(uiLanguage, { en: "Never", "zh-CN": "从未运行" });
+  return new Date(value).toLocaleString(uiLanguage === "zh-CN" ? "zh-CN" : "en-US");
 }
 
 function nextRoutineStatus(currentStatus: string, enabled: boolean) {
@@ -112,17 +123,13 @@ function saveRoutineViewState(key: string, state: RoutineViewState) {
   localStorage.setItem(key, JSON.stringify(state));
 }
 
-function formatRoutineRunStatus(value: string | null | undefined) {
-  if (!value) return null;
-  return value.replaceAll("_", " ");
-}
-
 export function buildRoutineGroups(
   routines: RoutineListItem[],
   groupByValue: RoutineGroupBy,
   projectById: Map<string, { name: string }>,
   agentById: Map<string, { name: string }>,
 ): RoutineGroup[] {
+  const uiLanguage = readStoredUiLanguage();
   if (groupByValue === "none") {
     return [{ key: "__all", label: null, items: routines }];
   }
@@ -131,13 +138,19 @@ export function buildRoutineGroups(
     const groups = groupBy(routines, (routine) => routine.projectId ?? "__no_project");
     return Object.keys(groups)
       .sort((left, right) => {
-        const leftLabel = left === "__no_project" ? "No project" : (projectById.get(left)?.name ?? "Unknown project");
-        const rightLabel = right === "__no_project" ? "No project" : (projectById.get(right)?.name ?? "Unknown project");
+        const leftLabel = left === "__no_project"
+          ? textFor(uiLanguage, { en: "No project", "zh-CN": "无项目" })
+          : (projectById.get(left)?.name ?? textFor(uiLanguage, { en: "Unknown project", "zh-CN": "未知项目" }));
+        const rightLabel = right === "__no_project"
+          ? textFor(uiLanguage, { en: "No project", "zh-CN": "无项目" })
+          : (projectById.get(right)?.name ?? textFor(uiLanguage, { en: "Unknown project", "zh-CN": "未知项目" }));
         return leftLabel.localeCompare(rightLabel);
       })
       .map((key) => ({
         key,
-        label: key === "__no_project" ? "No project" : (projectById.get(key)?.name ?? "Unknown project"),
+        label: key === "__no_project"
+          ? textFor(uiLanguage, { en: "No project", "zh-CN": "无项目" })
+          : (projectById.get(key)?.name ?? textFor(uiLanguage, { en: "Unknown project", "zh-CN": "未知项目" })),
         items: groups[key]!,
       }));
   }
@@ -145,13 +158,19 @@ export function buildRoutineGroups(
   const groups = groupBy(routines, (routine) => routine.assigneeAgentId ?? "__unassigned");
   return Object.keys(groups)
     .sort((left, right) => {
-      const leftLabel = left === "__unassigned" ? "Unassigned" : (agentById.get(left)?.name ?? "Unknown agent");
-      const rightLabel = right === "__unassigned" ? "Unassigned" : (agentById.get(right)?.name ?? "Unknown agent");
+      const leftLabel = left === "__unassigned"
+        ? textFor(uiLanguage, { en: "Unassigned", "zh-CN": "未分配" })
+        : (agentById.get(left)?.name ?? textFor(uiLanguage, { en: "Unknown agent", "zh-CN": "未知智能体" }));
+      const rightLabel = right === "__unassigned"
+        ? textFor(uiLanguage, { en: "Unassigned", "zh-CN": "未分配" })
+        : (agentById.get(right)?.name ?? textFor(uiLanguage, { en: "Unknown agent", "zh-CN": "未知智能体" }));
       return leftLabel.localeCompare(rightLabel);
     })
     .map((key) => ({
       key,
-      label: key === "__unassigned" ? "Unassigned" : (agentById.get(key)?.name ?? "Unknown agent"),
+      label: key === "__unassigned"
+        ? textFor(uiLanguage, { en: "Unassigned", "zh-CN": "未分配" })
+        : (agentById.get(key)?.name ?? textFor(uiLanguage, { en: "Unknown agent", "zh-CN": "未知智能体" })),
       items: groups[key]!,
     }));
 }
@@ -181,11 +200,29 @@ function RoutineListRow({
   onToggleEnabled: (routine: RoutineListItem, enabled: boolean) => void;
   onToggleArchived: (routine: RoutineListItem) => void;
 }) {
+  const { uiLanguage } = useGeneralSettings();
   const enabled = routine.status === "active";
   const isArchived = routine.status === "archived";
   const isStatusPending = statusMutationRoutineId === routine.id;
   const project = routine.projectId ? projectById.get(routine.projectId) ?? null : null;
   const agent = routine.assigneeAgentId ? agentById.get(routine.assigneeAgentId) ?? null : null;
+  const copy = {
+    archived: textFor(uiLanguage, { en: "archived", "zh-CN": "已归档" }),
+    paused: textFor(uiLanguage, { en: "paused", "zh-CN": "已暂停" }),
+    unknownProject: textFor(uiLanguage, { en: "Unknown project", "zh-CN": "未知项目" }),
+    unknownAgent: textFor(uiLanguage, { en: "Unknown agent", "zh-CN": "未知智能体" }),
+    archivedState: textFor(uiLanguage, { en: "Archived", "zh-CN": "已归档" }),
+    on: textFor(uiLanguage, { en: "On", "zh-CN": "开" }),
+    off: textFor(uiLanguage, { en: "Off", "zh-CN": "关" }),
+    moreActions: textFor(uiLanguage, { en: "More actions for", "zh-CN": "更多操作：" }),
+    edit: textFor(uiLanguage, { en: "Edit", "zh-CN": "编辑" }),
+    running: textFor(uiLanguage, { en: "Running...", "zh-CN": "运行中..." }),
+    runNow: textFor(uiLanguage, { en: "Run now", "zh-CN": "立即运行" }),
+    pause: textFor(uiLanguage, { en: "Pause", "zh-CN": "暂停" }),
+    enable: textFor(uiLanguage, { en: "Enable", "zh-CN": "启用" }),
+    restore: textFor(uiLanguage, { en: "Restore", "zh-CN": "恢复" }),
+    archive: textFor(uiLanguage, { en: "Archive", "zh-CN": "归档" }),
+  };
 
   return (
     <div
@@ -197,7 +234,7 @@ function RoutineListRow({
           <span className="truncate text-sm font-medium">{routine.title}</span>
           {(isArchived || routine.status === "paused") ? (
             <span className="text-xs text-muted-foreground">
-              {isArchived ? "archived" : "paused"}
+              {isArchived ? copy.archived : copy.paused}
             </span>
           ) : null}
         </div>
@@ -207,15 +244,15 @@ function RoutineListRow({
               className="h-2.5 w-2.5 shrink-0 rounded-sm"
               style={{ backgroundColor: project?.color ?? "#64748b" }}
             />
-            <span>{project?.name ?? "Unknown project"}</span>
+            <span>{project?.name ?? copy.unknownProject}</span>
           </span>
           <span className="flex items-center gap-2">
             {agent?.icon ? <AgentIcon icon={agent.icon} className="h-3.5 w-3.5 shrink-0" /> : null}
-            <span>{agent?.name ?? "Unknown agent"}</span>
+            <span>{agent?.name ?? copy.unknownAgent}</span>
           </span>
           <span>
             {formatLastRunTimestamp(routine.lastRun?.triggeredAt)}
-            {routine.lastRun ? ` · ${formatRoutineRunStatus(routine.lastRun.status)}` : ""}
+            {routine.lastRun ? ` · ${routineStatusLabel(routine.lastRun.status, uiLanguage)}` : ""}
           </span>
         </div>
       </div>
@@ -227,41 +264,43 @@ function RoutineListRow({
             checked={enabled}
             onCheckedChange={() => onToggleEnabled(routine, enabled)}
             disabled={isStatusPending || isArchived}
-            aria-label={enabled ? `Disable ${routine.title}` : `Enable ${routine.title}`}
+            aria-label={enabled
+              ? `${textFor(uiLanguage, { en: "Disable", "zh-CN": "停用" })} ${routine.title}`
+              : `${textFor(uiLanguage, { en: "Enable", "zh-CN": "启用" })} ${routine.title}`}
           />
           <span className="w-12 text-xs text-muted-foreground">
-            {isArchived ? "Archived" : enabled ? "On" : "Off"}
+            {isArchived ? copy.archivedState : enabled ? copy.on : copy.off}
           </span>
         </div>
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon-sm" aria-label={`More actions for ${routine.title}`}>
+            <Button variant="ghost" size="icon-sm" aria-label={`${copy.moreActions} ${routine.title}`}>
               <MoreHorizontal className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={() => onNavigate(routine.id)}>
-              Edit
+              {copy.edit}
             </DropdownMenuItem>
             <DropdownMenuItem
               disabled={runningRoutineId === routine.id || isArchived}
               onClick={() => onRunNow(routine)}
             >
-              {runningRoutineId === routine.id ? "Running..." : "Run now"}
+              {runningRoutineId === routine.id ? copy.running : copy.runNow}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem
               onClick={() => onToggleEnabled(routine, enabled)}
               disabled={isStatusPending || isArchived}
             >
-              {enabled ? "Pause" : "Enable"}
+              {enabled ? copy.pause : copy.enable}
             </DropdownMenuItem>
             <DropdownMenuItem
               onClick={() => onToggleArchived(routine)}
               disabled={isStatusPending}
             >
-              {routine.status === "archived" ? "Restore" : "Archive"}
+              {routine.status === "archived" ? copy.restore : copy.archive}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -273,6 +312,7 @@ function RoutineListRow({
 export function Routines() {
   const { selectedCompanyId } = useCompany();
   const { setBreadcrumbs } = useBreadcrumbs();
+  const { uiLanguage } = useGeneralSettings();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -310,10 +350,93 @@ export function Routines() {
     ? `paperclip:routines-view:${selectedCompanyId}`
     : "paperclip:routines-view";
   const [routineViewState, setRoutineViewState] = useState<RoutineViewState>(() => getRoutineViewState(routineViewStateKey));
+  const concurrencyPolicyDescriptions: Record<string, string> = {
+    coalesce_if_active: textFor(uiLanguage, {
+      en: "If a run is already active, keep just one follow-up run queued.",
+      "zh-CN": "如果当前已有运行在进行中，只保留一个后续待运行任务。",
+    }),
+    always_enqueue: textFor(uiLanguage, {
+      en: "Queue every trigger occurrence, even if the routine is already running.",
+      "zh-CN": "即使例行任务已经在运行，也将每次触发都加入队列。",
+    }),
+    skip_if_active: textFor(uiLanguage, {
+      en: "Drop new trigger occurrences while a run is still active.",
+      "zh-CN": "当已有运行处于活动状态时，忽略新的触发。",
+    }),
+  };
+  const catchUpPolicyDescriptions: Record<string, string> = {
+    skip_missed: textFor(uiLanguage, {
+      en: "Ignore windows that were missed while the scheduler or routine was paused.",
+      "zh-CN": "忽略调度器或例行任务暂停期间错过的时间窗口。",
+    }),
+    enqueue_missed_with_cap: textFor(uiLanguage, {
+      en: "Catch up missed schedule windows in capped batches after recovery.",
+      "zh-CN": "恢复后按上限批量补跑错过的调度窗口。",
+    }),
+  };
+  const concurrencyPolicyLabels: Record<string, string> = {
+    coalesce_if_active: textFor(uiLanguage, { en: "Coalesce if active", "zh-CN": "活动时合并" }),
+    always_enqueue: textFor(uiLanguage, { en: "Always enqueue", "zh-CN": "始终排队" }),
+    skip_if_active: textFor(uiLanguage, { en: "Skip if active", "zh-CN": "活动时跳过" }),
+  };
+  const catchUpPolicyLabels: Record<string, string> = {
+    skip_missed: textFor(uiLanguage, { en: "Skip missed", "zh-CN": "跳过错过的" }),
+    enqueue_missed_with_cap: textFor(uiLanguage, { en: "Enqueue missed with cap", "zh-CN": "按上限补入队列" }),
+  };
+  const copy = {
+    routines: textFor(uiLanguage, { en: "Routines", "zh-CN": "例行任务" }),
+    beta: textFor(uiLanguage, { en: "Beta", "zh-CN": "测试版" }),
+    pageDescription: textFor(uiLanguage, {
+      en: "Recurring work definitions that materialize into auditable execution issues.",
+      "zh-CN": "定义可重复执行的工作，并将其转化为可审计的执行任务。",
+    }),
+    createRoutine: textFor(uiLanguage, { en: "Create routine", "zh-CN": "新建例行任务" }),
+    recentRuns: textFor(uiLanguage, { en: "Recent Runs", "zh-CN": "最近运行" }),
+    routineCount: (count: number) => uiLanguage === "zh-CN" ? `${count} 个例行任务` : `${count} routine${count === 1 ? "" : "s"}`,
+    group: textFor(uiLanguage, { en: "Group", "zh-CN": "分组" }),
+    project: textFor(uiLanguage, { en: "Project", "zh-CN": "项目" }),
+    agent: textFor(uiLanguage, { en: "Agent", "zh-CN": "智能体" }),
+    none: textFor(uiLanguage, { en: "None", "zh-CN": "无" }),
+    newRoutine: textFor(uiLanguage, { en: "New routine", "zh-CN": "新建例行任务" }),
+    createHint: textFor(uiLanguage, {
+      en: "Define the recurring work first. Trigger setup comes next on the detail page.",
+      "zh-CN": "先定义重复执行的工作内容，触发器设置稍后在详情页完成。",
+    }),
+    cancel: textFor(uiLanguage, { en: "Cancel", "zh-CN": "取消" }),
+    routineTitle: textFor(uiLanguage, { en: "Routine title", "zh-CN": "例行任务标题" }),
+    for: textFor(uiLanguage, { en: "For", "zh-CN": "分配给" }),
+    assignee: textFor(uiLanguage, { en: "Assignee", "zh-CN": "负责人" }),
+    noAssignee: textFor(uiLanguage, { en: "No assignee", "zh-CN": "未分配" }),
+    searchAssignees: textFor(uiLanguage, { en: "Search assignees...", "zh-CN": "搜索负责人..." }),
+    noAssigneesFound: textFor(uiLanguage, { en: "No assignees found.", "zh-CN": "未找到负责人。" }),
+    in: textFor(uiLanguage, { en: "in", "zh-CN": "在" }),
+    noProject: textFor(uiLanguage, { en: "No project", "zh-CN": "无项目" }),
+    searchProjects: textFor(uiLanguage, { en: "Search projects...", "zh-CN": "搜索项目..." }),
+    noProjectsFound: textFor(uiLanguage, { en: "No projects found.", "zh-CN": "未找到项目。" }),
+    addInstructions: textFor(uiLanguage, { en: "Add instructions...", "zh-CN": "补充说明..." }),
+    advancedSettings: textFor(uiLanguage, { en: "Advanced delivery settings", "zh-CN": "高级投递设置" }),
+    advancedHint: textFor(uiLanguage, {
+      en: "Keep policy controls secondary to the work definition.",
+      "zh-CN": "策略控制项应作为工作定义的补充设置。",
+    }),
+    concurrency: textFor(uiLanguage, { en: "Concurrency", "zh-CN": "并发" }),
+    catchUp: textFor(uiLanguage, { en: "Catch-up", "zh-CN": "补跑" }),
+    footerHint: textFor(uiLanguage, {
+      en: "After creation, Paperclip takes you straight to trigger setup for schedules, webhooks, or internal runs.",
+      "zh-CN": "创建后，Paperclip 会直接带你进入触发器设置页面，可配置定时、Webhook 或内部运行。",
+    }),
+    creating: textFor(uiLanguage, { en: "Creating...", "zh-CN": "创建中..." }),
+    failedToCreateRoutine: textFor(uiLanguage, { en: "Failed to create routine", "zh-CN": "创建例行任务失败" }),
+    failedToLoadRoutines: textFor(uiLanguage, { en: "Failed to load routines", "zh-CN": "加载例行任务失败" }),
+    noRoutinesYet: textFor(uiLanguage, {
+      en: "No routines yet. Use Create routine to define the first recurring workflow.",
+      "zh-CN": "还没有例行任务。点击“新建例行任务”来定义第一个重复工作流。",
+    }),
+  };
 
   useEffect(() => {
-    setBreadcrumbs([{ label: "Routines" }]);
-  }, [setBreadcrumbs]);
+    setBreadcrumbs([{ label: copy.routines }]);
+  }, [copy.routines, setBreadcrumbs]);
 
   useEffect(() => {
     setRoutineViewState(getRoutineViewState(routineViewStateKey));
@@ -376,8 +499,8 @@ export function Routines() {
       setAdvancedOpen(false);
       await queryClient.invalidateQueries({ queryKey: queryKeys.routines.list(selectedCompanyId!) });
       pushToast({
-        title: "Routine created",
-        body: "Add the first trigger to turn it into a live workflow.",
+        title: textFor(uiLanguage, { en: "Routine created", "zh-CN": "例行任务已创建" }),
+        body: textFor(uiLanguage, { en: "Add the first trigger to turn it into a live workflow.", "zh-CN": "接下来添加第一个触发器，让它成为可运行的工作流。" }),
         tone: "success",
       });
       navigate(`/routines/${routine.id}?tab=triggers`);
@@ -407,8 +530,8 @@ export function Routines() {
     },
     onError: (mutationError) => {
       pushToast({
-        title: "Failed to update routine",
-        body: mutationError instanceof Error ? mutationError.message : "Paperclip could not update the routine.",
+        title: textFor(uiLanguage, { en: "Failed to update routine", "zh-CN": "更新例行任务失败" }),
+        body: mutationError instanceof Error ? mutationError.message : textFor(uiLanguage, { en: "Paperclip could not update the routine.", "zh-CN": "Paperclip 无法更新这个例行任务。" }),
         tone: "error",
       });
     },
@@ -440,8 +563,8 @@ export function Routines() {
     },
     onError: (mutationError) => {
       pushToast({
-        title: "Routine run failed",
-        body: mutationError instanceof Error ? mutationError.message : "Paperclip could not start the routine run.",
+        title: textFor(uiLanguage, { en: "Routine run failed", "zh-CN": "例行任务运行失败" }),
+        body: mutationError instanceof Error ? mutationError.message : textFor(uiLanguage, { en: "Paperclip could not start the routine run.", "zh-CN": "Paperclip 无法启动这次例行任务运行。" }),
         tone: "error",
       });
     },
@@ -491,11 +614,11 @@ export function Routines() {
   const recentRunsIssueLinkState = useMemo(
     () =>
       createIssueDetailLocationState(
-        "Recent Runs",
+        copy.recentRuns,
         buildRoutinesTabHref("runs"),
         "issues",
       ),
-    [],
+    [copy.recentRuns],
   );
   const runDialogProject = runDialogRoutine?.projectId ? projectById.get(runDialogRoutine.projectId) ?? null : null;
   const currentAssignee = draft.assigneeAgentId ? agentById.get(draft.assigneeAgentId) ?? null : null;
@@ -545,7 +668,7 @@ export function Routines() {
   }
 
   if (!selectedCompanyId) {
-    return <EmptyState icon={Repeat} message="Select a company to view routines." />;
+    return <EmptyState icon={Repeat} message={textFor(uiLanguage, { en: "Select a company to view routines.", "zh-CN": "请先选择公司以查看例行任务。" })} />;
   }
 
   if (isLoading) {
@@ -557,16 +680,16 @@ export function Routines() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div className="space-y-1">
           <h1 className="text-2xl font-semibold tracking-tight flex items-center gap-2">
-            Routines
-            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-900/30 dark:text-amber-400">Beta</span>
+            {copy.routines}
+            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-900/30 dark:text-amber-400">{copy.beta}</span>
           </h1>
           <p className="text-sm text-muted-foreground">
-            Recurring work definitions that materialize into auditable execution issues.
+            {copy.pageDescription}
           </p>
         </div>
         <Button onClick={() => setComposerOpen(true)}>
           <Plus className="mr-2 h-4 w-4" />
-          Create routine
+          {copy.createRoutine}
         </Button>
       </div>
 
@@ -576,28 +699,28 @@ export function Routines() {
           value={activeTab}
           onValueChange={handleTabChange}
           items={[
-            { value: "routines", label: "Routines" },
-            { value: "runs", label: "Recent Runs" },
+            { value: "routines", label: copy.routines },
+            { value: "runs", label: copy.recentRuns },
           ]}
         />
         <TabsContent value="routines" className="space-y-4">
           <div className="flex items-center justify-between gap-3">
             <p className="text-sm text-muted-foreground">
-              {(routines ?? []).length} routine{(routines ?? []).length === 1 ? "" : "s"}
+              {copy.routineCount((routines ?? []).length)}
             </p>
             <Popover>
               <PopoverTrigger asChild>
                 <Button variant="ghost" size="sm" className="text-xs">
                   <Layers className="h-3.5 w-3.5 sm:h-3 sm:w-3 sm:mr-1" />
-                  <span className="hidden sm:inline">Group</span>
+                  <span className="hidden sm:inline">{copy.group}</span>
                 </Button>
               </PopoverTrigger>
               <PopoverContent align="end" className="w-44 p-0">
                 <div className="p-2 space-y-0.5">
                   {([
-                    ["project", "Project"],
-                    ["assignee", "Agent"],
-                    ["none", "None"],
+                    ["project", copy.project],
+                    ["assignee", copy.agent],
+                    ["none", copy.none],
                   ] as const).map(([value, label]) => (
                     <button
                       key={value}
@@ -646,9 +769,9 @@ export function Routines() {
         >
           <div className="shrink-0 flex flex-wrap items-center justify-between gap-3 border-b border-border/60 px-5 py-3">
             <div>
-              <p className="text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground">New routine</p>
+              <p className="text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground">{copy.newRoutine}</p>
               <p className="text-sm text-muted-foreground">
-                Define the recurring work first. Trigger setup comes next on the detail page.
+                {copy.createHint}
               </p>
             </div>
             <Button
@@ -660,7 +783,7 @@ export function Routines() {
               }}
               disabled={createRoutine.isPending}
             >
-              Cancel
+              {copy.cancel}
             </Button>
           </div>
 
@@ -669,7 +792,7 @@ export function Routines() {
               <textarea
                 ref={titleInputRef}
                 className="w-full resize-none overflow-hidden bg-transparent text-xl font-semibold outline-none placeholder:text-muted-foreground/50"
-                placeholder="Routine title"
+                placeholder={copy.routineTitle}
                 rows={1}
                 value={draft.title}
                 onChange={(event) => {
@@ -702,15 +825,15 @@ export function Routines() {
             <div className="px-5 pb-3">
               <div className="overflow-x-auto overscroll-x-contain">
                 <div className="inline-flex min-w-full flex-wrap items-center gap-2 text-sm text-muted-foreground sm:min-w-max sm:flex-nowrap">
-                  <span>For</span>
+                  <span>{copy.for}</span>
                   <InlineEntitySelector
                     ref={assigneeSelectorRef}
                     value={draft.assigneeAgentId}
                     options={assigneeOptions}
-                    placeholder="Assignee"
-                    noneLabel="No assignee"
-                    searchPlaceholder="Search assignees..."
-                    emptyMessage="No assignees found."
+                    placeholder={copy.assignee}
+                    noneLabel={copy.noAssignee}
+                    searchPlaceholder={copy.searchAssignees}
+                    emptyMessage={copy.noAssigneesFound}
                     onChange={(assigneeAgentId) => {
                       if (assigneeAgentId) trackRecentAssignee(assigneeAgentId);
                       setDraft((current) => ({ ...current, assigneeAgentId }));
@@ -733,7 +856,7 @@ export function Routines() {
                           <span className="truncate">{option.label}</span>
                         )
                       ) : (
-                        <span className="text-muted-foreground">Assignee</span>
+                        <span className="text-muted-foreground">{copy.assignee}</span>
                       )
                     }
                     renderOption={(option) => {
@@ -747,15 +870,15 @@ export function Routines() {
                       );
                     }}
                   />
-                  <span>in</span>
+                  <span>{copy.in}</span>
                   <InlineEntitySelector
                     ref={projectSelectorRef}
                     value={draft.projectId}
                     options={projectOptions}
-                    placeholder="Project"
-                    noneLabel="No project"
-                    searchPlaceholder="Search projects..."
-                    emptyMessage="No projects found."
+                    placeholder={copy.project}
+                    noneLabel={copy.noProject}
+                    searchPlaceholder={copy.searchProjects}
+                    emptyMessage={copy.noProjectsFound}
                     onChange={(projectId) => setDraft((current) => ({ ...current, projectId }))}
                     onConfirm={() => descriptionEditorRef.current?.focus()}
                     renderTriggerValue={(option) =>
@@ -768,7 +891,7 @@ export function Routines() {
                           <span className="truncate">{option.label}</span>
                         </>
                       ) : (
-                        <span className="text-muted-foreground">Project</span>
+                        <span className="text-muted-foreground">{copy.project}</span>
                       )
                     }
                     renderOption={(option) => {
@@ -794,7 +917,7 @@ export function Routines() {
                 ref={descriptionEditorRef}
                 value={draft.description}
                 onChange={(description) => setDraft((current) => ({ ...current, description }))}
-                placeholder="Add instructions..."
+                placeholder={copy.addInstructions}
                 bordered={false}
                 contentClassName="min-h-[160px] text-sm text-muted-foreground"
                 onSubmit={() => {
@@ -818,15 +941,15 @@ export function Routines() {
               <Collapsible open={advancedOpen} onOpenChange={setAdvancedOpen}>
                 <CollapsibleTrigger className="flex w-full items-center justify-between text-left">
                   <div>
-                    <p className="text-sm font-medium">Advanced delivery settings</p>
-                    <p className="text-sm text-muted-foreground">Keep policy controls secondary to the work definition.</p>
+                    <p className="text-sm font-medium">{copy.advancedSettings}</p>
+                    <p className="text-sm text-muted-foreground">{copy.advancedHint}</p>
                   </div>
                   {advancedOpen ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
                 </CollapsibleTrigger>
                 <CollapsibleContent className="pt-3">
                   <div className="grid gap-4 md:grid-cols-2">
                     <div className="space-y-2">
-                      <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">Concurrency</p>
+                      <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">{copy.concurrency}</p>
                       <Select
                         value={draft.concurrencyPolicy}
                         onValueChange={(concurrencyPolicy) => setDraft((current) => ({ ...current, concurrencyPolicy }))}
@@ -836,14 +959,14 @@ export function Routines() {
                         </SelectTrigger>
                         <SelectContent>
                           {concurrencyPolicies.map((value) => (
-                            <SelectItem key={value} value={value}>{value.replaceAll("_", " ")}</SelectItem>
+                            <SelectItem key={value} value={value}>{concurrencyPolicyLabels[value]}</SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
                       <p className="text-xs text-muted-foreground">{concurrencyPolicyDescriptions[draft.concurrencyPolicy]}</p>
                     </div>
                     <div className="space-y-2">
-                      <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">Catch-up</p>
+                      <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">{copy.catchUp}</p>
                       <Select
                         value={draft.catchUpPolicy}
                         onValueChange={(catchUpPolicy) => setDraft((current) => ({ ...current, catchUpPolicy }))}
@@ -853,7 +976,7 @@ export function Routines() {
                         </SelectTrigger>
                         <SelectContent>
                           {catchUpPolicies.map((value) => (
-                            <SelectItem key={value} value={value}>{value.replaceAll("_", " ")}</SelectItem>
+                            <SelectItem key={value} value={value}>{catchUpPolicyLabels[value]}</SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
@@ -867,7 +990,7 @@ export function Routines() {
 
           <div className="shrink-0 flex flex-col gap-3 border-t border-border/60 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="text-sm text-muted-foreground">
-              After creation, Paperclip takes you straight to trigger setup for schedules, webhooks, or internal runs.
+              {copy.footerHint}
             </div>
             <div className="flex flex-col gap-2 sm:items-end">
               <Button
@@ -880,11 +1003,11 @@ export function Routines() {
                 }
               >
                 <Plus className="mr-2 h-4 w-4" />
-                {createRoutine.isPending ? "Creating..." : "Create routine"}
+                {createRoutine.isPending ? copy.creating : copy.createRoutine}
               </Button>
               {createRoutine.isError ? (
                 <p className="text-sm text-destructive">
-                  {createRoutine.error instanceof Error ? createRoutine.error.message : "Failed to create routine"}
+                  {createRoutine.error instanceof Error ? createRoutine.error.message : copy.failedToCreateRoutine}
                 </p>
               ) : null}
             </div>
@@ -895,7 +1018,7 @@ export function Routines() {
       {error ? (
         <Card>
           <CardContent className="pt-6 text-sm text-destructive">
-            {error instanceof Error ? error.message : "Failed to load routines"}
+            {error instanceof Error ? error.message : copy.failedToLoadRoutines}
           </CardContent>
         </Card>
       ) : null}
@@ -906,7 +1029,7 @@ export function Routines() {
             <div className="py-12">
               <EmptyState
                 icon={Repeat}
-                message="No routines yet. Use Create routine to define the first recurring workflow."
+                message={copy.noRoutinesYet}
               />
             </div>
           ) : (

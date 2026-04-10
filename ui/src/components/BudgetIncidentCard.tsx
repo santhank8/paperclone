@@ -5,6 +5,8 @@ import { formatCents } from "../lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { useGeneralSettings } from "../context/GeneralSettingsContext";
+import { textFor } from "../lib/ui-language";
 
 function centsInputValue(value: number) {
   return (value / 100).toFixed(2);
@@ -27,6 +29,7 @@ export function BudgetIncidentCard({
   onKeepPaused: () => void;
   isMutating?: boolean;
 }) {
+  const { uiLanguage } = useGeneralSettings();
   const [draftAmount, setDraftAmount] = useState(
     centsInputValue(Math.max(incident.amountObserved + 1000, incident.amountLimit)),
   );
@@ -38,11 +41,18 @@ export function BudgetIncidentCard({
         <div className="flex items-start justify-between gap-3">
           <div>
             <div className="text-[11px] uppercase tracking-[0.22em] text-red-200/80">
-              {incident.scopeType} hard stop
+              {incident.scopeType === "project"
+                ? textFor(uiLanguage, { en: "project hard stop", "zh-CN": "项目硬停止" })
+                : incident.scopeType === "agent"
+                  ? textFor(uiLanguage, { en: "agent hard stop", "zh-CN": "智能体硬停止" })
+                  : textFor(uiLanguage, { en: "company hard stop", "zh-CN": "公司硬停止" })}
             </div>
             <CardTitle className="mt-1 text-base text-red-50">{incident.scopeName}</CardTitle>
             <CardDescription className="mt-1 text-red-100/70">
-              Spending reached {formatCents(incident.amountObserved)} against a limit of {formatCents(incident.amountLimit)}.
+              {textFor(uiLanguage, {
+                en: `Spending reached ${formatCents(incident.amountObserved)} against a limit of ${formatCents(incident.amountLimit)}.`,
+                "zh-CN": `已花费 ${formatCents(incident.amountObserved)}，超过限制 ${formatCents(incident.amountLimit)}。`,
+              })}
             </CardDescription>
           </div>
           <div className="rounded-full border border-red-400/30 bg-red-500/10 p-2 text-red-200">
@@ -55,14 +65,20 @@ export function BudgetIncidentCard({
           <PauseCircle className="mt-0.5 h-4 w-4 shrink-0" />
           <div>
             {incident.scopeType === "project"
-              ? "Project execution is paused. New work in this project will not start until you resolve the budget incident."
-              : "This scope is paused. New heartbeats will not start until you resolve the budget incident."}
+              ? textFor(uiLanguage, {
+                  en: "Project execution is paused. New work in this project will not start until you resolve the budget incident.",
+                  "zh-CN": "项目执行已暂停。在你处理完预算事件之前，此项目中的新工作不会启动。",
+                })
+              : textFor(uiLanguage, {
+                  en: "This scope is paused. New heartbeats will not start until you resolve the budget incident.",
+                  "zh-CN": "该范围已暂停。在你处理完预算事件之前，新的心跳不会启动。",
+                })}
           </div>
         </div>
 
         <div className="rounded-xl border border-border/60 bg-background/60 p-3">
           <label className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-            New budget (USD)
+            {textFor(uiLanguage, { en: "New budget (USD)", "zh-CN": "新预算（USD）" })}
           </label>
           <div className="mt-2 flex flex-col gap-3 sm:flex-row">
             <Input
@@ -79,19 +95,21 @@ export function BudgetIncidentCard({
               }}
             >
               <ArrowUpRight className="h-4 w-4" />
-              {isMutating ? "Applying..." : "Raise budget & resume"}
+              {isMutating
+                ? textFor(uiLanguage, { en: "Applying...", "zh-CN": "应用中..." })
+                : textFor(uiLanguage, { en: "Raise budget & resume", "zh-CN": "提高预算并恢复" })}
             </Button>
           </div>
           {parsed !== null && parsed <= incident.amountObserved ? (
             <p className="mt-2 text-xs text-red-200/80">
-              The new budget must exceed current observed spend.
+              {textFor(uiLanguage, { en: "The new budget must exceed current observed spend.", "zh-CN": "新预算必须高于当前已观测支出。" })}
             </p>
           ) : null}
         </div>
 
         <div className="flex justify-end">
           <Button variant="ghost" className="text-muted-foreground" disabled={isMutating} onClick={onKeepPaused}>
-            Keep paused
+            {textFor(uiLanguage, { en: "Keep paused", "zh-CN": "保持暂停" })}
           </Button>
         </div>
       </CardContent>

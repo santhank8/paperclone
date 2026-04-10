@@ -2,6 +2,8 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { cn } from "../lib/utils";
 import { MarkdownEditor, type MarkdownEditorRef, type MentionOption } from "./MarkdownEditor";
 import { useAutosaveIndicator } from "../hooks/useAutosaveIndicator";
+import { useGeneralSettings } from "../context/GeneralSettingsContext";
+import { textFor } from "../lib/ui-language";
 
 interface InlineEditorProps {
   value: string;
@@ -51,6 +53,7 @@ export function InlineEditor({
   onDropFile,
   mentions,
 }: InlineEditorProps) {
+  const { uiLanguage } = useGeneralSettings();
   const [editing, setEditing] = useState(false);
   const [multilineFocused, setMultilineFocused] = useState(false);
   const [draft, setDraft] = useState(value);
@@ -246,12 +249,12 @@ export function InlineEditor({
             )}
           >
             {autosaveState === "saving"
-              ? "Autosaving..."
+              ? textFor(uiLanguage, { en: "Autosaving...", "zh-CN": "自动保存中..." })
               : autosaveState === "saved"
-                ? "Saved"
+                ? textFor(uiLanguage, { en: "Saved", "zh-CN": "已保存" })
                 : autosaveState === "error"
-                  ? "Could not save"
-                  : "Idle"}
+                  ? textFor(uiLanguage, { en: "Could not save", "zh-CN": "无法保存" })
+                  : textFor(uiLanguage, { en: "Idle", "zh-CN": "空闲" })}
           </span>
         </div>
       </div>

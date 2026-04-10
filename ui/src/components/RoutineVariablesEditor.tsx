@@ -3,6 +3,8 @@ import { ChevronDown, ChevronRight } from "lucide-react";
 import { syncRoutineVariablesWithTemplate, type RoutineVariable } from "@paperclipai/shared";
 import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { useGeneralSettings } from "../context/GeneralSettingsContext";
+import { textFor } from "../lib/ui-language";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -46,6 +48,7 @@ export function RoutineVariablesEditor({
   value: RoutineVariable[];
   onChange: (value: RoutineVariable[]) => void;
 }) {
+  const { uiLanguage } = useGeneralSettings();
   const [open, setOpen] = useState(true);
   const syncedVariables = useMemo(
     () => syncRoutineVariablesWithTemplate([title, description], value),
@@ -68,9 +71,12 @@ export function RoutineVariablesEditor({
     <Collapsible open={open} onOpenChange={setOpen}>
       <CollapsibleTrigger className="flex w-full items-center justify-between rounded-lg border border-border/70 px-3 py-2 text-left">
         <div>
-          <p className="text-sm font-medium">Variables</p>
+          <p className="text-sm font-medium">{textFor(uiLanguage, { en: "Variables", "zh-CN": "变量" })}</p>
           <p className="text-xs text-muted-foreground">
-            Detected from `{"{{name}}"}` placeholders in the routine title and instructions.
+            {textFor(uiLanguage, {
+              en: `Detected from ${"{{name}}"} placeholders in the routine title and instructions.`,
+              "zh-CN": `根据例行任务标题和说明中的 ${"{{name}}"} 占位符自动识别。`,
+            })}
           </p>
         </div>
         {open ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
@@ -83,13 +89,13 @@ export function RoutineVariablesEditor({
                 {`{{${variable.name}}}`}
               </Badge>
               <span className="text-xs text-muted-foreground">
-                Prompt the user for this value before each manual run.
+                {textFor(uiLanguage, { en: "Prompt the user for this value before each manual run.", "zh-CN": "每次手动运行前都向用户询问这个值。" })}
               </span>
             </div>
 
             <div className="grid gap-3 md:grid-cols-2">
               <div className="space-y-1.5">
-                <Label className="text-xs">Label</Label>
+                <Label className="text-xs">{textFor(uiLanguage, { en: "Label", "zh-CN": "标签" })}</Label>
                 <Input
                   value={variable.label ?? ""}
                   onChange={(event) => onChange(updateVariableList(syncedVariables, variable.name, (current) => ({
@@ -101,7 +107,7 @@ export function RoutineVariablesEditor({
               </div>
 
               <div className="space-y-1.5">
-                <Label className="text-xs">Type</Label>
+                <Label className="text-xs">{textFor(uiLanguage, { en: "Type", "zh-CN": "类型" })}</Label>
                 <Select
                   value={variable.type}
                   onValueChange={(type) => onChange(updateVariableList(syncedVariables, variable.name, (current) => ({
@@ -124,7 +130,7 @@ export function RoutineVariablesEditor({
 
               <div className="space-y-1.5 md:col-span-2">
                 <div className="flex items-center justify-between gap-3">
-                  <Label className="text-xs">Default value</Label>
+                  <Label className="text-xs">{textFor(uiLanguage, { en: "Default value", "zh-CN": "默认值" })}</Label>
                   <label className="flex items-center gap-2 text-xs text-muted-foreground">
                     <input
                       type="checkbox"
@@ -134,7 +140,7 @@ export function RoutineVariablesEditor({
                         required: event.target.checked,
                       })))}
                     />
-                    Required
+                    {textFor(uiLanguage, { en: "Required", "zh-CN": "必填" })}
                   </label>
                 </div>
 
@@ -159,15 +165,15 @@ export function RoutineVariablesEditor({
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="__unset__">No default</SelectItem>
-                      <SelectItem value="true">True</SelectItem>
-                      <SelectItem value="false">False</SelectItem>
+                      <SelectItem value="__unset__">{textFor(uiLanguage, { en: "No default", "zh-CN": "无默认值" })}</SelectItem>
+                      <SelectItem value="true">{textFor(uiLanguage, { en: "True", "zh-CN": "是" })}</SelectItem>
+                      <SelectItem value="false">{textFor(uiLanguage, { en: "False", "zh-CN": "否" })}</SelectItem>
                     </SelectContent>
                   </Select>
                 ) : variable.type === "select" ? (
                   <div className="grid gap-3 md:grid-cols-2">
                     <div className="space-y-1.5">
-                      <Label className="text-xs">Options</Label>
+                      <Label className="text-xs">{textFor(uiLanguage, { en: "Options", "zh-CN": "选项" })}</Label>
                       <Input
                         value={variable.options.join(", ")}
                         onChange={(event) => {
@@ -185,7 +191,7 @@ export function RoutineVariablesEditor({
                       />
                     </div>
                     <div className="space-y-1.5">
-                      <Label className="text-xs">Default option</Label>
+                      <Label className="text-xs">{textFor(uiLanguage, { en: "Default option", "zh-CN": "默认选项" })}</Label>
                       <Select
                         value={typeof variable.defaultValue === "string" ? variable.defaultValue : "__unset__"}
                         onValueChange={(next) => onChange(updateVariableList(syncedVariables, variable.name, (current) => ({
@@ -194,10 +200,10 @@ export function RoutineVariablesEditor({
                         })))}
                       >
                         <SelectTrigger>
-                          <SelectValue placeholder="No default" />
+                          <SelectValue placeholder={textFor(uiLanguage, { en: "No default", "zh-CN": "无默认值" })} />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="__unset__">No default</SelectItem>
+                          <SelectItem value="__unset__">{textFor(uiLanguage, { en: "No default", "zh-CN": "无默认值" })}</SelectItem>
                           {variable.options.map((option) => (
                             <SelectItem key={option} value={option}>{option}</SelectItem>
                           ))}
@@ -213,7 +219,7 @@ export function RoutineVariablesEditor({
                       ...current,
                       defaultValue: event.target.value || null,
                     })))}
-                    placeholder={variable.type === "number" ? "42" : "Default value"}
+                    placeholder={variable.type === "number" ? "42" : textFor(uiLanguage, { en: "Default value", "zh-CN": "默认值" })}
                   />
                 )}
               </div>
@@ -226,9 +232,13 @@ export function RoutineVariablesEditor({
 }
 
 export function RoutineVariablesHint() {
+  const { uiLanguage } = useGeneralSettings();
   return (
     <div className="rounded-lg border border-dashed border-border/70 px-3 py-2 text-xs text-muted-foreground">
-      Use `{"{{variable_name}}"}` placeholders in the instructions to prompt for inputs when the routine runs.
+      {textFor(uiLanguage, {
+        en: `Use ${"{{variable_name}}"} placeholders in the instructions to prompt for inputs when the routine runs.`,
+        "zh-CN": `在说明中使用 ${"{{variable_name}}"} 占位符，例行任务运行时就会提示输入这些值。`,
+      })}
     </div>
   );
 }

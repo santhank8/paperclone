@@ -11,6 +11,8 @@ import { ExternalLink } from "lucide-react";
 import { Identity } from "./Identity";
 import { RunChatSurface } from "./RunChatSurface";
 import { useLiveRunTranscripts } from "./transcript/useLiveRunTranscripts";
+import { useGeneralSettings } from "../context/GeneralSettingsContext";
+import { textFor } from "../lib/ui-language";
 
 const MIN_DASHBOARD_RUNS = 4;
 
@@ -23,6 +25,7 @@ interface ActiveAgentsPanelProps {
 }
 
 export function ActiveAgentsPanel({ companyId }: ActiveAgentsPanelProps) {
+  const { uiLanguage } = useGeneralSettings();
   const { data: liveRuns } = useQuery({
     queryKey: [...queryKeys.liveRuns(companyId), "dashboard"],
     queryFn: () => heartbeatsApi.liveRunsForCompany(companyId, MIN_DASHBOARD_RUNS),
@@ -48,15 +51,25 @@ export function ActiveAgentsPanel({ companyId }: ActiveAgentsPanelProps) {
     companyId,
     maxChunksPerRun: 120,
   });
+  const copy = {
+    agents: textFor(uiLanguage, {
+      en: "Agents",
+      "zh-CN": "智能体",
+    }),
+    noRecentRuns: textFor(uiLanguage, {
+      en: "No recent agent runs.",
+      "zh-CN": "最近没有智能体运行记录。",
+    }),
+  };
 
   return (
     <div>
       <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-        Agents
+        {copy.agents}
       </h3>
       {runs.length === 0 ? (
         <div className="rounded-xl border border-border p-4">
-          <p className="text-sm text-muted-foreground">No recent agent runs.</p>
+          <p className="text-sm text-muted-foreground">{copy.noRecentRuns}</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-4 xl:grid-cols-4">
@@ -92,6 +105,21 @@ function AgentRunCard({
   hasOutput: boolean;
   isActive: boolean;
 }) {
+  const { uiLanguage } = useGeneralSettings();
+  const copy = {
+    liveNow: textFor(uiLanguage, {
+      en: "Live now",
+      "zh-CN": "正在运行",
+    }),
+    finished: textFor(uiLanguage, {
+      en: "Finished",
+      "zh-CN": "已完成",
+    }),
+    started: textFor(uiLanguage, {
+      en: "Started",
+      "zh-CN": "开始于",
+    }),
+  };
   return (
     <div className={cn(
       "flex h-[320px] flex-col overflow-hidden rounded-xl border shadow-sm",
@@ -114,7 +142,13 @@ function AgentRunCard({
               <Identity name={run.agentName} size="sm" className="[&>span:last-child]:!text-[11px]" />
             </div>
             <div className="mt-2 flex items-center gap-2 text-[11px] text-muted-foreground">
-              <span>{isActive ? "Live now" : run.finishedAt ? `Finished ${relativeTime(run.finishedAt)}` : `Started ${relativeTime(run.createdAt)}`}</span>
+              <span>
+                {isActive
+                  ? copy.liveNow
+                  : run.finishedAt
+                    ? `${copy.finished} ${relativeTime(run.finishedAt)}`
+                    : `${copy.started} ${relativeTime(run.createdAt)}`}
+              </span>
             </div>
           </div>
 

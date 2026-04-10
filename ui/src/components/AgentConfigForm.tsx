@@ -27,6 +27,8 @@ import { cn } from "../lib/utils";
 import { extractModelName, extractProviderId } from "../lib/model-utils";
 import { queryKeys } from "../lib/queryKeys";
 import { useCompany } from "../context/CompanyContext";
+import { useGeneralSettings } from "../context/GeneralSettingsContext";
+import { textFor } from "../lib/ui-language";
 import {
   Field,
   ToggleField,
@@ -169,12 +171,29 @@ const claudeThinkingEffortOptions = [
   { id: "high", label: "High" },
 ] as const;
 
+function translatedOptionLabel(label: string, uiLanguage: "en" | "zh-CN") {
+  if (uiLanguage !== "zh-CN") return label;
+  const labels: Record<string, string> = {
+    Auto: "自动",
+    Minimal: "极低",
+    Low: "低",
+    Medium: "中",
+    High: "高",
+    "X-High": "超高",
+    Max: "最大",
+    Plan: "规划",
+    Ask: "询问",
+  };
+  return labels[label] ?? label;
+}
+
 
 /* ---- Form ---- */
 
 export function AgentConfigForm(props: AgentConfigFormProps) {
   const { mode, adapterModels: externalModels } = props;
   const isCreate = mode === "create";
+  const { uiLanguage } = useGeneralSettings();
   const cards = props.sectionLayout === "cards";
   const showAdapterTypeField = props.showAdapterTypeField ?? true;
   const showAdapterTestEnvironmentButton = props.showAdapterTestEnvironmentButton ?? true;
@@ -379,6 +398,44 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
   // Popover states
   const [modelOpen, setModelOpen] = useState(false);
   const [thinkingEffortOpen, setThinkingEffortOpen] = useState(false);
+  const copy = {
+    unsavedChanges: textFor(uiLanguage, { en: "Unsaved changes", "zh-CN": "有未保存更改" }),
+    saving: textFor(uiLanguage, { en: "Saving...", "zh-CN": "保存中..." }),
+    save: textFor(uiLanguage, { en: "Save", "zh-CN": "保存" }),
+    identity: textFor(uiLanguage, { en: "Identity", "zh-CN": "身份信息" }),
+    name: textFor(uiLanguage, { en: "Name", "zh-CN": "名称" }),
+    agentName: textFor(uiLanguage, { en: "Agent name", "zh-CN": "智能体名称" }),
+    title: textFor(uiLanguage, { en: "Title", "zh-CN": "职位" }),
+    titlePlaceholder: textFor(uiLanguage, { en: "e.g. VP of Engineering", "zh-CN": "例如：工程副总裁" }),
+    reportsTo: textFor(uiLanguage, { en: "Reports to", "zh-CN": "汇报对象" }),
+    chooseManager: textFor(uiLanguage, { en: "Choose manager…", "zh-CN": "选择上级…" }),
+    capabilities: textFor(uiLanguage, { en: "Capabilities", "zh-CN": "能力描述" }),
+    capabilitiesPlaceholder: textFor(uiLanguage, { en: "Describe what this agent can do...", "zh-CN": "描述这个智能体能做什么..." }),
+    adapter: textFor(uiLanguage, { en: "Adapter", "zh-CN": "适配器" }),
+    testing: textFor(uiLanguage, { en: "Testing...", "zh-CN": "检测中..." }),
+    testEnvironment: textFor(uiLanguage, { en: "Test environment", "zh-CN": "测试环境" }),
+    adapterType: textFor(uiLanguage, { en: "Adapter type", "zh-CN": "适配器类型" }),
+    environmentTestFailed: textFor(uiLanguage, { en: "Environment test failed", "zh-CN": "环境检测失败" }),
+    permissionsConfig: textFor(uiLanguage, { en: "Permissions & Configuration", "zh-CN": "权限与配置" }),
+    command: textFor(uiLanguage, { en: "Command", "zh-CN": "命令" }),
+    detectModel: textFor(uiLanguage, { en: "Detect model", "zh-CN": "检测模型" }),
+    noModelDetected: textFor(uiLanguage, { en: "No model detected. Select or enter one manually.", "zh-CN": "未检测到模型，请手动选择或输入。" }),
+    adapterModelsFailed: textFor(uiLanguage, { en: "Failed to load adapter models.", "zh-CN": "加载适配器模型失败。" }),
+    codexMinimalWarning: textFor(uiLanguage, { en: "Codex may reject `minimal` thinking when search is enabled.", "zh-CN": "启用搜索时，Codex 可能会拒绝 `minimal` 思考强度。" }),
+    extraArgs: textFor(uiLanguage, { en: "Extra args (comma-separated)", "zh-CN": "附加参数（逗号分隔）" }),
+    extraArgsPlaceholder: textFor(uiLanguage, { en: "e.g. --verbose, --foo=bar", "zh-CN": "例如：--verbose, --foo=bar" }),
+    envVars: textFor(uiLanguage, { en: "Environment variables", "zh-CN": "环境变量" }),
+    timeoutSec: textFor(uiLanguage, { en: "Timeout (sec)", "zh-CN": "超时（秒）" }),
+    graceSec: textFor(uiLanguage, { en: "Interrupt grace period (sec)", "zh-CN": "中断宽限期（秒）" }),
+    runPolicy: textFor(uiLanguage, { en: "Run Policy", "zh-CN": "运行策略" }),
+    heartbeatOnInterval: textFor(uiLanguage, { en: "Heartbeat on interval", "zh-CN": "按间隔运行心跳" }),
+    sec: textFor(uiLanguage, { en: "sec", "zh-CN": "秒" }),
+    runHeartbeatEvery: textFor(uiLanguage, { en: "Run heartbeat every", "zh-CN": "每隔多久运行一次心跳" }),
+    advancedRunPolicy: textFor(uiLanguage, { en: "Advanced Run Policy", "zh-CN": "高级运行策略" }),
+    wakeOnDemand: textFor(uiLanguage, { en: "Wake on demand", "zh-CN": "按需唤醒" }),
+    cooldownSec: textFor(uiLanguage, { en: "Cooldown (sec)", "zh-CN": "冷却时间（秒）" }),
+    maxConcurrentRuns: textFor(uiLanguage, { en: "Max concurrent runs", "zh-CN": "最大并发运行数" }),
+  };
 
   // Create mode helpers
   const val = isCreate ? props.values : null;
@@ -469,13 +526,13 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
       {isDirty && !props.hideInlineSave && (
         <div className="sticky top-0 z-10 flex items-center justify-end px-4 py-2 bg-background/90 backdrop-blur-sm border-b border-primary/20">
           <div className="flex items-center gap-3">
-            <span className="text-xs text-muted-foreground">Unsaved changes</span>
+            <span className="text-xs text-muted-foreground">{copy.unsavedChanges}</span>
             <Button
               size="sm"
               onClick={handleSave}
               disabled={!isCreate && props.isSaving}
             >
-              {!isCreate && props.isSaving ? "Saving..." : "Save"}
+              {!isCreate && props.isSaving ? copy.saving : copy.save}
             </Button>
           </div>
         </div>
@@ -485,42 +542,42 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
       {!isCreate && (
         <div className={cn(!cards && "border-b border-border")}>
           {cards
-            ? <h3 className="text-sm font-medium mb-3">Identity</h3>
-            : <div className="px-4 py-2 text-xs font-medium text-muted-foreground">Identity</div>
+            ? <h3 className="text-sm font-medium mb-3">{copy.identity}</h3>
+            : <div className="px-4 py-2 text-xs font-medium text-muted-foreground">{copy.identity}</div>
           }
           <div className={cn(cards ? "border border-border rounded-lg p-4 space-y-3" : "px-4 pb-3 space-y-3")}>
-            <Field label="Name" hint={help.name}>
+            <Field label={copy.name} hint={help.name}>
               <DraftInput
                 value={eff("identity", "name", props.agent.name)}
                 onCommit={(v) => mark("identity", "name", v)}
                 immediate
                 className={inputClass}
-                placeholder="Agent name"
+                placeholder={copy.agentName}
               />
             </Field>
-            <Field label="Title" hint={help.title}>
+            <Field label={copy.title} hint={help.title}>
               <DraftInput
                 value={eff("identity", "title", props.agent.title ?? "")}
                 onCommit={(v) => mark("identity", "title", v || null)}
                 immediate
                 className={inputClass}
-                placeholder="e.g. VP of Engineering"
+                placeholder={copy.titlePlaceholder}
               />
             </Field>
-            <Field label="Reports to" hint={help.reportsTo}>
+            <Field label={copy.reportsTo} hint={help.reportsTo}>
               <ReportsToPicker
                 agents={companyAgents}
                 value={eff("identity", "reportsTo", props.agent.reportsTo ?? null)}
                 onChange={(id) => mark("identity", "reportsTo", id)}
                 excludeAgentIds={[props.agent.id]}
-                chooseLabel="Choose manager…"
+                chooseLabel={copy.chooseManager}
               />
             </Field>
-            <Field label="Capabilities" hint={help.capabilities}>
+            <Field label={copy.capabilities} hint={help.capabilities}>
               <MarkdownEditor
                 value={eff("identity", "capabilities", props.agent.capabilities ?? "") ?? ""}
                 onChange={(v) => mark("identity", "capabilities", v || null)}
-                placeholder="Describe what this agent can do..."
+                placeholder={copy.capabilitiesPlaceholder}
                 contentClassName="min-h-[44px] text-sm font-mono"
                 imageUploadHandler={async (file) => {
                   const asset = await uploadMarkdownImage.mutateAsync({
@@ -563,8 +620,8 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
       <div className={cn(!cards && (isCreate ? "border-t border-border" : "border-b border-border"))}>
         <div className={cn(cards ? "flex items-center justify-between mb-3" : "px-4 py-2 flex items-center justify-between gap-2")}>
           {cards
-            ? <h3 className="text-sm font-medium">Adapter</h3>
-            : <span className="text-xs font-medium text-muted-foreground">Adapter</span>
+            ? <h3 className="text-sm font-medium">{copy.adapter}</h3>
+            : <span className="text-xs font-medium text-muted-foreground">{copy.adapter}</span>
           }
           {showAdapterTestEnvironmentButton && (
             <Button
@@ -575,13 +632,13 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
               onClick={() => testEnvironment.mutate()}
               disabled={testEnvironment.isPending || !selectedCompanyId}
             >
-              {testEnvironment.isPending ? "Testing..." : "Test environment"}
+              {testEnvironment.isPending ? copy.testing : copy.testEnvironment}
             </Button>
           )}
         </div>
         <div className={cn(cards ? "border border-border rounded-lg p-4 space-y-3" : "px-4 pb-3 space-y-3")}>
           {showAdapterTypeField && (
-            <Field label="Adapter type" hint={help.adapterType}>
+            <Field label={copy.adapterType} hint={help.adapterType}>
               <AdapterTypeDropdown
                 value={adapterType}
                 disabledTypes={disabledTypes}
@@ -639,7 +696,7 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
             <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
               {testEnvironment.error instanceof Error
                 ? testEnvironment.error.message
-                : "Environment test failed"}
+                : copy.environmentTestFailed}
             </div>
           )}
 
@@ -703,11 +760,11 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
       {isLocal && (
         <div className={cn(!cards && "border-b border-border")}>
           {cards
-            ? <h3 className="text-sm font-medium mb-3">Permissions &amp; Configuration</h3>
-            : <div className="px-4 py-2 text-xs font-medium text-muted-foreground">Permissions &amp; Configuration</div>
+            ? <h3 className="text-sm font-medium mb-3">{copy.permissionsConfig}</h3>
+            : <div className="px-4 py-2 text-xs font-medium text-muted-foreground">{copy.permissionsConfig}</div>
           }
           <div className={cn(cards ? "border border-border rounded-lg p-4 space-y-3" : "px-4 pb-3 space-y-3")}>
-              <Field label="Command" hint={help.localCommand}>
+              <Field label={copy.command} hint={help.localCommand}>
                 <DraftInput
                   value={
                     isCreate
@@ -754,14 +811,14 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
                   const result = await refetchDetectedModel();
                   return result.data?.model ?? null;
                 }}
-                detectModelLabel="Detect model"
-                emptyDetectHint="No model detected. Select or enter one manually."
+                detectModelLabel={copy.detectModel}
+                emptyDetectHint={copy.noModelDetected}
               />
               {fetchedModelsError && (
                 <p className="text-xs text-destructive">
                   {fetchedModelsError instanceof Error
                     ? fetchedModelsError.message
-                    : "Failed to load adapter models."}
+                    : copy.adapterModelsFailed}
                 </p>
               )}
 
@@ -782,7 +839,7 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
                     codexSearchEnabled &&
                     currentThinkingEffort === "minimal" && (
                       <p className="text-xs text-amber-400">
-                        Codex may reject `minimal` thinking when search is enabled.
+                        {copy.codexMinimalWarning}
                       </p>
                     )}
                 </>
@@ -818,7 +875,7 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
               )}
               <uiAdapter.ConfigFields {...adapterFieldProps} />
 
-              <Field label="Extra args (comma-separated)" hint={help.extraArgs}>
+              <Field label={copy.extraArgs} hint={help.extraArgs}>
                 <DraftInput
                   value={
                     isCreate
@@ -832,11 +889,11 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
                   }
                   immediate
                   className={inputClass}
-                  placeholder="e.g. --verbose, --foo=bar"
+                  placeholder={copy.extraArgsPlaceholder}
                 />
               </Field>
 
-              <Field label="Environment variables" hint={help.envVars}>
+              <Field label={copy.envVars} hint={help.envVars}>
                 <EnvVarEditor
                   value={
                     isCreate
@@ -860,7 +917,7 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
               {/* Edit-only: timeout + grace period */}
               {!isCreate && (
                 <>
-                  <Field label="Timeout (sec)" hint={help.timeoutSec}>
+                  <Field label={copy.timeoutSec} hint={help.timeoutSec}>
                     <DraftNumberInput
                       value={eff(
                         "adapterConfig",
@@ -872,7 +929,7 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
                       className={inputClass}
                     />
                   </Field>
-                  <Field label="Interrupt grace period (sec)" hint={help.graceSec}>
+                  <Field label={copy.graceSec} hint={help.graceSec}>
                     <DraftNumberInput
                       value={eff(
                         "adapterConfig",
@@ -894,19 +951,19 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
       {isCreate && showCreateRunPolicySection ? (
         <div className={cn(!cards && "border-b border-border")}>
           {cards
-            ? <h3 className="text-sm font-medium flex items-center gap-2 mb-3"><Heart className="h-3 w-3" /> Run Policy</h3>
-            : <div className="px-4 py-2 text-xs font-medium text-muted-foreground flex items-center gap-2"><Heart className="h-3 w-3" /> Run Policy</div>
+            ? <h3 className="text-sm font-medium flex items-center gap-2 mb-3"><Heart className="h-3 w-3" /> {copy.runPolicy}</h3>
+            : <div className="px-4 py-2 text-xs font-medium text-muted-foreground flex items-center gap-2"><Heart className="h-3 w-3" /> {copy.runPolicy}</div>
           }
           <div className={cn(cards ? "border border-border rounded-lg p-4 space-y-3" : "px-4 pb-3 space-y-3")}>
             <ToggleWithNumber
-              label="Heartbeat on interval"
+              label={copy.heartbeatOnInterval}
               hint={help.heartbeatInterval}
               checked={val!.heartbeatEnabled}
               onCheckedChange={(v) => set!({ heartbeatEnabled: v })}
               number={val!.intervalSec}
               onNumberChange={(v) => set!({ intervalSec: v })}
-              numberLabel="sec"
-              numberPrefix="Run heartbeat every"
+              numberLabel={copy.sec}
+              numberPrefix={copy.runHeartbeatEvery}
               numberHint={help.intervalSec}
               showNumber={val!.heartbeatEnabled}
             />
@@ -915,33 +972,33 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
       ) : !isCreate ? (
         <div className={cn(!cards && "border-b border-border")}>
           {cards
-            ? <h3 className="text-sm font-medium flex items-center gap-2 mb-3"><Heart className="h-3 w-3" /> Run Policy</h3>
-            : <div className="px-4 py-2 text-xs font-medium text-muted-foreground flex items-center gap-2"><Heart className="h-3 w-3" /> Run Policy</div>
+            ? <h3 className="text-sm font-medium flex items-center gap-2 mb-3"><Heart className="h-3 w-3" /> {copy.runPolicy}</h3>
+            : <div className="px-4 py-2 text-xs font-medium text-muted-foreground flex items-center gap-2"><Heart className="h-3 w-3" /> {copy.runPolicy}</div>
           }
           <div className={cn(cards ? "border border-border rounded-lg overflow-hidden" : "")}>
             <div className={cn(cards ? "p-4 space-y-3" : "px-4 pb-3 space-y-3")}>
               <ToggleWithNumber
-                label="Heartbeat on interval"
+                label={copy.heartbeatOnInterval}
                 hint={help.heartbeatInterval}
                 checked={eff("heartbeat", "enabled", heartbeat.enabled === true)}
                 onCheckedChange={(v) => mark("heartbeat", "enabled", v)}
                 number={eff("heartbeat", "intervalSec", Number(heartbeat.intervalSec ?? 300))}
                 onNumberChange={(v) => mark("heartbeat", "intervalSec", v)}
-                numberLabel="sec"
-                numberPrefix="Run heartbeat every"
+                numberLabel={copy.sec}
+                numberPrefix={copy.runHeartbeatEvery}
                 numberHint={help.intervalSec}
                 showNumber={eff("heartbeat", "enabled", heartbeat.enabled === true)}
               />
             </div>
             <CollapsibleSection
-              title="Advanced Run Policy"
+              title={copy.advancedRunPolicy}
               bordered={cards}
               open={runPolicyAdvancedOpen}
               onToggle={() => setRunPolicyAdvancedOpen(!runPolicyAdvancedOpen)}
             >
             <div className="space-y-3">
               <ToggleField
-                label="Wake on demand"
+                label={copy.wakeOnDemand}
                 hint={help.wakeOnDemand}
                 checked={eff(
                   "heartbeat",
@@ -950,7 +1007,7 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
                 )}
                 onChange={(v) => mark("heartbeat", "wakeOnDemand", v)}
               />
-              <Field label="Cooldown (sec)" hint={help.cooldownSec}>
+              <Field label={copy.cooldownSec} hint={help.cooldownSec}>
                 <DraftNumberInput
                   value={eff(
                     "heartbeat",
@@ -962,7 +1019,7 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
                   className={inputClass}
                 />
               </Field>
-              <Field label="Max concurrent runs" hint={help.maxConcurrentRuns}>
+              <Field label={copy.maxConcurrentRuns} hint={help.maxConcurrentRuns}>
                 <DraftNumberInput
                   value={eff(
                     "heartbeat",
@@ -985,8 +1042,13 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
 }
 
 function AdapterEnvironmentResult({ result }: { result: AdapterEnvironmentTestResult }) {
+  const { uiLanguage } = useGeneralSettings();
   const statusLabel =
-    result.status === "pass" ? "Passed" : result.status === "warn" ? "Warnings" : "Failed";
+    result.status === "pass"
+      ? textFor(uiLanguage, { en: "Passed", "zh-CN": "通过" })
+      : result.status === "warn"
+        ? textFor(uiLanguage, { en: "Warnings", "zh-CN": "警告" })
+        : textFor(uiLanguage, { en: "Failed", "zh-CN": "失败" });
   const statusClass =
     result.status === "pass"
       ? "text-green-700 dark:text-green-300 border-green-300 dark:border-green-500/40 bg-green-50 dark:bg-green-500/10"
@@ -1011,7 +1073,7 @@ function AdapterEnvironmentResult({ result }: { result: AdapterEnvironmentTestRe
             <span className="mx-1 opacity-60">·</span>
             <span>{check.message}</span>
             {check.detail && <span className="block opacity-75 break-all">({check.detail})</span>}
-            {check.hint && <span className="block opacity-90 break-words">Hint: {check.hint}</span>}
+            {check.hint && <span className="block opacity-90 break-words">{textFor(uiLanguage, { en: "Hint", "zh-CN": "提示" })}: {check.hint}</span>}
           </div>
         ))}
       </div>
@@ -1030,6 +1092,7 @@ function AdapterTypeDropdown({
   onChange: (type: string) => void;
   disabledTypes: Set<string>;
 }) {
+  const { uiLanguage } = useGeneralSettings();
   const [open, setOpen] = useState(false);
   const adapterList = useMemo(
     () =>
@@ -1074,7 +1137,7 @@ function AdapterTypeDropdown({
               <span>{item.label}</span>
             </span>
             {item.comingSoon && (
-              <span className="text-[10px] text-muted-foreground">Coming soon</span>
+              <span className="text-[10px] text-muted-foreground">{textFor(uiLanguage, { en: "Coming soon", "zh-CN": "即将推出" })}</span>
             )}
           </button>
         ))}
@@ -1114,6 +1177,7 @@ function ModelDropdown({
   detectModelLabel?: string;
   emptyDetectHint?: string;
 }) {
+  const { uiLanguage } = useGeneralSettings();
   const [modelSearch, setModelSearch] = useState("");
   const [detectingModel, setDetectingModel] = useState(false);
   const selected = models.find((m) => m.id === value);
@@ -1186,7 +1250,7 @@ function ModelDropdown({
   }
 
   return (
-    <Field label="Model" hint={help.model}>
+    <Field label={textFor(uiLanguage, { en: "Model", "zh-CN": "模型" })} hint={help.model}>
       <Popover
         open={open}
         onOpenChange={(nextOpen) => {
@@ -1199,7 +1263,11 @@ function ModelDropdown({
             <span className={cn(!value && "text-muted-foreground")}>
               {selected
                 ? selected.label
-                : value || (allowDefault ? "Default" : required ? "Select model (required)" : "Select model")}
+                : value || (allowDefault
+                  ? textFor(uiLanguage, { en: "Default", "zh-CN": "默认" })
+                  : required
+                    ? textFor(uiLanguage, { en: "Select model (required)", "zh-CN": "选择模型（必填）" })
+                    : textFor(uiLanguage, { en: "Select model", "zh-CN": "选择模型" }))}
             </span>
             <ChevronDown className="h-3 w-3 text-muted-foreground" />
           </button>
@@ -1208,7 +1276,9 @@ function ModelDropdown({
           <div className="relative mb-1">
             <input
               className="w-full px-2 py-1.5 pr-6 text-xs bg-transparent outline-none border-b border-border placeholder:text-muted-foreground/50"
-              placeholder={creatable ? "Search models... (type to create)" : "Search models..."}
+              placeholder={creatable
+                ? textFor(uiLanguage, { en: "Search models... (type to create)", "zh-CN": "搜索模型...（输入以创建）" })
+                : textFor(uiLanguage, { en: "Search models...", "zh-CN": "搜索模型..." })}
               value={modelSearch}
               onChange={(e) => setModelSearch(e.target.value)}
               autoFocus
@@ -1239,7 +1309,13 @@ function ModelDropdown({
                 <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
                 <path d="M3 3v5h5" />
               </svg>
-              {detectingModel ? "Detecting..." : detectedModel ? (detectModelLabel?.replace(/^Detect\b/, "Re-detect") ?? "Re-detect from config") : (detectModelLabel ?? "Detect from config")}
+              {detectingModel
+                ? textFor(uiLanguage, { en: "Detecting...", "zh-CN": "检测中..." })
+                : detectedModel
+                  ? (uiLanguage === "zh-CN"
+                    ? "重新检测模型"
+                    : (detectModelLabel?.replace(/^Detect\b/, "Re-detect") ?? "Re-detect from config"))
+                  : (detectModelLabel ?? textFor(uiLanguage, { en: "Detect from config", "zh-CN": "从配置检测" }))}
             </button>
           )}
           {value && (!models.some((m) => m.id === value) || promotedModelIds.has(value)) && (
@@ -1256,7 +1332,7 @@ function ModelDropdown({
                 {models.find((m) => m.id === value)?.label ?? value}
               </span>
               <span className="shrink-0 ml-auto text-[9px] font-medium px-1.5 py-0.5 rounded-full bg-green-500/15 text-green-400 border border-green-500/20">
-                current
+                {textFor(uiLanguage, { en: "current", "zh-CN": "当前" })}
               </span>
             </button>
           )}
@@ -1275,7 +1351,7 @@ function ModelDropdown({
                 {models.find((m) => m.id === detectedModel)?.label ?? detectedModel}
               </span>
               <span className="shrink-0 ml-auto text-[9px] font-medium px-1.5 py-0.5 rounded-full bg-blue-500/15 text-blue-400 border border-blue-500/20">
-                detected
+                {textFor(uiLanguage, { en: "detected", "zh-CN": "已检测" })}
               </span>
             </button>
           )}
@@ -1299,7 +1375,7 @@ function ModelDropdown({
                     {entry?.label ?? candidate}
                   </span>
                   <span className="shrink-0 ml-auto text-[9px] font-medium px-1.5 py-0.5 rounded-full bg-sky-500/15 text-sky-400 border border-sky-500/20">
-                    config
+                    {textFor(uiLanguage, { en: "config", "zh-CN": "配置" })}
                   </span>
                 </button>
               );
@@ -1317,7 +1393,7 @@ function ModelDropdown({
                   onOpenChange(false);
                 }}
               >
-                Default
+                {textFor(uiLanguage, { en: "Default", "zh-CN": "默认" })}
               </button>
             )}
             {canCreateManualModel && (
@@ -1330,7 +1406,7 @@ function ModelDropdown({
                   setModelSearch("");
                 }}
               >
-                <span>Use manual model</span>
+                <span>{textFor(uiLanguage, { en: "Use manual model", "zh-CN": "使用手动输入的模型" })}</span>
                 <span className="text-xs font-mono text-muted-foreground">{manualModel}</span>
               </button>
             )}
@@ -1365,8 +1441,8 @@ function ModelDropdown({
               <div className="px-2 py-2 space-y-2">
                 <p className="text-xs text-muted-foreground">
                   {onDetectModel
-                    ? (emptyDetectHint ?? "No model detected yet. Enter a provider/model manually.")
-                    : "No models found."}
+                    ? (emptyDetectHint ?? textFor(uiLanguage, { en: "No model detected yet. Enter a provider/model manually.", "zh-CN": "尚未检测到模型，请手动输入 provider/model。" }))
+                    : textFor(uiLanguage, { en: "No models found.", "zh-CN": "未找到模型。" })}
                 </p>
               </div>
             )}
@@ -1390,14 +1466,15 @@ function ThinkingEffortDropdown({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
+  const { uiLanguage } = useGeneralSettings();
   const selected = options.find((option) => option.id === value) ?? options[0];
 
   return (
-    <Field label="Thinking effort" hint={help.thinkingEffort}>
+    <Field label={textFor(uiLanguage, { en: "Thinking effort", "zh-CN": "思考强度" })} hint={help.thinkingEffort}>
       <Popover open={open} onOpenChange={onOpenChange}>
         <PopoverTrigger asChild>
           <button className="inline-flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1.5 text-sm hover:bg-accent/50 transition-colors w-full justify-between">
-            <span className={cn(!value && "text-muted-foreground")}>{selected?.label ?? "Auto"}</span>
+            <span className={cn(!value && "text-muted-foreground")}>{translatedOptionLabel(selected?.label ?? "Auto", uiLanguage)}</span>
             <ChevronDown className="h-3 w-3 text-muted-foreground" />
           </button>
         </PopoverTrigger>
@@ -1414,7 +1491,7 @@ function ThinkingEffortDropdown({
                 onOpenChange(false);
               }}
             >
-              <span>{option.label}</span>
+              <span>{translatedOptionLabel(option.label, uiLanguage)}</span>
               {option.id ? <span className="text-xs text-muted-foreground font-mono">{option.id}</span> : null}
             </button>
           ))}

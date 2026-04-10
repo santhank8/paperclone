@@ -64,9 +64,10 @@ export function parseAssigneeValue(value: string): AssigneeSelection {
 
 export function currentUserAssigneeOption(currentUserId: string | null | undefined): AssigneeOption[] {
   if (!currentUserId) return [];
+  const uiLanguage = readStoredUiLanguage();
   return [{
     id: assigneeValueFromSelection({ assigneeUserId: currentUserId }),
-    label: "Me",
+    label: uiLanguage === "zh-CN" ? "我" : "Me",
     searchText: currentUserId === "local-board" ? "me board human local-board" : `me human ${currentUserId}`,
   }];
 }
@@ -76,7 +77,9 @@ export function formatAssigneeUserLabel(
   currentUserId: string | null | undefined,
 ): string | null {
   if (!userId) return null;
-  if (currentUserId && userId === currentUserId) return "You";
-  if (userId === "local-board") return "Board";
+  const uiLanguage = readStoredUiLanguage();
+  if (currentUserId && userId === currentUserId) return uiLanguage === "zh-CN" ? "你" : "You";
+  if (userId === "local-board") return uiLanguage === "zh-CN" ? "董事会" : "Board";
   return userId.slice(0, 5);
 }
+import { readStoredUiLanguage } from "./ui-language";

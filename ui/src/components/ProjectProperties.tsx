@@ -9,8 +9,10 @@ import { instanceSettingsApi } from "../api/instanceSettings";
 import { projectsApi } from "../api/projects";
 import { secretsApi } from "../api/secrets";
 import { useCompany } from "../context/CompanyContext";
+import { useGeneralSettings } from "../context/GeneralSettingsContext";
 import { queryKeys } from "../lib/queryKeys";
 import { statusBadge, statusBadgeDefault } from "../lib/status-colors";
+import { textFor, type UiLanguage } from "../lib/ui-language";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -22,13 +24,37 @@ import { DraftInput } from "./agent-config-primitives";
 import { InlineEditor } from "./InlineEditor";
 import { EnvVarEditor } from "./EnvVarEditor";
 
-const PROJECT_STATUSES = [
-  { value: "backlog", label: "Backlog" },
-  { value: "planned", label: "Planned" },
-  { value: "in_progress", label: "In Progress" },
-  { value: "completed", label: "Completed" },
-  { value: "cancelled", label: "Cancelled" },
-];
+function buildProjectStatuses(uiLanguage: UiLanguage) {
+  return [
+    { value: "backlog", label: textFor(uiLanguage, { en: "Backlog", "zh-CN": "待规划" }) },
+    { value: "planned", label: textFor(uiLanguage, { en: "Planned", "zh-CN": "已计划" }) },
+    { value: "in_progress", label: textFor(uiLanguage, { en: "In Progress", "zh-CN": "进行中" }) },
+    { value: "completed", label: textFor(uiLanguage, { en: "Completed", "zh-CN": "已完成" }) },
+    { value: "cancelled", label: textFor(uiLanguage, { en: "Cancelled", "zh-CN": "已取消" }) },
+  ];
+}
+
+function projectStatusLabel(status: string, uiLanguage: UiLanguage) {
+  return buildProjectStatuses(uiLanguage).find((entry) => entry.value === status)?.label ?? status.replaceAll("_", " ");
+}
+
+function runtimeServiceStatusLabel(status: string, uiLanguage: UiLanguage) {
+  const labels: Record<string, { en: string; "zh-CN": string }> = {
+    starting: { en: "Starting", "zh-CN": "启动中" },
+    running: { en: "Running", "zh-CN": "运行中" },
+    stopped: { en: "Stopped", "zh-CN": "已停止" },
+    failed: { en: "Failed", "zh-CN": "失败" },
+  };
+  return textFor(uiLanguage, labels[status] ?? { en: status, "zh-CN": status });
+}
+
+function runtimeServiceLifecycleLabel(lifecycle: string, uiLanguage: UiLanguage) {
+  const labels: Record<string, { en: string; "zh-CN": string }> = {
+    shared: { en: "Shared", "zh-CN": "共享" },
+    ephemeral: { en: "Ephemeral", "zh-CN": "临时" },
+  };
+  return textFor(uiLanguage, labels[lifecycle] ?? { en: lifecycle, "zh-CN": lifecycle });
+}
 
 interface ProjectPropertiesProps {
   project: Project;
@@ -54,12 +80,12 @@ export type ProjectConfigFieldKey =
   | "execution_workspace_provision_command"
   | "execution_workspace_teardown_command";
 
-function SaveIndicator({ state }: { state: ProjectFieldSaveState }) {
+function SaveIndicator({ state, uiLanguage }: { state: ProjectFieldSaveState; uiLanguage: UiLanguage }) {
   if (state === "saving") {
     return (
       <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
         <Loader2 className="h-3 w-3 animate-spin" />
-        Saving
+        {textFor(uiLanguage, { en: "Saving", "zh-CN": "保存中" })}
       </span>
     );
   }
@@ -67,7 +93,7 @@ function SaveIndicator({ state }: { state: ProjectFieldSaveState }) {
     return (
       <span className="inline-flex items-center gap-1 text-[11px] text-green-600 dark:text-green-400">
         <Check className="h-3 w-3" />
-        Saved
+        {textFor(uiLanguage, { en: "Saved", "zh-CN": "已保存" })}
       </span>
     );
   }
@@ -75,7 +101,7 @@ function SaveIndicator({ state }: { state: ProjectFieldSaveState }) {
     return (
       <span className="inline-flex items-center gap-1 text-[11px] text-destructive">
         <AlertCircle className="h-3 w-3" />
-        Failed
+        {textFor(uiLanguage, { en: "Failed", "zh-CN": "失败" })}
       </span>
     );
   }
@@ -85,14 +111,16 @@ function SaveIndicator({ state }: { state: ProjectFieldSaveState }) {
 function FieldLabel({
   label,
   state,
+  uiLanguage,
 }: {
   label: string;
   state: ProjectFieldSaveState;
+  uiLanguage: UiLanguage;
 }) {
   return (
     <div className="flex items-center gap-1.5">
       <span className="text-xs text-muted-foreground">{label}</span>
-      <SaveIndicator state={state} />
+      <SaveIndicator state={state} uiLanguage={uiLanguage} />
     </div>
   );
 }
@@ -118,9 +146,18 @@ function PropertyRow({
   );
 }
 
-function ProjectStatusPicker({ status, onChange }: { status: string; onChange: (status: string) => void }) {
+function ProjectStatusPicker({
+  status,
+  onChange,
+  uiLanguage,
+}: {
+  status: string;
+  onChange: (status: string) => void;
+  uiLanguage: UiLanguage;
+}) {
   const [open, setOpen] = useState(false);
   const colorClass = statusBadge[status] ?? statusBadgeDefault;
+  const statuses = buildProjectStatuses(uiLanguage);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -131,11 +168,11 @@ function ProjectStatusPicker({ status, onChange }: { status: string; onChange: (
             colorClass,
           )}
         >
-          {status.replace("_", " ")}
+          {projectStatusLabel(status, uiLanguage)}
         </button>
       </PopoverTrigger>
       <PopoverContent className="w-40 p-1" align="start">
-        {PROJECT_STATUSES.map((s) => (
+        {statuses.map((s) => (
           <Button
             key={s.value}
             variant="ghost"
@@ -158,26 +195,44 @@ function ArchiveDangerZone({
   project,
   onArchive,
   archivePending,
+  uiLanguage,
 }: {
   project: Project;
   onArchive: (archived: boolean) => void;
   archivePending?: boolean;
+  uiLanguage: UiLanguage;
 }) {
   const [confirming, setConfirming] = useState(false);
   const isArchive = !project.archivedAt;
-  const action = isArchive ? "Archive" : "Unarchive";
+  const action = isArchive
+    ? textFor(uiLanguage, { en: "Archive", "zh-CN": "归档" })
+    : textFor(uiLanguage, { en: "Unarchive", "zh-CN": "取消归档" });
 
   return (
     <div className="space-y-3 rounded-md border border-destructive/40 bg-destructive/5 px-4 py-4">
       <p className="text-sm text-muted-foreground">
         {isArchive
-          ? "Archive this project to hide it from the sidebar and project selectors."
-          : "Unarchive this project to restore it in the sidebar and project selectors."}
+          ? textFor(
+              uiLanguage,
+              {
+                en: "Archive this project to hide it from the sidebar and project selectors.",
+                "zh-CN": "归档后，此项目会从侧边栏和项目选择器中隐藏。",
+              },
+            )
+          : textFor(
+              uiLanguage,
+              {
+                en: "Unarchive this project to restore it in the sidebar and project selectors.",
+                "zh-CN": "取消归档后，此项目会重新出现在侧边栏和项目选择器中。",
+              },
+            )}
       </p>
       {archivePending ? (
         <Button size="sm" variant="destructive" disabled>
           <Loader2 className="h-3 w-3 animate-spin mr-1" />
-          {isArchive ? "Archiving..." : "Unarchiving..."}
+          {isArchive
+            ? textFor(uiLanguage, { en: "Archiving...", "zh-CN": "归档中..." })
+            : textFor(uiLanguage, { en: "Unarchiving...", "zh-CN": "取消归档中..." })}
         </Button>
       ) : confirming ? (
         <div className="flex items-center gap-2">
@@ -192,14 +247,14 @@ function ArchiveDangerZone({
               onArchive(isArchive);
             }}
           >
-            Confirm
+            {textFor(uiLanguage, { en: "Confirm", "zh-CN": "确认" })}
           </Button>
           <Button
             size="sm"
             variant="outline"
             onClick={() => setConfirming(false)}
           >
-            Cancel
+            {textFor(uiLanguage, { en: "Cancel", "zh-CN": "取消" })}
           </Button>
         </div>
       ) : (
@@ -209,9 +264,9 @@ function ArchiveDangerZone({
           onClick={() => setConfirming(true)}
         >
           {isArchive ? (
-            <><Archive className="h-3 w-3 mr-1" />{action} project</>
+            <><Archive className="h-3 w-3 mr-1" />{textFor(uiLanguage, { en: "Archive project", "zh-CN": "归档项目" })}</>
           ) : (
-            <><ArchiveRestore className="h-3 w-3 mr-1" />{action} project</>
+            <><ArchiveRestore className="h-3 w-3 mr-1" />{textFor(uiLanguage, { en: "Unarchive project", "zh-CN": "取消归档项目" })}</>
           )}
         </Button>
       )}
@@ -221,6 +276,7 @@ function ArchiveDangerZone({
 
 export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSaveState, onArchive, archivePending }: ProjectPropertiesProps) {
   const { selectedCompanyId } = useCompany();
+  const { uiLanguage } = useGeneralSettings();
   const queryClient = useQueryClient();
   const [goalOpen, setGoalOpen] = useState(false);
   const [executionWorkspaceAdvancedOpen, setExecutionWorkspaceAdvancedOpen] = useState(false);
@@ -228,6 +284,7 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
   const [workspaceCwd, setWorkspaceCwd] = useState("");
   const [workspaceRepoUrl, setWorkspaceRepoUrl] = useState("");
   const [workspaceError, setWorkspaceError] = useState<string | null>(null);
+  const t = (en: string, zh: string) => textFor(uiLanguage, { en, "zh-CN": zh });
 
   const commitField = (field: ProjectConfigFieldKey, data: Record<string, unknown>) => {
     if (onFieldUpdate) {
@@ -255,7 +312,7 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
   });
   const createSecret = useMutation({
     mutationFn: (input: { name: string; value: string }) => {
-      if (!selectedCompanyId) throw new Error("Select a company to create secrets");
+      if (!selectedCompanyId) throw new Error(t("Select a company to create secrets", "请选择公司以创建密钥"));
       return secretsApi.create(selectedCompanyId, input);
     },
     onSuccess: () => {
@@ -437,7 +494,7 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
       return;
     }
     if (!isAbsolutePath(cwd)) {
-      setWorkspaceError("Local folder must be a full absolute path.");
+      setWorkspaceError(t("Local folder must be a full absolute path.", "本地文件夹必须是完整的绝对路径。"));
       return;
     }
     setWorkspaceError(null);
@@ -452,7 +509,7 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
       return;
     }
     if (!looksLikeRepoUrl(repoUrl)) {
-      setWorkspaceError("Repo must use a valid GitHub or GitHub Enterprise repo URL.");
+      setWorkspaceError(t("Repo must use a valid GitHub or GitHub Enterprise repo URL.", "仓库必须使用有效的 GitHub 或 GitHub Enterprise 仓库 URL。"));
       return;
     }
     setWorkspaceError(null);
@@ -462,8 +519,8 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
   const clearLocalWorkspace = () => {
     const confirmed = window.confirm(
       codebase.repoUrl
-        ? "Clear local folder from this workspace?"
-        : "Delete this workspace local folder?",
+        ? t("Clear local folder from this workspace?", "要从此工作区中清除本地文件夹吗？")
+        : t("Delete this workspace local folder?", "要删除此工作区的本地文件夹吗？"),
     );
     if (!confirmed) return;
     persistCodebase({ cwd: null });
@@ -473,8 +530,8 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
     const hasLocalFolder = Boolean(codebase.localFolder);
     const confirmed = window.confirm(
       hasLocalFolder
-        ? "Clear repo from this workspace?"
-        : "Delete this workspace repo?",
+        ? t("Clear repo from this workspace?", "要从此工作区中清除仓库吗？")
+        : t("Delete this workspace repo?", "要删除此工作区的仓库吗？"),
     );
     if (!confirmed) return;
     if (primaryCodebaseWorkspace && hasLocalFolder) {
@@ -490,21 +547,21 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
   return (
     <div>
       <div className="space-y-1 pb-4">
-        <PropertyRow label={<FieldLabel label="Name" state={fieldState("name")} />}>
+        <PropertyRow label={<FieldLabel label={t("Name", "名称")} state={fieldState("name")} uiLanguage={uiLanguage} />}>
           {onUpdate || onFieldUpdate ? (
             <DraftInput
               value={project.name}
               onCommit={(name) => commitField("name", { name })}
               immediate
               className="w-full rounded border border-border bg-transparent px-2 py-1 text-sm outline-none"
-              placeholder="Project name"
+              placeholder={t("Project name", "项目名称")}
             />
           ) : (
             <span className="text-sm">{project.name}</span>
           )}
         </PropertyRow>
         <PropertyRow
-          label={<FieldLabel label="Description" state={fieldState("description")} />}
+          label={<FieldLabel label={t("Description", "描述")} state={fieldState("description")} uiLanguage={uiLanguage} />}
           alignStart
           valueClassName="space-y-0.5"
         >
@@ -515,32 +572,33 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
               nullable
               as="p"
               className="text-sm text-muted-foreground"
-              placeholder="Add a description..."
+              placeholder={t("Add a description...", "添加描述...")}
               multiline
             />
           ) : (
             <p className="text-sm text-muted-foreground">
-              {project.description?.trim() || "No description"}
+              {project.description?.trim() || t("No description", "暂无描述")}
             </p>
           )}
         </PropertyRow>
-        <PropertyRow label={<FieldLabel label="Status" state={fieldState("status")} />}>
+        <PropertyRow label={<FieldLabel label={t("Status", "状态")} state={fieldState("status")} uiLanguage={uiLanguage} />}>
           {onUpdate || onFieldUpdate ? (
             <ProjectStatusPicker
               status={project.status}
               onChange={(status) => commitField("status", { status })}
+              uiLanguage={uiLanguage}
             />
           ) : (
             <StatusBadge status={project.status} />
           )}
         </PropertyRow>
         {project.leadAgentId && (
-          <PropertyRow label="Lead">
+          <PropertyRow label={t("Lead", "负责人")}>
             <span className="text-sm font-mono">{project.leadAgentId.slice(0, 8)}</span>
           </PropertyRow>
         )}
         <PropertyRow
-          label={<FieldLabel label="Goals" state={fieldState("goals")} />}
+          label={<FieldLabel label={t("Goals", "目标")} state={fieldState("goals")} uiLanguage={uiLanguage} />}
           alignStart
           valueClassName="space-y-2"
         >
@@ -559,7 +617,7 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
                       className="text-muted-foreground hover:text-foreground"
                       type="button"
                       onClick={() => removeGoal(goal.id)}
-                      aria-label={`Remove goal ${goal.title}`}
+                      aria-label={t(`Remove goal ${goal.title}`, `移除目标 ${goal.title}`)}
                     >
                       <X className="h-3 w-3" />
                     </button>
@@ -578,13 +636,13 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
                   disabled={availableGoals.length === 0}
                 >
                   <Plus className="h-3 w-3 mr-1" />
-                  Goal
+                  {t("Goal", "目标")}
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-56 p-1" align="start">
                 {availableGoals.length === 0 ? (
                   <div className="px-2 py-1.5 text-xs text-muted-foreground">
-                    All goals linked.
+                    {t("All goals linked.", "所有目标均已关联。")}
                   </div>
                 ) : (
                   availableGoals.map((goal) => (
@@ -602,7 +660,7 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
           )}
         </PropertyRow>
         <PropertyRow
-          label={<FieldLabel label="Env" state={fieldState("env")} />}
+          label={<FieldLabel label={t("Env", "环境变量")} state={fieldState("env")} uiLanguage={uiLanguage} />}
           alignStart
           valueClassName="space-y-2"
         >
@@ -617,18 +675,21 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
               onChange={(env) => commitField("env", { env: env ?? null })}
             />
             <p className="text-[11px] text-muted-foreground">
-              Applied to all runs for issues in this project. Project values override agent env on key conflicts.
+              {t(
+                "Applied to all runs for issues in this project. Project values override agent env on key conflicts.",
+                "应用于此项目下所有任务的运行。若键冲突，项目级值会覆盖智能体环境变量。",
+              )}
             </p>
           </div>
         </PropertyRow>
-        <PropertyRow label={<FieldLabel label="Created" state="idle" />}>
+        <PropertyRow label={<FieldLabel label={t("Created", "创建时间")} state="idle" uiLanguage={uiLanguage} />}>
           <span className="text-sm">{formatDate(project.createdAt)}</span>
         </PropertyRow>
-        <PropertyRow label={<FieldLabel label="Updated" state="idle" />}>
+        <PropertyRow label={<FieldLabel label={t("Updated", "更新时间")} state="idle" uiLanguage={uiLanguage} />}>
           <span className="text-sm">{formatDate(project.updatedAt)}</span>
         </PropertyRow>
         {project.targetDate && (
-          <PropertyRow label={<FieldLabel label="Target Date" state="idle" />}>
+          <PropertyRow label={<FieldLabel label={t("Target Date", "目标日期")} state="idle" uiLanguage={uiLanguage} />}>
             <span className="text-sm">{formatDate(project.targetDate)}</span>
           </PropertyRow>
         )}
@@ -639,25 +700,28 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
       <div className="space-y-1 py-4">
         <div className="space-y-2">
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <span>Codebase</span>
+            <span>{t("Codebase", "代码库")}</span>
             <Tooltip>
               <TooltipTrigger asChild>
                 <button
                   type="button"
                   className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-border text-[10px] text-muted-foreground hover:text-foreground"
-                  aria-label="Codebase help"
+                  aria-label={t("Codebase help", "代码库帮助")}
                 >
                   ?
                 </button>
               </TooltipTrigger>
               <TooltipContent side="top">
-                Repo identifies the source of truth. Local folder is the default place agents write code.
+                {t(
+                  "Repo identifies the source of truth. Local folder is the default place agents write code.",
+                  "仓库用于标识代码的事实来源，本地文件夹则是智能体默认写入代码的位置。",
+                )}
               </TooltipContent>
             </Tooltip>
           </div>
           <div className="space-y-2 rounded-md border border-border/70 p-3">
             <div className="space-y-1">
-              <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Repo</div>
+              <div className="text-[11px] uppercase tracking-wide text-muted-foreground">{t("Repo", "仓库")}</div>
               {codebase.repoUrl ? (
                 <div className="flex items-center justify-between gap-2">
                   {isSafeExternalUrl(codebase.repoUrl) ? (
@@ -688,13 +752,13 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
                         setWorkspaceError(null);
                       }}
                     >
-                      Change repo
+                      {t("Change repo", "更改仓库")}
                     </Button>
                     <Button
                       variant="ghost"
                       size="icon-xs"
                       onClick={clearRepoWorkspace}
-                      aria-label="Clear repo"
+                      aria-label={t("Clear repo", "清除仓库")}
                     >
                       <Trash2 className="h-3 w-3" />
                     </Button>
@@ -702,7 +766,7 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
                 </div>
               ) : (
                 <div className="flex items-center justify-between gap-2">
-                  <div className="text-xs text-muted-foreground">Not set.</div>
+                  <div className="text-xs text-muted-foreground">{t("Not set.", "未设置。")}</div>
                   <Button
                     variant="outline"
                     size="xs"
@@ -713,21 +777,21 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
                       setWorkspaceError(null);
                     }}
                   >
-                    Set repo
+                    {t("Set repo", "设置仓库")}
                   </Button>
                 </div>
               )}
             </div>
 
             <div className="space-y-1">
-              <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Local folder</div>
+              <div className="text-[11px] uppercase tracking-wide text-muted-foreground">{t("Local folder", "本地文件夹")}</div>
               <div className="flex items-center justify-between gap-2">
                 <div className="min-w-0 space-y-1">
                   <div className="min-w-0 truncate font-mono text-xs text-muted-foreground">
                     {codebase.effectiveLocalFolder}
                   </div>
                   {codebase.origin === "managed_checkout" && (
-                    <div className="text-[11px] text-muted-foreground">Paperclip-managed folder.</div>
+                    <div className="text-[11px] text-muted-foreground">{t("Paperclip-managed folder.", "由 Paperclip 管理的文件夹。")}</div>
                   )}
                 </div>
                 <div className="flex items-center gap-1">
@@ -741,14 +805,16 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
                       setWorkspaceError(null);
                     }}
                   >
-                    {codebase.localFolder ? "Change local folder" : "Set local folder"}
+                    {codebase.localFolder
+                      ? t("Change local folder", "更改本地文件夹")
+                      : t("Set local folder", "设置本地文件夹")}
                   </Button>
                   {codebase.localFolder ? (
                     <Button
                       variant="ghost"
                       size="icon-xs"
                       onClick={clearLocalWorkspace}
-                      aria-label="Clear local folder"
+                      aria-label={t("Clear local folder", "清除本地文件夹")}
                     >
                       <Trash2 className="h-3 w-3" />
                     </Button>
@@ -759,7 +825,10 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
 
             {hasAdditionalLegacyWorkspaces && (
               <div className="text-[11px] text-muted-foreground">
-                Additional legacy workspace records exist on this project. Paperclip is using the primary workspace as the codebase view.
+                {t(
+                  "Additional legacy workspace records exist on this project. Paperclip is using the primary workspace as the codebase view.",
+                  "此项目中还存在额外的旧版工作区记录。Paperclip 当前使用主工作区作为代码库视图。",
+                )}
               </div>
             )}
 
@@ -783,7 +852,7 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
                                 : "bg-muted text-muted-foreground",
                           )}
                         >
-                          {service.status}
+                          {runtimeServiceStatusLabel(service.status, uiLanguage)}
                         </span>
                       </div>
                       <div className="text-[11px] text-muted-foreground">
@@ -797,12 +866,12 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
                             {service.url}
                           </a>
                         ) : (
-                          service.command ?? "No URL"
+                          service.command ?? t("No URL", "无 URL")
                         )}
                       </div>
                     </div>
                     <div className="text-[10px] text-muted-foreground whitespace-nowrap">
-                      {service.lifecycle}
+                      {runtimeServiceLifecycleLabel(service.lifecycle, uiLanguage)}
                     </div>
                   </div>
                 ))}
@@ -828,7 +897,7 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
                   disabled={(!workspaceCwd.trim() && !primaryCodebaseWorkspace) || createWorkspace.isPending || updateWorkspace.isPending}
                   onClick={submitLocalWorkspace}
                 >
-                  Save
+                  {t("Save", "保存")}
                 </Button>
                 <Button
                   variant="ghost"
@@ -840,7 +909,7 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
                     setWorkspaceError(null);
                   }}
                 >
-                  Cancel
+                  {t("Cancel", "取消")}
                 </Button>
               </div>
             </div>
@@ -861,7 +930,7 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
                   disabled={(!workspaceRepoUrl.trim() && !primaryCodebaseWorkspace) || createWorkspace.isPending || updateWorkspace.isPending}
                   onClick={submitRepoWorkspace}
                 >
-                  Save
+                  {t("Save", "保存")}
                 </Button>
                 <Button
                   variant="ghost"
@@ -873,7 +942,7 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
                     setWorkspaceError(null);
                   }}
                 >
-                  Cancel
+                  {t("Cancel", "取消")}
                 </Button>
               </div>
             </div>
@@ -882,13 +951,13 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
             <p className="text-xs text-destructive">{workspaceError}</p>
           )}
           {createWorkspace.isError && (
-            <p className="text-xs text-destructive">Failed to save workspace.</p>
+            <p className="text-xs text-destructive">{t("Failed to save workspace.", "保存工作区失败。")}</p>
           )}
           {removeWorkspace.isError && (
-            <p className="text-xs text-destructive">Failed to delete workspace.</p>
+            <p className="text-xs text-destructive">{t("Failed to delete workspace.", "删除工作区失败。")}</p>
           )}
           {updateWorkspace.isError && (
-            <p className="text-xs text-destructive">Failed to update workspace.</p>
+            <p className="text-xs text-destructive">{t("Failed to update workspace.", "更新工作区失败。")}</p>
           )}
         </div>
 
@@ -898,19 +967,22 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
 
             <div className="py-1.5 space-y-2">
               <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                <span>Execution Workspaces</span>
+                <span>{t("Execution Workspaces", "执行工作区")}</span>
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <button
                       type="button"
                       className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-border text-[10px] text-muted-foreground hover:text-foreground"
-                      aria-label="Execution workspaces help"
+                      aria-label={t("Execution workspaces help", "执行工作区帮助")}
                     >
                       ?
                     </button>
                   </TooltipTrigger>
                   <TooltipContent side="top">
-                    Project-owned defaults for isolated issue checkouts and execution workspace behavior.
+                    {t(
+                      "Project-owned defaults for isolated issue checkouts and execution workspace behavior.",
+                      "项目级默认设置，用于控制隔离任务检出和执行工作区行为。",
+                    )}
                   </TooltipContent>
                 </Tooltip>
               </div>
@@ -918,11 +990,14 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
                 <div className="flex items-center justify-between gap-3">
                   <div className="space-y-0.5">
                     <div className="flex items-center gap-2 text-sm font-medium">
-                      <span>Enable isolated issue checkouts</span>
-                      <SaveIndicator state={fieldState("execution_workspace_enabled")} />
+                      <span>{t("Enable isolated issue checkouts", "启用隔离任务检出")}</span>
+                      <SaveIndicator state={fieldState("execution_workspace_enabled")} uiLanguage={uiLanguage} />
                     </div>
                     <div className="text-xs text-muted-foreground">
-                      Let issues choose between the project's primary checkout and an isolated execution workspace.
+                      {t(
+                        "Let issues choose between the project's primary checkout and an isolated execution workspace.",
+                        "允许任务在项目主检出和隔离执行工作区之间选择。",
+                      )}
                     </div>
                   </div>
                   {onUpdate || onFieldUpdate ? (
@@ -936,7 +1011,7 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
                     />
                   ) : (
                     <span className="text-xs text-muted-foreground">
-                      {executionWorkspacesEnabled ? "Enabled" : "Disabled"}
+                      {executionWorkspacesEnabled ? t("Enabled", "已启用") : t("Disabled", "已禁用")}
                     </span>
                   )}
                 </div>
@@ -946,11 +1021,14 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
                     <div className="flex items-center justify-between gap-3">
                       <div className="space-y-0.5">
                         <div className="flex items-center gap-2 text-sm">
-                          <span>New issues default to isolated checkout</span>
-                          <SaveIndicator state={fieldState("execution_workspace_default_mode")} />
+                          <span>{t("New issues default to isolated checkout", "新任务默认使用隔离检出")}</span>
+                          <SaveIndicator state={fieldState("execution_workspace_default_mode")} uiLanguage={uiLanguage} />
                         </div>
                         <div className="text-[11px] text-muted-foreground">
-                          If disabled, new issues stay on the project's primary checkout unless someone opts in.
+                          {t(
+                            "If disabled, new issues stay on the project's primary checkout unless someone opts in.",
+                            "关闭后，新任务将默认停留在项目主检出中，除非有人手动开启隔离工作区。",
+                          )}
                         </div>
                       </div>
                       <ToggleSwitch
@@ -975,21 +1053,21 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
                         onClick={() => setExecutionWorkspaceAdvancedOpen((open) => !open)}
                       >
                         {executionWorkspaceAdvancedOpen
-                          ? "Hide advanced checkout settings"
-                          : "Show advanced checkout settings"}
+                          ? t("Hide advanced checkout settings", "隐藏高级检出设置")
+                          : t("Show advanced checkout settings", "显示高级检出设置")}
                       </button>
                     </div>
 
                     {executionWorkspaceAdvancedOpen ? (
                       <div className="space-y-3">
                         <div className="text-xs text-muted-foreground">
-                          Host-managed implementation: <span className="text-foreground">Git worktree</span>
+                          {t("Host-managed implementation:", "宿主管理实现：")} <span className="text-foreground">Git worktree</span>
                         </div>
                         <div>
                           <div className="mb-1 flex items-center gap-1.5">
                             <label className="flex items-center gap-2 text-xs text-muted-foreground">
-                              <span>Base ref</span>
-                              <SaveIndicator state={fieldState("execution_workspace_base_ref")} />
+                              <span>{t("Base ref", "基础引用")}</span>
+                              <SaveIndicator state={fieldState("execution_workspace_base_ref")} uiLanguage={uiLanguage} />
                             </label>
                           </div>
                           <DraftInput
@@ -1012,8 +1090,8 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
                         <div>
                           <div className="mb-1 flex items-center gap-1.5">
                             <label className="flex items-center gap-2 text-xs text-muted-foreground">
-                              <span>Branch template</span>
-                              <SaveIndicator state={fieldState("execution_workspace_branch_template")} />
+                              <span>{t("Branch template", "分支模板")}</span>
+                              <SaveIndicator state={fieldState("execution_workspace_branch_template")} uiLanguage={uiLanguage} />
                             </label>
                           </div>
                           <DraftInput
@@ -1036,8 +1114,8 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
                         <div>
                           <div className="mb-1 flex items-center gap-1.5">
                             <label className="flex items-center gap-2 text-xs text-muted-foreground">
-                              <span>Worktree parent dir</span>
-                              <SaveIndicator state={fieldState("execution_workspace_worktree_parent_dir")} />
+                              <span>{t("Worktree parent dir", "工作树父目录")}</span>
+                              <SaveIndicator state={fieldState("execution_workspace_worktree_parent_dir")} uiLanguage={uiLanguage} />
                             </label>
                           </div>
                           <DraftInput
@@ -1060,8 +1138,8 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
                         <div>
                           <div className="mb-1 flex items-center gap-1.5">
                             <label className="flex items-center gap-2 text-xs text-muted-foreground">
-                              <span>Provision command</span>
-                              <SaveIndicator state={fieldState("execution_workspace_provision_command")} />
+                              <span>{t("Provision command", "准备命令")}</span>
+                              <SaveIndicator state={fieldState("execution_workspace_provision_command")} uiLanguage={uiLanguage} />
                             </label>
                           </div>
                           <DraftInput
@@ -1084,8 +1162,8 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
                         <div>
                           <div className="mb-1 flex items-center gap-1.5">
                             <label className="flex items-center gap-2 text-xs text-muted-foreground">
-                              <span>Teardown command</span>
-                              <SaveIndicator state={fieldState("execution_workspace_teardown_command")} />
+                              <span>{t("Teardown command", "清理命令")}</span>
+                              <SaveIndicator state={fieldState("execution_workspace_teardown_command")} uiLanguage={uiLanguage} />
                             </label>
                           </div>
                           <DraftInput
@@ -1106,8 +1184,10 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
                           />
                         </div>
                         <p className="text-[11px] text-muted-foreground">
-                          Provision runs inside the derived worktree before agent execution. Teardown is stored here for
-                          future cleanup flows.
+                          {t(
+                            "Provision runs inside the derived worktree before agent execution. Teardown is stored here for future cleanup flows.",
+                            "准备命令会在派生出的 worktree 中、智能体执行前运行。清理命令会保存在这里，供后续清理流程使用。",
+                          )}
                         </p>
                       </div>
                     ) : null}
@@ -1125,12 +1205,13 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
           <Separator className="my-4" />
           <div className="space-y-4 py-4">
             <div className="text-xs font-medium text-destructive uppercase tracking-wide">
-              Danger Zone
+              {t("Danger Zone", "危险操作区")}
             </div>
             <ArchiveDangerZone
               project={project}
               onArchive={onArchive}
               archivePending={archivePending}
+              uiLanguage={uiLanguage}
             />
           </div>
         </>

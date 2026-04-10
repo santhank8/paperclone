@@ -15,6 +15,7 @@ import { useProjectOrder } from "../hooks/useProjectOrder";
 import { getRecentAssigneeIds, sortAgentsByRecency, trackRecentAssignee } from "../lib/recent-assignees";
 import { buildExecutionPolicy } from "../lib/issue-execution-policy";
 import { useToast } from "../context/ToastContext";
+import { useGeneralSettings } from "../context/GeneralSettingsContext";
 import {
   assigneeValueFromSelection,
   currentUserAssigneeOption,
@@ -58,6 +59,7 @@ import { issueStatusText, issueStatusTextDefault, priorityColor, priorityColorDe
 import { MarkdownEditor, type MarkdownEditorRef, type MentionOption } from "./MarkdownEditor";
 import { AgentIcon } from "./AgentIconPicker";
 import { InlineEntitySelector, type InlineEntityOption } from "./InlineEntitySelector";
+import { textFor, type UiLanguage } from "../lib/ui-language";
 
 const DRAFT_KEY = "paperclip:issue-draft";
 const DEBOUNCE_MS = 800;
@@ -225,26 +227,45 @@ function formatFileSize(file: File) {
   return `${(file.size / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-const statuses = [
-  { value: "backlog", label: "Backlog", color: issueStatusText.backlog ?? issueStatusTextDefault },
-  { value: "todo", label: "Todo", color: issueStatusText.todo ?? issueStatusTextDefault },
-  { value: "in_progress", label: "In Progress", color: issueStatusText.in_progress ?? issueStatusTextDefault },
-  { value: "in_review", label: "In Review", color: issueStatusText.in_review ?? issueStatusTextDefault },
-  { value: "done", label: "Done", color: issueStatusText.done ?? issueStatusTextDefault },
-];
+function buildStatusOptions(uiLanguage: UiLanguage) {
+  return [
+    { value: "backlog", label: textFor(uiLanguage, { en: "Backlog", "zh-CN": "待规划" }), color: issueStatusText.backlog ?? issueStatusTextDefault },
+    { value: "todo", label: textFor(uiLanguage, { en: "Todo", "zh-CN": "待办" }), color: issueStatusText.todo ?? issueStatusTextDefault },
+    { value: "in_progress", label: textFor(uiLanguage, { en: "In Progress", "zh-CN": "进行中" }), color: issueStatusText.in_progress ?? issueStatusTextDefault },
+    { value: "in_review", label: textFor(uiLanguage, { en: "In Review", "zh-CN": "评审中" }), color: issueStatusText.in_review ?? issueStatusTextDefault },
+    { value: "done", label: textFor(uiLanguage, { en: "Done", "zh-CN": "已完成" }), color: issueStatusText.done ?? issueStatusTextDefault },
+  ];
+}
 
-const priorities = [
-  { value: "critical", label: "Critical", icon: AlertTriangle, color: priorityColor.critical ?? priorityColorDefault },
-  { value: "high", label: "High", icon: ArrowUp, color: priorityColor.high ?? priorityColorDefault },
-  { value: "medium", label: "Medium", icon: Minus, color: priorityColor.medium ?? priorityColorDefault },
-  { value: "low", label: "Low", icon: ArrowDown, color: priorityColor.low ?? priorityColorDefault },
-];
+function buildPriorityOptions(uiLanguage: UiLanguage) {
+  return [
+    { value: "critical", label: textFor(uiLanguage, { en: "Critical", "zh-CN": "紧急" }), icon: AlertTriangle, color: priorityColor.critical ?? priorityColorDefault },
+    { value: "high", label: textFor(uiLanguage, { en: "High", "zh-CN": "高" }), icon: ArrowUp, color: priorityColor.high ?? priorityColorDefault },
+    { value: "medium", label: textFor(uiLanguage, { en: "Medium", "zh-CN": "中" }), icon: Minus, color: priorityColor.medium ?? priorityColorDefault },
+    { value: "low", label: textFor(uiLanguage, { en: "Low", "zh-CN": "低" }), icon: ArrowDown, color: priorityColor.low ?? priorityColorDefault },
+  ];
+}
 
-const EXECUTION_WORKSPACE_MODES = [
-  { value: "shared_workspace", label: "Project default" },
-  { value: "isolated_workspace", label: "New isolated workspace" },
-  { value: "reuse_existing", label: "Reuse existing workspace" },
-] as const;
+function buildExecutionWorkspaceModeOptions(uiLanguage: UiLanguage) {
+  return [
+    { value: "shared_workspace", label: textFor(uiLanguage, { en: "Project default", "zh-CN": "项目默认" }) },
+    { value: "isolated_workspace", label: textFor(uiLanguage, { en: "New isolated workspace", "zh-CN": "新的隔离工作区" }) },
+    { value: "reuse_existing", label: textFor(uiLanguage, { en: "Reuse existing workspace", "zh-CN": "复用现有工作区" }) },
+  ] as const;
+}
+
+function localizeThinkingEffortLabel(label: string, uiLanguage: UiLanguage) {
+  const labels: Record<string, { en: string; "zh-CN": string }> = {
+    Default: { en: "Default", "zh-CN": "默认" },
+    Minimal: { en: "Minimal", "zh-CN": "最小" },
+    Low: { en: "Low", "zh-CN": "低" },
+    Medium: { en: "Medium", "zh-CN": "中" },
+    High: { en: "High", "zh-CN": "高" },
+    "X-High": { en: "X-High", "zh-CN": "超高" },
+    Max: { en: "Max", "zh-CN": "最大" },
+  };
+  return textFor(uiLanguage, labels[label] ?? { en: label, "zh-CN": label });
+}
 
 function defaultProjectWorkspaceIdForProject(project: { workspaces?: Array<{ id: string; isPrimary: boolean }>; executionWorkspacePolicy?: { defaultProjectWorkspaceId?: string | null } | null } | null | undefined) {
   if (!project) return "";
@@ -281,6 +302,7 @@ export function NewIssueDialog() {
   const { companies, selectedCompanyId, selectedCompany } = useCompany();
   const queryClient = useQueryClient();
   const { pushToast } = useToast();
+  const { uiLanguage } = useGeneralSettings();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [status, setStatus] = useState("todo");
@@ -313,6 +335,10 @@ export function NewIssueDialog() {
     ?? (newIssueDefaults.parentId ? newIssueDefaults.parentId.slice(0, 8) : "");
   const parentExecutionWorkspaceId = newIssueDefaults.executionWorkspaceId ?? "";
   const parentExecutionWorkspaceLabel = newIssueDefaults.parentExecutionWorkspaceLabel ?? parentExecutionWorkspaceId;
+  const t = useCallback((en: string, zh: string) => textFor(uiLanguage, { en, "zh-CN": zh }), [uiLanguage]);
+  const statuses = useMemo(() => buildStatusOptions(uiLanguage), [uiLanguage]);
+  const priorities = useMemo(() => buildPriorityOptions(uiLanguage), [uiLanguage]);
+  const executionWorkspaceModes = useMemo(() => buildExecutionWorkspaceModeOptions(uiLanguage), [uiLanguage]);
 
   // Popover states
   const [statusOpen, setStatusOpen] = useState(false);
@@ -453,11 +479,14 @@ export function NewIssueDialog() {
         const prefix = (companies.find((company) => company.id === companyId)?.issuePrefix ?? "").trim();
         const issueRef = issue.identifier ?? issue.id;
         pushToast({
-          title: `Created ${issueRef} with upload warnings`,
-          body: `${failures.length} staged ${failures.length === 1 ? "file" : "files"} could not be added.`,
+          title: t(`Created ${issueRef} with upload warnings`, `已创建 ${issueRef}，但上传有警告`),
+          body: t(
+            `${failures.length} staged ${failures.length === 1 ? "file" : "files"} could not be added.`,
+            `${failures.length} 个暂存文件未能添加。`,
+          ),
           tone: "warn",
           action: prefix
-            ? { label: `Open ${issueRef}`, href: `/${prefix}/issues/${issueRef}` }
+            ? { label: t(`Open ${issueRef}`, `打开 ${issueRef}`), href: `/${prefix}/issues/${issueRef}` }
             : undefined,
         });
       }
@@ -469,7 +498,7 @@ export function NewIssueDialog() {
 
   const uploadDescriptionImage = useMutation({
     mutationFn: async (file: File) => {
-      if (!effectiveCompanyId) throw new Error("No company selected");
+      if (!effectiveCompanyId) throw new Error(t("No company selected", "未选择公司"));
       return assetsApi.uploadImage(effectiveCompanyId, file, "issues/drafts");
     },
   });
@@ -852,12 +881,12 @@ export function NewIssueDialog() {
     && !isUsingParentExecutionWorkspace;
   const assigneeOptionsTitle =
     assigneeAdapterType === "claude_local"
-      ? "Claude options"
+      ? t("Claude options", "Claude 选项")
       : assigneeAdapterType === "codex_local"
-        ? "Codex options"
+        ? t("Codex options", "Codex 选项")
         : assigneeAdapterType === "opencode_local"
-          ? "OpenCode options"
-        : "Agent options";
+          ? t("OpenCode options", "OpenCode 选项")
+        : t("Agent options", "智能体选项");
   const thinkingEffortOptions =
     assigneeAdapterType === "codex_local"
       ? ISSUE_THINKING_EFFORT_OPTIONS.codex_local
@@ -892,7 +921,7 @@ export function NewIssueDialog() {
   const hasSavedDraft = Boolean(savedDraft?.title.trim() || savedDraft?.description.trim());
   const canDiscardDraft = hasDraft || hasSavedDraft;
   const createIssueErrorMessage =
-    createIssue.error instanceof Error ? createIssue.error.message : "Failed to create issue. Try again.";
+    createIssue.error instanceof Error ? createIssue.error.message : t("Failed to create issue. Try again.", "创建任务失败，请重试。");
   const stagedDocuments = stagedFiles.filter((file) => file.kind === "document");
   const stagedAttachments = stagedFiles.filter((file) => file.kind === "attachment");
 
@@ -1032,7 +1061,7 @@ export function NewIssueDialog() {
               </PopoverContent>
             </Popover>
             <span className="text-muted-foreground/60">&rsaquo;</span>
-            <span>{isSubIssueMode ? "New sub-issue" : "New issue"}</span>
+            <span>{isSubIssueMode ? t("New sub-issue", "新建子任务") : t("New issue", "新建任务")}</span>
           </div>
           <div className="flex items-center gap-1">
             <Button
@@ -1060,7 +1089,7 @@ export function NewIssueDialog() {
         <div className="px-4 pt-4 pb-2 shrink-0">
           <textarea
             className="w-full text-lg font-semibold bg-transparent outline-none resize-none overflow-hidden placeholder:text-muted-foreground/50"
-            placeholder="Issue title"
+            placeholder={t("Issue title", "任务标题")}
             rows={1}
             value={title}
             onChange={(e) => {
@@ -1100,16 +1129,16 @@ export function NewIssueDialog() {
         <div className="px-4 pb-2 shrink-0">
           <div className="overflow-x-auto overscroll-x-contain">
             <div className="inline-flex items-center gap-2 text-sm text-muted-foreground flex-wrap sm:flex-nowrap sm:min-w-max">
-              <span className="w-6 shrink-0 text-center">For</span>
+              <span className="w-6 shrink-0 text-center">{t("For", "分配")}</span>
               <InlineEntitySelector
                 ref={assigneeSelectorRef}
                 value={assigneeValue}
                 options={assigneeOptions}
-                placeholder="Assignee"
+                placeholder={t("Assignee", "负责人")}
                 disablePortal
-                noneLabel="No assignee"
-                searchPlaceholder="Search assignees..."
-                emptyMessage="No assignees found."
+                noneLabel={t("No assignee", "未分配负责人")}
+                searchPlaceholder={t("Search assignees...", "搜索负责人...")}
+                emptyMessage={t("No assignees found.", "未找到负责人。")}
                 onChange={(value) => {
                   const nextAssignee = parseAssigneeValue(value);
                   if (nextAssignee.assigneeAgentId) {
@@ -1135,7 +1164,7 @@ export function NewIssueDialog() {
                       <span className="truncate">{option.label}</span>
                     )
                   ) : (
-                    <span className="text-muted-foreground">Assignee</span>
+                    <span className="text-muted-foreground">{t("Assignee", "负责人")}</span>
                   )
                 }
                 renderOption={(option) => {
@@ -1151,16 +1180,16 @@ export function NewIssueDialog() {
                   );
                 }}
               />
-              <span>in</span>
+              <span>{t("in", "归属")}</span>
               <InlineEntitySelector
                 ref={projectSelectorRef}
                 value={projectId}
                 options={projectOptions}
-                placeholder="Project"
+                placeholder={t("Project", "项目")}
                 disablePortal
-                noneLabel="No project"
-                searchPlaceholder="Search projects..."
-                emptyMessage="No projects found."
+                noneLabel={t("No project", "无项目")}
+                searchPlaceholder={t("Search projects...", "搜索项目...")}
+                emptyMessage={t("No projects found.", "未找到项目。")}
                 onChange={handleProjectChange}
                 onConfirm={() => {
                   descriptionEditorRef.current?.focus();
@@ -1175,7 +1204,7 @@ export function NewIssueDialog() {
                       <span className="truncate">{option.label}</span>
                     </>
                   ) : (
-                    <span className="text-muted-foreground">Project</span>
+                    <span className="text-muted-foreground">{t("Project", "项目")}</span>
                   )
                 }
                 renderOption={(option) => {
@@ -1199,7 +1228,7 @@ export function NewIssueDialog() {
                   <button
                     type="button"
                     className="inline-flex items-center justify-center rounded-md p-1 text-muted-foreground hover:bg-accent/50 transition-colors"
-                    title="Add reviewer or approver"
+                    title={t("Add reviewer or approver", "添加评审人或审批人")}
                   >
                     <MoreHorizontal className="h-4 w-4" />
                   </button>
@@ -1217,7 +1246,7 @@ export function NewIssueDialog() {
                     }}
                   >
                     <Eye className="h-3 w-3" />
-                    Reviewer
+                    {t("Reviewer", "评审人")}
                   </button>
                   <button
                     className={cn(
@@ -1231,7 +1260,7 @@ export function NewIssueDialog() {
                     }}
                   >
                     <ShieldCheck className="h-3 w-3" />
-                    Approver
+                    {t("Approver", "审批人")}
                   </button>
                 </PopoverContent>
               </Popover>
@@ -1245,11 +1274,11 @@ export function NewIssueDialog() {
               <InlineEntitySelector
                 value={reviewerValue}
                 options={assigneeOptions}
-                placeholder="Reviewer"
+                placeholder={t("Reviewer", "评审人")}
                 disablePortal
-                noneLabel="No reviewer"
-                searchPlaceholder="Search reviewers..."
-                emptyMessage="No reviewers found."
+                noneLabel={t("No reviewer", "无评审人")}
+                searchPlaceholder={t("Search reviewers...", "搜索评审人...")}
+                emptyMessage={t("No reviewers found.", "未找到评审人。")}
                 onChange={setReviewerValue}
                 renderTriggerValue={(option) =>
                   option ? (
@@ -1263,7 +1292,7 @@ export function NewIssueDialog() {
                       <span className="truncate">{option.label}</span>
                     </>
                   ) : (
-                    <span className="text-muted-foreground">Reviewer</span>
+                    <span className="text-muted-foreground">{t("Reviewer", "评审人")}</span>
                   )
                 }
                 renderOption={(option) => {
@@ -1289,11 +1318,11 @@ export function NewIssueDialog() {
               <InlineEntitySelector
                 value={approverValue}
                 options={assigneeOptions}
-                placeholder="Approver"
+                placeholder={t("Approver", "审批人")}
                 disablePortal
-                noneLabel="No approver"
-                searchPlaceholder="Search approvers..."
-                emptyMessage="No approvers found."
+                noneLabel={t("No approver", "无审批人")}
+                searchPlaceholder={t("Search approvers...", "搜索审批人...")}
+                emptyMessage={t("No approvers found.", "未找到审批人。")}
                 onChange={setApproverValue}
                 renderTriggerValue={(option) =>
                   option ? (
@@ -1307,7 +1336,7 @@ export function NewIssueDialog() {
                       <span className="truncate">{option.label}</span>
                     </>
                   ) : (
-                    <span className="text-muted-foreground">Approver</span>
+                    <span className="text-muted-foreground">{t("Approver", "审批人")}</span>
                   )
                 }
                 renderOption={(option) => {
@@ -1332,7 +1361,7 @@ export function NewIssueDialog() {
             <div className="max-w-full rounded-md border border-border bg-muted/30 px-2.5 py-1.5 text-xs text-muted-foreground">
               <div className="flex items-center gap-1.5">
                 <ListTree className="h-3.5 w-3.5 shrink-0" />
-                <span className="shrink-0">Sub-issue of</span>
+                <span className="shrink-0">{t("Sub-issue of", "子任务属于")}</span>
                 <span className="font-medium text-foreground">{parentIssueLabel}</span>
               </div>
               {newIssueDefaults.parentTitle ? (
@@ -1347,9 +1376,12 @@ export function NewIssueDialog() {
         {currentProject && currentProjectSupportsExecutionWorkspace && (
           <div className="px-4 py-3 shrink-0 space-y-2">
             <div className="space-y-1.5">
-              <div className="text-xs font-medium">Execution workspace</div>
+              <div className="text-xs font-medium">{t("Execution workspace", "执行工作区")}</div>
               <div className="text-[11px] text-muted-foreground">
-                Control whether this issue runs in the shared workspace, a new isolated workspace, or an existing one.
+                {t(
+                  "Control whether this issue runs in the shared workspace, a new isolated workspace, or an existing one.",
+                  "控制此任务是在共享工作区、新的隔离工作区，还是现有工作区中运行。",
+                )}
               </div>
               <select
                 className="w-full rounded border border-border bg-transparent px-2 py-1.5 text-xs outline-none"
@@ -1361,7 +1393,7 @@ export function NewIssueDialog() {
                   }
                 }}
               >
-                {EXECUTION_WORKSPACE_MODES.map((option) => (
+                {executionWorkspaceModes.map((option) => (
                   <option key={option.value} value={option.value}>
                     {option.label}
                   </option>
@@ -1373,7 +1405,7 @@ export function NewIssueDialog() {
                   value={selectedExecutionWorkspaceId}
                   onChange={(e) => setSelectedExecutionWorkspaceId(e.target.value)}
                 >
-                  <option value="">Choose an existing workspace</option>
+                  <option value="">{t("Choose an existing workspace", "选择现有工作区")}</option>
                   {deduplicatedReusableWorkspaces.map((workspace) => (
                     <option key={workspace.id} value={workspace.id}>
                       {workspace.name} · {workspace.status} · {workspace.branchName ?? workspace.cwd ?? workspace.id.slice(0, 8)}
@@ -1383,12 +1415,13 @@ export function NewIssueDialog() {
               )}
               {executionWorkspaceMode === "reuse_existing" && selectedReusableExecutionWorkspace && (
                 <div className="text-[11px] text-muted-foreground">
-                  Reusing {selectedReusableExecutionWorkspace.name} from {selectedReusableExecutionWorkspace.branchName ?? selectedReusableExecutionWorkspace.cwd ?? "existing execution workspace"}.
+                  {t("Reusing", "复用")} {selectedReusableExecutionWorkspace.name} {t("from", "来自")} {selectedReusableExecutionWorkspace.branchName ?? selectedReusableExecutionWorkspace.cwd ?? t("existing execution workspace", "现有执行工作区")}。
                 </div>
               )}
               {showParentWorkspaceWarning ? (
                 <div className="rounded-md border border-amber-300/60 bg-amber-50 px-2 py-1.5 text-[11px] text-amber-900 dark:border-amber-800/70 dark:bg-amber-950/30 dark:text-amber-100">
-                  Warning: this sub-issue will no longer use the parent issue workspace{parentExecutionWorkspaceLabel ? ` (${parentExecutionWorkspaceLabel})` : ""}.
+                  {t("Warning: this sub-issue will no longer use the parent issue workspace", "警告：此子任务将不再使用父任务工作区")}
+                  {parentExecutionWorkspaceLabel ? ` (${parentExecutionWorkspaceLabel})` : ""}。
                 </div>
               ) : null}
             </div>
@@ -1407,20 +1440,20 @@ export function NewIssueDialog() {
             {assigneeOptionsOpen && (
               <div className="mt-2 rounded-md border border-border p-3 bg-muted/20 space-y-3">
                 <div className="space-y-1.5">
-                  <div className="text-xs text-muted-foreground">Model</div>
+                  <div className="text-xs text-muted-foreground">{t("Model", "模型")}</div>
                   <InlineEntitySelector
                     value={assigneeModelOverride}
                     options={modelOverrideOptions}
-                    placeholder="Default model"
+                    placeholder={t("Default model", "默认模型")}
                     disablePortal
-                    noneLabel="Default model"
-                    searchPlaceholder="Search models..."
-                    emptyMessage="No models found."
+                    noneLabel={t("Default model", "默认模型")}
+                    searchPlaceholder={t("Search models...", "搜索模型...")}
+                    emptyMessage={t("No models found.", "未找到模型。")}
                     onChange={setAssigneeModelOverride}
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <div className="text-xs text-muted-foreground">Thinking effort</div>
+                  <div className="text-xs text-muted-foreground">{t("Thinking effort", "思考强度")}</div>
                   <div className="flex items-center gap-1.5 flex-wrap">
                     {thinkingEffortOptions.map((option) => (
                       <button
@@ -1431,14 +1464,14 @@ export function NewIssueDialog() {
                         )}
                         onClick={() => setAssigneeThinkingEffort(option.value)}
                       >
-                        {option.label}
+                        {localizeThinkingEffortLabel(option.label, uiLanguage)}
                       </button>
                     ))}
                   </div>
                 </div>
                 {assigneeAdapterType === "claude_local" && (
                   <div className="flex items-center justify-between rounded-md border border-border px-2 py-1.5">
-                    <div className="text-xs text-muted-foreground">Enable Chrome (--chrome)</div>
+                    <div className="text-xs text-muted-foreground">{t("Enable Chrome (--chrome)", "启用 Chrome（--chrome）")}</div>
                     <ToggleSwitch
                       checked={assigneeChrome}
                       onCheckedChange={() => setAssigneeChrome((value) => !value)}
@@ -1468,7 +1501,7 @@ export function NewIssueDialog() {
               ref={descriptionEditorRef}
               value={description}
               onChange={setDescription}
-              placeholder="Add description..."
+              placeholder={t("Add description...", "添加描述...")}
               bordered={false}
               mentions={mentionOptions}
               contentClassName={cn("text-sm text-muted-foreground pb-12", expanded ? "min-h-[220px]" : "min-h-[120px]")}
@@ -1482,7 +1515,7 @@ export function NewIssueDialog() {
             <div className="mt-4 space-y-3 rounded-lg border border-border/70 p-3">
               {stagedDocuments.length > 0 ? (
                 <div className="space-y-2">
-                  <div className="text-xs font-medium text-muted-foreground">Documents</div>
+                  <div className="text-xs font-medium text-muted-foreground">{t("Documents", "文档")}</div>
                   <div className="space-y-2">
                     {stagedDocuments.map((file) => (
                       <div key={file.id} className="flex items-start justify-between gap-3 rounded-md border border-border/70 px-3 py-2">
@@ -1506,7 +1539,7 @@ export function NewIssueDialog() {
                           className="shrink-0 text-muted-foreground"
                           onClick={() => removeStagedFile(file.id)}
                           disabled={createIssue.isPending}
-                          title="Remove document"
+                          title={t("Remove document", "移除文档")}
                         >
                           <X className="h-3.5 w-3.5" />
                         </Button>
@@ -1518,7 +1551,7 @@ export function NewIssueDialog() {
 
               {stagedAttachments.length > 0 ? (
                 <div className="space-y-2">
-                  <div className="text-xs font-medium text-muted-foreground">Attachments</div>
+                  <div className="text-xs font-medium text-muted-foreground">{t("Attachments", "附件")}</div>
                   <div className="space-y-2">
                     {stagedAttachments.map((file) => (
                       <div key={file.id} className="flex items-start justify-between gap-3 rounded-md border border-border/70 px-3 py-2">
@@ -1537,7 +1570,7 @@ export function NewIssueDialog() {
                           className="shrink-0 text-muted-foreground"
                           onClick={() => removeStagedFile(file.id)}
                           disabled={createIssue.isPending}
-                          title="Remove attachment"
+                          title={t("Remove attachment", "移除附件")}
                         >
                           <X className="h-3.5 w-3.5" />
                         </Button>
@@ -1589,7 +1622,7 @@ export function NewIssueDialog() {
                 ) : (
                   <>
                     <Minus className="h-3 w-3 text-muted-foreground" />
-                    Priority
+                    {t("Priority", "优先级")}
                   </>
                 )}
               </button>
@@ -1631,7 +1664,7 @@ export function NewIssueDialog() {
             disabled={createIssue.isPending}
           >
             <Paperclip className="h-3 w-3" />
-            Upload
+            {t("Upload", "上传")}
           </button>
 
           {/* More (dates) */}
@@ -1644,11 +1677,11 @@ export function NewIssueDialog() {
             <PopoverContent className="w-44 p-1" align="start">
               <button className="flex items-center gap-2 w-full px-2 py-1.5 text-xs rounded hover:bg-accent/50 text-muted-foreground">
                 <Calendar className="h-3 w-3" />
-                Start date
+                {t("Start date", "开始日期")}
               </button>
               <button className="flex items-center gap-2 w-full px-2 py-1.5 text-xs rounded hover:bg-accent/50 text-muted-foreground">
                 <Calendar className="h-3 w-3" />
-                Due date
+                {t("Due date", "截止日期")}
               </button>
             </PopoverContent>
           </Popover>
@@ -1663,14 +1696,14 @@ export function NewIssueDialog() {
             onClick={discardDraft}
             disabled={createIssue.isPending || !canDiscardDraft}
           >
-            Discard Draft
+            {t("Discard Draft", "丢弃草稿")}
           </Button>
           <div className="flex items-center gap-3">
             <div className="min-h-5 text-right">
               {createIssue.isPending ? (
                 <span className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
                   <Loader2 className="h-3 w-3 animate-spin" />
-                  Creating issue...
+                  {t("Creating issue...", "正在创建任务...")}
                 </span>
               ) : createIssue.isError ? (
                 <span className="text-xs text-destructive">{createIssueErrorMessage}</span>
@@ -1685,7 +1718,13 @@ export function NewIssueDialog() {
             >
               <span className="inline-flex items-center justify-center gap-1.5">
                 {createIssue.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
-                <span>{createIssue.isPending ? "Creating..." : isSubIssueMode ? "Create Sub-Issue" : "Create Issue"}</span>
+                <span>
+                  {createIssue.isPending
+                    ? t("Creating...", "创建中...")
+                    : isSubIssueMode
+                      ? t("Create Sub-Issue", "创建子任务")
+                      : t("Create Issue", "创建任务")}
+                </span>
               </span>
             </Button>
           </div>
