@@ -319,6 +319,26 @@ describe("inbox helpers", () => {
     });
   });
 
+  it("excludes read issues from the badge mineIssues count", () => {
+    const result = computeInboxBadgeData({
+      approvals: [],
+      joinRequests: [],
+      dashboard: undefined,
+      heartbeatRuns: [],
+      mineIssues: [makeIssue("1", true), makeIssue("2", false), makeIssue("3", true)],
+      dismissed: new Set<string>(),
+    });
+
+    expect(result).toEqual({
+      inbox: 2,
+      approvals: 0,
+      failedRuns: 0,
+      joinRequests: 0,
+      mineIssues: 2,
+      alerts: 0,
+    });
+  });
+
   it("keeps read issues in the touched list but excludes them from unread counts", () => {
     const issues = [makeIssue("1", true), makeIssue("2", false)];
 
