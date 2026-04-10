@@ -154,6 +154,7 @@ function ensureDevWorkspaceBuildDeps(projectRoot: string): void {
   const result = spawnSync(process.execPath, [buildScript], {
     cwd: projectRoot,
     stdio: "inherit",
+    timeout: 120_000,
   });
 
   if (result.error) {
