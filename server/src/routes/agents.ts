@@ -1108,6 +1108,10 @@ export function agentRoutes(db: Db) {
     const rows = await issuesSvc.list(req.actor.companyId, {
       assigneeAgentId: req.actor.agentId,
       status: "todo,in_progress,blocked",
+      // Agents' primary inbox MUST surface routine-generated tasks.
+      // issueService.list() hides origin_kind='routine_execution' by default
+      // (that default is fine for the UI backlog view), so we opt in here.
+      includeRoutineExecutions: true,
     });
 
     res.json(
