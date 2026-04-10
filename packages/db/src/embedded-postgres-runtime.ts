@@ -1,4 +1,11 @@
 import { existsSync, readFileSync } from "node:fs";
+
+/**
+ * Shared embedded PostgreSQL runtime utilities used by both the API server
+ * and the DB migration CLI. Provides pid-file inspection, reachable-instance
+ * detection, free-port selection, and log buffering for embedded PostgreSQL.
+ */
+
 import { createServer } from "node:net";
 import path from "node:path";
 import { ensurePostgresDatabase, getPostgresDataDirectory } from "./client.js";
@@ -124,7 +131,7 @@ export async function findReusableEmbeddedPostgresConnection(
   return null;
 }
 
-export function createEmbeddedPostgresLogBuffer(options?: {
+export function createEmbeddedPostgresRuntimeLogBuffer(options?: {
   limit?: number;
   verbose?: boolean;
   onVerboseLine?: (line: string) => void;
