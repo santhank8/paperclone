@@ -260,8 +260,11 @@ export function knowledgeRoutes(db: Db, storage: StorageService) {
     assertCompanyAccess(req, companyId);
 
     const { name, parentId, description, sortOrder } = req.body;
+    if (name !== undefined && (typeof name !== "string" || name.trim().length === 0)) {
+      throw unprocessable("name must be a non-empty string");
+    }
     const result = await svc.updateEntry(companyId, entryId, {
-      name,
+      name: name !== undefined ? name.trim() : undefined,
       ...(parentId !== undefined ? { parentId } : {}),
       ...(description !== undefined ? { description } : {}),
       ...(sortOrder !== undefined ? { sortOrder } : {}),

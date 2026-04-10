@@ -614,8 +614,9 @@ export function knowledgeService(db: Db) {
           await tx.delete(documents).where(inArray(documents.id, documentIds));
         }
 
-        // Note: we don't delete asset files from storage here — that would need
-        // a separate cleanup job. We only remove the DB rows.
+        // TODO: Storage objects are orphaned here — DB rows are removed but the
+        // underlying blobs (local disk / S3) are not. A background reconciliation
+        // job should be added to clean up unreferenced storage objects.
         if (assetIds.length > 0) {
           await tx.delete(assets).where(inArray(assets.id, assetIds));
         }

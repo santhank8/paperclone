@@ -2725,8 +2725,12 @@ export function heartbeatService(db: Db) {
     const agentKnowledgeEntries = await knowledgeSvc.resolveAgentVisibleEntries(agent.companyId, agent.id);
     // Deliver a lightweight manifest — names, scopes, descriptions, and IDs only.
     // Agents fetch full content on demand via the knowledge API.
+    // Cap at 50 most-recently-updated entries to avoid unbounded prompt bloat.
+    const MAX_KNOWLEDGE_MANIFEST_ENTRIES = 50;
     const knowledgeManifest = agentKnowledgeEntries
       .filter((e) => e.type !== "folder")
+      .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+      .slice(0, MAX_KNOWLEDGE_MANIFEST_ENTRIES)
       .map((entry) => ({
         id: entry.id,
         name: entry.name,
