@@ -2479,23 +2479,34 @@ export function heartbeatService(db: Db) {
         return [];
       }
 
-      // Per-agent cooldown: don't start a new run if the last one finished < 60s ago (fix for #1241)
-      const MIN_GAP_MS = 60_000;
-      const lastFinished = await db
-        .select({ finishedAt: heartbeatRuns.finishedAt })
-        .from(heartbeatRuns)
-        .where(and(
-          eq(heartbeatRuns.agentId, agentId),
-          isNotNull(heartbeatRuns.finishedAt),
-        ))
-        .orderBy(desc(heartbeatRuns.finishedAt))
-        .limit(1)
-        .then((rows) => rows[0]?.finishedAt ?? null);
-      if (lastFinished && Date.now() - new Date(lastFinished).getTime() < MIN_GAP_MS) {
-        return []; // Too soon — leave queued runs for the next tick
-      }
-
       const policy = parseHeartbeatPolicy(agent);
+
+      // Per-agent cooldown: don't start a new run if the last one finished too recently (fix for #1241).
+      // Cooldown is derived from the agent's intervalSec (capped at 60s) and only applies to
+      // non-on-demand runs — user-triggered wakeups (UI button) are never delayed.
+      const queuedRuns_ = await db
+        .select({ invocationSource: heartbeatRuns.invocationSource })
+        .from(heartbeatRuns)
+        .where(and(eq(heartbeatRuns.agentId, agentId), eq(heartbeatRuns.status, "queued")))
+        .orderBy(asc(heartbeatRuns.createdAt))
+        .limit(1);
+      const nextIsOnDemand = queuedRuns_[0]?.invocationSource === "on_demand";
+      if (!nextIsOnDemand) {
+        const MIN_GAP_MS = Math.min(60_000, policy.intervalSec > 0 ? policy.intervalSec * 1000 : 60_000);
+        const lastFinished = await db
+          .select({ finishedAt: heartbeatRuns.finishedAt })
+          .from(heartbeatRuns)
+          .where(and(
+            eq(heartbeatRuns.agentId, agentId),
+            isNotNull(heartbeatRuns.finishedAt),
+          ))
+          .orderBy(desc(heartbeatRuns.finishedAt))
+          .limit(1)
+          .then((rows) => rows[0]?.finishedAt ?? null);
+        if (lastFinished && Date.now() - new Date(lastFinished).getTime() < MIN_GAP_MS) {
+          return []; // Too soon — leave queued runs for the next tick
+        }
+      }
       const runningCount = await countRunningRunsForAgent(agentId);
       const availableSlots = Math.max(0, policy.maxConcurrentRuns - runningCount);
       if (availableSlots <= 0) return [];
