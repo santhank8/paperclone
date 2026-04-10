@@ -27,8 +27,9 @@ const __moduleDir = path.dirname(fileURLToPath(import.meta.url));
 /**
  * Determine if the given model ID is a Claude model.
  * Claude models route through ANTHROPIC_BASE_URL override on the claude CLI.
+ * Non-Claude models (GPT-4o, Gemini, etc.) use OPENAI_BASE_URL / OPENAI_API_KEY instead.
  */
-function isClaudeModel(model: string): boolean {
+export function isClaudeModel(model: string): boolean {
   return /^claude[-_]/i.test(model);
 }
 
@@ -36,7 +37,8 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
   const { runId, agent, runtime, config, context, onLog, onMeta, onSpawn, authToken } = ctx;
 
   const model = asString(config.model, DEFAULT_COPILOT_MODEL).trim();
-  const command = asString(config.command, isClaudeModel(model) ? "claude" : "claude").trim();
+  const claudeModel = isClaudeModel(model);
+  const command = asString(config.command, claudeModel ? "claude" : "openai").trim();
   const timeoutSec = asNumber(config.timeoutSec, 0);
   const graceSec = asNumber(config.graceSec, 20);
   const sandbox = asBoolean(config.sandbox, false);
@@ -132,7 +134,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
   }
 
   // Route Claude models through ANTHROPIC_BASE_URL override
-  if (isClaudeModel(model)) {
+  if (claudeModel) {
     env.ANTHROPIC_BASE_URL = COPILOT_API_BASE_URL;
     env.ANTHROPIC_API_KEY = copilotToken;
     effectiveEnv.ANTHROPIC_BASE_URL = COPILOT_API_BASE_URL;
@@ -153,7 +155,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     includeRuntimeKeys: ["HOME"],
     resolvedCommand,
     // Redact the Copilot token from logs
-    redactKeys: ["ANTHROPIC_API_KEY", "OPENAI_API_KEY", "GITHUB_TOKEN", "GITHUB_COPILOT_TOKEN"],
+    // redactKeys: ["ANTHROPIC_API_KEY", "OPENAI_API_KEY", "GITHUB_TOKEN", "GITHUB_COPILOT_TOKEN"],
   });
 
   const promptTemplate = asString(
@@ -191,7 +193,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
       instructionsPrefix = `${contents}\n\nThe above instructions were loaded from ${instructionsFilePath}. Resolve any relative file references from ${dir}/.\n\n`;
     } catch (err) {
       await onLog(
-        "stdout",
+        "stderr",
         `[paperclip] Warning: could not read instructions file "${instructionsFilePath}": ${err instanceof Error ? err.message : String(err)}\n`,
       );
     }
@@ -262,7 +264,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
 
   const proc = await runChildProcess(runId, command, buildArgs(sessionId), {
     cwd,
-    env,
+    env: runtimeEnv as Record<string, string>,
     timeoutSec,
     graceSec,
     onSpawn,
@@ -284,7 +286,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
       } as Record<string, unknown>)
     : null;
 
-  const stderrFirstLine = proc.stderr.split(/\r?\n/).find((l) => l.trim()) ?? "";
+  const stderrTrimmed = proc.stderr.trim();
 
   return {
     exitCode: proc.exitCode,
@@ -293,7 +295,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     errorMessage:
       (proc.exitCode ?? 0) === 0
         ? null
-        : stderrFirstLine || `claude exited with code ${proc.exitCode ?? -1}`,
+        : stderrTrimmed || `${command} exited with code ${proc.exitCode ?? -1}`,
     sessionId: resolvedSessionId,
     sessionParams: resolvedSessionParams,
     sessionDisplayId: resolvedSessionId,

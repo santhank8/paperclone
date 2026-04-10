@@ -20,6 +20,7 @@ export async function exchangeGithubToken(githubToken: string): Promise<CopilotT
       Accept: "application/json",
       "User-Agent": "paperclip-copilot-adapter/1.0",
     },
+    signal: AbortSignal.timeout(10_000),
   });
 
   if (res.status === 401) {
@@ -38,14 +39,30 @@ export async function exchangeGithubToken(githubToken: string): Promise<CopilotT
     );
   }
 
-  const data = (await res.json()) as { token: string; expires_at: string };
-  if (!data.token) {
+  let data: { token?: unknown; expires_at?: unknown };
+  try {
+    data = await res.json();
+  } catch (err) {
+    throw new Error(
+      `Copilot token exchange returned non-JSON response (HTTP ${res.status}). ` +
+        `The endpoint may be unavailable or blocked. Detail: ${err instanceof Error ? err.message : String(err)}`,
+    );
+  }
+
+  if (typeof data.token !== "string" || !data.token) {
     throw new Error("Copilot token exchange returned an empty token.");
   }
-  return {
-    token: data.token,
-    expiresAt: new Date(data.expires_at),
-  };
+
+  // expires_at may be a unix timestamp (number) or an ISO string
+  const expiresAt =
+    typeof data.expires_at === "number"
+      ? new Date(data.expires_at * 1000)
+      : new Date(data.expires_at as string);
+  if (isNaN(expiresAt.getTime())) {
+    throw new Error(`Copilot token exchange returned an invalid expires_at value: ${JSON.stringify(data.expires_at)}`);
+  }
+
+  return { token: data.token, expiresAt };
 }
 
 /**
@@ -72,7 +89,7 @@ export async function resolveCopilotToken(
 
   // 3. Fall back to gh CLI
   try {
-    const { stdout } = await execFileAsync("gh", ["auth", "token"], {
+    const { stdout } = await execFileAsync("gh", ["auth", "token", "--hostname", "github.com"], {
       env: { ...process.env, ...env },
       timeout: 10_000,
     });

@@ -11,8 +11,9 @@ import {
   parseObject,
   runChildProcess,
 } from "@paperclipai/adapter-utils/server-utils";
-import { DEFAULT_COPILOT_MODEL } from "../index.js";
+import { COPILOT_API_BASE_URL, DEFAULT_COPILOT_MODEL } from "../index.js";
 import { resolveCopilotToken } from "./token.js";
+import { isClaudeModel } from "./execute.js";
 
 function summarizeStatus(checks: AdapterEnvironmentCheck[]): AdapterEnvironmentTestResult["status"] {
   if (checks.some((c) => c.level === "error")) return "fail";
@@ -72,15 +73,14 @@ export async function testEnvironment(
   }
 
   // 4. Check GitHub auth and Copilot token exchange
+  let resolvedToken = "";
   try {
-    const token = await resolveCopilotToken(effectiveEnv);
-    if (token) {
-      checks.push({
-        code: "copilot_token_resolved",
-        level: "info",
-        message: "Successfully obtained a GitHub Copilot API token.",
-      });
-    }
+    resolvedToken = await resolveCopilotToken(effectiveEnv);
+    checks.push({
+      code: "copilot_token_resolved",
+      level: "info",
+      message: "Successfully obtained a GitHub Copilot API token.",
+    });
   } catch (err) {
     checks.push({
       code: "copilot_token_failed",
@@ -108,64 +108,61 @@ export async function testEnvironment(
     (c) => !["copilot_cwd_invalid", "copilot_command_unresolvable", "copilot_token_failed"].includes(c.code),
   );
 
-  if (canProbe) {
-    let copilotToken = "";
-    try {
-      copilotToken = await resolveCopilotToken(effectiveEnv);
-    } catch {
-      // already captured above
+  if (canProbe && resolvedToken) {
+    const probeEnv = { ...env };
+    // Mirror the same env-var routing used in execute.ts
+    if (isClaudeModel(model)) {
+      probeEnv.ANTHROPIC_BASE_URL = COPILOT_API_BASE_URL;
+      probeEnv.ANTHROPIC_API_KEY = resolvedToken;
+    } else {
+      probeEnv.OPENAI_BASE_URL = COPILOT_API_BASE_URL;
+      probeEnv.OPENAI_API_KEY = resolvedToken;
     }
 
-    if (copilotToken) {
-      const probeEnv = { ...env };
-      probeEnv.ANTHROPIC_BASE_URL = "https://api.githubcopilot.com";
-      probeEnv.ANTHROPIC_API_KEY = copilotToken;
+    try {
+      const probe = await runChildProcess(
+        `copilot-envtest-${Date.now()}`,
+        command,
+        ["--output-format", "json", "--dangerously-skip-permissions", "--print", "Respond with: hello"],
+        {
+          cwd,
+          env: probeEnv,
+          timeoutSec: 60,
+          graceSec: 5,
+          onLog: async () => {},
+        },
+      );
 
-      try {
-        const probe = await runChildProcess(
-          `copilot-envtest-${Date.now()}`,
-          command,
-          ["--output-format", "json", "--dangerously-skip-permissions", "--print", "Respond with: hello"],
-          {
-            cwd,
-            env: probeEnv,
-            timeoutSec: 60,
-            graceSec: 5,
-            onLog: async () => {},
-          },
-        );
-
-        if (probe.timedOut) {
-          checks.push({
-            code: "copilot_hello_probe_timeout",
-            level: "warn",
-            message: "Hello probe timed out.",
-            hint: "The Copilot API may be slow or the model may be unavailable. Retry.",
-          });
-        } else if ((probe.exitCode ?? 1) === 0) {
-          checks.push({
-            code: "copilot_hello_probe_passed",
-            level: "info",
-            message: "Hello probe succeeded — Copilot API is reachable and responding.",
-          });
-        } else {
-          const detail = probe.stderr.split(/\r?\n/).find((l) => l.trim()) ?? probe.stdout.slice(0, 240);
-          checks.push({
-            code: "copilot_hello_probe_failed",
-            level: "warn",
-            message: "Hello probe returned a non-zero exit code.",
-            ...(detail ? { detail } : {}),
-            hint: "Run the CLI manually to debug. The model may be unavailable in your Copilot plan.",
-          });
-        }
-      } catch (err) {
+      if (probe.timedOut) {
         checks.push({
-          code: "copilot_hello_probe_error",
+          code: "copilot_hello_probe_timeout",
           level: "warn",
-          message: "Hello probe threw an error.",
-          detail: err instanceof Error ? err.message : String(err),
+          message: "Hello probe timed out.",
+          hint: "The Copilot API may be slow or the model may be unavailable. Retry.",
+        });
+      } else if ((probe.exitCode ?? 1) === 0) {
+        checks.push({
+          code: "copilot_hello_probe_passed",
+          level: "info",
+          message: "Hello probe succeeded — Copilot API is reachable and responding.",
+        });
+      } else {
+        const detail = probe.stderr.trim() || probe.stdout.slice(0, 240);
+        checks.push({
+          code: "copilot_hello_probe_failed",
+          level: "error",
+          message: "Hello probe returned a non-zero exit code.",
+          ...(detail ? { detail } : {}),
+          hint: "Run the CLI manually to debug. The model may be unavailable in your Copilot plan.",
         });
       }
+    } catch (err) {
+      checks.push({
+        code: "copilot_hello_probe_error",
+        level: "error",
+        message: "Hello probe threw an error.",
+        detail: err instanceof Error ? err.message : String(err),
+      });
     }
   }
 

@@ -4,6 +4,8 @@ export const label = "GitHub Copilot (local)";
 export const DEFAULT_COPILOT_MODEL = "claude-sonnet-4-5";
 
 export const COPILOT_API_BASE_URL = "https://api.githubcopilot.com";
+// NOTE: This is an undocumented internal endpoint with no stability guarantees.
+// GitHub may rename, gate, or remove it without a deprecation notice.
 export const COPILOT_TOKEN_URL = "https://api.github.com/copilot_internal/v2/token";
 
 export const models: Array<{ id: string; label: string }> = [
