@@ -22,8 +22,7 @@ if [ "$(id -g node)" -ne "$PGID" ]; then
     changed=1
 fi
 
-if [ "$changed" = "1" ]; then
-    chown -R node:node /paperclip
-fi
+# Always fix ownership — volume dirs may have been created as root
+chown -R node:node /paperclip
 
 exec gosu node "$@"
