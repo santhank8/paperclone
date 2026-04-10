@@ -22,6 +22,7 @@ import {
   removeMaintainerOnlySkillSymlinks,
   parseObject,
   renderTemplate,
+  renderPaperclipKnowledgePrompt,
   renderPaperclipWakePrompt,
   stringifyPaperclipWakePayload,
   runChildProcess,
@@ -309,9 +310,11 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
   const sessionHandoffNote = asString(context.paperclipSessionHandoffMarkdown, "").trim();
   const paperclipEnvNote = renderPaperclipEnvNote(env);
   const apiAccessNote = renderApiAccessNote(env);
+  const knowledgePrompt = renderPaperclipKnowledgePrompt(context.paperclipKnowledgeEntries);
   const prompt = joinPromptSections([
     instructionsPrefix,
     renderedBootstrapPrompt,
+    knowledgePrompt,
     wakePrompt,
     sessionHandoffNote,
     paperclipEnvNote,

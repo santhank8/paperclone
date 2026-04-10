@@ -463,6 +463,43 @@ export function renderPaperclipWakePrompt(
   return lines.join("\n").trim();
 }
 
+export function renderPaperclipKnowledgePrompt(value: unknown): string {
+  if (!value || !Array.isArray(value) || value.length === 0) return "";
+
+  const entries = value as Array<{
+    id?: string;
+    name?: string;
+    type?: string;
+    scope?: string;
+    description?: string | null;
+  }>;
+
+  if (entries.length === 0) return "";
+
+  const scopeLabel = (scope?: string) =>
+    scope === "company" ? "Company" : scope === "department" ? "Department" : "Agent";
+
+  const lines = [
+    "## Company Knowledge Base",
+    "",
+    "The following knowledge entries are available. Fetch full content when relevant using the Paperclip API:",
+    "- Document body: `GET /api/companies/{companyId}/knowledge/{id}` (returns `documentBody` field)",
+    "- File content: `GET /api/assets/{assetId}/content` (binary download)",
+    "Use `$PAPERCLIP_API_KEY` for authentication.",
+    "",
+  ];
+
+  for (const entry of entries) {
+    const scope = scopeLabel(entry.scope);
+    const desc = entry.description ? ` — ${entry.description}` : "";
+    const icon = entry.type === "document" ? "📄" : "📎";
+    lines.push(`- ${icon} **${entry.name ?? "Untitled"}** (${scope}, ${entry.type}, id: \`${entry.id}\`)${desc}`);
+  }
+
+  lines.push("");
+  return lines.join("\n").trim();
+}
+
 export function redactEnvForLogs(env: Record<string, string>): Record<string, string> {
   const redacted: Record<string, string> = {};
   for (const [key, value] of Object.entries(env)) {

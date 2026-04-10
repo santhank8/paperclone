@@ -359,6 +359,17 @@ export type {
   PluginWebhookDeliveryRecord,
   QuotaWindow,
   ProviderQuotaResult,
+  KnowledgeEntryType,
+  KnowledgeEntryScope,
+  KnowledgeEntry,
+  KnowledgeEntryWithContent,
+  KnowledgeAssetInfo,
+  KnowledgeDepartment,
+  KnowledgeDocumentRevision,
+  CreateKnowledgeFolderInput,
+  CreateKnowledgeDocumentInput,
+  UpdateKnowledgeEntryInput,
+  UpdateKnowledgeDocumentBodyInput,
 } from "./types/index.js";
 
 export {

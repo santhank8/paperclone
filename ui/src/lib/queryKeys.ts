@@ -4,6 +4,19 @@ export const queryKeys = {
     detail: (id: string) => ["companies", id] as const,
     stats: ["companies", "stats"] as const,
   },
+  knowledge: {
+    list: (companyId: string, scope?: string, parentId?: string) =>
+      ["knowledge", companyId, scope ?? "all", parentId ?? "root"] as const,
+    departments: (companyId: string) => ["knowledge", companyId, "departments"] as const,
+    tree: (companyId: string, scope?: string, scopeAgentId?: string) =>
+      ["knowledge", companyId, "tree", scope ?? "all", scopeAgentId ?? "all"] as const,
+    detail: (companyId: string, entryId: string) =>
+      ["knowledge", companyId, "detail", entryId] as const,
+    revisions: (companyId: string, entryId: string) =>
+      ["knowledge", companyId, "revisions", entryId] as const,
+    agentView: (companyId: string, agentId: string) =>
+      ["knowledge", companyId, "agent", agentId] as const,
+  },
   companySkills: {
     list: (companyId: string) => ["company-skills", companyId] as const,
     detail: (companyId: string, skillId: string) => ["company-skills", companyId, skillId] as const,
