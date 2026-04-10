@@ -4488,7 +4488,22 @@ export function heartbeatService(db: Db) {
         if (!policy.enabled || policy.intervalSec <= 0) continue;
 
         checked += 1;
-        const baseline = new Date(agent.lastHeartbeatAt ?? agent.createdAt).getTime();
+        // Use the last timer-sourced run's creation time as the baseline, not lastHeartbeatAt.
+        // lastHeartbeatAt is updated by ALL run types (on_demand, automation, assignment),
+        // which prevents the timer from ever firing if non-timer runs keep resetting it.
+        const lastTimerRun = await db
+          .select({ createdAt: heartbeatRuns.createdAt })
+          .from(heartbeatRuns)
+          .where(and(
+            eq(heartbeatRuns.agentId, agent.id),
+            eq(heartbeatRuns.invocationSource, "timer"),
+          ))
+          .orderBy(desc(heartbeatRuns.createdAt))
+          .limit(1)
+          .then((rows) => rows[0]?.createdAt ?? null);
+        const baseline = lastTimerRun
+          ? new Date(lastTimerRun).getTime()
+          : new Date(agent.lastHeartbeatAt ?? agent.createdAt).getTime();
         const elapsedMs = now.getTime() - baseline;
         if (elapsedMs < policy.intervalSec * 1000) continue;
 
