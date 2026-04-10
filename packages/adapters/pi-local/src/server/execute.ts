@@ -20,6 +20,7 @@ import {
   resolvePaperclipDesiredSkillNames,
   removeMaintainerOnlySkillSymlinks,
   renderTemplate,
+  renderPaperclipKnowledgePrompt,
   renderPaperclipWakePrompt,
   stringifyPaperclipWakePayload,
   runChildProcess,
@@ -310,8 +311,10 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
   const shouldUseResumeDeltaPrompt = canResumeSession && wakePrompt.length > 0;
   const renderedHeartbeatPrompt = shouldUseResumeDeltaPrompt ? "" : renderTemplate(promptTemplate, templateData);
   const sessionHandoffNote = asString(context.paperclipSessionHandoffMarkdown, "").trim();
+  const knowledgePrompt = renderPaperclipKnowledgePrompt(context.paperclipKnowledgeEntries);
   const userPrompt = joinPromptSections([
     renderedBootstrapPrompt,
+    knowledgePrompt,
     wakePrompt,
     sessionHandoffNote,
     renderedHeartbeatPrompt,

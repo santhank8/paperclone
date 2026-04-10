@@ -206,6 +206,19 @@ export type {
   CompanyPortabilityExportRequest,
 } from "./company-portability.js";
 export type {
+  KnowledgeEntryType,
+  KnowledgeEntryScope,
+  KnowledgeEntry,
+  KnowledgeEntryWithContent,
+  KnowledgeAssetInfo,
+  KnowledgeDepartment,
+  KnowledgeDocumentRevision,
+  CreateKnowledgeFolderInput,
+  CreateKnowledgeDocumentInput,
+  UpdateKnowledgeEntryInput,
+  UpdateKnowledgeDocumentBodyInput,
+} from "./knowledge.js";
+export type {
   JsonSchema,
   PluginJobDeclaration,
   PluginWebhookDeclaration,

@@ -29,6 +29,7 @@ import { costService } from "./costs.js";
 import { trackAgentFirstHeartbeat } from "@paperclipai/shared/telemetry";
 import { getTelemetryClient } from "../telemetry.js";
 import { companySkillService } from "./company-skills.js";
+import { knowledgeService } from "./knowledge.js";
 import { budgetService, type BudgetEnforcementScope } from "./budgets.js";
 import { secretService } from "./secrets.js";
 import { resolveDefaultAgentWorkspaceDir, resolveManagedProjectWorkspaceDir } from "../home-paths.js";
@@ -2720,6 +2721,26 @@ export function heartbeatService(db: Db) {
       secretsSvc,
     });
     const runtimeSkillEntries = await companySkills.listRuntimeSkillEntries(agent.companyId);
+    const knowledgeSvc = knowledgeService(db);
+    const agentKnowledgeEntries = await knowledgeSvc.resolveAgentVisibleEntries(agent.companyId, agent.id);
+    // Deliver a lightweight manifest — names, scopes, descriptions, and IDs only.
+    // Agents fetch full content on demand via the knowledge API.
+    // Cap at 50 most-recently-updated entries to avoid unbounded prompt bloat.
+    const MAX_KNOWLEDGE_MANIFEST_ENTRIES = 50;
+    const knowledgeManifest = agentKnowledgeEntries
+      .filter((e) => e.type !== "folder")
+      .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+      .slice(0, MAX_KNOWLEDGE_MANIFEST_ENTRIES)
+      .map((entry) => ({
+        id: entry.id,
+        name: entry.name,
+        type: entry.type,
+        scope: entry.scope,
+        description: entry.description,
+      }));
+    if (knowledgeManifest.length > 0) {
+      context.paperclipKnowledgeEntries = knowledgeManifest;
+    }
     const runtimeConfig = {
       ...resolvedConfig,
       paperclipRuntimeSkills: runtimeSkillEntries,
