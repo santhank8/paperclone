@@ -4,6 +4,7 @@ import {
   companySkillCreateSchema,
   companySkillFileUpdateSchema,
   companySkillImportSchema,
+  companySkillOrganizeSchema,
   companySkillProjectScanRequestSchema,
 } from "@paperclipai/shared";
 import { trackSkillImported } from "@paperclipai/shared/telemetry";
@@ -180,6 +181,38 @@ export function companySkillRoutes(db: Db) {
         details: {
           path: result.path,
           markdown: result.markdown,
+        },
+      });
+
+      res.json(result);
+    },
+  );
+
+  router.patch(
+    "/companies/:companyId/skills/:skillId/organize",
+    validate(companySkillOrganizeSchema),
+    async (req, res) => {
+      const companyId = req.params.companyId as string;
+      const skillId = req.params.skillId as string;
+      await assertCanMutateCompanySkills(req, companyId);
+      const result = await svc.organizeSkill(companyId, skillId, req.body);
+      if (!result) {
+        res.status(404).json({ error: "Skill not found" });
+        return;
+      }
+
+      const actor = getActorInfo(req);
+      await logActivity(db, {
+        companyId,
+        actorType: actor.actorType,
+        actorId: actor.actorId,
+        agentId: actor.agentId,
+        runId: actor.runId,
+        action: "company.skill_organized",
+        entityType: "company_skill",
+        entityId: result.id,
+        details: {
+          hidden: result.hidden,
         },
       });
 

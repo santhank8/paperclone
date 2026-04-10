@@ -26,6 +26,7 @@ export interface CompanySkill {
   compatibility: CompanySkillCompatibility;
   fileInventory: CompanySkillFileInventoryEntry[];
   metadata: Record<string, unknown> | null;
+  hidden: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -43,6 +44,7 @@ export interface CompanySkillListItem {
   trustLevel: CompanySkillTrustLevel;
   compatibility: CompanySkillCompatibility;
   fileInventory: CompanySkillFileInventoryEntry[];
+  hidden: boolean;
   createdAt: Date;
   updatedAt: Date;
   attachedAgentCount: number;

@@ -70,6 +70,7 @@ import {
   ChevronDown,
   ArrowLeft,
   HelpCircle,
+  Folder,
   FolderOpen,
 } from "lucide-react";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
@@ -2440,6 +2441,8 @@ function AgentSkillsTab({
   const [skillDraft, setSkillDraft] = useState<string[]>([]);
   const [lastSavedSkills, setLastSavedSkills] = useState<string[]>([]);
   const [unmanagedOpen, setUnmanagedOpen] = useState(false);
+  const [showHiddenAgentSkills, setShowHiddenAgentSkills] = useState(false);
+  const [expandedSkillFolders, setExpandedSkillFolders] = useState<Set<string>>(new Set());
   const lastSavedSkillsRef = useRef<string[]>([]);
   const hasHydratedSkillSnapshotRef = useRef(false);
   const skipNextSkillAutosaveRef = useRef(true);
@@ -2542,6 +2545,28 @@ function AgentSkillsTab({
         })),
     [adapterEntryByKey, companySkills],
   );
+  const hiddenSkillCount = useMemo(
+    () => optionalSkillRows.filter((row) => companySkillByKey.get(row.key)?.hidden).length,
+    [optionalSkillRows, companySkillByKey],
+  );
+  const groupedOptionalSkills = useMemo(() => {
+    const visible = showHiddenAgentSkills
+      ? optionalSkillRows
+      : optionalSkillRows.filter((row) => !companySkillByKey.get(row.key)?.hidden);
+    const groups = new Map<string, SkillRow[]>();
+    for (const row of visible) {
+      const segments = row.key.split("/");
+      const folderKey = segments.length >= 3 ? segments.slice(0, -1).join("/") : "__ungrouped__";
+      if (!groups.has(folderKey)) groups.set(folderKey, []);
+      groups.get(folderKey)!.push(row);
+    }
+    return Array.from(groups.entries())
+      .sort(([a], [b]) => {
+        if (a === "__ungrouped__") return 1;
+        if (b === "__ungrouped__") return -1;
+        return a.localeCompare(b);
+      });
+  }, [optionalSkillRows, companySkillByKey, showHiddenAgentSkills]);
   const requiredSkillRows = useMemo<SkillRow[]>(
     () =>
       (skillSnapshot?.entries ?? [])
@@ -2614,12 +2639,24 @@ function AgentSkillsTab({
   return (
     <div className="max-w-4xl space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <Link
-          to="/skills"
-          className="text-sm font-medium text-foreground underline-offset-4 no-underline transition-colors hover:text-foreground/70 hover:underline"
-        >
-          View company skills library
-        </Link>
+        <div className="flex items-center gap-3">
+          <Link
+            to="/skills"
+            className="text-sm font-medium text-foreground underline-offset-4 no-underline transition-colors hover:text-foreground/70 hover:underline"
+          >
+            View company skills library
+          </Link>
+          {hiddenSkillCount > 0 && (
+            <button
+              type="button"
+              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+              onClick={() => setShowHiddenAgentSkills((v) => !v)}
+            >
+              {showHiddenAgentSkills ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
+              {showHiddenAgentSkills ? "Hide hidden" : `${hiddenSkillCount} hidden`}
+            </button>
+          )}
+        </div>
         {saveStatusLabel ? (
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             {syncSkills.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
@@ -2738,7 +2775,7 @@ function AgentSkillsTab({
               );
             };
 
-            if (optionalSkillRows.length === 0 && requiredSkillRows.length === 0 && unmanagedSkillRows.length === 0) {
+            if (groupedOptionalSkills.length === 0 && requiredSkillRows.length === 0 && unmanagedSkillRows.length === 0) {
               return (
                 <section className="border-y border-border">
                   <div className="px-3 py-6 text-sm text-muted-foreground">
@@ -2750,9 +2787,62 @@ function AgentSkillsTab({
 
             return (
               <>
-                {optionalSkillRows.length > 0 && (
+                {groupedOptionalSkills.length > 0 && (
                   <section className="border-y border-border">
-                    {optionalSkillRows.map(renderSkillRow)}
+                    {groupedOptionalSkills.map(([folderKey, rows]) => {
+                      const isUngrouped = folderKey === "__ungrouped__";
+                      const allSelected = rows.every((r) => skillDraft.includes(r.key));
+                      const someSelected = rows.some((r) => skillDraft.includes(r.key));
+                      const isDisabled = skillSnapshot?.mode === "unsupported";
+                      const isFolderExpanded = isUngrouped || expandedSkillFolders.has(folderKey);
+
+                      return (
+                        <div key={folderKey}>
+                          {!isUngrouped && (
+                            <div className="flex items-center gap-2 border-b border-border bg-muted/40 px-3 py-2">
+                              <input
+                                type="checkbox"
+                                checked={allSelected}
+                                disabled={isDisabled}
+                                ref={(el) => { if (el) el.indeterminate = someSelected && !allSelected; }}
+                                onChange={(e) => {
+                                  e.stopPropagation();
+                                  const keys = rows.map((r) => r.key);
+                                  if (e.target.checked) {
+                                    setSkillDraft((prev) => Array.from(new Set([...prev, ...keys])));
+                                  } else {
+                                    setSkillDraft((prev) => prev.filter((k) => !keys.includes(k)));
+                                  }
+                                }}
+                                className="disabled:cursor-not-allowed disabled:opacity-60"
+                              />
+                              <button
+                                type="button"
+                                className="flex min-w-0 flex-1 items-center gap-2 text-left"
+                                onClick={() => {
+                                  setExpandedSkillFolders((prev) => {
+                                    const next = new Set(prev);
+                                    if (next.has(folderKey)) next.delete(folderKey);
+                                    else next.add(folderKey);
+                                    return next;
+                                  });
+                                }}
+                              >
+                                {isFolderExpanded
+                                  ? <FolderOpen className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                                  : <Folder className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />}
+                                <span className="min-w-0 truncate text-xs font-medium text-muted-foreground">{folderKey}</span>
+                                <span className="ml-auto shrink-0 text-[10px] text-muted-foreground/60">{rows.length}</span>
+                                {isFolderExpanded
+                                  ? <ChevronDown className="h-3 w-3 shrink-0 text-muted-foreground" />
+                                  : <ChevronRight className="h-3 w-3 shrink-0 text-muted-foreground" />}
+                              </button>
+                            </div>
+                          )}
+                          {isFolderExpanded && rows.map(renderSkillRow)}
+                        </div>
+                      );
+                    })}
                   </section>
                 )}
 

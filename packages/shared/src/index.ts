@@ -564,6 +564,7 @@ export {
   companySkillCreateSchema,
   companySkillFileDetailSchema,
   companySkillFileUpdateSchema,
+  companySkillOrganizeSchema,
   portabilityIncludeSchema,
   portabilityEnvInputSchema,
   portabilityCompanyManifestEntrySchema,

@@ -39,6 +39,7 @@ import {
   ChevronRight,
   Code2,
   Eye,
+  EyeOff,
   FileCode2,
   FileText,
   Folder,
@@ -241,6 +242,48 @@ function parentDirectoryPaths(filePath: string) {
   return parents;
 }
 
+type SkillFolder = {
+  name: string;
+  folderKey: string;
+  sourceBadge: CompanySkillSourceBadge;
+  skills: CompanySkillListItem[];
+};
+
+function deriveFolderDisplayName(folderKey: string, sample: CompanySkillListItem): string {
+  if (folderKey === "__ungrouped__") return "Other";
+  if (sample.sourceType === "github" || sample.sourceType === "skills_sh") return folderKey;
+  if (folderKey.startsWith("local/")) return "Local skills";
+  if (folderKey.startsWith("company/")) return "Custom skills";
+  if (folderKey.startsWith("paperclipai/")) return folderKey;
+  return folderKey;
+}
+
+function groupSkillsByFolder(skills: CompanySkillListItem[]): SkillFolder[] {
+  const groups = new Map<string, CompanySkillListItem[]>();
+
+  for (const skill of skills) {
+    const segments = skill.key.split("/");
+    const folderKey = segments.length >= 3
+      ? segments.slice(0, -1).join("/")
+      : "__ungrouped__";
+    if (!groups.has(folderKey)) groups.set(folderKey, []);
+    groups.get(folderKey)!.push(skill);
+  }
+
+  return Array.from(groups.entries())
+    .map(([folderKey, groupSkills]) => ({
+      name: deriveFolderDisplayName(folderKey, groupSkills[0]!),
+      folderKey,
+      sourceBadge: groupSkills[0]!.sourceBadge,
+      skills: groupSkills,
+    }))
+    .sort((left, right) => {
+      if (left.folderKey === "__ungrouped__") return 1;
+      if (right.folderKey === "__ungrouped__") return -1;
+      return left.name.localeCompare(right.name);
+    });
+}
+
 function NewSkillForm({
   onCreate,
   isPending,
@@ -380,11 +423,10 @@ function SkillTree({
   );
 }
 
-function SkillList({
-  skills,
+function SkillRow({
+  skill,
   selectedSkillId,
-  skillFilter,
-  expandedSkillId,
+  expanded,
   expandedDirs,
   selectedPaths,
   onToggleSkill,
@@ -392,10 +434,9 @@ function SkillList({
   onSelectSkill,
   onSelectPath,
 }: {
-  skills: CompanySkillListItem[];
+  skill: CompanySkillListItem;
   selectedSkillId: string | null;
-  skillFilter: string;
-  expandedSkillId: string | null;
+  expanded: boolean;
   expandedDirs: Record<string, Set<string>>;
   selectedPaths: Record<string, string>;
   onToggleSkill: (skillId: string) => void;
@@ -403,7 +444,103 @@ function SkillList({
   onSelectSkill: (skillId: string) => void;
   onSelectPath: (skillId: string, path: string) => void;
 }) {
+  const tree = buildTree(skill.fileInventory);
+  const source = sourceMeta(skill.sourceBadge, skill.sourceLabel);
+  const SourceIcon = source.icon;
+
+  return (
+    <div className="border-b border-border">
+      <div
+        className={cn(
+          "group grid grid-cols-[minmax(0,1fr)_2.25rem] items-center gap-x-1 px-3 py-1.5 hover:bg-accent/30",
+          skill.id === selectedSkillId && "text-foreground",
+          skill.hidden && "opacity-50",
+        )}
+      >
+        <Link
+          to={skillRoute(skill.id)}
+          className="flex min-w-0 items-center self-stretch pr-2 text-left no-underline"
+          onClick={() => onSelectSkill(skill.id)}
+        >
+          <span className="flex min-w-0 items-center gap-2 self-center">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="flex h-4 w-4 shrink-0 items-center justify-center text-muted-foreground opacity-75 transition-opacity group-hover:opacity-100">
+                  <SourceIcon className="h-3.5 w-3.5" />
+                  <span className="sr-only">{source.managedLabel}</span>
+                </span>
+              </TooltipTrigger>
+              <TooltipContent side="top">{source.managedLabel}</TooltipContent>
+            </Tooltip>
+            <span className="min-w-0 overflow-hidden text-[13px] font-medium leading-5 [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:3]">
+              {skill.name}
+            </span>
+            {skill.hidden && <EyeOff className="h-3 w-3 shrink-0 text-muted-foreground" />}
+          </span>
+        </Link>
+        <button
+          type="button"
+          className="flex h-9 w-9 shrink-0 items-center justify-center self-center rounded-sm text-muted-foreground opacity-80 transition-[background-color,color,opacity] hover:bg-accent hover:text-foreground group-hover:opacity-100"
+          onClick={() => onToggleSkill(skill.id)}
+          aria-label={expanded ? `Collapse ${skill.name}` : `Expand ${skill.name}`}
+        >
+          {expanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+        </button>
+      </div>
+      <div
+        aria-hidden={!expanded}
+        className={cn(
+          "grid overflow-hidden transition-[grid-template-rows,opacity] duration-200 ease-[cubic-bezier(0.16,1,0.3,1)]",
+          expanded ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0",
+        )}
+      >
+        <div className="min-h-0 overflow-hidden">
+          <SkillTree
+            nodes={tree}
+            skillId={skill.id}
+            selectedPath={selectedPaths[skill.id] ?? "SKILL.md"}
+            expandedDirs={expandedDirs[skill.id] ?? new Set<string>()}
+            onToggleDir={(path) => onToggleDir(skill.id, path)}
+            onSelectPath={(path) => onSelectPath(skill.id, path)}
+            depth={1}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SkillList({
+  skills,
+  selectedSkillId,
+  skillFilter,
+  showHidden,
+  expandedSkillId,
+  expandedDirs,
+  selectedPaths,
+  collapsedFolders,
+  onToggleSkill,
+  onToggleDir,
+  onSelectSkill,
+  onSelectPath,
+  onToggleFolder,
+}: {
+  skills: CompanySkillListItem[];
+  selectedSkillId: string | null;
+  skillFilter: string;
+  showHidden: boolean;
+  expandedSkillId: string | null;
+  expandedDirs: Record<string, Set<string>>;
+  selectedPaths: Record<string, string>;
+  collapsedFolders: Set<string>;
+  onToggleSkill: (skillId: string) => void;
+  onToggleDir: (skillId: string, path: string) => void;
+  onSelectSkill: (skillId: string) => void;
+  onSelectPath: (skillId: string, path: string) => void;
+  onToggleFolder: (folderKey: string) => void;
+}) {
   const filteredSkills = skills.filter((skill) => {
+    if (!showHidden && skill.hidden) return false;
     const haystack = `${skill.name} ${skill.key} ${skill.slug} ${skill.sourceLabel ?? ""}`.toLowerCase();
     return haystack.includes(skillFilter.toLowerCase());
   });
@@ -416,70 +553,51 @@ function SkillList({
     );
   }
 
+  const folders = groupSkillsByFolder(filteredSkills);
+
   return (
     <div>
-      {filteredSkills.map((skill) => {
-        const expanded = expandedSkillId === skill.id;
-        const tree = buildTree(skill.fileInventory);
-        const source = sourceMeta(skill.sourceBadge, skill.sourceLabel);
-        const SourceIcon = source.icon;
+      {folders.map((folder) => {
+        const isUngrouped = folder.folderKey === "__ungrouped__";
+        const isCollapsed = collapsedFolders.has(folder.folderKey);
+        const folderSource = sourceMeta(folder.sourceBadge, null);
+        const FolderSourceIcon = folderSource.icon;
 
         return (
-          <div key={skill.id} className="border-b border-border">
-            <div
-              className={cn(
-                "group grid grid-cols-[minmax(0,1fr)_2.25rem] items-center gap-x-1 px-3 py-1.5 hover:bg-accent/30",
-                skill.id === selectedSkillId && "text-foreground",
-              )}
-            >
-              <Link
-                to={skillRoute(skill.id)}
-                className="flex min-w-0 items-center self-stretch pr-2 text-left no-underline"
-                onClick={() => onSelectSkill(skill.id)}
-              >
-                <span className="flex min-w-0 items-center gap-2 self-center">
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <span className="flex h-4 w-4 shrink-0 items-center justify-center text-muted-foreground opacity-75 transition-opacity group-hover:opacity-100">
-                        <SourceIcon className="h-3.5 w-3.5" />
-                        <span className="sr-only">{source.managedLabel}</span>
-                      </span>
-                    </TooltipTrigger>
-                    <TooltipContent side="top">{source.managedLabel}</TooltipContent>
-                  </Tooltip>
-                  <span className="min-w-0 overflow-hidden text-[13px] font-medium leading-5 [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:3]">
-                    {skill.name}
-                  </span>
-                </span>
-              </Link>
+          <div key={folder.folderKey}>
+            {!isUngrouped && (
               <button
                 type="button"
-                className="flex h-9 w-9 shrink-0 items-center justify-center self-center rounded-sm text-muted-foreground opacity-80 transition-[background-color,color,opacity] hover:bg-accent hover:text-foreground group-hover:opacity-100"
-                onClick={() => onToggleSkill(skill.id)}
-                aria-label={expanded ? `Collapse ${skill.name}` : `Expand ${skill.name}`}
+                className="flex w-full items-center gap-2 border-b border-border bg-muted/40 px-3 py-2 text-left hover:bg-muted/60"
+                onClick={() => onToggleFolder(folder.folderKey)}
               >
-                {expanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+                <span className="flex h-4 w-4 shrink-0 items-center justify-center text-muted-foreground">
+                  {isCollapsed ? <Folder className="h-3.5 w-3.5" /> : <FolderOpen className="h-3.5 w-3.5" />}
+                </span>
+                <span className="flex h-4 w-4 shrink-0 items-center justify-center text-muted-foreground opacity-60">
+                  <FolderSourceIcon className="h-3 w-3" />
+                </span>
+                <span className="min-w-0 truncate text-xs font-medium text-muted-foreground">{folder.name}</span>
+                <span className="ml-auto shrink-0 text-[10px] text-muted-foreground/60">{folder.skills.length}</span>
+                <span className="flex h-4 w-4 shrink-0 items-center justify-center text-muted-foreground">
+                  {isCollapsed ? <ChevronRight className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                </span>
               </button>
-            </div>
-            <div
-              aria-hidden={!expanded}
-              className={cn(
-                "grid overflow-hidden transition-[grid-template-rows,opacity] duration-200 ease-[cubic-bezier(0.16,1,0.3,1)]",
-                expanded ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0",
-              )}
-            >
-              <div className="min-h-0 overflow-hidden">
-                <SkillTree
-                  nodes={tree}
-                  skillId={skill.id}
-                  selectedPath={selectedPaths[skill.id] ?? "SKILL.md"}
-                  expandedDirs={expandedDirs[skill.id] ?? new Set<string>()}
-                  onToggleDir={(path) => onToggleDir(skill.id, path)}
-                  onSelectPath={(path) => onSelectPath(skill.id, path)}
-                  depth={1}
-                />
-              </div>
-            </div>
+            )}
+            {(!isCollapsed || isUngrouped) && folder.skills.map((skill) => (
+              <SkillRow
+                key={skill.id}
+                skill={skill}
+                selectedSkillId={selectedSkillId}
+                expanded={expandedSkillId === skill.id}
+                expandedDirs={expandedDirs}
+                selectedPaths={selectedPaths}
+                onToggleSkill={onToggleSkill}
+                onToggleDir={onToggleDir}
+                onSelectSkill={onSelectSkill}
+                onSelectPath={onSelectPath}
+              />
+            ))}
           </div>
         );
       })}
@@ -508,6 +626,8 @@ function SkillPane({
   deletePending,
   onSave,
   savePending,
+  onToggleHidden,
+  toggleHiddenPending,
 }: {
   loading: boolean;
   detail: CompanySkillDetail | null | undefined;
@@ -529,6 +649,8 @@ function SkillPane({
   deletePending: boolean;
   onSave: () => void;
   savePending: boolean;
+  onToggleHidden: () => void;
+  toggleHiddenPending: boolean;
 }) {
   const { pushToast } = useToast();
 
@@ -569,6 +691,17 @@ function SkillPane({
             )}
           </div>
           <div className="flex flex-wrap items-center justify-end gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onToggleHidden}
+              disabled={toggleHiddenPending}
+            >
+              {detail.hidden
+                ? <><Eye className="mr-1.5 h-3.5 w-3.5" />Unhide</>
+                : <><EyeOff className="mr-1.5 h-3.5 w-3.5" />Hide</>
+              }
+            </Button>
             <Button
               variant="ghost"
               size="sm"
@@ -656,6 +789,14 @@ function SkillPane({
               <span className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Mode</span>
               <span>{detail.editable ? "Editable" : "Read only"}</span>
             </div>
+            {detail.hidden && (
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Visibility</span>
+                <span className="flex items-center gap-1 text-muted-foreground">
+                  <EyeOff className="h-3 w-3" /> Hidden
+                </span>
+              </div>
+            )}
           </div>
           <div className="flex flex-wrap items-start gap-x-3 gap-y-1">
             <span className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Used by</span>
@@ -772,6 +913,8 @@ export function CompanySkills() {
   const [displayedDetail, setDisplayedDetail] = useState<CompanySkillDetail | null>(null);
   const [displayedFile, setDisplayedFile] = useState<CompanySkillFileDetail | null>(null);
   const [scanStatusMessage, setScanStatusMessage] = useState<string | null>(null);
+  const [showHidden, setShowHidden] = useState(false);
+  const [collapsedFolders, setCollapsedFolders] = useState<Set<string>>(new Set());
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteTargetSkillId, setDeleteTargetSkillId] = useState<string | null>(null);
   const [deleteTargetDetail, setDeleteTargetDetail] = useState<CompanySkillDetail | null>(null);
@@ -791,6 +934,11 @@ export function CompanySkills() {
     queryFn: () => companySkillsApi.list(selectedCompanyId!),
     enabled: Boolean(selectedCompanyId),
   });
+
+  const hiddenCount = useMemo(
+    () => (skillsQuery.data ?? []).filter((skill) => skill.hidden).length,
+    [skillsQuery.data],
+  );
 
   const selectedSkillId = useMemo(() => {
     if (!routeSkillId) return skillsQuery.data?.[0]?.id ?? null;
@@ -1025,6 +1173,24 @@ export function CompanySkills() {
     },
   });
 
+  const organizeSkill = useMutation({
+    mutationFn: (payload: { hidden?: boolean }) =>
+      companySkillsApi.organize(selectedCompanyId!, selectedSkillId!, payload),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.companySkills.list(selectedCompanyId!) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.companySkills.detail(selectedCompanyId!, selectedSkillId!) }),
+      ]);
+    },
+    onError: (error) => {
+      pushToast({
+        tone: "error",
+        title: "Update failed",
+        body: error instanceof Error ? error.message : "Failed to update skill.",
+      });
+    },
+  });
+
   const deleteSkill = useMutation({
     mutationFn: () => companySkillsApi.delete(selectedCompanyId!, deleteTargetSkillId!),
     onSuccess: async (skill) => {
@@ -1179,6 +1345,23 @@ export function CompanySkills() {
                 </p>
               </div>
               <div className="flex items-center gap-1">
+                {hiddenCount > 0 && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        onClick={() => setShowHidden((value) => !value)}
+                        title={showHidden ? "Hide hidden skills" : `Show ${hiddenCount} hidden skill${hiddenCount === 1 ? "" : "s"}`}
+                      >
+                        {showHidden ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top">
+                      {showHidden ? "Hide hidden skills" : `${hiddenCount} hidden`}
+                    </TooltipContent>
+                  </Tooltip>
+                )}
                 <Button
                   variant="ghost"
                   size="icon-sm"
@@ -1244,9 +1427,11 @@ export function CompanySkills() {
               skills={skillsQuery.data ?? []}
               selectedSkillId={selectedSkillId}
               skillFilter={skillFilter}
+              showHidden={showHidden}
               expandedSkillId={expandedSkillId}
               expandedDirs={expandedDirs}
               selectedPaths={selectedSkillId ? { [selectedSkillId]: selectedPath } : {}}
+              collapsedFolders={collapsedFolders}
               onToggleSkill={(currentSkillId) =>
                 setExpandedSkillId((current) => current === currentSkillId ? null : currentSkillId)
               }
@@ -1260,6 +1445,14 @@ export function CompanySkills() {
               }}
               onSelectSkill={(currentSkillId) => setExpandedSkillId(currentSkillId)}
               onSelectPath={() => {}}
+              onToggleFolder={(folderKey) => {
+                setCollapsedFolders((current) => {
+                  const next = new Set(current);
+                  if (next.has(folderKey)) next.delete(folderKey);
+                  else next.add(folderKey);
+                  return next;
+                });
+              }}
             />
           )}
         </aside>
@@ -1288,6 +1481,8 @@ export function CompanySkills() {
             deletePending={deleteSkill.isPending}
             onSave={() => saveFile.mutate()}
             savePending={saveFile.isPending}
+            onToggleHidden={() => organizeSkill.mutate({ hidden: !activeDetail?.hidden })}
+            toggleHiddenPending={organizeSkill.isPending}
           />
         </div>
       </div>

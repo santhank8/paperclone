@@ -4,6 +4,7 @@ import {
   text,
   timestamp,
   jsonb,
+  boolean,
   index,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
@@ -26,6 +27,7 @@ export const companySkills = pgTable(
     compatibility: text("compatibility").notNull().default("compatible"),
     fileInventory: jsonb("file_inventory").$type<Array<Record<string, unknown>>>().notNull().default([]),
     metadata: jsonb("metadata").$type<Record<string, unknown>>(),
+    hidden: boolean("hidden").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },

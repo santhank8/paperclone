@@ -51,6 +51,11 @@ export const companySkillsApi = {
       `/companies/${encodeURIComponent(companyId)}/skills/${encodeURIComponent(skillId)}/install-update`,
       {},
     ),
+  organize: (companyId: string, skillId: string, payload: { hidden?: boolean }) =>
+    api.patch<CompanySkill>(
+      `/companies/${encodeURIComponent(companyId)}/skills/${encodeURIComponent(skillId)}/organize`,
+      payload,
+    ),
   delete: (companyId: string, skillId: string) =>
     api.delete<CompanySkill>(
       `/companies/${encodeURIComponent(companyId)}/skills/${encodeURIComponent(skillId)}`,
