@@ -553,8 +553,10 @@ export function companyService(db: Db) {
               ne(companyMemberships.membershipRole, "board"),
             ),
           );
-        // Delete agents
-        await tx.delete(agents).where(eq(agents.companyId, id));
+        // Delete agents except CEO
+        await tx
+          .delete(agents)
+          .where(and(eq(agents.companyId, id), ne(agents.role, "ceo")));
         // Delete activity_log
         await tx.delete(activityLog).where(eq(activityLog.companyId, id));
       });
