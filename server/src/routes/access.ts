@@ -803,6 +803,33 @@ export function normalizeAgentDefaultsForJoin(input: {
     normalized.sessionKey = sessionKey;
   }
 
+  if (
+    defaults.issueBlockEscalation &&
+    typeof defaults.issueBlockEscalation === "object" &&
+    !Array.isArray(defaults.issueBlockEscalation)
+  ) {
+    const issueBlockEscalation = defaults.issueBlockEscalation as Record<string, unknown>;
+    const enabled =
+      issueBlockEscalation.enabled === true ||
+      issueBlockEscalation.enabled === "true" ||
+      issueBlockEscalation.enabled === "1";
+    const targetRole =
+      typeof issueBlockEscalation.targetRole === "string"
+        ? issueBlockEscalation.targetRole.trim()
+        : "";
+    if (enabled) {
+      normalized.issueBlockEscalation = {
+        enabled: true,
+        ...(targetRole ? { targetRole } : {}),
+      };
+      diagnostics.push({
+        code: "openclaw_gateway_issue_block_escalation_configured",
+        level: "info",
+        message: `issueBlockEscalation enabled${targetRole ? ` for target role ${targetRole}` : ""}`,
+      });
+    }
+  }
+
   const role = nonEmptyTrimmedString(defaults.role);
   if (role) {
     normalized.role = role;
@@ -1045,7 +1072,7 @@ function buildInviteOnboardingManifest(
         adapterType: "Use 'openclaw_gateway' for OpenClaw Gateway agents",
         capabilities: "Optional capability summary",
         agentDefaultsPayload:
-          "Adapter config for OpenClaw gateway. MUST include url (ws:// or wss://) and headers.x-openclaw-token (or legacy x-openclaw-auth). Optional fields: paperclipApiUrl, waitTimeoutMs, sessionKeyStrategy, sessionKey, role, scopes, disableDeviceAuth, devicePrivateKeyPem."
+          "Adapter config for OpenClaw gateway. MUST include url (ws:// or wss://) and headers.x-openclaw-token (or legacy x-openclaw-auth). Optional fields: paperclipApiUrl, waitTimeoutMs, sessionKeyStrategy, sessionKey, issueBlockEscalation, role, scopes, disableDeviceAuth, devicePrivateKeyPem."
       },
       registrationEndpoint: {
         method: "POST",
