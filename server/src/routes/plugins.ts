@@ -1997,6 +1997,27 @@ export function pluginRoutes(
         })
         .where(eq(pluginWebhookDeliveries.id, delivery.id));
 
+      const slackEventType =
+        parsedBody && typeof parsedBody === "object" && "type" in parsedBody
+          ? parsedBody.type
+          : undefined;
+
+      if (endpointKey === "slash-command" || endpointKey === "slack-interactivity") {
+        res.status(200).end();
+        return;
+      }
+
+      if (endpointKey === "slack-events" && slackEventType === "url_verification") {
+        const challenge =
+          parsedBody && typeof parsedBody === "object" && "challenge" in parsedBody
+            ? parsedBody.challenge
+            : undefined;
+        if (typeof challenge === "string") {
+          res.status(200).json({ challenge });
+          return;
+        }
+      }
+
       res.status(200).json({
         deliveryId: delivery.id,
         status: "success",
