@@ -1089,6 +1089,7 @@ export async function runChildProcess(
           env: mergedEnv,
           detached: process.platform !== "win32",
           shell: false,
+          windowsHide: false,
           stdio: [opts.stdin != null ? "pipe" : "ignore", "pipe", "pipe"],
         }) as ChildProcessWithEvents;
         const startedAt = new Date().toISOString();
