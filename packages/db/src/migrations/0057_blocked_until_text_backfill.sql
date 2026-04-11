@@ -11,12 +11,12 @@ BEGIN
 
   IF current_type = 'timestamp with time zone' THEN
     EXECUTE $sql$
-      ALTER TABLE "issues"
-        ALTER COLUMN "blocked_until" TYPE text
-        USING CASE
-          WHEN "blocked_until" IS NULL THEN NULL
-          ELSE to_char("blocked_until", 'YYYY-MM-DD"T"HH24:MI:SS"Z"')
-        END
+        ALTER TABLE "issues"
+          ALTER COLUMN "blocked_until" TYPE text
+          USING CASE
+            WHEN "blocked_until" IS NULL THEN NULL
+            ELSE to_char("blocked_until" AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"')
+          END
     $sql$;
   END IF;
 END $$;

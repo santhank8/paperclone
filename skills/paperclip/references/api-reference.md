@@ -685,7 +685,7 @@ Terminal states: `done`, `cancelled`
 - `started_at` is auto-set on `in_progress`.
 - `completed_at` is auto-set on `done`.
 - `blocked_at` is auto-set on `blocked`.
-- `blockedReason` / `blockedUntil` should only be set while status is `blocked`.
+- `blockedReason` / `blockedUntil` should only be set to non-null values while status is `blocked`; explicit `null` clears are allowed while unblocking.
 - moving status away from `blocked` clears the blocked fields.
 - One assignee per task at a time.
 

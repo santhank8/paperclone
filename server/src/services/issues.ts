@@ -49,6 +49,7 @@ function assertTransition(from: string, to: string) {
 function applyStatusSideEffects(
   status: string | undefined,
   patch: Partial<typeof issues.$inferInsert>,
+  currentStatus?: string | null,
 ): Partial<typeof issues.$inferInsert> {
   if (!status) return patch;
 
@@ -61,7 +62,7 @@ function applyStatusSideEffects(
   if (status === "cancelled") {
     patch.cancelledAt = new Date();
   }
-  if (status === "blocked") {
+  if (status === "blocked" && currentStatus !== "blocked" && !patch.blockedAt) {
     patch.blockedAt = new Date();
   }
   if (status && status !== "blocked") {
@@ -1555,7 +1556,7 @@ export function issueService(db: Db) {
         if (values.status === "cancelled") {
           values.cancelledAt = new Date();
         }
-        if (values.status === "blocked") {
+        if (values.status === "blocked" && !values.blockedAt) {
           values.blockedAt = new Date();
         }
 
@@ -1651,7 +1652,7 @@ export function issueService(db: Db) {
         await assertValidExecutionWorkspace(existing.companyId, nextProjectId, nextExecutionWorkspaceId);
       }
 
-      applyStatusSideEffects(issueData.status, patch);
+      applyStatusSideEffects(issueData.status, patch, existing.status);
       if (issueData.status && issueData.status !== "done") {
         patch.completedAt = null;
       }

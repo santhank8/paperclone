@@ -416,6 +416,43 @@ describeEmbeddedPostgres("issueService.list participantAgentId", () => {
     expect(unblocked?.blockedAt).toBeNull();
   });
 
+  it("preserves blockedAt when updating an already-blocked issue", async () => {
+    const companyId = randomUUID();
+    const issueId = randomUUID();
+
+    await db.insert(companies).values({
+      id: companyId,
+      name: "Paperclip",
+      issuePrefix: `T${companyId.replace(/-/g, "").slice(0, 6).toUpperCase()}`,
+      requireBoardApprovalForNewAgents: false,
+    });
+
+    const created = await svc.create(companyId, {
+      id: issueId,
+      title: "Blocked issue",
+      status: "blocked",
+      priority: "medium",
+      blockedReason: "Waiting on partner API",
+      blockedUntil: "Until the partner confirms the webhook format",
+      createdByUserId: "user-1",
+    });
+
+    expect(created.blockedAt).toBeTruthy();
+    const firstBlockedAt = created.blockedAt?.toISOString();
+
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    const updated = await svc.update(issueId, {
+      status: "blocked",
+      blockedReason: "Waiting on partner API schema clarification",
+      blockedUntil: "Until the partner sends the final JSON schema",
+    });
+
+    expect(updated?.blockedReason).toBe("Waiting on partner API schema clarification");
+    expect(updated?.blockedUntil).toBe("Until the partner sends the final JSON schema");
+    expect(updated?.blockedAt?.toISOString()).toBe(firstBlockedAt);
+  });
+
   it("rejects blocked metadata on non-blocked issues", async () => {
     const companyId = randomUUID();
     const issueId = randomUUID();
