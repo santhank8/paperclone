@@ -1,5 +1,4 @@
 import { OPEN_ISSUE_STATUSES, type Issue } from "@paperclipai/shared";
-import { issueFilterStatusOrder } from "./issue-status";
 
 export type IssueFilterState = {
   statuses: string[];
@@ -23,7 +22,7 @@ export const defaultIssueFilterState: IssueFilterState = {
 
 const activeIssueQuickFilterStatuses = OPEN_ISSUE_STATUSES.filter((status) => status !== "backlog");
 
-export const issueStatusOrder = issueFilterStatusOrder;
+export const issueStatusOrder = ["in_progress", "todo", "backlog", "in_review", "blocked", "done", "cancelled"];
 export const issuePriorityOrder = ["critical", "high", "medium", "low"];
 
 export const issueQuickFilterPresets = [

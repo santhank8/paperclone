@@ -1,10 +1,4 @@
 import type { HeartbeatRun } from "@paperclipai/shared";
-import {
-  issueChartStatusOrder,
-  issueStatusChartColorDefault,
-  issueStatusChartColors,
-  issueStatusLabel,
-} from "../lib/issue-status";
 
 /* ---- Utilities ---- */
 
@@ -119,6 +113,26 @@ const priorityColors: Record<string, string> = {
 
 const priorityOrder = ["critical", "high", "medium", "low"] as const;
 
+const statusColors: Record<string, string> = {
+  todo: "#3b82f6",
+  in_progress: "#8b5cf6",
+  in_review: "#a855f7",
+  done: "#10b981",
+  blocked: "#ef4444",
+  cancelled: "#6b7280",
+  backlog: "#64748b",
+};
+
+const statusLabels: Record<string, string> = {
+  todo: "To Do",
+  in_progress: "In Progress",
+  in_review: "In Review",
+  done: "Done",
+  blocked: "Blocked",
+  cancelled: "Cancelled",
+  backlog: "Backlog",
+};
+
 export function PriorityChart({ issues }: { issues: { priority: string; createdAt: Date }[] }) {
   const days = getLast14Days();
   const grouped = new Map<string, Record<string, number>>();
@@ -176,7 +190,7 @@ export function IssueStatusChart({ issues }: { issues: { status: string; created
     allStatuses.add(issue.status);
   }
 
-  const statusOrder = issueChartStatusOrder.filter((status) => allStatuses.has(status));
+  const statusOrder = ["todo", "in_progress", "in_review", "done", "blocked", "cancelled", "backlog"].filter((status) => allStatuses.has(status));
   const maxValue = Math.max(...Array.from(grouped.values()).map(v => Object.values(v).reduce((a, b) => a + b, 0)), 1);
   const hasData = allStatuses.size > 0;
 
@@ -194,7 +208,7 @@ export function IssueStatusChart({ issues }: { issues: { status: string; created
               {total > 0 ? (
                 <div className="flex flex-col-reverse gap-px overflow-hidden" style={{ height: `${heightPct}%`, minHeight: 2 }}>
                   {statusOrder.map(s => (entry[s] ?? 0) > 0 ? (
-                    <div key={s} style={{ flex: entry[s], backgroundColor: issueStatusChartColors[s] ?? issueStatusChartColorDefault }} />
+                    <div key={s} style={{ flex: entry[s], backgroundColor: statusColors[s] ?? "#6b7280" }} />
                   ) : null)}
                 </div>
               ) : (
@@ -206,8 +220,8 @@ export function IssueStatusChart({ issues }: { issues: { status: string; created
       </div>
       <DateLabels days={days} />
       <ChartLegend items={statusOrder.map((status) => ({
-        color: issueStatusChartColors[status] ?? issueStatusChartColorDefault,
-        label: issueStatusLabel(status),
+        color: statusColors[status] ?? "#6b7280",
+        label: statusLabels[status] ?? status,
       }))} />
     </div>
   );

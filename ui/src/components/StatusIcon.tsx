@@ -1,9 +1,11 @@
 import { useState } from "react";
 import { cn } from "../lib/utils";
 import { issueStatusIcon, issueStatusIconDefault } from "../lib/status-colors";
-import { issueBoardStatusOrder, issueStatusLabel } from "../lib/issue-status";
+import { issueStatusLabel } from "../lib/issue-status";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
+
+const allStatuses = ["backlog", "todo", "in_progress", "in_review", "done", "cancelled", "blocked"];
 
 interface StatusIconProps {
   status: string;
@@ -52,7 +54,7 @@ export function StatusIcon({ status, onChange, className, showLabel }: StatusIco
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>{trigger}</PopoverTrigger>
       <PopoverContent className="w-40 p-1" align="start">
-        {issueBoardStatusOrder.map((s) => (
+        {allStatuses.map((s) => (
           <Button
             key={s}
             variant="ghost"
