@@ -60,6 +60,117 @@ public final class DesktopBootstrapCoordinator {
         }
     }
 
+    public func loadApprovalDetail(approvalID: String, appModel: AppModel) async throws -> ApprovalDetail {
+        try await services.console.loadApprovalDetail(
+            configuration: appModel.serverConfiguration,
+            approvalID: approvalID
+        )
+    }
+
+    public func addApprovalComment(
+        approvalID: String,
+        body: String,
+        appModel: AppModel
+    ) async throws -> ApprovalDetail {
+        _ = try await services.console.addApprovalComment(
+            configuration: appModel.serverConfiguration,
+            approvalID: approvalID,
+            body: body
+        )
+        let detail = try await loadApprovalDetail(approvalID: approvalID, appModel: appModel)
+        await refresh(appModel: appModel)
+        appModel.statusMessage = "Comentário adicionado à aprovação."
+        return detail
+    }
+
+    public func performApprovalAction(
+        approvalID: String,
+        action: ApprovalDecisionAction,
+        note: String?,
+        appModel: AppModel
+    ) async throws -> ApprovalDetail {
+        let detail = try await services.console.performApprovalAction(
+            configuration: appModel.serverConfiguration,
+            approvalID: approvalID,
+            action: action,
+            note: note
+        )
+        await refresh(appModel: appModel)
+        appModel.statusMessage = "Aprovação atualizada com ação \(action.label.lowercased())."
+        return detail
+    }
+
+    public func loadPluginConsoleSnapshot(
+        pluginID: String,
+        logLimit: Int,
+        appModel: AppModel
+    ) async throws -> PluginConsoleSnapshot {
+        try await services.console.loadPluginConsoleSnapshot(
+            configuration: appModel.serverConfiguration,
+            pluginID: pluginID,
+            logLimit: logLimit
+        )
+    }
+
+    public func setPluginEnabled(
+        pluginID: String,
+        isEnabled: Bool,
+        reason: String?,
+        appModel: AppModel
+    ) async throws -> PluginConsoleSnapshot {
+        _ = try await services.console.setPluginEnabled(
+            configuration: appModel.serverConfiguration,
+            pluginID: pluginID,
+            isEnabled: isEnabled,
+            reason: reason
+        )
+        await refresh(appModel: appModel)
+        appModel.statusMessage = isEnabled ? "Plugin habilitado." : "Plugin desabilitado."
+        return try await loadPluginConsoleSnapshot(pluginID: pluginID, logLimit: 40, appModel: appModel)
+    }
+
+    public func upgradePlugin(
+        pluginID: String,
+        targetVersion: String?,
+        appModel: AppModel
+    ) async throws -> PluginConsoleSnapshot {
+        _ = try await services.console.upgradePlugin(
+            configuration: appModel.serverConfiguration,
+            pluginID: pluginID,
+            targetVersion: targetVersion
+        )
+        await refresh(appModel: appModel)
+        appModel.statusMessage = "Upgrade do plugin solicitado."
+        return try await loadPluginConsoleSnapshot(pluginID: pluginID, logLimit: 40, appModel: appModel)
+    }
+
+    public func loadProjectWorkspaces(
+        projectID: String,
+        appModel: AppModel
+    ) async throws -> [ProjectWorkspaceDetail] {
+        try await services.console.loadProjectWorkspaces(
+            configuration: appModel.serverConfiguration,
+            projectID: projectID
+        )
+    }
+
+    public func performWorkspaceRuntimeAction(
+        projectID: String,
+        workspaceID: String,
+        action: WorkspaceRuntimeAction,
+        appModel: AppModel
+    ) async throws -> WorkspaceRuntimeActionResult {
+        let result = try await services.console.performWorkspaceRuntimeAction(
+            configuration: appModel.serverConfiguration,
+            projectID: projectID,
+            workspaceID: workspaceID,
+            action: action
+        )
+        await refresh(appModel: appModel)
+        appModel.statusMessage = "Runtime do workspace atualizado com ação \(action.label.lowercased())."
+        return result
+    }
+
     private func applySnapshot(appModel: AppModel, connectionState: ConnectionState) async {
         do {
             let snapshot = try await services.operations.loadSnapshot(

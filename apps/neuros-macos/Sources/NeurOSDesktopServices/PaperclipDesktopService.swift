@@ -40,6 +40,27 @@ private struct ApprovalDTO: Decodable, Sendable {
     let createdAt: Date
 }
 
+private struct ApprovalDetailDTO: Decodable, Sendable {
+    let id: String
+    let type: String
+    let status: String
+    let requestedByAgentId: String?
+    let requestedByUserId: String?
+    let payload: [String: JSONValue]
+    let decisionNote: String?
+    let decidedAt: Date?
+    let createdAt: Date
+    let updatedAt: Date
+}
+
+private struct ApprovalCommentDTO: Decodable, Sendable {
+    let id: String
+    let authorAgentId: String?
+    let authorUserId: String?
+    let body: String
+    let createdAt: Date
+}
+
 private struct AgentDTO: Decodable, Sendable {
     let id: String
     let name: String
@@ -85,6 +106,119 @@ private struct PluginDTO: Decodable, Sendable {
     let manifestJson: ManifestDTO?
 }
 
+private struct PluginDetailDTO: Decodable, Sendable {
+    struct ManifestDTO: Decodable, Sendable {
+        struct UIDTO: Decodable, Sendable {
+            let slots: [PluginSlotDTO]?
+            let launchers: [PluginLauncherDTO]?
+        }
+
+        struct PluginSlotDTO: Decodable, Sendable { let id: String? }
+        struct PluginLauncherDTO: Decodable, Sendable { let id: String? }
+
+        let name: String?
+        let displayName: String?
+        let categories: [String]?
+        let launchers: [PluginLauncherDTO]?
+        let ui: UIDTO?
+    }
+
+    let id: String
+    let pluginKey: String
+    let packageName: String
+    let version: String
+    let apiVersion: Int
+    let status: String
+    let installOrder: Int?
+    let packagePath: String?
+    let lastError: String?
+    let installedAt: Date
+    let updatedAt: Date
+    let supportsConfigTest: Bool?
+    let manifestJson: ManifestDTO?
+}
+
+private struct PluginHealthDTO: Decodable, Sendable {
+    struct CheckDTO: Decodable, Sendable {
+        let name: String
+        let passed: Bool
+        let message: String?
+    }
+
+    let pluginId: String
+    let status: String
+    let healthy: Bool
+    let checks: [CheckDTO]
+    let lastError: String?
+}
+
+private struct PluginLogDTO: Decodable, Sendable {
+    let id: String
+    let level: String
+    let message: String
+    let meta: [String: JSONValue]?
+    let createdAt: Date
+}
+
+private struct ProjectWorkspaceDetailDTO: Decodable, Sendable {
+    struct RuntimeConfigDTO: Decodable, Sendable {
+        let desiredState: String?
+    }
+
+    struct RuntimeServiceDTO: Decodable, Sendable {
+        let id: String
+        let serviceName: String
+        let status: String
+        let lifecycle: String
+        let port: Int?
+        let url: String?
+        let healthStatus: String
+    }
+
+    let id: String
+    let name: String
+    let sourceType: String
+    let cwd: String?
+    let repoUrl: String?
+    let repoRef: String?
+    let defaultRef: String?
+    let visibility: String
+    let runtimeConfig: RuntimeConfigDTO?
+    let isPrimary: Bool
+    let runtimeServices: [RuntimeServiceDTO]?
+    let updatedAt: Date
+}
+
+private struct WorkspaceRuntimeOperationDTO: Decodable, Sendable {
+    let status: String
+    let stdout: String?
+    let stderr: String?
+    let system: String?
+    let metadata: [String: JSONValue]?
+}
+
+private struct WorkspaceRuntimeActionResponseDTO: Decodable, Sendable {
+    let workspace: ProjectWorkspaceDetailDTO
+    let operation: WorkspaceRuntimeOperationDTO
+}
+
+private struct ApprovalCommentRequest: Encodable, Sendable {
+    let body: String
+}
+
+private struct ApprovalActionRequest: Encodable, Sendable {
+    let decidedByUserId: String
+    let decisionNote: String?
+}
+
+private struct PluginDisableRequest: Encodable, Sendable {
+    let reason: String?
+}
+
+private struct PluginUpgradeRequest: Encodable, Sendable {
+    let version: String?
+}
+
 private actor PaperclipAPIClient {
     private let configuration: ServerConnectionConfiguration
     private let session: URLSession
@@ -114,6 +248,48 @@ private actor PaperclipAPIClient {
         try await get("companies/\(companyId)/approvals?status=pending")
     }
 
+    func approval(id: String) async throws -> ApprovalDetailDTO {
+        try await get("approvals/\(id)")
+    }
+
+    func approvalIssues(id: String) async throws -> [IssueDTO] {
+        try await get("approvals/\(id)/issues")
+    }
+
+    func approvalComments(id: String) async throws -> [ApprovalCommentDTO] {
+        try await get("approvals/\(id)/comments")
+    }
+
+    func addApprovalComment(id: String, body: String) async throws -> ApprovalCommentDTO {
+        try await post("approvals/\(id)/comments", body: ApprovalCommentRequest(body: body))
+    }
+
+    func performApprovalAction(
+        id: String,
+        action: ApprovalDecisionAction,
+        note: String?
+    ) async throws -> ApprovalDetailDTO {
+        switch action {
+        case .approve:
+            return try await post(
+                "approvals/\(id)/approve",
+                body: ApprovalActionRequest(decidedByUserId: "board", decisionNote: note)
+            )
+        case .reject:
+            return try await post(
+                "approvals/\(id)/reject",
+                body: ApprovalActionRequest(decidedByUserId: "board", decisionNote: note)
+            )
+        case .requestRevision:
+            return try await post(
+                "approvals/\(id)/request-revision",
+                body: ApprovalActionRequest(decidedByUserId: "board", decisionNote: note)
+            )
+        case .resubmit:
+            return try await post("approvals/\(id)/resubmit", body: EmptyRequest())
+        }
+    }
+
     func agents(companyId: String) async throws -> [AgentDTO] {
         try await get("companies/\(companyId)/agents")
     }
@@ -130,14 +306,79 @@ private actor PaperclipAPIClient {
         try await get("plugins")
     }
 
+    func plugin(id: String) async throws -> PluginDetailDTO {
+        try await get("plugins/\(id)")
+    }
+
+    func pluginHealth(id: String) async throws -> PluginHealthDTO {
+        try await get("plugins/\(id)/health")
+    }
+
+    func pluginLogs(id: String, limit: Int) async throws -> [PluginLogDTO] {
+        try await get("plugins/\(id)/logs?limit=\(limit)")
+    }
+
+    func setPluginEnabled(id: String, isEnabled: Bool, reason: String?) async throws -> PluginDetailDTO {
+        if isEnabled {
+            return try await post("plugins/\(id)/enable", body: EmptyRequest())
+        }
+        return try await post("plugins/\(id)/disable", body: PluginDisableRequest(reason: reason))
+    }
+
+    func upgradePlugin(id: String, targetVersion: String?) async throws -> PluginDetailDTO {
+        try await post("plugins/\(id)/upgrade", body: PluginUpgradeRequest(version: targetVersion))
+    }
+
+    func projectWorkspaces(id: String) async throws -> [ProjectWorkspaceDetailDTO] {
+        try await get("projects/\(id)/workspaces")
+    }
+
+    func performWorkspaceRuntimeAction(
+        projectID: String,
+        workspaceID: String,
+        action: WorkspaceRuntimeAction
+    ) async throws -> WorkspaceRuntimeActionResponseDTO {
+        try await post(
+            "projects/\(projectID)/workspaces/\(workspaceID)/runtime-services/\(action.rawValue)",
+            body: EmptyRequest()
+        )
+    }
+
     private func get<T: Decodable>(_ path: String) async throws -> T {
+        let url = try makeURL(path: path)
+        let (data, response) = try await session.data(from: url)
+
+        return try decodeResponse(data: data, response: response, url: url)
+    }
+
+    private func post<T: Decodable, B: Encodable>(_ path: String, body: B) async throws -> T {
+        let url = try makeURL(path: path)
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try Self.encoder.encode(body)
+
+        let (data, response) = try await session.data(for: request)
+        return try decodeResponse(data: data, response: response, url: url)
+    }
+
+    private func makeURL(path: String) throws -> URL {
         guard let baseURL = configuration.apiBaseURL else {
             throw URLError(.badURL)
         }
 
         let normalizedPath = path.hasPrefix("/") ? String(path.dropFirst()) : path
-        let url = baseURL.appending(path: normalizedPath)
-        let (data, response) = try await session.data(from: url)
+        guard let url = URL(string: normalizedPath, relativeTo: baseURL)?.absoluteURL else {
+            throw URLError(.badURL)
+        }
+        return url
+    }
+
+    private func decodeResponse<T: Decodable>(
+        data: Data,
+        response: URLResponse,
+        url: URL
+    ) throws -> T {
 
         guard let httpResponse = response as? HTTPURLResponse else {
             throw URLError(.badServerResponse)
@@ -167,6 +408,12 @@ private actor PaperclipAPIClient {
         return decoder
     }()
 
+    private static let encoder: JSONEncoder = {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+        return encoder
+    }()
+
     private static func parseISO8601Date(_ value: String) -> Date? {
         let fractionalFormatter = ISO8601DateFormatter()
         fractionalFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
@@ -179,7 +426,9 @@ private actor PaperclipAPIClient {
     }
 }
 
-public actor PaperclipDesktopService: OperationsSnapshotProviding, ConnectionStateProviding {
+private struct EmptyRequest: Encodable, Sendable {}
+
+public actor PaperclipDesktopService: OperationsSnapshotProviding, OperationsConsoleProviding, ConnectionStateProviding {
     public init() {}
 
     public func currentConnectionState(configuration: ServerConnectionConfiguration) async -> ConnectionState {
@@ -305,6 +554,109 @@ public actor PaperclipDesktopService: OperationsSnapshotProviding, ConnectionSta
         )
     }
 
+    public func loadApprovalDetail(
+        configuration: ServerConnectionConfiguration,
+        approvalID: String
+    ) async throws -> ApprovalDetail {
+        let client = PaperclipAPIClient(configuration: configuration)
+        async let approvalTask = client.approval(id: approvalID)
+        async let issuesTask = client.approvalIssues(id: approvalID)
+        async let commentsTask = client.approvalComments(id: approvalID)
+
+        let approval = try await approvalTask
+        let issues = try await issuesTask
+        let comments = try await commentsTask
+
+        return Self.mapApprovalDetail(approval, issues: issues, comments: comments)
+    }
+
+    public func addApprovalComment(
+        configuration: ServerConnectionConfiguration,
+        approvalID: String,
+        body: String
+    ) async throws -> ApprovalCommentEntry {
+        let client = PaperclipAPIClient(configuration: configuration)
+        let comment = try await client.addApprovalComment(id: approvalID, body: body)
+        return Self.mapApprovalComment(comment)
+    }
+
+    public func performApprovalAction(
+        configuration: ServerConnectionConfiguration,
+        approvalID: String,
+        action: ApprovalDecisionAction,
+        note: String?
+    ) async throws -> ApprovalDetail {
+        let client = PaperclipAPIClient(configuration: configuration)
+        _ = try await client.performApprovalAction(id: approvalID, action: action, note: note)
+        return try await loadApprovalDetail(configuration: configuration, approvalID: approvalID)
+    }
+
+    public func loadPluginConsoleSnapshot(
+        configuration: ServerConnectionConfiguration,
+        pluginID: String,
+        logLimit: Int
+    ) async throws -> PluginConsoleSnapshot {
+        let client = PaperclipAPIClient(configuration: configuration)
+        async let detailTask = client.plugin(id: pluginID)
+        async let healthTask = client.pluginHealth(id: pluginID)
+        async let logsTask = client.pluginLogs(id: pluginID, limit: logLimit)
+
+        let detail = try await detailTask
+        let health = try await healthTask
+        let logs = try await logsTask
+
+        return PluginConsoleSnapshot(
+            detail: Self.mapPluginDetail(detail),
+            health: Self.mapPluginHealth(health),
+            logs: logs.map(Self.mapPluginLog)
+        )
+    }
+
+    public func setPluginEnabled(
+        configuration: ServerConnectionConfiguration,
+        pluginID: String,
+        isEnabled: Bool,
+        reason: String?
+    ) async throws -> PluginDetail {
+        let client = PaperclipAPIClient(configuration: configuration)
+        let plugin = try await client.setPluginEnabled(id: pluginID, isEnabled: isEnabled, reason: reason)
+        return Self.mapPluginDetail(plugin)
+    }
+
+    public func upgradePlugin(
+        configuration: ServerConnectionConfiguration,
+        pluginID: String,
+        targetVersion: String?
+    ) async throws -> PluginDetail {
+        let client = PaperclipAPIClient(configuration: configuration)
+        let plugin = try await client.upgradePlugin(id: pluginID, targetVersion: targetVersion)
+        return Self.mapPluginDetail(plugin)
+    }
+
+    public func loadProjectWorkspaces(
+        configuration: ServerConnectionConfiguration,
+        projectID: String
+    ) async throws -> [ProjectWorkspaceDetail] {
+        let client = PaperclipAPIClient(configuration: configuration)
+        let workspaces = try await client.projectWorkspaces(id: projectID)
+        return workspaces.map(Self.mapWorkspace)
+    }
+
+    public func performWorkspaceRuntimeAction(
+        configuration: ServerConnectionConfiguration,
+        projectID: String,
+        workspaceID: String,
+        action: WorkspaceRuntimeAction
+    ) async throws -> WorkspaceRuntimeActionResult {
+        let client = PaperclipAPIClient(configuration: configuration)
+        let response = try await client.performWorkspaceRuntimeAction(
+            projectID: projectID,
+            workspaceID: workspaceID,
+            action: action
+        )
+        return Self.mapWorkspaceActionResult(response)
+    }
+
     private static func mapHealth(_ dto: HealthDTO) -> ServerHealthSummary {
         ServerHealthSummary(
             status: dto.status,
@@ -325,6 +677,46 @@ public actor PaperclipDesktopService: OperationsSnapshotProviding, ConnectionSta
             title: dto.payload["title"]?.stringValue ?? dto.payload["name"]?.stringValue ?? dto.type.replacingOccurrences(of: "_", with: " "),
             owner: owner,
             priorityLabel: priority.capitalized
+        )
+    }
+
+    private static func mapApprovalDetail(
+        _ dto: ApprovalDetailDTO,
+        issues: [IssueDTO],
+        comments: [ApprovalCommentDTO]
+    ) -> ApprovalDetail {
+        ApprovalDetail(
+            id: dto.id,
+            title: dto.payload["title"]?.stringValue
+                ?? dto.payload["name"]?.stringValue
+                ?? dto.type.replacingOccurrences(of: "_", with: " ").capitalized,
+            owner: dto.payload["agentName"]?.stringValue
+                ?? dto.payload["name"]?.stringValue
+                ?? dto.requestedByAgentId
+                ?? dto.requestedByUserId
+                ?? "Board",
+            type: dto.type,
+            status: dto.status,
+            requestedByAgentID: dto.requestedByAgentId,
+            requestedByUserID: dto.requestedByUserId,
+            decisionNote: dto.decisionNote,
+            createdAt: dto.createdAt,
+            updatedAt: dto.updatedAt,
+            decidedAt: dto.decidedAt,
+            payloadFields: dto.payload
+                .map { ApprovalField(key: $0.key, value: Self.describe(jsonValue: $0.value)) }
+                .sorted(by: { $0.key < $1.key }),
+            linkedIssues: issues.map(Self.mapIssue),
+            comments: comments.sorted(by: { $0.createdAt > $1.createdAt }).map(Self.mapApprovalComment)
+        )
+    }
+
+    private static func mapApprovalComment(_ dto: ApprovalCommentDTO) -> ApprovalCommentEntry {
+        ApprovalCommentEntry(
+            id: dto.id,
+            authorLabel: dto.authorAgentId ?? dto.authorUserId ?? "Board",
+            body: dto.body,
+            createdAt: dto.createdAt
         )
     }
 
@@ -358,6 +750,92 @@ public actor PaperclipDesktopService: OperationsSnapshotProviding, ConnectionSta
             packageName: dto.packageName,
             version: dto.version,
             status: dto.status
+        )
+    }
+
+    private static func mapPluginDetail(_ dto: PluginDetailDTO) -> PluginDetail {
+        let displayName = dto.manifestJson?.displayName ?? dto.manifestJson?.name ?? dto.pluginKey
+        let launcherCount = (dto.manifestJson?.launchers?.count ?? 0) + (dto.manifestJson?.ui?.launchers?.count ?? 0)
+        let slotCount = dto.manifestJson?.ui?.slots?.count ?? 0
+        return PluginDetail(
+            id: dto.id,
+            displayName: displayName,
+            pluginKey: dto.pluginKey,
+            packageName: dto.packageName,
+            version: dto.version,
+            status: dto.status,
+            apiVersion: dto.apiVersion,
+            installOrder: dto.installOrder,
+            packagePath: dto.packagePath,
+            supportsConfigTest: dto.supportsConfigTest ?? false,
+            lastError: dto.lastError,
+            categories: dto.manifestJson?.categories ?? [],
+            launcherCount: launcherCount,
+            slotCount: slotCount,
+            installedAt: dto.installedAt,
+            updatedAt: dto.updatedAt
+        )
+    }
+
+    private static func mapPluginHealth(_ dto: PluginHealthDTO) -> PluginHealthSummary {
+        PluginHealthSummary(
+            status: dto.status,
+            healthy: dto.healthy,
+            checks: dto.checks.map { PluginHealthCheck(name: $0.name, passed: $0.passed, message: $0.message) },
+            lastError: dto.lastError
+        )
+    }
+
+    private static func mapPluginLog(_ dto: PluginLogDTO) -> PluginLogEntry {
+        PluginLogEntry(
+            id: dto.id,
+            level: dto.level,
+            message: dto.message,
+            metaSummary: dto.meta.map(Self.describe(jsonObject:)),
+            createdAt: dto.createdAt
+        )
+    }
+
+    private static func mapWorkspace(_ dto: ProjectWorkspaceDetailDTO) -> ProjectWorkspaceDetail {
+        let runtimeServices = (dto.runtimeServices ?? []).map {
+            RuntimeServiceSummary(
+                id: $0.id,
+                serviceName: $0.serviceName,
+                status: $0.status,
+                lifecycle: $0.lifecycle,
+                healthStatus: $0.healthStatus,
+                port: $0.port,
+                url: $0.url
+            )
+        }
+        let desiredState = dto.runtimeConfig?.desiredState
+            ?? (runtimeServices.contains(where: { $0.status == "running" }) ? "running" : "stopped")
+        return ProjectWorkspaceDetail(
+            id: dto.id,
+            name: dto.name,
+            sourceType: dto.sourceType,
+            visibility: dto.visibility,
+            cwd: dto.cwd,
+            repoUrl: dto.repoUrl,
+            repoRef: dto.repoRef,
+            defaultRef: dto.defaultRef,
+            desiredState: desiredState,
+            isPrimary: dto.isPrimary,
+            runtimeServices: runtimeServices,
+            updatedAt: dto.updatedAt
+        )
+    }
+
+    private static func mapWorkspaceActionResult(_ dto: WorkspaceRuntimeActionResponseDTO) -> WorkspaceRuntimeActionResult {
+        let runtimeServiceCount = dto.operation.metadata?["runtimeServiceCount"]?.intValue ?? dto.workspace.runtimeServices?.count ?? 0
+        let parts = [dto.operation.system, dto.operation.stdout, dto.operation.stderr]
+            .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { $0.isEmpty == false }
+        return WorkspaceRuntimeActionResult(
+            workspace: mapWorkspace(dto.workspace),
+            operationStatus: dto.operation.status,
+            outputSummary: parts.joined(separator: "\n\n"),
+            runtimeServiceCount: runtimeServiceCount
         )
     }
 
@@ -411,6 +889,30 @@ public actor PaperclipDesktopService: OperationsSnapshotProviding, ConnectionSta
         let value = NSNumber(value: Double(cents) / 100.0)
         return formatter.string(from: value) ?? "R$ 0,00"
     }
+
+    private static func describe(jsonObject: [String: JSONValue]) -> String {
+        jsonObject
+            .sorted(by: { $0.key < $1.key })
+            .map { "\($0.key): \(describe(jsonValue: $0.value))" }
+            .joined(separator: ", ")
+    }
+
+    private static func describe(jsonValue: JSONValue) -> String {
+        switch jsonValue {
+        case let .string(value):
+            return value
+        case let .number(value):
+            return value.rounded() == value ? String(Int(value)) : String(value)
+        case let .bool(value):
+            return value ? "true" : "false"
+        case let .object(object):
+            return describe(jsonObject: object)
+        case let .array(values):
+            return values.map(describe(jsonValue:)).joined(separator: ", ")
+        case .null:
+            return "null"
+        }
+    }
 }
 
 private enum JSONValue: Decodable, Sendable {
@@ -427,6 +929,17 @@ private enum JSONValue: Decodable, Sendable {
         case let .number(value): String(value)
         case let .bool(value): value ? "true" : "false"
         default: nil
+        }
+    }
+
+    var intValue: Int? {
+        switch self {
+        case let .number(value):
+            Int(value)
+        case let .string(value):
+            Int(value)
+        default:
+            nil
         }
     }
 

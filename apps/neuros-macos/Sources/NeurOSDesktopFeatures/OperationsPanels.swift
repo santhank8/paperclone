@@ -355,6 +355,12 @@ public struct AgentsSectionView: View {
 public struct ProjectsSectionView: View {
     let appModel: AppModel
     let coordinator: DesktopBootstrapCoordinator
+    @State private var selectedProjectID: String?
+    @State private var workspaces: [ProjectWorkspaceDetail] = []
+    @State private var isLoadingWorkspaces = false
+    @State private var runtimeActionInFlight: String?
+    @State private var runtimeOutput: String?
+    @State private var errorMessage: String?
 
     public init(appModel: AppModel, coordinator: DesktopBootstrapCoordinator) {
         self.appModel = appModel
@@ -373,14 +379,154 @@ public struct ProjectsSectionView: View {
             MetricTile(title: "Goals", value: "\(appModel.projects.reduce(0) { $0 + $1.goalCount })", accent: .cyan)
             MetricTile(title: "Pausados", value: "\(appModel.dashboard?.pausedProjects ?? 0)", accent: .orange)
         } content: {
-            ProjectsPreviewView(appModel: appModel)
+            HStack(alignment: .top, spacing: 20) {
+                SurfaceCard {
+                    Text("Projetos")
+                        .font(.headline)
+
+                    if appModel.projects.isEmpty {
+                        EmptyCollectionState(message: "Nenhum projeto carregado para esta empresa.")
+                    } else {
+                        ForEach(appModel.projects) { project in
+                            SelectableRow(
+                                title: project.name,
+                                detail: "\(project.workspaceCount) workspaces · \(project.goalCount) goals",
+                                trailing: project.status.uppercased(),
+                                isSelected: selectedProjectID == project.id
+                            ) {
+                                selectedProjectID = project.id
+                                runtimeOutput = nil
+                            }
+                        }
+                    }
+                }
+
+                SurfaceCard {
+                    if let errorMessage {
+                        InlineErrorView(message: errorMessage)
+                    }
+
+                    if let selectedProject {
+                        HStack(alignment: .top) {
+                            VStack(alignment: .leading, spacing: 6) {
+                                Text(selectedProject.name)
+                                    .font(.title3.weight(.bold))
+                                Text("Status \(selectedProject.status.uppercased()) · alvo \(selectedProject.targetDateLabel)")
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            if isLoadingWorkspaces {
+                                ProgressView()
+                                    .controlSize(.small)
+                            }
+                        }
+
+                        if workspaces.isEmpty {
+                            EmptyCollectionState(message: "Nenhum workspace encontrado para esse projeto.")
+                        } else {
+                            ForEach(workspaces) { workspace in
+                                WorkspaceDetailCard(
+                                    workspace: workspace,
+                                    runtimeActionInFlight: runtimeActionInFlight,
+                                    onAction: { action in
+                                        Task { await runWorkspaceAction(action, workspaceID: workspace.id) }
+                                    }
+                                )
+                            }
+                        }
+
+                        if let runtimeOutput, runtimeOutput.isEmpty == false {
+                            Divider()
+                            Text("Saída da última operação")
+                                .font(.headline)
+                            ScrollView {
+                                Text(runtimeOutput)
+                                    .font(.system(.caption, design: .monospaced))
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                            }
+                            .frame(minHeight: 110, maxHeight: 180)
+                        }
+                    } else {
+                        EmptyCollectionState(message: "Selecione um projeto para operar os workspaces.")
+                    }
+                }
+            }
         }
+        .task(id: appModel.projects.map(\.id).joined(separator: "|")) {
+            syncSelectedProject()
+        }
+        .task(id: selectedProjectID) {
+            await loadSelectedProject()
+        }
+    }
+
+    private var selectedProject: ProjectSummary? {
+        appModel.projects.first(where: { $0.id == selectedProjectID }) ?? appModel.projects.first
+    }
+
+    @MainActor
+    private func syncSelectedProject() {
+        if let selectedProjectID, appModel.projects.contains(where: { $0.id == selectedProjectID }) {
+            return
+        }
+        selectedProjectID = appModel.projects.first?.id
+    }
+
+    @MainActor
+    private func loadSelectedProject() async {
+        guard let selectedProject else {
+            workspaces = []
+            return
+        }
+
+        isLoadingWorkspaces = true
+        errorMessage = nil
+        do {
+            workspaces = try await coordinator.loadProjectWorkspaces(
+                projectID: selectedProject.id,
+                appModel: appModel
+            )
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+        isLoadingWorkspaces = false
+    }
+
+    @MainActor
+    private func runWorkspaceAction(_ action: WorkspaceRuntimeAction, workspaceID: String) async {
+        guard let selectedProject else { return }
+        runtimeActionInFlight = workspaceID + ":" + action.rawValue
+        errorMessage = nil
+        do {
+            let result = try await coordinator.performWorkspaceRuntimeAction(
+                projectID: selectedProject.id,
+                workspaceID: workspaceID,
+                action: action,
+                appModel: appModel
+            )
+            if let index = workspaces.firstIndex(where: { $0.id == workspaceID }) {
+                workspaces[index] = result.workspace
+            } else {
+                workspaces.append(result.workspace)
+            }
+            runtimeOutput = result.outputSummary
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+        runtimeActionInFlight = nil
     }
 }
 
 public struct ApprovalsSectionView: View {
     let appModel: AppModel
     let coordinator: DesktopBootstrapCoordinator
+    @State private var selectedApprovalID: String?
+    @State private var approvalDetail: ApprovalDetail?
+    @State private var actionNote = ""
+    @State private var commentBody = ""
+    @State private var isLoadingDetail = false
+    @State private var isSubmitting = false
+    @State private var errorMessage: String?
 
     public init(appModel: AppModel, coordinator: DesktopBootstrapCoordinator) {
         self.appModel = appModel
@@ -397,7 +543,219 @@ public struct ApprovalsSectionView: View {
             MetricTile(title: "Pendentes", value: "\(appModel.approvals.count)", accent: .yellow)
             MetricTile(title: "Sinais ativos", value: "\(appModel.signals.count)", accent: .blue)
         } content: {
-            ApprovalsQueueView(appModel: appModel)
+            HStack(alignment: .top, spacing: 20) {
+                SurfaceCard {
+                    Text("Fila pendente")
+                        .font(.headline)
+
+                    if appModel.approvals.isEmpty {
+                        EmptyCollectionState(message: "Não existem decisões pendentes para o board.")
+                    } else {
+                        ForEach(appModel.approvals) { approval in
+                            SelectableRow(
+                                title: approval.title,
+                                detail: approval.owner,
+                                trailing: approval.priorityLabel,
+                                trailingColor: priorityColor(for: approval.priorityLabel),
+                                isSelected: selectedApprovalID == approval.id
+                            ) {
+                                selectedApprovalID = approval.id
+                            }
+                        }
+                    }
+                }
+
+                SurfaceCard {
+                    if let errorMessage {
+                        InlineErrorView(message: errorMessage)
+                    }
+
+                    if isLoadingDetail {
+                        ProgressView("Carregando aprovação...")
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    } else if let approvalDetail {
+                        VStack(alignment: .leading, spacing: 16) {
+                            HStack(alignment: .top) {
+                                VStack(alignment: .leading, spacing: 6) {
+                                    Text(approvalDetail.title)
+                                        .font(.title3.weight(.bold))
+                                    Text("\(approvalDetail.type) · \(approvalDetail.owner)")
+                                        .foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                StatusPill(label: approvalDetail.status, color: statusColor(for: approvalDetail.status))
+                            }
+
+                            if let decisionNote = approvalDetail.decisionNote, decisionNote.isEmpty == false {
+                                Text("Decisão atual")
+                                    .font(.headline)
+                                Text(decisionNote)
+                                    .foregroundStyle(.secondary)
+                            }
+
+                            if approvalDetail.payloadFields.isEmpty == false {
+                                Divider()
+                                Text("Payload")
+                                    .font(.headline)
+                                ForEach(approvalDetail.payloadFields) { field in
+                                    SummaryRow(title: field.key, detail: field.value, trailing: "")
+                                }
+                            }
+
+                            Divider()
+                            Text("Issues vinculadas")
+                                .font(.headline)
+                            if approvalDetail.linkedIssues.isEmpty {
+                                EmptyCollectionState(message: "Nenhuma issue vinculada a esta aprovação.")
+                            } else {
+                                ForEach(approvalDetail.linkedIssues) { issue in
+                                    SummaryRow(
+                                        title: "\(issue.identifier) · \(issue.title)",
+                                        detail: issue.assigneeLabel,
+                                        trailing: issue.status.uppercased()
+                                    )
+                                }
+                            }
+
+                            Divider()
+                            Text("Decidir")
+                                .font(.headline)
+                            TextEditor(text: $actionNote)
+                                .frame(minHeight: 90)
+                                .padding(10)
+                                .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 16))
+
+                            HStack {
+                                ForEach(ApprovalDecisionAction.allCases) { action in
+                                    Button(action.label) {
+                                        Task { await runApprovalAction(action) }
+                                    }
+                                    .buttonStyle(.borderedProminent)
+                                    .tint(buttonTint(for: action))
+                                    .disabled(isSubmitting)
+                                }
+                            }
+
+                            Divider()
+                            Text("Comentários")
+                                .font(.headline)
+                            if approvalDetail.comments.isEmpty {
+                                EmptyCollectionState(message: "Ainda não existem comentários.")
+                            } else {
+                                ForEach(approvalDetail.comments) { comment in
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text(comment.authorLabel)
+                                            .font(.subheadline.weight(.semibold))
+                                        Text(comment.body)
+                                            .foregroundStyle(.secondary)
+                                        Text(comment.createdAt.formatted(date: .abbreviated, time: .shortened))
+                                            .font(.caption)
+                                            .foregroundStyle(.tertiary)
+                                    }
+                                    .padding(.vertical, 6)
+                                }
+                            }
+
+                            TextField("Adicionar comentário operacional", text: $commentBody, axis: .vertical)
+                                .textFieldStyle(.roundedBorder)
+                            Button("Publicar comentário") {
+                                Task { await publishApprovalComment() }
+                            }
+                            .buttonStyle(.bordered)
+                            .disabled(commentBody.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isSubmitting)
+                        }
+                    } else {
+                        EmptyCollectionState(message: "Selecione uma aprovação para abrir o detalhe operacional.")
+                    }
+                }
+            }
+        }
+        .task(id: appModel.approvals.map(\.id).joined(separator: "|")) {
+            syncSelectedApproval()
+        }
+        .task(id: selectedApprovalID) {
+            await loadSelectedApproval()
+        }
+    }
+
+    @MainActor
+    private func syncSelectedApproval() {
+        if let selectedApprovalID, appModel.approvals.contains(where: { $0.id == selectedApprovalID }) {
+            return
+        }
+        selectedApprovalID = appModel.approvals.first?.id
+    }
+
+    @MainActor
+    private func loadSelectedApproval() async {
+        guard let selectedApprovalID else {
+            approvalDetail = nil
+            return
+        }
+
+        isLoadingDetail = true
+        errorMessage = nil
+        do {
+            approvalDetail = try await coordinator.loadApprovalDetail(
+                approvalID: selectedApprovalID,
+                appModel: appModel
+            )
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+        isLoadingDetail = false
+    }
+
+    @MainActor
+    private func runApprovalAction(_ action: ApprovalDecisionAction) async {
+        guard let selectedApprovalID else { return }
+        isSubmitting = true
+        errorMessage = nil
+        do {
+            approvalDetail = try await coordinator.performApprovalAction(
+                approvalID: selectedApprovalID,
+                action: action,
+                note: actionNote.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : actionNote,
+                appModel: appModel
+            )
+            actionNote = ""
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+        isSubmitting = false
+    }
+
+    @MainActor
+    private func publishApprovalComment() async {
+        guard let selectedApprovalID else { return }
+        let trimmedComment = commentBody.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmedComment.isEmpty == false else { return }
+
+        isSubmitting = true
+        errorMessage = nil
+        do {
+            approvalDetail = try await coordinator.addApprovalComment(
+                approvalID: selectedApprovalID,
+                body: trimmedComment,
+                appModel: appModel
+            )
+            commentBody = ""
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+        isSubmitting = false
+    }
+
+    private func buttonTint(for action: ApprovalDecisionAction) -> Color {
+        switch action {
+        case .approve:
+            .green
+        case .reject:
+            .red
+        case .requestRevision:
+            .orange
+        case .resubmit:
+            .blue
         }
     }
 }
@@ -442,6 +800,13 @@ public struct RuntimeSectionView: View {
 public struct PluginsSectionView: View {
     let appModel: AppModel
     let coordinator: DesktopBootstrapCoordinator
+    @State private var selectedPluginID: String?
+    @State private var pluginSnapshot: PluginConsoleSnapshot?
+    @State private var disableReason = ""
+    @State private var targetVersion = ""
+    @State private var isLoadingPlugin = false
+    @State private var isMutatingPlugin = false
+    @State private var errorMessage: String?
 
     public init(appModel: AppModel, coordinator: DesktopBootstrapCoordinator) {
         self.appModel = appModel
@@ -458,22 +823,218 @@ public struct PluginsSectionView: View {
             MetricTile(title: "Instalados", value: "\(appModel.plugins.count)", accent: .purple)
             MetricTile(title: "Prontos", value: "\(appModel.plugins.filter { $0.status == "ready" }.count)", accent: .green)
         } content: {
-            SurfaceCard {
-                Text("Plugins carregados")
-                    .font(.headline)
-                if appModel.plugins.isEmpty {
-                    EmptyCollectionState(message: "Nenhum plugin instalado foi retornado pela API.")
-                } else {
-                    ForEach(appModel.plugins) { plugin in
-                        SummaryRow(
-                            title: plugin.displayName,
-                            detail: "\(plugin.packageName) · \(plugin.version)",
-                            trailing: plugin.status.uppercased()
-                        )
+            HStack(alignment: .top, spacing: 20) {
+                SurfaceCard {
+                    Text("Catálogo instalado")
+                        .font(.headline)
+
+                    if appModel.plugins.isEmpty {
+                        EmptyCollectionState(message: "Nenhum plugin instalado foi retornado pela API.")
+                    } else {
+                        ForEach(appModel.plugins) { plugin in
+                            SelectableRow(
+                                title: plugin.displayName,
+                                detail: "\(plugin.packageName) · \(plugin.version)",
+                                trailing: plugin.status.uppercased(),
+                                trailingColor: statusColor(for: plugin.status),
+                                isSelected: selectedPluginID == plugin.id
+                            ) {
+                                selectedPluginID = plugin.id
+                            }
+                        }
+                    }
+                }
+
+                SurfaceCard {
+                    if let errorMessage {
+                        InlineErrorView(message: errorMessage)
+                    }
+
+                    if isLoadingPlugin {
+                        ProgressView("Carregando plugin...")
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    } else if let pluginSnapshot {
+                        VStack(alignment: .leading, spacing: 16) {
+                            HStack(alignment: .top) {
+                                VStack(alignment: .leading, spacing: 6) {
+                                    Text(pluginSnapshot.detail.displayName)
+                                        .font(.title3.weight(.bold))
+                                    Text("\(pluginSnapshot.detail.packageName) · API \(pluginSnapshot.detail.apiVersion)")
+                                        .foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                StatusPill(label: pluginSnapshot.detail.status, color: statusColor(for: pluginSnapshot.detail.status))
+                            }
+
+                            SummaryRow(
+                                title: "Versão",
+                                detail: pluginSnapshot.detail.version,
+                                trailing: pluginSnapshot.detail.pluginKey
+                            )
+                            SummaryRow(
+                                title: "Categorias",
+                                detail: pluginSnapshot.detail.categories.isEmpty ? "Sem categorias" : pluginSnapshot.detail.categories.joined(separator: ", "),
+                                trailing: "\(pluginSnapshot.detail.slotCount) slots · \(pluginSnapshot.detail.launcherCount) launchers"
+                            )
+                            if let lastError = pluginSnapshot.detail.lastError, lastError.isEmpty == false {
+                                InlineErrorView(message: lastError)
+                            }
+
+                            Divider()
+                            Text("Saúde")
+                                .font(.headline)
+                            ForEach(pluginSnapshot.health.checks) { check in
+                                SummaryRow(
+                                    title: check.name,
+                                    detail: check.message ?? "Sem detalhe",
+                                    trailing: check.passed ? "OK" : "FAIL"
+                                )
+                            }
+
+                            Divider()
+                            Text("Ações")
+                                .font(.headline)
+                            HStack {
+                                Button("Atualizar painel") {
+                                    Task { await loadSelectedPlugin() }
+                                }
+                                .buttonStyle(.bordered)
+
+                                Button("Habilitar") {
+                                    Task { await mutatePluginEnabled(true) }
+                                }
+                                .buttonStyle(.borderedProminent)
+                                .tint(.green)
+                                .disabled(isMutatingPlugin)
+
+                                Button("Desabilitar") {
+                                    Task { await mutatePluginEnabled(false) }
+                                }
+                                .buttonStyle(.borderedProminent)
+                                .tint(.orange)
+                                .disabled(isMutatingPlugin)
+                            }
+
+                            TextField("Motivo da desativação (opcional)", text: $disableReason)
+                                .textFieldStyle(.roundedBorder)
+
+                            HStack {
+                                TextField("Versão alvo para upgrade (opcional)", text: $targetVersion)
+                                    .textFieldStyle(.roundedBorder)
+                                Button("Upgrade") {
+                                    Task { await upgradeSelectedPlugin() }
+                                }
+                                .buttonStyle(.borderedProminent)
+                                .disabled(isMutatingPlugin)
+                            }
+
+                            Divider()
+                            Text("Logs recentes")
+                                .font(.headline)
+                            if pluginSnapshot.logs.isEmpty {
+                                EmptyCollectionState(message: "Nenhum log recente para este plugin.")
+                            } else {
+                                ForEach(pluginSnapshot.logs) { log in
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        HStack {
+                                            StatusPill(label: log.level, color: statusColor(for: log.level))
+                                            Spacer()
+                                            Text(log.createdAt.formatted(date: .abbreviated, time: .shortened))
+                                                .font(.caption)
+                                                .foregroundStyle(.tertiary)
+                                        }
+                                        Text(log.message)
+                                            .font(.subheadline.weight(.medium))
+                                        if let metaSummary = log.metaSummary, metaSummary.isEmpty == false {
+                                            Text(metaSummary)
+                                                .font(.caption)
+                                                .foregroundStyle(.secondary)
+                                        }
+                                    }
+                                    .padding(.vertical, 6)
+                                }
+                            }
+                        }
+                    } else {
+                        EmptyCollectionState(message: "Selecione um plugin para abrir o console operacional.")
                     }
                 }
             }
         }
+        .task(id: appModel.plugins.map(\.id).joined(separator: "|")) {
+            syncSelectedPlugin()
+        }
+        .task(id: selectedPluginID) {
+            await loadSelectedPlugin()
+        }
+    }
+
+    @MainActor
+    private func syncSelectedPlugin() {
+        if let selectedPluginID, appModel.plugins.contains(where: { $0.id == selectedPluginID }) {
+            return
+        }
+        selectedPluginID = appModel.plugins.first?.id
+    }
+
+    @MainActor
+    private func loadSelectedPlugin() async {
+        guard let selectedPluginID else {
+            pluginSnapshot = nil
+            return
+        }
+
+        isLoadingPlugin = true
+        errorMessage = nil
+        do {
+            pluginSnapshot = try await coordinator.loadPluginConsoleSnapshot(
+                pluginID: selectedPluginID,
+                logLimit: 40,
+                appModel: appModel
+            )
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+        isLoadingPlugin = false
+    }
+
+    @MainActor
+    private func mutatePluginEnabled(_ isEnabled: Bool) async {
+        guard let selectedPluginID else { return }
+        isMutatingPlugin = true
+        errorMessage = nil
+        do {
+            pluginSnapshot = try await coordinator.setPluginEnabled(
+                pluginID: selectedPluginID,
+                isEnabled: isEnabled,
+                reason: disableReason.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : disableReason,
+                appModel: appModel
+            )
+            if isEnabled == false {
+                disableReason = ""
+            }
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+        isMutatingPlugin = false
+    }
+
+    @MainActor
+    private func upgradeSelectedPlugin() async {
+        guard let selectedPluginID else { return }
+        isMutatingPlugin = true
+        errorMessage = nil
+        do {
+            pluginSnapshot = try await coordinator.upgradePlugin(
+                pluginID: selectedPluginID,
+                targetVersion: targetVersion.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : targetVersion,
+                appModel: appModel
+            )
+            targetVersion = ""
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+        isMutatingPlugin = false
     }
 }
 
@@ -616,6 +1177,127 @@ private struct EmptyCollectionState: View {
             .foregroundStyle(.secondary)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.vertical, 12)
+    }
+}
+
+private struct InlineErrorView: View {
+    let message: String
+
+    var body: some View {
+        Text(message)
+            .font(.subheadline)
+            .foregroundStyle(.red)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(12)
+            .background(Color.red.opacity(0.08), in: RoundedRectangle(cornerRadius: 16))
+    }
+}
+
+private struct StatusPill: View {
+    let label: String
+    let color: Color
+
+    var body: some View {
+        Text(label.uppercased())
+            .font(.caption.weight(.semibold))
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(color.opacity(0.14), in: Capsule())
+            .foregroundStyle(color)
+    }
+}
+
+private struct SelectableRow: View {
+    let title: String
+    let detail: String
+    let trailing: String
+    var trailingColor: Color = .secondary
+    let isSelected: Bool
+    let onSelect: () -> Void
+
+    var body: some View {
+        Button(action: onSelect) {
+            HStack(alignment: .top, spacing: 12) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(title)
+                        .font(.subheadline.weight(.semibold))
+                    Text(detail)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                Text(trailing)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(trailingColor)
+            }
+            .padding(14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(isSelected ? Color.accentColor.opacity(0.10) : Color.primary.opacity(0.03), in: RoundedRectangle(cornerRadius: 18))
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+private struct WorkspaceDetailCard: View {
+    let workspace: ProjectWorkspaceDetail
+    let runtimeActionInFlight: String?
+    let onAction: (WorkspaceRuntimeAction) -> Void
+
+    private func isRunning(_ action: WorkspaceRuntimeAction) -> Bool {
+        runtimeActionInFlight == workspace.id + ":" + action.rawValue
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack {
+                        Text(workspace.name)
+                            .font(.headline)
+                        if workspace.isPrimary {
+                            StatusPill(label: "Primary", color: .blue)
+                        }
+                    }
+                    Text("\(workspace.sourceType) · \(workspace.visibility) · \(workspace.desiredState)")
+                        .foregroundStyle(.secondary)
+                    if let cwd = workspace.cwd, cwd.isEmpty == false {
+                        Text(cwd)
+                            .font(.caption)
+                            .foregroundStyle(.tertiary)
+                    }
+                }
+                Spacer()
+                HStack {
+                    ForEach(WorkspaceRuntimeAction.allCases) { action in
+                        Button(action.label) {
+                            onAction(action)
+                        }
+                        .buttonStyle(.bordered)
+                        .disabled(runtimeActionInFlight != nil)
+                        .overlay(alignment: .trailing) {
+                            if isRunning(action) {
+                                ProgressView()
+                                    .controlSize(.small)
+                            }
+                        }
+                    }
+                }
+            }
+
+            if workspace.runtimeServices.isEmpty {
+                EmptyCollectionState(message: "Nenhum runtime service ativo neste workspace.")
+            } else {
+                ForEach(workspace.runtimeServices) { service in
+                    SummaryRow(
+                        title: service.serviceName,
+                        detail: [service.lifecycle, service.url, service.port.map { ":\($0)" }].compactMap { $0 }.joined(separator: " · "),
+                        trailing: "\(service.status.uppercased()) · \(service.healthStatus.uppercased())"
+                    )
+                }
+            }
+        }
+        .padding(18)
+        .background(Color.primary.opacity(0.03), in: RoundedRectangle(cornerRadius: 18))
     }
 }
 

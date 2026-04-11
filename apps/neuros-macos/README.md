@@ -15,6 +15,10 @@ SwiftUI-native macOS foundation for `neurOS`, the Paperclip evolution in this re
   - projetos
   - plugins
   - empresa e equipe
+- interactive operational consoles for:
+  - approval detail, comments, approve/reject/request-revision/resubmit flows
+  - plugin health, logs, enable/disable, and upgrade actions
+  - project workspace runtime start/stop/restart controls
 - persisted server configuration with local/remote/hybrid runtime preference
 - native desktop service layer prepared for:
   - notifications
@@ -62,4 +66,4 @@ Configure the backend instance from the native Settings screen. The app normaliz
 
 ## License
 
-This app foundation is covered by the repository MIT license.
+This app foundation is covered by the repository MIT license and includes a local MIT license file in this directory.
