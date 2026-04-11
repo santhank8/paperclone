@@ -762,11 +762,10 @@ export function Inbox() {
     data: mineIssuesRaw = [],
     isLoading: isMineIssuesLoading,
   } = useQuery({
-    queryKey: [...queryKeys.issues.listMineByMe(selectedCompanyId!), "with-routine-executions"],
+    queryKey: [...queryKeys.issues.listMineByMe(selectedCompanyId!), "assigned-to-me"],
     queryFn: () =>
       issuesApi.list(selectedCompanyId!, {
-        touchedByUserId: "me",
-        inboxArchivedByUserId: "me",
+        assigneeUserId: "me",
         status: INBOX_MINE_ISSUE_STATUS_FILTER,
         includeRoutineExecutions: true,
       }),
@@ -1287,7 +1286,7 @@ export function Inbox() {
 
       // Cancel in-flight refetches so they don't overwrite our optimistic update
       const queryKeys_ = [
-        [...queryKeys.issues.listMineByMe(selectedCompanyId!), "with-routine-executions"],
+        [...queryKeys.issues.listMineByMe(selectedCompanyId!), "assigned-to-me"],
         [...queryKeys.issues.listTouchedByMe(selectedCompanyId!), "with-routine-executions"],
         queryKeys.issues.listUnreadTouchedByMe(selectedCompanyId!),
       ];
