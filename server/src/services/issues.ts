@@ -61,7 +61,27 @@ function applyStatusSideEffects(
   if (status === "cancelled") {
     patch.cancelledAt = new Date();
   }
+  if (status === "blocked") {
+    patch.blockedAt = new Date();
+  }
+  if (status && status !== "blocked") {
+    patch.blockedAt = null;
+    patch.blockedReason = null;
+    patch.blockedUntil = null;
+  }
   return patch;
+}
+
+function assertBlockedFieldConsistency(
+  finalStatus: string | undefined | null,
+  values: Partial<typeof issues.$inferInsert>,
+) {
+  const hasBlockedMetadata =
+    values.blockedReason !== undefined || values.blockedUntil !== undefined || values.blockedAt !== undefined;
+  if (!hasBlockedMetadata) return;
+  if (finalStatus !== "blocked") {
+    throw unprocessable("blockedReason/blockedUntil may only be set when status is 'blocked'");
+  }
 }
 
 export interface IssueFilters {
@@ -1523,6 +1543,7 @@ export function issueService(db: Db) {
           issueNumber,
           identifier,
         } as typeof issues.$inferInsert;
+        assertBlockedFieldConsistency(values.status, values);
         if (values.status === "in_progress" && !values.startedAt) {
           values.startedAt = new Date();
         }
@@ -1531,6 +1552,9 @@ export function issueService(db: Db) {
         }
         if (values.status === "cancelled") {
           values.cancelledAt = new Date();
+        }
+        if (values.status === "blocked") {
+          values.blockedAt = new Date();
         }
 
         const [issue] = await tx.insert(issues).values(values).returning();
@@ -1588,6 +1612,8 @@ export function issueService(db: Db) {
       if (issueData.status) {
         assertTransition(existing.status, issueData.status);
       }
+      const finalStatus = issueData.status ?? existing.status;
+      assertBlockedFieldConsistency(finalStatus, issueData);
 
       const patch: Partial<typeof issues.$inferInsert> = {
         ...issueData,
@@ -1980,6 +2006,9 @@ export function issueService(db: Db) {
           status: "todo",
           assigneeAgentId: null,
           checkoutRunId: null,
+          executionRunId: null,
+          executionAgentNameKey: null,
+          executionLockedAt: null,
           updatedAt: new Date(),
         })
         .where(eq(issues.id, id))

@@ -66,6 +66,8 @@ import { PluginLauncherOutlet } from "@/plugins/launchers";
 import { Separator } from "@/components/ui/separator";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -383,6 +385,9 @@ export function IssueDetail() {
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
   const [attachmentDragActive, setAttachmentDragActive] = useState(false);
+  const [isEditingBlockedMeta, setIsEditingBlockedMeta] = useState(false);
+  const [blockedReasonDraft, setBlockedReasonDraft] = useState("");
+  const [blockedUntilDraft, setBlockedUntilDraft] = useState("");
   const [galleryOpen, setGalleryOpen] = useState(false);
   const [galleryIndex, setGalleryIndex] = useState(0);
   const [optimisticComments, setOptimisticComments] = useState<OptimisticIssueComment[]>([]);
@@ -882,6 +887,7 @@ export function IssueDetail() {
       return { previousDetailQueries, previousList, selectedCompanyId };
     },
     onSuccess: ({ comment: _comment, ...nextIssue }) => {
+      setIsEditingBlockedMeta(false);
       const issueRefs = new Set<string>([issueId!, nextIssue.id]);
       if (nextIssue.identifier) issueRefs.add(nextIssue.identifier);
       mergeIssueResponseIntoCaches(issueRefs, nextIssue);
@@ -1559,6 +1565,11 @@ export function IssueDetail() {
     || (linkedRunsLoading && linkedRuns === undefined);
   const attachmentsInitialLoading = attachmentsLoading && attachments === undefined;
 
+  useEffect(() => {
+    setBlockedReasonDraft(issue?.blockedReason ?? "");
+    setBlockedUntilDraft(issue?.blockedUntil ?? "");
+  }, [issue?.blockedReason, issue?.blockedUntil]);
+
   if (isLoading) return <IssueDetailLoadingState headerSeed={issueHeaderSeed} />;
   if (error) return <p className="text-sm text-destructive">{error.message}</p>;
   if (!issue) return null;
@@ -1595,6 +1606,7 @@ export function IssueDetail() {
   };
 
   const hasAttachments = attachmentList.length > 0;
+
   const attachmentUploadButton = (
     <>
       <input
@@ -1658,6 +1670,77 @@ export function IssueDetail() {
         <div className="flex items-center gap-2 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
           <EyeOff className="h-4 w-4 shrink-0" />
           This issue is hidden
+        </div>
+      )}
+
+      {issue.status === "blocked" && (
+        <div className="rounded-md border border-yellow-500/30 bg-yellow-500/10 px-3 py-3 text-sm text-yellow-700 dark:text-yellow-400 space-y-3">
+          {isEditingBlockedMeta ? (
+            <div className="space-y-2">
+              <div className="grid gap-2 md:grid-cols-2">
+                <Input
+                  value={blockedReasonDraft}
+                  onChange={(event) => setBlockedReasonDraft(event.target.value)}
+                  placeholder="Why is this blocked?"
+                  className="bg-background/80 text-foreground"
+                />
+                <Input
+                  value={blockedUntilDraft}
+                  onChange={(event) => setBlockedUntilDraft(event.target.value)}
+                  placeholder="Until what condition or time?"
+                  className="bg-background/80 text-foreground"
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  size="sm"
+                  onClick={() => updateIssue.mutate({ blockedReason: blockedReasonDraft || null, blockedUntil: blockedUntilDraft || null })}
+                  disabled={updateIssue.isPending}
+                >
+                  Save blocked info
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => {
+                    setBlockedReasonDraft(issue.blockedReason ?? "");
+                    setBlockedUntilDraft(issue.blockedUntil ?? "");
+                    setIsEditingBlockedMeta(false);
+                  }}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="rounded-md border border-yellow-500/20 bg-black/5 p-3">
+              <div className="flex items-start justify-between gap-3">
+                <dl className="min-w-0 flex-1 space-y-3">
+                  <div className="space-y-1">
+                    <dt className="text-xs font-semibold uppercase tracking-wide text-yellow-700/80 dark:text-yellow-300/80">
+                      Blocked
+                    </dt>
+                    <dd className="min-w-0 break-words text-sm text-yellow-900 dark:text-yellow-100">
+                      {issue.blockedReason || "No reason set"}
+                    </dd>
+                  </div>
+                  {issue.blockedUntil && (
+                    <div className="space-y-1">
+                      <dt className="text-xs font-semibold uppercase tracking-wide text-yellow-700/70 dark:text-yellow-300/70">
+                        Until
+                      </dt>
+                      <dd className="min-w-0 break-words text-sm text-yellow-700 dark:text-yellow-300">
+                        {issue.blockedUntil}
+                      </dd>
+                    </div>
+                  )}
+                </dl>
+                <Button size="sm" variant="ghost" className="shrink-0" onClick={() => setIsEditingBlockedMeta(true)}>
+                  Edit
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

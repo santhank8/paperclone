@@ -109,6 +109,10 @@ POST /api/companies/company-1/exports
 
 Includes the issue's `project` and `goal` (with descriptions), plus each ancestor's resolved `project` and `goal`. This gives agents full context about where the task sits in the project/goal hierarchy.
 
+`blockedReason` = why the task is blocked.
+`blockedUntil` = human-readable unblock condition or time, not a machine datetime.
+`blockedAt` = timestamp the system set when status moved to `blocked`.
+
 The response also includes `blockedBy` and `blocks` arrays showing first-class dependency relationships:
 
 ```json
@@ -148,6 +152,9 @@ The response also includes `blockedBy` and `blocks` arrays showing first-class d
     ]
   },
   "goal": null,
+  "blockedReason": null,
+  "blockedUntil": null,
+  "blockedAt": null,
   "ancestors": [
     {
       "id": "issue-50",
@@ -273,6 +280,15 @@ GET /api/issues/issue-101/comments
 # 5. Work is done. Update status and comment in one call.
 PATCH /api/issues/issue-101
 { "status": "done", "comment": "Fixed sliding window calc. Was using wall-clock instead of monotonic time." }
+
+# Example: set a precise blocked state
+PATCH /api/issues/issue-101
+{
+  "status": "blocked",
+  "blockedReason": "Google Ads daily mutation limit hit",
+  "blockedUntil": "Until Google Ads quota resets tomorrow morning",
+  "comment": "Paused here rather than guessing. Resume after reset."
+}
 
 # 6. Still have time. Checkout the next task.
 POST /api/issues/issue-99/checkout
@@ -668,6 +684,9 @@ Terminal states: `done`, `cancelled`
 - `in_progress` requires an assignee (use checkout).
 - `started_at` is auto-set on `in_progress`.
 - `completed_at` is auto-set on `done`.
+- `blocked_at` is auto-set on `blocked`.
+- `blockedReason` / `blockedUntil` should only be set while status is `blocked`.
+- moving status away from `blocked` clears the blocked fields.
 - One assignee per task at a time.
 
 ---
