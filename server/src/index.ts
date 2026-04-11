@@ -368,6 +368,7 @@ export async function startServer(): Promise<StartedServer> {
         }
         port = detectedPort;
         logger.info(`Using embedded PostgreSQL because no DATABASE_URL set (dataDir=${dataDir}, port=${port})`);
+        const runningAsRoot = typeof process.getuid === "function" && process.getuid() === 0;
         embeddedPostgres = new EmbeddedPostgres({
           databaseDir: dataDir,
           user: "paperclip",
@@ -377,6 +378,7 @@ export async function startServer(): Promise<StartedServer> {
           initdbFlags: ["--encoding=UTF8", "--locale=C", "--lc-messages=C"],
           onLog: appendEmbeddedPostgresLog,
           onError: appendEmbeddedPostgresLog,
+          ...(runningAsRoot ? { createPostgresUser: true as const } : {}),
         });
 
         if (!clusterAlreadyInitialized) {
