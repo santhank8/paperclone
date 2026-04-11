@@ -34,6 +34,12 @@ vi.mock("../context/ToastContext", () => ({
   useToast: () => ({ pushToast: vi.fn() }),
 }));
 
+vi.mock("@/i18n", () => ({
+  useLanguage: () => ({
+    t: (key: string) => key,
+  }),
+}));
+
 vi.mock("../api/routines", () => ({
   routinesApi: {
     list: (companyId: string) => routinesListMock(companyId),
@@ -313,6 +319,7 @@ describe("Routines page", () => {
   });
 
   it("groups routines by project using project names for the section labels", () => {
+    const t = (key: string) => key;
     const groups = buildRoutineGroups(
       [
         createRoutine({ id: "routine-1", title: "Morning sync", projectId: "project-1" }),
@@ -327,6 +334,7 @@ describe("Routines page", () => {
         ["agent-1", { name: "Agent One" }],
         ["agent-2", { name: "Agent Two" }],
       ]),
+      t,
     );
 
     expect(groups.map((group) => group.label)).toEqual(["Project Alpha", "Project Beta"]);
