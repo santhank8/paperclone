@@ -941,11 +941,67 @@ export function writePaperclipSkillSyncPreference(
   return next;
 }
 
+/**
+ * Create a **directory** symlink, falling back to a Windows directory junction
+ * where symlinks require Developer Mode or admin privileges.  On non-Windows
+ * platforms a plain symlink is created (no junction fallback needed).  Junctions
+ * only support directory targets — for file symlinks use {@link symlinkOrHardLink}.
+ */
+export async function symlinkOrJunction(source: string, target: string): Promise<void> {
+  if (process.platform !== "win32") {
+    await fs.symlink(source, target);
+    return;
+  }
+  try {
+    await fs.symlink(source, target);
+  } catch (err: unknown) {
+    if ((err as NodeJS.ErrnoException).code !== "EPERM") throw err;
+    // Windows: directory symlinks need admin; junctions don't.
+    // Junctions require absolute paths — use path.win32.resolve so the
+    // resolution always uses Windows semantics (important for testability
+    // on Linux/macOS CI where process.platform is mocked).
+    await fs.symlink(path.win32.resolve(source), target, "junction");
+  }
+}
+
+/**
+ * Create a file symlink, falling back to a hard link on Windows where
+ * symlinks require Developer Mode or admin privileges.  Hard links work
+ * on NTFS without elevated privileges and keep file contents in sync
+ * (same inode).  If source and target are on different drives (EXDEV),
+ * falls back to a file copy as a last resort.  Unlike junctions, hard
+ * links work for files — this is the file-level counterpart to
+ * symlinkOrJunction (which handles directories).
+ */
+export async function symlinkOrHardLink(source: string, target: string): Promise<void> {
+  try {
+    await fs.symlink(source, target);
+  } catch (err: unknown) {
+    if (process.platform === "win32" && (err as NodeJS.ErrnoException).code === "EPERM") {
+      try {
+        await fs.link(source, target);
+      } catch (linkErr: unknown) {
+        if ((linkErr as NodeJS.ErrnoException).code === "EXDEV") {
+          // Cross-drive: hard links not supported, fall back to copy.
+          console.warn(
+            `[paperclip] symlinkOrHardLink: falling back to file copy for "${target}" ` +
+              "(source and target are on different drives — the copy will not stay in sync with the source).",
+          );
+          await fs.copyFile(source, target);
+          return;
+        }
+        throw linkErr;
+      }
+      return;
+    }
+    throw err;
+  }
+}
+
 export async function ensurePaperclipSkillSymlink(
   source: string,
   target: string,
-  linkSkill: (source: string, target: string) => Promise<void> = (linkSource, linkTarget) =>
-    fs.symlink(linkSource, linkTarget),
+  linkSkill: (source: string, target: string) => Promise<void> = symlinkOrJunction,
 ): Promise<"created" | "repaired" | "skipped"> {
   const existing = await fs.lstat(target).catch(() => null);
   if (!existing) {
@@ -954,6 +1010,25 @@ export async function ensurePaperclipSkillSymlink(
   }
 
   if (!existing.isSymbolicLink()) {
+    // On Windows, directory junctions are reported by libuv as plain directories
+    // (isDirectory() = true, isSymbolicLink() = false).  Try readlink to detect
+    // a junction: if it succeeds we have a stale/mispointed junction that needs
+    // repair; if it fails the entry is a real directory — leave it untouched.
+    if (process.platform === "win32" && existing.isDirectory()) {
+      const junctionTarget = await fs.readlink(target).catch(() => null);
+      if (junctionTarget !== null) {
+        const resolvedJunctionTarget = path.win32.isAbsolute(junctionTarget)
+          ? junctionTarget
+          : path.resolve(path.dirname(target), junctionTarget);
+        if (resolvedJunctionTarget === path.win32.resolve(source)) {
+          return "skipped";
+        }
+        // Junction points to a different target — repair it.
+        await fs.unlink(target);
+        await linkSkill(source, target);
+        return "repaired";
+      }
+    }
     return "skipped";
   }
 
