@@ -1,0 +1,154 @@
+name: "One-time: Copy source from trading-agent"
+
+# Manually triggered workflow that copies the agent-workforce/ subtree from
+# stepan-korec/trading-agent into this repo's orchestrator/ scaffold.
+# Intended to be run exactly once and then deleted.
+#
+# Prerequisites:
+#   1. A fine-grained PAT with "Contents: Read-only" on stepan-korec/trading-agent
+#      must be stored as the repository secret TRADING_AGENT_PAT.
+#   2. In Settings -> Actions -> General -> Workflow permissions, the repo must
+#      be set to "Read and write permissions" so the GITHUB_TOKEN used by the
+#      final push can write to the branch.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  copy-source:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout workforce (claude branch)
+        uses: actions/checkout@v4
+        with:
+          ref: claude/plan-migration-deployment-7YlMK
+          persist-credentials: true
+
+      - name: Verify TRADING_AGENT_PAT secret is set
+        env:
+          TRADING_AGENT_PAT: ${{ secrets.TRADING_AGENT_PAT }}
+        run: |
+          if [ -z "${TRADING_AGENT_PAT}" ]; then
+            echo "ERROR: TRADING_AGENT_PAT secret is not set."
+            echo "Create a fine-grained PAT with Contents:Read on"
+            echo "stepan-korec/trading-agent and add it as a repo secret."
+            exit 1
+          fi
+          echo "Secret is set (length: ${#TRADING_AGENT_PAT})."
+
+      - name: Clone trading-agent (read-only)
+        env:
+          TRADING_AGENT_PAT: ${{ secrets.TRADING_AGENT_PAT }}
+        run: |
+          git clone --depth 1 \
+            "https://x-access-token:${TRADING_AGENT_PAT}@github.com/stepan-korec/trading-agent.git" \
+            /tmp/trading-agent
+          echo "trading-agent HEAD:"
+          git -C /tmp/trading-agent log --oneline -1
+
+      - name: Verify agent-workforce/ exists in trading-agent
+        run: |
+          if [ ! -d /tmp/trading-agent/agent-workforce ]; then
+            echo "ERROR: /tmp/trading-agent/agent-workforce does not exist."
+            echo "Top-level entries in trading-agent:"
+            ls -la /tmp/trading-agent
+            exit 1
+          fi
+          echo "agent-workforce/ contents:"
+          ls -la /tmp/trading-agent/agent-workforce
+
+      - name: Copy source files
+        run: |
+          set -euo pipefail
+
+          SRC=/tmp/trading-agent/agent-workforce
+
+          # Python source (orchestrator code)
+          if [ -d "${SRC}/src" ]; then
+            cp -r "${SRC}/src/." orchestrator/src/
+          fi
+
+          # Tests
+          if [ -d "${SRC}/tests" ]; then
+            cp -r "${SRC}/tests/." orchestrator/tests/
+          fi
+
+          # Config (may include additional yaml files alongside our kaizai.yaml)
+          if [ -d "${SRC}/config" ]; then
+            cp -r "${SRC}/config/." orchestrator/config/
+          fi
+
+          # Requirements (replace placeholders)
+          if [ -f "${SRC}/requirements.txt" ]; then
+            cp "${SRC}/requirements.txt" orchestrator/requirements.txt
+          fi
+          if [ -f "${SRC}/requirements-test.txt" ]; then
+            cp "${SRC}/requirements-test.txt" orchestrator/requirements-test.txt
+          fi
+
+          # Dockerfile (replace placeholder)
+          if [ -f "${SRC}/Dockerfile" ]; then
+            cp "${SRC}/Dockerfile" orchestrator/Dockerfile
+          fi
+
+          # Claude Code Runner image
+          mkdir -p runner
+          if [ -d "${SRC}/docker/claude-code-runner" ]; then
+            cp -r "${SRC}/docker/claude-code-runner/." runner/
+          fi
+
+          # Workforce-related workflows from trading-agent
+          for wf in vps-deploy-workforce.yml test-workforce.yml; do
+            if [ -f "/tmp/trading-agent/.github/workflows/${wf}" ]; then
+              cp "/tmp/trading-agent/.github/workflows/${wf}" ".github/workflows/${wf}"
+            fi
+          done
+
+          # Clean up placeholder README if trading-agent didn't overwrite it
+          rm -f orchestrator/src/README.md || true
+
+          echo "=== Changed files (short) ==="
+          git status --short
+          echo "=== Total changed ==="
+          git status --short | wc -l
+
+      - name: Commit and push
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          if git diff --cached --quiet && git diff --quiet; then
+            echo "No changes to commit."
+            exit 0
+          fi
+
+          git add -A
+
+          git commit -F - <<'EOF'
+          feat: add orchestrator source code from trading-agent
+
+          Copies agent-workforce/ from stepan-korec/trading-agent into the
+          orchestrator/ scaffold:
+
+          - orchestrator/src/ (graph, state, nodes, tools, config loader)
+          - orchestrator/tests/ (unit + integration)
+          - orchestrator/config/ (additional YAML configs from trading-agent)
+          - orchestrator/Dockerfile (replaces scaffold placeholder)
+          - orchestrator/requirements.txt (replaces scaffold placeholder)
+          - orchestrator/requirements-test.txt
+          - runner/ (Claude Code Runner Dockerfile + entrypoint)
+          - .github/workflows/vps-deploy-workforce.yml
+          - .github/workflows/test-workforce.yml
+
+          Automated via one-time GitHub Actions workflow
+          (.github/workflows/one-time-copy-source.yml).
+
+          Ref: ACTION SPEC Repository Migration + Paperclip Deployment, Phase 0B
+          EOF
+
+          git push origin HEAD:claude/plan-migration-deployment-7YlMK
