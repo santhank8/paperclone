@@ -526,7 +526,7 @@ export function defaultPathForPlatform() {
 }
 
 function windowsPathExts(env: NodeJS.ProcessEnv): string[] {
-  return (env.PATHEXT ?? ".EXE;.CMD;.BAT;.COM").split(";").filter(Boolean);
+  return (env.PATHEXT ?? ".EXE;.CMD;.BAT;.COM;.PS1").split(";").filter(Boolean);
 }
 
 async function pathExists(candidate: string) {
@@ -602,6 +602,15 @@ async function resolveSpawnTarget(
     return {
       command: shell,
       args: ["/d", "/s", "/c", commandLine],
+    };
+  }
+
+  if (/\.ps1$/i.test(executable)) {
+    // Run PowerShell scripts via powershell.exe with bypass policy
+    const shell = "powershell.exe";
+    return {
+      command: shell,
+      args: ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", executable, ...args],
     };
   }
 
