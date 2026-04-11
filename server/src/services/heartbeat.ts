@@ -31,7 +31,11 @@ import { companySkillService } from "./company-skills.js";
 import { budgetService, type BudgetEnforcementScope } from "./budgets.js";
 import { secretService } from "./secrets.js";
 import { resolveDefaultAgentWorkspaceDir, resolveManagedProjectWorkspaceDir } from "../home-paths.js";
-import { summarizeHeartbeatRunResultJson } from "./heartbeat-run-summary.js";
+import {
+  buildHeartbeatRunIssueComment,
+  mergeHeartbeatRunResultJson,
+  summarizeHeartbeatRunResultJson,
+} from "./heartbeat-run-summary.js";
 import {
   buildWorkspaceReadyComment,
   cleanupExecutionWorkspaceArtifacts,
@@ -46,6 +50,7 @@ import {
 import { issueService } from "./issues.js";
 import { executionWorkspaceService, mergeExecutionWorkspaceConfig } from "./execution-workspaces.js";
 import { workspaceOperationService } from "./workspace-operations.js";
+import { isProcessGroupAlive, terminateLocalService } from "./local-service-supervisor.js";
 import {
   buildExecutionWorkspaceAdapterConfig,
   gateProjectExecutionWorkspacePolicy,
@@ -228,6 +233,9 @@ async function ensureManagedProjectWorkspace(input: {
   }
 }
 
+const heartbeatRunProcessGroupIdColumn =
+  heartbeatRuns.processGroupId ?? sql<number | null>`NULL`.as("processGroupId");
+
 const heartbeatRunListColumns = {
   id: heartbeatRuns.id,
   companyId: heartbeatRuns.companyId,
@@ -255,6 +263,7 @@ const heartbeatRunListColumns = {
   errorCode: heartbeatRuns.errorCode,
   externalRunId: heartbeatRuns.externalRunId,
   processPid: heartbeatRuns.processPid,
+  processGroupId: heartbeatRunProcessGroupIdColumn,
   processStartedAt: heartbeatRuns.processStartedAt,
   retryOfRunId: heartbeatRuns.retryOfRunId,
   processLossRetryCount: heartbeatRuns.processLossRetryCount,
@@ -786,6 +795,46 @@ function isProcessAlive(pid: number | null | undefined) {
     if (code === "ESRCH") return false;
     return false;
   }
+}
+
+async function terminateHeartbeatRunProcess(input: {
+  pid: number | null | undefined;
+  processGroupId: number | null | undefined;
+  graceMs?: number;
+}) {
+  const pid = input.pid ?? null;
+  const processGroupId = input.processGroupId ?? null;
+  if (typeof pid !== "number" && typeof processGroupId !== "number") return;
+
+  await terminateLocalService(
+    {
+      pid:
+        typeof pid === "number" && Number.isInteger(pid) && pid > 0
+          ? pid
+          : (processGroupId ?? 0),
+      processGroupId:
+        typeof processGroupId === "number" && Number.isInteger(processGroupId) && processGroupId > 0
+          ? processGroupId
+          : null,
+    },
+    input.graceMs ? { forceAfterMs: input.graceMs } : undefined,
+  );
+}
+
+function buildProcessLossMessage(run: {
+  processPid: number | null;
+  processGroupId: number | null;
+}, options?: { descendantOnly?: boolean }) {
+  if (options?.descendantOnly && run.processGroupId) {
+    return `Process lost -- parent pid ${run.processPid ?? "unknown"} exited, but descendant process group ${run.processGroupId} was still alive and was terminated`;
+  }
+  if (run.processPid) {
+    return `Process lost -- child pid ${run.processPid} is no longer running`;
+  }
+  if (run.processGroupId) {
+    return `Process lost -- process group ${run.processGroupId} is no longer running`;
+  }
+  return "Process lost -- server may have restarted";
 }
 
 function truncateDisplayId(value: string | null | undefined, max = 128) {
@@ -1659,13 +1708,14 @@ export function heartbeatService(db: Db) {
 
   async function persistRunProcessMetadata(
     runId: string,
-    meta: { pid: number; startedAt: string },
+    meta: { pid: number; processGroupId: number | null; startedAt: string },
   ) {
     const startedAt = new Date(meta.startedAt);
     return db
       .update(heartbeatRuns)
       .set({
         processPid: meta.pid,
+        processGroupId: meta.processGroupId,
         processStartedAt: Number.isNaN(startedAt.getTime()) ? new Date() : startedAt,
         updatedAt: new Date(),
       })
@@ -1985,7 +2035,9 @@ export function heartbeatService(db: Db) {
       }
 
       const tracksLocalChild = isTrackedLocalChildProcessAdapter(adapterType);
-      if (tracksLocalChild && run.processPid && isProcessAlive(run.processPid)) {
+      const processPidAlive = tracksLocalChild && run.processPid && isProcessAlive(run.processPid);
+      const processGroupAlive = tracksLocalChild && run.processGroupId && isProcessGroupAlive(run.processGroupId);
+      if (processPidAlive) {
         if (run.errorCode !== DETACHED_PROCESS_ERROR_CODE) {
           const detachedMessage = `Lost in-memory process handle, but child pid ${run.processPid} is still alive`;
           const detachedRun = await setRunStatus(run.id, "running", {
@@ -2068,10 +2120,17 @@ export function heartbeatService(db: Db) {
         continue;
       }
 
-      const shouldRetry = tracksLocalChild && !!run.processPid && (run.processLossRetryCount ?? 0) < 1;
-      const baseMessage = run.processPid
-        ? `Process lost -- child pid ${run.processPid} is no longer running`
-        : "Process lost -- server may have restarted";
+      let descendantOnlyCleanup = false;
+      if (processGroupAlive) {
+        descendantOnlyCleanup = true;
+        await terminateHeartbeatRunProcess({
+          pid: run.processPid,
+          processGroupId: run.processGroupId,
+        });
+      }
+
+      const shouldRetry = tracksLocalChild && (!!run.processPid || !!run.processGroupId) && (run.processLossRetryCount ?? 0) < 1;
+      const baseMessage = buildProcessLossMessage(run, descendantOnlyCleanup ? { descendantOnly: true } : undefined);
 
       let finalizedRun = await setRunStatus(run.id, "failed", {
         error: shouldRetry ? `${baseMessage}; retrying once` : baseMessage,
@@ -2110,6 +2169,8 @@ export function heartbeatService(db: Db) {
           : baseMessage,
         payload: {
           ...(run.processPid ? { processPid: run.processPid } : {}),
+          ...(run.processGroupId ? { processGroupId: run.processGroupId } : {}),
+          ...(descendantOnlyCleanup ? { descendantOnlyCleanup: true } : {}),
           ...(retriedRun ? { retryRunId: retriedRun.id } : {}),
         },
       });
@@ -2897,7 +2958,14 @@ export function heartbeatService(db: Db) {
         onLog,
         onMeta: onAdapterMeta,
         onSpawn: async (meta) => {
-          await persistRunProcessMetadata(run.id, meta);
+          await persistRunProcessMetadata(run.id, {
+            pid: meta.pid,
+            processGroupId:
+              "processGroupId" in meta && typeof meta.processGroupId === "number"
+                ? meta.processGroupId
+                : null,
+            startedAt: meta.startedAt,
+          });
         },
         authToken: authToken ?? undefined,
       });
@@ -3037,7 +3105,10 @@ export function heartbeatService(db: Db) {
         exitCode: adapterResult.exitCode,
         signal: adapterResult.signal,
         usageJson,
-        resultJson: adapterResult.resultJson ?? null,
+        resultJson: mergeHeartbeatRunResultJson(
+          adapterResult.resultJson ?? null,
+          adapterResult.summary ?? null,
+        ),
         sessionIdAfter: nextSessionState.displayId ?? nextSessionState.legacySessionId,
         stdoutExcerpt,
         stderrExcerpt,
@@ -4004,13 +4075,16 @@ export function heartbeatService(db: Db) {
 
     const running = runningProcesses.get(run.id);
     if (running) {
-      running.child.kill("SIGTERM");
-      const graceMs = Math.max(1, running.graceSec) * 1000;
-      setTimeout(() => {
-        if (!running.child.killed) {
-          running.child.kill("SIGKILL");
-        }
-      }, graceMs);
+      await terminateHeartbeatRunProcess({
+        pid: running.child.pid ?? run.processPid,
+        processGroupId: running.processGroupId ?? run.processGroupId,
+        graceMs: Math.max(1, running.graceSec) * 1000,
+      });
+    } else if (run.processPid || run.processGroupId) {
+      await terminateHeartbeatRunProcess({
+        pid: run.processPid,
+        processGroupId: run.processGroupId,
+      });
     }
 
     const cancelled = await setRunStatus(run.id, "cancelled", {
@@ -4060,8 +4134,17 @@ export function heartbeatService(db: Db) {
 
       const running = runningProcesses.get(run.id);
       if (running) {
-        running.child.kill("SIGTERM");
+        await terminateHeartbeatRunProcess({
+          pid: running.child.pid ?? run.processPid,
+          processGroupId: running.processGroupId ?? run.processGroupId,
+          graceMs: Math.max(1, running.graceSec) * 1000,
+        });
         runningProcesses.delete(run.id);
+      } else if (run.processPid || run.processGroupId) {
+        await terminateHeartbeatRunProcess({
+          pid: run.processPid,
+          processGroupId: run.processGroupId,
+        });
       }
       await releaseIssueExecutionAndPromote(run);
     }

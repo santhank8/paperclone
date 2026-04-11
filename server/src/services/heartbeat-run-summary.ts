@@ -3,8 +3,51 @@ function truncateSummaryText(value: unknown, maxLength = 500) {
   return value.length > maxLength ? value.slice(0, maxLength) : value;
 }
 
+function readCommentText(value: unknown) {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
 function readNumericField(record: Record<string, unknown>, key: string) {
   return key in record ? record[key] ?? null : undefined;
+}
+
+export function mergeHeartbeatRunResultJson(
+  resultJson: Record<string, unknown> | null | undefined,
+  summary: string | null | undefined,
+): Record<string, unknown> | null {
+  const normalizedSummary = readCommentText(summary);
+  const baseResult =
+    resultJson && typeof resultJson === "object" && !Array.isArray(resultJson)
+      ? resultJson
+      : null;
+
+  if (!baseResult) {
+    return normalizedSummary ? { summary: normalizedSummary } : null;
+  }
+
+  if (!normalizedSummary) {
+    return baseResult;
+  }
+
+  if (readCommentText(baseResult.summary)) {
+    return baseResult;
+  }
+
+  return {
+    ...baseResult,
+    summary: normalizedSummary,
+  };
+}
+
+export function buildHeartbeatRunIssueComment(
+  resultJson: Record<string, unknown> | null | undefined,
+): string | null {
+  if (!resultJson || typeof resultJson !== "object" || Array.isArray(resultJson)) {
+    return null;
+  }
+  return readCommentText(resultJson.summary) ?? readCommentText(resultJson.result) ?? readCommentText(resultJson.message) ?? null;
 }
 
 export function summarizeHeartbeatRunResultJson(
