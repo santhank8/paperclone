@@ -1,4 +1,8 @@
 {
   "common.signOut": "退出登录",
-  "common.signingOut": "正在退出登录..."
+  "common.signingOut": "正在退出登录...",
+  "relativeTime.justNow": "刚刚",
+  "relativeTime.minutesAgo": "{{count}} 分钟前",
+  "relativeTime.hoursAgo": "{{count}} 小时前",
+  "relativeTime.daysAgo": "{{count}} 天前"
 }

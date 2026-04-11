@@ -1,4 +1,8 @@
 {
   "common.signOut": "Sign out",
-  "common.signingOut": "Signing out..."
+  "common.signingOut": "Signing out...",
+  "relativeTime.justNow": "just now",
+  "relativeTime.minutesAgo": "{{count}}m ago",
+  "relativeTime.hoursAgo": "{{count}}h ago",
+  "relativeTime.daysAgo": "{{count}}d ago"
 }

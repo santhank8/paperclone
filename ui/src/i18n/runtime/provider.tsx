@@ -57,7 +57,6 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    setCurrentLocale(locale);
     if (typeof document !== "undefined") {
       document.documentElement.lang = locale;
     }
