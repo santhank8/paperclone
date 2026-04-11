@@ -46,6 +46,7 @@ import {
   type OptimisticIssueComment,
 } from "../lib/optimistic-issue-comments";
 import { removeLiveRunById, upsertInterruptedRun } from "../lib/optimistic-issue-runs";
+import { issueDisplayStatus } from "../lib/issue-execution";
 import { useProjectOrder } from "../hooks/useProjectOrder";
 import { relativeTime, cn, formatTokens, visibleRunCostUsd } from "../lib/utils";
 import { ApprovalCard } from "../components/ApprovalCard";
