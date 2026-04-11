@@ -122,6 +122,26 @@ export const ISSUE_STATUSES = [
 ] as const;
 export type IssueStatus = (typeof ISSUE_STATUSES)[number];
 
+export const OPEN_ISSUE_STATUSES = [
+  "backlog",
+  "todo",
+  "in_progress",
+  "in_review",
+  "blocked",
+] as const satisfies readonly IssueStatus[];
+
+export const TERMINAL_ISSUE_STATUSES = [
+  "done",
+  "cancelled",
+] as const satisfies readonly IssueStatus[];
+
+export const CHECKOUTABLE_ISSUE_STATUSES = [
+  "todo",
+  "backlog",
+  "blocked",
+  "in_review",
+] as const satisfies readonly IssueStatus[];
+
 export const INBOX_MINE_ISSUE_STATUSES = [
   "backlog",
   "todo",

@@ -1713,32 +1713,30 @@ export function IssueDetail() {
               </div>
             </div>
           ) : (
-            <div className="rounded-md border border-yellow-500/20 bg-black/5 p-3">
-              <div className="flex items-start justify-between gap-3">
-                <dl className="min-w-0 flex-1 space-y-3">
+            <div className="flex items-start justify-between gap-3">
+              <dl className="min-w-0 flex-1 space-y-3">
+                <div className="space-y-1">
+                  <dt className="text-xs font-semibold uppercase tracking-wide text-yellow-700/80 dark:text-yellow-300/80">
+                    Blocked
+                  </dt>
+                  <dd className="min-w-0 break-words text-sm text-yellow-900 dark:text-yellow-100">
+                    {issue.blockedReason || "No reason set"}
+                  </dd>
+                </div>
+                {issue.blockedUntil && (
                   <div className="space-y-1">
-                    <dt className="text-xs font-semibold uppercase tracking-wide text-yellow-700/80 dark:text-yellow-300/80">
-                      Blocked
+                    <dt className="text-xs font-semibold uppercase tracking-wide text-yellow-700/70 dark:text-yellow-300/70">
+                      Until
                     </dt>
-                    <dd className="min-w-0 break-words text-sm text-yellow-900 dark:text-yellow-100">
-                      {issue.blockedReason || "No reason set"}
+                    <dd className="min-w-0 break-words text-sm text-yellow-700 dark:text-yellow-300">
+                      {issue.blockedUntil}
                     </dd>
                   </div>
-                  {issue.blockedUntil && (
-                    <div className="space-y-1">
-                      <dt className="text-xs font-semibold uppercase tracking-wide text-yellow-700/70 dark:text-yellow-300/70">
-                        Until
-                      </dt>
-                      <dd className="min-w-0 break-words text-sm text-yellow-700 dark:text-yellow-300">
-                        {issue.blockedUntil}
-                      </dd>
-                    </div>
-                  )}
-                </dl>
-                <Button size="sm" variant="ghost" className="shrink-0" onClick={() => setIsEditingBlockedMeta(true)}>
-                  Edit
-                </Button>
-              </div>
+                )}
+              </dl>
+              <Button size="sm" variant="ghost" className="shrink-0" onClick={() => setIsEditingBlockedMeta(true)}>
+                Edit
+              </Button>
             </div>
           )}
         </div>

@@ -115,6 +115,7 @@ import {
 import { StatusBadge } from "@/components/StatusBadge";
 import { StatusIcon } from "@/components/StatusIcon";
 import { PriorityIcon } from "@/components/PriorityIcon";
+import { issueBoardStatusOrder, issueCreateStatusOptions, issueStatusLabel } from "@/lib/issue-status";
 import { agentStatusDot, agentStatusDotDefault } from "@/lib/status-colors";
 import { EntityRow } from "@/components/EntityRow";
 import { EmptyState } from "@/components/EmptyState";
@@ -409,11 +410,11 @@ export function DesignGuide() {
 
         <SubSection title="StatusIcon (interactive)">
           <div className="flex items-center gap-3 flex-wrap">
-            {["backlog", "todo", "in_progress", "in_review", "done", "cancelled", "blocked"].map(
+            {issueBoardStatusOrder.map(
               (s) => (
                 <div key={s} className="flex items-center gap-1.5">
                   <StatusIcon status={s} />
-                  <span className="text-xs text-muted-foreground">{s}</span>
+                  <span className="text-xs text-muted-foreground">{issueStatusLabel(s)}</span>
                 </div>
               )
             )}
@@ -546,11 +547,11 @@ export function DesignGuide() {
                 <SelectValue placeholder="Select status" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="backlog">Backlog</SelectItem>
-                <SelectItem value="todo">Todo</SelectItem>
-                <SelectItem value="in_progress">In Progress</SelectItem>
-                <SelectItem value="in_review">In Review</SelectItem>
-                <SelectItem value="done">Done</SelectItem>
+                {issueCreateStatusOptions.map((statusOption) => (
+                  <SelectItem key={statusOption.value} value={statusOption.value}>
+                    {statusOption.label}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
             <p className="text-xs text-muted-foreground">Current value: {selectValue}</p>
