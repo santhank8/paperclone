@@ -1,0 +1,13 @@
+# Copy this file to terraform.tfvars and fill in your values.
+#
+#   cp terraform.tfvars.example terraform.tfvars
+
+aws_region    = "us-east-1"
+app_name      = "paperclip"
+instance_type = "t4g.medium"   # Graviton arm64 — matches the Paperclip Docker image
+ecr_repo_name = "paperclip"
+
+# Optional: set a custom domain to enable HTTPS and Route53 DNS.
+# Leave empty to access Paperclip via the ALB DNS name over HTTP.
+domain_name = ""
+# domain_name = "paperclip.example.com"

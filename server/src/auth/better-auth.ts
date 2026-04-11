@@ -1,6 +1,6 @@
 import type { Request, RequestHandler } from "express";
 import type { IncomingHttpHeaders } from "node:http";
-import { betterAuth } from "better-auth";
+import { betterAuth, APIError } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { toNodeHandler } from "better-auth/node";
 import type { Db } from "@paperclipai/db";
@@ -65,6 +65,15 @@ export function deriveAuthTrustedOrigins(config: Config): string[] {
   return Array.from(trustedOrigins);
 }
 
+export function isEmailDomainAllowed(
+  email: string | null | undefined,
+  allowedDomains: string[],
+): boolean {
+  if (allowedDomains.length === 0) return true;
+  const domain = (email ?? "").split("@")[1]?.toLowerCase() ?? "";
+  return allowedDomains.some((d) => d.toLowerCase() === domain);
+}
+
 export function createBetterAuthInstance(db: Db, config: Config, trustedOrigins?: string[]): BetterAuthInstance {
   const baseUrl = config.authBaseUrlMode === "explicit" ? config.authPublicBaseUrl : undefined;
   const secret = process.env.BETTER_AUTH_SECRET ?? process.env.PAPERCLIP_AGENT_JWT_SECRET;
@@ -97,6 +106,23 @@ export function createBetterAuthInstance(db: Db, config: Config, trustedOrigins?
       requireEmailVerification: false,
       disableSignUp: config.authDisableSignUp,
     },
+    ...(config.authAllowedEmailDomains.length > 0
+      ? {
+          databaseHooks: {
+            user: {
+              create: {
+                before: async (user: { email?: string | null }) => {
+                  if (!isEmailDomainAllowed(user.email, config.authAllowedEmailDomains)) {
+                    throw new APIError("FORBIDDEN", {
+                      message: "Email domain is not allowed",
+                    });
+                  }
+                },
+              },
+            },
+          },
+        }
+      : {}),
     ...(isHttpOnly ? { advanced: { useSecureCookies: false } } : {}),
   };
 

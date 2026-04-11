@@ -50,6 +50,7 @@ export interface Config {
   authBaseUrlMode: AuthBaseUrlMode;
   authPublicBaseUrl: string | undefined;
   authDisableSignUp: boolean;
+  authAllowedEmailDomains: string[];
   databaseMode: DatabaseMode;
   databaseUrl: string | undefined;
   embeddedPostgresDataDir: string;
@@ -76,6 +77,13 @@ export interface Config {
   heartbeatSchedulerIntervalMs: number;
   companyDeletionEnabled: boolean;
   telemetryEnabled: boolean;
+}
+
+export function parseAllowedEmailDomains(raw: string): string[] {
+  return raw
+    .split(",")
+    .map((d) => d.trim().toLowerCase())
+    .filter((d) => d.length > 0);
 }
 
 export function loadConfig(): Config {
@@ -171,6 +179,10 @@ export function loadConfig(): Config {
     disableSignUpFromEnv !== undefined
       ? disableSignUpFromEnv === "true"
       : (fileConfig?.auth?.disableSignUp ?? false);
+  const allowedEmailDomainsFromEnvRaw = process.env.PAPERCLIP_AUTH_ALLOWED_EMAIL_DOMAINS;
+  const authAllowedEmailDomains: string[] = allowedEmailDomainsFromEnvRaw
+    ? parseAllowedEmailDomains(allowedEmailDomainsFromEnvRaw)
+    : (fileConfig?.auth?.allowedEmailDomains ?? []);
   const allowedHostnamesFromEnvRaw = process.env.PAPERCLIP_ALLOWED_HOSTNAMES;
   const allowedHostnamesFromEnv = allowedHostnamesFromEnvRaw
     ? allowedHostnamesFromEnvRaw
@@ -233,6 +245,7 @@ export function loadConfig(): Config {
     authBaseUrlMode,
     authPublicBaseUrl,
     authDisableSignUp,
+    authAllowedEmailDomains,
     databaseMode: fileDatabaseMode,
     databaseUrl: process.env.DATABASE_URL ?? fileDbUrl,
     embeddedPostgresDataDir: resolveHomeAwarePath(
