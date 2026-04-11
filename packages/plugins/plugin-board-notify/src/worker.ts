@@ -369,7 +369,14 @@ function isNewlyBlocked(event: PluginEvent): boolean {
   if (p.status !== "blocked") return false;
   const prev = p._previous as Record<string, unknown> | undefined;
   if (!prev) return false;
-  return prev.status !== "blocked";
+  if (prev.status === "blocked") return false;
+
+  // Only notify board when the issue is board-relevant:
+  // 1. Assigned to a board user (assigneeUserId is set)
+  // 2. Title starts with "Board:" (convention for board-owned tasks)
+  const assignedToBoard = Boolean(p.assigneeUserId);
+  const titleMentionsBoard = typeof p.title === "string" && /^board:/i.test(p.title.trim());
+  return assignedToBoard || titleMentionsBoard;
 }
 
 // ---------------------------------------------------------------------------
