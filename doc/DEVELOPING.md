@@ -47,6 +47,18 @@ Build it from repo root:
 pnpm neuros:macos:build
 ```
 
+Bundle it as a macOS `.app`:
+
+```sh
+pnpm neuros:macos:bundle
+```
+
+Install it locally:
+
+```sh
+pnpm neuros:macos:install
+```
+
 Run it locally:
 
 ```sh
@@ -57,7 +69,8 @@ Notes:
 
 - this scaffold is native SwiftUI code for the future `neurOS` macOS surface
 - it currently builds with Swift 6+ and does not yet require a checked-in Xcode project
-- signing, notarization, and `.app` distribution require a machine with full Xcode app tooling enabled
+- local bundle/install now works with a full Xcode toolchain enabled
+- signing is ad hoc for local installs; notarization and public distribution still require the full release pipeline
 
 `pnpm dev` runs the server in watch mode and restarts on changes from workspace packages (including adapter packages). Use `pnpm dev:once` to run without file watching.
 

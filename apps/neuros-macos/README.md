@@ -23,6 +23,20 @@ swift build
 swift run NeurOSDesktopApp
 ```
 
+Build a local `.app` bundle from the repo root:
+
+```bash
+pnpm neuros:macos:bundle
+```
+
+Install the app locally:
+
+```bash
+pnpm neuros:macos:install
+```
+
+By default the installer targets `/Applications` when writable and falls back to `~/Applications` otherwise.
+
 ## Architecture
 
 - `NeurOSAppCore`: domain-facing app state and typed desktop models

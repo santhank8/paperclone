@@ -224,6 +224,8 @@ pnpm dev              # Full dev (API + UI, watch mode)
 pnpm dev:once         # Full dev without file watching
 pnpm dev:server       # Server only
 pnpm neuros:macos:build  # Build the native neurOS macOS foundation
+pnpm neuros:macos:bundle # Bundle neurOS as a local macOS .app
+pnpm neuros:macos:install # Install the local neurOS macOS app
 pnpm neuros:macos:run    # Run the native neurOS macOS foundation
 pnpm build            # Build all
 pnpm typecheck        # Type checking
@@ -233,6 +235,13 @@ pnpm db:migrate       # Apply migrations
 ```
 
 See [doc/DEVELOPING.md](doc/DEVELOPING.md) for the full development guide.
+
+For a local native install of `neurOS` on macOS:
+
+```bash
+pnpm install
+pnpm neuros:macos:install
+```
 
 <br/>
 

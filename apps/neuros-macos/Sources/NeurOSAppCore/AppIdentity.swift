@@ -1,6 +1,10 @@
 import Foundation
 
 public struct AppIdentity: Sendable {
+    public static let fallbackProductName = "neurOS"
+    public static let fallbackBundleIdentifier = "io.goldneuron.neurOS"
+    public static let fallbackVersion = "0.1.0-alpha.2"
+
     public let productName: String
     public let bundleIdentifier: String
     public let version: String
@@ -19,9 +23,12 @@ public struct AppIdentity: Sendable {
     }
 
     public static let current = AppIdentity(
-        productName: "neurOS",
-        bundleIdentifier: "io.goldneuron.neurOS",
-        version: "0.1.0-alpha.1",
+        productName: Bundle.main.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String
+            ?? Bundle.main.object(forInfoDictionaryKey: "CFBundleName") as? String
+            ?? fallbackProductName,
+        bundleIdentifier: Bundle.main.bundleIdentifier ?? fallbackBundleIdentifier,
+        version: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String
+            ?? fallbackVersion,
         supportEmail: "hello@goldneuron.io"
     )
 }
