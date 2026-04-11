@@ -3849,6 +3849,7 @@ export function heartbeatService(db: Db) {
             companyId: issues.companyId,
             executionRunId: issues.executionRunId,
             executionAgentNameKey: issues.executionAgentNameKey,
+            assigneeAgentId: issues.assigneeAgentId,
           })
           .from(issues)
           .where(and(eq(issues.id, issueId), eq(issues.companyId, agent.companyId)))
@@ -3913,7 +3914,11 @@ export function heartbeatService(db: Db) {
             .limit(1)
             .then((rows) => rows[0] ?? null);
 
-          if (legacyRun) {
+          // BLA-207 fix: only re-claim the legacy run if the run belongs to the
+          // current assignee. If assigneeAgentId has changed since the run started
+          // (e.g. via reassignment PATCH), do not re-write executionAgentNameKey —
+          // that would reverse Fix B and hand the issue back to the old agent.
+          if (legacyRun && legacyRun.agentId === issue.assigneeAgentId) {
             activeExecutionRun = legacyRun;
             const legacyAgent = await tx
               .select({ name: agents.name })
