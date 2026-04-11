@@ -379,7 +379,7 @@ describeEmbeddedPostgres("issueService.list participantAgentId", () => {
     await expect(svc.getById("not-a-uuid")).resolves.toBeNull();
   });
 
-  it("stores human-readable blocked metadata and clears it on unblock", async () => {
+  it("stores human-readable blocked metadata and allows explicit null clears on unblock", async () => {
     const companyId = randomUUID();
     const issueId = randomUUID();
 
@@ -406,6 +406,8 @@ describeEmbeddedPostgres("issueService.list participantAgentId", () => {
 
     const unblocked = await svc.update(issueId, {
       status: "todo",
+      blockedReason: null,
+      blockedUntil: null,
     });
 
     expect(unblocked?.status).toBe("todo");

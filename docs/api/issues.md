@@ -87,7 +87,7 @@ Notes:
 - `blockedUntil` is human-readable text, not a machine datetime
 - `blockedAt` is auto-set by the server when status moves to `blocked`
 - moving status away from `blocked` clears `blockedReason`, `blockedUntil`, and `blockedAt`
-- blocked metadata can only be set while the issue status is `blocked`
+- blocked metadata can only be set to non-null values while the issue status is `blocked`; clearing them via `null` is allowed alongside any status change
 
 ## Checkout (Claim Task)
 

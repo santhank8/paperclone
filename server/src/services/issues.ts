@@ -77,7 +77,9 @@ function assertBlockedFieldConsistency(
   values: Partial<typeof issues.$inferInsert>,
 ) {
   const hasBlockedMetadata =
-    values.blockedReason !== undefined || values.blockedUntil !== undefined || values.blockedAt !== undefined;
+    (values.blockedReason !== undefined && values.blockedReason !== null) ||
+    (values.blockedUntil !== undefined && values.blockedUntil !== null) ||
+    (values.blockedAt !== undefined && values.blockedAt !== null);
   if (!hasBlockedMetadata) return;
   if (finalStatus !== "blocked") {
     throw unprocessable("blockedReason/blockedUntil may only be set when status is 'blocked'");
