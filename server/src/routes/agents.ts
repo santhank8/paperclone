@@ -2441,21 +2441,36 @@ export function agentRoutes(db: Db) {
     }
     assertCompanyAccess(req, issue.companyId);
 
-    let run = issue.executionRunId ? await heartbeat.getRun(issue.executionRunId) : null;
+    let run = issue.executionRunId ? await heartbeat.getRunIssueSummary(issue.executionRunId) : null;
     if (run && run.status !== "queued" && run.status !== "running") {
       run = null;
     }
 
     if (!run && issue.assigneeAgentId) {
-      const candidateRun = await heartbeat.getActiveRunForAgent(issue.assigneeAgentId);
-      const candidateContext = asRecord(candidateRun?.contextSnapshot);
-      const candidateIssueId = asNonEmptyString(candidateContext?.issueId);
+      const candidateRun =
+        typeof heartbeat.getActiveRunIssueSummaryForAgent === "function"
+          ? await heartbeat.getActiveRunIssueSummaryForAgent(issue.assigneeAgentId)
+          : await heartbeat.getActiveRunForAgent(issue.assigneeAgentId);
+      const candidateRecord = asRecord(candidateRun);
+      const candidateContext = asRecord(candidateRecord?.contextSnapshot);
+      const candidateIssueId =
+        asNonEmptyString(candidateRecord?.issueId) ?? asNonEmptyString(candidateContext?.issueId);
       if (
         candidateRun &&
         (candidateRun.status === "queued" || candidateRun.status === "running") &&
         candidateIssueId === issue.id
       ) {
-        run = candidateRun;
+        run = {
+          id: candidateRun.id,
+          status: candidateRun.status,
+          invocationSource: candidateRun.invocationSource,
+          triggerDetail: candidateRun.triggerDetail,
+          startedAt: candidateRun.startedAt,
+          finishedAt: candidateRun.finishedAt,
+          createdAt: candidateRun.createdAt,
+          agentId: candidateRun.agentId,
+          issueId: candidateIssueId,
+        };
       }
     }
     if (!run) {
@@ -2470,7 +2485,7 @@ export function agentRoutes(db: Db) {
     }
 
     res.json({
-      ...redactCurrentUserValue(run, await getCurrentUserRedactionOptions()),
+      ...run,
       agentId: agent.id,
       agentName: agent.name,
       adapterType: agent.adapterType,

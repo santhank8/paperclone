@@ -1,11 +1,11 @@
 {
   "files": [
-    "server/src/__tests__/heartbeat-workspace-session.test.ts",
-    "server/src/__tests__/issues-service.test.ts",
+    "server/src/routes/agents.ts",
     ".planning/current-scope.json",
     ".planning/baseline.json"
   ],
-  "source": "surgeon_brief",
+  "source": "surgeon_brief conflict repair addendum",
   "paperclipIssue": "AET-24",
-  "linearTicket": "AET-273"
+  "linearTicket": "AET-273",
+  "scope": "resolve PR #3312 merge conflict against origin/master without broadening behavior"
 }
