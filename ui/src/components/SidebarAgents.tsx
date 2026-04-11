@@ -12,6 +12,7 @@ import { queryKeys } from "../lib/queryKeys";
 import { cn, agentRouteRef, agentUrl } from "../lib/utils";
 import { useAgentOrder } from "../hooks/useAgentOrder";
 import { AgentIcon } from "./AgentIconPicker";
+import { AgentName } from "./AgentName";
 import { BudgetSidebarMarker } from "./BudgetSidebarMarker";
 import {
   Collapsible,
@@ -116,7 +117,13 @@ export function SidebarAgents() {
                 )}
               >
                 <AgentIcon icon={agent.icon} className="shrink-0 h-3.5 w-3.5 text-muted-foreground" />
-                <span className="flex-1 truncate">{agent.name}</span>
+                <AgentName
+                  name={agent.name}
+                  status={agent.status}
+                  className="flex-1 min-w-0"
+                  textClassName="text-[13px]"
+                  iconClassName="h-2.5 w-2.5"
+                />
                 {(agent.pauseReason === "budget" || runCount > 0) && (
                   <span className="ml-auto flex items-center gap-1.5 shrink-0">
                     {agent.pauseReason === "budget" ? (

@@ -124,6 +124,7 @@ function SortableCompanyItem({
                 companyName={company.name}
                 logoUrl={company.logoUrl}
                 brandColor={company.brandColor}
+                status={company.status}
                 className={cn(
                   isSelected
                     ? "rounded-[14px]"

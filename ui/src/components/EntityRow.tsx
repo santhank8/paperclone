@@ -5,7 +5,7 @@ import { cn } from "../lib/utils";
 interface EntityRowProps {
   leading?: ReactNode;
   identifier?: string;
-  title: string;
+  title: ReactNode;
   subtitle?: string;
   trailing?: ReactNode;
   selected?: boolean;
@@ -43,7 +43,11 @@ export function EntityRow({
               {identifier}
             </span>
           )}
-          <span className="truncate">{title}</span>
+          {typeof title === "string" ? (
+            <span className="truncate">{title}</span>
+          ) : (
+            <span className="min-w-0 flex-1">{title}</span>
+          )}
         </div>
         {subtitle && (
           <p className="text-xs text-muted-foreground truncate mt-0.5">{subtitle}</p>

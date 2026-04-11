@@ -5,6 +5,7 @@ import {
   companyPortabilityExportSchema,
   companyPortabilityImportSchema,
   companyPortabilityPreviewSchema,
+  replaceCompanyKpisSchema,
   createCompanySchema,
   feedbackTargetTypeSchema,
   feedbackTraceStatusSchema,
@@ -16,11 +17,14 @@ import { badRequest, forbidden } from "../errors.js";
 import { validate } from "../middleware/validate.js";
 import {
   accessService,
+  agentHeartbeatModelService,
   agentService,
   budgetService,
   companyPortabilityService,
   companyService,
+  executiveSummaryService,
   feedbackService,
+  heartbeatService,
   logActivity,
 } from "../services/index.js";
 import type { StorageService } from "../storage/types.js";
@@ -32,8 +36,11 @@ export function companyRoutes(db: Db, storage?: StorageService) {
   const agents = agentService(db);
   const portability = companyPortabilityService(db, storage);
   const access = accessService(db);
+  const heartbeatModel = agentHeartbeatModelService(db);
+  const heartbeat = heartbeatService(db);
   const budgets = budgetService(db);
   const feedback = feedbackService(db);
+  const executiveSummary = executiveSummaryService(db);
 
   function parseBooleanQuery(value: unknown) {
     return value === true || value === "true" || value === "1";
@@ -73,6 +80,19 @@ export function companyRoutes(db: Db, storage?: StorageService) {
     }
     if (actorAgent.role !== "ceo") {
       throw forbidden(`Only CEO agents can manage company ${capability}`);
+    }
+  }
+
+  async function assertCanManageKpis(req: Request, companyId: string) {
+    assertCompanyAccess(req, companyId);
+    if (req.actor.type === "board") return;
+    if (!req.actor.agentId) throw forbidden("Agent authentication required");
+    const actorAgent = await agents.getById(req.actor.agentId);
+    if (!actorAgent || actorAgent.companyId !== companyId) {
+      throw forbidden("Agent key cannot access another company");
+    }
+    if (actorAgent.role !== "ceo") {
+      throw forbidden("Only CEO agents can manage company KPIs");
     }
   }
 
@@ -149,6 +169,45 @@ export function companyRoutes(db: Db, storage?: StorageService) {
       includePayload: parseBooleanQuery(req.query.includePayload),
     });
     res.json(traces);
+  });
+
+  router.get("/:companyId/kpis", async (req, res) => {
+    const companyId = req.params.companyId as string;
+    await assertCanManageKpis(req, companyId);
+    const kpis = await executiveSummary.listKpis(companyId);
+    res.json(kpis);
+  });
+
+  router.put("/:companyId/kpis", validate(replaceCompanyKpisSchema), async (req, res) => {
+    const companyId = req.params.companyId as string;
+    await assertCanManageKpis(req, companyId);
+    const actor = getActorInfo(req);
+    const updated = await executiveSummary.replaceKpis(companyId, req.body.kpis, {
+      userId: req.actor.type === "board" ? req.actor.userId : null,
+      agentId: req.actor.type === "agent" ? req.actor.agentId : null,
+    });
+    await logActivity(db, {
+      companyId,
+      actorType: actor.actorType,
+      actorId: actor.actorId,
+      agentId: actor.agentId,
+      runId: actor.runId,
+      action: "company.kpis.updated",
+      entityType: "company",
+      entityId: companyId,
+      details: {
+        kpiCount: updated.length,
+        labels: updated.map((kpi) => kpi.label),
+      },
+    });
+    res.json(updated);
+  });
+
+  router.get("/:companyId/executive-summary", async (req, res) => {
+    const companyId = req.params.companyId as string;
+    await assertCanManageKpis(req, companyId);
+    const summary = await executiveSummary.buildExecutiveSummary(companyId);
+    res.json(summary);
   });
 
   router.post("/:companyId/export", validate(companyPortabilityExportSchema), async (req, res) => {
@@ -388,6 +447,91 @@ export function companyRoutes(db: Db, storage?: StorageService) {
       entityId: companyId,
     });
     res.json(company);
+  });
+
+  router.post("/:companyId/pause", async (req, res) => {
+    assertBoard(req);
+    const companyId = req.params.companyId as string;
+    assertCompanyAccess(req, companyId);
+
+    const result = await svc.pause(companyId);
+    if (!result) {
+      res.status(404).json({ error: "Company not found" });
+      return;
+    }
+
+    await logActivity(db, {
+      companyId,
+      actorType: "user",
+      actorId: req.actor.userId ?? "board",
+      action: "company.paused",
+      entityType: "company",
+      entityId: companyId,
+      details: {
+        pausedAgentCount: result.pausedAgentCount,
+      },
+    });
+
+    res.json(result.company);
+  });
+
+  router.post("/:companyId/resume", async (req, res) => {
+    assertBoard(req);
+    const companyId = req.params.companyId as string;
+    assertCompanyAccess(req, companyId);
+
+    const result = await svc.resume(companyId);
+    if (!result) {
+      res.status(404).json({ error: "Company not found" });
+      return;
+    }
+
+    let cooHeartbeatTriggered = false;
+    let cooAgentId: string | null = null;
+    try {
+      await heartbeatModel.ensureCompanyHasCooCoordinator(companyId, { apply: true });
+      const companyAgents = await agents.list(companyId);
+      const cooAgent = companyAgents.find((agent) => agent.role === "coo") ?? null;
+      if (cooAgent) {
+        cooAgentId = cooAgent.id;
+        if (
+          cooAgent.status !== "paused"
+          && cooAgent.status !== "terminated"
+          && cooAgent.status !== "pending_approval"
+        ) {
+          const run = await heartbeat.invoke(
+            cooAgent.id,
+            "on_demand",
+            {
+              source: "company.resume",
+              reason: "company_resumed_coo_kickoff",
+              mutation: "company_resumed",
+            },
+            "system",
+            { actorType: "user", actorId: req.actor.userId ?? "board" },
+          );
+          cooHeartbeatTriggered = Boolean(run);
+        }
+      }
+    } catch {
+      // Best-effort COO kickoff. Resume still succeeds if COO ensure/invoke is blocked.
+    }
+
+    await logActivity(db, {
+      companyId,
+      actorType: "user",
+      actorId: req.actor.userId ?? "board",
+      action: "company.resumed",
+      entityType: "company",
+      entityId: companyId,
+      details: {
+        resumedAgentCount: result.resumedAgentCount,
+        cooAgentId,
+        cooHeartbeatTriggered,
+      },
+    });
+
+    res.json(result.company);
   });
 
   router.delete("/:companyId", async (req, res) => {

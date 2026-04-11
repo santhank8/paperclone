@@ -1,8 +1,12 @@
 import { Link } from "@/lib/router";
-import { Menu } from "lucide-react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Menu, Pause, Play } from "lucide-react";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
 import { useSidebar } from "../context/SidebarContext";
 import { useCompany } from "../context/CompanyContext";
+import { companiesApi } from "../api/companies";
+import { queryKeys } from "../lib/queryKeys";
+import { useToast } from "../context/ToastContext";
 import { Button } from "@/components/ui/button";
 import {
   Breadcrumb,
@@ -23,10 +27,10 @@ function GlobalToolbarPlugins({ context }: { context: GlobalToolbarContext }) {
   const { launchers } = usePluginLaunchers({ placementZones: ["globalToolbarButton"], companyId: context.companyId, enabled: !!context.companyId });
   if (slots.length === 0 && launchers.length === 0) return null;
   return (
-    <div className="flex items-center gap-1 ml-auto shrink-0 pl-2">
+    <>
       <PluginSlotOutlet slotTypes={["globalToolbarButton"]} context={context} className="flex items-center gap-1" />
       <PluginLauncherOutlet placementZones={["globalToolbarButton"]} context={context} className="flex items-center gap-1" />
-    </div>
+    </>
   );
 }
 
@@ -34,6 +38,44 @@ export function BreadcrumbBar() {
   const { breadcrumbs } = useBreadcrumbs();
   const { toggleSidebar, isMobile } = useSidebar();
   const { selectedCompanyId, selectedCompany } = useCompany();
+  const { pushToast } = useToast();
+  const queryClient = useQueryClient();
+
+  const lifecycleMutation = useMutation({
+    mutationFn: ({ action, companyId }: { action: "pause" | "resume"; companyId: string }) =>
+      action === "pause"
+        ? companiesApi.pause(companyId)
+        : companiesApi.resume(companyId),
+    onSuccess: async (_company, { action, companyId }) => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.companies.all }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.companies.stats }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.agents.list(companyId) }),
+        queryClient.invalidateQueries({ queryKey: ["agents"] }),
+        queryClient.invalidateQueries({ queryKey: ["heartbeats", companyId] }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.liveRuns(companyId) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.dashboard(companyId) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.org(companyId) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.activity(companyId) }),
+      ]);
+
+      pushToast({
+        title: action === "pause" ? "Company paused" : "Company resumed",
+        body:
+          action === "pause"
+            ? "New runs are paused at the company level."
+            : "Company-level execution resumed.",
+        tone: "success",
+      });
+    },
+    onError: (err) => {
+      pushToast({
+        title: "Failed to update company runtime",
+        body: err instanceof Error ? err.message : "Unknown error",
+        tone: "error",
+      });
+    },
+  });
 
   const globalToolbarSlotContext = useMemo(
     () => ({
@@ -44,11 +86,52 @@ export function BreadcrumbBar() {
   );
 
   const globalToolbarSlots = <GlobalToolbarPlugins context={globalToolbarSlotContext} />;
+  const showRuntimeButton = Boolean(selectedCompanyId && selectedCompany && selectedCompany.status !== "archived");
+
+  const runtimeAction = selectedCompany?.status === "paused" ? "resume" : "pause";
+  const runtimeButton = showRuntimeButton ? (
+    <Button
+      size="sm"
+      disabled={lifecycleMutation.isPending}
+      className={selectedCompany?.status === "paused"
+        ? "bg-emerald-600 text-white hover:bg-emerald-700"
+        : "bg-amber-500 text-amber-950 hover:bg-amber-400"}
+      onClick={() => {
+        if (!selectedCompanyId || !selectedCompany) return;
+        lifecycleMutation.mutate({ action: runtimeAction, companyId: selectedCompanyId });
+      }}
+      title={selectedCompany?.status === "paused" ? "Run company" : "Pause company"}
+      aria-label={selectedCompany?.status === "paused" ? "Run company" : "Pause company"}
+    >
+      {lifecycleMutation.isPending
+        ? (lifecycleMutation.variables?.action === "resume" ? "Running..." : "Pausing...")
+        : selectedCompany?.status === "paused"
+          ? (
+            <>
+              <Play className="mr-1 h-3.5 w-3.5" />
+              Run
+            </>
+          )
+          : (
+            <>
+              <Pause className="mr-1 h-3.5 w-3.5" />
+              Pause
+            </>
+          )}
+    </Button>
+  ) : null;
+
+  const rightControls = (runtimeButton || globalToolbarSlots) ? (
+    <div className="flex items-center gap-1 ml-auto shrink-0 pl-2">
+      {runtimeButton}
+      {globalToolbarSlots}
+    </div>
+  ) : null;
 
   if (breadcrumbs.length === 0) {
     return (
       <div className="border-b border-border px-4 md:px-6 h-12 shrink-0 flex items-center justify-end">
-        {globalToolbarSlots}
+        {rightControls}
       </div>
     );
   }
@@ -75,7 +158,7 @@ export function BreadcrumbBar() {
             {breadcrumbs[0].label}
           </h1>
         </div>
-        {globalToolbarSlots}
+        {rightControls}
       </div>
     );
   }
@@ -107,7 +190,7 @@ export function BreadcrumbBar() {
           </BreadcrumbList>
         </Breadcrumb>
       </div>
-      {globalToolbarSlots}
+      {rightControls}
     </div>
   );
 }

@@ -35,6 +35,7 @@ import { MarkdownBody } from "../components/MarkdownBody";
 import { CopyText } from "../components/CopyText";
 import { EntityRow } from "../components/EntityRow";
 import { Identity } from "../components/Identity";
+import { AgentName } from "../components/AgentName";
 import { PageSkeleton } from "../components/PageSkeleton";
 import { RunButton, PauseResumeButton } from "../components/AgentActionButtons";
 import { BudgetPolicyCard } from "../components/BudgetPolicyCard";
@@ -914,7 +915,15 @@ export function AgentDetail() {
             </button>
           </AgentIconPicker>
           <div className="min-w-0">
-            <h2 className="text-2xl font-bold truncate">{agent.name}</h2>
+            <h2 className="text-2xl font-bold truncate">
+              <AgentName
+                name={agent.name}
+                status={agent.status}
+                className="max-w-full"
+                textClassName="text-2xl font-bold"
+                iconClassName="h-4 w-4"
+              />
+            </h2>
             <p className="text-sm text-muted-foreground truncate">
               {roleLabels[agent.role] ?? agent.role}
               {agent.title ? ` - ${agent.title}` : ""}

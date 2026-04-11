@@ -11,6 +11,7 @@ import { queryKeys } from "../lib/queryKeys";
 import { StatusBadge } from "../components/StatusBadge";
 import { agentStatusDot, agentStatusDotDefault } from "../lib/status-colors";
 import { EntityRow } from "../components/EntityRow";
+import { AgentName } from "../components/AgentName";
 import { EmptyState } from "../components/EmptyState";
 import { PageSkeleton } from "../components/PageSkeleton";
 import { relativeTime, cn, agentRouteRef, agentUrl } from "../lib/utils";
@@ -221,7 +222,14 @@ export function Agents() {
             return (
               <EntityRow
                 key={agent.id}
-                title={agent.name}
+                title={
+                  <AgentName
+                    name={agent.name}
+                    status={agent.status}
+                    className="min-w-0"
+                    textClassName="text-sm"
+                  />
+                }
                 subtitle={`${roleLabels[agent.role] ?? agent.role}${agent.title ? ` - ${agent.title}` : ""}`}
                 to={agentUrl(agent)}
                 className={agent.pausedAt && tab !== "paused" ? "opacity-50" : ""}
@@ -328,7 +336,12 @@ function OrgTreeNode({
           <span className={`absolute inline-flex h-full w-full rounded-full ${statusColor}`} />
         </span>
         <div className="flex-1 min-w-0">
-          <span className="text-sm font-medium">{node.name}</span>
+          <AgentName
+            name={node.name}
+            status={node.status}
+            className="min-w-0"
+            textClassName="text-sm font-medium"
+          />
           <span className="text-xs text-muted-foreground ml-2">
             {roleLabels[node.role] ?? node.role}
             {agent?.title ? ` - ${agent.title}` : ""}

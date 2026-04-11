@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
+import type { CompanyStatus } from "@paperclipai/shared";
+import { Archive, Pause, Play } from "lucide-react";
 import { cn } from "../lib/utils";
 
 const BAYER_4X4 = [
@@ -12,7 +14,33 @@ interface CompanyPatternIconProps {
   companyName: string;
   logoUrl?: string | null;
   brandColor?: string | null;
+  status?: CompanyStatus | null;
   className?: string;
+}
+
+function CompanyStatusBadge({ status }: { status: CompanyStatus }) {
+  const Icon = status === "paused" ? Pause : status === "archived" ? Archive : Play;
+  const label = status === "paused" ? "Off" : status === "archived" ? "Archived" : "On";
+  const toneClassName =
+    status === "paused"
+      ? "bg-amber-500 text-amber-950"
+      : status === "archived"
+        ? "bg-neutral-500 text-neutral-100"
+        : "bg-emerald-500 text-emerald-950";
+
+  return (
+    <span
+      className={cn(
+        "pointer-events-none absolute left-0.5 top-0.5 z-20 inline-flex h-3.5 w-3.5 items-center justify-center rounded-full bg-background/95 ring-1 ring-black/25 shadow-[0_2px_4px_rgba(0,0,0,0.45)] backdrop-blur-sm",
+      )}
+      title={`Company is ${label.toLowerCase()}`}
+      aria-label={`Company is ${label.toLowerCase()}`}
+    >
+      <span className={cn("inline-flex h-2.5 w-2.5 items-center justify-center rounded-full", toneClassName)}>
+        <Icon className="h-1.5 w-1.5" strokeWidth={2.75} />
+      </span>
+    </span>
+  );
 }
 
 function hashString(value: string): number {
@@ -164,6 +192,7 @@ export function CompanyPatternIcon({
   companyName,
   logoUrl,
   brandColor,
+  status,
   className,
 }: CompanyPatternIconProps) {
   const initial = companyName.trim().charAt(0).toUpperCase() || "?";
@@ -207,6 +236,7 @@ export function CompanyPatternIcon({
           {initial}
         </span>
       )}
+      {status && <CompanyStatusBadge status={status} />}
     </div>
   );
 }

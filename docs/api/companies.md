@@ -73,6 +73,23 @@ POST /api/companies/{companyId}/archive
 
 Archives a company. Archived companies are hidden from default listings.
 
+## Pause Company
+
+```
+POST /api/companies/{companyId}/pause
+```
+
+Pauses the company at the company scope. Agent-level pause states are unchanged.
+
+## Resume Company
+
+```
+POST /api/companies/{companyId}/resume
+```
+
+Resumes the company at the company scope. Agent-level pause states are unchanged.
+On resume, Paperclip also ensures a COO coordinator exists and triggers a COO heartbeat kickoff (best-effort).
+
 ## Company Fields
 
 | Field | Type | Description |

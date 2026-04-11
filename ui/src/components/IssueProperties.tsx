@@ -16,6 +16,7 @@ import { buildExecutionPolicy, stageParticipantValues } from "../lib/issue-execu
 import { StatusIcon } from "./StatusIcon";
 import { PriorityIcon } from "./PriorityIcon";
 import { Identity } from "./Identity";
+import { AgentName } from "./AgentName";
 import { formatDate, cn, projectUrl } from "../lib/utils";
 import { timeAgo } from "../lib/timeAgo";
 import { Separator } from "@/components/ui/separator";
@@ -424,7 +425,7 @@ export function IssueProperties({
   );
 
   const assigneeTrigger = assignee ? (
-    <Identity name={assignee.name} size="sm" />
+    <Identity name={assignee.name} size="sm" status={assignee.status} />
   ) : assigneeUserLabel ? (
     <>
       <User className="h-3.5 w-3.5 text-muted-foreground" />
@@ -502,7 +503,13 @@ export function IssueProperties({
             onClick={() => { trackRecentAssignee(a.id); onUpdate({ assigneeAgentId: a.id, assigneeUserId: null }); setAssigneeOpen(false); }}
           >
             <AgentIcon icon={a.icon} className="shrink-0 h-3 w-3 text-muted-foreground" />
-            {a.name}
+            <AgentName
+              name={a.name}
+              status={a.status}
+              className="min-w-0"
+              textClassName="text-xs"
+              iconClassName="h-2.5 w-2.5"
+            />
           </button>
         ))}
       </div>
@@ -575,7 +582,13 @@ export function IssueProperties({
                 onClick={() => toggleExecutionParticipant(stageType, encoded)}
               >
                 <AgentIcon icon={agent.icon} className="shrink-0 h-3 w-3 text-muted-foreground" />
-                {agent.name}
+                <AgentName
+                  name={agent.name}
+                  status={agent.status}
+                  className="min-w-0"
+                  textClassName="text-xs"
+                  iconClassName="h-2.5 w-2.5"
+                />
               </button>
             );
           })}

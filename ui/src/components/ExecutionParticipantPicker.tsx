@@ -10,6 +10,7 @@ import { cn } from "../lib/utils";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { User, Eye, ShieldCheck } from "lucide-react";
 import { AgentIcon } from "./AgentIconPicker";
+import { AgentName } from "./AgentName";
 
 type StageType = "review" | "approval";
 
@@ -155,7 +156,13 @@ export function ExecutionParticipantPicker({
                   onClick={() => toggle(encoded)}
                 >
                   <AgentIcon icon={agent.icon} className="shrink-0 h-3 w-3 text-muted-foreground" />
-                  {agent.name}
+                  <AgentName
+                    name={agent.name}
+                    status={agent.status}
+                    className="min-w-0"
+                    textClassName="text-xs"
+                    iconClassName="h-2.5 w-2.5"
+                  />
                 </button>
               );
             })}

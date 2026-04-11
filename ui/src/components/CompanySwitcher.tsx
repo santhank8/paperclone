@@ -10,19 +10,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-
-function statusDotColor(status?: string): string {
-  switch (status) {
-    case "active":
-      return "bg-green-400";
-    case "paused":
-      return "bg-yellow-400";
-    case "archived":
-      return "bg-neutral-400";
-    default:
-      return "bg-green-400";
-  }
-}
+import { CompanyPatternIcon } from "./CompanyPatternIcon";
 
 export function CompanySwitcher() {
   const { companies, selectedCompany, setSelectedCompanyId } = useCompany();
@@ -37,7 +25,13 @@ export function CompanySwitcher() {
         >
           <div className="flex items-center gap-2 min-w-0">
             {selectedCompany && (
-              <span className={`h-2 w-2 rounded-full shrink-0 ${statusDotColor(selectedCompany.status)}`} />
+              <CompanyPatternIcon
+                companyName={selectedCompany.name}
+                logoUrl={selectedCompany.logoUrl}
+                brandColor={selectedCompany.brandColor}
+                status={selectedCompany.status}
+                className="h-6 w-6 rounded-md text-[10px] shrink-0"
+              />
             )}
             <span className="text-sm font-medium truncate">
               {selectedCompany?.name ?? "Select company"}
@@ -55,7 +49,13 @@ export function CompanySwitcher() {
             onClick={() => setSelectedCompanyId(company.id)}
             className={company.id === selectedCompany?.id ? "bg-accent" : ""}
           >
-            <span className={`h-2 w-2 rounded-full shrink-0 mr-2 ${statusDotColor(company.status)}`} />
+            <CompanyPatternIcon
+              companyName={company.name}
+              logoUrl={company.logoUrl}
+              brandColor={company.brandColor}
+              status={company.status}
+              className="h-6 w-6 rounded-md text-[10px] mr-2 shrink-0"
+            />
             <span className="truncate">{company.name}</span>
           </DropdownMenuItem>
         ))}
