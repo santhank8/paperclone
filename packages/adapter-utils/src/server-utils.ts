@@ -604,6 +604,32 @@ function resolveWindowsCmdShell(env: NodeJS.ProcessEnv): string {
   return path.join(fallbackRoot, "System32", "cmd.exe");
 }
 
+/**
+ * Detect whether a .cmd/.bat file is a thin Node.js wrapper that simply
+ * forwards arguments to a .js script (e.g. `node "path/to/script.js" %*`).
+ * When detected, we can invoke `node` directly and skip cmd.exe entirely,
+ * avoiding metacharacter escaping issues with parentheses, pipes, etc.
+ * in argument values such as LLM prompts.
+ *
+ * Only matches strict two-line wrappers (`@echo off` + `node ... %*`) to
+ * avoid false positives on complex .cmd files with conditionals or loops.
+ */
+async function detectNodeWrapperCmd(cmdPath: string): Promise<string | null> {
+  try {
+    const content = await fs.readFile(cmdPath, "utf8");
+    // Strict match: the entire file must be `@echo off` followed by a
+    // single `node "script.js" %*` line (plus optional trailing whitespace).
+    // The `i` flag handles case variations; no `m` flag so `^` and `$`
+    // anchor to file boundaries, rejecting multi-statement .cmd files.
+    const match = content.match(
+      /^\s*@echo\s+off\s*[\r\n]+\s*node\s+"?([^"\r\n]+\.js)"?\s*%\*\s*$/i,
+    );
+    return match?.[1]?.trim() ?? null;
+  } catch {
+    return null;
+  }
+}
+
 async function resolveSpawnTarget(
   command: string,
   args: string[],
@@ -618,6 +644,15 @@ async function resolveSpawnTarget(
   }
 
   if (/\.(cmd|bat)$/i.test(executable)) {
+    // If the .cmd is a thin `node script.js %*` wrapper, invoke node
+    // directly. This avoids cmd.exe metacharacter parsing issues when
+    // arguments contain characters like () & | < > ^ (common in LLM
+    // prompts and multi-line instructions).
+    const scriptPath = await detectNodeWrapperCmd(executable);
+    if (scriptPath) {
+      return { command: "node", args: [scriptPath, ...args] };
+    }
+
     // Always use cmd.exe for .cmd/.bat wrappers. Some environments override
     // ComSpec to PowerShell, which breaks cmd-specific flags like /d /s /c.
     const shell = resolveWindowsCmdShell(env);
