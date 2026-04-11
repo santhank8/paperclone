@@ -1,4 +1,5 @@
-import { type AnyPgColumn, pgTable, uuid, text, timestamp, jsonb, index, integer, bigint, boolean } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
+import { type AnyPgColumn, pgTable, uuid, text, timestamp, jsonb, index, integer, bigint, boolean, uniqueIndex } from "drizzle-orm/pg-core";
 import { companies } from "./companies.js";
 import { agents } from "./agents.js";
 import { agentWakeupRequests } from "./agent_wakeup_requests.js";
@@ -36,6 +37,17 @@ export const heartbeatRuns = pgTable(
     retryOfRunId: uuid("retry_of_run_id").references((): AnyPgColumn => heartbeatRuns.id, {
       onDelete: "set null",
     }),
+    retryGroupId: uuid("retry_group_id").references((): AnyPgColumn => heartbeatRuns.id, {
+      onDelete: "set null",
+    }),
+    retryAttempt: integer("retry_attempt").notNull().default(0),
+    retryState: text("retry_state").notNull().default("none"),
+    retryClass: text("retry_class"),
+    retryScheduledFor: timestamp("retry_scheduled_for", { withTimezone: true }),
+    retryExhaustedAt: timestamp("retry_exhausted_at", { withTimezone: true }),
+    retryBlockedReason: text("retry_blocked_reason"),
+    retryLastDecision: text("retry_last_decision"),
+    retryPolicyJson: jsonb("retry_policy_json").$type<Record<string, unknown>>(),
     processLossRetryCount: integer("process_loss_retry_count").notNull().default(0),
     issueCommentStatus: text("issue_comment_status").notNull().default("not_applicable"),
     issueCommentSatisfiedByCommentId: uuid("issue_comment_satisfied_by_comment_id"),
@@ -49,6 +61,15 @@ export const heartbeatRuns = pgTable(
       table.companyId,
       table.agentId,
       table.startedAt,
+    ),
+    retryGroupAttemptIdx: uniqueIndex("heartbeat_runs_retry_group_attempt_idx")
+      .on(table.retryGroupId, table.retryAttempt)
+      .where(sql`${table.retryGroupId} is not null`),
+    retryDueIdx: index("heartbeat_runs_retry_due_idx").on(
+      table.agentId,
+      table.status,
+      table.retryScheduledFor,
+      table.createdAt,
     ),
   }),
 );

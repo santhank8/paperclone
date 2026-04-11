@@ -26,6 +26,17 @@ const mockBudgetService = vi.hoisted(() => ({
   upsertPolicy: vi.fn(),
 }));
 
+const mockHeartbeatService = vi.hoisted(() => ({
+  cancelActiveForCompany: vi.fn(),
+  stopRunningForCompany: vi.fn(),
+  invoke: vi.fn(),
+  resumeQueuedRuns: vi.fn(),
+}));
+
+const mockAgentHeartbeatModelService = vi.hoisted(() => ({
+  ensureCompanyHasCooCoordinator: vi.fn(),
+}));
+
 const mockCompanyPortabilityService = vi.hoisted(() => ({
   exportBundle: vi.fn(),
   previewExport: vi.fn(),
@@ -48,13 +59,23 @@ const mockFeedbackService = vi.hoisted(() => ({
   saveIssueVote: vi.fn(),
 }));
 
+const mockRoadmapEpicService = vi.hoisted(() => ({
+  listPausedEpicIds: vi.fn(),
+  pauseEpic: vi.fn(),
+  resumeEpic: vi.fn(),
+}));
+
 vi.mock("../services/index.js", () => ({
   accessService: () => mockAccessService,
   agentService: () => mockAgentService,
+  agentHeartbeatModelService: () => mockAgentHeartbeatModelService,
   budgetService: () => mockBudgetService,
+  heartbeatService: () => mockHeartbeatService,
   companyPortabilityService: () => mockCompanyPortabilityService,
   companyService: () => mockCompanyService,
   executiveSummaryService: () => mockExecutiveSummaryService,
+  roadmapEpicService: () => mockRoadmapEpicService,
+  normalizeRoadmapEpicId: (roadmapId: string) => roadmapId.trim().toUpperCase(),
   feedbackService: () => mockFeedbackService,
   logActivity: mockLogActivity,
 }));

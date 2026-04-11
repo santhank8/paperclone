@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type { CompanyStatus } from "@paperclipai/shared";
-import { Archive, Pause, Play } from "lucide-react";
+import { Pause } from "lucide-react";
 import { cn } from "../lib/utils";
 
 const BAYER_4X4 = [
@@ -19,14 +19,9 @@ interface CompanyPatternIconProps {
 }
 
 function CompanyStatusBadge({ status }: { status: CompanyStatus }) {
-  const Icon = status === "paused" ? Pause : status === "archived" ? Archive : Play;
-  const label = status === "paused" ? "Off" : status === "archived" ? "Archived" : "On";
-  const toneClassName =
-    status === "paused"
-      ? "bg-amber-500 text-amber-950"
-      : status === "archived"
-        ? "bg-neutral-500 text-neutral-100"
-        : "bg-emerald-500 text-emerald-950";
+  if (status !== "paused") return null;
+  const label = "Off";
+  const toneClassName = "bg-amber-500 text-amber-950";
 
   return (
     <span
@@ -37,7 +32,7 @@ function CompanyStatusBadge({ status }: { status: CompanyStatus }) {
       aria-label={`Company is ${label.toLowerCase()}`}
     >
       <span className={cn("inline-flex h-2.5 w-2.5 items-center justify-center rounded-full", toneClassName)}>
-        <Icon className="h-1.5 w-1.5" strokeWidth={2.75} />
+        <Pause className="h-1.5 w-1.5" strokeWidth={2.75} />
       </span>
     </span>
   );
@@ -236,7 +231,7 @@ export function CompanyPatternIcon({
           {initial}
         </span>
       )}
-      {status && <CompanyStatusBadge status={status} />}
+      {status === "paused" && <CompanyStatusBadge status={status} />}
     </div>
   );
 }

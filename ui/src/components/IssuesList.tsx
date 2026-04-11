@@ -1,10 +1,13 @@
 import { useDeferredValue, useEffect, useMemo, useState, useCallback, useRef } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { pickTextColorForPillBg } from "@/lib/color-contrast";
 import { useDialog } from "../context/DialogContext";
 import { useCompany } from "../context/CompanyContext";
+import { useToast } from "../context/ToastContext";
+import { companiesApi } from "../api/companies";
 import { issuesApi } from "../api/issues";
 import { authApi } from "../api/auth";
+import { roadmapApi } from "../api/roadmap";
 import { queryKeys } from "../lib/queryKeys";
 import { formatAssigneeUserLabel } from "../lib/assignees";
 import { groupBy } from "../lib/groupBy";
@@ -22,7 +25,7 @@ import { Input } from "@/components/ui/input";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
-import { CircleDot, Plus, Filter, ArrowUpDown, Layers, Check, X, ChevronRight, List, Columns3, User, Search } from "lucide-react";
+import { CircleDot, Plus, Filter, ArrowUpDown, Layers, Check, X, ChevronRight, List, Columns3, User, Search, Pause, Play } from "lucide-react";
 import { KanbanBoard } from "./KanbanBoard";
 import { buildIssueTree, countDescendants } from "../lib/issue-tree";
 import type { Issue } from "@paperclipai/shared";
@@ -31,8 +34,87 @@ import type { Issue } from "@paperclipai/shared";
 
 const statusOrder = ["in_progress", "todo", "backlog", "in_review", "blocked", "done", "cancelled"];
 const priorityOrder = ["critical", "high", "medium", "low"];
+const ROADMAP_EPIC_ID_REGEX = /\bRM-(?:\d{4}-Q[1-4]-\d{2}|UNPLANNED)\b/gi;
 
 const statusLabel = formatIssueStatusLabel;
+
+interface EpicTone {
+  badge: string;
+}
+
+interface EpicPresentation {
+  id: string;
+  title: string;
+  count: number;
+  order: number;
+  sectionTitle: string | null;
+  overview: { key: string; value: string } | null;
+}
+
+const EPIC_TONES: EpicTone[] = [
+  {
+    badge: "border-cyan-300 bg-cyan-50 text-cyan-900 dark:border-cyan-800 dark:bg-cyan-950/40 dark:text-cyan-100",
+  },
+  {
+    badge: "border-emerald-300 bg-emerald-50 text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-100",
+  },
+  {
+    badge: "border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100",
+  },
+  {
+    badge: "border-violet-300 bg-violet-50 text-violet-900 dark:border-violet-800 dark:bg-violet-950/40 dark:text-violet-100",
+  },
+  {
+    badge: "border-rose-300 bg-rose-50 text-rose-900 dark:border-rose-800 dark:bg-rose-950/40 dark:text-rose-100",
+  },
+  {
+    badge: "border-sky-300 bg-sky-50 text-sky-900 dark:border-sky-800 dark:bg-sky-950/40 dark:text-sky-100",
+  },
+];
+
+function hashValue(value: string): number {
+  let hash = 0;
+  for (let index = 0; index < value.length; index += 1) {
+    hash = (hash * 31 + value.charCodeAt(index)) >>> 0;
+  }
+  return hash;
+}
+
+function epicTone(epicId: string): EpicTone {
+  return EPIC_TONES[hashValue(epicId) % EPIC_TONES.length] ?? EPIC_TONES[0];
+}
+
+function epicButtonClassName(tone: EpicTone, selected: boolean): string {
+  return cn(
+    "border transition-all",
+    tone.badge,
+    selected
+      ? "ring-1 ring-foreground/25 shadow-xs saturate-125"
+      : "opacity-80 hover:opacity-100 hover:-translate-y-px",
+  );
+}
+
+function extractRoadmapEpicIdsFromIssue(issue: Pick<Issue, "title" | "description">): string[] {
+  ROADMAP_EPIC_ID_REGEX.lastIndex = 0;
+  const rawMatches = (`${issue.title}\n${issue.description ?? ""}`).match(ROADMAP_EPIC_ID_REGEX);
+  if (!rawMatches) return [];
+  const ids = new Set(rawMatches.map((value) => value.toUpperCase()));
+  return [...ids];
+}
+
+function isDoneEquivalent(status: Issue["status"]): boolean {
+  return status === "done" || status === "cancelled";
+}
+
+function pickRoadmapOverviewField(fields: Array<{ key: string; value: string }>): { key: string; value: string } | null {
+  return fields.find((field) => {
+    const normalizedKey = field.key.trim().toLowerCase();
+    return normalizedKey === "purpose" || normalizedKey === "outcome" || normalizedKey === "scope";
+  }) ?? fields.find((field) => {
+    const normalizedKey = field.key.trim().toLowerCase();
+    return normalizedKey !== "linked tickets" && normalizedKey !== "status";
+  }) ?? null;
+}
 
 /* ── View state ── */
 
@@ -42,6 +124,7 @@ export type IssueViewState = {
   assignees: string[];
   labels: string[];
   projects: string[];
+  epicId: string | null;
   sortField: "status" | "priority" | "title" | "created" | "updated";
   sortDir: "asc" | "desc";
   groupBy: "status" | "priority" | "assignee" | "none";
@@ -56,6 +139,7 @@ const defaultViewState: IssueViewState = {
   assignees: [],
   labels: [],
   projects: [],
+  epicId: null,
   sortField: "updated",
   sortDir: "desc",
   groupBy: "none",
@@ -93,7 +177,12 @@ function toggleInArray(arr: string[], value: string): string[] {
   return arr.includes(value) ? arr.filter((v) => v !== value) : [...arr, value];
 }
 
-function applyFilters(issues: Issue[], state: IssueViewState, currentUserId?: string | null): Issue[] {
+function applyFilters(
+  issues: Issue[],
+  state: IssueViewState,
+  currentUserId?: string | null,
+  epicIdsByIssueId?: Map<string, string[]>,
+): Issue[] {
   let result = issues;
   if (state.statuses.length > 0) result = result.filter((i) => state.statuses.includes(i.status));
   if (state.priorities.length > 0) result = result.filter((i) => state.priorities.includes(i.priority));
@@ -109,6 +198,13 @@ function applyFilters(issues: Issue[], state: IssueViewState, currentUserId?: st
   }
   if (state.labels.length > 0) result = result.filter((i) => (i.labelIds ?? []).some((id) => state.labels.includes(id)));
   if (state.projects.length > 0) result = result.filter((i) => i.projectId != null && state.projects.includes(i.projectId));
+  if (state.epicId) {
+    const selectedEpicId = state.epicId;
+    result = result.filter((issue) => {
+      const epicIds = epicIdsByIssueId?.get(issue.id) ?? extractRoadmapEpicIdsFromIssue(issue);
+      return epicIds.includes(selectedEpicId);
+    });
+  }
   return result;
 }
 
@@ -141,6 +237,7 @@ function countActiveFilters(state: IssueViewState): number {
   if (state.assignees.length > 0) count++;
   if (state.labels.length > 0) count++;
   if (state.projects.length > 0) count++;
+  if (state.epicId) count++;
   return count;
 }
 
@@ -193,6 +290,8 @@ export function IssuesList({
 }: IssuesListProps) {
   const { selectedCompanyId } = useCompany();
   const { openNewIssue } = useDialog();
+  const { pushToast } = useToast();
+  const queryClient = useQueryClient();
   const { data: session } = useQuery({
     queryKey: queryKeys.auth.session,
     queryFn: () => authApi.getSession(),
@@ -259,16 +358,151 @@ export function IssuesList({
     placeholderData: (previousData) => previousData,
   });
 
+  const { data: roadmapData } = useQuery({
+    queryKey: queryKeys.roadmap(selectedCompanyId),
+    queryFn: () => roadmapApi.get(selectedCompanyId),
+    enabled: !!selectedCompanyId,
+  });
+
+  const { data: pausedRoadmapEpics } = useQuery({
+    queryKey: queryKeys.companies.roadmapEpics(selectedCompanyId ?? ""),
+    queryFn: () => companiesApi.listRoadmapEpics(selectedCompanyId!),
+    enabled: !!selectedCompanyId,
+  });
+
   const agentName = useCallback((id: string | null) => {
     if (!id || !agents) return null;
     return agents.find((a) => a.id === id)?.name ?? null;
   }, [agents]);
 
+  const sourceIssues = useMemo(
+    () => (normalizedIssueSearch.length > 0 ? searchedIssues : issues),
+    [issues, searchedIssues, normalizedIssueSearch],
+  );
+
+  const epicIdsByIssueId = useMemo(() => {
+    const map = new Map<string, string[]>();
+    for (const issue of sourceIssues) {
+      map.set(issue.id, extractRoadmapEpicIdsFromIssue(issue));
+    }
+    return map;
+  }, [sourceIssues]);
+
+  const roadmapEpicMeta = useMemo(() => {
+    const map = new Map<string, { title: string; order: number; sectionTitle: string | null; overview: { key: string; value: string } | null }>();
+    const sections = roadmapData?.roadmap.sections ?? [];
+    let order = 0;
+    for (const section of sections) {
+      for (const item of section.items) {
+        map.set(item.id.toUpperCase(), {
+          title: item.title,
+          order,
+          sectionTitle: section.title,
+          overview: pickRoadmapOverviewField(item.fields),
+        });
+        order += 1;
+      }
+    }
+    return map;
+  }, [roadmapData]);
+
+  const epicPills = useMemo(() => {
+    const counts = new Map<string, number>();
+    const issuesMatchingOtherFilters = applyFilters(
+      sourceIssues,
+      { ...viewState, epicId: null },
+      currentUserId,
+      epicIdsByIssueId,
+    );
+    for (const issue of issuesMatchingOtherFilters) {
+      const ids = epicIdsByIssueId.get(issue.id) ?? [];
+      for (const id of ids) {
+        counts.set(id, (counts.get(id) ?? 0) + 1);
+      }
+    }
+    if (viewState.epicId && !counts.has(viewState.epicId)) {
+      counts.set(viewState.epicId, 0);
+    }
+    return [...counts.entries()]
+      .map(([id, count]) => {
+        const normalizedId = id.toUpperCase();
+        const roadmapMeta = roadmapEpicMeta.get(normalizedId);
+        return {
+          id,
+          title: roadmapMeta?.title ?? id,
+          count,
+          order: roadmapMeta?.order ?? Number.MAX_SAFE_INTEGER,
+          sectionTitle: roadmapMeta?.sectionTitle ?? null,
+          overview: roadmapMeta?.overview ?? null,
+        } satisfies EpicPresentation;
+      })
+      .sort((left, right) => {
+        if (left.order !== right.order) return left.order - right.order;
+        return left.id.localeCompare(right.id);
+      });
+  }, [sourceIssues, viewState, currentUserId, epicIdsByIssueId, roadmapEpicMeta]);
+
+  const pausedEpicIds = useMemo(
+    () => new Set((pausedRoadmapEpics?.pausedEpicIds ?? []).map((id) => id.toUpperCase())),
+    [pausedRoadmapEpics?.pausedEpicIds],
+  );
+
+  const selectedEpic = useMemo(() => {
+    if (!viewState.epicId) return null;
+    const normalizedId = viewState.epicId.toUpperCase();
+    return epicPills.find((epic) => epic.id.toUpperCase() === normalizedId) ?? {
+      id: viewState.epicId,
+      title: roadmapEpicMeta.get(normalizedId)?.title ?? viewState.epicId,
+      count: 0,
+      order: roadmapEpicMeta.get(normalizedId)?.order ?? Number.MAX_SAFE_INTEGER,
+      sectionTitle: roadmapEpicMeta.get(normalizedId)?.sectionTitle ?? null,
+      overview: roadmapEpicMeta.get(normalizedId)?.overview ?? null,
+    };
+  }, [viewState.epicId, epicPills, roadmapEpicMeta]);
+
+  const selectedEpicPaused = selectedEpic ? pausedEpicIds.has(selectedEpic.id.toUpperCase()) : false;
+  const selectedEpicComplete = useMemo(() => {
+    if (!selectedEpic) return false;
+    let issueCount = 0;
+    for (const issue of issues) {
+      const epicIds = extractRoadmapEpicIdsFromIssue(issue);
+      if (!epicIds.includes(selectedEpic.id.toUpperCase())) continue;
+      issueCount += 1;
+      if (!isDoneEquivalent(issue.status)) return false;
+    }
+    return issueCount > 0;
+  }, [selectedEpic, issues]);
+
+  const toggleEpicPauseMutation = useMutation({
+    mutationFn: async ({ epicId, pause }: { epicId: string; pause: boolean }) => {
+      if (!selectedCompanyId) throw new Error("No selected company");
+      if (pause) {
+        return companiesApi.pauseRoadmapEpic(selectedCompanyId, epicId);
+      }
+      return companiesApi.resumeRoadmapEpic(selectedCompanyId, epicId);
+    },
+    onSuccess: async (_result, variables) => {
+      if (!selectedCompanyId) return;
+      await queryClient.invalidateQueries({ queryKey: queryKeys.companies.roadmapEpics(selectedCompanyId) });
+      pushToast({
+        title: variables.pause ? "Epic paused" : "Epic resumed",
+        body: roadmapEpicMeta.get(variables.epicId.toUpperCase())?.title ?? variables.epicId,
+        tone: variables.pause ? "warn" : "success",
+      });
+    },
+    onError: (error) => {
+      pushToast({
+        title: "Failed to update epic",
+        body: error instanceof Error ? error.message : "Could not update roadmap epic state.",
+        tone: "error",
+      });
+    },
+  });
+
   const filtered = useMemo(() => {
-    const sourceIssues = normalizedIssueSearch.length > 0 ? searchedIssues : issues;
-    const filteredByControls = applyFilters(sourceIssues, viewState, currentUserId);
+    const filteredByControls = applyFilters(sourceIssues, viewState, currentUserId, epicIdsByIssueId);
     return sortIssues(filteredByControls, viewState);
-  }, [issues, searchedIssues, viewState, normalizedIssueSearch, currentUserId]);
+  }, [sourceIssues, viewState, currentUserId, epicIdsByIssueId]);
 
   const { data: labels } = useQuery({
     queryKey: queryKeys.issues.labels(selectedCompanyId!),
@@ -331,6 +565,10 @@ export function IssuesList({
     setAssigneeSearch("");
   }, [onUpdateIssue]);
 
+  const toggleEpicFilter = useCallback((epicId: string) => {
+    updateView({ epicId: viewState.epicId === epicId ? null : epicId });
+  }, [updateView, viewState.epicId]);
+
 
   return (
     <div className="space-y-4">
@@ -389,7 +627,7 @@ export function IssuesList({
                     className="h-3 w-3 ml-1 hidden sm:block"
                     onClick={(e) => {
                       e.stopPropagation();
-                      updateView({ statuses: [], priorities: [], assignees: [], labels: [], projects: [] });
+                      updateView({ statuses: [], priorities: [], assignees: [], labels: [], projects: [], epicId: null });
                     }}
                   />
                 )}
@@ -402,7 +640,7 @@ export function IssuesList({
                   {activeFilterCount > 0 && (
                     <button
                       className="text-xs text-muted-foreground hover:text-foreground"
-                      onClick={() => updateView({ statuses: [], priorities: [], assignees: [], labels: [] })}
+                      onClick={() => updateView({ statuses: [], priorities: [], assignees: [], labels: [], projects: [], epicId: null })}
                     >
                       Clear
                     </button>
@@ -624,6 +862,134 @@ export function IssuesList({
         </div>
       </div>
 
+      {epicPills.length > 0 && (
+        <div className="space-y-3">
+          <div className="sticky top-0 z-10 -mx-1 rounded-xl border border-border/70 bg-background/85 px-1 py-2 backdrop-blur supports-[backdrop-filter]:bg-background/70">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="px-2 text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">Epics</span>
+              {epicPills.map((epic) => {
+                const isSelected = viewState.epicId === epic.id;
+                const showsFallbackId = epic.title === epic.id;
+                return (
+                  <button
+                    key={epic.id}
+                    type="button"
+                    title={epic.id}
+                    data-epic-filter-pill={epic.id}
+                    aria-pressed={isSelected}
+                    className={cn(
+                      "group inline-flex max-w-full items-center gap-2 rounded-full px-2.5 py-1 text-left text-xs",
+                      epicButtonClassName(epicTone(epic.id), isSelected),
+                    )}
+                    onClick={() => toggleEpicFilter(epic.id)}
+                  >
+                    <span className="min-w-0 truncate font-medium">{epic.title}</span>
+                    {showsFallbackId ? (
+                      <span className="hidden font-mono text-[10px] opacity-70 lg:inline">{epic.id}</span>
+                    ) : null}
+                    {!isSelected ? (
+                      <span className="rounded-full bg-black/8 px-1.5 py-0.5 text-[10px] font-semibold dark:bg-white/10">
+                        {epic.count}
+                      </span>
+                    ) : null}
+                    {isSelected && <X className="h-3 w-3 shrink-0 opacity-70" />}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+          {selectedEpic && (
+            <section
+              className={cn(
+                "relative overflow-hidden rounded-2xl border px-4 py-4 shadow-xs md:px-5 md:py-5",
+                epicTone(selectedEpic.id).badge,
+              )}
+            >
+              <div className="pointer-events-none absolute inset-y-0 left-0 w-1.5 bg-current opacity-40" />
+              <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                <div className="min-w-0">
+                  <div className="text-[11px] font-semibold uppercase tracking-[0.16em] opacity-70">
+                    Epic Focus
+                  </div>
+                  <div className="mt-1 flex flex-wrap items-center gap-2">
+                    <h3 className="text-lg font-semibold leading-tight">{selectedEpic.title}</h3>
+                    {selectedEpicComplete ? (
+                      <span className="rounded-full border border-emerald-700/20 bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-emerald-800 dark:border-emerald-300/20 dark:bg-emerald-900/40 dark:text-emerald-100">
+                        Complete
+                      </span>
+                    ) : selectedEpicPaused ? (
+                      <span className="rounded-full border border-current/20 bg-black/8 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] dark:bg-white/10">
+                        Paused
+                      </span>
+                    ) : null}
+                    {selectedEpic.sectionTitle ? (
+                      <span className="rounded-full border border-current/20 px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.12em] opacity-75">
+                        {selectedEpic.sectionTitle}
+                      </span>
+                    ) : null}
+                  </div>
+                  <p className="mt-2 text-sm font-medium opacity-85">
+                    {selectedEpic.count} issue{selectedEpic.count === 1 ? "" : "s"} in scope
+                  </p>
+                  {selectedEpic.overview ? (
+                    <div className="mt-3 max-w-3xl">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.12em] opacity-70">
+                        {selectedEpic.overview.key}
+                      </p>
+                      <p className="mt-1 text-sm leading-6 opacity-90">{selectedEpic.overview.value}</p>
+                    </div>
+                  ) : (
+                    <p className="mt-3 max-w-3xl text-sm leading-6 opacity-80">
+                      No roadmap description is available for this epic yet.
+                    </p>
+                  )}
+                </div>
+                <div className="flex shrink-0 items-center gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="border-current/20 bg-background/80 hover:bg-background"
+                    onClick={() => updateView({ epicId: null })}
+                  >
+                    All Issues
+                  </Button>
+                  {selectedEpicComplete ? (
+                    <span className="inline-flex items-center rounded-md border border-emerald-700/20 bg-emerald-100 px-2 py-1 text-xs font-medium text-emerald-800 dark:border-emerald-300/20 dark:bg-emerald-900/40 dark:text-emerald-100">
+                      Epic complete
+                    </span>
+                  ) : (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="border-current/20 bg-background/80 hover:bg-background"
+                      disabled={toggleEpicPauseMutation.isPending}
+                      onClick={() =>
+                        toggleEpicPauseMutation.mutate({
+                          epicId: selectedEpic.id,
+                          pause: !selectedEpicPaused,
+                        })
+                      }
+                    >
+                      {selectedEpicPaused ? (
+                        <>
+                          <Play className="mr-1.5 h-3.5 w-3.5" />
+                          Resume Epic
+                        </>
+                      ) : (
+                        <>
+                          <Pause className="mr-1.5 h-3.5 w-3.5" />
+                          Pause Epic
+                        </>
+                      )}
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </section>
+          )}
+        </div>
+      )}
+
       {isLoading && <PageSkeleton variant="issues-list" />}
       {error && <p className="text-sm text-destructive">{error.message}</p>}
 
@@ -680,6 +1046,7 @@ export function IssuesList({
 
                 const renderIssueRow = (issue: Issue, depth: number) => {
                   const children = childMap.get(issue.id) ?? [];
+                  const issueEpicIds = epicIdsByIssueId.get(issue.id) ?? [];
                   const hasChildren = children.length > 0;
                   const totalDescendants = hasChildren ? countDescendants(issue.id, childMap) : 0;
                   const isExpanded = !viewState.collapsedParents.includes(issue.id);
@@ -752,6 +1119,38 @@ export function IssuesList({
                         mobileMeta={timeAgo(issue.updatedAt)}
                         desktopTrailing={(
                           <>
+                            {issueEpicIds.length > 0 && !viewState.epicId && (
+                              <span className="hidden items-center gap-1 overflow-hidden xl:flex xl:max-w-[280px]">
+                                {issueEpicIds.slice(0, 2).map((epicId) => {
+                                  const isSelected = viewState.epicId === epicId;
+                                  const roadmapMeta = roadmapEpicMeta.get(epicId.toUpperCase());
+                                  const label = roadmapMeta?.title ?? epicId;
+                                  const showsFallbackId = !roadmapMeta?.title;
+                                  return (
+                                    <button
+                                      key={epicId}
+                                      type="button"
+                                      title={epicId}
+                                      className={cn(
+                                        "inline-flex max-w-[220px] items-center gap-1.5 rounded-full px-2 py-1 text-left text-[10px]",
+                                        epicButtonClassName(epicTone(epicId), isSelected),
+                                      )}
+                                      onClick={(event) => {
+                                        event.preventDefault();
+                                        event.stopPropagation();
+                                        toggleEpicFilter(epicId);
+                                      }}
+                                    >
+                                      <span className="truncate font-medium">{label}</span>
+                                      {showsFallbackId ? <span className="font-mono opacity-65">{epicId}</span> : null}
+                                    </button>
+                                  );
+                                })}
+                                {issueEpicIds.length > 2 && (
+                                  <span className="text-[10px] text-muted-foreground">+{issueEpicIds.length - 2}</span>
+                                )}
+                              </span>
+                            )}
                             {(issue.labels ?? []).length > 0 && (
                               <span className="hidden items-center gap-1 overflow-hidden md:flex md:max-w-[240px]">
                                 {(issue.labels ?? []).slice(0, 3).map((label) => (

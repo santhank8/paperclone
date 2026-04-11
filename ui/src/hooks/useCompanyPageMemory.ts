@@ -5,7 +5,7 @@ import { toCompanyRelativePath } from "../lib/company-routes";
 import {
   getRememberedPathOwnerCompanyId,
   isRememberableCompanyPath,
-  sanitizeRememberedPathForCompany,
+  resolveCompanySwitchPath,
 } from "../lib/company-page-memory";
 
 const STORAGE_KEY = "paperclip.companyPaths";
@@ -67,8 +67,9 @@ export function useCompanyPageMemory() {
     ) {
       if (selectionSource !== "route_sync" && selectedCompany) {
         const paths = getCompanyPaths();
-        const targetPath = sanitizeRememberedPathForCompany({
-          path: paths[selectedCompanyId],
+        const targetPath = resolveCompanySwitchPath({
+          currentPath: fullPath,
+          rememberedPath: paths[selectedCompanyId],
           companyPrefix: selectedCompany.issuePrefix,
         });
         navigate(`/${selectedCompany.issuePrefix}${targetPath}`, { replace: true });

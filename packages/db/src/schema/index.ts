@@ -1,6 +1,7 @@
 export { companies } from "./companies.js";
 export { companyKpis } from "./company_kpis.js";
 export { companyLogos } from "./company_logos.js";
+export { roadmapEpicPauses } from "./roadmap_epic_pauses.js";
 export { authUsers, authSessions, authAccounts, authVerifications } from "./auth.js";
 export { instanceSettings } from "./instance_settings.js";
 export { instanceUserRoles } from "./instance_user_roles.js";
@@ -45,6 +46,7 @@ export { documentRevisions } from "./document_revisions.js";
 export { issueDocuments } from "./issue_documents.js";
 export { heartbeatRuns } from "./heartbeat_runs.js";
 export { heartbeatRunEvents } from "./heartbeat_run_events.js";
+export { heartbeatRetryCircuits } from "./heartbeat_retry_circuits.js";
 export { costEvents } from "./cost_events.js";
 export { financeEvents } from "./finance_events.js";
 export { approvals } from "./approvals.js";

@@ -3,6 +3,7 @@ export const queryKeys = {
     all: ["companies"] as const,
     detail: (id: string) => ["companies", id] as const,
     stats: ["companies", "stats"] as const,
+    roadmapEpics: (companyId: string) => ["companies", companyId, "roadmap-epics"] as const,
   },
   companySkills: {
     list: (companyId: string) => ["company-skills", companyId] as const,
@@ -98,7 +99,7 @@ export const queryKeys = {
     schedulerHeartbeats: ["instance", "scheduler-heartbeats"] as const,
     experimentalSettings: ["instance", "experimental-settings"] as const,
   },
-  roadmap: ["roadmap"] as const,
+  roadmap: (companyId?: string | null) => ["roadmap", companyId ?? "__board__"] as const,
   health: ["health"] as const,
   secrets: {
     list: (companyId: string) => ["secrets", companyId] as const,

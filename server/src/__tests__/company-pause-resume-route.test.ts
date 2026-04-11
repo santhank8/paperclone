@@ -61,6 +61,12 @@ const mockExecutiveSummaryService = vi.hoisted(() => ({
   tickDaily: vi.fn(),
 }));
 
+const mockRoadmapEpicService = vi.hoisted(() => ({
+  listPausedEpicIds: vi.fn(),
+  pauseEpic: vi.fn(),
+  resumeEpic: vi.fn(),
+}));
+
 const mockLogActivity = vi.hoisted(() => vi.fn());
 
 vi.mock("../services/index.js", () => ({
@@ -72,6 +78,8 @@ vi.mock("../services/index.js", () => ({
   companyPortabilityService: () => mockCompanyPortabilityService,
   companyService: () => mockCompanyService,
   executiveSummaryService: () => mockExecutiveSummaryService,
+  roadmapEpicService: () => mockRoadmapEpicService,
+  normalizeRoadmapEpicId: (roadmapId: string) => roadmapId.trim().toUpperCase(),
   feedbackService: () => mockFeedbackService,
   logActivity: mockLogActivity,
 }));
@@ -122,6 +130,9 @@ describe("company pause/resume routes", () => {
   beforeEach(() => {
     vi.resetAllMocks();
     mockAgentService.list.mockResolvedValue([]);
+    mockRoadmapEpicService.listPausedEpicIds.mockResolvedValue([]);
+    mockRoadmapEpicService.pauseEpic.mockResolvedValue({ roadmapId: "RM-2026-Q2-01" });
+    mockRoadmapEpicService.resumeEpic.mockResolvedValue({ roadmapId: "RM-2026-Q2-01" });
     mockAgentHeartbeatModelService.ensureCompanyHasCooCoordinator.mockResolvedValue({
       apply: true,
       companyId: "company-1",
@@ -213,6 +224,84 @@ describe("company pause/resume routes", () => {
           resumedAgentCount: 0,
           cooAgentId: "agent-coo-1",
           cooHeartbeatTriggered: true,
+        },
+      }),
+    );
+  });
+
+  it("lists paused roadmap epics for a company", async () => {
+    mockRoadmapEpicService.listPausedEpicIds.mockResolvedValue([
+      "RM-2026-Q2-01",
+      "RM-2026-Q2-03",
+    ]);
+
+    const app = createApp({
+      type: "board",
+      userId: "user-1",
+      source: "local_implicit",
+    });
+
+    const response = await request(app).get("/api/companies/company-1/roadmap-epics");
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({
+      pausedEpicIds: ["RM-2026-Q2-01", "RM-2026-Q2-03"],
+    });
+    expect(mockRoadmapEpicService.listPausedEpicIds).toHaveBeenCalledWith("company-1");
+  });
+
+  it("pauses a roadmap epic for a company", async () => {
+    mockCompanyService.getById.mockResolvedValue(createCompany("active"));
+
+    const app = createApp({
+      type: "board",
+      userId: "user-1",
+      source: "local_implicit",
+    });
+
+    const response = await request(app)
+      .post("/api/companies/company-1/roadmap-epics/rm-2026-q2-01/pause")
+      .send({});
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({ roadmapId: "RM-2026-Q2-01", paused: true });
+    expect(mockRoadmapEpicService.pauseEpic).toHaveBeenCalledWith("company-1", "RM-2026-Q2-01", "user-1");
+    expect(mockLogActivity).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        companyId: "company-1",
+        action: "roadmap.epic.paused",
+        details: {
+          roadmapId: "RM-2026-Q2-01",
+        },
+      }),
+    );
+  });
+
+  it("resumes a roadmap epic for a company and resumes queued runs", async () => {
+    mockCompanyService.getById.mockResolvedValue(createCompany("active"));
+
+    const app = createApp({
+      type: "board",
+      userId: "user-1",
+      source: "local_implicit",
+    });
+
+    const response = await request(app)
+      .post("/api/companies/company-1/roadmap-epics/rm-2026-q2-01/resume")
+      .send({});
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({ roadmapId: "RM-2026-Q2-01", paused: false });
+    expect(mockRoadmapEpicService.resumeEpic).toHaveBeenCalledWith("company-1", "RM-2026-Q2-01");
+    expect(mockHeartbeatService.resumeQueuedRuns).toHaveBeenCalled();
+    expect(mockLogActivity).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        companyId: "company-1",
+        action: "roadmap.epic.resumed",
+        details: {
+          roadmapId: "RM-2026-Q2-01",
         },
       }),
     );

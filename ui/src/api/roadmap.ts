@@ -42,6 +42,21 @@ export interface RoadmapPayload {
   roadmap: RoadmapDocument;
 }
 
+export interface RoadmapRenamePayload extends RoadmapPayload {
+  item: RoadmapItem;
+}
+
 export const roadmapApi = {
-  get: () => api.get<RoadmapPayload>("/roadmap"),
+  get: (companyId?: string | null) => {
+    if (companyId && companyId.trim().length > 0) {
+      return api.get<RoadmapPayload>(`/roadmap?companyId=${encodeURIComponent(companyId)}`);
+    }
+    return api.get<RoadmapPayload>("/roadmap");
+  },
+  renameItem: (roadmapId: string, title: string, companyId?: string | null) => {
+    const params = companyId && companyId.trim().length > 0
+      ? `?companyId=${encodeURIComponent(companyId)}`
+      : "";
+    return api.patch<RoadmapRenamePayload>(`/roadmap/items/${encodeURIComponent(roadmapId)}${params}`, { title });
+  },
 };

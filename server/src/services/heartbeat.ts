@@ -58,6 +58,7 @@ import {
   resolveExecutionWorkspaceMode,
 } from "./execution-workspace-policy.js";
 import { instanceSettingsService } from "./instance-settings.js";
+import { roadmapEpicService } from "./roadmap-epics.js";
 import { redactCurrentUserText, redactCurrentUserValue } from "../log-redaction.js";
 import {
   isOrchestratorOnlyAgent,
@@ -890,6 +891,15 @@ const heartbeatRunListColumns = {
   processPid: heartbeatRuns.processPid,
   processStartedAt: heartbeatRuns.processStartedAt,
   retryOfRunId: heartbeatRuns.retryOfRunId,
+  retryGroupId: heartbeatRuns.retryGroupId,
+  retryAttempt: heartbeatRuns.retryAttempt,
+  retryState: heartbeatRuns.retryState,
+  retryClass: heartbeatRuns.retryClass,
+  retryScheduledFor: heartbeatRuns.retryScheduledFor,
+  retryExhaustedAt: heartbeatRuns.retryExhaustedAt,
+  retryBlockedReason: heartbeatRuns.retryBlockedReason,
+  retryLastDecision: heartbeatRuns.retryLastDecision,
+  retryPolicyJson: heartbeatRuns.retryPolicyJson,
   processLossRetryCount: heartbeatRuns.processLossRetryCount,
   contextSnapshot: heartbeatRuns.contextSnapshot,
   createdAt: heartbeatRuns.createdAt,
@@ -1772,6 +1782,7 @@ export function heartbeatService(db: Db) {
     cancelWorkForScope: cancelBudgetScopeWork,
   };
   const budgets = budgetService(db, budgetHooks);
+  const roadmapEpics = roadmapEpicService(db);
 
   async function getAgent(agentId: string) {
     return db
@@ -2929,8 +2940,17 @@ export function heartbeatService(db: Db) {
     }
 
     const context = parseObject(run.contextSnapshot);
+    const contextIssueId = readNonEmptyString(context.issueId);
+    if (contextIssueId) {
+      const pausedRoadmapId = await roadmapEpics.getPausedEpicIdForIssue(run.companyId, contextIssueId);
+      if (pausedRoadmapId) {
+        // Epic-level pause keeps queued work in place until resume.
+        return null;
+      }
+    }
+
     const budgetBlock = await budgets.getInvocationBlock(run.companyId, run.agentId, {
-      issueId: readNonEmptyString(context.issueId),
+      issueId: contextIssueId,
       projectId: readNonEmptyString(context.projectId),
     });
     if (budgetBlock) {
@@ -3283,12 +3303,12 @@ export function heartbeatService(db: Db) {
         .select()
         .from(heartbeatRuns)
         .where(and(eq(heartbeatRuns.agentId, agentId), eq(heartbeatRuns.status, "queued")))
-        .orderBy(asc(heartbeatRuns.createdAt))
-        .limit(availableSlots);
+        .orderBy(asc(heartbeatRuns.createdAt));
       if (queuedRuns.length === 0) return [];
 
       const claimedRuns: Array<typeof heartbeatRuns.$inferSelect> = [];
       for (const queuedRun of queuedRuns) {
+        if (claimedRuns.length >= availableSlots) break;
         const claimed = await claimQueuedRun(queuedRun);
         if (claimed) claimedRuns.push(claimed);
       }
@@ -3683,15 +3703,22 @@ export function heartbeatService(db: Db) {
         target.mode === "cross_agent_recovery" &&
         Boolean(targetIssue.assigneeAgentId) &&
         (target.autoReissueEligible || assigneeUnavailableForRecovery);
-      const targetRecoveryCooldownActive =
-        !shouldAutoReissueTarget &&
-        Boolean(
-          latestOpsTargetComment?.body
-          && (
+      const recoveryCooldownMs = shouldAutoReissueTarget
+        ? OPERATIONS_RECOVERY_REWAKE_COOLDOWN_MS
+        : OPERATIONS_IDLE_WAKE_COOLDOWN_MS;
+      const hasRecoveryCooldownMarker = Boolean(
+        latestOpsTargetComment?.body
+        && (
           latestOpsTargetComment.body.includes(OPERATIONS_RECOVERY_WAKE_MARKER)
           || latestOpsTargetComment.body.includes(OPERATIONS_REQUEUE_MARKER)
-          ) &&
-          nowMs - latestOpsTargetComment.createdAt.getTime() < OPERATIONS_IDLE_WAKE_COOLDOWN_MS,
+          || (shouldAutoReissueTarget && latestOpsTargetComment.body.includes(OPERATIONS_ASSIGNMENT_MARKER))
+        ),
+      );
+      const targetRecoveryCooldownActive =
+        Boolean(
+          hasRecoveryCooldownMarker
+          && latestOpsTargetComment
+          && nowMs - latestOpsTargetComment.createdAt.getTime() < recoveryCooldownMs,
         );
       if (targetRecoveryCooldownActive) {
         handledTargetIssueIds.add(targetIssue.id);
@@ -3939,40 +3966,29 @@ export function heartbeatService(db: Db) {
       }
 
       try {
-        const continuation = await issuesSvc.create(companyId, {
-          projectId: sourceIssue.projectId ?? undefined,
-          projectWorkspaceId: sourceIssue.projectWorkspaceId ?? undefined,
-          goalId: sourceIssue.goalId ?? undefined,
-          parentId: sourceIssue.parentId ?? undefined,
-          inheritExecutionWorkspaceFromIssueId: sourceIssue.id,
-          title: sourceIssue.title,
-          description: sourceIssue.description ?? undefined,
-          status: "todo",
-          priority: sourceIssue.priority,
+        const reassigned = await issuesSvc.update(sourceIssue.id, {
           assigneeAgentId: candidate.id,
           assigneeUserId: null,
-          ...(Array.isArray(sourceIssue.labelIds) ? { labelIds: sourceIssue.labelIds } : {}),
-          recoveryFromIssueId: sourceIssue.id,
-          recoveryDisposition: "superseded",
-          createdByAgentId: input.agent.id,
+          actorAgentId: input.agent.id,
         });
+        if (!reassigned) continue;
         recoveryReissueCount += 1;
 
         try {
           await issuesSvc.addComment(
-            continuation.id,
+            reassigned.id,
             buildOperationsAssignmentComment({
               assigneeAgentId: candidate.id,
               assigneeName: candidate.name,
-              reason: `recovery reissue from ${sourceIssue.identifier ?? sourceIssue.id}: ${reissueTarget.reason}`,
+              reason: `recovery reassignment from ${sourceIssue.identifier ?? sourceIssue.id}: ${reissueTarget.reason}`,
             }),
             { agentId: input.agent.id, runId: input.run.id },
           );
           assignmentCommentCount += 1;
         } catch (err) {
           logger.warn(
-            { err, issueId: continuation.id, assigneeAgentId: candidate.id },
-            "operations heartbeat failed to post recovery reissue assignment comment",
+            { err, issueId: reassigned.id, assigneeAgentId: candidate.id },
+            "operations heartbeat failed to post recovery reassignment assignment comment",
           );
         }
 
@@ -3980,35 +3996,35 @@ export function heartbeatService(db: Db) {
           await enqueueWakeup(candidate.id, {
             source: "automation",
             triggerDetail: "system",
-            reason: "operations_recovery_reissue",
+            reason: "operations_recovery_reassignment",
             payload: {
-              issueId: continuation.id,
+              issueId: reassigned.id,
               sourceIssueId: sourceIssue.id,
-              mutation: "operations_recovery_reissue",
+              mutation: "operations_recovery_reassignment",
               sourceRunId: input.run.id,
             },
             requestedByActorType: "agent",
             requestedByActorId: input.agent.id,
             contextSnapshot: {
-              issueId: continuation.id,
+              issueId: reassigned.id,
               sourceIssueId: sourceIssue.id,
-              taskId: continuation.id,
+              taskId: reassigned.id,
               source: "operations.heartbeat",
-              wakeReason: "operations_recovery_reissue",
+              wakeReason: "operations_recovery_reassignment",
             },
           });
           recoveryReissueWakeupCount += 1;
         } catch (err) {
           if (isAgentNotInvokableConflict(err)) continue;
           logger.warn(
-            { err, issueId: continuation.id, assigneeAgentId: candidate.id },
-            "operations heartbeat failed to enqueue recovery reissue wakeup",
+            { err, issueId: reassigned.id, assigneeAgentId: candidate.id },
+            "operations heartbeat failed to enqueue recovery reassignment wakeup",
           );
         }
       } catch (err) {
         logger.warn(
           { err, issueId: sourceIssue.id, assigneeAgentId: candidate.id },
-          "operations heartbeat failed to create recovery continuation issue",
+          "operations heartbeat failed to reassign issue during recovery",
         );
         await requestCrossAgentRecoveryWake(reissueTarget.issue, reissueTarget.reason);
       }
@@ -5452,6 +5468,14 @@ export function heartbeatService(db: Db) {
         .from(issues)
         .where(and(eq(issues.id, issueId), eq(issues.companyId, agent.companyId)))
         .then((rows) => rows[0]?.projectId ?? null);
+    }
+
+    if (issueId) {
+      const pausedRoadmapId = await roadmapEpics.getPausedEpicIdForIssue(agent.companyId, issueId);
+      if (pausedRoadmapId) {
+        await writeSkippedRequest("roadmap.epic_paused");
+        return null;
+      }
     }
 
     const budgetBlock = await budgets.getInvocationBlock(agent.companyId, agentId, {

@@ -386,6 +386,27 @@
       "when": 1775880000000,
       "tag": "0054_daily_executive_summary",
       "breakpoints": true
+    },
+    {
+      "idx": 55,
+      "version": "7",
+      "when": 1775939660938,
+      "tag": "0055_mixed_bullseye",
+      "breakpoints": true
+    },
+    {
+      "idx": 56,
+      "version": "7",
+      "when": 1775945785433,
+      "tag": "0056_red_shotgun",
+      "breakpoints": true
+    },
+    {
+      "idx": 57,
+      "version": "7",
+      "when": 1775946435280,
+      "tag": "0057_burly_bloodstorm",
+      "breakpoints": true
     }
   ]
 }

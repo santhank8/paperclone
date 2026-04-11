@@ -63,3 +63,26 @@ export function sanitizeRememberedPathForCompany(params: {
 
   return relativePath;
 }
+
+function stripSearchAndHash(path: string): string {
+  return path.split("?")[0]?.split("#")[0] ?? path;
+}
+
+export function resolveCompanySwitchPath(params: {
+  currentPath: string;
+  rememberedPath: string | null | undefined;
+  companyPrefix: string;
+}): string {
+  const currentRelativePath = toCompanyRelativePath(params.currentPath);
+  const currentPathname = stripSearchAndHash(currentRelativePath);
+
+  // Preserve roadmap context across company switches.
+  if (currentPathname === "/roadmap") {
+    return currentRelativePath;
+  }
+
+  return sanitizeRememberedPathForCompany({
+    path: params.rememberedPath,
+    companyPrefix: params.companyPrefix,
+  });
+}

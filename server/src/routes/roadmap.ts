@@ -3,7 +3,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { notFound } from "../errors.js";
-import { assertBoard } from "./authz.js";
+import { assertBoard, assertCompanyAccess } from "./authz.js";
 
 interface RoadmapLink {
   label: string;
@@ -70,6 +70,31 @@ async function readFirstExistingFile(paths: string[]): Promise<{ path: string; c
     }
   }
   throw notFound("Roadmap file not found. Expected doc/ROADMAP.md or ROADMAP.md.");
+}
+
+async function readCanonicalRoadmap(repoRoot: string, indexCandidates: string[]) {
+  const { path: indexPath, content: indexMarkdown } = await readFirstExistingFile(indexCandidates);
+  const indexDetails = parseRoadmapIndex(indexMarkdown, indexPath, repoRoot);
+
+  let roadmapMarkdown: string;
+  try {
+    roadmapMarkdown = await fs.readFile(indexDetails.canonicalPath, "utf8");
+  } catch (error) {
+    const maybeErr = error as NodeJS.ErrnoException;
+    if (maybeErr.code === "ENOENT") {
+      throw notFound(
+        `Canonical roadmap file not found: ${toRepoRelativePath(repoRoot, indexDetails.canonicalPath)}`,
+      );
+    }
+    throw error;
+  }
+
+  return {
+    indexPath,
+    indexMarkdown,
+    indexDetails,
+    roadmapMarkdown,
+  };
 }
 
 function parseRoadmapIndex(
@@ -204,6 +229,40 @@ function parseRoadmapDocument(markdown: string): {
   };
 }
 
+function renameRoadmapItemTitle(markdown: string, roadmapId: string, nextTitle: string, lastUpdatedDate: string): string | null {
+  const lines = markdown.split(/\r?\n/);
+  let renamed = false;
+  let updatedLastUpdated = false;
+  const normalizedRoadmapId = roadmapId.trim().toUpperCase();
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index] ?? "";
+    const headingMatch = line.match(/^(\s*###\s+)(RM-[A-Za-z0-9-]+)(\s+)(.+?)(\s*)$/);
+    if (headingMatch && headingMatch[2]?.toUpperCase() === normalizedRoadmapId) {
+      lines[index] = `${headingMatch[1]}${headingMatch[2]} ${nextTitle}${headingMatch[5] ?? ""}`;
+      renamed = true;
+      continue;
+    }
+
+    if (/^\s*Last Updated:\s*/i.test(line)) {
+      lines[index] = "Last Updated: " + lastUpdatedDate;
+      updatedLastUpdated = true;
+    }
+  }
+
+  if (!renamed) {
+    return null;
+  }
+
+  if (!updatedLastUpdated) {
+    const statusIndex = lines.findIndex((line) => /^\s*(Status|Owner):\s*/i.test(line));
+    const insertAt = statusIndex >= 0 ? statusIndex + 1 : 1;
+    lines.splice(insertAt, 0, `Last Updated: ${lastUpdatedDate}`);
+  }
+
+  return lines.join("\n");
+}
+
 export function roadmapRoutes(opts: { repoRoot?: string } = {}) {
   const router = Router();
   const repoRoot = path.resolve(opts.repoRoot ?? DEFAULT_REPO_ROOT);
@@ -212,24 +271,64 @@ export function roadmapRoutes(opts: { repoRoot?: string } = {}) {
     path.join(repoRoot, "ROADMAP.md"),
   ];
 
-  router.get("/roadmap", async (req, res) => {
+  router.patch("/roadmap/items/:roadmapId", async (req, res) => {
     assertBoard(req);
-
-    const { path: indexPath, content: indexMarkdown } = await readFirstExistingFile(indexCandidates);
-    const indexDetails = parseRoadmapIndex(indexMarkdown, indexPath, repoRoot);
-
-    let roadmapMarkdown: string;
-    try {
-      roadmapMarkdown = await fs.readFile(indexDetails.canonicalPath, "utf8");
-    } catch (error) {
-      const maybeErr = error as NodeJS.ErrnoException;
-      if (maybeErr.code === "ENOENT") {
-        throw notFound(
-          `Canonical roadmap file not found: ${toRepoRelativePath(repoRoot, indexDetails.canonicalPath)}`,
-        );
-      }
-      throw error;
+    const companyIdQuery = typeof req.query.companyId === "string" && req.query.companyId.trim().length > 0
+      ? req.query.companyId.trim()
+      : null;
+    if (companyIdQuery) {
+      assertCompanyAccess(req, companyIdQuery);
     }
+
+    const roadmapId = String(req.params.roadmapId ?? "").trim();
+    const nextTitle = typeof req.body?.title === "string" ? req.body.title.trim() : "";
+    if (!roadmapId || !nextTitle) {
+      res.status(400).json({ error: "roadmapId and title are required" });
+      return;
+    }
+
+    const { indexPath, indexMarkdown, indexDetails, roadmapMarkdown } = await readCanonicalRoadmap(repoRoot, indexCandidates);
+    const updatedMarkdown = renameRoadmapItemTitle(
+      roadmapMarkdown,
+      roadmapId,
+      nextTitle,
+      new Date().toISOString().slice(0, 10),
+    );
+    if (!updatedMarkdown) {
+      throw notFound(`Roadmap item not found: ${roadmapId}`);
+    }
+
+    await fs.writeFile(indexDetails.canonicalPath, updatedMarkdown, "utf8");
+    const parsed = parseRoadmapDocument(updatedMarkdown);
+    const updatedItem = parsed.sections.flatMap((section) => section.items).find((item) => item.id === roadmapId) ?? null;
+
+    res.json({
+      item: updatedItem ?? { id: roadmapId, title: nextTitle },
+      roadmap: {
+        label: indexDetails.canonicalLabel,
+        path: toRepoRelativePath(repoRoot, indexDetails.canonicalPath),
+        markdown: updatedMarkdown,
+        ...parsed,
+      },
+      index: {
+        path: toRepoRelativePath(repoRoot, indexPath),
+        markdown: indexMarkdown,
+        links: indexDetails.links,
+      },
+    });
+  });
+
+  router.get("/roadmap", async (req, res) => {
+    const companyIdQuery = typeof req.query.companyId === "string" && req.query.companyId.trim().length > 0
+      ? req.query.companyId.trim()
+      : null;
+    if (companyIdQuery) {
+      assertCompanyAccess(req, companyIdQuery);
+    } else {
+      assertBoard(req);
+    }
+
+    const { indexPath, indexMarkdown, indexDetails, roadmapMarkdown } = await readCanonicalRoadmap(repoRoot, indexCandidates);
 
     const parsed = parseRoadmapDocument(roadmapMarkdown);
     res.json({

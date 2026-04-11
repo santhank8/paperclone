@@ -2,6 +2,7 @@ import type {
   AgentRole,
   AgentStatus,
   HeartbeatInvocationSource,
+  HeartbeatRetryState,
   HeartbeatRunStatus,
   WakeupTriggerDetail,
   WakeupRequestStatus,
@@ -36,6 +37,15 @@ export interface HeartbeatRun {
   processPid: number | null;
   processStartedAt: Date | null;
   retryOfRunId: string | null;
+  retryGroupId: string | null;
+  retryAttempt: number;
+  retryState: HeartbeatRetryState;
+  retryClass: string | null;
+  retryScheduledFor: Date | null;
+  retryExhaustedAt: Date | null;
+  retryBlockedReason: string | null;
+  retryLastDecision: string | null;
+  retryPolicyJson: Record<string, unknown> | null;
   processLossRetryCount: number;
   contextSnapshot: Record<string, unknown> | null;
   createdAt: Date;
@@ -116,6 +126,9 @@ export interface AgentWakeupRequest {
   requestedByActorId: string | null;
   idempotencyKey: string | null;
   runId: string | null;
+  scheduledFor: Date | null;
+  retryGroupId: string | null;
+  retryAttempt: number | null;
   requestedAt: Date;
   claimedAt: Date | null;
   finishedAt: Date | null;

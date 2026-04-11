@@ -90,6 +90,28 @@ POST /api/companies/{companyId}/resume
 Resumes the company at the company scope. Agent-level pause states are unchanged and queued work can start again.
 On resume, Paperclip also ensures a COO coordinator exists and triggers a COO heartbeat kickoff (best-effort).
 
+## Roadmap Epic Pause State
+
+List paused roadmap epics for a company:
+
+```
+GET /api/companies/{companyId}/roadmap-epics
+```
+
+Pause an epic:
+
+```
+POST /api/companies/{companyId}/roadmap-epics/{roadmapId}/pause
+```
+
+Resume an epic:
+
+```
+POST /api/companies/{companyId}/roadmap-epics/{roadmapId}/resume
+```
+
+Paused roadmap epics hold issue-linked execution wakeups and queued runs for those epics until resumed.
+
 ## Company Fields
 
 | Field | Type | Description |

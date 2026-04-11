@@ -9,6 +9,7 @@ import { roadmapRoutes } from "../routes/roadmap.js";
 
 function createApp(actor: Record<string, unknown>, repoRoot: string) {
   const app = express();
+  app.use(express.json());
   app.use((req, _res, next) => {
     (req as any).actor = actor;
     next();
@@ -87,7 +88,7 @@ describe("roadmap route", () => {
     );
   });
 
-  it("rejects non-board actors", async () => {
+  it("rejects non-board actors without company scope", async () => {
     const app = createApp(
       {
         type: "agent",
@@ -99,6 +100,60 @@ describe("roadmap route", () => {
     );
 
     const response = await request(app).get("/api/roadmap");
+    expect(response.status).toBe(403);
+  });
+
+  it("allows company-scoped roadmap reads for agent keys with matching company access", async () => {
+    const app = createApp(
+      {
+        type: "agent",
+        source: "agent_key",
+        agentId: "agent-1",
+        companyId: "company-1",
+      },
+      repoRoot,
+    );
+
+    const response = await request(app).get("/api/roadmap").query({ companyId: "company-1" });
+    expect(response.status).toBe(200);
+    expect(response.body.roadmap.title).toBe("2026 Q2 CEO Roadmap");
+  });
+
+  it("renames a roadmap item title in the canonical markdown source", async () => {
+    const app = createApp(
+      { type: "board", source: "local_implicit", userId: "board-user-1" },
+      repoRoot,
+    );
+
+    const response = await request(app)
+      .patch("/api/roadmap/items/RM-2026-Q2-01")
+      .send({ title: "Faster first success" });
+
+    expect(response.status).toBe(200);
+    expect(response.body.item).toEqual(
+      expect.objectContaining({
+        id: "RM-2026-Q2-01",
+        title: "Faster first success",
+      }),
+    );
+
+    const updated = await fs.readFile(path.join(repoRoot, "doc", "plans", "2026-q2-roadmap.md"), "utf8");
+    expect(updated).toContain("### RM-2026-Q2-01 Faster first success");
+    expect(updated).not.toContain("### RM-2026-Q2-01 First success");
+  });
+
+  it("rejects company-scoped roadmap reads for agent keys on other companies", async () => {
+    const app = createApp(
+      {
+        type: "agent",
+        source: "agent_key",
+        agentId: "agent-1",
+        companyId: "company-1",
+      },
+      repoRoot,
+    );
+
+    const response = await request(app).get("/api/roadmap").query({ companyId: "company-2" });
     expect(response.status).toBe(403);
   });
 });

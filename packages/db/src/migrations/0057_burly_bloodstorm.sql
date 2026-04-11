@@ -1,0 +1,1 @@
+ALTER TABLE "agent_wakeup_requests" ADD CONSTRAINT "agent_wakeup_requests_retry_group_id_heartbeat_runs_id_fk" FOREIGN KEY ("retry_group_id") REFERENCES "public"."heartbeat_runs"("id") ON DELETE set null ON UPDATE no action;

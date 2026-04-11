@@ -10,6 +10,7 @@ import {
   heartbeatRunEvents,
   heartbeatRuns,
   issues,
+  roadmapEpicPauses,
 } from "@paperclipai/db";
 import {
   getEmbeddedPostgresTestSupport,
@@ -67,6 +68,7 @@ describeEmbeddedPostgres("heartbeat orphaned process recovery", () => {
     }
     childProcesses.clear();
     await db.delete(issues);
+    await db.delete(roadmapEpicPauses);
     await db.delete(heartbeatRunEvents);
     await db.delete(heartbeatRuns);
     await db.delete(agentWakeupRequests);
@@ -367,5 +369,76 @@ describeEmbeddedPostgres("heartbeat orphaned process recovery", () => {
     expect(mockTrackAgentFirstHeartbeat).toHaveBeenCalledWith(mockTelemetryClient, {
       agentRole: "engineer",
     });
+  });
+
+  it("skips wakeups for issues that map to a paused roadmap epic", async () => {
+    const now = new Date("2026-03-20T00:00:00.000Z");
+    const companyId = randomUUID();
+    const agentId = randomUUID();
+    const issueId = randomUUID();
+    const issuePrefix = `T${companyId.replace(/-/g, "").slice(0, 6).toUpperCase()}`;
+    const roadmapId = "RM-2026-Q2-09";
+
+    await db.insert(companies).values({
+      id: companyId,
+      name: "Paused Epic Company",
+      issuePrefix,
+      requireBoardApprovalForNewAgents: false,
+    });
+
+    await db.insert(agents).values({
+      id: agentId,
+      companyId,
+      name: "Roadmap Agent",
+      role: "engineer",
+      status: "idle",
+      adapterType: "codex_local",
+      adapterConfig: {},
+      runtimeConfig: {},
+      permissions: {},
+      lastHeartbeatAt: new Date(now.getTime() - 31_000),
+    });
+
+    await db.insert(issues).values({
+      id: issueId,
+      companyId,
+      title: `[${roadmapId}] Tighten execution focus`,
+      description: "Pause this epic to prevent new runs from starting.",
+      status: "todo",
+      priority: "medium",
+      issueNumber: 1,
+      identifier: `${issuePrefix}-1`,
+    });
+
+    await db.insert(roadmapEpicPauses).values({
+      companyId,
+      roadmapId,
+      pausedByUserId: "board-user-1",
+    });
+
+    const heartbeat = heartbeatService(db);
+    const run = await heartbeat.wakeup(agentId, {
+      source: "assignment",
+      triggerDetail: "system",
+      reason: "issue_assigned",
+      payload: { issueId },
+      contextSnapshot: { issueId },
+    });
+
+    expect(run).toBeNull();
+
+    const wakeups = await db
+      .select()
+      .from(agentWakeupRequests)
+      .where(eq(agentWakeupRequests.agentId, agentId));
+    expect(wakeups).toHaveLength(1);
+    expect(wakeups[0]?.status).toBe("skipped");
+    expect(wakeups[0]?.reason).toBe("roadmap.epic_paused");
+
+    const runs = await db
+      .select()
+      .from(heartbeatRuns)
+      .where(eq(heartbeatRuns.agentId, agentId));
+    expect(runs).toHaveLength(0);
   });
 });

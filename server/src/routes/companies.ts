@@ -26,6 +26,8 @@ import {
   feedbackService,
   heartbeatService,
   logActivity,
+  normalizeRoadmapEpicId,
+  roadmapEpicService,
 } from "../services/index.js";
 import type { StorageService } from "../storage/types.js";
 import { assertBoard, assertCompanyAccess, getActorInfo } from "./authz.js";
@@ -41,6 +43,7 @@ export function companyRoutes(db: Db, storage?: StorageService) {
   const budgets = budgetService(db);
   const feedback = feedbackService(db);
   const executiveSummary = executiveSummaryService(db);
+  const roadmapEpics = roadmapEpicService(db);
 
   function parseBooleanQuery(value: unknown) {
     return value === true || value === "true" || value === "1";
@@ -141,6 +144,73 @@ export function companyRoutes(db: Db, storage?: StorageService) {
       return;
     }
     res.json(company);
+  });
+
+  router.get("/:companyId/roadmap-epics", async (req, res) => {
+    const companyId = req.params.companyId as string;
+    assertCompanyAccess(req, companyId);
+    assertBoard(req);
+    const pausedEpicIds = await roadmapEpics.listPausedEpicIds(companyId);
+    res.json({ pausedEpicIds });
+  });
+
+  router.post("/:companyId/roadmap-epics/:roadmapId/pause", async (req, res) => {
+    assertBoard(req);
+    const companyId = req.params.companyId as string;
+    assertCompanyAccess(req, companyId);
+    const roadmapId = normalizeRoadmapEpicId(req.params.roadmapId as string);
+
+    const company = await svc.getById(companyId);
+    if (!company) {
+      res.status(404).json({ error: "Company not found" });
+      return;
+    }
+
+    await roadmapEpics.pauseEpic(companyId, roadmapId, req.actor.userId ?? "board");
+
+    await logActivity(db, {
+      companyId,
+      actorType: "user",
+      actorId: req.actor.userId ?? "board",
+      action: "roadmap.epic.paused",
+      entityType: "company",
+      entityId: companyId,
+      details: {
+        roadmapId,
+      },
+    });
+
+    res.json({ roadmapId, paused: true });
+  });
+
+  router.post("/:companyId/roadmap-epics/:roadmapId/resume", async (req, res) => {
+    assertBoard(req);
+    const companyId = req.params.companyId as string;
+    assertCompanyAccess(req, companyId);
+    const roadmapId = normalizeRoadmapEpicId(req.params.roadmapId as string);
+
+    const company = await svc.getById(companyId);
+    if (!company) {
+      res.status(404).json({ error: "Company not found" });
+      return;
+    }
+
+    await roadmapEpics.resumeEpic(companyId, roadmapId);
+    await heartbeat.resumeQueuedRuns();
+
+    await logActivity(db, {
+      companyId,
+      actorType: "user",
+      actorId: req.actor.userId ?? "board",
+      action: "roadmap.epic.resumed",
+      entityType: "company",
+      entityId: companyId,
+      details: {
+        roadmapId,
+      },
+    });
+
+    res.json({ roadmapId, paused: false });
   });
 
   router.get("/:companyId/feedback-traces", async (req, res) => {

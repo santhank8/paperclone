@@ -357,6 +357,17 @@ export const HEARTBEAT_RUN_STATUSES = [
 ] as const;
 export type HeartbeatRunStatus = (typeof HEARTBEAT_RUN_STATUSES)[number];
 
+export const HEARTBEAT_RETRY_STATES = [
+  "none",
+  "scheduled",
+  "retrying",
+  "recovered",
+  "exhausted",
+  "blocked",
+  "non_retriable",
+] as const;
+export type HeartbeatRetryState = (typeof HEARTBEAT_RETRY_STATES)[number];
+
 export const LIVE_EVENT_TYPES = [
   "heartbeat.run.queued",
   "heartbeat.run.status",

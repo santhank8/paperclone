@@ -26,9 +26,24 @@ vi.mock("../services/index.js", () => ({
   budgetService: () => ({
     upsertPolicy: vi.fn(),
   }),
+  heartbeatService: () => ({
+    cancelActiveForCompany: vi.fn(),
+    stopRunningForCompany: vi.fn(),
+    invoke: vi.fn(),
+    resumeQueuedRuns: vi.fn(),
+  }),
+  agentHeartbeatModelService: () => ({
+    ensureCompanyHasCooCoordinator: vi.fn(),
+  }),
   agentService: () => ({
     getById: vi.fn(),
   }),
+  roadmapEpicService: () => ({
+    listPausedEpicIds: vi.fn(),
+    pauseEpic: vi.fn(),
+    resumeEpic: vi.fn(),
+  }),
+  normalizeRoadmapEpicId: (roadmapId: string) => roadmapId.trim().toUpperCase(),
   feedbackService: () => ({
     listIssueVotesForUser: vi.fn(),
     listFeedbackTraces: vi.fn(),

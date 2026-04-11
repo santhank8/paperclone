@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   getRememberedPathOwnerCompanyId,
+  resolveCompanySwitchPath,
   sanitizeRememberedPathForCompany,
 } from "../lib/company-page-memory";
 
@@ -86,5 +87,27 @@ describe("sanitizeRememberedPathForCompany", () => {
         companyPrefix: "PAP",
       }),
     ).toBe("/skills/skill-123/files/SKILL.md");
+  });
+});
+
+describe("resolveCompanySwitchPath", () => {
+  it("keeps users on roadmap when switching companies from roadmap", () => {
+    expect(
+      resolveCompanySwitchPath({
+        currentPath: "/FOR/roadmap?state=in_progress",
+        rememberedPath: "/dashboard",
+        companyPrefix: "PAP",
+      }),
+    ).toBe("/roadmap?state=in_progress");
+  });
+
+  it("falls back to remembered path for non-roadmap routes", () => {
+    expect(
+      resolveCompanySwitchPath({
+        currentPath: "/FOR/issues/FOR-1",
+        rememberedPath: "/projects",
+        companyPrefix: "PAP",
+      }),
+    ).toBe("/projects");
   });
 });

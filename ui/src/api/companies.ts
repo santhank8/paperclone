@@ -12,6 +12,9 @@ import type {
 import { api } from "./client";
 
 export type CompanyStats = Record<string, { agentCount: number; issueCount: number }>;
+export interface CompanyRoadmapEpicsState {
+  pausedEpicIds: string[];
+}
 
 export const companiesApi = {
   list: () => api.get<Company[]>("/companies"),
@@ -45,6 +48,18 @@ export const companiesApi = {
   archive: (companyId: string) => api.post<Company>(`/companies/${companyId}/archive`, {}),
   pause: (companyId: string) => api.post<Company>(`/companies/${companyId}/pause`, {}),
   resume: (companyId: string) => api.post<Company>(`/companies/${companyId}/resume`, {}),
+  listRoadmapEpics: (companyId: string) =>
+    api.get<CompanyRoadmapEpicsState>(`/companies/${companyId}/roadmap-epics`),
+  pauseRoadmapEpic: (companyId: string, roadmapId: string) =>
+    api.post<{ roadmapId: string; paused: true }>(
+      `/companies/${companyId}/roadmap-epics/${encodeURIComponent(roadmapId)}/pause`,
+      {},
+    ),
+  resumeRoadmapEpic: (companyId: string, roadmapId: string) =>
+    api.post<{ roadmapId: string; paused: false }>(
+      `/companies/${companyId}/roadmap-epics/${encodeURIComponent(roadmapId)}/resume`,
+      {},
+    ),
   remove: (companyId: string) => api.delete<{ ok: true }>(`/companies/${companyId}`),
   exportBundle: (
     companyId: string,

@@ -1,6 +1,7 @@
-import { pgTable, uuid, text, timestamp, jsonb, integer, index } from "drizzle-orm/pg-core";
+import { type AnyPgColumn, pgTable, uuid, text, timestamp, jsonb, integer, index } from "drizzle-orm/pg-core";
 import { companies } from "./companies.js";
 import { agents } from "./agents.js";
+import { heartbeatRuns } from "./heartbeat_runs.js";
 
 export const agentWakeupRequests = pgTable(
   "agent_wakeup_requests",
@@ -18,6 +19,9 @@ export const agentWakeupRequests = pgTable(
     requestedByActorId: text("requested_by_actor_id"),
     idempotencyKey: text("idempotency_key"),
     runId: uuid("run_id"),
+    scheduledFor: timestamp("scheduled_for", { withTimezone: true }),
+    retryGroupId: uuid("retry_group_id").references((): AnyPgColumn => heartbeatRuns.id, { onDelete: "set null" }),
+    retryAttempt: integer("retry_attempt"),
     requestedAt: timestamp("requested_at", { withTimezone: true }).notNull().defaultNow(),
     claimedAt: timestamp("claimed_at", { withTimezone: true }),
     finishedAt: timestamp("finished_at", { withTimezone: true }),
@@ -34,6 +38,11 @@ export const agentWakeupRequests = pgTable(
     companyRequestedIdx: index("agent_wakeup_requests_company_requested_idx").on(
       table.companyId,
       table.requestedAt,
+    ),
+    companyStatusScheduledIdx: index("agent_wakeup_requests_company_status_scheduled_idx").on(
+      table.companyId,
+      table.status,
+      table.scheduledFor,
     ),
     agentRequestedIdx: index("agent_wakeup_requests_agent_requested_idx").on(table.agentId, table.requestedAt),
   }),
