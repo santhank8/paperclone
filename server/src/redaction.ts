@@ -85,8 +85,12 @@ export function redactAdapterConfigForApiResponse(
   adapterConfig: Record<string, unknown> | null | undefined,
 ): Record<string, unknown> {
   const base = adapterConfig && isPlainObject(adapterConfig) ? { ...adapterConfig } : {};
+  let envOut: Record<string, unknown> | undefined;
   if (Object.prototype.hasOwnProperty.call(base, "env")) {
-    base.env = redactAdapterConfigEnvForApi(base.env);
+    envOut = redactAdapterConfigEnvForApi((base as Record<string, unknown>).env);
+    delete (base as Record<string, unknown>).env;
   }
-  return redactEventPayload(base) ?? {};
+  const sanitized = redactEventPayload(base) ?? {};
+  if (envOut) (sanitized as Record<string, unknown>).env = envOut;
+  return sanitized;
 }
