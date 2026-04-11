@@ -1,24 +1,30 @@
 # Kaizai Workforce — VPS Deployment
-# Paperclip (control plane) + LangGraph Orchestrator (execution engine)
+# Runs alongside the trading platform stack (deploy/vps/docker-compose.app.yml)
+# on the same app-01 server. Shares db-01 via private VLAN.
+#
+# PostgreSQL is on db-01 (private VLAN, not a Docker service).
+# Caddy is managed by the trading platform stack — add a route there for build.kaizai.co.
 
 services:
-  paperclip:
+  workforce-control:
     build:
       context: ../../
       dockerfile: Dockerfile
-    container_name: paperclip
+    container_name: workforce-control
     restart: unless-stopped
     ports:
-      - "3100:3100"
+      - "127.0.0.1:3100:3100"    # Localhost only — Caddy proxies from trading platform stack
     environment:
       - HOST=0.0.0.0
-      - DATABASE_URL=postgresql://paperclip_user:${PAPERCLIP_DB_PASSWORD}@${DB_PRIVATE_IP}:5432/paperclip
+      - DATABASE_URL=postgresql://workforce_user:${WORKFORCE_DB_PASSWORD}@${DB_PRIVATE_IP}:5432/workforce
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - NODE_ENV=production
+    extra_hosts:
+      - "db-01:${DB_PRIVATE_IP:-10.0.0.2}"
     volumes:
-      - paperclip-data:/paperclip
+      - workforce-data:/paperclip
     networks:
-      - workforce
+      - workforce-net
 
   orchestrator:
     build:
@@ -37,21 +43,27 @@ services:
       - LANGSMITH_API_KEY=${LANGSMITH_API_KEY}
       - LANGSMITH_PROJECT=trading-agent-workforce
       - LANGCHAIN_TRACING_V2=true
-      - PAPERCLIP_API_URL=http://paperclip:3100
+      - CONTROL_PLANE_URL=http://workforce-control:3100
+    extra_hosts:
+      - "db-01:${DB_PRIVATE_IP:-10.0.0.2}"
     secrets:
       - github_app_key
     networks:
-      - workforce
+      - workforce-net
     depends_on:
-      - paperclip
+      - workforce-control
 
 secrets:
   github_app_key:
     file: ${GITHUB_APP_KEY_PATH:-/opt/workforce/secrets/github-app.pem}
 
 volumes:
-  paperclip-data:
+  workforce-data:
 
 networks:
-  workforce:
+  workforce-net:
     driver: bridge
+    # Note: This is a separate network from the trading platform.
+    # Both stacks reach db-01 via the host's private VLAN (extra_hosts),
+    # not via Docker networking. Caddy (in the trading platform stack)
+    # reaches workforce-control via host port 127.0.0.1:3100.
