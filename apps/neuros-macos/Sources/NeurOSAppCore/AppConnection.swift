@@ -1,15 +1,64 @@
 import Foundation
 
+public struct LocalServerLaunchConfiguration: Codable, Equatable, Sendable {
+    public var autoStartOnLaunch: Bool
+    public var workspaceRootPath: String
+    public var customCommand: String
+
+    public init(
+        autoStartOnLaunch: Bool = true,
+        workspaceRootPath: String = "",
+        customCommand: String = ""
+    ) {
+        self.autoStartOnLaunch = autoStartOnLaunch
+        self.workspaceRootPath = workspaceRootPath
+        self.customCommand = customCommand
+    }
+
+    public var trimmedWorkspaceRootPath: String {
+        workspaceRootPath.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    public var trimmedCustomCommand: String {
+        customCommand.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    public static let `default` = LocalServerLaunchConfiguration()
+
+    private enum CodingKeys: String, CodingKey {
+        case autoStartOnLaunch
+        case workspaceRootPath
+        case customCommand
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        autoStartOnLaunch = try container.decodeIfPresent(Bool.self, forKey: .autoStartOnLaunch) ?? true
+        workspaceRootPath = try container.decodeIfPresent(String.self, forKey: .workspaceRootPath) ?? ""
+        customCommand = try container.decodeIfPresent(String.self, forKey: .customCommand) ?? ""
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(autoStartOnLaunch, forKey: .autoStartOnLaunch)
+        try container.encode(workspaceRootPath, forKey: .workspaceRootPath)
+        try container.encode(customCommand, forKey: .customCommand)
+    }
+}
+
 public struct ServerConnectionConfiguration: Codable, Equatable, Sendable {
     public var baseURLString: String
     public var runtimeMode: RuntimeMode
+    public var localServer: LocalServerLaunchConfiguration
 
     public init(
         baseURLString: String = "http://127.0.0.1:3100",
-        runtimeMode: RuntimeMode = .hybrid
+        runtimeMode: RuntimeMode = .hybrid,
+        localServer: LocalServerLaunchConfiguration = .default
     ) {
         self.baseURLString = baseURLString
         self.runtimeMode = runtimeMode
+        self.localServer = localServer
     }
 
     public var trimmedBaseURLString: String {
@@ -29,7 +78,176 @@ public struct ServerConnectionConfiguration: Codable, Equatable, Sendable {
         return components.url
     }
 
+    public var resolvedHost: String? {
+        apiBaseURL?.host?.lowercased()
+    }
+
+    public var targetsLocalMachine: Bool {
+        guard let resolvedHost else { return false }
+        return ["127.0.0.1", "localhost", "::1"].contains(resolvedHost)
+    }
+
+    public var canManageLocalServer: Bool {
+        runtimeMode != .remote && targetsLocalMachine
+    }
+
     public static let `default` = ServerConnectionConfiguration()
+
+    private enum CodingKeys: String, CodingKey {
+        case baseURLString
+        case runtimeMode
+        case localServer
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        baseURLString = try container.decodeIfPresent(String.self, forKey: .baseURLString) ?? "http://127.0.0.1:3100"
+        runtimeMode = try container.decodeIfPresent(RuntimeMode.self, forKey: .runtimeMode) ?? .hybrid
+        localServer = try container.decodeIfPresent(LocalServerLaunchConfiguration.self, forKey: .localServer) ?? .default
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(baseURLString, forKey: .baseURLString)
+        try container.encode(runtimeMode, forKey: .runtimeMode)
+        try container.encode(localServer, forKey: .localServer)
+    }
+}
+
+public struct DevServerStatusSummary: Sendable, Equatable {
+    public var restartRequired: Bool
+    public var reason: String?
+    public var lastChangedAt: Date?
+    public var changedPathCount: Int
+    public var changedPathsSample: [String]
+    public var pendingMigrations: [String]
+    public var autoRestartEnabled: Bool
+    public var activeRunCount: Int
+    public var waitingForIdle: Bool
+    public var lastRestartAt: Date?
+
+    public init(
+        restartRequired: Bool,
+        reason: String?,
+        lastChangedAt: Date?,
+        changedPathCount: Int,
+        changedPathsSample: [String],
+        pendingMigrations: [String],
+        autoRestartEnabled: Bool,
+        activeRunCount: Int,
+        waitingForIdle: Bool,
+        lastRestartAt: Date?
+    ) {
+        self.restartRequired = restartRequired
+        self.reason = reason
+        self.lastChangedAt = lastChangedAt
+        self.changedPathCount = changedPathCount
+        self.changedPathsSample = changedPathsSample
+        self.pendingMigrations = pendingMigrations
+        self.autoRestartEnabled = autoRestartEnabled
+        self.activeRunCount = activeRunCount
+        self.waitingForIdle = waitingForIdle
+        self.lastRestartAt = lastRestartAt
+    }
+}
+
+public struct InstanceGeneralSettingsSummary: Sendable, Equatable {
+    public var censorUsernameInLogs: Bool
+    public var keyboardShortcuts: Bool
+    public var feedbackDataSharingPreference: String
+
+    public init(
+        censorUsernameInLogs: Bool = false,
+        keyboardShortcuts: Bool = false,
+        feedbackDataSharingPreference: String = "prompt"
+    ) {
+        self.censorUsernameInLogs = censorUsernameInLogs
+        self.keyboardShortcuts = keyboardShortcuts
+        self.feedbackDataSharingPreference = feedbackDataSharingPreference
+    }
+}
+
+public struct InstanceExperimentalSettingsSummary: Sendable, Equatable {
+    public var enableIsolatedWorkspaces: Bool
+    public var autoRestartDevServerWhenIdle: Bool
+
+    public init(
+        enableIsolatedWorkspaces: Bool = false,
+        autoRestartDevServerWhenIdle: Bool = false
+    ) {
+        self.enableIsolatedWorkspaces = enableIsolatedWorkspaces
+        self.autoRestartDevServerWhenIdle = autoRestartDevServerWhenIdle
+    }
+}
+
+public struct InstanceSettingsSnapshot: Sendable, Equatable {
+    public var general: InstanceGeneralSettingsSummary
+    public var experimental: InstanceExperimentalSettingsSummary
+
+    public init(
+        general: InstanceGeneralSettingsSummary = InstanceGeneralSettingsSummary(),
+        experimental: InstanceExperimentalSettingsSummary = InstanceExperimentalSettingsSummary()
+    ) {
+        self.general = general
+        self.experimental = experimental
+    }
+
+    public static let `default` = InstanceSettingsSnapshot()
+}
+
+public enum LocalServerPhase: String, Codable, Sendable {
+    case idle
+    case starting
+    case running
+    case failed
+}
+
+public struct LocalServerStatus: Sendable, Equatable {
+    public var phase: LocalServerPhase
+    public var isManagedProcess: Bool
+    public var resolvedCommand: String?
+    public var resolvedWorkingDirectory: String?
+    public var detail: String
+    public var recentOutput: [String]
+    public var launchedAt: Date?
+    public var lastExitAt: Date?
+    public var lastExitCode: Int32?
+    public var pid: Int32?
+
+    public init(
+        phase: LocalServerPhase = .idle,
+        isManagedProcess: Bool = false,
+        resolvedCommand: String? = nil,
+        resolvedWorkingDirectory: String? = nil,
+        detail: String = "Servidor local pronto para iniciar.",
+        recentOutput: [String] = [],
+        launchedAt: Date? = nil,
+        lastExitAt: Date? = nil,
+        lastExitCode: Int32? = nil,
+        pid: Int32? = nil
+    ) {
+        self.phase = phase
+        self.isManagedProcess = isManagedProcess
+        self.resolvedCommand = resolvedCommand
+        self.resolvedWorkingDirectory = resolvedWorkingDirectory
+        self.detail = detail
+        self.recentOutput = recentOutput
+        self.launchedAt = launchedAt
+        self.lastExitAt = lastExitAt
+        self.lastExitCode = lastExitCode
+        self.pid = pid
+    }
+
+    public var label: String {
+        switch phase {
+        case .idle: "Parado"
+        case .starting: "Inicializando"
+        case .running: "Em execução"
+        case .failed: "Falhou"
+        }
+    }
+
+    public static let idle = LocalServerStatus()
 }
 
 public struct ServerHealthSummary: Sendable {
@@ -37,16 +255,28 @@ public struct ServerHealthSummary: Sendable {
     public var version: String
     public var deploymentMode: String?
     public var deploymentExposure: String?
+    public var authReady: Bool?
+    public var bootstrapStatus: String?
+    public var bootstrapInviteActive: Bool?
+    public var devServer: DevServerStatusSummary?
 
     public init(
         status: String,
         version: String,
         deploymentMode: String?,
-        deploymentExposure: String?
+        deploymentExposure: String?,
+        authReady: Bool? = nil,
+        bootstrapStatus: String? = nil,
+        bootstrapInviteActive: Bool? = nil,
+        devServer: DevServerStatusSummary? = nil
     ) {
         self.status = status
         self.version = version
         self.deploymentMode = deploymentMode
         self.deploymentExposure = deploymentExposure
+        self.authReady = authReady
+        self.bootstrapStatus = bootstrapStatus
+        self.bootstrapInviteActive = bootstrapInviteActive
+        self.devServer = devServer
     }
 }

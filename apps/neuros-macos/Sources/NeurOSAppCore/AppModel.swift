@@ -9,7 +9,9 @@ public final class AppModel {
     public var runtimeMode: RuntimeMode
     public var selectedSection: NavigationSection
     public var connectionState: ConnectionState
+    public var localServerStatus: LocalServerStatus
     public var health: ServerHealthSummary?
+    public var instanceSettings: InstanceSettingsSnapshot?
     public var companies: [CompanySummary]
     public var selectedCompanyID: String?
     public var dashboard: DashboardSummary?
@@ -33,7 +35,9 @@ public final class AppModel {
         runtimeMode: RuntimeMode = .hybrid,
         selectedSection: NavigationSection = .operations,
         connectionState: ConnectionState = .connecting,
+        localServerStatus: LocalServerStatus = .idle,
         health: ServerHealthSummary? = nil,
+        instanceSettings: InstanceSettingsSnapshot? = nil,
         companies: [CompanySummary] = [],
         selectedCompanyID: String? = nil,
         dashboard: DashboardSummary? = nil,
@@ -56,7 +60,9 @@ public final class AppModel {
         self.runtimeMode = runtimeMode
         self.selectedSection = selectedSection
         self.connectionState = connectionState
+        self.localServerStatus = localServerStatus
         self.health = health
+        self.instanceSettings = instanceSettings
         self.companies = companies
         self.selectedCompanyID = selectedCompanyID
         self.dashboard = dashboard
@@ -140,6 +146,10 @@ public final class AppModel {
         )
     }
 
+    public func applyInstanceSettings(_ snapshot: InstanceSettingsSnapshot) {
+        instanceSettings = snapshot
+    }
+
     public static func preview() -> AppModel {
         let companies = [
             CompanySummary(
@@ -164,11 +174,56 @@ public final class AppModel {
         return AppModel(
             serverConfiguration: .default,
             connectionState: .local(nodeName: "neurOS local"),
+            localServerStatus: LocalServerStatus(
+                phase: .running,
+                isManagedProcess: true,
+                resolvedCommand: "paperclipai run",
+                resolvedWorkingDirectory: "/Users/monrars/paperclip",
+                detail: "Servidor local controlado pelo app.",
+                recentOutput: [
+                    "Running doctor checks...",
+                    "Starting Paperclip server..."
+                ],
+                launchedAt: .now.addingTimeInterval(-90),
+                lastExitAt: nil,
+                lastExitCode: nil,
+                pid: 42_001
+            ),
             health: ServerHealthSummary(
                 status: "ok",
                 version: "0.3.1",
                 deploymentMode: "local_trusted",
-                deploymentExposure: "private"
+                deploymentExposure: "private",
+                authReady: true,
+                bootstrapStatus: "ready",
+                bootstrapInviteActive: false,
+                devServer: DevServerStatusSummary(
+                    restartRequired: true,
+                    reason: "backend_changes",
+                    lastChangedAt: .now.addingTimeInterval(-300),
+                    changedPathCount: 3,
+                    changedPathsSample: [
+                        "server/src/routes/health.ts",
+                        "packages/shared/src/api.ts",
+                        "apps/neuros-macos/Sources/NeurOSDesktopFeatures/SettingsView.swift"
+                    ],
+                    pendingMigrations: [],
+                    autoRestartEnabled: true,
+                    activeRunCount: 1,
+                    waitingForIdle: true,
+                    lastRestartAt: .now.addingTimeInterval(-3_600)
+                )
+            ),
+            instanceSettings: InstanceSettingsSnapshot(
+                general: InstanceGeneralSettingsSummary(
+                    censorUsernameInLogs: true,
+                    keyboardShortcuts: true,
+                    feedbackDataSharingPreference: "allowed"
+                ),
+                experimental: InstanceExperimentalSettingsSummary(
+                    enableIsolatedWorkspaces: true,
+                    autoRestartDevServerWhenIdle: true
+                )
             ),
             companies: companies,
             selectedCompanyID: companies.first?.id,

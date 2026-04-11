@@ -64,6 +64,8 @@ Notable real interactive consoles already present on macOS:
 - agent detail with chain-of-command and permission visibility
 - plugin health, logs, enable/disable, and upgrade actions
 - project workspace runtime start/stop/restart actions
+- native local-server bootstrap with start/restart/stop actions and process diagnostics
+- native instance general and experimental settings controls
 
 ## Coverage Summary
 
@@ -93,7 +95,7 @@ Interpretation:
 | Runtime and instance health | `ExecutionWorkspaceDetail.tsx`, `RunTranscriptUxLab.tsx` | `RuntimeSectionView` covers health and signals; runtime actions exist inside project workspaces; transcript/lab tooling is absent | partial | `RuntimeSectionView`, `ProjectsSectionView` |
 | Plugins and adapters | `PluginManager.tsx`, `PluginPage.tsx`, `PluginSettings.tsx`, `AdapterManager.tsx` | `PluginsSectionView` covers installed plugins, health, logs, enable/disable, upgrade; no native adapter manager or plugin settings/editor surface found | partial | `PluginsSectionView` in `OperationsPanels.swift` |
 | Companies and organization | `Companies.tsx`, `CompanyImport.tsx`, `CompanyExport.tsx`, `CompanySettings.tsx`, `CompanySkills.tsx`, `Org.tsx`, `OrgChart.tsx` | `OrganizationSectionView` shows active company and company summaries only; no import/export/settings/skills/org-chart flows | partial | `OrganizationSectionView` in `OperationsPanels.swift` |
-| Instance settings | `InstanceSettings.tsx`, `InstanceGeneralSettings.tsx`, `InstanceExperimentalSettings.tsx` | `SettingsView` supports connectivity, runtime preference, launch-at-login, notifications, and diagnostics, but not the full instance settings surface | partial | `SettingsView.swift` |
+| Instance settings | `InstanceSettings.tsx`, `InstanceGeneralSettings.tsx`, `InstanceExperimentalSettings.tsx` | `SettingsView` now supports connectivity, local backend bootstrap, general settings, experimental settings, launch-at-login, notifications, and diagnostics, but still lacks scheduler-heartbeat management and auth/onboarding parity | partial | `SettingsView.swift`, `DesktopBootstrapCoordinator.swift`, `LocalPaperclipServerManager.swift` |
 | Inbox and async work intake | `Inbox.tsx` | native inbox triage now exists over approvals, recent issues, and runtime signals, but without the full web filtering/archive/read workflow | partial | `InboxSectionView` |
 | Goals and goal hierarchy | `Goals.tsx`, `GoalDetail.tsx` | native goal tree and detail surface exist, including hierarchy selection and linked project visibility, but creation/editing flows are still missing | partial | `GoalsViews.swift`, `PaperclipDesktopService.swift` |
 | Costs and spend management | `Costs.tsx` | budget metrics appear in summaries, but no dedicated native costs surface exists | not_started | metrics only in `OperationsPanels.swift`; no section/view for costs |
@@ -134,6 +136,8 @@ It is still thinner on:
 - object creation
 - editing/configuration-heavy workflows
 - structured information architecture beyond the operational shell
+
+The main exception after the latest macOS iteration is `Settings`, which now has meaningful write depth for instance general/experimental flags and local backend lifecycle.
 
 ### 3. Company and plugin parity is only mid-depth
 

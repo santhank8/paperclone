@@ -2,10 +2,39 @@ import Foundation
 import NeurOSAppCore
 
 private struct HealthDTO: Decodable, Sendable {
+    struct DevServerDTO: Decodable, Sendable {
+        let enabled: Bool
+        let restartRequired: Bool
+        let reason: String?
+        let lastChangedAt: Date?
+        let changedPathCount: Int
+        let changedPathsSample: [String]
+        let pendingMigrations: [String]
+        let autoRestartEnabled: Bool
+        let activeRunCount: Int
+        let waitingForIdle: Bool
+        let lastRestartAt: Date?
+    }
+
     let status: String
     let version: String
     let deploymentMode: String?
     let deploymentExposure: String?
+    let authReady: Bool?
+    let bootstrapStatus: String?
+    let bootstrapInviteActive: Bool?
+    let devServer: DevServerDTO?
+}
+
+private struct InstanceGeneralSettingsDTO: Codable, Sendable {
+    let censorUsernameInLogs: Bool
+    let keyboardShortcuts: Bool
+    let feedbackDataSharingPreference: String
+}
+
+private struct InstanceExperimentalSettingsDTO: Codable, Sendable {
+    let enableIsolatedWorkspaces: Bool
+    let autoRestartDevServerWhenIdle: Bool
 }
 
 private struct DashboardDTO: Decodable, Sendable {
@@ -331,6 +360,22 @@ private actor PaperclipAPIClient {
         try await get("health")
     }
 
+    func generalSettings() async throws -> InstanceGeneralSettingsDTO {
+        try await get("instance/settings/general")
+    }
+
+    func experimentalSettings() async throws -> InstanceExperimentalSettingsDTO {
+        try await get("instance/settings/experimental")
+    }
+
+    func updateGeneralSettings(_ settings: InstanceGeneralSettingsDTO) async throws -> InstanceGeneralSettingsDTO {
+        try await patch("instance/settings/general", body: settings)
+    }
+
+    func updateExperimentalSettings(_ settings: InstanceExperimentalSettingsDTO) async throws -> InstanceExperimentalSettingsDTO {
+        try await patch("instance/settings/experimental", body: settings)
+    }
+
     func companies() async throws -> [CompanyDTO] {
         try await get("companies")
     }
@@ -477,6 +522,17 @@ private actor PaperclipAPIClient {
         return try decodeResponse(data: data, response: response, url: url)
     }
 
+    private func patch<T: Decodable, B: Encodable>(_ path: String, body: B) async throws -> T {
+        let url = try makeURL(path: path)
+        var request = URLRequest(url: url)
+        request.httpMethod = "PATCH"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try Self.encoder.encode(body)
+
+        let (data, response) = try await session.data(for: request)
+        return try decodeResponse(data: data, response: response, url: url)
+    }
+
     private func makeURL(path: String) throws -> URL {
         guard let baseURL = configuration.apiBaseURL else {
             throw URLError(.badURL)
@@ -543,7 +599,7 @@ private actor PaperclipAPIClient {
 
 private struct EmptyRequest: Encodable, Sendable {}
 
-public actor PaperclipDesktopService: OperationsSnapshotProviding, OperationsConsoleProviding, ConnectionStateProviding {
+public actor PaperclipDesktopService: OperationsSnapshotProviding, OperationsConsoleProviding, ConnectionStateProviding, InstanceSettingsProviding {
     public init() {}
 
     public func currentConnectionState(configuration: ServerConnectionConfiguration) async -> ConnectionState {
@@ -810,12 +866,86 @@ public actor PaperclipDesktopService: OperationsSnapshotProviding, OperationsCon
         return Self.mapWorkspaceActionResult(response)
     }
 
+    public func loadInstanceSettings(
+        configuration: ServerConnectionConfiguration
+    ) async throws -> InstanceSettingsSnapshot {
+        let client = PaperclipAPIClient(configuration: configuration)
+        async let generalTask = client.generalSettings()
+        async let experimentalTask = client.experimentalSettings()
+
+        return InstanceSettingsSnapshot(
+            general: Self.mapGeneralSettings(try await generalTask),
+            experimental: Self.mapExperimentalSettings(try await experimentalTask)
+        )
+    }
+
+    public func updateGeneralSettings(
+        configuration: ServerConnectionConfiguration,
+        settings: InstanceGeneralSettingsSummary
+    ) async throws -> InstanceGeneralSettingsSummary {
+        let client = PaperclipAPIClient(configuration: configuration)
+        let updated = try await client.updateGeneralSettings(
+            InstanceGeneralSettingsDTO(
+                censorUsernameInLogs: settings.censorUsernameInLogs,
+                keyboardShortcuts: settings.keyboardShortcuts,
+                feedbackDataSharingPreference: settings.feedbackDataSharingPreference
+            )
+        )
+        return Self.mapGeneralSettings(updated)
+    }
+
+    public func updateExperimentalSettings(
+        configuration: ServerConnectionConfiguration,
+        settings: InstanceExperimentalSettingsSummary
+    ) async throws -> InstanceExperimentalSettingsSummary {
+        let client = PaperclipAPIClient(configuration: configuration)
+        let updated = try await client.updateExperimentalSettings(
+            InstanceExperimentalSettingsDTO(
+                enableIsolatedWorkspaces: settings.enableIsolatedWorkspaces,
+                autoRestartDevServerWhenIdle: settings.autoRestartDevServerWhenIdle
+            )
+        )
+        return Self.mapExperimentalSettings(updated)
+    }
+
     private static func mapHealth(_ dto: HealthDTO) -> ServerHealthSummary {
         ServerHealthSummary(
             status: dto.status,
             version: dto.version,
             deploymentMode: dto.deploymentMode,
-            deploymentExposure: dto.deploymentExposure
+            deploymentExposure: dto.deploymentExposure,
+            authReady: dto.authReady,
+            bootstrapStatus: dto.bootstrapStatus,
+            bootstrapInviteActive: dto.bootstrapInviteActive,
+            devServer: dto.devServer.map {
+                DevServerStatusSummary(
+                    restartRequired: $0.restartRequired,
+                    reason: $0.reason,
+                    lastChangedAt: $0.lastChangedAt,
+                    changedPathCount: $0.changedPathCount,
+                    changedPathsSample: $0.changedPathsSample,
+                    pendingMigrations: $0.pendingMigrations,
+                    autoRestartEnabled: $0.autoRestartEnabled,
+                    activeRunCount: $0.activeRunCount,
+                    waitingForIdle: $0.waitingForIdle,
+                    lastRestartAt: $0.lastRestartAt
+                )
+            }
+        )
+    }
+
+    private static func mapGeneralSettings(_ dto: InstanceGeneralSettingsDTO) -> InstanceGeneralSettingsSummary {
+        InstanceGeneralSettingsSummary(
+            censorUsernameInLogs: dto.censorUsernameInLogs,
+            keyboardShortcuts: dto.keyboardShortcuts,
+            feedbackDataSharingPreference: dto.feedbackDataSharingPreference
+        )
+    }
+
+    private static func mapExperimentalSettings(_ dto: InstanceExperimentalSettingsDTO) -> InstanceExperimentalSettingsSummary {
+        InstanceExperimentalSettingsSummary(
+            enableIsolatedWorkspaces: dto.enableIsolatedWorkspaces,
+            autoRestartDevServerWhenIdle: dto.autoRestartDevServerWhenIdle
         )
     }
 

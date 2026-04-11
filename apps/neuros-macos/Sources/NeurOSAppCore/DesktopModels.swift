@@ -22,6 +22,22 @@ public enum ConnectionState: Sendable, Equatable {
         case .degraded: "Requer atenção"
         }
     }
+
+    public var isConnected: Bool {
+        switch self {
+        case .local, .remote:
+            true
+        case .disconnected, .connecting, .degraded:
+            false
+        }
+    }
+
+    public var isLocalConnection: Bool {
+        if case .local = self {
+            return true
+        }
+        return false
+    }
 }
 
 public struct CompanySummary: Identifiable, Hashable, Sendable {

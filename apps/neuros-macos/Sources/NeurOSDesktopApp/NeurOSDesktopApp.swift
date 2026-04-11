@@ -17,7 +17,7 @@ struct NeurOSDesktopApp: App {
 
         Settings {
             SettingsView(appModel: appModel, coordinator: coordinator)
-                .frame(width: 640, height: 420)
+                .frame(minWidth: 860, minHeight: 780)
         }
 
         MenuBarExtra("neurOS", systemImage: "waveform.path.ecg.rectangle") {

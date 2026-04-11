@@ -83,10 +83,42 @@ private struct ConnectionHealthView: View {
                 Label("Modo \(appModel.runtimeMode.rawValue)", systemImage: "network")
                     .foregroundStyle(.secondary)
                 Spacer()
+                if appModel.serverConfiguration.canManageLocalServer {
+                    Button("Iniciar backend") {
+                        Task { await coordinator.startLocalServer(appModel: appModel) }
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(appModel.localServerStatus.phase == .running || appModel.localServerStatus.phase == .starting)
+
+                    Button("Reiniciar backend") {
+                        Task { await coordinator.restartLocalServer(appModel: appModel) }
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(appModel.localServerStatus.isManagedProcess == false)
+                }
                 Button("Assumir coordenação") {
                     Task { await coordinator.promoteCurrentMac(appModel: appModel) }
                 }
                 .buttonStyle(.bordered)
+            }
+
+            if appModel.serverConfiguration.canManageLocalServer {
+                Divider()
+                HStack(alignment: .firstTextBaseline) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Backend local: \(appModel.localServerStatus.label)")
+                            .font(.subheadline.weight(.medium))
+                        Text(appModel.localServerStatus.detail)
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    if let pid = appModel.localServerStatus.pid {
+                        Text("PID \(pid)")
+                            .font(.caption)
+                            .foregroundStyle(.tertiary)
+                    }
+                }
             }
         }
     }

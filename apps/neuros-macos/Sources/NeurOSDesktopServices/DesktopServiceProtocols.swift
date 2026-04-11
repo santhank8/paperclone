@@ -73,6 +73,27 @@ public protocol ConnectionStateProviding: Sendable {
     func currentConnectionState(configuration: ServerConnectionConfiguration) async -> ConnectionState
 }
 
+public protocol InstanceSettingsProviding: Sendable {
+    func loadInstanceSettings(configuration: ServerConnectionConfiguration) async throws -> InstanceSettingsSnapshot
+    func updateGeneralSettings(
+        configuration: ServerConnectionConfiguration,
+        settings: InstanceGeneralSettingsSummary
+    ) async throws -> InstanceGeneralSettingsSummary
+    func updateExperimentalSettings(
+        configuration: ServerConnectionConfiguration,
+        settings: InstanceExperimentalSettingsSummary
+    ) async throws -> InstanceExperimentalSettingsSummary
+}
+
+public protocol LocalServerControlling: Sendable {
+    func currentStatus(configuration: ServerConnectionConfiguration) async -> LocalServerStatus
+    func ensureRunning(configuration: ServerConnectionConfiguration) async throws -> LocalServerStatus
+    func start(configuration: ServerConnectionConfiguration) async throws -> LocalServerStatus
+    func restart(configuration: ServerConnectionConfiguration) async throws -> LocalServerStatus
+    func stop() async -> LocalServerStatus
+    func noteAPIReachable() async
+}
+
 public protocol LoginItemControlling: Sendable {
     func setEnabled(_ isEnabled: Bool) async throws
 }
@@ -93,6 +114,8 @@ public struct DesktopServices: Sendable {
     public let operations: any OperationsSnapshotProviding
     public let console: any OperationsConsoleProviding
     public let connection: any ConnectionStateProviding
+    public let instanceSettings: any InstanceSettingsProviding
+    public let localServer: any LocalServerControlling
     public let configurationStore: any DesktopConfigurationStoring
     public let loginItem: any LoginItemControlling
     public let notifications: any NotificationsAuthorizing
@@ -103,6 +126,8 @@ public struct DesktopServices: Sendable {
         operations: any OperationsSnapshotProviding,
         console: any OperationsConsoleProviding,
         connection: any ConnectionStateProviding,
+        instanceSettings: any InstanceSettingsProviding,
+        localServer: any LocalServerControlling,
         configurationStore: any DesktopConfigurationStoring,
         loginItem: any LoginItemControlling,
         notifications: any NotificationsAuthorizing,
@@ -112,6 +137,8 @@ public struct DesktopServices: Sendable {
         self.operations = operations
         self.console = console
         self.connection = connection
+        self.instanceSettings = instanceSettings
+        self.localServer = localServer
         self.configurationStore = configurationStore
         self.loginItem = loginItem
         self.notifications = notifications

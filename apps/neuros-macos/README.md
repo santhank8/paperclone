@@ -28,6 +28,11 @@ SwiftUI-native macOS foundation for `neurOS`, the Paperclip evolution in this re
   - activity timeline backed by the Paperclip activity API
   - native goal hierarchy with tree selection, owner/status detail, and linked projects
 - persisted server configuration with local/remote/hybrid runtime preference
+- local backend bootstrap managed from the native app, with start/restart/stop controls and process diagnostics
+- native instance settings coverage for:
+  - connectivity and local backend control
+  - general settings (`censorUsernameInLogs`, `keyboardShortcuts`, `feedbackDataSharingPreference`)
+  - experimental settings (`enableIsolatedWorkspaces`, `autoRestartDevServerWhenIdle`)
 - native desktop service layer prepared for:
   - notifications
   - menu bar
@@ -57,7 +62,7 @@ pnpm neuros:macos:install
 
 By default the installer targets `/Applications` when writable and falls back to `~/Applications` otherwise.
 
-Configure the backend instance from the native Settings screen. The app normalizes the configured base URL to `/api` automatically.
+Configure the backend instance from the native Settings screen. The app normalizes the configured base URL to `/api` automatically and, when pointed at localhost in local/hybrid mode, can launch the Paperclip backend directly from the macOS app.
 
 ## Architecture
 

@@ -1,7 +1,7 @@
 import Foundation
 import NeurOSAppCore
 
-public actor PreviewOperationsSnapshotProvider: OperationsSnapshotProviding, OperationsConsoleProviding {
+public actor PreviewOperationsSnapshotProvider: OperationsSnapshotProviding, OperationsConsoleProviding, InstanceSettingsProviding {
     public init() {}
 
     public func loadSnapshot(
@@ -439,6 +439,37 @@ public actor PreviewOperationsSnapshotProvider: OperationsSnapshotProviding, Ope
             runtimeServiceCount: action == .stop ? 0 : 1
         )
     }
+
+    public func loadInstanceSettings(configuration: ServerConnectionConfiguration) async throws -> InstanceSettingsSnapshot {
+        _ = configuration
+        return InstanceSettingsSnapshot(
+            general: InstanceGeneralSettingsSummary(
+                censorUsernameInLogs: true,
+                keyboardShortcuts: true,
+                feedbackDataSharingPreference: "allowed"
+            ),
+            experimental: InstanceExperimentalSettingsSummary(
+                enableIsolatedWorkspaces: true,
+                autoRestartDevServerWhenIdle: true
+            )
+        )
+    }
+
+    public func updateGeneralSettings(
+        configuration: ServerConnectionConfiguration,
+        settings: InstanceGeneralSettingsSummary
+    ) async throws -> InstanceGeneralSettingsSummary {
+        _ = configuration
+        return settings
+    }
+
+    public func updateExperimentalSettings(
+        configuration: ServerConnectionConfiguration,
+        settings: InstanceExperimentalSettingsSummary
+    ) async throws -> InstanceExperimentalSettingsSummary {
+        _ = configuration
+        return settings
+    }
 }
 
 public actor HybridConnectionStateProvider: ConnectionStateProviding {
@@ -490,13 +521,67 @@ public actor PreviewDesktopConfigurationStore: DesktopConfigurationStoring {
     }
 }
 
+public actor PreviewLocalServerController: LocalServerControlling {
+    public init() {}
+
+    public func currentStatus(configuration: ServerConnectionConfiguration) async -> LocalServerStatus {
+        LocalServerStatus(
+            phase: .running,
+            isManagedProcess: true,
+            resolvedCommand: configuration.localServer.trimmedCustomCommand.isEmpty ? "paperclipai run" : configuration.localServer.trimmedCustomCommand,
+            resolvedWorkingDirectory: configuration.localServer.trimmedWorkspaceRootPath.isEmpty ? "/Users/monrars/paperclip" : configuration.localServer.trimmedWorkspaceRootPath,
+            detail: "Servidor local gerenciado pelo preview.",
+            recentOutput: [
+                "Running doctor checks...",
+                "Starting Paperclip server..."
+            ],
+            launchedAt: .now.addingTimeInterval(-60),
+            lastExitAt: nil,
+            lastExitCode: nil,
+            pid: 42_001
+        )
+    }
+
+    public func ensureRunning(configuration: ServerConnectionConfiguration) async throws -> LocalServerStatus {
+        await currentStatus(configuration: configuration)
+    }
+
+    public func start(configuration: ServerConnectionConfiguration) async throws -> LocalServerStatus {
+        await currentStatus(configuration: configuration)
+    }
+
+    public func restart(configuration: ServerConnectionConfiguration) async throws -> LocalServerStatus {
+        await currentStatus(configuration: configuration)
+    }
+
+    public func stop() async -> LocalServerStatus {
+        LocalServerStatus(
+            phase: .idle,
+            isManagedProcess: false,
+            resolvedCommand: "paperclipai run",
+            resolvedWorkingDirectory: "/Users/monrars/paperclip",
+            detail: "Servidor local parado no preview.",
+            recentOutput: ["Servidor local parado."],
+            launchedAt: .now.addingTimeInterval(-120),
+            lastExitAt: .now,
+            lastExitCode: 0,
+            pid: nil
+        )
+    }
+
+    public func noteAPIReachable() async {}
+}
+
 public extension DesktopServices {
     static let live: DesktopServices = {
         let paperclip = PaperclipDesktopService()
+        let localServer = LocalPaperclipServerManager()
         return DesktopServices(
             operations: paperclip,
             console: paperclip,
             connection: paperclip,
+            instanceSettings: paperclip,
+            localServer: localServer,
             configurationStore: UserDefaultsDesktopConfigurationStore(),
             loginItem: StubLoginItemController(),
             notifications: StubNotificationsAuthorizer(),
@@ -509,6 +594,8 @@ public extension DesktopServices {
         operations: PreviewOperationsSnapshotProvider(),
         console: PreviewOperationsSnapshotProvider(),
         connection: HybridConnectionStateProvider(),
+        instanceSettings: PreviewOperationsSnapshotProvider(),
+        localServer: PreviewLocalServerController(),
         configurationStore: PreviewDesktopConfigurationStore(),
         loginItem: StubLoginItemController(),
         notifications: StubNotificationsAuthorizer(),
