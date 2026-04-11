@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { sessionCodec } from "./index.js";
+import { sessionCodec } from "../adapters/copilot-local/index.js";
 
 describe("copilot sessionCodec", () => {
   it("round-trips session params", () => {

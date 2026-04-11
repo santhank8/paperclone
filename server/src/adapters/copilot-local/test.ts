@@ -15,8 +15,9 @@ import {
   parseObject,
   runChildProcess,
 } from "@paperclipai/adapter-utils/server-utils";
-import { DEFAULT_COPILOT_LOCAL_MODEL } from "../index.js";
 import { detectCopilotAuthRequired, parseCopilotJsonl } from "./parse.js";
+
+const DEFAULT_COPILOT_LOCAL_MODEL = "claude-sonnet-4.5";
 
 function summarizeStatus(checks: AdapterEnvironmentCheck[]): AdapterEnvironmentTestResult["status"] {
   if (checks.some((check) => check.level === "error")) return "fail";

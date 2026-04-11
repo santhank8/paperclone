@@ -25,10 +25,10 @@ import {
   runChildProcess,
   stringifyPaperclipWakePayload,
 } from "@paperclipai/adapter-utils/server-utils";
-import { DEFAULT_COPILOT_LOCAL_MODEL } from "../index.js";
 import { isCopilotUnknownSessionError, parseCopilotJsonl } from "./parse.js";
 
 const __moduleDir = path.dirname(fileURLToPath(import.meta.url));
+const DEFAULT_COPILOT_LOCAL_MODEL = "claude-sonnet-4.5";
 
 function firstNonEmptyLine(text: string): string {
   return (

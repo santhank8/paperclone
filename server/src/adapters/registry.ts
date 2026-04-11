@@ -11,15 +11,6 @@ import {
 } from "@paperclipai/adapter-claude-local/server";
 import { agentConfigurationDoc as claudeAgentConfigurationDoc, models as claudeModels } from "@paperclipai/adapter-claude-local";
 import {
-  execute as copilotExecute,
-  testEnvironment as copilotTestEnvironment,
-  sessionCodec as copilotSessionCodec,
-} from "@paperclipai/adapter-copilot-local/server";
-import {
-  agentConfigurationDoc as copilotAgentConfigurationDoc,
-  models as copilotModels,
-} from "@paperclipai/adapter-copilot-local";
-import {
   execute as codexExecute,
   listCodexSkills,
   syncCodexSkills,
@@ -94,6 +85,13 @@ import { buildExternalAdapters } from "./plugin-loader.js";
 import { getDisabledAdapterTypes } from "../services/adapter-plugin-store.js";
 import { processAdapter } from "./process/index.js";
 import { httpAdapter } from "./http/index.js";
+import {
+  agentConfigurationDoc as copilotAgentConfigurationDoc,
+  models as copilotModels,
+  execute as copilotExecute,
+  testEnvironment as copilotTestEnvironment,
+  sessionCodec as copilotSessionCodec,
+} from "./copilot-local/index.js";
 
 const claudeLocalAdapter: ServerAdapterModule = {
   type: "claude_local",

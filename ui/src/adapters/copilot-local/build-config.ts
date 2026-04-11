@@ -1,5 +1,6 @@
 import type { CreateConfigValues } from "@paperclipai/adapter-utils";
-import { DEFAULT_COPILOT_LOCAL_MODEL } from "../index.js";
+
+const DEFAULT_COPILOT_LOCAL_MODEL = "claude-sonnet-4.5";
 
 function parseCommaArgs(value: string): string[] {
   return value

@@ -3,7 +3,7 @@ import {
   detectCopilotAuthRequired,
   isCopilotUnknownSessionError,
   parseCopilotJsonl,
-} from "./parse.js";
+} from "../adapters/copilot-local/parse.js";
 
 describe("parseCopilotJsonl", () => {
   it("parses session, model, assistant text, and output tokens", () => {

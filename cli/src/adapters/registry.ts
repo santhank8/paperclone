@@ -1,12 +1,12 @@
 import type { CLIAdapterModule } from "@paperclipai/adapter-utils";
 import { printClaudeStreamEvent } from "@paperclipai/adapter-claude-local/cli";
-import { printCopilotStreamEvent } from "@paperclipai/adapter-copilot-local/cli";
 import { printCodexStreamEvent } from "@paperclipai/adapter-codex-local/cli";
 import { printCursorStreamEvent } from "@paperclipai/adapter-cursor-local/cli";
 import { printGeminiStreamEvent } from "@paperclipai/adapter-gemini-local/cli";
 import { printOpenCodeStreamEvent } from "@paperclipai/adapter-opencode-local/cli";
 import { printPiStreamEvent } from "@paperclipai/adapter-pi-local/cli";
 import { printOpenClawGatewayStreamEvent } from "@paperclipai/adapter-openclaw-gateway/cli";
+import { copilotLocalCLIAdapter } from "./copilot-local/index.js";
 import { processCLIAdapter } from "./process/index.js";
 import { httpCLIAdapter } from "./http/index.js";
 
@@ -18,11 +18,6 @@ const claudeLocalCLIAdapter: CLIAdapterModule = {
 const codexLocalCLIAdapter: CLIAdapterModule = {
   type: "codex_local",
   formatStdoutEvent: printCodexStreamEvent,
-};
-
-const copilotLocalCLIAdapter: CLIAdapterModule = {
-  type: "copilot_local",
-  formatStdoutEvent: printCopilotStreamEvent,
 };
 
 const openCodeLocalCLIAdapter: CLIAdapterModule = {

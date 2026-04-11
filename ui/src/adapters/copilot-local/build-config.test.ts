@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildCopilotLocalConfig } from "./build-config.js";
+import { buildCopilotLocalConfig } from "./build-config";
 
 describe("buildCopilotLocalConfig", () => {
   it("builds the adapter config with defaults", () => {
