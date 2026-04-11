@@ -69,7 +69,7 @@ struct DashboardMetricsGrid: View {
     }
 }
 
-private struct MetricTile: View {
+struct MetricTile: View {
     let title: String
     let value: String
     let accent: Color
@@ -1096,7 +1096,7 @@ public struct OrganizationSectionView: View {
     }
 }
 
-private struct OperationalSectionScaffold<Metrics: View, Content: View>: View {
+struct OperationalSectionScaffold<Metrics: View, Content: View>: View {
     let title: String
     let subtitle: String
     private let metrics: Metrics
@@ -1144,7 +1144,7 @@ private struct OperationalSectionScaffold<Metrics: View, Content: View>: View {
     }
 }
 
-private struct SummaryRow: View {
+struct SummaryRow: View {
     let title: String
     let detail: String
     let trailing: String
@@ -1168,7 +1168,7 @@ private struct SummaryRow: View {
     }
 }
 
-private struct EmptyCollectionState: View {
+struct EmptyCollectionState: View {
     let message: String
 
     var body: some View {
@@ -1193,7 +1193,7 @@ private struct InlineErrorView: View {
     }
 }
 
-private struct StatusPill: View {
+struct StatusPill: View {
     let label: String
     let color: Color
 

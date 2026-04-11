@@ -19,6 +19,10 @@ public struct RootSplitView: View {
                 switch appModel.selectedSection {
                 case .operations:
                     OperationsHomeView(appModel: appModel, coordinator: coordinator)
+                case .inbox:
+                    InboxSectionView(appModel: appModel, coordinator: coordinator)
+                case .activity:
+                    ActivitySectionView(appModel: appModel, coordinator: coordinator)
                 case .queue:
                     QueueSectionView(appModel: appModel, coordinator: coordinator)
                 case .agents:

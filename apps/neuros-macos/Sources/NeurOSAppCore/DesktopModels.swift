@@ -71,12 +71,20 @@ public struct ApprovalSummary: Identifiable, Hashable, Sendable {
     public var title: String
     public var owner: String
     public var priorityLabel: String
+    public var createdAt: Date
 
-    public init(id: String = UUID().uuidString, title: String, owner: String, priorityLabel: String) {
+    public init(
+        id: String = UUID().uuidString,
+        title: String,
+        owner: String,
+        priorityLabel: String,
+        createdAt: Date
+    ) {
         self.id = id
         self.title = title
         self.owner = owner
         self.priorityLabel = priorityLabel
+        self.createdAt = createdAt
     }
 }
 
@@ -102,5 +110,36 @@ public struct AgentRuntimeSummary: Identifiable, Hashable, Sendable {
         self.stateLabel = stateLabel
         self.issueLabel = issueLabel
         self.budgetLabel = budgetLabel
+    }
+}
+
+public struct ActivityFeedEntry: Identifiable, Hashable, Sendable {
+    public let id: String
+    public var title: String
+    public var actorLabel: String
+    public var entityLabel: String
+    public var detailSummary: String?
+    public var action: String
+    public var entityType: String
+    public var createdAt: Date
+
+    public init(
+        id: String,
+        title: String,
+        actorLabel: String,
+        entityLabel: String,
+        detailSummary: String?,
+        action: String,
+        entityType: String,
+        createdAt: Date
+    ) {
+        self.id = id
+        self.title = title
+        self.actorLabel = actorLabel
+        self.entityLabel = entityLabel
+        self.detailSummary = detailSummary
+        self.action = action
+        self.entityType = entityType
+        self.createdAt = createdAt
     }
 }

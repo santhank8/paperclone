@@ -8,6 +8,8 @@ SwiftUI-native macOS foundation for `neurOS`, the Paperclip evolution in this re
 - real connection flow against the Paperclip REST API
 - operational sections for:
   - central operacional
+  - inbox
+  - atividade
   - fila e issues
   - agentes
   - aprovações
@@ -19,6 +21,8 @@ SwiftUI-native macOS foundation for `neurOS`, the Paperclip evolution in this re
   - approval detail, comments, approve/reject/request-revision/resubmit flows
   - plugin health, logs, enable/disable, and upgrade actions
   - project workspace runtime start/stop/restart controls
+  - native inbox triage over approvals, issues, and runtime signals
+  - activity timeline backed by the Paperclip activity API
 - persisted server configuration with local/remote/hybrid runtime preference
 - native desktop service layer prepared for:
   - notifications

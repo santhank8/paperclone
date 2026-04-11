@@ -40,6 +40,17 @@ private struct ApprovalDTO: Decodable, Sendable {
     let createdAt: Date
 }
 
+private struct ActivityDTO: Decodable, Sendable {
+    let id: String
+    let actorType: String
+    let actorId: String
+    let action: String
+    let entityType: String
+    let entityId: String
+    let details: [String: JSONValue]?
+    let createdAt: Date
+}
+
 private struct ApprovalDetailDTO: Decodable, Sendable {
     let id: String
     let type: String
@@ -246,6 +257,10 @@ private actor PaperclipAPIClient {
 
     func approvals(companyId: String) async throws -> [ApprovalDTO] {
         try await get("companies/\(companyId)/approvals?status=pending")
+    }
+
+    func activity(companyId: String) async throws -> [ActivityDTO] {
+        try await get("companies/\(companyId)/activity")
     }
 
     func approval(id: String) async throws -> ApprovalDetailDTO {
@@ -469,6 +484,7 @@ public actor PaperclipDesktopService: OperationsSnapshotProviding, OperationsCon
                 selectedCompanyID: nil,
                 dashboard: nil,
                 approvals: [],
+                activity: [],
                 signals: [],
                 agents: [],
                 issues: [],
@@ -480,12 +496,14 @@ public actor PaperclipDesktopService: OperationsSnapshotProviding, OperationsCon
 
         async let dashboardTask = client.dashboard(companyId: selectedID)
         async let approvalsTask = client.approvals(companyId: selectedID)
+        async let activityTask = client.activity(companyId: selectedID)
         async let agentsTask = client.agents(companyId: selectedID)
         async let issuesTask = client.issues(companyId: selectedID)
         async let projectsTask = client.projects(companyId: selectedID)
 
         let dashboard = try await dashboardTask
         let approvals = try await approvalsTask
+        let activity = try await activityTask
         let agents = try await agentsTask
         let issues = try await issuesTask
         let projects = try await projectsTask
@@ -541,6 +559,10 @@ public actor PaperclipDesktopService: OperationsSnapshotProviding, OperationsCon
                 pausedProjects: dashboard.budgets.pausedProjects
             ),
             approvals: approvals.map(Self.mapApproval),
+            activity: activity
+                .sorted(by: { $0.createdAt > $1.createdAt })
+                .prefix(40)
+                .map(Self.mapActivity),
             signals: signals,
             agents: agentSummaries,
             issues: issues
@@ -676,7 +698,38 @@ public actor PaperclipDesktopService: OperationsSnapshotProviding, OperationsCon
             id: dto.id,
             title: dto.payload["title"]?.stringValue ?? dto.payload["name"]?.stringValue ?? dto.type.replacingOccurrences(of: "_", with: " "),
             owner: owner,
-            priorityLabel: priority.capitalized
+            priorityLabel: priority.capitalized,
+            createdAt: dto.createdAt
+        )
+    }
+
+    private static func mapActivity(_ dto: ActivityDTO) -> ActivityFeedEntry {
+        let actorLabel: String = {
+            if let actorName = dto.details?["actorName"]?.stringValue, actorName.isEmpty == false {
+                return actorName
+            }
+            if let agentName = dto.details?["agentName"]?.stringValue, agentName.isEmpty == false {
+                return agentName
+            }
+            if dto.actorType == "system" {
+                return "system"
+            }
+            return dto.actorId
+        }()
+
+        let entityLabel = dto.details?["title"]?.stringValue
+            ?? dto.details?["name"]?.stringValue
+            ?? "\(dto.entityType) \(dto.entityId)"
+
+        return ActivityFeedEntry(
+            id: dto.id,
+            title: humanizeLabel(dto.action),
+            actorLabel: actorLabel,
+            entityLabel: entityLabel,
+            detailSummary: dto.details.map(Self.describe(jsonObject:)),
+            action: dto.action,
+            entityType: dto.entityType,
+            createdAt: dto.createdAt
         )
     }
 
@@ -912,6 +965,18 @@ public actor PaperclipDesktopService: OperationsSnapshotProviding, OperationsCon
         case .null:
             return "null"
         }
+    }
+
+    private static func humanizeLabel(_ value: String) -> String {
+        value
+            .replacingOccurrences(of: ".", with: " ")
+            .replacingOccurrences(of: "_", with: " ")
+            .split(separator: " ")
+            .map { segment in
+                let lowercased = segment.lowercased()
+                return lowercased.prefix(1).uppercased() + lowercased.dropFirst()
+            }
+            .joined(separator: " ")
     }
 }
 

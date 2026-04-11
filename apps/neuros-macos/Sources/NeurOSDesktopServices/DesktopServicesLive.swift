@@ -49,8 +49,30 @@ public actor PreviewOperationsSnapshotProvider: OperationsSnapshotProviding, Ope
                 pausedProjects: 1
             ),
             approvals: [
-                ApprovalSummary(id: "approval-1", title: "Aprovar novo squad criativo", owner: "COO Agent", priorityLabel: "Alta"),
-                ApprovalSummary(id: "approval-2", title: "Liberar budget semanal", owner: "Finance Ops", priorityLabel: "Média"),
+                ApprovalSummary(id: "approval-1", title: "Aprovar novo squad criativo", owner: "COO Agent", priorityLabel: "Alta", createdAt: .now),
+                ApprovalSummary(id: "approval-2", title: "Liberar budget semanal", owner: "Finance Ops", priorityLabel: "Média", createdAt: .now.addingTimeInterval(-1200)),
+            ],
+            activity: [
+                ActivityFeedEntry(
+                    id: "activity-1",
+                    title: "Issue Updated",
+                    actorLabel: "Clara",
+                    entityLabel: "GN-52 Revisar fila de aprovações",
+                    detailSummary: "status: in_review, priority: high",
+                    action: "issue.updated",
+                    entityType: "issue",
+                    createdAt: .now
+                ),
+                ActivityFeedEntry(
+                    id: "activity-2",
+                    title: "Approval Created",
+                    actorLabel: "system",
+                    entityLabel: "Aprovar novo squad criativo",
+                    detailSummary: "type: hire_agent",
+                    action: "approval.created",
+                    entityType: "approval",
+                    createdAt: .now.addingTimeInterval(-900)
+                ),
             ],
             signals: [
                 OperationsSignal(title: "Runtime retomado", detail: "Todos os workers reconectados na rede local.", occurredAt: .now),

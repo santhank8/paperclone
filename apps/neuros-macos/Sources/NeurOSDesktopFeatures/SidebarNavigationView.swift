@@ -70,6 +70,8 @@ public struct SidebarNavigationView: View {
     private func symbol(for section: NavigationSection) -> String {
         switch section {
         case .operations: "waveform.path.ecg.rectangle"
+        case .inbox: "tray.full"
+        case .activity: "clock.arrow.circlepath"
         case .queue: "list.bullet.clipboard"
         case .agents: "person.3.sequence"
         case .projects: "folder.badge.gearshape"

@@ -14,6 +14,7 @@ public final class AppModel {
     public var selectedCompanyID: String?
     public var dashboard: DashboardSummary?
     public var approvals: [ApprovalSummary]
+    public var activity: [ActivityFeedEntry]
     public var signals: [OperationsSignal]
     public var agents: [AgentRuntimeSummary]
     public var issues: [IssueQueueSummary]
@@ -36,6 +37,7 @@ public final class AppModel {
         selectedCompanyID: String? = nil,
         dashboard: DashboardSummary? = nil,
         approvals: [ApprovalSummary] = [],
+        activity: [ActivityFeedEntry] = [],
         signals: [OperationsSignal] = [],
         agents: [AgentRuntimeSummary] = [],
         issues: [IssueQueueSummary] = [],
@@ -57,6 +59,7 @@ public final class AppModel {
         self.selectedCompanyID = selectedCompanyID
         self.dashboard = dashboard
         self.approvals = approvals
+        self.activity = activity
         self.signals = signals
         self.agents = agents
         self.issues = issues
@@ -103,6 +106,7 @@ public final class AppModel {
         }
         dashboard = snapshot.dashboard
         approvals = snapshot.approvals
+        activity = snapshot.activity
         signals = snapshot.signals
         agents = snapshot.agents
         issues = snapshot.issues
@@ -121,6 +125,7 @@ public final class AppModel {
             selectedCompanyID: selectedCompanyID,
             dashboard: dashboard,
             approvals: approvals,
+            activity: activity,
             signals: signals,
             agents: agents,
             issues: issues,
@@ -179,8 +184,30 @@ public final class AppModel {
                 pausedProjects: 1
             ),
             approvals: [
-                ApprovalSummary(id: "approval-1", title: "Aprovar novo squad criativo", owner: "COO Agent", priorityLabel: "Alta"),
-                ApprovalSummary(id: "approval-2", title: "Liberar budget semanal", owner: "Finance Ops", priorityLabel: "Média"),
+                ApprovalSummary(id: "approval-1", title: "Aprovar novo squad criativo", owner: "COO Agent", priorityLabel: "Alta", createdAt: .now),
+                ApprovalSummary(id: "approval-2", title: "Liberar budget semanal", owner: "Finance Ops", priorityLabel: "Média", createdAt: .now.addingTimeInterval(-1800)),
+            ],
+            activity: [
+                ActivityFeedEntry(
+                    id: "activity-1",
+                    title: "Issue Updated",
+                    actorLabel: "Clara",
+                    entityLabel: "GN-52 Revisar fila de aprovações",
+                    detailSummary: "status: in_review, priority: high",
+                    action: "issue.updated",
+                    entityType: "issue",
+                    createdAt: .now
+                ),
+                ActivityFeedEntry(
+                    id: "activity-2",
+                    title: "Approval Created",
+                    actorLabel: "system",
+                    entityLabel: "Aprovar novo squad criativo",
+                    detailSummary: "type: hire_agent",
+                    action: "approval.created",
+                    entityType: "approval",
+                    createdAt: .now.addingTimeInterval(-900)
+                ),
             ],
             signals: [
                 OperationsSignal(id: "signal-1", title: "Runtime retomado", detail: "Todos os workers reconectados na rede local.", occurredAt: .now),

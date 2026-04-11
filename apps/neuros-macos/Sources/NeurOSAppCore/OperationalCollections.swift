@@ -129,6 +129,7 @@ public struct OperationsSnapshot: Sendable {
     public var selectedCompanyID: String?
     public var dashboard: DashboardSummary?
     public var approvals: [ApprovalSummary]
+    public var activity: [ActivityFeedEntry]
     public var signals: [OperationsSignal]
     public var agents: [AgentRuntimeSummary]
     public var issues: [IssueQueueSummary]
@@ -141,6 +142,7 @@ public struct OperationsSnapshot: Sendable {
         selectedCompanyID: String?,
         dashboard: DashboardSummary?,
         approvals: [ApprovalSummary],
+        activity: [ActivityFeedEntry],
         signals: [OperationsSignal],
         agents: [AgentRuntimeSummary],
         issues: [IssueQueueSummary],
@@ -152,6 +154,7 @@ public struct OperationsSnapshot: Sendable {
         self.selectedCompanyID = selectedCompanyID
         self.dashboard = dashboard
         self.approvals = approvals
+        self.activity = activity
         self.signals = signals
         self.agents = agents
         self.issues = issues
