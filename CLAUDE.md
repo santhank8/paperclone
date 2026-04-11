@@ -86,9 +86,30 @@ The workforce builds `stepan-korec/trading-agent`. It interacts with that repo e
 
 There is zero code coupling between the repos.
 
+## Git Workflow
+
+**All branches and PRs MUST go to `stepan-korec/workforce`, NEVER to `paperclipai/paperclip`.**
+
+This repo is a fork of `paperclipai/paperclip`, which means `git push` can accidentally target the upstream repo if the `origin` remote is misconfigured or if a branch tracks `upstream/*`. Before pushing, always verify:
+
+```bash
+git remote -v
+# origin    should point to stepan-korec/workforce (push target)
+# upstream  should point to paperclipai/paperclip  (fetch only, never push)
+
+git rev-parse --abbrev-ref --symbolic-full-name @{upstream}
+# Must resolve to origin/<branch>, not upstream/<branch>
+```
+
+Rules:
+- `origin` = `stepan-korec/workforce` — this is the ONLY push target.
+- `upstream` = `paperclipai/paperclip` — fetch-only, used for syncing upstream changes.
+- Never run `git push upstream ...`. If you see a branch or PR open in `paperclipai/paperclip`, it is in the wrong repo and must be closed/moved.
+- Feature branches (`claude/*`, `feat/*`, etc.) always push to `origin`.
+
 ## Upstream Sync
 
-This repo is a fork of `paperclipai/paperclip`. To pull upstream updates:
+To pull upstream updates from `paperclipai/paperclip`:
 ```bash
 git fetch upstream
 git merge upstream/master
