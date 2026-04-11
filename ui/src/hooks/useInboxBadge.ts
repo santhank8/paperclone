@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { INBOX_MINE_ISSUE_STATUS_FILTER } from "@paperclipai/shared";
 import { accessApi } from "../api/access";
 import { ApiError } from "../api/client";
 import { inboxDismissalsApi } from "../api/inboxDismissals";
@@ -19,6 +18,8 @@ import {
   saveReadInboxItems,
   READ_ITEMS_KEY,
 } from "../lib/inbox";
+
+const INBOX_ISSUE_STATUSES = "backlog,todo,in_progress,in_review,blocked,done";
 
 export function useDismissedInboxAlerts() {
   const [dismissed, setDismissed] = useState<Set<string>>(loadDismissedInboxAlerts);
@@ -172,7 +173,7 @@ export function useInboxBadge(companyId: string | null | undefined) {
       issuesApi.list(companyId!, {
         touchedByUserId: "me",
         inboxArchivedByUserId: "me",
-        status: INBOX_MINE_ISSUE_STATUS_FILTER,
+        status: INBOX_ISSUE_STATUSES,
       }),
     enabled: !!companyId,
   });

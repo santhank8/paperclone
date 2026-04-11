@@ -1,4 +1,3 @@
-import { CHECKOUTABLE_ISSUE_STATUSES } from "@paperclipai/shared";
 import type {
   Approval,
   DocumentRevision,
@@ -80,7 +79,7 @@ export const issuesApi = {
   checkout: (id: string, agentId: string) =>
     api.post<Issue>(`/issues/${id}/checkout`, {
       agentId,
-      expectedStatuses: [...CHECKOUTABLE_ISSUE_STATUSES],
+      expectedStatuses: ["todo", "backlog", "blocked", "in_review"],
     }),
   release: (id: string) => api.post<Issue>(`/issues/${id}/release`, {}),
   listComments: (
