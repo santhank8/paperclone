@@ -6,17 +6,21 @@ import { notFound, unprocessable } from "../errors.js";
 import { redactCurrentUserText } from "../log-redaction.js";
 import { prepareAdapterConfigForPersistence } from "./agent-adapter-config.js";
 import {
+  agentHeartbeatModelService,
   normalizeRuntimeConfigForCooHeartbeatModel,
+  roleRequiresQaCoverage,
   resolveRoleForCooCoordinatorModel,
 } from "./agent-heartbeat-model.js";
 import { agentService } from "./agents.js";
 import { budgetService } from "./budgets.js";
 import { notifyHireApproved } from "./hire-hook.js";
 import { instanceSettingsService } from "./instance-settings.js";
+import { logger } from "../middleware/logger.js";
 import { secretService } from "./secrets.js";
 
 export function approvalService(db: Db) {
   const agentsSvc = agentService(db);
+  const heartbeatModel = agentHeartbeatModelService(db);
   const budgets = budgetService(db);
   const instanceSettings = instanceSettingsService(db);
   const secrets = secretService(db);
@@ -201,13 +205,17 @@ export function approvalService(db: Db) {
       );
 
       let hireApprovedAgentId: string | null = null;
+      let approvedHireRole: string | null = null;
       const now = new Date();
       if (applied && updated.type === "hire_agent") {
         const payload = normalizeHireApprovalPayload(updated.payload);
         const payloadAgentId = typeof payload.agentId === "string" ? payload.agentId : null;
         if (payloadAgentId) {
-          await agentsSvc.activatePendingApproval(payloadAgentId);
+          const activated = await agentsSvc.activatePendingApproval(payloadAgentId);
           hireApprovedAgentId = payloadAgentId;
+          approvedHireRole = activated?.role ?? (
+            typeof payload.role === "string" ? canonicalizeAgentRole(payload.role) : null
+          );
         } else {
           const adapterType = String(payload.adapterType ?? "process");
           const normalizedRole = resolveRoleForCooCoordinatorModel({
@@ -259,6 +267,7 @@ export function approvalService(db: Db) {
               lastHeartbeatAt: null,
             });
             hireApprovedAgentId = created?.id ?? null;
+            approvedHireRole = normalizedRole;
           } catch (err) {
             if (originalResolvableStatus) {
               await rollbackApprovedHireResolution(id, originalResolvableStatus, updated);
@@ -288,6 +297,16 @@ export function approvalService(db: Db) {
             sourceId: id,
             approvedAt: now,
           }).catch(() => {});
+        }
+        if (hireApprovedAgentId && approvedHireRole && roleRequiresQaCoverage(approvedHireRole)) {
+          try {
+            await heartbeatModel.ensureCompanyHasQaReleaseEngineer(updated.companyId, { apply: true });
+          } catch (err) {
+            logger.warn(
+              { err, approvalId: id, companyId: updated.companyId, role: approvedHireRole },
+              "failed to ensure QA and Release Engineer coverage after hire approval",
+            );
+          }
         }
       }
 

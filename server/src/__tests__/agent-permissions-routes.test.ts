@@ -71,6 +71,10 @@ const mockIssueApprovalService = vi.hoisted(() => ({
 const mockIssueService = vi.hoisted(() => ({
   list: vi.fn(),
 }));
+const mockAgentHeartbeatModel = vi.hoisted(() => ({
+  ensureCompanyHasQaReleaseEngineer: vi.fn(),
+}));
+const mockRoleRequiresQaCoverage = vi.hoisted(() => vi.fn(() => false));
 
 const mockSecretService = vi.hoisted(() => ({
   normalizeAdapterConfigForPersistence: vi.fn(),
@@ -96,6 +100,7 @@ const mockResolveRoleForCooCoordinatorModel = vi.hoisted(() =>
 vi.mock("../services/index.js", () => ({
   agentService: () => mockAgentService,
   agentInstructionsService: () => mockAgentInstructionsService,
+  agentHeartbeatModelService: () => mockAgentHeartbeatModel,
   accessService: () => mockAccessService,
   approvalService: () => mockApprovalService,
   companySkillService: () => mockCompanySkillService,
@@ -105,6 +110,7 @@ vi.mock("../services/index.js", () => ({
   issueService: () => mockIssueService,
   logActivity: mockLogActivity,
   normalizeRuntimeConfigForCooHeartbeatModel: mockNormalizeRuntimeConfigForCooHeartbeatModel,
+  roleRequiresQaCoverage: mockRoleRequiresQaCoverage,
   resolveRoleForCooCoordinatorModel: mockResolveRoleForCooCoordinatorModel,
   secretService: () => mockSecretService,
   syncInstructionsBundleConfigFromFilePath: vi.fn((_agent, config) => config),
@@ -142,6 +148,7 @@ function createApp(actor: Record<string, unknown>) {
 describe("agent permission routes", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockRoleRequiresQaCoverage.mockReturnValue(false);
     mockAgentService.getById.mockResolvedValue(baseAgent);
     mockAgentService.getChainOfCommand.mockResolvedValue([]);
     mockAgentService.resolveByReference.mockResolvedValue({ ambiguous: false, agent: baseAgent });

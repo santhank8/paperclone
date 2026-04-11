@@ -51,6 +51,10 @@ const mockIssueApprovalService = vi.hoisted(() => ({
   linkManyForApproval: vi.fn(),
 }));
 
+const mockAgentHeartbeatModel = vi.hoisted(() => ({
+  ensureCompanyHasQaReleaseEngineer: vi.fn(),
+}));
+
 const mockApprovalService = vi.hoisted(() => ({
   create: vi.fn(),
   getById: vi.fn(),
@@ -67,10 +71,12 @@ const mockNormalizeRuntimeConfigForCooHeartbeatModel = vi.hoisted(() =>
 const mockResolveRoleForCooCoordinatorModel = vi.hoisted(() =>
   vi.fn(({ role }: { role?: string }) => role ?? "general"),
 );
+const mockRoleRequiresQaCoverage = vi.hoisted(() => vi.fn(() => false));
 
 vi.mock("../services/index.js", () => ({
   agentService: () => mockAgentService,
   agentInstructionsService: () => mockAgentInstructionsService,
+  agentHeartbeatModelService: () => mockAgentHeartbeatModel,
   accessService: () => mockAccessService,
   approvalService: () => mockApprovalService,
   companySkillService: () => mockCompanySkillService,
@@ -80,6 +86,7 @@ vi.mock("../services/index.js", () => ({
   issueService: () => ({}),
   logActivity: mockLogActivity,
   normalizeRuntimeConfigForCooHeartbeatModel: mockNormalizeRuntimeConfigForCooHeartbeatModel,
+  roleRequiresQaCoverage: mockRoleRequiresQaCoverage,
   resolveRoleForCooCoordinatorModel: mockResolveRoleForCooCoordinatorModel,
   secretService: () => mockSecretService,
   syncInstructionsBundleConfigFromFilePath: vi.fn((_agent, config) => config),
@@ -123,6 +130,7 @@ describe("agent routes adapter validation", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     unregisterServerAdapter("external_test");
+    mockRoleRequiresQaCoverage.mockReturnValue(false);
     mockCompanySkillService.listRuntimeSkillEntries.mockResolvedValue([]);
     mockCompanySkillService.resolveRequestedSkillKeys.mockResolvedValue([]);
     mockAccessService.canUser.mockResolvedValue(true);

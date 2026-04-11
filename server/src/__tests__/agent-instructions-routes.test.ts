@@ -30,12 +30,17 @@ const mockSecretService = vi.hoisted(() => ({
   resolveAdapterConfigForRuntime: vi.fn(),
   normalizeAdapterConfigForPersistence: vi.fn(async (_companyId: string, config: Record<string, unknown>) => config),
 }));
+const mockAgentHeartbeatModel = vi.hoisted(() => ({
+  ensureCompanyHasQaReleaseEngineer: vi.fn(),
+}));
+const mockRoleRequiresQaCoverage = vi.hoisted(() => vi.fn(() => false));
 
 const mockLogActivity = vi.hoisted(() => vi.fn());
 
 vi.mock("../services/index.js", () => ({
   agentService: () => mockAgentService,
   agentInstructionsService: () => mockAgentInstructionsService,
+  agentHeartbeatModelService: () => mockAgentHeartbeatModel,
   accessService: () => mockAccessService,
   approvalService: () => ({}),
   companySkillService: () => ({ listRuntimeSkillEntries: vi.fn() }),
@@ -44,6 +49,7 @@ vi.mock("../services/index.js", () => ({
   issueApprovalService: () => ({}),
   issueService: () => ({}),
   logActivity: mockLogActivity,
+  roleRequiresQaCoverage: mockRoleRequiresQaCoverage,
   secretService: () => mockSecretService,
   syncInstructionsBundleConfigFromFilePath: vi.fn((_agent, config) => config),
   workspaceOperationService: () => ({}),
@@ -93,6 +99,7 @@ function makeAgent() {
 describe("agent instructions bundle routes", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockRoleRequiresQaCoverage.mockReturnValue(false);
     mockAgentService.getById.mockResolvedValue(makeAgent());
     mockAgentService.update.mockImplementation(async (_id: string, patch: Record<string, unknown>) => ({
       ...makeAgent(),

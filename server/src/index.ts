@@ -30,6 +30,7 @@ import { logger } from "./middleware/logger.js";
 import { setupLiveEventsWebSocketServer } from "./realtime/live-events-ws.js";
 import {
   agentHeartbeatModelService,
+  executiveSummaryService,
   feedbackService,
   heartbeatService,
   reconcilePersistedRuntimeServicesOnStartup,
@@ -516,6 +517,19 @@ export async function startServer(): Promise<StartedServer> {
         "backfilled missing COO coordinator agents",
       );
     }
+    const qaCoverage = await heartbeatModel.backfillMissingQaReleaseEngineers({ apply: true });
+    if (qaCoverage.createdAgents > 0) {
+      logger.info(
+        {
+          scannedCompanies: qaCoverage.scannedCompanies,
+          companiesWithTechTeam: qaCoverage.companiesWithTechTeam,
+          companiesWithQa: qaCoverage.companiesWithQa,
+          createdAgents: qaCoverage.createdAgents,
+          createdCompanies: qaCoverage.createdCompanyIds.length,
+        },
+        "backfilled missing QA and Release Engineer agents for tech-team companies",
+      );
+    }
     const report = await heartbeatModel.alignCooCoordinatorHeartbeats({ apply: true });
     if (report.updatedAgents > 0) {
       logger.info(
@@ -618,6 +632,7 @@ export async function startServer(): Promise<StartedServer> {
   if (config.heartbeatSchedulerEnabled) {
     const heartbeat = heartbeatService(db as any);
     const routines = routineService(db as any);
+    const executiveSummary = executiveSummaryService(db as any);
   
     // Reap orphaned running runs at startup while in-memory execution state is empty,
     // then resume any persisted queued runs that were waiting on the previous process.
@@ -648,6 +663,17 @@ export async function startServer(): Promise<StartedServer> {
         })
         .catch((err) => {
           logger.error({ err }, "routine scheduler tick failed");
+        });
+
+      void executiveSummary
+        .tickDaily(new Date())
+        .then((result) => {
+          if (result.sent > 0 || result.failed > 0 || result.skipped > 0) {
+            logger.info({ ...result }, "executive summary scheduler tick finished");
+          }
+        })
+        .catch((err) => {
+          logger.error({ err }, "executive summary scheduler tick failed");
         });
   
       // Periodically reap orphaned runs (5-min staleness threshold) and make sure

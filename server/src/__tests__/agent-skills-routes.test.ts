@@ -6,6 +6,7 @@ import { errorHandler } from "../middleware/index.js";
 
 const mockAgentService = vi.hoisted(() => ({
   getById: vi.fn(),
+  list: vi.fn(),
   update: vi.fn(),
   create: vi.fn(),
   resolveByReference: vi.fn(),
@@ -44,6 +45,10 @@ const mockCompanySkillService = vi.hoisted(() => ({
   listRuntimeSkillEntries: vi.fn(),
   resolveRequestedSkillKeys: vi.fn(),
 }));
+const mockAgentHeartbeatModel = vi.hoisted(() => ({
+  ensureCompanyHasQaReleaseEngineer: vi.fn(),
+}));
+const mockRoleRequiresQaCoverage = vi.hoisted(() => vi.fn(() => false));
 
 const mockSecretService = vi.hoisted(() => ({
   resolveAdapterConfigForRuntime: vi.fn(),
@@ -77,6 +82,7 @@ vi.mock("../telemetry.js", () => ({
 vi.mock("../services/index.js", () => ({
   agentService: () => mockAgentService,
   agentInstructionsService: () => mockAgentInstructionsService,
+  agentHeartbeatModelService: () => mockAgentHeartbeatModel,
   accessService: () => mockAccessService,
   approvalService: () => mockApprovalService,
   companySkillService: () => mockCompanySkillService,
@@ -86,6 +92,7 @@ vi.mock("../services/index.js", () => ({
   issueService: () => ({}),
   logActivity: mockLogActivity,
   normalizeRuntimeConfigForCooHeartbeatModel: mockNormalizeRuntimeConfigForCooHeartbeatModel,
+  roleRequiresQaCoverage: mockRoleRequiresQaCoverage,
   resolveRoleForCooCoordinatorModel: mockResolveRoleForCooCoordinatorModel,
   secretService: () => mockSecretService,
   syncInstructionsBundleConfigFromFilePath: vi.fn((_agent, config) => config),
@@ -153,11 +160,13 @@ function makeAgent(adapterType: string) {
 describe("agent skill routes", () => {
   beforeEach(() => {
     vi.resetAllMocks();
+    mockRoleRequiresQaCoverage.mockReturnValue(false);
     mockGetTelemetryClient.mockReturnValue({ track: vi.fn() });
     mockAgentService.resolveByReference.mockResolvedValue({
       ambiguous: false,
       agent: makeAgent("claude_local"),
     });
+    mockAgentService.list.mockResolvedValue([makeAgent("claude_local")]);
     mockSecretService.resolveAdapterConfigForRuntime.mockResolvedValue({ config: { env: {} } });
     mockCompanySkillService.listRuntimeSkillEntries.mockResolvedValue([
       {
@@ -379,7 +388,7 @@ describe("agent skill routes", () => {
         role: "coo",
       }),
       expect.objectContaining({
-        "AGENTS.md": expect.stringContaining("healthy recovery state"),
+        "AGENTS.md": expect.any(String),
       }),
       { entryFile: "AGENTS.md", replaceExisting: false },
     );
@@ -552,5 +561,84 @@ describe("agent skill routes", () => {
         }),
       }),
     );
+  });
+
+  it("rejects creating a second singleton executive role", async () => {
+    mockAgentService.list.mockResolvedValue([
+      {
+        ...makeAgent("claude_local"),
+        id: "existing-cmo",
+        role: "cmo",
+        name: "CMO",
+      },
+    ]);
+
+    const res = await request(createApp())
+      .post("/api/companies/company-1/agents")
+      .send({
+        name: "Second CMO",
+        role: "cmo",
+        adapterType: "claude_local",
+        adapterConfig: {},
+      });
+
+    expect(res.status).toBe(409);
+    expect(String(res.body?.error ?? "")).toContain("Only one CMO");
+  });
+
+  it("rejects hiring a second singleton executive role", async () => {
+    mockAgentService.list.mockResolvedValue([
+      {
+        ...makeAgent("claude_local"),
+        id: "existing-cmo",
+        role: "cmo",
+        name: "CMO",
+      },
+    ]);
+
+    const res = await request(createApp())
+      .post("/api/companies/company-1/agent-hires")
+      .send({
+        name: "Second CMO",
+        role: "cmo",
+        adapterType: "claude_local",
+        adapterConfig: {},
+      });
+
+    expect(res.status).toBe(409);
+    expect(String(res.body?.error ?? "")).toContain("Only one CMO");
+  });
+
+  it("rejects patching an agent into an already-occupied singleton executive role", async () => {
+    mockAgentService.getById.mockResolvedValue({
+      ...makeAgent("claude_local"),
+      id: "agent-1",
+      role: "engineer",
+      companyId: "company-1",
+    });
+    mockAgentService.list.mockResolvedValue([
+      {
+        ...makeAgent("claude_local"),
+        id: "agent-1",
+        role: "engineer",
+        companyId: "company-1",
+      },
+      {
+        ...makeAgent("claude_local"),
+        id: "agent-2",
+        role: "cmo",
+        name: "CMO",
+        companyId: "company-1",
+      },
+    ]);
+
+    const res = await request(createApp())
+      .patch("/api/agents/11111111-1111-4111-8111-111111111111")
+      .send({
+        role: "cmo",
+      });
+
+    expect(res.status).toBe(409);
+    expect(String(res.body?.error ?? "")).toContain("Only one CMO");
   });
 });

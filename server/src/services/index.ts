@@ -4,7 +4,10 @@ export { companySkillService } from "./company-skills.js";
 export { agentService, deduplicateAgentName } from "./agents.js";
 export {
   COO_COORDINATOR_DEFAULT_INTERVAL_SEC,
+  QA_RELEASE_DEFAULT_NAME,
+  QA_RELEASE_DEFAULT_TITLE,
   resolveRoleForCooCoordinatorModel,
+  roleRequiresQaCoverage,
   normalizeRuntimeConfigForCooHeartbeatModel,
   agentHeartbeatModelService,
 } from "./agent-heartbeat-model.js";
@@ -30,6 +33,7 @@ export { costService } from "./costs.js";
 export { financeService } from "./finance.js";
 export { heartbeatService } from "./heartbeat.js";
 export { dashboardService } from "./dashboard.js";
+export { executiveSummaryService } from "./executive-summary.js";
 export { sidebarBadgeService } from "./sidebar-badges.js";
 export { accessService } from "./access.js";
 export { boardAuthService } from "./board-auth.js";

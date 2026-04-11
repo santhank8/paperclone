@@ -7,6 +7,7 @@ import { and, desc, eq, inArray, not, sql } from "drizzle-orm";
 import {
   agentSkillSyncSchema,
   agentMineInboxQuerySchema,
+  canonicalizeAgentRole,
   createAgentKeySchema,
   createAgentHireSchema,
   createAgentSchema,
@@ -32,6 +33,8 @@ import { validate } from "../middleware/validate.js";
 import {
   agentService,
   agentInstructionsService,
+  agentHeartbeatModelService,
+  roleRequiresQaCoverage,
   resolveRoleForCooCoordinatorModel,
   normalizeRuntimeConfigForCooHeartbeatModel,
   accessService,
@@ -55,6 +58,7 @@ import {
   listAdapterModels,
   requireServerAdapter,
 } from "../adapters/index.js";
+import { logger } from "../middleware/logger.js";
 import { redactEventPayload } from "../redaction.js";
 import { redactCurrentUserValue } from "../log-redaction.js";
 import { renderOrgChartSvg, renderOrgChartPng, type OrgNode, type OrgChartStyle, ORG_CHART_STYLES } from "./org-chart-svg.js";
@@ -71,6 +75,7 @@ import {
 } from "../services/agent-adapter-config.js";
 
 export function agentRoutes(db: Db) {
+  const SINGLETON_EXECUTIVE_ROLES = new Set(["ceo", "cto", "cmo", "cfo", "coo"]);
   const DEFAULT_INSTRUCTIONS_PATH_KEYS: Record<string, string> = {
     claude_local: "instructionsFilePath",
     codex_local: "instructionsFilePath",
@@ -97,6 +102,7 @@ export function agentRoutes(db: Db) {
   const approvalsSvc = approvalService(db);
   const budgets = budgetService(db);
   const heartbeat = heartbeatService(db);
+  const heartbeatModel = agentHeartbeatModelService(db);
   const issueApprovalsSvc = issueApprovalService(db);
   const secretsSvc = secretService(db);
   const instructions = agentInstructionsService();
@@ -104,6 +110,15 @@ export function agentRoutes(db: Db) {
   const workspaceOperations = workspaceOperationService(db);
   const instanceSettings = instanceSettingsService(db);
   const strictSecretsMode = process.env.PAPERCLIP_SECRETS_STRICT_MODE === "true";
+
+  async function ensureQaCoverageForTechRole(companyId: string, role: string) {
+    if (!roleRequiresQaCoverage(role)) return;
+    try {
+      await heartbeatModel.ensureCompanyHasQaReleaseEngineer(companyId, { apply: true });
+    } catch (err) {
+      logger.warn({ err, companyId, role }, "failed to ensure QA and Release Engineer coverage");
+    }
+  }
 
   async function getCurrentUserRedactionOptions() {
     return {
@@ -210,6 +225,23 @@ export function agentRoutes(db: Db) {
       throw forbidden("Missing permission: can create agents");
     }
     return actorAgent;
+  }
+
+  async function assertSingletonExecutiveRoleAvailable(input: {
+    companyId: string;
+    role: string;
+    excludeAgentId?: string;
+  }) {
+    const normalizedRole = canonicalizeAgentRole(input.role);
+    if (!SINGLETON_EXECUTIVE_ROLES.has(normalizedRole)) return;
+
+    const existingAgents = await svc.list(input.companyId);
+    const existing = existingAgents.find((agent) =>
+      agent.role === normalizedRole && agent.id !== input.excludeAgentId,
+    );
+    if (!existing) return;
+
+    throw conflict(`Only one ${normalizedRole.toUpperCase()} is allowed per company`);
   }
 
   async function assertCanReadConfigurations(req: Request, companyId: string) {
@@ -1241,6 +1273,10 @@ export function agentRoutes(db: Db) {
       name: hireInput.name,
       title: hireInput.title,
     });
+    await assertSingletonExecutiveRoleAvailable({
+      companyId,
+      role: normalizedRole,
+    });
     const normalizedRuntimeConfig = normalizeRuntimeConfigForCooHeartbeatModel({
       role: normalizedRole,
       name: hireInput.name,
@@ -1273,6 +1309,9 @@ export function agentRoutes(db: Db) {
       lastHeartbeatAt: null,
     });
     const agent = await materializeDefaultInstructionsBundleForNewAgent(createdAgent);
+    if (!requiresApproval) {
+      await ensureQaCoverageForTechRole(companyId, normalizedRole);
+    }
 
     let approval: Awaited<ReturnType<typeof approvalsSvc.getById>> | null = null;
     const actor = getActorInfo(req);
@@ -1416,6 +1455,10 @@ export function agentRoutes(db: Db) {
       name: createInput.name,
       title: createInput.title,
     });
+    await assertSingletonExecutiveRoleAvailable({
+      companyId,
+      role: normalizedRole,
+    });
     const normalizedRuntimeConfig = normalizeRuntimeConfigForCooHeartbeatModel({
       role: normalizedRole,
       name: createInput.name,
@@ -1433,6 +1476,7 @@ export function agentRoutes(db: Db) {
       lastHeartbeatAt: null,
     });
     const agent = await materializeDefaultInstructionsBundleForNewAgent(createdAgent);
+    await ensureQaCoverageForTechRole(companyId, normalizedRole);
 
     const actor = getActorInfo(req);
     await logActivity(db, {
@@ -1788,6 +1832,15 @@ export function agentRoutes(db: Db) {
     }
 
     const patchData = { ...(req.body as Record<string, unknown>) };
+    if (typeof patchData.role === "string") {
+      const normalizedRole = canonicalizeAgentRole(patchData.role);
+      await assertSingletonExecutiveRoleAvailable({
+        companyId: existing.companyId,
+        role: normalizedRole,
+        excludeAgentId: existing.id,
+      });
+      patchData.role = normalizedRole;
+    }
     const replaceAdapterConfig = patchData.replaceAdapterConfig === true;
     delete patchData.replaceAdapterConfig;
     if (hasOwn(patchData, "adapterConfig")) {

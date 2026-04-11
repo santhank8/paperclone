@@ -9,6 +9,10 @@ import { loadDefaultAgentInstructionsBundle } from "./default-agent-instructions
 export const COO_COORDINATOR_DEFAULT_INTERVAL_SEC = 3600;
 export const COO_COORDINATOR_DEFAULT_NAME = "COO";
 export const COO_COORDINATOR_DEFAULT_TITLE = "COO";
+export const QA_RELEASE_DEFAULT_NAME = "QA and Release Engineer";
+export const QA_RELEASE_DEFAULT_TITLE = "QA and Release Engineer";
+
+const TECH_ROLES_REQUIRING_QA = new Set(["cto", "engineer", "devops"]);
 
 export type HeartbeatModelMode = "default" | "enforce";
 
@@ -53,6 +57,32 @@ export type CooCoordinatorCoverageReport = {
   createdCompanyIds: string[];
 };
 
+type QaCoverageReason =
+  | "already_has_qa"
+  | "qa_created"
+  | "no_tech_team"
+  | "company_not_found";
+
+type CompanyQaCoverageResult = {
+  apply: boolean;
+  companyId: string;
+  companyName: string | null;
+  created: boolean;
+  reason: QaCoverageReason;
+  createdAgentId: string | null;
+};
+
+export type QaReleaseCoverageReport = {
+  apply: boolean;
+  scannedCompanies: number;
+  companiesWithQa: number;
+  companiesWithTechTeam: number;
+  companiesMissingQa: number;
+  companiesSkippedNoTechTeam: number;
+  createdAgents: number;
+  createdCompanyIds: string[];
+};
+
 function isRecord(value: unknown): value is RuntimeConfigRecord {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -68,11 +98,15 @@ function normalizeRole(role: unknown): string {
   return canonicalizeAgentRole(typeof role === "string" ? role : "");
 }
 
+export function roleRequiresQaCoverage(role: unknown): boolean {
+  return TECH_ROLES_REQUIRING_QA.has(normalizeRole(role));
+}
+
 function normalizeText(value: unknown): string {
   return typeof value === "string" ? value.trim().toLowerCase() : "";
 }
 
-const STRIPPED_COO_SEED_ADAPTER_CONFIG_KEYS = [
+const STRIPPED_SEED_ADAPTER_CONFIG_KEYS = [
   "instructionsBundleMode",
   "instructionsRootPath",
   "instructionsEntryFile",
@@ -83,12 +117,16 @@ const STRIPPED_COO_SEED_ADAPTER_CONFIG_KEYS = [
   "paperclipRuntimeSkills",
 ] as const;
 
-export function stripCooSeedAdapterConfig(adapterConfig: unknown): RuntimeConfigRecord {
+function stripSeedAdapterConfig(adapterConfig: unknown): RuntimeConfigRecord {
   const next = isRecord(adapterConfig) ? { ...adapterConfig } : {};
-  for (const key of STRIPPED_COO_SEED_ADAPTER_CONFIG_KEYS) {
+  for (const key of STRIPPED_SEED_ADAPTER_CONFIG_KEYS) {
     delete next[key];
   }
   return next;
+}
+
+export function stripCooSeedAdapterConfig(adapterConfig: unknown): RuntimeConfigRecord {
+  return stripSeedAdapterConfig(adapterConfig);
 }
 
 const COO_DESIGNATION_PATTERNS = [
@@ -166,6 +204,46 @@ function jsonEqual(left: unknown, right: unknown): boolean {
 export function agentHeartbeatModelService(db: Db) {
   const agentsSvc = agentService(db);
   const instructions = agentInstructionsService();
+  const ACTIVE_AGENT_SELECTION = {
+    id: agents.id,
+    companyId: agents.companyId,
+    name: agents.name,
+    title: agents.title,
+    role: agents.role,
+    status: agents.status,
+    reportsTo: agents.reportsTo,
+    adapterType: agents.adapterType,
+    adapterConfig: agents.adapterConfig,
+    pauseReason: agents.pauseReason,
+    pausedAt: agents.pausedAt,
+  } as const;
+
+  type ActiveAgentRow = {
+    id: string;
+    companyId: string;
+    name: string;
+    title: string | null;
+    role: string;
+    status: string;
+    reportsTo: string | null;
+    adapterType: string;
+    adapterConfig: unknown;
+    pauseReason: string | null;
+    pausedAt: Date | null;
+  };
+
+  async function listActiveCompanyAgents(companyId: string): Promise<ActiveAgentRow[]> {
+    return db
+      .select(ACTIVE_AGENT_SELECTION)
+      .from(agents)
+      .where(
+        and(
+          eq(agents.companyId, companyId),
+          ne(agents.status, "terminated"),
+          ne(agents.status, "pending_approval"),
+        ),
+      );
+  }
 
   async function ensureCompanyHasCooCoordinator(
     companyId: string,
@@ -191,28 +269,7 @@ export function agentHeartbeatModelService(db: Db) {
       };
     }
 
-    const rows = await db
-      .select({
-        id: agents.id,
-        companyId: agents.companyId,
-        name: agents.name,
-        title: agents.title,
-        role: agents.role,
-        status: agents.status,
-        reportsTo: agents.reportsTo,
-        adapterType: agents.adapterType,
-        adapterConfig: agents.adapterConfig,
-        pauseReason: agents.pauseReason,
-        pausedAt: agents.pausedAt,
-      })
-      .from(agents)
-      .where(
-        and(
-          eq(agents.companyId, companyId),
-          ne(agents.status, "terminated"),
-          ne(agents.status, "pending_approval"),
-        ),
-      );
+    const rows = await listActiveCompanyAgents(companyId);
 
     const hasCoordinator = rows.some((row) => resolveRoleForCooCoordinatorModel({
       role: row.role,
@@ -309,6 +366,150 @@ export function agentHeartbeatModelService(db: Db) {
       companyName: company.name,
       created: true,
       reason: "coo_created",
+      createdAgentId: created.id,
+    };
+  }
+
+  function pickQaSeedAgent(rows: ActiveAgentRow[]): ActiveAgentRow | null {
+    const byRole = (role: string) => rows.find((row) => normalizeRole(row.role) === role) ?? null;
+    return byRole("cto")
+      ?? byRole("engineer")
+      ?? byRole("devops")
+      ?? byRole("ceo")
+      ?? byRole("coo")
+      ?? rows[0]
+      ?? null;
+  }
+
+  function pickQaManagerId(rows: ActiveAgentRow[], seedAgent: ActiveAgentRow): string | null {
+    const byRole = (role: string) => rows.find((row) => normalizeRole(row.role) === role)?.id ?? null;
+    const preferredManagerId = byRole("coo") ?? byRole("ceo") ?? byRole("cto");
+    if (preferredManagerId) return preferredManagerId;
+
+    if (seedAgent.reportsTo && rows.some((row) => row.id === seedAgent.reportsTo)) {
+      return seedAgent.reportsTo;
+    }
+
+    return null;
+  }
+
+  async function ensureCompanyHasQaReleaseEngineer(
+    companyId: string,
+    apply: boolean,
+  ): Promise<CompanyQaCoverageResult> {
+    const company = await db
+      .select({
+        id: companies.id,
+        name: companies.name,
+      })
+      .from(companies)
+      .where(and(eq(companies.id, companyId), ne(companies.status, "archived")))
+      .then((rows) => rows[0] ?? null);
+
+    if (!company) {
+      return {
+        apply,
+        companyId,
+        companyName: null,
+        created: false,
+        reason: "company_not_found",
+        createdAgentId: null,
+      };
+    }
+
+    const rows = await listActiveCompanyAgents(companyId);
+    const hasTechTeam = rows.some((row) => roleRequiresQaCoverage(row.role));
+    if (!hasTechTeam) {
+      return {
+        apply,
+        companyId,
+        companyName: company.name,
+        created: false,
+        reason: "no_tech_team",
+        createdAgentId: null,
+      };
+    }
+
+    const hasQa = rows.some((row) => normalizeRole(row.role) === "qa");
+    if (hasQa) {
+      return {
+        apply,
+        companyId,
+        companyName: company.name,
+        created: false,
+        reason: "already_has_qa",
+        createdAgentId: null,
+      };
+    }
+
+    const seedAgent = pickQaSeedAgent(rows);
+    if (!seedAgent) {
+      return {
+        apply,
+        companyId,
+        companyName: company.name,
+        created: false,
+        reason: "no_tech_team",
+        createdAgentId: null,
+      };
+    }
+
+    const qaName = deduplicateAgentName(
+      QA_RELEASE_DEFAULT_NAME,
+      rows.map((row) => ({
+        id: row.id,
+        name: row.name,
+        status: row.status,
+      })),
+    );
+    const reportsTo = pickQaManagerId(rows, seedAgent);
+
+    if (!apply) {
+      return {
+        apply,
+        companyId,
+        companyName: company.name,
+        created: true,
+        reason: "qa_created",
+        createdAgentId: null,
+      };
+    }
+
+    const seedStatus = seedAgent.status === "paused" ? "paused" : "idle";
+    const created = await agentsSvc.create(companyId, {
+      name: qaName,
+      role: "qa",
+      title: QA_RELEASE_DEFAULT_TITLE,
+      reportsTo,
+      icon: null,
+      capabilities: null,
+      adapterType: seedAgent.adapterType,
+      adapterConfig: stripSeedAdapterConfig(seedAgent.adapterConfig),
+      runtimeConfig: {},
+      budgetMonthlyCents: 0,
+      spentMonthlyCents: 0,
+      status: seedStatus,
+      pauseReason: seedStatus === "paused" ? (seedAgent.pauseReason ?? "manual") : null,
+      pausedAt: seedStatus === "paused" ? (seedAgent.pausedAt ?? new Date()) : null,
+      permissions: undefined,
+      lastHeartbeatAt: null,
+      metadata: null,
+    });
+
+    const qaBundle = await loadDefaultAgentInstructionsBundle("qa");
+    const materialized = await instructions.materializeManagedBundle(created, qaBundle, {
+      entryFile: "AGENTS.md",
+      replaceExisting: false,
+      clearLegacyPromptTemplate: true,
+    });
+    await agentsSvc.update(created.id, { adapterConfig: materialized.adapterConfig });
+
+    return {
+      apply,
+      companyId,
+      companyName: company.name,
+      created: true,
+      reason: "qa_created",
       createdAgentId: created.id,
     };
   }
@@ -420,6 +621,59 @@ export function agentHeartbeatModelService(db: Db) {
         companiesWithCoordinator,
         companiesMissingCoordinator,
         companiesSkippedNoCeo,
+        createdAgents,
+        createdCompanyIds: Array.from(createdCompanyIds),
+      };
+    },
+
+    async ensureCompanyHasQaReleaseEngineer(companyId: string, options?: { apply?: boolean }) {
+      const apply = options?.apply === true;
+      return ensureCompanyHasQaReleaseEngineer(companyId, apply);
+    },
+
+    async backfillMissingQaReleaseEngineers(options?: { apply?: boolean }): Promise<QaReleaseCoverageReport> {
+      const apply = options?.apply === true;
+      const companyRows = await db
+        .select({
+          id: companies.id,
+        })
+        .from(companies)
+        .where(ne(companies.status, "archived"));
+
+      const createdCompanyIds = new Set<string>();
+      let companiesWithQa = 0;
+      let companiesWithTechTeam = 0;
+      let companiesMissingQa = 0;
+      let companiesSkippedNoTechTeam = 0;
+      let createdAgents = 0;
+
+      for (const company of companyRows) {
+        const result = await ensureCompanyHasQaReleaseEngineer(company.id, apply);
+        if (result.reason === "no_tech_team") {
+          companiesSkippedNoTechTeam += 1;
+          continue;
+        }
+
+        companiesWithTechTeam += 1;
+        if (result.reason === "already_has_qa") {
+          companiesWithQa += 1;
+          continue;
+        }
+
+        if (result.reason === "qa_created") {
+          companiesMissingQa += 1;
+          createdAgents += 1;
+          createdCompanyIds.add(result.companyId);
+        }
+      }
+
+      return {
+        apply,
+        scannedCompanies: companyRows.length,
+        companiesWithQa,
+        companiesWithTechTeam,
+        companiesMissingQa,
+        companiesSkippedNoTechTeam,
         createdAgents,
         createdCompanyIds: Array.from(createdCompanyIds),
       };

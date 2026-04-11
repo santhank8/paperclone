@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   COO_COORDINATOR_DEFAULT_INTERVAL_SEC,
   normalizeRuntimeConfigForCooHeartbeatModel,
+  roleRequiresQaCoverage,
   resolveRoleForCooCoordinatorModel,
   stripCooSeedAdapterConfig,
 } from "./agent-heartbeat-model.js";
@@ -23,6 +24,20 @@ describe("resolveRoleForCooCoordinatorModel", () => {
       title: "Head of Operations",
     });
     expect(role).toBe("coo");
+  });
+});
+
+describe("roleRequiresQaCoverage", () => {
+  it("returns true for technical delivery roles", () => {
+    expect(roleRequiresQaCoverage("engineer")).toBe(true);
+    expect(roleRequiresQaCoverage("cto")).toBe(true);
+    expect(roleRequiresQaCoverage("devops")).toBe(true);
+  });
+
+  it("returns false for non-technical roles", () => {
+    expect(roleRequiresQaCoverage("ceo")).toBe(false);
+    expect(roleRequiresQaCoverage("qa")).toBe(false);
+    expect(roleRequiresQaCoverage("pm")).toBe(false);
   });
 });
 
