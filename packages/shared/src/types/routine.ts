@@ -44,6 +44,7 @@ export interface Routine {
   parentIssueId: string | null;
   title: string;
   description: string | null;
+  metadata: Record<string, unknown> | null;
   assigneeAgentId: string | null;
   priority: string;
   status: string;

@@ -7,6 +7,7 @@ import { accessApi } from "../api/access";
 import { authApi } from "../api/auth";
 import { ApiError } from "../api/client";
 import { dashboardApi } from "../api/dashboard";
+import { blogRunsApi } from "../api/blogRuns";
 import { executionWorkspacesApi } from "../api/execution-workspaces";
 import { issuesApi } from "../api/issues";
 import { agentsApi } from "../api/agents";
@@ -168,6 +169,61 @@ function readIssueIdFromRun(run: HeartbeatRun): string | null {
   if (typeof taskId === "string" && taskId.length > 0) return taskId;
 
   return null;
+}
+
+const EXECUTIVE_PRIORITY_ORDER: Record<string, number> = {
+  critical: 0,
+  high: 1,
+  medium: 2,
+  low: 3,
+};
+
+function compareIssuePriority(a: Issue, b: Issue): number {
+  const priorityDelta =
+    (EXECUTIVE_PRIORITY_ORDER[a.priority] ?? 99) - (EXECUTIVE_PRIORITY_ORDER[b.priority] ?? 99);
+  if (priorityDelta !== 0) return priorityDelta;
+  return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+}
+
+function normalizeFailureFamily(message: string): string {
+  const head = firstNonEmptyLine(message) ?? "Unknown failure";
+  return head
+    .replace(/\b[0-9a-f]{8,}\b/gi, "<id>")
+    .replace(/run[-_ ]?\d+/gi, "run")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+export function buildExecutiveInboxSummary(issues: Issue[], failedRuns: HeartbeatRun[]) {
+  const executivePriorities = issues
+    .filter((issue) =>
+      issue.status !== "done"
+      && issue.status !== "backlog"
+      && issue.status !== "blocked"
+      && ["critical", "high"].includes(issue.priority)
+    )
+    .sort(compareIssuePriority)
+    .slice(0, 3);
+  const executiveBlockers = issues
+    .filter((issue) => issue.status === "blocked")
+    .sort(compareIssuePriority)
+    .slice(0, 3);
+  const repeatedFailures = Array.from(
+    failedRuns.reduce((counts, run) => {
+      const key = normalizeFailureFamily(runFailureMessage(run));
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+      return counts;
+    }, new Map<string, number>()),
+  )
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .slice(0, 3)
+    .map(([label, count]) => ({ label, count }));
+
+  return {
+    executivePriorities,
+    executiveBlockers,
+    repeatedFailures,
+  };
 }
 
 
@@ -721,6 +777,11 @@ export function Inbox() {
     queryFn: () => issuesApi.list(selectedCompanyId!, { includeRoutineExecutions: true }),
     enabled: !!selectedCompanyId,
   });
+  const { data: activeBlogRuns = [], isLoading: isBlogRunsLoading } = useQuery({
+    queryKey: queryKeys.blogRuns.list(selectedCompanyId!, "active", 5),
+    queryFn: () => blogRunsApi.listForCompany(selectedCompanyId!, { mode: "active", limit: 5 }),
+    enabled: !!selectedCompanyId,
+  });
   const {
     data: mineIssuesRaw = [],
     isLoading: isMineIssuesLoading,
@@ -849,6 +910,16 @@ export function Inbox() {
         (r) => !isInboxEntityDismissed(dismissedAtByKey, `run:${r.id}`, r.createdAt),
       ),
     [heartbeatRuns, dismissedAtByKey],
+  );
+  const { executivePriorities, executiveBlockers, repeatedFailures } = useMemo(
+    () => buildExecutiveInboxSummary(issues ?? [], failedRuns),
+    [issues, failedRuns],
+  );
+  const blogRunBlockers = useMemo(
+    () => activeBlogRuns
+      .filter((run) => run.failedReason || run.latestAttempt?.errorMessage || run.status === "publish_approval_pending")
+      .slice(0, 3),
+    [activeBlogRuns],
   );
   const liveIssueIds = useMemo(() => {
     const ids = new Set<string>();
@@ -1531,6 +1602,7 @@ export function Inbox() {
     !isApprovalsLoading &&
     !isDashboardLoading &&
     !isIssuesLoading &&
+    !isBlogRunsLoading &&
     !isMineIssuesLoading &&
     !isTouchedIssuesLoading &&
     !isRunsLoading;
@@ -1544,6 +1616,83 @@ export function Inbox() {
   const activeIssueFilterCount = countActiveIssueFilters(issueFilters, true);
   return (
     <div className="space-y-6">
+      <div className="grid gap-3 lg:grid-cols-4">
+        <section className="rounded-xl border border-border bg-accent/10 p-4">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Top 3 priorities</p>
+          <div className="mt-3 space-y-2">
+            {executivePriorities.length > 0 ? executivePriorities.map((issue) => (
+              <Link
+                key={issue.id}
+                to={createIssueDetailPath(issue.identifier ?? issue.id)}
+                state={issueLinkState}
+                className="block rounded-lg border border-border bg-background/70 px-3 py-2 hover:bg-accent/40"
+              >
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <span className="font-mono">{issue.identifier ?? issue.id.slice(0, 8)}</span>
+                  <span className="uppercase tracking-[0.12em]">{issue.priority}</span>
+                </div>
+                <div className="mt-1 text-sm font-medium text-foreground line-clamp-2">{issue.title}</div>
+              </Link>
+            )) : <p className="text-sm text-muted-foreground">No high-priority active issues.</p>}
+          </div>
+        </section>
+
+        <section className="rounded-xl border border-border bg-accent/10 p-4">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Top 3 blockers</p>
+          <div className="mt-3 space-y-2">
+            {executiveBlockers.length > 0 ? executiveBlockers.map((issue) => (
+              <Link
+                key={issue.id}
+                to={createIssueDetailPath(issue.identifier ?? issue.id)}
+                state={issueLinkState}
+                className="block rounded-lg border border-border bg-background/70 px-3 py-2 hover:bg-accent/40"
+              >
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
+                  <span className="font-mono">{issue.identifier ?? issue.id.slice(0, 8)}</span>
+                </div>
+                <div className="mt-1 text-sm font-medium text-foreground line-clamp-2">{issue.title}</div>
+              </Link>
+            )) : <p className="text-sm text-muted-foreground">No blocked issues right now.</p>}
+          </div>
+        </section>
+
+        <section className="rounded-xl border border-border bg-accent/10 p-4">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Repeated failures</p>
+          <div className="mt-3 space-y-2">
+            {repeatedFailures.length > 0 ? repeatedFailures.map((failure) => (
+              <div key={failure.label} className="rounded-lg border border-border bg-background/70 px-3 py-2">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="text-sm font-medium text-foreground line-clamp-2">{failure.label}</div>
+                  <div className="shrink-0 text-xs text-muted-foreground">{failure.count}x</div>
+                </div>
+              </div>
+            )) : <p className="text-sm text-muted-foreground">No repeated failures detected.</p>}
+          </div>
+        </section>
+
+        <section className="rounded-xl border border-border bg-accent/10 p-4">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Blog run blockers</p>
+          <div className="mt-3 space-y-2">
+            {blogRunBlockers.length > 0 ? blogRunBlockers.map((run) => (
+              <Link
+                key={run.id}
+                to={`/blog-runs/${run.id}`}
+                className="block rounded-lg border border-border bg-background/70 px-3 py-2 hover:bg-accent/40"
+              >
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <span className="uppercase tracking-[0.12em]">{run.status.replaceAll("_", " ")}</span>
+                </div>
+                <div className="mt-1 text-sm font-medium text-foreground line-clamp-2">{run.topic}</div>
+                <div className="mt-1 text-xs text-muted-foreground line-clamp-2">
+                  {run.failedReason ?? run.latestAttempt?.errorMessage ?? (run.latestApproval?.targetSlug ? `approval target: ${run.latestApproval.targetSlug}` : "Blocked run")}
+                </div>
+              </Link>
+            )) : <p className="text-sm text-muted-foreground">No active blog run blockers.</p>}
+          </div>
+        </section>
+      </div>
+
       <div className="space-y-2">
         {/* Search — full-width row on mobile, inline on desktop */}
         <div className="relative sm:hidden">

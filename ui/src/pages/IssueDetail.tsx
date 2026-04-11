@@ -55,6 +55,8 @@ import { useLiveRunTranscripts } from "../components/transcript/useLiveRunTransc
 import { IssueDocumentsSection } from "../components/IssueDocumentsSection";
 import { IssueProperties } from "../components/IssueProperties";
 import { IssueWorkspaceCard } from "../components/IssueWorkspaceCard";
+import { ReleaseResponsibilityCard } from "../components/ReleaseResponsibilityCard";
+import { IssueBlogRunSummaryCard } from "../components/IssueBlogRunSummaryCard";
 import type { MentionOption } from "../components/MarkdownEditor";
 import { ImageGalleryModal } from "../components/ImageGalleryModal";
 import { ScrollToBottom } from "../components/ScrollToBottom";
@@ -627,7 +629,7 @@ export function IssueDetail() {
   }, [agents, orderedProjects]);
 
   const resolvedProject = useMemo(
-    () => (issue?.projectId ? orderedProjects.find((project) => project.id === issue.projectId) ?? issue.project ?? null : null),
+    () => (issue?.projectId ? orderedProjects.find((project) => project.id === issue.projectId) ?? issue.project ?? null : issue?.project ?? null),
     [issue?.project, issue?.projectId, orderedProjects],
   );
   const childIssues = useMemo(
@@ -641,6 +643,16 @@ export function IssueDetail() {
   const issuePanelKey = issue
     ? `${issue.id}:${String(issue.updatedAt)}:${childIssuesPanelKey}`
     : "";
+  const showReleaseResponsibility = Boolean(resolvedProject?.name?.startsWith("Blog OS -"));
+  const releaseApprovalSummary = useMemo(() => {
+    if (!linkedApprovals || linkedApprovals.length === 0) return null;
+    const pendingCount = linkedApprovals.filter((approval) => approval.status === "pending").length;
+    const approvedCount = linkedApprovals.filter((approval) => approval.status === "approved").length;
+    if (pendingCount > 0) {
+      return `${pendingCount} pending approval${pendingCount === 1 ? "" : "s"} linked to this issue`;
+    }
+    return `${approvedCount} approved item${approvedCount === 1 ? "" : "s"} linked to this issue`;
+  }, [linkedApprovals]);
   const openNewSubIssue = useCallback(() => {
     if (!issue) return;
     openNewIssue({
@@ -2082,6 +2094,12 @@ export function IssueDetail() {
         open={galleryOpen}
         onOpenChange={setGalleryOpen}
       />
+
+      {showReleaseResponsibility ? (
+        <ReleaseResponsibilityCard approvalSummary={releaseApprovalSummary} />
+      ) : null}
+
+      <IssueBlogRunSummaryCard companyId={issue.companyId} issueId={issue.id} />
 
       <IssueWorkspaceCard
         issue={issue}

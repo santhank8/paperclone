@@ -1,9 +1,12 @@
 import { createHmac, randomUUID } from "node:crypto";
+import { writeFileSync } from "node:fs";
+import fs from "node:fs/promises";
 import { eq } from "drizzle-orm";
-import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import {
   activityLog,
   agents,
+  blogRuns,
   companies,
   companySecrets,
   companySecretVersions,
@@ -78,6 +81,7 @@ describeEmbeddedPostgres("routine service live-execution coalescing", () => {
         contextSnapshot?: Record<string, unknown>;
       },
     ) => Promise<unknown>;
+    runBlogRunStep?: (runId: string) => Promise<unknown>;
   }) {
     const companyId = randomUUID();
     const agentId = randomUUID();
@@ -151,6 +155,7 @@ describeEmbeddedPostgres("routine service live-execution coalescing", () => {
             .where(eq(issues.id, issueId));
           return { id: queuedRunId };
         },
+        runBlogRunStep: opts?.runBlogRunStep,
       },
     });
     const issueSvc = issueService(db);
@@ -347,6 +352,58 @@ describeEmbeddedPostgres("routine service live-execution coalescing", () => {
 
     expect(routineIssues).toHaveLength(1);
     expect(routineIssues[0]?.id).toBe(previousIssue.id);
+  });
+
+  it("coalesces when an open routine issue already has an execution run id even if the heartbeat run is no longer live", async () => {
+    const { companyId, issueSvc, routine, svc } = await seedFixture();
+    const previousRunId = randomUUID();
+    const finishedHeartbeatRunId = randomUUID();
+    const previousIssue = await issueSvc.create(companyId, {
+      projectId: routine.projectId,
+      title: routine.title,
+      description: routine.description,
+      status: "todo",
+      priority: routine.priority,
+      assigneeAgentId: routine.assigneeAgentId,
+      originKind: "routine_execution",
+      originId: routine.id,
+      originRunId: previousRunId,
+    });
+
+    await db.insert(routineRuns).values({
+      id: previousRunId,
+      companyId,
+      routineId: routine.id,
+      triggerId: null,
+      source: "manual",
+      status: "issue_created",
+      triggeredAt: new Date("2026-03-20T12:00:00.000Z"),
+      linkedIssueId: previousIssue.id,
+    });
+
+    await db.insert(heartbeatRuns).values({
+      id: finishedHeartbeatRunId,
+      companyId,
+      agentId: routine.assigneeAgentId,
+      invocationSource: "assignment",
+      triggerDetail: "system",
+      status: "succeeded",
+      contextSnapshot: { issueId: previousIssue.id },
+      startedAt: new Date("2026-03-20T12:01:00.000Z"),
+      completedAt: new Date("2026-03-20T12:05:00.000Z"),
+    });
+
+    await db
+      .update(issues)
+      .set({
+        executionRunId: finishedHeartbeatRunId,
+        executionLockedAt: new Date("2026-03-20T12:01:00.000Z"),
+      })
+      .where(eq(issues.id, previousIssue.id));
+
+    const run = await svc.runRoutine(routine.id, { source: "manual" });
+    expect(run.status).toBe("coalesced");
+    expect(run.linkedIssueId).toBe(previousIssue.id);
   });
 
   it("interpolates routine variables into the execution issue and stores resolved values", async () => {
@@ -675,6 +732,272 @@ describeEmbeddedPostgres("routine service live-execution coalescing", () => {
       .where(eq(issues.originId, routine.id));
 
     expect(routineIssues).toHaveLength(0);
+  });
+
+  it("creates and runs a blog run directly when executionMode=blog_run_create", async () => {
+    const stubDir = await fs.mkdtemp("/tmp/paperclip-routine-blog-run-");
+    const stubPath = `${stubDir}/create_article_quality_loop_run.cjs`;
+    writeFileSync(stubPath, `#!/usr/bin/env node\nprocess.stdout.write(JSON.stringify({ ok: true, topic: 'Stub Topic', reused: false, run: { id: 'blog-run-1' } }));\n`);
+
+    const runBlogRunStep = vi.fn().mockResolvedValue({ run: { id: "blog-run-1", status: "research_ready" } });
+    const { routine, svc } = await seedFixture({ runBlogRunStep });
+
+    await db.update(routines).set({
+      metadata: {
+        executionMode: "blog_run_create",
+        vertical: "ai-tech",
+        targetSite: "fluxaivory.com",
+      },
+    }).where(eq(routines.id, routine.id));
+
+    const originalEnv = process.env.ARTICLE_LOOP_CREATOR_SCRIPT;
+    const originalDbEnv = process.env.PAPERCLIP_DB_URL;
+    process.env.ARTICLE_LOOP_CREATOR_SCRIPT = stubPath;
+    process.env.PAPERCLIP_DB_URL = tempDb!.connectionString;
+    try {
+      const run = await svc.runRoutine(routine.id, { source: "manual" });
+      expect(run.status).toBe("blog_run_created");
+      expect(run.linkedIssueId).toBeNull();
+      expect((run.triggerPayload as any)?.blogRunId).toBe("blog-run-1");
+      expect(runBlogRunStep).toHaveBeenCalledWith("blog-run-1");
+    } finally {
+      if (originalEnv === undefined) delete process.env.ARTICLE_LOOP_CREATOR_SCRIPT;
+      else process.env.ARTICLE_LOOP_CREATOR_SCRIPT = originalEnv;
+      if (originalDbEnv === undefined) delete process.env.PAPERCLIP_DB_URL;
+      else process.env.PAPERCLIP_DB_URL = originalDbEnv;
+      await fs.rm(stubDir, { recursive: true, force: true }).catch(() => {});
+    }
+  });
+
+  it("writes traceability fields when blog_run_create reuses an existing run", async () => {
+    const stubDir = await fs.mkdtemp("/tmp/paperclip-routine-blog-run-traceability-");
+    const topicScoutPath = `${stubDir}/topic_scout_stub.py`;
+    writeFileSync(
+      topicScoutPath,
+      [
+        "import json",
+        "import sys",
+        "",
+        "out_path = sys.argv[sys.argv.index('--out') + 1]",
+        "with open(out_path, 'w', encoding='utf-8') as handle:",
+        "    json.dump({'selected_topic': 'Reused Topic'}, handle)",
+        "",
+      ].join("\n"),
+    );
+
+    const { agentId, companyId, issueSvc, routine, svc } = await seedFixture({
+      runBlogRunStep: vi.fn().mockResolvedValue({ run: { id: "blog-run-reused", status: "research_ready" } }),
+    });
+
+    const originIssue = await issueSvc.create(companyId, {
+      projectId: routine.projectId,
+      title: "origin issue",
+      description: "Origin issue",
+      status: "todo",
+      priority: "medium",
+      assigneeAgentId: agentId,
+      originKind: "manual",
+    });
+    const invokingIssue = await issueSvc.create(companyId, {
+      projectId: routine.projectId,
+      title: "routine issue",
+      description: "Routine issue",
+      status: "todo",
+      priority: "medium",
+      assigneeAgentId: agentId,
+      originKind: "manual",
+    });
+
+    const existingRunId = randomUUID();
+    await db.insert(blogRuns).values({
+      id: existingRunId,
+      companyId,
+      projectId: routine.projectId,
+      issueId: originIssue.id,
+      topic: "Reused Topic",
+      lane: "publish",
+      targetSite: "fluxaivory.com",
+      status: "draft_ready",
+      currentStep: "draft",
+      approvalMode: "manual",
+      publishMode: "dry_run",
+      contextJson: {
+        topic: "Reused Topic",
+        traceability: {
+          originIssueIdentifier: originIssue.identifier,
+          lastTouchedIssueIdentifier: originIssue.identifier,
+          continuity: "created_new_run",
+          lastTouchedAt: "2026-04-04T00:00:00Z",
+          reuseReason: "initial_run",
+        },
+      },
+    });
+
+    await db.update(routines).set({
+      metadata: {
+        executionMode: "blog_run_create",
+        vertical: "ai-tech",
+        targetSite: "fluxaivory.com",
+      },
+    }).where(eq(routines.id, routine.id));
+
+    const originalScriptEnv = process.env.ARTICLE_LOOP_CREATOR_SCRIPT;
+    const originalTopicScoutEnv = process.env.ARTICLE_LOOP_TOPIC_SCOUT_SCRIPT;
+    const originalRssRefreshEnv = process.env.ARTICLE_LOOP_RSS_REFRESH_SCRIPT;
+    const originalPublishedTitlesEnv = process.env.ARTICLE_LOOP_FETCH_PUBLISHED_TITLES;
+    const originalDbEnv = process.env.PAPERCLIP_DB_URL;
+    process.env.ARTICLE_LOOP_CREATOR_SCRIPT = "/Users/daehan/Documents/persona/paperclip/scripts/create_article_quality_loop_run.cjs";
+    process.env.ARTICLE_LOOP_TOPIC_SCOUT_SCRIPT = topicScoutPath;
+    process.env.ARTICLE_LOOP_RSS_REFRESH_SCRIPT = "off";
+    process.env.ARTICLE_LOOP_FETCH_PUBLISHED_TITLES = "false";
+    process.env.PAPERCLIP_DB_URL = tempDb!.connectionString;
+    try {
+      const run = await svc.runRoutine(routine.id, {
+        source: "manual",
+        payload: {
+          issueId: invokingIssue.id,
+          vertical: "ai-tech",
+        },
+      });
+
+      expect(run.status).toBe("blog_run_created");
+      expect((run.triggerPayload as any)?.blogRunId).toBe(existingRunId);
+      expect((run.triggerPayload as any)?.reusedBlogRun).toBe(true);
+
+      const reusedRun = await db
+        .select()
+        .from(blogRuns)
+        .where(eq(blogRuns.id, existingRunId))
+        .then((rows) => rows[0] ?? null);
+
+      expect((reusedRun?.contextJson as any)?.traceability).toMatchObject({
+        originIssueIdentifier: originIssue.identifier,
+        lastTouchedIssueIdentifier: invokingIssue.identifier,
+        continuity: "reused_existing_run",
+        reuseReason: "article_quality_loop_bridge",
+      });
+      expect(typeof (reusedRun?.contextJson as any)?.traceability?.lastTouchedAt).toBe("string");
+      expect((reusedRun?.contextJson as any)?.sourceRoutineIssueId).toBe(invokingIssue.id);
+    } finally {
+      if (originalScriptEnv === undefined) delete process.env.ARTICLE_LOOP_CREATOR_SCRIPT;
+      else process.env.ARTICLE_LOOP_CREATOR_SCRIPT = originalScriptEnv;
+      if (originalTopicScoutEnv === undefined) delete process.env.ARTICLE_LOOP_TOPIC_SCOUT_SCRIPT;
+      else process.env.ARTICLE_LOOP_TOPIC_SCOUT_SCRIPT = originalTopicScoutEnv;
+      if (originalRssRefreshEnv === undefined) delete process.env.ARTICLE_LOOP_RSS_REFRESH_SCRIPT;
+      else process.env.ARTICLE_LOOP_RSS_REFRESH_SCRIPT = originalRssRefreshEnv;
+      if (originalPublishedTitlesEnv === undefined) delete process.env.ARTICLE_LOOP_FETCH_PUBLISHED_TITLES;
+      else process.env.ARTICLE_LOOP_FETCH_PUBLISHED_TITLES = originalPublishedTitlesEnv;
+      if (originalDbEnv === undefined) delete process.env.PAPERCLIP_DB_URL;
+      else process.env.PAPERCLIP_DB_URL = originalDbEnv;
+      await fs.rm(stubDir, { recursive: true, force: true }).catch(() => {});
+    }
+  });
+
+  it("persists topic-scout artifacts and initial traceability when blog_run_create opens a fresh run", async () => {
+    const stubDir = await fs.mkdtemp("/tmp/paperclip-routine-blog-run-fresh-");
+    const homeDir = await fs.mkdtemp("/tmp/paperclip-routine-blog-home-");
+    const topicScoutPath = `${stubDir}/topic_scout_stub.py`;
+    writeFileSync(
+      topicScoutPath,
+      [
+        "import json",
+        "import sys",
+        "",
+        "out_path = sys.argv[sys.argv.index('--out') + 1]",
+        "with open(out_path, 'w', encoding='utf-8') as handle:",
+        "    json.dump({",
+        "        'selected_topic': 'Fresh Topic',",
+        "        'selected_bucket': 'ai_updates',",
+        "        'selection_reason': 'fresh_official_source',",
+        "        'top10_candidates': [",
+        "            {'rank': 1, 'title': 'Fresh Topic', 'bucket': 'ai_updates', 'link': 'https://example.com/fresh-topic'}",
+        "        ]",
+        "    }, handle)",
+        "",
+      ].join("\n"),
+    );
+
+    const { agentId, companyId, issueSvc, routine, svc } = await seedFixture({
+      runBlogRunStep: vi.fn().mockResolvedValue({ run: { id: "blog-run-fresh", status: "research_ready" } }),
+    });
+
+    const invokingIssue = await issueSvc.create(companyId, {
+      projectId: routine.projectId,
+      title: "fresh routine issue",
+      description: "Fresh routine issue",
+      status: "todo",
+      priority: "medium",
+      assigneeAgentId: agentId,
+      originKind: "manual",
+    });
+
+    await db.update(routines).set({
+      metadata: {
+        executionMode: "blog_run_create",
+        vertical: "ai-tech",
+        targetSite: "fluxaivory.com",
+      },
+    }).where(eq(routines.id, routine.id));
+
+    const originalScriptEnv = process.env.ARTICLE_LOOP_CREATOR_SCRIPT;
+    const originalTopicScoutEnv = process.env.ARTICLE_LOOP_TOPIC_SCOUT_SCRIPT;
+    const originalRssRefreshEnv = process.env.ARTICLE_LOOP_RSS_REFRESH_SCRIPT;
+    const originalPublishedTitlesEnv = process.env.ARTICLE_LOOP_FETCH_PUBLISHED_TITLES;
+    const originalDbEnv = process.env.PAPERCLIP_DB_URL;
+    const originalHomeEnv = process.env.HOME;
+    process.env.ARTICLE_LOOP_CREATOR_SCRIPT = "/Users/daehan/Documents/persona/paperclip/scripts/create_article_quality_loop_run.cjs";
+    process.env.ARTICLE_LOOP_TOPIC_SCOUT_SCRIPT = topicScoutPath;
+    process.env.ARTICLE_LOOP_RSS_REFRESH_SCRIPT = "off";
+    process.env.ARTICLE_LOOP_FETCH_PUBLISHED_TITLES = "false";
+    process.env.PAPERCLIP_DB_URL = tempDb!.connectionString;
+    process.env.HOME = homeDir;
+    try {
+      const routineRun = await svc.runRoutine(routine.id, {
+        source: "manual",
+        payload: {
+          issueId: invokingIssue.id,
+          vertical: "ai-tech",
+        },
+      });
+
+      expect(routineRun.status).toBe("blog_run_created");
+      expect((routineRun.triggerPayload as any)?.reusedBlogRun).toBe(false);
+
+      const createdRun = await db
+        .select()
+        .from(blogRuns)
+        .where(eq(blogRuns.id, String((routineRun.triggerPayload as any)?.blogRunId)))
+        .then((rows) => rows[0] ?? null);
+
+      expect((createdRun?.contextJson as any)?.traceability).toMatchObject({
+        originIssueIdentifier: invokingIssue.identifier,
+        lastTouchedIssueIdentifier: invokingIssue.identifier,
+        continuity: "created_new_run",
+      });
+      expect((createdRun?.contextJson as any)?.sourceRoutineIssueId).toBe(invokingIssue.id);
+
+      const topicScoutSnapshotPath = `${homeDir}/.paperclip/instances/default/data/blog-runs/${createdRun?.id}/topic-scout.json`;
+      const topicScoutSnapshot = JSON.parse(await fs.readFile(topicScoutSnapshotPath, "utf8"));
+      expect(topicScoutSnapshot).toMatchObject({
+        selected_topic: "Fresh Topic",
+        selected_bucket: "ai_updates",
+      });
+    } finally {
+      if (originalScriptEnv === undefined) delete process.env.ARTICLE_LOOP_CREATOR_SCRIPT;
+      else process.env.ARTICLE_LOOP_CREATOR_SCRIPT = originalScriptEnv;
+      if (originalTopicScoutEnv === undefined) delete process.env.ARTICLE_LOOP_TOPIC_SCOUT_SCRIPT;
+      else process.env.ARTICLE_LOOP_TOPIC_SCOUT_SCRIPT = originalTopicScoutEnv;
+      if (originalRssRefreshEnv === undefined) delete process.env.ARTICLE_LOOP_RSS_REFRESH_SCRIPT;
+      else process.env.ARTICLE_LOOP_RSS_REFRESH_SCRIPT = originalRssRefreshEnv;
+      if (originalPublishedTitlesEnv === undefined) delete process.env.ARTICLE_LOOP_FETCH_PUBLISHED_TITLES;
+      else process.env.ARTICLE_LOOP_FETCH_PUBLISHED_TITLES = originalPublishedTitlesEnv;
+      if (originalDbEnv === undefined) delete process.env.PAPERCLIP_DB_URL;
+      else process.env.PAPERCLIP_DB_URL = originalDbEnv;
+      if (originalHomeEnv === undefined) delete process.env.HOME;
+      else process.env.HOME = originalHomeEnv;
+      await fs.rm(stubDir, { recursive: true, force: true }).catch(() => {});
+      await fs.rm(homeDir, { recursive: true, force: true }).catch(() => {});
+    }
   });
 
   it("accepts standard second-precision webhook timestamps for HMAC triggers", async () => {

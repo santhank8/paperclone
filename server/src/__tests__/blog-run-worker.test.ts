@@ -1,0 +1,1031 @@
+import fs from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
+import { describe, expect, it, vi } from "vitest";
+import { blogRunWorkerService } from "../services/blog-run-worker.ts";
+
+function createSharedVerifyResult(
+  verdict: "pass" | "fail" = "pass",
+  overrides: Record<string, unknown> = {},
+) {
+  const failureNames = verdict === "fail" ? ["PUBLIC_VERIFY_REGRESSION"] : [];
+  return {
+    schemaVersion: "shared-public-verify.v1",
+    verifyId: "verify-1",
+    approvedArtifactRef: {
+      issueIdentifier: "FLU-45",
+      artifactId: "artifact-1",
+      artifactLabel: "Approved article",
+    },
+    approvedArtifact: {
+      issueIdentifier: "FLU-45",
+      artifactId: "artifact-1",
+      artifactLabel: "Approved article",
+      headline: "Test title",
+      decisionState: verdict === "pass" ? "adopt" : "unclear",
+      decisionSummary: "Approved package expectation.",
+      requiredSections: ["verdict_overview", "evidence_breakdown", "who_should_adopt"],
+    },
+    publisherExpectations: {
+      headline: "Test title",
+      decisionState: verdict === "pass" ? "adopt" : "unclear",
+      decisionSummary: "Publisher expected a clear decision path.",
+      publishStatus: "publish",
+      featuredMedia: {
+        required: true,
+        label: "Hero image",
+      },
+    },
+    publishReceiptId: "receipt-1",
+    publishReceiptLabel: "Receipt 1",
+    publishReceipt: {
+      receiptId: "receipt-1",
+      label: "Receipt 1",
+      mode: "live-run",
+      lifecycle: "executed",
+      target: "wordpress.production",
+      targetUrl: "https://fluxaivory.com/test/",
+      publishedAt: "2026-04-04T10:00:00.000Z",
+    },
+    publicUrl: "https://fluxaivory.com/test/",
+    verifiedAt: "2026-04-04T10:01:00.000Z",
+    verdict,
+    readerDecisionState: verdict === "pass" ? "adopt" : "unclear",
+    readerDecisionSummary: verdict === "pass"
+      ? "Reader can reach an adopt decision."
+      : "Reader cannot reach a safe decision.",
+    coreChecks: [
+      { checkId: "public_visibility", status: verdict === "pass" ? "pass" : "fail", overrideable: false, summary: "Visibility check." },
+      { checkId: "title_framing", status: "pass", overrideable: false, summary: "Title framing check." },
+      { checkId: "body_contract", status: "pass", overrideable: false, summary: "Body contract check." },
+      { checkId: "media_and_status", status: verdict === "pass" ? "pass" : "fail", overrideable: false, summary: "Media and status check." },
+      { checkId: "artifact_parity", status: verdict === "pass" ? "pass" : "fail", overrideable: false, summary: "Artifact parity check." },
+      { checkId: "reader_decision", status: verdict === "pass" ? "pass" : "fail", overrideable: false, summary: "Reader decision check." },
+    ],
+    failureNames,
+    warnings: [],
+    evidence: [
+      { surface: "approved_package", signal: "approved article present" },
+      { surface: "publication_receipt", signal: "publish receipt present" },
+      { surface: "public_verify", signal: "public verify evidence present" },
+    ],
+    publicObservation: {
+      observedAt: "2026-04-04T10:01:00.000Z",
+      url: "https://fluxaivory.com/test/",
+      fetchStatus: verdict === "pass" ? "reachable" : "missing",
+      httpStatus: verdict === "pass" ? 200 : 404,
+      publishStatus: verdict === "pass" ? "publish" : "missing",
+      featuredMediaPresent: verdict === "pass",
+      featuredMediaLabel: verdict === "pass" ? "Hero image" : null,
+      headline: verdict === "pass" ? "Test title" : null,
+      decisionState: verdict === "pass" ? "adopt" : "unclear",
+      decisionSummary: verdict === "pass" ? "Reader can still adopt." : "Reader cannot evaluate the page.",
+      summary: verdict === "pass" ? "Public page matched expectations." : "Public page was missing.",
+    },
+    driftSummary: {
+      class: verdict === "pass" ? "none" : "public_visibility",
+      summary: verdict === "pass" ? "No drift." : "Public article never became reachable.",
+    },
+    overrideSummary: {
+      applied: [],
+      blocked: verdict === "pass" ? [] : ["PUBLIC_VERIFY_REGRESSION is non-overrideable"],
+    },
+    ...overrides,
+  };
+}
+
+function createRun(overrides: Record<string, unknown> = {}) {
+  return {
+    id: "run-1",
+    companyId: "company-1",
+    topic: "Test topic",
+    lane: "publish",
+    targetSite: "fluxaivory.com",
+    currentStep: "research",
+    status: "queued",
+    publishMode: "draft",
+    contextJson: {
+      title: "Test title",
+      article_html: "<p>Body</p>",
+    },
+    ...overrides,
+  };
+}
+
+function createClaim(runOverrides: Record<string, unknown> = {}, attemptOverrides: Record<string, unknown> = {}) {
+  return {
+    run: createRun(runOverrides),
+    attempt: {
+      id: "attempt-1",
+      stepKey: "research",
+      ...attemptOverrides,
+    },
+  };
+}
+
+describe("blog run worker", () => {
+  it("runs a normal content step and completes it", async () => {
+    const runService = {
+      getById: vi.fn().mockResolvedValue(createRun()),
+      getDetail: vi.fn().mockResolvedValue({ ok: true }),
+      claimNextStep: vi.fn().mockResolvedValue(createClaim()),
+      completeStep: vi.fn().mockResolvedValue({ run: { status: "research_ready", currentStep: "draft" } }),
+      failStep: vi.fn(),
+    };
+    const worker = blogRunWorkerService({} as any, {
+      runService: runService as any,
+      runResearchStep: vi.fn().mockResolvedValue({ research: "ok" }),
+      runGrokArtifactStep: vi.fn().mockResolvedValue({ ok: true, source: "grok-web-artifact-step" }),
+    });
+
+    const result = await worker.runNext("run-1");
+
+    expect(runService.claimNextStep).toHaveBeenCalledWith("run-1");
+    expect(runService.completeStep).toHaveBeenCalledWith("run-1", "research", expect.objectContaining({
+      attemptId: "attempt-1",
+      resultJson: { research: "ok" },
+    }));
+    expect(runService.failStep).not.toHaveBeenCalled();
+    expect(result).toMatchObject({ run: { status: "research_ready" } });
+  });
+
+  it("injects run.topic into the research input context when reused runs are missing contextJson.topic", async () => {
+    const runService = {
+      getById: vi.fn().mockResolvedValue(createRun({
+        topic: "New NVIDIA Nemotron 3 Super Delivers 5x Higher Throughput for Agentic AI",
+        contextJson: {
+          title: "New NVIDIA Nemotron 3 Super Delivers 5x Higher Throughput for Agentic AI",
+        },
+      })),
+      getDetail: vi.fn().mockResolvedValue({ ok: true }),
+      claimNextStep: vi.fn().mockResolvedValue(createClaim({
+        topic: "New NVIDIA Nemotron 3 Super Delivers 5x Higher Throughput for Agentic AI",
+        contextJson: {
+          title: "New NVIDIA Nemotron 3 Super Delivers 5x Higher Throughput for Agentic AI",
+        },
+      })),
+      completeStep: vi.fn().mockResolvedValue({ run: { status: "research_ready", currentStep: "draft" } }),
+      failStep: vi.fn(),
+    };
+    const runResearchStep = vi.fn().mockResolvedValue({ research: "ok" });
+    const worker = blogRunWorkerService({} as any, {
+      runService: runService as any,
+      runResearchStep,
+      runGrokArtifactStep: vi.fn().mockResolvedValue({ ok: true, source: "grok-web-artifact-step" }),
+    });
+
+    await worker.runNext("run-1");
+
+    expect(runResearchStep).toHaveBeenCalledWith(expect.objectContaining({
+      context: expect.objectContaining({
+        topic: "New NVIDIA Nemotron 3 Super Delivers 5x Higher Throughput for Agentic AI",
+      }),
+    }));
+  });
+
+  it("attaches quality gate artifacts after content steps", async () => {
+    const runService = {
+      getById: vi.fn().mockResolvedValue(createRun()),
+      getDetail: vi.fn().mockResolvedValue({ ok: true }),
+      claimNextStep: vi.fn().mockResolvedValue(createClaim()),
+      completeStep: vi.fn().mockResolvedValue({ run: { status: "research_ready", currentStep: "draft" } }),
+      failStep: vi.fn(),
+    };
+    const worker = blogRunWorkerService({} as any, {
+      runService: runService as any,
+      runResearchStep: vi.fn().mockResolvedValue({ research: "ok" }),
+      runGrokArtifactStep: vi.fn().mockResolvedValue({ ok: true, source: "grok-web-artifact-step" }),
+      runQualityGateBundle: vi.fn().mockResolvedValue({
+        operator_summary_path: "/tmp/preflight.publish_ready.md",
+        results: {
+          research_grounding: {
+            ok: true,
+            status: "pass",
+            summary: "research grounding complete",
+          },
+          publish_ready: {
+            ok: false,
+            status: "fail",
+            summary: "failed gates: topic_alignment",
+          },
+        },
+      }),
+    });
+
+    await worker.runNext("run-1");
+
+    expect(runService.completeStep).toHaveBeenCalledWith("run-1", "research", expect.objectContaining({
+      artifacts: expect.arrayContaining([
+        expect.objectContaining({
+          artifactKind: "preflight_research_grounding_json",
+          bodyPreview: "research grounding complete",
+        }),
+        expect.objectContaining({
+          artifactKind: "publish_ready_preflight_json",
+          bodyPreview: "failed gates: topic_alignment",
+        }),
+        expect.objectContaining({
+          artifactKind: "publish_ready_preflight_markdown",
+          storagePath: "/tmp/preflight.publish_ready.md",
+        }),
+      ]),
+    }));
+  });
+
+  it("attaches grok trend scan artifacts after research", async () => {
+    const runService = {
+      getById: vi.fn().mockResolvedValue(createRun()),
+      getDetail: vi.fn().mockResolvedValue({ ok: true }),
+      claimNextStep: vi.fn().mockResolvedValue(createClaim()),
+      completeStep: vi.fn().mockResolvedValue({ run: { status: "research_ready", currentStep: "draft" } }),
+      failStep: vi.fn(),
+    };
+    const worker = blogRunWorkerService({} as any, {
+      runService: runService as any,
+      runResearchStep: vi.fn().mockResolvedValue({ research: "ok" }),
+      runQualityGateBundle: vi.fn().mockResolvedValue({ results: {} }),
+      runGrokArtifactStep: vi.fn().mockResolvedValue({ ok: true, source: "grok-web-artifact-step" }),
+    });
+
+    await worker.runNext("run-1");
+
+    expect(runService.completeStep).toHaveBeenCalledWith("run-1", "research", expect.objectContaining({
+      artifacts: expect.arrayContaining([
+        expect.objectContaining({
+          artifactKind: "grok_trend_scan_json",
+          storagePath: expect.stringContaining("grok-trend-scan.json"),
+          metadata: expect.objectContaining({
+            mode: "trend-scan",
+            ok: true,
+          }),
+        }),
+      ]),
+    }));
+  });
+
+  it("attaches grok title hook artifacts after draft", async () => {
+    const runService = {
+      getById: vi.fn().mockResolvedValue(createRun({ currentStep: "draft" })),
+      getDetail: vi.fn().mockResolvedValue({ ok: true }),
+      claimNextStep: vi.fn().mockResolvedValue(createClaim({ currentStep: "draft" }, { stepKey: "draft" })),
+      completeStep: vi.fn().mockResolvedValue({ run: { status: "draft_ready", currentStep: "image" } }),
+      failStep: vi.fn(),
+    };
+    const worker = blogRunWorkerService({} as any, {
+      runService: runService as any,
+      runDraftStep: vi.fn().mockResolvedValue({ draft: "ok" }),
+      runQualityGateBundle: vi.fn().mockResolvedValue({ results: {} }),
+      runGrokArtifactStep: vi.fn().mockResolvedValue({ ok: true, source: "grok-web-artifact-step" }),
+    });
+
+    await worker.runNext("run-1");
+
+    expect(runService.completeStep).toHaveBeenCalledWith("run-1", "draft", expect.objectContaining({
+      artifacts: expect.arrayContaining([
+        expect.objectContaining({
+          artifactKind: "grok_title_hook_scan_json",
+          storagePath: expect.stringContaining("grok-title-hook-scan.json"),
+          metadata: expect.objectContaining({
+            mode: "title-hook",
+            ok: true,
+          }),
+        }),
+      ]),
+    }));
+  });
+
+  it("fails draft when headline quality gate rejects the headline and attaches the gate artifact", async () => {
+    const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "paperclip-worker-headline-gate-"));
+    const runDir = path.join(tmp, "run-1");
+    await fs.mkdir(runDir, { recursive: true });
+    await fs.writeFile(path.join(runDir, "headline.gate.json"), JSON.stringify({
+      ok: false,
+      gate: "headline_quality",
+      verdict: "revise",
+      summary: "headline quality gate failed: headline_value_proposition, headline_specificity",
+      failed_axes: [
+        { axisId: "headline_value_proposition" },
+        { axisId: "headline_specificity" },
+      ],
+    }, null, 2));
+
+    const runService = {
+      getById: vi.fn().mockResolvedValue(createRun({ currentStep: "draft" })),
+      getDetail: vi.fn().mockResolvedValue({ ok: true }),
+      claimNextStep: vi.fn().mockResolvedValue(createClaim({ currentStep: "draft" }, { stepKey: "draft" })),
+      completeStep: vi.fn(),
+      failStep: vi.fn().mockResolvedValue({ run: { status: "failed", failedReason: "blog_run_headline_quality_failed:headline_value_proposition,headline_specificity" } }),
+    };
+    const worker = blogRunWorkerService({} as any, {
+      runService: runService as any,
+      artifactRoot: tmp,
+      runDraftStep: vi.fn().mockRejectedValue(new Error("blog_run_headline_quality_failed:headline_value_proposition,headline_specificity")),
+      runQualityGateBundle: vi.fn().mockResolvedValue({ results: {} }),
+    });
+
+    const result = await worker.runNext("run-1");
+
+    expect(runService.completeStep).not.toHaveBeenCalled();
+    expect(runService.failStep).toHaveBeenCalledWith("run-1", "draft", expect.objectContaining({
+      errorMessage: "blog_run_headline_quality_failed:headline_value_proposition,headline_specificity",
+      artifacts: expect.arrayContaining([
+        expect.objectContaining({
+          artifactKind: "headline_quality_gate_json",
+          storagePath: path.join(runDir, "headline.gate.json"),
+          bodyPreview: "headline quality gate failed: headline_value_proposition, headline_specificity",
+          metadata: expect.objectContaining({
+            gate: "headline_quality",
+            ok: false,
+            verdict: "revise",
+            failedAxes: ["headline_value_proposition", "headline_specificity"],
+          }),
+        }),
+      ]),
+    }));
+    expect(result).toMatchObject({ run: { status: "failed" } });
+  });
+
+  it("soft-attaches grok artifact errors without failing the step", async () => {
+    const runService = {
+      getById: vi.fn().mockResolvedValue(createRun()),
+      getDetail: vi.fn().mockResolvedValue({ ok: true }),
+      claimNextStep: vi.fn().mockResolvedValue(createClaim()),
+      completeStep: vi.fn().mockResolvedValue({ run: { status: "research_ready", currentStep: "draft" } }),
+      failStep: vi.fn(),
+    };
+    const worker = blogRunWorkerService({} as any, {
+      runService: runService as any,
+      runResearchStep: vi.fn().mockResolvedValue({ research: "ok" }),
+      runQualityGateBundle: vi.fn().mockResolvedValue({ results: {} }),
+      runGrokArtifactStep: vi.fn().mockRejectedValue(new Error("grok_timeout")),
+    });
+
+    await worker.runNext("run-1");
+
+    expect(runService.completeStep).toHaveBeenCalledWith("run-1", "research", expect.objectContaining({
+      artifacts: expect.arrayContaining([
+        expect.objectContaining({
+          artifactKind: "grok_artifact_step_error",
+          bodyPreview: "grok_timeout",
+          metadata: expect.objectContaining({
+            mode: "trend-scan",
+          }),
+        }),
+      ]),
+    }));
+    expect(runService.failStep).not.toHaveBeenCalled();
+  });
+
+  it("fails the run when validate returns ok=false", async () => {
+    const runService = {
+      getById: vi.fn().mockResolvedValue(createRun({ currentStep: "validate" })),
+      getDetail: vi.fn().mockResolvedValue({ ok: true }),
+      claimNextStep: vi.fn().mockResolvedValue(createClaim({ currentStep: "validate" }, { stepKey: "validate" })),
+      completeStep: vi.fn(),
+      failStep: vi.fn().mockResolvedValue({ run: { status: "failed", failedReason: "blog_run_validation_failed" } }),
+    };
+    const worker = blogRunWorkerService({} as any, {
+      runService: runService as any,
+      runValidateStep: vi.fn().mockResolvedValue({ ok: false, failures: ["x"] }),
+    });
+
+    const result = await worker.runNext("run-1");
+
+    expect(runService.completeStep).not.toHaveBeenCalled();
+    expect(runService.failStep).toHaveBeenCalledWith("run-1", "validate", expect.objectContaining({
+      attemptId: "attempt-1",
+      errorMessage: "blog_run_validation_failed",
+    }));
+    expect(result).toMatchObject({ run: { status: "failed" } });
+  });
+
+  it("attaches validation rewrite guidance artifacts for opening-flow failures", async () => {
+    const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "paperclip-blog-worker-"));
+    const runDir = path.join(tmp, "run-1");
+    await fs.mkdir(runDir, { recursive: true });
+    await fs.writeFile(path.join(runDir, "validation.json"), JSON.stringify({
+      ok: false,
+      opening_flow: {
+        failures: ["opening_template_filler", "opening_learning_penalty"],
+      },
+      read_through: {
+        failures: ["paragraph_tension_flat_opening_block", "save_worthiness_no_scannable_structure"],
+      },
+    }, null, 2));
+
+    try {
+      const runService = {
+        getById: vi.fn().mockResolvedValue(createRun({ currentStep: "validate" })),
+        getDetail: vi.fn().mockResolvedValue({ ok: true }),
+        claimNextStep: vi.fn().mockResolvedValue(createClaim({ currentStep: "validate" }, { stepKey: "validate" })),
+        completeStep: vi.fn(),
+        failStep: vi.fn().mockResolvedValue({ run: { status: "failed", failedReason: "blog_run_validation_failed" } }),
+      };
+      const worker = blogRunWorkerService({} as any, {
+        runService: runService as any,
+        artifactRoot: tmp,
+        runValidateStep: vi.fn().mockResolvedValue({ ok: false }),
+      });
+
+      await worker.runNext("run-1");
+
+      expect(runService.failStep).toHaveBeenCalledWith("run-1", "validate", expect.objectContaining({
+        errorMessage: "blog_run_validation_failed",
+        artifacts: expect.arrayContaining([
+          expect.objectContaining({
+            artifactKind: "validation_rewrite_guidance_json",
+            storagePath: path.join(runDir, "validation-rewrite-guidance.json"),
+            bodyPreview: expect.stringContaining("opening_template_filler"),
+          }),
+          expect.objectContaining({
+            artifactKind: "validation_rewrite_guidance_markdown",
+            storagePath: path.join(runDir, "validation-rewrite-guidance.md"),
+          }),
+        ]),
+      }));
+    } finally {
+      await fs.rm(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it("fails validate in strict publish-ready mode when merged preflight is not ok", async () => {
+    const runService = {
+      getById: vi.fn().mockResolvedValue(createRun({
+        currentStep: "validate",
+        contextJson: {
+          title: "Test title",
+          article_html: "<p>Body</p>",
+          publishReadyGateMode: "strict",
+        },
+      })),
+      getDetail: vi.fn().mockResolvedValue({ ok: true }),
+      claimNextStep: vi.fn().mockResolvedValue(createClaim({
+        currentStep: "validate",
+        contextJson: {
+          title: "Test title",
+          article_html: "<p>Body</p>",
+          publishReadyGateMode: "strict",
+        },
+      }, { stepKey: "validate" })),
+      completeStep: vi.fn(),
+      failStep: vi.fn().mockResolvedValue({ run: { status: "failed", failedReason: "blog_run_publish_ready_failed:visual_quality" } }),
+    };
+    const worker = blogRunWorkerService({} as any, {
+      runService: runService as any,
+      issueService: { addComment: vi.fn().mockResolvedValue({ id: "comment-1" }) } as any,
+      runValidateStep: vi.fn().mockResolvedValue({ ok: true }),
+      runQualityGateBundle: vi.fn().mockResolvedValue({
+        results: {
+          publish_ready: {
+            ok: false,
+            status: "fail",
+            failed_gates: ["visual_quality"],
+          },
+        },
+      }),
+    });
+
+    const result = await worker.runNext("run-1");
+
+    expect(runService.completeStep).not.toHaveBeenCalled();
+    expect(runService.failStep).toHaveBeenCalledWith("run-1", "validate", expect.objectContaining({
+      errorMessage: "blog_run_publish_ready_failed:visual_quality",
+    }));
+    expect(result).toMatchObject({ run: { status: "failed" } });
+  });
+
+  it("posts publish-ready markdown to the linked issue when strict validate fails", async () => {
+    const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "paperclip-worker-comment-"));
+    const runDir = path.join(tmp, "run-1");
+    await fs.mkdir(runDir, { recursive: true });
+    await fs.writeFile(path.join(runDir, "preflight.publish_ready.md"), "## Publish-Ready Operator Summary\n\n- Status: `fail`\n- Summary: failed gates: visual_quality (duplicate_assets)\n");
+
+    const runService = {
+      getById: vi.fn().mockResolvedValue(createRun({
+        id: "run-1",
+        issueId: "issue-1",
+        currentStep: "validate",
+        contextJson: {
+          title: "Test title",
+          article_html: "<p>Body</p>",
+          publishReadyGateMode: "strict",
+        },
+      })),
+      getDetail: vi.fn().mockResolvedValue({ ok: true }),
+      claimNextStep: vi.fn().mockResolvedValue(createClaim({
+        id: "run-1",
+        issueId: "issue-1",
+        currentStep: "validate",
+        contextJson: {
+          title: "Test title",
+          article_html: "<p>Body</p>",
+          publishReadyGateMode: "strict",
+        },
+      }, { stepKey: "validate" })),
+      completeStep: vi.fn(),
+      failStep: vi.fn().mockResolvedValue({ run: { status: "failed", failedReason: "blog_run_publish_ready_failed:visual_quality" } }),
+    };
+    const issueSvc = { addComment: vi.fn().mockResolvedValue({ id: "comment-1" }) };
+    const worker = blogRunWorkerService({} as any, {
+      runService: runService as any,
+      issueService: issueSvc as any,
+      artifactRoot: tmp,
+      runValidateStep: vi.fn().mockResolvedValue({ ok: true }),
+      runQualityGateBundle: vi.fn().mockResolvedValue({
+        results: {
+          publish_ready: {
+            ok: false,
+            status: "fail",
+            failed_gates: ["visual_quality"],
+          },
+        },
+      }),
+    });
+
+    await worker.runNext("run-1");
+
+    expect(issueSvc.addComment).toHaveBeenCalledWith(
+      "issue-1",
+      expect.stringContaining("## Publish-Ready Gate Failure"),
+      { userId: "local-board" },
+    );
+  });
+
+  it("adds rewrite guidance artifacts for high-throughput strict failures", async () => {
+    const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "paperclip-worker-guidance-"));
+    const runDir = path.join(tmp, "run-1");
+    await fs.mkdir(runDir, { recursive: true });
+    await fs.writeFile(path.join(runDir, "preflight.publish_ready.md"), "## Publish-Ready Operator Summary\n\n- Status: `fail`\n");
+
+    const runService = {
+      getById: vi.fn().mockResolvedValue(createRun({
+        id: "run-1",
+        issueId: "issue-1",
+        currentStep: "validate",
+        contextJson: {
+          title: "Test title",
+          article_html: "<p>Body</p>",
+          publishReadyGateMode: "strict",
+          highThroughputQualityLoop: true,
+          articleLoop: {
+            enabled: true,
+            articleAttempt: 1,
+            maxAttempts: 3,
+            specialistGuidanceUsed: {},
+          },
+        },
+      })),
+      getDetail: vi.fn().mockResolvedValue({ ok: true }),
+      claimNextStep: vi.fn().mockResolvedValue(createClaim({
+        id: "run-1",
+        issueId: "issue-1",
+        currentStep: "validate",
+        contextJson: {
+          title: "Test title",
+          article_html: "<p>Body</p>",
+          publishReadyGateMode: "strict",
+          highThroughputQualityLoop: true,
+          articleLoop: {
+            enabled: true,
+            articleAttempt: 1,
+            maxAttempts: 3,
+            specialistGuidanceUsed: {},
+          },
+        },
+      }, { stepKey: "validate" })),
+      completeStep: vi.fn(),
+      failStep: vi.fn().mockResolvedValue({ run: { status: "queued", currentStep: "draft" } }),
+    };
+    const worker = blogRunWorkerService({} as any, {
+      runService: runService as any,
+      issueService: { addComment: vi.fn().mockResolvedValue({ id: "comment-1" }) } as any,
+      artifactRoot: tmp,
+      runValidateStep: vi.fn().mockResolvedValue({ ok: true }),
+      runQualityGateBundle: vi.fn().mockResolvedValue({
+        results: {
+          publish_ready: {
+            ok: false,
+            status: "fail",
+            failed_gates: ["explainer_quality", "reader_experience"],
+            gate_reason_summary: {
+              explainer_quality: ["term_explanation_missing"],
+              reader_experience: ["quick_scan_missing"],
+            },
+          },
+        },
+      }),
+    });
+
+    await worker.runNext("run-1");
+
+    expect(runService.failStep).toHaveBeenCalledWith("run-1", "validate", expect.objectContaining({
+      errorMessage: "blog_run_publish_ready_failed:explainer_quality,reader_experience",
+      artifacts: expect.arrayContaining([
+        expect.objectContaining({ artifactKind: "specialist_guidance_cache_json" }),
+        expect.objectContaining({ artifactKind: "specialist_guidance_cache_markdown" }),
+        expect.objectContaining({ artifactKind: "rewrite_guidance_json" }),
+        expect.objectContaining({ artifactKind: "rewrite_guidance_markdown" }),
+      ]),
+      contextJsonPatch: expect.objectContaining({
+        articleLoop: expect.objectContaining({
+          specialistGuidanceUsed: expect.objectContaining({
+            explainer_quality: true,
+            reader_experience: true,
+          }),
+        }),
+      }),
+    }));
+  });
+
+  it("reuses cached specialist guidance instead of dropping rewrite input on later attempts", async () => {
+    const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "paperclip-worker-guidance-cache-"));
+    const runDir = path.join(tmp, "run-1");
+    await fs.mkdir(runDir, { recursive: true });
+    await fs.writeFile(path.join(runDir, "preflight.publish_ready.md"), "## Publish-Ready Operator Summary\n\n- Status: `fail`\n");
+    await fs.writeFile(path.join(runDir, "specialist-guidance.json"), JSON.stringify({
+      ok: true,
+      guidance: [
+        {
+          gate: "explainer_quality",
+          owner: "Explainer Editor",
+          reasons: ["term_explanation_missing"],
+          suggestions: ["Explain technical terms on first mention using a plain-language bridge."],
+        },
+      ],
+    }, null, 2));
+
+    const runService = {
+      getById: vi.fn().mockResolvedValue(createRun({
+        id: "run-1",
+        issueId: "issue-1",
+        currentStep: "validate",
+        contextJson: {
+          title: "Test title",
+          article_html: "<p>Body</p>",
+          publishReadyGateMode: "strict",
+          highThroughputQualityLoop: true,
+          articleLoop: {
+            enabled: true,
+            articleAttempt: 2,
+            maxAttempts: 3,
+            specialistGuidanceUsed: { explainer_quality: true },
+          },
+        },
+      })),
+      getDetail: vi.fn().mockResolvedValue({ ok: true }),
+      claimNextStep: vi.fn().mockResolvedValue(createClaim({
+        id: "run-1",
+        issueId: "issue-1",
+        currentStep: "validate",
+        contextJson: {
+          title: "Test title",
+          article_html: "<p>Body</p>",
+          publishReadyGateMode: "strict",
+          highThroughputQualityLoop: true,
+          articleLoop: {
+            enabled: true,
+            articleAttempt: 2,
+            maxAttempts: 3,
+            specialistGuidanceUsed: { explainer_quality: true },
+          },
+        },
+      }, { stepKey: "validate" })),
+      completeStep: vi.fn(),
+      failStep: vi.fn().mockResolvedValue({ run: { status: "queued", currentStep: "draft" } }),
+    };
+    const worker = blogRunWorkerService({} as any, {
+      runService: runService as any,
+      issueService: { addComment: vi.fn().mockResolvedValue({ id: "comment-1" }) } as any,
+      artifactRoot: tmp,
+      runValidateStep: vi.fn().mockResolvedValue({ ok: true }),
+      runQualityGateBundle: vi.fn().mockResolvedValue({
+        results: {
+          publish_ready: {
+            ok: false,
+            status: "fail",
+            failed_gates: ["explainer_quality"],
+            gate_reason_summary: {
+              explainer_quality: ["term_explanation_missing"],
+            },
+          },
+        },
+      }),
+    });
+
+    await worker.runNext("run-1");
+
+    expect(runService.failStep).toHaveBeenCalledWith("run-1", "validate", expect.objectContaining({
+      artifacts: expect.arrayContaining([
+        expect.objectContaining({ artifactKind: "specialist_guidance_cache_json" }),
+        expect.objectContaining({ artifactKind: "rewrite_guidance_json" }),
+      ]),
+    }));
+  });
+
+  it("blocks report lane from publishing", async () => {
+    const runService = {
+      getById: vi.fn().mockResolvedValue(createRun({ lane: "report", currentStep: "publish", approvalId: "approval-1", publishIdempotencyKey: "idem-1" })),
+      getDetail: vi.fn().mockResolvedValue({ ok: true }),
+      claimNextStep: vi.fn().mockResolvedValue(createClaim({ lane: "report", currentStep: "publish", approvalId: "approval-1", publishIdempotencyKey: "idem-1" }, { stepKey: "publish" })),
+      completeStep: vi.fn(),
+      failStep: vi.fn().mockResolvedValue({ run: { status: "failed", failedReason: "wordpress_write_forbidden:report_lane" } }),
+    };
+    const publisher = {
+      publishDraft: vi.fn(),
+      publishPost: vi.fn(),
+    };
+    const worker = blogRunWorkerService({} as any, {
+      runService: runService as any,
+      publisher: publisher as any,
+    });
+
+    await worker.runNext("run-1");
+
+    expect(publisher.publishDraft).not.toHaveBeenCalled();
+    expect(runService.failStep).toHaveBeenCalledWith("run-1", "publish", expect.objectContaining({
+      errorMessage: "wordpress_write_forbidden:report_lane",
+    }));
+  });
+
+  it("uses the publisher boundary for publish steps", async () => {
+    const runService = {
+      getById: vi.fn().mockResolvedValue(createRun({
+        currentStep: "publish",
+        approvalId: "approval-1",
+        publishIdempotencyKey: "idem-1",
+      })),
+      getDetail: vi.fn().mockResolvedValue({ ok: true }),
+      claimNextStep: vi.fn().mockResolvedValue(createClaim({
+        currentStep: "publish",
+        approvalId: "approval-1",
+        publishIdempotencyKey: "idem-1",
+      }, { stepKey: "publish" })),
+      completeStep: vi.fn().mockResolvedValue({ run: { status: "published", currentStep: "public_verify" } }),
+      failStep: vi.fn(),
+    };
+    const publisher = {
+      publishDraft: vi.fn().mockResolvedValue({
+        reusedExecution: false,
+        authenticatedUser: "Local Admin",
+        post: { id: 123, status: "draft", link: "https://fluxaivory.com/test/" },
+        featuredMedia: null,
+        supportingMedia: [],
+      }),
+      publishPost: vi.fn(),
+    };
+    const worker = blogRunWorkerService({} as any, {
+      runService: runService as any,
+      publisher: publisher as any,
+    });
+
+    await worker.runNext("run-1");
+
+    expect(publisher.publishDraft).toHaveBeenCalledWith(expect.objectContaining({
+      blogRunId: "run-1",
+      approvalId: "approval-1",
+      publishIdempotencyKey: "idem-1",
+    }));
+    expect(runService.completeStep).toHaveBeenCalledWith("run-1", "publish", expect.objectContaining({
+      resultJson: expect.objectContaining({
+        postId: 123,
+        url: "https://fluxaivory.com/test/",
+      }),
+    }));
+  });
+
+  it("runs public verify and completes the terminal step", async () => {
+    const runService = {
+      getById: vi.fn().mockResolvedValue(createRun({ currentStep: "public_verify", status: "published" })),
+      getDetail: vi.fn().mockResolvedValue({ ok: true }),
+      claimNextStep: vi.fn().mockResolvedValue(createClaim({ currentStep: "public_verify", status: "published" }, { stepKey: "public_verify" })),
+      completeStep: vi.fn().mockResolvedValue({ run: { status: "public_verified", currentStep: null } }),
+      failStep: vi.fn(),
+    };
+    const worker = blogRunWorkerService({} as any, {
+      runService: runService as any,
+      runPublicVerifyStep: vi.fn().mockResolvedValue(createSharedVerifyResult("pass")),
+    });
+
+    const result = await worker.runNext("run-1");
+
+    expect(runService.completeStep).toHaveBeenCalledWith("run-1", "public_verify", expect.objectContaining({
+      resultJson: expect.objectContaining({
+        schemaVersion: "shared-public-verify.v1",
+        verdict: "pass",
+      }),
+    }));
+    expect(result).toMatchObject({ run: { status: "public_verified" } });
+  });
+
+  it("fails the run when shared public verify verdict is fail even without ok=false", async () => {
+    const runService = {
+      getById: vi.fn().mockResolvedValue(createRun({ currentStep: "public_verify", status: "published" })),
+      getDetail: vi.fn().mockResolvedValue({ ok: true }),
+      claimNextStep: vi.fn().mockResolvedValue(createClaim({ currentStep: "public_verify", status: "published" }, { stepKey: "public_verify" })),
+      completeStep: vi.fn(),
+      failStep: vi.fn().mockResolvedValue({ run: { status: "failed", failedReason: "blog_run_public_verify_failed:PUBLIC_VERIFY_REGRESSION" } }),
+    };
+    const worker = blogRunWorkerService({} as any, {
+      runService: runService as any,
+      runPublicVerifyStep: vi.fn().mockResolvedValue(createSharedVerifyResult("fail")),
+    });
+
+    const result = await worker.runNext("run-1");
+
+    expect(runService.completeStep).not.toHaveBeenCalled();
+    expect(runService.failStep).toHaveBeenCalledWith("run-1", "public_verify", expect.objectContaining({
+      errorMessage: "blog_run_public_verify_failed:PUBLIC_VERIFY_REGRESSION",
+    }));
+    expect(result).toMatchObject({ run: { status: "failed" } });
+  });
+
+  it("normalizes legacy public verify payloads into the shared contract surface", async () => {
+    const artifactRoot = await fs.mkdtemp(path.join(os.tmpdir(), "paperclip-blog-run-worker-"));
+    const runDir = path.join(artifactRoot, "run-1");
+    await fs.mkdir(runDir, { recursive: true });
+    await fs.writeFile(path.join(runDir, "draft.json"), JSON.stringify({
+      title: "Legacy verify title",
+      article_html: "<h2>지금 써볼지 말지 판단 기준</h2><p>지금 바로 한 번 가볍게 시험해볼 만합니다.</p>",
+      decisionState: "adopt",
+      decisionSummary: "Approved draft expects an adopt recommendation.",
+    }, null, 2));
+    await fs.writeFile(path.join(runDir, "publish.json"), JSON.stringify({
+      ok: true,
+      mode: "wordpress",
+      generated_at: "2026-04-04T10:00:00.000Z",
+      post_id: 123,
+      status: "publish",
+      url: "https://fluxaivory.com/test/",
+      featured_media: null,
+    }, null, 2));
+
+    const runService = {
+      getById: vi.fn().mockResolvedValue(createRun({
+        currentStep: "public_verify",
+        status: "published",
+        publishMode: "publish",
+        contextJson: {
+          title: "Legacy verify title",
+          article_html: "<p>Body</p>",
+          publicVerifyContractMode: "compat",
+        },
+      })),
+      getDetail: vi.fn().mockResolvedValue({ ok: true }),
+      claimNextStep: vi.fn().mockResolvedValue(createClaim({
+        currentStep: "public_verify",
+        status: "published",
+        publishMode: "publish",
+        contextJson: {
+          title: "Legacy verify title",
+          article_html: "<p>Body</p>",
+          publicVerifyContractMode: "compat",
+        },
+      }, { stepKey: "public_verify" })),
+      completeStep: vi.fn().mockResolvedValue({ run: { status: "public_verified", currentStep: null } }),
+      failStep: vi.fn(),
+    };
+    const worker = blogRunWorkerService({} as any, {
+      runService: runService as any,
+      artifactRoot,
+      runPublicVerifyStep: vi.fn().mockResolvedValue({
+        ok: true,
+        mode: "wordpress",
+        verified_at: "2026-04-04T10:01:00.000Z",
+        post_id: 123,
+        status: "publish",
+        slug: "test",
+        link: "https://fluxaivory.com/test/",
+        title: "Legacy verify title",
+        featured_media_id: 0,
+        featured_media_url: null,
+        public_fetch: {
+          status_code: 200,
+          content_type: "text/html",
+          expected_for_status: "2xx_or_3xx_public",
+        },
+        checks: {
+          post_found: true,
+          status_matches: true,
+          link_present: true,
+          title_matches: true,
+          featured_media_attached: false,
+          public_fetch_ok: true,
+          public_contains_title: true,
+          public_contains_featured_url: null,
+        },
+      }),
+    });
+
+    await worker.runNext("run-1");
+
+    expect(runService.failStep).not.toHaveBeenCalled();
+    expect(runService.completeStep).toHaveBeenCalledWith("run-1", "public_verify", expect.objectContaining({
+      resultJson: expect.objectContaining({
+        schemaVersion: "shared-public-verify.v1",
+        verdict: "pass",
+        publisherExpectations: expect.objectContaining({
+          publishStatus: "publish",
+        }),
+        publicObservation: expect.objectContaining({
+          publishStatus: "publish",
+          featuredMediaPresent: false,
+        }),
+      }),
+    }));
+
+    await fs.rm(artifactRoot, { recursive: true, force: true });
+  });
+
+  it("fails closed in strict mode when public verify does not return the shared contract", async () => {
+    const runService = {
+      getById: vi.fn().mockResolvedValue(createRun({ currentStep: "public_verify", status: "published", publishMode: "publish" })),
+      getDetail: vi.fn().mockResolvedValue({ ok: true }),
+      claimNextStep: vi.fn().mockResolvedValue(createClaim({ currentStep: "public_verify", status: "published", publishMode: "publish" }, { stepKey: "public_verify" })),
+      completeStep: vi.fn(),
+      failStep: vi.fn().mockResolvedValue({ run: { status: "failed", failedReason: "blog_run_public_verify_contract_missing" } }),
+    };
+    const worker = blogRunWorkerService({} as any, {
+      runService: runService as any,
+      publicVerifyContractMode: "strict",
+      runPublicVerifyStep: vi.fn().mockResolvedValue({
+        ok: true,
+        mode: "wordpress",
+        post_id: 123,
+        status: "publish",
+        link: "https://fluxaivory.com/test/",
+        checks: { post_found: true },
+      }),
+    });
+
+    const result = await worker.runNext("run-1");
+
+    expect(runService.completeStep).not.toHaveBeenCalled();
+    expect(runService.failStep).toHaveBeenCalledWith("run-1", "public_verify", expect.objectContaining({
+      errorMessage: "blog_run_public_verify_contract_missing",
+    }));
+    expect(result).toMatchObject({ run: { status: "failed" } });
+  });
+
+  it("defaults live publish runs to strict mode when no override is supplied", async () => {
+    const runService = {
+      getById: vi.fn().mockResolvedValue(createRun({
+        currentStep: "public_verify",
+        status: "published",
+        lane: "publish",
+        publishMode: "publish",
+        contextJson: {
+          title: "Legacy verify title",
+          article_html: "<p>Body</p>",
+        },
+      })),
+      getDetail: vi.fn().mockResolvedValue({ ok: true }),
+      claimNextStep: vi.fn().mockResolvedValue(createClaim({
+        currentStep: "public_verify",
+        status: "published",
+        lane: "publish",
+        publishMode: "publish",
+        contextJson: {
+          title: "Legacy verify title",
+          article_html: "<p>Body</p>",
+        },
+      }, { stepKey: "public_verify" })),
+      completeStep: vi.fn(),
+      failStep: vi.fn().mockResolvedValue({ run: { status: "failed", failedReason: "blog_run_public_verify_contract_missing" } }),
+    };
+    const worker = blogRunWorkerService({} as any, {
+      runService: runService as any,
+      runPublicVerifyStep: vi.fn().mockResolvedValue({
+        ok: true,
+        mode: "wordpress",
+        post_id: 123,
+        status: "publish",
+        link: "https://fluxaivory.com/test/",
+        checks: { post_found: true },
+      }),
+    });
+
+    const result = await worker.runNext("run-1");
+
+    expect(runService.completeStep).not.toHaveBeenCalled();
+    expect(runService.failStep).toHaveBeenCalledWith("run-1", "public_verify", expect.objectContaining({
+      errorMessage: "blog_run_public_verify_contract_missing",
+    }));
+    expect(result).toMatchObject({ run: { status: "failed" } });
+  });
+
+  it("refuses to run publish while approval is pending", async () => {
+    const runService = {
+      getById: vi.fn().mockResolvedValue(createRun({ currentStep: "publish", status: "publish_approval_pending" })),
+      getDetail: vi.fn(),
+      claimNextStep: vi.fn(),
+      completeStep: vi.fn(),
+      failStep: vi.fn(),
+    };
+    const worker = blogRunWorkerService({} as any, {
+      runService: runService as any,
+    });
+
+    await expect(worker.runNext("run-1")).rejects.toThrow("Publish approval is required before running publish");
+    expect(runService.claimNextStep).not.toHaveBeenCalled();
+  });
+});

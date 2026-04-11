@@ -1,4 +1,6 @@
 import crypto from "node:crypto";
+import { execFile as execFileCb } from "node:child_process";
+import { promisify } from "node:util";
 import { and, asc, desc, eq, inArray, isNotNull, isNull, lte, ne, or, sql } from "drizzle-orm";
 import type { Db } from "@paperclipai/db";
 import {
@@ -42,6 +44,8 @@ import { parseCron, validateCron } from "./cron.js";
 import { heartbeatService } from "./heartbeat.js";
 import { queueIssueAssignmentWakeup, type IssueAssignmentWakeupDeps } from "./issue-assignment-wakeup.js";
 import { logActivity } from "./activity-log.js";
+
+const execFile = promisify(execFileCb);
 
 const OPEN_ISSUE_STATUSES = ["backlog", "todo", "in_progress", "in_review", "blocked"];
 const LIVE_HEARTBEAT_RUN_STATUSES = ["queued", "running"];
@@ -147,6 +151,10 @@ function normalizeWebhookTimestampMs(rawTimestamp: string) {
   return parsed > 1e12 ? parsed : parsed * 1000;
 }
 
+type RoutineHeartbeatDeps = IssueAssignmentWakeupDeps & {
+  runBlogRunStep?: (runId: string) => Promise<unknown>;
+};
+
 function isPlainRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -177,10 +185,8 @@ function normalizeRoutineVariableValue(variable: RoutineVariable, raw: unknown):
   if (variable.type === "number") return parseNumberVariableValue(variable.name, raw);
 
   const normalized = stringifyRoutineVariableValue(raw);
-  if (variable.type === "select") {
-    if (!variable.options.includes(normalized)) {
-      throw unprocessable(`Variable "${variable.name}" must match one of: ${variable.options.join(", ")}`);
-    }
+  if (variable.type === "select" && !variable.options.includes(normalized)) {
+    throw unprocessable(`Variable "${variable.name}" must match one of: ${variable.options.join(", ")}`);
   }
   return normalized;
 }
@@ -231,19 +237,31 @@ function assertScheduleCompatibleVariables(variables: RoutineVariable[]) {
   }
 }
 
-function statusRequiresDefaultAgent(status: string) {
-  return status === "active";
+function isDirectBlogRunRoutine(metadata: unknown) {
+  return isPlainRecord(metadata) && metadata.executionMode === "blog_run_create";
 }
 
-function normalizeDraftRoutineStatus(status: string, assigneeAgentId: string | null | undefined) {
-  if (statusRequiresDefaultAgent(status) && !assigneeAgentId) {
+function statusRequiresDefaultAgent(status: string, metadata: unknown) {
+  return status === "active" && !isDirectBlogRunRoutine(metadata);
+}
+
+function normalizeDraftRoutineStatus(
+  status: string,
+  assigneeAgentId: string | null | undefined,
+  metadata: unknown,
+) {
+  if (statusRequiresDefaultAgent(status, metadata) && !assigneeAgentId) {
     return "paused";
   }
   return status;
 }
 
-function assertRoutineCanEnable(status: string, assigneeAgentId: string | null | undefined) {
-  if (statusRequiresDefaultAgent(status) && !assigneeAgentId) {
+function assertRoutineCanEnable(
+  status: string,
+  assigneeAgentId: string | null | undefined,
+  metadata: unknown,
+) {
+  if (statusRequiresDefaultAgent(status, metadata) && !assigneeAgentId) {
     throw unprocessable("Default agent required");
   }
 }
@@ -309,7 +327,41 @@ function mergeRoutineRunPayload(
   };
 }
 
-export function routineService(db: Db, deps: { heartbeat?: IssueAssignmentWakeupDeps } = {}) {
+async function createDirectArticleLoopRun(input: {
+  routine: typeof routines.$inferSelect;
+  payload?: Record<string, unknown> | null;
+}) {
+  const metadata = isPlainRecord(input.routine.metadata) ? input.routine.metadata : {};
+  const vertical = String((input.payload && typeof input.payload.vertical === "string" ? input.payload.vertical : metadata.vertical) || "ai-tech").trim() || "ai-tech";
+  const issueId = input.payload && typeof input.payload.issueId === "string" ? input.payload.issueId : "";
+  const targetSite = String(metadata.targetSite || "fluxaivory.com").trim() || "fluxaivory.com";
+  const scriptPath = process.env.ARTICLE_LOOP_CREATOR_SCRIPT || "/Users/daehan/Documents/persona/paperclip/scripts/create_article_quality_loop_run.cjs";
+  const args = [scriptPath, "--vertical", vertical];
+  if (issueId) args.push("--issue-id", issueId);
+  const { stdout } = await execFile("node", args, {
+    maxBuffer: 1024 * 1024 * 4,
+    env: {
+      ...process.env,
+      PAPERCLIP_COMPANY_ID: input.routine.companyId,
+      ARTICLE_LOOP_PROJECT_ID: input.routine.projectId ?? undefined,
+      ARTICLE_LOOP_TARGET_SITE: targetSite,
+    },
+  });
+  const parsed = JSON.parse(String(stdout || "{}"));
+  const blogRunId = String(parsed?.run?.id ?? "").trim();
+  if (!blogRunId) {
+    throw new Error("routine_blog_run_create_failed");
+  }
+  return {
+    blogRunId,
+    topic: String(parsed?.topic ?? "").trim() || null,
+    reused: parsed?.reused === true,
+    vertical,
+    targetSite,
+  };
+}
+
+export function routineService(db: Db, deps: { heartbeat?: RoutineHeartbeatDeps } = {}) {
   const issueSvc = issueService(db);
   const secretsSvc = secretService(db);
   const heartbeat = deps.heartbeat ?? heartbeatService(db);
@@ -615,7 +667,7 @@ export function routineService(db: Db, deps: { heartbeat?: IssueAssignmentWakeup
       .then((rows) => rows[0]?.issues ?? null);
     if (executionBoundIssue) return executionBoundIssue;
 
-    return executor
+    const queuedContextIssue = await executor
       .select()
       .from(issues)
       .innerJoin(
@@ -638,6 +690,24 @@ export function routineService(db: Db, deps: { heartbeat?: IssueAssignmentWakeup
       .orderBy(desc(issues.updatedAt), desc(issues.createdAt))
       .limit(1)
       .then((rows) => rows[0]?.issues ?? null);
+    if (queuedContextIssue) return queuedContextIssue;
+
+    return executor
+      .select()
+      .from(issues)
+      .where(
+        and(
+          eq(issues.companyId, routine.companyId),
+          eq(issues.originKind, "routine_execution"),
+          eq(issues.originId, routine.id),
+          inArray(issues.status, OPEN_ISSUE_STATUSES),
+          isNull(issues.hiddenAt),
+          isNotNull(issues.executionRunId),
+        ),
+      )
+      .orderBy(desc(issues.updatedAt), desc(issues.createdAt))
+      .limit(1)
+      .then((rows) => rows[0] ?? null);
   }
 
   async function finalizeRun(runId: string, patch: Partial<typeof routineRuns.$inferInsert>, executor: Db = db) {
@@ -698,7 +768,8 @@ export function routineService(db: Db, deps: { heartbeat?: IssueAssignmentWakeup
   }) {
     const projectId = input.projectId ?? input.routine.projectId ?? null;
     const assigneeAgentId = input.assigneeAgentId ?? input.routine.assigneeAgentId ?? null;
-    if (!assigneeAgentId) {
+    const directMode = isDirectBlogRunRoutine(input.routine.metadata);
+    if (!assigneeAgentId && !directMode) {
       throw unprocessable("Default agent required");
     }
     const resolvedVariables = resolveRoutineVariableValues(input.routine.variables ?? [], input);
@@ -752,6 +823,40 @@ export function routineService(db: Db, deps: { heartbeat?: IssueAssignmentWakeup
 
       let createdIssue: Awaited<ReturnType<typeof issueSvc.create>> | null = null;
       try {
+        if (directMode) {
+          const createdBlogRun = await createDirectArticleLoopRun({
+            routine: input.routine,
+            payload: input.payload ?? null,
+          });
+
+          const updated = await finalizeRun(createdRun.id, {
+            status: "blog_run_created",
+            completedAt: triggeredAt,
+            triggerPayload: {
+              ...(input.payload ?? {}),
+              executionMode: "blog_run_create",
+              blogRunId: createdBlogRun.blogRunId,
+              blogRunTopic: createdBlogRun.topic,
+              reusedBlogRun: createdBlogRun.reused,
+              vertical: createdBlogRun.vertical,
+              targetSite: createdBlogRun.targetSite,
+            },
+          }, txDb);
+          await updateRoutineTouchedState({
+            routineId: input.routine.id,
+            triggerId: input.trigger?.id ?? null,
+            triggeredAt,
+            status: "blog_run_created",
+            nextRunAt,
+          }, txDb);
+
+          if ("runBlogRunStep" in heartbeat && typeof (heartbeat as { runBlogRunStep?: (runId: string) => Promise<unknown> }).runBlogRunStep === "function") {
+            await (heartbeat as { runBlogRunStep: (runId: string) => Promise<unknown> }).runBlogRunStep(createdBlogRun.blogRunId);
+          }
+
+          return updated ?? createdRun;
+        }
+
         const activeIssue = await findLiveExecutionIssue(input.routine, txDb);
         if (activeIssue && input.routine.concurrencyPolicy !== "always_enqueue") {
           const status = input.routine.concurrencyPolicy === "skip_if_active" ? "skipped" : "coalesced";
@@ -1033,7 +1138,7 @@ export function routineService(db: Db, deps: { heartbeat?: IssueAssignmentWakeup
         sanitizeRoutineVariableInputs(input.variables),
       );
       assertRoutineVariableDefinitions(variables);
-      const status = normalizeDraftRoutineStatus(input.status, input.assigneeAgentId);
+      const status = normalizeDraftRoutineStatus(input.status, input.assigneeAgentId, input.metadata);
       const [created] = await db
         .insert(routines)
         .values({
@@ -1043,6 +1148,7 @@ export function routineService(db: Db, deps: { heartbeat?: IssueAssignmentWakeup
           parentIssueId: input.parentIssueId ?? null,
           title: input.title,
           description: input.description ?? null,
+          metadata: input.metadata ?? null,
           assigneeAgentId: input.assigneeAgentId ?? null,
           priority: input.priority,
           status,
@@ -1063,15 +1169,16 @@ export function routineService(db: Db, deps: { heartbeat?: IssueAssignmentWakeup
       if (!existing) return null;
       const nextProjectId = patch.projectId === undefined ? existing.projectId : patch.projectId;
       const nextAssigneeAgentId = patch.assigneeAgentId === undefined ? existing.assigneeAgentId : patch.assigneeAgentId;
+      const nextMetadata = patch.metadata === undefined ? existing.metadata : patch.metadata;
       const nextTitle = patch.title ?? existing.title;
       const nextDescription = patch.description === undefined ? existing.description : patch.description;
       const requestedStatus = patch.status ?? existing.status;
       if (patch.status === "active") {
-        assertRoutineCanEnable(patch.status, nextAssigneeAgentId);
+        assertRoutineCanEnable(patch.status, nextAssigneeAgentId, nextMetadata);
       }
-      const nextStatus = patch.assigneeAgentId === undefined
+      const nextStatus = patch.assigneeAgentId === undefined && patch.metadata === undefined
         ? requestedStatus
-        : normalizeDraftRoutineStatus(requestedStatus, nextAssigneeAgentId);
+        : normalizeDraftRoutineStatus(requestedStatus, nextAssigneeAgentId, nextMetadata);
       const nextVariables = syncRoutineVariablesWithTemplate(
         [nextTitle, nextDescription],
         patch.variables === undefined ? existing.variables : sanitizeRoutineVariableInputs(patch.variables),
@@ -1104,6 +1211,7 @@ export function routineService(db: Db, deps: { heartbeat?: IssueAssignmentWakeup
           parentIssueId: patch.parentIssueId === undefined ? existing.parentIssueId : patch.parentIssueId,
           title: nextTitle,
           description: nextDescription,
+          metadata: nextMetadata ?? null,
           assigneeAgentId: nextAssigneeAgentId,
           priority: patch.priority ?? existing.priority,
           status: nextStatus,

@@ -17,6 +17,15 @@ export { routineService } from "./routines.js";
 export { costService } from "./costs.js";
 export { financeService } from "./finance.js";
 export { heartbeatService } from "./heartbeat.js";
+export {
+  blogPublisherService,
+  type BlogPublishConfig,
+  type BlogPublishRequest,
+  type UploadedMediaInput,
+} from "./blog-publisher.js";
+export { blogRunService } from "./blog-runs.js";
+export { blogRunWorkerService } from "./blog-run-worker.js";
+export { blogArtifactMirrorService } from "./blog-artifact-mirror.js";
 export { dashboardService } from "./dashboard.js";
 export { sidebarBadgeService } from "./sidebar-badges.js";
 export { inboxDismissalService } from "./inbox-dismissals.js";

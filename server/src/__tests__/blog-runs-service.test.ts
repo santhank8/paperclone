@@ -1,0 +1,653 @@
+import { randomUUID } from "node:crypto";
+import { eq } from "drizzle-orm";
+import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
+import {
+  blogArtifacts,
+  blogPublishApprovals,
+  blogPublishExecutions,
+  blogRunStepAttempts,
+  blogRuns,
+  companies,
+  createDb,
+  issues,
+  projects,
+} from "@paperclipai/db";
+import {
+  getEmbeddedPostgresTestSupport,
+  startEmbeddedPostgresTestDatabase,
+} from "./helpers/embedded-postgres.js";
+import { blogRunService } from "../services/blog-runs.ts";
+
+const embeddedPostgresSupport = await getEmbeddedPostgresTestSupport();
+const describeEmbeddedPostgres = embeddedPostgresSupport.supported ? describe : describe.skip;
+
+describeEmbeddedPostgres("blog run service", () => {
+  let db!: ReturnType<typeof createDb>;
+  let tempDb: Awaited<ReturnType<typeof startEmbeddedPostgresTestDatabase>> | null = null;
+
+  beforeAll(async () => {
+    tempDb = await startEmbeddedPostgresTestDatabase("paperclip-blog-runs-service-");
+    db = createDb(tempDb.connectionString);
+  }, 20_000);
+
+  afterEach(async () => {
+    await db.delete(blogPublishExecutions);
+    await db.delete(blogPublishApprovals);
+    await db.delete(blogArtifacts);
+    await db.delete(blogRunStepAttempts);
+    await db.delete(blogRuns);
+    await db.delete(issues);
+    await db.delete(projects);
+    await db.delete(companies);
+  });
+
+  afterAll(async () => {
+    await tempDb?.cleanup();
+  });
+
+  async function seedProject() {
+    const companyId = randomUUID();
+    const projectId = randomUUID();
+    await db.insert(companies).values({
+      id: companyId,
+      name: "Paperclip",
+      issuePrefix: `P${companyId.slice(0, 6).toUpperCase()}`,
+      requireBoardApprovalForNewAgents: false,
+    });
+    await db.insert(projects).values({
+      id: projectId,
+      companyId,
+      name: "Blog pipeline",
+      status: "in_progress",
+    });
+    return { companyId, projectId };
+  }
+
+  it("creates a run and returns detail with empty attempts and artifacts", async () => {
+    const { companyId, projectId } = await seedProject();
+    const svc = blogRunService(db);
+
+    const created = await svc.create({
+      companyId,
+      projectId,
+      topic: "Test topic",
+      lane: "publish",
+      publishMode: "draft",
+    });
+
+    expect(created?.status).toBe("queued");
+    expect(created?.currentStep).toBe("research");
+    expect(created?.contextJson).toMatchObject({
+      publicVerifyContractMode: "compat",
+    });
+
+    const detail = await svc.getDetail(created!.id);
+    expect(detail?.run.id).toBe(created?.id);
+    expect(detail?.attempts).toEqual([]);
+    expect(detail?.artifacts).toEqual([]);
+  });
+
+  it("persists the run topic into contextJson for legacy research compatibility", async () => {
+    const { companyId, projectId } = await seedProject();
+    const svc = blogRunService(db);
+
+    const created = await svc.create({
+      companyId,
+      projectId,
+      topic: "Nemotron throughput topic",
+      lane: "publish",
+      publishMode: "dry_run",
+      contextJson: {
+        title: "Nemotron throughput topic",
+      },
+    });
+
+    expect(created?.contextJson).toMatchObject({
+      topic: "Nemotron throughput topic",
+      title: "Nemotron throughput topic",
+    });
+  });
+
+  it("lists recent active blog runs for a company and excludes verified runs", async () => {
+    const { companyId, projectId } = await seedProject();
+    const svc = blogRunService(db);
+
+    const activeRun = await svc.create({
+      companyId,
+      projectId,
+      topic: "Active topic",
+      lane: "publish",
+      publishMode: "draft",
+    });
+
+    const verifiedRun = await svc.create({
+      companyId,
+      projectId,
+      topic: "Verified topic",
+      lane: "publish",
+      publishMode: "publish",
+    });
+
+    await db.update(blogRuns).set({
+      status: "public_verified",
+      currentStep: null,
+      updatedAt: new Date("2026-04-05T01:00:00.000Z"),
+    }).where(eq(blogRuns.id, verifiedRun!.id));
+
+    await db.update(blogRuns).set({
+      status: "draft_ready",
+      currentStep: "image",
+      updatedAt: new Date("2026-04-05T02:00:00.000Z"),
+    }).where(eq(blogRuns.id, activeRun!.id));
+
+    await db.insert(blogRunStepAttempts).values({
+      blogRunId: activeRun!.id,
+      companyId,
+      stepKey: "draft",
+      attemptNumber: 1,
+      status: "failed",
+      errorCode: "DRAFT_ERROR",
+      errorMessage: "draft_contract_missing_table",
+      startedAt: new Date("2026-04-05T01:30:00.000Z"),
+      finishedAt: new Date("2026-04-05T01:31:00.000Z"),
+    });
+
+    await db.insert(blogPublishApprovals).values({
+      blogRunId: activeRun!.id,
+      companyId,
+      targetSlug: "active-topic",
+      siteId: "fluxaivory.com",
+      artifactHash: "artifact-hash",
+      normalizedDomHash: "dom-hash",
+      approvalKeyHash: "approval-hash",
+    });
+
+    const runs = await svc.listForCompany(companyId, { limit: 5, activeOnly: true });
+
+    expect(runs).toHaveLength(1);
+    expect(runs[0]?.id).toBe(activeRun?.id);
+    expect(runs[0]?.status).toBe("draft_ready");
+    expect(runs[0]?.currentStep).toBe("image");
+    expect(runs[0]?.approval.state).toBe("approved");
+    expect(runs[0]?.publish.state).toBe("idle");
+    expect(runs[0]?.publicVerify.state).toBe("idle");
+    expect(runs[0]?.latestAttempt?.errorMessage).toBe("draft_contract_missing_table");
+    expect(runs[0]?.latestApproval?.targetSlug).toBe("active-topic");
+  });
+
+  it("defaults live publish runs to strict public verify contract mode", async () => {
+    const { companyId, projectId } = await seedProject();
+    const svc = blogRunService(db);
+
+    const created = await svc.create({
+      companyId,
+      projectId,
+      topic: "Strict mode topic",
+      lane: "publish",
+      publishMode: "publish",
+    });
+
+    expect(created?.contextJson).toMatchObject({
+      publicVerifyContractMode: "strict",
+    });
+  });
+
+  it("preserves an explicit public verify contract mode override", async () => {
+    const { companyId, projectId } = await seedProject();
+    const svc = blogRunService(db);
+
+    const created = await svc.create({
+      companyId,
+      projectId,
+      topic: "Override mode topic",
+      lane: "publish",
+      publishMode: "publish",
+      contextJson: {
+        publicVerifyContractMode: "compat",
+        custom: "keep-me",
+      },
+    });
+
+    expect(created?.contextJson).toMatchObject({
+      publicVerifyContractMode: "compat",
+      publishReadyGateMode: "compat",
+      custom: "keep-me",
+    });
+  });
+
+  it("persists publishReadyGateMode defaults and preserves explicit override", async () => {
+    const { companyId, projectId } = await seedProject();
+    const svc = blogRunService(db);
+
+    const defaultRun = await svc.create({
+      companyId,
+      projectId,
+      topic: "Default gate topic",
+      lane: "publish",
+      publishMode: "publish",
+      contextJson: {},
+    });
+
+    expect(defaultRun?.contextJson).toMatchObject({
+      publishReadyGateMode: "compat",
+      publicVerifyContractMode: "strict",
+    });
+
+    const explicitRun = await svc.create({
+      companyId,
+      projectId,
+      topic: "Explicit gate topic",
+      lane: "publish",
+      publishMode: "publish",
+      contextJson: {
+        publishReadyGateMode: "strict",
+      },
+    });
+
+    expect(explicitRun?.contextJson).toMatchObject({
+      publishReadyGateMode: "strict",
+      publicVerifyContractMode: "strict",
+    });
+  });
+
+  it("upgrades dry-run canary runs to strict publishReadyGateMode", async () => {
+    const { companyId, projectId } = await seedProject();
+    const svc = blogRunService(db);
+
+    const canaryRun = await svc.create({
+      companyId,
+      projectId,
+      topic: "Canary gate topic",
+      lane: "publish",
+      publishMode: "dry_run",
+      contextJson: {
+        publishReadyGateCanary: true,
+      },
+    });
+
+    expect(canaryRun?.contextJson).toMatchObject({
+      publishReadyGateCanary: true,
+      publishReadyGateMode: "strict",
+      publicVerifyContractMode: "compat",
+    });
+  });
+
+  it("defaults publish-lane dry runs to strict publishReadyGateMode", async () => {
+    const { companyId, projectId } = await seedProject();
+    const svc = blogRunService(db);
+
+    const run = await svc.create({
+      companyId,
+      projectId,
+      topic: "Default dry-run canary topic",
+      lane: "publish",
+      publishMode: "dry_run",
+      contextJson: {},
+    });
+
+    expect(run?.contextJson).toMatchObject({
+      publishReadyGateMode: "strict",
+      publicVerifyContractMode: "compat",
+      highThroughputQualityLoop: true,
+      articleLoop: expect.objectContaining({
+        enabled: true,
+        articleAttempt: 1,
+        maxAttempts: 3,
+      }),
+    });
+  });
+
+  it("preserves an explicit high-throughput loop override", async () => {
+    const { companyId, projectId } = await seedProject();
+    const svc = blogRunService(db);
+
+    const run = await svc.create({
+      companyId,
+      projectId,
+      topic: "No loop override topic",
+      lane: "publish",
+      publishMode: "dry_run",
+      contextJson: {
+        highThroughputQualityLoop: false,
+      },
+    });
+
+    expect(run?.contextJson).toMatchObject({
+      highThroughputQualityLoop: false,
+      publishReadyGateMode: "strict",
+    });
+    expect((run?.contextJson as any)?.articleLoop).toBeUndefined();
+  });
+
+  it("claims and completes the research step, advancing to draft", async () => {
+    const { companyId, projectId } = await seedProject();
+    const svc = blogRunService(db);
+    const created = await svc.create({
+      companyId,
+      projectId,
+      topic: "Research topic",
+    });
+
+    const claimed = await svc.claimNextStep(created!.id);
+    expect(claimed?.attempt?.stepKey).toBe("research");
+    expect(claimed?.run?.status).toBe("research_running");
+
+    const completed = await svc.completeStep(created!.id, "research", {
+      attemptId: claimed!.attempt!.id,
+      resultJson: { bundlePath: "/tmp/research.json" },
+      artifacts: [{
+        artifactKind: "research_json",
+        contentType: "application/json",
+        storagePath: "/tmp/research.json",
+      }],
+    });
+
+    expect(completed?.run.status).toBe("research_ready");
+    expect(completed?.run.currentStep).toBe("draft");
+    expect(completed?.artifacts).toHaveLength(1);
+  });
+
+  it("merges draft step result into contextJson so publish can reuse title and article_html", async () => {
+    const { companyId, projectId } = await seedProject();
+    const svc = blogRunService(db);
+    const created = await svc.create({
+      companyId,
+      projectId,
+      topic: "Draft merge topic",
+      lane: "publish",
+      publishMode: "publish",
+      contextJson: {
+        topic: "Draft merge topic",
+      },
+    });
+
+    await db.update(blogRuns).set({
+      status: "draft_running",
+      currentStep: "draft",
+    }).where(eq(blogRuns.id, created!.id));
+
+    const attempt = await db.insert(blogRunStepAttempts).values({
+      blogRunId: created!.id,
+      companyId,
+      stepKey: "draft",
+      attemptNumber: 1,
+      status: "running",
+      startedAt: new Date(),
+    }).returning().then((rows) => rows[0]!);
+
+    const completed = await svc.completeStep(created!.id, "draft", {
+      attemptId: attempt.id,
+      resultJson: {
+        title: "Merged draft title",
+        article_html: "<p>Merged article body</p>",
+        wordpress_body_html: "<p>Merged article body</p>",
+      },
+    });
+
+    expect(completed?.run.contextJson).toMatchObject({
+      topic: "Draft merge topic",
+      title: "Merged draft title",
+      article_html: "<p>Merged article body</p>",
+      wordpress_body_html: "<p>Merged article body</p>",
+    });
+    expect(completed?.run.currentStep).toBe("image");
+  });
+
+  it("reconciles stale running runs whose latest attempt already failed", async () => {
+    const { companyId, projectId } = await seedProject();
+    const svc = blogRunService(db);
+    const created = await svc.create({
+      companyId,
+      projectId,
+      topic: "Stale research topic",
+    });
+
+    await db.update(blogRuns).set({
+      status: "research_running",
+      currentStep: "research",
+      updatedAt: new Date("2026-04-10T08:00:00.000Z"),
+    }).where(eq(blogRuns.id, created!.id));
+
+    const attempt = await db.insert(blogRunStepAttempts).values({
+      blogRunId: created!.id,
+      companyId,
+      stepKey: "research",
+      attemptNumber: 1,
+      status: "failed",
+      errorCode: "RESEARCH_FAILED",
+      errorMessage: "research command failed",
+      startedAt: new Date("2026-04-10T08:00:00.000Z"),
+      finishedAt: new Date("2026-04-10T08:00:05.000Z"),
+    }).returning().then((rows) => rows[0]!);
+
+    const result = await svc.reconcileStaleRunningRuns(new Date("2026-04-10T08:01:00.000Z"), 30_000);
+
+    expect(result).toMatchObject({ checked: 1, repaired: 1, skipped: 0 });
+    const detail = await svc.getDetail(created!.id);
+    expect(detail?.run.status).toBe("failed");
+    expect(detail?.run.failedReason).toBe("research command failed");
+    expect(detail?.attempts.find((entry) => entry.id === attempt.id)?.status).toBe("failed");
+  });
+
+  it("moves validated runs into publish approval pending, then publish approved", async () => {
+    const { companyId, projectId } = await seedProject();
+    const svc = blogRunService(db);
+    const created = await svc.create({
+      companyId,
+      projectId,
+      topic: "Validation topic",
+    });
+
+    await db.update(blogRuns).set({
+      status: "validate_running",
+      currentStep: "validate",
+    }).where(eq(blogRuns.id, created!.id));
+    const attempt = await db.insert(blogRunStepAttempts).values({
+      blogRunId: created!.id,
+      companyId,
+      stepKey: "validate",
+      attemptNumber: 1,
+      status: "running",
+      startedAt: new Date(),
+    }).returning().then((rows) => rows[0]!);
+
+    const validated = await svc.completeStep(created!.id, "validate", {
+      attemptId: attempt.id,
+      resultJson: { ok: true },
+    });
+
+    expect(validated?.run.status).toBe("publish_approval_pending");
+    expect(validated?.run.currentStep).toBe("publish");
+
+    const approved = await svc.requestPublishApproval(created!.id, {
+      targetSlug: "validation-topic",
+      artifactHash: "artifact-hash",
+      normalizedDomHash: "dom-hash",
+      approvalKeyHash: "approval-hash",
+      publishIdempotencyKey: "publish-key",
+      approvedByUserId: "operator",
+    });
+
+    expect(approved.run?.status).toBe("publish_approved");
+    expect(approved.run?.publishIdempotencyKey).toBe("publish-key");
+    expect(approved.approval?.approvalKeyHash).toBe("approval-hash");
+  });
+
+  it("derives publish approval fields from run context", async () => {
+    const { companyId, projectId } = await seedProject();
+    const svc = blogRunService(db);
+
+    const created = await svc.create({
+      companyId,
+      projectId,
+      topic: "Validation topic",
+      lane: "publish",
+      publishMode: "publish",
+      contextJson: {
+        title: "Validation title",
+        article_html: "<p>Body paragraph</p>",
+        summary: "Short summary",
+      },
+    });
+
+    await db.update(blogRuns).set({
+      currentStep: "publish",
+      status: "publish_approval_pending",
+    }).where(eq(blogRuns.id, created!.id));
+
+    const approved = await svc.requestPublishApprovalFromRun(created!.id, {
+      approvedByUserId: "operator-user",
+    });
+
+    expect(approved.run?.status).toBe("publish_approved");
+    expect(approved.approval?.targetSlug).toBe("validation-title");
+    expect(approved.approval?.approvalKeyHash).toHaveLength(64);
+    expect(approved.run?.publishIdempotencyKey).toHaveLength(64);
+  });
+
+  it("records failure on a step attempt and marks the run failed", async () => {
+    const { companyId, projectId } = await seedProject();
+    const svc = blogRunService(db);
+    const created = await svc.create({
+      companyId,
+      projectId,
+      topic: "Failure topic",
+    });
+
+    const claimed = await svc.claimNextStep(created!.id);
+    const failed = await svc.failStep(created!.id, "research", {
+      attemptId: claimed!.attempt!.id,
+      errorCode: "RESEARCH_ERROR",
+      errorMessage: "research_bundle_missing",
+    });
+
+    expect(failed?.run.status).toBe("failed");
+    expect(failed?.run.failedReason).toBe("research_bundle_missing");
+    expect(failed?.attempts[0]?.status).toBe("failed");
+  });
+
+  it("loops strict publish-ready failures back to draft when high-throughput mode has attempts remaining", async () => {
+    const { companyId, projectId } = await seedProject();
+    const svc = blogRunService(db);
+    const created = await svc.create({
+      companyId,
+      projectId,
+      topic: "Loop topic",
+      lane: "publish",
+      publishMode: "dry_run",
+      contextJson: {
+        highThroughputQualityLoop: true,
+      },
+    });
+
+    await db.update(blogRuns).set({
+      currentStep: "validate",
+      status: "validate_running",
+      contextJson: {
+        ...(created?.contextJson ?? {}),
+        highThroughputQualityLoop: true,
+        articleLoop: {
+          enabled: true,
+          articleAttempt: 1,
+          maxAttempts: 3,
+          specialistGuidanceUsed: {},
+        },
+      },
+    }).where(eq(blogRuns.id, created!.id));
+
+    const claimed = await svc.claimNextStep(created!.id);
+    const failed = await svc.failStep(created!.id, "validate", {
+      attemptId: claimed!.attempt!.id,
+      errorMessage: "blog_run_publish_ready_failed:explainer_quality,reader_experience",
+    });
+
+    expect(failed?.run.status).toBe("queued");
+    expect(failed?.run.currentStep).toBe("draft");
+    expect((failed?.run.contextJson as any)?.articleLoop?.articleAttempt).toBe(2);
+    expect((failed?.run.contextJson as any)?.articleLoop?.lastFailedGates).toEqual(["explainer_quality", "reader_experience"]);
+  });
+
+  it("moves strict publish-ready failures to human_review_backlog after max attempts", async () => {
+    const { companyId, projectId } = await seedProject();
+    const svc = blogRunService(db);
+    const created = await svc.create({
+      companyId,
+      projectId,
+      topic: "Backlog topic",
+      lane: "publish",
+      publishMode: "dry_run",
+      contextJson: {
+        highThroughputQualityLoop: true,
+      },
+    });
+
+    await db.update(blogRuns).set({
+      currentStep: "validate",
+      status: "validate_running",
+      contextJson: {
+        ...(created?.contextJson ?? {}),
+        highThroughputQualityLoop: true,
+        articleLoop: {
+          enabled: true,
+          articleAttempt: 3,
+          maxAttempts: 3,
+          specialistGuidanceUsed: { explainer_quality: true },
+        },
+      },
+    }).where(eq(blogRuns.id, created!.id));
+
+    const claimed = await svc.claimNextStep(created!.id);
+    const failed = await svc.failStep(created!.id, "validate", {
+      attemptId: claimed!.attempt!.id,
+      errorMessage: "blog_run_publish_ready_failed:explainer_quality",
+    });
+
+    expect(failed?.run.status).toBe("human_review_backlog");
+    expect(failed?.run.currentStep).toBeNull();
+    expect((failed?.run.contextJson as any)?.articleLoop?.backlog).toBe(true);
+    expect(failed?.run.failedReason).toBe("blog_run_publish_ready_failed:explainer_quality");
+  });
+
+  it("moves an auto-stopped run through review_required to resumable when evidence satisfies the resume gate", async () => {
+    const { companyId, projectId } = await seedProject();
+    const svc = blogRunService(db);
+    const created = await svc.create({
+      companyId,
+      projectId,
+      topic: "Resume gate topic",
+      lane: "publish",
+      publishMode: "publish",
+    });
+
+    const claimed = await svc.claimNextStep(created!.id);
+    await svc.failStep(created!.id, "research", {
+      attemptId: claimed!.attempt!.id,
+      errorCode: "BLOG_RUN_PUBLIC_VERIFY_FAILED",
+      errorMessage: "blog_run_public_verify_failed:PUBLIC_VERIFY_REGRESSION",
+    });
+
+    const review = await svc.requestResumeReview(created!.id, {
+      recoveryAction: "quarantine public article and re-run verify on corrected state",
+      evidenceRefs: ["runs/run-20260404-001/verify/verdict.json"],
+      requestedBy: "operations-lead",
+      notes: ["Public result quarantined pending corrected verify pass."],
+    });
+
+    expect(review?.run.status).toBe("review_required");
+
+    const resumable = await svc.markResumable(created!.id, {
+      specialistAcknowledgedBy: "publish-verify",
+      operatorReviewedBy: "operations-lead",
+      evidenceRefs: [
+        "runs/run-20260404-001/verify/verdict.json",
+        "runs/run-20260404-001/publish/receipt.json",
+      ],
+      confirmedRequirements: [
+        "passing public verify verdict on the corrected or quarantined state",
+      ],
+      notes: ["Verified corrected state and acknowledged by owner."],
+    });
+
+    expect(resumable?.run.status).toBe("resumable");
+  });
+});
