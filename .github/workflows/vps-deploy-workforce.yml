@@ -1,0 +1,204 @@
+name: "VPS: Deploy Workforce Services"
+
+on:
+  workflow_dispatch:
+  workflow_call:
+
+env:
+  DEPLOY_USER: ${{ secrets.VPS_DEPLOY_USER || 'deploy' }}
+  DEPLOY_PATH: /opt/trading-agent
+
+jobs:
+  deploy-workforce:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify infrastructure is running
+        uses: appleboy/ssh-action@v1.0.3
+        timeout-minutes: 2
+        with:
+          host: ${{ secrets.VPS_APP_HOST }}
+          username: ${{ env.DEPLOY_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            set -euo pipefail
+            echo "Checking infrastructure services..."
+
+            # Check Redis
+            if ! docker exec redis redis-cli ping 2>/dev/null | grep -q PONG; then
+              echo "ERROR: Redis is not running. Deploy it first: vps-deploy-redis.yml"
+              exit 1
+            fi
+            echo "Redis: OK"
+
+            # Check NATS
+            if ! docker exec nats wget --spider -q http://localhost:8222/healthz 2>/dev/null; then
+              echo "ERROR: NATS is not running. Deploy it first: vps-deploy-nats.yml"
+              exit 1
+            fi
+            echo "NATS: OK"
+
+      - name: Ensure langgraph_state database exists
+        uses: appleboy/ssh-action@v1.0.3
+        timeout-minutes: 2
+        with:
+          host: ${{ secrets.VPS_DB_HOST }}
+          username: ${{ env.DEPLOY_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          envs: POSTGRES_PASSWORD
+          script: |
+            set -euo pipefail
+            COMPOSE="docker compose -f ${{ env.DEPLOY_PATH }}/deploy/vps/docker-compose.db.yml"
+
+            # Ensure langgraph_state database exists
+            HAS_DB=$($COMPOSE exec -T postgres \
+                psql -qtAX -U trading_admin -d postgres \
+                -c "SELECT 1 FROM pg_database WHERE datname = 'langgraph_state'" | tr -d '[:space:]' || echo "")
+            if [ "$HAS_DB" != "1" ]; then
+              echo "Creating langgraph_state database..."
+              $COMPOSE exec -T postgres psql -U trading_admin -d postgres -c \
+                "CREATE DATABASE langgraph_state OWNER trading_admin;"
+              echo "Database created"
+            else
+              echo "langgraph_state database already exists"
+            fi
+
+            # Ensure langgraph_user role exists
+            HAS_ROLE=$($COMPOSE exec -T postgres \
+                psql -qtAX -U trading_admin -d postgres \
+                -c "SELECT 1 FROM pg_roles WHERE rolname = 'langgraph_user'" | tr -d '[:space:]' || echo "")
+            if [ "$HAS_ROLE" != "1" ]; then
+              echo "Creating langgraph_user role..."
+              $COMPOSE exec -T postgres psql -U trading_admin -d postgres -c \
+                "CREATE ROLE langgraph_user WITH LOGIN PASSWORD '${POSTGRES_PASSWORD}';
+                 GRANT ALL PRIVILEGES ON DATABASE langgraph_state TO langgraph_user;"
+              $COMPOSE exec -T postgres psql -U trading_admin -d langgraph_state -c \
+                "GRANT ALL ON SCHEMA public TO langgraph_user;"
+              echo "Role created"
+            else
+              echo "langgraph_user role already exists"
+              # Update password in case it changed
+              $COMPOSE exec -T postgres psql -U trading_admin -d postgres -c \
+                "ALTER ROLE langgraph_user WITH PASSWORD '${POSTGRES_PASSWORD}';"
+            fi
+
+            # Ensure langgraph_user has NO access to trading_agent database
+            $COMPOSE exec -T postgres psql -U trading_admin -d postgres -c \
+              "REVOKE CONNECT ON DATABASE trading_agent FROM langgraph_user;" 2>/dev/null || true
+
+            echo "Database setup complete"
+        env:
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+
+      - name: Deploy workforce services to app-01
+        uses: appleboy/ssh-action@v1.0.3
+        timeout-minutes: 10
+        with:
+          host: ${{ secrets.VPS_APP_HOST }}
+          username: ${{ env.DEPLOY_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          envs: REPO_TOKEN,POSTGRES_PASSWORD,VPS_DB_PRIVATE_IP,SQUAD_ANTHROPIC_KEY,SQUAD_LANGSMITH_KEY,SQUAD_SLACK_WEBHOOK_URL,SQUAD_SLACK_APP_TOKEN,SQUAD_SLACK_BOT_TOKEN,APP_ID,APP_PRIVATE_KEY,LINEAR_API_TOKEN
+          script: |
+            set -euo pipefail
+            cd ${{ env.DEPLOY_PATH }}
+
+            # Authenticated fetch
+            git remote set-url origin "https://x-access-token:${REPO_TOKEN}@github.com/${{ github.repository }}.git"
+            trap 'git remote set-url origin "https://github.com/${{ github.repository }}.git"' EXIT
+            git fetch origin main
+            git remote set-url origin "https://github.com/${{ github.repository }}.git"
+            trap - EXIT
+            git reset --hard origin/main
+
+            # Write GitHub App private key to a separate file (PEM is multi-line,
+            # cannot be stored inline in a .env file)
+            printf '%s\n' "${APP_PRIVATE_KEY}" > deploy/vps/.github-app-private-key.pem
+            chmod 600 deploy/vps/.github-app-private-key.pem
+
+            # Create .env.workforce from secrets
+            SQUAD_PG="postgresql://langgraph_user:${POSTGRES_PASSWORD}@${VPS_DB_PRIVATE_IP}:5432/langgraph_state?sslmode=disable"
+            {
+              echo "SQUAD_PG_CONNECTION=${SQUAD_PG}"
+              echo "ANTHROPIC_API_KEY=${SQUAD_ANTHROPIC_KEY}"
+              echo "LANGSMITH_API_KEY=${SQUAD_LANGSMITH_KEY}"
+              echo "LANGSMITH_TRACING=true"
+              echo "SLACK_WEBHOOK_URL=${SQUAD_SLACK_WEBHOOK_URL}"
+              echo "SLACK_APP_TOKEN=${SQUAD_SLACK_APP_TOKEN}"
+              echo "SLACK_BOT_TOKEN=${SQUAD_SLACK_BOT_TOKEN}"
+              echo "GITHUB_APP_ID=${APP_ID}"
+              echo "GITHUB_APP_PRIVATE_KEY_FILE=/app/secrets/github-app-private-key.pem"
+              echo "WORKFORCE_EXECUTION_BACKEND=vps"
+              echo "LOG_LEVEL=INFO"
+              echo "PYTHONUNBUFFERED=1"
+              echo "LINEAR_API_TOKEN=${LINEAR_API_TOKEN}"
+            } > deploy/vps/.env.workforce
+            chmod 600 deploy/vps/.env.workforce
+
+            cd deploy/vps
+
+            # Build and start the orchestrator (persistent)
+            docker compose -f docker-compose.workforce.yml up -d --build langgraph-agent
+
+            # Pre-build the claude-code-runner image (on-demand, not started)
+            docker compose -f docker-compose.workforce.yml --profile job build claude-code-runner
+            echo "Claude Code Runner image pre-built"
+
+            # Wait for health check — the container healthcheck has a 60s
+            # start_period, so poll instead of failing on the initial
+            # "starting" state.
+            echo "Waiting up to 120s for langgraph-agent to become healthy..."
+            READY=0
+            for attempt in $(seq 1 12); do
+              STATUS_OUTPUT="$(docker compose -f docker-compose.workforce.yml ps --format json langgraph-agent || true)"
+              if printf '%s\n' "$STATUS_OUTPUT" | python3 -c "
+            import json, sys
+            services = [json.loads(l) for l in sys.stdin if l.strip()]
+            if not services:
+                print('langgraph-agent not listed in compose ps output', file=sys.stderr)
+                sys.exit(1)
+            service = services[0]
+            state = service.get('State', 'unknown')
+            health = service.get('Health', 'unknown')
+            print(f'{service[\"Name\"]}: state={state} health={health}')
+            sys.exit(0 if state == 'running' and health == 'healthy' else 1)
+              "; then
+                READY=1
+                break
+              fi
+              echo "langgraph-agent not healthy yet (attempt ${attempt}/12); waiting 10s..."
+              sleep 10
+            done
+
+            if [ "$READY" -ne 1 ]; then
+              echo "langgraph-agent failed to become healthy within the expected window"
+              docker compose -f docker-compose.workforce.yml logs --tail 50 langgraph-agent || true
+              exit 1
+            fi
+
+            echo "Workforce: langgraph-agent is healthy and running"
+        env:
+          REPO_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          VPS_DB_PRIVATE_IP: ${{ secrets.VPS_DB_PRIVATE_IP }}
+          SQUAD_ANTHROPIC_KEY: ${{ secrets.SQUAD_ANTHROPIC_KEY }}
+          SQUAD_LANGSMITH_KEY: ${{ secrets.SQUAD_LANGSMITH_KEY }}
+          SQUAD_SLACK_WEBHOOK_URL: ${{ secrets.SQUAD_SLACK_WEBHOOK_URL }}
+          SQUAD_SLACK_APP_TOKEN: ${{ secrets.SQUAD_SLACK_APP_TOKEN }}
+          SQUAD_SLACK_BOT_TOKEN: ${{ secrets.SQUAD_SLACK_BOT_TOKEN }}
+          APP_ID: ${{ secrets.APP_ID }}
+          APP_PRIVATE_KEY: ${{ secrets.APP_PRIVATE_KEY }}
+          LINEAR_API_TOKEN: ${{ secrets.LINEAR_API_TOKEN }}
+
+      - name: Rollback on failure
+        if: failure()
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_APP_HOST }}
+          username: ${{ env.DEPLOY_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            echo "Workforce deploy failed — stopping workforce services"
+            cd ${{ env.DEPLOY_PATH }}/deploy/vps
+            docker compose -f docker-compose.workforce.yml down 2>/dev/null || true
+            echo "Workforce services stopped"
