@@ -1,4 +1,5 @@
 export { companyService } from "./companies.js";
+export { feedbackService } from "./feedback.js";
 export { companySkillService } from "./company-skills.js";
 export { agentService, deduplicateAgentName } from "./agents.js";
 export { agentInstructionsService, syncInstructionsBundleConfigFromFilePath } from "./agent-instructions.js";
@@ -27,6 +28,7 @@ export { blogRunWorkerService } from "./blog-run-worker.js";
 export { blogArtifactMirrorService } from "./blog-artifact-mirror.js";
 export { dashboardService } from "./dashboard.js";
 export { sidebarBadgeService } from "./sidebar-badges.js";
+export { inboxDismissalService } from "./inbox-dismissals.js";
 export { accessService } from "./access.js";
 export { boardAuthService } from "./board-auth.js";
 export { instanceSettingsService } from "./instance-settings.js";
