@@ -1,6 +1,6 @@
 import Foundation
 
-public enum RuntimeMode: String, Sendable {
+public enum RuntimeMode: String, Codable, CaseIterable, Sendable {
     case hybrid
     case local
     case remote
@@ -25,16 +25,18 @@ public enum ConnectionState: Sendable, Equatable {
 }
 
 public struct CompanySummary: Identifiable, Hashable, Sendable {
-    public let id: UUID
+    public let id: String
     public var name: String
+    public var status: String
     public var projectsCount: Int
     public var activeIssuesCount: Int
     public var activeAgentsCount: Int
     public var recentSignalsCount: Int
 
     public init(
-        id: UUID = UUID(),
+        id: String,
         name: String,
+        status: String = "active",
         projectsCount: Int,
         activeIssuesCount: Int,
         activeAgentsCount: Int,
@@ -42,6 +44,7 @@ public struct CompanySummary: Identifiable, Hashable, Sendable {
     ) {
         self.id = id
         self.name = name
+        self.status = status
         self.projectsCount = projectsCount
         self.activeIssuesCount = activeIssuesCount
         self.activeAgentsCount = activeAgentsCount
@@ -50,12 +53,12 @@ public struct CompanySummary: Identifiable, Hashable, Sendable {
 }
 
 public struct OperationsSignal: Identifiable, Hashable, Sendable {
-    public let id: UUID
+    public let id: String
     public var title: String
     public var detail: String
     public var occurredAt: Date
 
-    public init(id: UUID = UUID(), title: String, detail: String, occurredAt: Date) {
+    public init(id: String = UUID().uuidString, title: String, detail: String, occurredAt: Date) {
         self.id = id
         self.title = title
         self.detail = detail
@@ -64,12 +67,12 @@ public struct OperationsSignal: Identifiable, Hashable, Sendable {
 }
 
 public struct ApprovalSummary: Identifiable, Hashable, Sendable {
-    public let id: UUID
+    public let id: String
     public var title: String
     public var owner: String
     public var priorityLabel: String
 
-    public init(id: UUID = UUID(), title: String, owner: String, priorityLabel: String) {
+    public init(id: String = UUID().uuidString, title: String, owner: String, priorityLabel: String) {
         self.id = id
         self.title = title
         self.owner = owner
@@ -78,42 +81,26 @@ public struct ApprovalSummary: Identifiable, Hashable, Sendable {
 }
 
 public struct AgentRuntimeSummary: Identifiable, Hashable, Sendable {
-    public let id: UUID
+    public let id: String
     public var name: String
     public var role: String
     public var stateLabel: String
     public var issueLabel: String
+    public var budgetLabel: String
 
     public init(
-        id: UUID = UUID(),
+        id: String,
         name: String,
         role: String,
         stateLabel: String,
-        issueLabel: String
+        issueLabel: String,
+        budgetLabel: String
     ) {
         self.id = id
         self.name = name
         self.role = role
         self.stateLabel = stateLabel
         self.issueLabel = issueLabel
-    }
-}
-
-public struct OperationsSnapshot: Sendable {
-    public var companies: [CompanySummary]
-    public var approvals: [ApprovalSummary]
-    public var signals: [OperationsSignal]
-    public var agents: [AgentRuntimeSummary]
-
-    public init(
-        companies: [CompanySummary],
-        approvals: [ApprovalSummary],
-        signals: [OperationsSignal],
-        agents: [AgentRuntimeSummary]
-    ) {
-        self.companies = companies
-        self.approvals = approvals
-        self.signals = signals
-        self.agents = agents
+        self.budgetLabel = budgetLabel
     }
 }

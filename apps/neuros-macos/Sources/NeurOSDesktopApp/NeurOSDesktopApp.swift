@@ -5,8 +5,8 @@ import NeurOSDesktopServices
 
 @main
 struct NeurOSDesktopApp: App {
-    @State private var appModel = AppModel.preview()
-    private let coordinator = DesktopBootstrapCoordinator(services: .preview)
+    @State private var appModel = AppModel()
+    private let coordinator = DesktopBootstrapCoordinator(services: .live)
 
     var body: some Scene {
         WindowGroup {

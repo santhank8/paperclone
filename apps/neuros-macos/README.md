@@ -5,15 +5,23 @@ SwiftUI-native macOS foundation for `neurOS`, the Paperclip evolution in this re
 ## Current Scope
 
 - native SwiftUI application shell for macOS
-- operational home focused on the `Central Operacional`
-- hybrid runtime model ready for local and remote instances
-- native service layer prepared for:
+- real connection flow against the Paperclip REST API
+- operational sections for:
+  - central operacional
+  - fila e issues
+  - agentes
+  - aprovações
+  - runtime e sinais
+  - projetos
+  - plugins
+  - empresa e equipe
+- persisted server configuration with local/remote/hybrid runtime preference
+- native desktop service layer prepared for:
   - notifications
-  - deep links
   - menu bar
   - login item
   - local network discovery
-  - invisible primary-node promotion
+  - manual primary-node promotion
 
 ## Local Development
 
@@ -36,6 +44,8 @@ pnpm neuros:macos:install
 ```
 
 By default the installer targets `/Applications` when writable and falls back to `~/Applications` otherwise.
+
+Configure the backend instance from the native Settings screen. The app normalizes the configured base URL to `/api` automatically.
 
 ## Architecture
 

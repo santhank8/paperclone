@@ -13,16 +13,28 @@ public struct RootSplitView: View {
 
     public var body: some View {
         NavigationSplitView {
-            SidebarNavigationView(selectedSection: $appModel.selectedSection)
+            SidebarNavigationView(appModel: appModel, coordinator: coordinator)
         } detail: {
             Group {
                 switch appModel.selectedSection {
                 case .operations:
                     OperationsHomeView(appModel: appModel, coordinator: coordinator)
+                case .queue:
+                    QueueSectionView(appModel: appModel, coordinator: coordinator)
+                case .agents:
+                    AgentsSectionView(appModel: appModel, coordinator: coordinator)
+                case .projects:
+                    ProjectsSectionView(appModel: appModel, coordinator: coordinator)
+                case .approvals:
+                    ApprovalsSectionView(appModel: appModel, coordinator: coordinator)
+                case .runtime:
+                    RuntimeSectionView(appModel: appModel, coordinator: coordinator)
+                case .plugins:
+                    PluginsSectionView(appModel: appModel, coordinator: coordinator)
+                case .organization:
+                    OrganizationSectionView(appModel: appModel, coordinator: coordinator)
                 case .settings:
                     SettingsView(appModel: appModel, coordinator: coordinator)
-                default:
-                    PlaceholderSectionView(section: appModel.selectedSection)
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -32,17 +44,5 @@ public struct RootSplitView: View {
             guard appModel.isBootstrapping else { return }
             await coordinator.start(appModel: appModel)
         }
-    }
-}
-
-private struct PlaceholderSectionView: View {
-    let section: NavigationSection
-
-    var body: some View {
-        ContentUnavailableView(
-            section.title,
-            systemImage: "square.stack.3d.up",
-            description: Text("Esta área já está reservada na arquitetura do neurOS macOS e será preenchida com paridade funcional do produto.")
-        )
     }
 }

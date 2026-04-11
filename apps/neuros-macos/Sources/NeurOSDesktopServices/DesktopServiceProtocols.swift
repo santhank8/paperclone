@@ -2,11 +2,14 @@ import Foundation
 import NeurOSAppCore
 
 public protocol OperationsSnapshotProviding: Sendable {
-    func loadSnapshot() async throws -> OperationsSnapshot
+    func loadSnapshot(
+        configuration: ServerConnectionConfiguration,
+        selectedCompanyID: String?
+    ) async throws -> OperationsSnapshot
 }
 
 public protocol ConnectionStateProviding: Sendable {
-    func currentConnectionState() async -> ConnectionState
+    func currentConnectionState(configuration: ServerConnectionConfiguration) async -> ConnectionState
 }
 
 public protocol LoginItemControlling: Sendable {
@@ -28,6 +31,7 @@ public protocol PrimaryNodePromoting: Sendable {
 public struct DesktopServices: Sendable {
     public let operations: any OperationsSnapshotProviding
     public let connection: any ConnectionStateProviding
+    public let configurationStore: any DesktopConfigurationStoring
     public let loginItem: any LoginItemControlling
     public let notifications: any NotificationsAuthorizing
     public let localNetwork: any LocalNetworkDiscovering
@@ -36,6 +40,7 @@ public struct DesktopServices: Sendable {
     public init(
         operations: any OperationsSnapshotProviding,
         connection: any ConnectionStateProviding,
+        configurationStore: any DesktopConfigurationStoring,
         loginItem: any LoginItemControlling,
         notifications: any NotificationsAuthorizing,
         localNetwork: any LocalNetworkDiscovering,
@@ -43,6 +48,7 @@ public struct DesktopServices: Sendable {
     ) {
         self.operations = operations
         self.connection = connection
+        self.configurationStore = configurationStore
         self.loginItem = loginItem
         self.notifications = notifications
         self.localNetwork = localNetwork
