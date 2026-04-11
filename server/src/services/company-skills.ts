@@ -1443,6 +1443,7 @@ function toCompanySkillListItem(skill: CompanySkill, attachedAgentCount: number)
     trustLevel: skill.trustLevel,
     compatibility: skill.compatibility,
     fileInventory: skill.fileInventory,
+    hidden: skill.hidden,
     createdAt: skill.createdAt,
     updatedAt: skill.updatedAt,
     attachedAgentCount,
@@ -2344,6 +2345,30 @@ export function companySkillService(db: Db) {
     return skill;
   }
 
+  async function organizeSkill(
+    companyId: string,
+    skillId: string,
+    updates: { hidden?: boolean },
+  ): Promise<CompanySkill | null> {
+    const existing = await db
+      .select()
+      .from(companySkills)
+      .where(and(eq(companySkills.id, skillId), eq(companySkills.companyId, companyId)))
+      .then((rows) => rows[0] ?? null);
+    if (!existing) return null;
+
+    const setClause: Record<string, unknown> = { updatedAt: new Date() };
+    if (updates.hidden !== undefined) setClause.hidden = updates.hidden;
+
+    const row = await db
+      .update(companySkills)
+      .set(setClause)
+      .where(eq(companySkills.id, skillId))
+      .returning()
+      .then((rows) => rows[0] ?? null);
+    return row ? toCompanySkill(row) : null;
+  }
+
   return {
     list,
     listFull,
@@ -2358,6 +2383,7 @@ export function companySkillService(db: Db) {
     readFile,
     updateFile,
     createLocalSkill,
+    organizeSkill,
     deleteSkill,
     importFromSource,
     scanProjectWorkspaces,

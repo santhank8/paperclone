@@ -25,6 +25,7 @@ export const companySkillSchema = z.object({
   compatibility: companySkillCompatibilitySchema,
   fileInventory: z.array(companySkillFileInventoryEntrySchema).default([]),
   metadata: z.record(z.unknown()).nullable(),
+  hidden: z.boolean(),
   createdAt: z.coerce.date(),
   updatedAt: z.coerce.date(),
 });
@@ -129,7 +130,12 @@ export const companySkillFileUpdateSchema = z.object({
   content: z.string(),
 });
 
+export const companySkillOrganizeSchema = z.object({
+  hidden: z.boolean().optional(),
+});
+
 export type CompanySkillImport = z.infer<typeof companySkillImportSchema>;
 export type CompanySkillProjectScan = z.infer<typeof companySkillProjectScanRequestSchema>;
 export type CompanySkillCreate = z.infer<typeof companySkillCreateSchema>;
 export type CompanySkillFileUpdate = z.infer<typeof companySkillFileUpdateSchema>;
+export type CompanySkillOrganize = z.infer<typeof companySkillOrganizeSchema>;

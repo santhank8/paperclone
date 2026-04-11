@@ -51,10 +51,12 @@ export {
   companySkillCreateSchema,
   companySkillFileDetailSchema,
   companySkillFileUpdateSchema,
+  companySkillOrganizeSchema,
   type CompanySkillImport,
   type CompanySkillProjectScan,
   type CompanySkillCreate,
   type CompanySkillFileUpdate,
+  type CompanySkillOrganize,
 } from "./company-skill.js";
 export {
   agentSkillStateSchema,
