@@ -32,6 +32,7 @@ import { accessRoutes } from "./routes/access.js";
 import { pluginRoutes } from "./routes/plugins.js";
 import { adapterRoutes } from "./routes/adapters.js";
 import { pluginUiStaticRoutes } from "./routes/plugin-ui-static.js";
+import { createCompanyIdResolverMiddleware } from "./routes/company-id-resolver.js";
 import { applyUiBranding } from "./ui-branding.js";
 import { logger } from "./middleware/logger.js";
 import { DEFAULT_LOCAL_PLUGIN_DIR, pluginLoader } from "./services/plugin-loader.js";
@@ -141,6 +142,8 @@ export async function createApp(
   // Mount API routes
   const api = Router();
   api.use(boardMutationGuard());
+  // Middleware to resolve company IDs from prefix (e.g., "IN") to UUID
+  api.use(createCompanyIdResolverMiddleware(db));
   api.use(
     "/health",
     healthRoutes(db, {

@@ -168,6 +168,32 @@ export function companyService(db: Db) {
       return enrichCompany(hydrated);
     },
 
+    getByIdOrPrefix: async (idOrPrefix: string) => {
+      let row = null;
+
+      // Try as UUID first (if it looks like a UUID)
+      if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idOrPrefix)) {
+        try {
+          row = await getCompanyQuery(db)
+            .where(eq(companies.id, idOrPrefix))
+            .then((rows) => rows[0] ?? null);
+        } catch {
+          // If UUID query fails, continue to prefix lookup
+        }
+      }
+
+      // If not found, try as issue prefix
+      if (!row) {
+        row = await getCompanyQuery(db)
+          .where(eq(companies.issuePrefix, idOrPrefix))
+          .then((rows) => rows[0] ?? null);
+      }
+
+      if (!row) return null;
+      const [hydrated] = await hydrateCompanySpend([row], db);
+      return enrichCompany(hydrated);
+    },
+
     create: async (data: typeof companies.$inferInsert) => {
       const created = await createCompanyWithUniquePrefix(data);
       const row = await getCompanyQuery(db)

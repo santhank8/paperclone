@@ -36,6 +36,7 @@ import {
   approvalService,
   companySkillService,
   budgetService,
+  companyService,
   heartbeatService,
   issueApprovalService,
   issueService,
@@ -97,6 +98,7 @@ export function agentRoutes(db: Db) {
   const access = accessService(db);
   const approvalsSvc = approvalService(db);
   const budgets = budgetService(db);
+  const companySvc = companyService(db);
   const heartbeat = heartbeatService(db);
   const issueApprovalsSvc = issueApprovalService(db);
   const secretsSvc = secretService(db);
@@ -962,7 +964,15 @@ export function agentRoutes(db: Db) {
   );
 
   router.get("/companies/:companyId/agents", async (req, res) => {
-    const companyId = req.params.companyId as string;
+    const companyIdOrPrefix = req.params.companyId as string;
+
+    const resolvedCompany = await companySvc.getByIdOrPrefix(companyIdOrPrefix);
+    if (!resolvedCompany) {
+      res.status(404).json({ error: "Company not found" });
+      return;
+    }
+
+    const companyId = resolvedCompany.id;
     assertCompanyAccess(req, companyId);
     const result = await svc.list(companyId);
     const canReadConfigs = await actorCanReadConfigurationsForCompany(req, companyId);
@@ -1098,6 +1108,10 @@ export function agentRoutes(db: Db) {
     const rows = await issuesSvc.list(req.actor.companyId, {
       assigneeAgentId: req.actor.agentId,
       status: "todo,in_progress,blocked",
+      // Agents' primary inbox MUST surface routine-generated tasks.
+      // issueService.list() hides origin_kind='routine_execution' by default
+      // (that default is fine for the UI backlog view), so we opt in here.
+      includeRoutineExecutions: true,
     });
 
     res.json(
