@@ -33,6 +33,33 @@ class DanglingToolCallMiddleware(AgentMiddleware[AgentState]):
     offending AIMessage so the LLM receives a well-formed conversation.
     """
 
+    @staticmethod
+    def _message_tool_calls(msg) -> list[dict]:
+        """Extract tool calls from both structured and raw provider formats.
+
+        Some providers store tool calls in additional_kwargs["tool_calls"]
+        with a different schema ({function: {name, arguments}}) instead of
+        the LangChain-native msg.tool_calls list.
+        """
+        tool_calls = getattr(msg, "tool_calls", None) or []
+        if tool_calls:
+            return list(tool_calls)
+        raw_tool_calls = (getattr(msg, "additional_kwargs", None) or {}).get("tool_calls") or []
+        normalized = []
+        for raw_tc in raw_tool_calls:
+            fn = raw_tc.get("function") or {}
+            name = fn.get("name", "")
+            args_str = fn.get("arguments", "{}")
+            tc_id = raw_tc.get("id", "")
+            if name or tc_id:
+                try:
+                    import json
+                    args = json.loads(args_str) if isinstance(args_str, str) else args_str
+                except (json.JSONDecodeError, TypeError):
+                    args = {}
+                normalized.append({"name": name, "args": args, "id": tc_id})
+        return normalized
+
     def _build_patched_messages(self, messages: list) -> list | None:
         """Return a new message list with patches inserted at the correct positions.
 
@@ -51,7 +78,7 @@ class DanglingToolCallMiddleware(AgentMiddleware[AgentState]):
         for msg in messages:
             if getattr(msg, "type", None) != "ai":
                 continue
-            for tc in getattr(msg, "tool_calls", None) or []:
+            for tc in self._message_tool_calls(msg):
                 tc_id = tc.get("id")
                 if tc_id and tc_id not in existing_tool_msg_ids:
                     needs_patch = True
@@ -70,7 +97,7 @@ class DanglingToolCallMiddleware(AgentMiddleware[AgentState]):
             patched.append(msg)
             if getattr(msg, "type", None) != "ai":
                 continue
-            for tc in getattr(msg, "tool_calls", None) or []:
+            for tc in self._message_tool_calls(msg):
                 tc_id = tc.get("id")
                 if tc_id and tc_id not in existing_tool_msg_ids and tc_id not in patched_ids:
                     patched.append(

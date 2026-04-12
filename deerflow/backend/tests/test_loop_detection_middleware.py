@@ -265,3 +265,98 @@ class TestLoopDetectionMiddleware:
         result = mw.after_model(state, rt)
         assert result is not None
         assert "LOOP DETECTED" in result["messages"][0].content
+
+
+# ---------------------------------------------------------------------------
+# _build_hard_stop_update
+# ---------------------------------------------------------------------------
+
+
+class TestBuildHardStopUpdate:
+    """Unit tests for the _build_hard_stop_update static method."""
+
+    def test_strips_structured_tool_calls(self):
+        """Returned update always has tool_calls set to []."""
+        msg = _ai_message_with_tool_calls([_tool_call("bash")])
+        update = LoopDetectionMiddleware._build_hard_stop_update(msg, "stop content")
+        assert update["tool_calls"] == []
+
+    def test_sets_content(self):
+        """Returned update carries the provided content string."""
+        msg = _ai_message_with_tool_calls([_tool_call("bash")])
+        update = LoopDetectionMiddleware._build_hard_stop_update(msg, "forced stop text")
+        assert update["content"] == "forced stop text"
+
+    def test_strips_raw_provider_tool_calls_from_additional_kwargs(self):
+        """tool_calls and function_call keys are removed from additional_kwargs."""
+        from langchain_core.messages import AIMessage
+
+        msg = AIMessage(content="", tool_calls=[])
+        object.__setattr__(
+            msg,
+            "additional_kwargs",
+            {"tool_calls": [{"id": "x", "function": {"name": "bash", "arguments": "{}"}}], "function_call": {"name": "bash"}},
+        )
+        update = LoopDetectionMiddleware._build_hard_stop_update(msg, "stop")
+        assert "tool_calls" not in update["additional_kwargs"]
+        assert "function_call" not in update["additional_kwargs"]
+
+    def test_preserves_other_additional_kwargs(self):
+        """Keys other than tool_calls/function_call in additional_kwargs are kept."""
+        from langchain_core.messages import AIMessage
+
+        msg = AIMessage(content="", tool_calls=[])
+        object.__setattr__(msg, "additional_kwargs", {"custom_key": "preserved", "tool_calls": []})
+        update = LoopDetectionMiddleware._build_hard_stop_update(msg, "stop")
+        assert update["additional_kwargs"]["custom_key"] == "preserved"
+
+    def test_finish_reason_rewritten_from_tool_calls_to_stop(self):
+        """finish_reason 'tool_calls' is rewritten to 'stop' to prevent provider errors."""
+        from langchain_core.messages import AIMessage
+
+        msg = AIMessage(content="", tool_calls=[])
+        object.__setattr__(msg, "response_metadata", {"finish_reason": "tool_calls", "model": "gpt-4o"})
+        update = LoopDetectionMiddleware._build_hard_stop_update(msg, "stop")
+        assert update["response_metadata"]["finish_reason"] == "stop"
+        # Other metadata preserved
+        assert update["response_metadata"]["model"] == "gpt-4o"
+
+    def test_finish_reason_non_tool_calls_unchanged(self):
+        """finish_reason values other than 'tool_calls' are left untouched."""
+        from langchain_core.messages import AIMessage
+
+        msg = AIMessage(content="", tool_calls=[])
+        object.__setattr__(msg, "response_metadata", {"finish_reason": "length"})
+        update = LoopDetectionMiddleware._build_hard_stop_update(msg, "stop")
+        assert update["response_metadata"]["finish_reason"] == "length"
+
+    def test_works_with_no_additional_kwargs(self):
+        """Missing additional_kwargs gracefully returns an empty dict for that key."""
+        msg = _ai_message_with_tool_calls([])
+        update = LoopDetectionMiddleware._build_hard_stop_update(msg, "stop")
+        assert isinstance(update["additional_kwargs"], dict)
+        assert "tool_calls" not in update["additional_kwargs"]
+
+    def test_hard_stop_strips_raw_provider_metadata_end_to_end(self):
+        """After apply() hard stop, the returned AIMessage has no raw tool_call metadata."""
+        from langchain_core.messages import AIMessage
+
+        mw = LoopDetectionMiddleware(warn_threshold=2, hard_limit=3)
+        rt = _runtime()
+
+        raw_kwargs = {"tool_calls": [{"id": "c1", "function": {"name": "bash", "arguments": "{}"}}]}
+        tc = [_tool_call("bash", {"command": "echo hi"})]
+
+        for _ in range(3):
+            msg = AIMessage(content="thinking...", tool_calls=tc)
+            object.__setattr__(msg, "additional_kwargs", dict(raw_kwargs))
+            object.__setattr__(msg, "response_metadata", {"finish_reason": "tool_calls"})
+            state = {"messages": [msg]}
+            result = mw.after_model(state, rt)
+
+        # On the 3rd call we should have a hard stop result
+        assert result is not None
+        stripped = result["messages"][0]
+        assert stripped.tool_calls == []
+        assert "tool_calls" not in stripped.additional_kwargs
+        assert stripped.response_metadata.get("finish_reason") == "stop"

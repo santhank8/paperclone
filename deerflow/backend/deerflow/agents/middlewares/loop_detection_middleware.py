@@ -323,19 +323,40 @@ class LoopDetectionMiddleware(AgentMiddleware[AgentState]):
         # Fallback: coerce unexpected types to str to avoid TypeError
         return str(content) + f"\n\n{text}"
 
+    @staticmethod
+    def _build_hard_stop_update(last_msg, content: str) -> dict:
+        """Build a message update that strips all tool-call metadata.
+
+        When loop detection forces a stop, raw provider-level tool call
+        metadata in additional_kwargs must also be cleared, otherwise the
+        next model invocation fails with 'tool_calls must be followed by
+        tool messages'.
+        """
+        from copy import deepcopy
+
+        update: dict = {"tool_calls": [], "content": content}
+        additional_kwargs = dict(getattr(last_msg, "additional_kwargs", {}) or {})
+        for key in ("tool_calls", "function_call"):
+            additional_kwargs.pop(key, None)
+        update["additional_kwargs"] = additional_kwargs
+        response_metadata = deepcopy(getattr(last_msg, "response_metadata", {}) or {})
+        if response_metadata.get("finish_reason") == "tool_calls":
+            response_metadata["finish_reason"] = "stop"
+        update["response_metadata"] = response_metadata
+        return update
+
     def _apply(self, state: AgentState, runtime: Runtime) -> dict | None:
         warning, hard_stop = self._track_and_check(state, runtime)
 
         if hard_stop:
-            # Strip tool_calls from the last AIMessage to force text output
+            # Strip all tool-call metadata (structured + raw provider) to force text output
             messages = state.get("messages", [])
             last_msg = messages[-1]
-            stripped_msg = last_msg.model_copy(
-                update={
-                    "tool_calls": [],
-                    "content": self._append_text(last_msg.content, warning),
-                }
+            update = self._build_hard_stop_update(
+                last_msg,
+                self._append_text(last_msg.content, warning),
             )
+            stripped_msg = last_msg.model_copy(update=update)
             return {"messages": [stripped_msg]}
 
         if warning:
