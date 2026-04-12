@@ -719,6 +719,7 @@ export async function startServer(): Promise<StartedServer> {
               });
           }
           printStartupBanner({
+            bind: config.bind,
             host: config.host,
             deploymentMode: config.deploymentMode,
             deploymentExposure: config.deploymentExposure,
