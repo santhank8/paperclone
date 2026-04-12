@@ -20,7 +20,7 @@ export interface IssueAssignmentWakeupDeps {
 
 export function queueIssueAssignmentWakeup(input: {
   heartbeat: IssueAssignmentWakeupDeps;
-  issue: { id: string; assigneeAgentId: string | null; status: string };
+  issue: { id: string; assigneeAgentId: string | null; createdByAgentId?: string | null; status: string };
   reason: string;
   mutation: string;
   contextSource: string;
@@ -29,6 +29,16 @@ export function queueIssueAssignmentWakeup(input: {
   rethrowOnError?: boolean;
 }) {
   if (!input.issue.assigneeAgentId || input.issue.status === "backlog") return;
+  // Never wake on already-terminal issues — there is no work for the agent.
+  if (input.issue.status === "done" || input.issue.status === "cancelled") return;
+  // On create, skip self-assignment wakes: the agent just created this issue
+  // itself, so dispatching an issue_assigned wake back to the same agent is
+  // noise at best and a loop hazard at worst.
+  if (
+    input.mutation === "create" &&
+    input.issue.createdByAgentId &&
+    input.issue.createdByAgentId === input.issue.assigneeAgentId
+  ) return;
 
   return input.heartbeat
     .wakeup(input.issue.assigneeAgentId, {
