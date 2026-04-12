@@ -21,7 +21,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from dotenv import load_dotenv
 from langchain_core.messages import HumanMessage
 
-from src.agents import make_lead_agent
+from deerflow.agents import make_lead_agent
 
 load_dotenv()
 
@@ -36,7 +36,7 @@ logging.basicConfig(
 async def main():
     # Initialize MCP tools at startup
     try:
-        from src.mcp import initialize_mcp_tools
+        from deerflow.mcp import initialize_mcp_tools
 
         await initialize_mcp_tools()
     except Exception as e:

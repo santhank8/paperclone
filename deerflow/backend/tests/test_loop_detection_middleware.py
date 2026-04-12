@@ -14,7 +14,7 @@ from unittest.mock import MagicMock
 
 from langchain_core.messages import AIMessage, HumanMessage
 
-from src.agents.middlewares.loop_detection_middleware import (
+from deerflow.agents.middlewares.loop_detection_middleware import (
     LoopDetectionMiddleware,
     _normalize_tool_call_args,
     _stable_tool_key,

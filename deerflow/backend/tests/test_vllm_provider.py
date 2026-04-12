@@ -12,7 +12,7 @@ import copy
 
 from langchain_openai import ChatOpenAI
 
-from src.models.vllm_provider import (
+from deerflow.models.vllm_provider import (
     VllmChatModel,
     _normalize_vllm_chat_template_kwargs,
     _reasoning_to_text,

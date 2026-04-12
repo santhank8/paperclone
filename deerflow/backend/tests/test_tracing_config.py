@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from src.config import tracing_config as tracing_module
+from deerflow.config import tracing_config as tracing_module
 
 
 def _reset_tracing_cache() -> None:

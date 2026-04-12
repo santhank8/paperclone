@@ -7,7 +7,7 @@ assertions so they survive cosmetic edits while still catching deletions.
 
 from __future__ import annotations
 
-from src.agents.lead_agent.prompt import SYSTEM_PROMPT_TEMPLATE, apply_prompt_template
+from deerflow.agents.lead_agent.prompt import SYSTEM_PROMPT_TEMPLATE, apply_prompt_template
 
 
 def test_system_prompt_template_includes_file_handling_section():

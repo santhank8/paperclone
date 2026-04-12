@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from src.sandbox.search import find_glob_matches, find_grep_matches, GrepMatch, is_binary_file
+from deerflow.sandbox.search import find_glob_matches, find_grep_matches, GrepMatch, is_binary_file
 
 
 def _make_file(base: Path, rel_path: str, content: str = "") -> Path:

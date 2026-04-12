@@ -2,7 +2,7 @@
 
 from types import SimpleNamespace
 
-from src.sandbox.tools import (
+from deerflow.sandbox.tools import (
     _truncate_bash_output,
     _truncate_read_file_output,
     _truncate_ls_output,
@@ -11,7 +11,7 @@ from src.sandbox.tools import (
     _format_grep_results,
     _clamp_max_results,
 )
-from src.sandbox.search import GrepMatch
+from deerflow.sandbox.search import GrepMatch
 
 
 # ---------------------------------------------------------------------------
@@ -109,14 +109,14 @@ def test_get_sandbox_max_chars_reads_from_config(monkeypatch):
 
     # _get_sandbox_max_chars does a local import of get_app_config inside a
     # try/except, so we patch it at the module where it is imported.
-    import src.config.app_config as app_config_mod
+    import deerflow.config.app_config as app_config_mod
 
     monkeypatch.setattr(app_config_mod, "get_app_config", lambda: app_cfg)
     assert _get_sandbox_max_chars("bash_output_max_chars", 9999) == 42
 
 
 def test_get_sandbox_max_chars_falls_back_to_default(monkeypatch):
-    import src.config.app_config as app_config_mod
+    import deerflow.config.app_config as app_config_mod
 
     def _boom():
         raise RuntimeError("config unavailable")
