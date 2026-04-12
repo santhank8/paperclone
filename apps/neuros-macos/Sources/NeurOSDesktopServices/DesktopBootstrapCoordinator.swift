@@ -28,13 +28,26 @@ public final class DesktopBootstrapCoordinator {
     public func refresh(appModel: AppModel) async {
         await syncLocalServerStatus(
             configuration: appModel.serverConfiguration,
-            autoStartIfNeeded: true,
+            autoStartIfNeeded: false,
             appModel: appModel
         )
-        let connectionState = await resolveConnectionState(
+        var connectionState = await resolveConnectionState(
             configuration: appModel.serverConfiguration,
             appModel: appModel
         )
+
+        if connectionState.isConnected == false {
+            await syncLocalServerStatus(
+                configuration: appModel.serverConfiguration,
+                autoStartIfNeeded: true,
+                appModel: appModel
+            )
+            connectionState = await resolveConnectionState(
+                configuration: appModel.serverConfiguration,
+                appModel: appModel
+            )
+        }
+
         await applySnapshot(appModel: appModel, connectionState: connectionState)
     }
 

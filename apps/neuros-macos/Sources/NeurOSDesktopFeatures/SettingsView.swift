@@ -187,9 +187,9 @@ public struct SettingsView: View {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Comando customizado")
                         .font(.subheadline.weight(.medium))
-                    TextField("paperclipai run", text: $draftCustomCommand)
+                    TextField("Automático (recomendado)", text: $draftCustomCommand)
                         .textFieldStyle(.roundedBorder)
-                    Text("Se vazio, o app tenta usar `pnpm paperclipai run` no workspace detectado ou `paperclipai run` pela CLI instalada.")
+                    Text("Se vazio, o app resolve automaticamente o melhor launcher: `pnpm paperclipai run`, depois `node cli/src/index.ts run`, e só cai para `paperclipai run` quando estiver fora do workspace.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }

@@ -246,11 +246,13 @@ public actor LocalPaperclipServerManager: LocalServerControlling {
 
     private func resolveLaunchPlan(configuration: ServerConnectionConfiguration) -> LaunchPlan? {
         let resolvedWorkspace = resolveWorkspaceRoot(configuration: configuration)
+        let trimmedCustomCommand = configuration.localServer.trimmedCustomCommand
 
-        if configuration.localServer.trimmedCustomCommand.isEmpty == false {
+        if trimmedCustomCommand.isEmpty == false,
+           !(resolvedWorkspace != nil && configuration.localServer.usesLegacyAutoCommand) {
             return LaunchPlan(
-                command: configuration.localServer.trimmedCustomCommand,
-                displayCommand: configuration.localServer.trimmedCustomCommand,
+                command: trimmedCustomCommand,
+                displayCommand: trimmedCustomCommand,
                 workingDirectory: resolvedWorkspace,
                 resolutionSummary: "Comando customizado configurado para o servidor local."
             )
@@ -258,10 +260,12 @@ public actor LocalPaperclipServerManager: LocalServerControlling {
 
         if let resolvedWorkspace, isPaperclipWorkspace(at: resolvedWorkspace) {
             return LaunchPlan(
-                command: "pnpm paperclipai run",
-                displayCommand: "pnpm paperclipai run",
+                command: workspaceBootstrapCommand(),
+                displayCommand: "auto (pnpm paperclipai run -> node cli/src/index.ts run -> paperclipai run)",
                 workingDirectory: resolvedWorkspace,
-                resolutionSummary: "Workspace do monorepo Paperclip detectado para bootstrap local."
+                resolutionSummary: configuration.localServer.usesLegacyAutoCommand
+                    ? "Comando legado salvo foi ignorado e o workspace do monorepo Paperclip será usado automaticamente."
+                    : "Workspace do monorepo Paperclip detectado para bootstrap local."
             )
         }
 
@@ -311,5 +315,20 @@ public actor LocalPaperclipServerManager: LocalServerControlling {
             .path
 
         return fileManager.fileExists(atPath: packageJSONPath) && fileManager.fileExists(atPath: neurosPath)
+    }
+
+    private func workspaceBootstrapCommand() -> String {
+        """
+        if command -v pnpm >/dev/null 2>&1; then
+          exec pnpm paperclipai run
+        elif command -v node >/dev/null 2>&1 && [ -f cli/node_modules/tsx/dist/cli.mjs ]; then
+          exec node cli/node_modules/tsx/dist/cli.mjs cli/src/index.ts run
+        elif command -v paperclipai >/dev/null 2>&1; then
+          exec paperclipai run
+        else
+          echo "Nenhum launcher do Paperclip foi encontrado no workspace. Instale as dependências do repo ou configure um comando customizado." >&2
+          exit 127
+        fi
+        """
     }
 }

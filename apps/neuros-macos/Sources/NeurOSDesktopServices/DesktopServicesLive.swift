@@ -528,7 +528,9 @@ public actor PreviewLocalServerController: LocalServerControlling {
         LocalServerStatus(
             phase: .running,
             isManagedProcess: true,
-            resolvedCommand: configuration.localServer.trimmedCustomCommand.isEmpty ? "paperclipai run" : configuration.localServer.trimmedCustomCommand,
+            resolvedCommand: configuration.localServer.trimmedCustomCommand.isEmpty
+                ? "auto (pnpm paperclipai run -> node cli/src/index.ts run -> paperclipai run)"
+                : configuration.localServer.trimmedCustomCommand,
             resolvedWorkingDirectory: configuration.localServer.trimmedWorkspaceRootPath.isEmpty ? "/Users/monrars/paperclip" : configuration.localServer.trimmedWorkspaceRootPath,
             detail: "Servidor local gerenciado pelo preview.",
             recentOutput: [
@@ -558,7 +560,7 @@ public actor PreviewLocalServerController: LocalServerControlling {
         LocalServerStatus(
             phase: .idle,
             isManagedProcess: false,
-            resolvedCommand: "paperclipai run",
+            resolvedCommand: "auto (pnpm paperclipai run -> node cli/src/index.ts run -> paperclipai run)",
             resolvedWorkingDirectory: "/Users/monrars/paperclip",
             detail: "Servidor local parado no preview.",
             recentOutput: ["Servidor local parado."],

@@ -177,7 +177,7 @@ public final class AppModel {
             localServerStatus: LocalServerStatus(
                 phase: .running,
                 isManagedProcess: true,
-                resolvedCommand: "paperclipai run",
+                resolvedCommand: "auto (pnpm paperclipai run -> node cli/src/index.ts run -> paperclipai run)",
                 resolvedWorkingDirectory: "/Users/monrars/paperclip",
                 detail: "Servidor local controlado pelo app.",
                 recentOutput: [

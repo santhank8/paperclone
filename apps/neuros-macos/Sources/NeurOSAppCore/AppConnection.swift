@@ -1,6 +1,11 @@
 import Foundation
 
 public struct LocalServerLaunchConfiguration: Codable, Equatable, Sendable {
+    private static let legacyAutoCommands: Set<String> = [
+        "paperclipai run",
+        "pnpm paperclipai run"
+    ]
+
     public var autoStartOnLaunch: Bool
     public var workspaceRootPath: String
     public var customCommand: String
@@ -21,6 +26,24 @@ public struct LocalServerLaunchConfiguration: Codable, Equatable, Sendable {
 
     public var trimmedCustomCommand: String {
         customCommand.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    public var usesLegacyAutoCommand: Bool {
+        Self.legacyAutoCommands.contains(trimmedCustomCommand.lowercased())
+    }
+
+    public var canonicalized: LocalServerLaunchConfiguration {
+        var normalized = self
+        normalized.workspaceRootPath = trimmedWorkspaceRootPath
+        normalized.customCommand = trimmedCustomCommand
+
+        // Older app builds persisted the placeholder/default launcher as a
+        // custom command, which blocks workspace auto-detection forever.
+        if normalized.trimmedWorkspaceRootPath.isEmpty == false, normalized.usesLegacyAutoCommand {
+            normalized.customCommand = ""
+        }
+
+        return normalized
     }
 
     public static let `default` = LocalServerLaunchConfiguration()
@@ -156,6 +179,7 @@ public struct ServerConnectionConfiguration: Codable, Equatable, Sendable {
         if let components = normalizedComponents?.url {
             normalized.baseURLString = components.absoluteString
         }
+        normalized.localServer = normalized.localServer.canonicalized
         return normalized
     }
 
