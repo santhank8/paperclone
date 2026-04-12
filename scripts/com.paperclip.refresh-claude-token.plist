@@ -23,8 +23,8 @@
   <key>ProgramArguments</key>
   <array>
     <string>/bin/bash</string>
-    <!-- UPDATE THIS PATH to where your paperclip repo lives -->
-    <string>/Users/arti/Desktop/TempRepos/paperclip/scripts/refresh-claude-token.sh</string>
+    <!-- Script is copied to ~/Library/Scripts/ to avoid macOS TCC restrictions on Desktop -->
+    <string>/Users/arti/Library/Scripts/paperclip-refresh-claude-token.sh</string>
   </array>
 
   <!-- Run every 6 hours (21600 seconds) -->
