@@ -15,16 +15,56 @@
 
 set -euo pipefail
 
+export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
+
 APP="${FLY_APP:-paperclip-holding}"
 KEYCHAIN_SERVICE="Claude Code-credentials"
 LOGFILE="$HOME/.paperclip-token-refresh.log"
+REFRESH_THRESHOLD_MINUTES="${CLAUDE_REFRESH_THRESHOLD_MINUTES:-420}"
 
 log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" | tee -a "$LOGFILE"; }
+
+read_claude_creds() {
+  security find-generic-password -s "$KEYCHAIN_SERVICE" -w 2>/dev/null || true
+}
+
+credential_minutes_remaining() {
+  echo "$1" | python3 -c "
+import json, sys, time
+d = json.load(sys.stdin)
+ts = d['claudeAiOauth'].get('expiresAt', 0)
+print(int((ts / 1000 - time.time()) / 60))
+"
+}
+
+credential_expiry_utc() {
+  echo "$1" | python3 -c "
+import json, sys, datetime
+d = json.load(sys.stdin)
+ts = d['claudeAiOauth'].get('expiresAt', 0)
+dt = datetime.datetime.utcfromtimestamp(ts / 1000)
+print(dt.strftime('%Y-%m-%d %H:%M UTC'))
+"
+}
+
+refresh_local_claude_token() {
+  if ! command -v claude >/dev/null 2>&1; then
+    log "ERROR: claude CLI not found; cannot refresh local Claude credentials before Fly sync"
+    exit 1
+  fi
+
+  log "Refreshing local Claude credentials via a minimal Claude request..."
+  if ! claude -p "Reply exactly: TOKEN_REFRESH_OK" --output-format json >/tmp/paperclip-claude-token-refresh.json 2>/tmp/paperclip-claude-token-refresh.err; then
+    log "ERROR: Claude local refresh request failed"
+    tail -40 /tmp/paperclip-claude-token-refresh.err 2>/dev/null | tee -a "$LOGFILE"
+    exit 1
+  fi
+}
 
 log "Reading Claude credentials from Keychain (service: $KEYCHAIN_SERVICE)..."
 
 # Read raw JSON from macOS Keychain
-CREDS=$(security find-generic-password -s "$KEYCHAIN_SERVICE" -w 2>/dev/null || true)
+CREDS=$(read_claude_creds)
 
 if [ -z "$CREDS" ]; then
   log "ERROR: No credentials found in Keychain under '$KEYCHAIN_SERVICE'"
@@ -38,16 +78,23 @@ if ! echo "$CREDS" | python3 -c "import json,sys; d=json.load(sys.stdin); assert
   exit 1
 fi
 
-EXPIRES_AT=$(echo "$CREDS" | python3 -c "
-import json, sys, datetime
-d = json.load(sys.stdin)
-ts = d['claudeAiOauth'].get('expiresAt', 0)
-# expiresAt is in milliseconds
-dt = datetime.datetime.utcfromtimestamp(ts / 1000)
-print(dt.strftime('%Y-%m-%d %H:%M UTC'))
-")
+MINUTES_REMAINING=$(credential_minutes_remaining "$CREDS")
+EXPIRES_AT=$(credential_expiry_utc "$CREDS")
 
-log "Token valid until: $EXPIRES_AT"
+if [ "$MINUTES_REMAINING" -lt "$REFRESH_THRESHOLD_MINUTES" ]; then
+  log "Token expires too soon ($MINUTES_REMAINING min remaining; threshold $REFRESH_THRESHOLD_MINUTES min)."
+  refresh_local_claude_token
+  CREDS=$(read_claude_creds)
+  MINUTES_REMAINING=$(credential_minutes_remaining "$CREDS")
+  EXPIRES_AT=$(credential_expiry_utc "$CREDS")
+fi
+
+if [ "$MINUTES_REMAINING" -le 0 ]; then
+  log "ERROR: Claude token is still expired after local refresh attempt (expires: $EXPIRES_AT)"
+  exit 1
+fi
+
+log "Token valid until: $EXPIRES_AT ($MINUTES_REMAINING min remaining)"
 
 # Extract raw accessToken for CLAUDE_CODE_OAUTH_TOKEN env var
 # (claude CLI 2.1.x checks this env var first — works on Linux where no Keychain is available)
