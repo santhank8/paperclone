@@ -1,8 +1,8 @@
 diff --git a/dist/server/execute.js b/dist/server/execute.js
-index 93cddf8243271f5fb3ab101617f9114257e41328..4b2fc790115eb7a246dae529dac65309784f0217 100644
+index 93cddf8243271f5fb3ab101617f9114257e41328..8763e1451e6c0de4bcba7f3e5694a5065fa0be39 100644
 --- a/dist/server/execute.js
 +++ b/dist/server/execute.js
-@@ -58,18 +58,18 @@ Title: {{taskTitle}}
+@@ -58,18 +58,18 @@
  
  1. Work on the task using your tools
  2. When done, mark the issue as completed:
@@ -25,7 +25,7 @@ index 93cddf8243271f5fb3ab101617f9114257e41328..4b2fc790115eb7a246dae529dac65309
  
  Address the comment, POST a reply if needed, then continue working.
  {{/commentId}}
-@@ -78,17 +78,17 @@ Address the comment, POST a reply if needed, then continue working.
+@@ -78,17 +78,17 @@
  ## Heartbeat Wake — Check for Work
  
  1. List ALL open issues assigned to you (todo, backlog, in_progress):
@@ -47,7 +47,7 @@ index 93cddf8243271f5fb3ab101617f9114257e41328..4b2fc790115eb7a246dae529dac65309
  
  4. If truly nothing to do, report briefly what you checked.
  {{/noTask}}`;
-@@ -110,6 +110,12 @@ function buildPrompt(ctx, config) {
+@@ -110,6 +110,14 @@
      if (!paperclipApiUrl.endsWith("/api")) {
          paperclipApiUrl = paperclipApiUrl.replace(/\/+$/, "") + "/api";
      }
@@ -62,7 +62,7 @@ index 93cddf8243271f5fb3ab101617f9114257e41328..4b2fc790115eb7a246dae529dac65309
      const vars = {
          agentId: ctx.agent?.id || "",
          agentName,
-@@ -123,6 +129,7 @@ function buildPrompt(ctx, config) {
+@@ -123,6 +131,7 @@
          wakeReason,
          projectName,
          paperclipApiUrl,
@@ -70,7 +70,7 @@ index 93cddf8243271f5fb3ab101617f9114257e41328..4b2fc790115eb7a246dae529dac65309
      };
      // Handle conditional sections: {{#key}}...{{/key}}
      let rendered = template;
-@@ -298,6 +305,12 @@ export async function execute(ctx) {
+@@ -298,6 +307,12 @@
      const taskId = cfgString(ctx.config?.taskId);
      if (taskId)
          env.PAPERCLIP_TASK_ID = taskId;
