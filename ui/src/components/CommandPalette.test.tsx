@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { LanguageProvider } from "@/context/LanguageContext";
 import { CommandPalette } from "./CommandPalette";
 
 const companyState = vi.hoisted(() => ({
@@ -132,7 +133,9 @@ function renderWithQueryClient(node: ReactNode, container: HTMLDivElement) {
   act(() => {
     root.render(
       <QueryClientProvider client={queryClient}>
-        {node}
+        <LanguageProvider>
+          {node}
+        </LanguageProvider>
       </QueryClientProvider>,
     );
   });
