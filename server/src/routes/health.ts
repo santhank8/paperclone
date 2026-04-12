@@ -85,6 +85,14 @@ export function healthRoutes(
       });
     }
 
+    // Only expose detailed status to authenticated board users.
+    // Unauthenticated requests get a minimal response to avoid information disclosure.
+    const isAuthenticated = _req.actor?.type === "board" && _req.actor?.userId;
+    if (!isAuthenticated) {
+      res.json({ status: "ok" });
+      return;
+    }
+
     res.json({
       status: "ok",
       version: serverVersion,

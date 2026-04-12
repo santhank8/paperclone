@@ -26,12 +26,21 @@ function parseNumber(value: string | undefined, fallback: number) {
 }
 
 function jwtConfig() {
-  const secret = process.env.PAPERCLIP_AGENT_JWT_SECRET?.trim() || process.env.BETTER_AUTH_SECRET?.trim();
+  const dedicatedSecret = process.env.PAPERCLIP_AGENT_JWT_SECRET?.trim();
+  const fallbackSecret = process.env.BETTER_AUTH_SECRET?.trim();
+  const secret = dedicatedSecret || fallbackSecret;
   if (!secret) return null;
+
+  if (!dedicatedSecret && fallbackSecret) {
+    console.warn(
+      "[security] PAPERCLIP_AGENT_JWT_SECRET is not set — falling back to BETTER_AUTH_SECRET. " +
+      "Set a separate PAPERCLIP_AGENT_JWT_SECRET for production deployments.",
+    );
+  }
 
   return {
     secret,
-    ttlSeconds: parseNumber(process.env.PAPERCLIP_AGENT_JWT_TTL_SECONDS, 60 * 60 * 48),
+    ttlSeconds: parseNumber(process.env.PAPERCLIP_AGENT_JWT_TTL_SECONDS, 60 * 60 * 4),
     issuer: process.env.PAPERCLIP_AGENT_JWT_ISSUER ?? "paperclip",
     audience: process.env.PAPERCLIP_AGENT_JWT_AUDIENCE ?? "paperclip-api",
   };
