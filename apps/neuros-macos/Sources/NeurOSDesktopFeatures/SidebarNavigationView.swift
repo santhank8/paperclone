@@ -13,23 +13,12 @@ public struct SidebarNavigationView: View {
 
     public var body: some View {
         List(selection: $appModel.selectedSection) {
-            Section("Instância") {
-                GoldNeuronSidebarHeader()
-                    .listRowInsets(EdgeInsets(top: 10, leading: 0, bottom: 10, trailing: 0))
-
-                VStack(alignment: .leading, spacing: 8) {
-                    Label(appModel.connectionState.label, systemImage: "network")
-                        .font(.subheadline.weight(.semibold))
-                    Text(appModel.serverConfiguration.trimmedBaseURLString)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    if let lastRefreshedAt = appModel.lastRefreshedAt {
-                        Text("Atualizado em \(lastRefreshedAt.formatted(date: .abbreviated, time: .shortened))")
-                            .font(.caption)
-                            .foregroundStyle(.tertiary)
-                    }
-                }
-                .padding(.vertical, 4)
+            Section {
+                GoldNeuronSidebarHeader(
+                    statusLabel: appModel.connectionState.label,
+                    statusColor: statusColor(for: appModel.connectionState.label)
+                )
+                    .listRowInsets(EdgeInsets(top: 6, leading: 0, bottom: 6, trailing: 0))
 
                 Picker("Empresa ativa", selection: companySelection) {
                     if appModel.companies.isEmpty {
@@ -48,6 +37,8 @@ public struct SidebarNavigationView: View {
                 } label: {
                     Label("Atualizar agora", systemImage: "arrow.clockwise")
                 }
+            } header: {
+                EmptyView()
             }
 
             Section("Áreas") {
@@ -59,6 +50,8 @@ public struct SidebarNavigationView: View {
         }
         .navigationTitle("neurOS")
         .scrollContentBackground(.hidden)
+        .listStyle(.sidebar)
+        .listRowSeparator(.hidden)
         .background(GoldNeuronBrand.background)
     }
 
@@ -91,32 +84,26 @@ public struct SidebarNavigationView: View {
 }
 
 private struct GoldNeuronSidebarHeader: View {
+    let statusLabel: String
+    let statusColor: Color
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            GoldNeuronWordmarkView(
-                title: "goldneuron.io",
-                subtitle: "brand system",
-                markSize: 28
-            )
-
-            Text("neurOS control plane")
-                .font(.system(size: 17, weight: .medium, design: .rounded))
-                .foregroundStyle(GoldNeuronBrand.textPrimary)
-
-            Text("Operação nativa com linguagem visual GoldNeuron, glow contido e contraste orientado a leitura.")
-                .font(.subheadline)
-                .foregroundStyle(GoldNeuronBrand.textSecondary)
-                .fixedSize(horizontal: false, vertical: true)
+        HStack(spacing: 12) {
+            Image("gn_isotipo_transparent", bundle: .module)
+                .resizable()
+                .interpolation(.high)
+                .antialiased(true)
+                .scaledToFit()
+                .frame(width: 22, height: 22)
+            Spacer()
+            Text(statusLabel.uppercased())
+                .font(.caption.weight(.semibold))
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(statusColor.opacity(0.14), in: Capsule())
+                .foregroundStyle(statusColor)
         }
-        .padding(16)
+        .padding(.vertical, 6)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .fill(GoldNeuronBrand.surface.opacity(0.84))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .strokeBorder(GoldNeuronBrand.separator, lineWidth: 1)
-        )
     }
 }

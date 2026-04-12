@@ -16,7 +16,7 @@ public struct OperationsHomeView: View {
             VStack(alignment: .leading, spacing: 24) {
                 SectionHeroView(
                     title: "Central Operacional",
-                    subtitle: "Resumo executivo da instância conectada, com foco na empresa ativa, orçamento, fila operacional e sinais de runtime."
+                    subtitle: "Resumo executivo da instância conectada."
                 ) {
                     HStack(spacing: 10) {
                         if appModel.serverConfiguration.canManageLocalServer {
@@ -71,7 +71,7 @@ public struct OperationsHomeView: View {
 
                 ActiveAgentsView(appModel: appModel)
             }
-            .padding(28)
+            .padding(20)
         }
         .navigationTitle("Central Operacional")
         .background(GoldNeuronSceneBackground())
@@ -163,7 +163,7 @@ private struct OperationalAttentionView: View {
         case .disconnected:
             "A instância não respondeu ao último ciclo de refresh. Verifique a URL configurada e o backend local."
         case .stable:
-            "A API está respondendo, a instância ativa foi carregada e os controles operacionais estão prontos para uso."
+            "Operação dentro do esperado."
         }
     }
 
@@ -182,7 +182,7 @@ private struct OperationalAttentionView: View {
         case .degraded, .disconnected:
             return appModel.statusMessage
         case .stable:
-            return "Modo \(appModel.runtimeMode.rawValue) · backend local \(appModel.localServerStatus.label.lowercased())"
+            return nil
         }
     }
 
@@ -256,12 +256,10 @@ private struct ConnectionHealthView: View {
                 VStack(alignment: .leading, spacing: 6) {
                     Text(appModel.connectionState.label)
                         .font(.title3.weight(.semibold))
-                    Text(appModel.statusMessage ?? "A instância macOS acompanha a API real do Paperclip e pode alternar entre topologia local e remota.")
-                        .foregroundStyle(.secondary)
                     if let health = appModel.health {
-                        Text("Servidor \(health.status) em \(health.deploymentMode ?? "unknown")/\(health.deploymentExposure ?? "unknown")")
-                            .font(.caption)
-                            .foregroundStyle(.tertiary)
+                        Text("Servidor \(health.status) · \(health.deploymentMode ?? "unknown")")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(GoldNeuronBrand.textSecondary)
                     }
                 }
                 Spacer()
@@ -303,9 +301,6 @@ private struct ConnectionHealthView: View {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Backend local: \(appModel.localServerStatus.label)")
                             .font(.subheadline.weight(.medium))
-                        Text(appModel.localServerStatus.detail)
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
                     }
                     Spacer()
                     if let pid = appModel.localServerStatus.pid {

@@ -59,6 +59,7 @@ private struct CompanyDTO: Decodable, Sendable {
     let id: String
     let name: String
     let status: String
+    let issuePrefix: String?
 }
 
 private struct ApprovalDTO: Decodable, Sendable {
@@ -353,7 +354,10 @@ private actor PaperclipAPIClient {
 
     init(configuration: ServerConnectionConfiguration) {
         self.configuration = configuration
-        self.session = .shared
+        let config = URLSessionConfiguration.ephemeral
+        config.requestCachePolicy = .reloadIgnoringLocalCacheData
+        config.urlCache = nil
+        self.session = URLSession(configuration: config)
     }
 
     func health() async throws -> HealthDTO {
@@ -630,7 +634,16 @@ public actor PaperclipDesktopService: OperationsSnapshotProviding, OperationsCon
 
         let companies = try await companiesTask
         let stats = try await statsTask
-        let selectedID = selectedCompanyID ?? companies.first?.id
+        let preferredPrefix = configuration.preferredCompanyPrefix?.uppercased()
+        let selectedID: String?
+        if let selectedCompanyID, companies.contains(where: { $0.id == selectedCompanyID }) {
+            selectedID = selectedCompanyID
+        } else if let preferredPrefix {
+            selectedID = companies.first(where: { $0.issuePrefix?.uppercased() == preferredPrefix })?.id
+                ?? companies.first?.id
+        } else {
+            selectedID = companies.first?.id
+        }
 
         guard let selectedID else {
             let plugins = try await pluginsTask

@@ -39,7 +39,7 @@ public struct SettingsView: View {
                     diagnosticsCard
                 }
             }
-            .padding(28)
+            .padding(20)
         }
         .navigationTitle("Configurações")
         .background(GoldNeuronSceneBackground())
@@ -54,7 +54,7 @@ public struct SettingsView: View {
     private var settingsHero: some View {
         SectionHeroView(
             title: "Controle da instância",
-            subtitle: "Gerencie conexão, backend local, preferências da instância e sinais de bootstrap do Paperclip sem sair do app."
+            subtitle: "Conexão e backend local."
         ) {
             HStack(spacing: 10) {
                 Button("Salvar") {
@@ -89,19 +89,11 @@ public struct SettingsView: View {
     private var applicationCard: some View {
         SurfaceCard {
             VStack(alignment: .leading, spacing: 10) {
-                GoldNeuronWordmarkView(
-                    title: "goldneuron.io",
-                    subtitle: "native control layer",
-                    markSize: 28
-                )
                 Text("Aplicação")
                     .font(.headline)
                 LabeledContent("Produto", value: appModel.identity.productName)
                 LabeledContent("Versão", value: appModel.identity.version)
                 LabeledContent("Bundle", value: appModel.identity.bundleIdentifier)
-                Text("A linguagem visual usa o isotipo GoldNeuron como assinatura do app e do bundle distribuído no macOS.")
-                    .font(.footnote)
-                    .foregroundStyle(GoldNeuronBrand.textSecondary)
             }
         }
     }
@@ -113,9 +105,6 @@ public struct SettingsView: View {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Conectividade")
                             .font(.headline)
-                        Text("Defina a origem da API e como o app deve operar entre topologia local e remota.")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
                     }
                     Spacer()
                     StatusPill(label: draftRuntimeMode.rawValue, color: .blue)
@@ -272,9 +261,6 @@ public struct SettingsView: View {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Preferências da instância")
                             .font(.headline)
-                        Text("Paridade com os controles gerais e experimentais do board web.")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
                     }
                     Spacer()
                     StatusPill(label: appModel.instanceSettings == nil ? "loading" : "ready", color: appModel.instanceSettings == nil ? .orange : .green)
@@ -347,8 +333,7 @@ public struct SettingsView: View {
                         )
                     )
                 } else {
-                    Text("As configurações da instância serão carregadas assim que a API responder com sucesso.")
-                        .foregroundStyle(.secondary)
+                    EmptyCollectionState(message: "Configurações ainda não carregadas.")
                 }
             }
         }
@@ -381,9 +366,6 @@ public struct SettingsView: View {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Diagnóstico")
                             .font(.headline)
-                        Text("Health, auth, bootstrap e sinais do dev server refletidos a partir da API real.")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
                     }
                     Spacer()
                     if let health = appModel.health {

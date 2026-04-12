@@ -44,7 +44,10 @@ generate_app_icon() {
   local source_png="$1"
   local icon_path="$2"
   local iconset_dir
-  iconset_dir="$(mktemp -d "$OUTPUT_DIR/${PRODUCT_NAME}.XXXXXX.iconset")"
+  local temp_dir
+  temp_dir="$(mktemp -d "$OUTPUT_DIR/${PRODUCT_NAME}.XXXXXX")"
+  iconset_dir="${temp_dir}.iconset"
+  mv "$temp_dir" "$iconset_dir"
 
   cleanup_iconset() {
     rm -rf "$iconset_dir"
@@ -107,6 +110,26 @@ cat > "$APP_BUNDLE/Contents/Info.plist" <<EOF
   <string>14.0</string>
   <key>NSHighResolutionCapable</key>
   <true/>
+  <key>NSAppTransportSecurity</key>
+  <dict>
+    <key>NSAllowsArbitraryLoadsInLocalNetwork</key>
+    <true/>
+    <key>NSExceptionDomains</key>
+    <dict>
+      <key>localhost</key>
+      <dict>
+        <key>NSExceptionAllowsInsecureHTTPLoads</key>
+        <true/>
+        <key>NSIncludesSubdomains</key>
+        <true/>
+      </dict>
+      <key>127.0.0.1</key>
+      <dict>
+        <key>NSExceptionAllowsInsecureHTTPLoads</key>
+        <true/>
+      </dict>
+    </dict>
+  </dict>
 </dict>
 </plist>
 EOF

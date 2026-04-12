@@ -65,10 +65,18 @@ public struct ServerConnectionConfiguration: Codable, Equatable, Sendable {
         baseURLString.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
+    public var preferredCompanyPrefix: String? {
+        guard let components = normalizedComponents else { return nil }
+        return Self.extractCompanyPrefix(from: components.path)
+    }
+
     public var apiBaseURL: URL? {
-        guard var components = URLComponents(string: trimmedBaseURLString), components.scheme != nil else {
+        guard var components = normalizedComponents else {
             return nil
         }
+
+        let preferredPrefix = Self.extractCompanyPrefix(from: components.path)
+        components.path = Self.normalizeBasePath(components.path, preferredPrefix: preferredPrefix)
 
         if components.path.hasSuffix("/api") == false {
             let normalizedPath = components.path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
@@ -92,6 +100,121 @@ public struct ServerConnectionConfiguration: Codable, Equatable, Sendable {
     }
 
     public static let `default` = ServerConnectionConfiguration()
+
+    private static let boardRouteRoots: Set<String> = [
+        "dashboard",
+        "companies",
+        "company",
+        "skills",
+        "org",
+        "agents",
+        "projects",
+        "execution-workspaces",
+        "issues",
+        "routines",
+        "goals",
+        "approvals",
+        "costs",
+        "usage",
+        "activity",
+        "inbox",
+        "design-guide",
+        "plugins",
+        "settings"
+    ]
+
+    private static let globalRouteRoots: Set<String> = [
+        "auth",
+        "invite",
+        "board-claim",
+        "cli-auth",
+        "docs",
+        "instance"
+    ]
+
+    private static let reservedRoots: Set<String> = [
+        "api",
+        "health"
+    ]
+
+    private var normalizedComponents: URLComponents? {
+        let normalizedBaseURL: String
+        if trimmedBaseURLString.contains("://") {
+            normalizedBaseURL = trimmedBaseURLString
+        } else {
+            normalizedBaseURL = "http://\(trimmedBaseURLString)"
+        }
+        return URLComponents(string: normalizedBaseURL)
+    }
+
+    private static func extractCompanyPrefix(from path: String) -> String? {
+        let segments = path.split(separator: "/").map { String($0) }
+        guard let first = segments.first else { return nil }
+        let firstLowercased = first.lowercased()
+        if reservedRoots.contains(firstLowercased) || boardRouteRoots.contains(firstLowercased) || globalRouteRoots.contains(firstLowercased) {
+            return nil
+        }
+
+        if segments.count >= 2 {
+            let secondLowercased = segments[1].lowercased()
+            if boardRouteRoots.contains(secondLowercased) || globalRouteRoots.contains(secondLowercased) || reservedRoots.contains(secondLowercased) {
+                return first.uppercased()
+            }
+        }
+
+        if looksLikeCompanyPrefix(firstLowercased) {
+            return first.uppercased()
+        }
+
+        return nil
+    }
+
+    private static func normalizeBasePath(_ path: String, preferredPrefix: String?) -> String {
+        let segments = path.split(separator: "/").map { String($0) }
+        guard let first = segments.first else { return path }
+        let firstLowercased = first.lowercased()
+
+        if firstLowercased == "api" {
+            return "/api"
+        }
+
+        if firstLowercased == "health" {
+            return ""
+        }
+
+        if boardRouteRoots.contains(firstLowercased) || globalRouteRoots.contains(firstLowercased) {
+            return ""
+        }
+
+        if let preferredPrefix {
+            let normalizedPreferred = preferredPrefix.lowercased()
+            if firstLowercased == normalizedPreferred {
+                return ""
+            }
+        }
+
+        if reservedRoots.contains(firstLowercased) {
+            return path
+        }
+
+        if looksLikeCompanyPrefix(firstLowercased) {
+            return ""
+        }
+
+        return path
+    }
+
+    private static func looksLikeCompanyPrefix(_ segment: String) -> Bool {
+        let length = segment.count
+        if length < 2 || length > 8 {
+            return false
+        }
+        if reservedRoots.contains(segment) || boardRouteRoots.contains(segment) || globalRouteRoots.contains(segment) {
+            return false
+        }
+        let allowed = CharacterSet.alphanumerics
+        return segment.unicodeScalars.allSatisfy { allowed.contains($0) }
+    }
 
     private enum CodingKeys: String, CodingKey {
         case baseURLString
