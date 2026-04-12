@@ -171,6 +171,8 @@ export function MarkdownBody({
         return (
           <a
             href={targetHref}
+            target="_blank"
+            rel="noopener noreferrer"
             className={cn(
               "paperclip-mention-chip",
               `paperclip-mention-chip--${parsed.kind}`,
@@ -184,7 +186,7 @@ export function MarkdownBody({
         );
       }
       return (
-        <a href={href} rel="noreferrer">
+        <a href={href} target="_blank" rel="noopener noreferrer">
           {linkChildren}
         </a>
       );
