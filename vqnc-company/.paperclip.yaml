@@ -1,0 +1,17 @@
+schema: paperclip/v1
+agents:
+  ceo:
+    adapter:
+      type: openclaw_gateway
+  cto:
+    adapter:
+      type: codex_local
+  cmo:
+    adapter:
+      type: openclaw_gateway
+  engineer:
+    adapter:
+      type: codex_local
+  marketing-hermes:
+    adapter:
+      type: openclaw_gateway
