@@ -5,6 +5,13 @@ set -e
 PUID=${USER_UID:-1000}
 PGID=${USER_GID:-1000}
 
+# Write Claude Code OAuth credentials if provided via environment
+if [ -n "$CLAUDE_CREDENTIALS_JSON" ]; then
+    mkdir -p /paperclip/.claude
+    printf '%s' "$CLAUDE_CREDENTIALS_JSON" > /paperclip/.claude/credentials.json
+    chmod 600 /paperclip/.claude/credentials.json
+fi
+
 # Adjust the node user's UID/GID if they differ from the runtime request
 # and fix volume ownership only when a remap is needed
 changed=0
