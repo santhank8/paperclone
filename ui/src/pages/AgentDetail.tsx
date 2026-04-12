@@ -1651,6 +1651,7 @@ function PromptsTab({
 
   const isLocal =
     agent.adapterType === "claude_local" ||
+    agent.adapterType === "gemini_local" ||
     agent.adapterType === "codex_local" ||
     agent.adapterType === "opencode_local" ||
     agent.adapterType === "pi_local" ||
