@@ -16,7 +16,10 @@ export const copilotApi = {
       `/companies/${companyId}/copilot/thread${qs ? `?${qs}` : ""}`,
     );
   },
+  createThread: (companyId: string, input?: { contextIssueId?: string | null }) =>
+    api.post<CopilotThreadSummary>(`/companies/${companyId}/copilot/thread/new`, {
+      contextIssueId: input?.contextIssueId ?? null,
+    }),
   sendMessage: (companyId: string, data: { body: string; context?: CopilotRouteContext }) =>
     api.post<CopilotMessageCreateResponse>(`/companies/${companyId}/copilot/thread/messages`, data),
 };
-

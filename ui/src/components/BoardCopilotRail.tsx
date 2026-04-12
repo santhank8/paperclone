@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { MessageSquare, PanelRightClose, PanelRightOpen } from "lucide-react";
 import type { Agent, IssueComment } from "@paperclipai/shared";
 import { useLocation } from "@/lib/router";
@@ -21,6 +21,9 @@ import { IssueChatThread } from "./IssueChatThread";
 
 const STORAGE_KEY = "paperclip:board-copilot-visible";
 const CONTEXT_BLOCK_PREFIX = "<!-- paperclip:board-copilot-context";
+const COMMENTS_PAGE_SIZE = 60;
+const TOP_HISTORY_LOAD_THRESHOLD_PX = 80;
+const BOTTOM_STICKY_THRESHOLD_PX = 80;
 
 function readPreference() {
   try {
@@ -53,12 +56,22 @@ function contextLabel(pageKind: string, entityType?: string | null, entityId?: s
   return pageKind.replace(/_/g, " ");
 }
 
+interface CopilotCommentsPage {
+  comments: IssueComment[];
+  nextCursor: string | null;
+}
+
 export function BoardCopilotRail() {
   const { selectedCompanyId } = useCompany();
   const { pushToast } = useToast();
   const location = useLocation();
   const queryClient = useQueryClient();
   const [visible, setVisible] = useState(readPreference);
+  const scrollHostRef = useRef<HTMLDivElement | null>(null);
+  const scrollViewportRef = useRef<HTMLElement | null>(null);
+  const prependRestoreRef = useRef<{ scrollTop: number; scrollHeight: number } | null>(null);
+  const autoScrolledThreadRef = useRef<string | null>(null);
+  const newestCommentIdRef = useRef<string | null>(null);
 
   const routeContext = useMemo(
     () => buildCopilotRouteContext(location.pathname, location.search),
@@ -69,9 +82,30 @@ export function BoardCopilotRail() {
     [location.pathname, location.search],
   );
   const copilotEnabledForRoute = Boolean(selectedCompanyId) && routeContext.pageKind !== "instance";
+  const threadQueryKey = useMemo(
+    () => [...queryKeys.copilot.thread(selectedCompanyId ?? "__none__"), contextIssueRef ?? "__none__"] as const,
+    [selectedCompanyId, contextIssueRef],
+  );
+
+  const resolveViewport = useCallback(() => {
+    const host = scrollHostRef.current;
+    if (!host) {
+      scrollViewportRef.current = null;
+      return null;
+    }
+    const viewport = host.querySelector<HTMLElement>("[data-slot='scroll-area-viewport']");
+    scrollViewportRef.current = viewport;
+    return viewport;
+  }, []);
+
+  const scrollToBottom = useCallback(() => {
+    const viewport = resolveViewport();
+    if (!viewport) return;
+    viewport.scrollTop = viewport.scrollHeight;
+  }, [resolveViewport]);
 
   const threadQuery = useQuery({
-    queryKey: [...queryKeys.copilot.thread(selectedCompanyId ?? "__none__"), contextIssueRef ?? "__none__"],
+    queryKey: threadQueryKey,
     queryFn: () =>
       copilotApi.getThread(selectedCompanyId!, {
         contextIssueId: contextIssueRef,
@@ -81,9 +115,24 @@ export function BoardCopilotRail() {
 
   const threadIssueId = threadQuery.data?.issueId ?? null;
 
-  const commentsQuery = useQuery({
-    queryKey: queryKeys.issues.comments(threadIssueId ?? "__none__"),
-    queryFn: () => issuesApi.listComments(threadIssueId!),
+  const commentsQuery = useInfiniteQuery({
+    queryKey: [...queryKeys.issues.comments(threadIssueId ?? "__none__"), "copilot", "paged", COMMENTS_PAGE_SIZE],
+    queryFn: async ({ pageParam }): Promise<CopilotCommentsPage> => {
+      const afterCommentId = typeof pageParam === "string" && pageParam.trim().length > 0 ? pageParam : null;
+      const comments = await issuesApi.listComments(threadIssueId!, {
+        afterCommentId,
+        order: "desc",
+        limit: COMMENTS_PAGE_SIZE,
+      });
+      const nextCursor =
+        comments.length >= COMMENTS_PAGE_SIZE ? comments[comments.length - 1]?.id ?? null : null;
+      return {
+        comments,
+        nextCursor,
+      };
+    },
+    initialPageParam: null as string | null,
+    getNextPageParam: (lastPage) => lastPage.nextCursor,
     enabled: Boolean(threadIssueId),
     refetchInterval: 4000,
   });
@@ -144,18 +193,51 @@ export function BoardCopilotRail() {
           tone: "warn",
         });
       }
-      if (!threadIssueId) return;
+      const targetIssueId = result.thread.issueId;
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: queryKeys.issues.comments(threadIssueId) }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.issues.activity(threadIssueId) }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.issues.runs(threadIssueId) }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.issues.liveRuns(threadIssueId) }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.issues.activeRun(threadIssueId) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.issues.comments(targetIssueId) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.issues.activity(targetIssueId) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.issues.runs(targetIssueId) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.issues.liveRuns(targetIssueId) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.issues.activeRun(targetIssueId) }),
       ]);
     },
     onError: (error) => {
       pushToast({
         title: "Unable to send copilot message",
+        body: error instanceof Error ? error.message : "Request failed",
+        tone: "error",
+      });
+    },
+  });
+
+  const createThread = useMutation({
+    mutationFn: async () => {
+      if (!selectedCompanyId) throw new Error("No company selected");
+      return copilotApi.createThread(selectedCompanyId, {
+        contextIssueId: contextIssueRef,
+      });
+    },
+    onSuccess: async (thread) => {
+      queryClient.setQueryData(threadQueryKey, thread);
+      autoScrolledThreadRef.current = null;
+      newestCommentIdRef.current = null;
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.copilot.thread(selectedCompanyId ?? "__none__") }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.issues.comments(thread.issueId) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.issues.activity(thread.issueId) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.issues.runs(thread.issueId) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.issues.liveRuns(thread.issueId) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.issues.activeRun(thread.issueId) }),
+      ]);
+      pushToast({
+        title: "Started a new copilot chat",
+        body: "Older chat history is archived. Scroll up in this thread to load older messages as needed.",
+      });
+    },
+    onError: (error) => {
+      pushToast({
+        title: "Unable to start a new copilot chat",
         body: error instanceof Error ? error.message : "Request failed",
         tone: "error",
       });
@@ -186,20 +268,101 @@ export function BoardCopilotRail() {
     [activityQuery.data],
   );
 
-  const comments = useMemo(
-    () =>
-      (commentsQuery.data ?? []).map((comment: IssueComment) => ({
-        ...comment,
-        body: stripCopilotContext(comment.body),
-      })),
-    [commentsQuery.data],
-  );
+  const comments = useMemo(() => {
+    const deduped = new Map<string, IssueComment>();
+    for (const page of commentsQuery.data?.pages ?? []) {
+      for (const comment of page.comments) {
+        if (!deduped.has(comment.id)) {
+          deduped.set(comment.id, comment);
+        }
+      }
+    }
+    return [...deduped.values()].map((comment) => ({
+      ...comment,
+      body: stripCopilotContext(comment.body),
+    }));
+  }, [commentsQuery.data]);
 
+  const newestLoadedCommentId = commentsQuery.data?.pages[0]?.comments[0]?.id ?? null;
   const currentUserId = sessionQuery.data?.user?.id ?? sessionQuery.data?.session?.userId ?? null;
   const runningRun =
     activeRunQuery.data?.status === "running"
       ? activeRunQuery.data
       : (liveRunsQuery.data ?? []).find((run) => run.status === "running") ?? null;
+  const isLoadingThreadBody =
+    threadQuery.isLoading || (Boolean(threadIssueId) && commentsQuery.status === "pending");
+
+  const maybeLoadOlderHistory = useCallback(() => {
+    const viewport = resolveViewport();
+    if (!viewport || !commentsQuery.hasNextPage || commentsQuery.isFetchingNextPage) return;
+    if (viewport.scrollTop > TOP_HISTORY_LOAD_THRESHOLD_PX) return;
+    prependRestoreRef.current = {
+      scrollTop: viewport.scrollTop,
+      scrollHeight: viewport.scrollHeight,
+    };
+    void commentsQuery.fetchNextPage();
+  }, [commentsQuery.fetchNextPage, commentsQuery.hasNextPage, commentsQuery.isFetchingNextPage, resolveViewport]);
+
+  useEffect(() => {
+    if (!visible) return;
+    resolveViewport();
+  }, [visible, threadIssueId, resolveViewport]);
+
+  useEffect(() => {
+    if (!visible || !threadIssueId) return;
+    const viewport = resolveViewport();
+    if (!viewport) return;
+    const onScroll = () => {
+      maybeLoadOlderHistory();
+    };
+    viewport.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      viewport.removeEventListener("scroll", onScroll);
+    };
+  }, [maybeLoadOlderHistory, resolveViewport, threadIssueId, visible]);
+
+  useEffect(() => {
+    if (commentsQuery.isFetchingNextPage) return;
+    const restore = prependRestoreRef.current;
+    if (!restore) return;
+    const viewport = resolveViewport();
+    if (!viewport) return;
+    viewport.scrollTop = restore.scrollTop + (viewport.scrollHeight - restore.scrollHeight);
+    prependRestoreRef.current = null;
+  }, [commentsQuery.isFetchingNextPage, commentsQuery.data?.pages.length, resolveViewport]);
+
+  useEffect(() => {
+    if (!visible || !threadIssueId || commentsQuery.status !== "success") return;
+    if (autoScrolledThreadRef.current !== threadIssueId) {
+      autoScrolledThreadRef.current = threadIssueId;
+      newestCommentIdRef.current = newestLoadedCommentId;
+      requestAnimationFrame(() => {
+        scrollToBottom();
+      });
+      return;
+    }
+    if (!newestLoadedCommentId) return;
+    const previousNewestCommentId = newestCommentIdRef.current;
+    newestCommentIdRef.current = newestLoadedCommentId;
+    if (!previousNewestCommentId || previousNewestCommentId === newestLoadedCommentId) return;
+
+    const viewport = resolveViewport();
+    if (!viewport) return;
+    const distanceFromBottom = viewport.scrollHeight - (viewport.scrollTop + viewport.clientHeight);
+    if (distanceFromBottom <= BOTTOM_STICKY_THRESHOLD_PX) {
+      requestAnimationFrame(() => {
+        scrollToBottom();
+      });
+    }
+  }, [
+    commentsQuery.status,
+    commentsQuery.dataUpdatedAt,
+    newestLoadedCommentId,
+    resolveViewport,
+    scrollToBottom,
+    threadIssueId,
+    visible,
+  ]);
 
   if (!copilotEnabledForRoute) return null;
 
@@ -231,9 +394,17 @@ export function BoardCopilotRail() {
               <MessageSquare className="h-4 w-4 text-muted-foreground" />
               <span className="text-sm font-medium">Board Copilot</span>
               <Button
+                variant="outline"
+                size="sm"
+                className="ml-auto h-7 px-2 text-[11px]"
+                disabled={createThread.isPending || threadQuery.isLoading}
+                onClick={() => createThread.mutate()}
+              >
+                {createThread.isPending ? "Starting..." : "New chat"}
+              </Button>
+              <Button
                 variant="ghost"
                 size="icon-xs"
-                className="ml-auto"
                 title="Collapse board copilot"
                 onClick={() => {
                   setVisible(false);
@@ -248,38 +419,48 @@ export function BoardCopilotRail() {
             </div>
           </div>
 
-          <ScrollArea className="flex-1">
-            <div className="p-3">
-              {threadQuery.isLoading ? (
-                <p className="text-xs text-muted-foreground">Preparing copilot thread…</p>
-              ) : threadQuery.error ? (
-                <p className="text-xs text-destructive">
-                  {threadQuery.error instanceof Error ? threadQuery.error.message : "Failed to load copilot thread"}
-                </p>
-              ) : !threadIssueId ? (
-                <p className="text-xs text-muted-foreground">No thread available.</p>
-              ) : (
-                <IssueChatThread
-                  comments={comments}
-                  linkedRuns={runsQuery.data ?? []}
-                  timelineEvents={timelineEvents}
-                  liveRuns={liveRunsQuery.data ?? []}
-                  activeRun={activeRunQuery.data ?? null}
-                  companyId={selectedCompanyId}
-                  issueStatus={threadQuery.data?.issueStatus}
-                  agentMap={agentMap}
-                  currentUserId={currentUserId}
-                  draftKey={`paperclip:board-copilot-draft:${threadIssueId}`}
-                  emptyMessage="Ask the board copilot to review this page, summarize status, or clean up board state."
-                  submitHotkey="enter"
-                  onAdd={async (body) => {
-                    await sendMessage.mutateAsync(body);
-                  }}
-                  onCancelRun={runningRun ? async () => cancelRun.mutateAsync(runningRun.id) : undefined}
-                />
-              )}
-            </div>
-          </ScrollArea>
+          <div ref={scrollHostRef} className="flex-1 min-h-0">
+            <ScrollArea className="h-full">
+              <div className="p-3">
+                {threadIssueId && commentsQuery.hasNextPage ? (
+                  <p className="mb-2 text-[11px] text-muted-foreground">
+                    Older messages are hidden by default. Scroll up to load history.
+                  </p>
+                ) : null}
+                {commentsQuery.isFetchingNextPage ? (
+                  <p className="mb-2 text-[11px] text-muted-foreground">Loading older messages…</p>
+                ) : null}
+                {isLoadingThreadBody ? (
+                  <p className="text-xs text-muted-foreground">Preparing copilot thread…</p>
+                ) : threadQuery.error ? (
+                  <p className="text-xs text-destructive">
+                    {threadQuery.error instanceof Error ? threadQuery.error.message : "Failed to load copilot thread"}
+                  </p>
+                ) : !threadIssueId ? (
+                  <p className="text-xs text-muted-foreground">No thread available.</p>
+                ) : (
+                  <IssueChatThread
+                    comments={comments}
+                    linkedRuns={runsQuery.data ?? []}
+                    timelineEvents={timelineEvents}
+                    liveRuns={liveRunsQuery.data ?? []}
+                    activeRun={activeRunQuery.data ?? null}
+                    companyId={selectedCompanyId}
+                    issueStatus={threadQuery.data?.issueStatus}
+                    agentMap={agentMap}
+                    currentUserId={currentUserId}
+                    draftKey={`paperclip:board-copilot-draft:${threadIssueId}`}
+                    emptyMessage="Ask the board copilot to review this page, summarize status, or clean up board state."
+                    submitHotkey="enter"
+                    onAdd={async (body) => {
+                      await sendMessage.mutateAsync(body);
+                    }}
+                    onCancelRun={runningRun ? async () => cancelRun.mutateAsync(runningRun.id) : undefined}
+                  />
+                )}
+              </div>
+            </ScrollArea>
+          </div>
         </div>
       )}
     </aside>
