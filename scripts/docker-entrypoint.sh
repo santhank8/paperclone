@@ -98,4 +98,8 @@ if [ "$changed" = "1" ]; then
     chown -R node:node /paperclip
 fi
 
+# Fly.io mounts persistent volumes as root. Paperclip runs as node and needs
+# write access to instance logs, backups, managed agent homes, and auth homes.
+chown -R node:node /paperclip
+
 exec gosu node "$@"
