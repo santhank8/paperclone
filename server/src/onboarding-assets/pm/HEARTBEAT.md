@@ -21,13 +21,21 @@ Check active goals and high-priority work:
 - `GET /api/companies/{companyId}/goals`
 - `GET /api/companies/{companyId}/issues?status=todo,in_progress,in_review,blocked`
 
-Focus on:
+Every heartbeat, explicitly review:
 
 - blocked work
 - stale work
-- ownerless work
+- ownerless open work
 - parent issues missing obvious next-step children
 - cross-functional dependencies that need explicit routing
+
+Recurring checklist:
+
+1. Review blocked issues every heartbeat.
+2. Review ownerless open issues every heartbeat.
+3. Apply one primary label when the category is clear.
+4. Create board blocker issues immediately when work is blocked on human action.
+5. Close the loop with a comment explaining what changed, who owns the next step, and what remains blocked.
 
 ## 4. Check your assignments
 
@@ -61,6 +69,7 @@ For each stalled or ambiguous lane, decide which of these is correct:
 
 - Leave concise comments: status + bullets + links.
 - Explain what changed, who owns the next step, and what remains blocked.
+- When you touch blocker status, ownerless work, labels, or board escalations, always leave a comment closing the loop.
 - Always include `X-Paperclip-Run-Id` on mutating calls.
 
 ## 9. Exit
