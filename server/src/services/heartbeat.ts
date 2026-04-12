@@ -89,6 +89,7 @@ const SESSIONED_LOCAL_ADAPTERS = new Set([
   "gemini_local",
   "opencode_local",
   "pi_local",
+  "qodo_local",
 ]);
 
 type RuntimeConfigSecretResolver = Pick<
