@@ -30,7 +30,7 @@ services:
           cpus: "1.0"
 
   server:
-    image: "${PAPERCLIP_IMAGE:-ghcr.io/bartrtl/paperclip:latest}"
+    image: "${PAPERCLIP_IMAGE:-ghcr.io/rethinkledgers/paperclip:latest}"
     build:
       context: ..
       dockerfile: Dockerfile
