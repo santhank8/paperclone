@@ -123,4 +123,17 @@ fi
 # write access to instance logs, backups, managed agent homes, and auth homes.
 chown -R node:node /paperclip
 
+# Set up 6-hour backup cron job (runs as node user).
+# The paperclip-backup script is bundled in the image at /usr/local/bin/.
+if command -v crontab >/dev/null 2>&1 && [ -x /usr/local/bin/paperclip-backup ]; then
+    # Write crontab for node user: run backup at 0,6,12,18 UTC every day
+    echo "0 0,6,12,18 * * * /usr/local/bin/paperclip-backup >> /paperclip/backup.log 2>&1" \
+        | gosu node crontab -
+    # Start cron daemon in background if not already running
+    if command -v cron >/dev/null 2>&1 && ! pgrep -x cron >/dev/null 2>&1; then
+        cron
+        echo "[entrypoint] Cron daemon started for 6-hour backups"
+    fi
+fi
+
 exec gosu node "$@"
