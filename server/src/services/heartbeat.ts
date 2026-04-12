@@ -3944,7 +3944,7 @@ export function heartbeatService(db: Db) {
           const isSameExecutionAgent =
             Boolean(executionAgentNameKey) && executionAgentNameKey === agentNameKey;
           const shouldQueueFollowupForCommentWake =
-            Boolean(wakeCommentId) &&
+            (Boolean(wakeCommentId) || source === "on_demand") &&
             activeExecutionRun.status === "running" &&
             isSameExecutionAgent;
 
@@ -4125,7 +4125,7 @@ export function heartbeatService(db: Db) {
       (candidate) => candidate.status === "running" && isSameTaskScope(runTaskKey(candidate), taskKey),
     );
     const shouldQueueFollowupForCommentWake =
-      Boolean(wakeCommentId) && Boolean(sameScopeRunningRun) && !sameScopeQueuedRun;
+      (Boolean(wakeCommentId) || source === "on_demand") && Boolean(sameScopeRunningRun) && !sameScopeQueuedRun;
 
     const coalescedTargetRun =
       sameScopeQueuedRun ??
