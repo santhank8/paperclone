@@ -22,14 +22,26 @@ def get_subagent_config(name: str) -> SubagentConfig | None:
     if config is None:
         return None
 
-    # Apply timeout override from config.yaml (lazy import to avoid circular deps)
+    # Apply overrides from config.yaml (lazy import to avoid circular deps)
     from deerflow.config.subagents_config import get_subagents_app_config
 
     app_config = get_subagents_app_config()
+    overrides: dict = {}
+
+    # Timeout override
     effective_timeout = app_config.get_timeout_for(name)
     if effective_timeout != config.timeout_seconds:
-        logger.debug(f"Subagent '{name}': timeout overridden by config.yaml ({config.timeout_seconds}s -> {effective_timeout}s)")
-        config = replace(config, timeout_seconds=effective_timeout)
+        logger.debug(f"Subagent '{name}': timeout overridden ({config.timeout_seconds}s -> {effective_timeout}s)")
+        overrides["timeout_seconds"] = effective_timeout
+
+    # Model override
+    effective_model = app_config.get_model_for(name)
+    if effective_model is not None and effective_model != config.model:
+        logger.debug(f"Subagent '{name}': model overridden ('{config.model}' -> '{effective_model}')")
+        overrides["model"] = effective_model
+
+    if overrides:
+        config = replace(config, **overrides)
 
     return config
 

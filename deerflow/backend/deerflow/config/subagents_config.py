@@ -15,6 +15,11 @@ class SubagentOverrideConfig(BaseModel):
         ge=1,
         description="Timeout in seconds for this subagent (None = use global default)",
     )
+    model: str | None = Field(
+        default=None,
+        min_length=1,
+        description="Model name for this subagent (None = use default model)",
+    )
 
 
 class SubagentsAppConfig(BaseModel):
@@ -44,6 +49,20 @@ class SubagentsAppConfig(BaseModel):
             return override.timeout_seconds
         return self.timeout_seconds
 
+    def get_model_for(self, agent_name: str) -> str | None:
+        """Get the model override for a specific agent, if set.
+
+        Args:
+            agent_name: The name of the subagent.
+
+        Returns:
+            Model name if overridden, None otherwise.
+        """
+        override = self.agents.get(agent_name)
+        if override is not None and override.model is not None:
+            return override.model
+        return None
+
 
 _subagents_config: SubagentsAppConfig = SubagentsAppConfig()
 
@@ -58,7 +77,15 @@ def load_subagents_config_from_dict(config_dict: dict) -> None:
     global _subagents_config
     _subagents_config = SubagentsAppConfig(**config_dict)
 
-    overrides_summary = {name: f"{override.timeout_seconds}s" for name, override in _subagents_config.agents.items() if override.timeout_seconds is not None}
+    overrides_summary = {}
+    for name, override in _subagents_config.agents.items():
+        parts = []
+        if override.timeout_seconds is not None:
+            parts.append(f"timeout={override.timeout_seconds}s")
+        if override.model is not None:
+            parts.append(f"model={override.model}")
+        if parts:
+            overrides_summary[name] = ", ".join(parts)
     if overrides_summary:
         logger.info(f"Subagents config loaded: default timeout={_subagents_config.timeout_seconds}s, per-agent overrides={overrides_summary}")
     else:
