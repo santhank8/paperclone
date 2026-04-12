@@ -366,6 +366,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
   });
   const effectiveInstructionsFilePath = promptBundle.instructionsFilePath ?? undefined;
 
+  const forceFreshSession = context.forceFreshSession === true;
   const runtimeSessionParams = parseObject(runtime.sessionParams);
   const runtimeSessionId = asString(runtimeSessionParams.sessionId, runtime.sessionId ?? "");
   const runtimeSessionCwd = asString(runtimeSessionParams.cwd, "");
@@ -373,10 +374,17 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
   const hasMatchingPromptBundle =
     runtimePromptBundleKey.length === 0 || runtimePromptBundleKey === promptBundle.bundleKey;
   const canResumeSession =
+    !forceFreshSession &&
     runtimeSessionId.length > 0 &&
     hasMatchingPromptBundle &&
     (runtimeSessionCwd.length === 0 || path.resolve(runtimeSessionCwd) === path.resolve(cwd));
   const sessionId = canResumeSession ? runtimeSessionId : null;
+  if (runtimeSessionId && forceFreshSession) {
+    await onLog(
+      "stdout",
+      `[paperclip] Claude session "${runtimeSessionId}" will not be resumed because forceFreshSession was requested.\n`,
+    );
+  }
   if (
     runtimeSessionId &&
     runtimeSessionCwd.length > 0 &&

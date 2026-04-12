@@ -390,13 +390,21 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
   const timeoutSec = asNumber(config.timeoutSec, 0);
   const graceSec = asNumber(config.graceSec, 20);
 
+  const forceFreshSession = context.forceFreshSession === true;
   const runtimeSessionParams = parseObject(runtime.sessionParams);
   const runtimeSessionId = asString(runtimeSessionParams.sessionId, runtime.sessionId ?? "");
   const runtimeSessionCwd = asString(runtimeSessionParams.cwd, "");
   const canResumeSession =
+    !forceFreshSession &&
     runtimeSessionId.length > 0 &&
     (runtimeSessionCwd.length === 0 || path.resolve(runtimeSessionCwd) === path.resolve(cwd));
   const sessionId = canResumeSession ? runtimeSessionId : null;
+  if (runtimeSessionId && forceFreshSession) {
+    await onLog(
+      "stdout",
+      `[paperclip] Codex session "${runtimeSessionId}" will not be resumed because forceFreshSession was requested.\n`,
+    );
+  }
   if (runtimeSessionId && !canResumeSession) {
     await onLog(
       "stdout",

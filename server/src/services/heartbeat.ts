@@ -718,6 +718,8 @@ export function shouldResetTaskSessionForWake(
 
   const wakeReason = readNonEmptyString(contextSnapshot?.wakeReason);
   if (
+    wakeReason === "issue_commented" ||
+    wakeReason === "issue_reopened_via_comment" ||
     wakeReason === "issue_assigned" ||
     wakeReason === "execution_review_requested" ||
     wakeReason === "execution_approval_requested" ||
@@ -753,6 +755,8 @@ function describeSessionResetReason(
   if (contextSnapshot?.forceFreshSession === true) return "forceFreshSession was requested";
 
   const wakeReason = readNonEmptyString(contextSnapshot?.wakeReason);
+  if (wakeReason === "issue_commented") return "wake reason is issue_commented";
+  if (wakeReason === "issue_reopened_via_comment") return "wake reason is issue_reopened_via_comment";
   if (wakeReason === "issue_assigned") return "wake reason is issue_assigned";
   if (wakeReason === "execution_review_requested") return "wake reason is execution_review_requested";
   if (wakeReason === "execution_approval_requested") return "wake reason is execution_approval_requested";
