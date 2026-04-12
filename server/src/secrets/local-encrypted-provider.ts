@@ -1,5 +1,6 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync, existsSync, chmodSync } from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import type { SecretProviderModule, StoredSecretVersionMaterial } from "./types.js";
 import { badRequest } from "../errors.js";
@@ -14,7 +15,11 @@ interface LocalEncryptedMaterial extends StoredSecretVersionMaterial {
 function resolveMasterKeyFilePath() {
   const fromEnv = process.env.PAPERCLIP_SECRETS_MASTER_KEY_FILE;
   if (fromEnv && fromEnv.trim().length > 0) return path.resolve(fromEnv.trim());
-  return path.resolve(process.cwd(), "data/secrets/master.key");
+  // Default matches the config-schema default and survives Docker container
+  // recreation because ~/.paperclip is typically on a persistent volume,
+  // whereas the previous CWD-relative fallback (data/secrets/master.key)
+  // resolves to /app/data/secrets/master.key inside the container image layer.
+  return path.join(os.homedir(), ".paperclip", "instances", "default", "secrets", "master.key");
 }
 
 function decodeMasterKey(raw: string): Buffer | null {
