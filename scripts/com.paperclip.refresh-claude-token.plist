@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  macOS LaunchAgent — refreshes Claude Code OAuth token every 6 hours.
+
+  Install:
+    cp scripts/com.paperclip.refresh-claude-token.plist ~/Library/LaunchAgents/
+    launchctl load ~/Library/LaunchAgents/com.paperclip.refresh-claude-token.plist
+
+  Check status:
+    launchctl list | grep paperclip
+
+  Uninstall:
+    launchctl unload ~/Library/LaunchAgents/com.paperclip.refresh-claude-token.plist
+    rm ~/Library/LaunchAgents/com.paperclip.refresh-claude-token.plist
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.paperclip.refresh-claude-token</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <!-- UPDATE THIS PATH to where your paperclip repo lives -->
+    <string>/Users/arti/Desktop/TempRepos/paperclip/scripts/refresh-claude-token.sh</string>
+  </array>
+
+  <!-- Run every 6 hours (21600 seconds) -->
+  <key>StartInterval</key>
+  <integer>21600</integer>
+
+  <!-- Also run at system startup / agent load -->
+  <key>RunAtLoad</key>
+  <true/>
+
+  <!-- Keep stdout/stderr for debugging -->
+  <key>StandardOutPath</key>
+  <string>/tmp/paperclip-token-refresh.stdout.log</string>
+  <key>StandardErrorPath</key>
+  <string>/tmp/paperclip-token-refresh.stderr.log</string>
+
+  <!-- Required for security (Keychain access) in a background context -->
+  <key>SessionType</key>
+  <string>Aqua</string>
+</dict>
+</plist>
