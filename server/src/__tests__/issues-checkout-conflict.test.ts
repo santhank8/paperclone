@@ -145,11 +145,9 @@ describe("issue checkout conflict contract (#691)", () => {
     mockLogActivity.mockResolvedValue(undefined);
     mockAccessService.canUser.mockResolvedValue(true);
     mockAccessService.hasPermission.mockResolvedValue(true);
-    mockAgentService.getById.mockResolvedValue({
-      id: AGENT_A_ID,
-      companyId: COMPANY_ID,
-      status: "active",
-    });
+    mockAgentService.getById.mockImplementation((id: string) =>
+      Promise.resolve({ id, companyId: COMPANY_ID, status: "active" }),
+    );
     mockIssueService.getById.mockResolvedValue(ownedIssue);
     // getByIdentifier is called by the router.param("id") handler for any ID
     // matching /^[A-Z]+-\d+$/i (e.g. "issue-1" matches). Returning null falls
