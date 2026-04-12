@@ -7,9 +7,11 @@ import {
   MONTHLY_RETENTION_PRESETS,
   DEFAULT_BACKUP_RETENTION,
 } from "@paperclipai/shared";
-import { LogOut, SlidersHorizontal } from "lucide-react";
+import { Globe, LogOut, SlidersHorizontal } from "lucide-react";
 import { authApi } from "@/api/auth";
 import { instanceSettingsApi } from "@/api/instanceSettings";
+import { LanguageSelector } from "@/components/LanguageSelector";
+import { useLanguage } from "@/context/LanguageContext";
 import { Button } from "../components/ui/button";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
 import { queryKeys } from "../lib/queryKeys";
@@ -20,6 +22,7 @@ const FEEDBACK_TERMS_URL = import.meta.env.VITE_FEEDBACK_TERMS_URL?.trim() || "h
 
 export function InstanceGeneralSettings() {
   const { setBreadcrumbs } = useBreadcrumbs();
+  const { t } = useLanguage();
   const queryClient = useQueryClient();
   const [actionError, setActionError] = useState<string | null>(null);
 
@@ -35,10 +38,10 @@ export function InstanceGeneralSettings() {
 
   useEffect(() => {
     setBreadcrumbs([
-      { label: "Instance Settings" },
-      { label: "General" },
+      { label: t.settings.title },
+      { label: t.settings.general },
     ]);
-  }, [setBreadcrumbs]);
+  }, [setBreadcrumbs, t]);
 
   const generalQuery = useQuery({
     queryKey: queryKeys.instance.generalSettings,
@@ -57,7 +60,7 @@ export function InstanceGeneralSettings() {
   });
 
   if (generalQuery.isLoading) {
-    return <div className="text-sm text-muted-foreground">Loading general settings...</div>;
+    return <div className="text-sm text-muted-foreground">{t.common.loading}</div>;
   }
 
   if (generalQuery.error) {
@@ -65,7 +68,7 @@ export function InstanceGeneralSettings() {
       <div className="text-sm text-destructive">
         {generalQuery.error instanceof Error
           ? generalQuery.error.message
-          : "Failed to load general settings."}
+          : t.errors.generic}
       </div>
     );
   }
@@ -80,10 +83,10 @@ export function InstanceGeneralSettings() {
       <div className="space-y-2">
         <div className="flex items-center gap-2">
           <SlidersHorizontal className="h-5 w-5 text-muted-foreground" />
-          <h1 className="text-lg font-semibold">General</h1>
+          <h1 className="text-lg font-semibold">{t.settings.general}</h1>
         </div>
         <p className="text-sm text-muted-foreground">
-          Configure instance-wide defaults that affect how operator-visible logs are displayed.
+          {t.settings.generalDescription}
         </p>
       </div>
 
@@ -96,18 +99,16 @@ export function InstanceGeneralSettings() {
       <section className="rounded-xl border border-border bg-card p-5">
         <div className="flex items-start justify-between gap-4">
           <div className="space-y-1.5">
-            <h2 className="text-sm font-semibold">Censor username in logs</h2>
+            <h2 className="text-sm font-semibold">{t.settings.censorUsernameInLogs}</h2>
             <p className="max-w-2xl text-sm text-muted-foreground">
-              Hide the username segment in home-directory paths and similar operator-visible log output. Standalone
-              username mentions outside of paths are not yet masked in the live transcript view. This is off by
-              default.
+              {t.settings.censorUsernameInLogsDescription}
             </p>
           </div>
           <ToggleSwitch
             checked={censorUsernameInLogs}
             onCheckedChange={() => updateGeneralMutation.mutate({ censorUsernameInLogs: !censorUsernameInLogs })}
             disabled={updateGeneralMutation.isPending}
-            aria-label="Toggle username log censoring"
+            aria-label={t.accessibility.toggleCensorUsername}
           />
         </div>
       </section>
@@ -325,6 +326,21 @@ export function InstanceGeneralSettings() {
             <LogOut className="size-4" />
             {signOutMutation.isPending ? "Signing out..." : "Sign out"}
           </Button>
+        </div>
+      </section>
+
+      <section className="rounded-xl border border-border bg-card p-5">
+        <div className="flex items-start justify-between gap-4">
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-2">
+              <Globe className="h-4 w-4 text-muted-foreground" />
+              <h2 className="text-sm font-semibold">{t.settings.language}</h2>
+            </div>
+            <p className="max-w-2xl text-sm text-muted-foreground">
+              {t.settings.languageDescription}
+            </p>
+          </div>
+          <LanguageSelector />
         </div>
       </section>
     </div>
