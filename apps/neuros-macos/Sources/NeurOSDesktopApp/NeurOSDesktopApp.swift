@@ -12,18 +12,23 @@ struct NeurOSDesktopApp: App {
         WindowGroup {
             RootSplitView(appModel: appModel, coordinator: coordinator)
                 .frame(minWidth: 1200, minHeight: 760)
+                .tint(GoldNeuronBrand.gold)
         }
         .defaultSize(width: 1440, height: 900)
 
         Settings {
             SettingsView(appModel: appModel, coordinator: coordinator)
                 .frame(minWidth: 860, minHeight: 780)
+                .tint(GoldNeuronBrand.gold)
         }
 
         MenuBarExtra("neurOS", systemImage: "waveform.path.ecg.rectangle") {
             VStack(alignment: .leading, spacing: 12) {
-                Text(appModel.identity.productName)
-                    .font(.headline)
+                GoldNeuronWordmarkView(
+                    title: "goldneuron.io",
+                    subtitle: appModel.identity.productName,
+                    markSize: 24
+                )
                 Text(appModel.connectionState.label)
                     .foregroundStyle(.secondary)
                 Divider()

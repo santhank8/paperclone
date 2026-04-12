@@ -20,7 +20,24 @@ struct SurfaceCard<Content: View>: View {
         }
         .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 22))
+        .background(
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            GoldNeuronBrand.surface.opacity(0.96),
+                            GoldNeuronBrand.backgroundRaised.opacity(0.98),
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .strokeBorder(GoldNeuronBrand.separator, lineWidth: 1)
+        )
+        .shadow(color: GoldNeuronBrand.gold.opacity(0.06), radius: 22, x: 0, y: 16)
     }
 }
 
@@ -41,15 +58,46 @@ struct SectionHeroView<Actions: View>: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: 20) {
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("goldneuron interface".uppercased())
+                    .font(.system(size: 10, weight: .regular, design: .rounded))
+                    .foregroundStyle(GoldNeuronBrand.goldDeep)
+                    .tracking(2.8)
+
                 Text(title)
-                    .font(.largeTitle.weight(.bold))
+                    .font(.system(size: 38, weight: .thin, design: .rounded))
+                    .foregroundStyle(GoldNeuronBrand.textPrimary)
+                    .tracking(-0.6)
+
                 Text(subtitle)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(GoldNeuronBrand.textSecondary)
             }
             Spacer()
             actions
         }
+        .padding(24)
+        .background(alignment: .topTrailing) {
+            GoldNeuronMarkView(size: 128, opacity: 0.34, glowOpacity: 0.08)
+                .offset(x: 12, y: -6)
+        }
+        .background(
+            RoundedRectangle(cornerRadius: 28, style: .continuous)
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            GoldNeuronBrand.backgroundRaised,
+                            GoldNeuronBrand.surface,
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 28, style: .continuous)
+                .strokeBorder(GoldNeuronBrand.separator, lineWidth: 1)
+        )
+        .shadow(color: GoldNeuronBrand.gold.opacity(0.08), radius: 28, x: 0, y: 18)
     }
 }
 
@@ -78,16 +126,25 @@ struct MetricTile: View {
         VStack(alignment: .leading, spacing: 10) {
             Text(title.uppercased())
                 .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(GoldNeuronBrand.goldDeep)
+                .tracking(1.4)
             Text(value)
-                .font(.title2.weight(.bold))
+                .font(.system(size: 24, weight: .semibold, design: .rounded))
+                .foregroundStyle(GoldNeuronBrand.textPrimary)
             RoundedRectangle(cornerRadius: 999)
                 .fill(accent.opacity(0.8))
                 .frame(width: 48, height: 5)
         }
         .padding(18)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(accent.opacity(0.08), in: RoundedRectangle(cornerRadius: 20))
+        .background(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .fill(GoldNeuronBrand.surface.opacity(0.72))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .strokeBorder(accent.opacity(0.22), lineWidth: 1)
+        )
     }
 }
 
@@ -98,8 +155,14 @@ struct OperationsHeroView: View {
         VStack(alignment: .leading, spacing: 18) {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 8) {
+                    GoldNeuronWordmarkView(
+                        title: "goldneuron.io",
+                        subtitle: "neural command surface",
+                        markSize: 30
+                    )
                     Text(appModel.selectedCompanyName)
-                        .font(.title.weight(.bold))
+                        .font(.system(size: 28, weight: .medium, design: .rounded))
+                        .foregroundStyle(GoldNeuronBrand.textPrimary)
                     Text("Status \(appModel.selectedCompanyStatus.uppercased())")
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(statusColor(for: appModel.selectedCompanyStatus))
@@ -109,6 +172,7 @@ struct OperationsHeroView: View {
                     VStack(alignment: .trailing, spacing: 6) {
                         Text("API \(health.version)")
                             .font(.headline)
+                            .foregroundStyle(GoldNeuronBrand.textPrimary)
                         Text(health.status.uppercased())
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(statusColor(for: health.status))
@@ -124,22 +188,36 @@ struct OperationsHeroView: View {
             }
         }
         .padding(24)
+        .background(alignment: .bottomTrailing) {
+            GoldNeuronMarkView(size: 220, opacity: 0.26, glowOpacity: 0.07)
+                .offset(x: 56, y: 74)
+        }
         .background(
             LinearGradient(
-                colors: [Color.blue.opacity(0.20), Color.cyan.opacity(0.12), Color.mint.opacity(0.10)],
+                colors: [
+                    GoldNeuronBrand.backgroundRaised,
+                    GoldNeuronBrand.surface,
+                    GoldNeuronBrand.background,
+                ],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             ),
             in: RoundedRectangle(cornerRadius: 26)
         )
+        .overlay(
+            RoundedRectangle(cornerRadius: 26, style: .continuous)
+                .strokeBorder(GoldNeuronBrand.separator, lineWidth: 1)
+        )
+        .shadow(color: GoldNeuronBrand.gold.opacity(0.08), radius: 30, x: 0, y: 20)
     }
 
     private func heroMetric(_ title: String, value: String) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(value)
                 .font(.title2.weight(.bold))
+                .foregroundStyle(GoldNeuronBrand.textPrimary)
             Text(title)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(GoldNeuronBrand.textSecondary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -1269,6 +1347,8 @@ struct OperationalSectionScaffold<Metrics: View, Content: View>: View {
             }
             .padding(28)
         }
+        .scrollContentBackground(.hidden)
+        .background(GoldNeuronSceneBackground())
         .navigationTitle(title)
     }
 }
@@ -1283,17 +1363,18 @@ struct SummaryRow: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text(title)
                     .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(GoldNeuronBrand.textPrimary)
                 Text(detail)
                     .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(GoldNeuronBrand.textSecondary)
             }
             Spacer()
             Text(trailing)
                 .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(GoldNeuronBrand.goldDeep)
                 .multilineTextAlignment(.trailing)
         }
-        .padding(.vertical, 6)
+        .padding(.vertical, 8)
     }
 }
 
@@ -1301,11 +1382,25 @@ struct EmptyCollectionState: View {
     let message: String
 
     var body: some View {
-        Text(message)
-            .font(.subheadline)
-            .foregroundStyle(.secondary)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.vertical, 12)
+        HStack(spacing: 12) {
+            Image(systemName: "sparkles")
+                .foregroundStyle(GoldNeuronBrand.goldDeep)
+
+            Text(message)
+                .font(.subheadline)
+                .foregroundStyle(GoldNeuronBrand.textSecondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(GoldNeuronBrand.background.opacity(0.52))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .strokeBorder(GoldNeuronBrand.separator, lineWidth: 1)
+        )
     }
 }
 
@@ -1317,10 +1412,11 @@ private struct DetailFactRow: View {
         HStack(alignment: .top, spacing: 12) {
             Text(label.uppercased())
                 .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(GoldNeuronBrand.goldDeep)
                 .frame(width: 110, alignment: .leading)
             Text(value)
                 .font(.subheadline)
+                .foregroundStyle(GoldNeuronBrand.textPrimary)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
@@ -1464,10 +1560,17 @@ private struct InlineErrorView: View {
     var body: some View {
         Text(message)
             .font(.subheadline)
-            .foregroundStyle(.red)
+            .foregroundStyle(GoldNeuronBrand.textPrimary)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(12)
-            .background(Color.red.opacity(0.08), in: RoundedRectangle(cornerRadius: 16))
+            .padding(14)
+            .background(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .fill(Color.red.opacity(0.12))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .strokeBorder(Color.red.opacity(0.22), lineWidth: 1)
+            )
     }
 }
 
@@ -1480,7 +1583,11 @@ struct StatusPill: View {
             .font(.caption.weight(.semibold))
             .padding(.horizontal, 10)
             .padding(.vertical, 6)
-            .background(color.opacity(0.14), in: Capsule())
+            .background(color.opacity(0.16), in: Capsule())
+            .overlay(
+                Capsule()
+                    .strokeBorder(color.opacity(0.28), lineWidth: 1)
+            )
             .foregroundStyle(color)
     }
 }
@@ -1499,9 +1606,10 @@ private struct SelectableRow: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(title)
                         .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(GoldNeuronBrand.textPrimary)
                     Text(detail)
                         .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(GoldNeuronBrand.textSecondary)
                 }
                 Spacer()
                 Text(trailing)
@@ -1510,7 +1618,23 @@ private struct SelectableRow: View {
             }
             .padding(14)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(isSelected ? Color.accentColor.opacity(0.10) : Color.primary.opacity(0.03), in: RoundedRectangle(cornerRadius: 18))
+            .background(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .fill(
+                        isSelected
+                        ? GoldNeuronBrand.gold.opacity(0.14)
+                        : GoldNeuronBrand.background.opacity(0.52)
+                    )
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .strokeBorder(
+                        isSelected
+                        ? GoldNeuronBrand.gold.opacity(0.28)
+                        : GoldNeuronBrand.separator,
+                        lineWidth: 1
+                    )
+            )
         }
         .buttonStyle(.plain)
     }
@@ -1575,7 +1699,14 @@ private struct WorkspaceDetailCard: View {
             }
         }
         .padding(18)
-        .background(Color.primary.opacity(0.03), in: RoundedRectangle(cornerRadius: 18))
+        .background(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(GoldNeuronBrand.background.opacity(0.52))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .strokeBorder(GoldNeuronBrand.separator, lineWidth: 1)
+        )
     }
 }
 

@@ -42,13 +42,7 @@ public struct SettingsView: View {
             .padding(28)
         }
         .navigationTitle("Configurações")
-        .background(
-            LinearGradient(
-                colors: [Color.blue.opacity(0.05), Color.cyan.opacity(0.03), .clear],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-        )
+        .background(GoldNeuronSceneBackground())
         .onAppear {
             syncDrafts(from: appModel.serverConfiguration)
         }
@@ -95,11 +89,19 @@ public struct SettingsView: View {
     private var applicationCard: some View {
         SurfaceCard {
             VStack(alignment: .leading, spacing: 10) {
+                GoldNeuronWordmarkView(
+                    title: "goldneuron.io",
+                    subtitle: "native control layer",
+                    markSize: 28
+                )
                 Text("Aplicação")
                     .font(.headline)
                 LabeledContent("Produto", value: appModel.identity.productName)
                 LabeledContent("Versão", value: appModel.identity.version)
                 LabeledContent("Bundle", value: appModel.identity.bundleIdentifier)
+                Text("A linguagem visual usa o isotipo GoldNeuron como assinatura do app e do bundle distribuído no macOS.")
+                    .font(.footnote)
+                    .foregroundStyle(GoldNeuronBrand.textSecondary)
             }
         }
     }

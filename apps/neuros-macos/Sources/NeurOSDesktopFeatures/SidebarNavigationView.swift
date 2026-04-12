@@ -14,6 +14,9 @@ public struct SidebarNavigationView: View {
     public var body: some View {
         List(selection: $appModel.selectedSection) {
             Section("Instância") {
+                GoldNeuronSidebarHeader()
+                    .listRowInsets(EdgeInsets(top: 10, leading: 0, bottom: 10, trailing: 0))
+
                 VStack(alignment: .leading, spacing: 8) {
                     Label(appModel.connectionState.label, systemImage: "network")
                         .font(.subheadline.weight(.semibold))
@@ -55,6 +58,8 @@ public struct SidebarNavigationView: View {
             }
         }
         .navigationTitle("neurOS")
+        .scrollContentBackground(.hidden)
+        .background(GoldNeuronBrand.background)
     }
 
     private var companySelection: Binding<String> {
@@ -82,5 +87,36 @@ public struct SidebarNavigationView: View {
         case .organization: "building.2"
         case .settings: "gearshape"
         }
+    }
+}
+
+private struct GoldNeuronSidebarHeader: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            GoldNeuronWordmarkView(
+                title: "goldneuron.io",
+                subtitle: "brand system",
+                markSize: 28
+            )
+
+            Text("neurOS control plane")
+                .font(.system(size: 17, weight: .medium, design: .rounded))
+                .foregroundStyle(GoldNeuronBrand.textPrimary)
+
+            Text("Operação nativa com linguagem visual GoldNeuron, glow contido e contraste orientado a leitura.")
+                .font(.subheadline)
+                .foregroundStyle(GoldNeuronBrand.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .fill(GoldNeuronBrand.surface.opacity(0.84))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .strokeBorder(GoldNeuronBrand.separator, lineWidth: 1)
+        )
     }
 }

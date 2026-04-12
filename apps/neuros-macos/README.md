@@ -41,6 +41,10 @@ SwiftUI-native macOS foundation for `neurOS`, the Paperclip evolution in this re
   - login item
   - local network discovery
   - manual primary-node promotion
+- GoldNeuron brand system applied to:
+  - app icon generation for macOS bundles
+  - hero/header surfaces with the bundled isotipo
+  - dark-gold visual palette for cards, metrics, and navigation context
 
 ## Local Development
 

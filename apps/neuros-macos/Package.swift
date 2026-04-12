@@ -26,6 +26,9 @@ let package = Package(
             dependencies: [
                 "NeurOSAppCore",
                 "NeurOSDesktopServices",
+            ],
+            resources: [
+                .process("Resources"),
             ]
         ),
         .executableTarget(

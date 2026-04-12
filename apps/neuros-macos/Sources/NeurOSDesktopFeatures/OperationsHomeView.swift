@@ -35,6 +35,14 @@ public struct OperationsHomeView: View {
                             }
                             .buttonStyle(.bordered)
                             .disabled(appModel.localServerStatus.isManagedProcess == false)
+
+                            Button {
+                                Task { await coordinator.stopLocalServer(appModel: appModel) }
+                            } label: {
+                                Label("Parar backend", systemImage: "stop.fill")
+                            }
+                            .buttonStyle(.bordered)
+                            .disabled(appModel.localServerStatus.isManagedProcess == false)
                         }
 
                         Button {
@@ -66,13 +74,7 @@ public struct OperationsHomeView: View {
             .padding(28)
         }
         .navigationTitle("Central Operacional")
-        .background(
-            LinearGradient(
-                colors: [Color.blue.opacity(0.05), Color.cyan.opacity(0.03), .clear],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-        )
+        .background(GoldNeuronSceneBackground())
     }
 }
 

@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="400" height="400">
+  <title>GoldNeuron — Pattern Tile</title>
+  <rect width="400" height="400" fill="#0B0E14"/>
+  <!-- Tile 1 -->
+  <g transform="translate(0,0) scale(0.5)" opacity="0.1">
+    <circle cx="100" cy="100" r="90" fill="#121620" fill-opacity="0.2"/>
+    <circle cx="75" cy="85" r="4" fill="#FDB931"/><circle cx="125" cy="72" r="2.5" fill="#FFFFFF"/>
+    <circle cx="140" cy="105" r="3.5" fill="#FDB931"/><circle cx="60" cy="115" r="3" fill="#FFFFFF"/>
+    <circle cx="95" cy="140" r="2" fill="#FDB931"/><circle cx="155" cy="88" r="1.5" fill="#FFFFFF"/>
+    <circle cx="100" cy="100" r="1.2" fill="#FFFFFF"/>
+  </g>
+  <!-- Tile 2 -->
+  <g transform="translate(200,0) scale(0.5)" opacity="0.06">
+    <circle cx="100" cy="100" r="90" fill="#121620" fill-opacity="0.2"/>
+    <circle cx="75" cy="85" r="4" fill="#FDB931"/><circle cx="125" cy="72" r="2.5" fill="#FFFFFF"/>
+    <circle cx="140" cy="105" r="3.5" fill="#FDB931"/><circle cx="60" cy="115" r="3" fill="#FFFFFF"/>
+    <circle cx="95" cy="140" r="2" fill="#FDB931"/><circle cx="155" cy="88" r="1.5" fill="#FFFFFF"/>
+    <circle cx="100" cy="100" r="1.2" fill="#FFFFFF"/>
+  </g>
+  <!-- Tile 3 -->
+  <g transform="translate(0,200) scale(0.5)" opacity="0.06">
+    <circle cx="100" cy="100" r="90" fill="#121620" fill-opacity="0.2"/>
+    <circle cx="75" cy="85" r="4" fill="#FDB931"/><circle cx="125" cy="72" r="2.5" fill="#FFFFFF"/>
+    <circle cx="140" cy="105" r="3.5" fill="#FDB931"/><circle cx="60" cy="115" r="3" fill="#FFFFFF"/>
+    <circle cx="95" cy="140" r="2" fill="#FDB931"/><circle cx="155" cy="88" r="1.5" fill="#FFFFFF"/>
+    <circle cx="100" cy="100" r="1.2" fill="#FFFFFF"/>
+  </g>
+  <!-- Tile 4 -->
+  <g transform="translate(200,200) scale(0.5)" opacity="0.1">
+    <circle cx="100" cy="100" r="90" fill="#121620" fill-opacity="0.2"/>
+    <circle cx="75" cy="85" r="4" fill="#FDB931"/><circle cx="125" cy="72" r="2.5" fill="#FFFFFF"/>
+    <circle cx="140" cy="105" r="3.5" fill="#FDB931"/><circle cx="60" cy="115" r="3" fill="#FFFFFF"/>
+    <circle cx="95" cy="140" r="2" fill="#FDB931"/><circle cx="155" cy="88" r="1.5" fill="#FFFFFF"/>
+    <circle cx="100" cy="100" r="1.2" fill="#FFFFFF"/>
+  </g>
+</svg>
