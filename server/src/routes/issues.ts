@@ -61,8 +61,10 @@ import {
   normalizeIssueExecutionPolicy,
   parseIssueExecutionState,
 } from "../services/issue-execution-policy.js";
+import { createIssueInputSchema } from "./issue-input-schema.js";
 
 const MAX_ISSUE_COMMENT_LIMIT = 500;
+
 const updateIssueRouteSchema = updateIssueSchema.extend({
   interrupt: z.boolean().optional(),
 });
@@ -1257,7 +1259,7 @@ export function issueRoutes(
     res.json({ ok: true });
   });
 
-  router.post("/companies/:companyId/issues", validate(createIssueSchema), async (req, res) => {
+  router.post("/companies/:companyId/issues", validate(createIssueInputSchema), async (req, res) => {
     const companyId = req.params.companyId as string;
     assertCompanyAccess(req, companyId);
     if (req.body.assigneeAgentId || req.body.assigneeUserId) {
