@@ -32,6 +32,7 @@ const mode = process.argv[2] === "watch" ? "watch" : "dev";
 const cliArgs = process.argv.slice(3);
 const scanIntervalMs = 1500;
 const autoRestartPollIntervalMs = 2500;
+const autoRestartMinIdleMs = 60_000; // must have zero active runs for this long before restarting
 const gracefulShutdownTimeoutMs = 10_000;
 const changedPathSampleLimit = 5;
 const devServerStatusFilePath = path.join(repoRoot, ".paperclip", "dev-server-status.json");
@@ -209,6 +210,7 @@ let child: ReturnType<typeof spawn> | null = null;
 let childExitPromise: Promise<{ code: number; signal: NodeJS.Signals | null }> | null = null;
 let scanTimer: ReturnType<typeof setInterval> | null = null;
 let autoRestartTimer: ReturnType<typeof setInterval> | null = null;
+let idleSince: number | null = null; // timestamp (ms) when activeRunCount first reached 0
 
 function toError(error: unknown, context = "Dev runner command failed") {
   if (error instanceof Error) return error;
@@ -640,12 +642,30 @@ async function maybeAutoRestartChild() {
   const devServer = health?.devServer;
   if (!devServer?.enabled || devServer.autoRestartEnabled !== true) {
     restartInFlight = false;
+    idleSince = null;
     return;
   }
   if ((devServer.activeRunCount ?? 0) > 0) {
+    // Agents are active — reset the idle clock
+    idleSince = null;
     restartInFlight = false;
     return;
   }
+
+  // Start or maintain the idle clock
+  const now = Date.now();
+  if (idleSince === null) {
+    idleSince = now;
+    restartInFlight = false;
+    return;
+  }
+  if (now - idleSince < autoRestartMinIdleMs) {
+    // Not idle long enough yet — wait
+    restartInFlight = false;
+    return;
+  }
+  // Sustained idle — clear clock and proceed with restart
+  idleSince = null;
 
   try {
     await maybePreflightMigrations({
