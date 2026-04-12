@@ -45,7 +45,12 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { MarkdownBody } from "./MarkdownBody";
-import { MarkdownEditor, type MentionOption, type MarkdownEditorRef } from "./MarkdownEditor";
+import {
+  MarkdownEditor,
+  type MentionOption,
+  type MarkdownEditorRef,
+  type MarkdownEditorSubmitHotkey,
+} from "./MarkdownEditor";
 import { Identity } from "./Identity";
 import { InlineEntitySelector, type InlineEntityOption } from "./InlineEntitySelector";
 import { AgentIcon } from "./AgentIconPicker";
@@ -65,7 +70,7 @@ import { cn, formatDateTime, formatShortDate } from "../lib/utils";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Textarea } from "@/components/ui/textarea";
-import { ArrowRight, Brain, Check, ChevronDown, Copy, Hammer, Loader2, MoreHorizontal, Paperclip, Search, ThumbsDown, ThumbsUp } from "lucide-react";
+import { ArrowRight, Brain, Check, ChevronDown, Copy, Hammer, Link2, Loader2, MoreHorizontal, Search, ThumbsDown, ThumbsUp } from "lucide-react";
 
 interface IssueChatMessageContext {
   feedbackVoteByTargetId: Map<string, FeedbackVoteValue>;
@@ -184,6 +189,7 @@ interface IssueChatThreadProps {
   includeSucceededRunsWithoutOutput?: boolean;
   onInterruptQueued?: (runId: string) => Promise<void>;
   interruptingQueuedRunId?: string | null;
+  submitHotkey?: MarkdownEditorSubmitHotkey;
 }
 
 const DRAFT_DEBOUNCE_MS = 800;
@@ -1150,7 +1156,7 @@ function IssueChatFeedbackButtons({
           <DialogHeader>
             <DialogTitle>Save your feedback sharing preference</DialogTitle>
             <DialogDescription>
-              Choose whether voted AI outputs can be shared with Paperclip Labs. This
+              Choose whether voted AI outputs can be shared with PrivateClip Labs. This
               answer becomes the default for future thumbs up and thumbs down votes.
             </DialogDescription>
           </DialogHeader>
@@ -1362,6 +1368,7 @@ function IssueChatComposer({
   agentMap,
   composerDisabledReason = null,
   issueStatus,
+  submitHotkey = "mod-enter",
 }: {
   onImageUpload?: (file: File) => Promise<string>;
   onAttachImage?: (file: File) => Promise<void>;
@@ -1374,6 +1381,7 @@ function IssueChatComposer({
   agentMap?: Map<string, Agent>;
   composerDisabledReason?: string | null;
   issueStatus?: string;
+  submitHotkey?: MarkdownEditorSubmitHotkey;
 }) {
   const api = useAui();
   const [body, setBody] = useState("");
@@ -1485,6 +1493,7 @@ function IssueChatComposer({
         placeholder="Reply"
         mentions={mentions}
         onSubmit={handleSubmit}
+        submitHotkey={submitHotkey}
         imageUploadHandler={onImageUpload}
         contentClassName="min-h-[72px] text-sm"
       />
@@ -1506,7 +1515,7 @@ function IssueChatComposer({
               disabled={attaching}
               title="Attach image"
             >
-              <Paperclip className="h-4 w-4" />
+              <Link2 className="h-4 w-4" />
             </Button>
           </div>
         ) : null}
@@ -1604,6 +1613,7 @@ export function IssueChatThread({
   includeSucceededRunsWithoutOutput = false,
   onInterruptQueued,
   interruptingQueuedRunId = null,
+  submitHotkey = "mod-enter",
 }: IssueChatThreadProps) {
   const location = useLocation();
   const hasScrolledRef = useRef(false);
@@ -1805,6 +1815,7 @@ export function IssueChatThread({
             agentMap={agentMap}
             composerDisabledReason={composerDisabledReason}
             issueStatus={issueStatus}
+            submitHotkey={submitHotkey}
           />
         ) : null}
       </div>

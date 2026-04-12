@@ -439,7 +439,7 @@ describeEmbeddedPostgres("heartbeat comment wake batching", () => {
     try {
       await db.insert(companies).values({
         id: companyId,
-        name: "Paperclip",
+        name: "PrivateClip",
         issuePrefix,
         requireBoardApprovalForNewAgents: false,
       });
@@ -641,7 +641,7 @@ describeEmbeddedPostgres("heartbeat comment wake batching", () => {
     try {
       await db.insert(companies).values({
         id: companyId,
-        name: "Paperclip",
+        name: "PrivateClip",
         issuePrefix,
         requireBoardApprovalForNewAgents: false,
       });

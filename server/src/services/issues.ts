@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, isNull, ne, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, lt, ne, or, sql } from "drizzle-orm";
 import type { Db } from "@paperclipai/db";
 import {
   activityLog,
@@ -44,6 +44,7 @@ import { resolveIssueGoalId, resolveNextIssueGoalId } from "./issue-goal-fallbac
 import { getDefaultCompanyGoal } from "./goals.js";
 
 const ALL_ISSUE_STATUSES = ["backlog", "todo", "in_progress", "in_review", "blocked", "done", "cancelled"];
+const TERMINAL_ISSUE_STATUSES = ["done", "cancelled"] as const;
 const ISSUE_STATUS_TRANSITIONS: Record<string, Set<string>> = {
   backlog: new Set(["todo", "in_progress", "in_review", "blocked", "done", "cancelled"]),
   todo: new Set(["backlog", "in_progress", "in_review", "blocked", "done", "cancelled"]),
@@ -299,6 +300,8 @@ async function resolveRecoveryTarget({
 
 export interface IssueFilters {
   status?: string;
+  includeClosed?: boolean;
+  includeRelations?: boolean;
   assigneeAgentId?: string;
   participantAgentId?: string;
   assigneeUserId?: string;
@@ -1303,8 +1306,11 @@ export function issueService(db: Db) {
           )!,
         );
       }
-      if (!filters?.includeRoutineExecutions && !filters?.originKind && !filters?.originId) {
-        conditions.push(ne(issues.originKind, "routine_execution"));
+      if (!filters?.originKind && !filters?.originId) {
+        conditions.push(ne(issues.originKind, "board_copilot_thread"));
+        if (!filters?.includeRoutineExecutions) {
+          conditions.push(ne(issues.originKind, "routine_execution"));
+        }
       }
       conditions.push(isNull(issues.hiddenAt));
 
@@ -1439,8 +1445,8 @@ export function issueService(db: Db) {
       const statsByIssueId = new Map(statsRows.map((row) => [row.issueId, row]));
       const lastActivityByIssueId = new Map(lastActivityRows.map((row) => [row.issueId, row]));
 
-      if (!contextUserId) {
-        return withRuns.map((row) => {
+      const rowsWithActivity = !contextUserId
+        ? withRuns.map((row) => {
           const activity = lastActivityByIssueId.get(row.id);
           const lastActivityAt = latestIssueActivityAt(
             row.updatedAt,
@@ -1451,28 +1457,37 @@ export function issueService(db: Db) {
             ...row,
             lastActivityAt,
           };
-        });
+        })
+        : (() => {
+          const readByIssueId = new Map(readRows.map((row) => [row.issueId, row.myLastReadAt]));
+          return withRuns.map((row) => {
+            const activity = lastActivityByIssueId.get(row.id);
+            const lastActivityAt = latestIssueActivityAt(
+              row.updatedAt,
+              activity?.latestCommentAt ?? null,
+              activity?.latestLogAt ?? null,
+            ) ?? row.updatedAt;
+            return {
+              ...row,
+              lastActivityAt,
+              ...deriveIssueUserContext(row, contextUserId, {
+                myLastCommentAt: statsByIssueId.get(row.id)?.myLastCommentAt ?? null,
+                myLastReadAt: readByIssueId.get(row.id) ?? null,
+                lastExternalCommentAt: statsByIssueId.get(row.id)?.lastExternalCommentAt ?? null,
+              }),
+            };
+          });
+        })();
+
+      if (!filters?.includeRelations) {
+        return rowsWithActivity;
       }
 
-      const readByIssueId = new Map(readRows.map((row) => [row.issueId, row.myLastReadAt]));
-
-      return withRuns.map((row) => {
-        const activity = lastActivityByIssueId.get(row.id);
-        const lastActivityAt = latestIssueActivityAt(
-          row.updatedAt,
-          activity?.latestCommentAt ?? null,
-          activity?.latestLogAt ?? null,
-        ) ?? row.updatedAt;
-        return {
-          ...row,
-          lastActivityAt,
-          ...deriveIssueUserContext(row, contextUserId, {
-            myLastCommentAt: statsByIssueId.get(row.id)?.myLastCommentAt ?? null,
-            myLastReadAt: readByIssueId.get(row.id) ?? null,
-            lastExternalCommentAt: statsByIssueId.get(row.id)?.lastExternalCommentAt ?? null,
-          }),
-        };
-      });
+      const relationsByIssueId = await getIssueRelationSummaryMap(companyId, rowsWithActivity.map((row) => row.id));
+      return rowsWithActivity.map((row) => ({
+        ...row,
+        ...(relationsByIssueId.get(row.id) ?? { blockedBy: [], blocks: [] }),
+      }));
     },
 
     countUnreadTouchedByUser: async (companyId: string, userId: string, status?: string) => {
@@ -1567,6 +1582,87 @@ export function issueService(db: Db) {
         )
         .returning();
       return row ?? null;
+    },
+
+    archiveClosed: async (
+      companyId: string,
+      input?: {
+        olderThanDays?: number;
+        now?: Date;
+      },
+    ) => {
+      const now = input?.now ?? new Date();
+      const olderThanDays = Math.max(1, Math.floor(input?.olderThanDays ?? 14));
+      const cutoff = new Date(now.getTime() - olderThanDays * 24 * 60 * 60 * 1000);
+      const archivedRows = await db
+        .update(issues)
+        .set({
+          hiddenAt: now,
+          updatedAt: now,
+        })
+        .where(
+          and(
+            eq(issues.companyId, companyId),
+            isNull(issues.hiddenAt),
+            inArray(issues.status, [...TERMINAL_ISSUE_STATUSES]),
+            lt(issues.updatedAt, cutoff),
+          ),
+        )
+        .returning({
+          id: issues.id,
+        });
+
+      return {
+        archivedCount: archivedRows.length,
+        issueIds: archivedRows.map((row) => row.id),
+        olderThanDays,
+        archivedAt: now,
+        cutoff,
+      };
+    },
+
+    archiveClosedAcrossCompanies: async (input?: { olderThanDays?: number; now?: Date }) => {
+      const now = input?.now ?? new Date();
+      const olderThanDays = Math.max(1, Math.floor(input?.olderThanDays ?? 14));
+      const cutoff = new Date(now.getTime() - olderThanDays * 24 * 60 * 60 * 1000);
+      const archivedRows = await db
+        .update(issues)
+        .set({
+          hiddenAt: now,
+          updatedAt: now,
+        })
+        .where(
+          and(
+            isNull(issues.hiddenAt),
+            inArray(issues.status, [...TERMINAL_ISSUE_STATUSES]),
+            lt(issues.updatedAt, cutoff),
+          ),
+        )
+        .returning({
+          id: issues.id,
+          companyId: issues.companyId,
+        });
+
+      const issueIdsByCompanyId = new Map<string, string[]>();
+      for (const row of archivedRows) {
+        const existing = issueIdsByCompanyId.get(row.companyId) ?? [];
+        existing.push(row.id);
+        issueIdsByCompanyId.set(row.companyId, existing);
+      }
+
+      const byCompany = [...issueIdsByCompanyId.entries()].map(([companyId, issueIds]) => ({
+        companyId,
+        archivedCount: issueIds.length,
+        issueIds,
+      }));
+
+      return {
+        archivedCount: archivedRows.length,
+        olderThanDays,
+        archivedAt: now,
+        cutoff,
+        byCompany,
+      };
     },
 
     getById: async (raw: string) => {

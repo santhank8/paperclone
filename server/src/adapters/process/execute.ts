@@ -20,7 +20,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
       signal: null,
       timedOut: false,
       errorMessage:
-        "Orchestrator-only agents cannot use process specialist execution. This run must stay in the Paperclip orchestration path.",
+        "Orchestrator-only agents cannot use process specialist execution. This run must stay in the PrivateClip orchestration path.",
       errorCode: "orchestrator_only_specialist_execution_blocked",
       resultJson: {
         blocked: true,
@@ -37,7 +37,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
   const envConfig = parseObject(config.env);
   const env: Record<string, string> = { ...buildPaperclipEnv(agent) };
   // Inject runId + authToken so spawned adapters (claude_local, codex_local,
-  // gemini_local, etc.) can authenticate back to Paperclip's API. Mirrors
+  // gemini_local, etc.) can authenticate back to PrivateClip's API. Mirrors
   // the same pattern already applied to the Hermes adapter upstream.
   if (runId) env.PAPERCLIP_RUN_ID = runId;
   if (authToken && !env.PAPERCLIP_API_KEY) env.PAPERCLIP_API_KEY = authToken;

@@ -2,7 +2,9 @@ import { Router } from "express";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import type { Db } from "@paperclipai/db";
 import { notFound } from "../errors.js";
+import { companyService } from "../services/index.js";
 import { assertBoard, assertCompanyAccess } from "./authz.js";
 
 interface RoadmapLink {
@@ -28,6 +30,12 @@ interface RoadmapItem {
 interface RoadmapSection {
   title: string;
   items: RoadmapItem[];
+}
+
+interface CompanyRoadmapContext {
+  roadmapPath: string | null;
+  name: string | null;
+  issuePrefix: string | null;
 }
 
 const DEFAULT_REPO_ROOT = fileURLToPath(new URL("../../../", import.meta.url));
@@ -95,6 +103,87 @@ async function readCanonicalRoadmap(repoRoot: string, indexCandidates: string[])
     indexDetails,
     roadmapMarkdown,
   };
+}
+
+function buildSyntheticRoadmapIndex(repoRoot: string, absolutePath: string, roadmapMarkdown: string) {
+  const parsed = parseRoadmapDocument(roadmapMarkdown);
+  const relativePath = toRepoRelativePath(repoRoot, absolutePath);
+  return {
+    indexPath: absolutePath,
+    indexMarkdown: createSyntheticIndexMarkdown(parsed.title, relativePath),
+    indexDetails: {
+      canonicalLabel: parsed.title,
+      canonicalPath: absolutePath,
+      links: [{ label: parsed.title, path: relativePath }],
+    },
+    roadmapMarkdown,
+  };
+}
+
+function resolveDirectRoadmapPath(repoRoot: string, configuredPath: string): string {
+  const normalizedTarget = normalizeLinkTarget(configuredPath).trim();
+  if (!normalizedTarget || /^https?:\/\//i.test(normalizedTarget)) {
+    throw notFound("Company roadmap override must point to a local markdown file");
+  }
+
+  const absolutePath = path.resolve(repoRoot, normalizedTarget);
+  const normalizedRepoRoot = path.resolve(repoRoot);
+  if (absolutePath !== normalizedRepoRoot && !absolutePath.startsWith(`${normalizedRepoRoot}${path.sep}`)) {
+    throw notFound("Company roadmap override points outside the repository");
+  }
+  if (path.extname(absolutePath).toLowerCase() !== ".md") {
+    throw notFound("Company roadmap override must point to a markdown file");
+  }
+  return absolutePath;
+}
+
+function createSyntheticIndexMarkdown(label: string, roadmapPath: string): string {
+  return [
+    "# Roadmap",
+    "",
+    "Canonical roadmap source:",
+    "",
+    `- [${label}](${roadmapPath})`,
+  ].join("\n");
+}
+
+function slugifyCompanyName(value: string | null | undefined): string {
+  if (!value) return "";
+  return value
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
+}
+
+function buildAutoDetectRoadmapCandidates(context: CompanyRoadmapContext): string[] {
+  const candidates = new Set<string>();
+  const slug = slugifyCompanyName(context.name);
+  if (slug) {
+    candidates.add(`doc/company-roadmaps/${slug}-roadmap.md`);
+  }
+  const issuePrefix = context.issuePrefix?.trim().toLowerCase() ?? "";
+  if (issuePrefix) {
+    candidates.add(`doc/company-roadmaps/${issuePrefix}-roadmap.md`);
+  }
+  return [...candidates];
+}
+
+async function readExistingRoadmapCandidate(repoRoot: string, candidatePaths: string[]) {
+  for (const candidatePath of candidatePaths) {
+    const absolutePath = resolveDirectRoadmapPath(repoRoot, candidatePath);
+    try {
+      const roadmapMarkdown = await fs.readFile(absolutePath, "utf8");
+      return { absolutePath, roadmapMarkdown };
+    } catch (error) {
+      const maybeErr = error as NodeJS.ErrnoException;
+      if (maybeErr.code === "ENOENT") continue;
+      throw error;
+    }
+  }
+  return null;
 }
 
 function parseRoadmapIndex(
@@ -263,13 +352,75 @@ function renameRoadmapItemTitle(markdown: string, roadmapId: string, nextTitle: 
   return lines.join("\n");
 }
 
-export function roadmapRoutes(opts: { repoRoot?: string } = {}) {
+export function roadmapRoutes(opts: {
+  repoRoot?: string;
+  db?: Db;
+  resolveCompanyRoadmapPath?: (companyId: string) => Promise<string | null>;
+  resolveCompanyRoadmapContext?: (companyId: string) => Promise<CompanyRoadmapContext | null>;
+} = {}) {
   const router = Router();
   const repoRoot = path.resolve(opts.repoRoot ?? DEFAULT_REPO_ROOT);
   const indexCandidates = [
     path.join(repoRoot, "doc", "ROADMAP.md"),
     path.join(repoRoot, "ROADMAP.md"),
   ];
+  const companiesSvc = opts.db ? companyService(opts.db) : null;
+
+  async function resolveCompanyRoadmapContext(companyId: string): Promise<CompanyRoadmapContext | null> {
+    if (opts.resolveCompanyRoadmapContext) {
+      return await opts.resolveCompanyRoadmapContext(companyId);
+    }
+    if (companiesSvc) {
+      const company = await companiesSvc.getById(companyId);
+      if (!company) return null;
+      return {
+        roadmapPath: company.roadmapPath?.trim() || null,
+        name: company.name?.trim() || null,
+        issuePrefix: company.issuePrefix?.trim() || null,
+      };
+    }
+    if (opts.resolveCompanyRoadmapPath) {
+      return {
+        roadmapPath: (await opts.resolveCompanyRoadmapPath(companyId))?.trim() || null,
+        name: null,
+        issuePrefix: null,
+      };
+    }
+    return null;
+  }
+
+  async function readRoadmapForRequest(companyId: string | null) {
+    if (companyId) {
+      const companyContext = await resolveCompanyRoadmapContext(companyId);
+      const companyRoadmapPath = companyContext?.roadmapPath?.trim() || null;
+      if (companyRoadmapPath) {
+        const absolutePath = resolveDirectRoadmapPath(repoRoot, companyRoadmapPath);
+        let roadmapMarkdown: string;
+        try {
+          roadmapMarkdown = await fs.readFile(absolutePath, "utf8");
+        } catch (error) {
+          const maybeErr = error as NodeJS.ErrnoException;
+          if (maybeErr.code === "ENOENT") {
+            throw notFound(`Company roadmap file not found: ${toRepoRelativePath(repoRoot, absolutePath)}`);
+          }
+          throw error;
+        }
+        return buildSyntheticRoadmapIndex(repoRoot, absolutePath, roadmapMarkdown);
+      }
+
+      if (companyContext) {
+        const autoDetected = await readExistingRoadmapCandidate(
+          repoRoot,
+          buildAutoDetectRoadmapCandidates(companyContext),
+        );
+        if (autoDetected) {
+          return buildSyntheticRoadmapIndex(repoRoot, autoDetected.absolutePath, autoDetected.roadmapMarkdown);
+        }
+      }
+    }
+
+    return await readCanonicalRoadmap(repoRoot, indexCandidates);
+  }
 
   router.patch("/roadmap/items/:roadmapId", async (req, res) => {
     assertBoard(req);
@@ -287,7 +438,7 @@ export function roadmapRoutes(opts: { repoRoot?: string } = {}) {
       return;
     }
 
-    const { indexPath, indexMarkdown, indexDetails, roadmapMarkdown } = await readCanonicalRoadmap(repoRoot, indexCandidates);
+    const { indexPath, indexMarkdown, indexDetails, roadmapMarkdown } = await readRoadmapForRequest(companyIdQuery);
     const updatedMarkdown = renameRoadmapItemTitle(
       roadmapMarkdown,
       roadmapId,
@@ -328,7 +479,7 @@ export function roadmapRoutes(opts: { repoRoot?: string } = {}) {
       assertBoard(req);
     }
 
-    const { indexPath, indexMarkdown, indexDetails, roadmapMarkdown } = await readCanonicalRoadmap(repoRoot, indexCandidates);
+    const { indexPath, indexMarkdown, indexDetails, roadmapMarkdown } = await readRoadmapForRequest(companyIdQuery);
 
     const parsed = parseRoadmapDocument(roadmapMarkdown);
     res.json({

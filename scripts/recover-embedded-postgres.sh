@@ -83,7 +83,7 @@ read_pidfile_pid() {
   return 1
 }
 
-echo "==> Stopping managed Paperclip dev processes"
+echo "==> Stopping managed PrivateClip dev processes"
 if [[ -x "$REPO_ROOT/scripts/kill-dev.sh" ]]; then
   if [[ "$DRY_RUN" == true ]]; then
     run_cmd "$REPO_ROOT/scripts/kill-dev.sh" --dry
@@ -197,7 +197,7 @@ fi
 
 if [[ "$START_DEV" == true ]]; then
   echo
-  echo "==> Starting Paperclip dev server"
+  echo "==> Starting PrivateClip dev server"
   cd "$REPO_ROOT"
   run_cmd pnpm dev
 fi

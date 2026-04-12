@@ -2,6 +2,10 @@
 
 This project can run fully in local dev without setting up PostgreSQL manually.
 
+## Quick Links
+
+- [Closed Issue Auto-Archive](#closed-issue-auto-archive)
+
 ## Deployment Modes
 
 For mode definitions and intended CLI behavior, see `doc/DEPLOYMENT-MODES.md`.
@@ -41,7 +45,7 @@ This starts:
 
 `pnpm dev:once` auto-applies pending local migrations by default before starting the dev server.
 
-`pnpm dev` and `pnpm dev:once` are now idempotent for the current repo and instance: if the matching Paperclip dev runner is already alive, Paperclip reports the existing process instead of starting a duplicate.
+`pnpm dev` and `pnpm dev:once` are now idempotent for the current repo and instance: if the matching PrivateClip dev runner is already alive, PrivateClip reports the existing process instead of starting a duplicate.
 
 Inspect or stop the current repo's managed dev runner:
 
@@ -89,7 +93,7 @@ pnpm paperclipai run
 
 ## Docker Quickstart (No local Node install)
 
-Build and run Paperclip in Docker:
+Build and run PrivateClip in Docker:
 
 ```sh
 docker build -t paperclip-local .
@@ -142,13 +146,13 @@ pnpm paperclipai configure --section storage
 
 ## Default Agent Workspaces
 
-When a local agent run has no resolved project/session workspace, Paperclip falls back to an agent home workspace under the instance root:
+When a local agent run has no resolved project/session workspace, PrivateClip falls back to an agent home workspace under the instance root:
 
 - `~/.paperclip/instances/default/workspaces/<agent-id>`
 
 This path honors `PAPERCLIP_HOME` and `PAPERCLIP_INSTANCE_ID` in non-default setups.
 
-For `codex_local`, Paperclip also manages a per-company Codex home under the instance root and seeds it from the shared Codex login/config home (`$CODEX_HOME` or `~/.codex`):
+For `codex_local`, PrivateClip also manages a per-company Codex home under the instance root and seeds it from the shared Codex login/config home (`$CODEX_HOME` or `~/.codex`):
 
 - `~/.paperclip/instances/default/companies/<company-id>/codex-home`
 
@@ -156,9 +160,9 @@ If the `codex` CLI is not installed or not on `PATH`, `codex_local` agent runs f
 
 ## Worktree-local Instances
 
-When developing from multiple git worktrees, do not point two Paperclip servers at the same embedded PostgreSQL data directory.
+When developing from multiple git worktrees, do not point two PrivateClip servers at the same embedded PostgreSQL data directory.
 
-Instead, create a repo-local Paperclip config plus an isolated instance for the worktree:
+Instead, create a repo-local PrivateClip config plus an isolated instance for the worktree:
 
 ```sh
 paperclipai worktree init
@@ -172,7 +176,7 @@ This command:
 - creates an isolated instance under `~/.paperclip-worktrees/instances/<worktree-id>/`
 - when run inside a linked git worktree, mirrors the effective git hooks into that worktree's private git dir
 - picks a free app port and embedded PostgreSQL port
-- by default seeds the isolated DB in `minimal` mode from the current effective Paperclip instance/config (repo-local worktree config when present, otherwise the default instance) via a logical SQL snapshot
+- by default seeds the isolated DB in `minimal` mode from the current effective PrivateClip instance/config (repo-local worktree config when present, otherwise the default instance) via a logical SQL snapshot
 
 Seed modes:
 
@@ -246,9 +250,9 @@ cd /path/to/existing/worktree
 pnpm paperclipai worktree reseed --from-config /path/to/source/.paperclip/config.json --seed-mode full
 ```
 
-`worktree reseed` preserves the current worktree's instance id, ports, and branding while replacing only that worktree's isolated Paperclip instance data from the chosen source.
+`worktree reseed` preserves the current worktree's instance id, ports, and branding while replacing only that worktree's isolated PrivateClip instance data from the chosen source.
 
-**`pnpm paperclipai worktree:make <name> [options]`** — Create `~/NAME` as a git worktree, then initialize an isolated Paperclip instance inside it. This combines `git worktree add` with `worktree init` in a single step.
+**`pnpm paperclipai worktree:make <name> [options]`** — Create `~/NAME` as a git worktree, then initialize an isolated PrivateClip instance inside it. This combines `git worktree add` with `worktree init` in a single step.
 
 | Option | Description |
 |---|---|
@@ -272,9 +276,9 @@ pnpm paperclipai worktree:make my-feature --start-point origin/main
 pnpm paperclipai worktree:make experiment --no-seed
 ```
 
-**`pnpm paperclipai worktree env [options]`** — Print shell exports for the current worktree-local Paperclip instance.
+**`pnpm paperclipai worktree env [options]`** — Print shell exports for the current worktree-local PrivateClip instance.
 
-**`pnpm paperclipai worktree reseed [options]`** — Replace the current worktree instance with a fresh seed from another Paperclip source while preserving the current worktree's ports and instance id.
+**`pnpm paperclipai worktree reseed [options]`** — Replace the current worktree instance with a fresh seed from another PrivateClip source while preserving the current worktree's ports and instance id.
 
 | Option | Description |
 |---|---|
@@ -298,7 +302,7 @@ pnpm paperclipai worktree env --json
 eval "$(pnpm paperclipai worktree env)"
 ```
 
-For project execution worktrees, Paperclip can also run a project-defined provision command after it creates or reuses an isolated git worktree. Configure this on the project's execution workspace policy (`workspaceStrategy.provisionCommand`). The command runs inside the derived worktree and receives `PAPERCLIP_WORKSPACE_*`, `PAPERCLIP_PROJECT_ID`, `PAPERCLIP_AGENT_ID`, and `PAPERCLIP_ISSUE_*` environment variables so each repo can bootstrap itself however it wants.
+For project execution worktrees, PrivateClip can also run a project-defined provision command after it creates or reuses an isolated git worktree. Configure this on the project's execution workspace policy (`workspaceStrategy.provisionCommand`). The command runs inside the derived worktree and receives `PAPERCLIP_WORKSPACE_*`, `PAPERCLIP_PROJECT_ID`, `PAPERCLIP_AGENT_ID`, and `PAPERCLIP_ISSUE_*` environment variables so each repo can bootstrap itself however it wants.
 
 ## Quick Health Checks
 
@@ -329,7 +333,7 @@ If you set `DATABASE_URL`, the server will use that instead of embedded PostgreS
 
 ## Automatic DB Backups
 
-Paperclip can run automatic DB backups on a timer. Defaults:
+PrivateClip can run automatic DB backups on a timer. Defaults:
 
 - enabled
 - every 60 minutes
@@ -399,9 +403,19 @@ Default behavior:
 - `local_trusted`: enabled
 - `authenticated`: disabled
 
+## Closed Issue Auto-Archive
+
+Closed-issue auto-archive is optional and disabled by default. Manual archive from the Issues page remains available regardless of this toggle.
+
+Environment overrides:
+
+- `PAPERCLIP_CLOSED_ISSUE_ARCHIVE_ENABLED=true|false` (default `false`)
+- `PAPERCLIP_CLOSED_ISSUE_ARCHIVE_INTERVAL_MS=<milliseconds>` (minimum `60000`, default `3600000`)
+- `PAPERCLIP_CLOSED_ISSUE_ARCHIVE_AGE_DAYS=<days>` (clamped `1..365`, default `14`)
+
 ## CLI Client Operations
 
-Paperclip CLI now includes client-side control-plane commands in addition to setup commands.
+PrivateClip CLI now includes client-side control-plane commands in addition to setup commands.
 
 Quick examples:
 
@@ -434,7 +448,7 @@ Agent-oriented invite onboarding now exposes machine-readable API docs:
 - `GET /api/invites/:token/onboarding` returns onboarding manifest details (registration endpoint, claim endpoint template, skill install hints).
 - `GET /api/invites/:token/onboarding.txt` returns a plain-text onboarding doc intended for both human operators and agents (llm.txt-style handoff), including optional inviter message and suggested network host candidates.
 - `GET /api/skills/index` lists available skill documents.
-- `GET /api/skills/paperclip` returns the Paperclip heartbeat skill markdown.
+- `GET /api/skills/paperclip` returns the PrivateClip heartbeat skill markdown.
 
 ## OpenClaw Join Smoke Test
 
@@ -487,6 +501,6 @@ State behavior for this smoke script:
 
 Networking behavior for this smoke script:
 
-- auto-detects and prints a Paperclip host URL reachable from inside OpenClaw Docker
+- auto-detects and prints a PrivateClip host URL reachable from inside OpenClaw Docker
 - default container-side host alias is `host.docker.internal` (override with `PAPERCLIP_HOST_FROM_CONTAINER` / `PAPERCLIP_HOST_PORT`)
-- if Paperclip rejects container hostnames in authenticated/private mode, allow `host.docker.internal` via `pnpm paperclipai allowed-hostname host.docker.internal` and restart Paperclip
+- if PrivateClip rejects container hostnames in authenticated/private mode, allow `host.docker.internal` via `pnpm paperclipai allowed-hostname host.docker.internal` and restart PrivateClip

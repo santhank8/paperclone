@@ -2,7 +2,7 @@
  * JSON-RPC 2.0 message types and protocol helpers for the host ↔ worker IPC
  * channel.
  *
- * The Paperclip plugin runtime uses JSON-RPC 2.0 over stdio to communicate
+ * The PrivateClip plugin runtime uses JSON-RPC 2.0 over stdio to communicate
  * between the host process and each plugin worker process. This module defines:
  *
  * - Core JSON-RPC 2.0 envelope types (request, response, notification, error)
@@ -55,7 +55,7 @@ export const JSONRPC_VERSION = "2.0" as const;
 
 /**
  * A unique request identifier. JSON-RPC 2.0 allows strings or numbers;
- * we use strings (UUIDs or monotonic counters) for all Paperclip messages.
+ * we use strings (UUIDs or monotonic counters) for all PrivateClip messages.
  */
 export type JsonRpcId = string | number;
 
@@ -172,7 +172,7 @@ export type JsonRpcErrorCode =
   (typeof JSONRPC_ERROR_CODES)[keyof typeof JSONRPC_ERROR_CODES];
 
 /**
- * Paperclip plugin-specific error codes.
+ * PrivateClip plugin-specific error codes.
  *
  * These live in the JSON-RPC "server error" reserved range (-32000 to -32099)
  * as specified by JSON-RPC 2.0 for implementation-defined server errors.
@@ -213,9 +213,9 @@ export interface InitializeParams {
   config: Record<string, unknown>;
   /** Instance-level metadata. */
   instanceInfo: {
-    /** UUID of this Paperclip instance. */
+    /** UUID of this PrivateClip instance. */
     instanceId: string;
-    /** Semver version of the running Paperclip host. */
+    /** Semver version of the running PrivateClip host. */
     hostVersion: string;
   };
   /** Host API version. */

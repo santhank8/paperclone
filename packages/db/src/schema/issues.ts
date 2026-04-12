@@ -90,5 +90,12 @@ export const issues = pgTable(
           and ${table.executionRunId} is not null
           and ${table.status} in ('backlog', 'todo', 'in_progress', 'in_review', 'blocked')`,
       ),
+    openBoardCopilotThreadIdx: uniqueIndex("issues_open_board_copilot_thread_uq")
+      .on(table.companyId, table.originKind, table.originId)
+      .where(
+        sql`${table.originKind} = 'board_copilot_thread'
+          and ${table.originId} is not null
+          and ${table.hiddenAt} is null`,
+      ),
   }),
 );

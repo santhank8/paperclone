@@ -73,7 +73,7 @@ describeEmbeddedPostgres("executiveSummaryService", () => {
     const companyId = randomUUID();
     await db.insert(companies).values({
       id: companyId,
-      name: "Paperclip Co",
+      name: "PrivateClip Co",
       issuePrefix: `ES${companyId.replace(/-/g, "").slice(0, 6).toUpperCase()}`,
       requireBoardApprovalForNewAgents: false,
       dailyExecutiveSummaryEnabled: params.enabled ?? false,

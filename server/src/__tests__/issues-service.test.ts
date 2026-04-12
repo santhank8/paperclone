@@ -87,7 +87,7 @@ describeEmbeddedPostgres("issueService.list participantAgentId", () => {
 
     await db.insert(companies).values({
       id: companyId,
-      name: "Paperclip",
+      name: "PrivateClip",
       issuePrefix: `T${companyId.replace(/-/g, "").slice(0, 6).toUpperCase()}`,
       requireBoardApprovalForNewAgents: false,
     });
@@ -204,7 +204,7 @@ describeEmbeddedPostgres("issueService.list participantAgentId", () => {
 
     await db.insert(companies).values({
       id: companyId,
-      name: "Paperclip",
+      name: "PrivateClip",
       issuePrefix: `T${companyId.replace(/-/g, "").slice(0, 6).toUpperCase()}`,
       requireBoardApprovalForNewAgents: false,
     });
@@ -256,7 +256,7 @@ describeEmbeddedPostgres("issueService.list participantAgentId", () => {
 
     await db.insert(companies).values({
       id: companyId,
-      name: "Paperclip",
+      name: "PrivateClip",
       issuePrefix: `T${companyId.replace(/-/g, "").slice(0, 6).toUpperCase()}`,
       requireBoardApprovalForNewAgents: false,
     });
@@ -300,13 +300,134 @@ describeEmbeddedPostgres("issueService.list participantAgentId", () => {
     expect(result.map((issue) => issue.id)).toEqual([titleMatchId, descriptionMatchId]);
   });
 
+  it("includes terminal issues by default and still respects explicit status filters", async () => {
+    const companyId = randomUUID();
+    const openIssueId = randomUUID();
+    const doneIssueId = randomUUID();
+    const cancelledIssueId = randomUUID();
+
+    await db.insert(companies).values({
+      id: companyId,
+      name: "PrivateClip",
+      issuePrefix: `T${companyId.replace(/-/g, "").slice(0, 6).toUpperCase()}`,
+      requireBoardApprovalForNewAgents: false,
+    });
+
+    await db.insert(issues).values([
+      {
+        id: openIssueId,
+        companyId,
+        title: "Open issue",
+        status: "todo",
+        priority: "medium",
+      },
+      {
+        id: doneIssueId,
+        companyId,
+        title: "Done issue",
+        status: "done",
+        priority: "medium",
+      },
+      {
+        id: cancelledIssueId,
+        companyId,
+        title: "Cancelled issue",
+        status: "cancelled",
+        priority: "medium",
+      },
+    ]);
+
+    const defaultResult = await svc.list(companyId, {});
+    expect(new Set(defaultResult.map((issue) => issue.id))).toEqual(new Set([
+      openIssueId,
+      doneIssueId,
+      cancelledIssueId,
+    ]));
+
+    const openOnlyResult = await svc.list(companyId, { status: "todo" });
+    expect(openOnlyResult.map((issue) => issue.id)).toEqual([openIssueId]);
+  });
+
+  it("archives closed issues older than the configured window", async () => {
+    const companyId = randomUUID();
+    const staleDoneIssueId = randomUUID();
+    const staleCancelledIssueId = randomUUID();
+    const recentDoneIssueId = randomUUID();
+    const openIssueId = randomUUID();
+    const now = new Date("2026-04-12T12:00:00.000Z");
+
+    await db.insert(companies).values({
+      id: companyId,
+      name: "PrivateClip",
+      issuePrefix: `T${companyId.replace(/-/g, "").slice(0, 6).toUpperCase()}`,
+      requireBoardApprovalForNewAgents: false,
+    });
+
+    await db.insert(issues).values([
+      {
+        id: staleDoneIssueId,
+        companyId,
+        title: "Stale done issue",
+        status: "done",
+        priority: "medium",
+        updatedAt: new Date("2026-03-01T00:00:00.000Z"),
+      },
+      {
+        id: staleCancelledIssueId,
+        companyId,
+        title: "Stale cancelled issue",
+        status: "cancelled",
+        priority: "medium",
+        updatedAt: new Date("2026-03-01T00:00:00.000Z"),
+      },
+      {
+        id: recentDoneIssueId,
+        companyId,
+        title: "Recent done issue",
+        status: "done",
+        priority: "medium",
+        updatedAt: new Date("2026-04-10T00:00:00.000Z"),
+      },
+      {
+        id: openIssueId,
+        companyId,
+        title: "Open issue",
+        status: "todo",
+        priority: "medium",
+        updatedAt: new Date("2026-03-01T00:00:00.000Z"),
+      },
+    ]);
+
+    const result = await svc.archiveClosed(companyId, {
+      olderThanDays: 14,
+      now,
+    });
+
+    expect(result.archivedCount).toBe(2);
+    expect(new Set(result.issueIds)).toEqual(new Set([staleDoneIssueId, staleCancelledIssueId]));
+
+    const rows = await db
+      .select({
+        id: issues.id,
+        hiddenAt: issues.hiddenAt,
+      })
+      .from(issues)
+      .where(eq(issues.companyId, companyId));
+
+    const hiddenByIssueId = new Map(rows.map((row) => [row.id, row.hiddenAt]));
+    expect(hiddenByIssueId.get(staleDoneIssueId)?.toISOString()).toBe(now.toISOString());
+    expect(hiddenByIssueId.get(staleCancelledIssueId)?.toISOString()).toBe(now.toISOString());
+    expect(hiddenByIssueId.get(recentDoneIssueId)).toBeNull();
+    expect(hiddenByIssueId.get(openIssueId)).toBeNull();
+  });
+
   it("accepts issue identifiers through getById", async () => {
     const companyId = randomUUID();
     const issueId = randomUUID();
 
     await db.insert(companies).values({
       id: companyId,
-      name: "Paperclip",
+      name: "PrivateClip",
       issuePrefix: "PAP",
       requireBoardApprovalForNewAgents: false,
     });
@@ -347,7 +468,7 @@ describeEmbeddedPostgres("issueService.list participantAgentId", () => {
 
     await db.insert(companies).values({
       id: companyId,
-      name: "Paperclip",
+      name: "PrivateClip",
       issuePrefix: `T${companyId.replace(/-/g, "").slice(0, 6).toUpperCase()}`,
       requireBoardApprovalForNewAgents: false,
     });
@@ -423,7 +544,7 @@ describeEmbeddedPostgres("issueService.list participantAgentId", () => {
 
     await db.insert(companies).values({
       id: companyId,
-      name: "Paperclip",
+      name: "PrivateClip",
       issuePrefix: `T${companyId.replace(/-/g, "").slice(0, 6).toUpperCase()}`,
       requireBoardApprovalForNewAgents: false,
     });
@@ -508,7 +629,7 @@ describeEmbeddedPostgres("issueService.list participantAgentId", () => {
 
     await db.insert(companies).values({
       id: companyId,
-      name: "Paperclip",
+      name: "PrivateClip",
       issuePrefix: `T${companyId.replace(/-/g, "").slice(0, 6).toUpperCase()}`,
       requireBoardApprovalForNewAgents: false,
     });
@@ -576,7 +697,7 @@ describeEmbeddedPostgres("issueService.list participantAgentId", () => {
 
     await db.insert(companies).values({
       id: companyId,
-      name: "Paperclip",
+      name: "PrivateClip",
       issuePrefix: `T${companyId.replace(/-/g, "").slice(0, 6).toUpperCase()}`,
       requireBoardApprovalForNewAgents: false,
     });
@@ -695,7 +816,7 @@ describeEmbeddedPostgres("issueService.create workspace inheritance", () => {
 
     await db.insert(companies).values({
       id: companyId,
-      name: "Paperclip",
+      name: "PrivateClip",
       issuePrefix: `T${companyId.replace(/-/g, "").slice(0, 6).toUpperCase()}`,
       requireBoardApprovalForNewAgents: false,
     });
@@ -773,7 +894,7 @@ describeEmbeddedPostgres("issueService.create workspace inheritance", () => {
 
     await db.insert(companies).values({
       id: companyId,
-      name: "Paperclip",
+      name: "PrivateClip",
       issuePrefix: `T${companyId.replace(/-/g, "").slice(0, 6).toUpperCase()}`,
       requireBoardApprovalForNewAgents: false,
     });
@@ -870,7 +991,7 @@ describeEmbeddedPostgres("issueService.create workspace inheritance", () => {
 
     await db.insert(companies).values({
       id: companyId,
-      name: "Paperclip",
+      name: "PrivateClip",
       issuePrefix: `T${companyId.replace(/-/g, "").slice(0, 6).toUpperCase()}`,
       requireBoardApprovalForNewAgents: false,
     });
@@ -967,7 +1088,7 @@ describeEmbeddedPostgres("issueService blockers and dependency wake readiness", 
     const companyId = randomUUID();
     await db.insert(companies).values({
       id: companyId,
-      name: "Paperclip",
+      name: "PrivateClip",
       issuePrefix: `T${companyId.replace(/-/g, "").slice(0, 6).toUpperCase()}`,
       requireBoardApprovalForNewAgents: false,
     });
@@ -1002,11 +1123,62 @@ describeEmbeddedPostgres("issueService blockers and dependency wake readiness", 
     expect(blockedRelations.blockedBy.map((relation) => relation.id)).toEqual([blockerId]);
   });
 
+  it("optionally includes blockedBy and blocks summaries in list results", async () => {
+    const companyId = randomUUID();
+    const blockerAssigneeUserId = randomUUID();
+    await db.insert(companies).values({
+      id: companyId,
+      name: "PrivateClip",
+      issuePrefix: `T${companyId.replace(/-/g, "").slice(0, 6).toUpperCase()}`,
+      requireBoardApprovalForNewAgents: false,
+    });
+
+    const blockerId = randomUUID();
+    const blockedId = randomUUID();
+    await db.insert(issues).values([
+      {
+        id: blockerId,
+        companyId,
+        title: "Board approval",
+        status: "in_progress",
+        priority: "high",
+        assigneeUserId: blockerAssigneeUserId,
+      },
+      {
+        id: blockedId,
+        companyId,
+        title: "Ship the rollout",
+        status: "blocked",
+        priority: "medium",
+      },
+    ]);
+
+    await svc.update(blockedId, {
+      blockedByIssueIds: [blockerId],
+    });
+
+    const listed = await svc.list(companyId, { includeRelations: true });
+    const blockedIssue = listed.find((issue) => issue.id === blockedId);
+    const blockerIssue = listed.find((issue) => issue.id === blockerId);
+
+    expect(blockedIssue?.blockedBy).toEqual([
+      expect.objectContaining({
+        id: blockerId,
+        assigneeUserId: blockerAssigneeUserId,
+      }),
+    ]);
+    expect(blockerIssue?.blocks).toEqual([
+      expect.objectContaining({
+        id: blockedId,
+      }),
+    ]);
+  });
+
   it("rejects blocking cycles", async () => {
     const companyId = randomUUID();
     await db.insert(companies).values({
       id: companyId,
-      name: "Paperclip",
+      name: "PrivateClip",
       issuePrefix: `T${companyId.replace(/-/g, "").slice(0, 6).toUpperCase()}`,
       requireBoardApprovalForNewAgents: false,
     });
@@ -1032,7 +1204,7 @@ describeEmbeddedPostgres("issueService blockers and dependency wake readiness", 
     const issueId = randomUUID();
     await db.insert(companies).values({
       id: companyId,
-      name: "Paperclip",
+      name: "PrivateClip",
       issuePrefix: `T${companyId.replace(/-/g, "").slice(0, 6).toUpperCase()}`,
       requireBoardApprovalForNewAgents: false,
     });
@@ -1091,7 +1263,7 @@ describeEmbeddedPostgres("issueService blockers and dependency wake readiness", 
     const issueId = randomUUID();
     await db.insert(companies).values({
       id: companyId,
-      name: "Paperclip",
+      name: "PrivateClip",
       issuePrefix: `T${companyId.replace(/-/g, "").slice(0, 6).toUpperCase()}`,
       requireBoardApprovalForNewAgents: false,
     });
@@ -1142,7 +1314,7 @@ describeEmbeddedPostgres("issueService blockers and dependency wake readiness", 
     const assigneeAgentId = randomUUID();
     await db.insert(companies).values({
       id: companyId,
-      name: "Paperclip",
+      name: "PrivateClip",
       issuePrefix: `T${companyId.replace(/-/g, "").slice(0, 6).toUpperCase()}`,
       requireBoardApprovalForNewAgents: false,
     });
@@ -1194,7 +1366,7 @@ describeEmbeddedPostgres("issueService blockers and dependency wake readiness", 
     const assigneeAgentId = randomUUID();
     await db.insert(companies).values({
       id: companyId,
-      name: "Paperclip",
+      name: "PrivateClip",
       issuePrefix: `T${companyId.replace(/-/g, "").slice(0, 6).toUpperCase()}`,
       requireBoardApprovalForNewAgents: false,
     });
@@ -1289,7 +1461,7 @@ describeEmbeddedPostgres("issueService recovery transitions", () => {
 
     await db.insert(companies).values({
       id: companyId,
-      name: "Paperclip",
+      name: "PrivateClip",
       issuePrefix: `T${companyId.replace(/-/g, "").slice(0, 6).toUpperCase()}`,
       requireBoardApprovalForNewAgents: false,
     });
@@ -1375,7 +1547,7 @@ describeEmbeddedPostgres("issueService recovery transitions", () => {
 
     await db.insert(companies).values({
       id: companyId,
-      name: "Paperclip",
+      name: "PrivateClip",
       issuePrefix: `T${companyId.replace(/-/g, "").slice(0, 6).toUpperCase()}`,
       requireBoardApprovalForNewAgents: false,
     });
@@ -1463,7 +1635,7 @@ describeEmbeddedPostgres("issueService recovery transitions", () => {
 
     await db.insert(companies).values({
       id: companyId,
-      name: "Paperclip",
+      name: "PrivateClip",
       issuePrefix: `T${companyId.replace(/-/g, "").slice(0, 6).toUpperCase()}`,
       requireBoardApprovalForNewAgents: false,
     });
@@ -1545,7 +1717,7 @@ describeEmbeddedPostgres("issueService.checkout queued execution handoff", () =>
 
     await db.insert(companies).values({
       id: companyId,
-      name: "Paperclip",
+      name: "PrivateClip",
       issuePrefix: `T${companyId.replace(/-/g, "").slice(0, 6).toUpperCase()}`,
       requireBoardApprovalForNewAgents: false,
     });

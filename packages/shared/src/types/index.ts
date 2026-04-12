@@ -10,6 +10,11 @@ export type {
   ExecutiveSummary,
 } from "./executive-summary.js";
 export type {
+  CopilotRouteContext,
+  CopilotThreadSummary,
+  CopilotMessageCreateResponse,
+} from "./copilot.js";
+export type {
   FeedbackVote,
   FeedbackDataSharingPreference,
   FeedbackTargetType,

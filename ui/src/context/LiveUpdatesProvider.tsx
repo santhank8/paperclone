@@ -294,6 +294,12 @@ function buildActivityToast(
   if (entityType !== "issue" || !entityId || !action || !ISSUE_TOAST_ACTIONS.has(action)) {
     return null;
   }
+  if (
+    readString(details?.originKind) === "board_copilot_thread" ||
+    readString(details?.source) === "board_copilot"
+  ) {
+    return null;
+  }
 
   const issue = resolveIssueToastContext(queryClient, companyId, entityId, details);
   const actor = resolveActorLabel(queryClient, companyId, actorType, actorId);

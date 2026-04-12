@@ -153,7 +153,7 @@ describeEmbeddedPostgres("feedbackService.saveIssueVote", () => {
 
     await db.insert(companies).values({
       id: companyId,
-      name: "Paperclip",
+      name: "PrivateClip",
       issuePrefix: `F${companyId.replace(/-/g, "").slice(0, 6).toUpperCase()}`,
       requireBoardApprovalForNewAgents: false,
     });
@@ -213,7 +213,7 @@ describeEmbeddedPostgres("feedbackService.saveIssueVote", () => {
 
     await db.insert(companies).values({
       id: companyId,
-      name: "Paperclip",
+      name: "PrivateClip",
       issuePrefix: `R${companyId.replace(/-/g, "").slice(0, 6).toUpperCase()}`,
       requireBoardApprovalForNewAgents: false,
     });
@@ -224,8 +224,8 @@ describeEmbeddedPostgres("feedbackService.saveIssueVote", () => {
         companyId,
         key: "paperclipai/paperclip/paperclip",
         slug: "paperclip",
-        name: "Paperclip",
-        markdown: "# Paperclip",
+        name: "PrivateClip",
+        markdown: "# PrivateClip",
         sourceType: "catalog",
         sourceLocator: null,
         sourceRef: null,
@@ -357,7 +357,7 @@ describeEmbeddedPostgres("feedbackService.saveIssueVote", () => {
 
     await db.insert(companies).values({
       id: companyId,
-      name: "Paperclip",
+      name: "PrivateClip",
       issuePrefix: `D${companyId.replace(/-/g, "").slice(0, 6).toUpperCase()}`,
       requireBoardApprovalForNewAgents: false,
     });
@@ -426,7 +426,7 @@ describeEmbeddedPostgres("feedbackService.saveIssueVote", () => {
 
     await db.insert(companies).values({
       id: companyId,
-      name: "Paperclip",
+      name: "PrivateClip",
       issuePrefix: `T${companyId.replace(/-/g, "").slice(0, 6).toUpperCase()}`,
       requireBoardApprovalForNewAgents: false,
     });
@@ -995,7 +995,7 @@ describeEmbeddedPostgres("feedbackService.saveIssueVote", () => {
 
     await db.insert(companies).values({
       id: companyId,
-      name: "Paperclip",
+      name: "PrivateClip",
       issuePrefix: `H${companyId.replace(/-/g, "").slice(0, 6).toUpperCase()}`,
       requireBoardApprovalForNewAgents: false,
     });

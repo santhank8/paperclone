@@ -90,7 +90,7 @@ function blockOrchestratorOnlyExecution(agent: AdapterExecutionContext["agent"])
     signal: null,
     timedOut: false,
     errorMessage:
-      "Orchestrator-only agents cannot use Cursor specialist execution. This run must stay in the Paperclip orchestration path.",
+      "Orchestrator-only agents cannot use Cursor specialist execution. This run must stay in the PrivateClip orchestration path.",
     errorCode: "orchestrator_only_specialist_execution_blocked",
     resultJson: {
       blocked: true,
@@ -106,7 +106,7 @@ function renderPaperclipEnvNote(env: Record<string, string>): string {
     .sort();
   if (paperclipKeys.length === 0) return "";
   return [
-    "Paperclip runtime note:",
+    "PrivateClip runtime note:",
     `The following PAPERCLIP_* environment variables are available in this run: ${paperclipKeys.join(", ")}`,
     "Do not assume these variables are missing without checking your shell environment.",
     "",
@@ -188,7 +188,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
 
   const promptTemplate = asString(
     config.promptTemplate,
-    "You are agent {{agent.id}} ({{agent.name}}). Continue your Paperclip work.",
+    "You are agent {{agent.id}} ({{agent.name}}). Continue your PrivateClip work.",
   );
   const command = asString(config.command, "agent");
   const model = asString(config.model, DEFAULT_CURSOR_LOCAL_MODEL).trim();

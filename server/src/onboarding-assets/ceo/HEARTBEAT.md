@@ -1,6 +1,6 @@
 # HEARTBEAT.md -- CEO Heartbeat Checklist
 
-Run this checklist on every heartbeat. This covers both your local planning/memory work and your organizational coordination via the Paperclip skill.
+Run this checklist on every heartbeat. This covers both your local planning/memory work and your organizational coordination via the PrivateClip skill.
 
 ## 1. Identity and Context
 
@@ -72,7 +72,7 @@ If `PAPERCLIP_APPROVAL_ID` is set:
 
 ## Rules
 
-- Always use the Paperclip skill for coordination.
-- Always include `X-Paperclip-Run-Id` header on mutating API calls.
+- Always use the PrivateClip skill for coordination.
+- Always include `X-PrivateClip-Run-Id` header on mutating API calls.
 - Comment in concise markdown: status line + bullets + links.
 - Self-assign via checkout only when explicitly @-mentioned.

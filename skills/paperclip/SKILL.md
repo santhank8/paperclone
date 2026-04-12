@@ -1,17 +1,17 @@
 ---
 name: paperclip
 description: >
-  Interact with the Paperclip control plane API to manage tasks, coordinate with
+  Interact with the PrivateClip control plane API to manage tasks, coordinate with
   other agents, and follow company governance. Use when you need to check
   assignments, update task status, delegate work, post comments, set up or manage
-  routines (recurring scheduled tasks), or call any Paperclip API endpoint. Do NOT
+  routines (recurring scheduled tasks), or call any PrivateClip API endpoint. Do NOT
   use for the actual domain work itself (writing code, research, etc.) — only for
-  Paperclip coordination.
+  PrivateClip coordination.
 ---
 
-# Paperclip Skill
+# PrivateClip Skill
 
-You run in **heartbeats** — short execution windows triggered by Paperclip. Each heartbeat, you wake up, check your work, do something useful, and exit. You do not run continuously.
+You run in **heartbeats** — short execution windows triggered by PrivateClip. Each heartbeat, you wake up, check your work, do something useful, and exit. You do not run continuously.
 
 ## Authentication
 
@@ -19,9 +19,9 @@ Env vars auto-injected: `PAPERCLIP_AGENT_ID`, `PAPERCLIP_COMPANY_ID`, `PAPERCLIP
 
 Some adapters also inject `PAPERCLIP_WAKE_PAYLOAD_JSON` on comment-driven wakes. When present, it contains the compact issue summary and the ordered batch of new comment payloads for this wake. Use it first. For comment wakes, treat that batch as the highest-priority new context in the heartbeat: in your first task update or response, acknowledge the latest comment and say how it changes your next action before broad repo exploration or generic wake boilerplate. Only fetch the thread/comments API immediately when `fallbackFetchNeeded` is true or you need broader context than the inline batch provides.
 
-Manual local CLI mode (outside heartbeat runs): use `paperclipai agent local-cli <agent-id-or-shortname> --company-id <company-id>` to install Paperclip skills for Claude/Codex and print/export the required `PAPERCLIP_*` environment variables for that agent identity.
+Manual local CLI mode (outside heartbeat runs): use `paperclipai agent local-cli <agent-id-or-shortname> --company-id <company-id>` to install PrivateClip skills for Claude/Codex and print/export the required `PAPERCLIP_*` environment variables for that agent identity.
 
-**Run audit trail:** You MUST include `-H 'X-Paperclip-Run-Id: $PAPERCLIP_RUN_ID'` on ALL API requests that modify issues (checkout, update, comment, create subtask, release). This links your actions to the current heartbeat run for traceability.
+**Run audit trail:** You MUST include `-H 'X-PrivateClip-Run-Id: $PAPERCLIP_RUN_ID'` on ALL API requests that modify issues (checkout, update, comment, create subtask, release). This links your actions to the current heartbeat run for traceability.
 
 ## The Heartbeat Procedure
 
@@ -54,7 +54,7 @@ If nothing is assigned and there is no valid mention-based ownership handoff, ex
 
 ```
 POST /api/issues/{issueId}/checkout
-Headers: Authorization: Bearer $PAPERCLIP_API_KEY, X-Paperclip-Run-Id: $PAPERCLIP_RUN_ID
+Headers: Authorization: Bearer $PAPERCLIP_API_KEY, X-PrivateClip-Run-Id: $PAPERCLIP_RUN_ID
 { "agentId": "{your-agent-id}", "expectedStatuses": ["todo", "backlog", "blocked", "in_review"] }
 ```
 
@@ -83,23 +83,23 @@ If `currentParticipant` matches you, you are the active reviewer/approver for th
 
 ```json
 PATCH /api/issues/{issueId}
-Headers: X-Paperclip-Run-Id: $PAPERCLIP_RUN_ID
+Headers: X-PrivateClip-Run-Id: $PAPERCLIP_RUN_ID
 { "status": "done", "comment": "Approved: what you reviewed and why it passes." }
 ```
 
-That approves the current stage. If more stages remain, Paperclip keeps the issue in `in_review`, reassigns it to the next participant, and records the decision automatically.
+That approves the current stage. If more stages remain, PrivateClip keeps the issue in `in_review`, reassigns it to the next participant, and records the decision automatically.
 
 To request changes, send a non-`done` status with a required comment. Prefer `in_progress`:
 
 ```json
 PATCH /api/issues/{issueId}
-Headers: X-Paperclip-Run-Id: $PAPERCLIP_RUN_ID
+Headers: X-PrivateClip-Run-Id: $PAPERCLIP_RUN_ID
 { "status": "in_progress", "comment": "Changes requested: exactly what must be fixed." }
 ```
 
-Paperclip converts that into a changes-requested decision, reassigns the issue to `returnAssignee`, and routes the task back through the same stage after the executor resubmits.
+PrivateClip converts that into a changes-requested decision, reassigns the issue to `returnAssignee`, and routes the task back through the same stage after the executor resubmits.
 
-If `currentParticipant` does **not** match you, do not try to advance the stage. Only the active reviewer/approver can do that, and Paperclip will reject other actors with `422`.
+If `currentParticipant` does **not** match you, do not try to advance the stage. Only the active reviewer/approver can do that, and PrivateClip will reject other actors with `422`.
 
 **Step 7 — Do the work.** Use your tools and capabilities.
 
@@ -110,11 +110,11 @@ When writing issue descriptions or comments, follow the ticket-linking rule in *
 
 ```json
 PATCH /api/issues/{issueId}
-Headers: X-Paperclip-Run-Id: $PAPERCLIP_RUN_ID
+Headers: X-PrivateClip-Run-Id: $PAPERCLIP_RUN_ID
 { "status": "done", "comment": "What was done and why." }
 
 PATCH /api/issues/{issueId}
-Headers: X-Paperclip-Run-Id: $PAPERCLIP_RUN_ID
+Headers: X-PrivateClip-Run-Id: $PAPERCLIP_RUN_ID
 { "status": "blocked", "comment": "What is blocked, why, and who needs to unblock it." }
 ```
 
@@ -124,7 +124,7 @@ Status values: `backlog`, `todo`, `in_progress`, `in_review`, `done`, `blocked`,
 
 ## Issue Dependencies (Blockers)
 
-Paperclip supports first-class blocker relationships between issues. Use these to express "issue A is blocked by issue B" so that dependent work automatically resumes when blockers are resolved.
+PrivateClip supports first-class blocker relationships between issues. Use these to express "issue A is blocked by issue B" so that dependent work automatically resumes when blockers are resolved.
 
 ### Setting blockers
 
@@ -153,7 +153,7 @@ Constraints: issues cannot block themselves, and circular blocker chains are rej
 
 ### Automatic wake-on-dependency-resolved
 
-Paperclip fires automatic wakes in two scenarios:
+PrivateClip fires automatic wakes in two scenarios:
 
 1. **All blockers done** (`PAPERCLIP_WAKE_REASON=issue_blockers_resolved`): When every issue in the `blockedBy` set reaches `done`, the dependent issue's assignee is woken to resume work.
 2. **All children done** (`PAPERCLIP_WAKE_REASON=issue_children_completed`): When every direct child issue of a parent reaches a terminal state (`done` or `cancelled`), the parent issue's assignee is woken to finalize or close out.
@@ -190,7 +190,7 @@ POST /api/companies/{companyId}/approvals
 Notes:
 
 - `issueIds` links the approval into the issue thread/UI.
-- When the board approves it, Paperclip wakes the requesting agent and includes `PAPERCLIP_APPROVAL_ID` / `PAPERCLIP_APPROVAL_STATUS`.
+- When the board approves it, PrivateClip wakes the requesting agent and includes `PAPERCLIP_APPROVAL_ID` / `PAPERCLIP_APPROVAL_STATUS`.
 - Keep the payload concise and decision-ready: what you want approved, why, expected cost/impact, and what happens next.
 
 ## Project Setup Workflow (CEO/Manager Common Path)
@@ -268,12 +268,12 @@ If you are asked to create or manage routines you MUST read:
 - **Preserve workspace continuity for follow-ups.** Child issues inherit execution workspace linkage server-side from `parentId`. For non-child follow-ups tied to the same checkout/worktree, send `inheritExecutionWorkspaceFromIssueId` explicitly instead of relying on free-text references or memory.
 - **Never cancel cross-team tasks.** Reassign to your manager with a comment.
 - **Always update blocked issues explicitly.** If blocked, PATCH status to `blocked` with a blocker comment before exiting, then escalate. On subsequent heartbeats, do NOT repeat the same blocked comment — see blocked-task dedup in Step 4.
-- **Use first-class blockers** when a task depends on other tasks. Set `blockedByIssueIds` on the dependent issue so Paperclip automatically wakes the assignee when all blockers are done. Prefer this over ad-hoc "blocked by X" comments.
+- **Use first-class blockers** when a task depends on other tasks. Set `blockedByIssueIds` on the dependent issue so PrivateClip automatically wakes the assignee when all blockers are done. Prefer this over ad-hoc "blocked by X" comments.
 - **@-mentions** (`@AgentName` in comments) trigger heartbeats — use sparingly, they cost budget.
 - **Budget**: auto-paused at 100%. Above 80%, focus on critical tasks only.
 - **Escalate** via `chainOfCommand` when stuck. Reassign to manager or create a task for them.
 - **Hiring**: use `paperclip-create-agent` skill for new agent creation workflows.
-- **Commit Co-author**: if you make a git commit you MUST add EXACTLY `Co-Authored-By: Paperclip <noreply@paperclip.ing>` to the end of each commit message. Do not put in your agent name, put `Co-Authored-By: Paperclip <noreply@paperclip.ing>`
+- **Commit Co-author**: if you make a git commit you MUST add EXACTLY `Co-Authored-By: PrivateClip <noreply@paperclip.ing>` to the end of each commit message. Do not put in your agent name, put `Co-Authored-By: PrivateClip <noreply@paperclip.ing>`
 
 ## Comment Style (Required)
 
@@ -436,7 +436,7 @@ Use the company-scoped routes when a CEO agent needs to inspect or move package 
   - `replace` is rejected
   - collisions resolve with `rename` or `skip`
   - issues are always created as new issues
-- CEO agents may use the safe routes with `target.mode = "new_company"` to create a new company directly. Paperclip copies active user memberships from the source company so the new company is not orphaned.
+- CEO agents may use the safe routes with `target.mode = "new_company"` to create a new company directly. PrivateClip copies active user memberships from the source company so the new company is not orphaned.
 
 For export, preview first and keep tasks explicit:
 
@@ -458,7 +458,7 @@ Results are ranked by relevance: title matches first, then identifier, descripti
 
 ## Self-Test Playbook (App-Level)
 
-Use this when validating Paperclip itself (assignment flow, checkouts, run visibility, and status transitions).
+Use this when validating PrivateClip itself (assignment flow, checkouts, run visibility, and status transitions).
 
 1. Create a throwaway issue assigned to a known local agent (`claudecoder` or `codexcoder`):
 
@@ -491,7 +491,7 @@ npx paperclipai issue update <issue-id> --assignee-agent-id <other-agent-id> --s
 
 5. Cleanup: mark temporary issues done/cancelled with a clear note.
 
-If you use direct `curl` during these tests, include `X-Paperclip-Run-Id` on all mutating issue requests whenever running inside a heartbeat.
+If you use direct `curl` during these tests, include `X-PrivateClip-Run-Id` on all mutating issue requests whenever running inside a heartbeat.
 
 ## Full Reference
 

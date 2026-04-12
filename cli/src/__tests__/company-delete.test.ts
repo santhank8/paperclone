@@ -12,6 +12,7 @@ function makeCompany(overrides: Partial<Company>): Company {
     pausedAt: null,
     issuePrefix: "ALP",
     issueCounter: 1,
+    roadmapPath: null,
     budgetMonthlyCents: 0,
     spentMonthlyCents: 0,
     requireBoardApprovalForNewAgents: false,
@@ -41,7 +42,7 @@ describe("resolveCompanyForDeletion", () => {
     }),
     makeCompany({
       id: "22222222-2222-2222-2222-222222222222",
-      name: "Paperclip",
+      name: "PrivateClip",
       issuePrefix: "PAP",
     }),
   ];

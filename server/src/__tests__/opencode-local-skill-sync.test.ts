@@ -20,7 +20,7 @@ describe("opencode local skill sync", () => {
     cleanupDirs.clear();
   });
 
-  it("reports configured Paperclip skills and installs them into the shared Claude/OpenCode skills home", async () => {
+  it("reports configured PrivateClip skills and installs them into the shared Claude/OpenCode skills home", async () => {
     const home = await makeTempDir("paperclip-opencode-skill-sync-");
     cleanupDirs.add(home);
 
@@ -50,7 +50,7 @@ describe("opencode local skill sync", () => {
     expect((await fs.lstat(path.join(home, ".claude", "skills", "paperclip"))).isSymbolicLink()).toBe(true);
   });
 
-  it("keeps required bundled Paperclip skills installed even when the desired set is emptied", async () => {
+  it("keeps required bundled PrivateClip skills installed even when the desired set is emptied", async () => {
     const home = await makeTempDir("paperclip-opencode-skill-prune-");
     cleanupDirs.add(home);
 

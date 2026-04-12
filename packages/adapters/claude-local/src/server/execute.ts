@@ -123,7 +123,7 @@ function blockOrchestratorOnlyExecution(agent: AdapterExecutionContext["agent"])
     signal: null,
     timedOut: false,
     errorMessage:
-      "Orchestrator-only agents cannot use Claude specialist execution. This run must stay in the Paperclip orchestration path.",
+      "Orchestrator-only agents cannot use Claude specialist execution. This run must stay in the PrivateClip orchestration path.",
     errorCode: "orchestrator_only_specialist_execution_blocked",
     resultJson: {
       blocked: true,
@@ -345,7 +345,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
 
   const promptTemplate = asString(
     config.promptTemplate,
-    "You are agent {{agent.id}} ({{agent.name}}). Continue your Paperclip work.",
+    "You are agent {{agent.id}} ({{agent.name}}). Continue your PrivateClip work.",
   );
   const model = asString(config.model, "");
   const effort = asString(config.effort, "");

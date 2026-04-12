@@ -67,13 +67,17 @@ interface MarkdownEditorProps {
   bordered?: boolean;
   /** List of mentionable entities. Enables @-mention autocomplete. */
   mentions?: MentionOption[];
-  /** Called on Cmd/Ctrl+Enter */
+  /** Called on submit shortcut keypress. */
   onSubmit?: () => void;
+  /** Keyboard shortcut mode for submitting editor content. */
+  submitHotkey?: MarkdownEditorSubmitHotkey;
 }
 
 export interface MarkdownEditorRef {
   focus: () => void;
 }
+
+export type MarkdownEditorSubmitHotkey = "mod-enter" | "enter";
 
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -320,6 +324,7 @@ export const MarkdownEditor = forwardRef<MarkdownEditorRef, MarkdownEditorProps>
   bordered = true,
   mentions,
   onSubmit,
+  submitHotkey = "mod-enter",
 }: MarkdownEditorProps, forwardedRef) {
   const { slashCommands } = useEditorAutocomplete();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -704,14 +709,6 @@ export const MarkdownEditor = forwardRef<MarkdownEditorRef, MarkdownEditorProps>
         className,
       )}
       onKeyDownCapture={(e) => {
-        // Cmd/Ctrl+Enter to submit
-        if (onSubmit && e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-          e.preventDefault();
-          e.stopPropagation();
-          onSubmit();
-          return;
-        }
-
         // Mention keyboard handling
         if (mentionActive) {
           if (e.key === " " && mentionStateRef.current?.trigger === "skill") {
@@ -749,6 +746,16 @@ export const MarkdownEditor = forwardRef<MarkdownEditorRef, MarkdownEditorProps>
             }
           }
         }
+
+        if (!onSubmit || e.nativeEvent.isComposing) return;
+        const isEnter = e.key === "Enter";
+        const shouldSubmit = submitHotkey === "enter"
+          ? isEnter && !e.shiftKey && !e.altKey
+          : isEnter && (e.metaKey || e.ctrlKey);
+        if (!shouldSubmit) return;
+        e.preventDefault();
+        e.stopPropagation();
+        onSubmit();
       }}
       onDragEnter={(evt) => {
         if (!canDropFile || !hasFilePayload(evt)) return;

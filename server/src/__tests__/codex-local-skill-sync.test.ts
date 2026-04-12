@@ -20,7 +20,7 @@ describe("codex local skill sync", () => {
     cleanupDirs.clear();
   });
 
-  it("reports configured Paperclip skills for workspace injection on the next run", async () => {
+  it("reports configured PrivateClip skills for workspace injection on the next run", async () => {
     const codexHome = await makeTempDir("paperclip-codex-skill-sync-");
     cleanupDirs.add(codexHome);
 
@@ -46,7 +46,7 @@ describe("codex local skill sync", () => {
     expect(before.entries.find((entry) => entry.key === paperclipKey)?.detail).toContain("CODEX_HOME/skills/");
   });
 
-  it("does not persist Paperclip skills into CODEX_HOME during sync", async () => {
+  it("does not persist PrivateClip skills into CODEX_HOME during sync", async () => {
     const codexHome = await makeTempDir("paperclip-codex-skill-prune-");
     cleanupDirs.add(codexHome);
 
@@ -72,7 +72,7 @@ describe("codex local skill sync", () => {
     });
   });
 
-  it("keeps required bundled Paperclip skills configured even when the desired set is emptied", async () => {
+  it("keeps required bundled PrivateClip skills configured even when the desired set is emptied", async () => {
     const codexHome = await makeTempDir("paperclip-codex-skill-required-");
     cleanupDirs.add(codexHome);
 
@@ -95,7 +95,7 @@ describe("codex local skill sync", () => {
     expect(after.entries.find((entry) => entry.key === paperclipKey)?.state).toBe("configured");
   });
 
-  it("normalizes legacy flat Paperclip skill refs before reporting configured state", async () => {
+  it("normalizes legacy flat PrivateClip skill refs before reporting configured state", async () => {
     const codexHome = await makeTempDir("paperclip-codex-legacy-skill-sync-");
     cleanupDirs.add(codexHome);
 

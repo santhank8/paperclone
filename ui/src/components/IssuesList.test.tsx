@@ -6,6 +6,7 @@ import type { ReactNode } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { Issue } from "@paperclipai/shared";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { epicTone } from "../lib/roadmapEpicStyles";
 import { IssuesList } from "./IssuesList";
 
 const companyState = vi.hoisted(() => ({
@@ -68,8 +69,8 @@ vi.mock("../context/ToastContext", () => ({
 }));
 
 vi.mock("./IssueRow", () => ({
-  IssueRow: ({ issue, desktopTrailing }: { issue: Issue; desktopTrailing?: ReactNode }) => (
-    <div data-testid="issue-row">
+  IssueRow: ({ issue, desktopTrailing, className }: { issue: Issue; desktopTrailing?: ReactNode; className?: string }) => (
+    <div data-testid="issue-row" data-class-name={className}>
       <span>{issue.title}</span>
       <span data-testid={`issue-row-trailing-${issue.id}`}>{desktopTrailing}</span>
     </div>
@@ -229,9 +230,139 @@ describe("IssuesList", () => {
     );
 
     await waitForAssertion(() => {
-      expect(mockIssuesApi.list).toHaveBeenCalledWith("company-1", { q: "server", projectId: undefined });
+      expect(mockIssuesApi.list).toHaveBeenCalledWith(
+        "company-1",
+        expect.objectContaining({
+          q: "server",
+          projectId: undefined,
+        }),
+      );
       expect(container.textContent).toContain("Server result");
       expect(container.textContent).not.toContain("Local issue");
+    });
+
+    act(() => {
+      root.unmount();
+    });
+  });
+
+  it("requests open statuses for search when closed issues are hidden", async () => {
+    const issue = createIssue({ id: "issue-server", identifier: "PAP-2", title: "Server result" });
+    mockIssuesApi.list.mockResolvedValue([issue]);
+
+    const { root } = renderWithQueryClient(
+      <IssuesList
+        issues={[]}
+        agents={[]}
+        projects={[]}
+        viewStateKey="paperclip:test-issues"
+        initialSearch="server"
+        onUpdateIssue={() => undefined}
+      />,
+      container,
+    );
+
+    await waitForAssertion(() => {
+      expect(mockIssuesApi.list).toHaveBeenCalledWith(
+        "company-1",
+        expect.objectContaining({
+          q: "server",
+          status: "backlog,todo,in_progress,in_review,blocked",
+        }),
+      );
+    });
+
+    act(() => {
+      root.unmount();
+    });
+  });
+
+  it("does not force open status filtering when closed issues are shown", async () => {
+    const issue = createIssue({ id: "issue-server", identifier: "PAP-2", title: "Server result" });
+    mockIssuesApi.list.mockResolvedValue([issue]);
+
+    const { root } = renderWithQueryClient(
+      <IssuesList
+        issues={[]}
+        agents={[]}
+        projects={[]}
+        viewStateKey="paperclip:test-issues"
+        initialSearch="server"
+        showClosed
+        onUpdateIssue={() => undefined}
+      />,
+      container,
+    );
+
+    await waitForAssertion(() => {
+      const searchCall = mockIssuesApi.list.mock.calls.find((call) => call[1]?.q === "server");
+      expect(searchCall).toBeDefined();
+      expect(searchCall?.[1]).not.toHaveProperty("status");
+    });
+
+    act(() => {
+      root.unmount();
+    });
+  });
+
+  it("renders a what's blocked on me section for blocked issues waiting on my work", async () => {
+    mockAuthApi.getSession.mockResolvedValue({
+      user: { id: "user-me" },
+      session: { userId: "user-me" },
+    });
+
+    const blockedIssue = createIssue({
+      id: "issue-blocked",
+      identifier: "PAP-22",
+      title: "Finish release notes",
+      status: "blocked",
+      blockedBy: [
+        {
+          id: "issue-blocker",
+          identifier: "PAP-21",
+          title: "Approve copy",
+          status: "in_progress",
+          priority: "high",
+          assigneeAgentId: null,
+          assigneeUserId: "user-me",
+        },
+      ],
+    });
+    const unrelatedBlockedIssue = createIssue({
+      id: "issue-other",
+      identifier: "PAP-30",
+      title: "Wait on vendor reply",
+      status: "blocked",
+      blockedBy: [
+        {
+          id: "issue-external",
+          identifier: "PAP-29",
+          title: "Vendor follow-up",
+          status: "todo",
+          priority: "medium",
+          assigneeAgentId: null,
+          assigneeUserId: "user-someone-else",
+        },
+      ],
+    });
+
+    const { root } = renderWithQueryClient(
+      <IssuesList
+        issues={[blockedIssue, unrelatedBlockedIssue]}
+        agents={[]}
+        projects={[]}
+        viewStateKey="paperclip:test-issues"
+        onUpdateIssue={() => undefined}
+      />,
+      container,
+    );
+
+    await waitForAssertion(() => {
+      const section = container.querySelector('[data-testid="blocked-on-me-section"]');
+      expect(section?.textContent).toContain("What's blocked on me");
+      expect(section?.textContent).toContain("Finish release notes");
+      expect(section?.textContent).toContain("PAP-21");
+      expect(section?.textContent).not.toContain("Wait on vendor reply");
     });
 
     act(() => {
@@ -349,6 +480,62 @@ describe("IssuesList", () => {
       const rowTrailing = container.querySelector('[data-testid="issue-row-trailing-issue-epic-1"]');
       expect(rowTrailing?.textContent).toContain("Ship OAuth flow");
       expect(rowTrailing?.textContent).not.toContain("RM-2026-Q2-01");
+    });
+
+    act(() => {
+      root.unmount();
+    });
+  });
+
+  it("applies the epic tone to list rows", async () => {
+    const epicIssue = createIssue({
+      id: "issue-epic-1",
+      identifier: "PAP-11",
+      title: "First epic issue",
+      description: "Tracked under RM-2026-Q2-01",
+    });
+
+    mockRoadmapApi.get.mockResolvedValue({
+      index: { path: "/doc/ROADMAP.md", markdown: "", links: [] },
+      roadmap: {
+        label: "Roadmap",
+        path: "/doc/ROADMAP.md",
+        title: "Roadmap",
+        status: null,
+        owner: null,
+        lastUpdated: null,
+        contract: [],
+        markdown: "",
+        sections: [
+          {
+            title: "Q2",
+            items: [
+              {
+                id: "RM-2026-Q2-01",
+                title: "Ship OAuth flow",
+                fields: [],
+              },
+            ],
+          },
+        ],
+      },
+    });
+
+    const { root } = renderWithQueryClient(
+      <IssuesList
+        issues={[epicIssue]}
+        agents={[]}
+        projects={[]}
+        viewStateKey="paperclip:test-issues"
+        onUpdateIssue={() => undefined}
+      />,
+      container,
+    );
+
+    await waitForAssertion(() => {
+      const row = container.querySelector('[data-testid="issue-row"]');
+      const tone = epicTone("RM-2026-Q2-01");
+      expect(row?.getAttribute("data-class-name")).toContain(tone.row);
     });
 
     act(() => {

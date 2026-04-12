@@ -69,6 +69,9 @@ const AUTO_FIX_WINDOW_MS = 24 * 60 * 60 * 1000;
 const updateIssueRouteSchema = updateIssueSchema.extend({
   interrupt: z.boolean().optional(),
 });
+const archiveClosedIssuesRouteSchema = z.object({
+  olderThanDays: z.number().int().min(1).max(365).optional(),
+});
 
 export function issueRoutes(
   db: Db,
@@ -569,6 +572,8 @@ export function issueRoutes(
   router.get("/companies/:companyId/issues", async (req, res) => {
     const companyId = req.params.companyId as string;
     assertCompanyAccess(req, companyId);
+    const includeClosed = parseBooleanQuery(req.query.includeClosed);
+    const includeRelations = parseBooleanQuery(req.query.includeRelations);
     const assigneeAgentId = parseOptionalQueryString(req.query.assigneeAgentId);
     const participantAgentId = parseOptionalQueryString(req.query.participantAgentId);
     const projectId = parseOptionalQueryString(req.query.projectId);
@@ -624,6 +629,8 @@ export function issueRoutes(
 
     const result = await svc.list(companyId, {
       status: req.query.status as string | undefined,
+      includeClosed,
+      includeRelations,
       assigneeAgentId,
       participantAgentId,
       assigneeUserId,
@@ -652,6 +659,39 @@ export function issueRoutes(
     );
     res.json(withQaGate);
   });
+
+  router.post(
+    "/companies/:companyId/issues/archive-closed",
+    validate(archiveClosedIssuesRouteSchema),
+    async (req, res) => {
+      const companyId = req.params.companyId as string;
+      assertCompanyAccess(req, companyId);
+      if (req.actor.type !== "board") {
+        throw forbidden("Only board actors can archive closed issues");
+      }
+      const olderThanDays = req.body.olderThanDays as number | undefined;
+      const result = await svc.archiveClosed(companyId, { olderThanDays });
+      const actor = getActorInfo(req);
+      await logActivity(db, {
+        companyId,
+        actorType: actor.actorType,
+        actorId: actor.actorId,
+        agentId: actor.agentId,
+        runId: actor.runId,
+        action: "issue.closed_archived_bulk",
+        entityType: "company",
+        entityId: companyId,
+        details: {
+          archivedCount: result.archivedCount,
+          olderThanDays: result.olderThanDays,
+          archivedAt: result.archivedAt.toISOString(),
+          cutoff: result.cutoff.toISOString(),
+          issueIds: result.issueIds,
+        },
+      });
+      res.json(result);
+    },
+  );
 
   router.get("/companies/:companyId/labels", async (req, res) => {
     const companyId = req.params.companyId as string;
@@ -2294,11 +2334,19 @@ export function issueRoutes(
       entityType: "issue",
       entityId: currentIssue.id,
       details: {
+        source: currentIssue.originKind === "board_copilot_thread" ? "board_copilot" : "comment",
+        originKind: currentIssue.originKind ?? "manual",
         commentId: comment.id,
         bodySnippet: comment.body.slice(0, 120),
         identifier: currentIssue.identifier,
         issueTitle: currentIssue.title,
-        ...(reopened ? { reopened: true, reopenedFrom: reopenFromStatus, source: "comment" } : {}),
+        ...(reopened
+          ? {
+              reopened: true,
+              reopenedFrom: reopenFromStatus,
+              ...(currentIssue.originKind === "board_copilot_thread" ? {} : { source: "comment" }),
+            }
+          : {}),
         ...(interruptedRunId ? { interruptedRunId } : {}),
       },
     });
@@ -2310,17 +2358,19 @@ export function issueRoutes(
       const actorIsAgent = actor.actorType === "agent";
       const selfComment = actorIsAgent && actor.actorId === assigneeId;
       const skipWake = selfComment || isClosed;
+      const isBoardCopilotThread = currentIssue.originKind === "board_copilot_thread";
       if (assigneeId && (reopened || !skipWake)) {
         if (reopened) {
           wakeups.set(assigneeId, {
-            source: "automation",
-            triggerDetail: "system",
-            reason: "issue_reopened_via_comment",
+            source: isBoardCopilotThread ? "on_demand" : "automation",
+            triggerDetail: isBoardCopilotThread ? "manual" : "system",
+            reason: isBoardCopilotThread ? "board_copilot_message" : "issue_reopened_via_comment",
             payload: {
               issueId: currentIssue.id,
               commentId: comment.id,
               reopenedFrom: reopenFromStatus,
               mutation: "comment",
+              source: isBoardCopilotThread ? "board_copilot" : "comment",
               ...(interruptedRunId ? { interruptedRunId } : {}),
             },
             requestedByActorType: actor.actorType,
@@ -2330,21 +2380,28 @@ export function issueRoutes(
               taskId: currentIssue.id,
               commentId: comment.id,
               wakeCommentId: comment.id,
-              source: "issue.comment.reopen",
-              wakeReason: "issue_reopened_via_comment",
+              source: isBoardCopilotThread ? "board.copilot" : "issue.comment.reopen",
+              wakeReason: isBoardCopilotThread ? "board_copilot_message" : "issue_reopened_via_comment",
+              ...(isBoardCopilotThread
+                ? {
+                    taskKey: `board-copilot-thread:${currentIssue.id}`,
+                    priority: 100,
+                  }
+                : {}),
               reopenedFrom: reopenFromStatus,
               ...(interruptedRunId ? { interruptedRunId } : {}),
             },
           });
         } else {
           wakeups.set(assigneeId, {
-            source: "automation",
-            triggerDetail: "system",
-            reason: "issue_commented",
+            source: isBoardCopilotThread ? "on_demand" : "automation",
+            triggerDetail: isBoardCopilotThread ? "manual" : "system",
+            reason: isBoardCopilotThread ? "board_copilot_message" : "issue_commented",
             payload: {
               issueId: currentIssue.id,
               commentId: comment.id,
               mutation: "comment",
+              source: isBoardCopilotThread ? "board_copilot" : "comment",
               ...(interruptedRunId ? { interruptedRunId } : {}),
             },
             requestedByActorType: actor.actorType,
@@ -2354,8 +2411,14 @@ export function issueRoutes(
               taskId: currentIssue.id,
               commentId: comment.id,
               wakeCommentId: comment.id,
-              source: "issue.comment",
-              wakeReason: "issue_commented",
+              source: isBoardCopilotThread ? "board.copilot" : "issue.comment",
+              wakeReason: isBoardCopilotThread ? "board_copilot_message" : "issue_commented",
+              ...(isBoardCopilotThread
+                ? {
+                    taskKey: `board-copilot-thread:${currentIssue.id}`,
+                    priority: 100,
+                  }
+                : {}),
               ...(interruptedRunId ? { interruptedRunId } : {}),
             },
           });
@@ -2373,10 +2436,14 @@ export function issueRoutes(
         if (wakeups.has(mentionedId)) continue;
         if (actorIsAgent && actor.actorId === mentionedId) continue;
         wakeups.set(mentionedId, {
-          source: "automation",
-          triggerDetail: "system",
-          reason: "issue_comment_mentioned",
-          payload: { issueId: id, commentId: comment.id },
+          source: isBoardCopilotThread ? "on_demand" : "automation",
+          triggerDetail: isBoardCopilotThread ? "manual" : "system",
+          reason: isBoardCopilotThread ? "board_copilot_message" : "issue_comment_mentioned",
+          payload: {
+            issueId: id,
+            commentId: comment.id,
+            source: isBoardCopilotThread ? "board_copilot" : "comment",
+          },
           requestedByActorType: actor.actorType,
           requestedByActorId: actor.actorId,
           contextSnapshot: {
@@ -2384,8 +2451,14 @@ export function issueRoutes(
             taskId: id,
             commentId: comment.id,
             wakeCommentId: comment.id,
-            wakeReason: "issue_comment_mentioned",
-            source: "comment.mention",
+            wakeReason: isBoardCopilotThread ? "board_copilot_message" : "issue_comment_mentioned",
+            source: isBoardCopilotThread ? "board.copilot" : "comment.mention",
+            ...(isBoardCopilotThread
+              ? {
+                  taskKey: `board-copilot-thread:${id}`,
+                  priority: 100,
+                }
+              : {}),
           },
         });
       }

@@ -20,7 +20,7 @@ describe("gemini local skill sync", () => {
     cleanupDirs.clear();
   });
 
-  it("reports configured Paperclip skills and installs them into the Gemini skills home", async () => {
+  it("reports configured PrivateClip skills and installs them into the Gemini skills home", async () => {
     const home = await makeTempDir("paperclip-gemini-skill-sync-");
     cleanupDirs.add(home);
 
@@ -49,7 +49,7 @@ describe("gemini local skill sync", () => {
     expect((await fs.lstat(path.join(home, ".gemini", "skills", "paperclip"))).isSymbolicLink()).toBe(true);
   });
 
-  it("keeps required bundled Paperclip skills installed even when the desired set is emptied", async () => {
+  it("keeps required bundled PrivateClip skills installed even when the desired set is emptied", async () => {
     const home = await makeTempDir("paperclip-gemini-skill-prune-");
     cleanupDirs.add(home);
 

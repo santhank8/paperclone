@@ -4,11 +4,11 @@ Date: 2026-04-11
 
 ## Objective
 
-Backfill all currently active Paperclip issues so each one links to exactly one roadmap item ID.
+Backfill all currently active PrivateClip issues so each one links to exactly one roadmap item ID.
 
 ## Backfill Procedure
 
-1. Export all active issues from Paperclip.
+1. Export all active issues from PrivateClip.
 2. For each issue, assign one roadmap item ID from `2026-04-11-roadmap.md`.
 3. Update issue metadata:
    - `roadmapItemId`

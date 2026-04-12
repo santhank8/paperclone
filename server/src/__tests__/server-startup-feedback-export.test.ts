@@ -6,64 +6,25 @@ const {
   detectPortMock,
   feedbackExportServiceMock,
   feedbackServiceFactoryMock,
+  issueServiceFactoryMock,
+  archiveClosedAcrossCompaniesMock,
   fakeServer,
+  loadConfigMock,
 } = vi.hoisted(() => {
   const createAppMock = vi.fn(async () => ((_: unknown, __: unknown) => {}) as never);
   const createDbMock = vi.fn(() => ({}) as never);
   const detectPortMock = vi.fn(async (port: number) => port);
-  const feedbackExportServiceMock = {
-    flushPendingFeedbackTraces: vi.fn(async () => ({ attempted: 0, sent: 0, failed: 0 })),
-  };
-  const feedbackServiceFactoryMock = vi.fn(() => feedbackExportServiceMock);
-  const fakeServer = {
-    once: vi.fn().mockReturnThis(),
-    off: vi.fn().mockReturnThis(),
-    listen: vi.fn((_port: number, _host: string, callback?: () => void) => {
-      callback?.();
-      return fakeServer;
-    }),
-    close: vi.fn(),
-  };
-
-  return {
-    createAppMock,
-    createDbMock,
-    detectPortMock,
-    feedbackExportServiceMock,
-    feedbackServiceFactoryMock,
-    fakeServer,
-  };
-});
-
-vi.mock("node:http", () => ({
-  createServer: vi.fn(() => fakeServer),
-}));
-
-vi.mock("detect-port", () => ({
-  default: detectPortMock,
-}));
-
-vi.mock("@paperclipai/db", () => ({
-  createDb: createDbMock,
-  ensurePostgresDatabase: vi.fn(),
-  getPostgresDataDirectory: vi.fn(),
-  inspectMigrations: vi.fn(async () => ({ status: "upToDate" })),
-  applyPendingMigrations: vi.fn(),
-  reconcilePendingMigrationHistory: vi.fn(async () => ({ repairedMigrations: [] })),
-  formatDatabaseBackupResult: vi.fn(() => "ok"),
-  runDatabaseBackup: vi.fn(),
-  authUsers: {},
-  companies: {},
-  companyMemberships: {},
-  instanceUserRoles: {},
-}));
-
-vi.mock("../app.js", () => ({
-  createApp: createAppMock,
-}));
-
-vi.mock("../config.js", () => ({
-  loadConfig: vi.fn(() => ({
+  const archiveClosedAcrossCompaniesMock = vi.fn(async () => ({
+    archivedCount: 0,
+    olderThanDays: 14,
+    archivedAt: new Date("2026-04-12T00:00:00.000Z"),
+    cutoff: new Date("2026-03-29T00:00:00.000Z"),
+    byCompany: [],
+  }));
+  const issueServiceFactoryMock = vi.fn(() => ({
+    archiveClosedAcrossCompanies: archiveClosedAcrossCompaniesMock,
+  }));
+  const loadConfigMock = vi.fn(() => ({
     deploymentMode: "authenticated",
     deploymentExposure: "private",
     host: "127.0.0.1",
@@ -96,8 +57,68 @@ vi.mock("../config.js", () => ({
     feedbackExportBackendToken: "telemetry-token",
     heartbeatSchedulerEnabled: false,
     heartbeatSchedulerIntervalMs: 30000,
+    closedIssueArchiveEnabled: false,
+    closedIssueArchiveIntervalMs: 3600000,
+    closedIssueArchiveAgeDays: 14,
     companyDeletionEnabled: false,
-  })),
+    telemetryEnabled: true,
+  }));
+  const feedbackExportServiceMock = {
+    flushPendingFeedbackTraces: vi.fn(async () => ({ attempted: 0, sent: 0, failed: 0 })),
+  };
+  const feedbackServiceFactoryMock = vi.fn(() => feedbackExportServiceMock);
+  const fakeServer = {
+    once: vi.fn().mockReturnThis(),
+    off: vi.fn().mockReturnThis(),
+    listen: vi.fn((_port: number, _host: string, callback?: () => void) => {
+      callback?.();
+      return fakeServer;
+    }),
+    close: vi.fn(),
+  };
+
+  return {
+    createAppMock,
+    createDbMock,
+    detectPortMock,
+    feedbackExportServiceMock,
+    feedbackServiceFactoryMock,
+    issueServiceFactoryMock,
+    archiveClosedAcrossCompaniesMock,
+    fakeServer,
+    loadConfigMock,
+  };
+});
+
+vi.mock("node:http", () => ({
+  createServer: vi.fn(() => fakeServer),
+}));
+
+vi.mock("detect-port", () => ({
+  default: detectPortMock,
+}));
+
+vi.mock("@paperclipai/db", () => ({
+  createDb: createDbMock,
+  ensurePostgresDatabase: vi.fn(),
+  getPostgresDataDirectory: vi.fn(),
+  inspectMigrations: vi.fn(async () => ({ status: "upToDate" })),
+  applyPendingMigrations: vi.fn(),
+  reconcilePendingMigrationHistory: vi.fn(async () => ({ repairedMigrations: [] })),
+  formatDatabaseBackupResult: vi.fn(() => "ok"),
+  runDatabaseBackup: vi.fn(),
+  authUsers: {},
+  companies: {},
+  companyMemberships: {},
+  instanceUserRoles: {},
+}));
+
+vi.mock("../app.js", () => ({
+  createApp: createAppMock,
+}));
+
+vi.mock("../config.js", () => ({
+  loadConfig: loadConfigMock,
 }));
 
 vi.mock("../middleware/logger.js", () => ({
@@ -123,6 +144,8 @@ vi.mock("../services/index.js", () => ({
   routineService: vi.fn(() => ({
     tickScheduledTriggers: vi.fn(async () => ({ triggered: 0 })),
   })),
+  issueService: issueServiceFactoryMock,
+  logActivity: vi.fn(async () => undefined),
 }));
 
 vi.mock("../storage/index.js", () => ({
@@ -156,6 +179,45 @@ describe("startServer feedback export wiring", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     process.env.BETTER_AUTH_SECRET = "test-secret";
+    loadConfigMock.mockImplementation(() => ({
+      deploymentMode: "authenticated",
+      deploymentExposure: "private",
+      host: "127.0.0.1",
+      port: 3210,
+      allowedHostnames: [],
+      authBaseUrlMode: "auto",
+      authPublicBaseUrl: undefined,
+      authDisableSignUp: false,
+      databaseMode: "postgres",
+      databaseUrl: "postgres://paperclip:paperclip@127.0.0.1:5432/paperclip",
+      embeddedPostgresDataDir: "/tmp/paperclip-test-db",
+      embeddedPostgresPort: 54329,
+      databaseBackupEnabled: false,
+      databaseBackupIntervalMinutes: 60,
+      databaseBackupRetentionDays: 30,
+      databaseBackupDir: "/tmp/paperclip-test-backups",
+      serveUi: false,
+      uiDevMiddleware: false,
+      secretsProvider: "local_encrypted",
+      secretsStrictMode: false,
+      secretsMasterKeyFilePath: "/tmp/paperclip-master.key",
+      storageProvider: "local_disk",
+      storageLocalDiskBaseDir: "/tmp/paperclip-storage",
+      storageS3Bucket: "paperclip-test",
+      storageS3Region: "us-east-1",
+      storageS3Endpoint: undefined,
+      storageS3Prefix: "",
+      storageS3ForcePathStyle: false,
+      feedbackExportBackendUrl: "https://telemetry.example.com",
+      feedbackExportBackendToken: "telemetry-token",
+      heartbeatSchedulerEnabled: false,
+      heartbeatSchedulerIntervalMs: 30000,
+      closedIssueArchiveEnabled: false,
+      closedIssueArchiveIntervalMs: 3600000,
+      closedIssueArchiveAgeDays: 14,
+      companyDeletionEnabled: false,
+      telemetryEnabled: true,
+    }));
   });
 
   it("passes the feedback export service into createApp so pending traces flush in runtime", async () => {
@@ -169,5 +231,70 @@ describe("startServer feedback export wiring", () => {
       storageService: { id: "storage-service" },
       serverPort: 3210,
     });
+  });
+
+  it("does not initialize closed issue auto-archive scheduler when disabled", async () => {
+    await startServer();
+
+    expect(issueServiceFactoryMock).not.toHaveBeenCalled();
+  });
+
+  it("initializes closed issue auto-archive scheduler when enabled and runs configured threshold", async () => {
+    loadConfigMock.mockImplementation(() => ({
+      deploymentMode: "authenticated",
+      deploymentExposure: "private",
+      host: "127.0.0.1",
+      port: 3210,
+      allowedHostnames: [],
+      authBaseUrlMode: "auto",
+      authPublicBaseUrl: undefined,
+      authDisableSignUp: false,
+      databaseMode: "postgres",
+      databaseUrl: "postgres://paperclip:paperclip@127.0.0.1:5432/paperclip",
+      embeddedPostgresDataDir: "/tmp/paperclip-test-db",
+      embeddedPostgresPort: 54329,
+      databaseBackupEnabled: false,
+      databaseBackupIntervalMinutes: 60,
+      databaseBackupRetentionDays: 30,
+      databaseBackupDir: "/tmp/paperclip-test-backups",
+      serveUi: false,
+      uiDevMiddleware: false,
+      secretsProvider: "local_encrypted",
+      secretsStrictMode: false,
+      secretsMasterKeyFilePath: "/tmp/paperclip-master.key",
+      storageProvider: "local_disk",
+      storageLocalDiskBaseDir: "/tmp/paperclip-storage",
+      storageS3Bucket: "paperclip-test",
+      storageS3Region: "us-east-1",
+      storageS3Endpoint: undefined,
+      storageS3Prefix: "",
+      storageS3ForcePathStyle: false,
+      feedbackExportBackendUrl: "https://telemetry.example.com",
+      feedbackExportBackendToken: "telemetry-token",
+      heartbeatSchedulerEnabled: false,
+      heartbeatSchedulerIntervalMs: 30000,
+      closedIssueArchiveEnabled: true,
+      closedIssueArchiveIntervalMs: 60000,
+      closedIssueArchiveAgeDays: 21,
+      companyDeletionEnabled: false,
+      telemetryEnabled: true,
+    }));
+
+    const setIntervalSpy = vi.spyOn(globalThis, "setInterval").mockReturnValue({} as ReturnType<typeof setInterval>);
+
+    await startServer();
+
+    expect(issueServiceFactoryMock).toHaveBeenCalledTimes(1);
+    const archiveScheduler = setIntervalSpy.mock.calls.find((call) => call[1] === 60000);
+    expect(archiveScheduler).toBeDefined();
+
+    const tick = archiveScheduler?.[0] as (() => void) | undefined;
+    tick?.();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(archiveClosedAcrossCompaniesMock).toHaveBeenCalledWith({ olderThanDays: 21 });
+
+    setIntervalSpy.mockRestore();
   });
 });

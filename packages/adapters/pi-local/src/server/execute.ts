@@ -120,7 +120,7 @@ function blockOrchestratorOnlyExecution(agent: AdapterExecutionContext["agent"])
     signal: null,
     timedOut: false,
     errorMessage:
-      "Orchestrator-only agents cannot use Pi specialist execution. This run must stay in the Paperclip orchestration path.",
+      "Orchestrator-only agents cannot use Pi specialist execution. This run must stay in the PrivateClip orchestration path.",
     errorCode: "orchestrator_only_specialist_execution_blocked",
     resultJson: {
       blocked: true,
@@ -137,7 +137,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
 
   const promptTemplate = asString(
     config.promptTemplate,
-    "You are agent {{agent.id}} ({{agent.name}}). Continue your Paperclip work.",
+    "You are agent {{agent.id}} ({{agent.name}}). Continue your PrivateClip work.",
   );
   const command = asString(config.command, "pi");
   const model = asString(config.model, "").trim();
@@ -300,7 +300,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
         `${instructionsContents}\n\n` +
         `The above agent instructions were loaded from ${resolvedInstructionsFilePath}. ` +
         `Resolve any relative file references from ${instructionsFileDir}.\n\n` +
-        `You are agent {{agent.id}} ({{agent.name}}). Continue your Paperclip work.`;
+        `You are agent {{agent.id}} ({{agent.name}}). Continue your PrivateClip work.`;
     } catch (err) {
       instructionsReadFailed = true;
       const reason = err instanceof Error ? err.message : String(err);
@@ -379,7 +379,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     args.push("--tools", "read,bash,edit,write,grep,find,ls");
     args.push("--session", sessionFile);
 
-    // Add Paperclip skills directory so Pi can load the paperclip skill
+    // Add PrivateClip skills directory so Pi can load the paperclip skill
     args.push("--skill", PI_AGENT_SKILLS_DIR);
 
     if (extraArgs.length > 0) args.push(...extraArgs);

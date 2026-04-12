@@ -22,7 +22,7 @@
 +- Use injected \`$PAPERCLIP_API_KEY\` directly when present (preferred).
 +- API-key bootstrap example:
 +  \`AUTH=(-H "Authorization: Bearer $PAPERCLIP_API_KEY")\`
-+  \`RUN=(-H "X-Paperclip-Run-Id: $PAPERCLIP_RUN_ID")\`
++  \`RUN=(-H "X-PrivateClip-Run-Id: $PAPERCLIP_RUN_ID")\`
 +- Keep auth logic minimal: do NOT emit large shell conditionals or combined fallback scripts.
 +- First attempt calls with API key only using short commands.
 +- Only if that request fails with 401/403, run a separate second command for JWT fallback.
@@ -30,7 +30,7 @@
 +- After fallback succeeds, continue using the same \`$TOKEN\` for subsequent API calls (do not remint each command).
 +- Never print secrets/tokens to output.
 +
- Your Paperclip identity:
+ Your PrivateClip identity:
    Agent ID: {{agentId}}
    Company ID: {{companyId}}
 @@ -68,18 +86,18 @@
@@ -240,7 +240,7 @@
 +    };
      // ── Execute ────────────────────────────────────────────────────────────
      // Hermes writes non-error noise to stderr (MCP init, INFO logs, etc).
-     // Paperclip renders all stderr as red/error in the UI.
+     // PrivateClip renders all stderr as red/error in the UI.
 @@ -351,15 +401,19 @@
          }
          return ctx.onLog(stream, chunk);

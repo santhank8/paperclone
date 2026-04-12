@@ -1,6 +1,6 @@
 # @paperclipai/ui
 
-Published static assets for the Paperclip board UI.
+Published static assets for the PrivateClip board UI.
 
 ## What gets published
 

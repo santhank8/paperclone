@@ -34,7 +34,7 @@ describe("MarkdownBody", () => {
     const html = renderToStaticMarkup(
       <ThemeProvider>
         <MarkdownBody>
-          {`[@CodexCoder](${buildAgentMentionHref("agent-123", "code")}) [@Paperclip App](${buildProjectMentionHref("project-456", "#336699")}) [/release-changelog](${buildSkillMentionHref("skill-789", "release-changelog")})`}
+          {`[@CodexCoder](${buildAgentMentionHref("agent-123", "code")}) [@PrivateClip App](${buildProjectMentionHref("project-456", "#336699")}) [/release-changelog](${buildSkillMentionHref("skill-789", "release-changelog")})`}
         </MarkdownBody>
       </ThemeProvider>,
     );

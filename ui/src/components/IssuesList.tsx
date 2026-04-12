@@ -12,6 +12,12 @@ import { queryKeys } from "../lib/queryKeys";
 import { formatAssigneeUserLabel } from "../lib/assignees";
 import { groupBy } from "../lib/groupBy";
 import { formatIssueStatusLabel } from "../lib/issue-status-labels";
+import {
+  epicButtonClassName,
+  epicTone,
+  extractRoadmapEpicIdsFromIssue,
+  pickRoadmapOverviewField,
+} from "../lib/roadmapEpicStyles";
 import { formatDate, cn } from "../lib/utils";
 import { timeAgo } from "../lib/timeAgo";
 import { StatusIcon } from "./StatusIcon";
@@ -28,19 +34,15 @@ import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/component
 import { CircleDot, Plus, Filter, ArrowUpDown, Layers, Check, X, ChevronRight, List, Columns3, User, Search, Pause, Play } from "lucide-react";
 import { KanbanBoard } from "./KanbanBoard";
 import { buildIssueTree, countDescendants } from "../lib/issue-tree";
-import type { Issue } from "@paperclipai/shared";
+import type { Issue, IssueRelationIssueSummary } from "@paperclipai/shared";
 
 /* ── Helpers ── */
 
 const statusOrder = ["in_progress", "todo", "backlog", "in_review", "blocked", "done", "cancelled"];
 const priorityOrder = ["critical", "high", "medium", "low"];
-const ROADMAP_EPIC_ID_REGEX = /\bRM-(?:\d{4}-Q[1-4]-\d{2}|UNPLANNED)\b/gi;
+const OPEN_ISSUE_STATUSES = "backlog,todo,in_progress,in_review,blocked";
 
 const statusLabel = formatIssueStatusLabel;
-
-interface EpicTone {
-  badge: string;
-}
 
 interface EpicPresentation {
   id: string;
@@ -51,69 +53,16 @@ interface EpicPresentation {
   overview: { key: string; value: string } | null;
 }
 
-const EPIC_TONES: EpicTone[] = [
-  {
-    badge: "border-cyan-300 bg-cyan-50 text-cyan-900 dark:border-cyan-800 dark:bg-cyan-950/40 dark:text-cyan-100",
-  },
-  {
-    badge: "border-emerald-300 bg-emerald-50 text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-100",
-  },
-  {
-    badge: "border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100",
-  },
-  {
-    badge: "border-violet-300 bg-violet-50 text-violet-900 dark:border-violet-800 dark:bg-violet-950/40 dark:text-violet-100",
-  },
-  {
-    badge: "border-rose-300 bg-rose-50 text-rose-900 dark:border-rose-800 dark:bg-rose-950/40 dark:text-rose-100",
-  },
-  {
-    badge: "border-sky-300 bg-sky-50 text-sky-900 dark:border-sky-800 dark:bg-sky-950/40 dark:text-sky-100",
-  },
-];
-
-function hashValue(value: string): number {
-  let hash = 0;
-  for (let index = 0; index < value.length; index += 1) {
-    hash = (hash * 31 + value.charCodeAt(index)) >>> 0;
-  }
-  return hash;
-}
-
-function epicTone(epicId: string): EpicTone {
-  return EPIC_TONES[hashValue(epicId) % EPIC_TONES.length] ?? EPIC_TONES[0];
-}
-
-function epicButtonClassName(tone: EpicTone, selected: boolean): string {
-  return cn(
-    "border transition-all",
-    tone.badge,
-    selected
-      ? "ring-1 ring-foreground/25 shadow-xs saturate-125"
-      : "opacity-80 hover:opacity-100 hover:-translate-y-px",
-  );
-}
-
-function extractRoadmapEpicIdsFromIssue(issue: Pick<Issue, "title" | "description">): string[] {
-  ROADMAP_EPIC_ID_REGEX.lastIndex = 0;
-  const rawMatches = (`${issue.title}\n${issue.description ?? ""}`).match(ROADMAP_EPIC_ID_REGEX);
-  if (!rawMatches) return [];
-  const ids = new Set(rawMatches.map((value) => value.toUpperCase()));
-  return [...ids];
-}
-
 function isDoneEquivalent(status: Issue["status"]): boolean {
   return status === "done" || status === "cancelled";
 }
 
-function pickRoadmapOverviewField(fields: Array<{ key: string; value: string }>): { key: string; value: string } | null {
-  return fields.find((field) => {
-    const normalizedKey = field.key.trim().toLowerCase();
-    return normalizedKey === "purpose" || normalizedKey === "outcome" || normalizedKey === "scope";
-  }) ?? fields.find((field) => {
-    const normalizedKey = field.key.trim().toLowerCase();
-    return normalizedKey !== "linked tickets" && normalizedKey !== "status";
-  }) ?? null;
+function blockedOnMeSummary(blockers: IssueRelationIssueSummary[]): string {
+  if (blockers.length === 0) return "";
+  if (blockers.length === 1) {
+    return `Waiting on ${blockers[0].identifier ?? blockers[0].title}`;
+  }
+  return `Waiting on ${blockers.length} of your issues`;
 }
 
 /* ── View state ── */
@@ -268,6 +217,10 @@ interface IssuesListProps {
   searchFilters?: {
     participantAgentId?: string;
   };
+  showClosed?: boolean;
+  onShowClosedChange?: (next: boolean) => void;
+  onArchiveClosed?: () => void;
+  archiveClosedPending?: boolean;
   onSearchChange?: (search: string) => void;
   onUpdateIssue: (id: string, data: Record<string, unknown>) => void;
 }
@@ -285,6 +238,10 @@ export function IssuesList({
   initialAssignees,
   initialSearch,
   searchFilters,
+  showClosed = false,
+  onShowClosedChange,
+  onArchiveClosed,
+  archiveClosedPending = false,
   onSearchChange,
   onUpdateIssue,
 }: IssuesListProps) {
@@ -352,8 +309,15 @@ export function IssuesList({
     queryKey: [
       ...queryKeys.issues.search(selectedCompanyId!, normalizedIssueSearch, projectId),
       searchFilters ?? {},
+      showClosed ? "show-closed" : "hide-closed",
     ],
-    queryFn: () => issuesApi.list(selectedCompanyId!, { q: normalizedIssueSearch, projectId, ...searchFilters }),
+    queryFn: () =>
+      issuesApi.list(selectedCompanyId!, {
+        q: normalizedIssueSearch,
+        projectId,
+        ...searchFilters,
+        ...(showClosed ? {} : { status: OPEN_ISSUE_STATUSES }),
+      }),
     enabled: !!selectedCompanyId && normalizedIssueSearch.length > 0,
     placeholderData: (previousData) => previousData,
   });
@@ -499,10 +463,48 @@ export function IssuesList({
     },
   });
 
+  const epicStylesByIssueId = useMemo(() => {
+    const roadmapOrderFor = (epicId: string) => roadmapEpicMeta.get(epicId.toUpperCase())?.order ?? Number.MAX_SAFE_INTEGER;
+    const map = new Map<string, { rowClassName: string; cardClassName: string }>();
+
+    for (const issue of sourceIssues) {
+      const epicIds = epicIdsByIssueId.get(issue.id) ?? [];
+      if (epicIds.length === 0) continue;
+
+      const selectedEpicId = selectedEpic && epicIds.includes(selectedEpic.id.toUpperCase())
+        ? selectedEpic.id.toUpperCase()
+        : null;
+      const primaryEpicId = selectedEpicId
+        ?? [...epicIds].sort((left, right) => roadmapOrderFor(left) - roadmapOrderFor(right) || left.localeCompare(right))[0];
+
+      if (!primaryEpicId) continue;
+      const tone = epicTone(primaryEpicId);
+      map.set(issue.id, {
+        rowClassName: cn("border-l-2 pl-[calc(theme(spacing.2)-2px)] sm:pl-[calc(theme(spacing.1)-2px)]", tone.row),
+        cardClassName: tone.card,
+      });
+    }
+
+    return map;
+  }, [sourceIssues, epicIdsByIssueId, roadmapEpicMeta, selectedEpic]);
+
   const filtered = useMemo(() => {
     const filteredByControls = applyFilters(sourceIssues, viewState, currentUserId, epicIdsByIssueId);
     return sortIssues(filteredByControls, viewState);
   }, [sourceIssues, viewState, currentUserId, epicIdsByIssueId]);
+
+  const blockedOnMeIssues = useMemo(() => {
+    if (!currentUserId) return [];
+    return issues
+      .filter((issue) => issue.status === "blocked")
+      .map((issue) => ({
+        issue,
+        blockers: (issue.blockedBy ?? []).filter(
+          (blocker) => blocker.assigneeUserId === currentUserId && !isDoneEquivalent(blocker.status),
+        ),
+      }))
+      .filter((entry) => entry.blockers.length > 0);
+  }, [issues, currentUserId]);
 
   const { data: labels } = useQuery({
     queryKey: queryKeys.issues.labels(selectedCompanyId!),
@@ -595,6 +597,27 @@ export function IssuesList({
         </div>
 
         <div className="flex items-center gap-0.5 sm:gap-1 shrink-0">
+          <Button
+            variant={showClosed ? "secondary" : "ghost"}
+            size="sm"
+            className="text-xs"
+            onClick={() => onShowClosedChange?.(!showClosed)}
+          >
+            <span className="hidden sm:inline">{showClosed ? "Hide Closed" : "Show Closed"}</span>
+            <span className="sm:hidden">{showClosed ? "Hide" : "Closed"}</span>
+          </Button>
+          {onArchiveClosed && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-xs"
+              onClick={onArchiveClosed}
+              disabled={archiveClosedPending}
+            >
+              {archiveClosedPending ? "Archiving..." : "Archive Closed"}
+            </Button>
+          )}
+
           {/* View mode toggle */}
           <div className="flex items-center border border-border rounded-md overflow-hidden mr-1">
             <button
@@ -661,7 +684,16 @@ export function IssuesList({
                               ? "bg-primary text-primary-foreground border-primary"
                               : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/30"
                           }`}
-                          onClick={() => updateView({ statuses: isActive ? [] : [...preset.statuses] })}
+                          onClick={() => {
+                            const nextStatuses = isActive ? [] : [...preset.statuses];
+                            if (
+                              !showClosed &&
+                              nextStatuses.some((status) => status === "done" || status === "cancelled")
+                            ) {
+                              onShowClosedChange?.(true);
+                            }
+                            updateView({ statuses: nextStatuses });
+                          }}
                         >
                           {preset.label}
                         </button>
@@ -682,7 +714,17 @@ export function IssuesList({
                         <label key={s} className="flex items-center gap-2 px-2 py-1 rounded-sm hover:bg-accent/50 cursor-pointer">
                           <Checkbox
                             checked={viewState.statuses.includes(s)}
-                            onCheckedChange={() => updateView({ statuses: toggleInArray(viewState.statuses, s) })}
+                            onCheckedChange={() => {
+                              const nextStatuses = toggleInArray(viewState.statuses, s);
+                              if (
+                                !showClosed &&
+                                !viewState.statuses.includes(s) &&
+                                (s === "done" || s === "cancelled")
+                              ) {
+                                onShowClosedChange?.(true);
+                              }
+                              updateView({ statuses: nextStatuses });
+                            }}
                           />
                           <StatusIcon status={s} />
                           <span className="text-sm">{statusLabel(s)}</span>
@@ -990,6 +1032,56 @@ export function IssuesList({
         </div>
       )}
 
+      {blockedOnMeIssues.length > 0 && (
+        <section
+          data-testid="blocked-on-me-section"
+          className="overflow-hidden rounded-xl border border-border bg-card/70 shadow-xs"
+        >
+          <div className="flex items-start justify-between gap-3 border-b border-border bg-muted/30 px-4 py-3">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <h3 className="text-sm font-semibold">What&apos;s blocked on me</h3>
+                <span className="inline-flex items-center rounded-full border border-border bg-background px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                  {blockedOnMeIssues.length} issue{blockedOnMeIssues.length === 1 ? "" : "s"}
+                </span>
+              </div>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Downstream work currently waiting on issues assigned to you.
+              </p>
+            </div>
+          </div>
+          <div className="bg-background/80">
+            {blockedOnMeIssues.map(({ issue, blockers }) => (
+              <IssueRow
+                key={`blocked-on-me:${issue.id}`}
+                issue={issue}
+                issueLinkState={issueLinkState}
+                mobileMeta={blockedOnMeSummary(blockers)}
+                desktopTrailing={(
+                  <span className="hidden items-center gap-1.5 overflow-hidden xl:flex xl:max-w-[360px]">
+                    <span className="shrink-0 text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
+                      Waiting on
+                    </span>
+                    {blockers.slice(0, 2).map((blocker) => (
+                      <span
+                        key={blocker.id}
+                        className="inline-flex max-w-[160px] items-center rounded-full border border-border bg-muted/55 px-2 py-0.5 text-[10px] font-medium text-foreground"
+                        title={blocker.title}
+                      >
+                        <span className="truncate">{blocker.identifier ?? blocker.title}</span>
+                      </span>
+                    ))}
+                    {blockers.length > 2 && (
+                      <span className="text-[10px] text-muted-foreground">+{blockers.length - 2}</span>
+                    )}
+                  </span>
+                )}
+              />
+            ))}
+          </div>
+        </section>
+      )}
+
       {isLoading && <PageSkeleton variant="issues-list" />}
       {error && <p className="text-sm text-destructive">{error.message}</p>}
 
@@ -1007,6 +1099,7 @@ export function IssuesList({
           issues={filtered}
           agents={agents}
           liveIssueIds={liveIssueIds}
+          epicStylesByIssueId={epicStylesByIssueId}
           onUpdateIssue={onUpdateIssue}
         />
       ) : (
@@ -1065,6 +1158,7 @@ export function IssuesList({
                       <IssueRow
                         issue={issue}
                         issueLinkState={issueLinkState}
+                        className={epicStylesByIssueId.get(issue.id)?.rowClassName}
                         titleSuffix={hasChildren && !isExpanded ? (
                           <span className="ml-1.5 text-xs text-muted-foreground">
                             ({totalDescendants} sub-task{totalDescendants !== 1 ? "s" : ""})

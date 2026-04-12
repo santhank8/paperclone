@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useCallback } from "react";
+import { useEffect, useMemo, useCallback, useRef, useState } from "react";
 import { useLocation, useSearchParams } from "@/lib/router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { issuesApi } from "../api/issues";
@@ -15,6 +15,9 @@ import { EmptyState } from "../components/EmptyState";
 import { IssuesList } from "../components/IssuesList";
 import { CircleDot } from "lucide-react";
 
+const ARCHIVE_CLOSED_CONFIRM_WINDOW_MS = 5000;
+const OPEN_ISSUE_STATUSES = "backlog,todo,in_progress,in_review,blocked";
+
 export function Issues() {
   const { selectedCompanyId } = useCompany();
   const { setBreadcrumbs } = useBreadcrumbs();
@@ -22,6 +25,8 @@ export function Issues() {
   const [searchParams] = useSearchParams();
   const queryClient = useQueryClient();
   const { pushToast } = useToast();
+  const [showClosed, setShowClosed] = useState(false);
+  const archiveClosedConfirmUntilRef = useRef(0);
 
   const initialSearch = searchParams.get("q") ?? "";
   const participantAgentId = searchParams.get("participantAgentId") ?? undefined;
@@ -83,8 +88,19 @@ export function Issues() {
   }, [setBreadcrumbs]);
 
   const { data: issues, isLoading, error } = useQuery({
-    queryKey: [...queryKeys.issues.list(selectedCompanyId!), "participant-agent", participantAgentId ?? "__all__"],
-    queryFn: () => issuesApi.list(selectedCompanyId!, { participantAgentId }),
+    queryKey: [
+      ...queryKeys.issues.list(selectedCompanyId!),
+      "participant-agent",
+      participantAgentId ?? "__all__",
+      "show-closed",
+      showClosed ? "true" : "false",
+    ],
+    queryFn: () =>
+      issuesApi.list(selectedCompanyId!, {
+        participantAgentId,
+        includeRelations: true,
+        ...(showClosed ? {} : { status: OPEN_ISSUE_STATUSES }),
+      }),
     enabled: !!selectedCompanyId,
   });
 
@@ -103,6 +119,41 @@ export function Issues() {
       });
     },
   });
+
+  const archiveClosedIssues = useMutation({
+    mutationFn: () => issuesApi.archiveClosed(selectedCompanyId!, { olderThanDays: 14 }),
+    onSuccess: (result) => {
+      archiveClosedConfirmUntilRef.current = 0;
+      queryClient.invalidateQueries({ queryKey: queryKeys.issues.list(selectedCompanyId!) });
+      pushToast({
+        title: result.archivedCount > 0 ? `Archived ${result.archivedCount} closed issues` : "No closed issues to archive",
+        tone: "success",
+      });
+    },
+    onError: (err) => {
+      archiveClosedConfirmUntilRef.current = 0;
+      pushToast({
+        title: "Failed to archive closed issues",
+        body: err instanceof Error ? err.message : "Unable to archive closed issues.",
+        tone: "error",
+      });
+    },
+  });
+
+  const handleArchiveClosed = useCallback(() => {
+    const now = Date.now();
+    if (archiveClosedConfirmUntilRef.current < now) {
+      archiveClosedConfirmUntilRef.current = now + ARCHIVE_CLOSED_CONFIRM_WINDOW_MS;
+      pushToast({
+        title: "Press Archive Closed again to confirm",
+        body: "Archives done/cancelled issues older than 14 days.",
+        tone: "info",
+      });
+      return;
+    }
+    archiveClosedConfirmUntilRef.current = 0;
+    archiveClosedIssues.mutate();
+  }, [archiveClosedIssues, pushToast]);
 
   if (!selectedCompanyId) {
     return <EmptyState icon={CircleDot} message="Select a company to view issues." />;
@@ -123,6 +174,10 @@ export function Issues() {
       onSearchChange={handleSearchChange}
       onUpdateIssue={(id, data) => updateIssue.mutate({ id, data })}
       searchFilters={participantAgentId ? { participantAgentId } : undefined}
+      showClosed={showClosed}
+      onShowClosedChange={setShowClosed}
+      onArchiveClosed={handleArchiveClosed}
+      archiveClosedPending={archiveClosedIssues.isPending}
     />
   );
 }

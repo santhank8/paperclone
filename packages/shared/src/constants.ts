@@ -140,7 +140,7 @@ export const INBOX_MINE_ISSUE_STATUS_FILTER = INBOX_MINE_ISSUE_STATUSES.join(","
 export const ISSUE_PRIORITIES = ["critical", "high", "medium", "low"] as const;
 export type IssuePriority = (typeof ISSUE_PRIORITIES)[number];
 
-export const ISSUE_ORIGIN_KINDS = ["manual", "routine_execution"] as const;
+export const ISSUE_ORIGIN_KINDS = ["manual", "routine_execution", "board_copilot_thread"] as const;
 export type IssueOriginKind = (typeof ISSUE_ORIGIN_KINDS)[number];
 
 export const ISSUE_RELATION_TYPES = ["blocks", "recovered_by"] as const;
@@ -524,7 +524,7 @@ export type PluginCapability = (typeof PLUGIN_CAPABILITIES)[number];
 
 /**
  * UI extension slot types. Each slot type corresponds to a mount point in the
- * Paperclip UI where plugin components can be rendered.
+ * PrivateClip UI where plugin components can be rendered.
  *
  * @see PLUGIN_SPEC.md §19 — UI Extension Model
  */

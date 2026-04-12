@@ -74,6 +74,9 @@ export interface Config {
   feedbackExportBackendToken: string | undefined;
   heartbeatSchedulerEnabled: boolean;
   heartbeatSchedulerIntervalMs: number;
+  closedIssueArchiveEnabled: boolean;
+  closedIssueArchiveIntervalMs: number;
+  closedIssueArchiveAgeDays: number;
   companyDeletionEnabled: boolean;
   telemetryEnabled: boolean;
 }
@@ -202,6 +205,15 @@ export function loadConfig(): Config {
     companyDeletionEnvRaw !== undefined
       ? companyDeletionEnvRaw === "true"
       : deploymentMode === "local_trusted";
+  const closedIssueArchiveEnabled = process.env.PAPERCLIP_CLOSED_ISSUE_ARCHIVE_ENABLED === "true";
+  const closedIssueArchiveIntervalMs = Math.max(
+    60_000,
+    Number(process.env.PAPERCLIP_CLOSED_ISSUE_ARCHIVE_INTERVAL_MS) || 3_600_000,
+  );
+  const closedIssueArchiveAgeDays = Math.min(
+    365,
+    Math.max(1, Math.floor(Number(process.env.PAPERCLIP_CLOSED_ISSUE_ARCHIVE_AGE_DAYS) || 14)),
+  );
   const databaseBackupEnabled =
     process.env.PAPERCLIP_DB_BACKUP_ENABLED !== undefined
       ? process.env.PAPERCLIP_DB_BACKUP_ENABLED === "true"
@@ -267,6 +279,9 @@ export function loadConfig(): Config {
     feedbackExportBackendToken,
     heartbeatSchedulerEnabled: process.env.HEARTBEAT_SCHEDULER_ENABLED !== "false",
     heartbeatSchedulerIntervalMs: Math.max(10000, Number(process.env.HEARTBEAT_SCHEDULER_INTERVAL_MS) || 30000),
+    closedIssueArchiveEnabled,
+    closedIssueArchiveIntervalMs,
+    closedIssueArchiveAgeDays,
     companyDeletionEnabled,
     telemetryEnabled: fileConfig?.telemetry?.enabled ?? true,
   };

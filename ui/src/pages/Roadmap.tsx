@@ -336,7 +336,7 @@ export function Roadmap() {
 
   const issuesQuery = useQuery({
     queryKey: queryKeys.issues.list(selectedCompanyId ?? ""),
-    queryFn: () => issuesApi.list(selectedCompanyId!),
+    queryFn: () => issuesApi.list(selectedCompanyId!, { includeClosed: true }),
     enabled: !!selectedCompanyId,
   });
 

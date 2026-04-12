@@ -303,7 +303,7 @@ export async function runDatabaseBackup(opts: RunDatabaseBackupOptions): Promise
       emit(STATEMENT_BREAKPOINT);
     };
 
-    emit("-- Paperclip database backup");
+    emit("-- PrivateClip database backup");
     emit(`-- Created: ${new Date().toISOString()}`);
     emit("");
     emitStatement("BEGIN;");

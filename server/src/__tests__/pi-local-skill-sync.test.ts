@@ -20,7 +20,7 @@ describe("pi local skill sync", () => {
     cleanupDirs.clear();
   });
 
-  it("reports configured Paperclip skills and installs them into the Pi skills home", async () => {
+  it("reports configured PrivateClip skills and installs them into the Pi skills home", async () => {
     const home = await makeTempDir("paperclip-pi-skill-sync-");
     cleanupDirs.add(home);
 
@@ -49,7 +49,7 @@ describe("pi local skill sync", () => {
     expect((await fs.lstat(path.join(home, ".pi", "agent", "skills", "paperclip"))).isSymbolicLink()).toBe(true);
   });
 
-  it("keeps required bundled Paperclip skills installed even when the desired set is emptied", async () => {
+  it("keeps required bundled PrivateClip skills installed even when the desired set is emptied", async () => {
     const home = await makeTempDir("paperclip-pi-skill-prune-");
     cleanupDirs.add(home);
 

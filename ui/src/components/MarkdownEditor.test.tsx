@@ -163,6 +163,71 @@ describe("MarkdownEditor", () => {
     });
   });
 
+  it("keeps Cmd/Ctrl+Enter as the default submit shortcut", async () => {
+    const onSubmit = vi.fn();
+    const root = createRoot(container);
+
+    await act(async () => {
+      root.render(
+        <MarkdownEditor
+          value=""
+          onChange={() => {}}
+          onSubmit={onSubmit}
+        />,
+      );
+    });
+
+    const shell = container.querySelector(".paperclip-mdxeditor-scope");
+    expect(shell).not.toBeNull();
+
+    act(() => {
+      shell?.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    });
+    expect(onSubmit).toHaveBeenCalledTimes(0);
+
+    act(() => {
+      shell?.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", ctrlKey: true, bubbles: true }));
+    });
+    expect(onSubmit).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  it("submits on Enter and ignores Shift+Enter when configured", async () => {
+    const onSubmit = vi.fn();
+    const root = createRoot(container);
+
+    await act(async () => {
+      root.render(
+        <MarkdownEditor
+          value=""
+          onChange={() => {}}
+          onSubmit={onSubmit}
+          submitHotkey="enter"
+        />,
+      );
+    });
+
+    const shell = container.querySelector(".paperclip-mdxeditor-scope");
+    expect(shell).not.toBeNull();
+
+    act(() => {
+      shell?.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", shiftKey: true, bubbles: true }));
+    });
+    expect(onSubmit).toHaveBeenCalledTimes(0);
+
+    act(() => {
+      shell?.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    });
+    expect(onSubmit).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
   it("anchors the mention menu inside the visual viewport when mobile offsets are present", () => {
     expect(
       computeMentionMenuPosition(
@@ -201,12 +266,12 @@ describe("MarkdownEditor", () => {
   });
 
   it("keeps mention queries active across spaces", () => {
-    expect(findMentionMatch("Ping @Paperclip App", "Ping @Paperclip App".length)).toEqual({
+    expect(findMentionMatch("Ping @PrivateClip App", "Ping @PrivateClip App".length)).toEqual({
       trigger: "mention",
       marker: "@",
-      query: "Paperclip App",
+      query: "PrivateClip App",
       atPos: 5,
-      endPos: "Ping @Paperclip App".length,
+      endPos: "Ping @PrivateClip App".length,
     });
   });
 

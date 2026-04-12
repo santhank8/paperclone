@@ -42,6 +42,7 @@ export function companyService(db: Db) {
     pausedAt: companies.pausedAt,
     issuePrefix: companies.issuePrefix,
     issueCounter: companies.issueCounter,
+    roadmapPath: companies.roadmapPath,
     budgetMonthlyCents: companies.budgetMonthlyCents,
     spentMonthlyCents: companies.spentMonthlyCents,
     requireBoardApprovalForNewAgents: companies.requireBoardApprovalForNewAgents,

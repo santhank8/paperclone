@@ -28,7 +28,7 @@ const DEFAULT_SESSION_COMPACTION_POLICY: SessionCompactionPolicy = {
 };
 
 // Adapters with native context management still participate in session resume,
-// but Paperclip should not rotate them using threshold-based compaction.
+// but PrivateClip should not rotate them using threshold-based compaction.
 const ADAPTER_MANAGED_SESSION_POLICY: SessionCompactionPolicy = {
   enabled: true,
   maxSessionRuns: 0,
@@ -37,7 +37,7 @@ const ADAPTER_MANAGED_SESSION_POLICY: SessionCompactionPolicy = {
 };
 
 // Hermes sessions can expand quickly when provider-side compression fails.
-// Keep adapter-managed resumes, but force periodic Paperclip-side session rotation.
+// Keep adapter-managed resumes, but force periodic PrivateClip-side session rotation.
 const HERMES_SESSION_COMPACTION_POLICY: SessionCompactionPolicy = {
   enabled: true,
   maxSessionRuns: 6,

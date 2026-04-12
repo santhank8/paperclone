@@ -91,13 +91,13 @@ function buildManagedSkillOrigin(entry: { required?: boolean }): Pick<
   if (entry.required) {
     return {
       origin: "paperclip_required",
-      originLabel: "Required by Paperclip",
+      originLabel: "Required by PrivateClip",
       readOnly: false,
     };
   }
   return {
     origin: "company_managed",
-    originLabel: "Managed by Paperclip",
+    originLabel: "Managed by PrivateClip",
     readOnly: false,
   };
 }
@@ -303,9 +303,9 @@ export function renderPaperclipWakePrompt(
 
   const lines = resumedSession
       ? [
-        "## Paperclip Resume Delta",
+        "## PrivateClip Resume Delta",
         "",
-        "You are resuming an existing Paperclip session.",
+        "You are resuming an existing PrivateClip session.",
         "This heartbeat is scoped to the issue below. Do not switch to another issue until you have handled this wake.",
         "Focus on the new wake delta below and continue the current task without restating the full heartbeat boilerplate.",
         "Fetch the API thread only when `fallbackFetchNeeded` is true or you need broader history than this batch.",
@@ -317,7 +317,7 @@ export function renderPaperclipWakePrompt(
         `- fallback fetch needed: ${normalized.fallbackFetchNeeded ? "yes" : "no"}`,
       ]
     : [
-        "## Paperclip Wake Payload",
+        "## PrivateClip Wake Payload",
         "",
         "Treat this wake payload as the highest-priority change for the current heartbeat.",
         "This heartbeat is scoped to the issue below. Do not switch to another issue until you have handled this wake.",
@@ -585,7 +585,7 @@ export async function listPaperclipSkillEntries(
         runtimeName: entry.name,
         source: path.join(root, entry.name),
         required: true,
-        requiredReason: "Bundled Paperclip skills are always available for local adapters.",
+        requiredReason: "Bundled PrivateClip skills are always available for local adapters.",
       }));
   } catch {
     return [];
@@ -659,7 +659,7 @@ export function buildPersistentSkillSnapshot(
 
   for (const desiredSkill of desiredSkills) {
     if (availableByKey.has(desiredSkill)) continue;
-    warnings.push(`Desired skill "${desiredSkill}" is not available from the Paperclip skills directory.`);
+    warnings.push(`Desired skill "${desiredSkill}" is not available from the PrivateClip skills directory.`);
     entries.push({
       key: desiredSkill,
       runtimeName: null,
@@ -668,7 +668,7 @@ export function buildPersistentSkillSnapshot(
       state: "missing",
       sourcePath: null,
       targetPath: null,
-      detail: "Paperclip cannot find this skill in the local runtime skills directory.",
+      detail: "PrivateClip cannot find this skill in the local runtime skills directory.",
       origin: "external_unknown",
       originLabel: "External or unavailable",
       readOnly: false,
@@ -943,7 +943,7 @@ export async function runChildProcess(
 
     // Strip Claude Code nesting-guard env vars so spawned `claude` processes
     // don't refuse to start with "cannot be launched inside another session".
-    // These vars leak in when the Paperclip server itself is started from
+    // These vars leak in when the PrivateClip server itself is started from
     // within a Claude Code session (e.g. `npx paperclipai run` in a terminal
     // owned by Claude Code) or when cron inherits a contaminated shell env.
     const CLAUDE_CODE_NESTING_VARS = [

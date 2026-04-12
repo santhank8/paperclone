@@ -128,9 +128,18 @@ export function BreadcrumbBar() {
     </div>
   ) : null;
 
+  const desktopCenterBrand = (
+    <div className="pointer-events-none absolute left-1/2 hidden -translate-x-1/2 md:block">
+      <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+        PrivateClip
+      </span>
+    </div>
+  );
+
   if (breadcrumbs.length === 0) {
     return (
-      <div className="border-b border-border px-4 md:px-6 h-12 shrink-0 flex items-center justify-end">
+      <div className="relative border-b border-border px-4 md:px-6 h-12 shrink-0 flex items-center justify-end">
+        {desktopCenterBrand}
         {rightControls}
       </div>
     );
@@ -151,7 +160,8 @@ export function BreadcrumbBar() {
   // Single breadcrumb = page title (uppercase)
   if (breadcrumbs.length === 1) {
     return (
-      <div className="border-b border-border px-4 md:px-6 h-12 shrink-0 flex items-center">
+      <div className="relative border-b border-border px-4 md:px-6 h-12 shrink-0 flex items-center">
+        {desktopCenterBrand}
         {menuButton}
         <div className="min-w-0 overflow-hidden flex-1">
           <h1 className="text-sm font-semibold uppercase tracking-wider truncate">
@@ -165,7 +175,8 @@ export function BreadcrumbBar() {
 
   // Multiple breadcrumbs = breadcrumb trail
   return (
-    <div className="border-b border-border px-4 md:px-6 h-12 shrink-0 flex items-center">
+    <div className="relative border-b border-border px-4 md:px-6 h-12 shrink-0 flex items-center">
+      {desktopCenterBrand}
       {menuButton}
       <div className="min-w-0 overflow-hidden flex-1">
         <Breadcrumb className="min-w-0 overflow-hidden">

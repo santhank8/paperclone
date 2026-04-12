@@ -345,7 +345,7 @@ function blockOrchestratorOnlyExecution(agent: AdapterExecutionContext["agent"])
     signal: null,
     timedOut: false,
     errorMessage:
-      "Orchestrator-only agents cannot use OpenClaw specialist execution. This run must stay in the Paperclip orchestration path.",
+      "Orchestrator-only agents cannot use OpenClaw specialist execution. This run must stay in the PrivateClip orchestration path.",
     errorCode: "orchestrator_only_specialist_execution_blocked",
     resultJson: {
       blocked: true,
@@ -430,7 +430,7 @@ function buildWakeText(
       ];
 
   const lines = [
-    "Paperclip wake event for a cloud adapter.",
+    "PrivateClip wake event for a cloud adapter.",
     "",
     "Run this procedure now. Do not guess undocumented endpoints and do not ask for additional heartbeat docs.",
     "",
@@ -451,7 +451,7 @@ function buildWakeText(
     "",
     "HTTP rules:",
     "- Use Authorization: Bearer $PAPERCLIP_API_KEY on every API call.",
-    "- Use X-Paperclip-Run-Id: $PAPERCLIP_RUN_ID on every mutating API call.",
+    "- Use X-PrivateClip-Run-Id: $PAPERCLIP_RUN_ID on every mutating API call.",
     "- Use only /api endpoints listed below.",
     "- Do NOT call guessed endpoints like /api/cloud-adapter/*, /api/cloud-adapters/*, /api/adapters/cloud/*, or /api/heartbeat.",
     "",

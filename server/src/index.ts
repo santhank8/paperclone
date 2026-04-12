@@ -33,6 +33,8 @@ import {
   executiveSummaryService,
   feedbackService,
   heartbeatService,
+  issueService,
+  logActivity,
   reconcilePersistedRuntimeServicesOnStartup,
   routineService,
 } from "./services/index.js";
@@ -686,6 +688,57 @@ export async function startServer(): Promise<StartedServer> {
         });
     }, config.heartbeatSchedulerIntervalMs);
   }
+
+  if (config.closedIssueArchiveEnabled) {
+    const issuesSvc = issueService(db as any);
+    let issueArchiveSweepInFlight = false;
+    const runClosedIssueArchiveSweep = async () => {
+      if (issueArchiveSweepInFlight) return;
+      issueArchiveSweepInFlight = true;
+      try {
+        const result = await issuesSvc.archiveClosedAcrossCompanies({
+          olderThanDays: config.closedIssueArchiveAgeDays,
+        });
+        if (result.archivedCount > 0) {
+          logger.info(
+            {
+              archivedCount: result.archivedCount,
+              companiesAffected: result.byCompany.length,
+              olderThanDays: result.olderThanDays,
+              cutoff: result.cutoff.toISOString(),
+            },
+            "closed issue archive sweep finished",
+          );
+          await Promise.all(
+            result.byCompany.map((companyResult) =>
+              logActivity(db as any, {
+                companyId: companyResult.companyId,
+                actorType: "system",
+                actorId: "issue-closed-archiver",
+                action: "issue.closed_archived_bulk",
+                entityType: "company",
+                entityId: companyResult.companyId,
+                details: {
+                  archivedCount: companyResult.archivedCount,
+                  olderThanDays: result.olderThanDays,
+                  archivedAt: result.archivedAt.toISOString(),
+                  cutoff: result.cutoff.toISOString(),
+                  issueIds: companyResult.issueIds,
+                },
+              }),
+            ),
+          );
+        }
+      } catch (err) {
+        logger.error({ err }, "closed issue archive sweep failed");
+      } finally {
+        issueArchiveSweepInFlight = false;
+      }
+    };
+    setInterval(() => {
+      void runClosedIssueArchiveSweep();
+    }, config.closedIssueArchiveIntervalMs);
+  }
   
   if (config.databaseBackupEnabled) {
     const backupIntervalMs = config.databaseBackupIntervalMinutes * 60 * 1000;
@@ -775,6 +828,9 @@ export async function startServer(): Promise<StartedServer> {
         migrationSummary,
         heartbeatSchedulerEnabled: config.heartbeatSchedulerEnabled,
         heartbeatSchedulerIntervalMs: config.heartbeatSchedulerIntervalMs,
+        closedIssueArchiveEnabled: config.closedIssueArchiveEnabled,
+        closedIssueArchiveIntervalMs: config.closedIssueArchiveIntervalMs,
+        closedIssueArchiveAgeDays: config.closedIssueArchiveAgeDays,
         databaseBackupEnabled: config.databaseBackupEnabled,
         databaseBackupIntervalMinutes: config.databaseBackupIntervalMinutes,
         databaseBackupRetentionDays: config.databaseBackupRetentionDays,
@@ -850,7 +906,7 @@ function isMainModule(metaUrl: string): boolean {
 
 if (isMainModule(import.meta.url)) {
   void startServer().catch((err) => {
-    logger.error({ err }, "Paperclip server failed to start");
+    logger.error({ err }, "PrivateClip server failed to start");
     process.exit(1);
   });
 }

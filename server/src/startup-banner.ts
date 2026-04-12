@@ -29,6 +29,9 @@ type StartupBannerOptions = {
   migrationSummary: string;
   heartbeatSchedulerEnabled: boolean;
   heartbeatSchedulerIntervalMs: number;
+  closedIssueArchiveEnabled: boolean;
+  closedIssueArchiveIntervalMs: number;
+  closedIssueArchiveAgeDays: number;
   databaseBackupEnabled: boolean;
   databaseBackupIntervalMinutes: number;
   databaseBackupRetentionDays: number;
@@ -132,6 +135,9 @@ export function printStartupBanner(opts: StartupBannerOptions): void {
   const dbBackup = opts.databaseBackupEnabled
     ? `enabled ${color(`(every ${opts.databaseBackupIntervalMinutes}m, keep ${opts.databaseBackupRetentionDays}d)`, "dim")}`
     : color("disabled", "yellow");
+  const closedIssueArchive = opts.closedIssueArchiveEnabled
+    ? `enabled ${color(`(every ${opts.closedIssueArchiveIntervalMs}ms, older than ${opts.closedIssueArchiveAgeDays}d)`, "dim")}`
+    : color("disabled", "yellow");
 
   const art = [
     color("██████╗  █████╗ ██████╗ ███████╗██████╗  ██████╗██╗     ██╗██████╗ ", "cyan"),
@@ -161,6 +167,7 @@ export function printStartupBanner(opts: StartupBannerOptions): void {
         : color(agentJwtSecret.message, "yellow"),
     ),
     row("Heartbeat", heartbeat),
+    row("Closed Archive", closedIssueArchive),
     row("DB Backup", dbBackup),
     row("Backup Dir", opts.databaseBackupDir),
     row("Config", configPath),

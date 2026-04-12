@@ -55,7 +55,7 @@ function renderPaperclipEnvNote(env: Record<string, string>): string {
     .sort();
   if (paperclipKeys.length === 0) return "";
   return [
-    "Paperclip runtime note:",
+    "PrivateClip runtime note:",
     `The following PAPERCLIP_* environment variables are available in this run: ${paperclipKeys.join(", ")}`,
     "Do not assume these variables are missing without checking your shell environment.",
     "",
@@ -66,12 +66,12 @@ function renderPaperclipEnvNote(env: Record<string, string>): string {
 function renderApiAccessNote(env: Record<string, string>): string {
   if (!hasNonEmptyEnvValue(env, "PAPERCLIP_API_URL") || !hasNonEmptyEnvValue(env, "PAPERCLIP_API_KEY")) return "";
   return [
-    "Paperclip API access note:",
-    "Use run_shell_command with curl to make Paperclip API requests.",
+    "PrivateClip API access note:",
+    "Use run_shell_command with curl to make PrivateClip API requests.",
     "GET example:",
     `  run_shell_command({ command: "curl -s -H \\"Authorization: Bearer $PAPERCLIP_API_KEY\\" \\"$PAPERCLIP_API_URL/api/agents/me\\"" })`,
     "POST/PATCH example:",
-    `  run_shell_command({ command: "curl -s -X POST -H \\"Authorization: Bearer $PAPERCLIP_API_KEY\\" -H 'Content-Type: application/json' -H \\"X-Paperclip-Run-Id: $PAPERCLIP_RUN_ID\\" -d '{...}' \\"$PAPERCLIP_API_URL/api/issues/{id}/checkout\\"" })`,
+    `  run_shell_command({ command: "curl -s -X POST -H \\"Authorization: Bearer $PAPERCLIP_API_KEY\\" -H 'Content-Type: application/json' -H \\"X-PrivateClip-Run-Id: $PAPERCLIP_RUN_ID\\" -d '{...}' \\"$PAPERCLIP_API_URL/api/issues/{id}/checkout\\"" })`,
     "",
     "",
   ].join("\n");
@@ -88,7 +88,7 @@ function blockOrchestratorOnlyExecution(agent: AdapterExecutionContext["agent"])
     signal: null,
     timedOut: false,
     errorMessage:
-      "Orchestrator-only agents cannot use Gemini specialist execution. This run must stay in the Paperclip orchestration path.",
+      "Orchestrator-only agents cannot use Gemini specialist execution. This run must stay in the PrivateClip orchestration path.",
     errorCode: "orchestrator_only_specialist_execution_blocked",
     resultJson: {
       blocked: true,
@@ -99,7 +99,7 @@ function blockOrchestratorOnlyExecution(agent: AdapterExecutionContext["agent"])
 }
 
 /**
- * Inject Paperclip skills directly into `~/.gemini/skills/` via symlinks.
+ * Inject PrivateClip skills directly into `~/.gemini/skills/` via symlinks.
  * This avoids needing GEMINI_CLI_HOME overrides, so the CLI naturally finds
  * both its auth credentials and the injected skills in the real home directory.
  */
@@ -159,7 +159,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
 
   const promptTemplate = asString(
     config.promptTemplate,
-    "You are agent {{agent.id}} ({{agent.name}}). Continue your Paperclip work.",
+    "You are agent {{agent.id}} ({{agent.name}}). Continue your PrivateClip work.",
   );
   const command = asString(config.command, "gemini");
   const model = asString(config.model, DEFAULT_GEMINI_LOCAL_MODEL).trim();

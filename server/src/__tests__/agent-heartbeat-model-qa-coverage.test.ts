@@ -72,7 +72,7 @@ describeEmbeddedPostgres("agentHeartbeatModelService QA coverage", () => {
 
     await db.insert(companies).values({
       id: companyId,
-      name: "Paperclip",
+      name: "PrivateClip",
       issuePrefix: "PAP",
       requireBoardApprovalForNewAgents: false,
     });

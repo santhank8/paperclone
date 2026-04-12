@@ -28,7 +28,7 @@ describe("claude local skill sync", () => {
     cleanupDirs.clear();
   });
 
-  it("defaults to mounting all built-in Paperclip skills when no explicit selection exists", async () => {
+  it("defaults to mounting all built-in PrivateClip skills when no explicit selection exists", async () => {
     const snapshot = await listClaudeSkills({
       agentId: "agent-1",
       companyId: "company-1",
@@ -60,7 +60,7 @@ describe("claude local skill sync", () => {
     expect(snapshot.entries.find((entry) => entry.key === createAgentKey)?.state).toBe("configured");
   });
 
-  it("normalizes legacy flat Paperclip skill refs to canonical keys", async () => {
+  it("normalizes legacy flat PrivateClip skill refs to canonical keys", async () => {
     const snapshot = await listClaudeSkills({
       agentId: "agent-3",
       companyId: "company-1",
@@ -104,7 +104,7 @@ describe("claude local skill sync", () => {
       originLabel: "User-installed",
       locationLabel: "~/.claude/skills",
       readOnly: true,
-      detail: "Installed outside Paperclip management in the Claude skills home.",
+      detail: "Installed outside PrivateClip management in the Claude skills home.",
     }));
   });
 });

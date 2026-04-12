@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { shouldTrackDevServerPath } from "../../../scripts/dev-runner-paths.mjs";
 
 describe("shouldTrackDevServerPath", () => {
-  it("ignores repo-local Paperclip state and common test file paths", () => {
+  it("ignores repo-local PrivateClip state and common test file paths", () => {
     expect(
       shouldTrackDevServerPath(
         ".paperclip/worktrees/PAP-712-for-project-configuration-get-rid-of-the-overview-tab-for-now/.agents/skills/paperclip",

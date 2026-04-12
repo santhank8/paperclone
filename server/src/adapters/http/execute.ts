@@ -10,7 +10,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
       signal: null,
       timedOut: false,
       errorMessage:
-        "Orchestrator-only agents cannot use HTTP specialist execution. This run must stay in the Paperclip orchestration path.",
+        "Orchestrator-only agents cannot use HTTP specialist execution. This run must stay in the PrivateClip orchestration path.",
       errorCode: "orchestrator_only_specialist_execution_blocked",
       resultJson: {
         blocked: true,

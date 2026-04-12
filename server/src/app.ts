@@ -23,6 +23,7 @@ import { secretRoutes } from "./routes/secrets.js";
 import { costRoutes } from "./routes/costs.js";
 import { activityRoutes } from "./routes/activity.js";
 import { dashboardRoutes } from "./routes/dashboard.js";
+import { copilotRoutes } from "./routes/copilot.js";
 import { roadmapRoutes } from "./routes/roadmap.js";
 import { sidebarBadgeRoutes } from "./routes/sidebar-badges.js";
 import { instanceSettingsRoutes } from "./routes/instance-settings.js";
@@ -166,7 +167,8 @@ export async function createApp(
   api.use(costRoutes(db));
   api.use(activityRoutes(db));
   api.use(dashboardRoutes(db));
-  api.use(roadmapRoutes());
+  api.use(copilotRoutes(db));
+  api.use(roadmapRoutes({ db }));
   api.use(sidebarBadgeRoutes(db));
   api.use(instanceSettingsRoutes(db));
   const hostServicesDisposers = new Map<string, () => void>();

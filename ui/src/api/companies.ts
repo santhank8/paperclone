@@ -34,6 +34,7 @@ export const companiesApi = {
         | "name"
         | "description"
         | "status"
+        | "roadmapPath"
         | "budgetMonthlyCents"
         | "requireBoardApprovalForNewAgents"
         | "feedbackDataSharingEnabled"

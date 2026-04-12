@@ -9,6 +9,7 @@ export interface Company {
   pausedAt: Date | null;
   issuePrefix: string;
   issueCounter: number;
+  roadmapPath: string | null;
   budgetMonthlyCents: number;
   spentMonthlyCents: number;
   requireBoardApprovalForNewAgents: boolean;

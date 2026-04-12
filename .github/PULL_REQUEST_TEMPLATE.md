@@ -2,17 +2,26 @@
 
 <!--
   Required. Trace your reasoning from the top of the project down to this
-  specific change. Start with what Paperclip is, then narrow through the
+  specific change. Start with what PrivateClip is, then narrow through the
   subsystem, the problem, and why this PR exists. Use blockquote style.
   Aim for 5–8 steps. See CONTRIBUTING.md for full examples.
 -->
 
-> - Paperclip orchestrates AI agents for zero-human companies
+> - PrivateClip orchestrates AI agents for zero-human companies
 > - [Which subsystem or capability is involved]
 > - [What problem or gap exists]
 > - [Why it needs to be addressed]
 > - This pull request ...
 > - The benefit is ...
+
+## Assumptions
+
+<!--
+  Required. List key assumptions you made while implementing this change.
+  Include any constraints, inferred requirements, or environment expectations.
+-->
+
+-
 
 ## What Changed
 
@@ -20,11 +29,21 @@
 
 -
 
-## Verification
+## Scope Justification
 
 <!--
-  How can a reviewer confirm this works? Include test commands, manual
-  steps, or both. For UI changes, include before/after screenshots.
+  Required. Explain why each touched area is necessary for the requested
+  outcome and call out any intentionally untouched areas.
+-->
+
+-
+
+## Verification Evidence
+
+<!--
+  Required. How can a reviewer confirm this works? Include concrete command
+  output summaries, manual checks, or both. For UI changes, include before/
+  after screenshots.
 -->
 
 -
@@ -56,6 +75,8 @@
 ## Checklist
 
 - [ ] I have included a thinking path that traces from project context to this change
+- [ ] I have documented key assumptions
+- [ ] I have justified scope for touched areas
 - [ ] I have specified the model used (with version and capability details)
 - [ ] I have run tests locally and they pass
 - [ ] I have added or updated tests where applicable

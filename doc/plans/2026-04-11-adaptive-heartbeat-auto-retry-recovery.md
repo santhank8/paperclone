@@ -2,7 +2,7 @@
 
 ## Context
 
-Today a failed run commonly surfaces in Inbox with a manual `Retry` action. Paperclip already has two narrow automatic recovery paths:
+Today a failed run commonly surfaces in Inbox with a manual `Retry` action. PrivateClip already has two narrow automatic recovery paths:
 
 - one automatic retry for `process_lost` orphan recovery (`process_loss_retry_count`)
 - one automatic follow-up wake when issue-comment policy is violated (`issue_comment_status` flow)

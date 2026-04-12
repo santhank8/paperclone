@@ -75,7 +75,7 @@ describeEmbeddedPostgres("agentRoleMigrationService", () => {
 
     await db.insert(companies).values({
       id: companyId,
-      name: "Paperclip",
+      name: "PrivateClip",
       issuePrefix: "PAP",
       requireBoardApprovalForNewAgents: false,
     });

@@ -88,7 +88,7 @@ function createCompany(status: "active" | "paused") {
   const now = new Date("2026-04-11T12:00:00.000Z");
   return {
     id: "company-1",
-    name: "Paperclip",
+    name: "PrivateClip",
     description: null,
     status,
     pauseReason: status === "paused" ? "manual" : null,
@@ -136,7 +136,7 @@ describe("company pause/resume routes", () => {
     mockAgentHeartbeatModelService.ensureCompanyHasCooCoordinator.mockResolvedValue({
       apply: true,
       companyId: "company-1",
-      companyName: "Paperclip",
+      companyName: "PrivateClip",
       created: false,
       reason: "already_has_coo",
       createdAgentId: null,

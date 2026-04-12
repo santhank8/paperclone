@@ -27,7 +27,7 @@ describe("cursor local skill sync", () => {
     cleanupDirs.clear();
   });
 
-  it("reports configured Paperclip skills and installs them into the Cursor skills home", async () => {
+  it("reports configured PrivateClip skills and installs them into the Cursor skills home", async () => {
     const home = await makeTempDir("paperclip-cursor-skill-sync-");
     cleanupDirs.add(home);
 
@@ -56,7 +56,7 @@ describe("cursor local skill sync", () => {
     expect((await fs.lstat(path.join(home, ".cursor", "skills", "paperclip"))).isSymbolicLink()).toBe(true);
   });
 
-  it("recognizes company-library runtime skills supplied outside the bundled Paperclip directory", async () => {
+  it("recognizes company-library runtime skills supplied outside the bundled PrivateClip directory", async () => {
     const home = await makeTempDir("paperclip-cursor-runtime-skills-home-");
     const runtimeSkills = await makeTempDir("paperclip-cursor-runtime-skills-src-");
     cleanupDirs.add(home);
@@ -79,7 +79,7 @@ describe("cursor local skill sync", () => {
             runtimeName: "paperclip",
             source: paperclipDir,
             required: true,
-            requiredReason: "Bundled Paperclip skills are always available for local adapters.",
+            requiredReason: "Bundled PrivateClip skills are always available for local adapters.",
           },
           {
             key: "ascii-heart",
@@ -104,7 +104,7 @@ describe("cursor local skill sync", () => {
     expect((await fs.lstat(path.join(home, ".cursor", "skills", "ascii-heart"))).isSymbolicLink()).toBe(true);
   });
 
-  it("keeps required bundled Paperclip skills installed even when the desired set is emptied", async () => {
+  it("keeps required bundled PrivateClip skills installed even when the desired set is emptied", async () => {
     const home = await makeTempDir("paperclip-cursor-skill-prune-");
     cleanupDirs.add(home);
 

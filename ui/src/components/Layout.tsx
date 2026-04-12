@@ -7,6 +7,7 @@ import { Sidebar } from "./Sidebar";
 import { InstanceSidebar } from "./InstanceSidebar";
 import { BreadcrumbBar } from "./BreadcrumbBar";
 import { PropertiesPanel } from "./PropertiesPanel";
+import { BoardCopilotRail } from "./BoardCopilotRail";
 import { CommandPalette } from "./CommandPalette";
 import { NewIssueDialog } from "./NewIssueDialog";
 import { NewProjectDialog } from "./NewProjectDialog";
@@ -434,6 +435,7 @@ export function Layout() {
               )}
             </main>
             <PropertiesPanel />
+            <BoardCopilotRail />
           </div>
         </div>
       </div>

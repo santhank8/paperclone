@@ -35,6 +35,8 @@ export const issuesApi = {
       originKind?: string;
       originId?: string;
       includeRoutineExecutions?: boolean;
+      includeClosed?: boolean;
+      includeRelations?: boolean;
       q?: string;
       limit?: number;
     },
@@ -53,6 +55,8 @@ export const issuesApi = {
     if (filters?.originKind) params.set("originKind", filters.originKind);
     if (filters?.originId) params.set("originId", filters.originId);
     if (filters?.includeRoutineExecutions) params.set("includeRoutineExecutions", "true");
+    if (filters?.includeClosed) params.set("includeClosed", "true");
+    if (filters?.includeRelations) params.set("includeRelations", "true");
     if (filters?.q) params.set("q", filters.q);
     if (filters?.limit) params.set("limit", String(filters.limit));
     const qs = params.toString();
@@ -71,6 +75,14 @@ export const issuesApi = {
     api.delete<{ id: string; archivedAt: Date } | { ok: true }>(`/issues/${id}/inbox-archive`),
   create: (companyId: string, data: Record<string, unknown>) =>
     api.post<Issue>(`/companies/${companyId}/issues`, data),
+  archiveClosed: (companyId: string, input?: { olderThanDays?: number }) =>
+    api.post<{
+      archivedCount: number;
+      issueIds: string[];
+      olderThanDays: number;
+      archivedAt: string;
+      cutoff: string;
+    }>(`/companies/${companyId}/issues/archive-closed`, input ?? {}),
   update: (id: string, data: Record<string, unknown>) =>
     api.patch<IssueUpdateResponse>(`/issues/${id}`, data),
   remove: (id: string) => api.delete<Issue>(`/issues/${id}`),

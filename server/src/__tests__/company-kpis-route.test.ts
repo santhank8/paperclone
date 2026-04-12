@@ -99,7 +99,7 @@ describe("company KPI routes", () => {
     mockExecutiveSummaryService.replaceKpis.mockResolvedValue([]);
     mockExecutiveSummaryService.buildExecutiveSummary.mockResolvedValue({
       companyId: "company-1",
-      companyName: "Paperclip",
+      companyName: "PrivateClip",
       generatedAt: new Date("2026-04-11T08:00:00.000Z"),
       periodStart: new Date("2026-04-10T08:00:00.000Z"),
       periodEnd: new Date("2026-04-11T08:00:00.000Z"),

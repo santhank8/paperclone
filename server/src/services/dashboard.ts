@@ -25,7 +25,7 @@ export function dashboardService(db: Db) {
       const taskRows = await db
         .select({ status: issues.status, count: sql<number>`count(*)` })
         .from(issues)
-        .where(eq(issues.companyId, companyId))
+        .where(and(eq(issues.companyId, companyId), sql`${issues.originKind} <> 'board_copilot_thread'`))
         .groupBy(issues.status);
 
       const pendingApprovals = await db

@@ -155,7 +155,7 @@ jobs:
       - name: Install Playwright
         run: npx playwright install --with-deps chromium
 
-      - name: Generate Paperclip config
+      - name: Generate PrivateClip config
         run: |
           mkdir -p ~/.paperclip/instances/default
           cat > ~/.paperclip/instances/default/config.json << 'CONF'

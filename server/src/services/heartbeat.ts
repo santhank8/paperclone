@@ -112,7 +112,7 @@ export function mapHermesCommandForRuntimeConfig(
   const newConfig = { ...config };
   if (newConfig.timeoutSec == null || newConfig.timeoutSec === 0) {
     // Hermes currently treats `0` as falsy and falls back to its internal
-    // 300-second default. Pass `-1` at runtime so Paperclip's "no timeout"
+    // 300-second default. Pass `-1` at runtime so PrivateClip's "no timeout"
     // intent survives until the adapter package is fixed upstream.
     newConfig.timeoutSec = -1;
   }
@@ -1988,7 +1988,7 @@ export function heartbeatService(db: Db) {
       readNonEmptyString(latestRun.error);
 
     const handoffMarkdown = [
-      "Paperclip session handoff:",
+      "PrivateClip session handoff:",
       `- Previous session: ${sessionId}`,
       issueId ? `- Issue: ${issueId}` : "",
       `- Rotation reason: ${reason}`,
@@ -3303,7 +3303,16 @@ export function heartbeatService(db: Db) {
         .select()
         .from(heartbeatRuns)
         .where(and(eq(heartbeatRuns.agentId, agentId), eq(heartbeatRuns.status, "queued")))
-        .orderBy(asc(heartbeatRuns.createdAt));
+        .orderBy(
+          desc(
+            sql<number>`case
+              when (${heartbeatRuns.contextSnapshot} ->> 'priority') ~ '^-?[0-9]+$'
+                then (${heartbeatRuns.contextSnapshot} ->> 'priority')::int
+              else 0
+            end`,
+          ),
+          asc(heartbeatRuns.createdAt),
+        );
       if (queuedRuns.length === 0) return [];
 
       const claimedRuns: Array<typeof heartbeatRuns.$inferSelect> = [];

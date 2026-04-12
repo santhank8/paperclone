@@ -35,4 +35,23 @@ describe("loadDefaultAgentInstructionsBundle", () => {
     expect(defaultBundle["AGENTS.md"]).toContain("[RECOVERED BY REISSUE]");
     expect(defaultBundle["ROLE_TEMPLATE.md"]).toContain("Default Agent Role Charter Baseline");
   });
+
+  it("includes org baseline precedence and trivial-task fast path guidance", async () => {
+    const ceoBundle = await loadDefaultAgentInstructionsBundle("ceo");
+    const cooBundle = await loadDefaultAgentInstructionsBundle("coo");
+    const engineerBundle = await loadDefaultAgentInstructionsBundle("engineer");
+    const qaBundle = await loadDefaultAgentInstructionsBundle("qa");
+    const defaultBundle = await loadDefaultAgentInstructionsBundle("default");
+
+    const bundles = [ceoBundle, cooBundle, engineerBundle, qaBundle, defaultBundle];
+    for (const bundle of bundles) {
+      expect(bundle["AGENTS.md"]).toContain("Always apply the `org-engineering-baseline` skill for coding tasks.");
+      expect(bundle["AGENTS.md"]).toContain("1. Direct user instructions");
+      expect(bundle["AGENTS.md"]).toContain("2. Repo-local `AGENTS.md` and safety constraints");
+      expect(bundle["AGENTS.md"]).toContain("3. `org-engineering-baseline`");
+      expect(bundle["AGENTS.md"]).toContain(
+        "Use the trivial-task fast path for obvious one-line or non-behavioral edits.",
+      );
+    }
+  });
 });

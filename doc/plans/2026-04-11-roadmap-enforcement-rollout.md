@@ -5,7 +5,7 @@ Owner: CEO (policy), Engineering (implementation)
 
 ## Goal
 
-Make roadmap items the parent unit of delivery and enforce traceability from roadmap item -> Paperclip issue -> delivery update.
+Make roadmap items the parent unit of delivery and enforce traceability from roadmap item -> PrivateClip issue -> delivery update.
 
 ## Enforcement Design
 
@@ -14,7 +14,7 @@ Make roadmap items the parent unit of delivery and enforce traceability from roa
 - CEO owns [`2026-04-11-roadmap.md`](./2026-04-11-roadmap.md).
 - Every roadmap item has a stable ID (`RM-YYYY-QN-XX`).
 
-### 2. Issue creation gate (Paperclip)
+### 2. Issue creation gate (PrivateClip)
 
 - Add required issue metadata fields:
   - `roadmapItemId`
@@ -22,7 +22,7 @@ Make roadmap items the parent unit of delivery and enforce traceability from roa
   - `exitCriteria`
 - Block issue creation if roadmap metadata is missing.
 
-### 3. Delivery update gate (Paperclip)
+### 3. Delivery update gate (PrivateClip)
 
 - Require each execution update/check-in to carry the same `roadmapItemId` as the linked issue.
 - Block completion transitions when roadmap metadata does not match.
@@ -56,7 +56,7 @@ Make roadmap items the parent unit of delivery and enforce traceability from roa
 
 ### Backfill workflow
 
-1. Export active Paperclip issues.
+1. Export active PrivateClip issues.
 2. Map each issue to one roadmap ID.
 3. Add `roadmapItemId`, `roadmapItemRef`, and `exitCriteria` to each issue.
 4. Close duplicates or out-of-roadmap issues.

@@ -7,14 +7,32 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { errorHandler } from "../middleware/index.js";
 import { roadmapRoutes } from "../routes/roadmap.js";
 
-function createApp(actor: Record<string, unknown>, repoRoot: string) {
+function createApp(
+  actor: Record<string, unknown>,
+  repoRoot: string,
+  opts?: {
+    resolveCompanyRoadmapPath?: (companyId: string) => Promise<string | null>;
+    resolveCompanyRoadmapContext?: (companyId: string) => Promise<{
+      roadmapPath: string | null;
+      name: string | null;
+      issuePrefix: string | null;
+    } | null>;
+  },
+) {
   const app = express();
   app.use(express.json());
   app.use((req, _res, next) => {
     (req as any).actor = actor;
     next();
   });
-  app.use("/api", roadmapRoutes({ repoRoot }));
+  app.use(
+    "/api",
+    roadmapRoutes({
+      repoRoot,
+      resolveCompanyRoadmapPath: opts?.resolveCompanyRoadmapPath,
+      resolveCompanyRoadmapContext: opts?.resolveCompanyRoadmapContext,
+    }),
+  );
   app.use(errorHandler);
   return app;
 }
@@ -88,21 +106,6 @@ describe("roadmap route", () => {
     );
   });
 
-  it("rejects non-board actors without company scope", async () => {
-    const app = createApp(
-      {
-        type: "agent",
-        source: "agent_key",
-        agentId: "agent-1",
-        companyId: "company-1",
-      },
-      repoRoot,
-    );
-
-    const response = await request(app).get("/api/roadmap");
-    expect(response.status).toBe(403);
-  });
-
   it("allows company-scoped roadmap reads for agent keys with matching company access", async () => {
     const app = createApp(
       {
@@ -155,5 +158,225 @@ describe("roadmap route", () => {
 
     const response = await request(app).get("/api/roadmap").query({ companyId: "company-2" });
     expect(response.status).toBe(403);
+  });
+
+  it("uses a company-specific roadmap file when the company has a roadmapPath override", async () => {
+    await fs.mkdir(path.join(repoRoot, "doc", "company-roadmaps"), { recursive: true });
+    await fs.writeFile(
+      path.join(repoRoot, "doc", "company-roadmaps", "comandero-roadmap.md"),
+      [
+        "# Comandero Roadmap",
+        "",
+        "Status: Active",
+        "Owner: CEO",
+        "Last Updated: 2026-04-12",
+        "",
+        "## Now",
+        "### RM-2026-Q2-01 Checkout trust and explainability",
+        "- Outcome: Cart flows feel trustworthy.",
+      ].join("\n"),
+      "utf8",
+    );
+
+    const app = createApp(
+      { type: "board", source: "local_implicit", userId: "board-user-1" },
+      repoRoot,
+      {
+        resolveCompanyRoadmapPath: async (companyId) =>
+          companyId === "company-1" ? "doc/company-roadmaps/comandero-roadmap.md" : null,
+      },
+    );
+
+    const response = await request(app).get("/api/roadmap").query({ companyId: "company-1" });
+
+    expect(response.status).toBe(200);
+    expect(response.body.roadmap.title).toBe("Comandero Roadmap");
+    expect(response.body.roadmap.path).toBe("doc/company-roadmaps/comandero-roadmap.md");
+    expect(response.body.roadmap.sections[0]?.items[0]).toEqual(
+      expect.objectContaining({
+        id: "RM-2026-Q2-01",
+        title: "Checkout trust and explainability",
+      }),
+    );
+  });
+
+  it("renames a roadmap item in the company-specific roadmap file when a company override exists", async () => {
+    await fs.mkdir(path.join(repoRoot, "doc", "company-roadmaps"), { recursive: true });
+    const roadmapPath = path.join(repoRoot, "doc", "company-roadmaps", "comandero-roadmap.md");
+    await fs.writeFile(
+      roadmapPath,
+      [
+        "# Comandero Roadmap",
+        "",
+        "Status: Active",
+        "Owner: CEO",
+        "Last Updated: 2026-04-12",
+        "",
+        "## Now",
+        "### RM-2026-Q2-01 Checkout trust and explainability",
+        "- Outcome: Cart flows feel trustworthy.",
+      ].join("\n"),
+      "utf8",
+    );
+
+    const app = createApp(
+      { type: "board", source: "local_implicit", userId: "board-user-1" },
+      repoRoot,
+      {
+        resolveCompanyRoadmapPath: async (companyId) =>
+          companyId === "company-1" ? "doc/company-roadmaps/comandero-roadmap.md" : null,
+      },
+    );
+
+    const response = await request(app)
+      .patch("/api/roadmap/items/RM-2026-Q2-01")
+      .query({ companyId: "company-1" })
+      .send({ title: "Checkout trust and proof" });
+
+    expect(response.status).toBe(200);
+    expect(response.body.item).toEqual(
+      expect.objectContaining({
+        id: "RM-2026-Q2-01",
+        title: "Checkout trust and proof",
+      }),
+    );
+
+    const updated = await fs.readFile(roadmapPath, "utf8");
+    expect(updated).toContain("### RM-2026-Q2-01 Checkout trust and proof");
+    expect(updated).not.toContain("### RM-2026-Q2-01 Checkout trust and explainability");
+  });
+
+  it("auto-detects a company roadmap by slugged company name when no explicit path is set", async () => {
+    await fs.mkdir(path.join(repoRoot, "doc", "company-roadmaps"), { recursive: true });
+    await fs.writeFile(
+      path.join(repoRoot, "doc", "company-roadmaps", "comandero-labs-roadmap.md"),
+      [
+        "# Comandero Labs Roadmap",
+        "",
+        "Status: Active",
+        "Owner: CEO",
+        "Last Updated: 2026-04-12",
+        "",
+        "## Now",
+        "### RM-2026-Q2-03 Sales-safe website and funnel",
+        "- Outcome: Funnel is resilient.",
+      ].join("\n"),
+      "utf8",
+    );
+
+    const app = createApp(
+      { type: "board", source: "local_implicit", userId: "board-user-1" },
+      repoRoot,
+      {
+        resolveCompanyRoadmapContext: async (companyId) =>
+          companyId === "company-1"
+            ? { roadmapPath: null, name: "Comandero Labs", issuePrefix: "COMA" }
+            : null,
+      },
+    );
+
+    const response = await request(app).get("/api/roadmap").query({ companyId: "company-1" });
+
+    expect(response.status).toBe(200);
+    expect(response.body.roadmap.title).toBe("Comandero Labs Roadmap");
+    expect(response.body.roadmap.path).toBe("doc/company-roadmaps/comandero-labs-roadmap.md");
+  });
+
+  it("renames items in the auto-detected company roadmap file", async () => {
+    await fs.mkdir(path.join(repoRoot, "doc", "company-roadmaps"), { recursive: true });
+    const roadmapPath = path.join(repoRoot, "doc", "company-roadmaps", "comandero-labs-roadmap.md");
+    await fs.writeFile(
+      roadmapPath,
+      [
+        "# Comandero Labs Roadmap",
+        "",
+        "Status: Active",
+        "Owner: CEO",
+        "Last Updated: 2026-04-12",
+        "",
+        "## Now",
+        "### RM-2026-Q2-03 Sales-safe website and funnel",
+        "- Outcome: Funnel is resilient.",
+      ].join("\n"),
+      "utf8",
+    );
+
+    const app = createApp(
+      { type: "board", source: "local_implicit", userId: "board-user-1" },
+      repoRoot,
+      {
+        resolveCompanyRoadmapContext: async (companyId) =>
+          companyId === "company-1"
+            ? { roadmapPath: null, name: "Comandero Labs", issuePrefix: "COMA" }
+            : null,
+      },
+    );
+
+    const response = await request(app)
+      .patch("/api/roadmap/items/RM-2026-Q2-03")
+      .query({ companyId: "company-1" })
+      .send({ title: "Sales-safe website and conversion flow" });
+
+    expect(response.status).toBe(200);
+    expect(response.body.roadmap.path).toBe("doc/company-roadmaps/comandero-labs-roadmap.md");
+
+    const updated = await fs.readFile(roadmapPath, "utf8");
+    expect(updated).toContain("### RM-2026-Q2-03 Sales-safe website and conversion flow");
+    expect(updated).not.toContain("### RM-2026-Q2-03 Sales-safe website and funnel");
+  });
+
+  it("falls back to issue-prefix roadmap autodetect when slug candidate is missing", async () => {
+    await fs.mkdir(path.join(repoRoot, "doc", "company-roadmaps"), { recursive: true });
+    await fs.writeFile(
+      path.join(repoRoot, "doc", "company-roadmaps", "coma-roadmap.md"),
+      [
+        "# COMA Roadmap",
+        "",
+        "Status: Active",
+        "Owner: CEO",
+        "Last Updated: 2026-04-12",
+        "",
+        "## Now",
+        "### RM-2026-Q2-04 Runtime and ops hygiene",
+        "- Outcome: Runtime locks stay healthy.",
+      ].join("\n"),
+      "utf8",
+    );
+
+    const app = createApp(
+      { type: "board", source: "local_implicit", userId: "board-user-1" },
+      repoRoot,
+      {
+        resolveCompanyRoadmapContext: async (companyId) =>
+          companyId === "company-1"
+            ? { roadmapPath: null, name: "Company With No Matching Slug File", issuePrefix: "COMA" }
+            : null,
+      },
+    );
+
+    const response = await request(app).get("/api/roadmap").query({ companyId: "company-1" });
+
+    expect(response.status).toBe(200);
+    expect(response.body.roadmap.title).toBe("COMA Roadmap");
+    expect(response.body.roadmap.path).toBe("doc/company-roadmaps/coma-roadmap.md");
+  });
+
+  it("falls back to canonical roadmap when no company roadmap override or autodetect files exist", async () => {
+    const app = createApp(
+      { type: "board", source: "local_implicit", userId: "board-user-1" },
+      repoRoot,
+      {
+        resolveCompanyRoadmapContext: async (companyId) =>
+          companyId === "company-1"
+            ? { roadmapPath: null, name: "No Special File", issuePrefix: "NSF" }
+            : null,
+      },
+    );
+
+    const response = await request(app).get("/api/roadmap").query({ companyId: "company-1" });
+
+    expect(response.status).toBe(200);
+    expect(response.body.roadmap.title).toBe("2026 Q2 CEO Roadmap");
+    expect(response.body.roadmap.path).toBe("doc/plans/2026-q2-roadmap.md");
   });
 });

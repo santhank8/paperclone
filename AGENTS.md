@@ -4,7 +4,7 @@ Guidance for human and AI contributors working in this repository.
 
 ## 1. Purpose
 
-Paperclip is a control plane for AI-agent companies.
+PrivateClip is a control plane for AI-agent companies.
 The current implementation target is V1 and is defined in `doc/SPEC-implementation.md`.
 
 ## 2. Read This First
@@ -143,8 +143,10 @@ When adding endpoints:
 When creating a pull request (via `gh pr create` or any other method), you **must** read and fill in every section of [`.github/PULL_REQUEST_TEMPLATE.md`](.github/PULL_REQUEST_TEMPLATE.md). Do not craft ad-hoc PR bodies — use the template as the structure for your PR description. Required sections:
 
 - **Thinking Path** — trace reasoning from project context to this change (see `CONTRIBUTING.md` for examples)
+- **Assumptions** — explicit assumptions and constraints used while implementing
 - **What Changed** — bullet list of concrete changes
-- **Verification** — how a reviewer can confirm it works
+- **Scope Justification** — why touched files/areas are necessary and what was intentionally not changed
+- **Verification Evidence** — how a reviewer can confirm it works, with concrete command/manual proof
 - **Risks** — what could go wrong
 - **Model Used** — the AI model that produced or assisted with the change (provider, exact model ID, context window, capabilities). Write "None — human-authored" if no AI was used.
 - **Checklist** — all items checked

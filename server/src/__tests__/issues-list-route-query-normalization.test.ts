@@ -6,6 +6,13 @@ import { issueRoutes } from "../routes/issues.js";
 
 const mockIssueService = vi.hoisted(() => ({
   list: vi.fn(async () => []),
+  archiveClosed: vi.fn(async () => ({
+    archivedCount: 0,
+    issueIds: [],
+    olderThanDays: 14,
+    archivedAt: new Date("2026-04-12T00:00:00.000Z"),
+    cutoff: new Date("2026-03-29T00:00:00.000Z"),
+  })),
 }));
 
 vi.mock("../services/index.js", () => ({
@@ -52,6 +59,7 @@ vi.mock("../services/index.js", () => ({
 
 function createApp() {
   const app = express();
+  app.use(express.json());
   app.use((req, _res, next) => {
     (req as any).actor = {
       type: "board",
@@ -86,6 +94,44 @@ describe("issue list query normalization", () => {
         projectId: undefined,
         parentId: undefined,
         assigneeAgentId,
+      }),
+    );
+  });
+
+  it("passes includeClosed query flag to the issue service list filter", async () => {
+    const res = await request(createApp()).get("/api/companies/company-1/issues?includeClosed=true");
+
+    expect(res.status).toBe(200);
+    expect(mockIssueService.list).toHaveBeenCalledWith(
+      "company-1",
+      expect.objectContaining({
+        includeClosed: true,
+      }),
+    );
+  });
+
+  it("passes includeRelations query flag to the issue service list filter", async () => {
+    const res = await request(createApp()).get("/api/companies/company-1/issues?includeRelations=true");
+
+    expect(res.status).toBe(200);
+    expect(mockIssueService.list).toHaveBeenCalledWith(
+      "company-1",
+      expect.objectContaining({
+        includeRelations: true,
+      }),
+    );
+  });
+
+  it("supports bulk archive of closed issues", async () => {
+    const res = await request(createApp())
+      .post("/api/companies/company-1/issues/archive-closed")
+      .send({ olderThanDays: 21 });
+
+    expect(res.status).toBe(200);
+    expect(mockIssueService.archiveClosed).toHaveBeenCalledWith(
+      "company-1",
+      expect.objectContaining({
+        olderThanDays: 21,
       }),
     );
   });

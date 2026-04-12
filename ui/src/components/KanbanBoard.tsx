@@ -23,6 +23,8 @@ import { Identity } from "./Identity";
 import { formatIssueStatusLabel } from "../lib/issue-status-labels";
 import type { Issue } from "@paperclipai/shared";
 
+const COLUMN_PAGE_SIZE = 15;
+
 const boardStatuses = [
   "backlog",
   "todo",
@@ -54,6 +56,7 @@ interface KanbanBoardProps {
   issues: Issue[];
   agents?: Agent[];
   liveIssueIds?: Set<string>;
+  epicStylesByIssueId?: Map<string, { cardClassName: string }>;
   onUpdateIssue: (id: string, data: Record<string, unknown>) => void;
 }
 
@@ -62,15 +65,23 @@ interface KanbanBoardProps {
 function KanbanColumn({
   status,
   issues,
+  visibleCount,
+  onShowMore,
   agents,
   liveIssueIds,
+  epicStylesByIssueId,
 }: {
   status: string;
   issues: Issue[];
+  visibleCount: number;
+  onShowMore: () => void;
   agents?: Agent[];
   liveIssueIds?: Set<string>;
+  epicStylesByIssueId?: Map<string, { cardClassName: string }>;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: status });
+  const visibleIssues = issues.slice(0, visibleCount);
+  const hiddenCount = Math.max(0, issues.length - visibleIssues.length);
 
   const isEmpty = issues.length === 0;
 
@@ -94,18 +105,28 @@ function KanbanColumn({
         }`}
       >
         <SortableContext
-          items={issues.map((i) => i.id)}
+          items={visibleIssues.map((i) => i.id)}
           strategy={verticalListSortingStrategy}
         >
-          {issues.map((issue) => (
+          {visibleIssues.map((issue) => (
             <KanbanCard
               key={issue.id}
               issue={issue}
               agents={agents}
               isLive={liveIssueIds?.has(issue.id)}
+              epicCardClassName={epicStylesByIssueId?.get(issue.id)?.cardClassName}
             />
           ))}
         </SortableContext>
+        {hiddenCount > 0 && (
+          <button
+            type="button"
+            onClick={onShowMore}
+            className="mt-1 w-full rounded-md border border-dashed border-border px-2 py-1.5 text-xs text-muted-foreground transition hover:border-foreground/30 hover:bg-accent/30 hover:text-foreground"
+          >
+            Show {Math.min(COLUMN_PAGE_SIZE, hiddenCount)} more ({hiddenCount} hidden)
+          </button>
+        )}
       </div>
     </div>
   );
@@ -118,11 +139,13 @@ function KanbanCard({
   agents,
   isLive,
   isOverlay,
+  epicCardClassName,
 }: {
   issue: Issue;
   agents?: Agent[];
   isLive?: boolean;
   isOverlay?: boolean;
+  epicCardClassName?: string;
 }) {
   const {
     attributes,
@@ -146,12 +169,13 @@ function KanbanCard({
   return (
     <div
       ref={setNodeRef}
+      data-kanban-card-id={issue.id}
       style={style}
       {...attributes}
       {...listeners}
       className={`rounded-md border bg-card p-2.5 cursor-grab active:cursor-grabbing transition-shadow ${
         isDragging && !isOverlay ? "opacity-30" : ""
-      } ${isOverlay ? "shadow-lg ring-1 ring-primary/20" : "hover:shadow-sm"}`}
+      } ${isOverlay ? "shadow-lg ring-1 ring-primary/20" : "hover:shadow-sm"} ${epicCardClassName ?? ""}`}
     >
       <Link
         to={`/issues/${issue.identifier ?? issue.id}`}
@@ -209,9 +233,19 @@ export function KanbanBoard({
   issues,
   agents,
   liveIssueIds,
+  epicStylesByIssueId,
   onUpdateIssue,
 }: KanbanBoardProps) {
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [visibleCountByStatus, setVisibleCountByStatus] = useState<Record<string, number>>(() => ({
+    backlog: COLUMN_PAGE_SIZE,
+    todo: COLUMN_PAGE_SIZE,
+    in_progress: COLUMN_PAGE_SIZE,
+    in_review: COLUMN_PAGE_SIZE,
+    blocked: COLUMN_PAGE_SIZE,
+    done: COLUMN_PAGE_SIZE,
+    cancelled: COLUMN_PAGE_SIZE,
+  }));
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
@@ -284,14 +318,27 @@ export function KanbanBoard({
             key={status}
             status={status}
             issues={columnIssues[status] ?? []}
+            visibleCount={visibleCountByStatus[status] ?? COLUMN_PAGE_SIZE}
+            onShowMore={() =>
+              setVisibleCountByStatus((prev) => ({
+                ...prev,
+                [status]: (prev[status] ?? COLUMN_PAGE_SIZE) + COLUMN_PAGE_SIZE,
+              }))
+            }
             agents={agents}
             liveIssueIds={liveIssueIds}
+            epicStylesByIssueId={epicStylesByIssueId}
           />
         ))}
       </div>
       <DragOverlay>
         {activeIssue ? (
-          <KanbanCard issue={activeIssue} agents={agents} isOverlay />
+          <KanbanCard
+            issue={activeIssue}
+            agents={agents}
+            isOverlay
+            epicCardClassName={epicStylesByIssueId?.get(activeIssue.id)?.cardClassName}
+          />
         ) : null}
       </DragOverlay>
     </DndContext>

@@ -4,6 +4,17 @@ Your personal files (life, memory, knowledge) live alongside these instructions.
 
 Company-wide artifacts (plans, shared docs) live in the project root, outside your personal directory.
 
+## Engineering Baseline
+
+Always apply the `org-engineering-baseline` skill for coding tasks.
+
+Precedence:
+1. Direct user instructions
+2. Repo-local `AGENTS.md` and safety constraints
+3. `org-engineering-baseline`
+
+Use the trivial-task fast path for obvious one-line or non-behavioral edits.
+
 ## Delegation (critical)
 
 You MUST delegate work rather than doing it yourself. When a task is assigned to you:
