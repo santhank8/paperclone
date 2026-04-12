@@ -52,6 +52,18 @@ function parseEnvBindings(bindings: unknown): Record<string, unknown> {
   return env;
 }
 
+function parseJsonObject(text: string): Record<string, unknown> | null {
+  const trimmed = text.trim();
+  if (!trimmed) return null;
+  try {
+    const parsed = JSON.parse(trimmed);
+    if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) return null;
+    return parsed as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+}
+
 export function buildCopilotLocalConfig(v: CreateConfigValues): Record<string, unknown> {
   const ac: Record<string, unknown> = {};
   if (v.cwd) ac.cwd = v.cwd;
@@ -59,9 +71,13 @@ export function buildCopilotLocalConfig(v: CreateConfigValues): Record<string, u
   if (v.promptTemplate) ac.promptTemplate = v.promptTemplate;
   if (v.bootstrapPrompt) ac.bootstrapPromptTemplate = v.bootstrapPrompt;
   ac.model = v.model || DEFAULT_COPILOT_LOCAL_MODEL;
+  if (v.thinkingEffort) ac.effort = v.thinkingEffort;
   ac.timeoutSec = 0;
   ac.graceSec = 15;
-  ac.autopilot = true;
+  ac.autopilot = v.autopilot !== false;
+  if (v.experimental) ac.experimental = true;
+  if (v.enableReasoningSummaries) ac.enableReasoningSummaries = true;
+  if ((v.maxAutopilotContinues ?? 0) > 0) ac.maxAutopilotContinues = v.maxAutopilotContinues;
   const env = parseEnvBindings(v.envBindings);
   const legacy = parseEnvVars(v.envVars);
   for (const [key, value] of Object.entries(legacy)) {
@@ -70,6 +86,18 @@ export function buildCopilotLocalConfig(v: CreateConfigValues): Record<string, u
     }
   }
   if (Object.keys(env).length > 0) ac.env = env;
+  if (v.workspaceStrategyType === "git_worktree") {
+    ac.workspaceStrategy = {
+      type: "git_worktree",
+      ...(v.workspaceBaseRef ? { baseRef: v.workspaceBaseRef } : {}),
+      ...(v.workspaceBranchTemplate ? { branchTemplate: v.workspaceBranchTemplate } : {}),
+      ...(v.worktreeParentDir ? { worktreeParentDir: v.worktreeParentDir } : {}),
+    };
+  }
+  const runtimeServices = parseJsonObject(v.runtimeServicesJson ?? "");
+  if (runtimeServices && Array.isArray(runtimeServices.services)) {
+    ac.workspaceRuntime = runtimeServices;
+  }
   if (v.command) ac.command = v.command;
   if (v.extraArgs) ac.extraArgs = parseCommaArgs(v.extraArgs);
   return ac;

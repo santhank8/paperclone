@@ -369,6 +369,10 @@ export interface CreateConfigValues {
   promptTemplate: string;
   model: string;
   thinkingEffort: string;
+  autopilot?: boolean;
+  experimental?: boolean;
+  enableReasoningSummaries?: boolean;
+  maxAutopilotContinues?: number;
   chrome: boolean;
   dangerouslySkipPermissions: boolean;
   search: boolean;

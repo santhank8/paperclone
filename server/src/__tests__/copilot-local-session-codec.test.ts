@@ -6,6 +6,7 @@ describe("copilot sessionCodec", () => {
     const params = {
       sessionId: "sess_123",
       cwd: "/tmp/work",
+      promptBundleKey: "bundle_123",
       workspaceId: "ws_1",
       repoUrl: "https://github.com/example/repo",
       repoRef: "main",

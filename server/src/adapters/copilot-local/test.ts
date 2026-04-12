@@ -115,9 +115,11 @@ export async function testEnvironment(
       });
     } else {
       const model = asString(config.model, DEFAULT_COPILOT_LOCAL_MODEL).trim();
+      const effort = asString(config.effort, "").trim();
       const autopilot = asBoolean(config.autopilot, true);
       const experimental = asBoolean(config.experimental, false);
       const enableReasoningSummaries = asBoolean(config.enableReasoningSummaries, false);
+      const maxAutopilotContinues = Math.max(0, asNumber(config.maxAutopilotContinues, 0));
       const helloProbeTimeoutSec = Math.max(1, asNumber(config.helloProbeTimeoutSec, 15));
       const extraArgs = (() => {
         const fromExtraArgs = asStringArray(config.extraArgs);
@@ -139,8 +141,10 @@ export async function testEnvironment(
         "--no-color",
       ];
       if (autopilot) args.push("--autopilot");
+      if (effort) args.push("--effort", effort);
       if (experimental) args.push("--experimental");
       if (enableReasoningSummaries) args.push("--enable-reasoning-summaries");
+      if (maxAutopilotContinues > 0) args.push("--max-autopilot-continues", String(maxAutopilotContinues));
       if (model) args.push("--model", model);
       if (extraArgs.length > 0) args.push(...extraArgs);
 

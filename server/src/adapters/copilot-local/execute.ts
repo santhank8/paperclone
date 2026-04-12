@@ -23,8 +23,10 @@ import {
   resolvePaperclipDesiredSkillNames,
   runChildProcess,
   stringifyPaperclipWakePayload,
+  type PaperclipSkillEntry,
 } from "@paperclipai/adapter-utils/server-utils";
 import { isCopilotUnknownSessionError, parseCopilotJsonl } from "./parse.js";
+import { buildCopilotPromptBundleKey } from "./prompt-bundle.js";
 import { resolveCopilotSkillsHome } from "./skills.js";
 
 const __moduleDir = path.dirname(fileURLToPath(import.meta.url));
@@ -32,6 +34,15 @@ const DEFAULT_COPILOT_LOCAL_MODEL = "claude-sonnet-4.5";
 const COPILOT_LOCAL_SKILL_ROOT_CANDIDATES = [
   path.resolve(__moduleDir, "../../../../skills"),
 ];
+const COPILOT_SHELL_APPROVAL_NOTE = [
+  "Safety note:",
+  "If a shell command is blocked because it contains dangerous shell expansion patterns",
+  "(for example parameter transformation, indirect expansion, or nested command substitution),",
+  "do not retry or work around the guard automatically.",
+  "Stop and respond with:",
+  "Approval needed: <brief reason>",
+  "Reply approve to allow it, or deny to block it.",
+].join("\n");
 
 function firstNonEmptyLine(text: string): string {
   return (
@@ -130,6 +141,9 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
   );
   const desiredSkillNames = resolvePaperclipDesiredSkillNames(config, copilotSkillEntries);
   await ensureCopilotSkillsInjected(onLog, copilotSkillEntries, desiredSkillNames, config);
+  const selectedSkillEntries = copilotSkillEntries.filter((entry) =>
+    new Set(desiredSkillNames).has(entry.key),
+  );
 
   const envConfig = parseObject(config.env);
   const hasExplicitApiKey =
@@ -204,6 +218,8 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
 
   const timeoutSec = asNumber(config.timeoutSec, 0);
   const graceSec = asNumber(config.graceSec, 20);
+  const effort = asString(config.effort, "").trim();
+  const maxAutopilotContinues = Math.max(0, asNumber(config.maxAutopilotContinues, 0));
   const extraArgs = (() => {
     const fromExtraArgs = asStringArray(config.extraArgs);
     if (fromExtraArgs.length > 0) return fromExtraArgs;
@@ -213,23 +229,14 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
   const runtimeSessionParams = parseObject(runtime.sessionParams);
   const runtimeSessionId = asString(runtimeSessionParams.sessionId, runtime.sessionId ?? "");
   const runtimeSessionCwd = asString(runtimeSessionParams.cwd, "");
-  const canResumeSession =
-    runtimeSessionId.length > 0 &&
-    (runtimeSessionCwd.length === 0 || path.resolve(runtimeSessionCwd) === path.resolve(cwd));
-  const sessionId = canResumeSession ? runtimeSessionId : null;
-  if (runtimeSessionId && !canResumeSession) {
-    await onLog(
-      "stdout",
-      `[paperclip] Copilot session "${runtimeSessionId}" was saved for cwd "${runtimeSessionCwd}" and will not be resumed in "${cwd}".\n`,
-    );
-  }
 
   const instructionsFilePath = asString(config.instructionsFilePath, "").trim();
   const instructionsDir = instructionsFilePath ? `${path.dirname(instructionsFilePath)}/` : "";
   let instructionsPrefix = "";
+  let instructionsContents: string | null = null;
   if (instructionsFilePath) {
     try {
-      const instructionsContents = await fs.readFile(instructionsFilePath, "utf8");
+      instructionsContents = await fs.readFile(instructionsFilePath, "utf8");
       instructionsPrefix =
         `${instructionsContents}\n\n` +
         `The above agent instructions were loaded from ${instructionsFilePath}. ` +
@@ -241,6 +248,31 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
         `[paperclip] Warning: could not read agent instructions file "${instructionsFilePath}": ${reason}\n`,
       );
     }
+  }
+  const promptBundleKey = await buildCopilotPromptBundleKey({
+    skills: selectedSkillEntries as PaperclipSkillEntry[],
+    instructionsContents,
+  });
+  const runtimeSessionPromptBundleKey = asString(runtimeSessionParams.promptBundleKey, "");
+  const canResumeSession =
+    runtimeSessionId.length > 0 &&
+    (runtimeSessionCwd.length === 0 || path.resolve(runtimeSessionCwd) === path.resolve(cwd)) &&
+    (runtimeSessionPromptBundleKey.length === 0 || runtimeSessionPromptBundleKey === promptBundleKey);
+  const sessionId = canResumeSession ? runtimeSessionId : null;
+  if (runtimeSessionId && (runtimeSessionCwd.length > 0 && path.resolve(runtimeSessionCwd) !== path.resolve(cwd))) {
+    await onLog(
+      "stdout",
+      `[paperclip] Copilot session "${runtimeSessionId}" was saved for cwd "${runtimeSessionCwd}" and will not be resumed in "${cwd}".\n`,
+    );
+  } else if (
+    runtimeSessionId &&
+    runtimeSessionPromptBundleKey.length > 0 &&
+    runtimeSessionPromptBundleKey !== promptBundleKey
+  ) {
+    await onLog(
+      "stdout",
+      `[paperclip] Copilot session "${runtimeSessionId}" was saved for prompt bundle "${runtimeSessionPromptBundleKey}" and will not be resumed with "${promptBundleKey}".\n`,
+    );
   }
 
   const bootstrapPromptTemplate = asString(config.bootstrapPromptTemplate, "");
@@ -265,6 +297,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     renderedBootstrapPrompt,
     wakePrompt,
     sessionHandoffNote,
+    COPILOT_SHELL_APPROVAL_NOTE,
     renderedPrompt,
   ]);
 
@@ -272,6 +305,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     "Prompt is passed to GitHub Copilot CLI via -p in non-interactive mode.",
     "Paperclip enables allow-all permissions and disables interactive ask_user prompts for unattended runs.",
     `Paperclip skills are linked into ${resolveCopilotSkillsHome(config)}.`,
+    `Using Copilot prompt bundle ${promptBundleKey}.`,
     ...(autopilot ? ["Added --autopilot for multi-step completion."] : []),
     ...(instructionsPrefix ? [`Loaded agent instructions from ${instructionsFilePath}.`] : []),
   ];
@@ -291,8 +325,10 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
       "--no-color",
     ];
     if (autopilot) args.push("--autopilot");
+    if (effort) args.push("--effort", effort);
     if (experimental) args.push("--experimental");
     if (enableReasoningSummaries) args.push("--enable-reasoning-summaries");
+    if (maxAutopilotContinues > 0) args.push("--max-autopilot-continues", String(maxAutopilotContinues));
     if (model) args.push("--model", model);
     if (resumeSessionId) args.push(`--resume=${resumeSessionId}`);
     if (extraArgs.length > 0) args.push(...extraArgs);
@@ -351,6 +387,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
         ? {
             sessionId: retryParsed.sessionId,
             cwd,
+            promptBundleKey,
             ...(workspaceId ? { workspaceId } : {}),
             ...(workspaceRepoUrl ? { repoUrl: workspaceRepoUrl } : {}),
             ...(workspaceRepoRef ? { repoRef: workspaceRepoRef } : {}),
@@ -395,6 +432,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
       ? {
           sessionId: parsed.sessionId,
           cwd,
+          promptBundleKey,
           ...(workspaceId ? { workspaceId } : {}),
           ...(workspaceRepoUrl ? { repoUrl: workspaceRepoUrl } : {}),
           ...(workspaceRepoRef ? { repoRef: workspaceRepoRef } : {}),

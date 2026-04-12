@@ -1,5 +1,10 @@
 import { asNumber, asString, parseJson, parseObject } from "@paperclipai/adapter-utils/server-utils";
 
+const COPILOT_DANGEROUS_SHELL_BLOCK_RE =
+  /command blocked: contains dangerous shell expansion patterns|dangerous shell expansion patterns|parameter transformation|indirect expansion|nested command substitution|arbitrary code execution/i;
+const COPILOT_APPROVAL_NEEDED_RE =
+  /(^|\n)\*?\*?approval needed:|\breply\s+\*?\*?approve\*?\*?\b|\bor\s+\*?\*?deny\*?\*?\b/i;
+
 function readText(value: unknown): string {
   if (typeof value === "string") return value;
   const record = parseObject(value);
@@ -21,6 +26,7 @@ export function parseCopilotJsonl(stdout: string) {
   let sessionId: string | null = null;
   let model: string | null = null;
   let errorMessage: string | null = null;
+  let blockedDangerousShellCommand: string | null = null;
   let premiumRequests: number | null = null;
   let outputTokens = 0;
   let finalResult: Record<string, unknown> | null = null;
@@ -53,7 +59,13 @@ export function parseCopilotJsonl(stdout: string) {
       if (toolModel) model = toolModel;
       if (data.success === false) {
         const text = readText(data.result ?? data.error).trim();
-        if (text) errorMessage = text;
+        if (text) {
+          if (COPILOT_DANGEROUS_SHELL_BLOCK_RE.test(text)) {
+            blockedDangerousShellCommand = text;
+          } else {
+            errorMessage = text;
+          }
+        }
       }
       continue;
     }
@@ -78,13 +90,23 @@ export function parseCopilotJsonl(stdout: string) {
     }
   }
 
+  const summary = messages.join("\n\n").trim();
+  const approvalRequired =
+    blockedDangerousShellCommand != null && summary.length > 0 && COPILOT_APPROVAL_NEEDED_RE.test(summary);
+  if (approvalRequired) {
+    errorMessage = null;
+  } else if (!errorMessage && blockedDangerousShellCommand) {
+    errorMessage = blockedDangerousShellCommand;
+  }
+
   return {
     sessionId,
-    summary: messages.join("\n\n").trim(),
+    summary,
     errorMessage,
     model,
     outputTokens,
     premiumRequests,
+    approvalRequired,
     finalResult,
   };
 }

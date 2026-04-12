@@ -31,12 +31,16 @@ Core fields:
 - instructionsFilePath (string, optional): absolute path to a markdown instructions file prepended to the prompt
 - promptTemplate (string, optional): run prompt template
 - model (string, optional): Copilot CLI model id. Defaults to claude-sonnet-4.5.
+- effort (string, optional): reasoning effort passed via --effort (low|medium|high|xhigh)
 - autopilot (boolean, optional): when true, passes --autopilot (default: true)
+- maxAutopilotContinues (number, optional): pass --max-autopilot-continues when greater than 0
 - experimental (boolean, optional): when true, passes --experimental
 - enableReasoningSummaries (boolean, optional): when true, passes --enable-reasoning-summaries
 - command (string, optional): defaults to "copilot"
 - extraArgs (string[], optional): additional CLI args
 - env (object, optional): KEY=VALUE environment variables
+- workspaceStrategy (object, optional): execution workspace strategy; currently supports { type: "git_worktree", baseRef?, branchTemplate?, worktreeParentDir? }
+- workspaceRuntime (object, optional): reserved for workspace runtime metadata; workspace runtime services are manually controlled from the workspace UI and are not auto-started by heartbeats
 
 Operational fields:
 - timeoutSec (number, optional): run timeout in seconds
@@ -45,7 +49,7 @@ Operational fields:
 Notes:
 - Runs use non-interactive prompt mode (-p) with JSON output (--output-format json).
 - Paperclip always grants allow-all permissions for unattended runs and disables interactive ask_user prompts.
-- Sessions resume with --resume when the stored session cwd matches the current cwd.
+- Sessions resume with --resume when the stored session cwd and prompt bundle key match the current run.
 - Paperclip injects desired local skills into ~/.copilot/skills/ via symlinks so Copilot can discover $paperclip and related skills without writing into the target workspace.
 - Copilot continues to respect repo-scoped AGENTS.md and other Copilot instruction files in the active workspace.
 `;
@@ -70,9 +74,12 @@ export const sessionCodec: AdapterSessionCodec = {
     const workspaceId = readNonEmptyString(record.workspaceId) ?? readNonEmptyString(record.workspace_id);
     const repoUrl = readNonEmptyString(record.repoUrl) ?? readNonEmptyString(record.repo_url);
     const repoRef = readNonEmptyString(record.repoRef) ?? readNonEmptyString(record.repo_ref);
+    const promptBundleKey =
+      readNonEmptyString(record.promptBundleKey) ?? readNonEmptyString(record.prompt_bundle_key);
     return {
       sessionId,
       ...(cwd ? { cwd } : {}),
+      ...(promptBundleKey ? { promptBundleKey } : {}),
       ...(workspaceId ? { workspaceId } : {}),
       ...(repoUrl ? { repoUrl } : {}),
       ...(repoRef ? { repoRef } : {}),
@@ -92,9 +99,12 @@ export const sessionCodec: AdapterSessionCodec = {
     const workspaceId = readNonEmptyString(params.workspaceId) ?? readNonEmptyString(params.workspace_id);
     const repoUrl = readNonEmptyString(params.repoUrl) ?? readNonEmptyString(params.repo_url);
     const repoRef = readNonEmptyString(params.repoRef) ?? readNonEmptyString(params.repo_ref);
+    const promptBundleKey =
+      readNonEmptyString(params.promptBundleKey) ?? readNonEmptyString(params.prompt_bundle_key);
     return {
       sessionId,
       ...(cwd ? { cwd } : {}),
+      ...(promptBundleKey ? { promptBundleKey } : {}),
       ...(workspaceId ? { workspaceId } : {}),
       ...(repoUrl ? { repoUrl } : {}),
       ...(repoRef ? { repoRef } : {}),

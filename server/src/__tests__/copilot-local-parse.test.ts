@@ -45,6 +45,41 @@ describe("parseCopilotJsonl", () => {
     const parsed = parseCopilotJsonl(stdout);
     expect(parsed.errorMessage).toBe("tool failed");
   });
+
+  it("turns dangerous shell command refusals into approval-needed handoffs when Copilot asks for approval", () => {
+    const stdout = [
+      JSON.stringify({
+        type: "tool.execution_complete",
+        data: {
+          success: false,
+          result: {
+            content:
+              "Command blocked: contains dangerous shell expansion patterns (e.g., parameter transformation, indirect expansion, or nested command substitution) that could enable arbitrary code execution.",
+          },
+        },
+      }),
+      JSON.stringify({
+        type: "assistant.message",
+        data: {
+          content:
+            "**Approval needed:** allow execution of the blocked shell command?\n\nReply **approve** to allow it, or **deny** to block it.",
+          outputTokens: 27,
+          phase: "final_answer",
+        },
+      }),
+      JSON.stringify({
+        type: "result",
+        sessionId: "sess_approval",
+        exitCode: 0,
+      }),
+    ].join("\n");
+
+    const parsed = parseCopilotJsonl(stdout);
+    expect(parsed.sessionId).toBe("sess_approval");
+    expect(parsed.approvalRequired).toBe(true);
+    expect(parsed.errorMessage).toBeNull();
+    expect(parsed.summary).toContain("Approval needed");
+  });
 });
 
 describe("isCopilotUnknownSessionError", () => {
