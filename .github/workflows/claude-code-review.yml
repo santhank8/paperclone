@@ -1,0 +1,161 @@
+name: Claude Code Review
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+jobs:
+  claude-review:
+    name: Claude Review
+    # Skip if PR has "skip claude review" label
+    if: |
+      !contains(github.event.pull_request.labels.*.name, 'skip claude review')
+
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+
+      - name: Run Claude Code Review
+        id: claude-review
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+
+          # Auto-trigger on PR open/sync (no trigger phrase needed)
+          trigger_phrase: ""
+
+          prompt: |
+            Review this pull request thoroughly. For each finding, classify its severity using these definitions:
+
+            - CRITICAL: security vulnerabilities, data loss risks, breaking changes without migration
+            - HIGH: bugs that will affect users, missing error handling on external boundaries, race conditions
+            - MEDIUM: code quality issues, missing tests for major new logic, performance concerns
+            - LOW: style, naming, minor improvements
+            - INFO: observations, suggestions
+
+            Format your review as follows:
+
+            ## Review
+
+            [Your detailed review comments organized by file/topic]
+
+            ## Findings
+
+            List each discrete finding with its severity tag:
+            - [CRITICAL] description...
+            - [HIGH] description...
+            - [MEDIUM] description...
+            - [LOW] description...
+            - [INFO] description...
+
+            If there are no findings at a given severity level, omit that level.
+            If the PR looks good with no issues, you may have an empty findings section.
+
+            ## Summary
+
+            End with exactly this format (use 0 for levels with no findings):
+            CRITICAL: N | HIGH: N | MEDIUM: N | LOW: N | INFO: N
+
+            Be constructive and helpful. Focus on substantive issues over style nits.
+
+          # Enable sticky comment for review updates
+          use_sticky_comment: true
+
+          # Show full output for transparency
+          show_full_output: true
+
+          # Enable tracking to show progress
+          track_progress: true
+
+  review-gate:
+    name: Review Gate
+    needs: claude-review
+    # Run after claude-review completes (even if skipped, but not if failed)
+    if: |
+      always() &&
+      needs.claude-review.result == 'success' &&
+      !contains(github.event.pull_request.labels.*.name, 'skip claude review')
+
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+      issues: read
+
+    steps:
+      - name: Fetch review comment and evaluate severity
+        id: evaluate
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # Fetch PR comments to find the Claude review sticky comment
+          COMMENTS=$(gh api \
+            "repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments" \
+            --paginate --jq '.[].body')
+
+          # Find the summary line from Claude's review
+          # Pattern: CRITICAL: N | HIGH: N | MEDIUM: N | LOW: N | INFO: N
+          SUMMARY_LINE=$(echo "$COMMENTS" | grep -E 'CRITICAL:\s*[0-9]+\s*\|\s*HIGH:\s*[0-9]+\s*\|\s*MEDIUM:\s*[0-9]+' | tail -1 || true)
+
+          if [ -z "$SUMMARY_LINE" ]; then
+            echo "⚠️ Could not find severity summary in review comments. Passing gate (review may still be processing)."
+            echo "has-blockers=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "Found summary: $SUMMARY_LINE"
+
+          # Extract counts
+          CRITICAL=$(echo "$SUMMARY_LINE" | grep -oP 'CRITICAL:\s*\K[0-9]+' || echo "0")
+          HIGH=$(echo "$SUMMARY_LINE" | grep -oP 'HIGH:\s*\K[0-9]+' || echo "0")
+          MEDIUM=$(echo "$SUMMARY_LINE" | grep -oP 'MEDIUM:\s*\K[0-9]+' || echo "0")
+
+          CRITICAL=${CRITICAL:-0}
+          HIGH=${HIGH:-0}
+          MEDIUM=${MEDIUM:-0}
+
+          echo "Severity counts — Critical: $CRITICAL, High: $HIGH, Medium: $MEDIUM"
+          echo "critical=$CRITICAL" >> "$GITHUB_OUTPUT"
+          echo "high=$HIGH" >> "$GITHUB_OUTPUT"
+          echo "medium=$MEDIUM" >> "$GITHUB_OUTPUT"
+
+          if [ "$CRITICAL" -gt 0 ] || [ "$HIGH" -gt 0 ] || [ "$MEDIUM" -gt 0 ]; then
+            echo "has-blockers=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has-blockers=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Enforce review gate
+        if: steps.evaluate.outputs.has-blockers == 'true'
+        env:
+          CRITICAL: ${{ steps.evaluate.outputs.critical }}
+          HIGH: ${{ steps.evaluate.outputs.high }}
+          MEDIUM: ${{ steps.evaluate.outputs.medium }}
+          HAS_WAIVER: ${{ contains(github.event.pull_request.labels.*.name, 'waive-medium') }}
+        run: |
+          # Critical and High always block — no waiver possible
+          if [ "$CRITICAL" -gt 0 ] || [ "$HIGH" -gt 0 ]; then
+            echo "🚫 PR blocked: $CRITICAL critical and $HIGH high severity issues found."
+            echo "These must be resolved before merge. See review comments for details."
+            exit 1
+          fi
+
+          # Medium can be waived with the 'waive-medium' label
+          if [ "$MEDIUM" -gt 0 ]; then
+            if [ "$HAS_WAIVER" = "true" ]; then
+              echo "✅ $MEDIUM medium severity issues found but waived via 'waive-medium' label."
+              exit 0
+            else
+              echo "🚫 PR blocked: $MEDIUM medium severity issues found."
+              echo "Fix the issues or add the 'waive-medium' label to proceed."
+              exit 1
+            fi
+          fi
