@@ -56,6 +56,22 @@ describe("redaction", () => {
     expect(result.normal).toBe("plain");
   });
 
+  it("redacts phone number fields in adapter config", () => {
+    const input = {
+      signalBotNumber: "+15551234567",
+      defaultRecipientNumber: "+15559876543",
+      phone_number: "+15550001111",
+      signalBridgeUrl: "http://localhost:8080",
+    };
+
+    const result = sanitizeRecord(input);
+
+    expect(result.signalBotNumber).toBe(REDACTED_EVENT_VALUE);
+    expect(result.defaultRecipientNumber).toBe(REDACTED_EVENT_VALUE);
+    expect(result.phone_number).toBe(REDACTED_EVENT_VALUE);
+    expect(result.signalBridgeUrl).toBe("http://localhost:8080");
+  });
+
   it("redacts payload objects while preserving null", () => {
     expect(redactEventPayload(null)).toBeNull();
     expect(redactEventPayload({ password: "hunter2", safe: "value" })).toEqual({
