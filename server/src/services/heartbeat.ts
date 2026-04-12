@@ -3944,7 +3944,7 @@ export function heartbeatService(db: Db) {
           const isSameExecutionAgent =
             Boolean(executionAgentNameKey) && executionAgentNameKey === agentNameKey;
           const shouldQueueFollowupForCommentWake =
-            Boolean(wakeCommentId) &&
+            (Boolean(wakeCommentId) || source === "on_demand") &&
             activeExecutionRun.status === "running" &&
             isSameExecutionAgent;
 
