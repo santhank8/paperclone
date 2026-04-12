@@ -177,6 +177,7 @@ const dashboard: DashboardSummary = {
     running: 0,
     paused: 0,
     error: 1,
+    pendingApproval: 0,
   },
   tasks: {
     open: 1,

@@ -77,7 +77,7 @@ function CloudAccessGate() {
       const data = query.state.data as
         | { deploymentMode?: "local_trusted" | "authenticated"; bootstrapStatus?: "ready" | "bootstrap_pending" }
         | undefined;
-      return data?.deploymentMode === "authenticated" && data.bootstrapStatus === "bootstrap_pending"
+      return data?.deploymentMode === "authenticated" && data?.bootstrapStatus === "bootstrap_pending"
         ? 2000
         : false;
     },
@@ -105,7 +105,7 @@ function CloudAccessGate() {
   }
 
   if (isAuthenticatedMode && healthQuery.data?.bootstrapStatus === "bootstrap_pending") {
-    return <BootstrapPendingPage hasActiveInvite={healthQuery.data.bootstrapInviteActive} />;
+    return <BootstrapPendingPage hasActiveInvite={healthQuery.data?.bootstrapInviteActive} />;
   }
 
   if (isAuthenticatedMode && !sessionQuery.data) {

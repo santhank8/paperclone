@@ -5,6 +5,7 @@ export interface DashboardSummary {
     running: number;
     paused: number;
     error: number;
+    pendingApproval: number;
   };
   tasks: {
     open: number;

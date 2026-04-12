@@ -23,6 +23,7 @@ import { Bot, CircleDot, DollarSign, ShieldCheck, LayoutDashboard, PauseCircle }
 import { ActiveAgentsPanel } from "../components/ActiveAgentsPanel";
 import { ChartCard, RunActivityChart, PriorityChart, IssueStatusChart, SuccessRateChart } from "../components/ActivityCharts";
 import { PageSkeleton } from "../components/PageSkeleton";
+import { SectionErrorBoundary } from "../components/SectionErrorBoundary";
 import type { Agent, Issue } from "@paperclipai/shared";
 import { PluginSlotOutlet } from "@/plugins/slots";
 
@@ -232,14 +233,15 @@ export function Dashboard() {
           <div className="grid grid-cols-2 xl:grid-cols-4 gap-1 sm:gap-2">
             <MetricCard
               icon={Bot}
-              value={data.agents.active + data.agents.running + data.agents.paused + data.agents.error}
+              value={data.agents.active + data.agents.running + data.agents.paused + data.agents.error + data.agents.pendingApproval}
               label="Agents Enabled"
               to="/agents"
               description={
                 <span>
                   {data.agents.running} running{", "}
                   {data.agents.paused} paused{", "}
-                  {data.agents.error} errors
+                  {data.agents.error} errors{", "}
+                  {data.agents.pendingApproval} pending approval
                 </span>
               }
             />
@@ -283,20 +285,22 @@ export function Dashboard() {
             />
           </div>
 
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <ChartCard title="Run Activity" subtitle="Last 14 days">
-              <RunActivityChart runs={runs ?? []} />
-            </ChartCard>
-            <ChartCard title="Issues by Priority" subtitle="Last 14 days">
-              <PriorityChart issues={issues ?? []} />
-            </ChartCard>
-            <ChartCard title="Issues by Status" subtitle="Last 14 days">
-              <IssueStatusChart issues={issues ?? []} />
-            </ChartCard>
-            <ChartCard title="Success Rate" subtitle="Last 14 days">
-              <SuccessRateChart runs={runs ?? []} />
-            </ChartCard>
-          </div>
+          <SectionErrorBoundary title="Charts">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              <ChartCard title="Run Activity" subtitle="Last 14 days">
+                <RunActivityChart runs={runs ?? []} />
+              </ChartCard>
+              <ChartCard title="Issues by Priority" subtitle="Last 14 days">
+                <PriorityChart issues={issues ?? []} />
+              </ChartCard>
+              <ChartCard title="Issues by Status" subtitle="Last 14 days">
+                <IssueStatusChart issues={issues ?? []} />
+              </ChartCard>
+              <ChartCard title="Success Rate" subtitle="Last 14 days">
+                <SuccessRateChart runs={runs ?? []} />
+              </ChartCard>
+            </div>
+          </SectionErrorBoundary>
 
           <PluginSlotOutlet
             slotTypes={["dashboardWidget"]}

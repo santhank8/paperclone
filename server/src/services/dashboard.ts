@@ -1,4 +1,4 @@
-import { and, eq, gte, sql } from "drizzle-orm";
+import { and, eq, gte, ne, sql } from "drizzle-orm";
 import type { Db } from "@paperclipai/db";
 import { agents, approvals, companies, costEvents, issues } from "@paperclipai/db";
 import { notFound } from "../errors.js";
@@ -17,19 +17,19 @@ export function dashboardService(db: Db) {
       if (!company) throw notFound("Company not found");
 
       const agentRows = await db
-        .select({ status: agents.status, count: sql<number>`count(*)` })
+        .select({ status: agents.status, count: sql<number>`count(*)::int` })
         .from(agents)
-        .where(eq(agents.companyId, companyId))
+        .where(and(eq(agents.companyId, companyId), ne(agents.status, "terminated")))
         .groupBy(agents.status);
 
       const taskRows = await db
-        .select({ status: issues.status, count: sql<number>`count(*)` })
+        .select({ status: issues.status, count: sql<number>`count(*)::int` })
         .from(issues)
         .where(eq(issues.companyId, companyId))
         .groupBy(issues.status);
 
       const pendingApprovals = await db
-        .select({ count: sql<number>`count(*)` })
+        .select({ count: sql<number>`count(*)::int` })
         .from(approvals)
         .where(and(eq(approvals.companyId, companyId), eq(approvals.status, "pending")))
         .then((rows) => Number(rows[0]?.count ?? 0));
@@ -39,11 +39,18 @@ export function dashboardService(db: Db) {
         running: 0,
         paused: 0,
         error: 0,
+        pendingApproval: 0,
       };
       for (const row of agentRows) {
         const count = Number(row.count);
         // "idle" agents are operational — count them as active
-        const bucket = row.status === "idle" ? "active" : row.status;
+        // "pending_approval" maps to camelCase pendingApproval bucket
+        const bucket =
+          row.status === "idle"
+            ? "active"
+            : row.status === "pending_approval"
+              ? "pendingApproval"
+              : row.status;
         agentCounts[bucket] = (agentCounts[bucket] ?? 0) + count;
       }
 
@@ -89,6 +96,7 @@ export function dashboardService(db: Db) {
           running: agentCounts.running,
           paused: agentCounts.paused,
           error: agentCounts.error,
+          pendingApproval: agentCounts.pendingApproval,
         },
         tasks: taskCounts,
         costs: {

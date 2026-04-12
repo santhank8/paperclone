@@ -139,6 +139,82 @@ async function resolveScopeRecord(db: Db, scopeType: BudgetScopeType, scopeId: s
   };
 }
 
+async function batchResolveScopeRecords(
+  db: Db,
+  keys: { scopeType: string; scopeId: string }[],
+): Promise<Map<string, ScopeRecord>> {
+  const map = new Map<string, ScopeRecord>();
+
+  const companyIds = keys.filter((k) => k.scopeType === "company").map((k) => k.scopeId);
+  const agentIds = keys.filter((k) => k.scopeType === "agent").map((k) => k.scopeId);
+  const projectIds = keys.filter((k) => k.scopeType === "project").map((k) => k.scopeId);
+
+  if (companyIds.length > 0) {
+    const rows = await db
+      .select({
+        companyId: companies.id,
+        name: companies.name,
+        status: companies.status,
+        pauseReason: companies.pauseReason,
+        pausedAt: companies.pausedAt,
+      })
+      .from(companies)
+      .where(inArray(companies.id, companyIds));
+    for (const row of rows) {
+      map.set(`company:${row.companyId}`, {
+        companyId: row.companyId,
+        name: row.name,
+        paused: row.status === "paused" || Boolean(row.pausedAt),
+        pauseReason: (row.pauseReason as ScopeRecord["pauseReason"]) ?? null,
+      });
+    }
+  }
+
+  if (agentIds.length > 0) {
+    const rows = await db
+      .select({
+        companyId: agents.companyId,
+        id: agents.id,
+        name: agents.name,
+        status: agents.status,
+        pauseReason: agents.pauseReason,
+      })
+      .from(agents)
+      .where(inArray(agents.id, agentIds));
+    for (const row of rows) {
+      map.set(`agent:${row.id}`, {
+        companyId: row.companyId,
+        name: row.name,
+        paused: row.status === "paused",
+        pauseReason: (row.pauseReason as ScopeRecord["pauseReason"]) ?? null,
+      });
+    }
+  }
+
+  if (projectIds.length > 0) {
+    const rows = await db
+      .select({
+        companyId: projects.companyId,
+        id: projects.id,
+        name: projects.name,
+        pauseReason: projects.pauseReason,
+        pausedAt: projects.pausedAt,
+      })
+      .from(projects)
+      .where(inArray(projects.id, projectIds));
+    for (const row of rows) {
+      map.set(`project:${row.id}`, {
+        companyId: row.companyId,
+        name: row.name,
+        paused: Boolean(row.pausedAt),
+        pauseReason: (row.pauseReason as ScopeRecord["pauseReason"]) ?? null,
+      });
+    }
+  }
+
+  return map;
+}
+
 async function computeObservedAmount(
   db: Db,
   policy: Pick<PolicyRow, "companyId" | "scopeType" | "scopeId" | "windowKind" | "metric">,
@@ -162,6 +238,81 @@ async function computeObservedAmount(
     .where(and(...conditions));
 
   return Number(row?.total ?? 0);
+}
+
+async function batchComputeObservedAmounts(
+  db: Db,
+  companyId: string,
+  policies: PolicyRow[],
+): Promise<Map<string, number>> {
+  const map = new Map<string, number>();
+
+  // Group by windowKind since each requires a different time filter.
+  const byWindow = new Map<string, PolicyRow[]>();
+  for (const p of policies) {
+    if (p.metric !== "billed_cents") {
+      map.set(`${p.scopeType}:${p.scopeId}:${p.windowKind}`, 0);
+      continue;
+    }
+    const wk = p.windowKind as string;
+    const arr = byWindow.get(wk) ?? [];
+    arr.push(p);
+    byWindow.set(wk, arr);
+  }
+
+  for (const [windowKind, group] of byWindow) {
+    const { start, end } = resolveWindow(windowKind as BudgetWindowKind);
+
+    // Build a single aggregate query grouped by agent_id and project_id.
+    // NULLs in agent_id / project_id mean "not scoped to that entity".
+    const conditions = [eq(costEvents.companyId, companyId)];
+    if (windowKind === "calendar_month_utc") {
+      conditions.push(gte(costEvents.occurredAt, start));
+      conditions.push(lt(costEvents.occurredAt, end));
+    }
+
+    const rows = await db
+      .select({
+        agentId: costEvents.agentId,
+        projectId: costEvents.projectId,
+        total: sql<number>`coalesce(sum(${costEvents.costCents}), 0)::int`,
+      })
+      .from(costEvents)
+      .where(and(...conditions))
+      .groupBy(costEvents.agentId, costEvents.projectId);
+
+    // Build a lookup: (agentId|null, projectId|null) → total
+    const totals = new Map<string, number>();
+    let companyTotal = 0;
+    for (const row of rows) {
+      const key = `${row.agentId ?? ""}:${row.projectId ?? ""}`;
+      totals.set(key, Number(row.total));
+      companyTotal += Number(row.total);
+    }
+
+    // Map each policy to its observed amount.
+    for (const p of group) {
+      let amount = 0;
+      if (p.scopeType === "company") {
+        amount = companyTotal;
+      } else if (p.scopeType === "agent") {
+        // Sum all rows where agentId matches this scope (any projectId)
+        for (const [key, val] of totals) {
+          const [aId] = key.split(":");
+          if (aId === p.scopeId) amount += val;
+        }
+      } else if (p.scopeType === "project") {
+        // Sum all rows where projectId matches this scope (any agentId)
+        for (const [key, val] of totals) {
+          const [, pId] = key.split(":");
+          if (pId === p.scopeId) amount += val;
+        }
+      }
+      map.set(`${p.scopeType}:${p.scopeId}:${windowKind}`, amount);
+    }
+  }
+
+  return map;
 }
 
 function buildApprovalPayload(input: {
@@ -316,6 +467,56 @@ export function budgetService(db: Db, hooks: BudgetServiceHooks = {}) {
   async function buildPolicySummary(policy: PolicyRow): Promise<BudgetPolicySummary> {
     const scope = await resolveScopeRecord(db, policy.scopeType as BudgetScopeType, policy.scopeId);
     const observedAmount = await computeObservedAmount(db, policy);
+    const { start, end } = resolveWindow(policy.windowKind as BudgetWindowKind);
+    const amount = policy.isActive ? policy.amount : 0;
+    const utilizationPercent =
+      amount > 0 ? Number(((observedAmount / amount) * 100).toFixed(2)) : 0;
+    return {
+      policyId: policy.id,
+      companyId: policy.companyId,
+      scopeType: policy.scopeType as BudgetScopeType,
+      scopeId: policy.scopeId,
+      scopeName: normalizeScopeName(policy.scopeType as BudgetScopeType, scope.name),
+      metric: policy.metric as BudgetMetric,
+      windowKind: policy.windowKind as BudgetWindowKind,
+      amount,
+      observedAmount,
+      remainingAmount: amount > 0 ? Math.max(0, amount - observedAmount) : 0,
+      utilizationPercent,
+      warnPercent: policy.warnPercent,
+      hardStopEnabled: policy.hardStopEnabled,
+      notifyEnabled: policy.notifyEnabled,
+      isActive: policy.isActive,
+      status: policy.isActive
+        ? budgetStatusFromObserved(observedAmount, amount, policy.warnPercent)
+        : "ok",
+      paused: scope.paused,
+      pauseReason: scope.pauseReason,
+      windowStart: start,
+      windowEnd: end,
+    };
+  }
+
+  function buildPolicySummaryBatched(
+    policy: PolicyRow,
+    scopeMap: Map<string, ScopeRecord>,
+    observedMap: Map<string, number>,
+  ): BudgetPolicySummary {
+    const scopeKey = `${policy.scopeType}:${policy.scopeId}`;
+    let scope = scopeMap.get(scopeKey);
+    if (!scope) {
+      // Defensive fallback — should not happen if batch resolved correctly
+      scope = {
+        companyId: policy.companyId,
+        name: policy.scopeId,
+        paused: false,
+        pauseReason: null,
+      };
+    }
+
+    const observedKey = `${policy.scopeType}:${policy.scopeId}:${policy.windowKind}`;
+    const observedAmount = observedMap.get(observedKey) ?? 0;
+
     const { start, end } = resolveWindow(policy.windowKind as BudgetWindowKind);
     const amount = policy.isActive ? policy.amount : 0;
     const utilizationPercent =
@@ -627,7 +828,14 @@ export function budgetService(db: Db, hooks: BudgetServiceHooks = {}) {
 
     overview: async (companyId: string): Promise<BudgetOverview> => {
       const rows = await listPolicyRows(companyId);
-      const policies = await Promise.all(rows.map((row) => buildPolicySummary(row)));
+
+      // Batch-resolve scope records and observed amounts to avoid N+1 queries.
+      const [scopeMap, observedMap] = await Promise.all([
+        batchResolveScopeRecords(db, rows.map((r) => ({ scopeType: r.scopeType, scopeId: r.scopeId }))),
+        batchComputeObservedAmounts(db, companyId, rows),
+      ]);
+
+      const policies = rows.map((row) => buildPolicySummaryBatched(row, scopeMap, observedMap));
       const activeIncidentRows = await db
         .select()
         .from(budgetIncidents)
