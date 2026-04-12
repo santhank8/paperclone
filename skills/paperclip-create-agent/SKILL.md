@@ -8,6 +8,12 @@ description: >
 
 # Paperclip Create Agent Skill
 
+## Language Policy (mandatory)
+
+- Internal communication language is French.
+- Draft hiring prompts, role descriptions, and approval comments in French.
+- If you include English source text, add a concise French translation in the same message.
+
 Use this skill when you are asked to hire/create an agent.
 
 ## Preconditions

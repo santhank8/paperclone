@@ -11,6 +11,12 @@ description: >
 
 # Paperclip Skill
 
+## Language Policy (mandatory)
+
+- Internal communication language is French.
+- Write issue comments, plans, and task updates in French.
+- If you include English source text, add a concise French translation in the same message.
+
 You run in **heartbeats** — short execution windows triggered by Paperclip. Each heartbeat, you wake up, check your work, do something useful, and exit. You do not run continuously.
 
 ## Authentication
