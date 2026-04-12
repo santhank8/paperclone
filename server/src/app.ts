@@ -60,6 +60,31 @@ export function resolveViteHmrPort(serverPort: number): number {
   return Math.max(1_024, serverPort - 10_000);
 }
 
+/**
+ * Returns a getter that re-reads index.html from disk only when its mtime
+ * changes, so a process-cached shell never drifts from the file on disk after
+ * a hotpatch or ui-dist refresh without a server restart.
+ */
+export function createIndexHtmlGetter(indexHtmlPath: string): () => string {
+  let html = "";
+  let mtimeMs = 0;
+  return () => {
+    try {
+      const nextMtimeMs = fs.statSync(indexHtmlPath).mtimeMs;
+      if (nextMtimeMs !== mtimeMs) {
+        html = applyUiBranding(fs.readFileSync(indexHtmlPath, "utf-8"));
+        mtimeMs = nextMtimeMs;
+      }
+    } catch (err) {
+      // File is transiently absent (e.g. mid-hotpatch replacement).
+      // Serve the last known-good html if available; let the error
+      // propagate only on the very first call when there is nothing cached.
+      if (!html) throw err;
+    }
+    return html;
+  };
+}
+
 export async function createApp(
   db: Db,
   opts: {
@@ -258,10 +283,10 @@ export async function createApp(
     ];
     const uiDist = candidates.find((p) => fs.existsSync(path.join(p, "index.html")));
     if (uiDist) {
-      const indexHtml = applyUiBranding(fs.readFileSync(path.join(uiDist, "index.html"), "utf-8"));
+      const getIndexHtml = createIndexHtmlGetter(path.join(uiDist, "index.html"));
       app.use(express.static(uiDist));
       app.get(/.*/, (_req, res) => {
-        res.status(200).set("Content-Type", "text/html").end(indexHtml);
+        res.status(200).set("Content-Type", "text/html").end(getIndexHtml());
       });
     } else {
       console.warn("[paperclip] UI dist not found; running in API-only mode");
