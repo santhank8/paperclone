@@ -391,7 +391,10 @@ async function downloadTgFile(
     result: { file_path: string };
   };
   const url = `https://api.telegram.org/file/bot${token}/${info.result.file_path}`;
-  const resp = await ctx.http.fetch(url);
+  const resp = await fetch(url);
+  if (!resp.ok) {
+    throw new Error(`Telegram file download failed: ${resp.status} ${resp.statusText}`);
+  }
   return resp.arrayBuffer();
 }
 
@@ -410,7 +413,9 @@ async function transcribeVoice(
   form.append("response_format", "json");
 
   // Using Groq's free Whisper API (OpenAI-compatible)
-  const resp = await ctx.http.fetch(
+  // Use native fetch here: the plugin SDK RPC fetch serializes RequestInit.body
+  // as a string, which breaks multipart/form-data file uploads.
+  const resp = await fetch(
     "https://api.groq.com/openai/v1/audio/transcriptions",
     {
       method: "POST",
@@ -421,7 +426,7 @@ async function transcribeVoice(
 
   const result = (await resp.json()) as { text?: string; error?: unknown };
   if (result.error) {
-    ctx.logger.error("Groq transcription error", { error: result.error });
+    ctx.logger.error("Groq transcription error", { status: resp.status, error: result.error });
     return "";
   }
   return result.text?.trim() ?? "";
