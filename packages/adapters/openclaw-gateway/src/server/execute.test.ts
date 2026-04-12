@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { execute, resolveSessionKey } from "./execute.js";
+import { buildPaperclipEnvForWake, buildWakeText, execute, resolveSessionKey } from "./execute.js";
 
 describe("resolveSessionKey", () => {
   it("prefixes run-scoped session keys with the configured agent", () => {
@@ -50,9 +50,8 @@ describe("resolveSessionKey", () => {
     ).toBe("agent:meridian:paperclip");
   });
 
-  it("uses the configured claimed api key path in the wake payload", async () => {
-    let stdout = "";
-    const result = await execute({
+  it("uses the configured claimed api key path in the wake text and env", async () => {
+    const ctx = {
       config: {
         url: "ws://127.0.0.1:18789",
         headers: {
@@ -68,20 +67,31 @@ describe("resolveSessionKey", () => {
       },
       context: {},
       onMeta: async () => undefined,
-      onLog: async (stream: string, chunk: string) => {
-        if (stream === "stdout") stdout += chunk;
-      },
-    } as any);
+      onLog: async () => undefined,
+    } as any;
+    const wakePayload = {
+      runId: "run-123",
+      agentId: "agent-123",
+      companyId: "company-123",
+      taskId: null,
+      issueId: null,
+      wakeReason: null,
+      wakeCommentId: null,
+      approvalId: null,
+      approvalStatus: null,
+      issueIds: [],
+    };
 
-    expect(result.errorCode).toBe("openclaw_gateway_connection_failed");
-    expect(result.errorMessage).toContain("ws://127.0.0.1:18789");
-    expect(stdout).toContain("PAPERCLIP_CLAIMED_API_KEY_PATH=/tmp/custom-paperclip-key.json");
-    expect(stdout).toContain("Load PAPERCLIP_API_KEY from /tmp/custom-paperclip-key.json");
+    const env = buildPaperclipEnvForWake(ctx, wakePayload);
+    const wakeText = buildWakeText(wakePayload, env, "");
+
+    expect(env.PAPERCLIP_CLAIMED_API_KEY_PATH).toBe("/tmp/custom-paperclip-key.json");
+    expect(wakeText).toContain("PAPERCLIP_CLAIMED_API_KEY_PATH=/tmp/custom-paperclip-key.json");
+    expect(wakeText).toContain("Load PAPERCLIP_API_KEY from /tmp/custom-paperclip-key.json");
   });
 
   it("does not inject PAPERCLIP_CLAIMED_API_KEY_PATH when it is not configured", async () => {
-    let stdout = "";
-    const result = await execute({
+    const ctx = {
       config: {
         url: "ws://127.0.0.1:18789",
         headers: {
@@ -96,14 +106,26 @@ describe("resolveSessionKey", () => {
       },
       context: {},
       onMeta: async () => undefined,
-      onLog: async (stream: string, chunk: string) => {
-        if (stream === "stdout") stdout += chunk;
-      },
-    } as any);
+      onLog: async () => undefined,
+    } as any;
+    const wakePayload = {
+      runId: "run-123",
+      agentId: "agent-123",
+      companyId: "company-123",
+      taskId: null,
+      issueId: null,
+      wakeReason: null,
+      wakeCommentId: null,
+      approvalId: null,
+      approvalStatus: null,
+      issueIds: [],
+    };
 
-    expect(result.errorCode).toBe("openclaw_gateway_connection_failed");
-    expect(result.errorMessage).toContain("ws://127.0.0.1:18789");
-    expect(stdout).not.toContain("PAPERCLIP_CLAIMED_API_KEY_PATH=");
-    expect(stdout).toContain("Load PAPERCLIP_API_KEY from ~/.openclaw/workspace/paperclip-claimed-api-key.json");
+    const env = buildPaperclipEnvForWake(ctx, wakePayload);
+    const wakeText = buildWakeText(wakePayload, env, "");
+
+    expect(env.PAPERCLIP_CLAIMED_API_KEY_PATH).toBeUndefined();
+    expect(wakeText).not.toContain("PAPERCLIP_CLAIMED_API_KEY_PATH=");
+    expect(wakeText).toContain("Load PAPERCLIP_API_KEY from ~/.openclaw/workspace/paperclip-claimed-api-key.json");
   });
 });

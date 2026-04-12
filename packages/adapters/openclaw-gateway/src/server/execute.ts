@@ -336,7 +336,7 @@ function resolveClaimedApiKeyPath(value: unknown): string | null {
   return nonEmpty(value) ?? null;
 }
 
-function buildPaperclipEnvForWake(ctx: AdapterExecutionContext, wakePayload: WakePayload): Record<string, string> {
+export function buildPaperclipEnvForWake(ctx: AdapterExecutionContext, wakePayload: WakePayload): Record<string, string> {
   const paperclipApiUrlOverride = resolvePaperclipApiUrlOverride(ctx.config.paperclipApiUrl);
   const claimedApiKeyPathOverride = resolveClaimedApiKeyPath(ctx.config.claimedApiKeyPath);
   const paperclipEnv: Record<string, string> = {
@@ -362,7 +362,7 @@ function buildPaperclipEnvForWake(ctx: AdapterExecutionContext, wakePayload: Wak
   return paperclipEnv;
 }
 
-function buildWakeText(
+export function buildWakeText(
   payload: WakePayload,
   paperclipEnv: Record<string, string>,
   structuredWakePrompt: string,
