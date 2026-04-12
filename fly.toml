@@ -32,6 +32,11 @@ kill_timeout = '2m0s'
     method = 'GET'
     path = '/api/health'
 
+[[mounts]]
+  source = 'paperclip_instances'
+  destination = '/paperclip/instances'
+  initial_size = '1gb'
+
 [[vm]]
   memory = '2048mb'
   cpu_kind = 'shared'
