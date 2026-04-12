@@ -101,7 +101,7 @@ export function Sidebar() {
 
         <SidebarSection label={t.nav.work}>
           <SidebarNavItem to="/issues" label={t.nav.issues} icon={CircleDot} />
-          <SidebarNavItem to="/routines" label={t.nav.routines} icon={Repeat} textBadge={t.common.beta} textBadgeTone="amber" />
+          <SidebarNavItem to="/routines" label={t.nav.routines} icon={Repeat} />
           <SidebarNavItem to="/goals" label={t.nav.goals} icon={Target} />
         </SidebarSection>
 

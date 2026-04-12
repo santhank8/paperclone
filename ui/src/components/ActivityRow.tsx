@@ -1,77 +1,9 @@
-import { useMemo } from "react";
 import { Link } from "@/lib/router";
 import { Identity } from "./Identity";
 import { timeAgo } from "../lib/timeAgo";
 import { cn } from "../lib/utils";
+import { formatActivityVerb } from "../lib/activity-format";
 import { deriveProjectUrlKey, type ActivityEvent, type Agent } from "@paperclipai/shared";
-import { useLanguage } from "@/context/LanguageContext";
-import type { Translations } from "@/i18n/en";
-
-function humanizeValue(value: unknown): string {
-  if (typeof value !== "string") return String(value ?? "none");
-  return value.replace(/_/g, " ");
-}
-
-function buildActionVerbs(t: Translations): Record<string, string> {
-  return {
-    "issue.created": t.activity.verbCreated,
-    "issue.updated": t.activity.verbUpdated,
-    "issue.checked_out": t.activity.verbCheckedOut,
-    "issue.released": t.activity.verbReleased,
-    "issue.comment_added": t.activity.verbCommentedOn,
-    "issue.attachment_added": t.activity.verbAttachedFileTo,
-    "issue.attachment_removed": t.activity.verbRemovedAttachmentFrom,
-    "issue.document_created": t.activity.verbCreatedDocumentFor,
-    "issue.document_updated": t.activity.verbUpdatedDocumentOn,
-    "issue.document_deleted": t.activity.verbDeletedDocumentFrom,
-    "issue.commented": t.activity.verbCommentedOn,
-    "issue.deleted": t.activity.verbDeleted,
-    "agent.created": t.activity.verbCreated,
-    "agent.updated": t.activity.verbUpdated,
-    "agent.paused": t.activity.verbPaused,
-    "agent.resumed": t.activity.verbResumed,
-    "agent.terminated": t.activity.verbTerminated,
-    "agent.key_created": t.activity.verbCreatedApiKeyFor,
-    "agent.budget_updated": t.activity.verbUpdatedBudgetFor,
-    "agent.runtime_session_reset": t.activity.verbResetSessionFor,
-    "heartbeat.invoked": t.activity.verbInvokedHeartbeatFor,
-    "heartbeat.cancelled": t.activity.verbCancelledHeartbeatFor,
-    "approval.created": t.activity.verbRequestedApproval,
-    "approval.approved": t.activity.verbApproved,
-    "approval.rejected": t.activity.verbRejected,
-    "project.created": t.activity.verbCreated,
-    "project.updated": t.activity.verbUpdated,
-    "project.deleted": t.activity.verbDeleted,
-    "goal.created": t.activity.verbCreated,
-    "goal.updated": t.activity.verbUpdated,
-    "goal.deleted": t.activity.verbDeleted,
-    "cost.reported": t.activity.verbReportedCostFor,
-    "cost.recorded": t.activity.verbRecordedCostFor,
-    "company.created": t.activity.verbCreatedCompany,
-    "company.updated": t.activity.verbUpdatedCompany,
-    "company.archived": t.activity.verbArchived,
-    "company.budget_updated": t.activity.verbUpdatedBudgetFor,
-  };
-}
-
-function formatVerb(action: string, details: Record<string, unknown> | null | undefined, t: Translations, actionVerbs: Record<string, string>): string {
-  if (action === "issue.updated" && details) {
-    const previous = (details._previous ?? {}) as Record<string, unknown>;
-    if (details.status !== undefined) {
-      const from = previous.status;
-      return from
-        ? t.activity.changedStatusFromTo.replace("{from}", humanizeValue(from)).replace("{to}", humanizeValue(details.status))
-        : t.activity.changedStatusTo.replace("{to}", humanizeValue(details.status));
-    }
-    if (details.priority !== undefined) {
-      const from = previous.priority;
-      return from
-        ? t.activity.changedPriorityFromTo.replace("{from}", humanizeValue(from)).replace("{to}", humanizeValue(details.priority))
-        : t.activity.changedPriorityTo.replace("{to}", humanizeValue(details.priority));
-    }
-  }
-  return actionVerbs[action] ?? action.replace(/[._]/g, " ");
-}
 
 function entityLink(entityType: string, entityId: string, name?: string | null): string | null {
   switch (entityType) {
@@ -93,9 +25,7 @@ interface ActivityRowProps {
 }
 
 export function ActivityRow({ event, agentMap, entityNameMap, entityTitleMap, className }: ActivityRowProps) {
-  const { t } = useLanguage();
-  const actionVerbs = useMemo(() => buildActionVerbs(t), [t]);
-  const verb = formatVerb(event.action, event.details, t, actionVerbs);
+  const verb = formatActivityVerb(event.action, event.details, { agentMap });
 
   const isHeartbeatEvent = event.entityType === "heartbeat_run";
   const heartbeatAgentId = isHeartbeatEvent

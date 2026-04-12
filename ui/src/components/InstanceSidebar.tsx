@@ -4,6 +4,7 @@ import { NavLink } from "@/lib/router";
 import { pluginsApi } from "@/api/plugins";
 import { queryKeys } from "@/lib/queryKeys";
 import { useLanguage } from "@/context/LanguageContext";
+import { SIDEBAR_SCROLL_RESET_STATE } from "@/lib/navigation-scroll";
 import { SidebarNavItem } from "./SidebarNavItem";
 
 export function InstanceSidebar() {
@@ -35,6 +36,7 @@ export function InstanceSidebar() {
                 <NavLink
                   key={plugin.id}
                   to={`/instance/settings/plugins/${plugin.id}`}
+                  state={SIDEBAR_SCROLL_RESET_STATE}
                   className={({ isActive }) =>
                     [
                       "rounded-md px-2 py-1.5 text-xs transition-colors",

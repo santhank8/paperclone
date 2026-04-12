@@ -4,13 +4,13 @@ import { useQuery } from "@tanstack/react-query";
 import { useLanguage } from "@/context/LanguageContext";
 import type { Issue } from "@paperclipai/shared";
 import { heartbeatsApi, type LiveRunForIssue } from "../api/heartbeats";
-import { issuesApi } from "../api/issues";
 import type { TranscriptEntry } from "../adapters";
+import { issuesApi } from "../api/issues";
 import { queryKeys } from "../lib/queryKeys";
 import { cn, relativeTime } from "../lib/utils";
 import { ExternalLink } from "lucide-react";
 import { Identity } from "./Identity";
-import { RunTranscriptView } from "./transcript/RunTranscriptView";
+import { RunChatSurface } from "./RunChatSurface";
 import { useLiveRunTranscripts } from "./transcript/useLiveRunTranscripts";
 
 const MIN_DASHBOARD_RUNS = 4;
@@ -32,8 +32,8 @@ export function ActiveAgentsPanel({ companyId }: ActiveAgentsPanelProps) {
 
   const runs = liveRuns ?? [];
   const { data: issues } = useQuery({
-    queryKey: queryKeys.issues.list(companyId),
-    queryFn: () => issuesApi.list(companyId),
+    queryKey: [...queryKeys.issues.list(companyId), "with-routine-executions"],
+    queryFn: () => issuesApi.list(companyId, { includeRoutineExecutions: true }),
     enabled: runs.length > 0,
   });
 
@@ -65,6 +65,7 @@ export function ActiveAgentsPanel({ companyId }: ActiveAgentsPanelProps) {
           {runs.map((run) => (
             <AgentRunCard
               key={run.id}
+              companyId={companyId}
               run={run}
               issue={run.issueId ? issueById.get(run.issueId) : undefined}
               transcript={transcriptByRun.get(run.id) ?? []}
@@ -79,12 +80,14 @@ export function ActiveAgentsPanel({ companyId }: ActiveAgentsPanelProps) {
 }
 
 function AgentRunCard({
+  companyId,
   run,
   issue,
   transcript,
   hasOutput,
   isActive,
 }: {
+  companyId: string;
   run: LiveRunForIssue;
   issue?: Issue;
   transcript: TranscriptEntry[];
@@ -144,14 +147,11 @@ function AgentRunCard({
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto p-3">
-        <RunTranscriptView
-          entries={transcript}
-          density="compact"
-          limit={5}
-          streaming={isActive}
-          collapseStdout
-          thinkingClassName="!text-[10px] !leading-4"
-          emptyMessage={hasOutput ? t.activeAgents.waitingTranscript : isActive ? t.activeAgents.waitingOutput : t.activeAgents.noTranscript}
+        <RunChatSurface
+          run={run}
+          transcript={transcript}
+          hasOutput={hasOutput}
+          companyId={companyId}
         />
       </div>
     </div>
