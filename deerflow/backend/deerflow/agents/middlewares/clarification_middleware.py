@@ -57,6 +57,21 @@ class ClarificationMiddleware(AgentMiddleware[ClarificationMiddlewareState]):
         context = args.get("context")
         options = args.get("options", [])
 
+        # Coerce string-serialized options (common with smaller LLMs)
+        if isinstance(options, str):
+            if options.strip():
+                try:
+                    import json
+                    parsed = json.loads(options)
+                    if isinstance(parsed, list):
+                        options = parsed
+                    else:
+                        options = [options]
+                except (json.JSONDecodeError, TypeError):
+                    options = [options]
+            else:
+                options = []
+
         # Type-specific icons
         type_icons = {
             "missing_info": "❓",
