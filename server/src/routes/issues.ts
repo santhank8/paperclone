@@ -1833,7 +1833,7 @@ export function issueRoutes(
       const becameTerminal =
         !["done", "cancelled"].includes(existing.status) && ["done", "cancelled"].includes(issue.status);
 
-      if (becameTerminal && actor.actorType !== "agent") {
+      if (becameTerminal && !(actor.actorType === "agent" && actor.actorId === existing.assigneeAgentId)) {
         try {
           const runToCancel = await resolveActiveIssueRun(existing);
           if (runToCancel) {
