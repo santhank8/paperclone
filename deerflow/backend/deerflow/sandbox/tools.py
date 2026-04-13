@@ -10,6 +10,7 @@ from deerflow.sandbox.exceptions import (
     SandboxNotFoundError,
     SandboxRuntimeError,
 )
+from deerflow.sandbox.file_operation_lock import get_file_lock
 from deerflow.sandbox.search import GrepMatch
 from deerflow.sandbox.sandbox import Sandbox
 from deerflow.sandbox.sandbox_provider import get_sandbox_provider
@@ -436,10 +437,13 @@ def write_file_tool(
     try:
         sandbox = ensure_sandbox_initialized(runtime)
         ensure_thread_directories_exist(runtime)
+        sandbox_id = runtime.state.get("sandbox", {}).get("sandbox_id", "local") if hasattr(runtime, "state") else "local"
         if is_local_sandbox(runtime):
             thread_data = get_thread_data(runtime)
             path = replace_virtual_path(path, thread_data)
-        sandbox.write_file(path, content, append)
+        lock = get_file_lock(sandbox_id, path)
+        with lock:
+            sandbox.write_file(path, content, append)
         return "OK"
     except SandboxError as e:
         return f"Error: {e}"
@@ -475,19 +479,22 @@ def str_replace_tool(
     try:
         sandbox = ensure_sandbox_initialized(runtime)
         ensure_thread_directories_exist(runtime)
+        sandbox_id = runtime.state.get("sandbox", {}).get("sandbox_id", "local") if hasattr(runtime, "state") else "local"
         if is_local_sandbox(runtime):
             thread_data = get_thread_data(runtime)
             path = replace_virtual_path(path, thread_data)
-        content = sandbox.read_file(path)
-        if not content:
-            return "OK"
-        if old_str not in content:
-            return f"Error: String to replace not found in file: {path}"
-        if replace_all:
-            content = content.replace(old_str, new_str)
-        else:
-            content = content.replace(old_str, new_str, 1)
-        sandbox.write_file(path, content)
+        lock = get_file_lock(sandbox_id, path)
+        with lock:
+            content = sandbox.read_file(path)
+            if not content:
+                return "OK"
+            if old_str not in content:
+                return f"Error: String to replace not found in file: {path}"
+            if replace_all:
+                content = content.replace(old_str, new_str)
+            else:
+                content = content.replace(old_str, new_str, 1)
+            sandbox.write_file(path, content)
         return "OK"
     except SandboxError as e:
         return f"Error: {e}"
