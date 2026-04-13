@@ -1,3 +1,6 @@
+/** Default OpenAI-compatible base URL when using OpenRouter with no explicit endpoint set. */
+export const DEFAULT_OPENROUTER_OPENAI_BASE_URL = "https://openrouter.ai/api/v1";
+
 function readEnv(env: NodeJS.ProcessEnv, key: string): string | null {
   const value = env[key];
   return typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
@@ -45,7 +48,7 @@ export function applyOpenRouterOpenAiEnvMapping(env: Record<string, string>): vo
   const fromOpenAiBaseUrl = readEnv(processLike, "OPENAI_BASE_URL");
   const baseUrl = readOpenAiCompatibleBaseUrl(processLike);
   if (!baseUrl) {
-    env.OPENAI_BASE_URL = "https://openrouter.ai/api/v1";
+    env.OPENAI_BASE_URL = DEFAULT_OPENROUTER_OPENAI_BASE_URL;
     return;
   }
 
