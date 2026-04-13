@@ -5,7 +5,6 @@ import { issuesApi } from "../api/issues";
 import { agentsApi } from "../api/agents";
 import { heartbeatsApi } from "../api/heartbeats";
 import { useCompany } from "../context/CompanyContext";
-import { useLiveUpdates } from "../context/LiveUpdatesProvider";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
 import { queryKeys } from "../lib/queryKeys";
 import { EmptyState } from "../components/EmptyState";
@@ -16,7 +15,6 @@ const IMPROVEMENT_LABEL_NAMES = new Set(["self-upgrade", "auto-generated"]);
 
 export function Improvements() {
   const { selectedCompanyId } = useCompany();
-  const { isConnected: isWsConnected } = useLiveUpdates();
   const { setBreadcrumbs } = useBreadcrumbs();
   const [searchParams] = useSearchParams();
   const queryClient = useQueryClient();
@@ -56,7 +54,7 @@ export function Improvements() {
     queryKey: queryKeys.liveRuns(selectedCompanyId!),
     queryFn: () => heartbeatsApi.liveRunsForCompany(selectedCompanyId!),
     enabled: !!selectedCompanyId,
-    refetchInterval: isWsConnected ? false : 10_000,
+    refetchInterval: 10_000,
   });
 
   const liveIssueIds = useMemo(() => {

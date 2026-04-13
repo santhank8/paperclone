@@ -1,6 +1,6 @@
 import { getLast14Days, DateLabels, ChartLegend, ChartCard, formatDayLabel } from "./ActivityCharts";
 // CostDaily type — matches server dashboard runs API shape
-export type CostDaily = { date: string; totalCents: number };
+export type CostDaily = { date: string; costCents: number; heartbeats: number };
 
 /* ---- Spending Velocity Chart ---- */
 

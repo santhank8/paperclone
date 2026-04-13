@@ -26,6 +26,7 @@ function createAgent(
     icon,
     status: "active",
     reportsTo: null,
+    managerIds: [],
     capabilities: null,
     adapterType: "codex_local",
     adapterConfig: {},
