@@ -80,6 +80,12 @@ function draftFromTrigger(trigger: RoutineTrigger | null): TriggerDialogState {
   };
 }
 
+function parseReplayWindowSec(raw: string): number {
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed) || parsed < 1) return 300;
+  return Math.trunc(parsed);
+}
+
 export function TriggerDialog({
   open,
   onOpenChange,
@@ -112,7 +118,7 @@ export function TriggerDialog({
       }
       if (trigger.kind === "webhook") {
         patch.signingMode = draft.signingMode;
-        patch.replayWindowSec = Number(draft.replayWindowSec || "300");
+        patch.replayWindowSec = parseReplayWindowSec(draft.replayWindowSec);
       }
       onSubmit({ id: trigger.id, kind: trigger.kind as TriggerKind, body: patch });
       return;
@@ -129,7 +135,7 @@ export function TriggerDialog({
     }
     if (draft.kind === "webhook") {
       body.signingMode = draft.signingMode;
-      body.replayWindowSec = Number(draft.replayWindowSec || "300");
+      body.replayWindowSec = parseReplayWindowSec(draft.replayWindowSec);
     }
     onSubmit({ id: null, kind: draft.kind, body });
   };
@@ -225,6 +231,9 @@ export function TriggerDialog({
                 <div className="space-y-1.5">
                   <Label className="text-xs">Replay window (seconds)</Label>
                   <Input
+                    type="number"
+                    min={1}
+                    step={1}
                     value={draft.replayWindowSec}
                     onChange={(e) =>
                       setDraft((d) => ({ ...d, replayWindowSec: e.target.value }))

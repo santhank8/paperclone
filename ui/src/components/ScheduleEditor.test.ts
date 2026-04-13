@@ -4,6 +4,7 @@ import {
   getScheduleEditorPresetForTest,
   hasSingleMinuteAcrossTimesForTest,
   parseCronToPreset,
+  roundTripCronForTest,
 } from "./ScheduleEditor";
 
 describe("parseCronToPreset", () => {
@@ -140,6 +141,12 @@ describe("getScheduleEditorPresetForTest", () => {
 
   it("keeps multi-minute daily schedules in custom mode because one trigger cannot represent arbitrary time pairs", () => {
     expect(getScheduleEditorPresetForTest("15,45 9,13 * * *")).toBe("custom");
+  });
+});
+
+describe("roundTripCronForTest", () => {
+  it("preserves weekday ranges instead of normalizing them to a comma list", () => {
+    expect(roundTripCronForTest("0 9 * * 1-5")).toBe("0 9 * * 1-5");
   });
 });
 

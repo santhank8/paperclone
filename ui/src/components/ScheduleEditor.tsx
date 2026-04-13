@@ -368,6 +368,8 @@ function buildCronFromState(s: EditorState): string {
     if (arr.length === 0) return "*";
     return arr.join(",");
   };
+  const isWeekdayRangeSelection = (days: number[]): boolean =>
+    days.length === 5 && days.every((day, index) => day === index + 1);
   switch (s.preset) {
     case "every_minute":
       return "* * * * *";
@@ -392,7 +394,11 @@ function buildCronFromState(s: EditorState): string {
       const parsedTimes = s.times.map(parseTimeParts).filter((value): value is NonNullable<typeof value> => value != null);
       const minute = parsedTimes[0]?.minute ?? 0;
       const hours = [...new Set(parsedTimes.map((time) => time.hour))].sort((a, b) => a - b);
-      const days = s.days.length === 0 ? "*" : s.days.slice().sort((a, b) => a - b).join(",");
+      const days = s.days.length === 0
+        ? "*"
+        : isWeekdayRangeSelection(s.days)
+          ? "1-5"
+          : s.days.slice().sort((a, b) => a - b).join(",");
       return `${minute} ${fmt(hours)} * * ${days}`;
     }
     case "monthly": {
@@ -431,17 +437,6 @@ export function describeSchedule(cron: string): string {
     parseCronField(mon, 1, 12);
     daysOfWeek = parseCronField(dow.replace(/7/g, "0"), 0, 6);
   } catch {
-    return cron;
-  }
-  // `parseCronField` silently drops tokens it can't parse (e.g. "MON"), so an
-  // otherwise-valid shape with a named token produces an empty set. Treat any
-  // empty field as unrepresentable and hand the raw cron back to the caller.
-  if (
-    minutes.length === 0 ||
-    hours.length === 0 ||
-    daysOfMonth.length === 0 ||
-    daysOfWeek.length === 0
-  ) {
     return cron;
   }
   if (mon !== "*") return cron;
@@ -931,7 +926,13 @@ function WindowAndWeekdaysToggles({
           <div className="flex items-center gap-2 pl-6 flex-wrap">
             <Select
               value={String(state.windowStart)}
-              onValueChange={(v) => update({ windowStart: +v })}
+              onValueChange={(v) => {
+                const windowStart = Number(v);
+                update({
+                  windowStart,
+                  windowEnd: Math.max(state.windowEnd, windowStart),
+                });
+              }}
             >
               <SelectTrigger className="w-28">
                 <SelectValue />
@@ -947,14 +948,14 @@ function WindowAndWeekdaysToggles({
             <span className="text-xs text-muted-foreground">to</span>
             <Select
               value={String(state.windowEnd)}
-              onValueChange={(v) => update({ windowEnd: +v })}
+              onValueChange={(v) => update({ windowEnd: Math.max(Number(v), state.windowStart) })}
             >
               <SelectTrigger className="w-28">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 {Array.from({ length: 24 }, (_, i) => (
-                  <SelectItem key={i} value={String(i)}>
+                  <SelectItem key={i} value={String(i)} disabled={i < state.windowStart}>
                     {pad(i)}:00
                   </SelectItem>
                 ))}
@@ -1029,4 +1030,8 @@ export function getScheduleEditorPresetForTest(cron: string): EditorPreset {
 
 export function hasSingleMinuteAcrossTimesForTest(times: string[]): boolean {
   return hasSingleMinuteAcrossTimes(times);
+}
+
+export function roundTripCronForTest(cron: string): string {
+  return buildCronFromState(parseCronToEditorState(cron));
 }

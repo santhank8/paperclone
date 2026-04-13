@@ -523,7 +523,7 @@ export function RoutineDetail() {
   const currentAssignee = editDraft.assigneeAgentId ? agentById.get(editDraft.assigneeAgentId) ?? null : null;
   const currentProject = editDraft.projectId ? projectById.get(editDraft.projectId) ?? null : null;
 
-  const renderActivityTabs = () => {
+  const activityTabsPanel = useMemo(() => {
     if (!routine) return null;
     return (
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-3">
@@ -662,27 +662,26 @@ export function RoutineDetail() {
         </TabsContent>
       </Tabs>
     );
-  };
+  }, [
+    activeIssueId,
+    activeTab,
+    activity,
+    hasLiveRun,
+    rotateTrigger.mutate,
+    routine,
+    routineRuns,
+    togglingTriggerId,
+    updateTrigger.mutate,
+  ]);
 
   useEffect(() => {
-    if (!routine) {
+    if (!activityTabsPanel) {
       closePanel();
       return;
     }
-    openPanel(renderActivityTabs());
+    openPanel(activityTabsPanel);
     return () => closePanel();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    routine,
-    routineRuns,
-    activity,
-    activeTab,
-    hasLiveRun,
-    activeIssueId,
-    togglingTriggerId,
-    openPanel,
-    closePanel,
-  ]);
+  }, [activityTabsPanel, closePanel, openPanel]);
 
   if (!selectedCompanyId) {
     return <EmptyState icon={Repeat} message="Select a company to view routines." />;
@@ -1001,7 +1000,7 @@ export function RoutineDetail() {
 
       {/* Tabs (mobile only — desktop renders in the right properties panel) */}
       <div className="md:hidden">
-        {renderActivityTabs()}
+        {activityTabsPanel}
       </div>
 
       <RoutineRunVariablesDialog
