@@ -111,3 +111,9 @@ Build: `docker compose -f docker/docker-compose.yml build`
 Run: `docker compose -f docker/docker-compose.yml up -d`
 
 The Dockerfile installs `gh` (GitHub CLI), `vercel`, `claude-code`, `codex`, and `opencode-ai` globally.
+
+## Live Instance
+
+- **Tailscale (private)**: `http://100.94.99.88:49175` — requires Tailscale on the same tailnet
+- **VPS**: Hostinger `srv1576783.hstgr.cloud`, compose at `/docker/paperclip-jic4/`
+- **Public access**: disabled (UFW blocks public ports)

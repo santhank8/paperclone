@@ -13,7 +13,7 @@ describe("GET /health", () => {
     vi.restoreAllMocks();
   });
 
-  it("returns 200 with status ok", async () => {
+  it("returns 200 with minimal status for unauthenticated requests (no db)", async () => {
     const devServerStatus = await import("../dev-server-status.js");
     vi.spyOn(devServerStatus, "readPersistedDevServerStatus").mockReturnValue(undefined);
     const { healthRoutes } = await import("../routes/health.js");
@@ -22,10 +22,10 @@ describe("GET /health", () => {
 
     const res = await request(app).get("/health");
     expect(res.status).toBe(200);
-    expect(res.body).toEqual({ status: "ok", version: serverVersion });
+    expect(res.body).toEqual({ status: "ok" });
   });
 
-  it("returns 200 when the database probe succeeds", async () => {
+  it("returns 200 with minimal status for unauthenticated requests (db ok)", async () => {
     const devServerStatus = await import("../dev-server-status.js");
     vi.spyOn(devServerStatus, "readPersistedDevServerStatus").mockReturnValue(undefined);
     const { healthRoutes } = await import("../routes/health.js");
@@ -38,10 +38,10 @@ describe("GET /health", () => {
     const res = await request(app).get("/health");
 
     expect(res.status).toBe(200);
-    expect(res.body).toMatchObject({ status: "ok", version: serverVersion });
+    expect(res.body).toEqual({ status: "ok" });
   });
 
-  it("returns 503 when the database probe fails", async () => {
+  it("returns 503 with minimal error for unauthenticated requests (db down)", async () => {
     const devServerStatus = await import("../dev-server-status.js");
     vi.spyOn(devServerStatus, "readPersistedDevServerStatus").mockReturnValue(undefined);
     const { healthRoutes } = await import("../routes/health.js");
@@ -54,10 +54,6 @@ describe("GET /health", () => {
     const res = await request(app).get("/health");
 
     expect(res.status).toBe(503);
-    expect(res.body).toEqual({
-      status: "unhealthy",
-      version: serverVersion,
-      error: "database_unreachable",
-    });
+    expect(res.body).toEqual({ status: "unhealthy" });
   });
 });
