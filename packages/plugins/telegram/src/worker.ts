@@ -130,6 +130,22 @@ function previewForLog(text: string, max = 240): string {
   return text.replace(/\s+/g, " ").trim().slice(0, max);
 }
 
+function cleanTelegramText(text: string): string {
+  return text
+    // Markdown links: [ART-55](/ART/issues/ART-55) -> ART-55
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+    // Basic markdown markers are noisy in Telegram plain text.
+    .replace(/\*\*([^*]+)\*\*/g, "$1")
+    .replace(/__([^_]+)__/g, "$1")
+    .replace(/`([^`]+)`/g, "$1")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+function cleanIssueTitle(title: string): string {
+  return cleanTelegramText(title).replace(/\s+/g, " ").trim();
+}
+
 async function sendMsg(
   ctx: PluginContext,
   token: string,
@@ -478,7 +494,7 @@ async function buildDirectStatusReport(
     lines.push("• Нет срочных запросов.");
   } else {
     for (const issue of blocked.slice(0, 5)) {
-      lines.push(`• ${issue.identifier ?? "?"} — ${issue.title}`);
+      lines.push(`• ${issue.identifier ?? "?"} — ${cleanIssueTitle(issue.title)}`);
     }
     if (blocked.length > 5) {
       lines.push(`  …и ещё ${blocked.length - 5} заблокированных задач`);
@@ -494,7 +510,7 @@ async function buildDirectStatusReport(
     lines.push("• Нет недавно закрытых задач.");
   } else {
     for (const issue of recentDone) {
-      lines.push(`• ${issue.identifier ?? "?"} — ${issue.title}`);
+      lines.push(`• ${issue.identifier ?? "?"} — ${cleanIssueTitle(issue.title)}`);
     }
   }
 
@@ -506,7 +522,7 @@ async function buildDirectStatusReport(
     lines.push("• Критических блокеров нет.");
   } else {
     for (const issue of blocked.slice(0, 4)) {
-      lines.push(`• ${issue.identifier ?? "?"}: ${issue.title}`);
+      lines.push(`• ${issue.identifier ?? "?"}: ${cleanIssueTitle(issue.title)}`);
     }
   }
 
@@ -538,7 +554,7 @@ function buildTelegramAgentPrompt(prompt: string): string {
 }
 
 function normalizeTelegramReply(response: string): string {
-  const cleaned = sanitizeAgentMessage(response)
+  const cleaned = cleanTelegramText(sanitizeAgentMessage(response)
     // Unescape literal \n sequences from JSON-serialized strings
     .replace(/\\n/g, "\n")
     .replace(/\\t/g, "  ")
@@ -553,8 +569,7 @@ function normalizeTelegramReply(response: string): string {
       return true;
     })
     .join("\n")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
+    .replace(/\n{3,}/g, "\n\n"));
 
   if (!cleaned) {
     return "Агент выполнил задачу, но не вернул текстовый ответ. Проверьте задачи в Paperclip или попробуйте ещё раз.";
@@ -691,16 +706,32 @@ async function downloadTgFile(
   ctx: PluginContext,
   token: string,
   fileId: string,
-): Promise<ArrayBuffer> {
+): Promise<{ buffer: ArrayBuffer; filePath: string }> {
   const info = (await tgApi(ctx, token, "getFile", { file_id: fileId })) as {
     result: { file_path: string };
   };
-  const url = `https://api.telegram.org/file/bot${token}/${info.result.file_path}`;
+  const filePath = info.result.file_path;
+  const url = `https://api.telegram.org/file/bot${token}/${filePath}`;
   const resp = await fetch(url);
   if (!resp.ok) {
     throw new Error(`Telegram file download failed: ${resp.status} ${resp.statusText}`);
   }
-  return resp.arrayBuffer();
+  return { buffer: await resp.arrayBuffer(), filePath };
+}
+
+function audioMimeFromTelegramPath(filePath: string): { mime: string; filename: string } {
+  const filename = filePath.split("/").pop() || "voice.ogg";
+  const lower = filename.toLowerCase();
+  if (lower.endsWith(".oga") || lower.endsWith(".ogg") || lower.endsWith(".opus")) {
+    return { mime: "audio/ogg", filename };
+  }
+  if (lower.endsWith(".m4a")) return { mime: "audio/mp4", filename };
+  if (lower.endsWith(".mp3") || lower.endsWith(".mpeg") || lower.endsWith(".mpga")) {
+    return { mime: "audio/mpeg", filename };
+  }
+  if (lower.endsWith(".wav")) return { mime: "audio/wav", filename };
+  if (lower.endsWith(".webm")) return { mime: "audio/webm", filename };
+  return { mime: "application/octet-stream", filename };
 }
 
 async function transcribeVoice(
@@ -709,10 +740,11 @@ async function transcribeVoice(
   fileId: string,
   groqKey: string,
 ): Promise<string> {
-  const audioBuffer = await downloadTgFile(ctx, token, fileId);
+  const { buffer: audioBuffer, filePath } = await downloadTgFile(ctx, token, fileId);
+  const audioMeta = audioMimeFromTelegramPath(filePath);
 
   const form = new FormData();
-  form.append("file", new Blob([audioBuffer], { type: "audio/ogg" }), "voice.ogg");
+  form.append("file", new Blob([audioBuffer], { type: audioMeta.mime }), audioMeta.filename);
   form.append("model", "whisper-large-v3");
   form.append("language", "ru");
   form.append("response_format", "json");
