@@ -31,6 +31,8 @@ vi.mock("@paperclipai/adapter-utils/server-utils", async () => {
   return {
     ...actual,
     runChildProcess: vi.fn(),
+    ensureCommandResolvable: vi.fn().mockResolvedValue(undefined),
+    resolveCommandForLogs: vi.fn().mockResolvedValue("opencode"),
     ensureOpenCodeModelConfiguredAndAvailable: vi.fn().mockResolvedValue([]),
     prepareOpenCodeRuntimeConfig: vi.fn().mockResolvedValue({
       env: {},
