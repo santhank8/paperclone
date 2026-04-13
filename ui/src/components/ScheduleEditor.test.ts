@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { describeSchedule, parseCronToPreset } from "./ScheduleEditor";
+import {
+  describeSchedule,
+  getScheduleEditorPresetForTest,
+  hasSingleMinuteAcrossTimesForTest,
+  parseCronToPreset,
+} from "./ScheduleEditor";
 
 describe("parseCronToPreset", () => {
   describe("simple single-value crons map to presets", () => {
@@ -124,5 +129,26 @@ describe("describeSchedule", () => {
 
   it("falls back to the default 10:00 AM preset for an empty cron", () => {
     expect(describeSchedule("")).toBe("Every day at 10:00 AM");
+  });
+});
+
+describe("getScheduleEditorPresetForTest", () => {
+  it("keeps malformed hour fields in custom mode instead of coercing them into daily", () => {
+    expect(getScheduleEditorPresetForTest("0 foo * * *")).toBe("custom");
+    expect(getScheduleEditorPresetForTest("0 9-foo * * *")).toBe("custom");
+  });
+
+  it("keeps multi-minute daily schedules in custom mode because one trigger cannot represent arbitrary time pairs", () => {
+    expect(getScheduleEditorPresetForTest("15,45 9,13 * * *")).toBe("custom");
+  });
+});
+
+describe("hasSingleMinuteAcrossTimesForTest", () => {
+  it("accepts same-minute multi-time selections", () => {
+    expect(hasSingleMinuteAcrossTimesForTest(["09:00", "13:00", "17:00"])).toBe(true);
+  });
+
+  it("rejects mixed-minute selections that would expand into extra cron runs", () => {
+    expect(hasSingleMinuteAcrossTimesForTest(["09:15", "13:45"])).toBe(false);
   });
 });

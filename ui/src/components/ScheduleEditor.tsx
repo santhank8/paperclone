@@ -56,6 +56,24 @@ function isSimpleCronField(field: string): boolean {
   return field === "*" || /^\d+$/.test(field);
 }
 
+function parseTimeParts(time: string): { hour: number; minute: number } | null {
+  const match = time.match(/^(\d{2}):(\d{2})$/);
+  if (!match) return null;
+  const hour = Number(match[1]);
+  const minute = Number(match[2]);
+  if (!Number.isInteger(hour) || !Number.isInteger(minute) || hour < 0 || hour > 23 || minute < 0 || minute > 59) {
+    return null;
+  }
+  return { hour, minute };
+}
+
+function hasSingleMinuteAcrossTimes(times: string[]): boolean {
+  const parsed = times.map(parseTimeParts);
+  if (parsed.some((value) => value == null)) return false;
+  const minutes = new Set(parsed.map((value) => value!.minute));
+  return minutes.size <= 1;
+}
+
 // ---------------------------------------------------------------------------
 // Back-compat parser (kept so tests and any external callers continue to work)
 // ---------------------------------------------------------------------------
@@ -177,38 +195,65 @@ const DEFAULT_STATE: EditorState = {
 };
 
 function parseCronField(field: string, min: number, max: number): number[] {
-  if (field === "*" || field === "?") {
+  if (field === "*") {
     return Array.from({ length: max - min + 1 }, (_, i) => i + min);
   }
   const parts = field.split(",");
   const out = new Set<number>();
   for (const p of parts) {
+    if (!p) {
+      throw new Error("Invalid cron field");
+    }
     const stepMatch = p.match(/^(.+)\/(\d+)$/);
     let base = p;
     let step = 1;
     if (stepMatch) {
       base = stepMatch[1];
       step = parseInt(stepMatch[2], 10);
+      if (!Number.isInteger(step) || step <= 0) {
+        throw new Error("Invalid cron step");
+      }
     }
     if (base === "*") {
       for (let i = min; i <= max; i += step) out.add(i);
     } else if (base.includes("-")) {
+      if (!/^\d+-\d+$/.test(base)) {
+        throw new Error("Invalid cron range");
+      }
       const [a, b] = base.split("-").map(Number);
+      if (a > b) {
+        throw new Error("Invalid cron range");
+      }
       for (let i = a; i <= b; i += step) out.add(i);
     } else {
+      if (!/^\d+$/.test(base)) {
+        throw new Error("Invalid cron value");
+      }
       const n = parseInt(base, 10);
-      if (!Number.isNaN(n) && n >= min && n <= max) out.add(n);
+      out.add(n);
     }
   }
-  return [...out].sort((a, b) => a - b);
+  for (const value of out) {
+    if (value < min || value > max) {
+      throw new Error("Cron value out of range");
+    }
+  }
+  const sorted = [...out].sort((a, b) => a - b);
+  if (sorted.length === 0) {
+    throw new Error("Invalid cron field");
+  }
+  return sorted;
 }
 
-function timesFromFields(minuteField: string, hourField: string): string[] {
+function timesFromFields(minuteField: string, hourField: string): string[] | null {
   const minutes = parseCronField(minuteField, 0, 59);
   const hours = parseCronField(hourField, 0, 23);
+  if (minutes.length > 1) {
+    return null;
+  }
   const out: string[] = [];
   for (const h of hours) for (const mi of minutes) out.push(`${pad(h)}:${pad(mi)}`);
-  return out.length ? out.slice(0, 24) : ["09:00"];
+  return out.length > 0 && out.length <= 24 ? out : null;
 }
 
 function parseCronToEditorState(cron: string): EditorState {
@@ -278,33 +323,39 @@ function parseCronToEditorState(cron: string): EditorState {
   // monthly: specific dom (may be multi), dow = *
   if (dom !== "*" && dow === "*") {
     const domDays = parseCronField(dom, 1, 31);
+    const times = timesFromFields(m, h);
+    if (!times) return { ...DEFAULT_STATE, preset: "custom", custom: cron };
     if (domDays.length === 0) return { ...DEFAULT_STATE, preset: "custom", custom: cron };
     return {
       ...DEFAULT_STATE,
       preset: "monthly",
       domDays,
-      times: timesFromFields(m, h),
+      times,
     };
   }
 
   // weekdays (any subset of days)
   if (dom === "*" && dow !== "*") {
     const days = parseCronField(dow.replace(/7/g, "0"), 0, 6);
+    const times = timesFromFields(m, h);
+    if (!times) return { ...DEFAULT_STATE, preset: "custom", custom: cron };
     if (days.length === 0) return { ...DEFAULT_STATE, preset: "custom", custom: cron };
     return {
       ...DEFAULT_STATE,
       preset: "weekdays",
       days,
-      times: timesFromFields(m, h),
+      times,
     };
   }
 
   // daily (any time(s))
   if (dom === "*" && dow === "*") {
+    const times = timesFromFields(m, h);
+    if (!times) return { ...DEFAULT_STATE, preset: "custom", custom: cron };
     return {
       ...DEFAULT_STATE,
       preset: "daily",
-      times: timesFromFields(m, h),
+      times,
     };
   }
 
@@ -332,21 +383,24 @@ function buildCronFromState(s: EditorState): string {
       return `${s.minutePast} */${s.n} * * ${dowField}`;
     }
     case "daily": {
-      const minutes = [...new Set(s.times.map((t) => +t.split(":")[1]))].sort((a, b) => a - b);
-      const hours = [...new Set(s.times.map((t) => +t.split(":")[0]))].sort((a, b) => a - b);
-      return `${fmt(minutes)} ${fmt(hours)} * * *`;
+      const parsedTimes = s.times.map(parseTimeParts).filter((value): value is NonNullable<typeof value> => value != null);
+      const minute = parsedTimes[0]?.minute ?? 0;
+      const hours = [...new Set(parsedTimes.map((time) => time.hour))].sort((a, b) => a - b);
+      return `${minute} ${fmt(hours)} * * *`;
     }
     case "weekdays": {
-      const minutes = [...new Set(s.times.map((t) => +t.split(":")[1]))].sort((a, b) => a - b);
-      const hours = [...new Set(s.times.map((t) => +t.split(":")[0]))].sort((a, b) => a - b);
+      const parsedTimes = s.times.map(parseTimeParts).filter((value): value is NonNullable<typeof value> => value != null);
+      const minute = parsedTimes[0]?.minute ?? 0;
+      const hours = [...new Set(parsedTimes.map((time) => time.hour))].sort((a, b) => a - b);
       const days = s.days.length === 0 ? "*" : s.days.slice().sort((a, b) => a - b).join(",");
-      return `${fmt(minutes)} ${fmt(hours)} * * ${days}`;
+      return `${minute} ${fmt(hours)} * * ${days}`;
     }
     case "monthly": {
-      const minutes = [...new Set(s.times.map((t) => +t.split(":")[1]))].sort((a, b) => a - b);
-      const hours = [...new Set(s.times.map((t) => +t.split(":")[0]))].sort((a, b) => a - b);
+      const parsedTimes = s.times.map(parseTimeParts).filter((value): value is NonNullable<typeof value> => value != null);
+      const minute = parsedTimes[0]?.minute ?? 0;
+      const hours = [...new Set(parsedTimes.map((time) => time.hour))].sort((a, b) => a - b);
       const doms = s.domDays.length === 0 ? [1] : s.domDays.slice().sort((a, b) => a - b);
-      return `${fmt(minutes)} ${fmt(hours)} ${fmt(doms)} * *`;
+      return `${minute} ${fmt(hours)} ${fmt(doms)} * *`;
     }
     case "custom":
       return s.custom;
@@ -475,7 +529,18 @@ function TimeList({
             className="font-mono w-32"
             onChange={(e) => {
               const next = times.slice();
-              next[i] = e.target.value || "00:00";
+              const value = e.target.value || "00:00";
+              next[i] = value;
+              if (next.length > 1) {
+                const parsed = parseTimeParts(value);
+                if (parsed) {
+                  for (let idx = 0; idx < next.length; idx += 1) {
+                    const current = parseTimeParts(next[idx] ?? "");
+                    const hour = idx === i ? parsed.hour : (current?.hour ?? 0);
+                    next[idx] = `${pad(hour)}:${pad(parsed.minute)}`;
+                  }
+                }
+              }
               onChange(next);
             }}
           />
@@ -729,6 +794,11 @@ export function ScheduleEditor({
         <div className="space-y-1.5">
           <Label className="text-xs">Times of day</Label>
           <TimeList times={state.times} onChange={(times) => update({ times })} />
+          {state.times.length > 1 && (
+            <p className="text-xs text-muted-foreground">
+              All times in one schedule share the same minute. Changing one minute updates them all.
+            </p>
+          )}
         </div>
       )}
 
@@ -761,6 +831,11 @@ export function ScheduleEditor({
           <div className="space-y-1.5">
             <Label className="text-xs">Times of day</Label>
             <TimeList times={state.times} onChange={(times) => update({ times })} />
+            {state.times.length > 1 && (
+              <p className="text-xs text-muted-foreground">
+                All times in one schedule share the same minute. Changing one minute updates them all.
+              </p>
+            )}
           </div>
         </div>
       )}
@@ -796,6 +871,11 @@ export function ScheduleEditor({
           <div className="space-y-1.5">
             <Label className="text-xs">Times of day</Label>
             <TimeList times={state.times} onChange={(times) => update({ times })} />
+            {state.times.length > 1 && (
+              <p className="text-xs text-muted-foreground">
+                All times in one schedule share the same minute. Changing one minute updates them all.
+              </p>
+            )}
           </div>
         </div>
       )}
@@ -941,4 +1021,12 @@ function changePreset(state: EditorState, next: EditorPreset): EditorState {
 
 function clamp(v: number, lo: number, hi: number): number {
   return Math.min(Math.max(v, lo), hi);
+}
+
+export function getScheduleEditorPresetForTest(cron: string): EditorPreset {
+  return parseCronToEditorState(cron).preset;
+}
+
+export function hasSingleMinuteAcrossTimesForTest(times: string[]): boolean {
+  return hasSingleMinuteAcrossTimes(times);
 }
