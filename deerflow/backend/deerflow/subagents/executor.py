@@ -1,6 +1,7 @@
 """Subagent execution engine."""
 
 import asyncio
+import atexit
 import logging
 import threading
 import uuid
@@ -21,6 +22,39 @@ from deerflow.models import create_chat_model
 from deerflow.subagents.config import SubagentConfig
 
 logger = logging.getLogger(__name__)
+
+# Per-thread isolated event loops
+_isolated_loops: dict[int, asyncio.AbstractEventLoop] = {}
+_loop_lock = threading.Lock()
+
+
+def _get_isolated_loop() -> asyncio.AbstractEventLoop:
+    """Get or create a dedicated event loop for the current thread."""
+    tid = threading.get_ident()
+    with _loop_lock:
+        loop = _isolated_loops.get(tid)
+        if loop is None or loop.is_closed():
+            loop = asyncio.new_event_loop()
+            _isolated_loops[tid] = loop
+        return loop
+
+
+def _execute_in_isolated_loop(coro):
+    """Run a coroutine in the current thread's isolated event loop."""
+    loop = _get_isolated_loop()
+    return loop.run_until_complete(coro)
+
+
+def _cleanup_isolated_loops():
+    """Close all isolated loops at interpreter shutdown."""
+    with _loop_lock:
+        for loop in _isolated_loops.values():
+            if not loop.is_closed():
+                loop.close()
+        _isolated_loops.clear()
+
+
+atexit.register(_cleanup_isolated_loops)
 
 
 class SubagentStatus(Enum):
@@ -338,17 +372,18 @@ class SubagentExecutor:
         Returns:
             SubagentResult with the execution result.
         """
-        # Run the async execution in a new event loop
+        # Run the async execution in the thread's isolated event loop.
         # This is necessary because:
         # 1. We may have async-only tools (like MCP tools)
         # 2. We're running inside a ThreadPoolExecutor which doesn't have an event loop
+        # 3. Using a per-thread loop avoids "nested event loop" errors when called
+        #    from a context where an event loop already exists.
         #
         # Note: _aexecute() catches all exceptions internally, so this outer
-        # try-except only handles asyncio.run() failures (e.g., if called from
-        # an async context where an event loop already exists). Subagent execution
+        # try-except only handles loop-level failures. Subagent execution
         # errors are handled within _aexecute() and returned as FAILED status.
         try:
-            return asyncio.run(self._aexecute(task, result_holder))
+            return _execute_in_isolated_loop(self._aexecute(task, result_holder))
         except Exception as e:
             logger.exception(f"[trace={self.trace_id}] Subagent {self.config.name} execution failed")
             # Create a result with error if we don't have one
