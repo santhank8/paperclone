@@ -96,6 +96,8 @@
               "adapters/overview",
               "adapters/claude-local",
               "adapters/codex-local",
+              "adapters/opencode-local",
+              "adapters/pi-local",
               "adapters/cursor-local",
               "adapters/process",
               "adapters/http",
