@@ -29,6 +29,7 @@ export type {
   CompanySkillProjectScanRequest,
   CompanySkillProjectScanSkipped,
   CompanySkillProjectScanConflict,
+  CompanySkillProjectScanPruned,
   CompanySkillProjectScanResult,
   CompanySkillCreateRequest,
   CompanySkillFileDetail,
