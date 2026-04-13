@@ -479,19 +479,31 @@ const STATUS_REQUEST_RE = new RegExp(
   "i",
 );
 
-function isStatusRequest(text: string): boolean {
-  return STATUS_REQUEST_RE.test(text);
-}
-
 interface StatusReportScope {
   assigneeAgentId?: string;
   label?: string;
+}
+
+function normalizeStatusText(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/ё/g, "е")
+    // Whisper occasionally hears "апдейт" as "апдит"/"апдейд".
+    .replace(/апд[еэ]?й?д?и?т/g, "апдейт")
+    // Mixed Latin/Cyrillic model names: "HFT-квент" / "HFT квант" -> "hft quant".
+    .replace(/hft[\s-]+кв[эеа]нт/g, "hft quant")
+    .replace(/кв[эеа]нт/g, "quant");
+}
+
+function isStatusRequest(text: string): boolean {
+  return STATUS_REQUEST_RE.test(normalizeStatusText(text));
 }
 
 function normalizeSearchText(text: string): string {
   return text
     .toLowerCase()
     .replace(/ё/g, "е")
+    .replace(/кв[эеа]нт/g, "quant")
     .replace(/[^a-z0-9а-я]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
@@ -512,7 +524,7 @@ async function resolveStatusReportScope(
   companyId: string,
   text: string,
 ): Promise<StatusReportScope> {
-  const normalizedText = normalizeSearchText(text);
+  const normalizedText = normalizeSearchText(normalizeStatusText(text));
   let agents: Agent[] = [];
 
   try {
@@ -847,7 +859,10 @@ function audioMimeFromTelegramPath(
 ): { mime: string; filename: string } {
   const filename = filePath.split("/").pop() || "voice.ogg";
   const lower = filename.toLowerCase();
-  if (lower.endsWith(".oga") || lower.endsWith(".ogg") || lower.endsWith(".opus")) {
+  if (lower.endsWith(".oga")) {
+    return { mime: "audio/ogg", filename: "voice.ogg" };
+  }
+  if (lower.endsWith(".ogg") || lower.endsWith(".opus")) {
     return { mime: "audio/ogg", filename };
   }
   if (lower.endsWith(".m4a")) return { mime: "audio/mp4", filename };
