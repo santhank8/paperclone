@@ -719,6 +719,8 @@ export function shouldResetTaskSessionForWake(
 
   const wakeReason = readNonEmptyString(contextSnapshot?.wakeReason);
   if (
+    wakeReason === "issue_commented" ||
+    wakeReason === "issue_reopened_via_comment" ||
     wakeReason === "issue_assigned" ||
     wakeReason === "execution_review_requested" ||
     wakeReason === "execution_approval_requested" ||
@@ -754,6 +756,8 @@ function describeSessionResetReason(
   if (contextSnapshot?.forceFreshSession === true) return "forceFreshSession was requested";
 
   const wakeReason = readNonEmptyString(contextSnapshot?.wakeReason);
+  if (wakeReason === "issue_commented") return "wake reason is issue_commented";
+  if (wakeReason === "issue_reopened_via_comment") return "wake reason is issue_reopened_via_comment";
   if (wakeReason === "issue_assigned") return "wake reason is issue_assigned";
   if (wakeReason === "execution_review_requested") return "wake reason is execution_review_requested";
   if (wakeReason === "execution_approval_requested") return "wake reason is execution_approval_requested";
@@ -1815,6 +1819,41 @@ export function heartbeatService(db: Db) {
       .where(and(...conditions))
       .returning()
       .then((rows) => rows.length);
+  }
+
+  const MAX_TASK_SESSIONS_PER_AGENT = 5;
+
+  async function pruneStaleTaskSessions(
+    companyId: string,
+    agentId: string,
+  ) {
+    const allSessions = await db
+      .select({ id: agentTaskSessions.id })
+      .from(agentTaskSessions)
+      .where(
+        and(
+          eq(agentTaskSessions.companyId, companyId),
+          eq(agentTaskSessions.agentId, agentId),
+        ),
+      )
+      .orderBy(desc(agentTaskSessions.updatedAt), desc(agentTaskSessions.createdAt));
+
+    if (allSessions.length <= MAX_TASK_SESSIONS_PER_AGENT) return 0;
+
+    const staleIds = allSessions.slice(MAX_TASK_SESSIONS_PER_AGENT).map((s) => s.id);
+    const deleted = await db
+      .delete(agentTaskSessions)
+      .where(inArray(agentTaskSessions.id, staleIds))
+      .returning()
+      .then((rows) => rows.length);
+
+    if (deleted > 0) {
+      logger.info(
+        { companyId, agentId, pruned: deleted, kept: MAX_TASK_SESSIONS_PER_AGENT },
+        "pruned stale task sessions",
+      );
+    }
+    return deleted;
   }
 
   async function ensureRuntimeState(agent: typeof agents.$inferSelect) {
@@ -3522,6 +3561,9 @@ export function heartbeatService(db: Db) {
               lastError: outcome === "succeeded" ? null : (adapterResult.errorMessage ?? "run_failed"),
             });
           }
+          await pruneStaleTaskSessions(agent.companyId, agent.id).catch((pruneErr) => {
+            logger.warn({ err: pruneErr, agentId: agent.id, runId }, "failed to prune stale task sessions");
+          });
         }
       }
       await finalizeAgentStatus(agent.id, outcome);
@@ -3585,6 +3627,9 @@ export function heartbeatService(db: Db) {
             sessionDisplayId: previousSessionDisplayId,
             lastRunId: failedRun.id,
             lastError: message,
+          });
+          await pruneStaleTaskSessions(agent.companyId, agent.id).catch((pruneErr) => {
+            logger.warn({ err: pruneErr, agentId: agent.id, runId }, "failed to prune stale task sessions");
           });
         }
       }

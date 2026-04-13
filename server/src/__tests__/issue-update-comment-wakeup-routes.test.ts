@@ -193,6 +193,7 @@ describe("issue update comment wakeups", () => {
           taskId: existing.id,
           commentId: "comment-2",
           wakeCommentId: "comment-2",
+          forceFreshSession: true,
           wakeReason: "issue_commented",
           source: "issue.comment",
         }),

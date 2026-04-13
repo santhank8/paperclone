@@ -188,6 +188,42 @@ describe("claude execute", () => {
     }
   });
 
+  it("does not resume a Claude session when forceFreshSession is requested", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "paperclip-claude-exec-force-fresh-"));
+    const { workspace, commandPath, capturePath, restore } = await setupExecuteEnv(root);
+    const instructionsFile = path.join(root, "instructions.md");
+    await fs.writeFile(instructionsFile, "# Agent instructions", "utf-8");
+    try {
+      await execute({
+        runId: "run-force-fresh",
+        agent: { id: "agent-1", companyId: "co-1", name: "Test", adapterType: "claude_local", adapterConfig: {} },
+        runtime: {
+          sessionId: "claude-session-1",
+          sessionParams: { sessionId: "claude-session-1", cwd: workspace, promptBundleKey: "" },
+          sessionDisplayId: null,
+          taskKey: null,
+        },
+        config: {
+          command: commandPath,
+          cwd: workspace,
+          env: { PAPERCLIP_TEST_CAPTURE_PATH: capturePath },
+          promptTemplate: "Do work.",
+          instructionsFilePath: instructionsFile,
+        },
+        context: { forceFreshSession: true },
+        authToken: "tok",
+        onLog: async () => {},
+        onMeta: async () => {},
+      });
+      const captured = JSON.parse(await fs.readFile(capturePath, "utf-8"));
+      expect(captured.argv).not.toContain("--resume");
+      expect(captured.argv).toContain("--append-system-prompt-file");
+    } finally {
+      restore();
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  });
+
   /**
    * Regression tests for commandNotes accuracy (Greptile P2).
    *
