@@ -53,8 +53,5 @@ If memory is not needed, proceed directly with delegation and execution.
 
 ## References
 
-These files are essential. Read them.
-
-- `./HEARTBEAT.md` -- execution and extraction checklist. Run every heartbeat.
-- `./SOUL.md` -- who you are and how you should act.
-- `./TOOLS.md` -- tools you have access to
+If companion docs are available, consult HEARTBEAT, SOUL, and TOOLS for additional guidance.
+If they are unavailable, continue without blocking the task.
