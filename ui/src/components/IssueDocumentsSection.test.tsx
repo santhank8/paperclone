@@ -223,6 +223,7 @@ function createIssue(): Issue {
     requestDepth: 0,
     billingCode: null,
     assigneeAdapterOverrides: null,
+    allowOutsideExecutionWindow: false,
     executionWorkspaceId: null,
     executionWorkspacePreference: null,
     executionWorkspaceSettings: null,

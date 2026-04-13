@@ -74,6 +74,7 @@ interface IssueDraft {
   assigneeId?: string;
   projectId: string;
   projectWorkspaceId?: string;
+  allowOutsideExecutionWindow?: boolean;
   assigneeModelOverride: string;
   assigneeThinkingEffort: string;
   assigneeChrome: boolean;
@@ -139,8 +140,6 @@ function buildAssigneeAdapterOverrides(input: {
       adapterConfig.variant = input.thinkingEffortOverride;
     } else if (adapterType === "claude_local") {
       adapterConfig.effort = input.thinkingEffortOverride;
-    } else if (adapterType === "opencode_local") {
-      adapterConfig.variant = input.thinkingEffortOverride;
     }
   }
   if (adapterType === "claude_local" && input.chrome) {
@@ -293,6 +292,7 @@ export function NewIssueDialog() {
   const [participantMenuOpen, setParticipantMenuOpen] = useState(false);
   const [projectId, setProjectId] = useState("");
   const [projectWorkspaceId, setProjectWorkspaceId] = useState("");
+  const [allowOutsideExecutionWindow, setAllowOutsideExecutionWindow] = useState(false);
   const [assigneeOptionsOpen, setAssigneeOptionsOpen] = useState(false);
   const [assigneeModelOverride, setAssigneeModelOverride] = useState("");
   const [assigneeThinkingEffort, setAssigneeThinkingEffort] = useState("");
@@ -498,6 +498,7 @@ export function NewIssueDialog() {
       approverValue,
       projectId,
       projectWorkspaceId,
+      allowOutsideExecutionWindow,
       assigneeModelOverride,
       assigneeThinkingEffort,
       assigneeChrome,
@@ -514,6 +515,7 @@ export function NewIssueDialog() {
     approverValue,
     projectId,
     projectWorkspaceId,
+    allowOutsideExecutionWindow,
     assigneeModelOverride,
     assigneeThinkingEffort,
     assigneeChrome,
@@ -560,6 +562,7 @@ export function NewIssueDialog() {
       const defaultProject = orderedProjects.find((project) => project.id === defaultProjectId);
       setProjectId(defaultProjectId);
       setProjectWorkspaceId(defaultProjectWorkspaceIdForProject(defaultProject));
+      setAllowOutsideExecutionWindow(newIssueDefaults.allowOutsideExecutionWindow === true);
       setAssigneeValue(assigneeValueFromSelection(newIssueDefaults));
       setReviewerValue("");
       setApproverValue("");
@@ -589,6 +592,11 @@ export function NewIssueDialog() {
       setShowApproverRow(!!(draft.approverValue));
       setProjectId(restoredProjectId);
       setProjectWorkspaceId(draft.projectWorkspaceId ?? defaultProjectWorkspaceIdForProject(restoredProject));
+      setAllowOutsideExecutionWindow(
+        newIssueDefaults.allowOutsideExecutionWindow === true
+          ? true
+          : draft.allowOutsideExecutionWindow === true,
+      );
       setAssigneeModelOverride(draft.assigneeModelOverride ?? "");
       setAssigneeThinkingEffort(draft.assigneeThinkingEffort ?? "");
       setAssigneeChrome(draft.assigneeChrome ?? false);
@@ -605,6 +613,7 @@ export function NewIssueDialog() {
       setPriority(newIssueDefaults.priority ?? "");
       setProjectId(defaultProjectId);
       setProjectWorkspaceId(defaultProjectWorkspaceIdForProject(defaultProject));
+      setAllowOutsideExecutionWindow(newIssueDefaults.allowOutsideExecutionWindow === true);
       setAssigneeValue(assigneeValueFromSelection(newIssueDefaults));
       setReviewerValue("");
       setApproverValue("");
@@ -658,6 +667,7 @@ export function NewIssueDialog() {
     setShowApproverRow(false);
     setProjectId("");
     setProjectWorkspaceId("");
+    setAllowOutsideExecutionWindow(false);
     setAssigneeOptionsOpen(false);
     setAssigneeModelOverride("");
     setAssigneeThinkingEffort("");
@@ -683,6 +693,7 @@ export function NewIssueDialog() {
     setShowApproverRow(false);
     setProjectId("");
     setProjectWorkspaceId("");
+    setAllowOutsideExecutionWindow(false);
     setAssigneeModelOverride("");
     setAssigneeThinkingEffort("");
     setAssigneeChrome(false);
@@ -736,6 +747,7 @@ export function NewIssueDialog() {
       ...(newIssueDefaults.goalId ? { goalId: newIssueDefaults.goalId } : {}),
       ...(projectId ? { projectId } : {}),
       ...(projectWorkspaceId ? { projectWorkspaceId } : {}),
+      allowOutsideExecutionWindow,
       ...(assigneeAdapterOverrides ? { assigneeAdapterOverrides } : {}),
       ...(executionWorkspacePolicy?.enabled ? { executionWorkspacePreference: executionWorkspaceMode } : {}),
       ...(executionWorkspaceMode === "reuse_existing" && selectedExecutionWorkspaceId
@@ -1396,8 +1408,35 @@ export function NewIssueDialog() {
             </div>
           )}
 
-          {supportsAssigneeOverrides && (
-            <div className="px-4 pb-2">
+        <div className="px-4 pb-2 shrink-0">
+          <div className="flex items-center justify-between rounded-md border border-border px-2 py-1.5">
+            <div className="space-y-0.5">
+              <div className="text-xs font-medium">Execution window override</div>
+              <div className="text-[11px] text-muted-foreground">
+                Let this issue run even when the assignee&apos;s execution window is closed.
+              </div>
+            </div>
+            <button
+              type="button"
+              data-slot="toggle"
+              className={cn(
+                "relative inline-flex h-5 w-9 items-center rounded-full transition-colors",
+                allowOutsideExecutionWindow ? "bg-green-600" : "bg-muted",
+              )}
+              onClick={() => setAllowOutsideExecutionWindow((value) => !value)}
+            >
+              <span
+                className={cn(
+                  "inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform",
+                  allowOutsideExecutionWindow ? "translate-x-4.5" : "translate-x-0.5",
+                )}
+              />
+            </button>
+          </div>
+        </div>
+
+        {supportsAssigneeOverrides && (
+          <div className="px-4 pb-2">
             <button
               className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
               onClick={() => setAssigneeOptionsOpen((open) => !open)}

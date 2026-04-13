@@ -178,6 +178,7 @@ function makeIssue(id: string, isUnreadForMe: boolean): Issue {
     executionWorkspaceId: null,
     executionWorkspacePreference: null,
     executionWorkspaceSettings: null,
+    allowOutsideExecutionWindow: false,
     checkoutRunId: null,
     executionRunId: null,
     executionAgentNameKey: null,
