@@ -389,6 +389,16 @@ export const PERMISSION_KEYS = [
 export type PermissionKey = (typeof PERMISSION_KEYS)[number];
 
 // ---------------------------------------------------------------------------
+// Memory System (fork-specific — Paperclip shared memories API)
+// ---------------------------------------------------------------------------
+
+export const MEMORY_SCOPE_TYPES = ["company", "project", "issue", "agent"] as const;
+export type MemoryScopeType = (typeof MEMORY_SCOPE_TYPES)[number];
+
+export const MEMORY_CATEGORIES = ["preference", "knowledge", "context", "behavior", "goal"] as const;
+export type MemoryCategory = (typeof MEMORY_CATEGORIES)[number];
+
+// ---------------------------------------------------------------------------
 // Plugin System — see doc/plugins/PLUGIN_SPEC.md for the full specification
 // ---------------------------------------------------------------------------
 
