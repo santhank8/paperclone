@@ -165,7 +165,7 @@ FastAPI application on port 8001 with health check at `GET /health`.
 | **Models** (`/api/models`) | `GET /` - list models; `GET /{name}` - model details |
 | **MCP** (`/api/mcp`) | `GET /config` - get config; `PUT /config` - update config (saves to extensions_config.json) |
 | **Skills** (`/api/skills`) | `GET /` - list skills; `GET /{name}` - details; `PUT /{name}` - update enabled; `POST /install` - install from .skill archive |
-| **Memory** (`/api/memory`) | `GET /` - memory data; `POST /reload` - force reload; `GET /config` - config; `GET /status` - config + data |
+| **Memory** (`/api/memory`) | `GET /` - memory data; `POST /reload` - force reload; `GET /config` - config; `GET /status` - config + data; `DELETE /` - clear all; `DELETE /facts/{id}` - delete fact; `POST /facts` - create fact; `PATCH /facts/{id}` - update fact; `GET /export` - export; `POST /import` - import (with merge mode) |
 | **Uploads** (`/api/threads/{id}/uploads`) | `POST /` - upload files (auto-converts PDF/PPT/Excel/Word); `GET /list` - list; `DELETE /{filename}` - delete |
 | **Artifacts** (`/api/threads/{id}/artifacts`) | `GET /{path}` - serve artifacts; `?download=true` for file download |
 
@@ -272,21 +272,28 @@ Bridges external messaging platforms (Feishu, Slack, Telegram) to the DeerFlow a
 ### Memory System (`deerflow/agents/memory/`)
 
 **Components**:
-- `updater.py` - LLM-based memory updates with fact extraction and atomic file I/O
-- `queue.py` - Debounced update queue (per-thread deduplication, configurable wait time)
-- `prompt.py` - Prompt templates for memory updates
+- `storage.py` - Storage abstraction: `MemoryStorage` ABC, `FileMemoryStorage` (mtime cache, atomic write), `get_memory_storage()` singleton
+- `updater.py` - LLM-based memory updates, fact extraction, CRUD operations (`create_memory_fact`, `update_memory_fact`, `delete_memory_fact`, `clear_memory_data`, `import_memory_data`), case-insensitive dedup via `_fact_content_key()`
+- `queue.py` - Debounced update queue with per-thread deduplication, `correction_detected` / `reinforcement_detected` flags (OR-merged on queue replacement)
+- `prompt.py` - Prompt templates for memory updates (categories: preference, knowledge, context, behavior, goal, correction)
 
 **Data Structure** (stored in `backend/.deer-flow/memory.json`):
 - **User Context**: `workContext`, `personalContext`, `topOfMind` (1-3 sentence summaries)
 - **History**: `recentMonths`, `earlierContext`, `longTermBackground`
-- **Facts**: Discrete facts with `id`, `content`, `category` (preference/knowledge/context/behavior/goal), `confidence` (0-1), `createdAt`, `source`
+- **Facts**: Discrete facts with `id`, `content`, `category` (preference/knowledge/context/behavior/goal/correction), `confidence` (0-1), `createdAt`, `source`
 
 **Workflow**:
-1. `MemoryMiddleware` filters messages (user inputs + final AI responses) and queues conversation
-2. Queue debounces (30s default), batches updates, deduplicates per-thread
-3. Background thread invokes LLM to extract context updates and facts
-4. Applies updates atomically (temp file + rename) with cache invalidation
-5. Next interaction injects top 15 facts + context into `<memory>` tags in system prompt
+1. `MemoryMiddleware` filters messages (user inputs + final AI responses), detects correction/reinforcement patterns, and queues conversation
+2. Queue debounces (30s default), batches updates, deduplicates per-thread, OR-merges correction/reinforcement flags
+3. Background thread invokes LLM to extract context updates and facts (with correction hint if detected)
+4. Case-insensitive dedup prevents near-duplicate facts; reinforcement boosts existing fact confidence (+0.1, capped at 1.0)
+5. Applies updates via storage abstraction with cache invalidation
+6. Next interaction injects facts + context into `<memory>` tags in system prompt
+
+**Correction/Reinforcement Detection** (`memory_middleware.py`):
+- `_CORRECTION_PATTERNS` - 12 regex patterns (EN+CN) for detecting user corrections (e.g., "actually", "no I meant", "that's wrong")
+- `_REINFORCEMENT_PATTERNS` - 13 regex patterns (EN+CN) for detecting reinforcement (e.g., "as I mentioned", "I always", "like I said")
+- `detect_correction()` / `detect_reinforcement()` - Check last 3 human messages; mutual exclusion (correction takes priority)
 
 **Configuration** (`config.yaml` → `memory`):
 - `enabled` / `injection_enabled` - Master switches
