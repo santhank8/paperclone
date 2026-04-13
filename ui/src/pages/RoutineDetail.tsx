@@ -11,6 +11,7 @@ import {
   Plus,
   Repeat,
   Save,
+  SlidersHorizontal,
 } from "lucide-react";
 import { routinesApi, type RoutineTriggerResponse, type RotateRoutineTriggerResponse } from "../api/routines";
 import { TriggerListCard } from "../components/TriggerListCard";
@@ -22,7 +23,9 @@ import { agentsApi } from "../api/agents";
 import { projectsApi } from "../api/projects";
 import { useCompany } from "../context/CompanyContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
+import { usePanel } from "../context/PanelContext";
 import { useToast } from "../context/ToastContext";
+import { cn } from "../lib/utils";
 import { queryKeys } from "../lib/queryKeys";
 import { timeAgo } from "../lib/timeAgo";
 import { ToggleSwitch } from "@/components/ui/toggle-switch";
@@ -136,6 +139,7 @@ export function RoutineDetail() {
   const navigate = useNavigate();
   const location = useLocation();
   const { pushToast } = useToast();
+  const { openPanel, closePanel, panelVisible, setPanelVisible } = usePanel();
   const hydratedRoutineIdRef = useRef<string | null>(null);
   const titleInputRef = useRef<HTMLTextAreaElement | null>(null);
   const descriptionEditorRef = useRef<MarkdownEditorRef>(null);
@@ -519,6 +523,167 @@ export function RoutineDetail() {
   const currentAssignee = editDraft.assigneeAgentId ? agentById.get(editDraft.assigneeAgentId) ?? null : null;
   const currentProject = editDraft.projectId ? projectById.get(editDraft.projectId) ?? null : null;
 
+  const renderActivityTabs = () => {
+    if (!routine) return null;
+    return (
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-3">
+        <TabsList variant="line" className="w-full justify-start gap-1">
+          <TabsTrigger value="triggers" className="gap-1.5">
+            <Clock3 className="h-3.5 w-3.5" />
+            Triggers
+          </TabsTrigger>
+          <TabsTrigger value="runs" className="gap-1.5">
+            <Play className="h-3.5 w-3.5" />
+            Runs
+            {hasLiveRun && <span className="h-2 w-2 rounded-full bg-blue-500 animate-pulse" />}
+          </TabsTrigger>
+          <TabsTrigger value="activity" className="gap-1.5">
+            <ActivityIcon className="h-3.5 w-3.5" />
+            Activity
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="triggers" className="space-y-4">
+          <Button
+            size="sm"
+            className="w-full"
+            onClick={() => {
+              setEditingTrigger(null);
+              setTriggerDialogOpen(true);
+            }}
+          >
+            <Plus className="h-3.5 w-3.5 mr-1.5" />
+            Add trigger
+          </Button>
+
+          {routine.triggers.length === 0 ? (
+            <div className="rounded-lg border border-dashed border-border bg-muted/30 p-8 text-center">
+              <p className="text-sm font-medium">No triggers yet</p>
+              <p className="text-xs text-muted-foreground mt-1 mb-4">
+                Triggers fire this routine on a schedule or via webhook.
+              </p>
+              <Button
+                size="sm"
+                onClick={() => {
+                  setEditingTrigger(null);
+                  setTriggerDialogOpen(true);
+                }}
+              >
+                <Plus className="h-3.5 w-3.5 mr-1.5" />
+                Add your first trigger
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {routine.triggers.map((trigger) => (
+                <TriggerListCard
+                  key={trigger.id}
+                  trigger={trigger}
+                  onEdit={() => {
+                    setEditingTrigger(trigger);
+                    setTriggerDialogOpen(true);
+                  }}
+                  onDelete={() => setTriggerPendingDelete(trigger)}
+                  onToggleEnabled={(enabled) => {
+                    setTogglingTriggerId(trigger.id);
+                    updateTrigger.mutate({ id: trigger.id, patch: { enabled } });
+                  }}
+                  onRotateSecret={
+                    trigger.kind === "webhook"
+                      ? () => rotateTrigger.mutate(trigger.id)
+                      : undefined
+                  }
+                  togglePending={togglingTriggerId === trigger.id}
+                />
+              ))}
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="runs" className="space-y-4">
+          {hasLiveRun && activeIssueId && routine && (
+            <LiveRunWidget issueId={activeIssueId} companyId={routine.companyId} />
+          )}
+          {(routineRuns ?? []).length === 0 ? (
+            <p className="text-xs text-muted-foreground">No runs yet.</p>
+          ) : (
+            <div className="border border-border rounded-lg divide-y divide-border">
+              {(routineRuns ?? []).map((run) => (
+                <div key={run.id} className="flex flex-col gap-1.5 px-3 py-2 text-sm min-w-0">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <Badge variant="outline" className="text-[11px]">{run.source}</Badge>
+                    <Badge variant={run.status === "failed" ? "destructive" : "secondary"} className="text-[11px]">
+                      {run.status.replaceAll("_", " ")}
+                    </Badge>
+                  </div>
+                  {(run.trigger || run.linkedIssue) && (
+                    <div className="flex items-center gap-1.5 flex-wrap text-xs min-w-0">
+                      {run.trigger && (
+                        <span className="text-muted-foreground truncate">{run.trigger.label ?? run.trigger.kind}</span>
+                      )}
+                      {run.linkedIssue && (
+                        <Link to={`/issues/${run.linkedIssue.identifier ?? run.linkedIssue.id}`} className="text-muted-foreground hover:underline truncate">
+                          {run.linkedIssue.identifier ?? run.linkedIssue.id.slice(0, 8)}
+                        </Link>
+                      )}
+                    </div>
+                  )}
+                  <span className="text-[11px] text-muted-foreground">{timeAgo(run.triggeredAt)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="activity">
+          {(activity ?? []).length === 0 ? (
+            <p className="text-xs text-muted-foreground">No activity yet.</p>
+          ) : (
+            <div className="border border-border rounded-lg divide-y divide-border">
+              {(activity ?? []).map((event) => (
+                <div key={event.id} className="flex flex-col gap-1 px-3 py-2 text-xs min-w-0">
+                  <span className="font-medium text-foreground/90">{event.action.replaceAll(".", " ")}</span>
+                  {event.details && Object.keys(event.details).length > 0 && (
+                    <div className="text-muted-foreground break-words">
+                      {Object.entries(event.details).slice(0, 3).map(([key, value], i) => (
+                        <span key={key}>
+                          {i > 0 && <span className="mx-1 text-border">·</span>}
+                          <span className="text-muted-foreground/70">{key.replaceAll("_", " ")}:</span>{" "}
+                          {formatActivityDetailValue(value)}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  <span className="text-muted-foreground/60">{timeAgo(event.createdAt)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </TabsContent>
+      </Tabs>
+    );
+  };
+
+  useEffect(() => {
+    if (!routine) {
+      closePanel();
+      return;
+    }
+    openPanel(renderActivityTabs());
+    return () => closePanel();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    routine,
+    routineRuns,
+    activity,
+    activeTab,
+    hasLiveRun,
+    activeIssueId,
+    togglingTriggerId,
+    openPanel,
+    closePanel,
+  ]);
+
   if (!selectedCompanyId) {
     return <EmptyState icon={Repeat} message="Select a company to view routines." />;
   }
@@ -612,6 +777,18 @@ export function RoutineDetail() {
           <span className={`min-w-[3.75rem] text-sm font-medium ${automationLabelClassName}`}>
             {automationLabel}
           </span>
+          <Button
+            variant="ghost"
+            size="icon-xs"
+            className={cn(
+              "hidden md:inline-flex shrink-0 transition-opacity duration-200",
+              panelVisible ? "opacity-0 pointer-events-none w-0 overflow-hidden" : "opacity-100",
+            )}
+            onClick={() => setPanelVisible(true)}
+            title="Show triggers, runs and activity"
+          >
+            <SlidersHorizontal className="h-4 w-4" />
+          </Button>
         </div>
       </div>
 
@@ -820,149 +997,12 @@ export function RoutineDetail() {
         </Button>
       </div>
 
-      <Separator />
+      <Separator className="md:hidden" />
 
-      {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-3">
-        <TabsList variant="line" className="w-full justify-start gap-1">
-          <TabsTrigger value="triggers" className="gap-1.5">
-            <Clock3 className="h-3.5 w-3.5" />
-            Triggers
-          </TabsTrigger>
-          <TabsTrigger value="runs" className="gap-1.5">
-            <Play className="h-3.5 w-3.5" />
-            Runs
-            {hasLiveRun && <span className="h-2 w-2 rounded-full bg-blue-500 animate-pulse" />}
-          </TabsTrigger>
-<TabsTrigger value="activity" className="gap-1.5">
-            <ActivityIcon className="h-3.5 w-3.5" />
-            Activity
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="triggers" className="space-y-4">
-          <div className="flex items-start justify-between gap-3 flex-wrap">
-            <div>
-              <h2 className="text-sm font-medium">Triggers</h2>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Schedules and webhooks that fire this routine.
-              </p>
-            </div>
-            <Button
-              size="sm"
-              onClick={() => {
-                setEditingTrigger(null);
-                setTriggerDialogOpen(true);
-              }}
-            >
-              <Plus className="h-3.5 w-3.5 mr-1.5" />
-              Add trigger
-            </Button>
-          </div>
-
-          {routine.triggers.length === 0 ? (
-            <div className="rounded-lg border border-dashed border-border bg-muted/30 p-8 text-center">
-              <p className="text-sm font-medium">No triggers yet</p>
-              <p className="text-xs text-muted-foreground mt-1 mb-4">
-                Triggers fire this routine on a schedule or via webhook.
-              </p>
-              <Button
-                size="sm"
-                onClick={() => {
-                  setEditingTrigger(null);
-                  setTriggerDialogOpen(true);
-                }}
-              >
-                <Plus className="h-3.5 w-3.5 mr-1.5" />
-                Add your first trigger
-              </Button>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {routine.triggers.map((trigger) => (
-                <TriggerListCard
-                  key={trigger.id}
-                  trigger={trigger}
-                  onEdit={() => {
-                    setEditingTrigger(trigger);
-                    setTriggerDialogOpen(true);
-                  }}
-                  onDelete={() => setTriggerPendingDelete(trigger)}
-                  onToggleEnabled={(enabled) => {
-                    setTogglingTriggerId(trigger.id);
-                    updateTrigger.mutate({ id: trigger.id, patch: { enabled } });
-                  }}
-                  onRotateSecret={
-                    trigger.kind === "webhook"
-                      ? () => rotateTrigger.mutate(trigger.id)
-                      : undefined
-                  }
-                  togglePending={togglingTriggerId === trigger.id}
-                />
-              ))}
-            </div>
-          )}
-        </TabsContent>
-
-        <TabsContent value="runs" className="space-y-4">
-          {hasLiveRun && activeIssueId && routine && (
-            <LiveRunWidget issueId={activeIssueId} companyId={routine.companyId} />
-          )}
-          {(routineRuns ?? []).length === 0 ? (
-            <p className="text-xs text-muted-foreground">No runs yet.</p>
-          ) : (
-            <div className="border border-border rounded-lg divide-y divide-border">
-              {(routineRuns ?? []).map((run) => (
-                <div key={run.id} className="flex items-center justify-between px-3 py-2 text-sm">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <Badge variant="outline" className="shrink-0">{run.source}</Badge>
-                    <Badge variant={run.status === "failed" ? "destructive" : "secondary"} className="shrink-0">
-                      {run.status.replaceAll("_", " ")}
-                    </Badge>
-                    {run.trigger && (
-                      <span className="text-muted-foreground truncate">{run.trigger.label ?? run.trigger.kind}</span>
-                    )}
-                    {run.linkedIssue && (
-                      <Link to={`/issues/${run.linkedIssue.identifier ?? run.linkedIssue.id}`} className="text-muted-foreground hover:underline truncate">
-                        {run.linkedIssue.identifier ?? run.linkedIssue.id.slice(0, 8)}
-                      </Link>
-                    )}
-                  </div>
-                  <span className="text-xs text-muted-foreground shrink-0 ml-2">{timeAgo(run.triggeredAt)}</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </TabsContent>
-
-        <TabsContent value="activity">
-          {(activity ?? []).length === 0 ? (
-            <p className="text-xs text-muted-foreground">No activity yet.</p>
-          ) : (
-            <div className="border border-border rounded-lg divide-y divide-border">
-              {(activity ?? []).map((event) => (
-                <div key={event.id} className="flex items-center justify-between px-3 py-2 text-xs gap-4">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <span className="font-medium text-foreground/90 shrink-0">{event.action.replaceAll(".", " ")}</span>
-                    {event.details && Object.keys(event.details).length > 0 && (
-                      <span className="text-muted-foreground truncate">
-                        {Object.entries(event.details).slice(0, 3).map(([key, value], i) => (
-                          <span key={key}>
-                            {i > 0 && <span className="mx-1 text-border">·</span>}
-                            <span className="text-muted-foreground/70">{key.replaceAll("_", " ")}:</span>{" "}
-                            {formatActivityDetailValue(value)}
-                          </span>
-                        ))}
-                      </span>
-                    )}
-                  </div>
-                  <span className="text-muted-foreground/60 shrink-0">{timeAgo(event.createdAt)}</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </TabsContent>
-      </Tabs>
+      {/* Tabs (mobile only — desktop renders in the right properties panel) */}
+      <div className="md:hidden">
+        {renderActivityTabs()}
+      </div>
 
       <RoutineRunVariablesDialog
         open={runVariablesOpen}
