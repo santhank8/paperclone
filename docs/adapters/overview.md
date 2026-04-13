@@ -93,6 +93,7 @@ Built-in adapters with this behavior (each page has a **Using OpenRouter** secti
 - [Cursor Local](/adapters/cursor-local)
 - [OpenCode Local](/adapters/opencode-local)
 - [Pi Local](/adapters/pi-local)
+- [Process](/adapters/process) (custom commands — same env mapping before spawn)
 
 `claude_local` uses the Anthropic Claude Code CLI and native Anthropic auth — it does **not** use the OpenRouter OpenAI mapping. `gemini_local` uses the Gemini CLI and Google/Gemini credentials — use `GEMINI_API_KEY` / `GOOGLE_API_KEY` or OAuth as documented on [Gemini Local](/adapters/gemini-local).
 

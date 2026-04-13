@@ -48,7 +48,7 @@ These are set automatically by the server when invoking agents:
 |----------|-------------|
 | `ANTHROPIC_API_KEY` | Anthropic API key (for Claude Local adapter) |
 | `OPENAI_API_KEY` | OpenAI API key (for Codex Local / Cursor adapters) |
-| `OPENROUTER_API_KEY` | OpenRouter API key — auto-maps to `OPENAI_API_KEY` + `OPENAI_BASE_URL` for OpenAI-compatible adapters (Codex, Cursor, Pi, OpenCode) |
+| `OPENROUTER_API_KEY` | OpenRouter API key — auto-maps to `OPENAI_API_KEY` + `OPENAI_BASE_URL` for OpenAI-compatible adapters (Codex, Cursor, Pi, OpenCode, Process) |
 | `OPENAI_BASE_URL` | Override the OpenAI-compatible base URL (e.g. `https://openrouter.ai/api/v1`) |
 | `OPENAI_API_BASE` | Alternate base-URL env used by some tools; Paperclip reads it for OpenRouter billing detection when set |
 | `OPENAI_API_BASE_URL` | Same as `OPENAI_API_BASE` — alternate spelling; included in OpenRouter billing detection |
