@@ -49,6 +49,7 @@ function assertTransition(from: string, to: string) {
 function applyStatusSideEffects(
   status: string | undefined,
   patch: Partial<typeof issues.$inferInsert>,
+  currentStatus?: string | null,
 ): Partial<typeof issues.$inferInsert> {
   if (!status) return patch;
 
@@ -61,7 +62,29 @@ function applyStatusSideEffects(
   if (status === "cancelled") {
     patch.cancelledAt = new Date();
   }
+  if (status === "blocked" && currentStatus !== "blocked" && !patch.blockedAt) {
+    patch.blockedAt = new Date();
+  }
+  if (status && status !== "blocked") {
+    patch.blockedAt = null;
+    patch.blockedReason = null;
+    patch.blockedUntil = null;
+  }
   return patch;
+}
+
+function assertBlockedFieldConsistency(
+  finalStatus: string | undefined | null,
+  values: Partial<typeof issues.$inferInsert>,
+) {
+  const hasBlockedMetadata =
+    (values.blockedReason !== undefined && values.blockedReason !== null) ||
+    (values.blockedUntil !== undefined && values.blockedUntil !== null) ||
+    (values.blockedAt !== undefined && values.blockedAt !== null);
+  if (!hasBlockedMetadata) return;
+  if (finalStatus !== "blocked") {
+    throw unprocessable("blockedReason/blockedUntil may only be set when status is 'blocked'");
+  }
 }
 
 export interface IssueFilters {
@@ -1523,6 +1546,7 @@ export function issueService(db: Db) {
           issueNumber,
           identifier,
         } as typeof issues.$inferInsert;
+        assertBlockedFieldConsistency(values.status, values);
         if (values.status === "in_progress" && !values.startedAt) {
           values.startedAt = new Date();
         }
@@ -1531,6 +1555,9 @@ export function issueService(db: Db) {
         }
         if (values.status === "cancelled") {
           values.cancelledAt = new Date();
+        }
+        if (values.status === "blocked" && !values.blockedAt) {
+          values.blockedAt = new Date();
         }
 
         const [issue] = await tx.insert(issues).values(values).returning();
@@ -1588,6 +1615,8 @@ export function issueService(db: Db) {
       if (issueData.status) {
         assertTransition(existing.status, issueData.status);
       }
+      const finalStatus = issueData.status ?? existing.status;
+      assertBlockedFieldConsistency(finalStatus, issueData);
 
       const patch: Partial<typeof issues.$inferInsert> = {
         ...issueData,
@@ -1623,7 +1652,7 @@ export function issueService(db: Db) {
         await assertValidExecutionWorkspace(existing.companyId, nextProjectId, nextExecutionWorkspaceId);
       }
 
-      applyStatusSideEffects(issueData.status, patch);
+      applyStatusSideEffects(issueData.status, patch, existing.status);
       if (issueData.status && issueData.status !== "done") {
         patch.completedAt = null;
       }

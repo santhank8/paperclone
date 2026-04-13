@@ -63,6 +63,7 @@ import { ScrollToBottom } from "../components/ScrollToBottom";
 import { StatusIcon } from "../components/StatusIcon";
 import { PriorityIcon } from "../components/PriorityIcon";
 import { Identity } from "../components/Identity";
+import { IssueBlockedMetaPanel } from "../components/IssueBlockedMetaPanel";
 import { PluginSlotMount, PluginSlotOutlet, usePluginSlots } from "@/plugins/slots";
 import { PluginLauncherOutlet } from "@/plugins/launchers";
 import { Separator } from "@/components/ui/separator";
@@ -385,6 +386,9 @@ export function IssueDetail() {
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
   const [attachmentDragActive, setAttachmentDragActive] = useState(false);
+  const [isEditingBlockedMeta, setIsEditingBlockedMeta] = useState(false);
+  const [blockedReasonDraft, setBlockedReasonDraft] = useState("");
+  const [blockedUntilDraft, setBlockedUntilDraft] = useState("");
   const [galleryOpen, setGalleryOpen] = useState(false);
   const [galleryIndex, setGalleryIndex] = useState(0);
   const [optimisticComments, setOptimisticComments] = useState<OptimisticIssueComment[]>([]);
@@ -897,6 +901,7 @@ export function IssueDetail() {
       return { previousDetailQueries, previousList, selectedCompanyId };
     },
     onSuccess: ({ comment: _comment, ...nextIssue }) => {
+      setIsEditingBlockedMeta(false);
       const issueRefs = new Set<string>([issueId!, nextIssue.id]);
       if (nextIssue.identifier) issueRefs.add(nextIssue.identifier);
       mergeIssueResponseIntoCaches(issueRefs, nextIssue);
@@ -1574,6 +1579,11 @@ export function IssueDetail() {
     || (linkedRunsLoading && linkedRuns === undefined);
   const attachmentsInitialLoading = attachmentsLoading && attachments === undefined;
 
+  useEffect(() => {
+    setBlockedReasonDraft(issue?.blockedReason ?? "");
+    setBlockedUntilDraft(issue?.blockedUntil ?? "");
+  }, [issue?.blockedReason, issue?.blockedUntil]);
+
   if (isLoading) return <IssueDetailLoadingState headerSeed={issueHeaderSeed} />;
   if (error) return <p className="text-sm text-destructive">{error.message}</p>;
   if (!issue) return null;
@@ -1610,6 +1620,7 @@ export function IssueDetail() {
   };
 
   const hasAttachments = attachmentList.length > 0;
+
   const attachmentUploadButton = (
     <>
       <input
@@ -1674,6 +1685,26 @@ export function IssueDetail() {
           <EyeOff className="h-4 w-4 shrink-0" />
           This issue is hidden
         </div>
+      )}
+
+      {issue.status === "blocked" && (
+        <IssueBlockedMetaPanel
+          blockedReason={issue.blockedReason}
+          blockedUntil={issue.blockedUntil}
+          isEditing={isEditingBlockedMeta}
+          blockedReasonDraft={blockedReasonDraft}
+          blockedUntilDraft={blockedUntilDraft}
+          isSaving={updateIssue.isPending}
+          onBlockedReasonDraftChange={setBlockedReasonDraft}
+          onBlockedUntilDraftChange={setBlockedUntilDraft}
+          onSave={() => updateIssue.mutate({ blockedReason: blockedReasonDraft || null, blockedUntil: blockedUntilDraft || null })}
+          onCancel={() => {
+            setBlockedReasonDraft(issue.blockedReason ?? "");
+            setBlockedUntilDraft(issue.blockedUntil ?? "");
+            setIsEditingBlockedMeta(false);
+          }}
+          onEdit={() => setIsEditingBlockedMeta(true)}
+        />
       )}
 
       <div className="space-y-3">

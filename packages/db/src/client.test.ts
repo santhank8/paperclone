@@ -467,4 +467,96 @@ describeEmbeddedPostgres("applyPendingMigrations", () => {
     },
     20_000,
   );
+
+  it(
+    "replays migration 0057 using an explicit UTC conversion for blocked_until text backfill",
+    async () => {
+      const connectionString = await createTempDatabase();
+
+      await applyPendingMigrations(connectionString);
+
+      const sql = postgres(connectionString, { max: 1, onnotice: () => {} });
+      try {
+        const blockedUntilBackfillHash = await migrationHash("0057_blocked_until_text_backfill.sql");
+        const databaseName = decodeURIComponent(new URL(connectionString).pathname.slice(1));
+
+        await sql.unsafe(
+          `DELETE FROM "drizzle"."__drizzle_migrations" WHERE hash = '${blockedUntilBackfillHash}'`,
+        );
+        await sql.unsafe(`ALTER DATABASE "${databaseName}" SET timezone TO 'America/Los_Angeles'`);
+        await sql.unsafe(`
+          ALTER TABLE "issues"
+            ALTER COLUMN "blocked_until" TYPE timestamp with time zone
+            USING NULL
+        `);
+        await sql.unsafe(`
+          INSERT INTO "companies" (
+            "id",
+            "name",
+            "issue_prefix",
+            "require_board_approval_for_new_agents"
+          ) VALUES (
+            '00000000-0000-0000-0000-000000000001',
+            'Paperclip',
+            'PAP',
+            false
+          )
+        `);
+        await sql.unsafe(`
+          INSERT INTO "issues" (
+            "id",
+            "company_id",
+            "title",
+            "status",
+            "priority",
+            "issue_number",
+            "identifier",
+            "blocked_until",
+            "created_at",
+            "updated_at"
+          ) VALUES (
+            '00000000-0000-0000-0000-000000000101',
+            '00000000-0000-0000-0000-000000000001',
+            'Blocked issue',
+            'blocked',
+            'medium',
+            1,
+            'PAP-1',
+            '2026-04-11 08:30:00-07',
+            now(),
+            now()
+          )
+        `);
+      } finally {
+        await sql.end();
+      }
+
+      const pendingState = await inspectMigrations(connectionString);
+      expect(pendingState).toMatchObject({
+        status: "needsMigrations",
+        pendingMigrations: ["0057_blocked_until_text_backfill.sql"],
+        reason: "pending-migrations",
+      });
+
+      await applyPendingMigrations(connectionString);
+
+      const finalState = await inspectMigrations(connectionString);
+      expect(finalState.status).toBe("upToDate");
+
+      const verifySql = postgres(connectionString, { max: 1, onnotice: () => {} });
+      try {
+        const rows = await verifySql.unsafe<{ blocked_until: string | null }[]>(
+          `
+            SELECT blocked_until
+            FROM issues
+            WHERE id = '00000000-0000-0000-0000-000000000101'
+          `,
+        );
+        expect(rows[0]?.blocked_until).toBe("2026-04-11T15:30:00Z");
+      } finally {
+        await verifySql.end();
+      }
+    },
+    20_000,
+  );
 });

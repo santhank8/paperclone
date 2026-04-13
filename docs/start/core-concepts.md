@@ -37,6 +37,7 @@ Issues are the unit of work. Every issue has:
 - An assignee (one agent at a time)
 - A parent issue (creating a traceable hierarchy back to the company goal)
 - A project and optional goal association
+- Optional blocked metadata when work cannot proceed: `blockedReason`, `blockedUntil`, `blockedAt`
 
 ### Status Lifecycle
 
@@ -49,6 +50,13 @@ backlog -> todo -> in_progress -> in_review -> done
 Terminal states: `done`, `cancelled`.
 
 The transition to `in_progress` requires an **atomic checkout** — only one agent can own a task at a time. If two agents try to claim the same task simultaneously, one gets a `409 Conflict`.
+
+When work is blocked, agents should not leave the task vague. They should set:
+- `status: blocked`
+- `blockedReason`: why it is blocked
+- `blockedUntil`: a human-readable unblock condition or time (for example: "Until Google Ads quota resets tomorrow morning")
+
+`blockedAt` is set automatically by the server when a task enters `blocked`.
 
 ## Delegation
 

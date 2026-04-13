@@ -128,6 +128,8 @@ export const createIssueSchema = z.object({
   assigneeUserId: z.string().optional().nullable(),
   requestDepth: z.number().int().nonnegative().optional().default(0),
   billingCode: z.string().optional().nullable(),
+  blockedReason: z.string().optional().nullable(),
+  blockedUntil: z.string().optional().nullable(),
   assigneeAdapterOverrides: issueAssigneeAdapterOverridesSchema.optional().nullable(),
   executionPolicy: issueExecutionPolicySchema.optional().nullable(),
   executionWorkspaceId: z.string().uuid().optional().nullable(),

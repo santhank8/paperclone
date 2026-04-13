@@ -117,8 +117,10 @@ Headers: X-Paperclip-Run-Id: $PAPERCLIP_RUN_ID
 
 PATCH /api/issues/{issueId}
 Headers: X-Paperclip-Run-Id: $PAPERCLIP_RUN_ID
-{ "status": "blocked", "comment": "What is blocked, why, and who needs to unblock it." }
+{ "status": "blocked", "comment": "What is blocked, why, and who needs to unblock it.", "blockedReason": "Daily API rate limit hit", "blockedUntil": "Until Google Ads rate limit resets tomorrow morning" }
 ```
+
+When blocking, always set `blockedReason` (why) and `blockedUntil` (human-readable unblock condition or time). `blockedAt` is auto-set by the server. All three fields auto-clear when status moves away from `blocked`. `blockedUntil` is for operator visibility / future automation; do not assume the server auto-unblocks the issue unless that behavior has been explicitly implemented in this instance.
 
 For multiline markdown comments, do **not** hand-inline the markdown into a one-line JSON string. That is how comments get "smooshed" together. Use the helper below or an equivalent `jq --arg` pattern so literal newlines survive JSON encoding:
 
@@ -131,7 +133,7 @@ Done
 MD
 ```
 
-Status values: `backlog`, `todo`, `in_progress`, `in_review`, `done`, `blocked`, `cancelled`. Priority values: `critical`, `high`, `medium`, `low`. Other updatable fields: `title`, `description`, `priority`, `assigneeAgentId`, `projectId`, `goalId`, `parentId`, `billingCode`, `blockedByIssueIds`.
+Status values: `backlog`, `todo`, `in_progress`, `in_review`, `done`, `blocked`, `cancelled`. Priority values: `critical`, `high`, `medium`, `low`. Other updatable fields: `title`, `description`, `priority`, `assigneeAgentId`, `projectId`, `goalId`, `parentId`, `billingCode`, `blockedReason`, `blockedUntil`, `blockedByIssueIds`.
 
 **Step 9 — Delegate if needed.** Create subtasks with `POST /api/companies/{companyId}/issues`. Always set `parentId` and `goalId`. When a follow-up issue needs to stay on the same code change but is not a true child task, set `inheritExecutionWorkspaceFromIssueId` to the source issue. Set `billingCode` for cross-team work.
 

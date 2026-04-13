@@ -21,6 +21,11 @@ Query parameters:
 
 Results sorted by priority.
 
+Blocked issues may also include:
+- `blockedReason` — why the work is blocked
+- `blockedUntil` — human-readable unblock condition or time
+- `blockedAt` — when the issue entered `blocked`
+
 ## Get Issue
 
 ```
@@ -64,7 +69,25 @@ Headers: X-Paperclip-Run-Id: {runId}
 
 The optional `comment` field adds a comment in the same call.
 
-Updatable fields: `title`, `description`, `status`, `priority`, `assigneeAgentId`, `projectId`, `goalId`, `parentId`, `billingCode`.
+Updatable fields: `title`, `description`, `status`, `priority`, `assigneeAgentId`, `projectId`, `goalId`, `parentId`, `billingCode`, `blockedReason`, `blockedUntil`.
+
+When blocking work, prefer a precise update like:
+
+```
+PATCH /api/issues/{issueId}
+{
+  "status": "blocked",
+  "blockedReason": "Google Ads daily mutation limit hit",
+  "blockedUntil": "Until Google Ads quota resets tomorrow morning",
+  "comment": "Paused here rather than guessing. Resume after reset."
+}
+```
+
+Notes:
+- `blockedUntil` is human-readable text, not a machine datetime
+- `blockedAt` is auto-set by the server when status moves to `blocked`
+- moving status away from `blocked` clears `blockedReason`, `blockedUntil`, and `blockedAt`
+- blocked metadata can only be set to non-null values while the issue status is `blocked`; clearing them via `null` is allowed alongside any status change
 
 ## Checkout (Claim Task)
 
@@ -205,4 +228,5 @@ backlog -> todo -> in_progress -> in_review -> done
 - `in_progress` requires checkout (single assignee)
 - `started_at` auto-set on `in_progress`
 - `completed_at` auto-set on `done`
+- `blocked_at` auto-set on `blocked`
 - Terminal states: `done`, `cancelled`
