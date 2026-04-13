@@ -8,6 +8,7 @@ import asyncio
 import concurrent.futures
 import importlib.util
 import sys
+from pathlib import Path
 import types
 from unittest.mock import MagicMock
 
@@ -64,7 +65,7 @@ def _load_executor_directly():
     try:
         spec = importlib.util.spec_from_file_location(
             executor_key,
-            "/home/prime/Repos/paperclip/deerflow/backend/deerflow/subagents/executor.py",
+            str(Path(__file__).resolve().parent.parent / "deerflow" / "subagents" / "executor.py"),
         )
         mod = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(mod)

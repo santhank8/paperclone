@@ -94,6 +94,7 @@ function createAgent(): Agent {
     title: null,
     status: "active",
     reportsTo: null,
+    managerIds: [],
     capabilities: null,
     adapterType: "process",
     adapterConfig: {},

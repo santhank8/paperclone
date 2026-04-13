@@ -2,11 +2,7 @@ FROM node:lts-trixie-slim AS base
 ARG USER_UID=1000
 ARG USER_GID=1000
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends \
-    ca-certificates gosu curl git wget ripgrep jq python3 python3-pip python3-venv openssh-client \
-    openjdk-21-jdk-headless \
-    build-essential \
-    unzip zip \
+  && apt-get install -y --no-install-recommends ca-certificates gosu curl git wget ripgrep python3 \
   && mkdir -p -m 755 /etc/apt/keyrings \
   && wget -nv -O/etc/apt/keyrings/githubcli-archive-keyring.gpg https://cli.github.com/packages/githubcli-archive-keyring.gpg \
   && echo "20e0125d6f6e077a9ad46f03371bc26d90b04939fb95170f5a1905099cc6bcc0  /etc/apt/keyrings/githubcli-archive-keyring.gpg" | sha256sum -c - \
@@ -17,19 +13,6 @@ RUN apt-get update \
   && apt-get install -y --no-install-recommends gh \
   && rm -rf /var/lib/apt/lists/* \
   && corepack enable
-ENV JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64
-
-# Android SDK command-line tools — allows Gradle to download required SDK components
-ENV ANDROID_HOME=/opt/android-sdk
-ENV PATH="${ANDROID_HOME}/cmdline-tools/latest/bin:${ANDROID_HOME}/platform-tools:${PATH}"
-RUN mkdir -p ${ANDROID_HOME}/cmdline-tools \
-  && curl -fsSL https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -o /tmp/cmdline-tools.zip \
-  && unzip -q /tmp/cmdline-tools.zip -d ${ANDROID_HOME}/cmdline-tools \
-  && mv ${ANDROID_HOME}/cmdline-tools/cmdline-tools ${ANDROID_HOME}/cmdline-tools/latest \
-  && rm /tmp/cmdline-tools.zip \
-  && yes | ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --licenses > /dev/null 2>&1 \
-  && ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager "platforms;android-35" "build-tools;35.0.0" > /dev/null 2>&1 \
-  && chown -R node:node ${ANDROID_HOME}
 
 # Modify the existing node user/group to have the specified UID/GID to match host user
 RUN usermod -u $USER_UID --non-unique node \
@@ -85,7 +68,6 @@ ENV NODE_ENV=production \
   HOST=0.0.0.0 \
   PORT=3100 \
   SERVE_UI=true \
-  GRADLE_USER_HOME=/paperclip/.gradle \
   PAPERCLIP_HOME=/paperclip \
   PAPERCLIP_INSTANCE_ID=default \
   USER_UID=${USER_UID} \

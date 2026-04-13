@@ -351,7 +351,6 @@ export const LIVE_EVENT_TYPES = [
   "heartbeat.run.log",
   "agent.status",
   "activity.logged",
-  "issue.status_changed",
   "plugin.ui.updated",
   "plugin.worker.crashed",
   "plugin.worker.restarted",
@@ -388,6 +387,10 @@ export const PERMISSION_KEYS = [
   "joins:approve",
 ] as const;
 export type PermissionKey = (typeof PERMISSION_KEYS)[number];
+
+// ---------------------------------------------------------------------------
+// Memory System (fork-specific — Paperclip shared memories API)
+// ---------------------------------------------------------------------------
 
 export const MEMORY_SCOPE_TYPES = ["company", "project", "issue", "agent"] as const;
 export type MemoryScopeType = (typeof MEMORY_SCOPE_TYPES)[number];

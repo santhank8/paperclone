@@ -1464,14 +1464,13 @@ function normalizePortableSidebarOrder(value: unknown): CompanyPortabilitySideba
   return sidebar.agents.length > 0 || sidebar.projects.length > 0 ? sidebar : null;
 }
 
-function sortAgentsBySidebarOrder<T extends { id: string; name: string; managerIds: string[] }>(agents: T[]) {
+function sortAgentsBySidebarOrder<T extends { id: string; name: string; reportsTo: string | null }>(agents: T[]) {
   if (agents.length === 0) return [];
 
   const byId = new Map(agents.map((agent) => [agent.id, agent]));
   const childrenOf = new Map<string | null, T[]>();
   for (const agent of agents) {
-    const primaryManager = agent.managerIds[0] ?? null;
-    const parentId = primaryManager && byId.has(primaryManager) ? primaryManager : null;
+    const parentId = agent.reportsTo && byId.has(agent.reportsTo) ? agent.reportsTo : null;
     const siblings = childrenOf.get(parentId) ?? [];
     siblings.push(agent);
     childrenOf.set(parentId, siblings);
@@ -1733,7 +1732,7 @@ const YAML_KEY_PRIORITY = [
   "schema",
   "kind",
   "slug",
-  "managerIds",
+  "reportsTo",
   "skills",
   "owner",
   "assignee",
@@ -2463,7 +2462,6 @@ function buildManifestFromPackageFiles(
       : {};
     const runtimeConfig = extensionRuntime ?? {};
     const title = asString(frontmatter.title);
-    const parsedReportsToSlug = asString(frontmatter.reportsTo) ?? asString(extension.reportsTo);
 
     manifest.agents.push({
       slug,
@@ -2474,8 +2472,8 @@ function buildManifestFromPackageFiles(
       title,
       icon: asString(extension.icon),
       capabilities: asString(extension.capabilities),
-      managerSlugs: parsedReportsToSlug ? [parsedReportsToSlug] : [],
-      reportsToSlug: parsedReportsToSlug,
+      managerSlugs: [],
+      reportsToSlug: asString(frontmatter.reportsTo) ?? asString(extension.reportsTo),
       adapterType: asString(extensionAdapter?.type) ?? "process",
       adapterConfig,
       runtimeConfig,
@@ -3172,8 +3170,7 @@ export function companyPortabilityService(db: Db, storage?: StorageService) {
             .slice(envInputsStart)
             .filter((inputValue) => inputValue.agentSlug === slug),
         );
-        const primaryManagerId = agent.managerIds[0] ?? null;
-        const reportsToSlug = primaryManagerId ? (idToSlug.get(primaryManagerId) ?? null) : null;
+        const reportsToSlug = agent.reportsTo ? (idToSlug.get(agent.reportsTo) ?? null) : null;
         const desiredSkills = readPaperclipSkillSyncPreference(
           (agent.adapterConfig as Record<string, unknown>) ?? {},
         ).desiredSkills;
@@ -4075,7 +4072,7 @@ export function companyPortabilityService(db: Db, storage?: StorageService) {
           title: manifestAgent.title,
           icon: manifestAgent.icon,
           capabilities: manifestAgent.capabilities,
-          managerIds: [],
+          reportsTo: null,
           adapterType: effectiveAdapterType,
           adapterConfig: adapterConfigWithSkills,
           runtimeConfig: disableImportedTimerHeartbeat(manifestAgent.runtimeConfig),
@@ -4157,7 +4154,7 @@ export function companyPortabilityService(db: Db, storage?: StorageService) {
         const managerId = importedSlugToAgentId.get(managerSlug) ?? existingSlugToAgentId.get(managerSlug) ?? null;
         if (!managerId || managerId === agentId) continue;
         try {
-          await agents.update(agentId, { managerIds: [managerId] } as Record<string, unknown>);
+          await agents.update(agentId, { reportsTo: managerId });
         } catch {
           warnings.push(`Could not assign manager ${managerSlug} for imported agent ${manifestAgent.slug}.`);
         }

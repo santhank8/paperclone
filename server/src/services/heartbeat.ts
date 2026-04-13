@@ -17,7 +17,7 @@ import {
   projects,
   projectWorkspaces,
 } from "@paperclipai/db";
-import { conflict, notFound } from "../errors.js";
+import { conflict, HttpError, notFound } from "../errors.js";
 import { logger } from "../middleware/logger.js";
 import { publishLiveEvent } from "./live-events.js";
 import { getRunLogStore, type RunLogHandle } from "./run-log-store.js";
@@ -74,6 +74,7 @@ const HEARTBEAT_MAX_CONCURRENT_RUNS_MAX = 10;
 const DEFERRED_WAKE_CONTEXT_KEY = "_paperclipWakeContext";
 const WAKE_COMMENT_IDS_KEY = "wakeCommentIds";
 const PAPERCLIP_WAKE_PAYLOAD_KEY = "paperclipWake";
+const PAPERCLIP_HARNESS_CHECKOUT_KEY = "paperclipHarnessCheckedOut";
 const DETACHED_PROCESS_ERROR_CODE = "process_detached";
 const startLocksByAgent = new Map<string, Promise<void>>();
 const REPO_ONLY_CWD_SENTINEL = "/__paperclip_repo_only__";
@@ -760,6 +761,36 @@ function describeSessionResetReason(
   return null;
 }
 
+function shouldAutoCheckoutIssueForWake(input: {
+  contextSnapshot: Record<string, unknown> | null | undefined;
+  issueStatus: string | null;
+  issueAssigneeAgentId: string | null;
+  agentId: string;
+}) {
+  if (input.issueAssigneeAgentId !== input.agentId) return false;
+
+  const issueStatus = readNonEmptyString(input.issueStatus);
+  if (
+    issueStatus !== "todo" &&
+    issueStatus !== "backlog" &&
+    issueStatus !== "blocked" &&
+    issueStatus !== "in_progress"
+  ) {
+    return false;
+  }
+
+  const wakeReason = readNonEmptyString(input.contextSnapshot?.wakeReason);
+  if (!wakeReason) return false;
+  if (wakeReason === "issue_comment_mentioned") return false;
+  if (wakeReason.startsWith("execution_")) return false;
+
+  return true;
+}
+
+function isCheckoutConflictError(error: unknown): boolean {
+  return error instanceof HttpError && error.status === 409 && error.message === "Issue checkout conflict";
+}
+
 function deriveCommentId(
   contextSnapshot: Record<string, unknown> | null | undefined,
   payload: Record<string, unknown> | null | undefined,
@@ -1005,6 +1036,7 @@ async function buildPaperclipWakePayload(input: {
           priority: issueSummary.priority,
         }
       : null,
+    checkedOutByHarness: input.contextSnapshot[PAPERCLIP_HARNESS_CHECKOUT_KEY] === true,
     executionStage: Object.keys(executionStage).length > 0 ? executionStage : null,
     commentIds,
     latestCommentId: commentIds[commentIds.length - 1] ?? null,
@@ -1216,44 +1248,33 @@ export function heartbeatService(db: Db) {
       .then((rows) => rows[0] ?? null);
   }
 
+  async function getIssueExecutionContext(companyId: string, issueId: string) {
+    return db
+      .select({
+        id: issues.id,
+        identifier: issues.identifier,
+        title: issues.title,
+        status: issues.status,
+        priority: issues.priority,
+        projectId: issues.projectId,
+        projectWorkspaceId: issues.projectWorkspaceId,
+        executionWorkspaceId: issues.executionWorkspaceId,
+        executionWorkspacePreference: issues.executionWorkspacePreference,
+        assigneeAgentId: issues.assigneeAgentId,
+        assigneeAdapterOverrides: issues.assigneeAdapterOverrides,
+        executionWorkspaceSettings: issues.executionWorkspaceSettings,
+      })
+      .from(issues)
+      .where(and(eq(issues.id, issueId), eq(issues.companyId, companyId)))
+      .then((rows) => rows[0] ?? null);
+  }
+
   async function getRuntimeState(agentId: string) {
     return db
       .select()
       .from(agentRuntimeState)
       .where(eq(agentRuntimeState.agentId, agentId))
       .then((rows) => rows[0] ?? null);
-  }
-
-  /**
-   * Returns the usage-limit reset time for an agent, or null if no active
-   * deferral applies. A deferral is "active" when the agent's most recent
-   * heartbeat run failed with `"claude_usage_limited"` AND its
-   * `errorMeta.usageLimitResetsAt` is still parseable. The caller checks
-   * whether the returned Date is in the future.
-   */
-  async function getUsageLimitDeferralUntil(agentId: string): Promise<Date | null> {
-    const runtime = await getRuntimeState(agentId);
-    if (!runtime?.lastRunId) return null;
-
-    const lastRun = await db
-      .select({
-        errorCode: heartbeatRuns.errorCode,
-        resultJson: heartbeatRuns.resultJson,
-      })
-      .from(heartbeatRuns)
-      .where(eq(heartbeatRuns.id, runtime.lastRunId))
-      .then((rows) => rows[0] ?? null);
-    if (!lastRun) return null;
-    if (lastRun.errorCode !== "claude_usage_limited") return null;
-
-    const resultJson = lastRun.resultJson as Record<string, unknown> | null;
-    const errorMeta = resultJson?.errorMeta as Record<string, unknown> | undefined;
-    const resetsAt = errorMeta?.usageLimitResetsAt;
-    if (typeof resetsAt !== "string" || !resetsAt) return null;
-
-    const parsed = new Date(resetsAt);
-    if (Number.isNaN(parsed.getTime())) return null;
-    return parsed;
   }
 
   async function getTaskSession(
@@ -2676,26 +2697,26 @@ export function heartbeatService(db: Db) {
     const taskKey = deriveTaskKeyWithHeartbeatFallback(context, null);
     const sessionCodec = getAdapterSessionCodec(agent.adapterType);
     const issueId = readNonEmptyString(context.issueId);
-    const issueContext = issueId
-      ? await db
-          .select({
-            id: issues.id,
-            identifier: issues.identifier,
-            title: issues.title,
-            status: issues.status,
-            priority: issues.priority,
-            projectId: issues.projectId,
-            projectWorkspaceId: issues.projectWorkspaceId,
-            executionWorkspaceId: issues.executionWorkspaceId,
-            executionWorkspacePreference: issues.executionWorkspacePreference,
-            assigneeAgentId: issues.assigneeAgentId,
-            assigneeAdapterOverrides: issues.assigneeAdapterOverrides,
-            executionWorkspaceSettings: issues.executionWorkspaceSettings,
-          })
-          .from(issues)
-          .where(and(eq(issues.id, issueId), eq(issues.companyId, agent.companyId)))
-          .then((rows) => rows[0] ?? null)
-      : null;
+    let issueContext = issueId ? await getIssueExecutionContext(agent.companyId, issueId) : null;
+    if (
+      issueId &&
+      issueContext &&
+      shouldAutoCheckoutIssueForWake({
+        contextSnapshot: context,
+        issueStatus: issueContext.status,
+        issueAssigneeAgentId: issueContext.assigneeAgentId,
+        agentId: agent.id,
+      })
+    ) {
+      try {
+        await issuesSvc.checkout(issueId, agent.id, ["todo", "backlog", "blocked"], run.id);
+        context[PAPERCLIP_HARNESS_CHECKOUT_KEY] = true;
+      } catch (error) {
+        if (!isCheckoutConflictError(error)) throw error;
+        context[PAPERCLIP_HARNESS_CHECKOUT_KEY] = false;
+      }
+      issueContext = await getIssueExecutionContext(agent.companyId, issueId);
+    }
     const issueAssigneeOverrides =
       issueContext && issueContext.assigneeAgentId === agent.id
         ? parseIssueAssigneeAdapterOverrides(
@@ -3411,15 +3432,10 @@ export function heartbeatService(db: Db) {
             } as Record<string, unknown>)
           : null;
 
-      const baseResultJson = mergeHeartbeatRunResultJson(
+      const persistedResultJson = mergeHeartbeatRunResultJson(
         adapterResult.resultJson ?? null,
         adapterResult.summary ?? null,
       );
-      // Persist errorMeta (e.g. usageLimitResetsAt) into resultJson so
-      // post-hoc queries can recover structured failure hints.
-      const persistedResultJson = adapterResult.errorMeta
-        ? { ...(baseResultJson ?? {}), errorMeta: adapterResult.errorMeta }
-        : baseResultJson;
 
       await setRunStatus(run.id, status, {
         finishedAt: new Date(),
@@ -3865,19 +3881,6 @@ export function heartbeatService(db: Db) {
     }
     if (source !== "timer" && !policy.wakeOnDemand) {
       await writeSkippedRequest("heartbeat.wakeOnDemand.disabled");
-      return null;
-    }
-
-    // Usage-limit deferral: if this agent's most recent run failed with
-    // claude_usage_limited and carried a usageLimitResetsAt hint, skip
-    // enqueueing new wakes until the reset has passed.
-    const deferUntil = await getUsageLimitDeferralUntil(agentId);
-    if (deferUntil && deferUntil.getTime() > Date.now()) {
-      logger.info(
-        { agentId, source, reason, deferUntil: deferUntil.toISOString() },
-        "Skipping wake — Claude usage limit not yet reset",
-      );
-      await writeSkippedRequest("claude_usage_limit.deferred");
       return null;
     }
 
