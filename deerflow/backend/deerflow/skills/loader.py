@@ -96,3 +96,50 @@ def load_skills(skills_path: Path | None = None, use_config: bool = True, enable
     skills.sort(key=lambda s: s.name)
 
     return skills
+
+
+import threading as _threading
+
+# Thread-safe skill cache
+_skills_cache: list | None = None
+_cache_lock = _threading.Lock()
+_cache_ver: int = 0
+_cache_stale: bool = True
+
+
+def _skills_cache_version() -> int:
+    """Get current cache version (for testing)."""
+    return _cache_ver
+
+
+def get_cached_skills(enabled_only: bool = False) -> list:
+    """Get skills from cache, refreshing if stale.
+
+    Thread-safe. Returns cached list on cache hit.
+    """
+    global _skills_cache, _cache_ver, _cache_stale
+
+    with _cache_lock:
+        if _skills_cache is not None and not _cache_stale:
+            if enabled_only:
+                return [s for s in _skills_cache if s.enabled]
+            return _skills_cache
+
+    # Cache miss — refresh outside the lock to avoid blocking reads
+    skills = load_skills()
+
+    with _cache_lock:
+        _skills_cache = skills
+        _cache_ver += 1
+        _cache_stale = False
+
+    if enabled_only:
+        return [s for s in skills if s.enabled]
+    return skills
+
+
+def invalidate_skills_cache() -> None:
+    """Mark cache as stale. Next get_cached_skills() call will refresh."""
+    global _cache_stale
+    with _cache_lock:
+        _cache_stale = True
