@@ -1433,6 +1433,11 @@ export function issueRoutes(
       updateFields.assigneeUserId === undefined ? existing.assigneeUserId : (updateFields.assigneeUserId as string | null);
     const assigneeWillChange =
       nextAssigneeAgentId !== existing.assigneeAgentId || nextAssigneeUserId !== existing.assigneeUserId;
+    const requireLockedCheckoutOwnership =
+      req.actor.type === "agent" &&
+      !!actor.agentId &&
+      existing.status === "in_progress" &&
+      existing.assigneeAgentId === actor.agentId;
     const isAgentReturningIssueToCreator =
       req.actor.type === "agent" &&
       !!req.actor.agentId &&
@@ -1453,6 +1458,7 @@ export function issueRoutes(
       const updateActor = {
         actorAgentId: actor.agentId ?? null,
         actorRunId: trustedActorRunId,
+        ...(requireLockedCheckoutOwnership ? { requireCheckoutOwnership: true } : {}),
       };
       if (transition.decision && decisionId) {
         const decision = transition.decision;
