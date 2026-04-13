@@ -22,6 +22,9 @@ export function inferOpenAiCompatibleBiller(
 /**
  * When `OPENROUTER_API_KEY` is set but `OPENAI_API_KEY` is not, copy the key and
  * default `OPENAI_BASE_URL` so OpenAI-compatible CLIs route to OpenRouter.
+ * If `OPENAI_BASE_URL` is whitespace-only but `OPENAI_API_BASE` / `OPENAI_API_BASE_URL`
+ * holds the real endpoint, overwrites `OPENAI_BASE_URL` with that value so CLIs
+ * that read only `OPENAI_BASE_URL` still route correctly.
  * Mutates `env` in place (same pattern as Codex/Cursor adapters).
  */
 export function applyOpenRouterOpenAiEnvMapping(env: Record<string, string>): void {
@@ -31,11 +34,21 @@ export function applyOpenRouterOpenAiEnvMapping(env: Record<string, string>): vo
   if (!orKey || oaiKey) return;
   env.OPENAI_API_KEY = orKey;
 
-  const baseUrl =
-    readEnv(processLike, "OPENAI_BASE_URL") ??
-    readEnv(processLike, "OPENAI_API_BASE") ??
-    readEnv(processLike, "OPENAI_API_BASE_URL");
+  const fromOpenAiBaseUrl = readEnv(processLike, "OPENAI_BASE_URL");
+  const fromOpenAiApiBase = readEnv(processLike, "OPENAI_API_BASE");
+  const fromOpenAiApiBaseUrl = readEnv(processLike, "OPENAI_API_BASE_URL");
+  const baseUrl = fromOpenAiBaseUrl ?? fromOpenAiApiBase ?? fromOpenAiApiBaseUrl;
   if (!baseUrl) {
     env.OPENAI_BASE_URL = "https://openrouter.ai/api/v1";
+    return;
+  }
+
+  const rawOpenAiBaseUrl = processLike["OPENAI_BASE_URL"];
+  if (
+    !fromOpenAiBaseUrl &&
+    typeof rawOpenAiBaseUrl === "string" &&
+    rawOpenAiBaseUrl.trim().length === 0
+  ) {
+    env.OPENAI_BASE_URL = baseUrl;
   }
 }

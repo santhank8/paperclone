@@ -126,7 +126,7 @@ describe("applyOpenRouterOpenAiEnvMapping", () => {
     expect(env.OPENAI_BASE_URL).toBe("https://example.com/v1");
   });
 
-  it("treats whitespace-only OPENAI_BASE_URL as unset and respects OPENAI_API_BASE", () => {
+  it("treats whitespace-only OPENAI_BASE_URL as unset and promotes OPENAI_API_BASE for CLI compatibility", () => {
     const env: Record<string, string> = {
       OPENROUTER_API_KEY: "sk-or-1",
       OPENAI_BASE_URL: "   ",
@@ -134,8 +134,20 @@ describe("applyOpenRouterOpenAiEnvMapping", () => {
     };
     applyOpenRouterOpenAiEnvMapping(env);
     expect(env.OPENAI_API_KEY).toBe("sk-or-1");
-    expect(env.OPENAI_BASE_URL).toBe("   ");
+    expect(env.OPENAI_BASE_URL).toBe("https://example.com/v1");
     expect(env.OPENAI_API_BASE).toBe("https://example.com/v1");
+  });
+
+  it("promotes OPENAI_API_BASE_URL when OPENAI_BASE_URL is whitespace-only", () => {
+    const env: Record<string, string> = {
+      OPENROUTER_API_KEY: "sk-or-1",
+      OPENAI_BASE_URL: "\t",
+      OPENAI_API_BASE: "  ",
+      OPENAI_API_BASE_URL: "https://openrouter.ai/v1",
+    };
+    applyOpenRouterOpenAiEnvMapping(env);
+    expect(env.OPENAI_API_KEY).toBe("sk-or-1");
+    expect(env.OPENAI_BASE_URL).toBe("https://openrouter.ai/v1");
   });
 
   it("respects OPENAI_API_BASE_URL when set", () => {
