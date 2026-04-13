@@ -3,7 +3,7 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
-from deerflow.agents.memory.updater import clear_memory_data, delete_memory_fact, get_memory_data, reload_memory_data
+from deerflow.agents.memory.updater import clear_memory_data, delete_memory_fact, get_memory_data, import_memory_data, reload_memory_data
 from deerflow.config.memory_config import get_memory_config
 
 router = APIRouter(prefix="/api", tags=["memory"])
@@ -86,6 +86,13 @@ class UpdateFactRequest(BaseModel):
     content: str | None = Field(default=None, min_length=1, max_length=500, description="New content")
     category: str | None = Field(default=None, description="New category")
     confidence: float | None = Field(default=None, ge=0.0, le=1.0, description="New confidence")
+
+
+class ImportMemoryRequest(BaseModel):
+    """Request body for importing memory data."""
+
+    data: dict = Field(..., description="Memory data to import")
+    merge: bool = Field(default=False, description="If true, merge with existing data; if false, replace entirely")
 
 
 @router.get(
@@ -289,3 +296,26 @@ async def update_fact(fact_id: str, request: UpdateFactRequest) -> Fact:
     if result is None:
         raise HTTPException(status_code=404, detail=f"Fact '{fact_id}' not found")
     return Fact(**result)
+
+
+@router.get(
+    "/memory/export",
+    response_model=MemoryResponse,
+    summary="Export Memory",
+    description="Export the current memory data.",
+)
+async def export_memory() -> MemoryResponse:
+    """Export memory data (same as GET /memory but with explicit export semantic)."""
+    return MemoryResponse(**get_memory_data())
+
+
+@router.post(
+    "/memory/import",
+    response_model=MemoryResponse,
+    summary="Import Memory",
+    description="Import memory data, optionally merging with existing.",
+)
+async def import_memory(request: ImportMemoryRequest) -> MemoryResponse:
+    """Import memory data."""
+    import_memory_data(request.data, merge=request.merge)
+    return MemoryResponse(**get_memory_data())

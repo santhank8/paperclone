@@ -761,6 +761,29 @@ class DeerFlowClient:
             raise ValueError(f"Fact '{fact_id}' not found")
         return result
 
+    def export_memory(self) -> dict:
+        """Export memory data.
+
+        Returns:
+            Full memory data dict.
+        """
+        return self.get_memory()
+
+    def import_memory(self, data: dict, merge: bool = False) -> dict:
+        """Import memory data.
+
+        Args:
+            data: Memory data to import.
+            merge: If True, merge with existing data. If False, replace entirely.
+
+        Returns:
+            The resulting memory data dict.
+        """
+        from deerflow.agents.memory.updater import import_memory_data
+
+        import_memory_data(data, merge=merge)
+        return self.get_memory()
+
     # ------------------------------------------------------------------
     # Public API — file uploads
     # ------------------------------------------------------------------

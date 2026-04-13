@@ -429,6 +429,51 @@ def update_memory_fact(
     return None
 
 
+def import_memory_data(
+    data: dict[str, Any],
+    merge: bool = False,
+    agent_name: str | None = None,
+) -> bool:
+    """Import memory data, either replacing or merging.
+
+    Args:
+        data: Memory data to import.
+        merge: If True, merge with existing data. If False, replace entirely.
+        agent_name: Per-agent or global memory.
+
+    Returns:
+        True if successful.
+    """
+    storage = get_memory_storage()
+
+    if not merge:
+        return storage.save(data, agent_name)
+
+    # Merge mode
+    existing = storage.load(agent_name)
+
+    # Merge user/history sections: keep whichever has a newer updatedAt
+    for section_key in ("user", "history"):
+        existing_section = existing.get(section_key, {})
+        import_section = data.get(section_key, {})
+        for sub_key in existing_section:
+            if sub_key not in import_section:
+                continue
+            existing_updated = existing_section.get(sub_key, {}).get("updatedAt", "")
+            import_updated = import_section.get(sub_key, {}).get("updatedAt", "")
+            if import_updated > existing_updated:
+                existing_section[sub_key] = import_section[sub_key]
+
+    # Merge facts: import wins on ID conflict
+    existing_facts = {f["id"]: f for f in existing.get("facts", []) if "id" in f}
+    for fact in data.get("facts", []):
+        if "id" in fact:
+            existing_facts[fact["id"]] = fact
+    existing["facts"] = list(existing_facts.values())
+
+    return storage.save(existing, agent_name)
+
+
 def update_memory_from_conversation(messages: list[Any], thread_id: str | None = None, agent_name: str | None = None) -> bool:
     """Convenience function to update memory from a conversation.
 
