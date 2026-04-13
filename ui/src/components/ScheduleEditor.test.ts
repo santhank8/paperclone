@@ -88,23 +88,41 @@ describe("parseCronToPreset", () => {
 describe("describeSchedule", () => {
   it("describes simple presets in plain English", () => {
     expect(describeSchedule("0 9 * * *")).toContain("Every day");
-    expect(describeSchedule("0 9 * * 1-5")).toContain("Weekdays");
-    expect(describeSchedule("0 9 * * 1")).toContain("Mon");
+    expect(describeSchedule("0 9 * * 1-5")).toContain("weekday");
+    expect(describeSchedule("0 9 * * 1")).toContain("Monday");
   });
 
-  it("returns the raw cron string for complex crons (so the user sees what's actually scheduled)", () => {
-    // These are the three patterns in the Traffic Exchange Script company's
-    // routines that exposed the round-trip bug. Before the fix they all
-    // rendered as some variant of "Every day at …" with a silently wrong
-    // hour. After the fix they render as the cron string itself.
-    expect(describeSchedule("0 9,13,17 * * *")).toBe("0 9,13,17 * * *");
-    expect(describeSchedule("0 10,16 * * *")).toBe("0 10,16 * * *");
-    expect(describeSchedule("0 */4 * * *")).toBe("0 */4 * * *");
+  it("describes multi-value hour lists (these previously collapsed silently)", () => {
+    // Regression guard. Pre-fix, these crons round-tripped to "Every day at …"
+    // with a silently-wrong single hour. Post-fix they rendered as the raw
+    // cron string. Now that the editor can represent multi-value hour lists
+    // first-class, describeSchedule unfolds them into a readable sentence.
+    expect(describeSchedule("0 9,13,17 * * *")).toBe("Every day at 09:00, 13:00 and 17:00");
+    expect(describeSchedule("0 10,16 * * *")).toBe("Every day at 10:00 and 16:00");
+  });
+
+  it("describes step expressions in plain English", () => {
+    expect(describeSchedule("0 */4 * * *")).toBe("Every 4 hours at :00");
+    expect(describeSchedule("*/15 * * * *")).toBe("Every 15 minutes");
+    expect(describeSchedule("*/15 9-17 * * 1-5")).toContain("between 09:00 and 17:00");
+  });
+
+  it("describes multi-day weekday selections", () => {
+    expect(describeSchedule("0 9 * * 1,3,5")).toBe("Every Mon, Wed, Fri at 09:00");
+  });
+
+  it("describes multi-date monthly selections with ordinals", () => {
+    expect(describeSchedule("0 9 1,15 * *")).toBe("On the 1st, 15th of the month at 09:00");
+  });
+
+  it("falls back to the raw cron string for expressions it can't confidently describe", () => {
+    // Named tokens and exotic forms still round-trip as the raw cron.
+    expect(describeSchedule("0 MON * * *")).toBe("0 MON * * *");
+    expect(describeSchedule("@daily")).toBe("@daily");
+    expect(describeSchedule("not a cron")).toBe("not a cron");
   });
 
   it("falls back to the default 10:00 AM preset for an empty cron", () => {
-    // `parseCronToPreset("")` returns `every_day` with the default hour (10)
-    // and minute (0), so `describeSchedule` renders the default preset label.
     expect(describeSchedule("")).toBe("Every day at 10:00 AM");
   });
 });
