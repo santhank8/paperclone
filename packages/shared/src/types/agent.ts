@@ -68,6 +68,7 @@ export interface Agent {
   title: string | null;
   icon: string | null;
   status: AgentStatus;
+  managerIds: string[];
   reportsTo: string | null;
   capabilities: string | null;
   adapterType: AgentAdapterType;

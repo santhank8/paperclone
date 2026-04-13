@@ -1,0 +1,321 @@
+"""Memory API router for retrieving and managing global memory data."""
+
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel, Field
+
+from deerflow.agents.memory.updater import clear_memory_data, delete_memory_fact, get_memory_data, import_memory_data, reload_memory_data
+from deerflow.config.memory_config import get_memory_config
+
+router = APIRouter(prefix="/api", tags=["memory"])
+
+
+class ContextSection(BaseModel):
+    """Model for context sections (user and history)."""
+
+    summary: str = Field(default="", description="Summary content")
+    updatedAt: str = Field(default="", description="Last update timestamp")
+
+
+class UserContext(BaseModel):
+    """Model for user context."""
+
+    workContext: ContextSection = Field(default_factory=ContextSection)
+    personalContext: ContextSection = Field(default_factory=ContextSection)
+    topOfMind: ContextSection = Field(default_factory=ContextSection)
+
+
+class HistoryContext(BaseModel):
+    """Model for history context."""
+
+    recentMonths: ContextSection = Field(default_factory=ContextSection)
+    earlierContext: ContextSection = Field(default_factory=ContextSection)
+    longTermBackground: ContextSection = Field(default_factory=ContextSection)
+
+
+class Fact(BaseModel):
+    """Model for a memory fact."""
+
+    id: str = Field(..., description="Unique identifier for the fact")
+    content: str = Field(..., description="Fact content")
+    category: str = Field(default="context", description="Fact category")
+    confidence: float = Field(default=0.5, description="Confidence score (0-1)")
+    createdAt: str = Field(default="", description="Creation timestamp")
+    source: str = Field(default="unknown", description="Source thread ID")
+
+
+class MemoryResponse(BaseModel):
+    """Response model for memory data."""
+
+    version: str = Field(default="1.0", description="Memory schema version")
+    lastUpdated: str = Field(default="", description="Last update timestamp")
+    user: UserContext = Field(default_factory=UserContext)
+    history: HistoryContext = Field(default_factory=HistoryContext)
+    facts: list[Fact] = Field(default_factory=list)
+
+
+class MemoryConfigResponse(BaseModel):
+    """Response model for memory configuration."""
+
+    enabled: bool = Field(..., description="Whether memory is enabled")
+    storage_path: str = Field(..., description="Path to memory storage file")
+    debounce_seconds: int = Field(..., description="Debounce time for memory updates")
+    max_facts: int = Field(..., description="Maximum number of facts to store")
+    fact_confidence_threshold: float = Field(..., description="Minimum confidence threshold for facts")
+    injection_enabled: bool = Field(..., description="Whether memory injection is enabled")
+    max_injection_tokens: int = Field(..., description="Maximum tokens for memory injection")
+
+
+class MemoryStatusResponse(BaseModel):
+    """Response model for memory status."""
+
+    config: MemoryConfigResponse
+    data: MemoryResponse
+
+
+class CreateFactRequest(BaseModel):
+    """Request body for creating a new memory fact."""
+
+    content: str = Field(..., min_length=1, max_length=500, description="Fact content")
+    category: str = Field(default="knowledge", description="Fact category")
+    confidence: float = Field(default=0.9, ge=0.0, le=1.0, description="Confidence score")
+
+
+class UpdateFactRequest(BaseModel):
+    """Request body for updating a memory fact."""
+
+    content: str | None = Field(default=None, min_length=1, max_length=500, description="New content")
+    category: str | None = Field(default=None, description="New category")
+    confidence: float | None = Field(default=None, ge=0.0, le=1.0, description="New confidence")
+
+
+class ImportMemoryRequest(BaseModel):
+    """Request body for importing memory data."""
+
+    data: dict = Field(..., description="Memory data to import")
+    merge: bool = Field(default=False, description="If true, merge with existing data; if false, replace entirely")
+
+
+@router.get(
+    "/memory",
+    response_model=MemoryResponse,
+    summary="Get Memory Data",
+    description="Retrieve the current global memory data including user context, history, and facts.",
+)
+async def get_memory() -> MemoryResponse:
+    """Get the current global memory data.
+
+    Returns:
+        The current memory data with user context, history, and facts.
+
+    Example Response:
+        ```json
+        {
+            "version": "1.0",
+            "lastUpdated": "2024-01-15T10:30:00Z",
+            "user": {
+                "workContext": {"summary": "Working on DeerFlow project", "updatedAt": "..."},
+                "personalContext": {"summary": "Prefers concise responses", "updatedAt": "..."},
+                "topOfMind": {"summary": "Building memory API", "updatedAt": "..."}
+            },
+            "history": {
+                "recentMonths": {"summary": "Recent development activities", "updatedAt": "..."},
+                "earlierContext": {"summary": "", "updatedAt": ""},
+                "longTermBackground": {"summary": "", "updatedAt": ""}
+            },
+            "facts": [
+                {
+                    "id": "fact_abc123",
+                    "content": "User prefers TypeScript over JavaScript",
+                    "category": "preference",
+                    "confidence": 0.9,
+                    "createdAt": "2024-01-15T10:30:00Z",
+                    "source": "thread_xyz"
+                }
+            ]
+        }
+        ```
+    """
+    memory_data = get_memory_data()
+    return MemoryResponse(**memory_data)
+
+
+@router.post(
+    "/memory/reload",
+    response_model=MemoryResponse,
+    summary="Reload Memory Data",
+    description="Reload memory data from the storage file, refreshing the in-memory cache.",
+)
+async def reload_memory() -> MemoryResponse:
+    """Reload memory data from file.
+
+    This forces a reload of the memory data from the storage file,
+    useful when the file has been modified externally.
+
+    Returns:
+        The reloaded memory data.
+    """
+    memory_data = reload_memory_data()
+    return MemoryResponse(**memory_data)
+
+
+@router.get(
+    "/memory/config",
+    response_model=MemoryConfigResponse,
+    summary="Get Memory Configuration",
+    description="Retrieve the current memory system configuration.",
+)
+async def get_memory_config_endpoint() -> MemoryConfigResponse:
+    """Get the memory system configuration.
+
+    Returns:
+        The current memory configuration settings.
+
+    Example Response:
+        ```json
+        {
+            "enabled": true,
+            "storage_path": ".deer-flow/memory.json",
+            "debounce_seconds": 30,
+            "max_facts": 100,
+            "fact_confidence_threshold": 0.7,
+            "injection_enabled": true,
+            "max_injection_tokens": 2000
+        }
+        ```
+    """
+    config = get_memory_config()
+    return MemoryConfigResponse(
+        enabled=config.enabled,
+        storage_path=config.storage_path,
+        debounce_seconds=config.debounce_seconds,
+        max_facts=config.max_facts,
+        fact_confidence_threshold=config.fact_confidence_threshold,
+        injection_enabled=config.injection_enabled,
+        max_injection_tokens=config.max_injection_tokens,
+    )
+
+
+@router.get(
+    "/memory/status",
+    response_model=MemoryStatusResponse,
+    summary="Get Memory Status",
+    description="Retrieve both memory configuration and current data in a single request.",
+)
+async def get_memory_status() -> MemoryStatusResponse:
+    """Get the memory system status including configuration and data.
+
+    Returns:
+        Combined memory configuration and current data.
+    """
+    config = get_memory_config()
+    memory_data = get_memory_data()
+
+    return MemoryStatusResponse(
+        config=MemoryConfigResponse(
+            enabled=config.enabled,
+            storage_path=config.storage_path,
+            debounce_seconds=config.debounce_seconds,
+            max_facts=config.max_facts,
+            fact_confidence_threshold=config.fact_confidence_threshold,
+            injection_enabled=config.injection_enabled,
+            max_injection_tokens=config.max_injection_tokens,
+        ),
+        data=MemoryResponse(**memory_data),
+    )
+
+
+@router.delete(
+    "/memory",
+    response_model=MemoryResponse,
+    summary="Clear Memory",
+    description="Clear all memory data, resetting to empty structure.",
+)
+async def clear_memory() -> MemoryResponse:
+    """Clear all memory data.
+
+    Returns:
+        The reset (empty) memory data.
+    """
+    clear_memory_data()
+    return MemoryResponse(**get_memory_data())
+
+
+@router.delete(
+    "/memory/facts/{fact_id}",
+    response_model=MemoryResponse,
+    summary="Delete Memory Fact",
+    description="Delete a specific fact by ID.",
+)
+async def delete_fact(fact_id: str) -> MemoryResponse:
+    """Delete a specific fact by ID.
+
+    Args:
+        fact_id: The unique identifier of the fact to delete.
+
+    Returns:
+        The updated memory data after deletion.
+
+    Raises:
+        HTTPException: 404 if the fact is not found.
+    """
+    deleted = delete_memory_fact(fact_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail=f"Fact '{fact_id}' not found")
+    return MemoryResponse(**get_memory_data())
+
+
+@router.post(
+    "/memory/facts",
+    response_model=Fact,
+    summary="Create Memory Fact",
+    description="Create a new memory fact with validation.",
+)
+async def create_fact(request: CreateFactRequest) -> Fact:
+    from deerflow.agents.memory.updater import create_memory_fact
+
+    try:
+        fact = create_memory_fact(request.content, request.category, request.confidence)
+        return Fact(**fact)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+
+
+@router.patch(
+    "/memory/facts/{fact_id}",
+    response_model=Fact,
+    summary="Update Memory Fact",
+    description="Update specific fields of a memory fact.",
+)
+async def update_fact(fact_id: str, request: UpdateFactRequest) -> Fact:
+    from deerflow.agents.memory.updater import update_memory_fact
+
+    try:
+        result = update_memory_fact(fact_id, request.content, request.category, request.confidence)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+    if result is None:
+        raise HTTPException(status_code=404, detail=f"Fact '{fact_id}' not found")
+    return Fact(**result)
+
+
+@router.get(
+    "/memory/export",
+    response_model=MemoryResponse,
+    summary="Export Memory",
+    description="Export the current memory data.",
+)
+async def export_memory() -> MemoryResponse:
+    """Export memory data (same as GET /memory but with explicit export semantic)."""
+    return MemoryResponse(**get_memory_data())
+
+
+@router.post(
+    "/memory/import",
+    response_model=MemoryResponse,
+    summary="Import Memory",
+    description="Import memory data, optionally merging with existing.",
+)
+async def import_memory(request: ImportMemoryRequest) -> MemoryResponse:
+    """Import memory data."""
+    import_memory_data(request.data, merge=request.merge)
+    return MemoryResponse(**get_memory_data())

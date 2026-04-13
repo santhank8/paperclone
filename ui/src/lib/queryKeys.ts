@@ -150,4 +150,5 @@ export const queryKeys = {
   adapters: {
     all: ["adapters"] as const,
   },
+  systemStatus: (companyId: string) => ["system-status", companyId] as const,
 };

@@ -14,6 +14,7 @@ function makeAgent(): Agent {
     icon: null,
     status: "active",
     reportsTo: null,
+    managerIds: [],
     capabilities: null,
     adapterType: "claude_local",
     adapterConfig: {

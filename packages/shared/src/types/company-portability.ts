@@ -123,6 +123,7 @@ export interface CompanyPortabilityAgentManifestEntry {
   title: string | null;
   icon: string | null;
   capabilities: string | null;
+  managerSlugs: string[];
   reportsToSlug: string | null;
   adapterType: string;
   adapterConfig: Record<string, unknown>;

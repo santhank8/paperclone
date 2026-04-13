@@ -49,6 +49,7 @@ export interface OrgNode {
   name: string;
   role: string;
   status: string;
+  managerIds: string[];
   reports: OrgNode[];
 }
 

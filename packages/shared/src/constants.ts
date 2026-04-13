@@ -34,6 +34,7 @@ export const AGENT_ADAPTER_TYPES = [
   "pi_local",
   "cursor",
   "openclaw_gateway",
+  "deerflow",
 ] as const;
 export type AgentAdapterType = (typeof AGENT_ADAPTER_TYPES)[number] | (string & {});
 
@@ -386,6 +387,16 @@ export const PERMISSION_KEYS = [
   "joins:approve",
 ] as const;
 export type PermissionKey = (typeof PERMISSION_KEYS)[number];
+
+// ---------------------------------------------------------------------------
+// Memory System (fork-specific — Paperclip shared memories API)
+// ---------------------------------------------------------------------------
+
+export const MEMORY_SCOPE_TYPES = ["company", "project", "issue", "agent"] as const;
+export type MemoryScopeType = (typeof MEMORY_SCOPE_TYPES)[number];
+
+export const MEMORY_CATEGORIES = ["preference", "knowledge", "context", "behavior", "goal"] as const;
+export type MemoryCategory = (typeof MEMORY_CATEGORIES)[number];
 
 // ---------------------------------------------------------------------------
 // Plugin System — see doc/plugins/PLUGIN_SPEC.md for the full specification
