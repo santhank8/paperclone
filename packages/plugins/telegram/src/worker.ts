@@ -382,11 +382,41 @@ function isTechnicalTelegramNoise(line: string): boolean {
   );
 }
 
-// Keywords that indicate the user wants a status/progress report.
-// These requests are handled WITHOUT going through an agent session —
-// we query ctx.issues.list() directly to avoid JSON leaking into stdout.
-const STATUS_REQUEST_RE =
-  /апдейт|отчёт|отчет|статус|что.*делает|как.*дела|что нового|что происходит|дай.*обзор|расскажи.*что|итог|текущ|задач|блокер|blocked|выполнено|в.?работе|в.?блоке|совет.*директор|директор.*совет|за.*(день|сутки|неделю|период)/i;
+// Trigger the direct-data status report ONLY when the user explicitly asks
+// for a status/update/report. Must NOT fire on general task requests,
+// analysis requests, or any message that merely mentions tasks in passing.
+//
+// ✅ Matches: "дай апдейт", "апдейт по задачам", "статус задач",
+//             "что происходит", "дай отчёт", "краткий обзор"
+// ❌ Does NOT match: "поставь задачу", "проанализируй агентов",
+//                    "выполни задачу", "какие задачи в блоке"
+// NOTE: JavaScript \b word-boundary does NOT work with Cyrillic (only ASCII \w).
+// All patterns are written without \b to avoid silent mismatches.
+//
+// ✅ Matches: "дай апдейт", "апдейт по задачам", "статус задач",
+//             "что происходит", "дай отчёт", "краткий обзор",
+//             "покажи статус", "что нового"
+// ❌ Does NOT match: "поставь задачу", "проанализируй агентов",
+//                    "выполни задачу", "какие задачи в блоке"
+const STATUS_REQUEST_RE = new RegExp(
+  [
+    // "апдейт" — borrowed word, used almost exclusively for status updates
+    "апдейт",
+    // Verb + report/overview: "дай отчёт", "покажи обзор", "нужен обзор", "нужна сводка"
+    "(дай|дайте|покажи|покажите|нужен|нужна)[^.!?]{0,40}(отчёт|отчет|обзор|сводка)",
+    // Verb + "статус": "дай статус", "покажи статус"
+    "(дай|дайте|покажи|покажите)[^.!?]{0,20}статус",
+    // "какой/текущий статус"
+    "(какой|текущий)[^.!?]{0,20}статус",
+    // "что происходит" / "что нового" — unambiguous status questions
+    "что[\\s,]+(сейчас[\\s,]+)?(происходит|нового)",
+    // "статус задач/агентов/команды/проектов"
+    "статус[\\s]+(задач|агентов|команды|проектов)",
+    // "краткий/общий/текущий + отчёт/обзор/статус"
+    "(краткий|общий|текущий)[\\s]+(отчёт|отчет|обзор|статус)",
+  ].join("|"),
+  "i",
+);
 
 function isStatusRequest(text: string): boolean {
   return STATUS_REQUEST_RE.test(text);
