@@ -2044,6 +2044,9 @@ export function companySkillService(db: Db) {
             );
           }
           await deleteSkill(companyId, skill.id);
+          const pruneIdx = acceptedSkills.findIndex((s) => s.id === skill.id);
+          if (pruneIdx >= 0) acceptedSkills.splice(pruneIdx, 1);
+          acceptedByKey.delete(skill.key);
         }
       } catch {
         // Best-effort: don't fail the whole scan if one source fails
