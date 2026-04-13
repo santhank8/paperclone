@@ -1689,10 +1689,13 @@ export function issueRoutes(
     }
     const assigneeChanged =
       issue.assigneeAgentId !== existing.assigneeAgentId || issue.assigneeUserId !== existing.assigneeUserId;
-    const statusChangedFromBacklog =
-      existing.status === "backlog" &&
+    const statusChangedToWakeableAssignedWork =
+      !assigneeChanged &&
+      !!issue.assigneeAgentId &&
+      req.body.status !== undefined &&
+      existing.status !== issue.status &&
       issue.status !== "backlog" &&
-      req.body.status !== undefined;
+      (existing.status === "backlog" || issue.status === "todo" || issue.status === "in_review");
     const previousExecutionState = parseIssueExecutionState(existing.executionState);
     const nextExecutionState = parseIssueExecutionState(issue.executionState);
     const executionStageWakeup = buildExecutionStageWakeup({
@@ -1746,7 +1749,7 @@ export function issueRoutes(
         });
       }
 
-      if (!assigneeChanged && statusChangedFromBacklog && issue.assigneeAgentId) {
+      if (statusChangedToWakeableAssignedWork && issue.assigneeAgentId) {
         addWakeup(issue.assigneeAgentId, {
           source: "automation",
           triggerDetail: "system",
