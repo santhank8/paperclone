@@ -106,14 +106,14 @@ describe("applyOpenRouterOpenAiEnvMapping", () => {
     expect(env.OPENAI_BASE_URL).toBeUndefined();
   });
 
-  it("respects existing base URL keys", () => {
+  it("promotes OPENAI_API_BASE to OPENAI_BASE_URL when OPENAI_BASE_URL is unset", () => {
     const env: Record<string, string> = {
       OPENROUTER_API_KEY: "sk-or-1",
       OPENAI_API_BASE: "https://example.com/v1",
     };
     applyOpenRouterOpenAiEnvMapping(env);
     expect(env.OPENAI_API_KEY).toBe("sk-or-1");
-    expect(env.OPENAI_BASE_URL).toBeUndefined();
+    expect(env.OPENAI_BASE_URL).toBe("https://example.com/v1");
   });
 
   it("respects OPENAI_BASE_URL when set", () => {
@@ -150,14 +150,14 @@ describe("applyOpenRouterOpenAiEnvMapping", () => {
     expect(env.OPENAI_BASE_URL).toBe("https://openrouter.ai/v1");
   });
 
-  it("respects OPENAI_API_BASE_URL when set", () => {
+  it("promotes OPENAI_API_BASE_URL to OPENAI_BASE_URL when OPENAI_BASE_URL is unset", () => {
     const env: Record<string, string> = {
       OPENROUTER_API_KEY: "sk-or-1",
       OPENAI_API_BASE_URL: "https://example.com/v1",
     };
     applyOpenRouterOpenAiEnvMapping(env);
     expect(env.OPENAI_API_KEY).toBe("sk-or-1");
-    expect(env.OPENAI_BASE_URL).toBeUndefined();
+    expect(env.OPENAI_BASE_URL).toBe("https://example.com/v1");
   });
 
   it("does nothing when OPENROUTER_API_KEY is only whitespace", () => {

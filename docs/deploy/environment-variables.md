@@ -70,6 +70,8 @@ Paperclip automatically:
 
 Billing inference also treats a base URL as OpenRouter when **any** of `OPENAI_BASE_URL`, `OPENAI_API_BASE`, or `OPENAI_API_BASE_URL` points at `openrouter.ai` (for example some CLIs only export `OPENAI_API_BASE`).
 
+If `OPENAI_BASE_URL` is unset or whitespace-only but `OPENAI_API_BASE` or `OPENAI_API_BASE_URL` is set, Paperclip copies that value into `OPENAI_BASE_URL` for child processes that read only that variable.
+
 Alternatively you can set the variables explicitly, which takes precedence:
 
 ```
