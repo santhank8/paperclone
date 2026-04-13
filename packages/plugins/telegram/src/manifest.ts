@@ -11,6 +11,7 @@ const manifest: PaperclipPluginManifestV1 = {
   categories: ["connector", "automation"],
   capabilities: [
     "agents.read",
+    "issues.read",
     "agent.sessions.create",
     "agent.sessions.list",
     "agent.sessions.send",

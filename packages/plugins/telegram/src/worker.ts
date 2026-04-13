@@ -4,6 +4,7 @@ import type {
   PluginEvent,
   PluginWebhookInput,
   PluginHealthDiagnostics,
+  Issue,
 } from "@paperclipai/plugin-sdk";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -305,7 +306,10 @@ function extractHumanText(chunk: string): string {
       try {
         const event = JSON.parse(lt) as Record<string, unknown>;
         const text = extractFromJsonEvent(event);
-        if (text) parts.push(text);
+        // Re-check extracted text: agent might write JSON content inside a text_delta
+        if (text && !isToolResultDump(text) && !isTechnicalTelegramNoise(text)) {
+          parts.push(text);
+        }
         continue;
       } catch {
         // Not JSON — treat as plain text
@@ -378,14 +382,89 @@ function isTechnicalTelegramNoise(line: string): boolean {
   );
 }
 
-// Keywords that indicate the user wants a status/progress report
+// Keywords that indicate the user wants a status/progress report.
+// These requests are handled WITHOUT going through an agent session —
+// we query ctx.issues.list() directly to avoid JSON leaking into stdout.
 const STATUS_REQUEST_RE =
   /апдейт|отчёт|отчет|статус|что.*делает|как.*дела|что нового|что происходит|дай.*обзор|расскажи.*что|итог|текущ|задач|блокер|blocked/i;
 
-function buildTelegramAgentPrompt(prompt: string): string {
-  const isStatusRequest = STATUS_REQUEST_RE.test(prompt);
+function isStatusRequest(text: string): boolean {
+  return STATUS_REQUEST_RE.test(text);
+}
 
-  const lines = [
+/**
+ * Build a 3-block executive report directly from ctx.issues — no agent invocation.
+ * This avoids any stdout JSON leakage since we never spawn a Claude subprocess.
+ */
+async function buildDirectStatusReport(
+  ctx: PluginContext,
+  companyId: string,
+): Promise<string> {
+  let issues: Issue[] = [];
+
+  try {
+    issues = await ctx.issues.list({ companyId, limit: 100 });
+  } catch (err) {
+    ctx.logger.error("issues.list failed in status report", { error: String(err) });
+    return "⚠️ Не удалось получить список задач.";
+  }
+
+  const blocked    = issues.filter(i => i.status === "blocked");
+  const inProgress = issues.filter(i => i.status === "in_progress" || i.status === "in_review");
+  const done       = issues.filter(i => i.status === "done");
+  const todo       = issues.filter(i => i.status === "todo" || i.status === "backlog");
+
+  const lines: string[] = [];
+
+  // ── Block 1: What does the board need to do? ────────────────────────────
+  lines.push("🔴 ЧТО НУЖНО ОТ БОРДА");
+  if (blocked.length === 0) {
+    lines.push("• Нет срочных запросов.");
+  } else {
+    for (const issue of blocked.slice(0, 5)) {
+      lines.push(`• ${issue.identifier ?? "?"} — ${issue.title}`);
+    }
+    if (blocked.length > 5) {
+      lines.push(`  …и ещё ${blocked.length - 5} заблокированных задач`);
+    }
+  }
+
+  lines.push("");
+
+  // ── Block 2: What was done ───────────────────────────────────────────────
+  lines.push("✅ ЧТО СДЕЛАНО");
+  const recentDone = done.slice(-5).reverse();   // last 5 completed
+  if (recentDone.length === 0) {
+    lines.push("• Нет недавно закрытых задач.");
+  } else {
+    for (const issue of recentDone) {
+      lines.push(`• ${issue.identifier ?? "?"} — ${issue.title}`);
+    }
+  }
+
+  lines.push("");
+
+  // ── Block 3: Blockers ────────────────────────────────────────────────────
+  lines.push("🚫 БЛОКЕРЫ");
+  if (blocked.length === 0) {
+    lines.push("• Критических блокеров нет.");
+  } else {
+    for (const issue of blocked.slice(0, 4)) {
+      lines.push(`• ${issue.identifier ?? "?"}: ${issue.title}`);
+    }
+  }
+
+  // ── Footer stats ─────────────────────────────────────────────────────────
+  lines.push("");
+  lines.push(
+    `📊 В работе: ${inProgress.length} · В очереди: ${todo.length} · Готово: ${done.length} · Заблокировано: ${blocked.length}`,
+  );
+
+  return lines.join("\n");
+}
+
+function buildTelegramAgentPrompt(prompt: string): string {
+  return [
     "Ты отвечаешь пользователю через Telegram. Дай короткий, чёткий, человекочитаемый ответ.",
     "",
     "СТРОГИЕ ПРАВИЛА — нарушение ломает интерфейс:",
@@ -394,34 +473,12 @@ function buildTelegramAgentPrompt(prompt: string): string {
     "3. Никаких API-эндпоинтов, кода, JSON, stack trace, путей к файлам, session id.",
     "4. Никаких ссылок на внутреннюю документацию или skill-файлы — отвечай своими словами.",
     "5. Не цитируй содержимое SKILL.md, AGENTS.md или других инструкций.",
-    "6. Если выполняешь задачу — скажи что сделал, одной фразой.",
-  ];
-
-  if (isStatusRequest) {
-    lines.push(
-      "",
-      "ЭТО ЗАПРОС НА СТАТУС-ОТЧЁТ. Сначала получи список всех задач компании.",
-      "Затем ответь СТРОГО в следующем формате (три блока, без добавления лишнего):",
-      "",
-      "🔴 ЧТО НУЖНО ОТ БОРДА",
-      "Конкретные решения или данные, которых ждут агенты прямо сейчас. Максимум 4 пункта.",
-      "Если ничего не нужно — напиши: Нет срочных запросов.",
-      "",
-      "✅ ЧТО СДЕЛАНО",
-      "Глобальные достижения команды (2–4 пункта). Не перечисляй каждого агента отдельно.",
-      "Пиши что было достигнуто по смыслу: «развёрнута фича X», «закрыта задача Y».",
-      "",
-      "🚫 БЛОКЕРЫ",
-      "Что застряло и почему. Максимум 3 пункта.",
-      "Если блокеров нет — напиши: Критических блокеров нет.",
-    );
-  } else {
-    lines.push("7. Максимум 5–7 предложений. Если нужно больше — структурируй с эмодзи-буллетами (•).");
-  }
-
-  lines.push("", "Вопрос пользователя:", prompt);
-
-  return lines.join("\n");
+    "6. Максимум 5–7 предложений. Если нужно больше — структурируй с эмодзи-буллетами (•).",
+    "7. Если выполняешь задачу — скажи что сделал, одной фразой.",
+    "",
+    "Вопрос пользователя:",
+    prompt,
+  ].join("\n");
 }
 
 function normalizeTelegramReply(response: string): string {
@@ -616,6 +673,17 @@ async function enqueueText(
   chatId: string,
   text: string,
 ): Promise<void> {
+  // Status requests bypass the agent entirely — we query issues directly.
+  // This avoids any JSON stdout leakage from Claude CLI tool calls.
+  if (isStatusRequest(text)) {
+    await sendMsg(ctx, config.botToken, chatId, "⏳ Запрашиваю данные...");
+    runInBackground(ctx, "Telegram status report failed", async () => {
+      const report = await buildDirectStatusReport(ctx, config.companyId);
+      await sendPlainMsg(ctx, config.botToken, chatId, report);
+    });
+    return;
+  }
+
   const agent = await getActiveAgent(ctx, chatId, config);
   await sendMsg(
     ctx,
