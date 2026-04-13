@@ -106,6 +106,27 @@ models:
   #       thinking:
   #         type: enabled
 
+  # Example: Ollama (native provider — preserves thinking/reasoning content)
+  #
+  # IMPORTANT: Use langchain_ollama:ChatOllama instead of langchain_openai:ChatOpenAI
+  # for Ollama models. The OpenAI-compatible endpoint (/v1/chat/completions) does NOT
+  # return reasoning_content as a separate field — thinking content is either flattened
+  # into <think> tags or dropped entirely. The native Ollama API (/api/chat) correctly
+  # separates thinking from response content.
+  #
+  # Install: cd backend && uv pip install langchain-ollama
+  #
+  # - name: qwen3-local
+  #   display_name: Qwen3 32B (Ollama)
+  #   use: langchain_ollama:ChatOllama
+  #   model: qwen3:32b
+  #   base_url: http://localhost:11434
+  #   num_predict: 8192
+  #   temperature: 0.7
+  #   reasoning: true
+  #   supports_thinking: true
+  #   supports_vision: false
+
 # ============================================================================
 # Tool Groups Configuration
 # ============================================================================
