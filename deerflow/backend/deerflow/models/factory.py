@@ -70,7 +70,7 @@ def create_chat_model(name: str | None = None, thinking_enabled: bool = False, *
     if not model_config.supports_reasoning_effort and "reasoning_effort" in kwargs:
         del kwargs["reasoning_effort"]
 
-    model_instance = model_class(**kwargs, **model_settings_from_config)
+    model_instance = model_class(**{**model_settings_from_config, **kwargs})
 
     if is_tracing_enabled():
         try:
