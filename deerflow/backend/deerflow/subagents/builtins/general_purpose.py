@@ -38,6 +38,8 @@ You have access to the same sandbox environment as the parent agent:
 - User uploads: `/mnt/user-data/uploads`
 - User workspace: `/mnt/user-data/workspace`
 - Output files: `/mnt/user-data/outputs`
+- Treat `/mnt/user-data/workspace` as the default working directory for coding and file IO
+- Prefer relative paths from the workspace, such as `hello.txt`, `../uploads/input.csv`, and `../outputs/result.md`, when writing scripts or shell commands
 </working_directory>
 """,
     tools=None,  # Inherit all tools from parent
