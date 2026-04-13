@@ -258,6 +258,56 @@ describeEmbeddedPostgres("scanProjectWorkspaces prune path", () => {
     expect(detachWarnings).toHaveLength(0);
   });
 
+  it("skips pruning when the GitHub tree response is truncated", async () => {
+    // Simulate GitHub returning a truncated tree (too many files)
+    const sha = "deadbeef".repeat(5);
+    mockGhFetch.mockImplementation(async (url: string) => {
+      const u = url;
+      if (u.match(/\/repos\/test-org\/test-skills$/)) {
+        return new Response(JSON.stringify({ default_branch: "main" }), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        });
+      }
+      if (u.includes("/commits/")) {
+        return new Response(JSON.stringify({ sha }), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        });
+      }
+      if (u.includes("/git/trees/")) {
+        return new Response(
+          JSON.stringify({
+            tree: [{ path: "keep-skill/SKILL.md", type: "blob" }],
+            truncated: true,
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      }
+      return new Response("Not Found", { status: 404 });
+    });
+
+    const { companySkillService } = await import("../services/company-skills.js");
+    const svc = companySkillService(db);
+    const result = await svc.scanProjectWorkspaces(companyId, {});
+
+    // Both seeded skills should still exist — truncated tree must not trigger pruning
+    const remaining = await db
+      .select()
+      .from(companySkills)
+      .where(eq(companySkills.companyId, companyId));
+    const remainingSlugs = remaining.map((r) => r.slug);
+    expect(remainingSlugs).toContain("keep-skill");
+    expect(remainingSlugs).toContain("prune-skill");
+
+    // A warning should be emitted for the failed source
+    expect(result.warnings).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining("Could not re-scan source"),
+      ]),
+    );
+  });
+
   it("skips pruning when the source fetch fails and emits a warning", async () => {
     // Simulate GitHub being down
     mockGhFetch.mockRejectedValue(new Error("network error"));

@@ -997,11 +997,16 @@ async function readUrlSkillImports(
     const apiBase = gitHubApiBase(parsed.hostname);
     const { pinnedRef, trackingRef } = await resolveGitHubPinnedRef(parsed);
     let ref = pinnedRef;
-    const tree = await fetchJson<{ tree?: Array<{ path: string; type: string }> }>(
+    const tree = await fetchJson<{ tree?: Array<{ path: string; type: string }>; truncated?: boolean }>(
       `${apiBase}/repos/${parsed.owner}/${parsed.repo}/git/trees/${ref}?recursive=1`,
     ).catch(() => {
       throw unprocessable(`Failed to read GitHub tree for ${url}`);
     });
+    if (tree.truncated) {
+      throw unprocessable(
+        `GitHub tree response for ${url} was truncated — cannot safely import or prune skills from a partial manifest.`,
+      );
+    }
     const allPaths = (tree.tree ?? [])
       .filter((entry) => entry.type === "blob")
       .map((entry) => entry.path)
