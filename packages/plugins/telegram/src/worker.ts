@@ -386,7 +386,7 @@ function isTechnicalTelegramNoise(line: string): boolean {
 // These requests are handled WITHOUT going through an agent session —
 // we query ctx.issues.list() directly to avoid JSON leaking into stdout.
 const STATUS_REQUEST_RE =
-  /апдейт|отчёт|отчет|статус|что.*делает|как.*дела|что нового|что происходит|дай.*обзор|расскажи.*что|итог|текущ|задач|блокер|blocked/i;
+  /апдейт|отчёт|отчет|статус|что.*делает|как.*дела|что нового|что происходит|дай.*обзор|расскажи.*что|итог|текущ|задач|блокер|blocked|выполнено|в.?работе|в.?блоке|совет.*директор|директор.*совет|за.*(день|сутки|неделю|период)/i;
 
 function isStatusRequest(text: string): boolean {
   return STATUS_REQUEST_RE.test(text);
@@ -501,7 +501,7 @@ function normalizeTelegramReply(response: string): string {
     .trim();
 
   if (!cleaned) {
-    return "Пока не получил содержательный ответ от агента. Попробуйте повторить чуть позже или переключить агента командой /status.";
+    return "Агент выполнил задачу, но не вернул текстовый ответ. Проверьте задачи в Paperclip или попробуйте ещё раз.";
   }
 
   return cleaned;
@@ -559,12 +559,11 @@ async function askAgent(
           if (message.trim()) streamChunks.push(message);
         }
 
-        // "done" event — agent completed
+        // "done" event — agent completed.
+        // NOTE: event.message here is always "Run completed" (a system marker,
+        // not the agent's text). We intentionally ignore it — only real stdout
+        // content_block_delta chunks are forwarded to the user.
         if (event.eventType === "done") {
-          if (event.message && streamChunks.length === 0) {
-            const message = sanitizeAgentMessage(event.message);
-            if (message.trim()) streamChunks.push(message);
-          }
           doneResolve();
         }
 
@@ -661,6 +660,13 @@ async function handleText(
   chatId: string,
   text: string,
 ): Promise<void> {
+  // Status requests bypass the agent and return data directly
+  if (isStatusRequest(text)) {
+    await sendTyping(ctx, config.botToken, chatId);
+    const report = await buildDirectStatusReport(ctx, config.companyId);
+    await sendPlainMsg(ctx, config.botToken, chatId, report);
+    return;
+  }
   await sendTyping(ctx, config.botToken, chatId);
   const agent = await getActiveAgent(ctx, chatId, config);
   const reply = await askAgent(ctx, agent.agentId, config.companyId, text);
