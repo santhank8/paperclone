@@ -44,6 +44,12 @@ describe("inferOpenAiCompatibleBiller", () => {
     ).toBe("openai");
   });
 
+  it("treats whitespace-only OPENROUTER_API_KEY as absent", () => {
+    expect(
+      inferOpenAiCompatibleBiller({ OPENROUTER_API_KEY: "   " } as NodeJS.ProcessEnv, "openai"),
+    ).toBe("openai");
+  });
+
   it("prefers OPENAI_BASE_URL over OPENAI_API_BASE when both are set", () => {
     expect(
       inferOpenAiCompatibleBiller(
@@ -103,5 +109,29 @@ describe("applyOpenRouterOpenAiEnvMapping", () => {
     applyOpenRouterOpenAiEnvMapping(env);
     expect(env.OPENAI_API_KEY).toBe("sk-or-1");
     expect(env.OPENAI_BASE_URL).toBeUndefined();
+  });
+
+  it("does nothing when OPENROUTER_API_KEY is only whitespace", () => {
+    const env: Record<string, string> = { OPENROUTER_API_KEY: "  \t  " };
+    applyOpenRouterOpenAiEnvMapping(env);
+    expect(env.OPENAI_API_KEY).toBeUndefined();
+    expect(env.OPENAI_BASE_URL).toBeUndefined();
+  });
+
+  it("maps when OPENAI_API_KEY is only whitespace (treated as unset)", () => {
+    const env: Record<string, string> = {
+      OPENROUTER_API_KEY: "sk-or-1",
+      OPENAI_API_KEY: "   ",
+    };
+    applyOpenRouterOpenAiEnvMapping(env);
+    expect(env.OPENAI_API_KEY).toBe("sk-or-1");
+    expect(env.OPENAI_BASE_URL).toBe("https://openrouter.ai/api/v1");
+  });
+
+  it("trims OPENROUTER_API_KEY when copying to OPENAI_API_KEY", () => {
+    const env: Record<string, string> = { OPENROUTER_API_KEY: "  sk-or-1  " };
+    applyOpenRouterOpenAiEnvMapping(env);
+    expect(env.OPENAI_API_KEY).toBe("sk-or-1");
+    expect(env.OPENAI_BASE_URL).toBe("https://openrouter.ai/api/v1");
   });
 });

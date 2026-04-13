@@ -25,9 +25,17 @@ export function inferOpenAiCompatibleBiller(
  * Mutates `env` in place (same pattern as Codex/Cursor adapters).
  */
 export function applyOpenRouterOpenAiEnvMapping(env: Record<string, string>): void {
-  if (!env.OPENROUTER_API_KEY || env.OPENAI_API_KEY) return;
-  env.OPENAI_API_KEY = env.OPENROUTER_API_KEY;
-  if (!env.OPENAI_BASE_URL && !env.OPENAI_API_BASE && !env.OPENAI_API_BASE_URL) {
+  const processLike = env as unknown as NodeJS.ProcessEnv;
+  const orKey = readEnv(processLike, "OPENROUTER_API_KEY");
+  const oaiKey = readEnv(processLike, "OPENAI_API_KEY");
+  if (!orKey || oaiKey) return;
+  env.OPENAI_API_KEY = orKey;
+
+  const baseUrl =
+    readEnv(processLike, "OPENAI_BASE_URL") ??
+    readEnv(processLike, "OPENAI_API_BASE") ??
+    readEnv(processLike, "OPENAI_API_BASE_URL");
+  if (!baseUrl) {
     env.OPENAI_BASE_URL = "https://openrouter.ai/api/v1";
   }
 }
