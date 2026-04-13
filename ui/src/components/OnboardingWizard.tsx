@@ -118,6 +118,12 @@ export function OnboardingWizard() {
   const [forceUnsetAnthropicApiKey, setForceUnsetAnthropicApiKey] =
     useState(false);
   const [unsetAnthropicLoading, setUnsetAnthropicLoading] = useState(false);
+  const onboardingReturnUrl = useMemo(() => {
+    const params = new URLSearchParams(location.search);
+    const candidate = params.get("returnUrl")?.trim();
+    if (!candidate) return null;
+    return candidate === "clipios://onboarding-complete" ? candidate : null;
+  }, [location.search]);
   const [showMoreAdapters, setShowMoreAdapters] = useState(false);
 
   // Step 3
@@ -575,6 +581,10 @@ export function OnboardingWizard() {
       }
 
       setSelectedCompanyId(createdCompanyId);
+      if (onboardingReturnUrl) {
+        window.location.assign(onboardingReturnUrl);
+        return;
+      }
       reset();
       closeOnboarding();
       navigate(
