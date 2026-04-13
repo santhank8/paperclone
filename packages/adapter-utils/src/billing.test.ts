@@ -17,6 +17,24 @@ describe("inferOpenAiCompatibleBiller", () => {
     ).toBe("openrouter");
   });
 
+  it("returns openrouter when OPENAI_API_BASE points at OpenRouter", () => {
+    expect(
+      inferOpenAiCompatibleBiller(
+        { OPENAI_API_BASE: "https://openrouter.ai/api/v1" } as NodeJS.ProcessEnv,
+        "openai",
+      ),
+    ).toBe("openrouter");
+  });
+
+  it("returns openrouter when OPENAI_API_BASE_URL points at OpenRouter", () => {
+    expect(
+      inferOpenAiCompatibleBiller(
+        { OPENAI_API_BASE_URL: "https://openrouter.ai/v1" } as NodeJS.ProcessEnv,
+        "openai",
+      ),
+    ).toBe("openrouter");
+  });
+
   it("returns fallback when no OpenRouter markers are present", () => {
     expect(
       inferOpenAiCompatibleBiller(
