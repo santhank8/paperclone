@@ -61,6 +61,31 @@ describe("inferOpenAiCompatibleBiller", () => {
       ),
     ).toBe("openai");
   });
+
+  it("falls through when OPENAI_BASE_URL is whitespace-only to OPENAI_API_BASE at OpenRouter", () => {
+    expect(
+      inferOpenAiCompatibleBiller(
+        {
+          OPENAI_BASE_URL: "   ",
+          OPENAI_API_BASE: "https://openrouter.ai/api/v1",
+        } as NodeJS.ProcessEnv,
+        "openai",
+      ),
+    ).toBe("openrouter");
+  });
+
+  it("falls through past whitespace OPENAI_BASE_URL and OPENAI_API_BASE to OPENAI_API_BASE_URL at OpenRouter", () => {
+    expect(
+      inferOpenAiCompatibleBiller(
+        {
+          OPENAI_BASE_URL: "\t",
+          OPENAI_API_BASE: "  ",
+          OPENAI_API_BASE_URL: "https://openrouter.ai/v1",
+        } as NodeJS.ProcessEnv,
+        "openai",
+      ),
+    ).toBe("openrouter");
+  });
 });
 
 describe("applyOpenRouterOpenAiEnvMapping", () => {
@@ -99,6 +124,18 @@ describe("applyOpenRouterOpenAiEnvMapping", () => {
     applyOpenRouterOpenAiEnvMapping(env);
     expect(env.OPENAI_API_KEY).toBe("sk-or-1");
     expect(env.OPENAI_BASE_URL).toBe("https://example.com/v1");
+  });
+
+  it("treats whitespace-only OPENAI_BASE_URL as unset and respects OPENAI_API_BASE", () => {
+    const env: Record<string, string> = {
+      OPENROUTER_API_KEY: "sk-or-1",
+      OPENAI_BASE_URL: "   ",
+      OPENAI_API_BASE: "https://example.com/v1",
+    };
+    applyOpenRouterOpenAiEnvMapping(env);
+    expect(env.OPENAI_API_KEY).toBe("sk-or-1");
+    expect(env.OPENAI_BASE_URL).toBe("   ");
+    expect(env.OPENAI_API_BASE).toBe("https://example.com/v1");
   });
 
   it("respects OPENAI_API_BASE_URL when set", () => {
