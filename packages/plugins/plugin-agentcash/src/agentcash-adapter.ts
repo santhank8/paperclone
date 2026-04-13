@@ -71,7 +71,7 @@ let walletChecked = false;
 export async function checkWallet(): Promise<boolean> {
   if (walletChecked) return true;
   try {
-    await exec(["balance"]);
+    await exec(["accounts"]);
     walletChecked = true;
     return true;
   } catch {

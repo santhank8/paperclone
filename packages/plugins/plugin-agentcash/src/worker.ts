@@ -32,20 +32,16 @@ async function reportCostEvent(
 ): Promise<void> {
   const usdcAmount = parseFloat(payment.price);
   const costCents = Math.round(usdcAmount * 100);
-  if (costCents === 0) return;
+  if (!costCents || costCents === 0) return;
 
-  let hostname: string;
+  let hostname = "unknown";
+  let pathname = endpoint;
   try {
-    hostname = new URL(endpoint).hostname;
+    const parsed = new URL(endpoint);
+    hostname = parsed.hostname;
+    pathname = parsed.pathname;
   } catch {
-    hostname = "unknown";
-  }
-
-  let pathname: string;
-  try {
-    pathname = new URL(endpoint).pathname;
-  } catch {
-    pathname = endpoint;
+    // leave defaults
   }
 
   const apiBase = process.env.PAPERCLIP_API_URL ?? "http://localhost:4100/api";
@@ -263,7 +259,7 @@ const plugin: PaperclipPlugin = definePlugin({
       status: isWalletLoaded() ? "ok" : "degraded",
       message: isWalletLoaded()
         ? "Wallet loaded, tools registered"
-        : "Wallet not loaded — will retry on first tool call",
+        : "Wallet not confirmed at startup — tools will operate and surface errors if wallet is missing",
     };
   },
 });
