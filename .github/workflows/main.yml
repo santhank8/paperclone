@@ -1,0 +1,46 @@
+# - name: Build Docker image
+#   run: docker build -t paperclip .
+  
+# - name: Run container
+#   run: docker run -d -p 3000:3000 paperclip
+
+#   - name: Check container is running
+#   run: docker ps
+
+# - name: Test endpoint
+#   run: curl http://localhost:3000 || exit 1
+  
+#   - name: Log in to GHCR
+#   run: echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+# - name: Build and push
+#   run: |
+#     docker build -t ghcr.io/${{ github.repository }}/paperclip:latest .
+#     docker push ghcr.io/${{ github.repository }}/paperclip:latest
+
+
+name: Docker Build & Push
+
+# on:
+#   push:
+#     branches: ["main"]
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  docker:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        run: echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Build and push
+        run: |
+          docker build -t ghcr.io/${{ github.repository }}/paperclip:latest .
+          docker push ghcr.io/${{ github.repository }}/paperclip:latest
