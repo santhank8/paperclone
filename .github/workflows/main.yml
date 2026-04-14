@@ -1,1 +1,5 @@
+- name: Build Docker image
+  run: docker build -t paperclip .
 
+- name: Run container
+  run: docker run -d -p 3000:3000 paperclip
